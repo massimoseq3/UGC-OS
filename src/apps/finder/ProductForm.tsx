@@ -1,0 +1,132 @@
+import { useState, useEffect, useRef } from 'react'
+import { X, ImagePlus } from 'lucide-react'
+import type { Product } from '../../stores/types'
+import { useAssetUrl } from '../../hooks/useAssetUrl'
+
+interface ProductFormProps {
+  item?: Product | null
+  onSave: (data: Omit<Product, 'id' | 'createdAt'>) => void
+  onCancel: () => void
+}
+
+const FIELDS: { key: keyof Product; label: string; type: 'text' | 'textarea'; required?: boolean }[] = [
+  { key: 'productName', label: 'Product Name', type: 'text', required: true },
+  { key: 'productDescription', label: 'Description', type: 'textarea', required: true },
+  { key: 'targetMarket', label: 'Target Market', type: 'text', required: true },
+  { key: 'painPoints', label: 'Pain Points', type: 'textarea' },
+  { key: 'usps', label: 'USPs', type: 'textarea' },
+  { key: 'benefits', label: 'Benefits', type: 'textarea' },
+  { key: 'offer', label: 'Offer', type: 'text' },
+  { key: 'cta', label: 'CTA', type: 'text' },
+]
+
+export default function ProductForm({ item, onSave, onCancel }: ProductFormProps) {
+  const [form, setForm] = useState({
+    productImage: item?.productImage ?? '',
+    productName: item?.productName ?? '',
+    productDescription: item?.productDescription ?? '',
+    targetMarket: item?.targetMarket ?? '',
+    painPoints: item?.painPoints ?? '',
+    usps: item?.usps ?? '',
+    benefits: item?.benefits ?? '',
+    offer: item?.offer ?? '',
+    cta: item?.cta ?? '',
+  })
+  const fileRef = useRef<HTMLInputElement>(null)
+  // For new uploads, we have a data URL for immediate preview; for existing items, resolve asset ID
+  const [localPreview, setLocalPreview] = useState<string | null>(null)
+  const resolvedAssetUrl = useAssetUrl(form.productImage)
+  const displayImage = localPreview ?? resolvedAssetUrl
+
+  useEffect(() => {
+    if (item) {
+      setForm({
+        productImage: item.productImage,
+        productName: item.productName,
+        productDescription: item.productDescription,
+        targetMarket: item.targetMarket,
+        painPoints: item.painPoints,
+        usps: item.usps,
+        benefits: item.benefits,
+        offer: item.offer,
+        cta: item.cta,
+      })
+    }
+  }, [item])
+
+  const set = (key: string, value: string) => setForm((f) => ({ ...f, [key]: value }))
+
+  const handleImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      const dataUrl = reader.result as string
+      set('productImage', dataUrl)
+      setLocalPreview(dataUrl)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!form.productName.trim() || !form.productDescription.trim() || !form.targetMarket.trim()) return
+    onSave(form)
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold tracking-tight text-zinc-200">
+          {item ? 'Edit Product' : 'New Product'}
+        </h3>
+        <button type="button" onClick={onCancel} className="text-zinc-500 hover:text-zinc-300 transition-colors">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Image upload */}
+      <button
+        type="button"
+        onClick={() => fileRef.current?.click()}
+        className="group flex h-24 w-24 items-center justify-center rounded-xl border border-dashed border-white/10 bg-white/[0.02] transition-colors hover:border-white/20 overflow-hidden"
+      >
+        {displayImage ? (
+          <img src={displayImage} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <ImagePlus className="h-5 w-5 text-zinc-600 transition-colors group-hover:text-zinc-400" />
+        )}
+      </button>
+      <input ref={fileRef} type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" className="hidden" onChange={handleImage} />
+
+      {FIELDS.map(({ key, label, type, required }) => (
+        <label key={key} className="flex flex-col gap-1">
+          <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-500">
+            {label}{required && ' *'}
+          </span>
+          {type === 'textarea' ? (
+            <textarea
+              value={form[key as keyof typeof form] as string}
+              onChange={(e) => set(key, e.target.value)}
+              rows={2}
+              className="rounded-lg border border-white/10 bg-transparent px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-white/20 resize-none"
+            />
+          ) : (
+            <input
+              value={form[key as keyof typeof form] as string}
+              onChange={(e) => set(key, e.target.value)}
+              className="rounded-lg border border-white/10 bg-transparent px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-white/20"
+            />
+          )}
+        </label>
+      ))}
+
+      <button
+        type="submit"
+        className="mt-1 rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-zinc-200 transition-colors hover:bg-white/15"
+      >
+        {item ? 'Save Changes' : 'Add Product'}
+      </button>
+    </form>
+  )
+}
