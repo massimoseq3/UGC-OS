@@ -106,12 +106,17 @@ function buildImagePrompt(profile: CharacterProfile): string {
   return parts.join(' ')
 }
 
-export async function generateCharacter(profile: CharacterProfile): Promise<GenerationResult> {
+export async function generateCharacter(
+  profile: CharacterProfile,
+  signal?: AbortSignal,
+): Promise<GenerationResult> {
   const apiKey = useSettingsStore.getState().getApiKey()
+  if (!apiKey) throw new Error('No API key configured. Open Settings to add your Google AI API key.')
+
   const prompt = buildImagePrompt(profile)
   const aspectRatio = profile.aspectRatio === 'Landscape (16:9)' ? '16:9' : '9:16'
 
-  const result = await geminiImageGenerate(apiKey, prompt, aspectRatio)
+  const result = await geminiImageGenerate(apiKey, prompt, aspectRatio, undefined, signal)
   const assetId = await saveBase64Asset(result.base64, result.mimeType)
 
   return {

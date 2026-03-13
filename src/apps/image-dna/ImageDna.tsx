@@ -8,6 +8,7 @@ export default function ImageDna() {
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [dna, setDna] = useState<VisualDNA | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const urlRef = useRef<string | null>(null)
 
   const handleAnalyze = async (file: File) => {
@@ -19,12 +20,13 @@ export default function ImageDna() {
     setImageUrl(url)
     setDna(null)
     setIsAnalyzing(true)
+    setError(null)
 
     try {
       const result = await analyzeImage(file)
       setDna(result)
-    } catch {
-      // Will improve with real API
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Image analysis failed. Check your API key and try again.')
     } finally {
       setIsAnalyzing(false)
     }
@@ -46,6 +48,7 @@ export default function ImageDna() {
           isAnalyzing={isAnalyzing}
           onAnalyze={handleAnalyze}
           onClear={handleClear}
+          error={error}
         />
       </div>
 

@@ -50,6 +50,7 @@ export interface CardState {
   images: GeneratedImage[]
   currentImageIndex: number
   isGeneratingImage: boolean
+  imageError: string | null
   videoUrl: string | null
   isAnimating: boolean
 }

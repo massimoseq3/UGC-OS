@@ -18,6 +18,7 @@ export default function BrollStudio() {
   const [additionalContext, setAdditionalContext] = useState('')
   const [result, setResult] = useState<BrollResult | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [pickerMode, setPickerMode] = useState<PickerMode>(null)
   const [highlightField, setHighlightField] = useState<string | null>(null)
 
@@ -97,6 +98,7 @@ export default function BrollStudio() {
   const handleGenerate = async () => {
     if (!scriptText.trim()) return
     setIsGenerating(true)
+    setError(null)
     try {
       const res = await generateBroll({
         productId: selectedProduct?.id ?? null,
@@ -109,8 +111,8 @@ export default function BrollStudio() {
         referenceImages,
       })
       setResult(res)
-    } catch {
-      // Will improve with real API
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'B-Roll generation failed. Check your API key and try again.')
     } finally {
       setIsGenerating(false)
     }
@@ -142,6 +144,7 @@ export default function BrollStudio() {
         <OutputPanel
           result={result}
           isGenerating={isGenerating}
+          error={error}
           onAddVariation={handleAddVariation}
           referenceImages={referenceImages}
           selectedProductId={selectedProduct?.id ?? undefined}

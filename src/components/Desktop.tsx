@@ -53,6 +53,7 @@ export default function Desktop() {
             key={bankType}
             icon={BANK_CONFIG[bankType].icon}
             label={BANK_CONFIG[bankType].label}
+            accent={BANK_CONFIG[bankType].accent}
             count={counts[bankType]}
             bankType={bankType}
             onDoubleClick={handleFolderDoubleClick}

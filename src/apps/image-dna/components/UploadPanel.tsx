@@ -1,17 +1,19 @@
 import { useState, useRef, useCallback } from 'react'
-import { Upload, Image, X, Dna, Loader2 } from 'lucide-react'
+import { Upload, Image, X, Dna, Loader2, AlertCircle } from 'lucide-react'
+import GenerationProgress from '../../../components/GenerationProgress'
 
 interface UploadPanelProps {
   imageUrl: string | null
   isAnalyzing: boolean
   onAnalyze: (file: File) => void
   onClear: () => void
+  error?: string | null
 }
 
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 const MAX_SIZE = 10 * 1024 * 1024 // 10 MB
 
-export default function UploadPanel({ imageUrl, isAnalyzing, onAnalyze, onClear }: UploadPanelProps) {
+export default function UploadPanel({ imageUrl, isAnalyzing, onAnalyze, onClear, error: apiError }: UploadPanelProps) {
   const [dragOver, setDragOver] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -60,10 +62,12 @@ export default function UploadPanel({ imageUrl, isAnalyzing, onAnalyze, onClear 
             <Loader2 className="h-8 w-8 animate-spin text-green-400" />
           </div>
         </div>
-        <div className="text-center">
-          <p className="text-sm font-medium text-green-400">Extracting Visual DNA</p>
-          <p className="mt-1 text-xs text-zinc-600">Gemini is analyzing every pixel...</p>
-        </div>
+        <GenerationProgress
+          isActive={isAnalyzing}
+          color="bg-green-500"
+          messages={['Preparing image...', 'Sending to Gemini API...', 'Extracting visual DNA...', 'Finalizing analysis...']}
+          className="max-w-xs"
+        />
       </div>
     )
   }
@@ -79,6 +83,12 @@ export default function UploadPanel({ imageUrl, isAnalyzing, onAnalyze, onClear 
             className="max-h-[60vh] max-w-full rounded-2xl border border-white/10 object-contain"
           />
         </div>
+        {apiError && (
+          <div className="flex max-w-sm items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2">
+            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-400" />
+            <p className="text-xs leading-relaxed text-red-300">{apiError}</p>
+          </div>
+        )}
         <button
           onClick={onClear}
           className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-300"

@@ -175,7 +175,7 @@ export default function Finder() {
         {/* Content area — list or form */}
         <div className="flex-1 overflow-y-auto p-5">
           {showForm ? (
-            <div className="mx-auto max-w-md rounded-xl border border-white/5 bg-white/[0.02] p-5">
+            <div className={`mx-auto rounded-xl border border-white/5 bg-white/[0.02] p-5 ${['products', 'models', 'brolls'].includes(activeBank) ? 'max-w-3xl' : 'max-w-md'}`}>
               {activeBank === 'products' && (
                 <ProductForm item={editingProduct} onSave={handleSaveProduct} onCancel={closeForm} />
               )}

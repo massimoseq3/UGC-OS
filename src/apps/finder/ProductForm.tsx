@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, ImagePlus } from 'lucide-react'
+import { X, ImagePlus, Download } from 'lucide-react'
 import type { Product } from '../../stores/types'
 import { useAssetUrl } from '../../hooks/useAssetUrl'
 
@@ -33,7 +33,6 @@ export default function ProductForm({ item, onSave, onCancel }: ProductFormProps
     cta: item?.cta ?? '',
   })
   const fileRef = useRef<HTMLInputElement>(null)
-  // For new uploads, we have a data URL for immediate preview; for existing items, resolve asset ID
   const [localPreview, setLocalPreview] = useState<string | null>(null)
   const resolvedAssetUrl = useAssetUrl(form.productImage)
   const displayImage = localPreview ?? resolvedAssetUrl
@@ -68,6 +67,14 @@ export default function ProductForm({ item, onSave, onCancel }: ProductFormProps
     reader.readAsDataURL(file)
   }
 
+  const handleDownload = () => {
+    if (!displayImage) return
+    const a = document.createElement('a')
+    a.href = displayImage
+    a.download = `product-${form.productName || item?.id?.slice(0, 8) || 'image'}.png`
+    a.click()
+  }
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.productName.trim() || !form.productDescription.trim() || !form.targetMarket.trim()) return
@@ -76,6 +83,7 @@ export default function ProductForm({ item, onSave, onCancel }: ProductFormProps
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold tracking-tight text-zinc-200">
           {item ? 'Edit Product' : 'New Product'}
@@ -85,48 +93,72 @@ export default function ProductForm({ item, onSave, onCancel }: ProductFormProps
         </button>
       </div>
 
-      {/* Image upload */}
-      <button
-        type="button"
-        onClick={() => fileRef.current?.click()}
-        className="group flex h-24 w-24 items-center justify-center rounded-xl border border-dashed border-white/10 bg-white/[0.02] transition-colors hover:border-white/20 overflow-hidden"
-      >
-        {displayImage ? (
-          <img src={displayImage} alt="" className="h-full w-full object-cover" />
-        ) : (
-          <ImagePlus className="h-5 w-5 text-zinc-600 transition-colors group-hover:text-zinc-400" />
-        )}
-      </button>
-      <input ref={fileRef} type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" className="hidden" onChange={handleImage} />
-
-      {FIELDS.map(({ key, label, type, required }) => (
-        <label key={key} className="flex flex-col gap-1">
-          <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-500">
-            {label}{required && ' *'}
-          </span>
-          {type === 'textarea' ? (
-            <textarea
-              value={form[key as keyof typeof form] as string}
-              onChange={(e) => set(key, e.target.value)}
-              rows={2}
-              className="rounded-lg border border-white/10 bg-transparent px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-white/20 resize-none"
-            />
+      {/* Side-by-side: image left, fields right */}
+      <div className="flex gap-5">
+        {/* Left — square product image */}
+        <div className="w-48 shrink-0">
+          {displayImage ? (
+            <div className="group/img relative aspect-square w-full overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]">
+              <img src={displayImage} alt="" className="h-full w-full object-cover" />
+              <button
+                type="button"
+                onClick={handleDownload}
+                className="absolute right-2 top-2 z-10 rounded-lg bg-black/60 p-1.5 text-zinc-400 opacity-0 backdrop-blur-sm transition-all hover:text-zinc-200 group-hover/img:opacity-100"
+              >
+                <Download className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                className="absolute bottom-2 right-2 z-10 rounded-lg bg-black/60 px-2.5 py-1 text-[10px] font-medium text-zinc-300 opacity-0 backdrop-blur-sm transition-all hover:bg-black/80 group-hover/img:opacity-100"
+              >
+                Replace
+              </button>
+            </div>
           ) : (
-            <input
-              value={form[key as keyof typeof form] as string}
-              onChange={(e) => set(key, e.target.value)}
-              className="rounded-lg border border-white/10 bg-transparent px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-white/20"
-            />
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="group flex aspect-square w-full items-center justify-center rounded-xl border border-dashed border-white/10 bg-white/[0.02] transition-colors hover:border-white/20"
+            >
+              <ImagePlus className="h-6 w-6 text-zinc-600 transition-colors group-hover:text-zinc-400" />
+            </button>
           )}
-        </label>
-      ))}
+        </div>
+        <input ref={fileRef} type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" className="hidden" onChange={handleImage} />
 
-      <button
-        type="submit"
-        className="mt-1 rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-zinc-200 transition-colors hover:bg-white/15"
-      >
-        {item ? 'Save Changes' : 'Add Product'}
-      </button>
+        {/* Right — all fields + save */}
+        <div className="flex flex-1 flex-col gap-3 min-w-0">
+          {FIELDS.map(({ key, label, type, required }) => (
+            <label key={key} className="flex flex-col gap-1">
+              <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-500">
+                {label}{required && ' *'}
+              </span>
+              {type === 'textarea' ? (
+                <textarea
+                  value={form[key as keyof typeof form] as string}
+                  onChange={(e) => set(key, e.target.value)}
+                  rows={2}
+                  className="rounded-lg border border-white/10 bg-transparent px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-white/20 resize-none"
+                />
+              ) : (
+                <input
+                  value={form[key as keyof typeof form] as string}
+                  onChange={(e) => set(key, e.target.value)}
+                  className="rounded-lg border border-white/10 bg-transparent px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-white/20"
+                />
+              )}
+            </label>
+          ))}
+
+          <button
+            type="submit"
+            className="mt-1 rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-zinc-200 transition-colors hover:bg-white/15"
+          >
+            {item ? 'Save Changes' : 'Add Product'}
+          </button>
+        </div>
+      </div>
     </form>
   )
 }

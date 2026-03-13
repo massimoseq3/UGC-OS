@@ -1,18 +1,21 @@
 import { useState } from 'react'
-import { Copy, Check, Save, ChevronDown, ChevronUp, UserRound, Loader2, Braces, Download } from 'lucide-react'
+import { Copy, Check, Save, ChevronDown, ChevronUp, UserRound, Loader2, Braces, Download, AlertCircle, X } from 'lucide-react'
 import { useBankStore } from '../../../stores/bankStore'
 import type { GenerationResult } from '../services/generateCharacter'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
+import GenerationProgress from '../../../components/GenerationProgress'
 
 interface OutputPanelProps {
   result: GenerationResult | null
   isGenerating: boolean
+  error: string | null
   onGenerate: () => void
+  onCancel: () => void
   canGenerate: boolean
   aspectRatio: string
 }
 
-export default function OutputPanel({ result, isGenerating, onGenerate, canGenerate, aspectRatio }: OutputPanelProps) {
+export default function OutputPanel({ result, isGenerating, error, onGenerate, onCancel, canGenerate, aspectRatio }: OutputPanelProps) {
   const [copied, setCopied] = useState(false)
   const [jsonExpanded, setJsonExpanded] = useState(false)
   const [showSaveForm, setShowSaveForm] = useState(false)
@@ -46,13 +49,25 @@ export default function OutputPanel({ result, isGenerating, onGenerate, canGener
     setTimeout(() => setSaved(false), 3000)
   }
 
-  // Skeleton loading state
+  // Loading state with progress bar
   if (isGenerating) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4 p-6">
         <div className={`skeleton w-full max-w-sm rounded-xl ${isPortrait ? 'aspect-[9/16]' : 'aspect-video'}`} />
-        <Loader2 className="h-5 w-5 animate-spin text-sky-400" />
-        <p className="text-xs text-zinc-500">Generating visualization...</p>
+        <div className="w-full max-w-sm">
+          <GenerationProgress
+            isActive
+            color="bg-sky-500"
+            messages={['Building character prompt...', 'Sending to Gemini API...', 'Generating image...', 'Rendering final image...']}
+          />
+          <button
+            onClick={onCancel}
+            className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-full border border-white/10 px-4 py-2 text-xs font-medium text-zinc-400 transition-colors hover:bg-white/5 hover:text-zinc-200"
+          >
+            <X className="h-3 w-3" />
+            Cancel
+          </button>
+        </div>
       </div>
     )
   }
@@ -66,6 +81,14 @@ export default function OutputPanel({ result, isGenerating, onGenerate, canGener
           <p className="text-sm text-zinc-700">Configure parameters and generate</p>
           <p className="text-xs text-zinc-800">Your character visualization will appear here</p>
         </div>
+
+        {/* Error message */}
+        {error && (
+          <div className="mx-4 mb-2 flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2">
+            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-400" />
+            <p className="text-xs leading-relaxed text-red-300">{error}</p>
+          </div>
+        )}
 
         {/* Generate button always visible */}
         <div className="border-t border-white/5 p-4">

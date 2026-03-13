@@ -12,6 +12,7 @@ async function postGenerateContent(
   apiKey: string,
   model: string,
   body: Record<string, unknown>,
+  signal?: AbortSignal,
 ): Promise<unknown> {
   const res = await fetch(`${BASE_URL}/${model}:generateContent`, {
     method: 'POST',
@@ -20,6 +21,7 @@ async function postGenerateContent(
       'x-goog-api-key': apiKey,
     },
     body: JSON.stringify(body),
+    signal,
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
@@ -132,6 +134,7 @@ export async function geminiImageGenerate(
   prompt: string,
   aspectRatio: string = '9:16',
   referenceImages?: Array<{ base64: string; mimeType: string }>,
+  signal?: AbortSignal,
 ): Promise<GeneratedImageResult> {
   const contentParts: Record<string, unknown>[] = [{ text: prompt }]
   if (referenceImages?.length) {
@@ -148,7 +151,7 @@ export async function geminiImageGenerate(
       },
     },
   }
-  const response = await postGenerateContent(apiKey, IMAGE_MODEL, body)
+  const response = await postGenerateContent(apiKey, IMAGE_MODEL, body, signal)
   const r = response as {
     candidates?: {
       content?: {

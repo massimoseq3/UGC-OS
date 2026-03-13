@@ -76,10 +76,20 @@ function ModelCard({ item, onEdit, onDelete }: { item: Model; onEdit: () => void
   const resolvedImage = useAssetUrl(item.characterImage)
   const sourceLabel = item.source === 'character-studio' ? 'UGC Character Studio' : item.source === 'image-dna-extractor' ? 'Image DNA' : 'Imported'
   const hasJson = item.jsonProfile !== null
+
+  const handleDownload = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!resolvedImage) return
+    const a = document.createElement('a')
+    a.href = resolvedImage
+    a.download = `model-${item.name || item.id.slice(0, 8)}.png`
+    a.click()
+  }
+
   return (
     <div onClick={onEdit} className="group cursor-pointer rounded-xl border border-white/5 bg-white/[0.03] transition-all hover:border-white/15 hover:bg-white/[0.05] hover:-translate-y-0.5">
-      {/* Thumbnail */}
-      <div className="relative aspect-square w-full overflow-hidden rounded-t-xl bg-white/[0.04]">
+      {/* Thumbnail — 9:16 portrait */}
+      <div className="relative aspect-[9/16] w-full overflow-hidden rounded-t-xl bg-white/[0.04]">
         {resolvedImage ? (
           <img src={resolvedImage} alt="" className="h-full w-full object-cover" />
         ) : (
@@ -96,14 +106,21 @@ function ModelCard({ item, onEdit, onDelete }: { item: Model; onEdit: () => void
             </span>
           )}
         </div>
-        {/* Delete button overlay */}
-        <div className="absolute right-2 top-2" onClick={(e) => e.stopPropagation()}>
+        {/* Action buttons overlay */}
+        <div className="absolute right-2 top-2 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
           {confirm ? (
             <ConfirmDelete onConfirm={onDelete} onCancel={() => setConfirm(false)} />
           ) : (
-            <button onClick={() => setConfirm(true)} className="rounded-lg bg-black/50 p-1.5 text-zinc-400 opacity-0 backdrop-blur-sm transition-all hover:text-red-400 group-hover:opacity-100">
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
+            <>
+              {resolvedImage && (
+                <button onClick={handleDownload} className="rounded-lg bg-black/50 p-1.5 text-zinc-400 opacity-0 backdrop-blur-sm transition-all hover:text-zinc-200 group-hover:opacity-100">
+                  <Download className="h-3.5 w-3.5" />
+                </button>
+              )}
+              <button onClick={() => setConfirm(true)} className="rounded-lg bg-black/50 p-1.5 text-zinc-400 opacity-0 backdrop-blur-sm transition-all hover:text-red-400 group-hover:opacity-100">
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -256,7 +273,7 @@ export default function BankList({ bankType, onEdit, onAdd }: BankListProps) {
   if (bankType === 'models') {
     if (models.length === 0) return <EmptyState icon={UserRound} label="models" singular="model" onAdd={onAdd} />
     return (
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-2.5">
         {models.map((m) => (
           <ModelCard key={m.id} item={m} onEdit={() => onEdit(m.id)} onDelete={() => deleteModel(m.id)} />
         ))}

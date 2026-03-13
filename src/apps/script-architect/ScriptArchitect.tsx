@@ -12,6 +12,7 @@ export default function ScriptArchitect() {
   const [additionalContext, setAdditionalContext] = useState('')
   const [generatedScript, setGeneratedScript] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [highlightField, setHighlightField] = useState<string | null>(null)
 
   const interAppPayload = useAppStore((s) => s.interAppPayload)
@@ -44,6 +45,7 @@ export default function ScriptArchitect() {
     if (!winningTranscript.trim() || !selectedProduct) return
 
     setIsGenerating(true)
+    setError(null)
     try {
       const result = await generateScript({
         winningTranscript,
@@ -52,8 +54,8 @@ export default function ScriptArchitect() {
         additionalContext,
       })
       setGeneratedScript(result.scriptText)
-    } catch {
-      // Error handling will be improved when real API is wired
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Script generation failed. Check your API key and try again.')
     } finally {
       setIsGenerating(false)
     }
@@ -82,6 +84,7 @@ export default function ScriptArchitect() {
           scriptText={generatedScript}
           linkedProductId={selectedProduct?.id ?? null}
           isGenerating={isGenerating}
+          error={error}
         />
       </div>
     </div>

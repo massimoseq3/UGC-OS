@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { FolderOpen, Trash2, Sparkles, Save } from 'lucide-react'
 import type { TabId, CharacterProfile } from '../types'
-import { TABS, PRESET_UGC_CAR, createEmptyProfile } from '../types'
+import { TABS, PRESET_MARIE, PRESET_ZANE, createEmptyProfile } from '../types'
 import type { Model } from '../../../stores/types'
 import { useBankStore } from '../../../stores/bankStore'
 import { buildJsonPrompt } from '../services/generateCharacter'
@@ -51,11 +51,18 @@ export default function ControlsPanel({ profile, onProfileChange, activeTab }: C
         <span className="mb-1.5 block text-[9px] font-semibold uppercase tracking-widest text-zinc-600">Presets & Bank</span>
         <div className="flex items-center gap-1.5 flex-wrap">
           <button
-            onClick={() => onProfileChange({ ...PRESET_UGC_CAR })}
+            onClick={() => onProfileChange({ ...PRESET_MARIE })}
             className="flex items-center gap-1 rounded-full bg-white/[0.05] px-2.5 py-1 text-[11px] font-medium text-zinc-400 transition-colors hover:bg-white/[0.08] hover:text-zinc-200"
           >
             <Sparkles className="h-3 w-3" />
-            UGC Creator
+            Marie - Female
+          </button>
+          <button
+            onClick={() => onProfileChange({ ...PRESET_ZANE })}
+            className="flex items-center gap-1 rounded-full bg-white/[0.05] px-2.5 py-1 text-[11px] font-medium text-zinc-400 transition-colors hover:bg-white/[0.08] hover:text-zinc-200"
+          >
+            <Sparkles className="h-3 w-3" />
+            Zane - Male
           </button>
           <button
             onClick={() => setPickerOpen(true)}

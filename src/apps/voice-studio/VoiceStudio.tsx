@@ -16,6 +16,7 @@ export default function VoiceStudio() {
   const [settings, setSettings] = useState<VoiceSettings>(createDefaultSettings)
   const [scriptText, setScriptText] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [pickerMode, setPickerMode] = useState<PickerMode>(null)
   const [highlightField, setHighlightField] = useState<string | null>(null)
 
@@ -72,11 +73,12 @@ export default function VoiceStudio() {
   const handleGenerate = async () => {
     if (!scriptText.trim()) return
     setIsGenerating(true)
+    setError(null)
     try {
       const item = await generateVoice(settings, scriptText)
       addVoiceHistory(item)
-    } catch {
-      // Will improve with real API
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Audio generation failed. Check your API key and try again.')
     } finally {
       setIsGenerating(false)
     }
@@ -109,6 +111,7 @@ export default function VoiceStudio() {
           isGenerating={isGenerating}
           canGenerate={scriptText.trim().length > 0}
           highlightField={highlightField}
+          error={error}
         />
       </div>
 

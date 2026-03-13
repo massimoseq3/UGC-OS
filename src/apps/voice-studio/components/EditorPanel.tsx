@@ -1,4 +1,5 @@
-import { FileText, Loader2, Mic } from 'lucide-react'
+import { FileText, Loader2, Mic, AlertCircle } from 'lucide-react'
+import GenerationProgress from '../../../components/GenerationProgress'
 
 interface EditorPanelProps {
   styleInstructions: string
@@ -10,6 +11,7 @@ interface EditorPanelProps {
   isGenerating: boolean
   canGenerate: boolean
   highlightField?: string | null
+  error?: string | null
 }
 
 export default function EditorPanel({
@@ -22,6 +24,7 @@ export default function EditorPanel({
   isGenerating,
   canGenerate,
   highlightField,
+  error,
 }: EditorPanelProps) {
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -71,8 +74,20 @@ export default function EditorPanel({
         />
       </div>
 
-      {/* Generate button */}
+      {/* Error + Progress bar + Generate button */}
       <div className="border-t border-white/5 p-4">
+        {error && (
+          <div className="mb-3 flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2">
+            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-400" />
+            <p className="text-xs leading-relaxed text-red-300">{error}</p>
+          </div>
+        )}
+        <GenerationProgress
+          isActive={isGenerating}
+          color="bg-indigo-500"
+          messages={['Preparing audio...', 'Sending to Gemini TTS...', 'Generating speech...', 'Encoding audio...']}
+          className="mb-3"
+        />
         <button
           onClick={onGenerate}
           disabled={!canGenerate || isGenerating}

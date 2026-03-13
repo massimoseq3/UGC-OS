@@ -12,7 +12,9 @@ import {
   Plus,
   Pencil,
   FolderOpen,
+  AlertCircle,
 } from 'lucide-react'
+import GenerationProgress from '../../../components/GenerationProgress'
 import type { BrollResult, Scene, PromptVariation, CardState, GeneratedImage, ReferenceImage } from '../types'
 import { generateImage } from '../services/generateBroll'
 import { useBankStore } from '../../../stores/bankStore'
@@ -21,6 +23,7 @@ import { useAssetUrl } from '../../../hooks/useAssetUrl'
 interface OutputPanelProps {
   result: BrollResult | null
   isGenerating?: boolean
+  error?: string | null
   onAddVariation: (sceneNumber: number, variation: PromptVariation) => void
   referenceImages?: ReferenceImage[]
   selectedProductId?: string
@@ -107,7 +110,7 @@ function VariationCard({
   const resolvedVideoUrl = useAssetUrl(cardState.videoUrl ?? undefined)
 
   const handleGenerateImage = async () => {
-    onUpdateState({ isGeneratingImage: true })
+    onUpdateState({ isGeneratingImage: true, imageError: null })
     try {
       const imageUrl = await generateImage(cardState.editablePrompt, referenceImages)
       const newImage: GeneratedImage = { imageUrl, prompt: cardState.editablePrompt }
@@ -118,8 +121,11 @@ function VariationCard({
         currentImageIndex: newImages.length - 1,
       })
       setSaved(false)
-    } catch {
-      onUpdateState({ isGeneratingImage: false })
+    } catch (err) {
+      onUpdateState({
+        isGeneratingImage: false,
+        imageError: err instanceof Error ? err.message : 'Image generation failed. Try again.',
+      })
     }
   }
 
@@ -287,13 +293,21 @@ function VariationCard({
             )}
           </div>
         ) : (
-          <button
-            onClick={handleGenerateImage}
-            className="flex w-full items-center justify-center gap-1.5 rounded-full border border-dashed border-white/10 py-4 text-[11px] font-medium text-zinc-500 transition-colors hover:border-white/20 hover:bg-white/[0.02] hover:text-zinc-300"
-          >
-            <ImageIcon className="h-3.5 w-3.5" />
-            Generate B-Roll Image
-          </button>
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={handleGenerateImage}
+              className="flex w-full items-center justify-center gap-1.5 rounded-full border border-dashed border-white/10 py-4 text-[11px] font-medium text-zinc-500 transition-colors hover:border-white/20 hover:bg-white/[0.02] hover:text-zinc-300"
+            >
+              <ImageIcon className="h-3.5 w-3.5" />
+              Generate B-Roll Image
+            </button>
+            {cardState.imageError && (
+              <div className="flex items-start gap-1.5 rounded-lg border border-red-500/20 bg-red-500/10 px-2.5 py-1.5">
+                <AlertCircle className="mt-0.5 h-3 w-3 shrink-0 text-red-400" />
+                <p className="text-[10px] leading-relaxed text-red-300">{cardState.imageError}</p>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>
@@ -399,6 +413,7 @@ function createDefaultCardState(prompt: string): CardState {
     images: [],
     currentImageIndex: 0,
     isGeneratingImage: false,
+    imageError: null,
     videoUrl: null,
     isAnimating: false,
   }
@@ -436,7 +451,7 @@ function SkeletonScene() {
 }
 
 /* ─── Main OutputPanel ─── */
-export default function OutputPanel({ result, isGenerating, onAddVariation, referenceImages, selectedProductId, selectedModelId, selectedScriptId }: OutputPanelProps) {
+export default function OutputPanel({ result, isGenerating, error, onAddVariation, referenceImages, selectedProductId, selectedModelId, selectedScriptId }: OutputPanelProps) {
   const [cardStates, setCardStates] = useState<Record<string, CardState>>({})
 
   const handleUpdateCardState = useCallback((key: string, updates: Partial<CardState>) => {
@@ -471,10 +486,12 @@ export default function OutputPanel({ result, isGenerating, onAddVariation, refe
   if (isGenerating) {
     return (
       <div className="flex h-full flex-col overflow-hidden p-5">
-        <div className="mb-6 flex items-center justify-between">
-          <div className="skeleton h-5 w-24" />
-          <div className="skeleton h-4 w-32" />
-        </div>
+        <GenerationProgress
+          isActive
+          color="bg-orange-500"
+          messages={['Analyzing script scenes...', 'Sending to Gemini API...', 'Generating B-Roll prompts...', 'Finalizing scene breakdowns...']}
+          className="mb-6"
+        />
         <div className="flex-1 overflow-y-auto">
           <div className="flex flex-col gap-8">
             {[1, 2, 3].map((i) => (
@@ -492,6 +509,12 @@ export default function OutputPanel({ result, isGenerating, onAddVariation, refe
         <Film className="h-10 w-10 text-zinc-800" strokeWidth={1.5} />
         <p className="text-sm text-zinc-700">Select your inputs and generate</p>
         <p className="text-xs text-zinc-800">B-Roll prompts will appear here</p>
+        {error && (
+          <div className="mt-2 flex max-w-sm items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2">
+            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-400" />
+            <p className="text-xs leading-relaxed text-red-300">{error}</p>
+          </div>
+        )}
       </div>
     )
   }

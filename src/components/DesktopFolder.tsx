@@ -8,10 +8,11 @@ interface DesktopFolderProps {
   label: string
   count: number
   bankType: BankType
+  accent?: string
   onDoubleClick: (bankType: BankType) => void
 }
 
-export default function DesktopFolder({ icon: Icon, label, count, bankType, onDoubleClick }: DesktopFolderProps) {
+export default function DesktopFolder({ icon: Icon, label, count, bankType, accent, onDoubleClick }: DesktopFolderProps) {
   const [selected, setSelected] = useState(false)
   const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isDesktop = useIsDesktop()

@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Copy, Check, Save, ArrowUpRight, Mic, Film, PenLine } from 'lucide-react'
+import { Copy, Check, Save, ArrowUpRight, Mic, Film, PenLine, AlertCircle } from 'lucide-react'
+import GenerationProgress from '../../../components/GenerationProgress'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAppStore } from '../../../stores/appStore'
 
@@ -7,9 +8,10 @@ interface OutputPanelProps {
   scriptText: string
   linkedProductId: string | null
   isGenerating?: boolean
+  error?: string | null
 }
 
-export default function OutputPanel({ scriptText, linkedProductId, isGenerating }: OutputPanelProps) {
+export default function OutputPanel({ scriptText, linkedProductId, isGenerating, error }: OutputPanelProps) {
   const [copied, setCopied] = useState(false)
   const [showSaveForm, setShowSaveForm] = useState(false)
   const [saveTitle, setSaveTitle] = useState('')
@@ -62,7 +64,11 @@ export default function OutputPanel({ scriptText, linkedProductId, isGenerating 
   if (isGenerating) {
     return (
       <div className="flex h-full flex-col gap-4 p-5">
-        <div className="skeleton h-5 w-40" />
+        <GenerationProgress
+          isActive
+          color="bg-blue-500"
+          messages={['Building script brief...', 'Sending to Gemini API...', 'Writing your script...', 'Polishing final draft...']}
+        />
         <div className="flex flex-1 flex-col gap-3 rounded-xl border border-white/5 bg-black/20 p-5">
           <div className="skeleton h-4 w-full" />
           <div className="skeleton h-4 w-[90%]" />
@@ -85,6 +91,12 @@ export default function OutputPanel({ scriptText, linkedProductId, isGenerating 
       <div className="flex h-full flex-col items-center justify-center gap-3 p-8">
         <PenLine className="h-8 w-8 text-zinc-800" strokeWidth={1.5} />
         <p className="text-sm text-zinc-700">Your generated script will appear here</p>
+        {error && (
+          <div className="mt-2 flex max-w-sm items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2">
+            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-400" />
+            <p className="text-xs leading-relaxed text-red-300">{error}</p>
+          </div>
+        )}
       </div>
     )
   }

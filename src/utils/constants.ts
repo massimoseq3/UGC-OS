@@ -33,12 +33,12 @@ export const DOCK_APPS = APP_REGISTRY
 
 export type BankType = 'products' | 'models' | 'scripts' | 'voices' | 'brolls'
 
-export const BANK_CONFIG: Record<BankType, { label: string; icon: ElementType }> = {
-  products: { label: 'Products', icon: Package },
-  models: { label: 'Models', icon: UserRound },
-  scripts: { label: 'Scripts', icon: FileText },
-  voices: { label: 'Voices', icon: Mic },
-  brolls: { label: 'B-Rolls', icon: Film },
+export const BANK_CONFIG: Record<BankType, { label: string; icon: ElementType; accent: string }> = {
+  products: { label: 'Products', icon: Package, accent: '#f59e0b' },
+  models: { label: 'Models', icon: UserRound, accent: '#0ea5e9' },
+  scripts: { label: 'Scripts', icon: FileText, accent: '#3b82f6' },
+  voices: { label: 'Voices', icon: Mic, accent: '#6366f1' },
+  brolls: { label: 'B-Rolls', icon: Film, accent: '#f97316' },
 }
 
 export function getAppConfig(appId: string): AppConfig | undefined {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { User, Shirt, MapPin, Move, Camera } from 'lucide-react'
 import { useAppStore } from '../../stores/appStore'
 import type { CharacterProfile, TabId } from './types'
@@ -20,7 +20,9 @@ export default function CharacterStudio() {
   const [profile, setProfile] = useState<CharacterProfile>(createEmptyProfile)
   const [result, setResult] = useState<GenerationResult | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<TabId>('physical')
+  const abortRef = useRef<AbortController | null>(null)
 
   const interAppPayload = useAppStore((s) => s.interAppPayload)
   const consumePayload = useAppStore((s) => s.consumePayload)
@@ -48,15 +50,32 @@ export default function CharacterStudio() {
   }, [interAppPayload, activeApp, consumePayload])
 
   const handleGenerate = async () => {
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+
+    // 90-second timeout
+    const timeout = setTimeout(() => controller.abort(), 90_000)
+
     setIsGenerating(true)
+    setError(null)
     try {
-      const gen = await generateCharacter(profile)
+      const gen = await generateCharacter(profile, controller.signal)
       setResult(gen)
-    } catch {
-      // Will improve with real API
+    } catch (err) {
+      if (controller.signal.aborted) {
+        setError('Generation was cancelled or timed out. Try again.')
+      } else {
+        setError(err instanceof Error ? err.message : 'Image generation failed. Check your API key and try again.')
+      }
     } finally {
+      clearTimeout(timeout)
       setIsGenerating(false)
     }
+  }
+
+  const handleCancel = () => {
+    abortRef.current?.abort()
   }
 
   const tabCompletion = (tabId: TabId) => {
@@ -106,7 +125,9 @@ export default function CharacterStudio() {
         <OutputPanel
           result={result}
           isGenerating={isGenerating}
+          error={error}
           onGenerate={handleGenerate}
+          onCancel={handleCancel}
           canGenerate={Object.values(profile).some((v) => v.trim() !== '')}
           aspectRatio={profile.aspectRatio || 'Portrait (9:16)'}
         />
