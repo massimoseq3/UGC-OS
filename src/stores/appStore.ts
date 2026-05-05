@@ -12,6 +12,7 @@ interface AppState {
   runningApps: string[]
   interAppPayload: InterAppPayload | null
   toasts: Toast[]
+  sidebarCollapsed: boolean
 
   openApp: (appId: string) => void
   setActiveApp: (appId: string | null) => void
@@ -19,15 +20,28 @@ interface AppState {
   consumePayload: () => InterAppPayload | null
   addToast: (message: string, type?: Toast['type']) => void
   removeToast: (id: string) => void
+  toggleSidebar: () => void
 }
 
 let toastCounter = 0
+
+const SIDEBAR_KEY = 'ugc-lab:sidebar-collapsed'
+
+function loadSidebarCollapsed(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    return window.localStorage.getItem(SIDEBAR_KEY) === '1'
+  } catch {
+    return false
+  }
+}
 
 export const useAppStore = create<AppState>((set, get) => ({
   activeApp: null,
   runningApps: [],
   interAppPayload: null,
   toasts: [],
+  sidebarCollapsed: loadSidebarCollapsed(),
 
   openApp: (appId) => set((state) => ({
     activeApp: appId,
@@ -67,4 +81,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   removeToast: (id) => set((state) => ({
     toasts: state.toasts.filter((t) => t.id !== id),
   })),
+
+  toggleSidebar: () => set((state) => {
+    const next = !state.sidebarCollapsed
+    try {
+      window.localStorage.setItem(SIDEBAR_KEY, next ? '1' : '0')
+    } catch {
+      // ignore
+    }
+    return { sidebarCollapsed: next }
+  }),
 }))
