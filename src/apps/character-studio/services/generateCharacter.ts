@@ -1,7 +1,7 @@
 import type { CharacterProfile } from '../types'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import { kieImageGenerate, downloadAsBase64 } from '../../../utils/kie'
-import { getDefaultModel } from '../../../utils/models'
+import { getDefaultModel, buildImageInput, type AspectRatio } from '../../../utils/models'
 import { saveBase64Asset } from '../../../utils/assetStore'
 
 export interface GenerationResult {
@@ -120,13 +120,10 @@ export async function generateCharacter(
   if (!modelId) throw new Error('No image model configured for Character Studio.')
 
   const prompt = buildImagePrompt(profile)
-  const aspectRatio = profile.aspectRatio === 'Landscape (16:9)' ? '16:9' : '9:16'
+  const aspectRatio: AspectRatio = profile.aspectRatio === 'Landscape (16:9)' ? '16:9' : '9:16'
 
-  const urls = await kieImageGenerate(apiKey, modelId, {
-    prompt,
-    aspect_ratio: aspectRatio as '16:9' | '9:16',
-    resolution: '1K',
-  }, { signal })
+  const body = buildImageInput(modelId, { prompt, aspectRatio })
+  const urls = await kieImageGenerate(apiKey, modelId, body, { signal })
 
   if (urls.length === 0) throw new Error('Image generation returned no result.')
 

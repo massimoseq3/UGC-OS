@@ -8,7 +8,7 @@ import {
   downloadAsBase64,
   type ChatMessage,
 } from '../../../utils/kie'
-import { getModel, getDefaultModel } from '../../../utils/models'
+import { getModel, getDefaultModel, buildImageInput, type AspectRatio } from '../../../utils/models'
 import { saveBase64Asset, saveAsset, isAssetRef, getAsBase64 } from '../../../utils/assetStore'
 
 function getChatEndpoint(): { apiKey: string; endpoint: string } {
@@ -159,12 +159,12 @@ export async function generateImage(
     }
   }
 
-  const urls = await kieImageGenerate(apiKey, modelId, {
+  const body = buildImageInput(modelId, {
     prompt,
-    aspect_ratio: aspectRatio as '16:9' | '9:16',
-    resolution: '1K',
-    ...(inputUrls.length > 0 ? { input_urls: inputUrls } : {}),
+    aspectRatio: aspectRatio as AspectRatio,
+    inputUrls: inputUrls.length > 0 ? inputUrls : undefined,
   })
+  const urls = await kieImageGenerate(apiKey, modelId, body)
 
   if (urls.length === 0) throw new Error('Image generation returned no result.')
 

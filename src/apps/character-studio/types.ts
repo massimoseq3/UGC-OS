@@ -111,7 +111,7 @@ export const TABS: TabConfig[] = [
       {
         key: 'clothingStyle',
         label: 'Clothing Style',
-        chips: ['Alo Athleisure Set', 'Casual athleisure', 'Streetwear', 'Business casual', 'Minimalist', 'Minimal chic', 'Cozy homewear', 'Gym wear', 'Boho', 'Preppy'],
+        chips: ['Athleisure Set', 'Casual athleisure', 'Streetwear', 'Business casual', 'Minimalist', 'Minimal chic', 'Cozy homewear', 'Gym wear', 'Boho', 'Preppy'],
       },
       {
         key: 'accessories',
@@ -207,14 +207,14 @@ export const TABS: TabConfig[] = [
         key: 'cameraDevice',
         label: 'Camera Device',
         chips: [
-          'iPhone 15 Pro, casual UGC aesthetic',
-          'iPhone 14 Pro',
-          'iPhone Front Cam',
-          'iPhone selfie cam',
-          'iPhone rear camera',
+          'Smartphone, casual UGC aesthetic',
+          'Modern smartphone',
+          'Front-facing phone camera',
+          'Phone selfie camera',
+          'Phone rear camera',
           'DSLR shallow DOF',
           'Webcam',
-          'GoPro wide',
+          'Action camera, wide',
           'Ring light + phone',
         ],
       },
@@ -258,7 +258,7 @@ export const PRESET_DEFAULT: CharacterProfile = {
   expression: 'Natural smile',
   shotType: 'Medium shot (waist up)',
   cameraAngle: 'Eye Level',
-  cameraDevice: 'iPhone selfie cam',
+  cameraDevice: 'Phone selfie camera',
   aspectRatio: 'Portrait (9:16)',
 }
 
@@ -290,7 +290,7 @@ export const PRESET_CAR: CharacterProfile = {
   expression: 'Natural smile',
   shotType: 'Close-up face',
   cameraAngle: 'Eye Level',
-  cameraDevice: 'iPhone selfie cam',
+  cameraDevice: 'Phone selfie camera',
   aspectRatio: 'Portrait (9:16)',
 }
 
@@ -309,7 +309,7 @@ export const PRESET_MARIE: CharacterProfile = {
   facialFeatures: 'High cheekbones',
   facialHair: 'None',
   distinguishingMarks: 'Scar',
-  clothingStyle: 'Alo Athleisure Set',
+  clothingStyle: 'Athleisure Set',
   accessories: 'Gold hoops',
   makeup: 'Dewy skin',
   location: 'Bedroom',
@@ -322,7 +322,7 @@ export const PRESET_MARIE: CharacterProfile = {
   expression: 'Genuine smile',
   shotType: 'Third-Person Shot',
   cameraAngle: 'Eye Level',
-  cameraDevice: 'iPhone 15 Pro, casual UGC aesthetic',
+  cameraDevice: 'Smartphone, casual UGC aesthetic',
   aspectRatio: 'Portrait (9:16)',
 }
 
@@ -341,8 +341,8 @@ export const PRESET_ZANE: CharacterProfile = {
   facialFeatures: 'Sharp jawline',
   facialHair: 'Clean-shaven',
   distinguishingMarks: 'Dimples',
-  clothingStyle: 'Alo athleisure set',
-  accessories: 'Apple Watch',
+  clothingStyle: 'Athleisure set',
+  accessories: 'Smartwatch',
   makeup: 'No makeup',
   location: 'Minimalist Kitchen',
   background: 'Minimalist',
@@ -354,7 +354,7 @@ export const PRESET_ZANE: CharacterProfile = {
   expression: 'Genuine smile',
   shotType: 'Third-Person Shot',
   cameraAngle: 'Eye Level',
-  cameraDevice: 'iPhone 15 Pro, casual UGC aesthetic',
+  cameraDevice: 'Smartphone, casual UGC aesthetic',
   aspectRatio: 'Portrait (9:16)',
 }
 

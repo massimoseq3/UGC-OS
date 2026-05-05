@@ -263,21 +263,15 @@ export function parseResult(record: TaskRecord): ParsedResult {
 // at https://docs.kie.ai/. Helpers below codify the shapes confirmed
 // against kie.ai's docs as of 2026-05-05.
 
-export interface ImageGenInput {
-  prompt: string
-  aspect_ratio?: 'auto' | '1:1' | '9:16' | '16:9' | '4:3' | '3:4'
-  resolution?: '1K' | '2K' | '4K'
-  // GPT Image 2 image-to-image accepts up to 16 input URLs.
-  input_urls?: string[]
-}
-
+// Generic image-gen call. Body shape varies per model — use `buildImageInput`
+// from src/utils/models.ts to construct the right body for the chosen model.
 export async function kieImageGenerate(
   apiKey: string,
   modelId: string,
-  input: ImageGenInput,
+  input: Record<string, unknown>,
   opts: RunTaskOptions = {},
 ): Promise<string[]> {
-  const record = await runTask(apiKey, modelId, input as unknown as Record<string, unknown>, opts)
+  const record = await runTask(apiKey, modelId, input, opts)
   return parseResult(record).resultUrls
 }
 

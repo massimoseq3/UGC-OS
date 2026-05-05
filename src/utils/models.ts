@@ -68,14 +68,42 @@ export const MODEL_REGISTRY: ModelEntry[] = [
   // ── Image generation ──────────────────────────────────────────
 
   {
+    id: 'flux-2/pro-text-to-image',
+    displayName: 'Flux 2 Pro',
+    provider: 'Black Forest Labs',
+    task: 'image',
+    modes: ['text-to-image'],
+    tags: ['recommended'],
+    pricing: { unit: 'per-image', usd: 0.05 },
+    defaultFor: ['character-studio'],
+  },
+  {
+    id: 'seedream/5-lite-text-to-image',
+    displayName: 'SeeDream 5 Lite',
+    provider: 'ByteDance',
+    task: 'image',
+    modes: ['text-to-image'],
+    tags: ['new', 'fast'],
+    pricing: { unit: 'per-image', usd: 0.03 },
+  },
+  {
+    id: 'google/imagen4',
+    displayName: 'Imagen 4',
+    provider: 'Google',
+    task: 'image',
+    modes: ['text-to-image'],
+    tags: [],
+    pricing: { unit: 'per-image', usd: 0.04 },
+  },
+  {
     id: 'gpt-image-2-text-to-image',
     displayName: 'GPT Image 2',
     provider: 'OpenAI',
     task: 'image',
     modes: ['text-to-image'],
-    tags: ['recommended'],
+    tags: [],
     pricing: { unit: 'per-image', usd: 0.04 },
-    defaultFor: ['broll-studio', 'character-studio'],
+    defaultFor: ['broll-studio'],
   },
   {
     id: 'gpt-image-2-image-to-image',
@@ -174,6 +202,58 @@ export function formatCost(usd: number | null): string | null {
   if (usd === null) return null
   if (usd < 0.01) return `< $0.01`
   return `$${usd.toFixed(2)}`
+}
+
+// ── Per-model input builders ──────────────────────────────────
+// Different image models on kie.ai accept different field names
+// (resolution vs quality, omitted size, different aspect-ratio enums).
+// Concentrate that knowledge here so callers don't need to care.
+
+export type AspectRatio = '1:1' | '16:9' | '9:16' | '4:3' | '3:4' | '3:2' | '2:3' | '21:9'
+
+export interface ImageGenOptions {
+  prompt: string
+  aspectRatio?: AspectRatio
+  sizeHint?: 'standard' | 'high'
+  inputUrls?: string[]
+}
+
+export function buildImageInput(modelId: string, opts: ImageGenOptions): Record<string, unknown> {
+  const ar = opts.aspectRatio ?? '9:16'
+  const high = opts.sizeHint === 'high'
+
+  if (modelId.startsWith('gpt-image-2')) {
+    return {
+      prompt: opts.prompt,
+      aspect_ratio: ar,
+      resolution: high ? '2K' : '1K',
+      ...(opts.inputUrls?.length ? { input_urls: opts.inputUrls } : {}),
+    }
+  }
+  if (modelId === 'flux-2/pro-text-to-image') {
+    return {
+      prompt: opts.prompt,
+      aspect_ratio: ar,
+      resolution: high ? '2K' : '1K',
+    }
+  }
+  if (modelId === 'seedream/5-lite-text-to-image') {
+    return {
+      prompt: opts.prompt,
+      aspect_ratio: ar,
+      quality: high ? 'high' : 'basic',
+    }
+  }
+  if (modelId === 'google/imagen4') {
+    // Imagen 4 accepts only 1:1, 16:9, 9:16, 3:4, 4:3
+    const allowed: AspectRatio[] = ['1:1', '16:9', '9:16', '3:4', '4:3']
+    return {
+      prompt: opts.prompt,
+      aspect_ratio: allowed.includes(ar) ? ar : '9:16',
+    }
+  }
+  // Fallback: send prompt + aspect_ratio and hope for the best
+  return { prompt: opts.prompt, aspect_ratio: ar }
 }
 
 // ── Tag styling helper ─────────────────────────────────────────
