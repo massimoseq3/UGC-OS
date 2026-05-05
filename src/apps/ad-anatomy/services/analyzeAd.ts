@@ -1,6 +1,7 @@
 import type { AnalysisResult } from '../types'
 import { useSettingsStore } from '../../../stores/settingsStore'
-import { geminiAnalyzeImage, fileToBase64 } from '../../../utils/gemini'
+import { kieChatCompletions, fileToDataUri, type ChatMessage } from '../../../utils/kie'
+import { getModel } from '../../../utils/models'
 
 const SYSTEM_INSTRUCTION = `You are an elite UGC ad analyst. You dissect social media video ads and extract actionable insights for creators and brands.
 
@@ -49,14 +50,27 @@ SCORECARD RULE: Be brutally honest. Do not inflate scores. Most ads are average 
 }`
 
 export async function analyzeAd(videoFile: File): Promise<AnalysisResult> {
-  const apiKey = useSettingsStore.getState().getApiKey()
-  const { base64, mimeType } = await fileToBase64(videoFile)
+  const apiKey = useSettingsStore.getState().getKieApiKey()
+  const model = getModel('gemini-3-flash')
+  if (!model?.chatEndpoint) throw new Error('Chat model is not configured. Check src/utils/models.ts.')
+
+  const dataUri = await fileToDataUri(videoFile)
 
   const prompt = `Analyze this UGC ad video/image thoroughly. Extract every detail: transcript with timestamps, hook technique, structure beats, psychological persuasion levers, visual playbook with image generation prompts, and improvement suggestions. Return the analysis as JSON.`
 
-  const responseText = await geminiAnalyzeImage(apiKey, prompt, base64, mimeType, SYSTEM_INSTRUCTION)
+  const messages: ChatMessage[] = [
+    { role: 'system', content: [{ type: 'text', text: SYSTEM_INSTRUCTION }] },
+    {
+      role: 'user',
+      content: [
+        { type: 'text', text: prompt },
+        { type: 'image_url', image_url: { url: dataUri } },
+      ],
+    },
+  ]
 
-  // Parse the JSON response, stripping any markdown fences
+  const responseText = await kieChatCompletions(apiKey, model.chatEndpoint, messages)
+
   const cleaned = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
   const result: AnalysisResult = JSON.parse(cleaned)
   return result

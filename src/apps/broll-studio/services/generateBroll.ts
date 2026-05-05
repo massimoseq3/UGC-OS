@@ -1,7 +1,16 @@
 import type { BrollInput, BrollResult, Scene, PromptVariation, ReferenceImage } from '../types'
 import { useSettingsStore } from '../../../stores/settingsStore'
-import { geminiTextGenerate, geminiImageGenerate, geminiVideoGenerate } from '../../../utils/gemini'
+import { geminiImageGenerate, geminiVideoGenerate } from '../../../utils/gemini'
+import { kieChatCompletions, type ChatMessage } from '../../../utils/kie'
+import { getModel } from '../../../utils/models'
 import { saveBase64Asset, saveAsset, isAssetRef, getAsBase64 } from '../../../utils/assetStore'
+
+function getChatEndpoint(): { apiKey: string; endpoint: string } {
+  const apiKey = useSettingsStore.getState().getKieApiKey()
+  const model = getModel('gemini-3-flash')
+  if (!model?.chatEndpoint) throw new Error('Chat model is not configured. Check src/utils/models.ts.')
+  return { apiKey, endpoint: model.chatEndpoint }
+}
 
 let idCounter = 0
 function nextId() {
@@ -53,7 +62,7 @@ You must output every scene wrapped in these exact tags:
 Do not include any text outside these tags.`
 
 export async function generateBroll(input: BrollInput): Promise<BrollResult> {
-  const apiKey = useSettingsStore.getState().getApiKey()
+  const { apiKey, endpoint } = getChatEndpoint()
 
   let prompt = `Break down this script into visual scenes for B-Roll production. For each scene, provide 3 creative prompt variations.\n\nScript:\n${input.scriptText}`
 
@@ -67,7 +76,11 @@ export async function generateBroll(input: BrollInput): Promise<BrollResult> {
     prompt += `\n\nAdditional context:\n${input.additionalContext}`
   }
 
-  const responseText = await geminiTextGenerate(apiKey, prompt, SYSTEM_INSTRUCTION)
+  const messages: ChatMessage[] = [
+    { role: 'system', content: [{ type: 'text', text: SYSTEM_INSTRUCTION }] },
+    { role: 'user', content: [{ type: 'text', text: prompt }] },
+  ]
+  const responseText = await kieChatCompletions(apiKey, endpoint, messages)
 
   const scenes: Scene[] = []
   const sceneRegex = /<SCENE>([\s\S]*?)<\/SCENE>/g
@@ -188,7 +201,7 @@ export async function generateNewVariation(
   sceneType: string,
   scriptLine: string,
 ): Promise<PromptVariation> {
-  const apiKey = useSettingsStore.getState().getApiKey()
+  const { apiKey, endpoint } = getChatEndpoint()
 
   const prompt = `Generate a single new creative image generation prompt for this B-Roll scene:
 
@@ -209,7 +222,10 @@ Respond with ONLY valid JSON (no markdown):
   "prompt": "<the detailed prompt>"
 }`
 
-  const responseText = await geminiTextGenerate(apiKey, prompt)
+  const messages: ChatMessage[] = [
+    { role: 'user', content: [{ type: 'text', text: prompt }] },
+  ]
+  const responseText = await kieChatCompletions(apiKey, endpoint, messages)
   const cleaned = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
   const parsed = JSON.parse(cleaned) as { label: string; tag: PromptVariation['tag']; prompt: string }
 
