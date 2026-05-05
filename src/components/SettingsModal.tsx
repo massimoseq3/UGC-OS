@@ -10,14 +10,10 @@ interface SettingsModalProps {
 
 export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   const storedKieKey = useSettingsStore((s) => s.kieApiKey)
-  const storedGoogleKey = useSettingsStore((s) => s.googleApiKey)
   const setKieApiKey = useSettingsStore((s) => s.setKieApiKey)
-  const setGoogleApiKey = useSettingsStore((s) => s.setGoogleApiKey)
 
   const [kieDraft, setKieDraft] = useState(storedKieKey)
-  const [googleDraft, setGoogleDraft] = useState(storedGoogleKey)
   const [showKie, setShowKie] = useState(false)
-  const [showGoogle, setShowGoogle] = useState(false)
   const [saved, setSaved] = useState(false)
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null)
@@ -25,19 +21,16 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   useEffect(() => {
     if (open) {
       setKieDraft(storedKieKey)
-      setGoogleDraft(storedGoogleKey)
       setSaved(false)
       setShowKie(false)
-      setShowGoogle(false)
       setTestResult(null)
     }
-  }, [open, storedKieKey, storedGoogleKey])
+  }, [open, storedKieKey])
 
   if (!open) return null
 
   function handleSave() {
     setKieApiKey(kieDraft.trim())
-    setGoogleApiKey(googleDraft.trim())
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
@@ -68,7 +61,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold tracking-tight text-zinc-100">Settings</h2>
-            <p className="mt-0.5 text-sm text-zinc-500">Connect your AI accounts</p>
+            <p className="mt-0.5 text-sm text-zinc-500">Connect your kie.ai account</p>
           </div>
           <button
             onClick={onClose}
@@ -78,7 +71,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
           </button>
         </div>
 
-        {/* kie.ai key — primary */}
+        {/* kie.ai key */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <label className="flex items-center gap-2 text-sm font-medium text-zinc-300">
@@ -143,32 +136,28 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
           )}
         </div>
 
-        {/* Google AI key — legacy, fading out */}
-        <div className="mt-5 space-y-2 rounded-lg border border-white/5 bg-white/[0.02] p-3">
-          <div className="flex items-center justify-between">
-            <label className="flex items-center gap-2 text-xs font-medium text-zinc-400">
-              <Key className="h-3 w-3 text-zinc-600" />
-              Google AI API Key (legacy)
-            </label>
-          </div>
-          <p className="text-[11px] leading-relaxed text-zinc-600">
-            Still used for image, video, and voice generation while we finish migrating those to kie.ai. Will be removed once migration is complete.
+        {/* What this enables */}
+        <div className="mt-4 rounded-lg border border-white/5 bg-white/[0.02] p-3">
+          <p className="mb-2 text-xs font-medium uppercase tracking-wider text-zinc-500">
+            One key, every modality
           </p>
-          <div className="relative">
-            <input
-              type={showGoogle ? 'text' : 'password'}
-              value={googleDraft}
-              onChange={(e) => setGoogleDraft(e.target.value)}
-              placeholder="AIza..."
-              className="w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 pr-10 text-xs text-zinc-300 placeholder-zinc-700 outline-none transition-colors focus:border-white/15"
-            />
-            <button
-              type="button"
-              onClick={() => setShowGoogle(!showGoogle)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-600 transition-colors hover:text-zinc-400"
-            >
-              {showGoogle ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-            </button>
+          <div className="space-y-1.5 text-sm text-zinc-400">
+            <div className="flex items-center justify-between">
+              <span>Text & vision</span>
+              <span className="text-xs text-zinc-600">Gemini 3 Flash</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Image gen</span>
+              <span className="text-xs text-zinc-600">GPT Image 2 (selectable)</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Video gen</span>
+              <span className="text-xs text-zinc-600">Seedance 2.0 (selectable)</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Voice</span>
+              <span className="text-xs text-zinc-600">ElevenLabs Turbo 2.5</span>
+            </div>
           </div>
         </div>
 
