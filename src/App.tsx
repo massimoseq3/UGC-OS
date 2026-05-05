@@ -1,6 +1,6 @@
+import { FlaskConical } from 'lucide-react'
 import MenuBar from './components/MenuBar'
-import Desktop from './components/Desktop'
-import Dock from './components/Dock'
+import Sidebar from './components/Sidebar'
 import ToastContainer from './components/Toast'
 import { useAppStore } from './stores/appStore'
 import { getAppConfig } from './utils/constants'
@@ -38,9 +38,30 @@ function AppPlaceholder({ appId }: { appId: string }) {
   )
 }
 
+function EmptyState() {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
+      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-500 to-orange-500 shadow-lg shadow-fuchsia-500/20">
+        <FlaskConical className="h-7 w-7 text-white" strokeWidth={2} />
+      </div>
+      <div className="space-y-1">
+        <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">
+          UGC Lab
+        </h1>
+        <p className="text-sm text-zinc-500">
+          Pick a tool from the sidebar to get started.
+        </p>
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
   const activeApp = useAppStore((s) => s.activeApp)
   const runningApps = useAppStore((s) => s.runningApps)
+  const collapsed = useAppStore((s) => s.sidebarCollapsed)
+
+  const contentPadding = collapsed ? 'pl-16' : 'pl-56'
 
   return (
     <div className="relative h-screen w-screen overflow-hidden text-white antialiased bg-[#050505]">
@@ -49,24 +70,27 @@ export default function App() {
 
       <div className="relative z-10 h-full w-full">
         <MenuBar />
+        <Sidebar />
 
-        {/* Desktop — visible when no app is active */}
+        {/* Empty state — visible when no app is active */}
         <div
-          className={`transition-opacity duration-200 ease-out ${activeApp ? 'pointer-events-none opacity-0' : 'pointer-events-auto opacity-100'
-            }`}
+          className={`absolute inset-0 pt-14 ${contentPadding} transition-[padding] duration-200 ease-out ${
+            activeApp ? 'pointer-events-none opacity-0' : 'pointer-events-auto opacity-100'
+          }`}
         >
-          <Desktop />
+          <EmptyState />
         </div>
 
-        {/* Running apps — rendered for state preservation, only active one visible */}
+        {/* Running apps */}
         {runningApps.map((appId) => {
           const Component = APP_COMPONENTS[appId]
           const isActive = activeApp === appId
           return (
             <div
               key={appId}
-              className={`absolute inset-0 pt-12 lg:pt-9 pb-16 lg:pb-20 transition-opacity duration-200 ease-out ${isActive ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
-                }`}
+              className={`absolute inset-0 pt-14 ${contentPadding} transition-[opacity,padding] duration-200 ease-out ${
+                isActive ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
+              }`}
             >
               <div className="h-full overflow-y-auto bg-transparent">
                 {Component ? <Component /> : <AppPlaceholder appId={appId} />}
@@ -75,7 +99,6 @@ export default function App() {
           )
         })}
 
-        <Dock />
         <ToastContainer />
       </div>
     </div>
