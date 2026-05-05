@@ -361,18 +361,20 @@ export async function kieChatCompletions(
     { signal, timeoutMs },
   )
 
+  // Read the body once as text; dispatch based on content-type / shape.
+  const raw = await res.text()
   const contentType = res.headers.get('content-type') ?? ''
+  const looksLikeSSE = contentType.includes('text/event-stream') || raw.startsWith('data:') || raw.includes('\ndata:')
 
-  // SSE / streaming path
-  if (contentType.includes('text/event-stream') || res.body) {
-    const text = await readSSEContent(res, signal)
+  if (looksLikeSSE) {
+    const text = parseSSEContent(raw)
     if (text.length > 0) return text
-    // Fall through to JSON parse if SSE produced nothing — some servers
-    // return application/json even when stream:true was requested.
+    throw new Error(
+      `Chat model produced empty SSE stream. First 200 chars: ${raw.slice(0, 200)}`,
+    )
   }
 
-  // Non-streaming JSON path
-  const raw = await res.text()
+  // Plain JSON response
   let body: unknown
   try {
     body = JSON.parse(raw)
@@ -387,51 +389,28 @@ export async function kieChatCompletions(
   )
 }
 
-async function readSSEContent(res: Response, signal?: AbortSignal): Promise<string> {
-  const reader = res.body?.getReader()
-  if (!reader) return ''
-  const decoder = new TextDecoder()
-  let buffer = ''
+function parseSSEContent(raw: string): string {
   let content = ''
-
-  try {
-    while (true) {
-      if (signal?.aborted) {
-        await reader.cancel().catch(() => {})
-        throw new DOMException('Aborted', 'AbortError')
+  for (const rawLine of raw.split('\n')) {
+    const line = rawLine.trim()
+    if (!line || !line.startsWith('data:')) continue
+    const data = line.slice(5).trim()
+    if (!data || data === '[DONE]') continue
+    try {
+      const parsed = JSON.parse(data) as {
+        choices?: Array<{
+          delta?: { content?: string }
+          message?: { content?: string }
+        }>
       }
-      const { done, value } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-
-      const lines = buffer.split('\n')
-      buffer = lines.pop() ?? ''
-
-      for (const rawLine of lines) {
-        const line = rawLine.trim()
-        if (!line || !line.startsWith('data:')) continue
-        const data = line.slice(5).trim()
-        if (data === '[DONE]') continue
-        try {
-          const parsed = JSON.parse(data) as {
-            choices?: Array<{
-              delta?: { content?: string }
-              message?: { content?: string }
-            }>
-          }
-          const delta = parsed.choices?.[0]?.delta?.content
-          const message = parsed.choices?.[0]?.message?.content
-          if (typeof delta === 'string') content += delta
-          else if (typeof message === 'string') content += message
-        } catch {
-          // skip non-JSON event payloads (comments, keepalives)
-        }
-      }
+      const delta = parsed.choices?.[0]?.delta?.content
+      const message = parsed.choices?.[0]?.message?.content
+      if (typeof delta === 'string') content += delta
+      else if (typeof message === 'string') content += message
+    } catch {
+      // skip non-JSON event payloads (comments, keepalives)
     }
-  } finally {
-    reader.releaseLock?.()
   }
-
   return content
 }
 
