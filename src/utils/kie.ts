@@ -294,9 +294,76 @@ export async function kieChat(
   input: Record<string, unknown>,
   opts: RunTaskOptions = {},
 ): Promise<TaskRecord> {
-  // Chat models on kie.ai vary — some return resultUrls (e.g. file outputs),
-  // others embed the response text in resultJson. Caller decides via parseResult.
+  // Used for chat models that go through the createTask/recordInfo pipeline
+  // (rare). Most chat models on kie.ai use the OpenAI-compatible chat
+  // completions endpoint instead — see `kieChatCompletions` below.
   return runTask(apiKey, modelId, input, opts)
+}
+
+// ── OpenAI-compatible chat completions ─────────────────────────
+//
+// kie.ai's chat models (Gemini 3 Flash, GPT-5.5, Claude Opus 4, etc.) are
+// served at per-model endpoints that mirror the OpenAI chat completions API:
+//   POST /<model-slug>/v1/chat/completions
+// The endpoint is sync — no taskId polling.
+
+export type ChatRole = 'system' | 'developer' | 'user' | 'assistant' | 'tool'
+
+export type ChatContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string } }
+
+export interface ChatMessage {
+  role: ChatRole
+  content: ChatContentPart[] | string
+}
+
+export interface ChatCompletionsOptions {
+  signal?: AbortSignal
+  reasoningEffort?: 'low' | 'high'
+  includeThoughts?: boolean
+  timeoutMs?: number
+}
+
+interface ChatCompletionsResponse {
+  choices?: Array<{
+    message?: { role: string; content: string }
+    finish_reason?: string
+  }>
+}
+
+export async function kieChatCompletions(
+  apiKey: string,
+  endpointPath: string,
+  messages: ChatMessage[],
+  opts: ChatCompletionsOptions = {},
+): Promise<string> {
+  const { signal, reasoningEffort = 'low', includeThoughts = false, timeoutMs = 120_000 } = opts
+
+  const res = await fetchWithRetry(
+    `https://api.kie.ai${endpointPath}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        messages,
+        stream: false,
+        include_thoughts: includeThoughts,
+        reasoning_effort: reasoningEffort,
+      }),
+    },
+    { signal, timeoutMs },
+  )
+
+  const body = (await res.json()) as ChatCompletionsResponse
+  const text = body.choices?.[0]?.message?.content
+  if (typeof text !== 'string' || text.length === 0) {
+    throw new Error('Empty response from chat model.')
+  }
+  return text
 }
 
 export async function kieTTS(
@@ -314,16 +381,16 @@ export async function kieTTS(
 // Hits a lightweight account endpoint to verify the API key is valid.
 // Used by the SettingsModal "Test connection" button.
 
-export async function kieTestConnection(apiKey: string): Promise<boolean> {
+export async function kieTestConnection(apiKey: string): Promise<{ ok: true; credits: number } | { ok: false; error: string }> {
   try {
-    await authedFetch<unknown>(
+    const credits = await authedFetch<number>(
       apiKey,
-      '/common/getAccountCredits',
+      '/chat/credit',
       { method: 'GET' },
       { timeoutMs: 10_000 },
     )
-    return true
-  } catch {
-    return false
+    return { ok: true, credits }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Unknown error' }
   }
 }
