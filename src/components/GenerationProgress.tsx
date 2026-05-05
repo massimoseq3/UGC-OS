@@ -34,7 +34,7 @@ export default function GenerationProgress({
     return () => clearInterval(interval)
   }, [isActive])
 
-  const defaultMessages = ['Preparing...', 'Sending to Gemini API...', 'Processing...', 'Almost done...']
+  const defaultMessages = ['Preparing...', 'Sending request...', 'Processing...', 'Almost done...']
   const msgs = messages || defaultMessages
   const messageIndex = progress < 15 ? 0 : progress < 35 ? 1 : progress < 75 ? 2 : 3
   const message = msgs[Math.min(messageIndex, msgs.length - 1)]

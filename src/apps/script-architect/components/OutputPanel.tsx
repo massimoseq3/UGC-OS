@@ -67,7 +67,7 @@ export default function OutputPanel({ scriptText, linkedProductId, isGenerating,
         <GenerationProgress
           isActive
           color="bg-blue-500"
-          messages={['Building script brief...', 'Sending to Gemini API...', 'Writing your script...', 'Polishing final draft...']}
+          messages={['Building script brief...', 'Sending request...', 'Writing your script...', 'Polishing final draft...']}
         />
         <div className="flex flex-1 flex-col gap-3 rounded-xl border border-white/5 bg-black/20 p-5">
           <div className="skeleton h-4 w-full" />

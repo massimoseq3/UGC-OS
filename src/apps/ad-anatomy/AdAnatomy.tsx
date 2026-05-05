@@ -59,7 +59,7 @@ export default function AdAnatomy() {
         <GenerationProgress
           isActive={view === 'loading'}
           color="bg-[#FB2B37]"
-          messages={['Preparing ad for analysis...', 'Sending to Gemini API...', 'Dissecting the ad...', 'Compiling results...']}
+          messages={['Preparing ad for analysis...', 'Sending request...', 'Dissecting the ad...', 'Compiling results...']}
           className="max-w-sm"
         />
       </div>

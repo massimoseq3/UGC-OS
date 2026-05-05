@@ -65,7 +65,7 @@ export default function UploadPanel({ imageUrl, isAnalyzing, onAnalyze, onClear,
         <GenerationProgress
           isActive={isAnalyzing}
           color="bg-green-500"
-          messages={['Preparing image...', 'Sending to Gemini API...', 'Extracting visual DNA...', 'Finalizing analysis...']}
+          messages={['Preparing image...', 'Sending request...', 'Extracting visual DNA...', 'Finalizing analysis...']}
           className="max-w-xs"
         />
       </div>

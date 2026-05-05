@@ -4,7 +4,6 @@ import { useBankStore } from '../../stores/bankStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useAssetUrl } from '../../hooks/useAssetUrl'
 import ModelPicker from '../../components/ModelPicker'
-import CostPreview from '../../components/CostPreview'
 import { getDefaultModel } from '../../utils/models'
 import { fileToDataUri } from '../../utils/kie'
 import { generateVideo } from './services/generateVideo'
@@ -179,7 +178,12 @@ export default function VideoStudio() {
 
         {/* Model picker */}
         <div className="mb-5">
-          <ModelPicker appId="video-studio" task="video" mode={mode} />
+          <ModelPicker
+            appId="video-studio"
+            task="video"
+            mode={mode}
+            costParams={{ durationSeconds: duration }}
+          />
         </div>
 
         {/* Error */}
@@ -191,7 +195,7 @@ export default function VideoStudio() {
         )}
 
         {/* Generate */}
-        <div className="mt-auto space-y-2 pt-2">
+        <div className="mt-auto pt-2">
           <button
             onClick={handleGenerate}
             disabled={!canGenerate || isGenerating}
@@ -209,9 +213,6 @@ export default function VideoStudio() {
               </>
             )}
           </button>
-          <div className="flex justify-center">
-            <CostPreview modelId={selectedModelId} params={{ durationSeconds: duration }} />
-          </div>
         </div>
       </div>
 

@@ -26,6 +26,9 @@ export interface Voice {
 export interface Pricing {
   unit: 'per-call' | 'per-image' | 'per-second' | 'per-1k-tokens'
   usd: number
+  // Approximate kie.ai credits per unit. 1 credit ≈ $0.01 baseline; refine
+  // per-model from https://kie.ai/pricing as exact values become known.
+  credits: number
 }
 
 export interface ModelEntry {
@@ -60,7 +63,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     provider: 'Google',
     task: 'chat',
     tags: ['recommended', 'fast', 'cheap'],
-    pricing: { unit: 'per-1k-tokens', usd: 0.00015 },
+    pricing: { unit: 'per-1k-tokens', usd: 0.00015, credits: 0.015 },
     defaultFor: ['ad-anatomy', 'script-architect', 'image-dna', 'character-studio', 'broll-studio'],
     chatEndpoint: '/gemini-3-flash/v1/chat/completions',
   },
@@ -75,7 +78,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     modes: ['text-to-image', 'image-to-image', 'image-edit'],
     tags: ['new'],
     supportsReferenceImages: true,
-    pricing: { unit: 'per-image', usd: 0.04 },
+    pricing: { unit: 'per-image', usd: 0.04, credits: 4 },
   },
   {
     id: 'flux-2/pro-text-to-image',
@@ -84,7 +87,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     task: 'image',
     modes: ['text-to-image'],
     tags: [],
-    pricing: { unit: 'per-image', usd: 0.05 },
+    pricing: { unit: 'per-image', usd: 0.05, credits: 5 },
   },
   {
     id: 'seedream/5-lite-text-to-image',
@@ -93,7 +96,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     task: 'image',
     modes: ['text-to-image'],
     tags: ['new', 'fast'],
-    pricing: { unit: 'per-image', usd: 0.03 },
+    pricing: { unit: 'per-image', usd: 0.03, credits: 3 },
   },
   {
     id: 'google/imagen4',
@@ -102,7 +105,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     task: 'image',
     modes: ['text-to-image'],
     tags: [],
-    pricing: { unit: 'per-image', usd: 0.04 },
+    pricing: { unit: 'per-image', usd: 0.04, credits: 4 },
   },
   {
     id: 'gpt-image-2-text-to-image',
@@ -111,7 +114,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     task: 'image',
     modes: ['text-to-image'],
     tags: ['recommended'],
-    pricing: { unit: 'per-image', usd: 0.04 },
+    pricing: { unit: 'per-image', usd: 0.04, credits: 4 },
     defaultFor: ['broll-studio', 'character-studio'],
   },
   {
@@ -122,7 +125,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     modes: ['image-to-image', 'image-edit'],
     tags: ['recommended'],
     supportsReferenceImages: true,
-    pricing: { unit: 'per-image', usd: 0.04 },
+    pricing: { unit: 'per-image', usd: 0.04, credits: 4 },
   },
 
   // ── Video generation ──────────────────────────────────────────
@@ -137,7 +140,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     modes: ['text-to-video', 'image-to-video'],
     tags: ['recommended', 'new'],
     supportsReferenceImages: true,
-    pricing: { unit: 'per-second', usd: 0.10 },
+    pricing: { unit: 'per-second', usd: 0.10, credits: 10 },
     defaultFor: ['broll-studio', 'video-studio'],
   },
 
@@ -211,6 +214,29 @@ export function formatCost(usd: number | null): string | null {
   if (usd === null) return null
   if (usd < 0.01) return `< $0.01`
   return `$${usd.toFixed(2)}`
+}
+
+export function estimateCredits(modelId: string, params: CostEstimateParams = {}): number | null {
+  const model = getModel(modelId)
+  if (!model?.pricing) return null
+  const { unit, credits } = model.pricing
+  switch (unit) {
+    case 'per-call':
+      return credits
+    case 'per-image':
+      return credits * (params.imageCount ?? 1)
+    case 'per-second':
+      return credits * (params.durationSeconds ?? 5)
+    case 'per-1k-tokens':
+      return credits * ((params.tokenCount ?? 1000) / 1000)
+  }
+}
+
+export function formatCredits(credits: number | null): string | null {
+  if (credits === null) return null
+  if (credits < 1) return `< 1 credit`
+  const rounded = Math.round(credits * 10) / 10
+  return `${rounded} credit${rounded === 1 ? '' : 's'}`
 }
 
 // ── Per-model input builders ──────────────────────────────────

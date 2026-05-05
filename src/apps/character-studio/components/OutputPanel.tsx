@@ -1,13 +1,10 @@
 import { useState } from 'react'
 import { Copy, Check, Save, ChevronDown, ChevronUp, UserRound, Loader2, Braces, Download, AlertCircle, X } from 'lucide-react'
 import { useBankStore } from '../../../stores/bankStore'
-import { useSettingsStore } from '../../../stores/settingsStore'
 import type { GenerationResult } from '../services/generateCharacter'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
 import GenerationProgress from '../../../components/GenerationProgress'
 import ModelPicker from '../../../components/ModelPicker'
-import CostPreview from '../../../components/CostPreview'
-import { getDefaultModel } from '../../../utils/models'
 
 interface OutputPanelProps {
   result: GenerationResult | null
@@ -27,12 +24,6 @@ export default function OutputPanel({ result, isGenerating, error, onGenerate, o
   const [saved, setSaved] = useState(false)
 
   const addModel = useBankStore((s) => s.addModel)
-
-  const persistedModel = useSettingsStore((s) =>
-    s.getAppModel('character-studio:image:text-to-image'),
-  )
-  const selectedModelId =
-    persistedModel ?? getDefaultModel('character-studio', 'image', 'text-to-image')?.id
   const resolvedImageUrl = useAssetUrl(result?.imageUrl)
 
   const isPortrait = aspectRatio.includes('9:16')
@@ -68,7 +59,7 @@ export default function OutputPanel({ result, isGenerating, error, onGenerate, o
           <GenerationProgress
             isActive
             color="bg-sky-500"
-            messages={['Building character prompt...', 'Sending to Gemini API...', 'Generating image...', 'Rendering final image...']}
+            messages={['Building character prompt...', 'Sending request...', 'Generating image...', 'Rendering final image...']}
           />
           <button
             onClick={onCancel}
@@ -102,7 +93,12 @@ export default function OutputPanel({ result, isGenerating, error, onGenerate, o
 
         {/* Generate button always visible */}
         <div className="space-y-3 border-t border-white/5 p-4">
-          <ModelPicker appId="character-studio" task="image" mode="text-to-image" />
+          <ModelPicker
+            appId="character-studio"
+            task="image"
+            mode="text-to-image"
+            costParams={{ imageCount: 1 }}
+          />
           <button
             onClick={onGenerate}
             disabled={!canGenerate}
@@ -111,9 +107,6 @@ export default function OutputPanel({ result, isGenerating, error, onGenerate, o
             <UserRound className="h-4 w-4" />
             <span>Generate UGC Character</span>
           </button>
-          <div className="flex justify-center">
-            <CostPreview modelId={selectedModelId} params={{ imageCount: 1 }} />
-          </div>
         </div>
       </div>
     )
@@ -232,7 +225,12 @@ export default function OutputPanel({ result, isGenerating, error, onGenerate, o
 
       {/* Generate button — pinned to bottom */}
       <div className="space-y-2 border-t border-white/5 p-3">
-        <ModelPicker appId="character-studio" task="image" mode="text-to-image" />
+        <ModelPicker
+          appId="character-studio"
+          task="image"
+          mode="text-to-image"
+          costParams={{ imageCount: 1 }}
+        />
         <button
           onClick={onGenerate}
           disabled={!canGenerate || isGenerating}
@@ -250,9 +248,6 @@ export default function OutputPanel({ result, isGenerating, error, onGenerate, o
             </>
           )}
         </button>
-        <div className="flex justify-center">
-          <CostPreview modelId={selectedModelId} params={{ imageCount: 1 }} />
-        </div>
       </div>
     </div>
   )
