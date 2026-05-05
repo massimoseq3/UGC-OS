@@ -12,6 +12,7 @@ import CharacterStudio from './apps/character-studio/CharacterStudio'
 import VoiceStudio from './apps/voice-studio/VoiceStudio'
 import BrollStudio from './apps/broll-studio/BrollStudio'
 import ImageDna from './apps/image-dna/ImageDna'
+import VideoStudio from './apps/video-studio/VideoStudio'
 
 const APP_COMPONENTS: Record<string, React.ComponentType> = {
   'finder': Finder,
@@ -21,6 +22,7 @@ const APP_COMPONENTS: Record<string, React.ComponentType> = {
   'voice-studio': VoiceStudio,
   'broll-studio': BrollStudio,
   'image-dna': ImageDna,
+  'video-studio': VideoStudio,
 }
 
 function AppPlaceholder({ appId }: { appId: string }) {

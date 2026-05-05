@@ -1,9 +1,9 @@
 import type { BrollInput, BrollResult, Scene, PromptVariation, ReferenceImage } from '../types'
 import { useSettingsStore } from '../../../stores/settingsStore'
-import { geminiVideoGenerate } from '../../../utils/gemini'
 import {
   kieChatCompletions,
   kieImageGenerate,
+  kieVideoGenerate,
   ensureHostedUrl,
   downloadAsBase64,
   type ChatMessage,
@@ -173,36 +173,39 @@ export async function generateImage(
 }
 
 /**
- * Animate a still frame into video using Veo 3.1 frame-to-video.
- * The still image is used as the first frame; Veo generates the rest.
+ * Animate a still frame into video via kie.ai Seedance 2.0 (image-to-video).
+ * The still image is used as first_frame_url; Seedance generates the rest.
  * Returns a persistent asset ID.
  */
 export async function animateFrame(imageUrl: string, prompt: string, aspectRatio: string = '9:16'): Promise<string> {
-  const apiKey = useSettingsStore.getState().getApiKey()
+  const apiKey = useSettingsStore.getState().getKieApiKey()
 
-  // Convert image source to base64 + mimeType for the API
-  let base64: string
-  let mimeType: string
+  const modelId = useSettingsStore.getState().getAppModel('broll-studio:video:image-to-video')
+    ?? getDefaultModel('broll-studio', 'video', 'image-to-video')?.id
+  if (!modelId) throw new Error('No video model configured for B-Roll.')
 
+  // Resolve the source image to a publicly hosted URL.
+  let dataUri = imageUrl
   if (isAssetRef(imageUrl)) {
     const asset = await getAsBase64(imageUrl)
     if (!asset) throw new Error('Asset not found')
-    base64 = asset.base64
-    mimeType = asset.mimeType
-  } else if (imageUrl.startsWith('data:')) {
-    const match = imageUrl.match(/^data:([^;]+);base64,(.+)$/)
-    if (!match) throw new Error('Invalid image data URL')
-    mimeType = match[1]
-    base64 = match[2]
-  } else {
-    const res = await fetch(imageUrl)
-    const blob = await res.blob()
-    mimeType = blob.type
-    const buffer = await blob.arrayBuffer()
-    base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)))
+    dataUri = `data:${asset.mimeType};base64,${asset.base64}`
   }
+  const firstFrameUrl = await ensureHostedUrl(apiKey, dataUri)
 
-  const videoBlob = await geminiVideoGenerate(apiKey, prompt, base64, mimeType, aspectRatio)
+  const urls = await kieVideoGenerate(apiKey, modelId, {
+    prompt,
+    first_frame_url: firstFrameUrl,
+    aspect_ratio: aspectRatio,
+    duration: 5,
+    resolution: '720p',
+  })
+
+  if (urls.length === 0) throw new Error('Video generation returned no result.')
+
+  const videoRes = await fetch(urls[0])
+  if (!videoRes.ok) throw new Error(`Failed to download generated video (${videoRes.status}).`)
+  const videoBlob = await videoRes.blob()
   return saveAsset(videoBlob)
 }
 
