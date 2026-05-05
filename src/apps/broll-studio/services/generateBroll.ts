@@ -1,8 +1,14 @@
 import type { BrollInput, BrollResult, Scene, PromptVariation, ReferenceImage } from '../types'
 import { useSettingsStore } from '../../../stores/settingsStore'
-import { geminiImageGenerate, geminiVideoGenerate } from '../../../utils/gemini'
-import { kieChatCompletions, type ChatMessage } from '../../../utils/kie'
-import { getModel } from '../../../utils/models'
+import { geminiVideoGenerate } from '../../../utils/gemini'
+import {
+  kieChatCompletions,
+  kieImageGenerate,
+  ensureHostedUrl,
+  downloadAsBase64,
+  type ChatMessage,
+} from '../../../utils/kie'
+import { getModel, getDefaultModel } from '../../../utils/models'
 import { saveBase64Asset, saveAsset, isAssetRef, getAsBase64 } from '../../../utils/assetStore'
 
 function getChatEndpoint(): { apiKey: string; endpoint: string } {
@@ -121,42 +127,49 @@ export async function generateBroll(input: BrollInput): Promise<BrollResult> {
 }
 
 /**
- * Parse a data URL into base64 + mimeType for API submission.
- */
-function parseDataUrl(dataUrl: string): { base64: string; mimeType: string } | null {
-  const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/)
-  if (!match) return null
-  return { mimeType: match[1], base64: match[2] }
-}
-
-/**
- * Generate an image from a B-Roll prompt using Nano Banana 2.
- * Optionally includes reference images (model/product) for visual consistency.
- * Reference image dataUrls can be asset IDs or data URLs.
+ * Generate an image from a B-Roll prompt via kie.ai.
+ * If reference images are provided, uses image-to-image (uploads each ref
+ * to kie's hosted storage to get a public URL). Otherwise text-to-image.
  */
 export async function generateImage(
   prompt: string,
   referenceImages?: ReferenceImage[],
   aspectRatio: string = '9:16',
 ): Promise<string> {
-  const apiKey = useSettingsStore.getState().getApiKey()
+  const apiKey = useSettingsStore.getState().getKieApiKey()
+  const hasRefs = !!referenceImages?.length
 
-  // Build reference image parts for multimodal input
-  const refParts: Array<{ base64: string; mimeType: string }> = []
-  if (referenceImages?.length) {
-    for (const ref of referenceImages) {
+  const mode = hasRefs ? 'image-to-image' : 'text-to-image'
+  const modelId = useSettingsStore.getState().getAppModel(`broll-studio:image:${mode}`)
+    ?? getDefaultModel('broll-studio', 'image', mode)?.id
+  if (!modelId) throw new Error(`No image model configured for B-Roll (${mode}).`)
+
+  // Convert each reference (asset ref or data URL) to a kie-hosted URL.
+  const inputUrls: string[] = []
+  if (hasRefs) {
+    for (const ref of referenceImages!) {
+      let dataUri = ref.dataUrl
       if (isAssetRef(ref.dataUrl)) {
         const asset = await getAsBase64(ref.dataUrl)
-        if (asset) refParts.push(asset)
-      } else {
-        const parsed = parseDataUrl(ref.dataUrl)
-        if (parsed) refParts.push(parsed)
+        if (!asset) continue
+        dataUri = `data:${asset.mimeType};base64,${asset.base64}`
       }
+      const hosted = await ensureHostedUrl(apiKey, dataUri)
+      inputUrls.push(hosted)
     }
   }
 
-  const result = await geminiImageGenerate(apiKey, prompt, aspectRatio, refParts.length > 0 ? refParts : undefined)
-  return saveBase64Asset(result.base64, result.mimeType)
+  const urls = await kieImageGenerate(apiKey, modelId, {
+    prompt,
+    aspect_ratio: aspectRatio as '16:9' | '9:16',
+    resolution: '1K',
+    ...(inputUrls.length > 0 ? { input_urls: inputUrls } : {}),
+  })
+
+  if (urls.length === 0) throw new Error('Image generation returned no result.')
+
+  const { base64, mimeType } = await downloadAsBase64(urls[0])
+  return saveBase64Asset(base64, mimeType)
 }
 
 /**
