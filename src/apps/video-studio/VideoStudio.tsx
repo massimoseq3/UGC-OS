@@ -4,7 +4,7 @@ import { useBankStore } from '../../stores/bankStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useAssetUrl } from '../../hooks/useAssetUrl'
 import ModelPicker from '../../components/ModelPicker'
-import { getDefaultModel } from '../../utils/models'
+import { getDefaultModel, estimateCredits, formatCredits } from '../../utils/models'
 import { fileToDataUri } from '../../utils/kie'
 import { generateVideo } from './services/generateVideo'
 import type { VideoGenResult, VideoMode } from './types'
@@ -209,7 +209,13 @@ export default function VideoStudio() {
             ) : (
               <>
                 <Film className="h-4 w-4" />
-                <span>Generate Video</span>
+                <span>
+                  Generate Video
+                  {(() => {
+                    const c = formatCredits(estimateCredits(selectedModelId ?? '', { durationSeconds: duration }))
+                    return c ? ` (${c})` : ''
+                  })()}
+                </span>
               </>
             )}
           </button>
