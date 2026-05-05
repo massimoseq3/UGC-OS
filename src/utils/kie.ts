@@ -294,9 +294,124 @@ export async function kieChat(
   input: Record<string, unknown>,
   opts: RunTaskOptions = {},
 ): Promise<TaskRecord> {
-  // Chat models on kie.ai vary — some return resultUrls (e.g. file outputs),
-  // others embed the response text in resultJson. Caller decides via parseResult.
+  // Used for chat models that go through the createTask/recordInfo pipeline
+  // (rare). Most chat models on kie.ai use the OpenAI-compatible chat
+  // completions endpoint instead — see `kieChatCompletions` below.
   return runTask(apiKey, modelId, input, opts)
+}
+
+// ── OpenAI-compatible chat completions ─────────────────────────
+//
+// kie.ai's chat models (Gemini 3 Flash, GPT-5.5, Claude Opus 4, etc.) are
+// served at per-model endpoints that mirror the OpenAI chat completions API:
+//   POST /<model-slug>/v1/chat/completions
+// The endpoint is sync — no taskId polling.
+
+export type ChatRole = 'system' | 'developer' | 'user' | 'assistant' | 'tool'
+
+export type ChatContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string } }
+
+export interface ChatMessage {
+  role: ChatRole
+  content: ChatContentPart[] | string
+}
+
+export interface ChatCompletionsOptions {
+  signal?: AbortSignal
+  reasoningEffort?: 'low' | 'high'
+  includeThoughts?: boolean
+  timeoutMs?: number
+}
+
+interface ChatCompletionsResponse {
+  choices?: Array<{
+    message?: { role: string; content: string }
+    finish_reason?: string
+  }>
+}
+
+export async function kieChatCompletions(
+  apiKey: string,
+  endpointPath: string,
+  messages: ChatMessage[],
+  opts: ChatCompletionsOptions = {},
+): Promise<string> {
+  const { signal, reasoningEffort = 'low', includeThoughts = false, timeoutMs = 120_000 } = opts
+
+  // kie.ai's chat completions default to streaming (SSE). We request streaming
+  // explicitly and accumulate deltas — this is the documented happy path.
+  const res = await fetchWithRetry(
+    `https://api.kie.ai${endpointPath}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+        Accept: 'text/event-stream',
+      },
+      body: JSON.stringify({
+        messages,
+        stream: true,
+        include_thoughts: includeThoughts,
+        reasoning_effort: reasoningEffort,
+      }),
+    },
+    { signal, timeoutMs },
+  )
+
+  // Read the body once as text; dispatch based on content-type / shape.
+  const raw = await res.text()
+  const contentType = res.headers.get('content-type') ?? ''
+  const looksLikeSSE = contentType.includes('text/event-stream') || raw.startsWith('data:') || raw.includes('\ndata:')
+
+  if (looksLikeSSE) {
+    const text = parseSSEContent(raw)
+    if (text.length > 0) return text
+    throw new Error(
+      `Chat model produced empty SSE stream. First 200 chars: ${raw.slice(0, 200)}`,
+    )
+  }
+
+  // Plain JSON response
+  let body: unknown
+  try {
+    body = JSON.parse(raw)
+  } catch {
+    throw new Error(`Chat model returned non-JSON response: ${raw.slice(0, 200)}`)
+  }
+  const text = (body as ChatCompletionsResponse).choices?.[0]?.message?.content
+  if (typeof text === 'string' && text.length > 0) return text
+
+  throw new Error(
+    `Empty response from chat model. Response shape: ${JSON.stringify(body).slice(0, 400)}`,
+  )
+}
+
+function parseSSEContent(raw: string): string {
+  let content = ''
+  for (const rawLine of raw.split('\n')) {
+    const line = rawLine.trim()
+    if (!line || !line.startsWith('data:')) continue
+    const data = line.slice(5).trim()
+    if (!data || data === '[DONE]') continue
+    try {
+      const parsed = JSON.parse(data) as {
+        choices?: Array<{
+          delta?: { content?: string }
+          message?: { content?: string }
+        }>
+      }
+      const delta = parsed.choices?.[0]?.delta?.content
+      const message = parsed.choices?.[0]?.message?.content
+      if (typeof delta === 'string') content += delta
+      else if (typeof message === 'string') content += message
+    } catch {
+      // skip non-JSON event payloads (comments, keepalives)
+    }
+  }
+  return content
 }
 
 export async function kieTTS(
@@ -314,16 +429,16 @@ export async function kieTTS(
 // Hits a lightweight account endpoint to verify the API key is valid.
 // Used by the SettingsModal "Test connection" button.
 
-export async function kieTestConnection(apiKey: string): Promise<boolean> {
+export async function kieTestConnection(apiKey: string): Promise<{ ok: true; credits: number } | { ok: false; error: string }> {
   try {
-    await authedFetch<unknown>(
+    const credits = await authedFetch<number>(
       apiKey,
-      '/common/getAccountCredits',
+      '/chat/credit',
       { method: 'GET' },
       { timeoutMs: 10_000 },
     )
-    return true
-  } catch {
-    return false
+    return { ok: true, credits }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Unknown error' }
   }
 }

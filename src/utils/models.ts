@@ -40,6 +40,9 @@ export interface ModelEntry {
   fetchVoicesAtRuntime?: boolean
   pricing?: Pricing
   defaultFor?: string[]
+  // Chat-only: OpenAI-compatible endpoint path on api.kie.ai.
+  // e.g. '/gemini-3-flash/v1/chat/completions'
+  chatEndpoint?: string
 }
 
 // Convention for default app ids: matches `AppConfig.id` in `src/utils/constants.ts`.
@@ -49,6 +52,8 @@ export interface ModelEntry {
 export const MODEL_REGISTRY: ModelEntry[] = [
   // ── Chat / Vision ─────────────────────────────────────────────
 
+  // Chat: Gemini 3 Flash is hard-coded for every text/vision call across the app.
+  // No model picker is exposed for chat — it adds friction without enough upside.
   {
     id: 'gemini-3-flash',
     displayName: 'Gemini 3 Flash',
@@ -57,20 +62,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     tags: ['recommended', 'fast', 'cheap'],
     pricing: { unit: 'per-1k-tokens', usd: 0.00015 },
     defaultFor: ['ad-anatomy', 'script-architect', 'image-dna', 'character-studio', 'broll-studio'],
-  },
-  {
-    id: 'gpt-5.5',
-    displayName: 'GPT-5.5',
-    provider: 'OpenAI',
-    task: 'chat',
-    tags: ['new'],
-  },
-  {
-    id: 'claude-opus-4',
-    displayName: 'Claude Opus 4',
-    provider: 'Anthropic',
-    task: 'chat',
-    tags: [],
+    chatEndpoint: '/gemini-3-flash/v1/chat/completions',
   },
 
   // ── Image generation ──────────────────────────────────────────
@@ -95,60 +87,44 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     supportsReferenceImages: true,
     pricing: { unit: 'per-image', usd: 0.04 },
   },
-  {
-    id: 'wan-2.7-image',
-    displayName: 'Wan 2.7 Image',
-    provider: 'Wan',
-    task: 'image',
-    modes: ['text-to-image', 'image-to-image'],
-    tags: ['new'],
-    supportsReferenceImages: true,
-  },
 
   // ── Video generation ──────────────────────────────────────────
+  // Seedance 2.0 uses one slug for both modes — caller toggles by passing
+  // first_frame_url (image-to-video) or omitting it (text-to-video).
 
   {
-    id: 'seedance-2-0-text-to-video',
+    id: 'bytedance/seedance-2',
     displayName: 'Seedance 2.0',
     provider: 'ByteDance',
     task: 'video',
-    modes: ['text-to-video'],
-    tags: ['recommended', 'new'],
-    pricing: { unit: 'per-second', usd: 0.10 },
-    defaultFor: ['video-studio'],
-  },
-  {
-    id: 'seedance-2-0-image-to-video',
-    displayName: 'Seedance 2.0 (Animate)',
-    provider: 'ByteDance',
-    task: 'video',
-    modes: ['image-to-video'],
-    tags: ['recommended', 'new'],
-    supportsReferenceImages: true,
-    pricing: { unit: 'per-second', usd: 0.10 },
-    defaultFor: ['broll-studio'],
-  },
-  {
-    id: 'wan-2.7-video-text-to-video',
-    displayName: 'Wan 2.7 Video',
-    provider: 'Wan',
-    task: 'video',
-    modes: ['text-to-video'],
-    tags: ['new'],
-  },
-  {
-    id: 'happy-horse-1-0-text-to-video',
-    displayName: 'HappyHorse 1.0',
-    provider: 'Alibaba',
-    task: 'video',
     modes: ['text-to-video', 'image-to-video'],
-    tags: [],
+    tags: ['recommended', 'new'],
     supportsReferenceImages: true,
+    pricing: { unit: 'per-second', usd: 0.10 },
+    defaultFor: ['broll-studio', 'video-studio'],
   },
 
   // ── Text-to-Speech ────────────────────────────────────────────
-  // Voice catalogs vary per engine. Confirmed slugs/voices to be added when we
-  // wire up Voice Studio in Phase 5.
+  // Voice Studio uses ElevenLabs Turbo 2.5 exclusively (no picker).
+  // Voice catalog is a curated subset — full list at https://docs.kie.ai/market/elevenlabs/text-to-speech-turbo-2-5
+
+  {
+    id: 'elevenlabs/text-to-speech-turbo-2-5',
+    displayName: 'ElevenLabs Turbo 2.5',
+    provider: 'ElevenLabs',
+    task: 'tts',
+    tags: ['recommended', 'fast'],
+    defaultFor: ['voice-studio'],
+    voices: [
+      { id: 'Rachel', label: 'Rachel — calm, warm female' },
+      { id: 'Aria', label: 'Aria — expressive female' },
+      { id: 'Roger', label: 'Roger — confident male' },
+      { id: 'Sarah', label: 'Sarah — soft female' },
+      { id: 'Laura', label: 'Laura — upbeat female' },
+      { id: 'Charlie', label: 'Charlie — natural male' },
+      { id: 'George', label: 'George — warm British male' },
+    ],
+  },
 ]
 
 // ── Helpers ─────────────────────────────────────────────────────

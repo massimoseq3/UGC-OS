@@ -1,20 +1,23 @@
 import type { GenerateScriptInput, GeneratedScript } from '../types'
 import { useSettingsStore } from '../../../stores/settingsStore'
-import { geminiTextGenerate } from '../../../utils/gemini'
+import { kieChatCompletions, type ChatMessage } from '../../../utils/kie'
+import { getModel } from '../../../utils/models'
 
 const SYSTEM_INSTRUCTION = `You are an elite UGC ad script writer with the specialized skill of "Structural Adaptation".
 
 Your task is taking a winning ad script and rewriting it for a completely new product while rigorously maintaining the original script's pacing, hook style, psychological triggers, and call-to-action placement.
 
 CRITICAL FORMATING RULES:
-1. ONLY return the spoken dialogue. 
+1. ONLY return the spoken dialogue.
 2. Do NOT include any stage directions, timestamps, headers, bracketed text, or visual cues.
 3. Do NOT use quotation marks around the text.
 4. Do NOT include any introductions or conclusions (e.g., "Here is the script:").
 5. Return plain text only. EACH SENTENCE MUST BE ON ITS OWN LINE (Single spaced sentence-by-sentence format).`
 
 export async function generateScript(input: GenerateScriptInput): Promise<GeneratedScript> {
-  const apiKey = useSettingsStore.getState().getApiKey()
+  const apiKey = useSettingsStore.getState().getKieApiKey()
+  const model = getModel('gemini-3-flash')
+  if (!model?.chatEndpoint) throw new Error('Chat model is not configured. Check src/utils/models.ts.')
 
   let prompt = ''
 
@@ -43,6 +46,11 @@ export async function generateScript(input: GenerateScriptInput): Promise<Genera
 
   prompt += `Generate the full script now.`
 
-  const scriptText = await geminiTextGenerate(apiKey, prompt, SYSTEM_INSTRUCTION)
+  const messages: ChatMessage[] = [
+    { role: 'system', content: [{ type: 'text', text: SYSTEM_INSTRUCTION }] },
+    { role: 'user', content: [{ type: 'text', text: prompt }] },
+  ]
+
+  const scriptText = await kieChatCompletions(apiKey, model.chatEndpoint, messages)
   return { scriptText }
 }
