@@ -68,14 +68,23 @@ export const MODEL_REGISTRY: ModelEntry[] = [
   // ── Image generation ──────────────────────────────────────────
 
   {
+    id: 'nano-banana-2',
+    displayName: 'Nano Banana 2',
+    provider: 'Google',
+    task: 'image',
+    modes: ['text-to-image', 'image-to-image', 'image-edit'],
+    tags: ['new'],
+    supportsReferenceImages: true,
+    pricing: { unit: 'per-image', usd: 0.04 },
+  },
+  {
     id: 'flux-2/pro-text-to-image',
     displayName: 'Flux 2 Pro',
     provider: 'Black Forest Labs',
     task: 'image',
     modes: ['text-to-image'],
-    tags: ['recommended'],
+    tags: [],
     pricing: { unit: 'per-image', usd: 0.05 },
-    defaultFor: ['character-studio'],
   },
   {
     id: 'seedream/5-lite-text-to-image',
@@ -101,9 +110,9 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     provider: 'OpenAI',
     task: 'image',
     modes: ['text-to-image'],
-    tags: [],
+    tags: ['recommended'],
     pricing: { unit: 'per-image', usd: 0.04 },
-    defaultFor: ['broll-studio'],
+    defaultFor: ['broll-studio', 'character-studio'],
   },
   {
     id: 'gpt-image-2-image-to-image',
@@ -228,6 +237,16 @@ export function buildImageInput(modelId: string, opts: ImageGenOptions): Record<
       aspect_ratio: ar,
       resolution: high ? '2K' : '1K',
       ...(opts.inputUrls?.length ? { input_urls: opts.inputUrls } : {}),
+    }
+  }
+  if (modelId === 'nano-banana-2') {
+    // Nano Banana 2 uses `image_input` (not `input_urls`) for refs.
+    return {
+      prompt: opts.prompt,
+      aspect_ratio: ar,
+      resolution: high ? '2K' : '1K',
+      output_format: 'jpg',
+      ...(opts.inputUrls?.length ? { image_input: opts.inputUrls } : {}),
     }
   }
   if (modelId === 'flux-2/pro-text-to-image') {

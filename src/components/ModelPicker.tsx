@@ -25,7 +25,9 @@ export default function ModelPicker({ appId, task, mode, value, onChange, label 
   const persistedKey = `${appId}:${task}${mode ? `:${mode}` : ''}`
 
   const [open, setOpen] = useState(false)
+  const [openUpward, setOpenUpward] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
 
   const models = listModels({ task, mode })
   const fallback = getDefaultModel(appId, task, mode)
@@ -61,8 +63,19 @@ export default function ModelPicker({ appId, task, mode, value, onChange, label 
         {label}
       </label>
       <button
+        ref={triggerRef}
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          if (!open && triggerRef.current) {
+            const rect = triggerRef.current.getBoundingClientRect()
+            const spaceBelow = window.innerHeight - rect.bottom
+            const spaceAbove = rect.top
+            // Dropdown is up to 320px tall (max-h-80). Flip up if there's
+            // not enough room below and more room above.
+            setOpenUpward(spaceBelow < 320 && spaceAbove > spaceBelow)
+          }
+          setOpen((v) => !v)
+        }}
         className="flex w-full items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-left text-sm text-zinc-200 transition-colors hover:bg-white/[0.06]"
       >
         <div className="flex min-w-0 items-center gap-2">
@@ -75,7 +88,11 @@ export default function ModelPicker({ appId, task, mode, value, onChange, label 
       </button>
 
       {open && (
-        <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-80 overflow-y-auto rounded-lg border border-white/10 bg-[#0A0A0A] py-1 shadow-2xl">
+        <div
+          className={`absolute left-0 right-0 z-50 max-h-80 overflow-y-auto rounded-lg border border-white/10 bg-[#0A0A0A] py-1 shadow-2xl ${
+            openUpward ? 'bottom-full mb-1' : 'top-full mt-1'
+          }`}
+        >
           {models.map((m) => (
             <ModelRow key={m.id} model={m} active={m.id === resolved} onClick={() => pick(m.id)} />
           ))}
