@@ -340,6 +340,8 @@ export async function kieChatCompletions(
 ): Promise<string> {
   const { signal, reasoningEffort = 'low', includeThoughts = false, timeoutMs = 120_000 } = opts
 
+  // kie.ai's chat completions default to streaming (SSE). We request streaming
+  // explicitly and accumulate deltas — this is the documented happy path.
   const res = await fetchWithRetry(
     `https://api.kie.ai${endpointPath}`,
     {
@@ -347,10 +349,11 @@ export async function kieChatCompletions(
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
+        Accept: 'text/event-stream',
       },
       body: JSON.stringify({
         messages,
-        stream: false,
+        stream: true,
         include_thoughts: includeThoughts,
         reasoning_effort: reasoningEffort,
       }),
@@ -358,12 +361,78 @@ export async function kieChatCompletions(
     { signal, timeoutMs },
   )
 
-  const body = (await res.json()) as ChatCompletionsResponse
-  const text = body.choices?.[0]?.message?.content
-  if (typeof text !== 'string' || text.length === 0) {
-    throw new Error('Empty response from chat model.')
+  const contentType = res.headers.get('content-type') ?? ''
+
+  // SSE / streaming path
+  if (contentType.includes('text/event-stream') || res.body) {
+    const text = await readSSEContent(res, signal)
+    if (text.length > 0) return text
+    // Fall through to JSON parse if SSE produced nothing — some servers
+    // return application/json even when stream:true was requested.
   }
-  return text
+
+  // Non-streaming JSON path
+  const raw = await res.text()
+  let body: unknown
+  try {
+    body = JSON.parse(raw)
+  } catch {
+    throw new Error(`Chat model returned non-JSON response: ${raw.slice(0, 200)}`)
+  }
+  const text = (body as ChatCompletionsResponse).choices?.[0]?.message?.content
+  if (typeof text === 'string' && text.length > 0) return text
+
+  throw new Error(
+    `Empty response from chat model. Response shape: ${JSON.stringify(body).slice(0, 400)}`,
+  )
+}
+
+async function readSSEContent(res: Response, signal?: AbortSignal): Promise<string> {
+  const reader = res.body?.getReader()
+  if (!reader) return ''
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let content = ''
+
+  try {
+    while (true) {
+      if (signal?.aborted) {
+        await reader.cancel().catch(() => {})
+        throw new DOMException('Aborted', 'AbortError')
+      }
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+
+      const lines = buffer.split('\n')
+      buffer = lines.pop() ?? ''
+
+      for (const rawLine of lines) {
+        const line = rawLine.trim()
+        if (!line || !line.startsWith('data:')) continue
+        const data = line.slice(5).trim()
+        if (data === '[DONE]') continue
+        try {
+          const parsed = JSON.parse(data) as {
+            choices?: Array<{
+              delta?: { content?: string }
+              message?: { content?: string }
+            }>
+          }
+          const delta = parsed.choices?.[0]?.delta?.content
+          const message = parsed.choices?.[0]?.message?.content
+          if (typeof delta === 'string') content += delta
+          else if (typeof message === 'string') content += message
+        } catch {
+          // skip non-JSON event payloads (comments, keepalives)
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock?.()
+  }
+
+  return content
 }
 
 export async function kieTTS(
