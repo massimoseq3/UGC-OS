@@ -247,11 +247,10 @@ export default function HistoryPanel({ items, onDelete }: HistoryPanelProps) {
     if (!saveLabel.trim()) return
     addVoice({
       label: saveLabel.trim(),
+      voiceId: item.voiceId,
       voiceName: item.voiceName,
       gender: item.gender,
-      styleInstructions: item.styleInstructions,
-      creativity: item.creativity,
-      ambience: item.ambience,
+      stability: item.stability,
       linkedModelId: '',
     })
     setSaveFormId(null)
@@ -295,7 +294,7 @@ export default function HistoryPanel({ items, onDelete }: HistoryPanelProps) {
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-medium text-zinc-300">{item.voiceName}</span>
                     <span className="rounded-md bg-white/5 px-1.5 py-0.5 text-[10px] text-zinc-600">
-                      {item.ambience}
+                      {item.stability === 0 ? 'Variable' : item.stability === 1 ? 'Stable' : 'Natural'}
                     </span>
                   </div>
                   <span className="text-[10px] tabular-nums text-zinc-700">

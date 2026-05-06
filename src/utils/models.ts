@@ -149,21 +149,15 @@ export const MODEL_REGISTRY: ModelEntry[] = [
   // Voice catalog is a curated subset — full list at https://docs.kie.ai/market/elevenlabs/text-to-speech-turbo-2-5
 
   {
-    id: 'elevenlabs/text-to-speech-turbo-2-5',
-    displayName: 'ElevenLabs Turbo 2.5',
+    id: 'elevenlabs/text-to-dialogue-v3',
+    displayName: 'ElevenLabs v3',
     provider: 'ElevenLabs',
     task: 'tts',
-    tags: ['recommended', 'fast'],
+    tags: ['recommended', 'new'],
     defaultFor: ['voice-studio'],
-    voices: [
-      { id: 'Rachel', label: 'Rachel — calm, warm female' },
-      { id: 'Aria', label: 'Aria — expressive female' },
-      { id: 'Roger', label: 'Roger — confident male' },
-      { id: 'Sarah', label: 'Sarah — soft female' },
-      { id: 'Laura', label: 'Laura — upbeat female' },
-      { id: 'Charlie', label: 'Charlie — natural male' },
-      { id: 'George', label: 'George — warm British male' },
-    ],
+    // Voice catalog lives in src/apps/voice-studio/types.ts — VOICES — to keep
+    // this registry focused on model metadata. Each voice in that list maps
+    // to an ElevenLabs voice_id that the v3 endpoint accepts directly.
   },
 ]
 

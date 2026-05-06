@@ -1,10 +1,9 @@
 import type { VoiceSettings, HistoryItem } from '../types'
 import { useSettingsStore } from '../../../stores/settingsStore'
-import { kieTTS } from '../../../utils/kie'
-import { getDefaultModel } from '../../../utils/models'
+import { runTask, parseResult } from '../../../utils/kie'
 import { saveAsset } from '../../../utils/assetStore'
 
-const TTS_MODEL_ID = 'elevenlabs/text-to-speech-turbo-2-5'
+const TTS_MODEL_ID = 'elevenlabs/text-to-dialogue-v3'
 
 async function probeAudioDuration(blob: Blob): Promise<number> {
   return new Promise((resolve) => {
@@ -29,18 +28,16 @@ export async function generateVoice(
   scriptText: string,
 ): Promise<HistoryItem> {
   const apiKey = useSettingsStore.getState().getKieApiKey()
-  const modelId =
-    useSettingsStore.getState().getAppModel('voice-studio:tts') ??
-    getDefaultModel('voice-studio', 'tts')?.id ??
-    TTS_MODEL_ID
 
-  const urls = await kieTTS(apiKey, modelId, {
-    text: scriptText,
-    voice: settings.voiceName,
-    // Map our 0–2 "creativity" slider to ElevenLabs `style` (0–1).
-    style: Math.min(1, Math.max(0, settings.creativity / 2)),
+  // ElevenLabs v3 dialogue body shape: a `dialogue` array of { text, voice }.
+  // For a single-speaker line we send one entry. `voice` accepts the voice
+  // ID directly (preset names also work but IDs are stabler across regions).
+  const record = await runTask(apiKey, TTS_MODEL_ID, {
+    dialogue: [{ text: scriptText, voice: settings.voiceId }],
+    stability: settings.stability,
   })
 
+  const urls = parseResult(record).resultUrls
   if (urls.length === 0) throw new Error('TTS returned no audio.')
 
   const res = await fetch(urls[0])
@@ -51,11 +48,10 @@ export async function generateVoice(
 
   return {
     id: crypto.randomUUID(),
+    voiceId: settings.voiceId,
     voiceName: settings.voiceName,
     gender: settings.gender,
-    ambience: settings.ambience,
-    creativity: settings.creativity,
-    styleInstructions: settings.styleInstructions,
+    stability: settings.stability,
     scriptText,
     scriptPreview: scriptText.slice(0, 80) + (scriptText.length > 80 ? '...' : ''),
     audioUrl: assetId,

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 import type { VoicePreset } from '../../stores/types'
+import { VOICES } from '../voice-studio/types'
 
 interface VoiceFormProps {
   item?: VoicePreset | null
@@ -8,30 +9,38 @@ interface VoiceFormProps {
   onCancel: () => void
 }
 
+const STABILITY_OPTIONS: Array<{ value: 0 | 0.5 | 1; label: string }> = [
+  { value: 0, label: 'Variable' },
+  { value: 0.5, label: 'Natural' },
+  { value: 1, label: 'Stable' },
+]
+
 export default function VoiceForm({ item, onSave, onCancel }: VoiceFormProps) {
   const [label, setLabel] = useState(item?.label ?? '')
-  const [voiceName, setVoiceName] = useState(item?.voiceName ?? '')
-  const [gender, setGender] = useState<VoicePreset['gender']>(item?.gender ?? 'Female')
-  const [styleInstructions, setStyleInstructions] = useState(item?.styleInstructions ?? '')
-  const [creativity, setCreativity] = useState(item?.creativity ?? 1.3)
-  const [ambience, setAmbience] = useState<VoicePreset['ambience']>(item?.ambience ?? 'Studio')
+  const [voiceId, setVoiceId] = useState(item?.voiceId ?? VOICES[0].id)
+  const [stability, setStability] = useState<0 | 0.5 | 1>(item?.stability ?? 0.5)
   const [linkedModelId] = useState(item?.linkedModelId ?? '')
 
   useEffect(() => {
     if (item) {
       setLabel(item.label)
-      setVoiceName(item.voiceName)
-      setGender(item.gender)
-      setStyleInstructions(item.styleInstructions)
-      setCreativity(item.creativity)
-      setAmbience(item.ambience)
+      setVoiceId(item.voiceId)
+      setStability(item.stability)
     }
   }, [item])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!label.trim() || !voiceName.trim() || !styleInstructions.trim()) return
-    onSave({ label, voiceName, gender, styleInstructions, creativity, ambience, linkedModelId })
+    const voice = VOICES.find((v) => v.id === voiceId)
+    if (!label.trim() || !voice) return
+    onSave({
+      label,
+      voiceId,
+      voiceName: voice.name,
+      gender: voice.gender,
+      stability,
+      linkedModelId,
+    })
   }
 
   return (
@@ -56,76 +65,35 @@ export default function VoiceForm({ item, onSave, onCancel }: VoiceFormProps) {
       </label>
 
       <label className="flex flex-col gap-1">
-        <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-500">Voice Name *</span>
-        <input
-          value={voiceName}
-          onChange={(e) => setVoiceName(e.target.value)}
-          placeholder='e.g. "Leda"'
-          className="rounded-lg border border-white/10 bg-transparent px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-white/20"
-        />
-      </label>
-
-      <label className="flex flex-col gap-1">
-        <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-500">Gender *</span>
-        <div className="flex gap-2">
-          {(['Female', 'Male'] as const).map((g) => (
-            <button
-              key={g}
-              type="button"
-              onClick={() => setGender(g)}
-              className={`rounded-lg border px-4 py-1.5 text-sm transition-colors ${
-                gender === g
-                  ? 'border-white/20 bg-white/10 text-zinc-200'
-                  : 'border-white/5 text-zinc-500 hover:text-zinc-300'
-              }`}
-            >
-              {g}
-            </button>
+        <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-500">Voice *</span>
+        <select
+          value={voiceId}
+          onChange={(e) => setVoiceId(e.target.value)}
+          className="rounded-lg border border-white/10 bg-[#0A0A0A] px-3 py-2 text-sm text-zinc-200 outline-none focus:border-white/20"
+        >
+          {VOICES.map((v) => (
+            <option key={v.id} value={v.id}>
+              {v.name} · {v.gender} · {v.accent} · {v.style}
+            </option>
           ))}
-        </div>
+        </select>
       </label>
 
       <label className="flex flex-col gap-1">
-        <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-500">Style Instructions *</span>
-        <textarea
-          value={styleInstructions}
-          onChange={(e) => setStyleInstructions(e.target.value)}
-          rows={3}
-          placeholder="Conversational, like talking to a friend"
-          className="rounded-lg border border-white/10 bg-transparent px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-white/20 resize-none"
-        />
-      </label>
-
-      <label className="flex flex-col gap-1">
-        <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-500">
-          Creativity ({creativity.toFixed(1)})
-        </span>
-        <input
-          type="range"
-          min={0}
-          max={2}
-          step={0.1}
-          value={creativity}
-          onChange={(e) => setCreativity(parseFloat(e.target.value))}
-          className="accent-zinc-400"
-        />
-      </label>
-
-      <label className="flex flex-col gap-1">
-        <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-500">Ambience *</span>
+        <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-500">Stability *</span>
         <div className="flex gap-2">
-          {(['Studio', 'Small Room'] as const).map((a) => (
+          {STABILITY_OPTIONS.map((opt) => (
             <button
-              key={a}
+              key={opt.value}
               type="button"
-              onClick={() => setAmbience(a)}
-              className={`rounded-lg border px-4 py-1.5 text-sm transition-colors ${
-                ambience === a
+              onClick={() => setStability(opt.value)}
+              className={`flex-1 rounded-lg border px-3 py-1.5 text-sm transition-colors ${
+                stability === opt.value
                   ? 'border-white/20 bg-white/10 text-zinc-200'
                   : 'border-white/5 text-zinc-500 hover:text-zinc-300'
               }`}
             >
-              {a}
+              {opt.label}
             </button>
           ))}
         </div>

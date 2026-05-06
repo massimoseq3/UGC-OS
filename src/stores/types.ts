@@ -34,11 +34,10 @@ export interface Script {
 export interface VoicePreset {
   id: string
   label: string
+  voiceId: string
   voiceName: string
   gender: 'Female' | 'Male'
-  styleInstructions: string
-  creativity: number
-  ambience: 'Studio' | 'Small Room'
+  stability: 0 | 0.5 | 1
   linkedModelId: string
   createdAt: number
 }
@@ -63,11 +62,10 @@ export interface BRoll {
 
 export interface VoiceHistoryItem {
   id: string
+  voiceId: string
   voiceName: string
   gender: 'Female' | 'Male'
-  ambience: 'Studio' | 'Small Room'
-  creativity: number
-  styleInstructions: string
+  stability: 0 | 0.5 | 1
   scriptText: string
   scriptPreview: string
   audioUrl: string
