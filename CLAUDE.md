@@ -2,217 +2,232 @@
 
 ## Project Identity
 
-You are building **UGC Lab** — a browser-based YouTube-style workspace that unifies seven AI UGC ad production tools (Character Studio, Image DNA, Ad Anatomy, Script Architect, Voice Studio, B-Roll Studio, Video Studio) into a single environment with shared data banks. All AI calls go through **kie.ai** as a unified API gateway: one user-supplied API key gives access to every model the apps need (chat, vision, image gen, video gen, TTS).
+You are building **UGC Lab** — a browser-based YouTube-style workspace that unifies seven AI tools for UGC ad production into a single environment with shared data banks. Every AI call goes through **kie.ai** as a unified API gateway: one user-supplied Bearer key gives access to every model the app uses (chat, vision, image gen, video gen, TTS).
+
+App display names (action-style):
+
+| Sidebar entry | Folder name (stable, do not rename) | Job |
+|---|---|---|
+| Finder | `finder/` | Banks browser |
+| Generate Characters | `character-studio/` | Form → portrait image |
+| Extract Visual DNA | `image-dna/` | Image → JSON of physical / style / scene attributes |
+| Analyze Ads | `ad-anatomy/` | Ad image or video frame → scorecard + transcript + visual playbook |
+| Generate Scripts | `script-architect/` | Winning ad + product → new script |
+| Generate Voiceovers | `voice-studio/` | Script → audio (ElevenLabs v3) |
+| Generate B-Roll | `broll-studio/` | Script → scenes → still images → animated frames |
+| Generate Videos | `video-studio/` | Prompt + optional reference frames → standalone video |
+
+Folder names and the `id` strings in `src/utils/constants.ts` are stable on purpose — they're used in localStorage keys for per-app model selections.
 
 ## Role
 
-Act as a senior frontend engineer and product architect. Do not blindly follow instructions — if something is technically flawed, will cause bugs downstream, or contradicts earlier decisions, push back and explain why. Suggest better approaches when you see them.
+Senior frontend engineer + product architect. Push back when something's flawed. Ask for context (kie doc URLs, exact error text) before guessing. Prefer the boring, debuggable solution.
 
 ## Core Rules
 
-### Code Philosophy
-- Write simple, readable code. Prefer obvious solutions over clever ones.
-- Keep components small and focused. One component, one job.
-- Use clear naming. `BankPicker` not `SlidingSelectionPanel`. `useProductBank` not `useBankDataManager`.
-- No premature optimization. Make it work, make it right, then make it fast — in that order.
-- Comments only where the "why" isn't obvious from the code.
+### Code philosophy
+- Simple > clever. Obvious > terse.
+- Components small, single-purpose. Names say what they do.
+- No premature optimisation.
+- Comments only for *why* the code looks the way it does, not *what* it does.
 
-### Architecture Rules
-- **Modular by default.** Each app is a self-contained module. Working on B-Roll Studio Pro should never require understanding Voice Studio Pro internals.
-- **Shared state is sacred.** The banks (Products, Models, Scripts, Voices, B-Rolls) are the shared data layer. Everything else is local to each app.
-- **No prop drilling.** Use React Context or Zustand for shared state. Props are fine within a single app's component tree.
-- **File structure matches mental model.** If a component belongs to Script Architect Pro, it lives in `src/apps/script-architect/`. If it's shared (like BankPicker), it lives in `src/components/`.
+### Architecture
+- **Self-contained apps.** Each app under `src/apps/<name>/` owns its types, components, and service. Cross-app communication goes through the bank store (persistent state) or the inter-app payload (one-shot handoffs).
+- **Shared state** = banks (Products, Models, Scripts, Voices, B-Rolls, voiceHistory) + settings + active app. Persisted to localStorage. Asset blobs (audio, image, video) live in IndexedDB via `assetStore`, not localStorage.
+- **No prop drilling.** Zustand stores for global state. Local React state for ephemeral UI.
+- **Model registry is single source of truth.** Add or change a model only by editing `src/utils/models.ts`. Don't sprinkle slugs through service files.
 
-### Styling Rules
-- Tailwind CSS only. No separate CSS files, no CSS modules, no styled-components.
-- Dark-first design. The app is dark mode by default. Near-black backgrounds (#050505 to #0A0A0A).
-- Match the existing aesthetic: zinc color scale for text, white at 5-10% opacity for borders, backdrop-blur for glass effects, tracking-tight on most text.
-- No arbitrary color values without reason. Use the Tailwind zinc/gray scale.
-- Transitions should be 200-300ms ease-out for panels and 150ms for hover states.
+### Styling
+- Tailwind only. No CSS modules, no styled-components.
+- Dark-first. Backgrounds `#050505`–`#0A0A0A`. Borders `white/5`–`white/10`. Glass via `backdrop-blur-xl`.
+- Tracking-tight on most text. Transitions 200–300 ms ease-out for panels, 150 ms for hover.
+- Tags use `TAG_STYLES` from `models.ts` (Recommended green / New fuchsia / Fast sky / Cheap zinc).
 
-### State Management
-- Banks persist to localStorage. Load on app start, save on every mutation.
-- App-specific state (form inputs, generated outputs) lives in React state or context — lost on refresh is fine for the prototype.
-- The "Send to" mechanism between apps uses a shared `interAppPayload` in global state.
-
-### When Building New Features
-1. Read the spec section for that feature first.
-2. Check what shared components already exist before creating new ones.
-3. Build the data layer (types, state, persistence) before the UI.
-4. Test the component in isolation before integrating.
-
-### When Debugging
-- Read the error message fully before acting.
-- Check if the issue is in shared state (banks, inter-app) or local state (single app).
-- Don't patch symptoms. Find the root cause.
-- If a fix requires changing shared components, verify it doesn't break other apps.
+### Errors
+- Surface raw kie.ai response shape on failures. Don't wrap them in friendly text — the user has explicitly asked to see the underlying error.
+- The chat completions parser falls back to JSON parsing if SSE produces nothing, then surfaces the body's first 400 chars in the thrown error.
+- The kie envelope can return `{ code: 5xx, msg: "...maintained..." }` inside an HTTP 200 — common during kie's maintenance windows. Not a code bug.
 
 ## Tech Stack
 
-- **Framework:** React 18+ with TypeScript
-- **Styling:** Tailwind CSS
-- **State:** Zustand (preferred) or React Context for global state
-- **Build:** Vite
-- **No backend for prototype.** localStorage for persistence. All AI calls go through kie.ai from the client using the user's Bearer token.
+- React 18 + TypeScript
+- Vite (`npm run dev` → http://localhost:5173)
+- Tailwind CSS 4
+- Zustand for global state
+- IndexedDB (`assetStore.ts`) for blobs
+- localStorage for everything else (bank metadata, settings, picker selections, sidebar collapsed state)
+- No backend. Bearer token sent directly from the client to kie.ai.
 
-### kie.ai client (src/utils/kie.ts)
+## kie.ai client (`src/utils/kie.ts`)
 
-All AI calls use the unified `kie.ts` client. Two transport patterns:
+Three transport patterns — pick the right one per task type.
 
-1. **Async task model** for image / video / TTS:
-   - `POST https://api.kie.ai/api/v1/jobs/createTask` with `{ model, input }` → `{ data: { taskId } }`
-   - Poll `GET /api/v1/jobs/recordInfo?taskId=…` until `state === 'success'`. Result URLs are in `resultJson.resultUrls`. Outputs are hosted with **3-day retention**, so we always download and persist to `assetStore` before returning.
+### 1. Async task (image, video createTask flow, TTS)
+```
+POST  https://api.kie.ai/api/v1/jobs/createTask    { model, input } → { data: { taskId } }
+GET   https://api.kie.ai/api/v1/jobs/recordInfo?taskId=…           → { data: { state, resultJson, ... } }
+```
+Helpers: `runTask`, `kieImageGenerate`, `kieVideoGenerate`, `kieTTS`, `parseResult`. Result URLs land in `resultJson.resultUrls` (string-encoded JSON inside the envelope). Outputs auto-expire in 3 days; always `downloadAsBase64` + `saveAsset` so user banks survive.
 
-2. **OpenAI-compatible chat completions** for chat / vision:
-   - `POST https://api.kie.ai/<model-slug>/v1/chat/completions` (e.g. `/gemini-3-flash/v1/chat/completions`)
-   - Streaming SSE response (`stream: true`); we accumulate `delta.content`. Vision via `image_url` content blocks (data URIs work).
+### 2. OpenAI-compatible chat completions (text, vision)
+```
+POST  https://api.kie.ai/<model-slug>/v1/chat/completions
+```
+Streaming SSE by default (`stream: true`). The helper accumulates `delta.content`, falls back to JSON parse if the server returned a single envelope. Vision via `image_url` content blocks; data URIs work — no upload needed.
 
-### Models in use
+Helper: `kieChatCompletions(apiKey, endpointPath, messages, opts)`. The endpoint path comes from `getChatEndpointPath()` in `models.ts` so callers don't hardcode slugs.
 
-| Capability | Default model (slug) | Used By |
-|------------|----------------------|---------|
-| Text & vision | Gemini 3 Flash (`gemini-3-flash`) | Ad Anatomy, Script Architect, Image DNA, Character Studio, B-Roll text decomp |
-| Image (text→image) | GPT Image 2 (`gpt-image-2-text-to-image`) | Character Studio, B-Roll (no refs) |
-| Image (image→image) | GPT Image 2 Edit (`gpt-image-2-image-to-image`) | B-Roll (with reference images) |
-| Video | Seedance 2.0 (`bytedance/seedance-2`) | B-Roll animate, Video Studio (both modes) |
-| Text-to-Speech | ElevenLabs Turbo 2.5 (`elevenlabs/text-to-speech-turbo-2-5`) | Voice Studio |
+### 3. Veo custom endpoint
+Veo 3.1 family doesn't use `/jobs/createTask`. It hits:
+```
+POST  https://api.kie.ai/api/v1/veo/generate
+GET   https://api.kie.ai/api/v1/veo/record-info?taskId=…
+```
+Helper: `kieVeoGenerate(apiKey, body, opts)`. Variant (`veo3` / `veo3_fast` / `veo3_lite`) is selected via the `model` field in the body, not the URL.
 
-The model registry lives at `src/utils/models.ts`. Each entry tracks task type, supported modes, tags (Recommended / New / Fast / Cheap), pricing, and per-app defaults. **No model picker is exposed for chat or TTS** — they're hard-coded — but image and video apps have a `ModelPicker` so users can swap providers when more are added.
+### File upload (when models need URLs, not base64)
+Image-to-image and image/frame-conditioned video models accept *public URLs only*. `ensureHostedUrl(apiKey, source)` uploads any `data:` URI via `POST /api/file-base64-upload` and returns the `downloadUrl`. http(s) URLs pass through. Hosted files expire after 3 days.
 
-### Reference images and base64 → public URL
+### Connection test
+`kieTestConnection(apiKey)` hits `GET /api/v1/chat/credit` and returns the remaining credit balance. Used by Settings.
 
-Image and video models on kie.ai expect publicly accessible URLs in fields like `input_urls` and `first_frame_url` — they don't accept base64. The `ensureHostedUrl` helper in `kie.ts` uploads any data URI to `POST /api/file-base64-upload` and returns the `downloadUrl`. Pure http(s) URLs pass through. Files in kie's hosted storage are deleted after 3 days.
+## Models in use (defaults)
 
-## File Structure
+The full list lives in `src/utils/models.ts`. Defaults below; users can swap image and video models from the picker.
+
+| Capability | Default | Notes |
+|---|---|---|
+| Text + vision | Gemini 3 Flash (`gemini-3-flash`) | Hard-coded across every text-using app — no picker |
+| Image (text→image) | GPT Image 2 (`gpt-image-2-text-to-image`) | Picker also exposes Nano Banana 2, Flux 2 Pro, SeeDream 5 Lite, Imagen 4 |
+| Image (image→image) | GPT Image 2 Edit (`gpt-image-2-image-to-image`) | Used by B-Roll when reference images are present |
+| Video (4 modes) | Seedance 2.0 (`bytedance/seedance-2`) | Picker exposes Seedance 2.0 Fast, Kling 3.0, Veo 3.1 Fast/Lite/Quality |
+| TTS | ElevenLabs v3 (`elevenlabs/text-to-dialogue-v3`) | Hard-coded — no picker; voice catalog filterable by gender + accent |
+
+### Pricing model
+
+Each `ModelEntry` declares `pricing.credits` (flat per-unit) plus an optional `priceFor(opts)` callback for models with multi-dimensional pricing (Kling: resolution × audio; Veo Quality: 4K is 2× others). `estimateCredits(modelId, params)` and `formatCredits` are the only public APIs callers need.
+
+USD values are **not** stored — kie.ai is credit-based and we don't show dollars anywhere.
+
+### Video modes
+
+```ts
+type VideoMode =
+  | 'text-to-video'
+  | 'image-to-video'        // single first frame
+  | 'frames-to-video'       // start frame + end frame
+  | 'reference-to-video'    // up to 9 reference images (Seedance) / 3 (Veo Fast)
+```
+Each video model declares `videoModes: VideoMode[]` + `videoConstraints` (allowed durations, resolutions, aspect ratios, audio support). The Video Studio UI re-shapes its input area per mode and snaps constraint controls to allowed values when the model changes.
+
+### Per-model body shaping
+
+`buildImageInput(modelId, opts)` and `buildVideoInput(modelId, opts)` in `models.ts` produce the correct request body for each model. Callers pass a uniform options object; the builders handle the field-name differences (Seedance `first_frame_url` vs Kling `image_urls[]` vs Veo `imageUrls`).
+
+## File structure
 
 ```
 src/
-├── App.tsx                     # OS shell (desktop, menu bar, dock, app router)
-├── main.tsx                    # Entry point
-├── index.css                   # Tailwind imports + custom scrollbar styles
+├── App.tsx                        # Shell: menu bar + sidebar + active app
+├── main.tsx                       # Entry point
+├── index.css                      # Tailwind + scrollbar styles
 │
-├── components/                 # Shared UI components
-│   ├── Dock.tsx
-│   ├── MenuBar.tsx
-│   ├── Desktop.tsx
-│   ├── DesktopFolder.tsx
-│   ├── BankPicker.tsx          # Universal sliding panel for selecting bank items
-│   ├── BankItemCard.tsx        # Reusable card for displaying bank items
-│   ├── SettingsModal.tsx       # API key configuration modal
-│   └── Toast.tsx               # Confirmation toasts
+├── components/                    # Shared UI
+│   ├── MenuBar.tsx                # Top bar: hamburger + UGC Lab wordmark
+│   ├── Sidebar.tsx                # Left nav (collapsible). Replaced the old Dock.
+│   ├── BankPicker.tsx             # Universal sliding panel for selecting bank items
+│   ├── BankItemCard.tsx           # Reusable card for displaying bank items
+│   ├── ModelPicker.tsx            # Dropdown with credit estimate inline
+│   ├── SettingsModal.tsx          # kie.ai API key + Test connection
+│   ├── GenerationProgress.tsx     # Loading bar with percent (no seconds)
+│   └── Toast.tsx                  # Confirmation toasts
 │
-├── stores/                     # Global state (Zustand)
-│   ├── bankStore.ts            # All five banks + CRUD operations
-│   ├── appStore.ts             # Active app, running apps, inter-app payload
-│   ├── settingsStore.ts        # API key storage (persisted to localStorage)
-│   └── types.ts                # Shared type definitions for banks
+├── stores/
+│   ├── bankStore.ts               # Banks + voiceHistory (one-shot v3 voice migration on load)
+│   ├── appStore.ts                # Active app, running apps, inter-app payload, sidebar collapsed
+│   ├── settingsStore.ts           # kieApiKey + perAppModel selections
+│   └── types.ts                   # Bank type definitions
 │
-├── apps/                       # Each app is self-contained
-│   ├── finder/
-│   │   ├── Finder.tsx
-│   │   ├── BankList.tsx
-│   │   ├── ProductForm.tsx
-│   │   ├── ModelForm.tsx
-│   │   ├── ScriptForm.tsx
-│   │   ├── VoiceForm.tsx
-│   │   └── BRollForm.tsx       # B-Roll detail/edit form with Veo 3.1 animation
-│   │
-│   ├── character-studio/       # App 1: UGC Character Studio
-│   │   ├── CharacterStudio.tsx
-│   │   ├── components/
-│   │   │   ├── ChipField.tsx
-│   │   │   ├── ControlsPanel.tsx
-│   │   │   └── OutputPanel.tsx
-│   │   ├── services/
-│   │   │   └── generateCharacter.ts
-│   │   └── types.ts
-│   │
-│   ├── image-dna/              # App 2: Image DNA Extractor
-│   │   ├── ImageDna.tsx
-│   │   ├── components/
-│   │   │   ├── OutputPanel.tsx
-│   │   │   └── UploadPanel.tsx
-│   │   ├── services/
-│   │   │   └── analyzeImage.ts
-│   │   └── types.ts
-│   │
-│   ├── ad-anatomy/             # App 3: Ad Anatomy Pro
-│   │   ├── AdAnatomy.tsx
-│   │   ├── components/
-│   │   │   ├── ResultsView.tsx
-│   │   │   └── UploadView.tsx
-│   │   ├── services/
-│   │   │   └── analyzeAd.ts
-│   │   └── types.ts
-│   │
-│   ├── script-architect/       # App 4: Script Architect Pro
-│   │   ├── ScriptArchitect.tsx
-│   │   ├── components/
-│   │   │   ├── InputPanel.tsx
-│   │   │   └── OutputPanel.tsx
-│   │   ├── services/
-│   │   │   └── generateScript.ts
-│   │   └── types.ts
-│   │
-│   ├── voice-studio/           # App 5: Voice Studio Pro
-│   │   ├── VoiceStudio.tsx
-│   │   ├── components/
-│   │   │   ├── ControlsSidebar.tsx
-│   │   │   ├── EditorPanel.tsx
-│   │   │   └── HistoryPanel.tsx
-│   │   ├── services/
-│   │   │   └── generateVoice.ts
-│   │   └── types.ts
-│   │
-│   ├── broll-studio/           # App 6: B-Roll Studio Pro
-│   │   ├── BrollStudio.tsx
-│   │   ├── components/
-│   │   │   ├── InputPanel.tsx
-│   │   │   └── OutputPanel.tsx
-│   │   ├── services/
-│   │   │   └── generateBroll.ts  # Scene gen (Gemini 3 Flash), image gen + animate (kie.ai)
-│   │   └── types.ts
-│   │
-│   └── video-studio/           # App 7: Video Studio Pro
-│       ├── VideoStudio.tsx
-│       ├── services/
-│       │   └── generateVideo.ts  # Text-to-video / image-to-video via kie.ai
-│       └── types.ts
+├── apps/
+│   ├── finder/                    # Bank browser + edit forms
+│   ├── character-studio/          # → "Generate Characters"
+│   ├── image-dna/                 # → "Extract Visual DNA"
+│   ├── ad-anatomy/                # → "Analyze Ads"
+│   ├── script-architect/          # → "Generate Scripts"
+│   ├── voice-studio/              # → "Generate Voiceovers" (ElevenLabs v3)
+│   ├── broll-studio/              # → "Generate B-Roll" (chains text → image → animate)
+│   └── video-studio/              # → "Generate Videos" (4 modes, 6 models)
 │
-└── utils/                      # Shared utilities
-    ├── localStorage.ts         # Bank persistence helpers
-    ├── kie.ts                  # Unified kie.ai client (chat, vision, image, video, TTS, file upload)
-    ├── models.ts               # Model registry: per-task models, defaults, pricing, tags
-    ├── assetStore.ts           # IndexedDB-backed asset persistence (audio/image/video blobs)
-    └── constants.ts            # App registry, sidebar config, bank config
+├── hooks/
+│   └── useAssetUrl.ts             # Resolves asset:// refs to blob URLs for <img> / <video>
+│
+└── utils/
+    ├── kie.ts                     # Unified kie.ai client (3 transports + file upload)
+    ├── models.ts                  # Model registry, ModelEntry, buildImageInput, buildVideoInput, estimateCredits
+    ├── assetStore.ts              # IndexedDB-backed blob persistence
+    ├── localStorage.ts            # Bank persistence helpers
+    └── constants.ts               # APP_REGISTRY, BANK_CONFIG (icons, accents, display names)
 ```
+
+## Banks
+
+Persisted to `localStorage` under `ai-ugc-lab-banks`. Asset blobs (images, audio, video) are stored in IndexedDB via `assetStore`; the bank stores `asset://<id>` refs. `useAssetUrl(ref)` turns a ref into a blob URL.
+
+| Bank | Type (in `stores/types.ts`) | Source |
+|---|---|---|
+| `products` | `Product` | Manually added in Finder |
+| `models` | `Model` | Saved from Character Studio output |
+| `scripts` | `Script` | Saved from Script Architect output |
+| `voices` | `VoicePreset` | Saved from Voice Studio history |
+| `brolls` | `BRoll` | Saved from B-Roll Studio + Video Studio |
+| `voiceHistory` | `VoiceHistoryItem` | Auto-pushed on every Voice Studio generation |
+
+`VoicePreset` and `VoiceHistoryItem` migrated to the v3 shape (`voiceId`, `stability`). Legacy fields (`creativity`, `ambience`, `styleInstructions`) get stripped on load — see `migrateVoiceShape` in `bankStore.ts`.
+
+## Inter-app payloads
+
+```ts
+// Sender:
+sendToApp({ targetApp: 'video-studio', targetField: 'firstFrame', data: <dataUri> })
+
+// Consumer (in target app's component):
+useEffect(() => {
+  if (activeApp !== 'video-studio') return
+  if (!interAppPayload || interAppPayload.targetApp !== 'video-studio') return
+  if (interAppPayload.targetField === 'firstFrame') { ... }
+  consumePayload()
+}, [interAppPayload, activeApp, consumePayload])
+```
+
+Wired today:
+- Ad Anatomy → Script Architect (winning transcript / reconstruction prompt)
+- Ad Anatomy → Finder (productId)
+- Script Architect → Voice Studio (script text)
+- B-Roll Studio → Video Studio (still as first frame)
+
+## Build phases (history)
+
+1. OS shell + banks (initial commit, macOS-style)
+2. Character Studio + Image DNA
+3. Ad Anatomy + Script Architect
+4. Voice Studio + B-Roll Studio
+5. Polish: transitions, empty states, error handling
+6. **Sidebar redesign** — YouTube-style left nav replaces bottom dock; bigger menu bar.
+7. **kie.ai migration** — every app onto kie.ai. Added `kie.ts`, `models.ts`, `ModelPicker`, Video Studio Pro. Dropped `gemini.ts`. ElevenLabs Turbo 2.5 became TTS.
+8. **Polish pass** — Loading bar shows percent; action-style app names; eye icon for Analyze Ads; Settings simplified; Voice Studio rebuilt on ElevenLabs v3 with 20-voice catalog + filters; Video Studio expanded to 6 models with per-model constraints, 4 modes, multi-dim pricing for Kling, Veo's custom endpoint; B-Roll → Video Studio handoff.
+9. **Cleanup pass** — Drop `usd` field, split `Mode` into `ImageMode` + `VideoMode`, factor `getChatEndpointPath` into `models.ts`, delete dead `Desktop.tsx` + `DesktopFolder.tsx`, voice shape localStorage migration.
+
+## When making changes (going forward)
+
+After any non-trivial change to behaviour, file structure, or model lineup:
+
+1. Update this file (`CLAUDE.md`) so future-Claude has accurate context.
+2. Update `AI_UGC_Lab_OS_Spec.md` when feature-level intent changes (not for every refactor).
+3. Update the model table above if you register or remove a model.
+4. Add a one-line entry to **Build phases** when shipping a coherent body of work.
+
+The user has explicitly asked for these docs to stay in sync with reality.
 
 ## Documentation
 
-The full product specification is in `AI_UGC_Lab_OS_Spec.md` at the project root. Read the relevant section before building any feature. The spec covers:
-
-- Section 2: OS Shell (desktop, menu bar, dock)
-- Section 3: Shared Data Banks (schemas and behavior)
-- Section 4: Bank Picker Component
-- Section 5: UGC Character Studio
-- Section 6: Image DNA Extractor
-- Section 7: Ad Anatomy Pro
-- Section 8: Script Architect Pro
-- Section 9: Voice Studio Pro
-- Section 10: B-Roll Studio Pro
-- Section 11: Inter-app data flow map
-- Section 12: Design system and aesthetic
-- Section 13: Technical architecture
-- Section 14: Build phases
-
-## Build Order
-
-Always build in this order. Do not skip ahead.
-
-1. **Phase 1:** OS Shell + Banks (foundation everything depends on)
-2. **Phase 2:** UGC Character Studio + Image DNA Extractor (character pipeline)
-3. **Phase 3:** Ad Anatomy Pro + Script Architect Pro (research & script pipeline)
-4. **Phase 4:** Voice Studio Pro + B-Roll Studio Pro (production pipeline)
-5. **Phase 5:** Polish, transitions, empty states, error handling
-6. **Phase 6 (shipped):** YouTube-style sidebar nav (replaces bottom dock); bigger menu bar with prominent UGC Lab wordmark and hamburger toggle.
-7. **Phase 7 (shipped):** kie.ai migration. Replaced direct Gemini API with kie.ai unified gateway. Added `src/utils/kie.ts`, `src/utils/models.ts`, `ModelPicker`, `CostPreview`, plus the new Video Studio Pro app. Settings flow now requires only a kie.ai API key. ElevenLabs Turbo 2.5 became the dedicated TTS backend.
+The product spec lives in `AI_UGC_Lab_OS_Spec.md` at the project root.

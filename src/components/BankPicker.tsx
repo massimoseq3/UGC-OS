@@ -23,6 +23,7 @@ function getItemName(bankType: BankType, item: BankItem): string {
     case 'models': return (item as Model).name
     case 'scripts': return (item as Script).title
     case 'voices': return (item as VoicePreset).label
+    case 'brolls': return (item as { prompt?: string }).prompt ?? 'B-Roll'
   }
 }
 
@@ -103,7 +104,7 @@ export default function BankPicker({ bankType, isOpen, onSelect, onClose }: Bank
       addScript({ title: name, scriptText: '', linkedProductId: '', source: 'manual' })
       newItem = useBankStore.getState().scripts[useBankStore.getState().scripts.length - 1]
     } else {
-      addVoice({ label: name, voiceName: '', gender: 'Female', styleInstructions: '', creativity: 1.3, ambience: 'Studio', linkedModelId: '' })
+      addVoice({ label: name, voiceId: '', voiceName: '', gender: 'Female', stability: 0.5, linkedModelId: '' })
       newItem = useBankStore.getState().voices[useBankStore.getState().voices.length - 1]
     }
 

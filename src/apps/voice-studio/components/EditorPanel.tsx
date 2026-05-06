@@ -2,8 +2,6 @@ import { FileText, Loader2, Mic, AlertCircle } from 'lucide-react'
 import GenerationProgress from '../../../components/GenerationProgress'
 
 interface EditorPanelProps {
-  styleInstructions: string
-  onStyleChange: (value: string) => void
   scriptText: string
   onScriptChange: (value: string) => void
   onSelectScript: () => void
@@ -15,8 +13,6 @@ interface EditorPanelProps {
 }
 
 export default function EditorPanel({
-  styleInstructions,
-  onStyleChange,
   scriptText,
   onScriptChange,
   onSelectScript,
@@ -28,30 +24,6 @@ export default function EditorPanel({
 }: EditorPanelProps) {
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      {/* Style Instructions */}
-      <div className="border-b border-white/5 p-5">
-        <label className="flex flex-col gap-1.5">
-          <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-600">
-            Style Instructions
-          </span>
-          <textarea
-            value={styleInstructions}
-            onChange={(e) => onStyleChange(e.target.value)}
-            rows={3}
-            placeholder="e.g. Speak naturally, like a friend sharing a genuine recommendation. Conversational pace, slight excitement when mentioning benefits."
-            className="rounded-lg border border-white/10 bg-transparent px-3 py-2 text-sm text-zinc-200 placeholder-zinc-700 outline-none transition-colors focus:border-indigo-500/30 resize-none"
-          />
-        </label>
-        <div className="mt-2 flex flex-wrap gap-2">
-          <button
-            onClick={() => onStyleChange('Speak naturally like a friend sharing a genuine recommendation. Conversational pace, slight excitement when mentioning benefits.')}
-            className="rounded-full bg-white/[0.04] px-3 py-1.5 text-[10px] font-medium text-zinc-400 transition-colors hover:bg-white/[0.08] hover:text-zinc-200 border border-white/5"
-          >
-            "Speak naturally like a friend sharing a genuine recommendation..."
-          </button>
-        </div>
-      </div>
-
       {/* Script Text */}
       <div className="flex flex-1 flex-col overflow-hidden p-5">
         <div className="mb-1.5 flex items-center justify-between">

@@ -136,31 +136,6 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
           )}
         </div>
 
-        {/* What this enables */}
-        <div className="mt-4 rounded-lg border border-white/5 bg-white/[0.02] p-3">
-          <p className="mb-2 text-xs font-medium uppercase tracking-wider text-zinc-500">
-            One key, every modality
-          </p>
-          <div className="space-y-1.5 text-sm text-zinc-400">
-            <div className="flex items-center justify-between">
-              <span>Text & vision</span>
-              <span className="text-xs text-zinc-600">Gemini 3 Flash</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>Image gen</span>
-              <span className="text-xs text-zinc-600">GPT Image 2 (selectable)</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>Video gen</span>
-              <span className="text-xs text-zinc-600">Seedance 2.0 (selectable)</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>Voice</span>
-              <span className="text-xs text-zinc-600">ElevenLabs Turbo 2.5</span>
-            </div>
-          </div>
-        </div>
-
         {/* Save Button */}
         <button
           onClick={handleSave}

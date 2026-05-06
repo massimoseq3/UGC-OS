@@ -48,18 +48,13 @@ export default function VoiceStudio() {
     setSettings(next)
   }
 
-  const handleStyleChange = (value: string) => {
-    setSettings((prev) => ({ ...prev, styleInstructions: value }))
-  }
-
   const handleLoadVoicePreset = (item: unknown) => {
     const preset = item as VoicePreset
     setSettings({
+      voiceId: preset.voiceId,
       voiceName: preset.voiceName,
       gender: preset.gender,
-      creativity: preset.creativity,
-      ambience: preset.ambience,
-      styleInstructions: preset.styleInstructions,
+      stability: preset.stability,
     })
     setPickerMode(null)
   }
@@ -102,8 +97,6 @@ export default function VoiceStudio() {
       {/* Center — editor */}
       <div className="flex min-h-[420px] lg:min-h-0 flex-1 flex-col overflow-hidden">
         <EditorPanel
-          styleInstructions={settings.styleInstructions}
-          onStyleChange={handleStyleChange}
           scriptText={scriptText}
           onScriptChange={setScriptText}
           onSelectScript={() => setPickerMode('scripts')}
