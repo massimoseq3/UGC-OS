@@ -18,7 +18,9 @@ import GenerationProgress from '../../../components/GenerationProgress'
 import type { BrollResult, Scene, PromptVariation, CardState, GeneratedImage, ReferenceImage } from '../types'
 import { generateImage } from '../services/generateBroll'
 import { useBankStore } from '../../../stores/bankStore'
+import { useAppStore } from '../../../stores/appStore'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
+import { getAsBase64, isAssetRef } from '../../../utils/assetStore'
 
 interface OutputPanelProps {
   result: BrollResult | null
@@ -142,6 +144,21 @@ function VariationCard({
     setTimeout(() => setSaved(false), 2000)
   }
 
+  const handleAnimateInVideoStudio = async () => {
+    if (!currentImage) return
+    let dataUri = currentImage.imageUrl
+    if (isAssetRef(dataUri)) {
+      const asset = await getAsBase64(dataUri)
+      if (!asset) return
+      dataUri = `data:${asset.mimeType};base64,${asset.base64}`
+    }
+    useAppStore.getState().sendToApp({
+      targetApp: 'video-studio',
+      targetField: 'firstFrame',
+      data: dataUri,
+    })
+  }
+
   const goToPrev = () => {
     if (cardState.currentImageIndex > 0) {
       onUpdateState({ currentImageIndex: cardState.currentImageIndex - 1 })
@@ -253,14 +270,22 @@ function VariationCard({
               Prompt: {currentImage.prompt}
             </p>
 
-            {/* Regenerate + Animate buttons */}
-            <div className="flex gap-1.5">
+            {/* Regenerate + Animate + Save buttons */}
+            <div className="flex flex-wrap gap-1.5">
               <button
                 onClick={handleGenerateImage}
                 className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-white/[0.06] px-2 py-1.5 text-[10px] font-medium text-zinc-400 transition-colors hover:bg-white/[0.04] hover:text-zinc-200"
               >
                 <RefreshCw className="h-3 w-3" />
                 Regenerate
+              </button>
+              <button
+                onClick={handleAnimateInVideoStudio}
+                className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-purple-500/20 bg-purple-500/10 px-2 py-1.5 text-[10px] font-medium text-purple-400 transition-colors hover:bg-purple-500/20"
+                title="Send this still to Video Studio as the first frame"
+              >
+                <Film className="h-3 w-3" />
+                Animate in Video Studio
               </button>
               <button
                 onClick={handleSaveToBank}
