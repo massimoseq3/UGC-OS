@@ -6,6 +6,7 @@ import {
   PenLine,
   Mic,
   Film,
+  Video,
   Package,
   FileText,
 } from 'lucide-react'
@@ -26,6 +27,7 @@ export const APP_REGISTRY: AppConfig[] = [
   { id: 'script-architect', name: 'Script Architect Pro', icon: PenLine, accent: '#3b82f6' },
   { id: 'voice-studio', name: 'Voice Studio Pro', icon: Mic, accent: '#6366f1' },
   { id: 'broll-studio', name: 'B-Roll Studio Pro', icon: Film, accent: '#f97316' },
+  { id: 'video-studio', name: 'Video Studio Pro', icon: Video, accent: '#a855f7' },
 ]
 
 export const FINDER_APP = APP_REGISTRY[0]

@@ -85,7 +85,7 @@ export default function EditorPanel({
         <GenerationProgress
           isActive={isGenerating}
           color="bg-indigo-500"
-          messages={['Preparing audio...', 'Sending to Gemini TTS...', 'Generating speech...', 'Encoding audio...']}
+          messages={['Preparing audio...', 'Sending request...', 'Generating speech...', 'Encoding audio...']}
           className="mb-3"
         />
         <button

@@ -1,6 +1,7 @@
 import type { VisualDNA } from '../types'
 import { useSettingsStore } from '../../../stores/settingsStore'
-import { geminiAnalyzeImage, fileToBase64 } from '../../../utils/gemini'
+import { kieChatCompletions, fileToDataUri, type ChatMessage } from '../../../utils/kie'
+import { getModel } from '../../../utils/models'
 
 const SYSTEM_INSTRUCTION = `You are a visual DNA extractor for UGC ad production. You analyze images of people and extract every visual detail that would be needed to recreate the exact same look in an AI image generation tool.
 
@@ -50,12 +51,26 @@ You must respond with ONLY valid JSON matching this exact structure (no markdown
 Be extremely specific and detailed. Every field should have a value — use your best assessment from the image.`
 
 export async function analyzeImage(imageFile: File): Promise<VisualDNA> {
-  const apiKey = useSettingsStore.getState().getApiKey()
-  const { base64, mimeType } = await fileToBase64(imageFile)
+  const apiKey = useSettingsStore.getState().getKieApiKey()
+  const model = getModel('gemini-3-flash')
+  if (!model?.chatEndpoint) throw new Error('Chat model is not configured. Check src/utils/models.ts.')
+
+  const dataUri = await fileToDataUri(imageFile)
 
   const prompt = `Extract the complete visual DNA from this image. Analyze every aspect: the person's physical appearance, clothing style, pose, location, and camera settings. Return as JSON.`
 
-  const responseText = await geminiAnalyzeImage(apiKey, prompt, base64, mimeType, SYSTEM_INSTRUCTION)
+  const messages: ChatMessage[] = [
+    { role: 'system', content: [{ type: 'text', text: SYSTEM_INSTRUCTION }] },
+    {
+      role: 'user',
+      content: [
+        { type: 'text', text: prompt },
+        { type: 'image_url', image_url: { url: dataUri } },
+      ],
+    },
+  ]
+
+  const responseText = await kieChatCompletions(apiKey, model.chatEndpoint, messages)
 
   const cleaned = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
   const result: VisualDNA = JSON.parse(cleaned)

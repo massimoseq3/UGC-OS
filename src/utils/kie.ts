@@ -263,19 +263,34 @@ export function parseResult(record: TaskRecord): ParsedResult {
 // at https://docs.kie.ai/. Helpers below codify the shapes confirmed
 // against kie.ai's docs as of 2026-05-05.
 
+// Generic image-gen call. Body shape varies per model — use `buildImageInput`
+// from src/utils/models.ts to construct the right body for the chosen model.
 export async function kieImageGenerate(
   apiKey: string,
   modelId: string,
-  input: {
-    prompt: string
-    aspect_ratio?: 'auto' | '1:1' | '9:16' | '16:9' | '4:3' | '3:4'
-    resolution?: '1K' | '2K' | '4K'
-    referenceImages?: string[]
-  },
+  input: Record<string, unknown>,
   opts: RunTaskOptions = {},
 ): Promise<string[]> {
-  const record = await runTask(apiKey, modelId, input as unknown as Record<string, unknown>, opts)
+  const record = await runTask(apiKey, modelId, input, opts)
   return parseResult(record).resultUrls
+}
+
+// Download a generated URL and return base64 + mimeType for local persistence.
+export async function downloadAsBase64(url: string): Promise<{ base64: string; mimeType: string }> {
+  const res = await fetch(url)
+  if (!res.ok) throw new Error(`Failed to download generated asset (${res.status}).`)
+  const blob = await res.blob()
+  const mimeType = blob.type || 'image/png'
+  const buffer = await blob.arrayBuffer()
+  // Avoid `String.fromCharCode(...new Uint8Array(...))` which blows the call
+  // stack on large buffers — chunk it.
+  const bytes = new Uint8Array(buffer)
+  let binary = ''
+  const CHUNK = 32_768
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK))
+  }
+  return { base64: btoa(binary), mimeType }
 }
 
 export async function kieVideoGenerate(
@@ -422,6 +437,71 @@ export async function kieTTS(
 ): Promise<string[]> {
   const record = await runTask(apiKey, modelId, input as unknown as Record<string, unknown>, opts)
   return parseResult(record).resultUrls
+}
+
+// ── File upload (kie.ai-hosted, 3 day retention) ───────────────
+//
+// Image and video models on kie.ai expect publicly accessible URLs in their
+// reference-image fields (input_urls, first_frame_url, etc.). This helper
+// uploads a base64 / data URI to kie's hosted storage and returns the public
+// downloadUrl. Note: uploaded files are deleted after 3 days, so always
+// download generated outputs and save them as local assets.
+
+export interface UploadedFile {
+  fileName: string
+  filePath: string
+  downloadUrl: string
+  fileSize: number
+  mimeType: string
+}
+
+export async function kieUploadBase64(
+  apiKey: string,
+  base64Data: string,
+  uploadPath: string = 'ugc-lab',
+  fileName?: string,
+): Promise<UploadedFile> {
+  const res = await fetchWithRetry(
+    'https://api.kie.ai/api/file-base64-upload',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({ base64Data, uploadPath, fileName }),
+    },
+    {},
+  )
+  const json = (await res.json()) as KieEnvelope<UploadedFile>
+  if (json.code !== 200) throw new Error(friendlyHttpError(json.code, json.msg))
+  return json.data
+}
+
+// Convert any image source (data URI, http(s) URL) to a kie-hosted public URL.
+// Pure http(s) URLs pass through; data URIs get uploaded.
+export async function ensureHostedUrl(apiKey: string, source: string): Promise<string> {
+  if (source.startsWith('http://') || source.startsWith('https://')) return source
+  if (source.startsWith('data:')) {
+    const uploaded = await kieUploadBase64(apiKey, source)
+    return uploaded.downloadUrl
+  }
+  throw new Error(`Cannot host image source — unsupported format: ${source.slice(0, 64)}`)
+}
+
+// ── File helpers ────────────────────────────────────────────────
+
+export function fileToDataUri(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result
+      if (typeof result === 'string') resolve(result)
+      else reject(new Error('Failed to read file as data URI.'))
+    }
+    reader.onerror = () => reject(reader.error ?? new Error('File read error.'))
+    reader.readAsDataURL(file)
+  })
 }
 
 // ── Connection test ─────────────────────────────────────────────

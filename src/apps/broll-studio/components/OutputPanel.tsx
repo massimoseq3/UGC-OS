@@ -489,7 +489,7 @@ export default function OutputPanel({ result, isGenerating, error, onAddVariatio
         <GenerationProgress
           isActive
           color="bg-orange-500"
-          messages={['Analyzing script scenes...', 'Sending to Gemini API...', 'Generating B-Roll prompts...', 'Finalizing scene breakdowns...']}
+          messages={['Analyzing script scenes...', 'Sending request...', 'Generating B-Roll prompts...', 'Finalizing scene breakdowns...']}
           className="mb-6"
         />
         <div className="flex-1 overflow-y-auto">

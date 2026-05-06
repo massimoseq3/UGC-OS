@@ -1,7 +1,22 @@
 import type { BrollInput, BrollResult, Scene, PromptVariation, ReferenceImage } from '../types'
 import { useSettingsStore } from '../../../stores/settingsStore'
-import { geminiTextGenerate, geminiImageGenerate, geminiVideoGenerate } from '../../../utils/gemini'
+import {
+  kieChatCompletions,
+  kieImageGenerate,
+  kieVideoGenerate,
+  ensureHostedUrl,
+  downloadAsBase64,
+  type ChatMessage,
+} from '../../../utils/kie'
+import { getModel, getDefaultModel, buildImageInput, type AspectRatio } from '../../../utils/models'
 import { saveBase64Asset, saveAsset, isAssetRef, getAsBase64 } from '../../../utils/assetStore'
+
+function getChatEndpoint(): { apiKey: string; endpoint: string } {
+  const apiKey = useSettingsStore.getState().getKieApiKey()
+  const model = getModel('gemini-3-flash')
+  if (!model?.chatEndpoint) throw new Error('Chat model is not configured. Check src/utils/models.ts.')
+  return { apiKey, endpoint: model.chatEndpoint }
+}
 
 let idCounter = 0
 function nextId() {
@@ -53,7 +68,7 @@ You must output every scene wrapped in these exact tags:
 Do not include any text outside these tags.`
 
 export async function generateBroll(input: BrollInput): Promise<BrollResult> {
-  const apiKey = useSettingsStore.getState().getApiKey()
+  const { apiKey, endpoint } = getChatEndpoint()
 
   let prompt = `Break down this script into visual scenes for B-Roll production. For each scene, provide 3 creative prompt variations.\n\nScript:\n${input.scriptText}`
 
@@ -67,7 +82,11 @@ export async function generateBroll(input: BrollInput): Promise<BrollResult> {
     prompt += `\n\nAdditional context:\n${input.additionalContext}`
   }
 
-  const responseText = await geminiTextGenerate(apiKey, prompt, SYSTEM_INSTRUCTION)
+  const messages: ChatMessage[] = [
+    { role: 'system', content: [{ type: 'text', text: SYSTEM_INSTRUCTION }] },
+    { role: 'user', content: [{ type: 'text', text: prompt }] },
+  ]
+  const responseText = await kieChatCompletions(apiKey, endpoint, messages)
 
   const scenes: Scene[] = []
   const sceneRegex = /<SCENE>([\s\S]*?)<\/SCENE>/g
@@ -108,75 +127,85 @@ export async function generateBroll(input: BrollInput): Promise<BrollResult> {
 }
 
 /**
- * Parse a data URL into base64 + mimeType for API submission.
- */
-function parseDataUrl(dataUrl: string): { base64: string; mimeType: string } | null {
-  const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/)
-  if (!match) return null
-  return { mimeType: match[1], base64: match[2] }
-}
-
-/**
- * Generate an image from a B-Roll prompt using Nano Banana 2.
- * Optionally includes reference images (model/product) for visual consistency.
- * Reference image dataUrls can be asset IDs or data URLs.
+ * Generate an image from a B-Roll prompt via kie.ai.
+ * If reference images are provided, uses image-to-image (uploads each ref
+ * to kie's hosted storage to get a public URL). Otherwise text-to-image.
  */
 export async function generateImage(
   prompt: string,
   referenceImages?: ReferenceImage[],
   aspectRatio: string = '9:16',
 ): Promise<string> {
-  const apiKey = useSettingsStore.getState().getApiKey()
+  const apiKey = useSettingsStore.getState().getKieApiKey()
+  const hasRefs = !!referenceImages?.length
 
-  // Build reference image parts for multimodal input
-  const refParts: Array<{ base64: string; mimeType: string }> = []
-  if (referenceImages?.length) {
-    for (const ref of referenceImages) {
+  const mode = hasRefs ? 'image-to-image' : 'text-to-image'
+  const modelId = useSettingsStore.getState().getAppModel(`broll-studio:image:${mode}`)
+    ?? getDefaultModel('broll-studio', 'image', mode)?.id
+  if (!modelId) throw new Error(`No image model configured for B-Roll (${mode}).`)
+
+  // Convert each reference (asset ref or data URL) to a kie-hosted URL.
+  const inputUrls: string[] = []
+  if (hasRefs) {
+    for (const ref of referenceImages!) {
+      let dataUri = ref.dataUrl
       if (isAssetRef(ref.dataUrl)) {
         const asset = await getAsBase64(ref.dataUrl)
-        if (asset) refParts.push(asset)
-      } else {
-        const parsed = parseDataUrl(ref.dataUrl)
-        if (parsed) refParts.push(parsed)
+        if (!asset) continue
+        dataUri = `data:${asset.mimeType};base64,${asset.base64}`
       }
+      const hosted = await ensureHostedUrl(apiKey, dataUri)
+      inputUrls.push(hosted)
     }
   }
 
-  const result = await geminiImageGenerate(apiKey, prompt, aspectRatio, refParts.length > 0 ? refParts : undefined)
-  return saveBase64Asset(result.base64, result.mimeType)
+  const body = buildImageInput(modelId, {
+    prompt,
+    aspectRatio: aspectRatio as AspectRatio,
+    inputUrls: inputUrls.length > 0 ? inputUrls : undefined,
+  })
+  const urls = await kieImageGenerate(apiKey, modelId, body)
+
+  if (urls.length === 0) throw new Error('Image generation returned no result.')
+
+  const { base64, mimeType } = await downloadAsBase64(urls[0])
+  return saveBase64Asset(base64, mimeType)
 }
 
 /**
- * Animate a still frame into video using Veo 3.1 frame-to-video.
- * The still image is used as the first frame; Veo generates the rest.
+ * Animate a still frame into video via kie.ai Seedance 2.0 (image-to-video).
+ * The still image is used as first_frame_url; Seedance generates the rest.
  * Returns a persistent asset ID.
  */
 export async function animateFrame(imageUrl: string, prompt: string, aspectRatio: string = '9:16'): Promise<string> {
-  const apiKey = useSettingsStore.getState().getApiKey()
+  const apiKey = useSettingsStore.getState().getKieApiKey()
 
-  // Convert image source to base64 + mimeType for the API
-  let base64: string
-  let mimeType: string
+  const modelId = useSettingsStore.getState().getAppModel('broll-studio:video:image-to-video')
+    ?? getDefaultModel('broll-studio', 'video', 'image-to-video')?.id
+  if (!modelId) throw new Error('No video model configured for B-Roll.')
 
+  // Resolve the source image to a publicly hosted URL.
+  let dataUri = imageUrl
   if (isAssetRef(imageUrl)) {
     const asset = await getAsBase64(imageUrl)
     if (!asset) throw new Error('Asset not found')
-    base64 = asset.base64
-    mimeType = asset.mimeType
-  } else if (imageUrl.startsWith('data:')) {
-    const match = imageUrl.match(/^data:([^;]+);base64,(.+)$/)
-    if (!match) throw new Error('Invalid image data URL')
-    mimeType = match[1]
-    base64 = match[2]
-  } else {
-    const res = await fetch(imageUrl)
-    const blob = await res.blob()
-    mimeType = blob.type
-    const buffer = await blob.arrayBuffer()
-    base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)))
+    dataUri = `data:${asset.mimeType};base64,${asset.base64}`
   }
+  const firstFrameUrl = await ensureHostedUrl(apiKey, dataUri)
 
-  const videoBlob = await geminiVideoGenerate(apiKey, prompt, base64, mimeType, aspectRatio)
+  const urls = await kieVideoGenerate(apiKey, modelId, {
+    prompt,
+    first_frame_url: firstFrameUrl,
+    aspect_ratio: aspectRatio,
+    duration: 5,
+    resolution: '720p',
+  })
+
+  if (urls.length === 0) throw new Error('Video generation returned no result.')
+
+  const videoRes = await fetch(urls[0])
+  if (!videoRes.ok) throw new Error(`Failed to download generated video (${videoRes.status}).`)
+  const videoBlob = await videoRes.blob()
   return saveAsset(videoBlob)
 }
 
@@ -188,7 +217,7 @@ export async function generateNewVariation(
   sceneType: string,
   scriptLine: string,
 ): Promise<PromptVariation> {
-  const apiKey = useSettingsStore.getState().getApiKey()
+  const { apiKey, endpoint } = getChatEndpoint()
 
   const prompt = `Generate a single new creative image generation prompt for this B-Roll scene:
 
@@ -209,7 +238,10 @@ Respond with ONLY valid JSON (no markdown):
   "prompt": "<the detailed prompt>"
 }`
 
-  const responseText = await geminiTextGenerate(apiKey, prompt)
+  const messages: ChatMessage[] = [
+    { role: 'user', content: [{ type: 'text', text: prompt }] },
+  ]
+  const responseText = await kieChatCompletions(apiKey, endpoint, messages)
   const cleaned = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
   const parsed = JSON.parse(cleaned) as { label: string; tag: PromptVariation['tag']; prompt: string }
 

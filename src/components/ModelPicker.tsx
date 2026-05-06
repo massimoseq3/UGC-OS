@@ -3,10 +3,13 @@ import { ChevronDown, Check } from 'lucide-react'
 import {
   listModels,
   getDefaultModel,
+  estimateCredits,
+  formatCredits,
   TAG_STYLES,
   type Task,
   type Mode,
   type ModelEntry,
+  type CostEstimateParams,
 } from '../utils/models'
 import { useSettingsStore } from '../stores/settingsStore'
 
@@ -17,15 +20,19 @@ interface ModelPickerProps {
   value?: string
   onChange?: (modelId: string) => void
   label?: string
+  // Used to compute credits-per-generation estimate shown inline.
+  costParams?: CostEstimateParams
 }
 
-export default function ModelPicker({ appId, task, mode, value, onChange, label = 'Model' }: ModelPickerProps) {
+export default function ModelPicker({ appId, task, mode, value, onChange, label = 'Model', costParams }: ModelPickerProps) {
   const setAppModel = useSettingsStore((s) => s.setAppModel)
   const getAppModel = useSettingsStore((s) => s.getAppModel)
   const persistedKey = `${appId}:${task}${mode ? `:${mode}` : ''}`
 
   const [open, setOpen] = useState(false)
+  const [openUpward, setOpenUpward] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
 
   const models = listModels({ task, mode })
   const fallback = getDefaultModel(appId, task, mode)
@@ -61,8 +68,19 @@ export default function ModelPicker({ appId, task, mode, value, onChange, label 
         {label}
       </label>
       <button
+        ref={triggerRef}
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          if (!open && triggerRef.current) {
+            const rect = triggerRef.current.getBoundingClientRect()
+            const spaceBelow = window.innerHeight - rect.bottom
+            const spaceAbove = rect.top
+            // Dropdown is up to 320px tall (max-h-80). Flip up if there's
+            // not enough room below and more room above.
+            setOpenUpward(spaceBelow < 320 && spaceAbove > spaceBelow)
+          }
+          setOpen((v) => !v)
+        }}
         className="flex w-full items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-left text-sm text-zinc-200 transition-colors hover:bg-white/[0.06]"
       >
         <div className="flex min-w-0 items-center gap-2">
@@ -71,13 +89,30 @@ export default function ModelPicker({ appId, task, mode, value, onChange, label 
             <span className="hidden truncate text-[11px] text-zinc-500 sm:inline">{selected.provider}</span>
           )}
         </div>
-        <ChevronDown className={`h-4 w-4 shrink-0 text-zinc-500 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <div className="flex shrink-0 items-center gap-2">
+          {selected && (
+            <span className="text-[11px] text-zinc-400">
+              {formatCredits(estimateCredits(selected.id, costParams))}
+            </span>
+          )}
+          <ChevronDown className={`h-4 w-4 text-zinc-500 transition-transform ${open ? 'rotate-180' : ''}`} />
+        </div>
       </button>
 
       {open && (
-        <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-80 overflow-y-auto rounded-lg border border-white/10 bg-[#0A0A0A] py-1 shadow-2xl">
+        <div
+          className={`absolute left-0 right-0 z-50 max-h-80 overflow-y-auto rounded-lg border border-white/10 bg-[#0A0A0A] py-1 shadow-2xl ${
+            openUpward ? 'bottom-full mb-1' : 'top-full mt-1'
+          }`}
+        >
           {models.map((m) => (
-            <ModelRow key={m.id} model={m} active={m.id === resolved} onClick={() => pick(m.id)} />
+            <ModelRow
+              key={m.id}
+              model={m}
+              active={m.id === resolved}
+              costParams={costParams}
+              onClick={() => pick(m.id)}
+            />
           ))}
         </div>
       )}
@@ -88,10 +123,12 @@ export default function ModelPicker({ appId, task, mode, value, onChange, label 
 interface ModelRowProps {
   model: ModelEntry
   active: boolean
+  costParams?: CostEstimateParams
   onClick: () => void
 }
 
-function ModelRow({ model, active, onClick }: ModelRowProps) {
+function ModelRow({ model, active, costParams, onClick }: ModelRowProps) {
+  const credits = formatCredits(estimateCredits(model.id, costParams))
   return (
     <button
       type="button"
@@ -104,6 +141,9 @@ function ModelRow({ model, active, onClick }: ModelRowProps) {
         <div className="flex items-center gap-2">
           <span className="truncate text-sm font-medium text-zinc-100">{model.displayName}</span>
           <span className="truncate text-[11px] text-zinc-500">{model.provider}</span>
+          {credits && (
+            <span className="ml-auto shrink-0 text-[11px] font-medium text-zinc-400">{credits}</span>
+          )}
         </div>
         {model.tags.length > 0 && (
           <div className="flex flex-wrap items-center gap-1">

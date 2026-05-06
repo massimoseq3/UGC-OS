@@ -2,7 +2,7 @@
 
 ## Project Identity
 
-You are building **UGC Lab** — a browser-based macOS-style operating system that unifies six AI UGC ad production tools into a single workspace with shared data banks.
+You are building **UGC Lab** — a browser-based YouTube-style workspace that unifies seven AI UGC ad production tools (Character Studio, Image DNA, Ad Anatomy, Script Architect, Voice Studio, B-Roll Studio, Video Studio) into a single environment with shared data banks. All AI calls go through **kie.ai** as a unified API gateway: one user-supplied API key gives access to every model the apps need (chat, vision, image gen, video gen, TTS).
 
 ## Role
 
@@ -53,18 +53,35 @@ Act as a senior frontend engineer and product architect. Do not blindly follow i
 - **Styling:** Tailwind CSS
 - **State:** Zustand (preferred) or React Context for global state
 - **Build:** Vite
-- **No backend for prototype.** localStorage for persistence. All AI calls go directly to Google Gemini API from the client.
+- **No backend for prototype.** localStorage for persistence. All AI calls go through kie.ai from the client using the user's Bearer token.
 
-### Gemini API Models (src/utils/gemini.ts)
+### kie.ai client (src/utils/kie.ts)
 
-All AI calls use the unified `gemini.ts` client. The four model endpoints:
+All AI calls use the unified `kie.ts` client. Two transport patterns:
 
-| Capability | Model ID | Used By |
-|------------|----------|---------|
-| Text generation | `gemini-3-flash-preview` | Ad Anatomy Pro, Script Architect Pro, B-Roll scene decomposition, UGC Character Studio, Image DNA Extractor |
-| Image generation | `gemini-3.1-flash-image-preview` | B-Roll Studio Pro (image gen with reference images) |
-| Video generation | `veo-3.1-fast-generate-preview` | B-Roll form (animate still → video, first-frame-to-video) |
-| Text-to-speech | `gemini-2.5-flash-preview-tts` | Voice Studio Pro |
+1. **Async task model** for image / video / TTS:
+   - `POST https://api.kie.ai/api/v1/jobs/createTask` with `{ model, input }` → `{ data: { taskId } }`
+   - Poll `GET /api/v1/jobs/recordInfo?taskId=…` until `state === 'success'`. Result URLs are in `resultJson.resultUrls`. Outputs are hosted with **3-day retention**, so we always download and persist to `assetStore` before returning.
+
+2. **OpenAI-compatible chat completions** for chat / vision:
+   - `POST https://api.kie.ai/<model-slug>/v1/chat/completions` (e.g. `/gemini-3-flash/v1/chat/completions`)
+   - Streaming SSE response (`stream: true`); we accumulate `delta.content`. Vision via `image_url` content blocks (data URIs work).
+
+### Models in use
+
+| Capability | Default model (slug) | Used By |
+|------------|----------------------|---------|
+| Text & vision | Gemini 3 Flash (`gemini-3-flash`) | Ad Anatomy, Script Architect, Image DNA, Character Studio, B-Roll text decomp |
+| Image (text→image) | GPT Image 2 (`gpt-image-2-text-to-image`) | Character Studio, B-Roll (no refs) |
+| Image (image→image) | GPT Image 2 Edit (`gpt-image-2-image-to-image`) | B-Roll (with reference images) |
+| Video | Seedance 2.0 (`bytedance/seedance-2`) | B-Roll animate, Video Studio (both modes) |
+| Text-to-Speech | ElevenLabs Turbo 2.5 (`elevenlabs/text-to-speech-turbo-2-5`) | Voice Studio |
+
+The model registry lives at `src/utils/models.ts`. Each entry tracks task type, supported modes, tags (Recommended / New / Fast / Cheap), pricing, and per-app defaults. **No model picker is exposed for chat or TTS** — they're hard-coded — but image and video apps have a `ModelPicker` so users can swap providers when more are added.
+
+### Reference images and base64 → public URL
+
+Image and video models on kie.ai expect publicly accessible URLs in fields like `input_urls` and `first_frame_url` — they don't accept base64. The `ensureHostedUrl` helper in `kie.ts` uploads any data URI to `POST /api/file-base64-upload` and returns the `downloadUrl`. Pure http(s) URLs pass through. Files in kie's hosted storage are deleted after 3 days.
 
 ## File Structure
 
@@ -147,19 +164,27 @@ src/
 │   │   │   └── generateVoice.ts
 │   │   └── types.ts
 │   │
-│   └── broll-studio/           # App 6: B-Roll Studio Pro
-│       ├── BrollStudio.tsx
-│       ├── components/
-│       │   ├── InputPanel.tsx
-│       │   └── OutputPanel.tsx
+│   ├── broll-studio/           # App 6: B-Roll Studio Pro
+│   │   ├── BrollStudio.tsx
+│   │   ├── components/
+│   │   │   ├── InputPanel.tsx
+│   │   │   └── OutputPanel.tsx
+│   │   ├── services/
+│   │   │   └── generateBroll.ts  # Scene gen (Gemini 3 Flash), image gen + animate (kie.ai)
+│   │   └── types.ts
+│   │
+│   └── video-studio/           # App 7: Video Studio Pro
+│       ├── VideoStudio.tsx
 │       ├── services/
-│       │   └── generateBroll.ts  # Scene generation, image gen, Veo 3.1 animation
+│       │   └── generateVideo.ts  # Text-to-video / image-to-video via kie.ai
 │       └── types.ts
 │
 └── utils/                      # Shared utilities
     ├── localStorage.ts         # Bank persistence helpers
-    ├── gemini.ts               # Unified Gemini API client (text, image, video, TTS)
-    └── constants.ts            # App registry, dock config, bank config
+    ├── kie.ts                  # Unified kie.ai client (chat, vision, image, video, TTS, file upload)
+    ├── models.ts               # Model registry: per-task models, defaults, pricing, tags
+    ├── assetStore.ts           # IndexedDB-backed asset persistence (audio/image/video blobs)
+    └── constants.ts            # App registry, sidebar config, bank config
 ```
 
 ## Documentation
@@ -189,3 +214,5 @@ Always build in this order. Do not skip ahead.
 3. **Phase 3:** Ad Anatomy Pro + Script Architect Pro (research & script pipeline)
 4. **Phase 4:** Voice Studio Pro + B-Roll Studio Pro (production pipeline)
 5. **Phase 5:** Polish, transitions, empty states, error handling
+6. **Phase 6 (shipped):** YouTube-style sidebar nav (replaces bottom dock); bigger menu bar with prominent UGC Lab wordmark and hamburger toggle.
+7. **Phase 7 (shipped):** kie.ai migration. Replaced direct Gemini API with kie.ai unified gateway. Added `src/utils/kie.ts`, `src/utils/models.ts`, `ModelPicker`, `CostPreview`, plus the new Video Studio Pro app. Settings flow now requires only a kie.ai API key. ElevenLabs Turbo 2.5 became the dedicated TTS backend.

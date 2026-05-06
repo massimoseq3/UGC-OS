@@ -1,6 +1,7 @@
 import type { CharacterProfile } from '../types'
 import { useSettingsStore } from '../../../stores/settingsStore'
-import { geminiImageGenerate } from '../../../utils/gemini'
+import { kieImageGenerate, downloadAsBase64 } from '../../../utils/kie'
+import { getDefaultModel, buildImageInput, type AspectRatio } from '../../../utils/models'
 import { saveBase64Asset } from '../../../utils/assetStore'
 
 export interface GenerationResult {
@@ -109,15 +110,25 @@ function buildImagePrompt(profile: CharacterProfile): string {
 export async function generateCharacter(
   profile: CharacterProfile,
   signal?: AbortSignal,
+  modelIdOverride?: string,
 ): Promise<GenerationResult> {
-  const apiKey = useSettingsStore.getState().getApiKey()
-  if (!apiKey) throw new Error('No API key configured. Open Settings to add your Google AI API key.')
+  const apiKey = useSettingsStore.getState().getKieApiKey()
+
+  const modelId = modelIdOverride
+    ?? useSettingsStore.getState().getAppModel('character-studio:image:text-to-image')
+    ?? getDefaultModel('character-studio', 'image', 'text-to-image')?.id
+  if (!modelId) throw new Error('No image model configured for Character Studio.')
 
   const prompt = buildImagePrompt(profile)
-  const aspectRatio = profile.aspectRatio === 'Landscape (16:9)' ? '16:9' : '9:16'
+  const aspectRatio: AspectRatio = profile.aspectRatio === 'Landscape (16:9)' ? '16:9' : '9:16'
 
-  const result = await geminiImageGenerate(apiKey, prompt, aspectRatio, undefined, signal)
-  const assetId = await saveBase64Asset(result.base64, result.mimeType)
+  const body = buildImageInput(modelId, { prompt, aspectRatio })
+  const urls = await kieImageGenerate(apiKey, modelId, body, { signal })
+
+  if (urls.length === 0) throw new Error('Image generation returned no result.')
+
+  const { base64, mimeType } = await downloadAsBase64(urls[0])
+  const assetId = await saveBase64Asset(base64, mimeType)
 
   return {
     imageUrl: assetId,
