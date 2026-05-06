@@ -14,20 +14,17 @@ export default function GenerationProgress({
   className = '',
 }: GenerationProgressProps) {
   const [progress, setProgress] = useState(0)
-  const [elapsed, setElapsed] = useState(0)
   const startTimeRef = useRef(0)
 
   useEffect(() => {
     if (!isActive) {
       setProgress(0)
-      setElapsed(0)
       return
     }
 
     startTimeRef.current = Date.now()
     const interval = setInterval(() => {
       const seconds = (Date.now() - startTimeRef.current) / 1000
-      setElapsed(Math.floor(seconds))
       setProgress(95 * (1 - Math.exp(-seconds / 15)))
     }, 200)
 
@@ -51,7 +48,7 @@ export default function GenerationProgress({
       </div>
       <div className="mt-2 flex items-center justify-between">
         <p className="text-xs text-zinc-500">{message}</p>
-        <p className="text-xs tabular-nums text-zinc-600">{elapsed}s</p>
+        <p className="text-xs tabular-nums text-zinc-600">{Math.round(progress)}%</p>
       </div>
     </div>
   )
