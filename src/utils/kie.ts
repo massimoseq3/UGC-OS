@@ -439,6 +439,96 @@ export async function kieTTS(
   return parseResult(record).resultUrls
 }
 
+// ── Veo generate (custom endpoint) ──────────────────────────────
+//
+// Veo 3.1 family uses POST /api/v1/veo/generate (NOT /jobs/createTask).
+// Returns a taskId; poll /api/v1/veo/record-info to check status.
+// Different envelope, same shape philosophy as the standard recordInfo.
+
+interface VeoCreateData {
+  taskId: string
+}
+
+interface VeoRecordData {
+  taskId: string
+  successFlag?: number   // 0 = pending, 1 = success, 2/3 = failed (varies)
+  state?: TaskState
+  resultUrls?: string[]
+  resultJson?: string
+  errorMessage?: string
+  errorCode?: string
+}
+
+export async function kieVeoGenerate(
+  apiKey: string,
+  body: Record<string, unknown>,
+  opts: RunTaskOptions = {},
+): Promise<string[]> {
+  const { signal, pollIntervalMs = POLL_INTERVAL_MS, maxPollAttempts = MAX_POLL_ATTEMPTS, onProgress } = opts
+
+  // 1) Create the task.
+  const createRes = await fetchWithRetry(
+    'https://api.kie.ai/api/v1/veo/generate',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(body),
+    },
+    { signal },
+  )
+  const createJson = (await createRes.json()) as KieEnvelope<VeoCreateData>
+  if (createJson.code !== 200) throw new Error(friendlyHttpError(createJson.code, createJson.msg))
+  const taskId = createJson.data.taskId
+
+  // 2) Poll until success / fail.
+  for (let i = 0; i < maxPollAttempts; i++) {
+    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
+    await new Promise((r) => setTimeout(r, pollIntervalMs))
+
+    let record: VeoRecordData
+    try {
+      const res = await fetchWithRetry(
+        `https://api.kie.ai/api/v1/veo/record-info?taskId=${encodeURIComponent(taskId)}`,
+        {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${apiKey}` },
+        },
+        { signal, timeoutMs: POLL_TIMEOUT_MS },
+      )
+      const env = (await res.json()) as KieEnvelope<VeoRecordData>
+      if (env.code !== 200) {
+        // Transient — keep going unless caller aborted
+        if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
+        continue
+      }
+      record = env.data
+    } catch (err) {
+      if (signal?.aborted) throw err
+      continue
+    }
+
+    onProgress?.(0, record.state ?? 'generating')
+
+    // Veo's state semantics: successFlag 1 = done; resultUrls or
+    // resultJson hold the output. errorMessage indicates failure.
+    if (record.successFlag === 1 || record.state === 'success') {
+      const urls =
+        record.resultUrls ??
+        (record.resultJson ? (JSON.parse(record.resultJson) as { resultUrls?: string[] }).resultUrls ?? [] : [])
+      if (urls.length === 0) throw new Error('Veo returned no result URLs.')
+      return urls
+    }
+    if (record.errorMessage || record.state === 'fail') {
+      throw new Error(friendlyTaskError(record.errorCode ?? '', record.errorMessage ?? 'Veo generation failed.'))
+    }
+  }
+
+  throw new Error('Veo generation timed out after 5 minutes.')
+}
+
 // ── File upload (kie.ai-hosted, 3 day retention) ───────────────
 //
 // Image and video models on kie.ai expect publicly accessible URLs in their

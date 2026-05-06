@@ -15,6 +15,8 @@ export type Mode =
   | 'image-edit'
   | 'text-to-video'
   | 'image-to-video'
+  | 'frames-to-video'
+  | 'reference-to-video'
 
 export type Tag = 'recommended' | 'new' | 'fast' | 'cheap'
 
@@ -29,6 +31,25 @@ export interface Pricing {
   // Approximate kie.ai credits per unit. 1 credit ≈ $0.01 baseline; refine
   // per-model from https://kie.ai/pricing as exact values become known.
   credits: number
+  // Optional richer pricing curve for models whose cost depends on multiple
+  // dimensions (e.g. Kling: resolution + audio; Veo: 4K is ~2× others).
+  // When provided, supersedes the flat `credits` rate.
+  priceFor?: (opts: PriceParams) => number
+}
+
+export interface PriceParams {
+  durationSeconds?: number
+  imageCount?: number
+  tokenCount?: number
+  resolution?: string
+  audio?: boolean
+}
+
+export interface VideoConstraints {
+  durations: number[]
+  resolutions: string[]
+  aspectRatios: string[]
+  supportsAudio?: boolean
 }
 
 export interface ModelEntry {
@@ -46,6 +67,12 @@ export interface ModelEntry {
   // Chat-only: OpenAI-compatible endpoint path on api.kie.ai.
   // e.g. '/gemini-3-flash/v1/chat/completions'
   chatEndpoint?: string
+  // Video-only: which kie endpoint family to hit.
+  // 'createTask' (default) -> POST /api/v1/jobs/createTask
+  // 'veo'                  -> POST /api/v1/veo/generate
+  videoEndpoint?: 'createTask' | 'veo'
+  // Video-only: declarative caps the UI uses to render constraint controls.
+  videoConstraints?: VideoConstraints
 }
 
 // Convention for default app ids: matches `AppConfig.id` in `src/utils/constants.ts`.
@@ -129,19 +156,122 @@ export const MODEL_REGISTRY: ModelEntry[] = [
   },
 
   // ── Video generation ──────────────────────────────────────────
-  // Seedance 2.0 uses one slug for both modes — caller toggles by passing
-  // first_frame_url (image-to-video) or omitting it (text-to-video).
 
   {
     id: 'bytedance/seedance-2',
     displayName: 'Seedance 2.0',
     provider: 'ByteDance',
     task: 'video',
-    modes: ['text-to-video', 'image-to-video'],
+    modes: ['text-to-video', 'image-to-video', 'frames-to-video', 'reference-to-video'],
     tags: ['recommended', 'new'],
     supportsReferenceImages: true,
     pricing: { unit: 'per-second', usd: 0.10, credits: 10 },
+    videoEndpoint: 'createTask',
+    videoConstraints: {
+      durations: [4, 5, 6, 8, 10, 12, 15],
+      resolutions: ['480p', '720p', '1080p'],
+      aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9'],
+      supportsAudio: true,
+    },
     defaultFor: ['broll-studio', 'video-studio'],
+  },
+  {
+    id: 'bytedance/seedance-2-fast',
+    displayName: 'Seedance 2.0 Fast',
+    provider: 'ByteDance',
+    task: 'video',
+    modes: ['text-to-video', 'image-to-video', 'frames-to-video', 'reference-to-video'],
+    tags: ['fast', 'cheap'],
+    supportsReferenceImages: true,
+    pricing: { unit: 'per-second', usd: 0.05, credits: 5 },
+    videoEndpoint: 'createTask',
+    videoConstraints: {
+      durations: [4, 5, 6, 8, 10, 12, 15],
+      resolutions: ['480p', '720p'],
+      aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4'],
+      supportsAudio: true,
+    },
+  },
+  {
+    id: 'kling-3.0/video',
+    displayName: 'Kling 3.0',
+    provider: 'Kling AI',
+    task: 'video',
+    modes: ['text-to-video', 'image-to-video', 'frames-to-video'],
+    tags: ['new'],
+    pricing: {
+      unit: 'per-second',
+      usd: 0.07,
+      credits: 14,
+      // mode + sound change pricing live (verified against kie.ai/kling-3-0)
+      priceFor: ({ durationSeconds = 5, resolution = 'std', audio = false }) => {
+        const perSec =
+          resolution === '4K' ? 67 :
+          resolution === 'pro' ? (audio ? 27 : 18) :
+          /* std */              (audio ? 20 : 14)
+        return perSec * durationSeconds
+      },
+    },
+    videoEndpoint: 'createTask',
+    videoConstraints: {
+      durations: [3, 5, 7, 10, 15],
+      resolutions: ['std', 'pro', '4K'],
+      aspectRatios: ['16:9', '9:16', '1:1'],
+      supportsAudio: true,
+    },
+  },
+  {
+    id: 'veo3_fast',
+    displayName: 'Veo 3.1 Fast',
+    provider: 'Google',
+    task: 'video',
+    modes: ['text-to-video', 'image-to-video', 'frames-to-video', 'reference-to-video'],
+    tags: ['fast'],
+    supportsReferenceImages: true,
+    pricing: { unit: 'per-second', usd: 0.10, credits: 10 },
+    videoEndpoint: 'veo',
+    videoConstraints: {
+      durations: [5, 10],
+      resolutions: ['720p', '1080p', '4k'],
+      aspectRatios: ['16:9', '9:16'],
+    },
+  },
+  {
+    id: 'veo3_lite',
+    displayName: 'Veo 3.1 Lite',
+    provider: 'Google',
+    task: 'video',
+    modes: ['text-to-video', 'image-to-video', 'frames-to-video'],
+    tags: [],
+    pricing: { unit: 'per-second', usd: 0.15, credits: 15 },
+    videoEndpoint: 'veo',
+    videoConstraints: {
+      durations: [5, 10],
+      resolutions: ['720p', '1080p'],
+      aspectRatios: ['16:9', '9:16'],
+    },
+  },
+  {
+    id: 'veo3',
+    displayName: 'Veo 3.1 Quality',
+    provider: 'Google',
+    task: 'video',
+    modes: ['text-to-video', 'image-to-video', 'frames-to-video'],
+    tags: [],
+    pricing: {
+      unit: 'per-second',
+      usd: 0.30,
+      credits: 30,
+      // 4K is ~2× the cost of 720p/1080p on Veo Quality
+      priceFor: ({ durationSeconds = 5, resolution = '720p' }) =>
+        (resolution === '4k' ? 60 : 30) * durationSeconds,
+    },
+    videoEndpoint: 'veo',
+    videoConstraints: {
+      durations: [5, 10],
+      resolutions: ['720p', '1080p', '4k'],
+      aspectRatios: ['16:9', '9:16'],
+    },
   },
 
   // ── Text-to-Speech ────────────────────────────────────────────
@@ -186,6 +316,8 @@ export interface CostEstimateParams {
   durationSeconds?: number
   imageCount?: number
   tokenCount?: number
+  resolution?: string
+  audio?: boolean
 }
 
 export function estimateCost(modelId: string, params: CostEstimateParams = {}): number | null {
@@ -213,6 +345,7 @@ export function formatCost(usd: number | null): string | null {
 export function estimateCredits(modelId: string, params: CostEstimateParams = {}): number | null {
   const model = getModel(modelId)
   if (!model?.pricing) return null
+  if (model.pricing.priceFor) return model.pricing.priceFor(params)
   const { unit, credits } = model.pricing
   switch (unit) {
     case 'per-call':
@@ -293,6 +426,97 @@ export function buildImageInput(modelId: string, opts: ImageGenOptions): Record<
   }
   // Fallback: send prompt + aspect_ratio and hope for the best
   return { prompt: opts.prompt, aspect_ratio: ar }
+}
+
+// ── Per-model video input builders ────────────────────────────
+//
+// Each video model expects a different body shape (Seedance:
+// first_frame_url + last_frame_url, Kling: image_urls[] + mode + sound,
+// Veo: imageUrls[] + model + generationType). This helper produces the
+// right shape per model.
+
+export type VideoMode = 'text-to-video' | 'image-to-video' | 'frames-to-video' | 'reference-to-video'
+
+export interface VideoGenOptions {
+  prompt: string
+  mode: VideoMode
+  aspectRatio?: string
+  duration?: number
+  resolution?: string
+  audio?: boolean
+  // Public URLs (already uploaded via ensureHostedUrl by the caller).
+  firstFrameUrl?: string
+  lastFrameUrl?: string
+  referenceImageUrls?: string[]
+  imageUrl?: string  // single first-frame for image-to-video mode
+}
+
+export function buildVideoInput(modelId: string, opts: VideoGenOptions): Record<string, unknown> {
+  const m = getModel(modelId)
+  if (!m) throw new Error(`Unknown model: ${modelId}`)
+
+  const ar = opts.aspectRatio ?? '9:16'
+  const duration = opts.duration ?? 5
+  const resolution = opts.resolution ?? '720p'
+
+  // ── Veo family ──
+  if (modelId.startsWith('veo3')) {
+    const imageUrls: string[] = []
+    let generationType: 'TEXT_2_VIDEO' | 'FIRST_AND_LAST_FRAMES_2_VIDEO' | 'REFERENCE_2_VIDEO' = 'TEXT_2_VIDEO'
+
+    if (opts.mode === 'image-to-video' && opts.imageUrl) {
+      imageUrls.push(opts.imageUrl)
+      generationType = 'FIRST_AND_LAST_FRAMES_2_VIDEO'
+    } else if (opts.mode === 'frames-to-video') {
+      if (opts.firstFrameUrl) imageUrls.push(opts.firstFrameUrl)
+      if (opts.lastFrameUrl) imageUrls.push(opts.lastFrameUrl)
+      generationType = 'FIRST_AND_LAST_FRAMES_2_VIDEO'
+    } else if (opts.mode === 'reference-to-video' && opts.referenceImageUrls?.length) {
+      imageUrls.push(...opts.referenceImageUrls)
+      generationType = 'REFERENCE_2_VIDEO'
+    }
+
+    return {
+      prompt: opts.prompt,
+      model: modelId,            // 'veo3' | 'veo3_fast' | 'veo3_lite'
+      generationType,
+      ...(imageUrls.length > 0 ? { imageUrls } : {}),
+      aspect_ratio: ar,
+      resolution,
+    }
+  }
+
+  // ── Kling 3.0 ──
+  if (modelId === 'kling-3.0/video') {
+    const imageUrls: string[] = []
+    if (opts.mode === 'image-to-video' && opts.imageUrl) imageUrls.push(opts.imageUrl)
+    if (opts.mode === 'frames-to-video') {
+      if (opts.firstFrameUrl) imageUrls.push(opts.firstFrameUrl)
+      if (opts.lastFrameUrl) imageUrls.push(opts.lastFrameUrl)
+    }
+    return {
+      prompt: opts.prompt,
+      ...(imageUrls.length > 0 ? { image_urls: imageUrls } : {}),
+      mode: resolution,           // 'std' | 'pro' | '4K' — Kling reuses the 'mode' field for tier
+      sound: opts.audio ?? false,
+      duration: String(duration), // Kling expects string enum
+      aspect_ratio: ar,
+      multi_shots: false,
+    }
+  }
+
+  // ── Seedance 2.0 family (default) ──
+  return {
+    prompt: opts.prompt,
+    ...(opts.firstFrameUrl ? { first_frame_url: opts.firstFrameUrl } : {}),
+    ...(opts.lastFrameUrl ? { last_frame_url: opts.lastFrameUrl } : {}),
+    ...(opts.imageUrl && opts.mode === 'image-to-video' ? { first_frame_url: opts.imageUrl } : {}),
+    ...(opts.referenceImageUrls?.length ? { reference_image_urls: opts.referenceImageUrls } : {}),
+    aspect_ratio: ar,
+    duration,
+    resolution,
+    generate_audio: opts.audio ?? true,
+  }
 }
 
 // ── Tag styling helper ─────────────────────────────────────────

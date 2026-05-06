@@ -1,24 +1,54 @@
 import { useSettingsStore } from '../../../stores/settingsStore'
-import { kieVideoGenerate, ensureHostedUrl } from '../../../utils/kie'
+import { kieVideoGenerate, kieVeoGenerate, ensureHostedUrl } from '../../../utils/kie'
 import { saveAsset } from '../../../utils/assetStore'
+import { buildVideoInput, getModel } from '../../../utils/models'
 import type { VideoGenInput, VideoGenResult } from '../types'
 
 export async function generateVideo(input: VideoGenInput, signal?: AbortSignal): Promise<VideoGenResult> {
   const apiKey = useSettingsStore.getState().getKieApiKey()
+  const model = getModel(input.modelId)
+  if (!model) throw new Error(`Model not found: ${input.modelId}`)
 
-  const body: Record<string, unknown> = {
+  // Resolve any data URIs to public URLs (kie hosting, 3-day TTL).
+  let imageUrl: string | undefined
+  let firstFrameUrl: string | undefined
+  let lastFrameUrl: string | undefined
+  let referenceImageUrls: string[] | undefined
+
+  if (input.firstFrameDataUri && input.mode === 'image-to-video') {
+    imageUrl = await ensureHostedUrl(apiKey, input.firstFrameDataUri)
+  }
+  if (input.firstFrameDataUri && input.mode === 'frames-to-video') {
+    firstFrameUrl = await ensureHostedUrl(apiKey, input.firstFrameDataUri)
+  }
+  if (input.lastFrameDataUri && input.mode === 'frames-to-video') {
+    lastFrameUrl = await ensureHostedUrl(apiKey, input.lastFrameDataUri)
+  }
+  if (input.referenceDataUris?.length && input.mode === 'reference-to-video') {
+    referenceImageUrls = []
+    for (const uri of input.referenceDataUris) {
+      referenceImageUrls.push(await ensureHostedUrl(apiKey, uri))
+    }
+  }
+
+  const body = buildVideoInput(input.modelId, {
     prompt: input.prompt,
-    aspect_ratio: input.aspectRatio,
+    mode: input.mode,
+    aspectRatio: input.aspectRatio,
     duration: input.durationSeconds,
     resolution: input.resolution,
-  }
+    audio: input.audio,
+    imageUrl,
+    firstFrameUrl,
+    lastFrameUrl,
+    referenceImageUrls,
+  })
 
-  if (input.mode === 'image-to-video') {
-    if (!input.firstFrameDataUri) throw new Error('First-frame image is required for image-to-video.')
-    body.first_frame_url = await ensureHostedUrl(apiKey, input.firstFrameDataUri)
-  }
+  // Route to the right endpoint.
+  const urls = model.videoEndpoint === 'veo'
+    ? await kieVeoGenerate(apiKey, body, { signal })
+    : await kieVideoGenerate(apiKey, input.modelId, body, { signal })
 
-  const urls = await kieVideoGenerate(apiKey, input.modelId, body, { signal })
   if (urls.length === 0) throw new Error('Video generation returned no result.')
 
   const res = await fetch(urls[0])
