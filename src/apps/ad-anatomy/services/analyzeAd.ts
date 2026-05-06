@@ -1,7 +1,7 @@
 import type { AnalysisResult } from '../types'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import { kieChatCompletions, fileToDataUri, type ChatMessage } from '../../../utils/kie'
-import { getModel } from '../../../utils/models'
+import { getChatEndpointPath } from '../../../utils/models'
 
 const SYSTEM_INSTRUCTION = `You are an elite UGC ad analyst. You dissect social media video ads and extract actionable insights for creators and brands.
 
@@ -51,8 +51,7 @@ SCORECARD RULE: Be brutally honest. Do not inflate scores. Most ads are average 
 
 export async function analyzeAd(videoFile: File): Promise<AnalysisResult> {
   const apiKey = useSettingsStore.getState().getKieApiKey()
-  const model = getModel('gemini-3-flash')
-  if (!model?.chatEndpoint) throw new Error('Chat model is not configured. Check src/utils/models.ts.')
+  const endpoint = getChatEndpointPath()
 
   const dataUri = await fileToDataUri(videoFile)
 
@@ -69,7 +68,7 @@ export async function analyzeAd(videoFile: File): Promise<AnalysisResult> {
     },
   ]
 
-  const responseText = await kieChatCompletions(apiKey, model.chatEndpoint, messages)
+  const responseText = await kieChatCompletions(apiKey, endpoint, messages)
 
   const cleaned = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
   const result: AnalysisResult = JSON.parse(cleaned)

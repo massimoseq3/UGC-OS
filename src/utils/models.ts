@@ -9,14 +9,13 @@
 
 export type Task = 'chat' | 'vision' | 'image' | 'video' | 'tts'
 
-export type Mode =
-  | 'text-to-image'
-  | 'image-to-image'
-  | 'image-edit'
-  | 'text-to-video'
-  | 'image-to-video'
-  | 'frames-to-video'
-  | 'reference-to-video'
+export type ImageMode = 'text-to-image' | 'image-to-image' | 'image-edit'
+
+export type VideoMode = 'text-to-video' | 'image-to-video' | 'frames-to-video' | 'reference-to-video'
+
+// Union for cases where either category is acceptable (registry filters,
+// per-app picker keys, etc.). Concrete callers should narrow.
+export type Mode = ImageMode | VideoMode
 
 export type Tag = 'recommended' | 'new' | 'fast' | 'cheap'
 
@@ -27,9 +26,7 @@ export interface Voice {
 
 export interface Pricing {
   unit: 'per-call' | 'per-image' | 'per-second' | 'per-1k-tokens'
-  usd: number
-  // Approximate kie.ai credits per unit. 1 credit ≈ $0.01 baseline; refine
-  // per-model from https://kie.ai/pricing as exact values become known.
+  // kie.ai credits per unit. Refine per-model from https://kie.ai/pricing.
   credits: number
   // Optional richer pricing curve for models whose cost depends on multiple
   // dimensions (e.g. Kling: resolution + audio; Veo: 4K is ~2× others).
@@ -90,7 +87,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     provider: 'Google',
     task: 'chat',
     tags: ['recommended', 'fast', 'cheap'],
-    pricing: { unit: 'per-1k-tokens', usd: 0.00015, credits: 0.015 },
+    pricing: { unit: 'per-1k-tokens', credits: 0.015 },
     defaultFor: ['ad-anatomy', 'script-architect', 'image-dna', 'character-studio', 'broll-studio'],
     chatEndpoint: '/gemini-3-flash/v1/chat/completions',
   },
@@ -105,7 +102,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     modes: ['text-to-image', 'image-to-image', 'image-edit'],
     tags: ['new'],
     supportsReferenceImages: true,
-    pricing: { unit: 'per-image', usd: 0.04, credits: 4 },
+    pricing: { unit: 'per-image', credits: 4 },
   },
   {
     id: 'flux-2/pro-text-to-image',
@@ -114,7 +111,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     task: 'image',
     modes: ['text-to-image'],
     tags: [],
-    pricing: { unit: 'per-image', usd: 0.05, credits: 5 },
+    pricing: { unit: 'per-image', credits: 5 },
   },
   {
     id: 'seedream/5-lite-text-to-image',
@@ -123,7 +120,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     task: 'image',
     modes: ['text-to-image'],
     tags: ['new', 'fast'],
-    pricing: { unit: 'per-image', usd: 0.03, credits: 3 },
+    pricing: { unit: 'per-image', credits: 3 },
   },
   {
     id: 'google/imagen4',
@@ -132,7 +129,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     task: 'image',
     modes: ['text-to-image'],
     tags: [],
-    pricing: { unit: 'per-image', usd: 0.04, credits: 4 },
+    pricing: { unit: 'per-image', credits: 4 },
   },
   {
     id: 'gpt-image-2-text-to-image',
@@ -141,7 +138,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     task: 'image',
     modes: ['text-to-image'],
     tags: ['recommended'],
-    pricing: { unit: 'per-image', usd: 0.04, credits: 4 },
+    pricing: { unit: 'per-image', credits: 4 },
     defaultFor: ['broll-studio', 'character-studio'],
   },
   {
@@ -152,7 +149,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     modes: ['image-to-image', 'image-edit'],
     tags: ['recommended'],
     supportsReferenceImages: true,
-    pricing: { unit: 'per-image', usd: 0.04, credits: 4 },
+    pricing: { unit: 'per-image', credits: 4 },
   },
 
   // ── Video generation ──────────────────────────────────────────
@@ -165,7 +162,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     modes: ['text-to-video', 'image-to-video', 'frames-to-video', 'reference-to-video'],
     tags: ['recommended', 'new'],
     supportsReferenceImages: true,
-    pricing: { unit: 'per-second', usd: 0.10, credits: 10 },
+    pricing: { unit: 'per-second', credits: 10 },
     videoEndpoint: 'createTask',
     videoConstraints: {
       durations: [4, 5, 6, 8, 10, 12, 15],
@@ -183,7 +180,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     modes: ['text-to-video', 'image-to-video', 'frames-to-video', 'reference-to-video'],
     tags: ['fast', 'cheap'],
     supportsReferenceImages: true,
-    pricing: { unit: 'per-second', usd: 0.05, credits: 5 },
+    pricing: { unit: 'per-second', credits: 5 },
     videoEndpoint: 'createTask',
     videoConstraints: {
       durations: [4, 5, 6, 8, 10, 12, 15],
@@ -201,7 +198,6 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     tags: ['new'],
     pricing: {
       unit: 'per-second',
-      usd: 0.07,
       credits: 14,
       // mode + sound change pricing live (verified against kie.ai/kling-3-0)
       priceFor: ({ durationSeconds = 5, resolution = 'std', audio = false }) => {
@@ -228,7 +224,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     modes: ['text-to-video', 'image-to-video', 'frames-to-video', 'reference-to-video'],
     tags: ['fast'],
     supportsReferenceImages: true,
-    pricing: { unit: 'per-second', usd: 0.10, credits: 10 },
+    pricing: { unit: 'per-second', credits: 10 },
     videoEndpoint: 'veo',
     videoConstraints: {
       durations: [5, 10],
@@ -243,7 +239,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     task: 'video',
     modes: ['text-to-video', 'image-to-video', 'frames-to-video'],
     tags: [],
-    pricing: { unit: 'per-second', usd: 0.15, credits: 15 },
+    pricing: { unit: 'per-second', credits: 15 },
     videoEndpoint: 'veo',
     videoConstraints: {
       durations: [5, 10],
@@ -260,7 +256,6 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     tags: [],
     pricing: {
       unit: 'per-second',
-      usd: 0.30,
       credits: 30,
       // 4K is ~2× the cost of 720p/1080p on Veo Quality
       priceFor: ({ durationSeconds = 5, resolution = '720p' }) =>
@@ -310,6 +305,16 @@ export function getDefaultModel(appId: string, task: Task, mode?: Mode): ModelEn
   return candidates.find((m) => m.defaultFor?.includes(appId)) ?? candidates[0]
 }
 
+// Convenience for chat-using services. Returns the registered chat endpoint
+// path for the configured chat model, throwing if misconfigured.
+export function getChatEndpointPath(modelId: string = 'gemini-3-flash'): string {
+  const m = getModel(modelId)
+  if (!m?.chatEndpoint) {
+    throw new Error(`Chat model ${modelId} is missing a chatEndpoint. Check src/utils/models.ts.`)
+  }
+  return m.chatEndpoint
+}
+
 // ── Cost estimation ─────────────────────────────────────────────
 
 export interface CostEstimateParams {
@@ -320,27 +325,6 @@ export interface CostEstimateParams {
   audio?: boolean
 }
 
-export function estimateCost(modelId: string, params: CostEstimateParams = {}): number | null {
-  const model = getModel(modelId)
-  if (!model?.pricing) return null
-  const { unit, usd } = model.pricing
-  switch (unit) {
-    case 'per-call':
-      return usd
-    case 'per-image':
-      return usd * (params.imageCount ?? 1)
-    case 'per-second':
-      return usd * (params.durationSeconds ?? 5)
-    case 'per-1k-tokens':
-      return usd * ((params.tokenCount ?? 1000) / 1000)
-  }
-}
-
-export function formatCost(usd: number | null): string | null {
-  if (usd === null) return null
-  if (usd < 0.01) return `< $0.01`
-  return `$${usd.toFixed(2)}`
-}
 
 export function estimateCredits(modelId: string, params: CostEstimateParams = {}): number | null {
   const model = getModel(modelId)
@@ -434,8 +418,6 @@ export function buildImageInput(modelId: string, opts: ImageGenOptions): Record<
 // first_frame_url + last_frame_url, Kling: image_urls[] + mode + sound,
 // Veo: imageUrls[] + model + generationType). This helper produces the
 // right shape per model.
-
-export type VideoMode = 'text-to-video' | 'image-to-video' | 'frames-to-video' | 'reference-to-video'
 
 export interface VideoGenOptions {
   prompt: string

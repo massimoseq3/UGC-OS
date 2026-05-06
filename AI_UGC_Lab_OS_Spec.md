@@ -2,11 +2,49 @@
 
 ## Document Purpose
 
-This is the complete product specification for UGC Lab — a unified, macOS-inspired operating system that combines six standalone AI UGC ad production tools into a single cohesive platform with shared data banks and seamless inter-app workflows.
+This is the product specification for UGC Lab — a unified workspace combining seven AI UGC ad production tools into a single platform with shared data banks and seamless inter-app workflows.
 
 This document serves as:
-1. A reference for prototyping in Google AI Studio
+1. A reference for prototyping
 2. The foundation for the Claude Code build spec (production version)
+
+---
+
+## Current State Addendum (2026-05-06)
+
+The spec below was written for the original vision. The shipped app has evolved on a few axes — this section captures the deltas. The narrative further down still holds for product intent and design rationale; treat anything contradicting this addendum as historical.
+
+### What changed
+
+- **Shell aesthetic.** The macOS-style desktop / dock / menu bar has been replaced with a YouTube-style left sidebar. The sidebar is collapsible; menu bar is taller with a prominent "UGC Lab" wordmark. `Desktop.tsx`, `DesktopFolder.tsx`, and `Dock.tsx` were deleted.
+- **App count.** Seven apps, not six. Added **Generate Videos** (Video Studio Pro) for standalone text-to-video / image-to-video / frames-to-video / reference-to-video.
+- **App names.** Renamed to action-style verbs in the sidebar — "Generate Characters", "Extract Visual DNA", "Analyze Ads", "Generate Scripts", "Generate Voiceovers", "Generate B-Roll", "Generate Videos". Folder names + IDs in code are unchanged (`character-studio/`, etc.) for stable localStorage keys.
+- **API backend.** Gemini direct API was replaced with **kie.ai** as a unified gateway. One Bearer key gives access to ~74 models. `src/utils/gemini.ts` was deleted; `src/utils/kie.ts` is the new client. Three transport patterns coexist (createTask polling, OpenAI-compat SSE, Veo custom endpoint).
+- **Models.**
+  - **Text + vision:** Gemini 3 Flash on kie (chat completions, hard-coded, no picker).
+  - **Image gen:** GPT Image 2 default; picker also exposes Nano Banana 2, Flux 2 Pro, SeeDream 5 Lite, Imagen 4.
+  - **Video gen:** Six models — Seedance 2.0, Seedance 2.0 Fast, Kling 3.0, Veo 3.1 Fast/Lite/Quality. Per-model duration / resolution / aspect ratio constraints. Multi-dimensional pricing (Kling: resolution × audio).
+  - **TTS:** ElevenLabs v3 (`elevenlabs/text-to-dialogue-v3`), hard-coded. Voice catalog of 20 voices with gender + accent filters. Stability is a tri-state (Variable / Natural / Stable) — not a continuous slider.
+- **Settings.** Two-key flow (Gemini + Google) collapsed to one kie.ai key with a Test connection button that reports remaining credits via `GET /api/v1/chat/credit`.
+- **Pricing UI.** Model pickers and generate buttons now show estimated **credits**, not USD. The `usd` field has been removed from `Pricing`.
+- **B-Roll → Video Studio handoff.** Each generated still in B-Roll has an "Animate in Video Studio" button that dispatches an inter-app payload. Video Studio receives it, switches to image-to-video mode, and pre-fills the first frame.
+- **Voice schema migration.** Voice Studio dropped the Gemini-era `creativity` / `ambience` / `styleInstructions` fields. `bankStore.loadFromStorage` strips them from any persisted entries on load.
+
+### Where the spec is still authoritative
+
+- Product intent and target user (AI UGC ad creators)
+- Bank schemas (Products, Models, Scripts, Voices, B-Rolls) — same shape today, just typed cleaner
+- Inter-app payload pattern (`sendToApp` / `consumePayload`)
+- Each app's purpose and input/output contract
+- Design philosophy (dark, zinc, glass, tracking-tight)
+
+### Where the spec is wrong / outdated
+
+- Section 2 (OS Shell) — describes desktop + dock; we ship a sidebar
+- Section 13 (Technical Architecture) — describes Gemini direct calls; we ship kie.ai
+- Section 14 (Build Phases) — predates the kie.ai migration, sidebar redesign, and polish pass
+
+For an up-to-date code-level architecture overview see `CLAUDE.md` at the project root.
 
 ---
 

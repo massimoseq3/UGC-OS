@@ -55,6 +55,24 @@ function generateId(): string {
 
 type BankData = Pick<BankState, 'products' | 'models' | 'scripts' | 'voices' | 'brolls' | 'voiceHistory'>
 
+// One-shot migration: ElevenLabs v3 dropped creativity / ambience /
+// styleInstructions; voice presets and history items now use stability
+// (0 / 0.5 / 1) and a voice ID. Drop any preset that lacks a voiceId so
+// generation doesn't fail mid-run.
+function migrateVoiceShape<T>(arr: unknown): T[] {
+  if (!Array.isArray(arr)) return []
+  return arr
+    .filter((v) => v && typeof v === 'object' && 'voiceId' in v && typeof v.voiceId === 'string')
+    .map((v) => {
+      const item = { ...(v as Record<string, unknown>) }
+      delete item.creativity
+      delete item.ambience
+      delete item.styleInstructions
+      if (typeof item.stability !== 'number') item.stability = 0.5
+      return item as unknown as T
+    })
+}
+
 function loadFromStorage(): BankData {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -64,9 +82,9 @@ function loadFromStorage(): BankData {
         products: parsed.products ?? [],
         models: parsed.models ?? [],
         scripts: parsed.scripts ?? [],
-        voices: parsed.voices ?? [],
+        voices: migrateVoiceShape<VoicePreset>(parsed.voices),
         brolls: parsed.brolls ?? [],
-        voiceHistory: parsed.voiceHistory ?? [],
+        voiceHistory: migrateVoiceShape<VoiceHistoryItem>(parsed.voiceHistory),
       }
     }
   } catch {

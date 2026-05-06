@@ -1,7 +1,7 @@
 import type { VisualDNA } from '../types'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import { kieChatCompletions, fileToDataUri, type ChatMessage } from '../../../utils/kie'
-import { getModel } from '../../../utils/models'
+import { getChatEndpointPath } from '../../../utils/models'
 
 const SYSTEM_INSTRUCTION = `You are a visual DNA extractor for UGC ad production. You analyze images of people and extract every visual detail that would be needed to recreate the exact same look in an AI image generation tool.
 
@@ -52,8 +52,7 @@ Be extremely specific and detailed. Every field should have a value — use your
 
 export async function analyzeImage(imageFile: File): Promise<VisualDNA> {
   const apiKey = useSettingsStore.getState().getKieApiKey()
-  const model = getModel('gemini-3-flash')
-  if (!model?.chatEndpoint) throw new Error('Chat model is not configured. Check src/utils/models.ts.')
+  const endpoint = getChatEndpointPath()
 
   const dataUri = await fileToDataUri(imageFile)
 
@@ -70,7 +69,7 @@ export async function analyzeImage(imageFile: File): Promise<VisualDNA> {
     },
   ]
 
-  const responseText = await kieChatCompletions(apiKey, model.chatEndpoint, messages)
+  const responseText = await kieChatCompletions(apiKey, endpoint, messages)
 
   const cleaned = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
   const result: VisualDNA = JSON.parse(cleaned)

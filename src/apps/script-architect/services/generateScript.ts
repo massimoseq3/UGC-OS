@@ -1,7 +1,7 @@
 import type { GenerateScriptInput, GeneratedScript } from '../types'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import { kieChatCompletions, type ChatMessage } from '../../../utils/kie'
-import { getModel } from '../../../utils/models'
+import { getChatEndpointPath } from '../../../utils/models'
 
 const SYSTEM_INSTRUCTION = `You are an elite UGC ad script writer with the specialized skill of "Structural Adaptation".
 
@@ -16,8 +16,7 @@ CRITICAL FORMATING RULES:
 
 export async function generateScript(input: GenerateScriptInput): Promise<GeneratedScript> {
   const apiKey = useSettingsStore.getState().getKieApiKey()
-  const model = getModel('gemini-3-flash')
-  if (!model?.chatEndpoint) throw new Error('Chat model is not configured. Check src/utils/models.ts.')
+  const endpoint = getChatEndpointPath()
 
   let prompt = ''
 
@@ -51,6 +50,6 @@ export async function generateScript(input: GenerateScriptInput): Promise<Genera
     { role: 'user', content: [{ type: 'text', text: prompt }] },
   ]
 
-  const scriptText = await kieChatCompletions(apiKey, model.chatEndpoint, messages)
+  const scriptText = await kieChatCompletions(apiKey, endpoint, messages)
   return { scriptText }
 }

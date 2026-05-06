@@ -8,14 +8,14 @@ import {
   downloadAsBase64,
   type ChatMessage,
 } from '../../../utils/kie'
-import { getModel, getDefaultModel, buildImageInput, type AspectRatio } from '../../../utils/models'
+import { getDefaultModel, getChatEndpointPath, buildImageInput, type AspectRatio } from '../../../utils/models'
 import { saveBase64Asset, saveAsset, isAssetRef, getAsBase64 } from '../../../utils/assetStore'
 
 function getChatEndpoint(): { apiKey: string; endpoint: string } {
-  const apiKey = useSettingsStore.getState().getKieApiKey()
-  const model = getModel('gemini-3-flash')
-  if (!model?.chatEndpoint) throw new Error('Chat model is not configured. Check src/utils/models.ts.')
-  return { apiKey, endpoint: model.chatEndpoint }
+  return {
+    apiKey: useSettingsStore.getState().getKieApiKey(),
+    endpoint: getChatEndpointPath(),
+  }
 }
 
 let idCounter = 0
