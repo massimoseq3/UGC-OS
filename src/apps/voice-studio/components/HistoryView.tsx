@@ -1,7 +1,8 @@
-import { useState } from 'react'
-import { Volume2, Save, Check, Trash2, Play } from 'lucide-react'
+import { useMemo, useState, useRef } from 'react'
+import { Search, Volume2, Save, Check, Trash2, Play, Pause, AlignLeft, Download } from 'lucide-react'
 import { useBankStore } from '../../../stores/bankStore'
 import type { VoiceHistoryItem } from '../../../stores/types'
+import { getUrl } from '../../../utils/assetStore'
 import { seedColor } from './VoicePickerView'
 
 interface HistoryViewProps {
@@ -9,6 +10,7 @@ interface HistoryViewProps {
   activeId: string | null
   onSelect: (item: VoiceHistoryItem) => void
   onDelete: (id: string) => void
+  onShowDetails: (item: VoiceHistoryItem) => void
 }
 
 function formatRelative(ts: number): string {
@@ -19,11 +21,102 @@ function formatRelative(ts: number): string {
   return `${Math.floor(diff / 86_400_000)}d ago`
 }
 
-export default function HistoryView({ items, activeId, onSelect, onDelete }: HistoryViewProps) {
+function startOfDay(ts: number): number {
+  const d = new Date(ts)
+  d.setHours(0, 0, 0, 0)
+  return d.getTime()
+}
+
+function sectionLabel(dayTs: number): string {
+  const today = startOfDay(Date.now())
+  const yesterday = today - 86_400_000
+  if (dayTs === today) return 'Today'
+  if (dayTs === yesterday) return 'Yesterday'
+  return new Date(dayTs).toLocaleDateString(undefined, {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+async function resolveAudioUrl(ref: string): Promise<string> {
+  if (ref.startsWith('asset-')) {
+    const url = await getUrl(ref)
+    if (!url) throw new Error('Audio asset not found')
+    return url
+  }
+  return ref
+}
+
+export default function HistoryView({ items, activeId, onSelect, onDelete, onShowDetails }: HistoryViewProps) {
+  const [query, setQuery] = useState('')
   const [saveFormId, setSaveFormId] = useState<string | null>(null)
   const [saveLabel, setSaveLabel] = useState('')
   const [savedId, setSavedId] = useState<string | null>(null)
+  const [previewingId, setPreviewingId] = useState<string | null>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
   const addVoice = useBankStore((s) => s.addVoice)
+
+  const togglePreview = async (item: VoiceHistoryItem) => {
+    if (audioRef.current && previewingId === item.id) {
+      audioRef.current.pause()
+      audioRef.current = null
+      setPreviewingId(null)
+      return
+    }
+    audioRef.current?.pause()
+    try {
+      const url = await resolveAudioUrl(item.audioUrl)
+      const audio = new Audio(url)
+      audioRef.current = audio
+      audio.addEventListener('ended', () => {
+        if (audioRef.current === audio) {
+          audioRef.current = null
+          setPreviewingId(null)
+        }
+      })
+      await audio.play()
+      setPreviewingId(item.id)
+    } catch {
+      /* swallow */
+    }
+  }
+
+  const handleDownload = async (item: VoiceHistoryItem) => {
+    try {
+      const url = await resolveAudioUrl(item.audioUrl)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${item.voiceName}-${Date.now()}.mp3`
+      a.click()
+    } catch {
+      /* swallow */
+    }
+  }
+
+  // Sort newest first, filter by query, then group by calendar day.
+  const groups = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    const filtered = items
+      .filter((it) => {
+        if (!q) return true
+        return (
+          it.scriptText.toLowerCase().includes(q) ||
+          it.voiceName.toLowerCase().includes(q)
+        )
+      })
+      .slice()
+      .sort((a, b) => b.createdAt - a.createdAt)
+
+    const map = new Map<number, VoiceHistoryItem[]>()
+    for (const it of filtered) {
+      const day = startOfDay(it.createdAt)
+      const arr = map.get(day) ?? []
+      arr.push(it)
+      map.set(day, arr)
+    }
+    return Array.from(map.entries()).sort(([a], [b]) => b - a)
+  }, [items, query])
 
   const handleSavePreset = (item: VoiceHistoryItem) => {
     if (!saveLabel.trim()) return
@@ -48,113 +141,166 @@ export default function HistoryView({ items, activeId, onSelect, onDelete }: His
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-6">
         <Volume2 className="h-10 w-10 text-zinc-800" strokeWidth={1.5} />
-        <p className="text-sm text-zinc-600">No voiceovers yet</p>
-        <p className="text-center text-xs text-zinc-700">Your generated voiceovers will land here.</p>
+        <p className="text-sm text-zinc-300">No voiceovers yet</p>
+        <p className="text-center text-xs text-zinc-500">Your generated voiceovers will land here.</p>
       </div>
     )
   }
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <div className="flex-1 overflow-y-auto p-2">
-        <div className="flex flex-col gap-1">
-          {items.map((item) => {
-            const isActive = activeId === item.id
-            const isSaved = savedId === item.id
-            const inSaveForm = saveFormId === item.id
+      {/* Search */}
+      <div className="border-b border-white/5 px-5 py-4">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search history..."
+            className="w-full rounded-full border border-white/10 bg-transparent py-2 pl-10 pr-3 text-sm text-zinc-100 placeholder-zinc-500 outline-none transition-colors focus:border-indigo-500/40"
+          />
+        </div>
+      </div>
 
-            return (
-              <div
-                key={item.id}
-                onClick={() => onSelect(item)}
-                className={`group cursor-pointer rounded-xl border px-3 py-2.5 transition-colors ${
-                  isActive
-                    ? 'border-indigo-500/30 bg-indigo-500/5'
-                    : 'border-transparent hover:border-white/10 hover:bg-white/[0.02]'
-                }`}
-              >
-                <div className="flex items-start gap-2.5">
-                  <span
-                    className="mt-0.5 h-7 w-7 shrink-0 rounded-full"
-                    style={{ background: seedColor(item.voiceId) }}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="line-clamp-2 text-[11px] leading-snug text-zinc-200">
-                      {item.scriptPreview}
-                    </p>
-                    <div className="mt-1 flex items-center gap-1.5 text-[10px] text-zinc-600">
-                      <span className="font-medium text-zinc-400">{item.voiceName}</span>
-                      <span>·</span>
-                      <span>{formatRelative(item.createdAt)}</span>
-                    </div>
-                  </div>
-                  {isActive && (
-                    <Play className="mt-1 h-3 w-3 shrink-0 text-indigo-400" />
-                  )}
+      {/* List */}
+      <div className="flex-1 overflow-y-auto">
+        {groups.length === 0 ? (
+          <div className="flex h-full items-center justify-center px-6 text-center">
+            <span className="text-sm text-zinc-500">No matches.</span>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1 p-2">
+            {groups.map(([dayTs, dayItems]) => (
+              <div key={dayTs} className="flex flex-col gap-0.5">
+                {/* Day section header — pill, centered */}
+                <div className="my-2 flex items-center justify-center">
+                  <span className="rounded-full bg-white/[0.06] px-3 py-1 text-[11px] font-medium text-zinc-300">
+                    {sectionLabel(dayTs)}
+                  </span>
                 </div>
 
-                {/* Actions row — only when active or hovered */}
-                <div
-                  className={`mt-2 flex items-center gap-1.5 transition-opacity ${
-                    isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                  }`}
-                >
-                  {inSaveForm ? (
+                {dayItems.map((item) => {
+                  const isActive = activeId === item.id
+                  const isSaved = savedId === item.id
+                  const inSaveForm = saveFormId === item.id
+                  const isPreviewing = previewingId === item.id
+
+                  return (
                     <div
-                      onClick={(e) => e.stopPropagation()}
-                      className="flex items-center gap-1.5"
-                    >
-                      <input
-                        value={saveLabel}
-                        onChange={(e) => setSaveLabel(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') handleSavePreset(item) }}
-                        placeholder="Preset name..."
-                        autoFocus
-                        className="w-28 rounded-full border border-white/10 bg-transparent px-2.5 py-1 text-[10px] text-zinc-200 placeholder-zinc-600 outline-none focus:border-indigo-500/30"
-                      />
-                      <button
-                        onClick={() => handleSavePreset(item)}
-                        disabled={!saveLabel.trim()}
-                        className="rounded-full bg-indigo-500/15 px-2.5 py-1 text-[10px] font-medium text-indigo-400 transition-colors hover:bg-indigo-500/25 disabled:opacity-40"
-                      >
-                        Save
-                      </button>
-                      <button
-                        onClick={() => { setSaveFormId(null); setSaveLabel('') }}
-                        className="text-[10px] text-zinc-600 hover:text-zinc-400"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setSaveFormId(item.id) }}
-                      className={`flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-medium transition-colors ${
-                        isSaved ? 'text-green-400' : 'text-zinc-500 hover:bg-white/5 hover:text-zinc-300'
+                      key={item.id}
+                      onClick={() => onSelect(item)}
+                      className={`group cursor-pointer rounded-xl px-3 py-3 transition-colors ${
+                        isActive
+                          ? 'bg-indigo-500/15 ring-1 ring-indigo-500/20'
+                          : 'hover:bg-white/[0.04]'
                       }`}
                     >
-                      {isSaved ? (
-                        <><Check className="h-3 w-3" /> Saved</>
-                      ) : (
-                        <><Save className="h-3 w-3" /> Save preset</>
+                      <div className="flex items-center gap-3">
+                        <span
+                          className="h-9 w-9 shrink-0 rounded-full"
+                          style={{ background: seedColor(item.voiceId) }}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="line-clamp-2 text-sm leading-snug text-zinc-100">
+                            {item.scriptPreview}
+                          </p>
+                          <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-zinc-500">
+                            <span className="text-zinc-300">{item.voiceName}</span>
+                            <span>·</span>
+                            <span>{formatRelative(item.createdAt)}</span>
+                          </div>
+                        </div>
+
+                        {/* Hover-only action cluster: Play / Show details / Download */}
+                        <div
+                          className={`flex items-center gap-0.5 transition-opacity ${
+                            isActive || isPreviewing ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                          }`}
+                        >
+                          <button
+                            onClick={(e) => { e.stopPropagation(); togglePreview(item) }}
+                            className="flex h-7 w-7 items-center justify-center rounded-full text-zinc-300 transition-colors hover:bg-white/5 hover:text-zinc-100"
+                            title={isPreviewing ? 'Pause' : 'Play'}
+                          >
+                            {isPreviewing ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onShowDetails(item) }}
+                            className="flex h-7 w-7 items-center justify-center rounded-full text-zinc-300 transition-colors hover:bg-white/5 hover:text-zinc-100"
+                            title="Show details"
+                          >
+                            <AlignLeft className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDownload(item) }}
+                            className="flex h-7 w-7 items-center justify-center rounded-full text-zinc-300 transition-colors hover:bg-white/5 hover:text-zinc-100"
+                            title="Download"
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Save preset / Delete row — only when active */}
+                      {isActive && (
+                        <div onClick={(e) => e.stopPropagation()} className="mt-3 flex items-center gap-1.5 border-t border-white/5 pt-2.5">
+                          {inSaveForm ? (
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                value={saveLabel}
+                                onChange={(e) => setSaveLabel(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') handleSavePreset(item) }}
+                                placeholder="Preset name..."
+                                autoFocus
+                                className="w-32 rounded-full border border-white/10 bg-transparent px-2.5 py-1 text-[11px] text-zinc-200 placeholder-zinc-600 outline-none focus:border-indigo-500/30"
+                              />
+                              <button
+                                onClick={() => handleSavePreset(item)}
+                                disabled={!saveLabel.trim()}
+                                className="rounded-full bg-indigo-500/15 px-2.5 py-1 text-[11px] font-medium text-indigo-300 transition-colors hover:bg-indigo-500/25 disabled:opacity-40"
+                              >
+                                Save
+                              </button>
+                              <button
+                                onClick={() => { setSaveFormId(null); setSaveLabel('') }}
+                                className="text-[11px] text-zinc-500 hover:text-zinc-300"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setSaveFormId(item.id)}
+                              className={`flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium transition-colors ${
+                                isSaved ? 'text-green-400' : 'text-zinc-300 hover:bg-white/5 hover:text-zinc-100'
+                              }`}
+                            >
+                              {isSaved ? (
+                                <><Check className="h-3 w-3" /> Saved</>
+                              ) : (
+                                <><Save className="h-3 w-3" /> Save preset</>
+                              )}
+                            </button>
+                          )}
+
+                          <div className="flex-1" />
+
+                          <button
+                            onClick={() => onDelete(item.id)}
+                            className="flex h-6 w-6 items-center justify-center rounded-full text-zinc-500 transition-colors hover:bg-red-500/10 hover:text-red-400"
+                            title="Delete"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
                       )}
-                    </button>
-                  )}
-
-                  <div className="flex-1" />
-
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onDelete(item.id) }}
-                    className="flex h-6 w-6 items-center justify-center rounded-full text-zinc-600 transition-colors hover:bg-red-500/10 hover:text-red-400"
-                    title="Delete"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
-                </div>
+                    </div>
+                  )
+                })}
               </div>
-            )
-          })}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )

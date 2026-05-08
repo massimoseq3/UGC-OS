@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Play, Pause, RotateCcw, RotateCw, Download, X, ThumbsUp, ThumbsDown } from 'lucide-react'
+import { Play, Pause, RotateCcw, RotateCw, Download, ChevronDown, AlignLeft } from 'lucide-react'
 import type { VoiceHistoryItem } from '../../../stores/types'
 import { getUrl } from '../../../utils/assetStore'
 import { seedColor } from './VoicePickerView'
@@ -7,6 +7,7 @@ import { seedColor } from './VoicePickerView'
 interface BottomPlayerProps {
   item: VoiceHistoryItem
   onClose: () => void
+  onShowDetails: (item: VoiceHistoryItem) => void
 }
 
 async function resolveAudioUrl(ref: string): Promise<string> {
@@ -19,6 +20,7 @@ async function resolveAudioUrl(ref: string): Promise<string> {
 }
 
 function formatTime(seconds: number): string {
+  if (!isFinite(seconds) || seconds < 0) return '0:00'
   const m = Math.floor(seconds / 60)
   const s = Math.floor(seconds % 60)
   return `${m}:${s.toString().padStart(2, '0')}`
@@ -32,88 +34,112 @@ function formatRelative(ts: number): string {
   return new Date(ts).toLocaleDateString()
 }
 
-export default function BottomPlayer({ item, onClose }: BottomPlayerProps) {
+export default function BottomPlayer({ item, onClose, onShowDetails }: BottomPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false)
-  const [progress, setProgress] = useState(0)
   const [currentTime, setCurrentTime] = useState(0)
+  const [duration, setDuration] = useState(item.duration || 0)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const animRef = useRef<number>(0)
-  const progressBarRef = useRef<HTMLDivElement>(null)
+  const trackRef = useRef<HTMLDivElement>(null)
 
-  // Reset and load when item changes
+  // Animate the progress bar while audio is playing.
+  const tick = useCallback(() => {
+    const audio = audioRef.current
+    if (!audio) return
+    if (audio.duration) setDuration(audio.duration)
+    setCurrentTime(audio.currentTime)
+    if (!audio.paused && !audio.ended) {
+      animRef.current = requestAnimationFrame(tick)
+    }
+  }, [])
+
+  // Build a fresh audio element whenever the item changes.
   useEffect(() => {
     let cancelled = false
-    setProgress(0)
     setCurrentTime(0)
+    setDuration(item.duration || 0)
     setIsPlaying(false)
+    cancelAnimationFrame(animRef.current)
 
     if (audioRef.current) {
       audioRef.current.pause()
+      audioRef.current.src = ''
       audioRef.current = null
     }
 
-    resolveAudioUrl(item.audioUrl).then((url) => {
-      if (cancelled) return
-      const audio = new Audio(url)
-      audioRef.current = audio
-      audio.addEventListener('play', () => setIsPlaying(true))
-      audio.addEventListener('pause', () => setIsPlaying(false))
-      audio.addEventListener('ended', () => {
-        setIsPlaying(false)
-        setProgress(0)
-        setCurrentTime(0)
+    resolveAudioUrl(item.audioUrl)
+      .then((url) => {
+        if (cancelled) return
+        const audio = new Audio(url)
+        audio.preload = 'metadata'
+        audioRef.current = audio
+
+        audio.addEventListener('loadedmetadata', () => {
+          if (audioRef.current === audio && isFinite(audio.duration)) {
+            setDuration(audio.duration)
+          }
+        })
+        audio.addEventListener('play', () => {
+          if (audioRef.current !== audio) return
+          setIsPlaying(true)
+          cancelAnimationFrame(animRef.current)
+          animRef.current = requestAnimationFrame(tick)
+        })
+        audio.addEventListener('pause', () => {
+          if (audioRef.current !== audio) return
+          setIsPlaying(false)
+          cancelAnimationFrame(animRef.current)
+          // Make sure UI reflects the final paused position.
+          setCurrentTime(audio.currentTime)
+        })
+        audio.addEventListener('ended', () => {
+          if (audioRef.current !== audio) return
+          setIsPlaying(false)
+          cancelAnimationFrame(animRef.current)
+          setCurrentTime(0)
+          audio.currentTime = 0
+        })
+        audio.addEventListener('timeupdate', () => {
+          if (audioRef.current === audio) setCurrentTime(audio.currentTime)
+        })
       })
-    }).catch(() => { /* swallow — UI just stays in stopped state */ })
+      .catch(() => { /* swallow — UI just stays stopped */ })
 
     return () => {
       cancelled = true
       cancelAnimationFrame(animRef.current)
       if (audioRef.current) {
         audioRef.current.pause()
+        audioRef.current.src = ''
         audioRef.current = null
       }
     }
-  }, [item.audioUrl, item.id])
-
-  const tick = useCallback(() => {
-    const audio = audioRef.current
-    if (audio && audio.duration) {
-      setProgress(audio.currentTime / audio.duration)
-      setCurrentTime(audio.currentTime)
-    }
-    if (audio && !audio.paused) {
-      animRef.current = requestAnimationFrame(tick)
-    }
-  }, [])
+  }, [item.audioUrl, item.id, tick])
 
   const togglePlay = () => {
     const audio = audioRef.current
     if (!audio) return
-    if (audio.paused) {
-      audio.play()
-      animRef.current = requestAnimationFrame(tick)
-    } else {
-      audio.pause()
-    }
+    if (audio.paused) audio.play().catch(() => { /* ignored */ })
+    else audio.pause()
   }
 
   const skip = (deltaSec: number) => {
     const audio = audioRef.current
-    if (!audio || !audio.duration) return
-    audio.currentTime = Math.max(0, Math.min(audio.duration, audio.currentTime + deltaSec))
-    if (audio.paused) {
-      setProgress(audio.currentTime / audio.duration)
-      setCurrentTime(audio.currentTime)
-    }
+    if (!audio) return
+    const dur = audio.duration || duration
+    if (!dur) return
+    audio.currentTime = Math.max(0, Math.min(dur, audio.currentTime + deltaSec))
+    setCurrentTime(audio.currentTime)
   }
 
-  const handleScrub = (e: React.MouseEvent) => {
+  const seekFromEvent = (e: React.MouseEvent | React.PointerEvent) => {
     const audio = audioRef.current
-    if (!audio || !audio.duration || !progressBarRef.current) return
-    const rect = progressBarRef.current.getBoundingClientRect()
+    if (!audio || !trackRef.current) return
+    const dur = audio.duration || duration
+    if (!dur) return
+    const rect = trackRef.current.getBoundingClientRect()
     const fraction = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
-    audio.currentTime = fraction * audio.duration
-    setProgress(fraction)
+    audio.currentTime = fraction * dur
     setCurrentTime(audio.currentTime)
   }
 
@@ -125,23 +151,13 @@ export default function BottomPlayer({ item, onClose }: BottomPlayerProps) {
     a.click()
   }
 
+  const progressPct = duration > 0 ? (currentTime / duration) * 100 : 0
+
   return (
     <div className="border-t border-white/5 bg-[#0A0A0A]">
-      {/* Scrubber */}
-      <div
-        ref={progressBarRef}
-        onClick={handleScrub}
-        className="group h-1 cursor-pointer bg-white/5"
-      >
-        <div
-          className="h-full bg-indigo-400 transition-[width] duration-75"
-          style={{ width: `${progress * 100}%` }}
-        />
-      </div>
-
       <div className="flex items-center gap-4 px-5 py-3">
         {/* Voice avatar + meta */}
-        <div className="flex min-w-0 flex-1 items-center gap-3">
+        <div className="flex min-w-0 w-[28%] items-center gap-3">
           <span
             className="h-9 w-9 shrink-0 rounded-full"
             style={{ background: seedColor(item.voiceId) }}
@@ -150,59 +166,72 @@ export default function BottomPlayer({ item, onClose }: BottomPlayerProps) {
             <div className="truncate text-sm font-medium text-zinc-100">
               {item.scriptPreview}
             </div>
-            <div className="flex items-center gap-1.5 text-[11px] text-zinc-600">
+            <div className="truncate text-[11px] text-zinc-500">
               <span className="text-zinc-400">{item.voiceName}</span>
-              <span>·</span>
-              <span>Created {formatRelative(item.createdAt)}</span>
+              {' · '}Created {formatRelative(item.createdAt)}
             </div>
           </div>
         </div>
 
-        {/* Transport */}
-        <div className="flex items-center gap-2">
+        {/* Transport + scrubber */}
+        <div className="flex flex-1 items-center gap-3">
           <button
             onClick={() => skip(-10)}
-            className="relative flex h-8 w-8 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-white/5 hover:text-zinc-100"
+            className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-white/5 hover:text-zinc-100"
             title="Back 10 seconds"
           >
-            <RotateCcw className="h-3.5 w-3.5" />
+            <RotateCcw className="h-4 w-4" />
             <span className="absolute text-[7px] font-bold">10</span>
           </button>
           <button
             onClick={togglePlay}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-100 text-zinc-900 transition-colors hover:bg-white"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-900 transition-colors hover:bg-white"
             title={isPlaying ? 'Pause' : 'Play'}
           >
             {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 translate-x-px" />}
           </button>
           <button
             onClick={() => skip(10)}
-            className="relative flex h-8 w-8 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-white/5 hover:text-zinc-100"
+            className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-white/5 hover:text-zinc-100"
             title="Forward 10 seconds"
           >
-            <RotateCw className="h-3.5 w-3.5" />
+            <RotateCw className="h-4 w-4" />
             <span className="absolute text-[7px] font-bold">10</span>
           </button>
-        </div>
 
-        {/* Time */}
-        <div className="hidden min-w-[72px] text-right text-[11px] tabular-nums text-zinc-600 sm:block">
-          {formatTime(currentTime)} / {formatTime(item.duration)}
+          <span className="min-w-[36px] text-right text-[11px] tabular-nums text-zinc-500">
+            {formatTime(currentTime)}
+          </span>
+
+          {/* Scrubber track — single source of truth for seeking */}
+          <div
+            ref={trackRef}
+            onClick={seekFromEvent}
+            className="group relative h-1.5 flex-1 cursor-pointer rounded-full bg-white/[0.08]"
+          >
+            <div
+              className="absolute inset-y-0 left-0 rounded-full bg-zinc-100"
+              style={{ width: `${progressPct}%` }}
+            />
+            <div
+              className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-zinc-100 opacity-0 shadow transition-opacity group-hover:opacity-100"
+              style={{ left: `${progressPct}%` }}
+            />
+          </div>
+
+          <span className="min-w-[36px] text-[11px] tabular-nums text-zinc-500">
+            {formatTime(duration)}
+          </span>
         </div>
 
         {/* Right cluster */}
-        <div className="flex items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1">
           <button
+            onClick={() => onShowDetails(item)}
             className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-200"
-            title="Like"
+            title="Show details"
           >
-            <ThumbsUp className="h-3.5 w-3.5" />
-          </button>
-          <button
-            className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-200"
-            title="Dislike"
-          >
-            <ThumbsDown className="h-3.5 w-3.5" />
+            <AlignLeft className="h-3.5 w-3.5" />
           </button>
           <button
             onClick={handleDownload}
@@ -216,7 +245,7 @@ export default function BottomPlayer({ item, onClose }: BottomPlayerProps) {
             className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-200"
             title="Close player"
           >
-            <X className="h-3.5 w-3.5" />
+            <ChevronDown className="h-4 w-4" />
           </button>
         </div>
       </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAppStore } from '../../stores/appStore'
 import { useBankStore } from '../../stores/bankStore'
+import { useCreditsStore } from '../../stores/creditsStore'
 import type { Script, VoiceHistoryItem } from '../../stores/types'
 import type { VoiceSettings } from './types'
 import { createDefaultSettings } from './types'
@@ -19,6 +20,7 @@ export default function VoiceStudio() {
   const [scriptPickerOpen, setScriptPickerOpen] = useState(false)
   const [highlightField, setHighlightField] = useState<string | null>(null)
   const [activePlayerItem, setActivePlayerItem] = useState<VoiceHistoryItem | null>(null)
+  const [detailsItem, setDetailsItem] = useState<VoiceHistoryItem | null>(null)
 
   const history = useBankStore((s) => s.voiceHistory)
   const addVoiceHistory = useBankStore((s) => s.addVoiceHistory)
@@ -50,6 +52,8 @@ export default function VoiceStudio() {
     setScriptPickerOpen(false)
   }
 
+  const refreshCredits = useCreditsStore((s) => s.refresh)
+
   const handleGenerate = async () => {
     if (!scriptText.trim()) return
     setIsGenerating(true)
@@ -58,6 +62,8 @@ export default function VoiceStudio() {
       const item = await generateVoice(settings, scriptText)
       addVoiceHistory(item)
       setActivePlayerItem(item)
+      // Pull the new credit balance after the generation has settled.
+      refreshCredits()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Audio generation failed. Check your API key and try again.')
     } finally {
@@ -68,6 +74,19 @@ export default function VoiceStudio() {
   const handleDeleteHistoryItem = (id: string) => {
     deleteVoiceHistory(id)
     if (activePlayerItem?.id === id) setActivePlayerItem(null)
+    if (detailsItem?.id === id) setDetailsItem(null)
+  }
+
+  const handleRestoreText = (text: string) => {
+    setScriptText(text)
+    setHighlightField('script')
+    setTimeout(() => setHighlightField(null), 800)
+    setDetailsItem(null)
+  }
+
+  const handleRestoreSettings = (next: Partial<VoiceSettings>) => {
+    setSettings((prev) => ({ ...prev, ...next }))
+    setDetailsItem(null)
   }
 
   const handleDownloadLatest = async () => {
@@ -107,8 +126,13 @@ export default function VoiceStudio() {
             onSettingsChange={setSettings}
             history={history}
             activeHistoryId={activePlayerItem?.id ?? null}
+            detailsItem={detailsItem}
             onSelectHistory={setActivePlayerItem}
             onDeleteHistory={handleDeleteHistoryItem}
+            onShowDetails={setDetailsItem}
+            onCloseDetails={() => setDetailsItem(null)}
+            onRestoreText={handleRestoreText}
+            onRestoreSettings={handleRestoreSettings}
           />
         </div>
       </div>
@@ -118,6 +142,7 @@ export default function VoiceStudio() {
         <BottomPlayer
           item={activePlayerItem}
           onClose={() => setActivePlayerItem(null)}
+          onShowDetails={setDetailsItem}
         />
       )}
 

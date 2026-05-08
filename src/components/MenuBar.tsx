@@ -1,8 +1,19 @@
-import { FlaskConical, Menu } from 'lucide-react'
+import { useEffect } from 'react'
+import { Menu, Coins } from 'lucide-react'
 import { useAppStore } from '../stores/appStore'
+import { useSettingsStore } from '../stores/settingsStore'
+import { useCreditsStore } from '../stores/creditsStore'
 
 export default function MenuBar() {
   const toggleSidebar = useAppStore((s) => s.toggleSidebar)
+  const apiKey = useSettingsStore((s) => s.kieApiKey)
+  const balance = useCreditsStore((s) => s.balance)
+  const refresh = useCreditsStore((s) => s.refresh)
+
+  // Refresh on mount + whenever the API key changes.
+  useEffect(() => {
+    if (apiKey) refresh()
+  }, [apiKey, refresh])
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 flex h-14 items-center gap-3 border-b border-white/5 bg-[#09090b]/80 px-3 backdrop-blur-xl select-none">
@@ -14,14 +25,25 @@ export default function MenuBar() {
         <Menu className="h-5 w-5" strokeWidth={1.75} />
       </button>
 
-      <div className="flex items-center gap-2">
-        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-fuchsia-500 to-orange-500">
-          <FlaskConical className="h-4 w-4 text-white" strokeWidth={2} />
+      <span className="text-[17px] font-bold tracking-tight text-zinc-100">
+        UGC Lab
+      </span>
+
+      <div className="flex-1" />
+
+      {/* Credits chip — only visible once an API key is configured */}
+      {apiKey && (
+        <div
+          className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-zinc-200"
+          title="kie.ai credits remaining"
+        >
+          <Coins className="h-3.5 w-3.5 text-zinc-400" />
+          <span className="tabular-nums">
+            {balance !== null ? balance.toLocaleString() : '—'}
+          </span>
+          <span className="text-zinc-500">credits left</span>
         </div>
-        <span className="text-[17px] font-semibold tracking-tight text-zinc-100">
-          UGC Lab
-        </span>
-      </div>
+      )}
     </header>
   )
 }
