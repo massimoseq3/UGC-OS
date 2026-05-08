@@ -15,6 +15,7 @@ import {
   AlertCircle,
   RectangleVertical,
   RectangleHorizontal,
+  Trash2,
 } from 'lucide-react'
 import GenerationProgress from '../../../components/GenerationProgress'
 import ModelPicker from '../../../components/ModelPicker'
@@ -30,6 +31,7 @@ interface OutputPanelProps {
   isGenerating?: boolean
   error?: string | null
   onAddVariation: (sceneNumber: number, variation: PromptVariation) => void
+  onDeleteVariation: (sceneNumber: number, variationId: string) => void
   referenceImages?: ReferenceImage[]
   selectedProductId?: string
   selectedModelId?: string
@@ -37,9 +39,9 @@ interface OutputPanelProps {
 }
 
 const TAG_STYLES: Record<PromptVariation['tag'], string> = {
-  'LITERAL / ACTION': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-  'EMOTIONAL / REACTION': 'bg-rose-500/10 text-rose-400 border-rose-500/20',
-  'PRODUCT / DETAIL': 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+  'LITERAL / ACTION': 'bg-emerald-500/[0.04] text-emerald-300/70 border-emerald-500/15',
+  'EMOTIONAL / REACTION': 'bg-rose-500/[0.04] text-rose-300/70 border-rose-500/15',
+  'PRODUCT / DETAIL': 'bg-amber-500/[0.04] text-amber-300/70 border-amber-500/15',
 }
 
 const PORTRAIT_VALUE = 'Portrait (9:16)'
@@ -48,25 +50,25 @@ const LANDSCAPE_VALUE = 'Landscape (16:9)'
 function AspectRatioToggle({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const isPortrait = value.includes('9:16')
   return (
-    <div className="flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.02] p-1">
+    <div className="flex h-[44px] items-center gap-1 rounded-xl border border-white/10 bg-white/[0.02] p-1">
       <button
         onClick={() => onChange(PORTRAIT_VALUE)}
-        className={`flex items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors ${
+        className={`flex h-full items-center justify-center gap-2 rounded-lg px-4 text-xs font-medium transition-colors ${
           isPortrait ? 'bg-orange-500/15 text-orange-300' : 'text-zinc-500 hover:text-zinc-300'
         }`}
         title="Portrait 9:16"
       >
-        <RectangleVertical className="h-3.5 w-3.5" strokeWidth={1.75} />
+        <RectangleVertical className="h-4 w-4" strokeWidth={1.75} />
         Portrait <span className="text-zinc-500">9:16</span>
       </button>
       <button
         onClick={() => onChange(LANDSCAPE_VALUE)}
-        className={`flex items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors ${
+        className={`flex h-full items-center justify-center gap-2 rounded-lg px-4 text-xs font-medium transition-colors ${
           !isPortrait ? 'bg-orange-500/15 text-orange-300' : 'text-zinc-500 hover:text-zinc-300'
         }`}
         title="Landscape 16:9"
       >
-        <RectangleHorizontal className="h-3.5 w-3.5" strokeWidth={1.75} />
+        <RectangleHorizontal className="h-4 w-4" strokeWidth={1.75} />
         Landscape <span className="text-zinc-500">16:9</span>
       </button>
     </div>
@@ -124,6 +126,7 @@ function VariationCard({
   index,
   cardState,
   onUpdateState,
+  onDelete,
   referenceImages,
   selectedProductId,
   selectedModelId,
@@ -134,12 +137,15 @@ function VariationCard({
   index: number
   cardState: CardState
   onUpdateState: (updates: Partial<CardState>) => void
+  onDelete?: () => void
   referenceImages?: ReferenceImage[]
   selectedProductId?: string
   selectedModelId?: string
   selectedScriptId?: string
   aspectRatio: string
 }) {
+  const isManual = variation.id.startsWith('manual-') || variation.label === 'Manual Option'
+  const showTagChip = !isManual
   const [isEditingPrompt, setIsEditingPrompt] = useState(!variation.prompt)
   const [saved, setSaved] = useState(false)
   const hasImages = cardState.images.length > 0
@@ -210,16 +216,38 @@ function VariationCard({
   return (
     <div className="flex flex-col rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
       {/* Card header */}
-      <div className="flex items-center justify-between px-3 pt-3 pb-2">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-2 px-3 pt-3 pb-2">
+        <div className="flex min-w-0 items-center gap-2">
           <span className="text-[10px] font-semibold uppercase tracking-tight text-zinc-400">
             Option {index + 1}
           </span>
-          <span className={`rounded-md border px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wider ${TAG_STYLES[variation.tag]}`}>
-            {variation.tag}
-          </span>
+          {showTagChip && (
+            <span className={`rounded-md border px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wider ${TAG_STYLES[variation.tag]}`}>
+              {variation.tag}
+            </span>
+          )}
         </div>
-        <CopyButton text={cardState.editablePrompt} />
+        <div className="flex shrink-0 items-center gap-0.5">
+          {!isEditingPrompt && (
+            <button
+              onClick={() => setIsEditingPrompt(true)}
+              className="flex items-center rounded-md p-1 text-zinc-600 transition-colors hover:bg-white/5 hover:text-zinc-300"
+              title="Edit prompt"
+            >
+              <Pencil className="h-3 w-3" />
+            </button>
+          )}
+          <CopyButton text={cardState.editablePrompt} />
+          {onDelete && (
+            <button
+              onClick={onDelete}
+              className="flex items-center rounded-md p-1 text-zinc-600 transition-colors hover:bg-red-500/10 hover:text-red-400"
+              title="Delete option"
+            >
+              <Trash2 className="h-3 w-3" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Prompt text */}
@@ -230,6 +258,7 @@ function VariationCard({
               value={cardState.editablePrompt}
               onChange={(e) => onUpdateState({ editablePrompt: e.target.value })}
               rows={4}
+              placeholder="Write your custom B-roll prompt here..."
               className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-2 text-[11px] leading-relaxed text-zinc-300 placeholder-zinc-700 outline-none transition-colors focus:border-white/20 resize-none"
             />
             <button
@@ -240,18 +269,9 @@ function VariationCard({
             </button>
           </div>
         ) : (
-          <div className="group relative">
-            <p className="text-[11px] leading-relaxed text-zinc-500 line-clamp-4">
-              {cardState.editablePrompt || <span className="italic text-zinc-600">No prompt entered...</span>}
-            </p>
-            <button
-              onClick={() => setIsEditingPrompt(true)}
-              className="absolute -right-1 -top-1 rounded-md p-1 text-zinc-700 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-white/5 hover:text-zinc-400"
-              title="Edit prompt"
-            >
-              <Pencil className="h-3 w-3" />
-            </button>
-          </div>
+          <p className="text-[11px] leading-relaxed text-zinc-500 line-clamp-4">
+            {cardState.editablePrompt || <span className="italic text-zinc-600">No prompt entered — click the pencil to write one.</span>}
+          </p>
         )}
       </div>
 
@@ -357,7 +377,7 @@ function VariationCard({
           <div className="flex flex-col gap-2">
             <button
               onClick={handleGenerateImage}
-              className="flex w-full items-center justify-center gap-1.5 rounded-full border border-dashed border-white/10 py-4 text-[11px] font-medium text-zinc-500 transition-colors hover:border-white/20 hover:bg-white/[0.02] hover:text-zinc-300"
+              className="flex w-full items-center justify-center gap-1.5 rounded-full border border-orange-500/50 bg-orange-500/[0.05] py-4 text-[11px] font-medium text-orange-300 transition-colors hover:border-orange-500/70 hover:bg-orange-500/15 hover:text-orange-200"
             >
               <ImageIcon className="h-3.5 w-3.5" />
               Generate B-Roll Image
@@ -408,6 +428,7 @@ function SceneSection({
   cardStates,
   onUpdateCardState,
   onAddVariation,
+  onDeleteVariation,
   referenceImages,
   selectedProductId,
   selectedModelId,
@@ -418,6 +439,7 @@ function SceneSection({
   cardStates: Record<string, CardState>
   onUpdateCardState: (key: string, updates: Partial<CardState>) => void
   onAddVariation: (sceneNumber: number, variation: PromptVariation) => void
+  onDeleteVariation: (sceneNumber: number, variationId: string) => void
   referenceImages?: ReferenceImage[]
   selectedProductId?: string
   selectedModelId?: string
@@ -428,25 +450,32 @@ function SceneSection({
     <div>
       {/* Scene header */}
       <div className="mb-4 flex items-center gap-4">
-        <span className="text-4xl font-bold tabular-nums text-zinc-800">
+        <span
+          className="text-4xl font-bold tabular-nums text-zinc-800"
+          style={{ fontFamily: "'DM Sans', ui-sans-serif, system-ui, sans-serif" }}
+        >
           {String(scene.number).padStart(2, '0')}
         </span>
         <div className="h-8 w-px bg-white/10" />
         <div className="flex flex-col gap-1.5">
-          <span className="inline-flex w-fit rounded-full bg-violet-500/10 px-2.5 py-0.5 text-[10px] font-semibold text-violet-400">
-            {scene.type}
+          <span className="inline-flex w-fit rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+            Line {scene.number}
           </span>
-          <p className="text-sm italic leading-relaxed text-zinc-500" style={{ fontFamily: 'Georgia, serif' }}>
+          <p
+            className="text-base italic leading-relaxed text-zinc-400"
+            style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
+          >
             &ldquo;{scene.scriptLine}&rdquo;
           </p>
         </div>
       </div>
 
       {/* Cards grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {scene.variations.map((variation, i) => {
           const key = `${scene.number}-${i}`
           const state = cardStates[key] ?? createDefaultCardState(variation.prompt)
+          const isManual = variation.id.startsWith('manual-') || variation.label === 'Manual Option'
           return (
             <VariationCard
               key={variation.id}
@@ -454,6 +483,7 @@ function SceneSection({
               index={i}
               cardState={state}
               onUpdateState={(updates) => onUpdateCardState(key, updates)}
+              onDelete={isManual ? () => onDeleteVariation(scene.number, variation.id) : undefined}
               referenceImages={referenceImages}
               selectedProductId={selectedProductId}
               selectedModelId={selectedModelId}
@@ -494,7 +524,7 @@ function SkeletonScene() {
           <div className="skeleton h-3 w-48" />
         </div>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {[0, 1, 2].map((i) => (
           <div key={i} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
             <div className="mb-2 flex items-center gap-2">
@@ -515,7 +545,7 @@ function SkeletonScene() {
 }
 
 /* ─── Main OutputPanel ─── */
-export default function OutputPanel({ result, isGenerating, error, onAddVariation, referenceImages, selectedProductId, selectedModelId, selectedScriptId }: OutputPanelProps) {
+export default function OutputPanel({ result, isGenerating, error, onAddVariation, onDeleteVariation, referenceImages, selectedProductId, selectedModelId, selectedScriptId }: OutputPanelProps) {
   const [cardStates, setCardStates] = useState<Record<string, CardState>>({})
   const [aspectRatio, setAspectRatio] = useState<string>(PORTRAIT_VALUE)
 
@@ -626,6 +656,7 @@ export default function OutputPanel({ result, isGenerating, error, onAddVariatio
               cardStates={cardStates}
               onUpdateCardState={handleUpdateCardState}
               onAddVariation={onAddVariation}
+              onDeleteVariation={onDeleteVariation}
               referenceImages={referenceImages}
               selectedProductId={selectedProductId}
               selectedModelId={selectedModelId}

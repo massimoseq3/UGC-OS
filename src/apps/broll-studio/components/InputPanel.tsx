@@ -159,6 +159,11 @@ export default function InputPanel({
       {/* Bank selections */}
       <div className="flex-1 overflow-y-auto p-5">
         <div className="flex flex-col gap-3">
+          {/* References section */}
+          <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-400">
+            References
+          </span>
+
           {/* Product */}
           <BankCard
             icon={Package}
@@ -202,21 +207,20 @@ export default function InputPanel({
 
           {/* Manual script textarea */}
           <div>
-            <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-600">
-              Paste Script Manually
-            </span>
             <textarea
-              value={selectedScript ? '' : scriptText}
+              value={scriptText}
               onChange={(e) => onScriptTextChange(e.target.value)}
-              disabled={!!selectedScript}
-              rows={10}
+              rows={8}
               placeholder="Paste your script text here..."
-              className="mt-1.5 w-full rounded-lg border border-white/10 bg-transparent px-3 py-2 text-sm leading-relaxed text-zinc-200 placeholder-zinc-700 outline-none transition-colors focus:border-white/20 resize-none disabled:opacity-30 disabled:cursor-not-allowed"
+              className="w-full rounded-lg border border-white/10 bg-transparent px-3 py-2 text-sm leading-relaxed text-zinc-200 placeholder-zinc-700 outline-none transition-colors focus:border-white/20 resize-none"
             />
           </div>
 
+          {/* Section separator */}
+          <div className="my-2 h-px bg-white/5" />
+
           {/* Additional context */}
-          <div className="mt-2">
+          <div>
             <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-600">
               Additional Context
             </span>

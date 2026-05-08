@@ -8,7 +8,7 @@ import {
   downloadAsBase64,
   type ChatMessage,
 } from '../../../utils/kie'
-import { getDefaultModel, getChatEndpointPath, buildImageInput, type AspectRatio } from '../../../utils/models'
+import { getDefaultModel, getChatEndpointPath, buildImageInput, getModel, type AspectRatio } from '../../../utils/models'
 import { saveBase64Asset, saveAsset, isAssetRef, getAsBase64 } from '../../../utils/assetStore'
 
 function getChatEndpoint(): { apiKey: string; endpoint: string } {
@@ -46,7 +46,9 @@ STRATEGY & VISUAL RULES (APPLY TO EVERY VARIATION):
 - Describe the scene simply, like 'in a minimalist kitchen' or 'in a modern office'.
 
 STRICT TECHNICAL STYLE STRING (MUST BE APPENDED TO EVERY PROMPT):
-"Style: Modern iPhone camera quality, 9:16 aspect ratio, unedited realism, matching A-roll lighting, zero bokeh, zero depth of field, sharp focus across entire frame. The subject and product must match the attached references exactly."
+"Style: Modern iPhone camera quality, unedited realism, matching A-roll lighting, zero bokeh, zero depth of field, sharp focus across entire frame. The subject and product must match the attached references exactly."
+
+DO NOT mention any aspect ratio, resolution, or framing dimensions in the prompt — those are set separately by the user.
 
 RULES FOR VISUAL VARIATIONS:
 For each scene, provide 3 different creative angles:
@@ -138,10 +140,28 @@ export async function generateImage(
 ): Promise<string> {
   const apiKey = useSettingsStore.getState().getKieApiKey()
   const hasRefs = !!referenceImages?.length
-
   const mode = hasRefs ? 'image-to-image' : 'text-to-image'
-  const modelId = useSettingsStore.getState().getAppModel(`broll-studio:image:${mode}`)
-    ?? getDefaultModel('broll-studio', 'image', mode)?.id
+
+  // Honour the user's pick from the master ModelPicker (which is wired with
+  // mode='text-to-image'). When refs are present and the picked model also
+  // supports image-to-image (e.g. nano-banana-2), use it directly. If it
+  // doesn't (e.g. gpt-image-2-text-to-image is t2i-only), auto-resolve to its
+  // i2i sibling. Final fallback is the registry default.
+  const pickedId = useSettingsStore.getState().getAppModel('broll-studio:image:text-to-image')
+  const picked = pickedId ? getModel(pickedId) : undefined
+
+  let modelId: string | undefined
+  if (picked && picked.modes.includes(mode)) {
+    modelId = picked.id
+  } else if (picked && hasRefs) {
+    // Try a same-family i2i sibling (e.g. gpt-image-2-text-to-image → gpt-image-2-image-to-image).
+    const family = picked.id.replace(/-(text-to-image|image-to-image|image-edit).*$/, '')
+    const sibling = getModel(`${family}-image-to-image`)
+    modelId = sibling?.id ?? getDefaultModel('broll-studio', 'image', 'image-to-image')?.id
+  } else {
+    modelId = useSettingsStore.getState().getAppModel(`broll-studio:image:${mode}`)
+      ?? getDefaultModel('broll-studio', 'image', mode)?.id
+  }
   if (!modelId) throw new Error(`No image model configured for B-Roll (${mode}).`)
 
   // Convert each reference (asset ref or data URL) to a kie-hosted URL.
@@ -229,7 +249,8 @@ RULES:
 1. DO NOT describe lighting. It messes up the UGC style.
 2. DO NOT describe the model's appearance or product details. Mention the product and the model/subject.
 3. ONLY describe the action they're doing. Describe the scene simply, e.g., 'in a minimalist kitchen'.
-4. Append this exactly to the end of the prompt: "Style: Modern iPhone camera quality, 9:16 aspect ratio, unedited realism, matching A-roll lighting, zero bokeh, zero depth of field, sharp focus across entire frame. The subject and product must match the attached references exactly."
+4. Append this exactly to the end of the prompt: "Style: Modern iPhone camera quality, unedited realism, matching A-roll lighting, zero bokeh, zero depth of field, sharp focus across entire frame. The subject and product must match the attached references exactly."
+5. DO NOT mention any aspect ratio, resolution, or framing dimensions — those are set separately.
 
 Respond with ONLY valid JSON (no markdown):
 {
