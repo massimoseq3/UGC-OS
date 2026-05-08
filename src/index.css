@@ -7,7 +7,7 @@ body,
   margin: 0;
   padding: 0;
   overflow: hidden;
-  font-family: 'DM Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif;
   letter-spacing: -0.01em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -17,7 +17,7 @@ body,
 input,
 textarea,
 select {
-  font-family: 'DM Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif;
   font-weight: 300;
   letter-spacing: -0.025em;
 }
