@@ -63,7 +63,7 @@ function ModelContent({ item }: { item: Model }) {
           {item.name || 'Untitled Model'}
         </span>
         <span className="truncate text-xs text-zinc-500">
-          {item.source === 'character-studio' ? 'UGC Character Studio' : item.source === 'image-dna-extractor' ? 'Image DNA' : 'Imported'}
+          {item.source === 'character-studio' ? 'Characters' : item.source === 'image-dna-extractor' ? 'Image DNA' : 'Imported'}
         </span>
       </div>
     </>

@@ -27,7 +27,7 @@ export default function BrollStudio() {
   const activeApp = useAppStore((s) => s.activeApp)
   const getScriptById = useBankStore((s) => s.getScriptById)
 
-  // Consume inter-app payload (from Script Architect "Send to B-Roll Studio")
+  // Consume inter-app payload (from Scripts "Send to B-Roll Images")
   useEffect(() => {
     if (activeApp !== 'broll-studio') return
     if (!interAppPayload || interAppPayload.targetApp !== 'broll-studio') return

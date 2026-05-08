@@ -74,7 +74,7 @@ function ProductCard({ item, onEdit, onDelete }: { item: Product; onEdit: () => 
 function ModelCard({ item, onEdit, onDelete }: { item: Model; onEdit: () => void; onDelete: () => void }) {
   const [confirm, setConfirm] = useState(false)
   const resolvedImage = useAssetUrl(item.characterImage)
-  const sourceLabel = item.source === 'character-studio' ? 'UGC Character Studio' : item.source === 'image-dna-extractor' ? 'Image DNA' : 'Imported'
+  const sourceLabel = item.source === 'character-studio' ? 'Characters' : item.source === 'image-dna-extractor' ? 'Image DNA' : 'Imported'
   const hasJson = item.jsonProfile !== null
 
   const handleDownload = (e: React.MouseEvent) => {

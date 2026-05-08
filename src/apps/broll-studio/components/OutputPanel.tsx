@@ -282,10 +282,10 @@ function VariationCard({
               <button
                 onClick={handleAnimateInVideoStudio}
                 className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-purple-500/20 bg-purple-500/10 px-2 py-1.5 text-[10px] font-medium text-purple-400 transition-colors hover:bg-purple-500/20"
-                title="Send this still to Video Studio as the first frame"
+                title="Send this still to B-Roll Videos as the first frame"
               >
                 <Film className="h-3 w-3" />
-                Animate in Video Studio
+                Animate in B-Roll Videos
               </button>
               <button
                 onClick={handleSaveToBank}

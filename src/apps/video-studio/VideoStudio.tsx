@@ -95,7 +95,7 @@ export default function VideoStudio() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedModelId])
 
-  // Inter-app payload: B-Roll → Video Studio handoff (first frame).
+  // Inter-app payload: B-Roll Images → B-Roll Videos handoff (first frame).
   useEffect(() => {
     if (activeApp !== 'video-studio') return
     if (!interAppPayload || interAppPayload.targetApp !== 'video-studio') return

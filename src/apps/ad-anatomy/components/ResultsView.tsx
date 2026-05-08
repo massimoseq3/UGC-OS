@@ -111,7 +111,7 @@ function TranscriptSection({ result }: { result: AnalysisResult }) {
       targetField: 'winningTranscript',
       data: withoutTimestamps,
     })
-    addToast('Transcript sent to Script Architect')
+    addToast('Transcript sent to Scripts')
   }
 
   const handleSaveToBank = () => {
@@ -156,7 +156,7 @@ function TranscriptSection({ result }: { result: AnalysisResult }) {
             className="flex items-center gap-1 rounded-full bg-[#FB2B37]/10 px-2.5 py-1 text-[11px] font-medium text-[#FB2B37] transition-colors hover:bg-[#FB2B37]/20"
           >
             <Send className="h-3 w-3" />
-            Send to Script Architect
+            Send to Scripts
           </button>
         </div>
       </div>

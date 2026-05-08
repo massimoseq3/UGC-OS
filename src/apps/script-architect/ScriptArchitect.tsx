@@ -20,7 +20,7 @@ export default function ScriptArchitect() {
   const activeApp = useAppStore((s) => s.activeApp)
   const getProductById = useBankStore((s) => s.getProductById)
 
-  // Consume inter-app payloads from Ad Anatomy Pro
+  // Consume inter-app payloads from Ad Analyzer
   useEffect(() => {
     if (activeApp !== 'script-architect') return
     if (!interAppPayload || interAppPayload.targetApp !== 'script-architect') return

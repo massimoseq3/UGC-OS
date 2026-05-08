@@ -261,7 +261,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
   },
 
   // ── Text-to-Speech ────────────────────────────────────────────
-  // Voice Studio uses ElevenLabs Multilingual v2 exclusively (no picker).
+  // Voiceovers uses ElevenLabs Multilingual v2 exclusively (no picker).
   // Spec: https://docs.kie.ai/market/elevenlabs/text-to-speech-multilingual-v2
   // Voice catalog lives in src/apps/voice-studio/types.ts — VOICES.
 
