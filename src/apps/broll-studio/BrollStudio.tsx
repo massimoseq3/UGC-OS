@@ -83,6 +83,18 @@ export default function BrollStudio() {
     })
   }
 
+  const handleDeleteVariation = (sceneNumber: number, variationId: string) => {
+    if (!result) return
+    setResult({
+      ...result,
+      scenes: result.scenes.map((s) =>
+        s.number === sceneNumber
+          ? { ...s, variations: s.variations.filter((v) => v.id !== variationId) }
+          : s
+      ),
+    })
+  }
+
   // Build context strings and reference images from selected bank items
   const productContext = selectedProduct
     ? `Product: ${selectedProduct.productName}. ${selectedProduct.productDescription}. USPs: ${selectedProduct.usps}. Benefits: ${selectedProduct.benefits}.`
@@ -146,6 +158,7 @@ export default function BrollStudio() {
           isGenerating={isGenerating}
           error={error}
           onAddVariation={handleAddVariation}
+          onDeleteVariation={handleDeleteVariation}
           referenceImages={referenceImages}
           selectedProductId={selectedProduct?.id ?? undefined}
           selectedModelId={selectedModel?.id ?? undefined}

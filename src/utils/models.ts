@@ -141,6 +141,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     tags: ['recommended'],
     supportsReferenceImages: true,
     pricing: { unit: 'per-image', credits: 4 },
+    defaultFor: ['broll-studio', 'character-studio'],
   },
 
   // ── Video generation ──────────────────────────────────────────

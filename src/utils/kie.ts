@@ -99,8 +99,30 @@ async function fetchWithRetry(
 
       if (res.ok) return res
 
-      const body = await res.json().catch(() => ({}))
-      const msg = (body as { msg?: string }).msg ?? res.statusText
+      // Read the full response body so we can always surface *something* meaningful.
+      // kie.ai usually returns JSON like { code, msg, ... }, but on misrouted requests
+      // (404s, gateway errors) the body may be HTML, plain text, or empty. We try JSON
+      // first for the common case, then fall back to raw text, so the user never sees
+      // "kie.ai error (404):" with a blank message.
+      const rawText = await res.text().catch(() => '')
+      let parsed: Record<string, unknown> | null = null
+      try { parsed = rawText ? JSON.parse(rawText) : null } catch { /* not JSON */ }
+
+      const errObj = parsed && typeof parsed.error === 'object' && parsed.error !== null
+        ? parsed.error as Record<string, unknown>
+        : null
+      const fromJson =
+        (parsed?.msg as string | undefined) ??
+        (parsed?.message as string | undefined) ??
+        (typeof parsed?.error === 'string' ? parsed.error as string : undefined) ??
+        (errObj?.message as string | undefined)
+
+      const truncated = rawText.length > 400 ? rawText.slice(0, 400) + '…' : rawText
+      const msg =
+        fromJson?.trim() ||
+        truncated.trim() ||
+        res.statusText ||
+        `${url} returned no response body`
 
       if (RETRYABLE_HTTP.has(res.status) && attempt < MAX_RETRIES) {
         if (res.status === 429) {
