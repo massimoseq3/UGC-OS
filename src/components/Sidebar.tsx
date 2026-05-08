@@ -22,7 +22,7 @@ export default function Sidebar() {
     <>
       <aside
         className={`fixed left-0 top-14 bottom-0 z-40 flex flex-col border-r border-white/5 bg-[#09090b]/80 backdrop-blur-xl transition-[width] duration-200 ease-out ${
-          collapsed ? 'w-16' : 'w-56'
+          collapsed ? 'w-20' : 'w-56'
         }`}
       >
         <div className="flex-1 overflow-y-auto px-2 py-3">
@@ -73,33 +73,49 @@ interface SidebarRowProps {
 function SidebarRow({ app, active, collapsed, onClick }: SidebarRowProps) {
   const Icon = app.icon
 
+  if (collapsed) {
+    return (
+      <button
+        onClick={onClick}
+        className={`flex w-full flex-col items-center gap-1 rounded-lg px-1 py-2 transition-colors ${
+          active ? 'bg-white/[0.08]' : 'hover:bg-white/[0.04]'
+        }`}
+      >
+        <Icon
+          className="h-5 w-5 shrink-0"
+          style={{ color: active ? '#fafafa' : undefined }}
+          strokeWidth={active ? 2 : 1.75}
+        />
+        <span
+          className={`text-center text-[10px] leading-tight ${
+            active ? 'font-medium text-white' : 'font-normal text-zinc-300'
+          }`}
+        >
+          {app.name}
+        </span>
+      </button>
+    )
+  }
+
   return (
     <button
       onClick={onClick}
-      className={`group relative flex w-full items-center gap-3 rounded-lg px-3 py-2 transition-colors ${
+      className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 transition-colors ${
         active ? 'bg-white/[0.08]' : 'hover:bg-white/[0.04]'
-      } ${collapsed ? 'justify-center' : ''}`}
+      }`}
     >
       <Icon
         className="h-5 w-5 shrink-0"
         style={{ color: active ? '#fafafa' : undefined }}
         strokeWidth={active ? 2 : 1.75}
       />
-      {!collapsed && (
-        <span
-          className={`truncate text-sm ${
-            active ? 'font-medium text-white' : 'font-normal text-zinc-300'
-          }`}
-        >
-          {app.name}
-        </span>
-      )}
-
-      {collapsed && (
-        <div className="pointer-events-none absolute left-full ml-2 z-50 whitespace-nowrap rounded-md bg-zinc-800/95 px-2.5 py-1 text-[11px] font-medium text-zinc-200 opacity-0 backdrop-blur-sm transition-opacity duration-150 group-hover:opacity-100">
-          {app.name}
-        </div>
-      )}
+      <span
+        className={`truncate text-sm ${
+          active ? 'font-medium text-white' : 'font-normal text-zinc-300'
+        }`}
+      >
+        {app.name}
+      </span>
     </button>
   )
 }

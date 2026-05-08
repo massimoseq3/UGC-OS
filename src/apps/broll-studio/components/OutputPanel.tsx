@@ -13,8 +13,11 @@ import {
   Pencil,
   FolderOpen,
   AlertCircle,
+  RectangleVertical,
+  RectangleHorizontal,
 } from 'lucide-react'
 import GenerationProgress from '../../../components/GenerationProgress'
+import ModelPicker from '../../../components/ModelPicker'
 import type { BrollResult, Scene, PromptVariation, CardState, GeneratedImage, ReferenceImage } from '../types'
 import { generateImage } from '../services/generateBroll'
 import { useBankStore } from '../../../stores/bankStore'
@@ -37,6 +40,37 @@ const TAG_STYLES: Record<PromptVariation['tag'], string> = {
   'LITERAL / ACTION': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
   'EMOTIONAL / REACTION': 'bg-rose-500/10 text-rose-400 border-rose-500/20',
   'PRODUCT / DETAIL': 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+}
+
+const PORTRAIT_VALUE = 'Portrait (9:16)'
+const LANDSCAPE_VALUE = 'Landscape (16:9)'
+
+function AspectRatioToggle({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const isPortrait = value.includes('9:16')
+  return (
+    <div className="flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.02] p-1">
+      <button
+        onClick={() => onChange(PORTRAIT_VALUE)}
+        className={`flex items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors ${
+          isPortrait ? 'bg-orange-500/15 text-orange-300' : 'text-zinc-500 hover:text-zinc-300'
+        }`}
+        title="Portrait 9:16"
+      >
+        <RectangleVertical className="h-3.5 w-3.5" strokeWidth={1.75} />
+        Portrait <span className="text-zinc-500">9:16</span>
+      </button>
+      <button
+        onClick={() => onChange(LANDSCAPE_VALUE)}
+        className={`flex items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors ${
+          !isPortrait ? 'bg-orange-500/15 text-orange-300' : 'text-zinc-500 hover:text-zinc-300'
+        }`}
+        title="Landscape 16:9"
+      >
+        <RectangleHorizontal className="h-3.5 w-3.5" strokeWidth={1.75} />
+        Landscape <span className="text-zinc-500">16:9</span>
+      </button>
+    </div>
+  )
 }
 
 
@@ -94,6 +128,7 @@ function VariationCard({
   selectedProductId,
   selectedModelId,
   selectedScriptId,
+  aspectRatio,
 }: {
   variation: PromptVariation
   index: number
@@ -103,6 +138,7 @@ function VariationCard({
   selectedProductId?: string
   selectedModelId?: string
   selectedScriptId?: string
+  aspectRatio: string
 }) {
   const [isEditingPrompt, setIsEditingPrompt] = useState(!variation.prompt)
   const [saved, setSaved] = useState(false)
@@ -114,7 +150,7 @@ function VariationCard({
   const handleGenerateImage = async () => {
     onUpdateState({ isGeneratingImage: true, imageError: null })
     try {
-      const imageUrl = await generateImage(cardState.editablePrompt, referenceImages)
+      const imageUrl = await generateImage(cardState.editablePrompt, referenceImages, aspectRatio)
       const newImage: GeneratedImage = { imageUrl, prompt: cardState.editablePrompt }
       const newImages = [...cardState.images, newImage]
       onUpdateState({
@@ -376,6 +412,7 @@ function SceneSection({
   selectedProductId,
   selectedModelId,
   selectedScriptId,
+  aspectRatio,
 }: {
   scene: Scene
   cardStates: Record<string, CardState>
@@ -385,6 +422,7 @@ function SceneSection({
   selectedProductId?: string
   selectedModelId?: string
   selectedScriptId?: string
+  aspectRatio: string
 }) {
   return (
     <div>
@@ -420,6 +458,7 @@ function SceneSection({
               selectedProductId={selectedProductId}
               selectedModelId={selectedModelId}
               selectedScriptId={selectedScriptId}
+              aspectRatio={aspectRatio}
             />
           )
         })}
@@ -478,6 +517,7 @@ function SkeletonScene() {
 /* ─── Main OutputPanel ─── */
 export default function OutputPanel({ result, isGenerating, error, onAddVariation, referenceImages, selectedProductId, selectedModelId, selectedScriptId }: OutputPanelProps) {
   const [cardStates, setCardStates] = useState<Record<string, CardState>>({})
+  const [aspectRatio, setAspectRatio] = useState<string>(PORTRAIT_VALUE)
 
   const handleUpdateCardState = useCallback((key: string, updates: Partial<CardState>) => {
     setCardStates((prev) => {
@@ -546,16 +586,34 @@ export default function OutputPanel({ result, isGenerating, error, onAddVariatio
 
   const totalVariations = result.scenes.reduce((sum, s) => sum + s.variations.length, 0)
 
+  const aspectRatioApi = aspectRatio.includes('9:16') ? '9:16' : '16:9'
+
   return (
     <div className="flex h-full flex-col overflow-hidden p-5">
       {/* Scene count header */}
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-semibold tracking-tight text-zinc-200">
           {result.scenes.length} SCENES
         </h3>
         <span className="text-[10px] text-zinc-600">
           {totalVariations} prompt variations
         </span>
+      </div>
+
+      {/* Master image-model + orientation toolbar — applies to every "Generate Image" click */}
+      <div className="mb-5 flex flex-wrap items-center gap-3 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2.5">
+        <span className="text-[10px] font-medium uppercase tracking-widest text-zinc-500">
+          Image settings
+        </span>
+        <div className="min-w-[200px] flex-1">
+          <ModelPicker
+            appId="broll-studio"
+            task="image"
+            mode="text-to-image"
+            costParams={{ imageCount: 1 }}
+          />
+        </div>
+        <AspectRatioToggle value={aspectRatio} onChange={setAspectRatio} />
       </div>
 
       {/* Scenes */}
@@ -572,6 +630,7 @@ export default function OutputPanel({ result, isGenerating, error, onAddVariatio
               selectedProductId={selectedProductId}
               selectedModelId={selectedModelId}
               selectedScriptId={selectedScriptId}
+              aspectRatio={aspectRatioApi}
             />
           ))}
         </div>

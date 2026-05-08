@@ -77,13 +77,13 @@ export default function ChipField({ label, fieldKey, value, chips, onChange, pla
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center gap-1.5">
         <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${isFilled ? 'bg-emerald-500' : 'bg-red-500'}`} />
-        <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-300">{label}</span>
+        <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-600">{label}</span>
       </div>
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder ?? `Select or type ${label.toLowerCase()}...`}
-        className="rounded-lg border border-white/15 bg-transparent px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 outline-none transition-colors focus:border-sky-500/40"
+        className="rounded-lg border border-white/10 bg-transparent px-3 py-2 text-sm text-zinc-200 placeholder-zinc-700 outline-none transition-colors focus:border-sky-500/30"
       />
       <div className="flex flex-wrap gap-1.5">
         {allChips.map((chip) => {
@@ -96,11 +96,9 @@ export default function ChipField({ label, fieldKey, value, chips, onChange, pla
                 type="button"
                 onClick={() => onChange(isActive ? '' : chip)}
                 title={needsTruncation ? chip : undefined}
-                className={`rounded-full px-2 py-1 text-[11px] font-medium transition-all ${isActive
-                    ? 'bg-sky-500/20 text-sky-200 border border-sky-400/40'
-                    : isCustom
-                      ? 'bg-violet-500/15 text-zinc-200 border border-violet-500/30 hover:bg-violet-500/25 hover:text-white'
-                      : 'bg-white/[0.07] text-zinc-200 border border-white/10 hover:bg-white/[0.12] hover:text-white'
+                className={`rounded-full px-2 py-1 text-[11px] font-medium transition-all ${isCustom
+                    ? 'bg-violet-500/10 text-zinc-500 border border-violet-500/20 hover:bg-violet-500/15 hover:text-zinc-300'
+                    : 'bg-white/[0.04] text-zinc-500 border border-transparent hover:bg-white/[0.08] hover:text-zinc-300'
                   }`}
               >
                 {truncateChip(chip)}
@@ -149,7 +147,7 @@ export default function ChipField({ label, fieldKey, value, chips, onChange, pla
           <button
             type="button"
             onClick={() => setShowAddInput(true)}
-            className="flex items-center gap-0.5 rounded-full border border-dashed border-white/20 px-2.5 py-1 text-[11px] font-medium text-zinc-300 transition-colors hover:border-white/30 hover:text-white"
+            className="flex items-center gap-0.5 rounded-full border border-dashed border-white/10 px-2.5 py-1 text-[11px] font-medium text-zinc-600 transition-colors hover:border-white/20 hover:text-zinc-400"
           >
             <Plus className="h-2.5 w-2.5" />
             Add

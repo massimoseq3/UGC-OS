@@ -69,7 +69,7 @@ export default function ControlsPanel({
     <div className="flex h-full flex-col">
       {/* Photo extract drop zone */}
       <div className="border-b border-white/5 px-3 py-2">
-        <span className="mb-1.5 block text-[9px] font-semibold uppercase tracking-widest text-zinc-400">Auto-fill from reference image</span>
+        <span className="mb-1.5 block text-[9px] font-semibold uppercase tracking-widest text-zinc-600">Auto-fill from reference image</span>
         <PhotoExtractZone
           isExtracting={isExtracting}
           extractError={extractError}
@@ -82,14 +82,14 @@ export default function ControlsPanel({
       {/* Tab label header */}
       <div className="flex items-center justify-between gap-2 border-b border-white/5 px-4 py-2">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold tracking-tight text-zinc-100">{currentTab.label}</span>
-          <span className="text-[10px] tabular-nums text-zinc-400">
+          <span className="text-xs font-semibold tracking-tight text-zinc-300">{currentTab.label}</span>
+          <span className="text-[10px] tabular-nums text-zinc-600">
             {filledCount}/{allFields.length}
           </span>
         </div>
         <button
           onClick={() => onProfileChange(createEmptyProfile())}
-          className="flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-medium text-zinc-300 transition-colors hover:bg-red-500/10 hover:text-red-400"
+          className="flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-medium text-zinc-600 transition-colors hover:bg-red-500/10 hover:text-red-400"
         >
           <Trash2 className="h-3 w-3 shrink-0" />
           Clear all inputs
@@ -114,17 +114,17 @@ export default function ControlsPanel({
                   >
                     <div className="flex items-center gap-2">
                       <ChevronDown
-                        className={`h-3.5 w-3.5 text-zinc-300 transition-transform duration-200 ${isOpen ? '' : '-rotate-90'}`}
+                        className={`h-3.5 w-3.5 text-zinc-500 transition-transform duration-200 ${isOpen ? '' : '-rotate-90'}`}
                         strokeWidth={2}
                       />
                       {GroupIcon && (
-                        <GroupIcon className="h-3.5 w-3.5 text-zinc-300" strokeWidth={1.25} />
+                        <GroupIcon className="h-3.5 w-3.5 text-zinc-500" strokeWidth={1.25} />
                       )}
-                      <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-100">
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-300">
                         {group.label}
                       </span>
                     </div>
-                    <span className="text-[10px] tabular-nums text-zinc-400">
+                    <span className="text-[10px] tabular-nums text-zinc-600">
                       {groupFilled}/{group.fields.length}
                     </span>
                   </button>
