@@ -117,7 +117,7 @@ export async function generateCharacter(
   const modelId = modelIdOverride
     ?? useSettingsStore.getState().getAppModel('character-studio:image:text-to-image')
     ?? getDefaultModel('character-studio', 'image', 'text-to-image')?.id
-  if (!modelId) throw new Error('No image model configured for Character Studio.')
+  if (!modelId) throw new Error('No image model configured for Characters.')
 
   const prompt = buildImagePrompt(profile)
   const aspectRatio: AspectRatio = profile.aspectRatio === 'Landscape (16:9)' ? '16:9' : '9:16'

@@ -81,7 +81,7 @@ select {
   animation: scan 2s ease-in-out infinite;
 }
 
-/* Thin range slider — used by Voice Studio settings.
+/* Thin range slider — used by Voiceovers settings.
    Track: 2px hairline. Thumb: 12px white circle.
    Override iOS' 16px auto font-size since we don't use type-in here. */
 .slider-thin {

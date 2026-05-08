@@ -121,10 +121,10 @@ export default function PhotoExtractZone({
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-xs font-medium text-zinc-300">
+          <p className="truncate text-xs font-medium text-zinc-100">
             {dragOver ? 'Drop to extract DNA' : 'Drop a reference image to auto-fill'}
           </p>
-          <p className="truncate text-[10px] text-zinc-600">
+          <p className="truncate text-[10px] text-zinc-400">
             JPG, PNG, WebP — Max 10 MB · or click to browse
           </p>
         </div>

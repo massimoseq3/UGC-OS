@@ -13,7 +13,7 @@ interface SideRailActionsProps {
 }
 
 const ROW_BASE = 'flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-left text-sm transition-colors lg:mx-2 lg:gap-2.5'
-const ROW_INACTIVE = 'text-zinc-500 hover:bg-white/[0.03] hover:text-zinc-300'
+const ROW_INACTIVE = 'text-zinc-300 hover:bg-white/[0.05] hover:text-white'
 
 export default function SideRailActions({ profile, onProfileChange }: SideRailActionsProps) {
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -58,7 +58,7 @@ export default function SideRailActions({ profile, onProfileChange }: SideRailAc
       <div className="mx-1 w-px shrink-0 self-stretch bg-white/5 lg:hidden" />
 
       {/* Presets section */}
-      <span className="mb-3 hidden px-4 text-[11px] font-medium uppercase tracking-widest text-zinc-600 lg:block">
+      <span className="mb-3 hidden px-4 text-[11px] font-medium uppercase tracking-widest text-zinc-400 lg:block">
         Presets
       </span>
 

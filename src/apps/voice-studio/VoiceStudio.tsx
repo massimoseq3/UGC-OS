@@ -30,7 +30,7 @@ export default function VoiceStudio() {
   const consumePayload = useAppStore((s) => s.consumePayload)
   const activeApp = useAppStore((s) => s.activeApp)
 
-  // Inter-app payload: Script Architect → Voiceovers (scriptText).
+  // Inter-app payload: Scripts → Voiceovers (scriptText).
   useEffect(() => {
     if (activeApp !== 'voice-studio') return
     if (!interAppPayload || interAppPayload.targetApp !== 'voice-studio') return

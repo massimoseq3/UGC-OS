@@ -137,8 +137,8 @@ export default function BankPicker({ bankType, isOpen, onSelect, onClose }: Bank
         ref={panelRef}
         className={`fixed z-50 flex flex-col border-white/5 bg-[#0a0a0a]/95 backdrop-blur-2xl transition-transform duration-300 ease-out ${
           isDesktop
-            ? `right-0 top-9 bottom-20 w-[380px] border-l ${isOpen ? 'translate-x-0' : 'translate-x-full'}`
-            : `inset-x-0 bottom-0 top-12 border-t rounded-t-2xl ${isOpen ? 'translate-y-0' : 'translate-y-full'}`
+            ? `right-0 top-14 bottom-0 w-[380px] border-l ${isOpen ? 'translate-x-0' : 'translate-x-full'}`
+            : `inset-x-0 bottom-0 top-14 border-t rounded-t-2xl ${isOpen ? 'translate-y-0' : 'translate-y-full'}`
         }`}
       >
         {/* Drag handle — mobile only */}

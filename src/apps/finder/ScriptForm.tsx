@@ -60,8 +60,8 @@ export default function ScriptForm({ item, onSave, onCancel }: ScriptFormProps) 
         <textarea
           value={scriptText}
           onChange={(e) => setScriptText(e.target.value)}
-          rows={6}
-          className="rounded-lg border border-white/10 bg-transparent px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-white/20 resize-none"
+          rows={20}
+          className="min-h-[420px] rounded-lg border border-white/10 bg-transparent px-3 py-2 text-sm leading-relaxed text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-white/20 resize-y"
         />
       </label>
 

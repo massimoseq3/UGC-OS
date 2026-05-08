@@ -170,7 +170,7 @@ export default function CharacterStudio() {
     >
       {/* Side tabs + presets/bank — matches Finder's Banks rail aesthetic */}
       <div className="flex lg:w-52 shrink-0 flex-row lg:flex-col overflow-x-auto lg:overflow-x-visible border-b lg:border-b-0 lg:border-r border-white/5 bg-white/[0.02] py-2 lg:py-3 px-2 lg:px-0 gap-1 lg:gap-0">
-        <span className="mb-3 hidden px-4 text-[11px] font-medium uppercase tracking-widest text-zinc-600 lg:block">
+        <span className="mb-3 hidden px-4 text-[11px] font-medium uppercase tracking-widest text-zinc-400 lg:block">
           Customize character
         </span>
 
@@ -183,13 +183,13 @@ export default function CharacterStudio() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-left text-sm transition-colors lg:mx-2 lg:gap-2.5 ${isActive
-                  ? 'bg-white/[0.07] text-zinc-200'
-                  : 'text-zinc-500 hover:bg-white/[0.03] hover:text-zinc-300'
+                  ? 'bg-white/[0.1] text-white'
+                  : 'text-zinc-300 hover:bg-white/[0.05] hover:text-white'
                 }`}
             >
               <Icon className="h-4 w-4 shrink-0" strokeWidth={1.5} />
               <span className="flex-1 truncate tracking-tight">{tab.label}</span>
-              <span className="text-[11px] tabular-nums text-zinc-600">
+              <span className="text-[11px] tabular-nums text-zinc-400">
                 {filled}/{total}
               </span>
             </button>

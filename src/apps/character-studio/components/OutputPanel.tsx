@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Copy, Check, Save, ChevronDown, ChevronUp, UserRound, Loader2, Braces, Download, AlertCircle, X, RectangleVertical, RectangleHorizontal } from 'lucide-react'
+import { Check, Save, UserRound, Loader2, Download, AlertCircle, X, RectangleVertical, RectangleHorizontal } from 'lucide-react'
 import { useBankStore } from '../../../stores/bankStore'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import type { GenerationResult } from '../services/generateCharacter'
@@ -53,8 +53,6 @@ function AspectRatioToggle({ value, onChange }: { value: string; onChange: (v: s
 }
 
 export default function OutputPanel({ result, isGenerating, error, onGenerate, onCancel, canGenerate, aspectRatio, onAspectRatioChange }: OutputPanelProps) {
-  const [copied, setCopied] = useState(false)
-  const [jsonExpanded, setJsonExpanded] = useState(false)
   const [showSaveForm, setShowSaveForm] = useState(false)
   const [saveName, setSaveName] = useState('')
   const [saved, setSaved] = useState(false)
@@ -67,13 +65,6 @@ export default function OutputPanel({ result, isGenerating, error, onGenerate, o
   const creditsLabel = formatCredits(estimateCredits(selectedModelId ?? '', { imageCount: 1 }))
 
   const isPortrait = aspectRatio.includes('9:16')
-
-  const handleCopy = () => {
-    if (!result) return
-    navigator.clipboard.writeText(JSON.stringify(result.jsonPrompt, null, 2))
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
 
   const handleSave = () => {
     if (!saveName.trim() || !result) return
@@ -185,43 +176,7 @@ export default function OutputPanel({ result, isGenerating, error, onGenerate, o
 
         {/* Actions below image — compact, no scroll */}
         <div className="mt-3 flex flex-col gap-2">
-          {/* Collapsible JSON Prompt */}
-          <div className="rounded-xl border border-white/5 bg-white/[0.02]">
-            <button
-              onClick={() => setJsonExpanded(!jsonExpanded)}
-              className="flex w-full items-center justify-between px-3 py-2 text-left transition-colors hover:bg-white/[0.03]"
-            >
-              <div className="flex items-center gap-2">
-                <Braces className="h-3.5 w-3.5 text-sky-400" />
-                <span className="text-[11px] font-medium text-zinc-300">JSON Prompt</span>
-              </div>
-              <div className="flex items-center gap-2">
-                {jsonExpanded && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleCopy() }}
-                    className="flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-medium text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-300"
-                  >
-                    {copied ? <Check className="h-3 w-3 text-green-400" /> : <Copy className="h-3 w-3" />}
-                    {copied ? 'Copied' : 'Copy JSON'}
-                  </button>
-                )}
-                {jsonExpanded ? (
-                  <ChevronUp className="h-3.5 w-3.5 text-zinc-600" />
-                ) : (
-                  <ChevronDown className="h-3.5 w-3.5 text-zinc-600" />
-                )}
-              </div>
-            </button>
-            {jsonExpanded && (
-              <div className="border-t border-white/5 px-3 py-2">
-                <pre className="max-h-48 overflow-y-auto rounded-lg bg-black/30 p-2 text-[10px] leading-relaxed text-zinc-400">
-                  {JSON.stringify(result.jsonPrompt, null, 2)}
-                </pre>
-              </div>
-            )}
-          </div>
-
-          {/* Save to Model Bank */}
+          {/* Save to Character Bank */}
           {showSaveForm ? (
             <div className="flex gap-2">
               <input
@@ -255,9 +210,9 @@ export default function OutputPanel({ result, isGenerating, error, onGenerate, o
                 }`}
             >
               {saved ? (
-                <><Check className="h-4 w-4" /> Saved to Model Bank</>
+                <><Check className="h-4 w-4" /> Saved to Character Bank</>
               ) : (
-                <><Save className="h-4 w-4" /> Save to Model Bank</>
+                <><Save className="h-4 w-4" /> Save to Character Bank</>
               )}
             </button>
           )}

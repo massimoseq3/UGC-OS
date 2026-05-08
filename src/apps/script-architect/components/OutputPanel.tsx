@@ -49,7 +49,7 @@ export default function OutputPanel({ scriptText, linkedProductId, isGenerating,
       targetField: 'scriptText',
       data: scriptText,
     })
-    addToast('Script sent to Voice Studio')
+    addToast('Script sent to Voiceovers')
   }
 
   const handleSendToBrollStudio = () => {
@@ -58,7 +58,7 @@ export default function OutputPanel({ scriptText, linkedProductId, isGenerating,
       targetField: 'scriptText',
       data: scriptText,
     })
-    addToast('Script sent to B-Roll Studio')
+    addToast('Script sent to B-Roll Images')
   }
 
   if (isGenerating) {
@@ -172,7 +172,7 @@ export default function OutputPanel({ scriptText, linkedProductId, isGenerating,
             className="flex flex-1 items-center justify-center gap-2 rounded-full border border-indigo-500/20 bg-indigo-500/10 px-6 py-3.5 text-[13px] font-medium tracking-tight text-indigo-400 transition-colors hover:bg-indigo-500/20"
           >
             <Mic className="h-4 w-4" />
-            Send to Voice Studio Pro
+            Send to Voiceovers
             <ArrowUpRight className="h-3.5 w-3.5" />
           </button>
           <button
@@ -180,7 +180,7 @@ export default function OutputPanel({ scriptText, linkedProductId, isGenerating,
             className="flex flex-1 items-center justify-center gap-2 rounded-full border border-orange-500/20 bg-orange-500/10 px-6 py-3.5 text-[13px] font-medium tracking-tight text-orange-400 transition-colors hover:bg-orange-500/20"
           >
             <Film className="h-4 w-4" />
-            Send to B-Roll Studio Pro
+            Send to B-Roll Images
             <ArrowUpRight className="h-3.5 w-3.5" />
           </button>
         </div>
