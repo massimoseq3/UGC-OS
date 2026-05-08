@@ -100,9 +100,19 @@ export default function VideoStudio() {
     if (activeApp !== 'video-studio') return
     if (!interAppPayload || interAppPayload.targetApp !== 'video-studio') return
 
-    if (interAppPayload.targetField === 'firstFrame' && typeof interAppPayload.data === 'string') {
-      setFirstFrameDataUri(interAppPayload.data)
-      setMode('image-to-video')
+    if (interAppPayload.targetField === 'firstFrame') {
+      const data = interAppPayload.data
+      if (typeof data === 'string') {
+        setFirstFrameDataUri(data)
+        setMode('image-to-video')
+      } else if (data && typeof data === 'object' && 'imageUrl' in data) {
+        const { imageUrl, prompt: incomingPrompt } = data as { imageUrl: string; prompt?: string }
+        setFirstFrameDataUri(imageUrl)
+        if (typeof incomingPrompt === 'string' && incomingPrompt.trim()) {
+          setPrompt(incomingPrompt)
+        }
+        setMode('image-to-video')
+      }
     }
     consumePayload()
   }, [interAppPayload, activeApp, consumePayload])

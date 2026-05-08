@@ -50,25 +50,25 @@ const LANDSCAPE_VALUE = 'Landscape (16:9)'
 function AspectRatioToggle({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const isPortrait = value.includes('9:16')
   return (
-    <div className="flex h-[44px] items-center gap-1 rounded-xl border border-white/10 bg-white/[0.02] p-1">
+    <div className="flex items-center gap-0.5 rounded-lg border border-white/10 bg-white/[0.02] p-0.5">
       <button
         onClick={() => onChange(PORTRAIT_VALUE)}
-        className={`flex h-full items-center justify-center gap-2 rounded-lg px-4 text-xs font-medium transition-colors ${
+        className={`flex items-center justify-center gap-1.5 rounded-md px-2.5 py-1.5 text-[11px] font-medium transition-colors ${
           isPortrait ? 'bg-orange-500/15 text-orange-300' : 'text-zinc-500 hover:text-zinc-300'
         }`}
         title="Portrait 9:16"
       >
-        <RectangleVertical className="h-4 w-4" strokeWidth={1.75} />
+        <RectangleVertical className="h-3.5 w-3.5" strokeWidth={1.75} />
         Portrait <span className="text-zinc-500">9:16</span>
       </button>
       <button
         onClick={() => onChange(LANDSCAPE_VALUE)}
-        className={`flex h-full items-center justify-center gap-2 rounded-lg px-4 text-xs font-medium transition-colors ${
+        className={`flex items-center justify-center gap-1.5 rounded-md px-2.5 py-1.5 text-[11px] font-medium transition-colors ${
           !isPortrait ? 'bg-orange-500/15 text-orange-300' : 'text-zinc-500 hover:text-zinc-300'
         }`}
         title="Landscape 16:9"
       >
-        <RectangleHorizontal className="h-4 w-4" strokeWidth={1.75} />
+        <RectangleHorizontal className="h-3.5 w-3.5" strokeWidth={1.75} />
         Landscape <span className="text-zinc-500">16:9</span>
       </button>
     </div>
@@ -197,7 +197,7 @@ function VariationCard({
     useAppStore.getState().sendToApp({
       targetApp: 'video-studio',
       targetField: 'firstFrame',
-      data: dataUri,
+      data: { imageUrl: dataUri, prompt: currentImage.prompt },
     })
   }
 
@@ -222,7 +222,7 @@ function VariationCard({
             Option {index + 1}
           </span>
           {showTagChip && (
-            <span className={`rounded-md border px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wider ${TAG_STYLES[variation.tag]}`}>
+            <span className={`rounded-full border px-2 py-0.5 text-[8px] font-semibold uppercase tracking-wider ${TAG_STYLES[variation.tag]}`}>
               {variation.tag}
             </span>
           )}
@@ -336,19 +336,11 @@ function VariationCard({
                 Regenerate
               </button>
               <button
-                onClick={handleAnimateInVideoStudio}
-                className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-purple-500/20 bg-purple-500/10 px-2 py-1.5 text-[10px] font-medium text-purple-400 transition-colors hover:bg-purple-500/20"
-                title="Send this still to B-Roll Videos as the first frame"
-              >
-                <Film className="h-3 w-3" />
-                Animate in B-Roll Videos
-              </button>
-              <button
                 onClick={handleSaveToBank}
                 disabled={saved}
                 className={`flex flex-1 items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-[10px] font-medium transition-colors ${saved
-                  ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400'
-                  : 'border-indigo-500/20 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20'
+                  ? 'border-emerald-500/30 bg-emerald-500/15 text-emerald-300'
+                  : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20'
                 }`}
               >
                 {saved ? (
@@ -356,6 +348,14 @@ function VariationCard({
                 ) : (
                   <><FolderOpen className="h-3 w-3" /> Save to B-Roll Bank</>
                 )}
+              </button>
+              <button
+                onClick={handleAnimateInVideoStudio}
+                className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-purple-500/20 bg-purple-500/10 px-2 py-1.5 text-[10px] font-medium text-purple-400 transition-colors hover:bg-purple-500/20"
+                title="Send this still to B-Roll Videos as the first frame"
+              >
+                <Film className="h-3 w-3" />
+                Animate in B-Roll Videos
               </button>
             </div>
 
@@ -447,7 +447,7 @@ function SceneSection({
   aspectRatio: string
 }) {
   return (
-    <div>
+    <div style={{ contentVisibility: 'auto', containIntrinsicSize: '700px' }}>
       {/* Scene header */}
       <div className="mb-4 flex items-center gap-4">
         <span

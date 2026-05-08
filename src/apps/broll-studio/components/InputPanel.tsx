@@ -1,4 +1,4 @@
-import { Package, UserRound, FileText, RefreshCw, Loader2, Film } from 'lucide-react'
+import { Package, UserRound, FileText, RefreshCw, Loader2, Film, Eraser } from 'lucide-react'
 import type { Product, Model, Script } from '../../../stores/types'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
 
@@ -11,6 +11,7 @@ interface InputPanelProps {
   onSelectProduct: () => void
   onSelectModel: () => void
   onSelectScript: () => void
+  onClearReferences: () => void
   onScriptTextChange: (value: string) => void
   onAdditionalContextChange: (value: string) => void
   onGenerate: () => void
@@ -145,6 +146,7 @@ export default function InputPanel({
   onSelectProduct,
   onSelectModel,
   onSelectScript,
+  onClearReferences,
   onScriptTextChange,
   onAdditionalContextChange,
   onGenerate,
@@ -160,9 +162,22 @@ export default function InputPanel({
       <div className="flex-1 overflow-y-auto p-5">
         <div className="flex flex-col gap-3">
           {/* References section */}
-          <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-400">
-            References
-          </span>
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-400">
+              References
+            </span>
+            {(selectedProduct || selectedModel || selectedScript) && (
+              <button
+                type="button"
+                onClick={onClearReferences}
+                className="flex items-center gap-1 rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-medium text-zinc-500 transition-colors hover:border-white/20 hover:text-zinc-200"
+                title="Clear product, character, and script — keeps any generated prompts"
+              >
+                <Eraser className="h-2.5 w-2.5" />
+                Clear references
+              </button>
+            )}
+          </div>
 
           {/* Product */}
           <BankCard

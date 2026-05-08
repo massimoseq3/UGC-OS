@@ -1,7 +1,11 @@
-import { useState } from 'react'
-import { ChevronDown, Trash2 } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { ChevronDown, Trash2, FolderOpen, Save, Check, Sparkles, X } from 'lucide-react'
 import type { TabId, CharacterProfile, FieldGroup } from '../types'
-import { TABS, getTabFields, createEmptyProfile } from '../types'
+import { TABS, getTabFields, createEmptyProfile, PRESET_MARIE, PRESET_ZANE } from '../types'
+import type { Model } from '../../../stores/types'
+import { useBankStore } from '../../../stores/bankStore'
+import { useAssetUrl } from '../../../hooks/useAssetUrl'
+import { buildJsonPrompt } from '../services/generateCharacter'
 import ChipField from './ChipField'
 import PhotoExtractZone from './PhotoExtractZone'
 
@@ -9,6 +13,7 @@ interface ControlsPanelProps {
   profile: CharacterProfile
   onProfileChange: (profile: CharacterProfile) => void
   activeTab: TabId
+  onActiveTabChange: (tab: TabId) => void
   isExtracting: boolean
   extractError: string | null
   extractedThumb: string | null
@@ -16,10 +21,216 @@ interface ControlsPanelProps {
   onResetExtract: () => void
 }
 
+// Built-in presets shown alongside the user's saved bank entries.
+const BUILTIN_PRESETS: Array<{ id: string; name: string; profile: CharacterProfile }> = [
+  { id: 'builtin-marie', name: 'Marie', profile: PRESET_MARIE },
+  { id: 'builtin-zane', name: 'Zane', profile: PRESET_ZANE },
+]
+
+function ModelThumb({ assetRef }: { assetRef: string }) {
+  const url = useAssetUrl(assetRef)
+  if (!url) return <div className="h-9 w-9 shrink-0 rounded-md bg-white/5" />
+  return <img src={url} alt="" className="h-9 w-9 shrink-0 rounded-md object-cover" />
+}
+
+function flattenJsonProfile(json: unknown): Record<string, string> {
+  const out: Record<string, string> = {}
+  if (typeof json !== 'object' || json === null) return out
+  for (const section of Object.values(json as Record<string, unknown>)) {
+    if (typeof section === 'object' && section !== null) {
+      for (const [key, value] of Object.entries(section as Record<string, unknown>)) {
+        if (typeof value === 'string') out[key] = value
+      }
+    }
+  }
+  return out
+}
+
+function PresetActions({
+  profile,
+  onProfileChange,
+  onClearAll,
+}: {
+  profile: CharacterProfile
+  onProfileChange: (profile: CharacterProfile) => void
+  onClearAll: () => void
+}) {
+  const [loadOpen, setLoadOpen] = useState(false)
+  const [saveOpen, setSaveOpen] = useState(false)
+  const [saveName, setSaveName] = useState('')
+  const [savedFlash, setSavedFlash] = useState(false)
+  const loadRef = useRef<HTMLDivElement>(null)
+  const saveRef = useRef<HTMLDivElement>(null)
+
+  const bankModels = useBankStore((s) => s.models)
+  const addModel = useBankStore((s) => s.addModel)
+
+  // Click-outside handlers for the two popovers.
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (loadOpen && loadRef.current && !loadRef.current.contains(e.target as Node)) setLoadOpen(false)
+      if (saveOpen && saveRef.current && !saveRef.current.contains(e.target as Node)) setSaveOpen(false)
+    }
+    if (loadOpen || saveOpen) document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [loadOpen, saveOpen])
+
+  const applyProfile = (incoming: CharacterProfile | Record<string, string>) => {
+    const next = createEmptyProfile()
+    for (const [key, value] of Object.entries(incoming)) {
+      if (key in next && typeof value === 'string') next[key] = value
+    }
+    onProfileChange(next)
+  }
+
+  const loadFromBank = (item: Model) => {
+    if (!item.jsonProfile) return
+    applyProfile(flattenJsonProfile(item.jsonProfile))
+    setLoadOpen(false)
+  }
+
+  const loadBuiltin = (next: CharacterProfile) => {
+    applyProfile(next)
+    setLoadOpen(false)
+  }
+
+  const commitSave = () => {
+    if (!saveName.trim()) return
+    addModel({
+      name: saveName.trim(),
+      characterImage: '',
+      notes: '',
+      source: 'character-studio',
+      jsonProfile: buildJsonPrompt(profile) as Record<string, unknown>,
+    })
+    setSaveName('')
+    setSaveOpen(false)
+    setSavedFlash(true)
+    setTimeout(() => setSavedFlash(false), 2000)
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-2 px-3 pb-2">
+      <div className="flex items-center gap-2">
+      {/* Load from Bank */}
+      <div ref={loadRef} className="relative">
+        <button
+          type="button"
+          onClick={() => { setLoadOpen((v) => !v); setSaveOpen(false) }}
+          className="flex items-center gap-1.5 rounded-full border border-sky-500/25 bg-sky-500/[0.08] px-3 py-1.5 text-[11px] font-medium text-sky-300 transition-colors hover:border-sky-500/35 hover:bg-sky-500/15 hover:text-sky-200"
+        >
+          <FolderOpen className="h-3.5 w-3.5" strokeWidth={1.75} />
+          Load Preset from Bank
+        </button>
+        {loadOpen && (
+          <div className="absolute left-0 right-0 top-full z-30 mt-1.5 min-w-[260px] overflow-hidden rounded-xl border border-white/10 bg-[#0B0B0D] shadow-2xl">
+            <div className="max-h-[320px] overflow-y-auto p-1">
+              <div className="px-2 pb-1 pt-1.5 text-[9px] font-semibold uppercase tracking-widest text-zinc-500">
+                Starters
+              </div>
+              {BUILTIN_PRESETS.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => loadBuiltin(p.profile)}
+                  className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-zinc-200 transition-colors hover:bg-white/[0.06]"
+                >
+                  <Sparkles className="h-3.5 w-3.5 shrink-0 text-zinc-500" strokeWidth={1.5} />
+                  <span className="truncate">{p.name}</span>
+                </button>
+              ))}
+              {bankModels.length > 0 && (
+                <>
+                  <div className="mx-2 my-1 h-px bg-white/5" />
+                  <div className="px-2 pb-1 pt-1.5 text-[9px] font-semibold uppercase tracking-widest text-zinc-500">
+                    Bank
+                  </div>
+                  {bankModels.filter((m) => m.jsonProfile).map((m) => (
+                    <button
+                      key={m.id}
+                      onClick={() => loadFromBank(m)}
+                      className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-zinc-200 transition-colors hover:bg-white/[0.06]"
+                    >
+                      {m.characterImage ? (
+                        <ModelThumb assetRef={m.characterImage} />
+                      ) : (
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-white/5">
+                          <Sparkles className="h-3.5 w-3.5 text-zinc-500" strokeWidth={1.5} />
+                        </div>
+                      )}
+                      <span className="truncate">{m.name}</span>
+                    </button>
+                  ))}
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Save as Preset */}
+      <div ref={saveRef} className="relative">
+        <button
+          type="button"
+          onClick={() => { setSaveOpen((v) => !v); setLoadOpen(false) }}
+          className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-medium transition-colors ${savedFlash
+            ? 'border-emerald-500/35 bg-emerald-500/15 text-emerald-200'
+            : 'border-emerald-500/25 bg-emerald-500/[0.08] text-emerald-300 hover:border-emerald-500/35 hover:bg-emerald-500/15 hover:text-emerald-200'
+          }`}
+        >
+          {savedFlash ? <Check className="h-3.5 w-3.5" strokeWidth={1.75} /> : <Save className="h-3.5 w-3.5" strokeWidth={1.75} />}
+          {savedFlash ? 'Saved' : 'Save as Preset'}
+        </button>
+        {saveOpen && (
+          <div className="absolute right-0 top-full z-30 mt-1.5 w-64 overflow-hidden rounded-xl border border-white/10 bg-[#0B0B0D] p-2 shadow-2xl">
+            <input
+              autoFocus
+              value={saveName}
+              onChange={(e) => setSaveName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitSave()
+                if (e.key === 'Escape') { setSaveOpen(false); setSaveName('') }
+              }}
+              placeholder="Preset name…"
+              className="w-full rounded-md border border-white/10 bg-transparent px-2 py-1.5 text-[12px] text-zinc-200 placeholder-zinc-600 outline-none focus:border-sky-500/30"
+            />
+            <div className="mt-1.5 flex gap-1">
+              <button
+                onClick={commitSave}
+                disabled={!saveName.trim()}
+                className="flex-1 rounded-md bg-sky-500/15 px-2 py-1 text-[12px] font-medium text-sky-400 transition-colors hover:bg-sky-500/25 disabled:opacity-40"
+              >
+                Save
+              </button>
+              <button
+                onClick={() => { setSaveOpen(false); setSaveName('') }}
+                className="flex items-center justify-center rounded-md px-2 py-1 text-zinc-500 transition-colors hover:text-zinc-300"
+                aria-label="Cancel"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={onClearAll}
+        className="flex shrink-0 items-center gap-1.5 rounded-full border border-red-500/20 bg-red-500/[0.06] px-3 py-1.5 text-[11px] font-medium text-red-400 transition-colors hover:border-red-500/30 hover:bg-red-500/15 hover:text-red-300"
+      >
+        <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
+        Clear all
+      </button>
+    </div>
+  )
+}
+
 export default function ControlsPanel({
   profile,
   onProfileChange,
   activeTab,
+  onActiveTabChange,
   isExtracting,
   extractError,
   extractedThumb,
@@ -27,8 +238,6 @@ export default function ControlsPanel({
   onResetExtract,
 }: ControlsPanelProps) {
   const currentTab = TABS.find((t) => t.id === activeTab)!
-  const allFields = getTabFields(currentTab)
-  const filledCount = allFields.filter((f) => (profile[f.key] ?? '').trim() !== '').length
 
   // Track which groups are collapsed. Empty set = all groups open (the default).
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
@@ -57,6 +266,7 @@ export default function ControlsPanel({
           chips={field.chips}
           onChange={(v) => setField(field.key, v)}
           placeholder={field.placeholder}
+          defaultLocked={field.key === 'cameraDevice'}
         />
       ))}
     </div>
@@ -79,21 +289,45 @@ export default function ControlsPanel({
         />
       </div>
 
-      {/* Tab label header */}
-      <div className="flex items-center justify-between gap-2 border-b border-white/5 px-4 py-2">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold tracking-tight text-zinc-100">{currentTab.label}</span>
-          <span className="text-[10px] tabular-nums text-zinc-400">
-            {filledCount}/{allFields.length}
-          </span>
+      {/* Preset actions — pill buttons under the drop zone */}
+      <div className="border-b border-white/5 pt-2">
+        <PresetActions
+          profile={profile}
+          onProfileChange={onProfileChange}
+          onClearAll={() => onProfileChange(createEmptyProfile())}
+        />
+      </div>
+
+      {/* Horizontal segmented tabs (Voice Studio style — underline + counter badge) */}
+      <div className="border-b border-white/5 px-4">
+        <div className="flex items-center justify-start gap-4">
+          {TABS.map((tab) => {
+            const isActive = tab.id === activeTab
+            const fields = getTabFields(tab)
+            const filled = fields.filter((f) => (profile[f.key] ?? '').trim() !== '').length
+            return (
+              <button
+                key={tab.id}
+                onClick={() => onActiveTabChange(tab.id)}
+                className={`relative flex items-center gap-1.5 whitespace-nowrap px-1 py-3 text-[12px] font-medium tracking-tight transition-colors ${isActive
+                  ? 'text-zinc-100'
+                  : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                <span>{tab.label}</span>
+                <span className={`flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[9px] font-semibold tabular-nums ${isActive
+                  ? 'bg-white/10 text-zinc-300'
+                  : 'bg-white/[0.04] text-zinc-500'
+                }`}>
+                  {filled}/{fields.length}
+                </span>
+                {isActive && (
+                  <span className="absolute inset-x-1 -bottom-px h-0.5 rounded-full bg-zinc-200" />
+                )}
+              </button>
+            )
+          })}
         </div>
-        <button
-          onClick={() => onProfileChange(createEmptyProfile())}
-          className="flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-medium text-zinc-300 transition-colors hover:bg-red-500/10 hover:text-red-400"
-        >
-          <Trash2 className="h-3 w-3 shrink-0" />
-          Clear all inputs
-        </button>
       </div>
 
       {/* Scrollable parameter fields */}

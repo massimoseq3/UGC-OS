@@ -54,15 +54,22 @@ export interface RunTaskOptions {
 
 // ── Errors ──────────────────────────────────────────────────────
 
-function friendlyHttpError(status: number, msg: string): string {
+function friendlyHttpError(status: number, msg: string, endpoint?: string): string {
   if (status === 401) return 'Invalid or expired kie.ai API key. Open Settings to update.'
   if (status === 402) return 'Insufficient kie.ai credits. Top up your account to continue.'
-  if (status === 422) return `Validation error: ${msg}`
+  if (status === 422) return `Validation error${endpoint ? ` at ${endpoint}` : ''}: ${msg}`
   if (status === 429) return 'kie.ai rate limit reached — wait a moment and try again.'
   if (status === 433) return 'API key usage limit exceeded.'
   if (status === 455) return 'kie.ai is undergoing maintenance — try again shortly.'
-  if (status >= 500) return `kie.ai server error (${status}). Try again in a moment.`
-  return `kie.ai error (${status}): ${msg}`
+  if (status >= 500) return `kie.ai server error (${status})${endpoint ? ` at ${endpoint}` : ''}. Try again in a moment.`
+  const tag = endpoint ? ` at ${endpoint}` : ''
+  return `kie.ai error (${status})${tag}: ${msg || 'no response body'}`
+}
+
+function endpointTag(method: string | undefined, url: string): string {
+  let path = url
+  try { path = new URL(url).pathname } catch { /* leave as-is */ }
+  return `${(method ?? 'GET').toUpperCase()} ${path}`
 }
 
 function friendlyTaskError(failCode: string, failMsg: string): string {
@@ -124,19 +131,20 @@ async function fetchWithRetry(
         res.statusText ||
         `${url} returned no response body`
 
+      const tag = endpointTag(init.method, url)
       if (RETRYABLE_HTTP.has(res.status) && attempt < MAX_RETRIES) {
         if (res.status === 429) {
           const ra = res.headers.get('Retry-After')
           const waitMs = ra ? parseInt(ra, 10) * 1000 : NaN
           if (!isNaN(waitMs) && waitMs > 0 && waitMs <= 60_000) {
-            lastError = new Error(friendlyHttpError(res.status, msg))
+            lastError = new Error(friendlyHttpError(res.status, msg, tag))
             await new Promise(r => setTimeout(r, waitMs))
             continue
           }
         }
-        lastError = new Error(friendlyHttpError(res.status, msg))
+        lastError = new Error(friendlyHttpError(res.status, msg, tag))
       } else {
-        throw new Error(friendlyHttpError(res.status, msg))
+        throw new Error(friendlyHttpError(res.status, msg, tag))
       }
     } catch (err) {
       clearTimeout(timer)
@@ -183,7 +191,7 @@ async function authedFetch<T>(
   )
   const json = (await res.json()) as KieEnvelope<T>
   if (json.code !== 200) {
-    throw new Error(friendlyHttpError(json.code, json.msg))
+    throw new Error(friendlyHttpError(json.code, json.msg, endpointTag(init.method, `${BASE_URL}${path}`)))
   }
   return json.data
 }
@@ -502,7 +510,7 @@ export async function kieVeoGenerate(
     { signal },
   )
   const createJson = (await createRes.json()) as KieEnvelope<VeoCreateData>
-  if (createJson.code !== 200) throw new Error(friendlyHttpError(createJson.code, createJson.msg))
+  if (createJson.code !== 200) throw new Error(friendlyHttpError(createJson.code, createJson.msg, 'POST /api/v1/veo/generate'))
   const taskId = createJson.data.taskId
 
   // 2) Poll until success / fail.
@@ -574,7 +582,7 @@ export async function kieUploadBase64(
   fileName?: string,
 ): Promise<UploadedFile> {
   const res = await fetchWithRetry(
-    'https://api.kie.ai/api/file-base64-upload',
+    'https://kieai.redpandaai.co/api/file-base64-upload',
     {
       method: 'POST',
       headers: {
@@ -586,7 +594,7 @@ export async function kieUploadBase64(
     {},
   )
   const json = (await res.json()) as KieEnvelope<UploadedFile>
-  if (json.code !== 200) throw new Error(friendlyHttpError(json.code, json.msg))
+  if (json.code !== 200) throw new Error(friendlyHttpError(json.code, json.msg, 'POST /api/file-base64-upload'))
   return json.data
 }
 
