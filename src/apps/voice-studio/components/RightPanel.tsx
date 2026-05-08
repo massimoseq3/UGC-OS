@@ -1,41 +1,10 @@
-import { useState, useRef } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { useState, useEffect } from 'react'
 import type { VoiceSettings } from '../types'
 import type { VoiceHistoryItem } from '../../../stores/types'
 import SettingsView from './SettingsView'
 import VoicePickerView from './VoicePickerView'
 import HistoryView from './HistoryView'
-
-// Spring slide with subtle blur — forward (settings → picker) goes right→center,
-// back (picker → settings) reverses. Direction is tracked so AnimatePresence
-// passes the right custom value to enter/exit.
-const slideVariants = {
-  enter: (direction: number) => ({
-    x: direction > 0 ? 300 : -300,
-    opacity: 0,
-    filter: 'blur(4px)',
-  }),
-  center: {
-    x: 0,
-    opacity: 1,
-    filter: 'blur(0px)',
-    transition: {
-      x: { duration: 0.22, ease: [0.4, 0, 0.2, 1] as const },
-      opacity: { duration: 0.14 },
-      filter: { duration: 0.14 },
-    },
-  },
-  exit: (direction: number) => ({
-    x: direction < 0 ? 300 : -300,
-    opacity: 0,
-    filter: 'blur(4px)',
-    transition: {
-      x: { duration: 0.22, ease: [0.4, 0, 0.2, 1] as const },
-      opacity: { duration: 0.14 },
-      filter: { duration: 0.14 },
-    },
-  }),
-}
+import HistoryDetailsView from './HistoryDetailsView'
 
 type Tab = 'settings' | 'history'
 
@@ -44,8 +13,13 @@ interface RightPanelProps {
   onSettingsChange: (next: VoiceSettings) => void
   history: VoiceHistoryItem[]
   activeHistoryId: string | null
+  detailsItem: VoiceHistoryItem | null
   onSelectHistory: (item: VoiceHistoryItem) => void
   onDeleteHistory: (id: string) => void
+  onShowDetails: (item: VoiceHistoryItem) => void
+  onCloseDetails: () => void
+  onRestoreText: (text: string) => void
+  onRestoreSettings: (settings: Partial<VoiceSettings>) => void
 }
 
 export default function RightPanel({
@@ -53,16 +27,24 @@ export default function RightPanel({
   onSettingsChange,
   history,
   activeHistoryId,
+  detailsItem,
   onSelectHistory,
   onDeleteHistory,
+  onShowDetails,
+  onCloseDetails,
+  onRestoreText,
+  onRestoreSettings,
 }: RightPanelProps) {
   const [tab, setTab] = useState<Tab>('settings')
   const [voicePickerOpen, setVoicePickerOpen] = useState(false)
-  // +1 when going forward (settings → picker), -1 going back. Drives the
-  // slide direction in AnimatePresence so back navigation reverses cleanly.
-  const direction = useRef(1)
-  const openPicker = () => { direction.current = 1; setVoicePickerOpen(true) }
-  const closePicker = () => { direction.current = -1; setVoicePickerOpen(false) }
+
+  const openPicker = () => setVoicePickerOpen(true)
+  const closePicker = () => setVoicePickerOpen(false)
+
+  // When details opens (e.g. from BottomPlayer), make sure we're on the History tab.
+  useEffect(() => {
+    if (detailsItem) setTab('history')
+  }, [detailsItem])
 
   const handleSelectVoice = (voice: { id: string; name: string; gender?: 'Female' | 'Male' }) => {
     onSettingsChange({
@@ -74,10 +56,20 @@ export default function RightPanel({
     closePicker()
   }
 
+  const handleShowDetails = (item: VoiceHistoryItem) => {
+    onShowDetails(item)
+  }
+
+  const handleCloseDetails = () => {
+    onCloseDetails()
+  }
+
+  // Tabs are hidden when a slide-over view (picker, details) owns the chrome.
+  const showTabs = !voicePickerOpen && !detailsItem
+
   return (
     <div className="flex h-full flex-col">
-      {/* Tabs — hidden while in voice picker so the picker owns the chrome */}
-      {!voicePickerOpen && (
+      {showTabs && (
         <div className="flex items-center gap-1 border-b border-white/5 px-5">
           <TabButton active={tab === 'settings'} onClick={() => setTab('settings')}>
             Settings
@@ -93,51 +85,43 @@ export default function RightPanel({
         </div>
       )}
 
-      {/* Body */}
+      {/* Body — base layer switches between Settings and History instantly.
+          Slide-in overlays (picker, details) ride on top via AnimatePresence. */}
       <div className="relative min-h-0 flex-1 overflow-hidden">
         {tab === 'settings' ? (
-          <AnimatePresence initial={false} mode="popLayout" custom={direction.current}>
-            {voicePickerOpen ? (
-              <motion.div
-                key="picker"
-                custom={direction.current}
-                variants={slideVariants}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                className="absolute inset-0"
-              >
-                <VoicePickerView
-                  selectedId={settings.voiceId}
-                  onSelect={handleSelectVoice}
-                  onClose={closePicker}
-                />
-              </motion.div>
-            ) : (
-              <motion.div
-                key="settings"
-                custom={direction.current}
-                variants={slideVariants}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                className="absolute inset-0"
-              >
-                <SettingsView
-                  settings={settings}
-                  onSettingsChange={onSettingsChange}
-                  onOpenVoicePicker={openPicker}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
+          <SettingsView
+            settings={settings}
+            onSettingsChange={onSettingsChange}
+            onOpenVoicePicker={openPicker}
+          />
         ) : (
           <HistoryView
             items={history}
             activeId={activeHistoryId}
             onSelect={onSelectHistory}
             onDelete={onDeleteHistory}
+            onShowDetails={handleShowDetails}
           />
+        )}
+
+        {voicePickerOpen && (
+          <div className="absolute inset-0 bg-[#0A0A0A]">
+            <VoicePickerView
+              selectedId={settings.voiceId}
+              onSelect={handleSelectVoice}
+              onClose={closePicker}
+            />
+          </div>
+        )}
+        {detailsItem && (
+          <div className="absolute inset-0 bg-[#0A0A0A]">
+            <HistoryDetailsView
+              item={detailsItem}
+              onClose={handleCloseDetails}
+              onRestoreText={onRestoreText}
+              onRestoreSettings={onRestoreSettings}
+            />
+          </div>
         )}
       </div>
     </div>
