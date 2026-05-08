@@ -9,16 +9,10 @@ interface VoiceFormProps {
   onCancel: () => void
 }
 
-const STABILITY_OPTIONS: Array<{ value: 0 | 0.5 | 1; label: string }> = [
-  { value: 0, label: 'Variable' },
-  { value: 0.5, label: 'Natural' },
-  { value: 1, label: 'Stable' },
-]
-
 export default function VoiceForm({ item, onSave, onCancel }: VoiceFormProps) {
   const [label, setLabel] = useState(item?.label ?? '')
   const [voiceId, setVoiceId] = useState(item?.voiceId ?? VOICES[0].id)
-  const [stability, setStability] = useState<0 | 0.5 | 1>(item?.stability ?? 0.5)
+  const [stability, setStability] = useState<number>(item?.stability ?? 0.5)
   const [linkedModelId] = useState(item?.linkedModelId ?? '')
 
   useEffect(() => {
@@ -80,22 +74,22 @@ export default function VoiceForm({ item, onSave, onCancel }: VoiceFormProps) {
       </label>
 
       <label className="flex flex-col gap-1">
-        <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-500">Stability *</span>
-        <div className="flex gap-2">
-          {STABILITY_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => setStability(opt.value)}
-              className={`flex-1 rounded-lg border px-3 py-1.5 text-sm transition-colors ${
-                stability === opt.value
-                  ? 'border-white/20 bg-white/10 text-zinc-200'
-                  : 'border-white/5 text-zinc-500 hover:text-zinc-300'
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-500">Stability *</span>
+          <span className="text-[11px] tabular-nums text-zinc-400">{stability.toFixed(2)}</span>
+        </div>
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.05}
+          value={stability}
+          onChange={(e) => setStability(parseFloat(e.target.value))}
+          className="mt-1 w-full accent-indigo-500"
+        />
+        <div className="mt-1 flex items-center justify-between text-[10px] text-zinc-700">
+          <span>Variable</span>
+          <span>Stable</span>
         </div>
       </label>
 

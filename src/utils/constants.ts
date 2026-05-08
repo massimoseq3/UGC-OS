@@ -1,7 +1,6 @@
 import {
-  FolderOpen,
+  Library,
   UserRound,
-  ScanSearch,
   Eye,
   PenLine,
   Mic,
@@ -12,32 +11,37 @@ import {
 } from 'lucide-react'
 import type { ElementType } from 'react'
 
+export type AppCategory = 'library' | 'create' | 'tools'
+
 export interface AppConfig {
   id: string
   name: string
   icon: ElementType
   accent: string
+  category: AppCategory
 }
 
 export const APP_REGISTRY: AppConfig[] = [
-  { id: 'finder', name: 'Finder', icon: FolderOpen, accent: '#a1a1aa' },
-  { id: 'character-studio', name: 'Generate Characters', icon: UserRound, accent: '#0ea5e9' },
-  { id: 'image-dna', name: 'Extract Visual DNA', icon: ScanSearch, accent: '#22c55e' },
-  { id: 'ad-anatomy', name: 'Analyze Ads', icon: Eye, accent: '#FB2B37' },
-  { id: 'script-architect', name: 'Generate Scripts', icon: PenLine, accent: '#3b82f6' },
-  { id: 'voice-studio', name: 'Generate Voiceovers', icon: Mic, accent: '#6366f1' },
-  { id: 'broll-studio', name: 'Generate B-Roll', icon: Film, accent: '#f97316' },
-  { id: 'video-studio', name: 'Generate Videos', icon: Video, accent: '#a855f7' },
+  { id: 'finder', name: 'Bank', icon: Library, accent: '#a1a1aa', category: 'library' },
+  { id: 'character-studio', name: 'Characters', icon: UserRound, accent: '#0ea5e9', category: 'create' },
+  { id: 'script-architect', name: 'Scripts', icon: PenLine, accent: '#3b82f6', category: 'create' },
+  { id: 'voice-studio', name: 'Voiceovers', icon: Mic, accent: '#6366f1', category: 'create' },
+  { id: 'broll-studio', name: 'B-Roll', icon: Film, accent: '#f97316', category: 'create' },
+  { id: 'video-studio', name: 'Videos', icon: Video, accent: '#a855f7', category: 'create' },
+  { id: 'ad-anatomy', name: 'Ad Analyzer', icon: Eye, accent: '#FB2B37', category: 'tools' },
 ]
 
-export const FINDER_APP = APP_REGISTRY[0]
-export const DOCK_APPS = APP_REGISTRY
+export const CATEGORY_LABELS: Record<AppCategory, string> = {
+  library: 'Library',
+  create: 'Create',
+  tools: 'Tools',
+}
 
 export type BankType = 'products' | 'models' | 'scripts' | 'voices' | 'brolls'
 
 export const BANK_CONFIG: Record<BankType, { label: string; icon: ElementType; accent: string }> = {
   products: { label: 'Products', icon: Package, accent: '#f59e0b' },
-  models: { label: 'Models', icon: UserRound, accent: '#0ea5e9' },
+  models: { label: 'Characters', icon: UserRound, accent: '#0ea5e9' },
   scripts: { label: 'Scripts', icon: FileText, accent: '#3b82f6' },
   voices: { label: 'Voices', icon: Mic, accent: '#6366f1' },
   brolls: { label: 'B-Rolls', icon: Film, accent: '#f97316' },

@@ -2,20 +2,19 @@
 
 ## Project Identity
 
-You are building **UGC Lab** — a browser-based YouTube-style workspace that unifies seven AI tools for UGC ad production into a single environment with shared data banks. Every AI call goes through **kie.ai** as a unified API gateway: one user-supplied Bearer key gives access to every model the app uses (chat, vision, image gen, video gen, TTS).
+You are building **UGC Lab** — a browser-based YouTube-style workspace that unifies six AI tools for UGC ad production into a single environment with shared data banks. Every AI call goes through **kie.ai** as a unified API gateway: one user-supplied Bearer key gives access to every model the app uses (chat, vision, image gen, video gen, TTS).
 
-App display names (action-style):
+Sidebar is grouped into three sections (LIBRARY / CREATE / TOOLS). Display names match the section context — terse nouns, not action verbs:
 
-| Sidebar entry | Folder name (stable, do not rename) | Job |
-|---|---|---|
-| Finder | `finder/` | Banks browser |
-| Generate Characters | `character-studio/` | Form → portrait image |
-| Extract Visual DNA | `image-dna/` | Image → JSON of physical / style / scene attributes |
-| Analyze Ads | `ad-anatomy/` | Ad image or video frame → scorecard + transcript + visual playbook |
-| Generate Scripts | `script-architect/` | Winning ad + product → new script |
-| Generate Voiceovers | `voice-studio/` | Script → audio (ElevenLabs v3) |
-| Generate B-Roll | `broll-studio/` | Script → scenes → still images → animated frames |
-| Generate Videos | `video-studio/` | Prompt + optional reference frames → standalone video |
+| Section | Sidebar entry | Folder name (stable, do not rename) | Job |
+|---|---|---|---|
+| Library | Bank | `finder/` | Banks browser |
+| Create | Characters | `character-studio/` | Form → portrait image. Drop a reference image on the controls panel (or anywhere in the app surface) to auto-fill every field via vision-based DNA extraction. |
+| Create | Scripts | `script-architect/` | Winning ad + product → new script |
+| Create | Voiceovers | `voice-studio/` | Script → audio (ElevenLabs v3) |
+| Create | B-roll | `broll-studio/` | Script → scenes → still images → animated frames |
+| Create | Videos | `video-studio/` | Prompt + optional reference frames → standalone video |
+| Tools | Ad Analyzer | `ad-anatomy/` | Ad image or video frame → scorecard + transcript + visual playbook |
 
 Folder names and the `id` strings in `src/utils/constants.ts` are stable on purpose — they're used in localStorage keys for per-app model selections.
 
@@ -150,8 +149,7 @@ src/
 │
 ├── apps/
 │   ├── finder/                    # Bank browser + edit forms
-│   ├── character-studio/          # → "Generate Characters"
-│   ├── image-dna/                 # → "Extract Visual DNA"
+│   ├── character-studio/          # → "Generate Characters" (drag-photo DNA extraction is built in)
 │   ├── ad-anatomy/                # → "Analyze Ads"
 │   ├── script-architect/          # → "Generate Scripts"
 │   ├── voice-studio/              # → "Generate Voiceovers" (ElevenLabs v3)
@@ -216,6 +214,8 @@ Wired today:
 7. **kie.ai migration** — every app onto kie.ai. Added `kie.ts`, `models.ts`, `ModelPicker`, Video Studio Pro. Dropped `gemini.ts`. ElevenLabs Turbo 2.5 became TTS.
 8. **Polish pass** — Loading bar shows percent; action-style app names; eye icon for Analyze Ads; Settings simplified; Voice Studio rebuilt on ElevenLabs v3 with 20-voice catalog + filters; Video Studio expanded to 6 models with per-model constraints, 4 modes, multi-dim pricing for Kling, Veo's custom endpoint; B-Roll → Video Studio handoff.
 9. **Cleanup pass** — Drop `usd` field, split `Mode` into `ImageMode` + `VideoMode`, factor `getChatEndpointPath` into `models.ts`, delete dead `Desktop.tsx` + `DesktopFolder.tsx`, voice shape localStorage migration.
+10. **DNA folded into Character Studio** — Visual DNA extraction merged into Generate Characters as a drag-photo affordance (compact drop zone in the controls panel + full-area drag overlay). Standalone `image-dna/` app removed. Bank entries with `source: 'image-dna-extractor'` continue to load.
+11. **Sidebar regrouping + ModelPicker redesign** — Sidebar split into Library / Create / Tools sections. App display names switched to terse nouns (Bank / Characters / Scripts / Voiceovers / B-roll / Videos / Ad Analyzer). ModelPicker rebuilt with provider avatars, $-tier badges, and a yellow ★ on recommended models. Aspect ratio moved out of the Camera tab into a Portrait/Landscape pill toggle directly above the model picker.
 
 ## When making changes (going forward)
 

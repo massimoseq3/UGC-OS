@@ -1,9 +1,9 @@
 export type Gender = 'Female' | 'Male'
 export type Accent = 'American' | 'British' | 'Australian' | 'Other'
 export type Age = 'Young' | 'Middle-aged' | 'Old'
-// Stability is a tri-state on ElevenLabs v3 (not a continuous slider).
-// 0 = variable / expressive, 0.5 = natural, 1 = stable / robotic-flat.
-export type Stability = 0 | 0.5 | 1
+// Stability for ElevenLabs v3 — continuous 0..1.
+// 0 = most variable / expressive, 1 = most stable / consistent.
+export type Stability = number
 
 export interface VoiceOption {
   id: string          // ElevenLabs voice_id (used in API calls)

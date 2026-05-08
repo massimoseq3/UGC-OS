@@ -62,7 +62,7 @@ export default function UploadView({ onAnalyze }: UploadViewProps) {
           Breakdown a Creative
         </h2>
         <p className="max-w-sm text-sm text-zinc-500">
-          Upload a video ad and we'll dissect every frame, hook, and persuasion lever.
+          Upload a video ad and we'll dissect every frame, hook, and persuasion tactic.
         </p>
       </div>
 

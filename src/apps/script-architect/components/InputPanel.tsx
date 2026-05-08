@@ -180,7 +180,7 @@ export default function InputPanel({
                       onClick={handleOpenFinder}
                       className="text-left text-xs text-blue-400 transition-colors hover:text-blue-300"
                     >
-                      Add one in Finder
+                      Add one in Bank
                     </button>
                   </div>
                 </div>

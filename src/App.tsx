@@ -11,7 +11,6 @@ import ScriptArchitect from './apps/script-architect/ScriptArchitect'
 import CharacterStudio from './apps/character-studio/CharacterStudio'
 import VoiceStudio from './apps/voice-studio/VoiceStudio'
 import BrollStudio from './apps/broll-studio/BrollStudio'
-import ImageDna from './apps/image-dna/ImageDna'
 import VideoStudio from './apps/video-studio/VideoStudio'
 
 const APP_COMPONENTS: Record<string, React.ComponentType> = {
@@ -21,7 +20,6 @@ const APP_COMPONENTS: Record<string, React.ComponentType> = {
   'character-studio': CharacterStudio,
   'voice-studio': VoiceStudio,
   'broll-studio': BrollStudio,
-  'image-dna': ImageDna,
   'video-studio': VideoStudio,
 }
 
@@ -90,7 +88,7 @@ export default function App() {
           return (
             <div
               key={appId}
-              className={`absolute inset-0 pt-14 ${contentPadding} transition-[opacity,padding] duration-200 ease-out ${
+              className={`absolute inset-0 pt-14 ${contentPadding} transition-[padding] duration-200 ease-out ${
                 isActive ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
               }`}
             >
