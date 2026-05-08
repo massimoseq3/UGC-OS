@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAppStore } from '../../stores/appStore'
 import { useBankStore } from '../../stores/bankStore'
-import type { VoicePreset, Script } from '../../stores/types'
+import type { Script } from '../../stores/types'
 import type { VoiceSettings } from './types'
 import { createDefaultSettings } from './types'
 import { generateVoice } from './services/generateVoice'
@@ -10,14 +10,12 @@ import EditorPanel from './components/EditorPanel'
 import HistoryPanel from './components/HistoryPanel'
 import BankPicker from '../../components/BankPicker'
 
-type PickerMode = 'voices' | 'scripts' | null
-
 export default function VoiceStudio() {
   const [settings, setSettings] = useState<VoiceSettings>(createDefaultSettings)
   const [scriptText, setScriptText] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [pickerMode, setPickerMode] = useState<PickerMode>(null)
+  const [scriptPickerOpen, setScriptPickerOpen] = useState(false)
   const [highlightField, setHighlightField] = useState<string | null>(null)
 
   const history = useBankStore((s) => s.voiceHistory)
@@ -48,21 +46,10 @@ export default function VoiceStudio() {
     setSettings(next)
   }
 
-  const handleLoadVoicePreset = (item: unknown) => {
-    const preset = item as VoicePreset
-    setSettings({
-      voiceId: preset.voiceId,
-      voiceName: preset.voiceName,
-      gender: preset.gender,
-      stability: preset.stability,
-    })
-    setPickerMode(null)
-  }
-
   const handleLoadScript = (item: unknown) => {
     const script = item as Script
     setScriptText(script.scriptText)
-    setPickerMode(null)
+    setScriptPickerOpen(false)
   }
 
   const handleGenerate = async () => {
@@ -90,7 +77,6 @@ export default function VoiceStudio() {
         <ControlsSidebar
           settings={settings}
           onSettingsChange={handleSettingsChange}
-          onLoadPreset={() => setPickerMode('voices')}
         />
       </div>
 
@@ -99,7 +85,7 @@ export default function VoiceStudio() {
         <EditorPanel
           scriptText={scriptText}
           onScriptChange={setScriptText}
-          onSelectScript={() => setPickerMode('scripts')}
+          onSelectScript={() => setScriptPickerOpen(true)}
           onGenerate={handleGenerate}
           isGenerating={isGenerating}
           canGenerate={scriptText.trim().length > 0}
@@ -116,18 +102,12 @@ export default function VoiceStudio() {
         />
       </div>
 
-      {/* Bank Pickers */}
-      <BankPicker
-        bankType="voices"
-        isOpen={pickerMode === 'voices'}
-        onSelect={handleLoadVoicePreset}
-        onClose={() => setPickerMode(null)}
-      />
+      {/* Script picker */}
       <BankPicker
         bankType="scripts"
-        isOpen={pickerMode === 'scripts'}
+        isOpen={scriptPickerOpen}
         onSelect={handleLoadScript}
-        onClose={() => setPickerMode(null)}
+        onClose={() => setScriptPickerOpen(false)}
       />
     </div>
   )

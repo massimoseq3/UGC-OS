@@ -242,7 +242,7 @@ export default function BankPicker({ bankType, isOpen, onSelect, onClose }: Bank
             className="mt-2 flex w-full items-center justify-center gap-1.5 py-2 text-xs text-zinc-600 transition-colors hover:text-zinc-400"
           >
             <FolderOpen className="h-3 w-3" />
-            Manage in Finder
+            Manage in Bank
           </button>
         </div>
       </div>

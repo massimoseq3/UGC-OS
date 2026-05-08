@@ -1,28 +1,25 @@
 import { useState } from 'react'
-import { FolderOpen, Play } from 'lucide-react'
-import type { VoiceSettings, Stability, Accent, Gender, VoiceOption } from '../types'
-import { VOICES, filterVoices } from '../types'
+import { Play } from 'lucide-react'
+import type { VoiceSettings, Gender, VoiceOption } from '../types'
+import { VOICES } from '../types'
 
 interface ControlsSidebarProps {
   settings: VoiceSettings
   onSettingsChange: (settings: VoiceSettings) => void
-  onLoadPreset: () => void
 }
 
-const STABILITY_OPTIONS: Array<{ value: Stability; label: string; hint: string }> = [
-  { value: 0,   label: 'Variable',   hint: 'More expressive' },
-  { value: 0.5, label: 'Natural',    hint: 'Default' },
-  { value: 1,   label: 'Stable',     hint: 'Very consistent' },
-]
-
 const GENDER_FILTERS: Array<Gender | 'All'> = ['All', 'Female', 'Male']
-const ACCENT_FILTERS: Array<Accent | 'All'> = ['All', 'American', 'British', 'Australian', 'Other']
 
-export default function ControlsSidebar({ settings, onSettingsChange, onLoadPreset }: ControlsSidebarProps) {
+function stabilityHint(value: number): string {
+  if (value < 0.34) return 'More expressive'
+  if (value < 0.67) return 'Natural'
+  return 'Very consistent'
+}
+
+export default function ControlsSidebar({ settings, onSettingsChange }: ControlsSidebarProps) {
   const [genderFilter, setGenderFilter] = useState<Gender | 'All'>('All')
-  const [accentFilter, setAccentFilter] = useState<Accent | 'All'>('All')
 
-  const filteredVoices = filterVoices(VOICES, { gender: genderFilter, accent: accentFilter })
+  const filteredVoices = VOICES.filter((v) => genderFilter === 'All' || v.gender === genderFilter)
 
   const setVoice = (voice: VoiceOption) => {
     onSettingsChange({
@@ -33,7 +30,7 @@ export default function ControlsSidebar({ settings, onSettingsChange, onLoadPres
     })
   }
 
-  const setStability = (s: Stability) => onSettingsChange({ ...settings, stability: s })
+  const setStability = (s: number) => onSettingsChange({ ...settings, stability: s })
 
   const previewVoice = (voiceId: string, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -45,82 +42,46 @@ export default function ControlsSidebar({ settings, onSettingsChange, onLoadPres
 
   return (
     <div className="flex h-full flex-col">
-      {/* Load Voice Preset */}
-      <div className="border-b border-white/5 p-4">
-        <button
-          onClick={onLoadPreset}
-          className="flex w-full items-center justify-center gap-2 rounded-full border border-indigo-500/20 bg-indigo-500/10 px-6 py-3 text-[13px] font-medium tracking-tight text-indigo-400 transition-colors hover:bg-indigo-500/20"
-        >
-          <FolderOpen className="h-4 w-4" />
-          Load Voice Preset
-        </button>
-      </div>
-
-      {/* Stability — three discrete values per ElevenLabs v3 */}
+      {/* Stability — continuous slider 0..1 */}
       <div className="border-b border-white/5 px-4 py-4">
         <div className="flex items-center justify-between">
           <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-600">Stability</span>
-          <span className="text-[10px] text-zinc-700">
-            {STABILITY_OPTIONS.find((o) => o.value === settings.stability)?.hint}
-          </span>
+          <span className="text-[11px] tabular-nums text-zinc-400">{settings.stability.toFixed(2)}</span>
         </div>
-        <div className="mt-3 flex gap-1 rounded-lg bg-white/[0.04] p-1">
-          {STABILITY_OPTIONS.map((opt) => {
-            const active = settings.stability === opt.value
-            return (
-              <button
-                key={opt.value}
-                onClick={() => setStability(opt.value)}
-                className={`flex-1 rounded-md py-1.5 text-[11px] font-medium transition-colors ${
-                  active ? 'bg-indigo-500/20 text-indigo-300' : 'text-zinc-500 hover:text-zinc-300'
-                }`}
-              >
-                {opt.label}
-              </button>
-            )
-          })}
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.05}
+          value={settings.stability}
+          onChange={(e) => setStability(parseFloat(e.target.value))}
+          className="mt-3 w-full accent-indigo-500"
+        />
+        <div className="mt-1.5 flex items-center justify-between text-[10px] text-zinc-700">
+          <span>Variable</span>
+          <span className="text-zinc-500">{stabilityHint(settings.stability)}</span>
+          <span>Stable</span>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="border-b border-white/5 px-4 py-4 space-y-3">
-        <div>
-          <span className="text-[10px] font-medium uppercase tracking-widest text-zinc-600">Gender</span>
-          <div className="mt-1.5 flex flex-wrap gap-1">
-            {GENDER_FILTERS.map((g) => {
-              const active = genderFilter === g
-              return (
-                <button
-                  key={g}
-                  onClick={() => setGenderFilter(g)}
-                  className={`rounded-full px-2.5 py-1 text-[10px] font-medium transition-colors ${
-                    active ? 'bg-indigo-500/20 text-indigo-300' : 'bg-white/[0.04] text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-300'
-                  }`}
-                >
-                  {g}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-        <div>
-          <span className="text-[10px] font-medium uppercase tracking-widest text-zinc-600">Accent</span>
-          <div className="mt-1.5 flex flex-wrap gap-1">
-            {ACCENT_FILTERS.map((a) => {
-              const active = accentFilter === a
-              return (
-                <button
-                  key={a}
-                  onClick={() => setAccentFilter(a)}
-                  className={`rounded-full px-2.5 py-1 text-[10px] font-medium transition-colors ${
-                    active ? 'bg-indigo-500/20 text-indigo-300' : 'bg-white/[0.04] text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-300'
-                  }`}
-                >
-                  {a}
-                </button>
-              )
-            })}
-          </div>
+      {/* Gender filter */}
+      <div className="border-b border-white/5 px-4 py-4">
+        <span className="text-[10px] font-medium uppercase tracking-widest text-zinc-600">Gender</span>
+        <div className="mt-1.5 flex flex-wrap gap-1">
+          {GENDER_FILTERS.map((g) => {
+            const active = genderFilter === g
+            return (
+              <button
+                key={g}
+                onClick={() => setGenderFilter(g)}
+                className={`rounded-full px-2.5 py-1 text-[10px] font-medium transition-colors ${
+                  active ? 'bg-indigo-500/20 text-indigo-300' : 'bg-white/[0.04] text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-300'
+                }`}
+              >
+                {g}
+              </button>
+            )
+          })}
         </div>
       </div>
 
@@ -141,10 +102,10 @@ export default function ControlsSidebar({ settings, onSettingsChange, onLoadPres
               {filteredVoices.map((voice) => {
                 const isActive = settings.voiceId === voice.id
                 return (
-                  <button
+                  <div
                     key={voice.id}
                     onClick={() => setVoice(voice)}
-                    className={`group flex items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-colors ${
+                    className={`group flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-colors ${
                       isActive ? 'bg-indigo-500/20' : 'hover:bg-white/[0.04]'
                     }`}
                   >
@@ -167,13 +128,14 @@ export default function ControlsSidebar({ settings, onSettingsChange, onLoadPres
                       </div>
                     </div>
                     <button
+                      type="button"
                       onClick={(e) => previewVoice(voice.id, e)}
                       className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-zinc-600 transition-colors hover:bg-white/[0.06] hover:text-zinc-300"
                       title="Preview voice"
                     >
                       <Play className="h-3 w-3" />
                     </button>
-                  </button>
+                  </div>
                 )
               })}
             </div>

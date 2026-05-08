@@ -73,7 +73,7 @@ export interface ModelEntry {
 }
 
 // Convention for default app ids: matches `AppConfig.id` in `src/utils/constants.ts`.
-//   'ad-anatomy', 'script-architect', 'image-dna', 'character-studio',
+//   'ad-anatomy', 'script-architect', 'character-studio',
 //   'broll-studio', 'voice-studio', 'video-studio'
 
 export const MODEL_REGISTRY: ModelEntry[] = [
@@ -88,7 +88,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     task: 'chat',
     tags: ['recommended', 'fast', 'cheap'],
     pricing: { unit: 'per-1k-tokens', credits: 0.015 },
-    defaultFor: ['ad-anatomy', 'script-architect', 'image-dna', 'character-studio', 'broll-studio'],
+    defaultFor: ['ad-anatomy', 'script-architect', 'character-studio', 'broll-studio'],
     chatEndpoint: '/gemini-3-flash/v1/chat/completions',
   },
 
@@ -115,21 +115,12 @@ export const MODEL_REGISTRY: ModelEntry[] = [
   },
   {
     id: 'seedream/5-lite-text-to-image',
-    displayName: 'SeeDream 5 Lite',
+    displayName: 'Seedream 5 Lite',
     provider: 'ByteDance',
     task: 'image',
     modes: ['text-to-image'],
     tags: ['new', 'fast'],
     pricing: { unit: 'per-image', credits: 3 },
-  },
-  {
-    id: 'google/imagen4',
-    displayName: 'Imagen 4',
-    provider: 'Google',
-    task: 'image',
-    modes: ['text-to-image'],
-    tags: [],
-    pricing: { unit: 'per-image', credits: 4 },
   },
   {
     id: 'gpt-image-2-text-to-image',
@@ -398,14 +389,6 @@ export function buildImageInput(modelId: string, opts: ImageGenOptions): Record<
       prompt: opts.prompt,
       aspect_ratio: ar,
       quality: high ? 'high' : 'basic',
-    }
-  }
-  if (modelId === 'google/imagen4') {
-    // Imagen 4 accepts only 1:1, 16:9, 9:16, 3:4, 4:3
-    const allowed: AspectRatio[] = ['1:1', '16:9', '9:16', '3:4', '4:3']
-    return {
-      prompt: opts.prompt,
-      aspect_ratio: allowed.includes(ar) ? ar : '9:16',
     }
   }
   // Fallback: send prompt + aspect_ratio and hope for the best

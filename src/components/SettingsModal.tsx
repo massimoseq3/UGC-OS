@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { X, Eye, EyeOff, Key, Check, ExternalLink, Loader2, AlertCircle } from 'lucide-react'
+import { X, Eye, EyeOff, Key, Check, ExternalLink, Loader2, AlertCircle, FlaskConical } from 'lucide-react'
 import { useSettingsStore } from '../stores/settingsStore'
 import { kieTestConnection } from '../utils/kie'
+import { seedTestData, type SeedResult } from '../utils/seedTestData'
 
 interface SettingsModalProps {
   open: boolean
@@ -17,6 +18,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [saved, setSaved] = useState(false)
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null)
+  const [seedResult, setSeedResult] = useState<SeedResult | null>(null)
 
   useEffect(() => {
     if (open) {
@@ -24,6 +26,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
       setSaved(false)
       setShowKie(false)
       setTestResult(null)
+      setSeedResult(null)
     }
   }, [open, storedKieKey])
 
@@ -33,6 +36,12 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
     setKieApiKey(kieDraft.trim())
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
+  }
+
+  function handleSeed() {
+    const result = seedTestData()
+    setSeedResult(result)
+    setTimeout(() => setSeedResult(null), 4000)
   }
 
   async function handleTest() {
@@ -151,6 +160,33 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
             'Save'
           )}
         </button>
+
+        {/* Seed test data — quick way to populate banks for trying the app */}
+        <div className="mt-6 border-t border-white/5 pt-5">
+          <div className="flex items-center gap-2">
+            <FlaskConical className="h-3.5 w-3.5 text-zinc-500" />
+            <span className="text-sm font-medium text-zinc-300">Test data</span>
+          </div>
+          <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">
+            Adds sample products, characters, scripts, voice presets, and B-Rolls so you can play with every app without setting up data first.
+          </p>
+          <button
+            type="button"
+            onClick={handleSeed}
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 py-2 text-[13px] font-medium text-zinc-300 transition-colors hover:bg-white/[0.05]"
+          >
+            {seedResult ? (
+              <>
+                <Check className="h-4 w-4 text-emerald-400" />
+                <span className="text-emerald-400">
+                  Added {seedResult.products} products · {seedResult.characters} characters · {seedResult.scripts} scripts · {seedResult.voices} voices · {seedResult.brolls} B-Rolls
+                </span>
+              </>
+            ) : (
+              'Seed test data'
+            )}
+          </button>
+        </div>
       </div>
     </div>
   )

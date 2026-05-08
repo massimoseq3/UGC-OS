@@ -1,4 +1,7 @@
-export type TabId = 'physical' | 'style' | 'scene' | 'pose' | 'camera'
+import type { ElementType } from 'react'
+import { IdCard, Sparkles, Eye, Scissors, Smile, Shirt, MapPin, Sun } from 'lucide-react'
+
+export type TabId = 'physical' | 'scene' | 'pose' | 'camera'
 
 export interface FieldConfig {
   key: string
@@ -7,10 +10,17 @@ export interface FieldConfig {
   placeholder?: string
 }
 
+export interface FieldGroup {
+  id: string
+  label: string
+  icon?: ElementType
+  fields: FieldConfig[]
+}
+
 export interface TabConfig {
   id: TabId
   label: string
-  fields: FieldConfig[]
+  groups: FieldGroup[]
 }
 
 export type CharacterProfile = Record<string, string>
@@ -19,216 +29,283 @@ export const TABS: TabConfig[] = [
   {
     id: 'physical',
     label: 'Physical',
-    fields: [
+    groups: [
       {
-        key: 'gender',
-        label: 'Gender',
-        chips: ['Female', 'Male', 'Non-binary'],
-      },
-      {
-        key: 'age',
-        label: 'Age Range',
-        chips: ['18-24', '20s', '25-30', '30-40', '40-50', '50-60', '60-70', '70-80', '80+'],
-      },
-      {
-        key: 'ethnicity',
-        label: 'Ethnicity',
-        chips: ['Japanese', 'Norwegian', 'American', 'French mixed with Moroccan', 'South African', 'Caucasian', 'Black', 'Asian', 'Hispanic/Latino', 'Middle Eastern', 'South Asian', 'Mixed'],
-      },
-      {
-        key: 'bodyType',
-        label: 'Body Type',
-        chips: ['Slim', 'Athletic', 'Average', 'Curvy', 'Plus-size', 'Muscular'],
-      },
-      {
-        key: 'skinTone',
-        label: 'Skin Tone',
-        chips: ['Fair', 'Light', 'Medium', 'Olive', 'Tan', 'Lightly sunkissed', 'Brown', 'Dark'],
-      },
-      {
-        key: 'skinTexture',
-        label: 'Skin Texture',
-        chips: [
-          'Glass skin finish with ultra-detailed texture, including visible skin pores, fine peach fuzz, and a scattering of light freckles across the bridge of her nose',
-          'Glass skin',
-          'Natural pores',
-          'Acne scarring',
-          'Freckled',
-          'Textured',
-          'Mature lines',
-          'Natural pores with slight imperfections',
+        id: 'identity',
+        label: 'Identity',
+        icon: IdCard,
+        fields: [
+          {
+            key: 'gender',
+            label: 'Gender',
+            chips: ['Female', 'Male', 'Non-binary'],
+          },
+          {
+            key: 'age',
+            label: 'Age Range',
+            chips: ['18-24', '20s', '25-30', '30-40', '40-50', '50-60', '60-70', '70-80', '80+'],
+          },
+          {
+            key: 'ethnicity',
+            label: 'Ethnicity',
+            chips: ['Japanese', 'Norwegian', 'American', 'French mixed with Moroccan', 'South African', 'Caucasian', 'Black', 'Asian', 'Hispanic/Latino', 'Middle Eastern', 'South Asian', 'Mixed'],
+          },
+          {
+            key: 'bodyType',
+            label: 'Body Type',
+            chips: ['Slim', 'Athletic', 'Average', 'Curvy', 'Plus-size', 'Muscular'],
+          },
         ],
-        placeholder: 'e.g. "Glass skin with visible pores"',
       },
       {
-        key: 'eyeColor',
-        label: 'Eye Color',
-        chips: ['Brown', 'Blue', 'Green', 'Hazel', 'Gray', 'Amber', 'Dark brown'],
+        id: 'skin',
+        label: 'Skin',
+        icon: Sparkles,
+        fields: [
+          {
+            key: 'skinTone',
+            label: 'Skin Tone',
+            chips: ['Fair', 'Light', 'Medium', 'Olive', 'Tan', 'Lightly sunkissed', 'Brown', 'Dark'],
+          },
+          {
+            key: 'skinTexture',
+            label: 'Skin Texture',
+            chips: [
+              'Glass skin finish with ultra-detailed texture, including visible skin pores, fine peach fuzz, and a scattering of light freckles across the bridge of her nose',
+              'Glass skin',
+              'Natural pores',
+              'Acne scarring',
+              'Freckled',
+              'Textured',
+              'Mature lines',
+              'Natural pores with slight imperfections',
+            ],
+            placeholder: 'e.g. "Glass skin with visible pores"',
+          },
+        ],
       },
       {
-        key: 'eyeShape',
-        label: 'Eye Shape',
-        chips: ['Almond', 'Round', 'Hooded', 'Monolid', 'Upturned', 'Downturned', 'Deep-set', 'Wide-set'],
+        id: 'eyes',
+        label: 'Eyes',
+        icon: Eye,
+        fields: [
+          {
+            key: 'eyeColor',
+            label: 'Eye Color',
+            chips: ['Brown', 'Blue', 'Green', 'Hazel', 'Gray', 'Amber', 'Dark brown'],
+          },
+          {
+            key: 'eyeShape',
+            label: 'Eye Shape',
+            chips: ['Almond', 'Round', 'Hooded', 'Monolid', 'Upturned', 'Downturned', 'Deep-set', 'Wide-set'],
+          },
+        ],
       },
       {
-        key: 'hairColor',
-        label: 'Hair Color',
-        chips: ['Blonde', 'Brunette', 'Black', 'Red', 'Auburn', 'Gray', 'Platinum'],
+        id: 'hair',
+        label: 'Hair',
+        icon: Scissors,
+        fields: [
+          {
+            key: 'hairColor',
+            label: 'Hair Color',
+            chips: ['Blonde', 'Brunette', 'Black', 'Red', 'Auburn', 'Gray', 'Platinum'],
+          },
+          {
+            key: 'hairStyle',
+            label: 'Hair Style',
+            chips: ['Long straight', 'Long wavy', 'Shoulder-length', 'Bob', 'Pixie cut', 'Ponytail', 'Messy bun', 'Braids', 'Curtain Bangs + Layers', 'Short textured', 'Buzz cut'],
+          },
+          {
+            key: 'hairTexture',
+            label: 'Hair Texture',
+            chips: ['Straight', 'Wavy', 'Curly', 'Coily', 'Kinky', 'Fine', 'Thick'],
+          },
+        ],
       },
       {
-        key: 'hairStyle',
-        label: 'Hair Style',
-        chips: ['Long straight', 'Long wavy', 'Shoulder-length', 'Bob', 'Pixie cut', 'Ponytail', 'Messy bun', 'Braids', 'Curtain Bangs + Layers', 'Short textured', 'Buzz cut'],
-      },
-      {
-        key: 'hairTexture',
-        label: 'Hair Texture',
-        chips: ['Straight', 'Wavy', 'Curly', 'Coily', 'Kinky', 'Fine', 'Thick'],
-      },
-      {
-        key: 'facialFeatures',
+        id: 'facial-features',
         label: 'Facial Features',
-        chips: ['Freckles', 'Sharp jawline', 'Soft features', 'High cheekbones', 'Full lips', 'Glasses'],
-        placeholder: 'e.g. "Light freckles, soft smile"',
+        icon: Smile,
+        fields: [
+          {
+            key: 'facialFeatures',
+            label: 'Facial Features',
+            chips: ['Freckles', 'Sharp jawline', 'Soft features', 'High cheekbones', 'Full lips', 'Glasses'],
+            placeholder: 'e.g. "Light freckles, soft smile"',
+          },
+          {
+            key: 'facialHair',
+            label: 'Facial Hair',
+            chips: ['None', 'Clean-shaven', 'Stubble', 'Short beard', 'Full beard', 'Goatee', 'Mustache'],
+          },
+          {
+            key: 'distinguishingMarks',
+            label: 'Distinguishing Marks',
+            chips: ['None', 'Beauty mark', 'Dimples', 'Scar', 'Birthmark', 'Tattoo', 'Piercing'],
+            placeholder: 'e.g. "Beauty mark on left cheek"',
+          },
+          {
+            key: 'makeup',
+            label: 'Makeup',
+            chips: ['No makeup', 'Natural/minimal', 'Light glam', 'Full glam', 'Dewy skin', 'Bold lip', 'E-girl makeup', 'Soft glam'],
+          },
+        ],
       },
       {
-        key: 'facialHair',
-        label: 'Facial Hair',
-        chips: ['None', 'Clean-shaven', 'Stubble', 'Short beard', 'Full beard', 'Goatee', 'Mustache'],
-      },
-      {
-        key: 'distinguishingMarks',
-        label: 'Distinguishing Marks',
-        chips: ['None', 'Beauty mark', 'Dimples', 'Scar', 'Birthmark', 'Tattoo', 'Piercing'],
-        placeholder: 'e.g. "Beauty mark on left cheek"',
-      },
-    ],
-  },
-  {
-    id: 'style',
-    label: 'Style',
-    fields: [
-      {
-        key: 'clothingStyle',
-        label: 'Clothing Style',
-        chips: ['Athleisure Set', 'Casual athleisure', 'Streetwear', 'Business casual', 'Minimalist', 'Minimal chic', 'Cozy homewear', 'Gym wear', 'Boho', 'Preppy'],
-      },
-      {
-        key: 'accessories',
-        label: 'Accessories',
-        chips: ['Watch', 'Necklace', 'Earrings', 'Gold hoops', 'Baseball cap', 'Sunglasses', 'Headband', 'Rings', 'None'],
-        placeholder: 'e.g. "Dainty gold necklace, small hoop earrings"',
-      },
-      {
-        key: 'makeup',
-        label: 'Makeup',
-        chips: ['No makeup', 'Natural/minimal', 'Light glam', 'Full glam', 'Dewy skin', 'Bold lip', 'E-girl makeup', 'Soft glam'],
+        id: 'wardrobe',
+        label: 'Wardrobe',
+        icon: Shirt,
+        fields: [
+          {
+            key: 'clothingStyle',
+            label: 'Clothing Style',
+            chips: ['Athleisure Set', 'Casual athleisure', 'Streetwear', 'Business casual', 'Minimalist', 'Minimal chic', 'Cozy homewear', 'Gym wear', 'Boho', 'Preppy'],
+          },
+          {
+            key: 'accessories',
+            label: 'Accessories',
+            chips: ['Watch', 'Necklace', 'Earrings', 'Gold hoops', 'Baseball cap', 'Sunglasses', 'Headband', 'Rings', 'None'],
+            placeholder: 'e.g. "Dainty gold necklace, small hoop earrings"',
+          },
+        ],
       },
     ],
   },
   {
     id: 'scene',
     label: 'Scene',
-    fields: [
+    groups: [
       {
-        key: 'location',
-        label: 'Location',
-        chips: ['Bedroom', 'Living room', 'Kitchen', 'Bathroom', 'Car interior', 'Gym', 'Coffee shop', 'Office', 'Outdoors park', 'Beach', 'Studio backdrop'],
-      },
-      {
-        key: 'background',
-        label: 'Background Details',
-        chips: ['Neutral wall', 'Bookshelf', 'Plants', 'Bed with pillows', 'Kitchen counter', 'Car Interior', 'Blurred background', 'Window with natural light', 'Minimalist'],
-        placeholder: 'e.g. "Clean white wall, small monstera plant"',
-      },
-      {
-        key: 'lighting',
-        label: 'Lighting',
-        chips: [
-          'Soft, diffused natural window light, creating gentle highlights on the cheekbones and realistic subsurface scattering on the skin',
-          'Soft natural light',
-          'Golden Hour',
-          'Ring Light (Influencer)',
-          'Harsh Flash',
-          'Dim Bedroom',
-          'Natural Window Light',
-          'Fluorescent office',
+        id: 'setting',
+        label: 'Setting',
+        icon: MapPin,
+        fields: [
+          {
+            key: 'location',
+            label: 'Location',
+            chips: ['Bedroom', 'Living room', 'Kitchen', 'Bathroom', 'Car interior', 'Gym', 'Coffee shop', 'Office', 'Outdoors park', 'Beach', 'Studio backdrop'],
+          },
+          {
+            key: 'background',
+            label: 'Background Details',
+            chips: ['Neutral wall', 'Bookshelf', 'Plants', 'Bed with pillows', 'Kitchen counter', 'Car Interior', 'Blurred background', 'Window with natural light', 'Minimalist'],
+            placeholder: 'e.g. "Clean white wall, small monstera plant"',
+          },
         ],
       },
       {
-        key: 'weather',
-        label: 'Weather',
-        chips: ['Sunny', 'Overcast', 'Rainy', 'Cloudy', 'Golden hour', 'Blue hour', 'Indoor (N/A)'],
-      },
-      {
-        key: 'timeOfDay',
-        label: 'Time of Day',
-        chips: ['Morning', 'Midday', 'Afternoon', 'Golden hour', 'Evening', 'Night'],
+        id: 'lighting',
+        label: 'Lighting & Time',
+        icon: Sun,
+        fields: [
+          {
+            key: 'lighting',
+            label: 'Lighting',
+            chips: [
+              'Soft, diffused natural window light, creating gentle highlights on the cheekbones and realistic subsurface scattering on the skin',
+              'Soft natural light',
+              'Golden Hour',
+              'Ring Light (Influencer)',
+              'Harsh Flash',
+              'Dim Bedroom',
+              'Natural Window Light',
+              'Fluorescent office',
+            ],
+          },
+          {
+            key: 'weather',
+            label: 'Weather',
+            chips: ['Sunny', 'Overcast', 'Rainy', 'Cloudy', 'Golden hour', 'Blue hour', 'Indoor (N/A)'],
+          },
+          {
+            key: 'timeOfDay',
+            label: 'Time of Day',
+            chips: ['Morning', 'Midday', 'Afternoon', 'Golden hour', 'Evening', 'Night'],
+          },
+        ],
       },
     ],
   },
   {
     id: 'pose',
     label: 'Pose & Action',
-    fields: [
+    groups: [
       {
-        key: 'pose',
-        label: 'Pose',
-        chips: ['Sitting on bed', 'Sitting on couch', 'Standing', 'Leaning on counter', 'Walking', 'Sitting in car', 'Front-on facing the camera', 'Laying down', 'Cross-legged on floor'],
-      },
-      {
-        key: 'action',
-        label: 'Action',
-        chips: ['Speaking to camera', 'Holding product', 'Applying product', 'Unboxing', 'Pointing at something', 'Typing on phone', 'Sitting in drivers seat of car', 'Drinking from bottle', 'Showing before/after'],
-        placeholder: 'e.g. "Holding product up next to face, showing label"',
-      },
-      {
-        key: 'expression',
-        label: 'Expression',
-        chips: ['Natural smile', 'Genuine smile', 'Excited', 'Skeptical', 'Surprised', 'Thinking', 'Laughing', 'Serious/focused', 'Mid-sentence'],
+        id: 'pose',
+        label: 'Pose & Action',
+        fields: [
+          {
+            key: 'pose',
+            label: 'Pose',
+            chips: ['Sitting', 'Standing', 'Leaning', 'Walking', 'Lying down', 'Cross-legged', 'Kneeling', 'Crouching', 'Front-on facing camera'],
+          },
+          {
+            key: 'action',
+            label: 'Action',
+            chips: ['Speaking to camera', 'Holding product', 'Applying product', 'Unboxing', 'Pointing', 'Typing on phone', 'Drinking', 'Showing before/after', 'Looking at camera'],
+            placeholder: 'e.g. "Holding product up next to face, showing label"',
+          },
+          {
+            key: 'expression',
+            label: 'Expression',
+            chips: ['Natural smile', 'Genuine smile', 'Excited', 'Skeptical', 'Surprised', 'Thinking', 'Laughing', 'Serious/focused', 'Mid-sentence'],
+          },
+        ],
       },
     ],
   },
   {
     id: 'camera',
     label: 'Camera',
-    fields: [
+    groups: [
       {
-        key: 'shotType',
-        label: 'Shot Type',
-        chips: ['Close-up face', 'Medium shot (waist up)', 'Third-Person Shot', 'Full body', 'Over-the-shoulder', 'Eye level', 'Low angle', 'High angle', 'Dutch angle'],
-      },
-      {
-        key: 'cameraAngle',
-        label: 'Camera Angle',
-        chips: ['Eye Level', 'Low angle', 'High angle', 'Bird\'s eye', 'Worm\'s eye', 'Dutch tilt', 'Over-the-shoulder'],
-      },
-      {
-        key: 'cameraDevice',
-        label: 'Camera Device',
-        chips: [
-          'Smartphone, casual UGC aesthetic',
-          'Modern smartphone',
-          'Front-facing phone camera',
-          'Phone selfie camera',
-          'Phone rear camera',
-          'DSLR shallow DOF',
-          'Webcam',
-          'Action camera, wide',
-          'Ring light + phone',
+        id: 'camera',
+        label: 'Camera',
+        fields: [
+          {
+            key: 'shotType',
+            label: 'Shot Type',
+            chips: ['Close-up face', 'Medium shot (waist up)', 'Third-Person Shot', 'Full body', 'Over-the-shoulder', 'Eye level', 'Low angle', 'High angle', 'Dutch angle'],
+          },
+          {
+            key: 'cameraAngle',
+            label: 'Camera Angle',
+            chips: ['Eye Level', 'Low angle', 'High angle', 'Bird\'s eye', 'Worm\'s eye', 'Dutch tilt', 'Over-the-shoulder'],
+          },
+          {
+            key: 'cameraDevice',
+            label: 'Camera Device',
+            chips: [
+              'Smartphone, casual UGC aesthetic',
+              'Modern smartphone',
+              'Front-facing phone camera',
+              'Phone selfie camera',
+              'Phone rear camera',
+              'DSLR shallow DOF',
+              'Webcam',
+              'Action camera, wide',
+              'Ring light + phone',
+            ],
+          },
         ],
-      },
-      {
-        key: 'aspectRatio',
-        label: 'Aspect Ratio',
-        chips: ['Portrait (9:16)', 'Landscape (16:9)'],
       },
     ],
   },
 ]
 
+// aspectRatio is part of the profile but doesn't render as a tab field — it lives
+// in the OutputPanel toggle next to the Generate button.
+export const ASPECT_RATIO_KEY = 'aspectRatio'
+export const DEFAULT_ASPECT_RATIO = 'Portrait (9:16)'
+
+// Flatten a tab's groups into a single list of fields.
+export function getTabFields(tab: TabConfig): FieldConfig[] {
+  return tab.groups.flatMap((g) => g.fields)
+}
+
 // All field keys across all tabs
-export const ALL_FIELD_KEYS = TABS.flatMap((tab) => tab.fields.map((f) => f.key))
+export const ALL_FIELD_KEYS = TABS.flatMap((tab) => getTabFields(tab).map((f) => f.key))
 
 export const PRESET_DEFAULT: CharacterProfile = {
   gender: 'Female',
@@ -245,15 +322,15 @@ export const PRESET_DEFAULT: CharacterProfile = {
   facialFeatures: 'Soft features, natural smile',
   facialHair: '',
   distinguishingMarks: '',
+  makeup: 'Natural/minimal',
   clothingStyle: 'Casual athleisure',
   accessories: 'None',
-  makeup: 'Natural/minimal',
   location: 'Bedroom',
   background: 'Neutral wall',
   lighting: 'Soft natural light',
   weather: '',
   timeOfDay: 'Morning',
-  pose: 'Sitting on bed',
+  pose: 'Sitting',
   action: 'Speaking to camera',
   expression: 'Natural smile',
   shotType: 'Medium shot (waist up)',
@@ -277,15 +354,15 @@ export const PRESET_CAR: CharacterProfile = {
   facialFeatures: 'Light makeup, high cheekbones',
   facialHair: '',
   distinguishingMarks: '',
+  makeup: 'Light glam',
   clothingStyle: 'Minimal chic',
   accessories: 'Sunglasses',
-  makeup: 'Light glam',
   location: 'Car interior',
   background: 'Blurred background',
   lighting: 'Soft natural light',
   weather: 'Sunny',
   timeOfDay: 'Afternoon',
-  pose: 'Sitting in car',
+  pose: 'Sitting',
   action: 'Speaking to camera',
   expression: 'Natural smile',
   shotType: 'Close-up face',
@@ -309,15 +386,15 @@ export const PRESET_MARIE: CharacterProfile = {
   facialFeatures: 'High cheekbones',
   facialHair: 'None',
   distinguishingMarks: 'Scar',
+  makeup: 'Dewy skin',
   clothingStyle: 'Athleisure Set',
   accessories: 'Gold hoops',
-  makeup: 'Dewy skin',
   location: 'Bedroom',
   background: 'Minimalist',
   lighting: 'Soft, diffused natural window light, creating gentle highlights on the cheekbones and realistic subsurface scattering on the skin',
   weather: 'Indoor (N/A)',
   timeOfDay: '',
-  pose: 'Front-on facing the camera',
+  pose: 'Front-on facing camera',
   action: 'Speaking to camera',
   expression: 'Genuine smile',
   shotType: 'Third-Person Shot',
@@ -341,16 +418,16 @@ export const PRESET_ZANE: CharacterProfile = {
   facialFeatures: 'Sharp jawline',
   facialHair: 'Clean-shaven',
   distinguishingMarks: 'Dimples',
+  makeup: 'No makeup',
   clothingStyle: 'Athleisure set',
   accessories: 'Smartwatch',
-  makeup: 'No makeup',
   location: 'Minimalist Kitchen',
   background: 'Minimalist',
   lighting: 'Soft, diffused natural window light, creating gentle highlights on the cheekbones and realistic subsurface scattering on the skin',
   weather: 'Sunny',
   timeOfDay: 'Morning',
-  pose: 'Front-on facing the camera',
-  action: 'Looking at the camera',
+  pose: 'Front-on facing camera',
+  action: 'Looking at camera',
   expression: 'Genuine smile',
   shotType: 'Third-Person Shot',
   cameraAngle: 'Eye Level',
@@ -359,9 +436,73 @@ export const PRESET_ZANE: CharacterProfile = {
 }
 
 export function createEmptyProfile(): CharacterProfile {
-  const profile: CharacterProfile = {}
+  const profile: CharacterProfile = { [ASPECT_RATIO_KEY]: DEFAULT_ASPECT_RATIO }
   for (const key of ALL_FIELD_KEYS) {
     profile[key] = ''
   }
   return profile
+}
+
+// Visual DNA — nested shape returned by the vision model when extracting from a photo.
+// Sections map 1:1 to the form's tab field keys; flattenDna merges them into a flat profile.
+
+export interface ModelDNA {
+  gender: string
+  age: string
+  ethnicity: string
+  bodyType: string
+  skinTone: string
+  skinTexture: string
+  eyeColor: string
+  eyeShape: string
+  hairColor: string
+  hairStyle: string
+  hairTexture: string
+  facialFeatures: string
+  facialHair: string
+  distinguishingMarks: string
+}
+
+export interface StyleDNA {
+  clothingStyle: string
+  accessories: string
+  makeup: string
+}
+
+export interface PoseDNA {
+  pose: string
+  action: string
+  expression: string
+}
+
+export interface LocationDNA {
+  location: string
+  background: string
+  lighting: string
+  weather: string
+  timeOfDay: string
+}
+
+export interface CameraDNA {
+  shotType: string
+  cameraAngle: string
+  cameraDevice: string
+}
+
+export interface VisualDNA {
+  model: ModelDNA
+  style: StyleDNA
+  pose: PoseDNA
+  location: LocationDNA
+  camera: CameraDNA
+}
+
+export function flattenDna(dna: VisualDNA): Partial<CharacterProfile> {
+  const flat: Record<string, string> = {}
+  for (const fields of Object.values(dna)) {
+    for (const [key, value] of Object.entries(fields as Record<string, string>)) {
+      flat[key] = value
+    }
+  }
+  return flat
 }

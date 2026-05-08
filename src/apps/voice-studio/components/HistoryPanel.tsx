@@ -293,8 +293,8 @@ export default function HistoryPanel({ items, onDelete }: HistoryPanelProps) {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-medium text-zinc-300">{item.voiceName}</span>
-                    <span className="rounded-md bg-white/5 px-1.5 py-0.5 text-[10px] text-zinc-600">
-                      {item.stability === 0 ? 'Variable' : item.stability === 1 ? 'Stable' : 'Natural'}
+                    <span className="rounded-md bg-white/5 px-1.5 py-0.5 text-[10px] tabular-nums text-zinc-600">
+                      {item.stability.toFixed(2)}
                     </span>
                   </div>
                   <span className="text-[10px] tabular-nums text-zinc-700">

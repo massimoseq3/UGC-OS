@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Copy, Check, Save, ChevronDown, ChevronUp, UserRound, Loader2, Braces, Download, AlertCircle, X } from 'lucide-react'
+import { Copy, Check, Save, ChevronDown, ChevronUp, UserRound, Loader2, Braces, Download, AlertCircle, X, RectangleVertical, RectangleHorizontal } from 'lucide-react'
 import { useBankStore } from '../../../stores/bankStore'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import type { GenerationResult } from '../services/generateCharacter'
@@ -16,9 +16,43 @@ interface OutputPanelProps {
   onCancel: () => void
   canGenerate: boolean
   aspectRatio: string
+  onAspectRatioChange: (value: string) => void
 }
 
-export default function OutputPanel({ result, isGenerating, error, onGenerate, onCancel, canGenerate, aspectRatio }: OutputPanelProps) {
+const PORTRAIT_VALUE = 'Portrait (9:16)'
+const LANDSCAPE_VALUE = 'Landscape (16:9)'
+
+function AspectRatioToggle({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const isPortrait = value.includes('9:16')
+  return (
+    <div className="flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.02] p-1">
+      <button
+        onClick={() => onChange(PORTRAIT_VALUE)}
+        className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors ${isPortrait
+          ? 'bg-sky-500/15 text-sky-300'
+          : 'text-zinc-500 hover:text-zinc-300'
+        }`}
+        title="Portrait 9:16"
+      >
+        <RectangleVertical className="h-3.5 w-3.5" strokeWidth={1.75} />
+        Portrait <span className="text-zinc-500">9:16</span>
+      </button>
+      <button
+        onClick={() => onChange(LANDSCAPE_VALUE)}
+        className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors ${!isPortrait
+          ? 'bg-sky-500/15 text-sky-300'
+          : 'text-zinc-500 hover:text-zinc-300'
+        }`}
+        title="Landscape 16:9"
+      >
+        <RectangleHorizontal className="h-3.5 w-3.5" strokeWidth={1.75} />
+        Landscape <span className="text-zinc-500">16:9</span>
+      </button>
+    </div>
+  )
+}
+
+export default function OutputPanel({ result, isGenerating, error, onGenerate, onCancel, canGenerate, aspectRatio, onAspectRatioChange }: OutputPanelProps) {
   const [copied, setCopied] = useState(false)
   const [jsonExpanded, setJsonExpanded] = useState(false)
   const [showSaveForm, setShowSaveForm] = useState(false)
@@ -99,6 +133,7 @@ export default function OutputPanel({ result, isGenerating, error, onGenerate, o
 
         {/* Generate button always visible */}
         <div className="space-y-3 border-t border-white/5 p-4">
+          <AspectRatioToggle value={aspectRatio} onChange={onAspectRatioChange} />
           <ModelPicker
             appId="character-studio"
             task="image"
@@ -111,7 +146,7 @@ export default function OutputPanel({ result, isGenerating, error, onGenerate, o
             className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-sky-500 px-6 py-3.5 text-[13px] font-medium tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-sky-400 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <UserRound className="h-4 w-4" />
-            <span>Generate UGC Character{creditsLabel ? ` (${creditsLabel})` : ''}</span>
+            <span>Generate Character{creditsLabel ? ` (${creditsLabel})` : ''}</span>
           </button>
         </div>
       </div>
@@ -231,6 +266,7 @@ export default function OutputPanel({ result, isGenerating, error, onGenerate, o
 
       {/* Generate button — pinned to bottom */}
       <div className="space-y-2 border-t border-white/5 p-3">
+        <AspectRatioToggle value={aspectRatio} onChange={onAspectRatioChange} />
         <ModelPicker
           appId="character-studio"
           task="image"
@@ -250,7 +286,7 @@ export default function OutputPanel({ result, isGenerating, error, onGenerate, o
           ) : (
             <>
               <UserRound className="h-4 w-4" />
-              <span>Generate UGC Character{creditsLabel ? ` (${creditsLabel})` : ''}</span>
+              <span>Generate Character{creditsLabel ? ` (${creditsLabel})` : ''}</span>
             </>
           )}
         </button>
