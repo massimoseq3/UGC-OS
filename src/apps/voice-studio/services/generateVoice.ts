@@ -3,7 +3,7 @@ import { useSettingsStore } from '../../../stores/settingsStore'
 import { runTask, parseResult } from '../../../utils/kie'
 import { saveAsset } from '../../../utils/assetStore'
 
-const TTS_MODEL_ID = 'elevenlabs/text-to-dialogue-v3'
+const TTS_MODEL_ID = 'elevenlabs/text-to-speech-multilingual-v2'
 
 async function probeAudioDuration(blob: Blob): Promise<number> {
   return new Promise((resolve) => {
@@ -29,12 +29,16 @@ export async function generateVoice(
 ): Promise<HistoryItem> {
   const apiKey = useSettingsStore.getState().getKieApiKey()
 
-  // ElevenLabs v3 dialogue body shape: a `dialogue` array of { text, voice }.
-  // For a single-speaker line we send one entry. `voice` accepts the voice
-  // ID directly (preset names also work but IDs are stabler across regions).
+  // ElevenLabs Multilingual v2 expects a flat object — the v3 dialogue array
+  // shape is gone. `voice` accepts a voice ID directly (preset names also
+  // work but IDs are stabler across regions).
   const record = await runTask(apiKey, TTS_MODEL_ID, {
-    dialogue: [{ text: scriptText, voice: settings.voiceId }],
+    text: scriptText,
+    voice: settings.voiceId,
     stability: settings.stability,
+    similarity_boost: settings.similarityBoost,
+    style: settings.style,
+    speed: settings.speed,
   })
 
   const urls = parseResult(record).resultUrls
@@ -52,6 +56,9 @@ export async function generateVoice(
     voiceName: settings.voiceName,
     gender: settings.gender,
     stability: settings.stability,
+    similarityBoost: settings.similarityBoost,
+    style: settings.style,
+    speed: settings.speed,
     scriptText,
     scriptPreview: scriptText.slice(0, 80) + (scriptText.length > 80 ? '...' : ''),
     audioUrl: assetId,

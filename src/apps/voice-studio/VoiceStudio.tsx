@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useAppStore } from '../../stores/appStore'
 import { useBankStore } from '../../stores/bankStore'
-import type { Script } from '../../stores/types'
+import type { Script, VoiceHistoryItem } from '../../stores/types'
 import type { VoiceSettings } from './types'
 import { createDefaultSettings } from './types'
 import { generateVoice } from './services/generateVoice'
-import ControlsSidebar from './components/ControlsSidebar'
-import EditorPanel from './components/EditorPanel'
-import HistoryPanel from './components/HistoryPanel'
+import { getUrl } from '../../utils/assetStore'
+import EditorArea from './components/EditorArea'
+import RightPanel from './components/RightPanel'
+import BottomPlayer from './components/BottomPlayer'
 import BankPicker from '../../components/BankPicker'
 
 export default function VoiceStudio() {
@@ -17,6 +18,7 @@ export default function VoiceStudio() {
   const [error, setError] = useState<string | null>(null)
   const [scriptPickerOpen, setScriptPickerOpen] = useState(false)
   const [highlightField, setHighlightField] = useState<string | null>(null)
+  const [activePlayerItem, setActivePlayerItem] = useState<VoiceHistoryItem | null>(null)
 
   const history = useBankStore((s) => s.voiceHistory)
   const addVoiceHistory = useBankStore((s) => s.addVoiceHistory)
@@ -26,7 +28,7 @@ export default function VoiceStudio() {
   const consumePayload = useAppStore((s) => s.consumePayload)
   const activeApp = useAppStore((s) => s.activeApp)
 
-  // Consume inter-app payload (from Script Architect "Send to Voice Studio")
+  // Inter-app payload: Script Architect → Voiceovers (scriptText).
   useEffect(() => {
     if (activeApp !== 'voice-studio') return
     if (!interAppPayload || interAppPayload.targetApp !== 'voice-studio') return
@@ -42,10 +44,6 @@ export default function VoiceStudio() {
     consumePayload()
   }, [interAppPayload, activeApp, consumePayload])
 
-  const handleSettingsChange = (next: VoiceSettings) => {
-    setSettings(next)
-  }
-
   const handleLoadScript = (item: unknown) => {
     const script = item as Script
     setScriptText(script.scriptText)
@@ -59,6 +57,7 @@ export default function VoiceStudio() {
     try {
       const item = await generateVoice(settings, scriptText)
       addVoiceHistory(item)
+      setActivePlayerItem(item)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Audio generation failed. Check your API key and try again.')
     } finally {
@@ -68,39 +67,59 @@ export default function VoiceStudio() {
 
   const handleDeleteHistoryItem = (id: string) => {
     deleteVoiceHistory(id)
+    if (activePlayerItem?.id === id) setActivePlayerItem(null)
+  }
+
+  const handleDownloadLatest = async () => {
+    if (!activePlayerItem) return
+    const ref = activePlayerItem.audioUrl
+    const url = ref.startsWith('asset-') ? await getUrl(ref) : ref
+    if (!url) return
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${activePlayerItem.voiceName}-${Date.now()}.mp3`
+    a.click()
   }
 
   return (
-    <div className="flex flex-col lg:flex-row h-full">
-      {/* Left sidebar — controls */}
-      <div className="flex w-full lg:w-[340px] shrink-0 flex-col border-b lg:border-b-0 lg:border-r border-white/5">
-        <ControlsSidebar
-          settings={settings}
-          onSettingsChange={handleSettingsChange}
-        />
+    <div className="flex h-full flex-col">
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        {/* Center — editor */}
+        <div className="flex min-h-[420px] lg:min-h-0 flex-1 flex-col overflow-hidden">
+          <EditorArea
+            scriptText={scriptText}
+            onScriptChange={setScriptText}
+            onSelectScript={() => setScriptPickerOpen(true)}
+            onGenerate={handleGenerate}
+            isGenerating={isGenerating}
+            canGenerate={scriptText.trim().length > 0}
+            highlightField={highlightField}
+            error={error}
+            onDownloadLatest={handleDownloadLatest}
+            hasLatest={!!activePlayerItem}
+          />
+        </div>
+
+        {/* Right — settings / voice picker / history */}
+        <div className="flex w-full lg:w-[400px] shrink-0 flex-col border-t lg:border-t-0 lg:border-l border-white/5">
+          <RightPanel
+            settings={settings}
+            onSettingsChange={setSettings}
+            history={history}
+            activeHistoryId={activePlayerItem?.id ?? null}
+            onSelectHistory={setActivePlayerItem}
+            onDeleteHistory={handleDeleteHistoryItem}
+          />
+        </div>
       </div>
 
-      {/* Center — editor */}
-      <div className="flex min-h-[420px] lg:min-h-0 flex-1 flex-col overflow-hidden">
-        <EditorPanel
-          scriptText={scriptText}
-          onScriptChange={setScriptText}
-          onSelectScript={() => setScriptPickerOpen(true)}
-          onGenerate={handleGenerate}
-          isGenerating={isGenerating}
-          canGenerate={scriptText.trim().length > 0}
-          highlightField={highlightField}
-          error={error}
+      {/* Bottom player — slides in once a generation lands */}
+      {activePlayerItem && (
+        <BottomPlayer
+          item={activePlayerItem}
+          onClose={() => setActivePlayerItem(null)}
         />
-      </div>
-
-      {/* Right sidebar — history */}
-      <div className="flex w-full lg:w-[400px] shrink-0 flex-col border-t lg:border-t-0 lg:border-l border-white/5 max-h-[50vh] lg:max-h-none">
-        <HistoryPanel
-          items={history}
-          onDelete={handleDeleteHistoryItem}
-        />
-      </div>
+      )}
 
       {/* Script picker */}
       <BankPicker

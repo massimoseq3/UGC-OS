@@ -36,8 +36,11 @@ export interface VoicePreset {
   label: string
   voiceId: string
   voiceName: string
-  gender: 'Female' | 'Male'
+  gender?: 'Female' | 'Male'
   stability: number
+  similarityBoost: number
+  style: number
+  speed: number
   linkedModelId: string
   createdAt: number
 }
@@ -64,8 +67,11 @@ export interface VoiceHistoryItem {
   id: string
   voiceId: string
   voiceName: string
-  gender: 'Female' | 'Male'
+  gender?: 'Female' | 'Male'
   stability: number
+  similarityBoost: number
+  style: number
+  speed: number
   scriptText: string
   scriptPreview: string
   audioUrl: string
