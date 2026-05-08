@@ -61,7 +61,7 @@ export default function App() {
   const runningApps = useAppStore((s) => s.runningApps)
   const collapsed = useAppStore((s) => s.sidebarCollapsed)
 
-  const contentPadding = collapsed ? 'pl-16' : 'pl-56'
+  const contentPadding = collapsed ? 'pl-20' : 'pl-56'
 
   return (
     <div className="relative h-screen w-screen overflow-hidden text-white antialiased bg-[#050505]">

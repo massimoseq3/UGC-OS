@@ -170,10 +170,10 @@ export default function InputPanel({
             {selectedProduct && <ProductCard product={selectedProduct} />}
           </BankCard>
 
-          {/* Model */}
+          {/* Character */}
           <BankCard
             icon={UserRound}
-            label="Model"
+            label="Character"
             accentClass="bg-sky-500/15 text-sky-400"
             isEmpty={!selectedModel}
             onSelect={onSelectModel}
@@ -209,9 +209,9 @@ export default function InputPanel({
               value={selectedScript ? '' : scriptText}
               onChange={(e) => onScriptTextChange(e.target.value)}
               disabled={!!selectedScript}
-              rows={4}
+              rows={10}
               placeholder="Paste your script text here..."
-              className="mt-1.5 w-full rounded-lg border border-white/10 bg-transparent px-3 py-2 text-sm text-zinc-200 placeholder-zinc-700 outline-none transition-colors focus:border-white/20 resize-none disabled:opacity-30 disabled:cursor-not-allowed"
+              className="mt-1.5 w-full rounded-lg border border-white/10 bg-transparent px-3 py-2 text-sm leading-relaxed text-zinc-200 placeholder-zinc-700 outline-none transition-colors focus:border-white/20 resize-none disabled:opacity-30 disabled:cursor-not-allowed"
             />
           </div>
 
