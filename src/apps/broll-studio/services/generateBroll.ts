@@ -46,7 +46,7 @@ STRATEGY & VISUAL RULES (APPLY TO EVERY VARIATION):
 - Describe the scene simply, like 'in a minimalist kitchen' or 'in a modern office'.
 
 STRICT TECHNICAL STYLE STRING (MUST BE APPENDED TO EVERY PROMPT):
-"Style: Modern iPhone camera quality, unedited realism, matching A-roll lighting, zero bokeh, zero depth of field, sharp focus across entire frame. The subject and product must match the attached references exactly."
+"Style: Modern iPhone camera quality, unedited photorealism, matching A-roll lighting, zero bokeh, zero depth of field, sharp focus across entire frame. The subject and product must match the attached references exactly."
 
 DO NOT mention any aspect ratio, resolution, or framing dimensions in the prompt — those are set separately by the user.
 
@@ -249,7 +249,7 @@ RULES:
 1. DO NOT describe lighting. It messes up the UGC style.
 2. DO NOT describe the model's appearance or product details. Mention the product and the model/subject.
 3. ONLY describe the action they're doing. Describe the scene simply, e.g., 'in a minimalist kitchen'.
-4. Append this exactly to the end of the prompt: "Style: Modern iPhone camera quality, unedited realism, matching A-roll lighting, zero bokeh, zero depth of field, sharp focus across entire frame. The subject and product must match the attached references exactly."
+4. Append this exactly to the end of the prompt: "Style: Modern iPhone camera quality, unedited photorealism, matching A-roll lighting, zero bokeh, zero depth of field, sharp focus across entire frame. The subject and product must match the attached references exactly."
 5. DO NOT mention any aspect ratio, resolution, or framing dimensions — those are set separately.
 
 Respond with ONLY valid JSON (no markdown):

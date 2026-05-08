@@ -40,32 +40,32 @@ function ProductCard({ item, onEdit, onDelete }: { item: Product; onEdit: () => 
   const [confirm, setConfirm] = useState(false)
   const resolvedImage = useAssetUrl(item.productImage)
   return (
-    <div onClick={onEdit} className="group cursor-pointer rounded-xl border border-white/5 bg-white/[0.03] transition-all hover:border-white/15 hover:bg-white/[0.05] hover:-translate-y-0.5">
-      {/* Thumbnail */}
-      <div className="relative aspect-square w-full overflow-hidden rounded-t-xl bg-white/[0.04]">
-        {resolvedImage ? (
-          <img src={resolvedImage} alt="" className="h-full w-full object-cover" />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center">
-            <Package className="h-10 w-10 text-zinc-800" strokeWidth={1} />
-          </div>
-        )}
-        {/* Delete button overlay */}
-        <div className="absolute right-2 top-2" onClick={(e) => e.stopPropagation()}>
-          {confirm ? (
-            <ConfirmDelete onConfirm={onDelete} onCancel={() => setConfirm(false)} />
-          ) : (
-            <button onClick={() => setConfirm(true)} className="rounded-lg bg-black/50 p-1.5 text-zinc-400 opacity-0 backdrop-blur-sm transition-all hover:text-red-400 group-hover:opacity-100">
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
-          )}
+    <div
+      onClick={onEdit}
+      className="group relative aspect-square cursor-pointer overflow-hidden rounded-xl border border-white/5 bg-white/[0.03] transition-all hover:border-white/15 hover:-translate-y-0.5"
+    >
+      {resolvedImage ? (
+        <img src={resolvedImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center bg-white/[0.04]">
+          <Package className="h-12 w-12 text-zinc-800" strokeWidth={1} />
         </div>
+      )}
+      {/* Bottom info overlay */}
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/55 to-transparent p-3 pt-10">
+        <span className="block truncate text-sm font-semibold tracking-tight text-zinc-100">{item.productName}</span>
+        <span className="block truncate text-xs text-zinc-400">{item.targetMarket || 'No target market'}</span>
+        <span className="text-[10px] text-zinc-500">{productCompleteness(item)}</span>
       </div>
-      {/* Info */}
-      <div className="flex flex-col gap-0.5 p-3">
-        <span className="truncate text-sm font-semibold tracking-tight text-zinc-200">{item.productName}</span>
-        <span className="truncate text-xs text-zinc-500">{item.targetMarket || 'No target market'}</span>
-        <span className="text-[10px] text-zinc-600">{productCompleteness(item)}</span>
+      {/* Delete button overlay */}
+      <div className="absolute right-2 top-2" onClick={(e) => e.stopPropagation()}>
+        {confirm ? (
+          <ConfirmDelete onConfirm={onDelete} onCancel={() => setConfirm(false)} />
+        ) : (
+          <button onClick={() => setConfirm(true)} className="rounded-lg bg-black/50 p-1.5 text-zinc-400 opacity-0 backdrop-blur-sm transition-all hover:text-red-400 group-hover:opacity-100">
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
     </div>
   )
@@ -264,7 +264,7 @@ export default function BankList({ bankType, onEdit, onAdd }: BankListProps) {
   if (bankType === 'products') {
     if (products.length === 0) return <EmptyState icon={Package} label="products" singular="product" onAdd={onAdd} />
     return (
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
         {products.map((p) => (
           <ProductCard key={p.id} item={p} onEdit={() => onEdit(p.id)} onDelete={() => deleteProduct(p.id)} />
         ))}
@@ -275,7 +275,7 @@ export default function BankList({ bankType, onEdit, onAdd }: BankListProps) {
   if (bankType === 'models') {
     if (models.length === 0) return <EmptyState icon={UserRound} label="models" singular="model" onAdd={onAdd} />
     return (
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-2.5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
         {models.map((m) => (
           <ModelCard key={m.id} item={m} onEdit={() => onEdit(m.id)} onDelete={() => deleteModel(m.id)} />
         ))}
@@ -308,9 +308,9 @@ export default function BankList({ bankType, onEdit, onAdd }: BankListProps) {
   // brolls
   if (brolls.length === 0) return <EmptyState icon={Film} label="b-rolls" singular="b-roll" onAdd={onAdd} />
   return (
-    <div className="columns-2 sm:columns-3 md:columns-4 lg:columns-6 xl:columns-7 gap-2.5">
+    <div className="columns-2 sm:columns-3 lg:columns-4 gap-4">
       {brolls.map((b) => (
-        <div key={b.id} className="mb-3 break-inside-avoid">
+        <div key={b.id} className="mb-4 break-inside-avoid">
           <BRollCard item={b} onEdit={() => onEdit(b.id)} onDelete={() => deleteBRoll(b.id)} />
         </div>
       ))}

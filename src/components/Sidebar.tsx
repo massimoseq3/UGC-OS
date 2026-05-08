@@ -21,7 +21,7 @@ export default function Sidebar() {
   return (
     <>
       <aside
-        className={`fixed left-0 top-14 bottom-0 z-40 flex flex-col border-r border-white/5 bg-[#09090b]/80 backdrop-blur-xl transition-[width] duration-200 ease-out ${
+        className={`fixed left-0 top-14 bottom-0 z-40 flex flex-col border-r border-white/5 bg-[#09090b] transition-[width] duration-200 ease-out ${
           collapsed ? 'w-20' : 'w-56'
         }`}
       >

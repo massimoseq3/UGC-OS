@@ -1,21 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { User, MapPin, Move, Camera, Dna } from 'lucide-react'
+import { Dna } from 'lucide-react'
 import { useAppStore } from '../../stores/appStore'
 import type { CharacterProfile, TabId } from './types'
-import { createEmptyProfile, flattenDna, getTabFields, TABS } from './types'
+import { createEmptyProfile, flattenDna, PHOTOREALISM_STYLE } from './types'
 import ControlsPanel from './components/ControlsPanel'
 import OutputPanel from './components/OutputPanel'
-import SideRailActions from './components/SideRailActions'
 import { generateCharacter } from './services/generateCharacter'
 import { analyzeImage } from './services/analyzeImage'
 import type { GenerationResult } from './services/generateCharacter'
-
-const TAB_ICONS: Record<TabId, React.ElementType> = {
-  physical: User,
-  scene: MapPin,
-  pose: Move,
-  camera: Camera,
-}
 
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 const MAX_SIZE = 10 * 1024 * 1024
@@ -50,10 +42,12 @@ export default function CharacterStudio() {
       const incoming = data as Record<string, string>
       const newProfile = createEmptyProfile()
       for (const [key, value] of Object.entries(incoming)) {
+        if (key === 'cameraDevice') continue
         if (key in newProfile && typeof value === 'string') {
           newProfile[key] = value
         }
       }
+      newProfile.cameraDevice = PHOTOREALISM_STYLE
       setProfile(newProfile)
     }
 
@@ -75,10 +69,12 @@ export default function CharacterStudio() {
       const flat = flattenDna(dna)
       const newProfile = createEmptyProfile()
       for (const [key, value] of Object.entries(flat)) {
+        if (key === 'cameraDevice') continue
         if (key in newProfile && typeof value === 'string') {
           newProfile[key] = value
         }
       }
+      newProfile.cameraDevice = PHOTOREALISM_STYLE
       setProfile(newProfile)
     } catch (err) {
       setExtractError(err instanceof Error ? err.message : 'Failed to extract DNA from image.')
@@ -153,13 +149,6 @@ export default function CharacterStudio() {
     abortRef.current?.abort()
   }
 
-  const tabCompletion = (tabId: TabId) => {
-    const tab = TABS.find((t) => t.id === tabId)!
-    const fields = getTabFields(tab)
-    const filled = fields.filter((f) => (profile[f.key] ?? '').trim() !== '').length
-    return { filled, total: fields.length }
-  }
-
   return (
     <div
       className="relative flex flex-col lg:flex-row h-full"
@@ -168,43 +157,13 @@ export default function CharacterStudio() {
       onDragOver={handleDragOver}
       onDrop={handleOverlayDrop}
     >
-      {/* Side tabs + presets/bank — matches Finder's Banks rail aesthetic */}
-      <div className="flex lg:w-52 shrink-0 flex-row lg:flex-col overflow-x-auto lg:overflow-x-visible border-b lg:border-b-0 lg:border-r border-white/5 bg-white/[0.02] py-2 lg:py-3 px-2 lg:px-0 gap-1 lg:gap-0">
-        <span className="mb-3 hidden px-4 text-[11px] font-medium uppercase tracking-widest text-zinc-400 lg:block">
-          Customize character
-        </span>
-
-        {TABS.map((tab) => {
-          const Icon = TAB_ICONS[tab.id]
-          const isActive = activeTab === tab.id
-          const { filled, total } = tabCompletion(tab.id)
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-left text-sm transition-colors lg:mx-2 lg:gap-2.5 ${isActive
-                  ? 'bg-white/[0.1] text-white'
-                  : 'text-zinc-300 hover:bg-white/[0.05] hover:text-white'
-                }`}
-            >
-              <Icon className="h-4 w-4 shrink-0" strokeWidth={1.5} />
-              <span className="flex-1 truncate tracking-tight">{tab.label}</span>
-              <span className="text-[11px] tabular-nums text-zinc-400">
-                {filled}/{total}
-              </span>
-            </button>
-          )
-        })}
-
-        <SideRailActions profile={profile} onProfileChange={setProfile} />
-      </div>
-
       {/* Controls panel */}
       <div className="flex w-full lg:w-1/2 shrink-0 flex-col border-b lg:border-b-0 lg:border-r border-white/5">
         <ControlsPanel
           profile={profile}
           onProfileChange={setProfile}
           activeTab={activeTab}
+          onActiveTabChange={setActiveTab}
           isExtracting={isExtracting}
           extractError={extractError}
           extractedThumb={extractedThumb}

@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, ImagePlus, Download } from 'lucide-react'
+import { X, ImagePlus, Download, Film } from 'lucide-react'
 import type { BRoll } from '../../stores/types'
 import { useAssetUrl } from '../../hooks/useAssetUrl'
+import { useAppStore } from '../../stores/appStore'
+import { getAsBase64, isAssetRef } from '../../utils/assetStore'
 
 interface BRollFormProps {
   item?: BRoll | null
@@ -55,6 +57,21 @@ export default function BRollForm({ item, onSave, onCancel }: BRollFormProps) {
       scriptId: item?.scriptId,
       videoUrl: item?.videoUrl,
       videos: item?.videos,
+    })
+  }
+
+  const handleSendToVideos = async () => {
+    if (!imageUrl) return
+    let dataUri = imageUrl
+    if (isAssetRef(imageUrl)) {
+      const asset = await getAsBase64(imageUrl)
+      if (!asset) return
+      dataUri = `data:${asset.mimeType};base64,${asset.base64}`
+    }
+    useAppStore.getState().sendToApp({
+      targetApp: 'video-studio',
+      targetField: 'firstFrame',
+      data: { imageUrl: dataUri, prompt },
     })
   }
 
@@ -124,12 +141,25 @@ export default function BRollForm({ item, onSave, onCancel }: BRollFormProps) {
             />
           </label>
 
-          <button
-            type="submit"
-            className="rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-zinc-200 transition-colors hover:bg-white/15"
-          >
-            {item ? 'Save Changes' : 'Add B-Roll'}
-          </button>
+          <div className="flex flex-col gap-2">
+            {item && imageUrl && (
+              <button
+                type="button"
+                onClick={handleSendToVideos}
+                className="flex items-center justify-center gap-2 rounded-full border border-purple-500/25 bg-purple-500/10 px-4 py-2 text-sm font-medium text-purple-300 transition-colors hover:bg-purple-500/20"
+                title="Send this image and prompt to B-Roll Videos as the first frame"
+              >
+                <Film className="h-3.5 w-3.5" />
+                Send to B-Roll Videos
+              </button>
+            )}
+            <button
+              type="submit"
+              className="rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-zinc-200 transition-colors hover:bg-white/15"
+            >
+              {item ? 'Save Changes' : 'Add B-Roll'}
+            </button>
+          </div>
         </div>
       </div>
     </form>

@@ -3,6 +3,11 @@ import { IdCard, Sparkles, Eye, Scissors, Smile, Shirt, MapPin, Sun } from 'luci
 
 export type TabId = 'physical' | 'scene' | 'pose' | 'camera'
 
+// The single style string used for Camera Device — keeps every generated
+// character locked to the same UGC photorealism look.
+export const PHOTOREALISM_STYLE =
+  'Modern iPhone camera quality, unedited photorealism, matching A-roll lighting, zero bokeh, zero depth of field, sharp focus across entire frame.'
+
 export interface FieldConfig {
   key: string
   label: string
@@ -43,7 +48,7 @@ export const TABS: TabConfig[] = [
           {
             key: 'age',
             label: 'Age Range',
-            chips: ['18-24', '20s', '25-30', '30-40', '40-50', '50-60', '60-70', '70-80', '80+'],
+            chips: ['18-24', '20s', '25-30', '30-40', '40-50', '50-60', '60-70', '70-80'],
           },
           {
             key: 'ethnicity',
@@ -65,7 +70,7 @@ export const TABS: TabConfig[] = [
           {
             key: 'skinTone',
             label: 'Skin Tone',
-            chips: ['Fair', 'Light', 'Medium', 'Olive', 'Tan', 'Lightly sunkissed', 'Brown', 'Dark'],
+            chips: ['Porcelain', 'Fair', 'Light', 'Beige', 'Olive', 'Golden', 'Tan', 'Caramel', 'Bronze', 'Brown', 'Espresso', 'Deep ebony'],
           },
           {
             key: 'skinTexture',
@@ -276,17 +281,7 @@ export const TABS: TabConfig[] = [
           {
             key: 'cameraDevice',
             label: 'Camera Device',
-            chips: [
-              'Smartphone, casual UGC aesthetic',
-              'Modern smartphone',
-              'Front-facing phone camera',
-              'Phone selfie camera',
-              'Phone rear camera',
-              'DSLR shallow DOF',
-              'Webcam',
-              'Action camera, wide',
-              'Ring light + phone',
-            ],
+            chips: [PHOTOREALISM_STYLE],
           },
         ],
       },
@@ -335,7 +330,7 @@ export const PRESET_DEFAULT: CharacterProfile = {
   expression: 'Natural smile',
   shotType: 'Medium shot (waist up)',
   cameraAngle: 'Eye Level',
-  cameraDevice: 'Phone selfie camera',
+  cameraDevice: PHOTOREALISM_STYLE,
   aspectRatio: 'Portrait (9:16)',
 }
 
@@ -367,7 +362,7 @@ export const PRESET_CAR: CharacterProfile = {
   expression: 'Natural smile',
   shotType: 'Close-up face',
   cameraAngle: 'Eye Level',
-  cameraDevice: 'Phone selfie camera',
+  cameraDevice: PHOTOREALISM_STYLE,
   aspectRatio: 'Portrait (9:16)',
 }
 
@@ -399,7 +394,7 @@ export const PRESET_MARIE: CharacterProfile = {
   expression: 'Genuine smile',
   shotType: 'Third-Person Shot',
   cameraAngle: 'Eye Level',
-  cameraDevice: 'Smartphone, casual UGC aesthetic',
+  cameraDevice: PHOTOREALISM_STYLE,
   aspectRatio: 'Portrait (9:16)',
 }
 
@@ -431,7 +426,7 @@ export const PRESET_ZANE: CharacterProfile = {
   expression: 'Genuine smile',
   shotType: 'Third-Person Shot',
   cameraAngle: 'Eye Level',
-  cameraDevice: 'Smartphone, casual UGC aesthetic',
+  cameraDevice: PHOTOREALISM_STYLE,
   aspectRatio: 'Portrait (9:16)',
 }
 
@@ -440,6 +435,9 @@ export function createEmptyProfile(): CharacterProfile {
   for (const key of ALL_FIELD_KEYS) {
     profile[key] = ''
   }
+  // Camera Device is the one field we always pre-fill — it's a fixed style
+  // string that locks every generated character to the same UGC aesthetic.
+  profile.cameraDevice = PHOTOREALISM_STYLE
   return profile
 }
 

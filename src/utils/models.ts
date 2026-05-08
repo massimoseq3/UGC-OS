@@ -103,6 +103,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     tags: ['new'],
     supportsReferenceImages: true,
     pricing: { unit: 'per-image', credits: 4 },
+    defaultFor: ['character-studio'],
   },
   {
     id: 'flux-2/pro-text-to-image',
@@ -130,7 +131,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     modes: ['text-to-image'],
     tags: ['recommended'],
     pricing: { unit: 'per-image', credits: 4 },
-    defaultFor: ['broll-studio', 'character-studio'],
+    defaultFor: ['broll-studio'],
   },
   {
     id: 'gpt-image-2-image-to-image',
