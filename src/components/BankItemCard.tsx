@@ -96,7 +96,7 @@ function VoiceContent({ item }: { item: VoicePreset }) {
           {item.label || 'Untitled Preset'}
         </span>
         <span className="truncate text-xs text-zinc-500">
-          {item.voiceName} · {item.gender}
+          {item.voiceName}{item.gender ? ` · ${item.gender}` : ''}
         </span>
       </div>
     </>

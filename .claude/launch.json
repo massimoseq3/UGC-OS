@@ -4,7 +4,7 @@
     {
       "name": "vite-dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": ["run", "dev", "--", "--strictPort"],
       "port": 5173
     }
   ]

@@ -55,10 +55,12 @@ function generateId(): string {
 
 type BankData = Pick<BankState, 'products' | 'models' | 'scripts' | 'voices' | 'brolls' | 'voiceHistory'>
 
-// One-shot migration: ElevenLabs v3 dropped creativity / ambience /
-// styleInstructions; voice presets and history items now use stability
-// (0 / 0.5 / 1) and a voice ID. Drop any preset that lacks a voiceId so
-// generation doesn't fail mid-run.
+// One-shot migration for older voice shapes:
+//   - v3 dropped creativity / ambience / styleInstructions (legacy keys stripped)
+//   - Multilingual v2 added similarityBoost / style / speed — backfill with the
+//     model's recommended defaults so existing presets keep generating audio
+//     that resembles what they did before.
+// Drop any entry missing voiceId (would fail mid-generation).
 function migrateVoiceShape<T>(arr: unknown): T[] {
   if (!Array.isArray(arr)) return []
   return arr
@@ -69,6 +71,9 @@ function migrateVoiceShape<T>(arr: unknown): T[] {
       delete item.ambience
       delete item.styleInstructions
       if (typeof item.stability !== 'number') item.stability = 0.5
+      if (typeof item.similarityBoost !== 'number') item.similarityBoost = 0.75
+      if (typeof item.style !== 'number') item.style = 0
+      if (typeof item.speed !== 'number') item.speed = 1
       return item as unknown as T
     })
 }

@@ -192,27 +192,36 @@ Headaches gone. Shoulders relaxed. People are telling me I look taller.
 
 const TEST_VOICES: Array<Omit<VoicePreset, 'id' | 'createdAt'>> = [
   {
-    label: 'Sarah — chill skincare',
-    voiceId: '21m00Tcm4TlvDq8ikWAM', // Rachel
-    voiceName: 'Rachel',
+    label: 'Brittney — punchy skincare hook',
+    voiceId: 'kPzsL2i3teMYv0FxEYQ6',
+    voiceName: 'Brittney',
     gender: 'Female',
-    stability: 0.55,
+    stability: 0.45,
+    similarityBoost: 0.75,
+    style: 0.2,
+    speed: 1,
     linkedModelId: '',
   },
   {
-    label: 'Marcus — confident reviewer',
-    voiceId: 'pNInz6obpgDQGcFmaJgB', // Adam
-    voiceName: 'Adam',
+    label: 'Liam — energetic UGC creator',
+    voiceId: 'TX3LPaxmHKxFdv7VOQHJ',
+    voiceName: 'Liam',
     gender: 'Male',
-    stability: 0.7,
+    stability: 0.5,
+    similarityBoost: 0.8,
+    style: 0.15,
+    speed: 1.05,
     linkedModelId: '',
   },
   {
-    label: 'Emma — warm British',
-    voiceId: 'Xb7hH8MSUJpSbSDYk0k2', // Alice
-    voiceName: 'Alice',
+    label: 'Bella — clean educational',
+    voiceId: 'hpp4J3VqNfWAUOO0d1Us',
+    voiceName: 'Bella',
     gender: 'Female',
-    stability: 0.4,
+    stability: 0.6,
+    similarityBoost: 0.75,
+    style: 0,
+    speed: 1,
     linkedModelId: '',
   },
 ]

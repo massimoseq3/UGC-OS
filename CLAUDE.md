@@ -100,7 +100,7 @@ The full list lives in `src/utils/models.ts`. Defaults below; users can swap ima
 | Image (text→image) | GPT Image 2 (`gpt-image-2-text-to-image`) | Picker also exposes Nano Banana 2, Flux 2 Pro, SeeDream 5 Lite, Imagen 4 |
 | Image (image→image) | GPT Image 2 Edit (`gpt-image-2-image-to-image`) | Used by B-Roll when reference images are present |
 | Video (4 modes) | Seedance 2.0 (`bytedance/seedance-2`) | Picker exposes Seedance 2.0 Fast, Kling 3.0, Veo 3.1 Fast/Lite/Quality |
-| TTS | ElevenLabs v3 (`elevenlabs/text-to-dialogue-v3`) | Hard-coded — no picker; voice catalog filterable by gender + accent |
+| TTS | ElevenLabs Multilingual v2 (`elevenlabs/text-to-speech-multilingual-v2`) | Hard-coded — no picker; ~64-voice catalog grouped by category, slide-in picker |
 
 ### Pricing model
 
@@ -180,7 +180,7 @@ Persisted to `localStorage` under `ai-ugc-lab-banks`. Asset blobs (images, audio
 | `brolls` | `BRoll` | Saved from B-Roll Studio + Video Studio |
 | `voiceHistory` | `VoiceHistoryItem` | Auto-pushed on every Voice Studio generation |
 
-`VoicePreset` and `VoiceHistoryItem` migrated to the v3 shape (`voiceId`, `stability`). Legacy fields (`creativity`, `ambience`, `styleInstructions`) get stripped on load — see `migrateVoiceShape` in `bankStore.ts`.
+`VoicePreset` and `VoiceHistoryItem` carry the full Multilingual v2 parameter set: `voiceId`, `stability`, `similarityBoost`, `style`, `speed`. Legacy fields (`creativity`, `ambience`, `styleInstructions`) are stripped on load; missing v2 fields are backfilled with the model defaults (`0.75 / 0 / 1`) — see `migrateVoiceShape` in `bankStore.ts`.
 
 ## Inter-app payloads
 
@@ -216,6 +216,7 @@ Wired today:
 9. **Cleanup pass** — Drop `usd` field, split `Mode` into `ImageMode` + `VideoMode`, factor `getChatEndpointPath` into `models.ts`, delete dead `Desktop.tsx` + `DesktopFolder.tsx`, voice shape localStorage migration.
 10. **DNA folded into Character Studio** — Visual DNA extraction merged into Generate Characters as a drag-photo affordance (compact drop zone in the controls panel + full-area drag overlay). Standalone `image-dna/` app removed. Bank entries with `source: 'image-dna-extractor'` continue to load.
 11. **Sidebar regrouping + ModelPicker redesign** — Sidebar split into Library / Create / Tools sections. App display names switched to terse nouns (Bank / Characters / Scripts / Voiceovers / B-roll / Videos / Ad Analyzer). ModelPicker rebuilt with provider avatars, $-tier badges, and a yellow ★ on recommended models. Aspect ratio moved out of the Camera tab into a Portrait/Landscape pill toggle directly above the model picker.
+12. **Voiceovers redesign + v2 swap** — Voice Studio rebuilt to mirror ElevenLabs' speech-synthesis screen: full-bleed editor, right-side `Settings | History` panel with sliding voice picker, ~64-voice catalog grouped by category, click-to-preview avatars with loading rings, sticky bottom audio player after generation. TTS model swapped from `text-to-dialogue-v3` (dialogue-array body) to `text-to-speech-multilingual-v2` (flat body). Settings now expose Speed / Stability / Similarity / Style Exaggeration; `VoicePreset` + `VoiceHistoryItem` extended with the new fields and migrated.
 
 ## When making changes (going forward)
 

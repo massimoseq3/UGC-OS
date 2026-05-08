@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 import type { VoicePreset } from '../../stores/types'
-import { VOICES } from '../voice-studio/types'
+import { VOICES, DEFAULT_VOICE_SETTINGS } from '../voice-studio/types'
 
 interface VoiceFormProps {
   item?: VoicePreset | null
@@ -12,7 +12,7 @@ interface VoiceFormProps {
 export default function VoiceForm({ item, onSave, onCancel }: VoiceFormProps) {
   const [label, setLabel] = useState(item?.label ?? '')
   const [voiceId, setVoiceId] = useState(item?.voiceId ?? VOICES[0].id)
-  const [stability, setStability] = useState<number>(item?.stability ?? 0.5)
+  const [stability, setStability] = useState<number>(item?.stability ?? DEFAULT_VOICE_SETTINGS.stability)
   const [linkedModelId] = useState(item?.linkedModelId ?? '')
 
   useEffect(() => {
@@ -33,6 +33,9 @@ export default function VoiceForm({ item, onSave, onCancel }: VoiceFormProps) {
       voiceName: voice.name,
       gender: voice.gender,
       stability,
+      similarityBoost: item?.similarityBoost ?? DEFAULT_VOICE_SETTINGS.similarityBoost,
+      style: item?.style ?? DEFAULT_VOICE_SETTINGS.style,
+      speed: item?.speed ?? DEFAULT_VOICE_SETTINGS.speed,
       linkedModelId,
     })
   }
@@ -53,7 +56,7 @@ export default function VoiceForm({ item, onSave, onCancel }: VoiceFormProps) {
         <input
           value={label}
           onChange={(e) => setLabel(e.target.value)}
-          placeholder={`e.g. "Sarah's chill voice"`}
+          placeholder={`e.g. "Punchy hook voice"`}
           className="rounded-lg border border-white/10 bg-transparent px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-white/20"
         />
       </label>
@@ -67,7 +70,7 @@ export default function VoiceForm({ item, onSave, onCancel }: VoiceFormProps) {
         >
           {VOICES.map((v) => (
             <option key={v.id} value={v.id}>
-              {v.name} · {v.gender} · {v.accent} · {v.style}
+              {v.name} · {v.category} · {v.description}
             </option>
           ))}
         </select>
