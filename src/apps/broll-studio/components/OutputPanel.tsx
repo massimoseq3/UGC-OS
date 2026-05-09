@@ -563,9 +563,10 @@ export default function OutputPanel({ result, isGenerating, error, onAddVariatio
   const persistedImageModel = useSettingsStore((s) => s.getAppModel('broll-studio:image:text-to-image'))
   const imageModelId = persistedImageModel ?? getDefaultModel('broll-studio', 'image', 'text-to-image')?.id
 
-  // Only re-clamp when the new model doesn't support the current resolution.
-  // We don't auto-jump to a model's preferred default — the user's choice
-  // sticks across model switches whenever the new model can honour it.
+  // Only re-clamp when the new model doesn't support the current
+  // resolution. We don't auto-jump to a model's preferred default — the
+  // user's choice sticks across model switches whenever the new model
+  // can honour it.
   useEffect(() => {
     const tiers = (imageModelId ? getModel(imageModelId)?.imageConstraints?.resolutions : undefined) as ImageResolution[] | undefined
     if (!tiers || tiers.length === 0) return

@@ -69,9 +69,8 @@ export default function OutputPanel({ result, isGenerating, error, onGenerate, o
 
   // When the model changes, only snap if the current resolution isn't
   // supported by the new model. We deliberately don't auto-jump to the
-  // model's preferred default here — Characters always opens at 1K and
-  // respects the user's pick after that. (B-Roll Images uses the per-model
-  // default; that policy diverges per app.)
+  // model's preferred default — the user's pick sticks across model
+  // swaps whenever the new model can honour it.
   useEffect(() => {
     const tiers = (selectedModelId ? getModel(selectedModelId)?.imageConstraints?.resolutions : undefined) as ImageResolution[] | undefined
     if (!tiers || tiers.length === 0) return

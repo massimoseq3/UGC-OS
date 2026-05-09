@@ -19,9 +19,9 @@ export default function CharacterStudio() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<TabId>('physical')
-  // Characters always opens at 1K — high-res image generation is opt-in here.
-  // (B-Roll Images uses the model's preferred default tier so it lands at 2K
-  // for GPT Image 2; that policy is intentionally per-app.)
+  // Characters always opens at 1K — high-res image generation is opt-in
+  // here. The user can pick 2K / 4K from the resolution toggle when they
+  // want it.
   const [resolution, setResolution] = useState<ImageResolution>('1K')
 
   const [isExtracting, setIsExtracting] = useState(false)
