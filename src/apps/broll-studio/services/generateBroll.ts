@@ -152,7 +152,7 @@ export async function generateImage(
   const picked = pickedId ? getModel(pickedId) : undefined
 
   let modelId: string | undefined
-  if (picked && picked.modes.includes(mode)) {
+  if (picked && picked.modes?.includes(mode)) {
     modelId = picked.id
   } else if (picked && hasRefs) {
     // Try a same-family i2i sibling (e.g. gpt-image-2-text-to-image → gpt-image-2-image-to-image).

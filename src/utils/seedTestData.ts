@@ -66,7 +66,7 @@ function makeProfile(overrides: Partial<CharacterProfile>): CharacterProfile {
     shotType: '', cameraAngle: '', cameraDevice: '',
     aspectRatio: 'Portrait (9:16)',
   }
-  return { ...base, ...overrides }
+  return { ...base, ...overrides } as CharacterProfile
 }
 
 const TEST_CHARACTERS: Array<Omit<Model, 'id' | 'createdAt'>> = [
