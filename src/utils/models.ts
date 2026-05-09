@@ -128,7 +128,6 @@ export const MODEL_REGISTRY: ModelEntry[] = [
       },
     },
     imageConstraints: { resolutions: ['1K', '2K', '4K'] },
-    defaultFor: ['character-studio'],
   },
   {
     id: 'flux-2/pro-text-to-image',
@@ -173,7 +172,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
       },
     },
     imageConstraints: { resolutions: ['1K', '2K', '4K'], default: '2K' },
-    defaultFor: ['broll-studio'],
+    defaultFor: ['broll-studio', 'character-studio'],
   },
   {
     id: 'gpt-image-2-image-to-image',

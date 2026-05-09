@@ -3,8 +3,7 @@ import { Dna } from 'lucide-react'
 import { useAppStore } from '../../stores/appStore'
 import type { CharacterProfile, TabId } from './types'
 import { createEmptyProfile, flattenDna, PHOTOREALISM_STYLE } from './types'
-import { getDefaultModel, getModel, type ImageResolution } from '../../utils/models'
-import { useSettingsStore } from '../../stores/settingsStore'
+import type { ImageResolution } from '../../utils/models'
 import ControlsPanel from './components/ControlsPanel'
 import OutputPanel from './components/OutputPanel'
 import { generateCharacter } from './services/generateCharacter'
@@ -20,14 +19,10 @@ export default function CharacterStudio() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<TabId>('physical')
-  const [resolution, setResolution] = useState<ImageResolution>(() => {
-    // Initial value follows the selected model's preferred default (e.g.
-    // GPT Image 2 → '2K'). Falls back to '1K' if the registry has nothing.
-    const persisted = useSettingsStore.getState().getAppModel('character-studio:image:text-to-image')
-    const modelId = persisted ?? getDefaultModel('character-studio', 'image', 'text-to-image')?.id
-    const constraints = modelId ? getModel(modelId)?.imageConstraints : undefined
-    return (constraints?.default as ImageResolution | undefined) ?? (constraints?.resolutions[0] as ImageResolution | undefined) ?? '1K'
-  })
+  // Characters always opens at 1K — high-res image generation is opt-in here.
+  // (B-Roll Images uses the model's preferred default tier so it lands at 2K
+  // for GPT Image 2; that policy is intentionally per-app.)
+  const [resolution, setResolution] = useState<ImageResolution>('1K')
 
   const [isExtracting, setIsExtracting] = useState(false)
   const [extractError, setExtractError] = useState<string | null>(null)
@@ -135,9 +130,8 @@ export default function CharacterStudio() {
     const controller = new AbortController()
     abortRef.current = controller
 
-    // 90-second timeout
-    const timeout = setTimeout(() => controller.abort(), 90_000)
-
+    // No client-side timeout — high-res image generations can run past 90s.
+    // The user can still cancel manually via the Cancel button.
     setIsGenerating(true)
     setError(null)
     try {
@@ -145,12 +139,11 @@ export default function CharacterStudio() {
       setResult(gen)
     } catch (err) {
       if (controller.signal.aborted) {
-        setError('Generation was cancelled or timed out. Try again.')
+        setError('Generation was cancelled. Try again.')
       } else {
         setError(err instanceof Error ? err.message : 'Image generation failed. Check your API key and try again.')
       }
     } finally {
-      clearTimeout(timeout)
       setIsGenerating(false)
     }
   }
