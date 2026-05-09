@@ -57,22 +57,28 @@ export default function VideoInputSlot({ label, helper, value, onChange }: Video
       </label>
 
       {value ? (
-        <div className="relative h-24 overflow-hidden rounded-lg border border-white/10">
-          <img src={value.dataUri} alt="" className="h-full w-full object-cover" />
-          <button
-            onClick={() => onChange(null)}
-            className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/70 text-white/80 backdrop-blur-sm hover:bg-black/90 hover:text-white"
-          >
-            <X className="h-2.5 w-2.5" />
-          </button>
-          {value.sourceBRollId && (
-            <span className="absolute left-1.5 top-1.5 rounded-full bg-black/70 px-1.5 py-0.5 text-[9px] font-medium text-zinc-300 backdrop-blur-sm">
-              Bank
-            </span>
-          )}
+        <div className="flex h-40 items-center justify-center">
+          <div className="relative inline-block overflow-hidden rounded-lg border border-white/10 bg-black/40">
+            <img
+              src={value.dataUri}
+              alt=""
+              className="block max-h-40 max-w-full"
+            />
+            <button
+              onClick={() => onChange(null)}
+              className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/70 text-white/80 backdrop-blur-sm hover:bg-black/90 hover:text-white"
+            >
+              <X className="h-2.5 w-2.5" />
+            </button>
+            {value.sourceBRollId && (
+              <span className="absolute left-1.5 top-1.5 rounded-full bg-black/70 px-1.5 py-0.5 text-[9px] font-medium text-zinc-300 backdrop-blur-sm">
+                Bank
+              </span>
+            )}
+          </div>
         </div>
       ) : (
-        <div className="grid h-24 grid-cols-2 gap-1.5">
+        <div className="grid h-40 grid-cols-2 gap-1.5">
           <button
             onClick={() => fileInputRef.current?.click()}
             className="flex flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-white/15 bg-white/[0.02] text-zinc-500 transition-colors hover:border-white/25 hover:text-zinc-300"
