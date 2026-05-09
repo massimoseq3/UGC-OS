@@ -91,6 +91,10 @@ export async function downloadAssetFromR2(assetId: string): Promise<Blob | null>
 // each one is its own ~300ms Supabase round trip; from a far region (e.g.
 // South Africa → US West) that adds up to seconds of perceived lag. We
 // coalesce all deletes scheduled within 100ms into a single DELETE…IN(…).
+//
+// Deliberately *not* tracked in syncStore — asset row cleanup is background
+// work and surfacing it as "Uploading…" misleads the user (they just clicked
+// Delete) and adds anxiety with no actionable signal.
 let pendingAssetDeletes: string[] = []
 let assetDeleteTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -106,13 +110,8 @@ export async function deleteAssetFromR2(assetId: string): Promise<void> {
     const ids = pendingAssetDeletes
     pendingAssetDeletes = []
     if (ids.length === 0) return
-    useSyncStore.getState().startUpload()
-    try {
-      const sb = getSupabase()
-      const { error } = await sb.from('assets').delete().in('id', ids).eq('user_id', userId)
-      if (error) console.error('[r2] batch delete failed', error)
-    } finally {
-      useSyncStore.getState().endUpload()
-    }
+    const sb = getSupabase()
+    const { error } = await sb.from('assets').delete().in('id', ids).eq('user_id', userId)
+    if (error) console.error('[r2] batch delete failed', error)
   }, 100)
 }
