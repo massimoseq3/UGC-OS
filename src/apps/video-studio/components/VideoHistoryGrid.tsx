@@ -1,10 +1,32 @@
-import { useEffect, useState } from 'react'
-import { Download, Save, Trash2, Check, Film, Play, FolderOpen, Loader2 } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Download, Save, Trash2, Check, Film, Play, FolderOpen, Loader2, X } from 'lucide-react'
 import type { VideoHistoryItem } from '../../../stores/types'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
 import { useBankStore } from '../../../stores/bankStore'
 import { getModel } from '../../../utils/models'
 import ProjectTagPopover from './ProjectTagPopover'
+
+const HEADS_UP_DISMISSED_KEY = 'video-studio:heads-up-dismissed'
+
+// Day-bucket helper. Voice studio uses the same trio of helpers; we duplicate
+// rather than share so we can iterate independently if the layouts diverge.
+function startOfDay(ts: number): number {
+  const d = new Date(ts)
+  d.setHours(0, 0, 0, 0)
+  return d.getTime()
+}
+
+function dayLabel(dayTs: number): string {
+  const today = startOfDay(Date.now())
+  const yesterday = today - 86_400_000
+  if (dayTs === today) return 'Today'
+  if (dayTs === yesterday) return 'Yesterday'
+  return new Date(dayTs).toLocaleDateString(undefined, {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
 
 // Transient in-flight generation, kept in component memory while the kie task
 // runs. Surfaced as a skeleton tile at the top of the grid so the user can
@@ -40,47 +62,119 @@ export default function VideoHistoryGrid({
   onDownload,
   onDelete,
 }: VideoHistoryGridProps) {
+  // Heads-up banner is dismissible and the choice persists across reloads.
+  // Initialize from localStorage so dismissed users don't see it flash on
+  // every page load.
+  const [dismissed, setDismissed] = useState<boolean>(() => {
+    try { return localStorage.getItem(HEADS_UP_DISMISSED_KEY) === '1' } catch { return false }
+  })
+  const dismiss = () => {
+    setDismissed(true)
+    try { localStorage.setItem(HEADS_UP_DISMISSED_KEY, '1') } catch { /* ignore */ }
+  }
+
+  // Sort newest first, then bucket by calendar day. In-flight jobs always
+  // pin to the very top under their own "In progress" label so users can see
+  // queued work no matter how many slots are running.
+  const dayGroups = useMemo(() => {
+    const sorted = [...items].sort((a, b) => b.createdAt - a.createdAt)
+    const map = new Map<number, VideoHistoryItem[]>()
+    for (const it of sorted) {
+      const day = startOfDay(it.createdAt)
+      const arr = map.get(day) ?? []
+      arr.push(it)
+      map.set(day, arr)
+    }
+    return Array.from(map.entries()).sort(([a], [b]) => b - a)
+  }, [items])
+
   if (items.length === 0 && inFlight.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
-        <Film className="h-9 w-9 text-zinc-800" strokeWidth={1.5} />
-        <p className="text-sm text-zinc-500">No generations yet</p>
-        <p className="max-w-[280px] text-xs leading-relaxed text-zinc-600">
-          Every video you generate appears here. Save the ones you want to keep — kie.ai purges
-          unsaved media after 14 days, so download or save them or they'll be deleted.
-        </p>
+      <div className="flex h-full flex-col">
+        {!dismissed && <HeadsUpBanner onDismiss={dismiss} />}
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
+          <Film className="h-9 w-9 text-zinc-800" strokeWidth={1.5} />
+          <p className="text-sm text-zinc-500">No generations yet</p>
+          <p className="max-w-[280px] text-xs leading-relaxed text-zinc-600">
+            Every video you generate appears here. Save the ones you want to keep — kie.ai purges
+            unsaved media after 14 days, so download or save them or they'll be deleted.
+          </p>
+        </div>
       </div>
     )
   }
 
   return (
     <div className="flex h-full flex-col">
-      <div className="grid min-h-0 flex-1 grid-cols-2 gap-2 overflow-y-auto p-3">
-        {inFlight.map((gen) => (
-          <InFlightTile key={gen.id} gen={gen} />
-        ))}
-        {items.map((item) => (
-          <HistoryTile
-            key={item.id}
-            item={item}
-            isActive={item.id === activeId}
-            onSelect={() => onSelect(item)}
-            onSaveToBank={() => onSaveToBank(item)}
-            onDownload={() => onDownload(item)}
-            onDelete={() => onDelete(item.id)}
-          />
-        ))}
-      </div>
+      {!dismissed && <HeadsUpBanner onDismiss={dismiss} />}
 
-      {/* Retention disclaimer pinned at the bottom of the grid so it's the last
-          thing the user reads when scrolling, not the first thing they see. */}
-      <div className="border-t border-amber-500/15 bg-amber-500/5 px-4 py-2.5">
-        <p className="text-[11px] leading-relaxed text-amber-300/80">
-          <span className="font-semibold">Heads up</span> — kie.ai retains generated media for 14
-          days. Save anything you want to keep to the B-Rolls Bank or download it, or else it
-          may be deleted.
-        </p>
+      <div className="min-h-0 flex-1 overflow-y-auto p-3">
+        {inFlight.length > 0 && (
+          <>
+            <DayPill label="In progress" />
+            {/* CSS columns produce a true masonry layout: each column flows
+                independently so portrait + landscape tiles don't leave the
+                vertical gaps that grid-template-rows: auto creates. */}
+            <div className="columns-2 gap-2 [column-fill:_balance]">
+              {inFlight.map((gen) => (
+                <div key={gen.id} className="mb-2 break-inside-avoid">
+                  <InFlightTile gen={gen} />
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {dayGroups.map(([dayTs, dayItems]) => (
+          <div key={dayTs}>
+            <DayPill label={dayLabel(dayTs)} />
+            <div className="columns-2 gap-2 [column-fill:_balance]">
+              {dayItems.map((item) => (
+                <div key={item.id} className="mb-2 break-inside-avoid">
+                  <HistoryTile
+                    item={item}
+                    isActive={item.id === activeId}
+                    onSelect={() => onSelect(item)}
+                    onSaveToBank={() => onSaveToBank(item)}
+                    onDownload={() => onDownload(item)}
+                    onDelete={() => onDelete(item.id)}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
+    </div>
+  )
+}
+
+// Top-of-grid retention notice. Dismissable; choice persists in localStorage.
+function HeadsUpBanner({ onDismiss }: { onDismiss: () => void }) {
+  return (
+    <div className="flex items-start gap-2 border-b border-amber-500/15 bg-amber-500/5 px-4 py-2.5">
+      <p className="flex-1 text-[11px] leading-relaxed text-amber-300/80">
+        <span className="font-semibold">Heads up</span> — kie.ai retains generated media for 14
+        days. Save anything you want to keep to the B-Rolls Bank or download it, or else it may
+        be deleted.
+      </p>
+      <button
+        onClick={onDismiss}
+        title="Dismiss"
+        className="-mr-1 flex h-5 w-5 shrink-0 items-center justify-center rounded text-amber-300/60 transition-colors hover:bg-amber-500/15 hover:text-amber-200"
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </div>
+  )
+}
+
+function DayPill({ label }: { label: string }) {
+  return (
+    <div className="my-2 flex items-center justify-center">
+      <span className="rounded-full bg-white/[0.06] px-3 py-1 text-[11px] font-medium text-zinc-300">
+        {label}
+      </span>
     </div>
   )
 }

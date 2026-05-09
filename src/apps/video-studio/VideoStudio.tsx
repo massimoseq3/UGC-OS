@@ -668,11 +668,20 @@ function PreviewPane({
             loop
             className="max-h-[70vh] max-w-full rounded-xl border border-white/10"
           />
+          {/* All three action buttons share the same width so the stack reads
+              as a unified menu rather than three pills of different sizes. */}
           <div className="flex flex-col items-center gap-2">
+            <button
+              onClick={() => downloadVideo(resolvedUrl, previewItem.id)}
+              className="flex w-52 items-center justify-center gap-2 rounded-full border border-white/15 px-4 py-2 text-[12px] font-medium text-zinc-300 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span>Download Video</span>
+            </button>
             <button
               onClick={onSaveToBank}
               disabled={savedToBank || !!previewItem.linkedBRollId}
-              className="flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-[12px] font-medium text-zinc-300 transition-colors hover:bg-white/[0.06] hover:text-zinc-100 disabled:cursor-not-allowed"
+              className="flex w-52 items-center justify-center gap-2 rounded-full border border-white/15 px-4 py-2 text-[12px] font-medium text-zinc-300 transition-colors hover:bg-white/[0.06] hover:text-zinc-100 disabled:cursor-not-allowed"
             >
               {savedToBank || previewItem.linkedBRollId ? (
                 <>
@@ -686,23 +695,16 @@ function PreviewPane({
                 </>
               )}
             </button>
-            <button
-              onClick={() => downloadVideo(resolvedUrl, previewItem.id)}
-              className="flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-[12px] font-medium text-zinc-300 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
-            >
-              <Download className="h-3.5 w-3.5" />
-              <span>Download Video</span>
-            </button>
             <div className="relative">
               <button
                 onClick={() => setProjectPopoverOpen((v) => !v)}
-                className="flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-[12px] font-medium text-zinc-300 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
+                className="flex w-52 items-center justify-center gap-2 rounded-full border border-white/15 px-4 py-2 text-[12px] font-medium text-zinc-300 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
               >
                 <FolderOpen className="h-3.5 w-3.5" />
-                <span>
+                <span className="truncate">
                   {projectCount > 0 ? `Saved to ${projectCount} project${projectCount === 1 ? '' : 's'}` : 'Save to Project'}
                 </span>
-                <ChevronDown className={`h-3 w-3 transition-transform ${projectPopoverOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`h-3 w-3 shrink-0 transition-transform ${projectPopoverOpen ? 'rotate-180' : ''}`} />
               </button>
               {projectPopoverOpen && (
                 <ProjectTagPopover
