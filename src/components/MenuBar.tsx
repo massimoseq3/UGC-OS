@@ -4,6 +4,7 @@ import { useAppStore } from '../stores/appStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useCreditsStore } from '../stores/creditsStore'
 import ProjectSwitcher from './ProjectSwitcher'
+import SyncStatusChip from './SyncStatusChip'
 
 export default function MenuBar() {
   const toggleSidebar = useAppStore((s) => s.toggleSidebar)
@@ -40,6 +41,8 @@ export default function MenuBar() {
       <div className="flex-1" />
 
       <ProjectSwitcher />
+
+      <SyncStatusChip />
 
       {/* Credits chip — only visible once an API key is configured.
           Locked to h-9 so it matches the ProjectSwitcher chip exactly. */}
