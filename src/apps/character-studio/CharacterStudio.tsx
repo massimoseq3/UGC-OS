@@ -3,6 +3,8 @@ import { Dna } from 'lucide-react'
 import { useAppStore } from '../../stores/appStore'
 import type { CharacterProfile, TabId } from './types'
 import { createEmptyProfile, flattenDna, PHOTOREALISM_STYLE } from './types'
+import { getDefaultModel, getModel, type ImageResolution } from '../../utils/models'
+import { useSettingsStore } from '../../stores/settingsStore'
 import ControlsPanel from './components/ControlsPanel'
 import OutputPanel from './components/OutputPanel'
 import { generateCharacter } from './services/generateCharacter'
@@ -18,6 +20,14 @@ export default function CharacterStudio() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<TabId>('physical')
+  const [resolution, setResolution] = useState<ImageResolution>(() => {
+    // Initial value follows the selected model's preferred default (e.g.
+    // GPT Image 2 → '2K'). Falls back to '1K' if the registry has nothing.
+    const persisted = useSettingsStore.getState().getAppModel('character-studio:image:text-to-image')
+    const modelId = persisted ?? getDefaultModel('character-studio', 'image', 'text-to-image')?.id
+    const constraints = modelId ? getModel(modelId)?.imageConstraints : undefined
+    return (constraints?.default as ImageResolution | undefined) ?? (constraints?.resolutions[0] as ImageResolution | undefined) ?? '1K'
+  })
 
   const [isExtracting, setIsExtracting] = useState(false)
   const [extractError, setExtractError] = useState<string | null>(null)
@@ -131,7 +141,7 @@ export default function CharacterStudio() {
     setIsGenerating(true)
     setError(null)
     try {
-      const gen = await generateCharacter(profile, controller.signal)
+      const gen = await generateCharacter(profile, controller.signal, undefined, resolution)
       setResult(gen)
     } catch (err) {
       if (controller.signal.aborted) {
@@ -183,6 +193,8 @@ export default function CharacterStudio() {
           canGenerate={Object.values(profile).some((v) => v.trim() !== '')}
           aspectRatio={profile.aspectRatio || 'Portrait (9:16)'}
           onAspectRatioChange={(value) => setProfile({ ...profile, aspectRatio: value })}
+          resolution={resolution}
+          onResolutionChange={setResolution}
         />
       </div>
 

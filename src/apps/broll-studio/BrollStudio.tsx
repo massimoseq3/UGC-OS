@@ -143,11 +143,9 @@ export default function BrollStudio() {
           onSelectProduct={() => setPickerMode('products')}
           onSelectModel={() => setPickerMode('models')}
           onSelectScript={() => setPickerMode('scripts')}
-          onClearReferences={() => {
-            setSelectedProduct(null)
-            setSelectedModel(null)
-            setSelectedScript(null)
-          }}
+          onClearProduct={() => setSelectedProduct(null)}
+          onClearModel={() => setSelectedModel(null)}
+          onClearScript={() => setSelectedScript(null)}
           onScriptTextChange={(v) => { setScriptText(v); setSelectedScript(null) }}
           onAdditionalContextChange={setAdditionalContext}
           onGenerate={handleGenerate}

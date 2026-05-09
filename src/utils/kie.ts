@@ -483,6 +483,15 @@ interface VeoRecordData {
   taskId: string
   successFlag?: number   // 0 = pending, 1 = success, 2/3 = failed (varies)
   state?: TaskState
+  // Real shape (per https://docs.kie.ai/veo3-api/get-veo-3-video-details):
+  // result URLs live under `response`. The other fields are kept as fallbacks
+  // for older/unknown response shapes.
+  response?: {
+    resultUrls?: string[]
+    originUrls?: string[]
+    fullResultUrls?: string[]
+    resolution?: string
+  }
   resultUrls?: string[]
   resultJson?: string
   errorMessage?: string
@@ -542,10 +551,15 @@ export async function kieVeoGenerate(
 
     onProgress?.(0, record.state ?? 'generating')
 
-    // Veo's state semantics: successFlag 1 = done; resultUrls or
-    // resultJson hold the output. errorMessage indicates failure.
+    // Veo's state semantics: successFlag 1 = done; result URLs live under
+    // `response.resultUrls` per the real API shape. We fall back through
+    // older shapes (top-level resultUrls, stringified resultJson) just in
+    // case kie ever changes the envelope.
     if (record.successFlag === 1 || record.state === 'success') {
       const urls =
+        record.response?.resultUrls ??
+        record.response?.fullResultUrls ??
+        record.response?.originUrls ??
         record.resultUrls ??
         (record.resultJson ? (JSON.parse(record.resultJson) as { resultUrls?: string[] }).resultUrls ?? [] : [])
       if (urls.length === 0) throw new Error('Veo returned no result URLs.')

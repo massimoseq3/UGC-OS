@@ -8,7 +8,7 @@ import {
   downloadAsBase64,
   type ChatMessage,
 } from '../../../utils/kie'
-import { getDefaultModel, getChatEndpointPath, buildImageInput, getModel, type AspectRatio } from '../../../utils/models'
+import { getDefaultModel, getChatEndpointPath, buildImageInput, getModel, type AspectRatio, type ImageResolution } from '../../../utils/models'
 import { saveBase64Asset, saveAsset, isAssetRef, getAsBase64 } from '../../../utils/assetStore'
 
 function getChatEndpoint(): { apiKey: string; endpoint: string } {
@@ -137,6 +137,7 @@ export async function generateImage(
   prompt: string,
   referenceImages?: ReferenceImage[],
   aspectRatio: string = '9:16',
+  resolution?: ImageResolution,
 ): Promise<string> {
   const apiKey = useSettingsStore.getState().getKieApiKey()
   const hasRefs = !!referenceImages?.length
@@ -182,6 +183,7 @@ export async function generateImage(
   const body = buildImageInput(modelId, {
     prompt,
     aspectRatio: aspectRatio as AspectRatio,
+    resolution,
     inputUrls: inputUrls.length > 0 ? inputUrls : undefined,
   })
   const urls = await kieImageGenerate(apiKey, modelId, body)

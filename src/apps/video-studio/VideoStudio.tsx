@@ -1,27 +1,21 @@
-import { useState, useRef, useEffect, useMemo } from 'react'
-import { Film, Loader2, Upload, X, AlertCircle, Save, Check, Volume2, VolumeX } from 'lucide-react'
+import { useState, useEffect, useRef, type ReactNode } from 'react'
+import { Film, Loader2, AlertCircle, Save, Check, Volume2, VolumeX, ChevronDown } from 'lucide-react'
 import { useBankStore } from '../../stores/bankStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useAppStore } from '../../stores/appStore'
 import { useAssetUrl } from '../../hooks/useAssetUrl'
 import ModelPicker from '../../components/ModelPicker'
+import VideoInputSlot, { type VideoInputValue } from '../../components/video/VideoInputSlot'
+import VideoRefStrip from '../../components/video/VideoRefStrip'
 import {
   getDefaultModel,
   getModel,
   estimateCredits,
   formatCredits,
-  listModels,
 } from '../../utils/models'
-import { fileToDataUri } from '../../utils/kie'
+import { saveFromDataUrl } from '../../utils/assetStore'
 import { generateVideo } from './services/generateVideo'
 import type { VideoGenResult, VideoMode } from './types'
-
-const MODE_OPTIONS: Array<{ value: VideoMode; label: string }> = [
-  { value: 'text-to-video', label: 'Text → Video' },
-  { value: 'image-to-video', label: 'Image → Video' },
-  { value: 'frames-to-video', label: 'Start + End Frame' },
-  { value: 'reference-to-video', label: 'Reference Images' },
-]
 
 const RESOLUTION_LABELS: Record<string, string> = {
   '480p': '480p',
@@ -33,12 +27,29 @@ const RESOLUTION_LABELS: Record<string, string> = {
   '4K': '4K',
 }
 
+const MODEL_KEY = 'video-studio:video'
+
+// Mode is inferred from which slots the user filled, in priority order:
+//   any references → reference-to-video
+//   start + end    → frames-to-video
+//   start only     → image-to-video
+//   none           → text-to-video
+function inferMode(opts: {
+  firstFrame: VideoInputValue | null
+  lastFrame: VideoInputValue | null
+  references: VideoInputValue[]
+}): VideoMode {
+  if (opts.references.length > 0) return 'reference-to-video'
+  if (opts.firstFrame && opts.lastFrame) return 'frames-to-video'
+  if (opts.firstFrame) return 'image-to-video'
+  return 'text-to-video'
+}
+
 export default function VideoStudio() {
   const [prompt, setPrompt] = useState('')
-  const [mode, setMode] = useState<VideoMode>('text-to-video')
-  const [firstFrameDataUri, setFirstFrameDataUri] = useState<string | null>(null)
-  const [lastFrameDataUri, setLastFrameDataUri] = useState<string | null>(null)
-  const [referenceDataUris, setReferenceDataUris] = useState<string[]>([])
+  const [firstFrame, setFirstFrame] = useState<VideoInputValue | null>(null)
+  const [lastFrame, setLastFrame] = useState<VideoInputValue | null>(null)
+  const [references, setReferences] = useState<VideoInputValue[]>([])
   const [aspectRatio, setAspectRatio] = useState<string>('9:16')
   const [duration, setDuration] = useState<number>(5)
   const [resolution, setResolution] = useState<string>('720p')
@@ -48,54 +59,39 @@ export default function VideoStudio() {
   const [result, setResult] = useState<VideoGenResult | null>(null)
   const [savedToBank, setSavedToBank] = useState(false)
 
-  const firstFrameInputRef = useRef<HTMLInputElement>(null)
-  const lastFrameInputRef = useRef<HTMLInputElement>(null)
-  const refImageInputRef = useRef<HTMLInputElement>(null)
-
   const addBRoll = useBankStore((s) => s.addBRoll)
+  const updateBRoll = useBankStore((s) => s.updateBRoll)
+  const getBRollById = useBankStore((s) => s.getBRollById)
   const interAppPayload = useAppStore((s) => s.interAppPayload)
   const consumePayload = useAppStore((s) => s.consumePayload)
   const activeApp = useAppStore((s) => s.activeApp)
 
-  // Resolve the selected model for the current mode.
-  const persistedModelId = useSettingsStore((s) =>
-    s.getAppModel(`video-studio:video:${mode}`),
-  )
-  const setAppModel = useSettingsStore((s) => s.setAppModel)
+  // Single persisted model for B-Roll Videos. Mode is inferred at generate-time.
+  const persistedModelId = useSettingsStore((s) => s.getAppModel(MODEL_KEY))
   const selectedModelId =
-    persistedModelId ?? getDefaultModel('video-studio', 'video', mode)?.id ?? ''
+    persistedModelId ?? getDefaultModel('video-studio', 'video')?.id ?? ''
   const selectedModel = getModel(selectedModelId)
+  const constraints = selectedModel?.videoConstraints
+  const refsAllowed = selectedModel?.supportsReferenceImages ?? false
+  // Veo 3.1 Fast is reference-capped at 3; Seedance variants allow up to 9.
+  const maxRefs = selectedModelId === 'veo3_fast' ? 3 : 9
 
-  // Modes the selected model actually supports — gates the mode toggle.
-  const supportedModes = useMemo<VideoMode[]>(() => {
-    return MODE_OPTIONS
-      .map((m) => m.value)
-      .filter((mv) => {
-        const candidates = listModels({ task: 'video', mode: mv })
-        return candidates.length > 0
-      })
-  }, [])
-
-  // When the selected model changes, snap constraint controls to allowed values.
+  // Snap constraint controls + clear unsupported inputs when the model changes.
   useEffect(() => {
     const c = selectedModel?.videoConstraints
     if (!c) return
-    if (!c.aspectRatios.includes(aspectRatio)) {
-      setAspectRatio(c.aspectRatios[0])
-    }
-    if (!c.durations.includes(duration)) {
-      setDuration(c.durations[0] ?? 5)
-    }
-    if (!c.resolutions.includes(resolution)) {
-      setResolution(c.resolutions[0] ?? '720p')
-    }
-    if (!c.supportsAudio) {
-      setAudio(false)
+    if (!c.aspectRatios.includes(aspectRatio)) setAspectRatio(c.aspectRatios[0])
+    if (!c.durations.includes(duration)) setDuration(c.durations[0] ?? 5)
+    if (!c.resolutions.includes(resolution)) setResolution(c.resolutions[0] ?? '720p')
+    if (!c.supportsAudio) setAudio(false)
+    if (!selectedModel?.supportsReferenceImages && references.length > 0) {
+      setReferences([])
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedModelId])
 
-  // Inter-app payload: B-Roll Images → B-Roll Videos handoff (first frame).
+  // Inter-app payload: B-Roll Images → B-Roll Videos handoff (drops a still in
+  // the start-frame slot). No mode to set — the slot itself signals intent.
   useEffect(() => {
     if (activeApp !== 'video-studio') return
     if (!interAppPayload || interAppPayload.targetApp !== 'video-studio') return
@@ -103,57 +99,26 @@ export default function VideoStudio() {
     if (interAppPayload.targetField === 'firstFrame') {
       const data = interAppPayload.data
       if (typeof data === 'string') {
-        setFirstFrameDataUri(data)
-        setMode('image-to-video')
+        setFirstFrame({ dataUri: data })
       } else if (data && typeof data === 'object' && 'imageUrl' in data) {
-        const { imageUrl, prompt: incomingPrompt } = data as { imageUrl: string; prompt?: string }
-        setFirstFrameDataUri(imageUrl)
+        const { imageUrl, prompt: incomingPrompt, sourceBRollId } = data as {
+          imageUrl: string
+          prompt?: string
+          sourceBRollId?: string
+        }
+        setFirstFrame({ dataUri: imageUrl, sourceBRollId })
         if (typeof incomingPrompt === 'string' && incomingPrompt.trim()) {
           setPrompt(incomingPrompt)
         }
-        setMode('image-to-video')
       }
     }
     consumePayload()
   }, [interAppPayload, activeApp, consumePayload])
 
-  const constraints = selectedModel?.videoConstraints
+  const inferredMode = inferMode({ firstFrame, lastFrame, references })
 
-  const canGenerate =
-    prompt.trim().length > 0 &&
-    !!selectedModelId &&
-    (mode === 'text-to-video' ||
-      (mode === 'image-to-video' && firstFrameDataUri !== null) ||
-      (mode === 'frames-to-video' && firstFrameDataUri !== null && lastFrameDataUri !== null) ||
-      (mode === 'reference-to-video' && referenceDataUris.length > 0))
-
-  async function handleSingleFile(setter: (v: string | null) => void, file: File | null) {
-    if (!file) {
-      setter(null)
-      return
-    }
-    setter(await fileToDataUri(file))
-  }
-
-  async function handleAddReference(file: File | null) {
-    if (!file) return
-    if (referenceDataUris.length >= 9) return
-    const uri = await fileToDataUri(file)
-    setReferenceDataUris((prev) => [...prev, uri])
-  }
-
-  function removeReference(index: number) {
-    setReferenceDataUris((prev) => prev.filter((_, i) => i !== index))
-  }
-
-  function handleModeChange(next: VideoMode) {
-    setMode(next)
-    // If current model doesn't support the new mode, fall back to that mode's default.
-    if (!selectedModel?.modes?.includes(next)) {
-      const fallback = getDefaultModel('video-studio', 'video', next)
-      if (fallback) setAppModel(`video-studio:video:${next}`, fallback.id)
-    }
-  }
+  const modeSupported = selectedModel?.modes?.includes(inferredMode) ?? false
+  const canGenerate = prompt.trim().length > 0 && !!selectedModelId && modeSupported
 
   async function handleGenerate() {
     if (!canGenerate || !selectedModelId) return
@@ -164,10 +129,10 @@ export default function VideoStudio() {
     try {
       const res = await generateVideo({
         prompt: prompt.trim(),
-        mode,
-        firstFrameDataUri: firstFrameDataUri ?? undefined,
-        lastFrameDataUri: lastFrameDataUri ?? undefined,
-        referenceDataUris: referenceDataUris.length > 0 ? referenceDataUris : undefined,
+        mode: inferredMode,
+        firstFrameDataUri: firstFrame?.dataUri,
+        lastFrameDataUri: lastFrame?.dataUri,
+        referenceDataUris: references.length > 0 ? references.map((r) => r.dataUri) : undefined,
         aspectRatio,
         durationSeconds: duration,
         resolution,
@@ -184,12 +149,50 @@ export default function VideoStudio() {
 
   const resolvedVideoUrl = useAssetUrl(result?.assetId ?? null)
 
-  function handleSaveToBank() {
+  // Save linkage: prefer the start frame's source BRoll, then end frame, then
+  // first reference. If found, append the video to that record. Otherwise:
+  //   - upload-only first frame: create a new BRoll with both still + video
+  //   - text-only: create video-only BRoll
+  async function handleSaveToBank() {
     if (!result) return
+
+    const newVideo = {
+      url: result.assetId,
+      aspectRatio: result.aspectRatio,
+      createdAt: Date.now(),
+    }
+
+    const sourceId =
+      firstFrame?.sourceBRollId ??
+      lastFrame?.sourceBRollId ??
+      references.find((r) => r.sourceBRollId)?.sourceBRollId
+
+    if (sourceId) {
+      const existing = getBRollById(sourceId)
+      if (existing) {
+        const nextVideos = [...(existing.videos ?? []), newVideo]
+        updateBRoll(sourceId, { videos: nextVideos })
+        setSavedToBank(true)
+        setTimeout(() => setSavedToBank(false), 2000)
+        return
+      }
+    }
+
+    // No source bank id — if a fresh first-frame upload exists, persist the
+    // still as an asset alongside the video so the new BRoll is paired.
+    let imageUrl = ''
+    if (firstFrame?.dataUri) {
+      try {
+        imageUrl = await saveFromDataUrl(firstFrame.dataUri)
+      } catch {
+        imageUrl = ''
+      }
+    }
+
     addBRoll({
-      imageUrl: '',
+      imageUrl,
       prompt: prompt.trim(),
-      videos: [{ url: result.assetId, aspectRatio: result.aspectRatio, createdAt: Date.now() }],
+      videos: [newVideo],
     })
     setSavedToBank(true)
     setTimeout(() => setSavedToBank(false), 2000)
@@ -203,84 +206,42 @@ export default function VideoStudio() {
     <div className="flex h-full flex-col lg:flex-row">
       {/* Left — controls */}
       <div className="flex w-full lg:w-1/2 shrink-0 flex-col overflow-y-auto border-b lg:border-b-0 lg:border-r border-white/5 p-5">
-        {/* Mode toggle */}
-        <div className="mb-5 flex flex-wrap gap-1 rounded-lg border border-white/10 bg-white/[0.02] p-1">
-          {MODE_OPTIONS.filter((m) => supportedModes.includes(m.value)).map((m) => (
-            <button
-              key={m.value}
-              onClick={() => handleModeChange(m.value)}
-              className={`flex-1 min-w-[100px] rounded-md py-2 text-[11px] font-medium tracking-tight transition-colors ${
-                mode === m.value ? 'bg-white/[0.08] text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'
-              }`}
-            >
-              {m.label}
-            </button>
-          ))}
+        {/* Model picker — leads the panel; choosing a model determines what's possible below. */}
+        <div className="mb-5">
+          <label className="mb-2 block text-[10px] font-medium uppercase tracking-wider text-zinc-500">Model</label>
+          <ModelPicker
+            appId="video-studio"
+            task="video"
+            costParams={{ durationSeconds: duration, resolution, audio }}
+          />
         </div>
 
-        {/* Per-mode input area */}
-        {mode === 'image-to-video' && (
-          <div className="mb-5">
-            <label className="mb-2 block text-[10px] font-medium uppercase tracking-wider text-zinc-500">First frame</label>
-            {firstFrameDataUri ? (
-              <ImagePreview src={firstFrameDataUri} onRemove={() => setFirstFrameDataUri(null)} />
-            ) : (
-              <UploadSlot label="Upload first-frame image" onClick={() => firstFrameInputRef.current?.click()} />
-            )}
-            <input ref={firstFrameInputRef} type="file" accept="image/*" className="hidden"
-              onChange={(e) => handleSingleFile(setFirstFrameDataUri, e.target.files?.[0] ?? null)} />
-          </div>
-        )}
+        {/* Frame slots — start + end side by side. Both optional. */}
+        <div className="mb-5 grid grid-cols-2 gap-3">
+          <VideoInputSlot
+            label="Start frame"
+            helper="— optional"
+            value={firstFrame}
+            onChange={setFirstFrame}
+          />
+          <VideoInputSlot
+            label="End frame"
+            helper="— optional"
+            value={lastFrame}
+            onChange={setLastFrame}
+          />
+        </div>
 
-        {mode === 'frames-to-video' && (
-          <div className="mb-5 grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-2 block text-[10px] font-medium uppercase tracking-wider text-zinc-500">Start frame</label>
-              {firstFrameDataUri ? (
-                <ImagePreview src={firstFrameDataUri} onRemove={() => setFirstFrameDataUri(null)} />
-              ) : (
-                <UploadSlot label="Start" onClick={() => firstFrameInputRef.current?.click()} />
-              )}
-              <input ref={firstFrameInputRef} type="file" accept="image/*" className="hidden"
-                onChange={(e) => handleSingleFile(setFirstFrameDataUri, e.target.files?.[0] ?? null)} />
-            </div>
-            <div>
-              <label className="mb-2 block text-[10px] font-medium uppercase tracking-wider text-zinc-500">End frame</label>
-              {lastFrameDataUri ? (
-                <ImagePreview src={lastFrameDataUri} onRemove={() => setLastFrameDataUri(null)} />
-              ) : (
-                <UploadSlot label="End" onClick={() => lastFrameInputRef.current?.click()} />
-              )}
-              <input ref={lastFrameInputRef} type="file" accept="image/*" className="hidden"
-                onChange={(e) => handleSingleFile(setLastFrameDataUri, e.target.files?.[0] ?? null)} />
-            </div>
-          </div>
-        )}
-
-        {mode === 'reference-to-video' && (
+        {/* Reference images — only for models that support them. */}
+        {refsAllowed && (
           <div className="mb-5">
-            <label className="mb-2 block text-[10px] font-medium uppercase tracking-wider text-zinc-500">
-              Reference images <span className="text-zinc-700 normal-case">({referenceDataUris.length}/9)</span>
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              {referenceDataUris.map((uri, i) => (
-                <div key={i} className="relative aspect-square overflow-hidden rounded-lg border border-white/10">
-                  <img src={uri} alt="" className="h-full w-full object-cover" />
-                  <button onClick={() => removeReference(i)}
-                    className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-white/80 hover:bg-black/90">
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              ))}
-              {referenceDataUris.length < 9 && (
-                <button onClick={() => refImageInputRef.current?.click()}
-                  className="flex aspect-square items-center justify-center rounded-lg border border-dashed border-white/15 bg-white/[0.02] text-zinc-500 transition-colors hover:border-white/25 hover:text-zinc-300">
-                  <Upload className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-            <input ref={refImageInputRef} type="file" accept="image/*" className="hidden"
-              onChange={(e) => handleAddReference(e.target.files?.[0] ?? null)} />
+            <VideoRefStrip
+              label="Reference images"
+              helper="optional"
+              values={references}
+              onChange={setReferences}
+              max={maxRefs}
+            />
           </div>
         )}
 
@@ -296,33 +257,31 @@ export default function VideoStudio() {
           />
         </div>
 
-        {/* Model picker */}
-        <div className="mb-5">
-          <ModelPicker
-            appId="video-studio"
-            task="video"
-            mode={mode}
-            costParams={{ durationSeconds: duration, resolution, audio }}
-          />
-        </div>
-
-        {/* Constraint controls — populated from selected model */}
+        {/* Constraint controls — populated from selected model. Each control
+            renders as a segmented toggle when there are ≤3 options, else a
+            dropdown to keep the panel compact for high-cardinality sets. */}
         {constraints && (
           <div className="mb-5 grid grid-cols-3 gap-3">
-            <SegmentedControl
+            <ChoiceControl
               label="Aspect"
               options={constraints.aspectRatios}
               value={aspectRatio}
               onChange={setAspectRatio}
+              renderOption={(r) => (
+                <span className="flex items-center justify-center gap-1.5">
+                  <AspectIcon ratio={String(r)} />
+                  <span>{r}</span>
+                </span>
+              )}
             />
-            <SegmentedControl
+            <ChoiceControl
               label="Duration"
               options={constraints.durations}
               value={duration}
               onChange={setDuration}
               renderOption={(d) => `${d}s`}
             />
-            <SegmentedControl
+            <ChoiceControl
               label="Resolution"
               options={constraints.resolutions}
               value={resolution}
@@ -422,38 +381,39 @@ export default function VideoStudio() {
   )
 }
 
-function ImagePreview({ src, onRemove }: { src: string; onRemove: () => void }) {
-  return (
-    <div className="relative overflow-hidden rounded-lg border border-white/10">
-      <img src={src} alt="" className="w-full" />
-      <button
-        onClick={onRemove}
-        className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white/80 backdrop-blur-sm hover:bg-black/90 hover:text-white"
-      >
-        <X className="h-3.5 w-3.5" />
-      </button>
-    </div>
-  )
-}
-
-function UploadSlot({ label, onClick }: { label: string; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-white/15 bg-white/[0.02] px-4 py-8 text-sm text-zinc-500 transition-colors hover:border-white/25 hover:text-zinc-300"
-    >
-      <Upload className="h-4 w-4" />
-      <span>{label}</span>
-    </button>
-  )
-}
-
 interface SegmentedControlProps<T> {
   label: string
   options: readonly T[]
   value: T
   onChange: (v: T) => void
-  renderOption?: (v: T) => string
+  renderOption?: (v: T) => ReactNode
+}
+
+// Tiny outlined rectangle scaled to the given aspect ratio. Bounded to a
+// 14×14 box so the icon stays compact next to the text label, with the
+// shape itself proportional inside.
+function AspectIcon({ ratio }: { ratio: string }) {
+  const [w, h] = ratio.split(':').map(Number)
+  if (!w || !h) return null
+  const max = 14
+  const longSide = Math.max(w, h)
+  const width = (w / longSide) * max
+  const height = (h / longSide) * max
+  return (
+    <span
+      className="inline-block shrink-0 rounded-[2px] border border-current"
+      style={{ width: `${width}px`, height: `${height}px` }}
+      aria-hidden="true"
+    />
+  )
+}
+
+// Picks segmented vs dropdown based on cardinality. Up to 3 options stay as
+// inline toggles (always visible). 4+ collapse into a compact dropdown so the
+// panel doesn't wrap or feel crowded.
+function ChoiceControl<T extends string | number>(props: SegmentedControlProps<T>) {
+  if (props.options.length > 3) return <DropdownControl {...props} />
+  return <SegmentedControl {...props} />
 }
 
 function SegmentedControl<T extends string | number>({ label, options, value, onChange, renderOption }: SegmentedControlProps<T>) {
@@ -475,6 +435,57 @@ function SegmentedControl<T extends string | number>({ label, options, value, on
           </button>
         ))}
       </div>
+    </div>
+  )
+}
+
+function DropdownControl<T extends string | number>({ label, options, value, onChange, renderOption }: SegmentedControlProps<T>) {
+  const [open, setOpen] = useState(false)
+  const wrapperRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function onClick(e: MouseEvent) {
+      if (!wrapperRef.current?.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [open])
+
+  const renderValue = (opt: T) => (renderOption ? renderOption(opt) : String(opt))
+
+  return (
+    <div ref={wrapperRef} className="relative">
+      <label className="mb-1.5 block text-[10px] font-medium uppercase tracking-wider text-zinc-500">
+        {label}
+      </label>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between gap-1 rounded-lg border border-white/10 bg-white/[0.02] px-2.5 py-2 text-[11px] font-medium text-zinc-100 transition-colors hover:bg-white/[0.05]"
+      >
+        <span className="flex min-w-0 flex-1 items-center justify-center">{renderValue(value)}</span>
+        <ChevronDown className={`h-3 w-3 shrink-0 text-zinc-500 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="absolute left-0 right-0 top-full z-40 mt-1 overflow-hidden rounded-lg border border-white/10 bg-[#0B0B0D]/95 shadow-xl backdrop-blur-xl">
+          <div className="max-h-[260px] overflow-y-auto p-1">
+            {options.map((opt) => (
+              <button
+                key={String(opt)}
+                type="button"
+                onClick={() => { onChange(opt); setOpen(false) }}
+                className={`flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-[11px] font-medium transition-colors ${
+                  value === opt ? 'bg-white/[0.08] text-zinc-100' : 'text-zinc-300 hover:bg-white/[0.04]'
+                }`}
+              >
+                <span className="flex min-w-0 flex-1 items-center gap-1.5">{renderValue(opt)}</span>
+                {value === opt && <Check className="h-3 w-3 shrink-0 text-sky-400" />}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -166,16 +166,25 @@ function ScriptCard({ item, onEdit, onDelete }: { item: Script; onEdit: () => vo
 
 function BRollCard({ item, onEdit, onDelete }: { item: BRoll; onEdit: () => void; onDelete: () => void }) {
   const [confirm, setConfirm] = useState(false)
-  const resolvedImage = useAssetUrl(item.imageUrl)
   const promptPreview = item.prompt.length > 80 ? item.prompt.slice(0, 80) + '…' : item.prompt
   const videoCount = item.videos?.length ?? (item.videoUrl ? 1 : 0)
+  // Video-only brolls (text-to-video saves) have no still — fall back to the
+  // first video and let the browser show its first frame as the thumbnail.
+  const hasImage = !!item.imageUrl
+  const firstVideoUrl = item.videos?.[0]?.url ?? item.videoUrl
+  const resolvedImage = useAssetUrl(hasImage ? item.imageUrl : undefined)
+  const resolvedVideo = useAssetUrl(!hasImage ? firstVideoUrl : undefined)
+  const isVideoOnly = !hasImage && !!resolvedVideo
 
   const handleDownload = (e: React.MouseEvent) => {
     e.stopPropagation()
-    if (!resolvedImage) return
+    const target = resolvedImage ?? resolvedVideo
+    if (!target) return
     const a = document.createElement('a')
-    a.href = resolvedImage
-    a.download = `broll-${item.id.slice(0, 8)}.png`
+    a.href = target
+    a.download = resolvedImage
+      ? `broll-${item.id.slice(0, 8)}.png`
+      : `broll-${item.id.slice(0, 8)}.mp4`
     a.click()
   }
 
@@ -185,6 +194,14 @@ function BRollCard({ item, onEdit, onDelete }: { item: BRoll; onEdit: () => void
       <div className="relative w-full overflow-hidden rounded-t-xl">
         {resolvedImage ? (
           <img src={resolvedImage} alt="" className="block w-full" />
+        ) : isVideoOnly ? (
+          <video
+            src={resolvedVideo}
+            preload="metadata"
+            muted
+            playsInline
+            className="block w-full"
+          />
         ) : (
           <div className="flex aspect-video w-full items-center justify-center bg-white/[0.04]">
             <Film className="h-10 w-10 text-zinc-800" strokeWidth={1} />

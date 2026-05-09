@@ -4,8 +4,8 @@
 // here as we onboard models. Slugs must match kie.ai's `model` field exactly —
 // confirm against the model's API doc page on https://docs.kie.ai/ before adding.
 //
-// Pricing is hard-coded from https://kie.ai/pricing — verify and update when prices
-// drift. Last verified: 2026-05-05.
+// Pricing is hard-coded from kie.ai's marketing pages (kie.ai/{model-slug}) and
+// kie.ai/pricing — verify and update when prices drift. Last verified: 2026-05-09.
 
 export type Task = 'chat' | 'vision' | 'image' | 'video' | 'tts'
 
@@ -25,7 +25,7 @@ export interface Voice {
 }
 
 export interface Pricing {
-  unit: 'per-call' | 'per-image' | 'per-second' | 'per-1k-tokens'
+  unit: 'per-call' | 'per-image' | 'per-second' | 'per-1k-tokens' | 'per-1k-chars'
   // kie.ai credits per unit. Refine per-model from https://kie.ai/pricing.
   credits: number
   // Optional richer pricing curve for models whose cost depends on multiple
@@ -38,6 +38,7 @@ export interface PriceParams {
   durationSeconds?: number
   imageCount?: number
   tokenCount?: number
+  charCount?: number
   resolution?: string
   audio?: boolean
 }
@@ -47,6 +48,15 @@ export interface VideoConstraints {
   resolutions: string[]
   aspectRatios: string[]
   supportsAudio?: boolean
+}
+
+// Image-only: declarative caps for the image apps' resolution toggle.
+// Resolutions are kie.ai's tier strings ('1K' | '2K' | '4K'). `default` is
+// what new sessions land on if no user preference is stored — defaults to
+// the first entry in `resolutions` if omitted.
+export interface ImageConstraints {
+  resolutions: string[]
+  default?: string
 }
 
 export interface ModelEntry {
@@ -70,6 +80,8 @@ export interface ModelEntry {
   videoEndpoint?: 'createTask' | 'veo'
   // Video-only: declarative caps the UI uses to render constraint controls.
   videoConstraints?: VideoConstraints
+  // Image-only: declarative caps for the resolution toggle.
+  imageConstraints?: ImageConstraints
 }
 
 // Convention for default app ids: matches `AppConfig.id` in `src/utils/constants.ts`.
@@ -87,13 +99,18 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     provider: 'Google',
     task: 'chat',
     tags: ['recommended', 'fast', 'cheap'],
-    pricing: { unit: 'per-1k-tokens', credits: 0.015 },
+    // Source: https://kie.ai/gemini-3-flash. Input $0.15/M tokens (30 cr/M =
+    // 0.030 cr/1k), output $0.90/M tokens (180 cr/M = 0.180 cr/1k). We use a
+    // blended 0.10 since most chat calls in this app skew toward output.
+    pricing: { unit: 'per-1k-tokens', credits: 0.1 },
     defaultFor: ['ad-anatomy', 'script-architect', 'character-studio', 'broll-studio'],
     chatEndpoint: '/gemini-3-flash/v1/chat/completions',
   },
 
   // ── Image generation ──────────────────────────────────────────
 
+  // Image models — pricing from kie.ai/{slug} marketing pages. Resolution
+  // tiers map to the `resolution` cost param: '1K' (default), '2K', '4K'.
   {
     id: 'nano-banana-2',
     displayName: 'Nano Banana 2',
@@ -102,7 +119,15 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     modes: ['text-to-image', 'image-to-image', 'image-edit'],
     tags: ['new'],
     supportsReferenceImages: true,
-    pricing: { unit: 'per-image', credits: 4 },
+    pricing: {
+      unit: 'per-image',
+      credits: 8,
+      priceFor: ({ imageCount = 1, resolution = '1K' }) => {
+        const perImage = resolution === '4K' ? 18 : resolution === '2K' ? 12 : 8
+        return perImage * imageCount
+      },
+    },
+    imageConstraints: { resolutions: ['1K', '2K', '4K'] },
     defaultFor: ['character-studio'],
   },
   {
@@ -112,7 +137,15 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     task: 'image',
     modes: ['text-to-image'],
     tags: [],
-    pricing: { unit: 'per-image', credits: 5 },
+    pricing: {
+      unit: 'per-image',
+      credits: 14,
+      priceFor: ({ imageCount = 1, resolution = '1K' }) => {
+        const perImage = resolution === '2K' ? 24 : 14  // Pro tier; Flash variant exists separately
+        return perImage * imageCount
+      },
+    },
+    imageConstraints: { resolutions: ['1K', '2K'] },
   },
   {
     id: 'seedream/5-lite-text-to-image',
@@ -121,7 +154,8 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     task: 'image',
     modes: ['text-to-image'],
     tags: ['new', 'fast'],
-    pricing: { unit: 'per-image', credits: 3 },
+    pricing: { unit: 'per-image', credits: 3.5 },
+    imageConstraints: { resolutions: ['1K'] },
   },
   {
     id: 'gpt-image-2-text-to-image',
@@ -130,7 +164,15 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     task: 'image',
     modes: ['text-to-image'],
     tags: ['recommended'],
-    pricing: { unit: 'per-image', credits: 4 },
+    pricing: {
+      unit: 'per-image',
+      credits: 3,
+      priceFor: ({ imageCount = 1, resolution = '1K' }) => {
+        const perImage = resolution === '4K' ? 8 : resolution === '2K' ? 5 : 3
+        return perImage * imageCount
+      },
+    },
+    imageConstraints: { resolutions: ['1K', '2K', '4K'], default: '2K' },
     defaultFor: ['broll-studio'],
   },
   {
@@ -141,7 +183,15 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     modes: ['image-to-image', 'image-edit'],
     tags: ['recommended'],
     supportsReferenceImages: true,
-    pricing: { unit: 'per-image', credits: 4 },
+    pricing: {
+      unit: 'per-image',
+      credits: 6,
+      priceFor: ({ imageCount = 1, resolution = '1K' }) => {
+        const perImage = resolution === '4K' ? 16 : resolution === '2K' ? 10 : 6
+        return perImage * imageCount
+      },
+    },
+    imageConstraints: { resolutions: ['1K', '2K', '4K'], default: '2K' },
     defaultFor: ['broll-studio', 'character-studio'],
   },
 
@@ -155,7 +205,18 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     modes: ['text-to-video', 'image-to-video', 'frames-to-video', 'reference-to-video'],
     tags: ['recommended', 'new'],
     supportsReferenceImages: true,
-    pricing: { unit: 'per-second', credits: 10 },
+    // Per-second × resolution. Source: https://kie.ai/seedance-2-0 (the
+    // marketing page lists a "with video input" tier we don't expose — none
+    // of our flows pass a video URL, only image inputs, so the higher
+    // text-or-image rate applies across the board).
+    pricing: {
+      unit: 'per-second',
+      credits: 41,
+      priceFor: ({ durationSeconds = 5, resolution = '720p' }) => {
+        const perSec = resolution === '1080p' ? 102 : resolution === '720p' ? 41 : 19
+        return perSec * durationSeconds
+      },
+    },
     videoEndpoint: 'createTask',
     videoConstraints: {
       durations: [4, 5, 6, 8, 10, 12, 15],
@@ -163,7 +224,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
       aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9'],
       supportsAudio: true,
     },
-    defaultFor: ['broll-studio', 'video-studio'],
+    defaultFor: ['broll-studio'],
   },
   {
     id: 'bytedance/seedance-2-fast',
@@ -173,7 +234,14 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     modes: ['text-to-video', 'image-to-video', 'frames-to-video', 'reference-to-video'],
     tags: ['fast', 'cheap'],
     supportsReferenceImages: true,
-    pricing: { unit: 'per-second', credits: 5 },
+    pricing: {
+      unit: 'per-second',
+      credits: 33,
+      priceFor: ({ durationSeconds = 5, resolution = '720p' }) => {
+        const perSec = resolution === '720p' ? 33 : 15.5  // 480p
+        return perSec * durationSeconds
+      },
+    },
     videoEndpoint: 'createTask',
     videoConstraints: {
       durations: [4, 5, 6, 8, 10, 12, 15],
@@ -209,6 +277,10 @@ export const MODEL_REGISTRY: ModelEntry[] = [
       supportsAudio: true,
     },
   },
+  // Veo 3.1: per-video pricing keyed on (duration, resolution). Source:
+  // https://kie.ai/veo-3-1. The tables below are total credits PER VIDEO
+  // (not per second) — Veo bills the whole clip as a unit, with 5s and 10s
+  // priced separately rather than linearly.
   {
     id: 'veo3_fast',
     displayName: 'Veo 3.1 Fast',
@@ -217,13 +289,23 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     modes: ['text-to-video', 'image-to-video', 'frames-to-video', 'reference-to-video'],
     tags: ['fast'],
     supportsReferenceImages: true,
-    pricing: { unit: 'per-second', credits: 10 },
+    pricing: {
+      unit: 'per-second',
+      credits: 6,
+      priceFor: ({ durationSeconds = 5, resolution = '720p' }) => {
+        const long = durationSeconds >= 10
+        if (resolution === '4k') return long ? 180 : 150
+        if (resolution === '1080p') return long ? 65 : 35
+        return long ? 60 : 30  // 720p
+      },
+    },
     videoEndpoint: 'veo',
     videoConstraints: {
       durations: [5, 10],
       resolutions: ['720p', '1080p', '4k'],
       aspectRatios: ['16:9', '9:16'],
     },
+    defaultFor: ['video-studio'],
   },
   {
     id: 'veo3_lite',
@@ -231,12 +313,21 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     provider: 'Google',
     task: 'video',
     modes: ['text-to-video', 'image-to-video', 'frames-to-video'],
-    tags: [],
-    pricing: { unit: 'per-second', credits: 15 },
+    tags: ['cheap'],
+    pricing: {
+      unit: 'per-second',
+      credits: 2,
+      priceFor: ({ durationSeconds = 5, resolution = '720p' }) => {
+        const long = durationSeconds >= 10
+        if (resolution === '4k') return long ? 60 : 50
+        if (resolution === '1080p') return long ? 25 : 15
+        return long ? 20 : 10  // 720p
+      },
+    },
     videoEndpoint: 'veo',
     videoConstraints: {
       durations: [5, 10],
-      resolutions: ['720p', '1080p'],
+      resolutions: ['720p', '1080p', '4k'],
       aspectRatios: ['16:9', '9:16'],
     },
   },
@@ -250,9 +341,12 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     pricing: {
       unit: 'per-second',
       credits: 30,
-      // 4K is ~2× the cost of 720p/1080p on Veo Quality
-      priceFor: ({ durationSeconds = 5, resolution = '720p' }) =>
-        (resolution === '4k' ? 60 : 30) * durationSeconds,
+      priceFor: ({ durationSeconds = 5, resolution = '720p' }) => {
+        const long = durationSeconds >= 10
+        if (resolution === '4k') return long ? 370 : 190
+        if (resolution === '1080p') return long ? 255 : 155
+        return long ? 250 : 150  // 720p
+      },
     },
     videoEndpoint: 'veo',
     videoConstraints: {
@@ -273,7 +367,8 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     provider: 'ElevenLabs',
     task: 'tts',
     tags: ['recommended'],
-    pricing: { unit: 'per-call', credits: 0.5 },
+    // Source: https://kie.ai/elevenlabs-tts. 12 credits per 1,000 characters.
+    pricing: { unit: 'per-1k-chars', credits: 12 },
     defaultFor: ['voice-studio'],
   },
 ]
@@ -313,6 +408,7 @@ export interface CostEstimateParams {
   durationSeconds?: number
   imageCount?: number
   tokenCount?: number
+  charCount?: number
   resolution?: string
   audio?: boolean
 }
@@ -332,6 +428,8 @@ export function estimateCredits(modelId: string, params: CostEstimateParams = {}
       return credits * (params.durationSeconds ?? 5)
     case 'per-1k-tokens':
       return credits * ((params.tokenCount ?? 1000) / 1000)
+    case 'per-1k-chars':
+      return credits * ((params.charCount ?? 1000) / 1000)
   }
 }
 
@@ -349,22 +447,26 @@ export function formatCredits(credits: number | null): string | null {
 
 export type AspectRatio = '1:1' | '16:9' | '9:16' | '4:3' | '3:4' | '3:2' | '2:3' | '21:9'
 
+export type ImageResolution = '1K' | '2K' | '4K'
+
 export interface ImageGenOptions {
   prompt: string
   aspectRatio?: AspectRatio
-  sizeHint?: 'standard' | 'high'
+  // kie.ai's resolution tier. Defaults to '1K'. Caller should clamp to the
+  // model's supported set (`imageConstraints.resolutions`) before calling.
+  resolution?: ImageResolution
   inputUrls?: string[]
 }
 
 export function buildImageInput(modelId: string, opts: ImageGenOptions): Record<string, unknown> {
   const ar = opts.aspectRatio ?? '9:16'
-  const high = opts.sizeHint === 'high'
+  const resolution = opts.resolution ?? '1K'
 
   if (modelId.startsWith('gpt-image-2')) {
     return {
       prompt: opts.prompt,
       aspect_ratio: ar,
-      resolution: high ? '2K' : '1K',
+      resolution,
       ...(opts.inputUrls?.length ? { input_urls: opts.inputUrls } : {}),
     }
   }
@@ -373,7 +475,7 @@ export function buildImageInput(modelId: string, opts: ImageGenOptions): Record<
     return {
       prompt: opts.prompt,
       aspect_ratio: ar,
-      resolution: high ? '2K' : '1K',
+      resolution,
       output_format: 'jpg',
       ...(opts.inputUrls?.length ? { image_input: opts.inputUrls } : {}),
     }
@@ -382,14 +484,15 @@ export function buildImageInput(modelId: string, opts: ImageGenOptions): Record<
     return {
       prompt: opts.prompt,
       aspect_ratio: ar,
-      resolution: high ? '2K' : '1K',
+      resolution,
     }
   }
   if (modelId === 'seedream/5-lite-text-to-image') {
+    // Seedream Lite is single-tier; map any resolution to its 'basic' quality.
     return {
       prompt: opts.prompt,
       aspect_ratio: ar,
-      quality: high ? 'high' : 'basic',
+      quality: resolution === '1K' ? 'basic' : 'high',
     }
   }
   // Fallback: send prompt + aspect_ratio and hope for the best

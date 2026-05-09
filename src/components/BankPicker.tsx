@@ -1,20 +1,25 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, Search, Plus, FolderOpen } from 'lucide-react'
+import { X, Search, Plus, FolderOpen, Check } from 'lucide-react'
 import type { BankType } from '../utils/constants'
 import { BANK_CONFIG } from '../utils/constants'
 import { useBankStore } from '../stores/bankStore'
 import { useAppStore } from '../stores/appStore'
-import type { Product, Model, Script, VoicePreset } from '../stores/types'
+import type { Product, Model, Script, VoicePreset, BRoll } from '../stores/types'
 import BankItemCard from './BankItemCard'
 import { useIsDesktop } from '../hooks/useBreakpoint'
 
-type BankItem = Product | Model | Script | VoicePreset
+type BankItem = Product | Model | Script | VoicePreset | BRoll
 
 interface BankPickerProps {
   bankType: BankType
   isOpen: boolean
   onSelect: (item: BankItem) => void
   onClose: () => void
+  // Optional extra filter beyond search (e.g. only brolls with `imageUrl`).
+  filter?: (item: BankItem) => boolean
+  // Multi-select mode — accumulates selections, returns the array on confirm.
+  multiSelect?: boolean
+  onSelectMany?: (items: BankItem[]) => void
 }
 
 function getItemName(bankType: BankType, item: BankItem): string {
@@ -23,14 +28,23 @@ function getItemName(bankType: BankType, item: BankItem): string {
     case 'models': return (item as Model).name
     case 'scripts': return (item as Script).title
     case 'voices': return (item as VoicePreset).label
-    case 'brolls': return (item as { prompt?: string }).prompt ?? 'B-Roll'
+    case 'brolls': return (item as BRoll).prompt ?? 'B-Roll'
   }
 }
 
-export default function BankPicker({ bankType, isOpen, onSelect, onClose }: BankPickerProps) {
+export default function BankPicker({
+  bankType,
+  isOpen,
+  onSelect,
+  onClose,
+  filter,
+  multiSelect = false,
+  onSelectMany,
+}: BankPickerProps) {
   const [search, setSearch] = useState('')
   const [showQuickAdd, setShowQuickAdd] = useState(false)
   const [quickAddName, setQuickAddName] = useState('')
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
   const panelRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
   const isDesktop = useIsDesktop()
@@ -39,6 +53,7 @@ export default function BankPicker({ bankType, isOpen, onSelect, onClose }: Bank
   const models = useBankStore((s) => s.models)
   const scripts = useBankStore((s) => s.scripts)
   const voices = useBankStore((s) => s.voices)
+  const brolls = useBankStore((s) => s.brolls)
   const addProduct = useBankStore((s) => s.addProduct)
   const addModel = useBankStore((s) => s.addModel)
   const addScript = useBankStore((s) => s.addScript)
@@ -50,27 +65,34 @@ export default function BankPicker({ bankType, isOpen, onSelect, onClose }: Bank
     bankType === 'products' ? products :
     bankType === 'models' ? models :
     bankType === 'scripts' ? scripts :
-    voices
+    bankType === 'voices' ? voices :
+    brolls
+
+  const itemsAfterFilter = filter ? items.filter(filter) : items
 
   const filtered = search.trim()
-    ? items.filter((item) =>
+    ? itemsAfterFilter.filter((item) =>
         getItemName(bankType, item).toLowerCase().includes(search.toLowerCase())
       )
-    : items
+    : itemsAfterFilter
 
   const isEmpty = items.length === 0
+  // Brolls don't have a quick-add path (no useful empty record to create) — they
+  // come from generation flows. Quick-add applies to the other bank types.
+  const supportsQuickAdd = bankType !== 'brolls'
 
   // Focus search on open, auto-expand quick-add if bank is empty
   useEffect(() => {
     if (isOpen) {
       setSearch('')
       setQuickAddName('')
-      setShowQuickAdd(isEmpty)
+      setSelectedIds([])
+      setShowQuickAdd(supportsQuickAdd && isEmpty)
       if (!isEmpty) {
         setTimeout(() => searchRef.current?.focus(), 100)
       }
     }
-  }, [isOpen, isEmpty])
+  }, [isOpen, isEmpty, supportsQuickAdd])
 
   // Close on Escape
   useEffect(() => {
@@ -83,7 +105,20 @@ export default function BankPicker({ bankType, isOpen, onSelect, onClose }: Bank
   }, [isOpen, onClose])
 
   const handleSelect = (item: BankItem) => {
+    if (multiSelect) {
+      setSelectedIds((prev) =>
+        prev.includes(item.id) ? prev.filter((id) => id !== item.id) : [...prev, item.id]
+      )
+      return
+    }
     onSelect(item)
+    onClose()
+  }
+
+  const handleConfirmMulti = () => {
+    if (!onSelectMany || selectedIds.length === 0) return
+    const picked = filtered.filter((it) => selectedIds.includes(it.id))
+    onSelectMany(picked)
     onClose()
   }
 
@@ -95,7 +130,6 @@ export default function BankPicker({ bankType, isOpen, onSelect, onClose }: Bank
 
     if (bankType === 'products') {
       addProduct({ productImage: '', productName: name, productDescription: '', targetMarket: '', painPoints: '', usps: '', benefits: '', offer: '', cta: '' })
-      // Get the latest item (just added)
       newItem = useBankStore.getState().products[useBankStore.getState().products.length - 1]
     } else if (bankType === 'models') {
       addModel({ characterImage: '', name, notes: '', jsonProfile: null, source: 'manual-import' })
@@ -103,7 +137,7 @@ export default function BankPicker({ bankType, isOpen, onSelect, onClose }: Bank
     } else if (bankType === 'scripts') {
       addScript({ title: name, scriptText: '', linkedProductId: '', source: 'manual' })
       newItem = useBankStore.getState().scripts[useBankStore.getState().scripts.length - 1]
-    } else {
+    } else if (bankType === 'voices') {
       addVoice({ label: name, voiceId: '', voiceName: '', gender: 'Female', stability: 0.5, linkedModelId: '' })
       newItem = useBankStore.getState().voices[useBankStore.getState().voices.length - 1]
     }
@@ -187,21 +221,47 @@ export default function BankPicker({ bankType, isOpen, onSelect, onClose }: Bank
             </div>
           ) : (
             <div className="flex flex-col gap-2">
-              {filtered.map((item) => (
-                <BankItemCard
-                  key={item.id}
-                  bankType={bankType}
-                  item={item}
-                  onClick={() => handleSelect(item)}
-                />
-              ))}
+              {filtered.map((item) => {
+                const isSelected = multiSelect && selectedIds.includes(item.id)
+                return (
+                  <div key={item.id} className="relative">
+                    <BankItemCard
+                      bankType={bankType}
+                      item={item}
+                      onClick={() => handleSelect(item)}
+                      selected={isSelected}
+                    />
+                    {isSelected && (
+                      <div className="pointer-events-none absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-sky-500 text-white">
+                        <Check className="h-3 w-3" strokeWidth={3} />
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>
 
         {/* Footer — quick add + manage in finder */}
         <div className="border-t border-white/5 px-4 py-3">
-          {showQuickAdd ? (
+          {multiSelect ? (
+            <button
+              onClick={handleConfirmMulti}
+              disabled={selectedIds.length === 0}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-sky-500 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Add {selectedIds.length || ''} {selectedIds.length === 1 ? 'item' : 'items'}
+            </button>
+          ) : !supportsQuickAdd ? (
+            <button
+              onClick={handleManageInFinder}
+              className="flex w-full items-center justify-center gap-1.5 py-2 text-xs text-zinc-600 transition-colors hover:text-zinc-400"
+            >
+              <FolderOpen className="h-3 w-3" />
+              Manage in Bank
+            </button>
+          ) : showQuickAdd ? (
             <div className="flex flex-col gap-2">
               <input
                 value={quickAddName}
@@ -237,13 +297,15 @@ export default function BankPicker({ bankType, isOpen, onSelect, onClose }: Bank
             </button>
           )}
 
-          <button
-            onClick={handleManageInFinder}
-            className="mt-2 flex w-full items-center justify-center gap-1.5 py-2 text-xs text-zinc-600 transition-colors hover:text-zinc-400"
-          >
-            <FolderOpen className="h-3 w-3" />
-            Manage in Bank
-          </button>
+          {!multiSelect && supportsQuickAdd && (
+            <button
+              onClick={handleManageInFinder}
+              className="mt-2 flex w-full items-center justify-center gap-1.5 py-2 text-xs text-zinc-600 transition-colors hover:text-zinc-400"
+            >
+              <FolderOpen className="h-3 w-3" />
+              Manage in Bank
+            </button>
+          )}
         </div>
       </div>
     </>
