@@ -1,3 +1,7 @@
+import { uploadAssetToR2, downloadAssetFromR2, deleteAssetFromR2 } from '../lib/r2'
+import { isCloudEnabled } from '../lib/supabase'
+import { useAuthStore } from '../stores/authStore'
+
 const DB_NAME = 'ai-ugc-lab-assets'
 const DB_VERSION = 1
 const STORE_NAME = 'assets'
@@ -7,6 +11,10 @@ interface StoredAsset {
   blob: Blob
   mimeType: string
   createdAt: number
+}
+
+function cloudActive(): boolean {
+  return isCloudEnabled() && !!useAuthStore.getState().user
 }
 
 // Object URL cache — prevents memory leaks from creating duplicate URLs
@@ -62,25 +70,31 @@ export async function saveAsset(blob: Blob, mimeType?: string): Promise<string> 
     createdAt: Date.now(),
   }
 
+  // Always cache locally (so the current session keeps a fast object URL).
   if (fallbackStore) {
     fallbackStore.set(id, asset)
-    return id
+  } else {
+    try {
+      const db = await openDB()
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite')
+        tx.objectStore(STORE_NAME).put(asset)
+        tx.oncomplete = () => resolve()
+        tx.onerror = () => reject(tx.error)
+      })
+    } catch {
+      if (!fallbackStore) fallbackStore = new Map()
+      fallbackStore.set(id, asset)
+    }
   }
 
-  try {
-    const db = await openDB()
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, 'readwrite')
-      tx.objectStore(STORE_NAME).put(asset)
-      tx.oncomplete = () => resolve(id)
-      tx.onerror = () => reject(tx.error)
-    })
-  } catch {
-    // Fallback to memory if DB fails
-    if (!fallbackStore) fallbackStore = new Map()
-    fallbackStore.set(id, asset)
-    return id
+  // Fire-and-forget upload to R2 so the asset survives across devices.
+  // We don't await it — UI shouldn't block on the network for save.
+  if (cloudActive()) {
+    uploadAssetToR2(id, blob).catch((e) => console.warn('[assetStore] R2 upload failed', e))
   }
+
+  return id
 }
 
 export async function saveFromDataUrl(dataUrl: string): Promise<string> {
@@ -109,24 +123,55 @@ export async function saveFromBlobUrl(blobUrl: string): Promise<string> {
 // ── Read operations ──────────────────────────────────────────────────
 
 export async function getBlob(assetId: string): Promise<Blob | null> {
+  // Local cache first.
+  let local: Blob | null = null
   if (fallbackStore) {
-    return fallbackStore.get(assetId)?.blob ?? null
+    local = fallbackStore.get(assetId)?.blob ?? null
+  } else {
+    try {
+      const db = await openDB()
+      local = await new Promise<Blob | null>((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readonly')
+        const request = tx.objectStore(STORE_NAME).get(assetId)
+        request.onsuccess = () => {
+          const asset = request.result as StoredAsset | undefined
+          resolve(asset?.blob ?? null)
+        }
+        request.onerror = () => reject(request.error)
+      })
+    } catch {
+      local = null
+    }
   }
+  if (local) return local
 
-  try {
-    const db = await openDB()
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, 'readonly')
-      const request = tx.objectStore(STORE_NAME).get(assetId)
-      request.onsuccess = () => {
-        const asset = request.result as StoredAsset | undefined
-        resolve(asset?.blob ?? null)
+  // Cloud miss → R2 fallback (cross-device).
+  if (cloudActive()) {
+    try {
+      const remote = await downloadAssetFromR2(assetId)
+      if (remote) {
+        // Cache for next time. Best-effort, don't block.
+        const asset: StoredAsset = { id: assetId, blob: remote, mimeType: remote.type, createdAt: Date.now() }
+        if (fallbackStore) {
+          fallbackStore.set(assetId, asset)
+        } else {
+          try {
+            const db = await openDB()
+            await new Promise<void>((resolve, reject) => {
+              const tx = db.transaction(STORE_NAME, 'readwrite')
+              tx.objectStore(STORE_NAME).put(asset)
+              tx.oncomplete = () => resolve()
+              tx.onerror = () => reject(tx.error)
+            })
+          } catch { /* cache miss only, not fatal */ }
+        }
+        return remote
       }
-      request.onerror = () => reject(request.error)
-    })
-  } catch {
-    return null
+    } catch (e) {
+      console.warn('[assetStore] R2 download failed', e)
+    }
   }
+  return null
 }
 
 export async function getUrl(assetId: string): Promise<string | null> {
@@ -166,6 +211,12 @@ export async function deleteAsset(assetId: string): Promise<void> {
   if (cached) {
     URL.revokeObjectURL(cached)
     urlCache.delete(assetId)
+  }
+
+  // Best-effort: drop the cloud `assets` row (R2 object stays — leftovers
+  // are cheap and a sweeper can clean them up later).
+  if (cloudActive()) {
+    deleteAssetFromR2(assetId).catch((e) => console.warn('[assetStore] R2 delete failed', e))
   }
 
   if (fallbackStore) {

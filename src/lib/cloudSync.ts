@@ -1,0 +1,325 @@
+// Bridges the client-side Zustand stores to Supabase Postgres.
+//
+// Design:
+//  • Stores stay localStorage-backed (source of truth in the browser).
+//  • On sign-in we hydrate stores from cloud, replacing local state.
+//  • After hydration, we subscribe to store changes and diff-push to cloud.
+//  • If the user has local-only data (e.g. they used the app pre-signup)
+//    AND the cloud is empty, we upload everything once before subscribing.
+//
+// We deliberately keep the bank rows shaped close to the existing TS types:
+// each bank table stores the full item in `data` JSONB plus extracted
+// columns for filtering. That keeps the migration trivial.
+
+import { useAuthStore } from '../stores/authStore'
+import { useBankStore } from '../stores/bankStore'
+import { useSettingsStore } from '../stores/settingsStore'
+import { getSupabase, isCloudEnabled } from './supabase'
+import type { Project, Product, Model, Script, VoicePreset, BRoll, VoiceHistoryItem, VideoHistoryItem } from '../stores/types'
+
+type BankKey = 'projects' | 'products' | 'models' | 'scripts' | 'voices' | 'brolls' | 'voiceHistory' | 'videoHistory'
+
+const BANK_TO_TABLE: Record<BankKey, string> = {
+  projects: 'projects',
+  products: 'products',
+  models: 'models',
+  scripts: 'scripts',
+  voices: 'voices',
+  brolls: 'brolls',
+  voiceHistory: 'voice_history',
+  videoHistory: 'video_history',
+}
+
+const BANK_KEYS: BankKey[] = ['projects', 'products', 'models', 'scripts', 'voices', 'brolls', 'voiceHistory', 'videoHistory']
+
+interface RowShape {
+  id: string
+  project_ids?: string[]
+  data: unknown
+}
+
+let started = false
+let unsubscribers: Array<() => void> = []
+let pushTimer: ReturnType<typeof setTimeout> | null = null
+const pendingDirty = new Set<BankKey>()
+const lastSnapshot: Partial<Record<BankKey, Map<string, string>>> = {}
+
+function projectIdsOf(item: unknown): string[] {
+  if (item && typeof item === 'object' && 'projectIds' in item) {
+    const v = (item as { projectIds?: unknown }).projectIds
+    if (Array.isArray(v)) return v.filter((x): x is string => typeof x === 'string')
+  }
+  return []
+}
+
+function snapshotBank<T extends { id: string }>(arr: T[]): Map<string, string> {
+  const m = new Map<string, string>()
+  for (const item of arr) m.set(item.id, JSON.stringify(item))
+  return m
+}
+
+async function hydrateFromCloud(userId: string) {
+  const sb = getSupabase()
+
+  // Profile → settings store
+  const { data: profile } = await sb
+    .from('profiles')
+    .select('kie_api_key, per_app_model, active_project_id')
+    .eq('id', userId)
+    .maybeSingle()
+
+  if (profile) {
+    useSettingsStore.setState({
+      kieApiKey: profile.kie_api_key ?? '',
+      perAppModel: (profile.per_app_model as Record<string, string> | null) ?? {},
+      activeProjectId: (profile.active_project_id as string | null) ?? null,
+    })
+    // Mirror to localStorage so reloads stay consistent.
+    try {
+      localStorage.setItem('ai-ugc-lab-settings', JSON.stringify({
+        kieApiKey: profile.kie_api_key ?? '',
+        perAppModel: profile.per_app_model ?? {},
+        activeProjectId: profile.active_project_id ?? null,
+      }))
+    } catch { /* ignore */ }
+  }
+
+  // Banks
+  const tables = await Promise.all(
+    BANK_KEYS.map(async (key) => {
+      const table = BANK_TO_TABLE[key]
+      const { data, error } = await sb.from(table).select('id, data, project_ids').eq('user_id', userId)
+      if (error) {
+        console.error(`[cloudSync] hydrate ${table} failed`, error)
+        return [key, [] as unknown[]] as const
+      }
+      // The full item lives in data; project_ids is denormalised. Trust the
+      // jsonb data shape — it's what the app already consumed.
+      const items = (data ?? []).map((row) => row.data as unknown)
+      return [key, items] as const
+    }),
+  )
+
+  const next: Partial<Record<BankKey, unknown[]>> = {}
+  for (const [key, items] of tables) next[key] = items
+
+  useBankStore.setState({
+    projects: (next.projects as Project[]) ?? [],
+    products: (next.products as Product[]) ?? [],
+    models: (next.models as Model[]) ?? [],
+    scripts: (next.scripts as Script[]) ?? [],
+    voices: (next.voices as VoicePreset[]) ?? [],
+    brolls: (next.brolls as BRoll[]) ?? [],
+    voiceHistory: (next.voiceHistory as VoiceHistoryItem[]) ?? [],
+    videoHistory: (next.videoHistory as VideoHistoryItem[]) ?? [],
+  })
+
+  // Mirror to localStorage so the offline cache lines up.
+  try {
+    const s = useBankStore.getState()
+    localStorage.setItem('ai-ugc-lab-banks', JSON.stringify({
+      projects: s.projects, products: s.products, models: s.models,
+      scripts: s.scripts, voices: s.voices, brolls: s.brolls,
+      voiceHistory: s.voiceHistory, videoHistory: s.videoHistory,
+    }))
+  } catch { /* ignore */ }
+
+  // Snapshot current state so the subscriber's first diff is empty.
+  for (const key of BANK_KEYS) {
+    const arr = useBankStore.getState()[key] as Array<{ id: string }>
+    lastSnapshot[key] = snapshotBank(arr)
+  }
+}
+
+// Returns true if we should push the local snapshot up (first cloud login
+// while local has data and cloud is empty). Otherwise false.
+async function shouldUploadLocalSnapshot(userId: string): Promise<boolean> {
+  const flag = `ugc-lab:cloud-migrated:${userId}`
+  if (localStorage.getItem(flag)) return false
+
+  // Cheap check: are any bank tables non-empty for this user?
+  const sb = getSupabase()
+  const checks = await Promise.all(
+    BANK_KEYS.map((k) => sb.from(BANK_TO_TABLE[k]).select('id', { count: 'exact', head: true }).eq('user_id', userId)),
+  )
+  const cloudHasAny = checks.some((r) => (r.count ?? 0) > 0)
+  if (cloudHasAny) {
+    localStorage.setItem(flag, '1')
+    return false
+  }
+
+  // Local has data?
+  const localState = useBankStore.getState()
+  const localHasAny = BANK_KEYS.some((k) => (localState[k] as unknown[]).length > 0)
+  return localHasAny
+}
+
+async function uploadEntireSnapshot(userId: string) {
+  const sb = getSupabase()
+  const state = useBankStore.getState()
+  for (const key of BANK_KEYS) {
+    const items = state[key] as Array<{ id: string }>
+    if (items.length === 0) continue
+    const rows: RowShape[] = items.map((item) => ({
+      id: item.id,
+      project_ids: projectIdsOf(item),
+      data: item,
+    }))
+    const { error } = await sb.from(BANK_TO_TABLE[key]).upsert(rows.map((r) => ({
+      ...r,
+      user_id: userId,
+    })))
+    if (error) console.error(`[cloudSync] initial upload of ${BANK_TO_TABLE[key]} failed`, error)
+  }
+  // Also push profile fields.
+  const settings = useSettingsStore.getState()
+  await sb.from('profiles').update({
+    kie_api_key: settings.kieApiKey || null,
+    per_app_model: settings.perAppModel,
+    active_project_id: settings.activeProjectId,
+  }).eq('id', userId)
+
+  localStorage.setItem(`ugc-lab:cloud-migrated:${userId}`, '1')
+}
+
+function schedulePush() {
+  if (pushTimer) clearTimeout(pushTimer)
+  pushTimer = setTimeout(() => {
+    pushTimer = null
+    flushPending().catch((e) => console.error('[cloudSync] flush failed', e))
+  }, 300)
+}
+
+async function flushPending() {
+  const userId = useAuthStore.getState().user?.id
+  if (!userId) return
+  const sb = getSupabase()
+
+  const dirty = Array.from(pendingDirty)
+  pendingDirty.clear()
+
+  for (const key of dirty) {
+    const table = BANK_TO_TABLE[key]
+    const arr = useBankStore.getState()[key] as Array<{ id: string }>
+    const next = snapshotBank(arr)
+    const prev = lastSnapshot[key] ?? new Map()
+
+    const upserts: RowShape[] = []
+    for (const [id, json] of next) {
+      if (prev.get(id) !== json) {
+        const item = arr.find((x) => x.id === id)!
+        upserts.push({ id, project_ids: projectIdsOf(item), data: item })
+      }
+    }
+    const deletedIds: string[] = []
+    for (const id of prev.keys()) {
+      if (!next.has(id)) deletedIds.push(id)
+    }
+
+    if (upserts.length > 0) {
+      const { error } = await sb.from(table).upsert(
+        upserts.map((r) => ({ ...r, user_id: userId, updated_at: new Date().toISOString() })),
+      )
+      if (error) console.error(`[cloudSync] upsert ${table} failed`, error)
+    }
+    if (deletedIds.length > 0) {
+      const { error } = await sb.from(table).delete().in('id', deletedIds).eq('user_id', userId)
+      if (error) console.error(`[cloudSync] delete ${table} failed`, error)
+    }
+
+    lastSnapshot[key] = next
+  }
+}
+
+async function pushSettingsNow() {
+  const userId = useAuthStore.getState().user?.id
+  if (!userId) return
+  const sb = getSupabase()
+  const s = useSettingsStore.getState()
+  const { error } = await sb.from('profiles').update({
+    kie_api_key: s.kieApiKey || null,
+    per_app_model: s.perAppModel,
+    active_project_id: s.activeProjectId,
+  }).eq('id', userId)
+  if (error) console.error('[cloudSync] profile update failed', error)
+}
+
+let lastSettingsJson = ''
+
+function startSubscribers() {
+  // Banks: track every bank array; on diff, mark dirty + schedule push.
+  const u1 = useBankStore.subscribe((state) => {
+    for (const key of BANK_KEYS) {
+      const arr = state[key] as Array<{ id: string }>
+      const snap = snapshotBank(arr)
+      const prev = lastSnapshot[key]
+      if (!prev) {
+        lastSnapshot[key] = snap
+        continue
+      }
+      // Cheap inequality check: size + content
+      if (prev.size !== snap.size) {
+        pendingDirty.add(key)
+        continue
+      }
+      let dirty = false
+      for (const [id, json] of snap) {
+        if (prev.get(id) !== json) { dirty = true; break }
+      }
+      if (dirty) pendingDirty.add(key)
+    }
+    if (pendingDirty.size > 0) schedulePush()
+  })
+
+  // Settings: any change → debounced push.
+  const u2 = useSettingsStore.subscribe((state) => {
+    const json = JSON.stringify({
+      kieApiKey: state.kieApiKey,
+      perAppModel: state.perAppModel,
+      activeProjectId: state.activeProjectId,
+    })
+    if (json === lastSettingsJson) return
+    lastSettingsJson = json
+    if (pushTimer) clearTimeout(pushTimer)
+    pushTimer = setTimeout(() => { pushTimer = null; pushSettingsNow() }, 300)
+  })
+
+  unsubscribers.push(u1, u2)
+}
+
+export async function startCloudSync() {
+  if (!isCloudEnabled()) return
+  if (started) return
+  const userId = useAuthStore.getState().user?.id
+  if (!userId) return
+
+  started = true
+
+  // First-login local-snapshot upload (one-shot per user per browser).
+  if (await shouldUploadLocalSnapshot(userId)) {
+    await uploadEntireSnapshot(userId)
+  }
+
+  await hydrateFromCloud(userId)
+
+  // Seed the settings json snapshot so the subscriber doesn't echo the
+  // hydrate back to the cloud.
+  const s = useSettingsStore.getState()
+  lastSettingsJson = JSON.stringify({
+    kieApiKey: s.kieApiKey,
+    perAppModel: s.perAppModel,
+    activeProjectId: s.activeProjectId,
+  })
+
+  startSubscribers()
+}
+
+export function stopCloudSync() {
+  for (const u of unsubscribers) u()
+  unsubscribers = []
+  if (pushTimer) clearTimeout(pushTimer)
+  pushTimer = null
+  pendingDirty.clear()
+  for (const k of BANK_KEYS) delete lastSnapshot[k]
+  started = false
+}
