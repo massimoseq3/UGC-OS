@@ -1,22 +1,28 @@
 import { useState } from 'react'
 import { Settings } from 'lucide-react'
 import { useAppStore } from '../stores/appStore'
+import { useAuthStore } from '../stores/authStore'
 import { APP_REGISTRY, CATEGORY_LABELS, type AppCategory, type AppConfig } from '../utils/constants'
 import SettingsModal from './SettingsModal'
+import UserMenu from './auth/UserMenu'
 
-const SECTION_ORDER: AppCategory[] = ['library', 'create', 'tools']
+const SECTION_ORDER: AppCategory[] = ['library', 'create', 'tools', 'admin']
 
 export default function Sidebar() {
   const activeApp = useAppStore((s) => s.activeApp)
   const openApp = useAppStore((s) => s.openApp)
   const collapsed = useAppStore((s) => s.sidebarCollapsed)
+  const isAdmin = useAuthStore((s) => s.profile?.is_admin === true)
+  const isSignedIn = useAuthStore((s) => !!s.profile)
   const [settingsOpen, setSettingsOpen] = useState(false)
 
   const sections = SECTION_ORDER.map((category) => ({
     category,
     label: CATEGORY_LABELS[category],
     apps: APP_REGISTRY.filter((app) => app.category === category),
-  })).filter((s) => s.apps.length > 0)
+  }))
+    .map((s) => s.category === 'admin' && !isAdmin ? { ...s, apps: [] } : s)
+    .filter((s) => s.apps.length > 0)
 
   return (
     <>
@@ -49,13 +55,14 @@ export default function Sidebar() {
           ))}
         </div>
 
-        <div className="border-t border-white/5 px-2 py-3">
+        <div className="space-y-1 border-t border-white/5 px-2 py-3">
           <SidebarRow
             app={{ id: 'settings', name: 'Settings', icon: Settings, accent: '#a1a1aa', category: 'tools' }}
             active={false}
             collapsed={collapsed}
             onClick={() => setSettingsOpen(true)}
           />
+          {isSignedIn && <UserMenu collapsed={collapsed} />}
         </div>
       </aside>
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />

@@ -9,10 +9,11 @@ import {
   Package,
   FileText,
   FolderOpen,
+  Shield,
 } from 'lucide-react'
 import type { ElementType } from 'react'
 
-export type AppCategory = 'library' | 'create' | 'tools'
+export type AppCategory = 'library' | 'create' | 'tools' | 'admin'
 
 export interface AppConfig {
   id: string
@@ -30,12 +31,14 @@ export const APP_REGISTRY: AppConfig[] = [
   { id: 'broll-studio', name: 'B-Roll Images', icon: Film, accent: '#f97316', category: 'create' },
   { id: 'video-studio', name: 'B-Roll Videos', icon: Video, accent: '#a855f7', category: 'create' },
   { id: 'ad-anatomy', name: 'Ad Analyzer', icon: Eye, accent: '#FB2B37', category: 'tools' },
+  { id: 'admin', name: 'Admin', icon: Shield, accent: '#fafafa', category: 'admin' },
 ]
 
 export const CATEGORY_LABELS: Record<AppCategory, string> = {
   library: 'Library',
   create: 'Create',
   tools: 'Tools',
+  admin: 'Admin',
 }
 
 export type BankType = 'projects' | 'products' | 'models' | 'scripts' | 'voices' | 'brolls'

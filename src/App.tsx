@@ -2,7 +2,9 @@ import { FlaskConical } from 'lucide-react'
 import MenuBar from './components/MenuBar'
 import Sidebar from './components/Sidebar'
 import ToastContainer from './components/Toast'
+import AuthGate from './components/auth/AuthGate'
 import { useAppStore } from './stores/appStore'
+import { useAuthStore } from './stores/authStore'
 import { getAppConfig } from './utils/constants'
 
 import Finder from './apps/finder/Finder'
@@ -12,6 +14,7 @@ import CharacterStudio from './apps/character-studio/CharacterStudio'
 import VoiceStudio from './apps/voice-studio/VoiceStudio'
 import BrollStudio from './apps/broll-studio/BrollStudio'
 import VideoStudio from './apps/video-studio/VideoStudio'
+import AdminPanel from './apps/admin/AdminPanel'
 
 const APP_COMPONENTS: Record<string, React.ComponentType> = {
   'finder': Finder,
@@ -21,6 +24,7 @@ const APP_COMPONENTS: Record<string, React.ComponentType> = {
   'voice-studio': VoiceStudio,
   'broll-studio': BrollStudio,
   'video-studio': VideoStudio,
+  'admin': AdminPanel,
 }
 
 function AppPlaceholder({ appId }: { appId: string }) {
@@ -57,14 +61,23 @@ function EmptyState() {
 }
 
 export default function App() {
+  return (
+    <AuthGate>
+      <Workspace />
+    </AuthGate>
+  )
+}
+
+function Workspace() {
   const activeApp = useAppStore((s) => s.activeApp)
   const runningApps = useAppStore((s) => s.runningApps)
   const collapsed = useAppStore((s) => s.sidebarCollapsed)
+  const userId = useAuthStore((s) => s.user?.id)
 
   const contentPadding = collapsed ? 'pl-20' : 'pl-56'
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden text-white antialiased bg-[#050505]">
+    <div key={userId ?? 'local'} className="relative h-screen w-screen overflow-hidden text-white antialiased bg-[#050505]">
       {/* Universal Background Gradient */}
       <div className="fixed inset-0 z-0 bg-[radial-gradient(circle_at_0%_0%,#1f1f22_0%,#09090b_45%,#000000_100%)] pointer-events-none" />
 
