@@ -217,6 +217,7 @@ async function flushPending() {
   if (dirty.length === 0) return
 
   useSyncStore.getState().setStatus('syncing')
+  useSyncStore.getState().startPush()
   let hadError = false
 
   // Build per-bank work plans first (synchronous, fast), then fire all
@@ -263,6 +264,7 @@ async function flushPending() {
   await Promise.all(work)
   for (const key of dirty) lastSnapshot[key] = newSnapshots[key]!
 
+  useSyncStore.getState().endPush()
   if (!hadError) useSyncStore.getState().markSynced()
 }
 
@@ -272,11 +274,13 @@ async function pushSettingsNow() {
   const sb = getSupabase()
   const s = useSettingsStore.getState()
   useSyncStore.getState().setStatus('syncing')
+  useSyncStore.getState().startPush()
   const { error } = await sb.from('profiles').update({
     kie_api_key: s.kieApiKey || null,
     per_app_model: s.perAppModel,
     active_project_id: s.activeProjectId,
   }).eq('id', userId)
+  useSyncStore.getState().endPush()
   if (error) reportError('profile update', error)
   else useSyncStore.getState().markSynced()
 }

@@ -81,7 +81,7 @@ export default function ScriptForm({ item, onSave, onCancel }: ScriptFormProps) 
 
       <button
         type="submit"
-        className="mt-1 rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-zinc-200 transition-colors hover:bg-white/15"
+        className="mt-1 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-zinc-900 transition-colors hover:bg-zinc-100"
       >
         {item ? 'Save Changes' : 'Add Script'}
       </button>
