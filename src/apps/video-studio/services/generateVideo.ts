@@ -1,7 +1,7 @@
 import { useSettingsStore } from '../../../stores/settingsStore'
 import { kieVideoGenerate, kieVeoGenerate, ensureHostedUrl } from '../../../utils/kie'
 import { saveAsset } from '../../../utils/assetStore'
-import { buildVideoInput, getModel } from '../../../utils/models'
+import { buildVideoInput, getModel, resolveVideoModelSlug } from '../../../utils/models'
 import type { VideoGenInput, VideoGenResult } from '../types'
 
 export async function generateVideo(input: VideoGenInput, signal?: AbortSignal): Promise<VideoGenResult> {
@@ -31,7 +31,7 @@ export async function generateVideo(input: VideoGenInput, signal?: AbortSignal):
     }
   }
 
-  const body = buildVideoInput(input.modelId, {
+  const buildOpts = {
     prompt: input.prompt,
     mode: input.mode,
     aspectRatio: input.aspectRatio,
@@ -42,12 +42,14 @@ export async function generateVideo(input: VideoGenInput, signal?: AbortSignal):
     firstFrameUrl,
     lastFrameUrl,
     referenceImageUrls,
-  })
+  }
+  const body = buildVideoInput(input.modelId, buildOpts)
+  const apiSlug = resolveVideoModelSlug(input.modelId, buildOpts)
 
   // Route to the right endpoint.
   const urls = model.videoEndpoint === 'veo'
     ? await kieVeoGenerate(apiKey, body, { signal })
-    : await kieVideoGenerate(apiKey, input.modelId, body, { signal })
+    : await kieVideoGenerate(apiKey, apiSlug, body, { signal })
 
   if (urls.length === 0) throw new Error('Video generation returned no result.')
 

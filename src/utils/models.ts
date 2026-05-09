@@ -5,7 +5,9 @@
 // confirm against the model's API doc page on https://docs.kie.ai/ before adding.
 //
 // Pricing is hard-coded from kie.ai's marketing pages (kie.ai/{model-slug}) and
-// kie.ai/pricing — verify and update when prices drift. Last verified: 2026-05-09.
+// kie.ai/pricing — verify and update when prices drift. Last verified: 2026-05-09
+// (Wan 2.7, Sora 2, Sora 2 Pro pricing sourced from a mix of kie.ai marketing
+// and external references — re-verify on next audit cycle).
 
 export type Task = 'chat' | 'vision' | 'image' | 'video' | 'tts'
 
@@ -357,6 +359,77 @@ export const MODEL_REGISTRY: ModelEntry[] = [
       aspectRatios: ['16:9', '9:16'],
     },
   },
+  // Wan 2.7 — Alibaba Tongyi's video suite. kie exposes T2V and I2V as
+  // separate slugs; we register one virtual id and resolve to the real slug
+  // at generate time via `resolveVideoModelSlug`.
+  // Docs: https://docs.kie.ai/market/wan/2-7-text-to-video
+  //       https://docs.kie.ai/market/wan/2-7-image-to-video
+  {
+    id: 'wan/2-7',
+    displayName: 'Wan 2.7',
+    provider: 'Alibaba Tongyi',
+    task: 'video',
+    modes: ['text-to-video', 'image-to-video', 'frames-to-video'],
+    tags: ['new'],
+    pricing: {
+      unit: 'per-second',
+      credits: 80,
+      priceFor: ({ durationSeconds = 5, resolution = '720p' }) => {
+        const perSec = resolution === '1080p' ? 120 : 80  // 720p
+        return perSec * durationSeconds
+      },
+    },
+    videoEndpoint: 'createTask',
+    videoConstraints: {
+      durations: [3, 5, 8, 10, 12, 15],
+      resolutions: ['720p', '1080p'],
+      aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4'],
+      supportsAudio: true,
+    },
+  },
+  // Sora 2 — OpenAI. Single-tier resolution; durations fixed at 10s or 15s.
+  // Audio is baked into the output and not user-controllable.
+  // Docs: https://docs.kie.ai/market/sora2/sora-2-text-to-video
+  //       https://docs.kie.ai/market/sora2/sora-2-image-to-video
+  {
+    id: 'sora-2',
+    displayName: 'Sora 2',
+    provider: 'OpenAI',
+    task: 'video',
+    modes: ['text-to-video', 'image-to-video'],
+    tags: ['new'],
+    pricing: { unit: 'per-second', credits: 15 },
+    videoEndpoint: 'createTask',
+    videoConstraints: {
+      durations: [10, 15],
+      resolutions: ['standard'],
+      aspectRatios: ['16:9', '9:16'],
+    },
+  },
+  // Sora 2 Pro — OpenAI Pro tier with a Standard/HD size dimension.
+  // Docs: https://docs.kie.ai/market/sora2/sora-2-pro-image-to-video
+  {
+    id: 'sora-2-pro',
+    displayName: 'Sora 2 Pro',
+    provider: 'OpenAI',
+    task: 'video',
+    modes: ['text-to-video', 'image-to-video'],
+    tags: [],
+    pricing: {
+      unit: 'per-second',
+      credits: 45,
+      priceFor: ({ durationSeconds = 10, resolution = 'standard' }) => {
+        const perSec = resolution === 'high' ? 100 : 45
+        return perSec * durationSeconds
+      },
+    },
+    videoEndpoint: 'createTask',
+    videoConstraints: {
+      durations: [10, 15],
+      resolutions: ['standard', 'high'],
+      aspectRatios: ['16:9', '9:16'],
+    },
+  },
 
   // ── Text-to-Speech ────────────────────────────────────────────
   // Voiceovers uses ElevenLabs Multilingual v2 exclusively (no picker).
@@ -522,6 +595,19 @@ export interface VideoGenOptions {
   imageUrl?: string  // single first-frame for image-to-video mode
 }
 
+// Resolves a registry model id to the actual kie.ai slug to send in the
+// createTask body. Some families (Wan 2.7, Sora 2, Sora 2 Pro) ship as
+// multiple kie slugs that differ only by mode (T2V vs I2V); we expose one
+// virtual id in the picker and pick the real slug here based on inputs.
+// For every other model the registry id IS the kie slug — passes through.
+export function resolveVideoModelSlug(modelId: string, opts: VideoGenOptions): string {
+  const hasFrame = !!(opts.firstFrameUrl || opts.lastFrameUrl || opts.imageUrl)
+  if (modelId === 'wan/2-7') return hasFrame ? 'wan/2-7-image-to-video' : 'wan/2-7-text-to-video'
+  if (modelId === 'sora-2') return hasFrame ? 'sora-2-image-to-video' : 'sora-2-text-to-video'
+  if (modelId === 'sora-2-pro') return hasFrame ? 'sora-2-pro-image-to-video' : 'sora-2-pro-text-to-video'
+  return modelId
+}
+
 export function buildVideoInput(modelId: string, opts: VideoGenOptions): Record<string, unknown> {
   const m = getModel(modelId)
   if (!m) throw new Error(`Unknown model: ${modelId}`)
@@ -573,6 +659,47 @@ export function buildVideoInput(modelId: string, opts: VideoGenOptions): Record<
       duration: String(duration), // Kling expects string enum
       aspect_ratio: ar,
       multi_shots: false,
+    }
+  }
+
+  // ── Wan 2.7 ──
+  // T2V uses `ratio` (not `aspect_ratio`); I2V infers aspect from the input
+  // image and accepts both first_frame_url and last_frame_url.
+  if (modelId === 'wan/2-7') {
+    const startFrame = opts.firstFrameUrl ?? (opts.mode === 'image-to-video' ? opts.imageUrl : undefined)
+    const hasFrame = !!(startFrame || opts.lastFrameUrl)
+    if (hasFrame) {
+      return {
+        prompt: opts.prompt,
+        ...(startFrame ? { first_frame_url: startFrame } : {}),
+        ...(opts.lastFrameUrl ? { last_frame_url: opts.lastFrameUrl } : {}),
+        resolution,
+        duration,
+      }
+    }
+    return {
+      prompt: opts.prompt,
+      resolution,
+      ratio: ar,
+      duration,
+    }
+  }
+
+  // ── Sora 2 / Sora 2 Pro ──
+  // Aspect is `landscape` | `portrait`; duration is `n_frames` as a string
+  // ("10" or "15"); audio is baked into output (no toggle); Pro adds a
+  // `size: 'standard' | 'high'` field that maps to 720p / 1080p.
+  if (modelId === 'sora-2' || modelId === 'sora-2-pro') {
+    const aspect_ratio = ar === '9:16' ? 'portrait' : 'landscape'
+    const startFrame = opts.imageUrl ?? opts.firstFrameUrl
+    return {
+      prompt: opts.prompt,
+      ...(startFrame ? { image_urls: [startFrame] } : {}),
+      aspect_ratio,
+      n_frames: String(duration >= 15 ? 15 : 10),
+      remove_watermark: true,
+      upload_method: 's3',
+      ...(modelId === 'sora-2-pro' ? { size: resolution === 'high' ? 'high' : 'standard' } : {}),
     }
   }
 
