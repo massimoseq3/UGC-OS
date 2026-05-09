@@ -556,25 +556,20 @@ function SkeletonScene() {
 export default function OutputPanel({ result, isGenerating, error, onAddVariation, onDeleteVariation, referenceImages, selectedProductId, selectedModelId, selectedScriptId }: OutputPanelProps) {
   const [cardStates, setCardStates] = useState<Record<string, CardState>>({})
   const [aspectRatio, setAspectRatio] = useState<string>(PORTRAIT_VALUE)
-  const [resolution, setResolution] = useState<ImageResolution>(() => {
-    // Mirror the model's preferred default (GPT Image 2 → '2K').
-    const persisted = useSettingsStore.getState().getAppModel('broll-studio:image:text-to-image')
-    const id = persisted ?? getDefaultModel('broll-studio', 'image', 'text-to-image')?.id
-    const constraints = id ? getModel(id)?.imageConstraints : undefined
-    return (constraints?.default as ImageResolution | undefined) ?? (constraints?.resolutions[0] as ImageResolution | undefined) ?? '1K'
-  })
+  // B-Roll Images opens at 1K — high-res is opt-in. The user can pick
+  // 2K / 4K from the resolution toggle when they want it.
+  const [resolution, setResolution] = useState<ImageResolution>('1K')
 
   const persistedImageModel = useSettingsStore((s) => s.getAppModel('broll-studio:image:text-to-image'))
   const imageModelId = persistedImageModel ?? getDefaultModel('broll-studio', 'image', 'text-to-image')?.id
 
-  // When the model changes, snap to that model's preferred default tier so
-  // GPT Image 2 lands on 2K, etc.
+  // Only re-clamp when the new model doesn't support the current resolution.
+  // We don't auto-jump to a model's preferred default — the user's choice
+  // sticks across model switches whenever the new model can honour it.
   useEffect(() => {
-    const constraints = imageModelId ? getModel(imageModelId)?.imageConstraints : undefined
-    const tiers = (constraints?.resolutions ?? []) as ImageResolution[]
-    if (tiers.length === 0) return
-    const preferred = (constraints?.default as ImageResolution | undefined) ?? tiers[0]
-    if (preferred !== resolution) setResolution(preferred)
+    const tiers = (imageModelId ? getModel(imageModelId)?.imageConstraints?.resolutions : undefined) as ImageResolution[] | undefined
+    if (!tiers || tiers.length === 0) return
+    if (!tiers.includes(resolution)) setResolution(tiers[0])
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [imageModelId])
 

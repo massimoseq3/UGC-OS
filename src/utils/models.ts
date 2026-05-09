@@ -163,15 +163,18 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     task: 'image',
     modes: ['text-to-image'],
     tags: ['recommended'],
+    // kie.ai defaults to GPT Image 2's higher-quality tier on the
+    // /text-to-image endpoint — verified by real billing (2K = 10 credits).
+    // Source: https://kie.ai/gpt-image-2.
     pricing: {
       unit: 'per-image',
-      credits: 3,
+      credits: 6,
       priceFor: ({ imageCount = 1, resolution = '1K' }) => {
-        const perImage = resolution === '4K' ? 8 : resolution === '2K' ? 5 : 3
+        const perImage = resolution === '4K' ? 16 : resolution === '2K' ? 10 : 6
         return perImage * imageCount
       },
     },
-    imageConstraints: { resolutions: ['1K', '2K', '4K'], default: '2K' },
+    imageConstraints: { resolutions: ['1K', '2K', '4K'] },
     defaultFor: ['broll-studio', 'character-studio'],
   },
   {
@@ -190,7 +193,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
         return perImage * imageCount
       },
     },
-    imageConstraints: { resolutions: ['1K', '2K', '4K'], default: '2K' },
+    imageConstraints: { resolutions: ['1K', '2K', '4K'] },
     defaultFor: ['broll-studio', 'character-studio'],
   },
 
