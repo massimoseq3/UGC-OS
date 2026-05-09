@@ -1,3 +1,15 @@
+// A user-defined "smart folder" that aggregates references across banks. An
+// item can belong to many projects (multi-membership). The active project,
+// if set, auto-tags every newly created item via the bank store's add
+// methods — see `useSettingsStore.activeProjectId`.
+export interface Project {
+  id: string
+  name: string
+  // Optional accent (hex) — used for chips/dots in the UI.
+  color?: string
+  createdAt: number
+}
+
 export interface Product {
   id: string
   productImage: string
@@ -9,6 +21,7 @@ export interface Product {
   benefits: string
   offer: string
   cta: string
+  projectIds?: string[]
   createdAt: number
 }
 
@@ -19,6 +32,7 @@ export interface Model {
   name: string
   notes: string
   source: 'character-studio' | 'image-dna-extractor' | 'manual-import'
+  projectIds?: string[]
   createdAt: number
 }
 
@@ -28,6 +42,7 @@ export interface Script {
   scriptText: string
   linkedProductId: string
   source: 'script-architect' | 'manual'
+  projectIds?: string[]
   createdAt: number
 }
 
@@ -42,6 +57,7 @@ export interface VoicePreset {
   style: number
   speed: number
   linkedModelId: string
+  projectIds?: string[]
   createdAt: number
 }
 
@@ -60,6 +76,28 @@ export interface BRoll {
   scriptId?: string
   videoUrl?: string
   videos?: BRollVideo[]
+  projectIds?: string[]
+  createdAt: number
+}
+
+// One generation in B-Roll Videos. Pushed automatically on every successful
+// generate; rendered in the right-hand History panel as a Flow-style grid.
+// `videoUrl` is an asset:// ref (see assetStore) so the blob persists across
+// reloads. `linkedBRollId` is set if the user has saved the entry to the
+// B-Roll bank — kept so the saved-state UI survives reloads.
+export interface VideoHistoryItem {
+  id: string
+  modelId: string
+  prompt: string
+  mode: 'text-to-video' | 'image-to-video' | 'frames-to-video' | 'reference-to-video'
+  aspectRatio: string
+  durationSeconds?: number
+  resolution?: string
+  audio?: boolean
+  videoUrl: string
+  thumbnailUrl?: string
+  linkedBRollId?: string
+  projectIds?: string[]
   createdAt: number
 }
 
