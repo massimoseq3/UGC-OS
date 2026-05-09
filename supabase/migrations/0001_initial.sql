@@ -1,32 +1,27 @@
 -- UGC Lab — initial schema
 -- Run this in Supabase SQL Editor (or via `supabase db push` if using the CLI).
 -- Idempotent: safe to re-run.
+--
+-- Order matters: `profiles` must exist before `allowlist` because the
+-- allowlist's admin policy references it. We also use a SECURITY DEFINER
+-- `is_admin()` helper to avoid RLS self-recursion on the profiles table.
 
 -- ─────────────────────────────────────────────────────────────────────
--- 1. allowlist  (Zapier writes here; signup is gated on it)
+-- 0. is_admin() helper — bypasses RLS to check the caller's admin flag.
+--    Used by every "admin can read/write" policy below.
 -- ─────────────────────────────────────────────────────────────────────
-create table if not exists public.allowlist (
-  email       text primary key,
-  source      text not null default 'skool',     -- 'skool' | 'manual' | 'invite'
-  added_at    timestamptz not null default now(),
-  notes       text
-);
-
-alter table public.allowlist enable row level security;
-
--- Only service-role / admins read or write the allowlist. End users never see it.
-drop policy if exists "allowlist_admin_all" on public.allowlist;
-create policy "allowlist_admin_all" on public.allowlist
-  for all
-  using (
-    exists (select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
-  )
-  with check (
-    exists (select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
-  );
+create or replace function public.is_admin()
+returns boolean
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select coalesce((select is_admin from public.profiles where id = auth.uid()), false);
+$$;
 
 -- ─────────────────────────────────────────────────────────────────────
--- 2. profiles  (one row per auth.users entry)
+-- 1. profiles  (one row per auth.users entry)
 -- ─────────────────────────────────────────────────────────────────────
 create table if not exists public.profiles (
   id                uuid primary key references auth.users(id) on delete cascade,
@@ -55,20 +50,35 @@ create policy "profiles_self_update" on public.profiles
 
 drop policy if exists "profiles_admin_read" on public.profiles;
 create policy "profiles_admin_read" on public.profiles
-  for select using (
-    exists (select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
-  );
+  for select using (public.is_admin());
 
 drop policy if exists "profiles_admin_update" on public.profiles;
 create policy "profiles_admin_update" on public.profiles
-  for update using (
-    exists (select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
-  );
+  for update using (public.is_admin());
 
 -- ─────────────────────────────────────────────────────────────────────
--- 3. Signup gate: trigger on auth.users insert
+-- 2. allowlist  (Zapier writes here; signup is gated on it)
 -- ─────────────────────────────────────────────────────────────────────
--- Rejects signups whose email isn't in `allowlist`. Fires before profile
+create table if not exists public.allowlist (
+  email       text primary key,
+  source      text not null default 'skool',     -- 'skool' | 'manual' | 'invite'
+  added_at    timestamptz not null default now(),
+  notes       text
+);
+
+alter table public.allowlist enable row level security;
+
+-- Only admins read or write the allowlist. End users never see it.
+drop policy if exists "allowlist_admin_all" on public.allowlist;
+create policy "allowlist_admin_all" on public.allowlist
+  for all
+  using (public.is_admin())
+  with check (public.is_admin());
+
+-- ─────────────────────────────────────────────────────────────────────
+-- 3. Auth triggers
+-- ─────────────────────────────────────────────────────────────────────
+-- Reject signups whose email isn't in `allowlist`. Fires before profile
 -- creation, so a denied user never gets a profile row.
 create or replace function public.enforce_allowlist()
 returns trigger
@@ -111,7 +121,7 @@ create trigger on_auth_user_created_trigger
   for each row execute function public.on_auth_user_created();
 
 -- When an email is removed from `allowlist`, mark the matching profile as
--- disabled. The app checks `disabled_at` on hydration and bounces the user.
+-- disabled. The app checks `disabled_at` on hydration and signs the user out.
 create or replace function public.on_allowlist_delete()
 returns trigger
 language plpgsql
@@ -156,9 +166,8 @@ create trigger on_allowlist_insert_trigger
 -- ─────────────────────────────────────────────────────────────────────
 -- Each bank stores the full item shape in `data` (matching TypeScript
 -- types), plus extracted columns for filtering: user_id, project_ids,
--- created_at. Anything we want to query/sort on at scale should be
--- denormalized; everything else stays in JSONB.
-
+-- created_at. Anything we want to query/sort on at scale is denormalized;
+-- everything else stays in JSONB.
 do $$
 declare
   bank text;
@@ -190,9 +199,7 @@ begin
     execute format('drop policy if exists "%I_admin_read" on public.%I;', bank, bank);
     execute format('
       create policy "%I_admin_read" on public.%I
-        for select using (
-          exists (select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
-        );
+        for select using (public.is_admin());
     ', bank, bank);
   end loop;
 end$$;
@@ -219,9 +226,7 @@ create policy "assets_self_all" on public.assets
 
 drop policy if exists "assets_admin_read" on public.assets;
 create policy "assets_admin_read" on public.assets
-  for select using (
-    exists (select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
-  );
+  for select using (public.is_admin());
 
 -- ─────────────────────────────────────────────────────────────────────
 -- 6. Helpers for the Admin page
