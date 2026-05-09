@@ -2,26 +2,17 @@
 -- Run this in Supabase SQL Editor (or via `supabase db push` if using the CLI).
 -- Idempotent: safe to re-run.
 --
--- Order matters: `profiles` must exist before `allowlist` because the
--- allowlist's admin policy references it. We also use a SECURITY DEFINER
--- `is_admin()` helper to avoid RLS self-recursion on the profiles table.
+-- Order matters because Postgres validates function bodies and policy
+-- expressions at creation time:
+--   1. profiles table   (referenced by is_admin())
+--   2. is_admin()       (referenced by every admin policy)
+--   3. admin policies on profiles + everywhere else
+--
+-- Self-recursion on profiles RLS is broken by making is_admin() a
+-- SECURITY DEFINER function — it bypasses RLS when reading profiles.
 
 -- ─────────────────────────────────────────────────────────────────────
--- 0. is_admin() helper — bypasses RLS to check the caller's admin flag.
---    Used by every "admin can read/write" policy below.
--- ─────────────────────────────────────────────────────────────────────
-create or replace function public.is_admin()
-returns boolean
-language sql
-security definer
-stable
-set search_path = public
-as $$
-  select coalesce((select is_admin from public.profiles where id = auth.uid()), false);
-$$;
-
--- ─────────────────────────────────────────────────────────────────────
--- 1. profiles  (one row per auth.users entry)
+-- 1. profiles  (no admin policies yet — those need is_admin() to exist)
 -- ─────────────────────────────────────────────────────────────────────
 create table if not exists public.profiles (
   id                uuid primary key references auth.users(id) on delete cascade,
@@ -48,6 +39,23 @@ drop policy if exists "profiles_self_update" on public.profiles;
 create policy "profiles_self_update" on public.profiles
   for update using (auth.uid() = id);
 
+-- ─────────────────────────────────────────────────────────────────────
+-- 2. is_admin() helper — bypasses RLS to check the caller's admin flag.
+--    Used by every "admin can read/write" policy below.
+-- ─────────────────────────────────────────────────────────────────────
+create or replace function public.is_admin()
+returns boolean
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select coalesce((select is_admin from public.profiles where id = auth.uid()), false);
+$$;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- 3. Admin policies on profiles (now is_admin() exists)
+-- ─────────────────────────────────────────────────────────────────────
 drop policy if exists "profiles_admin_read" on public.profiles;
 create policy "profiles_admin_read" on public.profiles
   for select using (public.is_admin());
@@ -57,7 +65,7 @@ create policy "profiles_admin_update" on public.profiles
   for update using (public.is_admin());
 
 -- ─────────────────────────────────────────────────────────────────────
--- 2. allowlist  (Zapier writes here; signup is gated on it)
+-- 4. allowlist  (Zapier writes here; signup is gated on it)
 -- ─────────────────────────────────────────────────────────────────────
 create table if not exists public.allowlist (
   email       text primary key,
@@ -68,7 +76,6 @@ create table if not exists public.allowlist (
 
 alter table public.allowlist enable row level security;
 
--- Only admins read or write the allowlist. End users never see it.
 drop policy if exists "allowlist_admin_all" on public.allowlist;
 create policy "allowlist_admin_all" on public.allowlist
   for all
@@ -76,10 +83,8 @@ create policy "allowlist_admin_all" on public.allowlist
   with check (public.is_admin());
 
 -- ─────────────────────────────────────────────────────────────────────
--- 3. Auth triggers
+-- 5. Auth triggers
 -- ─────────────────────────────────────────────────────────────────────
--- Reject signups whose email isn't in `allowlist`. Fires before profile
--- creation, so a denied user never gets a profile row.
 create or replace function public.enforce_allowlist()
 returns trigger
 language plpgsql
@@ -100,7 +105,6 @@ create trigger enforce_allowlist_trigger
   before insert on auth.users
   for each row execute function public.enforce_allowlist();
 
--- Auto-create a profile row on successful signup.
 create or replace function public.on_auth_user_created()
 returns trigger
 language plpgsql
@@ -120,8 +124,6 @@ create trigger on_auth_user_created_trigger
   after insert on auth.users
   for each row execute function public.on_auth_user_created();
 
--- When an email is removed from `allowlist`, mark the matching profile as
--- disabled. The app checks `disabled_at` on hydration and signs the user out.
 create or replace function public.on_allowlist_delete()
 returns trigger
 language plpgsql
@@ -141,7 +143,6 @@ create trigger on_allowlist_delete_trigger
   after delete on public.allowlist
   for each row execute function public.on_allowlist_delete();
 
--- Re-enable a previously disabled user when they're re-added to allowlist.
 create or replace function public.on_allowlist_insert()
 returns trigger
 language plpgsql
@@ -162,12 +163,8 @@ create trigger on_allowlist_insert_trigger
   for each row execute function public.on_allowlist_insert();
 
 -- ─────────────────────────────────────────────────────────────────────
--- 4. Bank tables (one per bank, all JSONB-backed)
+-- 6. Bank tables (one per bank, all JSONB-backed)
 -- ─────────────────────────────────────────────────────────────────────
--- Each bank stores the full item shape in `data` (matching TypeScript
--- types), plus extracted columns for filtering: user_id, project_ids,
--- created_at. Anything we want to query/sort on at scale is denormalized;
--- everything else stays in JSONB.
 do $$
 declare
   bank text;
@@ -205,7 +202,7 @@ begin
 end$$;
 
 -- ─────────────────────────────────────────────────────────────────────
--- 5. assets  (asset:// ref → R2 object key)
+-- 7. assets  (asset:// ref → R2 object key)
 -- ─────────────────────────────────────────────────────────────────────
 create table if not exists public.assets (
   id          text primary key,
@@ -229,9 +226,8 @@ create policy "assets_admin_read" on public.assets
   for select using (public.is_admin());
 
 -- ─────────────────────────────────────────────────────────────────────
--- 6. Helpers for the Admin page
+-- 8. Helpers for the Admin page
 -- ─────────────────────────────────────────────────────────────────────
--- Per-user storage usage (for the admin members table).
 create or replace view public.member_storage as
   select
     user_id,
@@ -240,8 +236,8 @@ create or replace view public.member_storage as
   from public.assets
   group by user_id;
 
--- Bootstrap: promote a user to admin by email. Run this once after your
--- own account is created.
+-- Bootstrap: promote a user to admin by email. Run once after your
+-- own account is created:
 --   select public.bootstrap_admin('you@example.com');
 create or replace function public.bootstrap_admin(target_email text)
 returns void
