@@ -29,6 +29,7 @@ function getItemName(bankType: BankType, item: BankItem): string {
     case 'scripts': return (item as Script).title
     case 'voices': return (item as VoicePreset).label
     case 'brolls': return (item as BRoll).prompt ?? 'B-Roll'
+    default: return ''
   }
 }
 
@@ -138,7 +139,7 @@ export default function BankPicker({
       addScript({ title: name, scriptText: '', linkedProductId: '', source: 'manual' })
       newItem = useBankStore.getState().scripts[useBankStore.getState().scripts.length - 1]
     } else if (bankType === 'voices') {
-      addVoice({ label: name, voiceId: '', voiceName: '', gender: 'Female', stability: 0.5, linkedModelId: '' })
+      addVoice({ label: name, voiceId: '', voiceName: '', gender: 'Female', stability: 0.5, similarityBoost: 0.75, style: 0, speed: 1, linkedModelId: '' })
       newItem = useBankStore.getState().voices[useBankStore.getState().voices.length - 1]
     }
 
