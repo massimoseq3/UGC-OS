@@ -3,6 +3,7 @@ import { Menu, Coins, RefreshCw } from 'lucide-react'
 import { useAppStore } from '../stores/appStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useCreditsStore } from '../stores/creditsStore'
+import ProjectSwitcher from './ProjectSwitcher'
 
 export default function MenuBar() {
   const toggleSidebar = useAppStore((s) => s.toggleSidebar)
@@ -37,6 +38,8 @@ export default function MenuBar() {
       </span>
 
       <div className="flex-1" />
+
+      <ProjectSwitcher />
 
       {/* Credits chip — only visible once an API key is configured */}
       {apiKey && (

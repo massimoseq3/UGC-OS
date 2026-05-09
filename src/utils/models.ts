@@ -6,8 +6,9 @@
 //
 // Pricing is hard-coded from kie.ai's marketing pages (kie.ai/{model-slug}) and
 // kie.ai/pricing — verify and update when prices drift. Last verified: 2026-05-09
-// (Wan 2.7, Sora 2, Sora 2 Pro pricing sourced from a mix of kie.ai marketing
-// and external references — re-verify on next audit cycle).
+// against kie.ai/pricing scrape. Veo / Sora bill per-video (NOT per-second) —
+// the unit name 'per-call' is used to encode that the duration multiplier
+// shouldn't be applied to the credit count.
 
 export type Task = 'chat' | 'vision' | 'image' | 'video' | 'tts'
 
@@ -155,7 +156,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     task: 'image',
     modes: ['text-to-image'],
     tags: ['new', 'fast'],
-    pricing: { unit: 'per-image', credits: 3.5 },
+    pricing: { unit: 'per-image', credits: 5.5 },
     imageConstraints: { resolutions: ['1K'] },
   },
   {
@@ -281,10 +282,15 @@ export const MODEL_REGISTRY: ModelEntry[] = [
       supportsAudio: true,
     },
   },
-  // Veo 3.1: per-video pricing keyed on (duration, resolution). Source:
-  // https://kie.ai/veo-3-1. The tables below are total credits PER VIDEO
-  // (not per second) — Veo bills the whole clip as a unit, with 5s and 10s
-  // priced separately rather than linearly.
+  // Veo 3.1: kie bills PER VIDEO at a flat rate keyed on resolution. Duration
+  // is NOT a request parameter for any Veo variant — kie's API spec exposes
+  // only resolution + aspect ratio + the optional image inputs; clip length
+  // is decided system-side. We therefore (a) declare empty `durations` so
+  // the UI hides the toggle, (b) use unit 'per-call' so estimateCredits
+  // doesn't multiply by a phantom duration, and (c) drop `duration` from
+  // buildVideoInput's Veo branch.
+  // Source: https://kie.ai/pricing (scraped 2026-05-09);
+  //         https://docs.kie.ai/veo3-api/generate-veo-3-video.md
   {
     id: 'veo3_fast',
     displayName: 'Veo 3.1 Fast',
@@ -294,18 +300,17 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     tags: ['fast'],
     supportsReferenceImages: true,
     pricing: {
-      unit: 'per-second',
-      credits: 6,
-      priceFor: ({ durationSeconds = 5, resolution = '720p' }) => {
-        const long = durationSeconds >= 10
-        if (resolution === '4k') return long ? 180 : 150
-        if (resolution === '1080p') return long ? 65 : 35
-        return long ? 60 : 30  // 720p
+      unit: 'per-call',
+      credits: 60,
+      priceFor: ({ resolution = '720p' }) => {
+        if (resolution === '4k') return 180
+        if (resolution === '1080p') return 65
+        return 60  // 720p
       },
     },
     videoEndpoint: 'veo',
     videoConstraints: {
-      durations: [5, 10],
+      durations: [],
       resolutions: ['720p', '1080p', '4k'],
       aspectRatios: ['16:9', '9:16'],
     },
@@ -319,18 +324,17 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     modes: ['text-to-video', 'image-to-video', 'frames-to-video'],
     tags: ['cheap'],
     pricing: {
-      unit: 'per-second',
-      credits: 2,
-      priceFor: ({ durationSeconds = 5, resolution = '720p' }) => {
-        const long = durationSeconds >= 10
-        if (resolution === '4k') return long ? 60 : 50
-        if (resolution === '1080p') return long ? 25 : 15
-        return long ? 20 : 10  // 720p
+      unit: 'per-call',
+      credits: 30,
+      priceFor: ({ resolution = '720p' }) => {
+        if (resolution === '4k') return 150
+        if (resolution === '1080p') return 35
+        return 30  // 720p
       },
     },
     videoEndpoint: 'veo',
     videoConstraints: {
-      durations: [5, 10],
+      durations: [],
       resolutions: ['720p', '1080p', '4k'],
       aspectRatios: ['16:9', '9:16'],
     },
@@ -343,18 +347,17 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     modes: ['text-to-video', 'image-to-video', 'frames-to-video'],
     tags: [],
     pricing: {
-      unit: 'per-second',
-      credits: 30,
-      priceFor: ({ durationSeconds = 5, resolution = '720p' }) => {
-        const long = durationSeconds >= 10
-        if (resolution === '4k') return long ? 370 : 190
-        if (resolution === '1080p') return long ? 255 : 155
-        return long ? 250 : 150  // 720p
+      unit: 'per-call',
+      credits: 250,
+      priceFor: ({ resolution = '720p' }) => {
+        if (resolution === '4k') return 380
+        if (resolution === '1080p') return 255
+        return 250  // 720p
       },
     },
     videoEndpoint: 'veo',
     videoConstraints: {
-      durations: [5, 10],
+      durations: [],
       resolutions: ['720p', '1080p', '4k'],
       aspectRatios: ['16:9', '9:16'],
     },
@@ -373,9 +376,9 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     tags: ['new'],
     pricing: {
       unit: 'per-second',
-      credits: 80,
+      credits: 16,
       priceFor: ({ durationSeconds = 5, resolution = '720p' }) => {
-        const perSec = resolution === '1080p' ? 120 : 80  // 720p
+        const perSec = resolution === '1080p' ? 24 : 16  // 720p
         return perSec * durationSeconds
       },
     },
@@ -384,13 +387,14 @@ export const MODEL_REGISTRY: ModelEntry[] = [
       durations: [3, 5, 8, 10, 12, 15],
       resolutions: ['720p', '1080p'],
       aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4'],
-      supportsAudio: true,
+      supportsAudio: false,
     },
   },
-  // Sora 2 — OpenAI. Single-tier resolution; durations fixed at 10s or 15s.
+  // Sora 2 — OpenAI. Bills per-video; only n_frames (10 or 15) is exposed.
   // Audio is baked into the output and not user-controllable.
   // Docs: https://docs.kie.ai/market/sora2/sora-2-text-to-video
   //       https://docs.kie.ai/market/sora2/sora-2-image-to-video
+  // Pricing (per video, resolution NOT a parameter): 10s = 30 cr, 15s = 35 cr.
   {
     id: 'sora-2',
     displayName: 'Sora 2',
@@ -398,7 +402,11 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     task: 'video',
     modes: ['text-to-video', 'image-to-video'],
     tags: ['new'],
-    pricing: { unit: 'per-second', credits: 15 },
+    pricing: {
+      unit: 'per-call',
+      credits: 30,
+      priceFor: ({ durationSeconds = 10 }) => (durationSeconds >= 15 ? 35 : 30),
+    },
     videoEndpoint: 'createTask',
     videoConstraints: {
       durations: [10, 15],
@@ -408,6 +416,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
   },
   // Sora 2 Pro — OpenAI Pro tier with a Standard/HD size dimension.
   // Docs: https://docs.kie.ai/market/sora2/sora-2-pro-image-to-video
+  // Pricing per video — Standard: 10s=150, 15s=270; High: 10s=330, 15s=630.
   {
     id: 'sora-2-pro',
     displayName: 'Sora 2 Pro',
@@ -416,11 +425,12 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     modes: ['text-to-video', 'image-to-video'],
     tags: [],
     pricing: {
-      unit: 'per-second',
-      credits: 45,
+      unit: 'per-call',
+      credits: 150,
       priceFor: ({ durationSeconds = 10, resolution = 'standard' }) => {
-        const perSec = resolution === 'high' ? 100 : 45
-        return perSec * durationSeconds
+        const long = durationSeconds >= 15
+        if (resolution === 'high') return long ? 630 : 330
+        return long ? 270 : 150  // standard
       },
     },
     videoEndpoint: 'createTask',

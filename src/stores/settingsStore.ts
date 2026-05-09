@@ -5,6 +5,10 @@ const STORAGE_KEY = 'ai-ugc-lab-settings'
 interface SettingsState {
   kieApiKey: string
   perAppModel: Record<string, string>
+  // The currently-active project (null = none). Set by the header switcher.
+  // The bank store reads this when adding new items so they auto-tag into
+  // the active project — see `autoProjectIds` in `bankStore.ts`.
+  activeProjectId: string | null
 
   setKieApiKey: (key: string) => void
 
@@ -13,11 +17,14 @@ interface SettingsState {
 
   setAppModel: (appId: string, modelId: string) => void
   getAppModel: (appId: string) => string | undefined
+
+  setActiveProject: (id: string | null) => void
 }
 
 interface PersistedShape {
   kieApiKey?: string
   perAppModel?: Record<string, string>
+  activeProjectId?: string | null
   // Legacy field — read once during migration, never written again.
   googleApiKey?: string
 }
@@ -66,7 +73,7 @@ const MODEL_MIGRATIONS: Array<{ name: string; apply: (m: Record<string, string>)
   },
 ]
 
-function loadFromStorage(): { kieApiKey: string; perAppModel: Record<string, string> } {
+function loadFromStorage(): { kieApiKey: string; perAppModel: Record<string, string>; activeProjectId: string | null } {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
@@ -92,20 +99,22 @@ function loadFromStorage(): { kieApiKey: string; perAppModel: Record<string, str
         localStorage.setItem(STORAGE_KEY, JSON.stringify({
           kieApiKey: parsed.kieApiKey ?? '',
           perAppModel,
+          activeProjectId: parsed.activeProjectId ?? null,
         }))
       }
       return {
         kieApiKey: parsed.kieApiKey ?? '',
         perAppModel,
+        activeProjectId: parsed.activeProjectId ?? null,
       }
     }
   } catch {
     // Corrupted data — start fresh
   }
-  return { kieApiKey: '', perAppModel: {} }
+  return { kieApiKey: '', perAppModel: {}, activeProjectId: null }
 }
 
-function saveToStorage(state: { kieApiKey: string; perAppModel: Record<string, string> }) {
+function saveToStorage(state: { kieApiKey: string; perAppModel: Record<string, string>; activeProjectId: string | null }) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
 }
 
@@ -113,7 +122,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   ...loadFromStorage(),
 
   setKieApiKey: (key) => {
-    const next = { kieApiKey: key, perAppModel: get().perAppModel }
+    const next = { kieApiKey: key, perAppModel: get().perAppModel, activeProjectId: get().activeProjectId }
     saveToStorage(next)
     set({ kieApiKey: key })
   },
@@ -127,10 +136,16 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
 
   setAppModel: (appId, modelId) => {
-    const next = { kieApiKey: get().kieApiKey, perAppModel: { ...get().perAppModel, [appId]: modelId } }
+    const next = { kieApiKey: get().kieApiKey, perAppModel: { ...get().perAppModel, [appId]: modelId }, activeProjectId: get().activeProjectId }
     saveToStorage(next)
     set({ perAppModel: next.perAppModel })
   },
 
   getAppModel: (appId) => get().perAppModel[appId],
+
+  setActiveProject: (id) => {
+    const next = { kieApiKey: get().kieApiKey, perAppModel: get().perAppModel, activeProjectId: id }
+    saveToStorage(next)
+    set({ activeProjectId: id })
+  },
 }))

@@ -8,6 +8,7 @@ import {
   Video,
   Package,
   FileText,
+  FolderOpen,
 } from 'lucide-react'
 import type { ElementType } from 'react'
 
@@ -37,9 +38,10 @@ export const CATEGORY_LABELS: Record<AppCategory, string> = {
   tools: 'Tools',
 }
 
-export type BankType = 'products' | 'models' | 'scripts' | 'voices' | 'brolls'
+export type BankType = 'projects' | 'products' | 'models' | 'scripts' | 'voices' | 'brolls'
 
 export const BANK_CONFIG: Record<BankType, { label: string; icon: ElementType; accent: string }> = {
+  projects: { label: 'Projects', icon: FolderOpen, accent: '#10b981' },
   products: { label: 'Products', icon: Package, accent: '#f59e0b' },
   models: { label: 'Characters', icon: UserRound, accent: '#0ea5e9' },
   scripts: { label: 'Scripts', icon: FileText, accent: '#3b82f6' },

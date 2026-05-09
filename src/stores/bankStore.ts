@@ -1,17 +1,29 @@
 import { create } from 'zustand'
-import type { Product, Model, Script, VoicePreset, BRoll, VoiceHistoryItem } from './types'
+import type { Product, Model, Script, VoicePreset, BRoll, VoiceHistoryItem, VideoHistoryItem, Project } from './types'
 import { isAssetRef, deleteAsset, saveFromDataUrl } from '../utils/assetStore'
+import { useSettingsStore } from './settingsStore'
 
 const STORAGE_KEY = 'ai-ugc-lab-banks'
 const MIGRATION_FLAG = 'ai-ugc-lab-migrated-v2'
 
 interface BankState {
+  projects: Project[]
   products: Product[]
   models: Model[]
   scripts: Script[]
   voices: VoicePreset[]
   brolls: BRoll[]
   voiceHistory: VoiceHistoryItem[]
+  videoHistory: VideoHistoryItem[]
+
+  // Project CRUD
+  addProject: (project: Omit<Project, 'id' | 'createdAt'>) => string
+  updateProject: (id: string, updates: Partial<Project>) => void
+  deleteProject: (id: string) => void
+  getProjectById: (id: string) => Project | undefined
+  // Tag/untag any item across banks. The store knows which array to mutate.
+  addItemToProject: (bank: 'products' | 'models' | 'scripts' | 'voices' | 'brolls' | 'videoHistory', itemId: string, projectId: string) => void
+  removeItemFromProject: (bank: 'products' | 'models' | 'scripts' | 'voices' | 'brolls' | 'videoHistory', itemId: string, projectId: string) => void
 
   // Product CRUD
   addProduct: (product: Omit<Product, 'id' | 'createdAt'>) => void
@@ -47,13 +59,29 @@ interface BankState {
   addVoiceHistory: (item: VoiceHistoryItem) => void
   deleteVoiceHistory: (id: string) => void
   clearVoiceHistory: () => void
+
+  // Video History (B-Roll Videos)
+  addVideoHistory: (item: VideoHistoryItem) => void
+  updateVideoHistory: (id: string, updates: Partial<VideoHistoryItem>) => void
+  deleteVideoHistory: (id: string) => void
+  clearVideoHistory: () => void
 }
 
 function generateId(): string {
   return crypto.randomUUID()
 }
 
-type BankData = Pick<BankState, 'products' | 'models' | 'scripts' | 'voices' | 'brolls' | 'voiceHistory'>
+type BankData = Pick<BankState, 'projects' | 'products' | 'models' | 'scripts' | 'voices' | 'brolls' | 'voiceHistory' | 'videoHistory'>
+
+// Reads the currently-active project id from the settings store. Returns
+// `[activeProjectId]` if one is active, else `undefined` so the spread no-ops.
+// Centralized here so every `addX` method auto-tags consistently.
+function autoProjectIds(existing?: string[]): string[] | undefined {
+  const active = useSettingsStore.getState().activeProjectId
+  if (!active) return existing
+  if (existing?.includes(active)) return existing
+  return [active, ...(existing ?? [])]
+}
 
 // One-shot migration for older voice shapes:
 //   - v3 dropped creativity / ambience / styleInstructions (legacy keys stripped)
@@ -84,29 +112,33 @@ function loadFromStorage(): BankData {
     if (raw) {
       const parsed = JSON.parse(raw)
       return {
+        projects: Array.isArray(parsed.projects) ? parsed.projects : [],
         products: parsed.products ?? [],
         models: parsed.models ?? [],
         scripts: parsed.scripts ?? [],
         voices: migrateVoiceShape<VoicePreset>(parsed.voices),
         brolls: parsed.brolls ?? [],
         voiceHistory: migrateVoiceShape<VoiceHistoryItem>(parsed.voiceHistory),
+        videoHistory: Array.isArray(parsed.videoHistory) ? parsed.videoHistory : [],
       }
     }
   } catch {
     // Corrupted data — start fresh
   }
-  return { products: [], models: [], scripts: [], voices: [], brolls: [], voiceHistory: [] }
+  return { projects: [], products: [], models: [], scripts: [], voices: [], brolls: [], voiceHistory: [], videoHistory: [] }
 }
 
 function saveToStorage(state: BankData) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      projects: state.projects,
       products: state.products,
       models: state.models,
       scripts: state.scripts,
       voices: state.voices,
       brolls: state.brolls,
       voiceHistory: state.voiceHistory,
+      videoHistory: state.videoHistory,
     }))
   } catch (error) {
     console.error('Failed to save to storage', error)
@@ -125,10 +157,79 @@ function cleanupAssets(...refs: (string | undefined)[]) {
 export const useBankStore = create<BankState>((set, get) => ({
   ...loadFromStorage(),
 
+  // Projects
+  addProject: (project) => {
+    const id = generateId()
+    set((state) => {
+      const next = {
+        projects: [...state.projects, { ...project, id, createdAt: Date.now() }],
+      }
+      saveToStorage({ ...state, ...next })
+      return next
+    })
+    return id
+  },
+  updateProject: (id, updates) => set((state) => {
+    const next = {
+      projects: state.projects.map((p) => p.id === id ? { ...p, ...updates } : p),
+    }
+    saveToStorage({ ...state, ...next })
+    return next
+  }),
+  // Deleting a project scrubs its id from every item's projectIds — items
+  // themselves are not deleted, just untagged. We also clear it from the
+  // active-project setting so the header switcher doesn't dangle.
+  deleteProject: (id) => set((state) => {
+    const scrub = <T extends { projectIds?: string[] }>(arr: T[]): T[] =>
+      arr.map((item) =>
+        item.projectIds?.includes(id)
+          ? { ...item, projectIds: item.projectIds.filter((pid) => pid !== id) }
+          : item,
+      )
+    const next: Partial<BankState> = {
+      projects: state.projects.filter((p) => p.id !== id),
+      products: scrub(state.products),
+      models: scrub(state.models),
+      scripts: scrub(state.scripts),
+      voices: scrub(state.voices),
+      brolls: scrub(state.brolls),
+      videoHistory: scrub(state.videoHistory),
+    }
+    if (useSettingsStore.getState().activeProjectId === id) {
+      useSettingsStore.getState().setActiveProject(null)
+    }
+    saveToStorage({ ...state, ...next } as BankData)
+    return next
+  }),
+  getProjectById: (id) => get().projects.find((p) => p.id === id),
+  addItemToProject: (bank, itemId, projectId) => set((state) => {
+    const items = state[bank] as Array<{ id: string; projectIds?: string[] }>
+    const updated = items.map((item) =>
+      item.id === itemId
+        ? { ...item, projectIds: Array.from(new Set([...(item.projectIds ?? []), projectId])) }
+        : item,
+    )
+    const next = { [bank]: updated } as Partial<BankState>
+    saveToStorage({ ...state, ...next } as BankData)
+    return next
+  }),
+  removeItemFromProject: (bank, itemId, projectId) => set((state) => {
+    const items = state[bank] as Array<{ id: string; projectIds?: string[] }>
+    const updated = items.map((item) =>
+      item.id === itemId
+        ? { ...item, projectIds: (item.projectIds ?? []).filter((pid) => pid !== projectId) }
+        : item,
+    )
+    const next = { [bank]: updated } as Partial<BankState>
+    saveToStorage({ ...state, ...next } as BankData)
+    return next
+  }),
+
   // Products
   addProduct: (product) => set((state) => {
+    const projectIds = autoProjectIds(product.projectIds)
     const next = {
-      products: [...state.products, { ...product, id: generateId(), createdAt: Date.now() }],
+      products: [...state.products, { ...product, projectIds, id: generateId(), createdAt: Date.now() }],
     }
     saveToStorage({ ...state, ...next })
     return next
@@ -158,8 +259,9 @@ export const useBankStore = create<BankState>((set, get) => ({
 
   // Models
   addModel: (model) => set((state) => {
+    const projectIds = autoProjectIds(model.projectIds)
     const next = {
-      models: [...state.models, { ...model, id: generateId(), createdAt: Date.now() }],
+      models: [...state.models, { ...model, projectIds, id: generateId(), createdAt: Date.now() }],
     }
     saveToStorage({ ...state, ...next })
     return next
@@ -188,8 +290,9 @@ export const useBankStore = create<BankState>((set, get) => ({
 
   // Scripts
   addScript: (script) => set((state) => {
+    const projectIds = autoProjectIds(script.projectIds)
     const next = {
-      scripts: [...state.scripts, { ...script, id: generateId(), createdAt: Date.now() }],
+      scripts: [...state.scripts, { ...script, projectIds, id: generateId(), createdAt: Date.now() }],
     }
     saveToStorage({ ...state, ...next })
     return next
@@ -210,8 +313,9 @@ export const useBankStore = create<BankState>((set, get) => ({
 
   // Voices
   addVoice: (voice) => set((state) => {
+    const projectIds = autoProjectIds(voice.projectIds)
     const next = {
-      voices: [...state.voices, { ...voice, id: generateId(), createdAt: Date.now() }],
+      voices: [...state.voices, { ...voice, projectIds, id: generateId(), createdAt: Date.now() }],
     }
     saveToStorage({ ...state, ...next })
     return next
@@ -232,8 +336,9 @@ export const useBankStore = create<BankState>((set, get) => ({
 
   // B-Rolls
   addBRoll: (broll) => set((state) => {
+    const projectIds = autoProjectIds(broll.projectIds)
     const next = {
-      brolls: [...state.brolls, { ...broll, id: generateId(), createdAt: Date.now() }],
+      brolls: [...state.brolls, { ...broll, projectIds, id: generateId(), createdAt: Date.now() }],
     }
     saveToStorage({ ...state, ...next })
     return next
@@ -281,6 +386,38 @@ export const useBankStore = create<BankState>((set, get) => ({
       cleanupAssets(item.audioUrl)
     }
     const next = { voiceHistory: [] as VoiceHistoryItem[] }
+    saveToStorage({ ...state, ...next })
+    return next
+  }),
+
+  // Video History
+  addVideoHistory: (item) => set((state) => {
+    const projectIds = autoProjectIds(item.projectIds)
+    const next = { videoHistory: [{ ...item, projectIds }, ...state.videoHistory] }
+    saveToStorage({ ...state, ...next })
+    return next
+  }),
+  updateVideoHistory: (id, updates) => set((state) => {
+    const next = {
+      videoHistory: state.videoHistory.map((h) => h.id === id ? { ...h, ...updates } : h),
+    }
+    saveToStorage({ ...state, ...next })
+    return next
+  }),
+  deleteVideoHistory: (id) => set((state) => {
+    const item = state.videoHistory.find((h) => h.id === id)
+    // Only clean the asset if it's not also linked to a saved BRoll record —
+    // otherwise we'd orphan the bank entry's blob.
+    if (item && !item.linkedBRollId) cleanupAssets(item.videoUrl, item.thumbnailUrl)
+    const next = { videoHistory: state.videoHistory.filter((h) => h.id !== id) }
+    saveToStorage({ ...state, ...next })
+    return next
+  }),
+  clearVideoHistory: () => set((state) => {
+    for (const item of state.videoHistory) {
+      if (!item.linkedBRollId) cleanupAssets(item.videoUrl, item.thumbnailUrl)
+    }
+    const next = { videoHistory: [] as VideoHistoryItem[] }
     saveToStorage({ ...state, ...next })
     return next
   }),

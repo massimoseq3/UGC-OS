@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, type ReactNode } from 'react'
-import { Film, Loader2, AlertCircle, Save, Check, Volume2, VolumeX, ChevronDown } from 'lucide-react'
+import { Film, Loader2, AlertCircle, Save, Check, Volume2, VolumeX, ChevronDown, Download } from 'lucide-react'
 import { useBankStore } from '../../stores/bankStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useAppStore } from '../../stores/appStore'
@@ -7,15 +7,17 @@ import { useAssetUrl } from '../../hooks/useAssetUrl'
 import ModelPicker from '../../components/ModelPicker'
 import VideoInputSlot, { type VideoInputValue } from '../../components/video/VideoInputSlot'
 import VideoRefStrip from '../../components/video/VideoRefStrip'
+import VideoHistoryGrid from './components/VideoHistoryGrid'
 import {
   getDefaultModel,
   getModel,
   estimateCredits,
   formatCredits,
 } from '../../utils/models'
-import { saveFromDataUrl } from '../../utils/assetStore'
+import { saveFromDataUrl, getUrl } from '../../utils/assetStore'
 import { generateVideo } from './services/generateVideo'
 import type { VideoGenResult, VideoMode } from './types'
+import type { VideoHistoryItem } from '../../stores/types'
 
 const RESOLUTION_LABELS: Record<string, string> = {
   '480p': '480p',
@@ -62,9 +64,16 @@ export default function VideoStudio() {
   const [result, setResult] = useState<VideoGenResult | null>(null)
   const [savedToBank, setSavedToBank] = useState(false)
 
+  const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null)
+  const [rightTab, setRightTab] = useState<'current' | 'history'>('current')
+
   const addBRoll = useBankStore((s) => s.addBRoll)
   const updateBRoll = useBankStore((s) => s.updateBRoll)
   const getBRollById = useBankStore((s) => s.getBRollById)
+  const videoHistory = useBankStore((s) => s.videoHistory)
+  const addVideoHistory = useBankStore((s) => s.addVideoHistory)
+  const updateVideoHistory = useBankStore((s) => s.updateVideoHistory)
+  const deleteVideoHistory = useBankStore((s) => s.deleteVideoHistory)
   const interAppPayload = useAppStore((s) => s.interAppPayload)
   const consumePayload = useAppStore((s) => s.consumePayload)
   const activeApp = useAppStore((s) => s.activeApp)
@@ -84,7 +93,11 @@ export default function VideoStudio() {
     const c = selectedModel?.videoConstraints
     if (!c) return
     if (!c.aspectRatios.includes(aspectRatio)) setAspectRatio(c.aspectRatios[0])
-    if (!c.durations.includes(duration)) setDuration(c.durations[0] ?? 5)
+    // Empty `durations` means the model doesn't expose duration as a parameter
+    // (Veo 3.1 family) — leave the local state alone; it's never sent.
+    if (c.durations.length > 0 && !c.durations.includes(duration)) {
+      setDuration(c.durations[0])
+    }
     if (!c.resolutions.includes(resolution)) setResolution(c.resolutions[0] ?? '720p')
     if (!c.supportsAudio) setAudio(false)
     if (!selectedModel?.supportsReferenceImages && references.length > 0) {
@@ -143,6 +156,23 @@ export default function VideoStudio() {
         modelId: selectedModelId,
       })
       setResult(res)
+      // Push every successful generation into history so it survives reloads
+      // and lives in the right-panel grid. The asset blob is already stored
+      // in IndexedDB by generateVideo — we just keep its asset:// ref.
+      const historyEntry: VideoHistoryItem = {
+        id: crypto.randomUUID(),
+        modelId: selectedModelId,
+        prompt: prompt.trim(),
+        mode: inferredMode,
+        aspectRatio: res.aspectRatio,
+        durationSeconds: res.durationSeconds,
+        resolution,
+        audio,
+        videoUrl: res.assetId,
+        createdAt: Date.now(),
+      }
+      addVideoHistory(historyEntry)
+      setActiveHistoryId(historyEntry.id)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Video generation failed.')
     } finally {
@@ -197,8 +227,34 @@ export default function VideoStudio() {
       prompt: prompt.trim(),
       videos: [newVideo],
     })
+    // Mirror saved-state into the history entry so the History grid stays in sync.
+    if (activeHistoryId) {
+      updateVideoHistory(activeHistoryId, { linkedBRollId: 'pending' })
+    }
     setSavedToBank(true)
     setTimeout(() => setSavedToBank(false), 2000)
+  }
+
+  // Saves a history item to the B-Rolls Bank without touching the active form
+  // state — the form may have been filled for a different generation since.
+  // Creates a video-only BRoll record and stamps the history entry.
+  function handleSaveHistoryItem(item: VideoHistoryItem) {
+    if (item.linkedBRollId) return
+    const newId = crypto.randomUUID()
+    addBRoll({
+      imageUrl: '',
+      prompt: item.prompt,
+      videos: [{
+        url: item.videoUrl,
+        aspectRatio: item.aspectRatio,
+        createdAt: item.createdAt,
+      }],
+    })
+    // We don't know the assigned BRoll id from addBRoll (it's generated inside
+    // the store), so we store a sentinel marker on the history entry. The grid
+    // only checks truthiness to render the saved-state badge, which is enough
+    // for now.
+    updateVideoHistory(item.id, { linkedBRollId: newId })
   }
 
   const credits = formatCredits(
@@ -264,7 +320,7 @@ export default function VideoStudio() {
             renders as a segmented toggle when there are ≤3 options, else a
             dropdown to keep the panel compact for high-cardinality sets. */}
         {constraints && (
-          <div className="mb-5 grid grid-cols-3 gap-3">
+          <div className={`mb-5 grid gap-3 ${constraints.durations.length > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
             <ChoiceControl
               label="Aspect"
               options={constraints.aspectRatios}
@@ -277,13 +333,15 @@ export default function VideoStudio() {
                 </span>
               )}
             />
-            <ChoiceControl
-              label="Duration"
-              options={constraints.durations}
-              value={duration}
-              onChange={setDuration}
-              renderOption={(d) => `${d}s`}
-            />
+            {constraints.durations.length > 0 && (
+              <ChoiceControl
+                label="Duration"
+                options={constraints.durations}
+                value={duration}
+                onChange={setDuration}
+                renderOption={(d) => `${d}s`}
+              />
+            )}
             <ChoiceControl
               label="Resolution"
               options={constraints.resolutions}
@@ -343,45 +401,147 @@ export default function VideoStudio() {
         </div>
       </div>
 
-      {/* Right — output */}
-      <div className="flex flex-1 items-center justify-center p-5">
-        {result && resolvedVideoUrl ? (
-          <div className="flex h-full w-full flex-col items-center gap-3">
-            <video
-              src={resolvedVideoUrl}
-              controls
-              autoPlay
-              loop
-              className="max-h-[70vh] max-w-full rounded-xl border border-white/10"
-            />
-            <button
-              onClick={handleSaveToBank}
-              disabled={savedToBank}
-              className="flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-[12px] font-medium text-zinc-300 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
-            >
-              {savedToBank ? (
-                <>
-                  <Check className="h-3.5 w-3.5 text-emerald-400" />
-                  <span className="text-emerald-400">Saved to B-Rolls</span>
-                </>
+      {/* Right — tabbed panel: Current generation | History grid. Mirrors
+          Voiceovers' RightPanel pattern so the layouts feel consistent. */}
+      <div className="flex flex-1 min-h-0 flex-col">
+        <div className="flex items-center gap-1 border-b border-white/5 px-5">
+          <RightTabButton active={rightTab === 'current'} onClick={() => setRightTab('current')}>
+            Current
+          </RightTabButton>
+          <RightTabButton active={rightTab === 'history'} onClick={() => setRightTab('history')}>
+            History
+            {videoHistory.length > 0 && (
+              <span className="ml-1.5 rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] text-zinc-300">
+                {videoHistory.length}
+              </span>
+            )}
+          </RightTabButton>
+        </div>
+
+        <div className="relative min-h-0 flex-1 overflow-hidden">
+          {rightTab === 'current' ? (
+            <div className="flex h-full items-center justify-center p-5">
+              {result && resolvedVideoUrl ? (
+                <div className="flex h-full w-full flex-col items-center gap-3">
+                  <video
+                    src={resolvedVideoUrl}
+                    controls
+                    autoPlay
+                    loop
+                    className="max-h-[70vh] max-w-full rounded-xl border border-white/10"
+                  />
+                  <div className="flex flex-col items-center gap-2">
+                    <button
+                      onClick={handleSaveToBank}
+                      disabled={savedToBank}
+                      className="flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-[12px] font-medium text-zinc-300 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
+                    >
+                      {savedToBank ? (
+                        <>
+                          <Check className="h-3.5 w-3.5 text-emerald-400" />
+                          <span className="text-emerald-400">Saved to B-Rolls</span>
+                        </>
+                      ) : (
+                        <>
+                          <Save className="h-3.5 w-3.5" />
+                          <span>Save to B-Rolls Bank</span>
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => downloadVideo(resolvedVideoUrl, result.assetId)}
+                      className="flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-4 py-2 text-[12px] font-medium text-emerald-300 transition-colors hover:bg-emerald-500/25 hover:text-emerald-200"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      <span>Download Video</span>
+                    </button>
+                  </div>
+                </div>
               ) : (
-                <>
-                  <Save className="h-3.5 w-3.5" />
-                  <span>Save to B-Rolls Bank</span>
-                </>
+                <div className="flex flex-col items-center gap-2 text-center">
+                  <Film className="h-10 w-10 text-zinc-800" strokeWidth={1.5} />
+                  <p className="text-sm text-zinc-700">Configure your video and generate</p>
+                  <p className="text-xs text-zinc-800">Output will play here</p>
+                </div>
               )}
-            </button>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center gap-2 text-center">
-            <Film className="h-10 w-10 text-zinc-800" strokeWidth={1.5} />
-            <p className="text-sm text-zinc-700">Configure your video and generate</p>
-            <p className="text-xs text-zinc-800">Output will play here</p>
-          </div>
-        )}
+            </div>
+          ) : (
+            <VideoHistoryGrid
+              items={videoHistory}
+              activeId={activeHistoryId}
+              onSelect={(item) => {
+                setResult({
+                  assetId: item.videoUrl,
+                  durationSeconds: item.durationSeconds ?? 0,
+                  aspectRatio: item.aspectRatio,
+                })
+                setActiveHistoryId(item.id)
+                setSavedToBank(!!item.linkedBRollId)
+                setRightTab('current')
+              }}
+              onSaveToBank={handleSaveHistoryItem}
+              onDownload={async (item) => {
+                const url = await getUrl(item.videoUrl)
+                if (url) downloadVideo(url, item.id)
+              }}
+              onDelete={(id) => {
+                deleteVideoHistory(id)
+                if (activeHistoryId === id) setActiveHistoryId(null)
+              }}
+            />
+          )}
+        </div>
       </div>
     </div>
   )
+}
+
+function RightTabButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean
+  onClick: () => void
+  children: ReactNode
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`relative flex items-center gap-1 px-3 pb-2 pt-5 text-sm font-medium tracking-tight transition-colors ${
+        active ? 'text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'
+      }`}
+    >
+      {children}
+      <span
+        className={`absolute inset-x-3 -bottom-px h-0.5 rounded-full transition-colors ${
+          active ? 'bg-zinc-100' : 'bg-transparent'
+        }`}
+      />
+    </button>
+  )
+}
+
+// Triggers a browser download for a video URL. Fetches the blob first so the
+// `download` attribute works cross-origin (asset blob URLs work directly;
+// remote http URLs would otherwise just navigate).
+async function downloadVideo(url: string | null, fallbackName: string) {
+  if (!url) return
+  try {
+    const res = await fetch(url)
+    const blob = await res.blob()
+    const objectUrl = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = objectUrl
+    a.download = `ugc-lab-${fallbackName.replace(/[^\w-]/g, '')}.mp4`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
+  } catch {
+    // Fall back to opening in a new tab if fetch is blocked.
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
 }
 
 interface SegmentedControlProps<T> {
