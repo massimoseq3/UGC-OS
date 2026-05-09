@@ -290,7 +290,7 @@ export default function BankList({ bankType, onEdit, onAdd }: BankListProps) {
   }
 
   if (bankType === 'models') {
-    if (models.length === 0) return <EmptyState icon={UserRound} label="models" singular="model" onAdd={onAdd} />
+    if (models.length === 0) return <EmptyState icon={UserRound} label="characters" singular="character" onAdd={onAdd} />
     return (
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
         {models.map((m) => (

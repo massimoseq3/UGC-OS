@@ -15,6 +15,7 @@ import { useAuthStore } from '../stores/authStore'
 import { useAppStore } from '../stores/appStore'
 import { useBankStore } from '../stores/bankStore'
 import { useSettingsStore } from '../stores/settingsStore'
+import { useSyncStore } from '../stores/syncStore'
 import { getSupabase, isCloudEnabled } from './supabase'
 import type { Project, Product, Model, Script, VoicePreset, BRoll, VoiceHistoryItem, VideoHistoryItem } from '../stores/types'
 
@@ -24,6 +25,7 @@ function reportError(context: string, err: unknown) {
   const msg = err instanceof Error ? err.message : (typeof err === 'string' ? err : JSON.stringify(err))
   console.error(`[cloudSync] ${context}:`, err)
   try { useAppStore.getState().addToast(`Cloud sync — ${context}: ${msg}`, 'error') } catch { /* store not ready */ }
+  try { useSyncStore.getState().setError(`${context}: ${msg}`) } catch { /* store not ready */ }
 }
 
 type BankKey = 'projects' | 'products' | 'models' | 'scripts' | 'voices' | 'brolls' | 'voiceHistory' | 'videoHistory'
@@ -206,6 +208,10 @@ async function flushPending() {
 
   const dirty = Array.from(pendingDirty)
   pendingDirty.clear()
+  if (dirty.length === 0) return
+
+  useSyncStore.getState().setStatus('syncing')
+  let hadError = false
 
   for (const key of dirty) {
     const table = BANK_TO_TABLE[key]
@@ -229,15 +235,17 @@ async function flushPending() {
       const { error } = await sb.from(table).upsert(
         upserts.map((r) => ({ ...r, user_id: userId, updated_at: new Date().toISOString() })),
       )
-      if (error) reportError(`upsert ${table}`, error)
+      if (error) { reportError(`upsert ${table}`, error); hadError = true }
     }
     if (deletedIds.length > 0) {
       const { error } = await sb.from(table).delete().in('id', deletedIds).eq('user_id', userId)
-      if (error) reportError(`delete ${table}`, error)
+      if (error) { reportError(`delete ${table}`, error); hadError = true }
     }
 
     lastSnapshot[key] = next
   }
+
+  if (!hadError) useSyncStore.getState().markSynced()
 }
 
 async function pushSettingsNow() {
@@ -245,12 +253,14 @@ async function pushSettingsNow() {
   if (!userId) return
   const sb = getSupabase()
   const s = useSettingsStore.getState()
+  useSyncStore.getState().setStatus('syncing')
   const { error } = await sb.from('profiles').update({
     kie_api_key: s.kieApiKey || null,
     per_app_model: s.perAppModel,
     active_project_id: s.activeProjectId,
   }).eq('id', userId)
   if (error) reportError('profile update', error)
+  else useSyncStore.getState().markSynced()
 }
 
 let lastSettingsJson = ''
@@ -299,17 +309,20 @@ function startSubscribers() {
 export async function startCloudSync() {
   if (!isCloudEnabled()) {
     console.log('[cloudSync] disabled — Supabase env vars not set')
+    useSyncStore.getState().setStatus('disabled')
     return
   }
   if (started) return
   const userId = useAuthStore.getState().user?.id
   if (!userId) {
     console.log('[cloudSync] skipped — no user id')
+    useSyncStore.getState().setStatus('disabled')
     return
   }
 
   started = true
   console.log('[cloudSync] starting for user', userId)
+  useSyncStore.getState().setStatus('starting')
 
   try {
     // First-login local-snapshot upload (one-shot per user per browser).
@@ -337,6 +350,7 @@ export async function startCloudSync() {
 
   startSubscribers()
   console.log('[cloudSync] subscribers active — bank changes will sync to cloud')
+  useSyncStore.getState().markSynced()
 }
 
 export function stopCloudSync() {
@@ -347,4 +361,5 @@ export function stopCloudSync() {
   pendingDirty.clear()
   for (const k of BANK_KEYS) delete lastSnapshot[k]
   started = false
+  useSyncStore.getState().setStatus('disabled')
 }
