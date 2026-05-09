@@ -67,15 +67,14 @@ export default function OutputPanel({ result, isGenerating, error, onGenerate, o
   const selectedModelId = persistedModel ?? getDefaultModel('character-studio', 'image', 'text-to-image')?.id
   const creditsLabel = formatCredits(estimateCredits(selectedModelId ?? '', { imageCount: 1, resolution }))
 
-  // When the model changes, snap to that model's preferred default tier (or
-  // first supported as a fallback). This makes GPT Image 2 land on 2K when
-  // users switch into it, and keeps any model switch consistent.
+  // When the model changes, only snap if the current resolution isn't
+  // supported by the new model. We deliberately don't auto-jump to the
+  // model's preferred default — the user's pick sticks across model
+  // swaps whenever the new model can honour it.
   useEffect(() => {
-    const constraints = selectedModelId ? getModel(selectedModelId)?.imageConstraints : undefined
-    const tiers = (constraints?.resolutions ?? []) as ImageResolution[]
-    if (tiers.length === 0) return
-    const preferred = (constraints?.default as ImageResolution | undefined) ?? tiers[0]
-    if (preferred !== resolution) onResolutionChange(preferred)
+    const tiers = (selectedModelId ? getModel(selectedModelId)?.imageConstraints?.resolutions : undefined) as ImageResolution[] | undefined
+    if (!tiers || tiers.length === 0) return
+    if (!tiers.includes(resolution)) onResolutionChange(tiers[0])
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedModelId])
 
