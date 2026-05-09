@@ -85,14 +85,34 @@ export async function downloadAssetFromR2(assetId: string): Promise<Blob | null>
   return await res.blob()
 }
 
+// Module-level batching for asset row deletes. When the user deletes a bank
+// item that has an image (or worse, a project that touches several banks),
+// we fire many deleteAssetFromR2 calls in quick succession. Without batching
+// each one is its own ~300ms Supabase round trip; from a far region (e.g.
+// South Africa → US West) that adds up to seconds of perceived lag. We
+// coalesce all deletes scheduled within 100ms into a single DELETE…IN(…).
+let pendingAssetDeletes: string[] = []
+let assetDeleteTimer: ReturnType<typeof setTimeout> | null = null
+
 export async function deleteAssetFromR2(assetId: string): Promise<void> {
   if (!isCloudEnabled()) return
   const userId = useAuthStore.getState().user?.id
   if (!userId) return
 
-  // We delete the row; the R2 object is left to a future sweeper. For now
-  // it's cheap enough to let it sit (R2 is $0.015/GB/mo). When you want
-  // hard delete, add a DELETE op to the sign route.
-  const sb = getSupabase()
-  await sb.from('assets').delete().eq('id', assetId)
+  pendingAssetDeletes.push(assetId)
+  if (assetDeleteTimer) return
+  assetDeleteTimer = setTimeout(async () => {
+    assetDeleteTimer = null
+    const ids = pendingAssetDeletes
+    pendingAssetDeletes = []
+    if (ids.length === 0) return
+    useSyncStore.getState().startUpload()
+    try {
+      const sb = getSupabase()
+      const { error } = await sb.from('assets').delete().in('id', ids).eq('user_id', userId)
+      if (error) console.error('[r2] batch delete failed', error)
+    } finally {
+      useSyncStore.getState().endUpload()
+    }
+  }, 100)
 }
