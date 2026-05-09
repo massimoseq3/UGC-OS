@@ -128,7 +128,19 @@ function loadFromStorage(): BankData {
   return { projects: [], products: [], models: [], scripts: [], voices: [], brolls: [], voiceHistory: [], videoHistory: [] }
 }
 
-function saveToStorage(state: BankData) {
+// localStorage write debounced to the next idle tick. Without this, every
+// add/update/delete blocks the UI for as long as JSON.stringify of the
+// whole bank takes — which scales linearly with how many videos / images
+// the user has in their history. For a heavy user that's hundreds of ms
+// per click and feels like the app is freezing.
+let pendingSave: BankData | null = null
+let saveScheduled = false
+
+function flushSaveToStorage() {
+  saveScheduled = false
+  if (!pendingSave) return
+  const state = pendingSave
+  pendingSave = null
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       projects: state.projects,
@@ -143,6 +155,26 @@ function saveToStorage(state: BankData) {
   } catch (error) {
     console.error('Failed to save to storage', error)
   }
+}
+
+function saveToStorage(state: BankData) {
+  pendingSave = state
+  if (saveScheduled) return
+  saveScheduled = true
+  // Prefer the browser's idle window; fall back for older Safari.
+  const schedule = (cb: () => void) => {
+    const ric = (window as unknown as { requestIdleCallback?: (cb: () => void, opts?: unknown) => void }).requestIdleCallback
+    if (ric) ric(cb, { timeout: 500 })
+    else setTimeout(cb, 0)
+  }
+  schedule(flushSaveToStorage)
+}
+
+// Persist immediately before the page unloads so we don't lose the most
+// recent change. Cheap because it only writes whatever's still pending.
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', flushSaveToStorage)
+  window.addEventListener('pagehide', flushSaveToStorage)
 }
 
 // Clean up IndexedDB assets when deleting bank items

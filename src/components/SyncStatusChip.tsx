@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { Cloud, Loader2, AlertCircle } from 'lucide-react'
 import { useSyncStore, type SyncStatus } from '../stores/syncStore'
 
 // How long a 'syncing' state must persist before we actually flip the chip
@@ -37,13 +36,11 @@ export default function SyncStatusChip() {
   if (effective === 'disabled') return null
 
   const config = {
-    starting:  { dot: 'bg-amber-400 animate-pulse', label: 'Connecting…', icon: Loader2,  iconClass: 'text-amber-300 animate-spin' },
-    syncing:   { dot: 'bg-amber-400 animate-pulse', label: 'Syncing…',    icon: Loader2,  iconClass: 'text-amber-300 animate-spin' },
-    synced:    { dot: 'bg-emerald-400',             label: 'Synced',      icon: Cloud,    iconClass: 'text-emerald-300' },
-    error:     { dot: 'bg-red-500',                 label: 'Sync error',  icon: AlertCircle, iconClass: 'text-red-300' },
+    starting:  { dot: 'bg-amber-400 animate-pulse', label: 'Connecting…' },
+    syncing:   { dot: 'bg-amber-400 animate-pulse', label: 'Syncing…' },
+    synced:    { dot: 'bg-emerald-400',             label: 'Synced' },
+    error:     { dot: 'bg-red-500',                 label: 'Sync error' },
   }[effective as 'starting' | 'syncing' | 'synced' | 'error']
-
-  const Icon = config.icon
 
   return (
     <div ref={ref} className="relative">
@@ -51,11 +48,10 @@ export default function SyncStatusChip() {
         type="button"
         onClick={() => setOpen((v) => !v)}
         title={status === 'error' ? lastError ?? 'Sync error' : config.label}
-        className="flex h-9 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] pl-2.5 pr-3 text-xs font-medium text-zinc-200 transition-colors hover:bg-white/[0.07]"
+        className="flex h-9 items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 text-xs font-medium text-zinc-300 transition-colors hover:bg-white/[0.07]"
       >
         <span className={`h-1.5 w-1.5 rounded-full ${config.dot}`} />
-        <Icon className={`h-3.5 w-3.5 ${config.iconClass}`} strokeWidth={2} />
-        <span className="text-zinc-300">{config.label}</span>
+        <span>{config.label}</span>
       </button>
 
       {open && (
