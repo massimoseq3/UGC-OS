@@ -34,6 +34,12 @@ async function presign(op: 'put' | 'get', assetId: string, mimeType?: string): P
   return await res.json() as SignedUrlResponse
 }
 
+// Hard ceiling on a single asset upload. fetch() doesn't time out by
+// default, so a dead TCP connection can leave the upload counter stuck on
+// "Uploading X files…" forever. 90s is generous for a typical image / short
+// video on a decent connection.
+const UPLOAD_TIMEOUT_MS = 90_000
+
 // Upload a blob to R2 and register it in the `assets` table. The bank rows
 // keep using the same `asset-…` id, so callers don't change.
 export async function uploadAssetToR2(assetId: string, blob: Blob): Promise<void> {
@@ -42,12 +48,15 @@ export async function uploadAssetToR2(assetId: string, blob: Blob): Promise<void
   if (!userId) return
 
   useSyncStore.getState().startUpload()
+  const ctrl = new AbortController()
+  const timer = window.setTimeout(() => ctrl.abort(), UPLOAD_TIMEOUT_MS)
   try {
     const { url, key } = await presign('put', assetId, blob.type)
     const putRes = await fetch(url, {
       method: 'PUT',
       headers: blob.type ? { 'content-type': blob.type } : {},
       body: blob,
+      signal: ctrl.signal,
     })
     if (!putRes.ok) {
       const text = await putRes.text().catch(() => '')
@@ -63,7 +72,17 @@ export async function uploadAssetToR2(assetId: string, blob: Blob): Promise<void
       byte_size: blob.size,
     })
     if (error) console.error('[r2] assets row insert failed', error)
+  } catch (e) {
+    // Surface aborts and network failures so the user knows the upload didn't
+    // land — without this, an aborted upload would silently bump the counter
+    // back down and the user would think their data was saved.
+    if ((e as Error).name === 'AbortError') {
+      console.error('[r2] upload aborted after timeout', assetId)
+    } else {
+      console.error('[r2] upload error', e)
+    }
   } finally {
+    window.clearTimeout(timer)
     useSyncStore.getState().endUpload()
   }
 }

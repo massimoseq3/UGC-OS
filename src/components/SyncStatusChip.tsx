@@ -12,15 +12,33 @@ export default function SyncStatusChip() {
   const pendingUploads = useSyncStore((s) => s.pendingUploads)
   const lastSyncAt = useSyncStore((s) => s.lastSyncAt)
   const lastError = useSyncStore((s) => s.lastError)
+  const resetCounters = useSyncStore((s) => s.resetCounters)
   const [open, setOpen] = useState(false)
   // Effective status: same as `status` except 'syncing' is delayed.
   const [effective, setEffective] = useState<SyncStatus>(status)
+  // Track when uploads/pushes started so we can detect "stuck" state and
+  // show the user a manual reset.
+  const [pendingSince, setPendingSince] = useState<number | null>(null)
+  const [now, setNow] = useState(Date.now())
   const ref = useRef<HTMLDivElement>(null)
 
   // Asset uploads tend to take 5–30s. They override 'syncing' so the user
   // sees a useful "Uploading…" label and a count, not a vague pulse.
   const hasUploads = pendingUploads > 0
   const hasPushes = pendingPushes > 0
+  const hasPending = hasUploads || hasPushes
+
+  // When there's anything pending, mark the start time and tick `now` so
+  // the popover can show "stuck" copy if it goes too long. Reset when idle.
+  useEffect(() => {
+    if (!hasPending) { setPendingSince(null); return }
+    if (pendingSince === null) setPendingSince(Date.now())
+    const t = window.setInterval(() => setNow(Date.now()), 2000)
+    return () => window.clearInterval(t)
+  }, [hasPending, pendingSince])
+
+  const stuckMs = pendingSince ? now - pendingSince : 0
+  const stuck = stuckMs > 30_000
 
   useEffect(() => {
     if (status !== 'syncing') {
@@ -103,6 +121,20 @@ export default function SyncStatusChip() {
             <div className="pt-1.5 text-[10px] leading-relaxed text-zinc-600">
               Your banks and assets sync to your account automatically. We’ll warn you before refresh if anything is still in flight.
             </div>
+            {stuck && (
+              <div className="mt-2 space-y-1.5 rounded-md border border-amber-500/20 bg-amber-500/5 p-2">
+                <div className="text-[10px] text-amber-300">
+                  This has been pending for {Math.round(stuckMs / 1000)}s. Counters may be stuck from an earlier session.
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { resetCounters(); setOpen(false) }}
+                  className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[10px] font-medium text-amber-200 transition-colors hover:bg-amber-500/15"
+                >
+                  Reset sync state
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

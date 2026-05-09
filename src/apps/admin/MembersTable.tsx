@@ -37,16 +37,28 @@ export default function MembersTable() {
   async function load() {
     setLoading(true)
     setError(null)
+    // 15s timeout so the spinner can't hang forever — if Supabase doesn't
+    // respond, surface the failure instead of leaving the user staring at
+    // a wheel.
+    const timeout = new Promise<never>((_, reject) => setTimeout(
+      () => reject(new Error('Timed out after 15s waiting for Supabase. Open DevTools → Network to see which request stalled.')),
+      15_000,
+    ))
     try {
       const sb = getSupabase()
-      // Profiles + a left join on the storage view. We do this client-side
-      // so we don't need an extra RPC; both reads are admin-gated by RLS.
-      const [profilesRes, storageRes] = await Promise.all([
+      // Run the two reads independently so a hang in one doesn't take down
+      // the other — and surface them separately so we know which one broke.
+      const profilesRes = await Promise.race([
         sb.from('profiles').select('id, email, display_name, is_admin, disabled_at, created_at, last_active_at').order('created_at', { ascending: false }),
-        sb.from('member_storage').select('user_id, total_bytes, asset_count'),
+        timeout,
       ])
-      if (profilesRes.error) throw profilesRes.error
-      if (storageRes.error) throw storageRes.error
+      if (profilesRes.error) throw new Error(`profiles read failed: ${profilesRes.error.message}`)
+      const storageRes = await Promise.race([
+        sb.from('member_storage').select('user_id, total_bytes, asset_count'),
+        timeout,
+      ])
+      if (storageRes.error) throw new Error(`member_storage read failed: ${storageRes.error.message}`)
+
       const storageMap = new Map<string, { total_bytes: number; asset_count: number }>()
       for (const s of storageRes.data ?? []) {
         storageMap.set(s.user_id as string, { total_bytes: Number(s.total_bytes), asset_count: Number(s.asset_count) })
@@ -58,6 +70,7 @@ export default function MembersTable() {
       }))
       setRows(merged)
     } catch (e) {
+      console.error('[admin] members load failed', e)
       setError(e instanceof Error ? e.message : String(e))
     } finally {
       setLoading(false)

@@ -21,6 +21,9 @@ interface SyncState {
   endPush: () => void
   startUpload: () => void
   endUpload: () => void
+  // Manual escape hatch when the counters get stuck (e.g. a tab that never
+  // ran the finally because the user closed it before fetch settled).
+  resetCounters: () => void
 }
 
 export const useSyncStore = create<SyncState>((set) => ({
@@ -38,6 +41,7 @@ export const useSyncStore = create<SyncState>((set) => ({
   endPush: () => set((s) => ({ pendingPushes: Math.max(0, s.pendingPushes - 1) })),
   startUpload: () => set((s) => ({ pendingUploads: s.pendingUploads + 1 })),
   endUpload: () => set((s) => ({ pendingUploads: Math.max(0, s.pendingUploads - 1) })),
+  resetCounters: () => set({ pendingPushes: 0, pendingUploads: 0 }),
 }))
 
 // Block reload/close while there's unsynced work. Modern browsers ignore the
