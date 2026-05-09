@@ -1,15 +1,29 @@
 import { useEffect, useRef, useState } from 'react'
 import { Cloud, Loader2, AlertCircle } from 'lucide-react'
-import { useSyncStore } from '../stores/syncStore'
+import { useSyncStore, type SyncStatus } from '../stores/syncStore'
 
-// Tiny "Synced / Syncing / Error" chip in the menu bar. Click to expand a
-// popover with the last error or the timestamp of the last successful sync.
+// How long a 'syncing' state must persist before we actually flip the chip
+// to amber. Anything faster than this stays green — fast round trips feel
+// instant instead of flashing amber for 200ms.
+const SYNCING_VISIBLE_AFTER_MS = 600
+
 export default function SyncStatusChip() {
   const status = useSyncStore((s) => s.status)
   const lastSyncAt = useSyncStore((s) => s.lastSyncAt)
   const lastError = useSyncStore((s) => s.lastError)
   const [open, setOpen] = useState(false)
+  // Effective status: same as `status` except 'syncing' is delayed.
+  const [effective, setEffective] = useState<SyncStatus>(status)
   const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (status !== 'syncing') {
+      setEffective(status)
+      return
+    }
+    const t = window.setTimeout(() => setEffective('syncing'), SYNCING_VISIBLE_AFTER_MS)
+    return () => window.clearTimeout(t)
+  }, [status])
 
   useEffect(() => {
     if (!open) return
@@ -20,14 +34,14 @@ export default function SyncStatusChip() {
     return () => document.removeEventListener('mousedown', onDoc)
   }, [open])
 
-  if (status === 'disabled') return null
+  if (effective === 'disabled') return null
 
   const config = {
     starting:  { dot: 'bg-amber-400 animate-pulse', label: 'Connecting…', icon: Loader2,  iconClass: 'text-amber-300 animate-spin' },
     syncing:   { dot: 'bg-amber-400 animate-pulse', label: 'Syncing…',    icon: Loader2,  iconClass: 'text-amber-300 animate-spin' },
     synced:    { dot: 'bg-emerald-400',             label: 'Synced',      icon: Cloud,    iconClass: 'text-emerald-300' },
     error:     { dot: 'bg-red-500',                 label: 'Sync error',  icon: AlertCircle, iconClass: 'text-red-300' },
-  }[status as 'starting' | 'syncing' | 'synced' | 'error']
+  }[effective as 'starting' | 'syncing' | 'synced' | 'error']
 
   const Icon = config.icon
 
