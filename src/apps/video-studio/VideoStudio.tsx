@@ -25,6 +25,9 @@ const RESOLUTION_LABELS: Record<string, string> = {
   std: 'Standard',
   pro: 'Pro',
   '4K': '4K',
+  // Sora 2 Pro: kie's `size` enum surfaces in the UI as 720p / 1080p chips.
+  standard: '720p',
+  high: '1080p',
 }
 
 const MODEL_KEY = 'video-studio:video'
