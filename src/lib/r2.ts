@@ -5,6 +5,7 @@
 
 import { getSupabase, isCloudEnabled } from './supabase'
 import { useAuthStore } from '../stores/authStore'
+import { useSyncStore } from '../stores/syncStore'
 
 interface SignedUrlResponse {
   url: string
@@ -40,26 +41,31 @@ export async function uploadAssetToR2(assetId: string, blob: Blob): Promise<void
   const userId = useAuthStore.getState().user?.id
   if (!userId) return
 
-  const { url, key } = await presign('put', assetId, blob.type)
-  const putRes = await fetch(url, {
-    method: 'PUT',
-    headers: blob.type ? { 'content-type': blob.type } : {},
-    body: blob,
-  })
-  if (!putRes.ok) {
-    const text = await putRes.text().catch(() => '')
-    throw new Error(`R2 upload failed (${putRes.status}): ${text || putRes.statusText}`)
-  }
+  useSyncStore.getState().startUpload()
+  try {
+    const { url, key } = await presign('put', assetId, blob.type)
+    const putRes = await fetch(url, {
+      method: 'PUT',
+      headers: blob.type ? { 'content-type': blob.type } : {},
+      body: blob,
+    })
+    if (!putRes.ok) {
+      const text = await putRes.text().catch(() => '')
+      throw new Error(`R2 upload failed (${putRes.status}): ${text || putRes.statusText}`)
+    }
 
-  const sb = getSupabase()
-  const { error } = await sb.from('assets').upsert({
-    id: assetId,
-    user_id: userId,
-    r2_key: key,
-    mime_type: blob.type || 'application/octet-stream',
-    byte_size: blob.size,
-  })
-  if (error) console.error('[r2] assets row insert failed', error)
+    const sb = getSupabase()
+    const { error } = await sb.from('assets').upsert({
+      id: assetId,
+      user_id: userId,
+      r2_key: key,
+      mime_type: blob.type || 'application/octet-stream',
+      byte_size: blob.size,
+    })
+    if (error) console.error('[r2] assets row insert failed', error)
+  } finally {
+    useSyncStore.getState().endUpload()
+  }
 }
 
 // Fetch a blob from R2 by asset id. Returns null if not found / not ours.
