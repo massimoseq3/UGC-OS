@@ -1,12 +1,48 @@
-import { useEffect, useRef, useState } from 'react'
-import { Download, Save, Trash2, Check, Film, Play, FolderOpen, Plus } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Download, Save, Trash2, Check, Film, Play, FolderOpen, Loader2, X } from 'lucide-react'
 import type { VideoHistoryItem } from '../../../stores/types'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
 import { useBankStore } from '../../../stores/bankStore'
 import { getModel } from '../../../utils/models'
+import ProjectTagPopover from './ProjectTagPopover'
+
+const HEADS_UP_DISMISSED_KEY = 'video-studio:heads-up-dismissed'
+
+// Day-bucket helper. Voice studio uses the same trio of helpers; we duplicate
+// rather than share so we can iterate independently if the layouts diverge.
+function startOfDay(ts: number): number {
+  const d = new Date(ts)
+  d.setHours(0, 0, 0, 0)
+  return d.getTime()
+}
+
+function dayLabel(dayTs: number): string {
+  const today = startOfDay(Date.now())
+  const yesterday = today - 86_400_000
+  if (dayTs === today) return 'Today'
+  if (dayTs === yesterday) return 'Yesterday'
+  return new Date(dayTs).toLocaleDateString(undefined, {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+// Transient in-flight generation, kept in component memory while the kie task
+// runs. Surfaced as a skeleton tile at the top of the grid so the user can
+// always see what's queued — even if they switched slots since launching it.
+export interface InFlightGen {
+  id: string
+  slotIndex: number
+  modelId: string
+  prompt: string
+  aspectRatio: string
+  startedAt: number
+}
 
 interface VideoHistoryGridProps {
   items: VideoHistoryItem[]
+  inFlight?: InFlightGen[]
   activeId: string | null
   onSelect: (item: VideoHistoryItem) => void
   onSaveToBank: (item: VideoHistoryItem) => void
@@ -16,52 +52,174 @@ interface VideoHistoryGridProps {
 
 // Google Flow-style grid of past video generations. Hover reveals an action
 // row (save / download / delete). Clicking the tile elevates it to the main
-// preview area.
+// preview area. In-flight generations render at the top as skeleton tiles.
 export default function VideoHistoryGrid({
   items,
+  inFlight = [],
   activeId,
   onSelect,
   onSaveToBank,
   onDownload,
   onDelete,
 }: VideoHistoryGridProps) {
-  if (items.length === 0) {
+  // Heads-up banner is dismissible and the choice persists across reloads.
+  // Initialize from localStorage so dismissed users don't see it flash on
+  // every page load.
+  const [dismissed, setDismissed] = useState<boolean>(() => {
+    try { return localStorage.getItem(HEADS_UP_DISMISSED_KEY) === '1' } catch { return false }
+  })
+  const dismiss = () => {
+    setDismissed(true)
+    try { localStorage.setItem(HEADS_UP_DISMISSED_KEY, '1') } catch { /* ignore */ }
+  }
+
+  // Sort newest first, then bucket by calendar day. In-flight jobs always
+  // pin to the very top under their own "In progress" label so users can see
+  // queued work no matter how many slots are running.
+  const dayGroups = useMemo(() => {
+    const sorted = [...items].sort((a, b) => b.createdAt - a.createdAt)
+    const map = new Map<number, VideoHistoryItem[]>()
+    for (const it of sorted) {
+      const day = startOfDay(it.createdAt)
+      const arr = map.get(day) ?? []
+      arr.push(it)
+      map.set(day, arr)
+    }
+    return Array.from(map.entries()).sort(([a], [b]) => b - a)
+  }, [items])
+
+  if (items.length === 0 && inFlight.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
-        <Film className="h-9 w-9 text-zinc-800" strokeWidth={1.5} />
-        <p className="text-sm text-zinc-500">No generations yet</p>
-        <p className="max-w-[260px] text-xs leading-relaxed text-zinc-600">
-          Every video you generate appears here. Save the ones you want to keep — kie.ai purges
-          unsaved media after 14 days.
-        </p>
+      <div className="flex h-full flex-col">
+        {!dismissed && <HeadsUpBanner onDismiss={dismiss} />}
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
+          <Film className="h-9 w-9 text-zinc-800" strokeWidth={1.5} />
+          <p className="text-sm text-zinc-500">No generations yet</p>
+          <p className="max-w-[280px] text-xs leading-relaxed text-zinc-600">
+            Every video you generate appears here. Save the ones you want to keep — kie.ai purges
+            unsaved media after 14 days, so download or save them or they'll be deleted.
+          </p>
+        </div>
       </div>
     )
   }
 
   return (
     <div className="flex h-full flex-col">
-      <div className="border-b border-amber-500/15 bg-amber-500/5 px-4 py-2.5">
-        <p className="text-[11px] leading-relaxed text-amber-300/80">
-          <span className="font-semibold">Heads up</span> — kie.ai retains generated media for 14
-          days. Save anything you want to keep to the B-Rolls Bank.
-        </p>
-      </div>
+      {!dismissed && <HeadsUpBanner onDismiss={dismiss} />}
 
-      <div className="grid min-h-0 flex-1 grid-cols-2 gap-2 overflow-y-auto p-3">
-        {items.map((item) => (
-          <HistoryTile
-            key={item.id}
-            item={item}
-            isActive={item.id === activeId}
-            onSelect={() => onSelect(item)}
-            onSaveToBank={() => onSaveToBank(item)}
-            onDownload={() => onDownload(item)}
-            onDelete={() => onDelete(item.id)}
-          />
+      <div className="min-h-0 flex-1 overflow-y-auto p-3">
+        {inFlight.length > 0 && (
+          <>
+            <DayPill label="In progress" />
+            {/* CSS columns produce a true masonry layout: each column flows
+                independently so portrait + landscape tiles don't leave the
+                vertical gaps that grid-template-rows: auto creates. */}
+            <div className="columns-2 gap-2 [column-fill:_balance]">
+              {inFlight.map((gen) => (
+                <div key={gen.id} className="mb-2 break-inside-avoid">
+                  <InFlightTile gen={gen} />
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {dayGroups.map(([dayTs, dayItems]) => (
+          <div key={dayTs}>
+            <DayPill label={dayLabel(dayTs)} />
+            <div className="columns-2 gap-2 [column-fill:_balance]">
+              {dayItems.map((item) => (
+                <div key={item.id} className="mb-2 break-inside-avoid">
+                  <HistoryTile
+                    item={item}
+                    isActive={item.id === activeId}
+                    onSelect={() => onSelect(item)}
+                    onSaveToBank={() => onSaveToBank(item)}
+                    onDownload={() => onDownload(item)}
+                    onDelete={() => onDelete(item.id)}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
         ))}
       </div>
     </div>
   )
+}
+
+// Top-of-grid retention notice. Dismissable; choice persists in localStorage.
+function HeadsUpBanner({ onDismiss }: { onDismiss: () => void }) {
+  return (
+    <div className="flex items-start gap-2 border-b border-amber-500/15 bg-amber-500/5 px-4 py-2.5">
+      <p className="flex-1 text-[11px] leading-relaxed text-amber-300/80">
+        <span className="font-semibold">Heads up</span> — kie.ai retains generated media for 14
+        days. Save anything you want to keep to the B-Rolls Bank or download it, or else it may
+        be deleted.
+      </p>
+      <button
+        onClick={onDismiss}
+        title="Dismiss"
+        className="-mr-1 flex h-5 w-5 shrink-0 items-center justify-center rounded text-amber-300/60 transition-colors hover:bg-amber-500/15 hover:text-amber-200"
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </div>
+  )
+}
+
+function DayPill({ label }: { label: string }) {
+  return (
+    <div className="my-2 flex items-center justify-center">
+      <span className="rounded-full bg-white/[0.06] px-3 py-1 text-[11px] font-medium text-zinc-300">
+        {label}
+      </span>
+    </div>
+  )
+}
+
+// Skeleton tile rendered at the top of the grid for jobs still running on kie.
+// Pulses + spinner conveys "still cooking"; slot label tells the user which
+// tab kicked it off so they can navigate back.
+function InFlightTile({ gen }: { gen: InFlightGen }) {
+  const ratio = aspectStyle(gen.aspectRatio)
+  const modelLabel = getModel(gen.modelId)?.displayName ?? gen.modelId
+  const [elapsed, setElapsed] = useState(() => Math.floor((Date.now() - gen.startedAt) / 1000))
+  useEffect(() => {
+    const t = setInterval(() => setElapsed(Math.floor((Date.now() - gen.startedAt) / 1000)), 1000)
+    return () => clearInterval(t)
+  }, [gen.startedAt])
+
+  return (
+    <div
+      className="relative overflow-hidden rounded-lg border border-purple-500/30 bg-gradient-to-br from-purple-500/[0.08] to-zinc-950"
+      style={ratio}
+    >
+      <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-purple-500/10 via-transparent to-purple-500/5" />
+
+      <div className="absolute left-1.5 top-1.5 rounded-full bg-purple-500/30 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-purple-100 backdrop-blur">
+        Slot {gen.slotIndex + 1}
+      </div>
+
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-3 text-center">
+        <Loader2 className="h-5 w-5 animate-spin text-purple-300" />
+        <p className="text-[10px] font-medium text-purple-100">{modelLabel}</p>
+        <p className="text-[10px] tabular-nums text-purple-300/80">{formatElapsed(elapsed)}</p>
+      </div>
+
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2 pb-1.5 pt-6">
+        <p className="line-clamp-2 text-[10px] text-zinc-300">{gen.prompt}</p>
+      </div>
+    </div>
+  )
+}
+
+function formatElapsed(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  return `${m}:${s.toString().padStart(2, '0')}`
 }
 
 interface HistoryTileProps {
@@ -157,113 +315,39 @@ function HistoryTile({ item, isActive, onSelect, onSaveToBank, onDownload, onDel
         </TileButton>
       </div>
 
-      {tagOpen && <TagToProjectPopover item={item} onClose={() => setTagOpen(false)} />}
+      {tagOpen && (
+        <TilePopoverWrapper
+          itemId={item.id}
+          projectIds={item.projectIds}
+          onClose={() => setTagOpen(false)}
+        />
+      )}
     </div>
   )
 }
 
-// Anchored to the tile's top-right; click outside or Escape closes it.
-function TagToProjectPopover({ item, onClose }: { item: VideoHistoryItem; onClose: () => void }) {
-  const projects = useBankStore((s) => s.projects)
-  const addProject = useBankStore((s) => s.addProject)
+// Per-tile project popover wrapper — wires the shared ProjectTagPopover to
+// the videoHistory bank slice. Anchored under the tile's action row (top-9
+// keeps it just below the buttons).
+function TilePopoverWrapper({
+  itemId,
+  projectIds,
+  onClose,
+}: {
+  itemId: string
+  projectIds: string[] | undefined
+  onClose: () => void
+}) {
   const addItemToProject = useBankStore((s) => s.addItemToProject)
   const removeItemFromProject = useBankStore((s) => s.removeItemFromProject)
-  const [creating, setCreating] = useState(false)
-  const [draftName, setDraftName] = useState('')
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    function onClick(e: MouseEvent) {
-      if (!ref.current?.contains(e.target as Node)) onClose()
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('mousedown', onClick)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onClick)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [onClose])
-
-  const memberOf = new Set(item.projectIds ?? [])
-
-  const handleCreate = () => {
-    const name = draftName.trim()
-    if (!name) return
-    const id = addProject({ name })
-    addItemToProject('videoHistory', item.id, id)
-    setDraftName('')
-    setCreating(false)
-  }
-
   return (
-    <div
-      ref={ref}
-      onClick={(e) => e.stopPropagation()}
-      className="absolute right-1.5 top-9 z-30 w-56 overflow-hidden rounded-lg border border-white/10 bg-[#0B0B0D]/95 shadow-2xl backdrop-blur-xl"
-    >
-      <div className="border-b border-white/5 px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider text-zinc-500">
-        Add to project
-      </div>
-      <div className="max-h-48 overflow-y-auto p-1">
-        {projects.map((p) => {
-          const isMember = memberOf.has(p.id)
-          return (
-            <button
-              key={p.id}
-              onClick={() => {
-                if (isMember) removeItemFromProject('videoHistory', item.id, p.id)
-                else addItemToProject('videoHistory', item.id, p.id)
-              }}
-              className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[11px] transition-colors ${
-                isMember ? 'bg-emerald-500/15 text-emerald-200 hover:bg-emerald-500/25' : 'text-zinc-300 hover:bg-white/[0.04]'
-              }`}
-            >
-              <FolderOpen className="h-3 w-3 shrink-0" />
-              <span className="min-w-0 flex-1 truncate">{p.name}</span>
-              {isMember && <Check className="h-3 w-3 shrink-0" />}
-            </button>
-          )
-        })}
-        {projects.length === 0 && !creating && (
-          <p className="px-2 py-2 text-center text-[10px] text-zinc-500">No projects yet</p>
-        )}
-      </div>
-      <div className="border-t border-white/5 p-1.5">
-        {creating ? (
-          <div className="flex items-center gap-1">
-            <input
-              autoFocus
-              value={draftName}
-              onChange={(e) => setDraftName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleCreate()
-                if (e.key === 'Escape') { setCreating(false); setDraftName('') }
-              }}
-              placeholder="New project…"
-              className="flex-1 rounded-md border border-white/10 bg-black/40 px-2 py-1 text-[11px] text-zinc-100 placeholder-zinc-600 outline-none focus:border-emerald-500/40"
-            />
-            <button
-              onClick={handleCreate}
-              disabled={!draftName.trim()}
-              className="rounded-md bg-emerald-500/30 px-2 py-1 text-[10px] font-medium text-emerald-100 hover:bg-emerald-500/40 disabled:opacity-40"
-            >
-              Add
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => setCreating(true)}
-            className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-[11px] text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-200"
-          >
-            <Plus className="h-3 w-3" />
-            New project
-          </button>
-        )}
-      </div>
-    </div>
+    <ProjectTagPopover
+      projectIds={projectIds}
+      onAdd={(pid) => addItemToProject('videoHistory', itemId, pid)}
+      onRemove={(pid) => removeItemFromProject('videoHistory', itemId, pid)}
+      onClose={onClose}
+      anchorClassName="absolute right-1.5 top-9 z-30"
+    />
   )
 }
 

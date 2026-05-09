@@ -97,6 +97,11 @@ export interface VideoHistoryItem {
   videoUrl: string
   thumbnailUrl?: string
   linkedBRollId?: string
+  // If this generation was kicked off from a B-Roll Bank still (i.e. the
+  // slot's start frame, end frame, or one of the reference images came
+  // from the bank), keep the source id so a later "Save to Bank" can
+  // append the video to that record instead of creating a new one.
+  sourceBRollId?: string
   projectIds?: string[]
   createdAt: number
 }

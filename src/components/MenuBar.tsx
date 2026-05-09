@@ -41,10 +41,11 @@ export default function MenuBar() {
 
       <ProjectSwitcher />
 
-      {/* Credits chip — only visible once an API key is configured */}
+      {/* Credits chip — only visible once an API key is configured.
+          Locked to h-9 so it matches the ProjectSwitcher chip exactly. */}
       {apiKey && (
         <div
-          className="flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] py-1.5 pl-3 pr-1.5 text-xs font-medium text-zinc-200"
+          className="flex h-9 items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] pl-3 pr-1.5 text-xs font-medium text-zinc-200"
           title="kie.ai credits remaining"
         >
           <Coins className="mr-0.5 h-3.5 w-3.5 text-zinc-400" />
