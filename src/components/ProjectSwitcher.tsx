@@ -47,7 +47,7 @@ export default function ProjectSwitcher() {
     <div ref={wrapRef} className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] py-1.5 pl-2.5 pr-2 text-xs font-medium text-zinc-200 transition-colors hover:bg-white/[0.08]"
+        className="flex h-9 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] pl-3 pr-2.5 text-xs font-medium text-zinc-200 transition-colors hover:bg-white/[0.08]"
         title={active ? `Active project: ${active.name}` : 'No active project'}
       >
         {active ? (
