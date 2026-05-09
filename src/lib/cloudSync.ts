@@ -12,10 +12,19 @@
 // columns for filtering. That keeps the migration trivial.
 
 import { useAuthStore } from '../stores/authStore'
+import { useAppStore } from '../stores/appStore'
 import { useBankStore } from '../stores/bankStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { getSupabase, isCloudEnabled } from './supabase'
 import type { Project, Product, Model, Script, VoicePreset, BRoll, VoiceHistoryItem, VideoHistoryItem } from '../stores/types'
+
+// Surface upsert/hydrate failures in the UI so users (and we) don't have to
+// open the console to notice silent drift.
+function reportError(context: string, err: unknown) {
+  const msg = err instanceof Error ? err.message : (typeof err === 'string' ? err : JSON.stringify(err))
+  console.error(`[cloudSync] ${context}:`, err)
+  try { useAppStore.getState().addToast(`Cloud sync — ${context}: ${msg}`, 'error') } catch { /* store not ready */ }
+}
 
 type BankKey = 'projects' | 'products' | 'models' | 'scripts' | 'voices' | 'brolls' | 'voiceHistory' | 'videoHistory'
 
@@ -90,7 +99,7 @@ async function hydrateFromCloud(userId: string) {
       const table = BANK_TO_TABLE[key]
       const { data, error } = await sb.from(table).select('id, data, project_ids').eq('user_id', userId)
       if (error) {
-        console.error(`[cloudSync] hydrate ${table} failed`, error)
+        reportError(`hydrate ${table}`, error)
         return [key, [] as unknown[]] as const
       }
       // The full item lives in data; project_ids is denormalised. Trust the
@@ -169,7 +178,7 @@ async function uploadEntireSnapshot(userId: string) {
       ...r,
       user_id: userId,
     })))
-    if (error) console.error(`[cloudSync] initial upload of ${BANK_TO_TABLE[key]} failed`, error)
+    if (error) reportError(`initial upload of ${BANK_TO_TABLE[key]}`, error)
   }
   // Also push profile fields.
   const settings = useSettingsStore.getState()
@@ -186,7 +195,7 @@ function schedulePush() {
   if (pushTimer) clearTimeout(pushTimer)
   pushTimer = setTimeout(() => {
     pushTimer = null
-    flushPending().catch((e) => console.error('[cloudSync] flush failed', e))
+    flushPending().catch((e) => reportError('flush', e))
   }, 300)
 }
 
@@ -220,11 +229,11 @@ async function flushPending() {
       const { error } = await sb.from(table).upsert(
         upserts.map((r) => ({ ...r, user_id: userId, updated_at: new Date().toISOString() })),
       )
-      if (error) console.error(`[cloudSync] upsert ${table} failed`, error)
+      if (error) reportError(`upsert ${table}`, error)
     }
     if (deletedIds.length > 0) {
       const { error } = await sb.from(table).delete().in('id', deletedIds).eq('user_id', userId)
-      if (error) console.error(`[cloudSync] delete ${table} failed`, error)
+      if (error) reportError(`delete ${table}`, error)
     }
 
     lastSnapshot[key] = next
@@ -241,7 +250,7 @@ async function pushSettingsNow() {
     per_app_model: s.perAppModel,
     active_project_id: s.activeProjectId,
   }).eq('id', userId)
-  if (error) console.error('[cloudSync] profile update failed', error)
+  if (error) reportError('profile update', error)
 }
 
 let lastSettingsJson = ''
@@ -288,19 +297,34 @@ function startSubscribers() {
 }
 
 export async function startCloudSync() {
-  if (!isCloudEnabled()) return
+  if (!isCloudEnabled()) {
+    console.log('[cloudSync] disabled — Supabase env vars not set')
+    return
+  }
   if (started) return
   const userId = useAuthStore.getState().user?.id
-  if (!userId) return
-
-  started = true
-
-  // First-login local-snapshot upload (one-shot per user per browser).
-  if (await shouldUploadLocalSnapshot(userId)) {
-    await uploadEntireSnapshot(userId)
+  if (!userId) {
+    console.log('[cloudSync] skipped — no user id')
+    return
   }
 
-  await hydrateFromCloud(userId)
+  started = true
+  console.log('[cloudSync] starting for user', userId)
+
+  try {
+    // First-login local-snapshot upload (one-shot per user per browser).
+    if (await shouldUploadLocalSnapshot(userId)) {
+      console.log('[cloudSync] uploading local snapshot to cloud (first login)')
+      await uploadEntireSnapshot(userId)
+    }
+
+    await hydrateFromCloud(userId)
+    console.log('[cloudSync] hydrated from cloud')
+  } catch (e) {
+    reportError('startup', e)
+    started = false
+    return
+  }
 
   // Seed the settings json snapshot so the subscriber doesn't echo the
   // hydrate back to the cloud.
@@ -312,6 +336,7 @@ export async function startCloudSync() {
   })
 
   startSubscribers()
+  console.log('[cloudSync] subscribers active — bank changes will sync to cloud')
 }
 
 export function stopCloudSync() {
