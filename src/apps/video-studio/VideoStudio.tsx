@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef, type ReactNode } from 'react'
-import { Film, Loader2, AlertCircle, Save, Check, Volume2, VolumeX, ChevronDown, Download } from 'lucide-react'
+import { useState, useEffect, useRef, useMemo, type ReactNode } from 'react'
+import { Film, Loader2, AlertCircle, Save, Check, Volume2, VolumeX, ChevronDown, Download, Clock } from 'lucide-react'
 import { useBankStore } from '../../stores/bankStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useAppStore } from '../../stores/appStore'
 import { useAssetUrl } from '../../hooks/useAssetUrl'
 import ModelPicker from '../../components/ModelPicker'
+import GenerationProgress from '../../components/GenerationProgress'
 import VideoInputSlot, { type VideoInputValue } from '../../components/video/VideoInputSlot'
 import VideoRefStrip from '../../components/video/VideoRefStrip'
 import VideoHistoryGrid from './components/VideoHistoryGrid'
@@ -16,7 +17,7 @@ import {
 } from '../../utils/models'
 import { saveFromDataUrl, getUrl } from '../../utils/assetStore'
 import { generateVideo } from './services/generateVideo'
-import type { VideoGenResult, VideoMode } from './types'
+import type { VideoMode } from './types'
 import type { VideoHistoryItem } from '../../stores/types'
 
 const RESOLUTION_LABELS: Record<string, string> = {
@@ -33,6 +34,36 @@ const RESOLUTION_LABELS: Record<string, string> = {
 }
 
 const MODEL_KEY = 'video-studio:video'
+const SLOT_COUNT = 4
+
+// One independently-configured generation slot. Four of these mount as tabs at
+// the top of the left panel; each can be in flight at the same time without
+// blocking the others. Per-slot status surfaces as a glowing dot on the tab.
+interface Slot {
+  prompt: string
+  firstFrame: VideoInputValue | null
+  lastFrame: VideoInputValue | null
+  references: VideoInputValue[]
+  aspectRatio: string
+  duration: number
+  resolution: string
+  audio: boolean
+  modelId: string
+  status: 'idle' | 'generating' | 'error'
+  error: string | null
+  // History item id of this slot's most recent successful generation. Used
+  // by the Preview tab when the user clicks the slot's tab strip.
+  lastResultId: string | null
+}
+
+interface InFlightGen {
+  id: string
+  slotIndex: number
+  modelId: string
+  prompt: string
+  aspectRatio: string
+  startedAt: number
+}
 
 // Mode is inferred from which slots the user filled, in priority order:
 //   any references → reference-to-video
@@ -50,22 +81,41 @@ function inferMode(opts: {
   return 'text-to-video'
 }
 
-export default function VideoStudio() {
-  const [prompt, setPrompt] = useState('')
-  const [firstFrame, setFirstFrame] = useState<VideoInputValue | null>(null)
-  const [lastFrame, setLastFrame] = useState<VideoInputValue | null>(null)
-  const [references, setReferences] = useState<VideoInputValue[]>([])
-  const [aspectRatio, setAspectRatio] = useState<string>('9:16')
-  const [duration, setDuration] = useState<number>(5)
-  const [resolution, setResolution] = useState<string>('720p')
-  const [audio, setAudio] = useState<boolean>(false)
-  const [isGenerating, setIsGenerating] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [result, setResult] = useState<VideoGenResult | null>(null)
-  const [savedToBank, setSavedToBank] = useState(false)
+function makeSlot(modelId: string): Slot {
+  return {
+    prompt: '',
+    firstFrame: null,
+    lastFrame: null,
+    references: [],
+    aspectRatio: '9:16',
+    duration: 5,
+    resolution: '720p',
+    audio: false,
+    modelId,
+    status: 'idle',
+    error: null,
+    lastResultId: null,
+  }
+}
 
-  const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null)
-  const [rightTab, setRightTab] = useState<'current' | 'history'>('current')
+export default function VideoStudio() {
+  const persistedModelId = useSettingsStore((s) => s.getAppModel(MODEL_KEY))
+  const initialModelId = useMemo(
+    () => persistedModelId ?? getDefaultModel('video-studio', 'video')?.id ?? '',
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  )
+
+  // Slots are session-only state — they don't persist across reloads. The
+  // global persisted model selection is the only thing that bridges sessions.
+  const [slots, setSlots] = useState<Slot[]>(() =>
+    Array.from({ length: SLOT_COUNT }, () => makeSlot(initialModelId)),
+  )
+  const [activeSlotIndex, setActiveSlotIndex] = useState(0)
+  const [inFlight, setInFlight] = useState<InFlightGen[]>([])
+  const [previewHistoryId, setPreviewHistoryId] = useState<string | null>(null)
+  const [rightTab, setRightTab] = useState<'history' | 'preview'>('history')
+  const [savedToBank, setSavedToBank] = useState(false)
 
   const addBRoll = useBankStore((s) => s.addBRoll)
   const updateBRoll = useBankStore((s) => s.updateBRoll)
@@ -78,36 +128,42 @@ export default function VideoStudio() {
   const consumePayload = useAppStore((s) => s.consumePayload)
   const activeApp = useAppStore((s) => s.activeApp)
 
-  // Single persisted model for B-Roll Videos. Mode is inferred at generate-time.
-  const persistedModelId = useSettingsStore((s) => s.getAppModel(MODEL_KEY))
-  const selectedModelId =
-    persistedModelId ?? getDefaultModel('video-studio', 'video')?.id ?? ''
-  const selectedModel = getModel(selectedModelId)
-  const constraints = selectedModel?.videoConstraints
-  const refsAllowed = selectedModel?.supportsReferenceImages ?? false
+  const activeSlot = slots[activeSlotIndex]
+  const activeModel = getModel(activeSlot.modelId)
+  const constraints = activeModel?.videoConstraints
+  const refsAllowed = activeModel?.supportsReferenceImages ?? false
   // Veo 3.1 Fast is reference-capped at 3; Seedance variants allow up to 9.
-  const maxRefs = selectedModelId === 'veo3_fast' ? 3 : 9
+  const maxRefs = activeSlot.modelId === 'veo3_fast' ? 3 : 9
 
-  // Snap constraint controls + clear unsupported inputs when the model changes.
+  // Functional patch helpers — always read latest state, safe to call from async closures.
+  function patchSlot(i: number, patch: Partial<Slot>) {
+    setSlots((prev) => prev.map((s, idx) => (idx === i ? { ...s, ...patch } : s)))
+  }
+  function patchActive(patch: Partial<Slot>) {
+    patchSlot(activeSlotIndex, patch)
+  }
+
+  // Snap the active slot's constraint controls + clear unsupported inputs when
+  // ITS model changes. Only the active slot is observed here; other slots
+  // self-correct when the user switches to them and changes their model there.
   useEffect(() => {
-    const c = selectedModel?.videoConstraints
-    if (!c) return
-    if (!c.aspectRatios.includes(aspectRatio)) setAspectRatio(c.aspectRatios[0])
-    // Empty `durations` means the model doesn't expose duration as a parameter
-    // (Veo 3.1 family) — leave the local state alone; it's never sent.
-    if (c.durations.length > 0 && !c.durations.includes(duration)) {
-      setDuration(c.durations[0])
+    if (!constraints) return
+    const patch: Partial<Slot> = {}
+    if (!constraints.aspectRatios.includes(activeSlot.aspectRatio)) patch.aspectRatio = constraints.aspectRatios[0]
+    if (constraints.durations.length > 0 && !constraints.durations.includes(activeSlot.duration)) {
+      patch.duration = constraints.durations[0]
     }
-    if (!c.resolutions.includes(resolution)) setResolution(c.resolutions[0] ?? '720p')
-    if (!c.supportsAudio) setAudio(false)
-    if (!selectedModel?.supportsReferenceImages && references.length > 0) {
-      setReferences([])
+    if (!constraints.resolutions.includes(activeSlot.resolution)) {
+      patch.resolution = constraints.resolutions[0] ?? '720p'
     }
+    if (!constraints.supportsAudio) patch.audio = false
+    if (!refsAllowed && activeSlot.references.length > 0) patch.references = []
+    if (Object.keys(patch).length > 0) patchActive(patch)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedModelId])
+  }, [activeSlot.modelId])
 
-  // Inter-app payload: B-Roll Images → B-Roll Videos handoff (drops a still in
-  // the start-frame slot). No mode to set — the slot itself signals intent.
+  // Inter-app payload: B-Roll Images → B-Roll Videos handoff drops a still in
+  // the *active* slot's start-frame slot.
   useEffect(() => {
     if (activeApp !== 'video-studio') return
     if (!interAppPayload || interAppPayload.targetApp !== 'video-studio') return
@@ -115,108 +171,150 @@ export default function VideoStudio() {
     if (interAppPayload.targetField === 'firstFrame') {
       const data = interAppPayload.data
       if (typeof data === 'string') {
-        setFirstFrame({ dataUri: data })
+        patchActive({ firstFrame: { dataUri: data } })
       } else if (data && typeof data === 'object' && 'imageUrl' in data) {
         const { imageUrl, prompt: incomingPrompt, sourceBRollId } = data as {
           imageUrl: string
           prompt?: string
           sourceBRollId?: string
         }
-        setFirstFrame({ dataUri: imageUrl, sourceBRollId })
+        const patch: Partial<Slot> = { firstFrame: { dataUri: imageUrl, sourceBRollId } }
         if (typeof incomingPrompt === 'string' && incomingPrompt.trim()) {
-          setPrompt(incomingPrompt)
+          patch.prompt = incomingPrompt
         }
+        patchActive(patch)
       }
     }
     consumePayload()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [interAppPayload, activeApp, consumePayload])
 
-  const inferredMode = inferMode({ firstFrame, lastFrame, references })
+  const inferredMode = inferMode({
+    firstFrame: activeSlot.firstFrame,
+    lastFrame: activeSlot.lastFrame,
+    references: activeSlot.references,
+  })
 
-  const modeSupported = selectedModel?.modes?.includes(inferredMode) ?? false
-  const canGenerate = prompt.trim().length > 0 && !!selectedModelId && modeSupported
+  const modeSupported = activeModel?.modes?.includes(inferredMode) ?? false
+  const canGenerate =
+    activeSlot.prompt.trim().length > 0 &&
+    !!activeSlot.modelId &&
+    modeSupported &&
+    activeSlot.status !== 'generating'
 
+  // Kicks off the active slot's generation. Captures the slotIndex at call time
+  // so the user can switch tabs while it runs and still have results land in
+  // the right slot.
   async function handleGenerate() {
-    if (!canGenerate || !selectedModelId) return
-    setIsGenerating(true)
-    setError(null)
-    setResult(null)
-    setSavedToBank(false)
+    if (!canGenerate) return
+    const slotIndex = activeSlotIndex
+    const slot = slots[slotIndex]
+    const inFlightId = crypto.randomUUID()
+    const mode = inferMode(slot)
+    const sourceBRollId =
+      slot.firstFrame?.sourceBRollId ??
+      slot.lastFrame?.sourceBRollId ??
+      slot.references.find((r) => r.sourceBRollId)?.sourceBRollId
+
+    patchSlot(slotIndex, { status: 'generating', error: null })
+    setInFlight((prev) => [
+      ...prev,
+      {
+        id: inFlightId,
+        slotIndex,
+        modelId: slot.modelId,
+        prompt: slot.prompt,
+        aspectRatio: slot.aspectRatio,
+        startedAt: Date.now(),
+      },
+    ])
+
     try {
       const res = await generateVideo({
-        prompt: prompt.trim(),
-        mode: inferredMode,
-        firstFrameDataUri: firstFrame?.dataUri,
-        lastFrameDataUri: lastFrame?.dataUri,
-        referenceDataUris: references.length > 0 ? references.map((r) => r.dataUri) : undefined,
-        aspectRatio,
-        durationSeconds: duration,
-        resolution,
-        audio,
-        modelId: selectedModelId,
+        prompt: slot.prompt.trim(),
+        mode,
+        firstFrameDataUri: slot.firstFrame?.dataUri,
+        lastFrameDataUri: slot.lastFrame?.dataUri,
+        referenceDataUris: slot.references.length > 0 ? slot.references.map((r) => r.dataUri) : undefined,
+        aspectRatio: slot.aspectRatio,
+        durationSeconds: slot.duration,
+        resolution: slot.resolution,
+        audio: slot.audio,
+        modelId: slot.modelId,
       })
-      setResult(res)
-      // Push every successful generation into history so it survives reloads
-      // and lives in the right-panel grid. The asset blob is already stored
-      // in IndexedDB by generateVideo — we just keep its asset:// ref.
+
       const historyEntry: VideoHistoryItem = {
         id: crypto.randomUUID(),
-        modelId: selectedModelId,
-        prompt: prompt.trim(),
-        mode: inferredMode,
+        modelId: slot.modelId,
+        prompt: slot.prompt.trim(),
+        mode,
         aspectRatio: res.aspectRatio,
         durationSeconds: res.durationSeconds,
-        resolution,
-        audio,
+        resolution: slot.resolution,
+        audio: slot.audio,
         videoUrl: res.assetId,
+        sourceBRollId,
         createdAt: Date.now(),
       }
       addVideoHistory(historyEntry)
-      setActiveHistoryId(historyEntry.id)
+      patchSlot(slotIndex, { status: 'idle', error: null, lastResultId: historyEntry.id })
+      // Auto-promote to Preview only if the user is still looking at this slot.
+      // Otherwise leave them in their current context — the new tile will
+      // surface in History where they can click it.
+      setActiveSlotIndex((cur) => {
+        if (cur === slotIndex) {
+          setPreviewHistoryId(historyEntry.id)
+          setRightTab('preview')
+          setSavedToBank(false)
+        }
+        return cur
+      })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Video generation failed.')
+      const msg = err instanceof Error ? err.message : 'Video generation failed.'
+      patchSlot(slotIndex, { status: 'error', error: msg })
     } finally {
-      setIsGenerating(false)
+      setInFlight((prev) => prev.filter((i) => i.id !== inFlightId))
     }
   }
 
-  const resolvedVideoUrl = useAssetUrl(result?.assetId ?? null)
+  const previewItem = previewHistoryId
+    ? videoHistory.find((h) => h.id === previewHistoryId) ?? null
+    : null
+  const resolvedPreviewUrl = useAssetUrl(previewItem?.videoUrl ?? null)
 
-  // Save linkage: prefer the start frame's source BRoll, then end frame, then
-  // first reference. If found, append the video to that record. Otherwise:
-  //   - upload-only first frame: create a new BRoll with both still + video
-  //   - text-only: create video-only BRoll
+  // Save the previewed video into the B-Rolls Bank. If the generation tracked
+  // a sourceBRollId (start/end/reference came from the bank), append the video
+  // to that record. Otherwise create a fresh BRoll — preserving the start
+  // frame as the still if one was uploaded directly into the originating slot.
   async function handleSaveToBank() {
-    if (!result) return
+    if (!previewItem) return
 
     const newVideo = {
-      url: result.assetId,
-      aspectRatio: result.aspectRatio,
-      createdAt: Date.now(),
+      url: previewItem.videoUrl,
+      aspectRatio: previewItem.aspectRatio,
+      createdAt: previewItem.createdAt,
     }
 
-    const sourceId =
-      firstFrame?.sourceBRollId ??
-      lastFrame?.sourceBRollId ??
-      references.find((r) => r.sourceBRollId)?.sourceBRollId
-
+    const sourceId = previewItem.sourceBRollId
     if (sourceId) {
       const existing = getBRollById(sourceId)
       if (existing) {
         const nextVideos = [...(existing.videos ?? []), newVideo]
         updateBRoll(sourceId, { videos: nextVideos })
+        updateVideoHistory(previewItem.id, { linkedBRollId: sourceId })
         setSavedToBank(true)
         setTimeout(() => setSavedToBank(false), 2000)
         return
       }
     }
 
-    // No source bank id — if a fresh first-frame upload exists, persist the
-    // still as an asset alongside the video so the new BRoll is paired.
+    // Walk back to the slot that owned this generation (lastResultId match) to
+    // pull a fresh first-frame data URI for the still, if it's still around.
+    const owner = slots.find((s) => s.lastResultId === previewItem.id)
     let imageUrl = ''
-    if (firstFrame?.dataUri) {
+    if (owner?.firstFrame?.dataUri) {
       try {
-        imageUrl = await saveFromDataUrl(firstFrame.dataUri)
+        imageUrl = await saveFromDataUrl(owner.firstFrame.dataUri)
       } catch {
         imageUrl = ''
       }
@@ -224,260 +322,245 @@ export default function VideoStudio() {
 
     addBRoll({
       imageUrl,
-      prompt: prompt.trim(),
+      prompt: previewItem.prompt,
       videos: [newVideo],
     })
-    // Mirror saved-state into the history entry so the History grid stays in sync.
-    if (activeHistoryId) {
-      updateVideoHistory(activeHistoryId, { linkedBRollId: 'pending' })
-    }
+    updateVideoHistory(previewItem.id, { linkedBRollId: 'pending' })
     setSavedToBank(true)
     setTimeout(() => setSavedToBank(false), 2000)
   }
 
-  // Saves a history item to the B-Rolls Bank without touching the active form
-  // state — the form may have been filled for a different generation since.
-  // Creates a video-only BRoll record and stamps the history entry.
+  // Save a history-grid item directly (no preview required). Same linkage logic.
   function handleSaveHistoryItem(item: VideoHistoryItem) {
     if (item.linkedBRollId) return
-    const newId = crypto.randomUUID()
+    if (item.sourceBRollId) {
+      const existing = getBRollById(item.sourceBRollId)
+      if (existing) {
+        updateBRoll(item.sourceBRollId, {
+          videos: [
+            ...(existing.videos ?? []),
+            { url: item.videoUrl, aspectRatio: item.aspectRatio, createdAt: item.createdAt },
+          ],
+        })
+        updateVideoHistory(item.id, { linkedBRollId: item.sourceBRollId })
+        return
+      }
+    }
     addBRoll({
       imageUrl: '',
       prompt: item.prompt,
-      videos: [{
-        url: item.videoUrl,
-        aspectRatio: item.aspectRatio,
-        createdAt: item.createdAt,
-      }],
+      videos: [{ url: item.videoUrl, aspectRatio: item.aspectRatio, createdAt: item.createdAt }],
     })
-    // We don't know the assigned BRoll id from addBRoll (it's generated inside
-    // the store), so we store a sentinel marker on the history entry. The grid
-    // only checks truthiness to render the saved-state badge, which is enough
-    // for now.
-    updateVideoHistory(item.id, { linkedBRollId: newId })
+    updateVideoHistory(item.id, { linkedBRollId: 'pending' })
   }
 
   const credits = formatCredits(
-    estimateCredits(selectedModelId, { durationSeconds: duration, resolution, audio }),
+    estimateCredits(activeSlot.modelId, {
+      durationSeconds: activeSlot.duration,
+      resolution: activeSlot.resolution,
+      audio: activeSlot.audio,
+    }),
   )
+
+  const inFlightCount = inFlight.length
 
   return (
     <div className="flex h-full flex-col lg:flex-row">
-      {/* Left — controls */}
-      <div className="flex w-full lg:w-1/2 shrink-0 flex-col overflow-y-auto border-b lg:border-b-0 lg:border-r border-white/5 p-5">
-        {/* Model picker — leads the panel; choosing a model determines what's possible below. */}
-        <div className="mb-5">
-          <label className="mb-2 block text-[10px] font-medium uppercase tracking-wider text-zinc-500">Model</label>
-          <ModelPicker
-            appId="video-studio"
-            task="video"
-            costParams={{ durationSeconds: duration, resolution, audio }}
-          />
+      {/* Left — slot tabs + controls */}
+      <div className="flex w-full lg:w-1/2 shrink-0 flex-col overflow-y-auto border-b lg:border-b-0 lg:border-r border-white/5">
+        {/* Slot tab strip */}
+        <div className="flex shrink-0 items-center gap-1 border-b border-white/5 px-3 py-2">
+          {slots.map((s, i) => (
+            <SlotTab
+              key={i}
+              index={i}
+              slot={s}
+              active={i === activeSlotIndex}
+              onClick={() => setActiveSlotIndex(i)}
+            />
+          ))}
         </div>
 
-        {/* Frame slots — start + end side by side. Both optional. */}
-        <div className="mb-5 grid grid-cols-2 gap-3">
-          <VideoInputSlot
-            label="Start frame"
-            helper="— optional"
-            value={firstFrame}
-            onChange={setFirstFrame}
-          />
-          <VideoInputSlot
-            label="End frame"
-            helper="— optional"
-            value={lastFrame}
-            onChange={setLastFrame}
-          />
-        </div>
-
-        {/* Reference images — only for models that support them. */}
-        {refsAllowed && (
+        <div className="flex flex-1 flex-col p-5">
+          {/* Model picker — leads the panel; choosing a model determines what's possible below. */}
           <div className="mb-5">
-            <VideoRefStrip
-              label="Reference images"
-              helper="optional"
-              values={references}
-              onChange={setReferences}
-              max={maxRefs}
+            <label className="mb-2 block text-[10px] font-medium uppercase tracking-wider text-zinc-500">Model</label>
+            <ModelPicker
+              appId="video-studio"
+              task="video"
+              value={activeSlot.modelId}
+              onChange={(modelId) => patchActive({ modelId })}
+              costParams={{ durationSeconds: activeSlot.duration, resolution: activeSlot.resolution, audio: activeSlot.audio }}
             />
           </div>
-        )}
 
-        {/* Prompt */}
-        <div className="mb-5">
-          <label className="mb-2 block text-[10px] font-medium uppercase tracking-wider text-zinc-500">Prompt</label>
-          <textarea
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            rows={5}
-            placeholder="Describe the video you want to generate..."
-            className="w-full resize-none rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-purple-500/30"
-          />
-        </div>
-
-        {/* Constraint controls — populated from selected model. Each control
-            renders as a segmented toggle when there are ≤3 options, else a
-            dropdown to keep the panel compact for high-cardinality sets. */}
-        {constraints && (
-          <div className={`mb-5 grid gap-3 ${constraints.durations.length > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
-            <ChoiceControl
-              label="Aspect"
-              options={constraints.aspectRatios}
-              value={aspectRatio}
-              onChange={setAspectRatio}
-              renderOption={(r) => (
-                <span className="flex items-center justify-center gap-1.5">
-                  <AspectIcon ratio={String(r)} />
-                  <span>{r}</span>
-                </span>
-              )}
+          {/* Frame slots — start + end side by side. Both optional. */}
+          <div className="mb-5 grid grid-cols-2 gap-3">
+            <VideoInputSlot
+              label="Start frame"
+              helper="— optional"
+              value={activeSlot.firstFrame}
+              onChange={(v) => patchActive({ firstFrame: v })}
             />
-            {constraints.durations.length > 0 && (
-              <ChoiceControl
-                label="Duration"
-                options={constraints.durations}
-                value={duration}
-                onChange={setDuration}
-                renderOption={(d) => `${d}s`}
+            <VideoInputSlot
+              label="End frame"
+              helper="— optional"
+              value={activeSlot.lastFrame}
+              onChange={(v) => patchActive({ lastFrame: v })}
+            />
+          </div>
+
+          {/* Reference images — only for models that support them. */}
+          {refsAllowed && (
+            <div className="mb-5">
+              <VideoRefStrip
+                label="Reference images"
+                helper="optional"
+                values={activeSlot.references}
+                onChange={(v) => patchActive({ references: v })}
+                max={maxRefs}
               />
-            )}
-            <ChoiceControl
-              label="Resolution"
-              options={constraints.resolutions}
-              value={resolution}
-              onChange={setResolution}
-              renderOption={(r) => RESOLUTION_LABELS[String(r)] ?? String(r)}
+            </div>
+          )}
+
+          {/* Prompt */}
+          <div className="mb-5">
+            <label className="mb-2 block text-[10px] font-medium uppercase tracking-wider text-zinc-500">Prompt</label>
+            <textarea
+              value={activeSlot.prompt}
+              onChange={(e) => patchActive({ prompt: e.target.value })}
+              rows={5}
+              placeholder="Describe the video you want to generate..."
+              className="w-full resize-none rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-purple-500/30"
             />
           </div>
-        )}
 
-        {/* Audio toggle (only for models that support it) */}
-        {constraints?.supportsAudio && (
-          <div className="mb-5">
+          {/* Constraint controls */}
+          {constraints && (
+            <div className={`mb-5 grid gap-3 ${constraints.durations.length > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+              <ChoiceControl
+                label="Aspect"
+                options={constraints.aspectRatios}
+                value={activeSlot.aspectRatio}
+                onChange={(v) => patchActive({ aspectRatio: v })}
+                renderOption={(r) => (
+                  <span className="flex items-center justify-center gap-1.5">
+                    <AspectIcon ratio={String(r)} />
+                    <span>{r}</span>
+                  </span>
+                )}
+              />
+              {constraints.durations.length > 0 && (
+                <ChoiceControl
+                  label="Duration"
+                  options={constraints.durations}
+                  value={activeSlot.duration}
+                  onChange={(v) => patchActive({ duration: v })}
+                  renderOption={(d) => `${d}s`}
+                />
+              )}
+              <ChoiceControl
+                label="Resolution"
+                options={constraints.resolutions}
+                value={activeSlot.resolution}
+                onChange={(v) => patchActive({ resolution: v })}
+                renderOption={(r) => RESOLUTION_LABELS[String(r)] ?? String(r)}
+              />
+            </div>
+          )}
+
+          {/* Audio toggle */}
+          {constraints?.supportsAudio && (
+            <div className="mb-5">
+              <button
+                onClick={() => patchActive({ audio: !activeSlot.audio })}
+                className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left transition-colors ${
+                  activeSlot.audio ? 'border-purple-500/30 bg-purple-500/10' : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.04]'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  {activeSlot.audio ? <Volume2 className="h-4 w-4 text-purple-400" /> : <VolumeX className="h-4 w-4 text-zinc-500" />}
+                  <span className="text-sm text-zinc-200">Audio</span>
+                  <span className="text-[11px] text-zinc-500">{activeSlot.audio ? 'On' : 'Off'}</span>
+                </div>
+                <span className="text-[11px] text-zinc-500">Affects credits</span>
+              </button>
+            </div>
+          )}
+
+          {/* Active-slot error */}
+          {activeSlot.error && (
+            <div className="mb-3 flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2">
+              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-400" />
+              <p className="text-xs leading-relaxed text-red-300">{activeSlot.error}</p>
+            </div>
+          )}
+
+          {/* Generate button. Disabled while THIS slot is in flight; a different
+              slot's generation doesn't block this one. */}
+          <div className="mt-auto pt-2">
             <button
-              onClick={() => setAudio(!audio)}
-              className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left transition-colors ${
-                audio ? 'border-purple-500/30 bg-purple-500/10' : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.04]'
-              }`}
+              onClick={handleGenerate}
+              disabled={!canGenerate}
+              className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-purple-500 px-6 py-3.5 text-[13px] font-medium tracking-tight text-white transition-all hover:bg-purple-400 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              <div className="flex items-center gap-2">
-                {audio ? <Volume2 className="h-4 w-4 text-purple-400" /> : <VolumeX className="h-4 w-4 text-zinc-500" />}
-                <span className="text-sm text-zinc-200">Audio</span>
-                <span className="text-[11px] text-zinc-500">{audio ? 'On' : 'Off'}</span>
-              </div>
-              <span className="text-[11px] text-zinc-500">Affects credits</span>
+              {activeSlot.status === 'generating' ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Generating Slot {activeSlotIndex + 1}…</span>
+                </>
+              ) : (
+                <>
+                  <Film className="h-4 w-4" />
+                  <span>Generate Video{credits ? ` (${credits})` : ''}</span>
+                </>
+              )}
             </button>
-          </div>
-        )}
-
-        {/* Error */}
-        {error && (
-          <div className="mb-3 flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2">
-            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-400" />
-            <p className="text-xs leading-relaxed text-red-300">{error}</p>
-          </div>
-        )}
-
-        {/* Generate */}
-        <div className="mt-auto pt-2">
-          <button
-            onClick={handleGenerate}
-            disabled={!canGenerate || isGenerating}
-            className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-purple-500 px-6 py-3.5 text-[13px] font-medium tracking-tight text-white transition-all hover:bg-purple-400 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Generating Video…</span>
-              </>
-            ) : (
-              <>
-                <Film className="h-4 w-4" />
-                <span>Generate Video{credits ? ` (${credits})` : ''}</span>
-              </>
+            {inFlightCount > 0 && (
+              <p className="mt-2 text-center text-[11px] text-zinc-500">
+                {inFlightCount} generation{inFlightCount === 1 ? '' : 's'} running in parallel
+              </p>
             )}
-          </button>
+          </div>
         </div>
       </div>
 
-      {/* Right — tabbed panel: Current generation | History grid. Mirrors
-          Voiceovers' RightPanel pattern so the layouts feel consistent. */}
+      {/* Right — History | Preview tabs */}
       <div className="flex flex-1 min-h-0 flex-col">
         <div className="flex items-center gap-1 border-b border-white/5 px-5">
-          <RightTabButton active={rightTab === 'current'} onClick={() => setRightTab('current')}>
-            Current
-          </RightTabButton>
           <RightTabButton active={rightTab === 'history'} onClick={() => setRightTab('history')}>
             History
-            {videoHistory.length > 0 && (
+            {(videoHistory.length > 0 || inFlightCount > 0) && (
               <span className="ml-1.5 rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] text-zinc-300">
-                {videoHistory.length}
+                {videoHistory.length + inFlightCount}
               </span>
             )}
+          </RightTabButton>
+          <RightTabButton active={rightTab === 'preview'} onClick={() => setRightTab('preview')}>
+            Preview
           </RightTabButton>
         </div>
 
         <div className="relative min-h-0 flex-1 overflow-hidden">
-          {rightTab === 'current' ? (
-            <div className="flex h-full items-center justify-center p-5">
-              {result && resolvedVideoUrl ? (
-                <div className="flex h-full w-full flex-col items-center gap-3">
-                  <video
-                    src={resolvedVideoUrl}
-                    controls
-                    autoPlay
-                    loop
-                    className="max-h-[70vh] max-w-full rounded-xl border border-white/10"
-                  />
-                  <div className="flex flex-col items-center gap-2">
-                    <button
-                      onClick={handleSaveToBank}
-                      disabled={savedToBank}
-                      className="flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-[12px] font-medium text-zinc-300 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
-                    >
-                      {savedToBank ? (
-                        <>
-                          <Check className="h-3.5 w-3.5 text-emerald-400" />
-                          <span className="text-emerald-400">Saved to B-Rolls</span>
-                        </>
-                      ) : (
-                        <>
-                          <Save className="h-3.5 w-3.5" />
-                          <span>Save to B-Rolls Bank</span>
-                        </>
-                      )}
-                    </button>
-                    <button
-                      onClick={() => downloadVideo(resolvedVideoUrl, result.assetId)}
-                      className="flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-4 py-2 text-[12px] font-medium text-emerald-300 transition-colors hover:bg-emerald-500/25 hover:text-emerald-200"
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                      <span>Download Video</span>
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center gap-2 text-center">
-                  <Film className="h-10 w-10 text-zinc-800" strokeWidth={1.5} />
-                  <p className="text-sm text-zinc-700">Configure your video and generate</p>
-                  <p className="text-xs text-zinc-800">Output will play here</p>
-                </div>
-              )}
-            </div>
+          {rightTab === 'preview' ? (
+            <PreviewPane
+              previewItem={previewItem}
+              resolvedUrl={resolvedPreviewUrl}
+              activeSlotGenerating={activeSlot.status === 'generating'}
+              activeSlotIndex={activeSlotIndex}
+              activeModelName={activeModel?.displayName ?? ''}
+              savedToBank={savedToBank}
+              onSaveToBank={handleSaveToBank}
+            />
           ) : (
             <VideoHistoryGrid
               items={videoHistory}
-              activeId={activeHistoryId}
+              inFlight={inFlight}
+              activeId={previewHistoryId}
               onSelect={(item) => {
-                setResult({
-                  assetId: item.videoUrl,
-                  durationSeconds: item.durationSeconds ?? 0,
-                  aspectRatio: item.aspectRatio,
-                })
-                setActiveHistoryId(item.id)
+                setPreviewHistoryId(item.id)
                 setSavedToBank(!!item.linkedBRollId)
-                setRightTab('current')
+                setRightTab('preview')
               }}
               onSaveToBank={handleSaveHistoryItem}
               onDownload={async (item) => {
@@ -486,7 +569,7 @@ export default function VideoStudio() {
               }}
               onDelete={(id) => {
                 deleteVideoHistory(id)
-                if (activeHistoryId === id) setActiveHistoryId(null)
+                if (previewHistoryId === id) setPreviewHistoryId(null)
               }}
             />
           )}
@@ -495,6 +578,138 @@ export default function VideoStudio() {
     </div>
   )
 }
+
+// ── Slot tab strip ─────────────────────────────────────────────
+
+function SlotTab({
+  index,
+  slot,
+  active,
+  onClick,
+}: {
+  index: number
+  slot: Slot
+  active: boolean
+  onClick: () => void
+}) {
+  const dotClass =
+    slot.status === 'generating'
+      ? 'bg-purple-400 animate-pulse shadow-[0_0_8px_rgba(168,85,247,0.7)]'
+      : slot.status === 'error'
+      ? 'bg-red-400'
+      : slot.lastResultId
+      ? 'bg-emerald-400/70'
+      : 'bg-zinc-700'
+  return (
+    <button
+      onClick={onClick}
+      className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-1.5 text-[11px] font-medium tracking-tight transition-colors ${
+        active ? 'bg-white/[0.08] text-zinc-100' : 'text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-200'
+      }`}
+      title={
+        slot.status === 'generating'
+          ? `Slot ${index + 1} — generating`
+          : slot.status === 'error'
+          ? `Slot ${index + 1} — last run failed`
+          : slot.lastResultId
+          ? `Slot ${index + 1} — last result ready`
+          : `Slot ${index + 1} — idle`
+      }
+    >
+      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dotClass}`} aria-hidden="true" />
+      <span>Video {index + 1}</span>
+    </button>
+  )
+}
+
+// ── Preview pane ───────────────────────────────────────────────
+
+function PreviewPane({
+  previewItem,
+  resolvedUrl,
+  activeSlotGenerating,
+  activeSlotIndex,
+  activeModelName,
+  savedToBank,
+  onSaveToBank,
+}: {
+  previewItem: VideoHistoryItem | null
+  resolvedUrl: string | undefined
+  activeSlotGenerating: boolean
+  activeSlotIndex: number
+  activeModelName: string
+  savedToBank: boolean
+  onSaveToBank: () => void
+}) {
+  return (
+    <div className="flex h-full items-center justify-center p-5">
+      {previewItem && resolvedUrl ? (
+        <div className="flex h-full w-full flex-col items-center gap-3">
+          <video
+            src={resolvedUrl}
+            controls
+            autoPlay
+            loop
+            className="max-h-[70vh] max-w-full rounded-xl border border-white/10"
+          />
+          <div className="flex flex-col items-center gap-2">
+            <button
+              onClick={onSaveToBank}
+              disabled={savedToBank || !!previewItem.linkedBRollId}
+              className="flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-[12px] font-medium text-zinc-300 transition-colors hover:bg-white/[0.06] hover:text-zinc-100 disabled:cursor-not-allowed"
+            >
+              {savedToBank || previewItem.linkedBRollId ? (
+                <>
+                  <Check className="h-3.5 w-3.5 text-emerald-400" />
+                  <span className="text-emerald-400">Saved to B-Rolls</span>
+                </>
+              ) : (
+                <>
+                  <Save className="h-3.5 w-3.5" />
+                  <span>Save to B-Rolls Bank</span>
+                </>
+              )}
+            </button>
+            <button
+              onClick={() => downloadVideo(resolvedUrl, previewItem.id)}
+              className="flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-4 py-2 text-[12px] font-medium text-emerald-300 transition-colors hover:bg-emerald-500/25 hover:text-emerald-200"
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span>Download Video</span>
+            </button>
+          </div>
+        </div>
+      ) : activeSlotGenerating ? (
+        <div className="flex max-w-md flex-col items-center gap-4 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-purple-500/15">
+            <Loader2 className="h-6 w-6 animate-spin text-purple-300" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-zinc-200">
+              Generating Video {activeSlotIndex + 1}{activeModelName ? ` · ${activeModelName}` : ''}
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-zinc-500">
+              <Clock className="mr-1 inline h-3 w-3 align-[-1px]" />
+              This can take 1–3 minutes. Feel free to switch slots and start another in parallel —
+              results will appear in the History tab as they finish.
+            </p>
+          </div>
+          <div className="w-full max-w-xs">
+            <GenerationProgress isActive color="bg-purple-500" />
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col items-center gap-2 text-center">
+          <Film className="h-10 w-10 text-zinc-800" strokeWidth={1.5} />
+          <p className="text-sm text-zinc-700">Click a History tile to preview it</p>
+          <p className="text-xs text-zinc-800">Or generate a new video from the slot panel</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Right-tab button (shared chrome) ───────────────────────────
 
 function RightTabButton({
   active,
@@ -525,7 +740,7 @@ function RightTabButton({
 // Triggers a browser download for a video URL. Fetches the blob first so the
 // `download` attribute works cross-origin (asset blob URLs work directly;
 // remote http URLs would otherwise just navigate).
-async function downloadVideo(url: string | null, fallbackName: string) {
+async function downloadVideo(url: string | null | undefined, fallbackName: string) {
   if (!url) return
   try {
     const res = await fetch(url)
@@ -543,6 +758,8 @@ async function downloadVideo(url: string | null, fallbackName: string) {
     window.open(url, '_blank', 'noopener,noreferrer')
   }
 }
+
+// ── Constraint controls (segmented vs dropdown) ────────────────
 
 interface SegmentedControlProps<T> {
   label: string

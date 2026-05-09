@@ -1,12 +1,25 @@
 import { useEffect, useRef, useState } from 'react'
-import { Download, Save, Trash2, Check, Film, Play, FolderOpen, Plus } from 'lucide-react'
+import { Download, Save, Trash2, Check, Film, Play, FolderOpen, Plus, Loader2 } from 'lucide-react'
 import type { VideoHistoryItem } from '../../../stores/types'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
 import { useBankStore } from '../../../stores/bankStore'
 import { getModel } from '../../../utils/models'
 
+// Transient in-flight generation, kept in component memory while the kie task
+// runs. Surfaced as a skeleton tile at the top of the grid so the user can
+// always see what's queued — even if they switched slots since launching it.
+export interface InFlightGen {
+  id: string
+  slotIndex: number
+  modelId: string
+  prompt: string
+  aspectRatio: string
+  startedAt: number
+}
+
 interface VideoHistoryGridProps {
   items: VideoHistoryItem[]
+  inFlight?: InFlightGen[]
   activeId: string | null
   onSelect: (item: VideoHistoryItem) => void
   onSaveToBank: (item: VideoHistoryItem) => void
@@ -16,16 +29,17 @@ interface VideoHistoryGridProps {
 
 // Google Flow-style grid of past video generations. Hover reveals an action
 // row (save / download / delete). Clicking the tile elevates it to the main
-// preview area.
+// preview area. In-flight generations render at the top as skeleton tiles.
 export default function VideoHistoryGrid({
   items,
+  inFlight = [],
   activeId,
   onSelect,
   onSaveToBank,
   onDownload,
   onDelete,
 }: VideoHistoryGridProps) {
-  if (items.length === 0) {
+  if (items.length === 0 && inFlight.length === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
         <Film className="h-9 w-9 text-zinc-800" strokeWidth={1.5} />
@@ -48,6 +62,9 @@ export default function VideoHistoryGrid({
       </div>
 
       <div className="grid min-h-0 flex-1 grid-cols-2 gap-2 overflow-y-auto p-3">
+        {inFlight.map((gen) => (
+          <InFlightTile key={gen.id} gen={gen} />
+        ))}
         {items.map((item) => (
           <HistoryTile
             key={item.id}
@@ -62,6 +79,49 @@ export default function VideoHistoryGrid({
       </div>
     </div>
   )
+}
+
+// Skeleton tile rendered at the top of the grid for jobs still running on kie.
+// Pulses + spinner conveys "still cooking"; slot label tells the user which
+// tab kicked it off so they can navigate back.
+function InFlightTile({ gen }: { gen: InFlightGen }) {
+  const ratio = aspectStyle(gen.aspectRatio)
+  const modelLabel = getModel(gen.modelId)?.displayName ?? gen.modelId
+  const [elapsed, setElapsed] = useState(() => Math.floor((Date.now() - gen.startedAt) / 1000))
+  useEffect(() => {
+    const t = setInterval(() => setElapsed(Math.floor((Date.now() - gen.startedAt) / 1000)), 1000)
+    return () => clearInterval(t)
+  }, [gen.startedAt])
+
+  return (
+    <div
+      className="relative overflow-hidden rounded-lg border border-purple-500/30 bg-gradient-to-br from-purple-500/[0.08] to-zinc-950"
+      style={ratio}
+    >
+      <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-purple-500/10 via-transparent to-purple-500/5" />
+
+      <div className="absolute left-1.5 top-1.5 rounded-full bg-purple-500/30 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-purple-100 backdrop-blur">
+        Slot {gen.slotIndex + 1}
+      </div>
+
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-3 text-center">
+        <Loader2 className="h-5 w-5 animate-spin text-purple-300" />
+        <p className="text-[10px] font-medium text-purple-100">{modelLabel}</p>
+        <p className="text-[10px] tabular-nums text-purple-300/80">{formatElapsed(elapsed)}</p>
+      </div>
+
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2 pb-1.5 pt-6">
+        <p className="line-clamp-2 text-[10px] text-zinc-300">{gen.prompt}</p>
+      </div>
+    </div>
+  )
+}
+
+function formatElapsed(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  return `${m}:${s.toString().padStart(2, '0')}`
 }
 
 interface HistoryTileProps {
