@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, type ReactNode } from 'react'
-import { Film, Loader2, AlertCircle, Save, Check, Volume2, VolumeX, ChevronDown, Download, Clock } from 'lucide-react'
+import { Film, Loader2, AlertCircle, Save, Check, Volume2, VolumeX, ChevronDown, Download, Clock, FolderOpen } from 'lucide-react'
 import { useBankStore } from '../../stores/bankStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useAppStore } from '../../stores/appStore'
@@ -9,6 +9,7 @@ import GenerationProgress from '../../components/GenerationProgress'
 import VideoInputSlot, { type VideoInputValue } from '../../components/video/VideoInputSlot'
 import VideoRefStrip from '../../components/video/VideoRefStrip'
 import VideoHistoryGrid from './components/VideoHistoryGrid'
+import ProjectTagPopover from './components/ProjectTagPopover'
 import {
   getDefaultModel,
   getModel,
@@ -368,8 +369,9 @@ export default function VideoStudio() {
     <div className="flex h-full flex-col lg:flex-row">
       {/* Left — slot tabs + controls */}
       <div className="flex w-full lg:w-1/2 shrink-0 flex-col overflow-y-auto border-b lg:border-b-0 lg:border-r border-white/5">
-        {/* Slot tab strip */}
-        <div className="flex shrink-0 items-center gap-1 border-b border-white/5 px-3 py-2">
+        {/* Slot tab strip — same height + underline style as the right panel
+            tabs so the two tab rows visually align across the divider. */}
+        <div className="flex shrink-0 items-center gap-1 border-b border-white/5 px-5">
           {slots.map((s, i) => (
             <SlotTab
               key={i}
@@ -581,6 +583,9 @@ export default function VideoStudio() {
 
 // ── Slot tab strip ─────────────────────────────────────────────
 
+// Slot tab — same chrome as RightTabButton (pt-5 pb-2, underline indicator,
+// no background fill) so the two tab strips read as one continuous bar across
+// the panel divider. Status dot sits inline before the label.
 function SlotTab({
   index,
   slot,
@@ -603,9 +608,6 @@ function SlotTab({
   return (
     <button
       onClick={onClick}
-      className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-1.5 text-[11px] font-medium tracking-tight transition-colors ${
-        active ? 'bg-white/[0.08] text-zinc-100' : 'text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-200'
-      }`}
       title={
         slot.status === 'generating'
           ? `Slot ${index + 1} — generating`
@@ -615,9 +617,17 @@ function SlotTab({
           ? `Slot ${index + 1} — last result ready`
           : `Slot ${index + 1} — idle`
       }
+      className={`relative flex items-center gap-1.5 px-3 pb-2 pt-5 text-sm font-medium tracking-tight transition-colors ${
+        active ? 'text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'
+      }`}
     >
       <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dotClass}`} aria-hidden="true" />
-      <span>Video {index + 1}</span>
+      <span>Slot {index + 1}</span>
+      <span
+        className={`absolute inset-x-3 -bottom-px h-0.5 rounded-full transition-colors ${
+          active ? 'bg-zinc-100' : 'bg-transparent'
+        }`}
+      />
     </button>
   )
 }
@@ -641,6 +651,12 @@ function PreviewPane({
   savedToBank: boolean
   onSaveToBank: () => void
 }) {
+  const addItemToProject = useBankStore((s) => s.addItemToProject)
+  const removeItemFromProject = useBankStore((s) => s.removeItemFromProject)
+  const [projectPopoverOpen, setProjectPopoverOpen] = useState(false)
+
+  const projectCount = previewItem?.projectIds?.length ?? 0
+
   return (
     <div className="flex h-full items-center justify-center p-5">
       {previewItem && resolvedUrl ? (
@@ -672,11 +688,32 @@ function PreviewPane({
             </button>
             <button
               onClick={() => downloadVideo(resolvedUrl, previewItem.id)}
-              className="flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-4 py-2 text-[12px] font-medium text-emerald-300 transition-colors hover:bg-emerald-500/25 hover:text-emerald-200"
+              className="flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-[12px] font-medium text-zinc-300 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
             >
               <Download className="h-3.5 w-3.5" />
               <span>Download Video</span>
             </button>
+            <div className="relative">
+              <button
+                onClick={() => setProjectPopoverOpen((v) => !v)}
+                className="flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-[12px] font-medium text-zinc-300 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
+              >
+                <FolderOpen className="h-3.5 w-3.5" />
+                <span>
+                  {projectCount > 0 ? `Saved to ${projectCount} project${projectCount === 1 ? '' : 's'}` : 'Save to Project'}
+                </span>
+                <ChevronDown className={`h-3 w-3 transition-transform ${projectPopoverOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {projectPopoverOpen && (
+                <ProjectTagPopover
+                  projectIds={previewItem.projectIds}
+                  onAdd={(pid) => addItemToProject('videoHistory', previewItem.id, pid)}
+                  onRemove={(pid) => removeItemFromProject('videoHistory', previewItem.id, pid)}
+                  onClose={() => setProjectPopoverOpen(false)}
+                  anchorClassName="absolute left-1/2 bottom-full z-30 mb-1 -translate-x-1/2"
+                />
+              )}
+            </div>
           </div>
         </div>
       ) : activeSlotGenerating ? (
