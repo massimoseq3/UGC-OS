@@ -1,4 +1,4 @@
-import { Package, UserRound, FileText, RefreshCw, Loader2, Film, Eraser } from 'lucide-react'
+import { Package, UserRound, FileText, RefreshCw, Loader2, Film, X } from 'lucide-react'
 import type { Product, Model, Script } from '../../../stores/types'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
 
@@ -11,7 +11,9 @@ interface InputPanelProps {
   onSelectProduct: () => void
   onSelectModel: () => void
   onSelectScript: () => void
-  onClearReferences: () => void
+  onClearProduct: () => void
+  onClearModel: () => void
+  onClearScript: () => void
   onScriptTextChange: (value: string) => void
   onAdditionalContextChange: (value: string) => void
   onGenerate: () => void
@@ -26,6 +28,7 @@ function BankCard({
   isEmpty,
   children,
   onSelect,
+  onClear,
   className,
 }: {
   icon: React.ElementType
@@ -34,6 +37,7 @@ function BankCard({
   isEmpty: boolean
   children?: React.ReactNode
   onSelect: () => void
+  onClear?: () => void
   className?: string
 }) {
   if (isEmpty) {
@@ -62,13 +66,25 @@ function BankCard({
           </div>
           <span className="text-[10px] font-medium uppercase tracking-widest text-zinc-600">{label}</span>
         </div>
-        <button
-          onClick={onSelect}
-          className="flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-300"
-        >
-          <RefreshCw className="h-2.5 w-2.5" />
-          Change
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={onSelect}
+            className="flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-300"
+          >
+            <RefreshCw className="h-2.5 w-2.5" />
+            Change
+          </button>
+          {onClear && (
+            <button
+              onClick={onClear}
+              title={`Remove ${label.toLowerCase()}`}
+              aria-label={`Remove ${label.toLowerCase()}`}
+              className="flex h-5 w-5 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-white/5 hover:text-red-400"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          )}
+        </div>
       </div>
       <div className="mt-2">{children}</div>
     </div>
@@ -146,7 +162,9 @@ export default function InputPanel({
   onSelectProduct,
   onSelectModel,
   onSelectScript,
-  onClearReferences,
+  onClearProduct,
+  onClearModel,
+  onClearScript,
   onScriptTextChange,
   onAdditionalContextChange,
   onGenerate,
@@ -162,22 +180,9 @@ export default function InputPanel({
       <div className="flex-1 overflow-y-auto p-5">
         <div className="flex flex-col gap-3">
           {/* References section */}
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-400">
-              References
-            </span>
-            {(selectedProduct || selectedModel || selectedScript) && (
-              <button
-                type="button"
-                onClick={onClearReferences}
-                className="flex items-center gap-1 rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-medium text-zinc-500 transition-colors hover:border-white/20 hover:text-zinc-200"
-                title="Clear product, character, and script — keeps any generated prompts"
-              >
-                <Eraser className="h-2.5 w-2.5" />
-                Clear references
-              </button>
-            )}
-          </div>
+          <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-400">
+            References
+          </span>
 
           {/* Product */}
           <BankCard
@@ -186,6 +191,7 @@ export default function InputPanel({
             accentClass="bg-amber-500/15 text-amber-400"
             isEmpty={!selectedProduct}
             onSelect={onSelectProduct}
+            onClear={selectedProduct ? onClearProduct : undefined}
           >
             {selectedProduct && <ProductCard product={selectedProduct} />}
           </BankCard>
@@ -197,6 +203,7 @@ export default function InputPanel({
             accentClass="bg-sky-500/15 text-sky-400"
             isEmpty={!selectedModel}
             onSelect={onSelectModel}
+            onClear={selectedModel ? onClearModel : undefined}
           >
             {selectedModel && <ModelCard model={selectedModel} />}
           </BankCard>
@@ -208,6 +215,7 @@ export default function InputPanel({
             accentClass="bg-violet-500/15 text-violet-400"
             isEmpty={!selectedScript}
             onSelect={onSelectScript}
+            onClear={selectedScript ? onClearScript : undefined}
             className={highlightField === 'script' ? 'animate-field-flash' : ''}
           >
             {selectedScript && <ScriptCard script={selectedScript} scriptText={scriptText} />}

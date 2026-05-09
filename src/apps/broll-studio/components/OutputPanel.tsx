@@ -19,12 +19,15 @@ import {
 } from 'lucide-react'
 import GenerationProgress from '../../../components/GenerationProgress'
 import ModelPicker from '../../../components/ModelPicker'
+import ResolutionToggle from '../../../components/ResolutionToggle'
 import type { BrollResult, Scene, PromptVariation, CardState, GeneratedImage, ReferenceImage } from '../types'
 import { generateImage } from '../services/generateBroll'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAppStore } from '../../../stores/appStore'
+import { useSettingsStore } from '../../../stores/settingsStore'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
 import { getAsBase64, isAssetRef } from '../../../utils/assetStore'
+import { getDefaultModel, getModel, type ImageResolution } from '../../../utils/models'
 
 interface OutputPanelProps {
   result: BrollResult | null
@@ -132,6 +135,7 @@ function VariationCard({
   selectedModelId,
   selectedScriptId,
   aspectRatio,
+  resolution,
 }: {
   variation: PromptVariation
   index: number
@@ -143,6 +147,7 @@ function VariationCard({
   selectedModelId?: string
   selectedScriptId?: string
   aspectRatio: string
+  resolution: ImageResolution
 }) {
   const isManual = variation.id.startsWith('manual-') || variation.label === 'Manual Option'
   const showTagChip = !isManual
@@ -156,7 +161,7 @@ function VariationCard({
   const handleGenerateImage = async () => {
     onUpdateState({ isGeneratingImage: true, imageError: null })
     try {
-      const imageUrl = await generateImage(cardState.editablePrompt, referenceImages, aspectRatio)
+      const imageUrl = await generateImage(cardState.editablePrompt, referenceImages, aspectRatio, resolution)
       const newImage: GeneratedImage = { imageUrl, prompt: cardState.editablePrompt }
       const newImages = [...cardState.images, newImage]
       onUpdateState({
@@ -434,6 +439,7 @@ function SceneSection({
   selectedModelId,
   selectedScriptId,
   aspectRatio,
+  resolution,
 }: {
   scene: Scene
   cardStates: Record<string, CardState>
@@ -445,6 +451,7 @@ function SceneSection({
   selectedModelId?: string
   selectedScriptId?: string
   aspectRatio: string
+  resolution: ImageResolution
 }) {
   return (
     <div style={{ contentVisibility: 'auto', containIntrinsicSize: '700px' }}>
@@ -489,6 +496,7 @@ function SceneSection({
               selectedModelId={selectedModelId}
               selectedScriptId={selectedScriptId}
               aspectRatio={aspectRatio}
+              resolution={resolution}
             />
           )
         })}
@@ -548,6 +556,27 @@ function SkeletonScene() {
 export default function OutputPanel({ result, isGenerating, error, onAddVariation, onDeleteVariation, referenceImages, selectedProductId, selectedModelId, selectedScriptId }: OutputPanelProps) {
   const [cardStates, setCardStates] = useState<Record<string, CardState>>({})
   const [aspectRatio, setAspectRatio] = useState<string>(PORTRAIT_VALUE)
+  const [resolution, setResolution] = useState<ImageResolution>(() => {
+    // Mirror the model's preferred default (GPT Image 2 → '2K').
+    const persisted = useSettingsStore.getState().getAppModel('broll-studio:image:text-to-image')
+    const id = persisted ?? getDefaultModel('broll-studio', 'image', 'text-to-image')?.id
+    const constraints = id ? getModel(id)?.imageConstraints : undefined
+    return (constraints?.default as ImageResolution | undefined) ?? (constraints?.resolutions[0] as ImageResolution | undefined) ?? '1K'
+  })
+
+  const persistedImageModel = useSettingsStore((s) => s.getAppModel('broll-studio:image:text-to-image'))
+  const imageModelId = persistedImageModel ?? getDefaultModel('broll-studio', 'image', 'text-to-image')?.id
+
+  // When the model changes, snap to that model's preferred default tier so
+  // GPT Image 2 lands on 2K, etc.
+  useEffect(() => {
+    const constraints = imageModelId ? getModel(imageModelId)?.imageConstraints : undefined
+    const tiers = (constraints?.resolutions ?? []) as ImageResolution[]
+    if (tiers.length === 0) return
+    const preferred = (constraints?.default as ImageResolution | undefined) ?? tiers[0]
+    if (preferred !== resolution) setResolution(preferred)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [imageModelId])
 
   const handleUpdateCardState = useCallback((key: string, updates: Partial<CardState>) => {
     setCardStates((prev) => {
@@ -630,20 +659,23 @@ export default function OutputPanel({ result, isGenerating, error, onAddVariatio
         </span>
       </div>
 
-      {/* Master image-model + orientation toolbar — applies to every "Generate Image" click */}
-      <div className="mb-5 flex flex-wrap items-center gap-3 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2.5">
-        <span className="text-[10px] font-medium uppercase tracking-widest text-zinc-500">
+      {/* Master image-settings toolbar — applies to every "Generate Image" click. */}
+      <div className="mb-5 rounded-xl border border-white/5 bg-white/[0.02] p-3">
+        <div className="mb-2.5 text-[10px] font-medium uppercase tracking-widest text-zinc-500">
           Image settings
-        </span>
-        <div className="min-w-[200px] flex-1">
-          <ModelPicker
-            appId="broll-studio"
-            task="image"
-            mode="text-to-image"
-            costParams={{ imageCount: 1 }}
-          />
         </div>
-        <AspectRatioToggle value={aspectRatio} onChange={setAspectRatio} />
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="min-w-[220px] flex-1">
+            <ModelPicker
+              appId="broll-studio"
+              task="image"
+              mode="text-to-image"
+              costParams={{ imageCount: 1, resolution }}
+            />
+          </div>
+          <AspectRatioToggle value={aspectRatio} onChange={setAspectRatio} />
+          <ResolutionToggle modelId={imageModelId} value={resolution} onChange={setResolution} />
+        </div>
       </div>
 
       {/* Scenes */}
@@ -662,6 +694,7 @@ export default function OutputPanel({ result, isGenerating, error, onAddVariatio
               selectedModelId={selectedModelId}
               selectedScriptId={selectedScriptId}
               aspectRatio={aspectRatioApi}
+              resolution={resolution}
             />
           ))}
         </div>

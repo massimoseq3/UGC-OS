@@ -298,7 +298,7 @@ export default function ControlsPanel({
         />
       </div>
 
-      {/* Horizontal segmented tabs (Voice Studio style — underline + counter badge) */}
+      {/* Horizontal segmented tabs (Voiceovers style — underline + counter badge) */}
       <div className="border-b border-white/5 px-4">
         <div className="flex items-center justify-start gap-4">
           {TABS.map((tab) => {

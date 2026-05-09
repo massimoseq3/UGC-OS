@@ -1,7 +1,7 @@
 import type { CharacterProfile } from '../types'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import { kieImageGenerate, downloadAsBase64 } from '../../../utils/kie'
-import { getDefaultModel, buildImageInput, type AspectRatio } from '../../../utils/models'
+import { getDefaultModel, buildImageInput, type AspectRatio, type ImageResolution } from '../../../utils/models'
 import { saveBase64Asset } from '../../../utils/assetStore'
 
 export interface GenerationResult {
@@ -111,6 +111,7 @@ export async function generateCharacter(
   profile: CharacterProfile,
   signal?: AbortSignal,
   modelIdOverride?: string,
+  resolution?: ImageResolution,
 ): Promise<GenerationResult> {
   const apiKey = useSettingsStore.getState().getKieApiKey()
 
@@ -122,7 +123,7 @@ export async function generateCharacter(
   const prompt = buildImagePrompt(profile)
   const aspectRatio: AspectRatio = profile.aspectRatio === 'Landscape (16:9)' ? '16:9' : '9:16'
 
-  const body = buildImageInput(modelId, { prompt, aspectRatio })
+  const body = buildImageInput(modelId, { prompt, aspectRatio, resolution })
   const urls = await kieImageGenerate(apiKey, modelId, body, { signal })
 
   if (urls.length === 0) throw new Error('Image generation returned no result.')

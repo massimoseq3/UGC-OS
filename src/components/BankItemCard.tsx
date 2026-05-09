@@ -1,26 +1,32 @@
-import { Package, UserRound, FileText, Mic } from 'lucide-react'
-import type { Product, Model, Script, VoicePreset } from '../stores/types'
+import { Package, UserRound, FileText, Mic, Film } from 'lucide-react'
+import type { Product, Model, Script, VoicePreset, BRoll } from '../stores/types'
 import type { BankType } from '../utils/constants'
 import { useAssetUrl } from '../hooks/useAssetUrl'
 
-type BankItem = Product | Model | Script | VoicePreset
+type BankItem = Product | Model | Script | VoicePreset | BRoll
 
 interface BankItemCardProps {
   bankType: BankType
   item: BankItem
   onClick: () => void
+  selected?: boolean
 }
 
-export default function BankItemCard({ bankType, item, onClick }: BankItemCardProps) {
+export default function BankItemCard({ bankType, item, onClick, selected }: BankItemCardProps) {
   return (
     <button
       onClick={onClick}
-      className="flex w-full items-center gap-3 rounded-xl border border-white/5 bg-white/[0.03] p-3 text-left transition-colors hover:border-white/10 hover:bg-white/[0.06]"
+      className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors ${
+        selected
+          ? 'border-sky-500/40 bg-sky-500/[0.08]'
+          : 'border-white/5 bg-white/[0.03] hover:border-white/10 hover:bg-white/[0.06]'
+      }`}
     >
       {bankType === 'products' && <ProductContent item={item as Product} />}
       {bankType === 'models' && <ModelContent item={item as Model} />}
       {bankType === 'scripts' && <ScriptContent item={item as Script} />}
       {bankType === 'voices' && <VoiceContent item={item as VoicePreset} />}
+      {bankType === 'brolls' && <BRollContent item={item as BRoll} />}
     </button>
   )
 }
@@ -81,6 +87,25 @@ function ScriptContent({ item }: { item: Script }) {
         </span>
         <span className="truncate text-xs text-zinc-500">
           {preview || 'Empty script'}
+        </span>
+      </div>
+    </>
+  )
+}
+
+function BRollContent({ item }: { item: BRoll }) {
+  const hasImage = !!item.imageUrl
+  const videoCount = item.videos?.length ?? 0
+  return (
+    <>
+      <Thumbnail src={hasImage ? item.imageUrl : undefined} fallback={Film} />
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="truncate text-sm font-semibold tracking-tight text-zinc-200">
+          {item.prompt || 'Untitled B-Roll'}
+        </span>
+        <span className="truncate text-xs text-zinc-500">
+          {hasImage ? 'Still' : 'Video only'}
+          {videoCount > 0 ? ` · ${videoCount} clip${videoCount === 1 ? '' : 's'}` : ''}
         </span>
       </div>
     </>

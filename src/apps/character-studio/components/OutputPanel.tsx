@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Check, Save, UserRound, Loader2, Download, AlertCircle, X, RectangleVertical, RectangleHorizontal } from 'lucide-react'
 import { useBankStore } from '../../../stores/bankStore'
 import { useSettingsStore } from '../../../stores/settingsStore'
@@ -6,7 +6,8 @@ import type { GenerationResult } from '../services/generateCharacter'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
 import GenerationProgress from '../../../components/GenerationProgress'
 import ModelPicker from '../../../components/ModelPicker'
-import { estimateCredits, formatCredits, getDefaultModel } from '../../../utils/models'
+import ResolutionToggle from '../../../components/ResolutionToggle'
+import { estimateCredits, formatCredits, getDefaultModel, getModel, type ImageResolution } from '../../../utils/models'
 
 interface OutputPanelProps {
   result: GenerationResult | null
@@ -17,6 +18,8 @@ interface OutputPanelProps {
   canGenerate: boolean
   aspectRatio: string
   onAspectRatioChange: (value: string) => void
+  resolution: ImageResolution
+  onResolutionChange: (value: ImageResolution) => void
 }
 
 const PORTRAIT_VALUE = 'Portrait (9:16)'
@@ -25,10 +28,10 @@ const LANDSCAPE_VALUE = 'Landscape (16:9)'
 function AspectRatioToggle({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const isPortrait = value.includes('9:16')
   return (
-    <div className="flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.02] p-1">
+    <div className="flex items-center gap-0.5 rounded-lg border border-white/10 bg-white/[0.02] p-0.5">
       <button
         onClick={() => onChange(PORTRAIT_VALUE)}
-        className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors ${isPortrait
+        className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-[11px] font-medium transition-colors ${isPortrait
           ? 'bg-sky-500/15 text-sky-300'
           : 'text-zinc-500 hover:text-zinc-300'
         }`}
@@ -39,7 +42,7 @@ function AspectRatioToggle({ value, onChange }: { value: string; onChange: (v: s
       </button>
       <button
         onClick={() => onChange(LANDSCAPE_VALUE)}
-        className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors ${!isPortrait
+        className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-[11px] font-medium transition-colors ${!isPortrait
           ? 'bg-sky-500/15 text-sky-300'
           : 'text-zinc-500 hover:text-zinc-300'
         }`}
@@ -52,7 +55,7 @@ function AspectRatioToggle({ value, onChange }: { value: string; onChange: (v: s
   )
 }
 
-export default function OutputPanel({ result, isGenerating, error, onGenerate, onCancel, canGenerate, aspectRatio, onAspectRatioChange }: OutputPanelProps) {
+export default function OutputPanel({ result, isGenerating, error, onGenerate, onCancel, canGenerate, aspectRatio, onAspectRatioChange, resolution, onResolutionChange }: OutputPanelProps) {
   const [showSaveForm, setShowSaveForm] = useState(false)
   const [saveName, setSaveName] = useState('')
   const [saved, setSaved] = useState(false)
@@ -62,7 +65,19 @@ export default function OutputPanel({ result, isGenerating, error, onGenerate, o
 
   const persistedModel = useSettingsStore((s) => s.getAppModel('character-studio:image:text-to-image'))
   const selectedModelId = persistedModel ?? getDefaultModel('character-studio', 'image', 'text-to-image')?.id
-  const creditsLabel = formatCredits(estimateCredits(selectedModelId ?? '', { imageCount: 1 }))
+  const creditsLabel = formatCredits(estimateCredits(selectedModelId ?? '', { imageCount: 1, resolution }))
+
+  // When the model changes, snap to that model's preferred default tier (or
+  // first supported as a fallback). This makes GPT Image 2 land on 2K when
+  // users switch into it, and keeps any model switch consistent.
+  useEffect(() => {
+    const constraints = selectedModelId ? getModel(selectedModelId)?.imageConstraints : undefined
+    const tiers = (constraints?.resolutions ?? []) as ImageResolution[]
+    if (tiers.length === 0) return
+    const preferred = (constraints?.default as ImageResolution | undefined) ?? tiers[0]
+    if (preferred !== resolution) onResolutionChange(preferred)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedModelId])
 
   const isPortrait = aspectRatio.includes('9:16')
 
@@ -129,8 +144,9 @@ export default function OutputPanel({ result, isGenerating, error, onGenerate, o
             appId="character-studio"
             task="image"
             mode="text-to-image"
-            costParams={{ imageCount: 1 }}
+            costParams={{ imageCount: 1, resolution }}
           />
+          <ResolutionToggle modelId={selectedModelId} value={resolution} onChange={onResolutionChange} />
           <button
             onClick={onGenerate}
             disabled={!canGenerate}
@@ -226,8 +242,9 @@ export default function OutputPanel({ result, isGenerating, error, onGenerate, o
           appId="character-studio"
           task="image"
           mode="text-to-image"
-          costParams={{ imageCount: 1 }}
+          costParams={{ imageCount: 1, resolution }}
         />
+        <ResolutionToggle modelId={selectedModelId} value={resolution} onChange={onResolutionChange} />
         <button
           onClick={onGenerate}
           disabled={!canGenerate || isGenerating}

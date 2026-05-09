@@ -11,9 +11,9 @@ Sidebar is grouped into three sections (LIBRARY / CREATE / TOOLS). Display names
 | Library | Bank | `finder/` | Banks browser |
 | Create | Characters | `character-studio/` | Form → portrait image. Drop a reference image on the controls panel (or anywhere in the app surface) to auto-fill every field via vision-based DNA extraction. |
 | Create | Scripts | `script-architect/` | Winning ad + product → new script |
-| Create | Voiceovers | `voice-studio/` | Script → audio (ElevenLabs v3) |
-| Create | B-roll | `broll-studio/` | Script → scenes → still images → animated frames |
-| Create | Videos | `video-studio/` | Prompt + optional reference frames → standalone video |
+| Create | Voiceovers | `voice-studio/` | Script → audio (ElevenLabs v2) |
+| Create | B-Roll Images | `broll-studio/` | Script → scenes → still images |
+| Create | B-Roll Videos | `video-studio/` | Prompt + optional start/end frames + optional reference images → b-roll video. Inputs are revealed by the selected model's capabilities (no mode toggle); frame slots accept Upload or Pick from B-Roll Bank. |
 | Tools | Ad Analyzer | `ad-anatomy/` | Ad image or video frame → scorecard + transcript + visual playbook |
 
 Folder names and the `id` strings in `src/utils/constants.ts` are stable on purpose — they're used in localStorage keys for per-app model selections.
@@ -117,7 +117,7 @@ type VideoMode =
   | 'frames-to-video'       // start frame + end frame
   | 'reference-to-video'    // up to 9 reference images (Seedance) / 3 (Veo Fast)
 ```
-Each video model declares `videoModes: VideoMode[]` + `videoConstraints` (allowed durations, resolutions, aspect ratios, audio support). The Video Studio UI re-shapes its input area per mode and snaps constraint controls to allowed values when the model changes.
+Each video model declares `videoModes: VideoMode[]` + `videoConstraints` (allowed durations, resolutions, aspect ratios, audio support). B-Roll Videos doesn't show a mode toggle — start frame, end frame, and reference image slots reveal based on the selected model's capabilities, and the mode is **inferred at generate time** from which slots are filled (`references → reference-to-video`, `start + end → frames-to-video`, `start only → image-to-video`, none → `text-to-video`). Constraint controls (aspect / duration / resolution / audio) snap to allowed values when the model changes.
 
 ### Per-model body shaping
 
@@ -134,12 +134,15 @@ src/
 ├── components/                    # Shared UI
 │   ├── MenuBar.tsx                # Top bar: hamburger + UGC Lab wordmark
 │   ├── Sidebar.tsx                # Left nav (collapsible). Replaced the old Dock.
-│   ├── BankPicker.tsx             # Universal sliding panel for selecting bank items
-│   ├── BankItemCard.tsx           # Reusable card for displaying bank items
+│   ├── BankPicker.tsx             # Universal sliding panel for selecting bank items (supports brolls + multiSelect)
+│   ├── BankItemCard.tsx           # Reusable card for displaying bank items (incl. BRoll variant)
 │   ├── ModelPicker.tsx            # Dropdown with credit estimate inline
 │   ├── SettingsModal.tsx          # kie.ai API key + Test connection
 │   ├── GenerationProgress.tsx     # Loading bar with percent (no seconds)
-│   └── Toast.tsx                  # Confirmation toasts
+│   ├── Toast.tsx                  # Confirmation toasts
+│   └── video/
+│       ├── VideoInputSlot.tsx     # Frame slot (Upload | Pick from Bank); used for start/end frames
+│       └── VideoRefStrip.tsx      # Reference-images grid with multi-select Bank picker
 │
 ├── stores/
 │   ├── bankStore.ts               # Banks + voiceHistory (one-shot v3 voice migration on load)
@@ -149,12 +152,12 @@ src/
 │
 ├── apps/
 │   ├── finder/                    # Bank browser + edit forms
-│   ├── character-studio/          # → "Generate Characters" (drag-photo DNA extraction is built in)
-│   ├── ad-anatomy/                # → "Analyze Ads"
-│   ├── script-architect/          # → "Generate Scripts"
-│   ├── voice-studio/              # → "Generate Voiceovers" (ElevenLabs v3)
-│   ├── broll-studio/              # → "Generate B-Roll" (chains text → image → animate)
-│   └── video-studio/              # → "Generate Videos" (4 modes, 6 models)
+│   ├── character-studio/          # Sidebar: "Characters" (drag-photo DNA extraction is built in)
+│   ├── ad-anatomy/                # Sidebar: "Ad Analyzer"
+│   ├── script-architect/          # Sidebar: "Scripts"
+│   ├── voice-studio/              # Sidebar: "Voiceovers" (ElevenLabs Multilingual v2)
+│   ├── broll-studio/              # Sidebar: "B-Roll Images" — text → still
+│   └── video-studio/              # Sidebar: "B-Roll Videos" — capability-driven slots, mode inferred at generate-time
 │
 ├── hooks/
 │   └── useAssetUrl.ts             # Resolves asset:// refs to blob URLs for <img> / <video>
@@ -174,11 +177,11 @@ Persisted to `localStorage` under `ai-ugc-lab-banks`. Asset blobs (images, audio
 | Bank | Type (in `stores/types.ts`) | Source |
 |---|---|---|
 | `products` | `Product` | Manually added in Finder |
-| `models` | `Model` | Saved from Character Studio output |
-| `scripts` | `Script` | Saved from Script Architect output |
-| `voices` | `VoicePreset` | Saved from Voice Studio history |
-| `brolls` | `BRoll` | Saved from B-Roll Studio + Video Studio |
-| `voiceHistory` | `VoiceHistoryItem` | Auto-pushed on every Voice Studio generation |
+| `models` | `Model` | Saved from Characters output |
+| `scripts` | `Script` | Saved from Scripts output |
+| `voices` | `VoicePreset` | Saved from Voiceovers history |
+| `brolls` | `BRoll` | Saved from B-Roll Images + B-Roll Videos. A single record can carry both `imageUrl` (still) and `videos[]` (animations) — when B-Roll Videos generates from a bank still, it appends to the source's `videos` array instead of creating an orphan record. |
+| `voiceHistory` | `VoiceHistoryItem` | Auto-pushed on every Voiceovers generation |
 
 `VoicePreset` and `VoiceHistoryItem` carry the full Multilingual v2 parameter set: `voiceId`, `stability`, `similarityBoost`, `style`, `speed`. Legacy fields (`creativity`, `ambience`, `styleInstructions`) are stripped on load; missing v2 fields are backfilled with the model defaults (`0.75 / 0 / 1`) — see `migrateVoiceShape` in `bankStore.ts`.
 
@@ -198,10 +201,10 @@ useEffect(() => {
 ```
 
 Wired today:
-- Ad Anatomy → Script Architect (winning transcript / reconstruction prompt)
-- Ad Anatomy → Finder (productId)
-- Script Architect → Voice Studio (script text)
-- B-Roll Studio → Video Studio (still as first frame)
+- Ad Analyzer → Scripts (winning transcript / reconstruction prompt)
+- Ad Analyzer → Bank (productId)
+- Scripts → Voiceovers (script text)
+- B-Roll Images → B-Roll Videos (still as start frame; consumer drops it directly into the start-frame slot — no mode to set)
 
 ## Build phases (history)
 
@@ -217,6 +220,9 @@ Wired today:
 10. **DNA folded into Character Studio** — Visual DNA extraction merged into Generate Characters as a drag-photo affordance (compact drop zone in the controls panel + full-area drag overlay). Standalone `image-dna/` app removed. Bank entries with `source: 'image-dna-extractor'` continue to load.
 11. **Sidebar regrouping + ModelPicker redesign** — Sidebar split into Library / Create / Tools sections. App display names switched to terse nouns (Bank / Characters / Scripts / Voiceovers / B-roll / Videos / Ad Analyzer). ModelPicker rebuilt with provider avatars, $-tier badges, and a yellow ★ on recommended models. Aspect ratio moved out of the Camera tab into a Portrait/Landscape pill toggle directly above the model picker.
 12. **Voiceovers redesign + v2 swap** — Voice Studio rebuilt to mirror ElevenLabs' speech-synthesis screen: full-bleed editor, right-side `Settings | History` panel with sliding voice picker, ~64-voice catalog grouped by category, click-to-preview avatars with loading rings, sticky bottom audio player after generation. TTS model swapped from `text-to-dialogue-v3` (dialogue-array body) to `text-to-speech-multilingual-v2` (flat body). Settings now expose Speed / Stability / Similarity / Style Exaggeration; `VoicePreset` + `VoiceHistoryItem` extended with the new fields and migrated.
+13. **B-Roll Videos: capability-driven UI + Bank-aware frame slots** — Mode toggle removed; start frame, end frame, and reference image slots reveal based on the selected model's capabilities, with the mode inferred at generate-time. Frame slots accept Upload **or** Pick from B-Roll Bank (BankPicker now supports `bankType="brolls"` + an optional `multiSelect` mode for adding several reference images at once). New shared components `VideoInputSlot` and `VideoRefStrip` under `src/components/video/`. Save linkage: when a generation uses a B-Roll Bank still as its source, the new video appends to that BRoll's `videos[]` instead of creating an orphan record; uploads-only saves persist the still alongside the video so the entry is paired. Settings migration `2026-05-video-studio-flatten-modes` collapses the four old per-mode model keys (`video-studio:video:image-to-video`, etc.) into a single `video-studio:video` key. Finder's BRoll card renders a video-element thumbnail for video-only BRolls (text-to-video saves) instead of the empty-film placeholder. Sidebar names finalized: B-Roll Images / B-Roll Videos.
+14. **Pricing audit + Veo result-shape fix + aspect-ratio icons** — All model `pricing` blocks reverified against kie.ai's live marketing pages (`kie.ai/{slug}` and `kie.ai/pricing`, last verified 2026-05-09). Highlights: image rates corrected (Nano Banana 2 4→8 credits/1K, Flux 2 Pro 5→14, GPT Image 2 4→3 / Edit 4→6, Seedream 5 Lite 3→3.5, all with new `priceFor` lookups for 2K/4K tiers); Gemini 3 Flash chat rate 0.015→0.10 cr/1k tokens (blended input/output); ElevenLabs Multilingual v2 swapped from per-call 0.5 to **per-1k-chars 12** (new `Pricing.unit` + `PriceParams.charCount`). Veo per-(duration, resolution) lookups fixed earlier in this session continue to apply. **Veo bug**: `kieVeoGenerate` was reading `record.resultUrls` flat, but Veo's record-info actually nests them under `response.resultUrls` — successful generations were rejecting with "Veo returned no result URLs." Fix reads `record.response?.resultUrls ?? record.response?.fullResultUrls ?? record.response?.originUrls` with backward-compatible fallbacks. **Aspect-ratio icons**: B-Roll Videos' Aspect segmented control now renders a small outlined rectangle proportional to each ratio (`AspectIcon` in `VideoStudio.tsx`) so users see orientation at a glance.
+15. **Image resolution toggle + Veo Fast default + slimmer frame slots** — Image generation now exposes a 1K / 2K / 4K toggle with per-tier credit cost. New shared `ResolutionToggle` component gated by each model's `imageConstraints.resolutions` — hides for single-tier models (Seedream 5 Lite), trims to `['1K','2K']` for Flux 2 Pro, full set for Nano Banana 2 / GPT Image 2 / GPT Image 2 (Edit). State lives in Characters (`CharacterStudio.tsx`) and B-Roll Images (`OutputPanel.tsx`), is plumbed through `generateCharacter` and `generateImage`, and snaps to the first supported tier when the model changes. `ImageGenOptions.sizeHint` replaced with `resolution: '1K' | '2K' | '4K'` (`ImageResolution` type) — `buildImageInput` passes it directly to each model's API field. **B-Roll Videos default** swapped from Seedance 2.0 to Veo 3.1 Fast (`defaultFor` moved); existing users keep their persisted choice via the migration. **Frame slots**: VideoInputSlot's empty Upload/Bank pad and the filled-image preview are now h-24 (was py-5 + full-natural-image height), so start/end frame slots no longer dominate the panel.
 
 ## When making changes (going forward)
 

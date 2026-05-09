@@ -41,6 +41,29 @@ const MODEL_MIGRATIONS: Array<{ name: string; apply: (m: Record<string, string>)
     name: '2026-05-character-studio-nano-banana-default',
     apply: (m) => { delete m['character-studio:image:text-to-image'] },
   },
+  {
+    // B-Roll Videos dropped its mode toggle. Old per-mode keys
+    // ('video-studio:video:image-to-video', etc.) collapse into a single
+    // 'video-studio:video' slot. Take whichever per-mode value the user
+    // had selected last (image-to-video is the most common starting point)
+    // as the new flat selection.
+    name: '2026-05-video-studio-flatten-modes',
+    apply: (m) => {
+      const modes = ['image-to-video', 'frames-to-video', 'reference-to-video', 'text-to-video']
+      if (!m['video-studio:video']) {
+        for (const mode of modes) {
+          const old = m[`video-studio:video:${mode}`]
+          if (old) {
+            m['video-studio:video'] = old
+            break
+          }
+        }
+      }
+      for (const mode of modes) {
+        delete m[`video-studio:video:${mode}`]
+      }
+    },
+  },
 ]
 
 function loadFromStorage(): { kieApiKey: string; perAppModel: Record<string, string> } {

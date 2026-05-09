@@ -32,7 +32,7 @@ export default function MenuBar() {
         <Menu className="h-5 w-5" strokeWidth={1.75} />
       </button>
 
-      <span className="text-[17px] font-bold tracking-tight text-zinc-100">
+      <span className="text-[19px] font-bold tracking-tight text-zinc-100">
         UGC Lab
       </span>
 
@@ -41,10 +41,10 @@ export default function MenuBar() {
       {/* Credits chip — only visible once an API key is configured */}
       {apiKey && (
         <div
-          className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] py-1.5 pl-3 pr-1.5 text-xs font-medium text-zinc-200"
+          className="flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] py-1.5 pl-3 pr-1.5 text-xs font-medium text-zinc-200"
           title="kie.ai credits remaining"
         >
-          <Coins className="h-3.5 w-3.5 text-zinc-400" />
+          <Coins className="mr-0.5 h-3.5 w-3.5 text-zinc-400" />
           <span className="tabular-nums">
             {balance !== null ? balance.toLocaleString() : '—'}
           </span>
