@@ -51,9 +51,15 @@ interface RowShape {
 
 let started = false
 let unsubscribers: Array<() => void> = []
-let pushTimer: ReturnType<typeof setTimeout> | null = null
+let bankPushTimer: ReturnType<typeof setTimeout> | null = null
+let settingsPushTimer: ReturnType<typeof setTimeout> | null = null
 const pendingDirty = new Set<BankKey>()
 const lastSnapshot: Partial<Record<BankKey, Map<string, string>>> = {}
+// Reference equality lets us skip re-stringifying banks whose array didn't
+// actually change. Zustand keeps array identity stable on shallow merges,
+// so an unrelated state update (e.g. updating products) leaves models, scripts,
+// etc. with the same array reference — no diff work needed.
+const lastArrayRef: Partial<Record<BankKey, unknown>> = {}
 
 function projectIdsOf(item: unknown): string[] {
   if (item && typeof item === 'object' && 'projectIds' in item) {
@@ -193,12 +199,12 @@ async function uploadEntireSnapshot(userId: string) {
   localStorage.setItem(`ugc-lab:cloud-migrated:${userId}`, '1')
 }
 
-function schedulePush() {
-  if (pushTimer) clearTimeout(pushTimer)
-  pushTimer = setTimeout(() => {
-    pushTimer = null
+function scheduleBankPush() {
+  if (bankPushTimer) clearTimeout(bankPushTimer)
+  bankPushTimer = setTimeout(() => {
+    bankPushTimer = null
     flushPending().catch((e) => reportError('flush', e))
-  }, 300)
+  }, 250)
 }
 
 async function flushPending() {
@@ -212,6 +218,13 @@ async function flushPending() {
 
   useSyncStore.getState().setStatus('syncing')
   let hadError = false
+
+  // Build per-bank work plans first (synchronous, fast), then fire all
+  // network calls in parallel. Each bank can have an upsert and/or a delete;
+  // we run them concurrently and await the lot.
+  const work: Array<PromiseLike<unknown>> = []
+  const newSnapshots: Partial<Record<BankKey, Map<string, string>>> = {}
+  const isoNow = new Date().toISOString()
 
   for (const key of dirty) {
     const table = BANK_TO_TABLE[key]
@@ -232,18 +245,23 @@ async function flushPending() {
     }
 
     if (upserts.length > 0) {
-      const { error } = await sb.from(table).upsert(
-        upserts.map((r) => ({ ...r, user_id: userId, updated_at: new Date().toISOString() })),
+      work.push(
+        sb.from(table).upsert(upserts.map((r) => ({ ...r, user_id: userId, updated_at: isoNow })))
+          .then(({ error }) => { if (error) { reportError(`upsert ${table}`, error); hadError = true } }),
       )
-      if (error) { reportError(`upsert ${table}`, error); hadError = true }
     }
     if (deletedIds.length > 0) {
-      const { error } = await sb.from(table).delete().in('id', deletedIds).eq('user_id', userId)
-      if (error) { reportError(`delete ${table}`, error); hadError = true }
+      work.push(
+        sb.from(table).delete().in('id', deletedIds).eq('user_id', userId)
+          .then(({ error }) => { if (error) { reportError(`delete ${table}`, error); hadError = true } }),
+      )
     }
 
-    lastSnapshot[key] = next
+    newSnapshots[key] = next
   }
+
+  await Promise.all(work)
+  for (const key of dirty) lastSnapshot[key] = newSnapshots[key]!
 
   if (!hadError) useSyncStore.getState().markSynced()
 }
@@ -266,31 +284,41 @@ async function pushSettingsNow() {
 let lastSettingsJson = ''
 
 function startSubscribers() {
-  // Banks: track every bank array; on diff, mark dirty + schedule push.
+  // Banks: only inspect banks whose array reference changed. Zustand keeps
+  // identities stable on shallow merges, so an unrelated state update leaves
+  // the other banks' arrays untouched and we skip them entirely.
   const u1 = useBankStore.subscribe((state) => {
+    let anyDirty = false
     for (const key of BANK_KEYS) {
       const arr = state[key] as Array<{ id: string }>
-      const snap = snapshotBank(arr)
+      if (lastArrayRef[key] === arr) continue
+      lastArrayRef[key] = arr
+
       const prev = lastSnapshot[key]
-      if (!prev) {
-        lastSnapshot[key] = snap
-        continue
-      }
-      // Cheap inequality check: size + content
-      if (prev.size !== snap.size) {
+      // First time seeing this bank — establish the baseline silently.
+      if (!prev) { lastSnapshot[key] = snapshotBank(arr); continue }
+
+      // Quick size check first; only stringify if sizes match (rare miss case).
+      if (prev.size !== arr.length) {
         pendingDirty.add(key)
+        anyDirty = true
         continue
       }
+      const snap = snapshotBank(arr)
       let dirty = false
       for (const [id, json] of snap) {
         if (prev.get(id) !== json) { dirty = true; break }
       }
-      if (dirty) pendingDirty.add(key)
+      if (dirty) {
+        pendingDirty.add(key)
+        anyDirty = true
+      }
     }
-    if (pendingDirty.size > 0) schedulePush()
+    if (anyDirty) scheduleBankPush()
   })
 
-  // Settings: any change → debounced push.
+  // Settings: any change → debounced push. Uses its own timer so a settings
+  // burst can't cancel a pending bank push.
   const u2 = useSettingsStore.subscribe((state) => {
     const json = JSON.stringify({
       kieApiKey: state.kieApiKey,
@@ -299,8 +327,8 @@ function startSubscribers() {
     })
     if (json === lastSettingsJson) return
     lastSettingsJson = json
-    if (pushTimer) clearTimeout(pushTimer)
-    pushTimer = setTimeout(() => { pushTimer = null; pushSettingsNow() }, 300)
+    if (settingsPushTimer) clearTimeout(settingsPushTimer)
+    settingsPushTimer = setTimeout(() => { settingsPushTimer = null; pushSettingsNow() }, 250)
   })
 
   unsubscribers.push(u1, u2)
@@ -356,10 +384,12 @@ export async function startCloudSync() {
 export function stopCloudSync() {
   for (const u of unsubscribers) u()
   unsubscribers = []
-  if (pushTimer) clearTimeout(pushTimer)
-  pushTimer = null
+  if (bankPushTimer) clearTimeout(bankPushTimer)
+  bankPushTimer = null
+  if (settingsPushTimer) clearTimeout(settingsPushTimer)
+  settingsPushTimer = null
   pendingDirty.clear()
-  for (const k of BANK_KEYS) delete lastSnapshot[k]
+  for (const k of BANK_KEYS) { delete lastSnapshot[k]; delete lastArrayRef[k] }
   started = false
   useSyncStore.getState().setStatus('disabled')
 }
