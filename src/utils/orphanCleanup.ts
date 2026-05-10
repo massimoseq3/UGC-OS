@@ -1,0 +1,95 @@
+// Per-user orphan asset cleanup. Walks the user's `assets` table and
+// cross-references every `asset-…` ref embedded anywhere in their bank
+// rows; anything in the assets table that no bank row references is an
+// orphan and gets deleted (IDB + Supabase row + R2 object).
+//
+// Sound for the signed-in user only — relies on the local bank state being
+// fully hydrated from cloud (which startCloudSync guarantees on sign-in).
+
+import { getSupabase, isCloudEnabled } from '../lib/supabase'
+import { useAuthStore } from '../stores/authStore'
+import { useBankStore } from '../stores/bankStore'
+import { deleteAsset, isAssetRef } from './assetStore'
+
+const BANK_KEYS = ['projects', 'products', 'models', 'scripts', 'voices', 'brolls', 'voiceHistory', 'videoHistory'] as const
+
+function walkAssetRefs(value: unknown, out: Set<string>) {
+  if (typeof value === 'string') {
+    if (isAssetRef(value)) out.add(value)
+    return
+  }
+  if (Array.isArray(value)) {
+    for (const v of value) walkAssetRefs(v, out)
+    return
+  }
+  if (value && typeof value === 'object') {
+    for (const v of Object.values(value as Record<string, unknown>)) walkAssetRefs(v, out)
+  }
+}
+
+export interface OrphanAsset {
+  id: string
+  byte_size: number
+  mime_type: string
+  created_at: string
+}
+
+export async function findOrphanAssets(): Promise<{
+  orphans: OrphanAsset[]
+  totalBytes: number
+  // Total cloud-known assets and bytes — useful as denominators in the UI.
+  total: number
+  totalAssetBytes: number
+}> {
+  if (!isCloudEnabled()) return { orphans: [], totalBytes: 0, total: 0, totalAssetBytes: 0 }
+  const userId = useAuthStore.getState().user?.id
+  if (!userId) return { orphans: [], totalBytes: 0, total: 0, totalAssetBytes: 0 }
+
+  const sb = getSupabase()
+  const { data, error } = await sb
+    .from('assets')
+    .select('id, byte_size, mime_type, created_at')
+    .eq('user_id', userId)
+  if (error) throw new Error(`assets read: ${error.message}`)
+
+  const all = (data ?? []) as OrphanAsset[]
+  const totalAssetBytes = all.reduce((s, a) => s + Number(a.byte_size ?? 0), 0)
+
+  const refs = new Set<string>()
+  const bankState = useBankStore.getState()
+  for (const key of BANK_KEYS) {
+    const arr = bankState[key] as unknown[]
+    for (const item of arr) walkAssetRefs(item, refs)
+  }
+
+  const orphans = all.filter((a) => !refs.has(a.id))
+  const totalBytes = orphans.reduce((s, a) => s + Number(a.byte_size ?? 0), 0)
+  return { orphans, totalBytes, total: all.length, totalAssetBytes }
+}
+
+export async function purgeOrphans(
+  ids: string[],
+  onProgress?: (done: number, total: number) => void,
+): Promise<{ ok: number; failed: Array<{ id: string; error: string }> }> {
+  let ok = 0
+  const failed: Array<{ id: string; error: string }> = []
+  for (let i = 0; i < ids.length; i++) {
+    const id = ids[i]
+    try {
+      await deleteAsset(id)
+      ok++
+    } catch (e) {
+      failed.push({ id, error: e instanceof Error ? e.message : String(e) })
+    }
+    onProgress?.(i + 1, ids.length)
+  }
+  return { ok, failed }
+}
+
+export function formatBytes(n: number): string {
+  if (!n) return '0 B'
+  if (n < 1024) return `${n} B`
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
+  if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`
+  return `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`
+}

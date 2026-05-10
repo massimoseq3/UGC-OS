@@ -125,8 +125,11 @@ export async function downloadAssetFromR2(assetId: string): Promise<Blob | null>
   return await res.blob()
 }
 
-// Awaited single-row delete on the `assets` table. R2 object itself is left
-// in place — leftovers are cheap and a sweeper can clean them up later.
+// Awaited delete of both the `assets` metadata row AND the R2 binary itself.
+// The metadata row delete is required (throws on failure). The R2 object
+// delete is best-effort — if it fails the user can run the orphan-cleanup
+// flow in Settings to sweep it later. We don't want a slow R2 region pinning
+// bank deletes to its latency.
 export async function deleteAssetFromR2(assetId: string): Promise<void> {
   if (!isCloudEnabled()) return
   const userId = useAuthStore.getState().user?.id
@@ -134,4 +137,20 @@ export async function deleteAssetFromR2(assetId: string): Promise<void> {
   const sb = getSupabase()
   const { error } = await sb.from('assets').delete().eq('id', assetId).eq('user_id', userId)
   if (error) throw new Error(`assets row delete: ${error.message}`)
+
+  try {
+    const token = useAuthStore.getState().session?.access_token
+    if (!token) return
+    const res = await fetch('/api/r2-delete', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+      body: JSON.stringify({ assetId }),
+    })
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      console.warn(`[r2] R2 object delete failed (${res.status}):`, text || res.statusText)
+    }
+  } catch (e) {
+    console.warn('[r2] R2 object delete network error', e)
+  }
 }
