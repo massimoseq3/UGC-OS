@@ -370,10 +370,10 @@ export default function VideoStudio() {
   return (
     <div className="flex flex-col-reverse pb-28 md:h-full md:flex-row md:pb-0">
       {/* Left — slot tabs + controls */}
-      <div className="flex w-full md:w-1/2 shrink-0 flex-col md:overflow-y-auto border-b md:border-b-0 md:border-r border-white/5">
+      <div className="flex w-full md:w-1/2 shrink-0 flex-col md:overflow-y-auto scrollbar-hide border-b md:border-b-0 md:border-r border-white/5">
         {/* Slot tab strip — same height + underline style as the right panel
             tabs so the two tab rows visually align across the divider. */}
-        <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-white/5 px-5">
+        <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-white/5 px-5 md:overflow-x-visible">
           {slots.map((s, i) => (
             <SlotTab
               key={i}

@@ -303,7 +303,7 @@ export default function ControlsPanel({
       </div>
 
       {/* Horizontal segmented tabs — same sizing/spacing as Voiceovers + B-Roll Videos */}
-      <div className="flex items-center gap-1 overflow-x-auto border-b border-white/5 px-5">
+      <div className="flex items-center gap-1 overflow-x-auto border-b border-white/5 px-5 md:overflow-x-visible">
         {TABS.map((tab) => {
           const isActive = tab.id === activeTab
           const fields = getTabFields(tab)

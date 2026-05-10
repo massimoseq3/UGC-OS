@@ -44,6 +44,17 @@ select {
   background: rgba(255, 255, 255, 0.2);
 }
 
+/* Hide scrollbars but preserve scroll behavior — used for tab strips and
+   panels where the scrollbar is visual noise but the user can still
+   swipe/wheel through. */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 /* Skeleton shimmer animation */
 @keyframes shimmer {
   0% { background-position: -200% 0; }
