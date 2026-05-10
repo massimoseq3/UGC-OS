@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSyncStore, type SyncStatus } from '../stores/syncStore'
+import * as uploadQueue from '../lib/uploadQueue'
 
 // How long a 'syncing' state must persist before we actually flip the chip
 // to amber. Anything faster than this stays green — fast round trips feel
@@ -10,17 +11,18 @@ export default function SyncStatusChip() {
   const status = useSyncStore((s) => s.status)
   const pendingPushes = useSyncStore((s) => s.pendingPushes)
   const pendingUploads = useSyncStore((s) => s.pendingUploads)
+  const failedUploads = useSyncStore((s) => s.failedUploads)
   const lastSyncAt = useSyncStore((s) => s.lastSyncAt)
   const lastError = useSyncStore((s) => s.lastError)
   const [open, setOpen] = useState(false)
+  const [retrying, setRetrying] = useState(false)
   // Effective status: same as `status` except 'syncing' is delayed.
   const [effective, setEffective] = useState<SyncStatus>(status)
   const ref = useRef<HTMLDivElement>(null)
 
-  // Asset uploads tend to take 5–30s. They override 'syncing' so the user
-  // sees a useful "Uploading…" label and a count, not a vague pulse.
   const hasUploads = pendingUploads > 0
   const hasPushes = pendingPushes > 0
+  const hasFailures = failedUploads > 0
 
   useEffect(() => {
     if (status !== 'syncing') {
@@ -42,11 +44,14 @@ export default function SyncStatusChip() {
 
   if (effective === 'disabled') return null
 
-  // Decide what to show. Uploads take precedence because they are the slow,
-  // visible operation; pushes happen too fast for the user to perceive.
+  // Decide what to show. Failures take precedence (they're actionable);
+  // uploads come next (slow + visible); pushes happen too fast to perceive.
   let dot: string
   let label: string
-  if (status === 'error') {
+  if (hasFailures) {
+    dot = 'bg-red-500'
+    label = failedUploads === 1 ? '1 upload failed' : `${failedUploads} uploads failed`
+  } else if (status === 'error') {
     dot = 'bg-red-500'
     label = 'Sync error'
   } else if (hasUploads) {
@@ -63,12 +68,21 @@ export default function SyncStatusChip() {
     label = 'Synced'
   }
 
+  const handleRetry = async () => {
+    setRetrying(true)
+    try {
+      await uploadQueue.retryAll()
+    } finally {
+      setRetrying(false)
+    }
+  }
+
   return (
     <div ref={ref} className="relative">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        title={status === 'error' ? lastError ?? 'Sync error' : label}
+        title={hasFailures ? `${failedUploads} upload${failedUploads === 1 ? '' : 's'} failed — click to retry` : (status === 'error' ? lastError ?? 'Sync error' : label)}
         className="flex h-9 items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 text-xs font-medium text-zinc-300 transition-colors hover:bg-white/[0.07]"
       >
         <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
@@ -82,19 +96,35 @@ export default function SyncStatusChip() {
             <span className="text-[12px] font-medium text-zinc-200">{label}</span>
           </div>
           <div className="space-y-1.5 pt-2 text-[11px] text-zinc-500">
-            {hasUploads && (
+            {hasFailures && (
+              <div className="space-y-2">
+                <div className="text-red-300">
+                  {failedUploads === 1 ? 'An asset upload' : `${failedUploads} asset uploads`} couldn't reach the cloud after several retries.
+                  Your files are still saved locally — click below to try again.
+                </div>
+                <button
+                  type="button"
+                  onClick={handleRetry}
+                  disabled={retrying}
+                  className="w-full rounded-md bg-red-500/15 px-2 py-1.5 text-[11px] font-medium text-red-200 transition-colors hover:bg-red-500/25 disabled:opacity-50"
+                >
+                  {retrying ? 'Retrying…' : 'Retry all uploads'}
+                </button>
+              </div>
+            )}
+            {hasUploads && !hasFailures && (
               <div>{pendingUploads} {pendingUploads === 1 ? 'file is' : 'files are'} uploading. Don’t close this tab.</div>
             )}
-            {hasPushes && !hasUploads && (
+            {hasPushes && !hasUploads && !hasFailures && (
               <div>Saving your latest changes to the cloud…</div>
             )}
-            {status === 'error' && lastError && (
+            {status === 'error' && !hasFailures && lastError && (
               <div className="space-y-1">
                 <div className="text-[10px] uppercase tracking-wider text-zinc-500">Last error</div>
                 <div className="break-words text-red-300">{lastError}</div>
               </div>
             )}
-            {!hasUploads && !hasPushes && status === 'synced' && lastSyncAt && (
+            {!hasUploads && !hasPushes && !hasFailures && status === 'synced' && lastSyncAt && (
               <div>Last sync {formatAgo(lastSyncAt)}</div>
             )}
             {!hasUploads && !hasPushes && status === 'starting' && (

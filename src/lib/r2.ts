@@ -13,20 +13,24 @@ interface SignedUrlResponse {
   expiresIn: number
 }
 
+// 60s per network attempt. Beyond this we'd rather fail and let the queue
+// retry than tie up a worker slot indefinitely on a dead connection.
+const ATTEMPT_TIMEOUT_MS = 60_000
+
 async function getAccessToken(): Promise<string | null> {
   const session = useAuthStore.getState().session
   return session?.access_token ?? null
 }
 
-async function presign(op: 'put' | 'get', assetId: string, mimeType?: string): Promise<SignedUrlResponse> {
+async function presign(op: 'put' | 'get', assetId: string, mimeType?: string, byteSize?: number): Promise<SignedUrlResponse> {
   const token = await getAccessToken()
   if (!token) throw new Error('Not signed in')
 
-  const res = await fetch('/api/r2-sign', {
+  const res = await withTimeout(fetch('/api/r2-sign', {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
-    body: JSON.stringify({ op, assetId, mimeType }),
-  })
+    body: JSON.stringify({ op, assetId, mimeType, byteSize }),
+  }), ATTEMPT_TIMEOUT_MS)
   if (!res.ok) {
     const text = await res.text().catch(() => '')
     throw new Error(`Presign failed (${res.status}): ${text || res.statusText}`)
@@ -34,38 +38,73 @@ async function presign(op: 'put' | 'get', assetId: string, mimeType?: string): P
   return await res.json() as SignedUrlResponse
 }
 
-// Upload a blob to R2 and register it in the `assets` table. The bank rows
-// keep using the same `asset-…` id, so callers don't change.
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(`Network timeout after ${Math.round(ms / 1000)}s`)), ms)
+    p.then((v) => { clearTimeout(t); resolve(v) }, (e) => { clearTimeout(t); reject(e) })
+  })
+}
+
+// Atomic upload: this resolves only after BOTH the R2 PUT and the `assets`
+// row insert succeed. Failure surfaces as a thrown error so the upload queue
+// can apply backoff. We deliberately do not touch useSyncStore here — the
+// queue owns all sync-state accounting via subscribers.
 export async function uploadAssetToR2(assetId: string, blob: Blob): Promise<void> {
   if (!isCloudEnabled()) return
   const userId = useAuthStore.getState().user?.id
-  if (!userId) return
+  if (!userId) throw new Error('Not signed in')
 
-  useSyncStore.getState().startUpload()
-  try {
-    const { url, key } = await presign('put', assetId, blob.type)
-    const putRes = await fetch(url, {
-      method: 'PUT',
-      headers: blob.type ? { 'content-type': blob.type } : {},
-      body: blob,
-    })
-    if (!putRes.ok) {
-      const text = await putRes.text().catch(() => '')
-      throw new Error(`R2 upload failed (${putRes.status}): ${text || putRes.statusText}`)
-    }
+  const { url, key } = await presign('put', assetId, blob.type, blob.size)
 
-    const sb = getSupabase()
-    const { error } = await sb.from('assets').upsert({
-      id: assetId,
-      user_id: userId,
-      r2_key: key,
-      mime_type: blob.type || 'application/octet-stream',
-      byte_size: blob.size,
-    })
-    if (error) console.error('[r2] assets row insert failed', error)
-  } finally {
-    useSyncStore.getState().endUpload()
+  const putRes = await withTimeout(fetch(url, {
+    method: 'PUT',
+    headers: blob.type ? { 'content-type': blob.type } : {},
+    body: blob,
+  }), ATTEMPT_TIMEOUT_MS)
+  if (!putRes.ok) {
+    const text = await putRes.text().catch(() => '')
+    throw new Error(`R2 upload failed (${putRes.status}): ${text || putRes.statusText}`)
   }
+
+  const sb = getSupabase()
+  const { error } = await sb.from('assets').upsert({
+    id: assetId,
+    user_id: userId,
+    r2_key: key,
+    mime_type: blob.type || 'application/octet-stream',
+    byte_size: blob.size,
+  })
+  if (error) {
+    // Bubble up so the queue retries — a dangling R2 object without an
+    // `assets` row is exactly the broken state we're trying to avoid.
+    throw new Error(`assets row insert failed: ${error.message}`)
+  }
+}
+
+// Returns true if a remote `assets` row exists for the given id under the
+// current user. Used by cloudSync's backfill walk.
+export async function hasRemoteAssetRow(assetId: string): Promise<boolean> {
+  if (!isCloudEnabled()) return false
+  const userId = useAuthStore.getState().user?.id
+  if (!userId) return false
+  const sb = getSupabase()
+  const { data } = await sb.from('assets').select('id').eq('id', assetId).maybeSingle()
+  return !!data
+}
+
+// Returns the set of asset ids the user already has in R2. Single round trip;
+// callers pass the full set of refs they care about so we IN-filter server-side.
+export async function existingRemoteAssetIds(assetIds: string[]): Promise<Set<string>> {
+  if (!isCloudEnabled() || assetIds.length === 0) return new Set()
+  const userId = useAuthStore.getState().user?.id
+  if (!userId) return new Set()
+  const sb = getSupabase()
+  const { data, error } = await sb.from('assets').select('id').in('id', assetIds).eq('user_id', userId)
+  if (error) {
+    console.warn('[r2] existingRemoteAssetIds failed', error)
+    return new Set()
+  }
+  return new Set((data ?? []).map((row) => row.id as string))
 }
 
 // Fetch a blob from R2 by asset id. Returns null if not found / not ours.

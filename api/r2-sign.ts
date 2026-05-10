@@ -14,12 +14,23 @@ export const config = {
   runtime: 'edge',
 }
 
-const PRESIGN_TTL_SECONDS = 300
+// 30 minutes — long enough that a slow upload over a flaky connection won't
+// hit a signed-URL expiry mid-PUT, short enough that a leaked URL is bounded.
+const PRESIGN_TTL_SECONDS = 1800
+
+// Cap individual uploads at 200 MB. Today the largest realistic asset is a
+// 30s 1080p video (~50 MB). Catches both runaway client bugs and abuse.
+const MAX_UPLOAD_BYTES = 200 * 1024 * 1024
+
+// Mime allowlist for puts. We don't enforce on gets — those just hand back
+// whatever R2 has — but writes should match what the app actually saves.
+const ALLOWED_PUT_MIME_PREFIXES = ['image/', 'video/', 'audio/']
 
 interface SignBody {
   op: 'put' | 'get'
   assetId: string
   mimeType?: string
+  byteSize?: number
 }
 
 function json(status: number, body: unknown): Response {
@@ -64,6 +75,15 @@ export default async function handler(req: Request): Promise<Response> {
   if (body.op !== 'put' && body.op !== 'get') return json(400, { error: 'op must be put|get' })
   if (!body.assetId || typeof body.assetId !== 'string') return json(400, { error: 'assetId required' })
   if (!/^[a-zA-Z0-9._-]+$/.test(body.assetId)) return json(400, { error: 'assetId has invalid characters' })
+
+  if (body.op === 'put') {
+    if (typeof body.byteSize === 'number' && body.byteSize > MAX_UPLOAD_BYTES) {
+      return json(413, { error: `Upload exceeds ${MAX_UPLOAD_BYTES / (1024 * 1024)} MB limit` })
+    }
+    if (body.mimeType && !ALLOWED_PUT_MIME_PREFIXES.some((p) => body.mimeType!.startsWith(p))) {
+      return json(415, { error: `Unsupported mime type: ${body.mimeType}` })
+    }
+  }
 
   const accountId = process.env.R2_ACCOUNT_ID
   const accessKey = process.env.R2_ACCESS_KEY_ID
