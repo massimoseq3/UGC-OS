@@ -2,6 +2,7 @@ import { Package, UserRound, FileText, Mic, Film } from 'lucide-react'
 import type { Product, Model, Script, VoicePreset, BRoll } from '../stores/types'
 import type { BankType } from '../utils/constants'
 import { useAssetUrl } from '../hooks/useAssetUrl'
+import AssetSyncBadge from './AssetSyncBadge'
 
 type BankItem = Product | Model | Script | VoicePreset | BRoll
 
@@ -34,12 +35,13 @@ export default function BankItemCard({ bankType, item, onClick, selected }: Bank
 function Thumbnail({ src, fallback: Icon }: { src?: string; fallback: React.ElementType }) {
   const resolvedUrl = useAssetUrl(src)
   return (
-    <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white/5">
+    <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white/5">
       {resolvedUrl ? (
         <img src={resolvedUrl} alt="" className="h-full w-full object-cover" />
       ) : (
         <Icon className="h-4 w-4 text-zinc-600" />
       )}
+      <AssetSyncBadge refs={[src]} size="sm" className="absolute -right-1 -top-1" />
     </div>
   )
 }

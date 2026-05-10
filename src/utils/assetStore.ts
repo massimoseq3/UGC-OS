@@ -1,6 +1,7 @@
-import { uploadAssetToR2, downloadAssetFromR2, deleteAssetFromR2 } from '../lib/r2'
+import { downloadAssetFromR2, deleteAssetFromR2 } from '../lib/r2'
 import { isCloudEnabled } from '../lib/supabase'
 import { useAuthStore } from '../stores/authStore'
+import { enqueueUpload, dropFromQueue, setBlobGetter } from '../lib/uploadQueue'
 
 const DB_NAME = 'ai-ugc-lab-assets'
 const DB_VERSION = 1
@@ -55,6 +56,10 @@ function generateAssetId(): string {
   return `asset-${crypto.randomUUID()}`
 }
 
+// The upload queue needs to read blobs out of our IndexedDB store but can't
+// import from this file directly (circular). Hand it a getter at load time.
+setBlobGetter((id) => getBlob(id))
+
 export function isAssetRef(value: string | undefined | null): boolean {
   return typeof value === 'string' && value.startsWith('asset-')
 }
@@ -88,10 +93,14 @@ export async function saveAsset(blob: Blob, mimeType?: string): Promise<string> 
     }
   }
 
-  // Fire-and-forget upload to R2 so the asset survives across devices.
-  // We don't await it — UI shouldn't block on the network for save.
+  // Hand off to the durable upload queue. The queue owns retries, backoff,
+  // and surfacing failures to the sync chip. cloudSync gates bank-row pushes
+  // on queue readiness so a row referencing this asset never lands in
+  // Supabase before the blob is durable in R2.
   if (cloudActive()) {
-    uploadAssetToR2(id, blob).catch((e) => console.warn('[assetStore] R2 upload failed', e))
+    enqueueUpload(id, blob, asset.mimeType).catch((e) =>
+      console.warn('[assetStore] enqueueUpload failed', e),
+    )
   }
 
   return id
@@ -212,6 +221,10 @@ export async function deleteAsset(assetId: string): Promise<void> {
     URL.revokeObjectURL(cached)
     urlCache.delete(assetId)
   }
+
+  // Stop any pending/failed upload retries for this asset — user no longer
+  // wants it.
+  dropFromQueue(assetId).catch(() => { /* best effort */ })
 
   // Best-effort: drop the cloud `assets` row (R2 object stays — leftovers
   // are cheap and a sweeper can clean them up later).

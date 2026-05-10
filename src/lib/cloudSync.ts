@@ -17,6 +17,9 @@ import { useBankStore } from '../stores/bankStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useSyncStore } from '../stores/syncStore'
 import { getSupabase, isCloudEnabled } from './supabase'
+import { existingRemoteAssetIds } from './r2'
+import * as uploadQueue from './uploadQueue'
+import { isAssetRef, getBlob } from '../utils/assetStore'
 import type { Project, Product, Model, Script, VoicePreset, BRoll, VoiceHistoryItem, VideoHistoryItem } from '../stores/types'
 
 // Surface upsert/hydrate failures in the UI so users (and we) don't have to
@@ -67,6 +70,24 @@ function projectIdsOf(item: unknown): string[] {
     if (Array.isArray(v)) return v.filter((x): x is string => typeof x === 'string')
   }
   return []
+}
+
+// Recursively scan a bank item for `asset-…` refs. We use this both to gate
+// row pushes (so we don't push a row whose blob hasn't reached R2) and to
+// drive the backfill walk after hydrate.
+function walkAssetRefs(value: unknown, out: string[] = []): string[] {
+  if (typeof value === 'string') {
+    if (isAssetRef(value)) out.push(value)
+    return out
+  }
+  if (Array.isArray(value)) {
+    for (const v of value) walkAssetRefs(v, out)
+    return out
+  }
+  if (value && typeof value === 'object') {
+    for (const v of Object.values(value as Record<string, unknown>)) walkAssetRefs(v, out)
+  }
+  return out
 }
 
 function snapshotBank<T extends { id: string }>(arr: T[]): Map<string, string> {
@@ -227,6 +248,10 @@ async function flushPending() {
   const newSnapshots: Partial<Record<BankKey, Map<string, string>>> = {}
   const isoNow = new Date().toISOString()
 
+  // Track rows whose assets weren't ready this round so we can re-mark their
+  // bank as dirty after this push and try again on the next pump.
+  let anyDeferred = false
+
   for (const key of dirty) {
     const table = BANK_TO_TABLE[key]
     const arr = useBankStore.getState()[key] as Array<{ id: string }>
@@ -234,10 +259,24 @@ async function flushPending() {
     const prev = lastSnapshot[key] ?? new Map()
 
     const upserts: RowShape[] = []
+    const deferredIds: string[] = []
     for (const [id, json] of next) {
       if (prev.get(id) !== json) {
         const item = arr.find((x) => x.id === id)!
-        upserts.push({ id, project_ids: projectIdsOf(item), data: item })
+        // Gate: every asset ref in this item must be durable in R2 before
+        // we push the row. Otherwise other devices see a dangling reference.
+        const refs = walkAssetRefs(item)
+        let ready = true
+        if (refs.length > 0) {
+          // Run in parallel — each `isReady` is a tiny IndexedDB read.
+          const flags = await Promise.all(refs.map((r) => uploadQueue.isReady(r)))
+          ready = flags.every(Boolean)
+        }
+        if (ready) {
+          upserts.push({ id, project_ids: projectIdsOf(item), data: item })
+        } else {
+          deferredIds.push(id)
+        }
       }
     }
     const deletedIds: string[] = []
@@ -258,14 +297,27 @@ async function flushPending() {
       )
     }
 
-    newSnapshots[key] = next
+    // Snapshot only the IDs we actually pushed (plus whatever was already
+    // baseline). Deferred rows must remain "different from baseline" so the
+    // next flush retries them.
+    const partial = new Map(prev)
+    for (const r of upserts) partial.set(r.id, next.get(r.id)!)
+    for (const id of deletedIds) partial.delete(id)
+    newSnapshots[key] = partial
+
+    if (deferredIds.length > 0) {
+      anyDeferred = true
+      // Re-add this bank so flushPending runs again as soon as the queue
+      // makes progress (the uploadQueue subscriber below kicks the timer).
+      pendingDirty.add(key)
+    }
   }
 
   await Promise.all(work)
   for (const key of dirty) lastSnapshot[key] = newSnapshots[key]!
 
   useSyncStore.getState().endPush()
-  if (!hadError) useSyncStore.getState().markSynced()
+  if (!hadError && !anyDeferred) useSyncStore.getState().markSynced()
 }
 
 async function pushSettingsNow() {
@@ -286,6 +338,47 @@ async function pushSettingsNow() {
 }
 
 let lastSettingsJson = ''
+let uploadQueueUnsub: (() => void) | null = null
+
+// Walks every bank row for asset refs after hydrate. For refs we have locally
+// but R2 doesn't, enqueue uploads (recovers users whose previous saves left
+// a row in the cloud but never landed the blob). For refs missing both
+// places, surface a one-time toast so users know.
+async function backfillAssetUploads() {
+  const state = useBankStore.getState()
+  const allRefs = new Set<string>()
+  for (const key of BANK_KEYS) {
+    const arr = state[key] as Array<{ id: string }>
+    for (const item of arr) for (const r of walkAssetRefs(item)) allRefs.add(r)
+  }
+  if (allRefs.size === 0) return
+
+  const refList = Array.from(allRefs)
+  const remoteSet = await existingRemoteAssetIds(refList)
+
+  let recovered = 0
+  let lost = 0
+  for (const ref of refList) {
+    if (remoteSet.has(ref)) continue
+    // Not in R2. Do we have it locally?
+    const blob = await getBlob(ref).catch(() => null)
+    if (blob) {
+      await uploadQueue.enqueueUpload(ref, blob)
+      recovered++
+    } else {
+      lost++
+    }
+  }
+
+  if (recovered > 0) {
+    console.log(`[cloudSync] backfilling ${recovered} asset upload(s) from local cache`)
+    try { useAppStore.getState().addToast(`Resuming ${recovered} asset upload${recovered === 1 ? '' : 's'} from your local cache`, 'info') } catch { /* ignore */ }
+  }
+  if (lost > 0) {
+    console.warn(`[cloudSync] ${lost} asset(s) couldn't be recovered (missing locally and in cloud)`)
+    try { useAppStore.getState().addToast(`${lost} asset${lost === 1 ? '' : 's'} from earlier sessions couldn't be recovered`, 'error') } catch { /* ignore */ }
+  }
+}
 
 function startSubscribers() {
   // Banks: only inspect banks whose array reference changed. Zustand keeps
@@ -335,6 +428,27 @@ function startSubscribers() {
     settingsPushTimer = setTimeout(() => { settingsPushTimer = null; pushSettingsNow() }, 250)
   })
 
+  // When the upload queue makes progress (an asset finished uploading, or
+  // failed), retry any deferred bank rows. We don't strictly need to filter
+  // on transition kind — flushPending re-checks readiness for every dirty row.
+  uploadQueueUnsub = uploadQueue.subscribe((entry) => {
+    if (entry.status === 'uploaded') {
+      // Re-mark every bank that contains this ref as dirty so flushPending
+      // re-checks it. Cheap because the snapshot diff catches no-ops.
+      const state = useBankStore.getState()
+      for (const key of BANK_KEYS) {
+        const arr = state[key] as Array<{ id: string }>
+        for (const item of arr) {
+          if (walkAssetRefs(item).includes(entry.id)) {
+            pendingDirty.add(key)
+            break
+          }
+        }
+      }
+      scheduleBankPush()
+    }
+  })
+
   unsubscribers.push(u1, u2)
 }
 
@@ -365,6 +479,12 @@ export async function startCloudSync() {
 
     await hydrateFromCloud(userId)
     console.log('[cloudSync] hydrated from cloud')
+
+    // Boot the upload queue so any pending/failed entries from prior sessions
+    // resume. Then walk bank refs to recover anything we have locally that R2
+    // doesn't (a row was pushed pre-fix without its blob ever uploading).
+    await uploadQueue.start()
+    backfillAssetUploads().catch((e) => console.warn('[cloudSync] backfill failed', e))
   } catch (e) {
     reportError('startup', e)
     started = false
@@ -388,6 +508,8 @@ export async function startCloudSync() {
 export function stopCloudSync() {
   for (const u of unsubscribers) u()
   unsubscribers = []
+  if (uploadQueueUnsub) { uploadQueueUnsub(); uploadQueueUnsub = null }
+  uploadQueue.stop()
   if (bankPushTimer) clearTimeout(bankPushTimer)
   bankPushTimer = null
   if (settingsPushTimer) clearTimeout(settingsPushTimer)
