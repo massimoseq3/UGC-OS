@@ -45,7 +45,7 @@ function AppPlaceholder({ appId }: { appId: string }) {
 
 function EmptyState() {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
+    <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
       <AppLogo className="h-12 w-12" />
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">
