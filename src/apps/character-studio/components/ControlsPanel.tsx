@@ -280,7 +280,7 @@ export default function ControlsPanel({
   const isFlat = currentTab.groups.length === 1
 
   return (
-    <div className="flex flex-col lg:h-full">
+    <div className="flex flex-col md:h-full">
       {/* Photo extract drop zone */}
       <div className="border-b border-white/5 px-3 py-2">
         <span className="mb-1.5 block text-[9px] font-semibold uppercase tracking-widest text-zinc-400">Auto-fill from reference image</span>
@@ -335,7 +335,7 @@ export default function ControlsPanel({
       </div>
 
       {/* Scrollable parameter fields (only scrolls internally on desktop) */}
-      <div className="flex-1 p-4 lg:overflow-y-auto">
+      <div className="flex-1 p-4 md:overflow-y-auto">
         {isFlat ? (
           renderGroupFields(currentTab.groups[0])
         ) : (

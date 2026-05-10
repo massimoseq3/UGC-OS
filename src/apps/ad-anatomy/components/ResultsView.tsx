@@ -66,7 +66,7 @@ function ScorecardSection({ result }: { result: AnalysisResult }) {
   return (
     <Section>
       <SectionHeader icon={BarChart3} title="Scorecard" />
-      <div className="flex flex-col lg:flex-row gap-5">
+      <div className="flex flex-col md:flex-row gap-5">
         {/* Score list — left */}
         <div className="flex flex-1 flex-col gap-2">
           {scorecard.scores.map((s) => {
@@ -214,7 +214,7 @@ function HookSection({ result }: { result: AnalysisResult }) {
           </p>
         </div>
         {/* Two columns: Technique + Why It Works */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-600">Technique</span>
             <p className="mt-1 text-sm leading-relaxed text-zinc-400">{hookBreakdown.technique}</p>
@@ -276,7 +276,7 @@ function PsychologySection({ result }: { result: AnalysisResult }) {
   return (
     <Section>
       <SectionHeader icon={Brain} title="Psychology & Persuasion" />
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-600">Primary Levers</span>
           <ul className="mt-2 flex flex-col gap-1.5">
@@ -406,9 +406,9 @@ function Pill({ label, value }: { label: string; value: string }) {
 /* ─── Main ResultsView ─── */
 export default function ResultsView({ result, videoSrc, fileName, onReset }: ResultsViewProps) {
   return (
-    <div className="flex flex-col lg:flex-row h-full overflow-hidden">
+    <div className="flex flex-col md:flex-row h-full overflow-hidden">
       {/* Left column — pinned video */}
-      <div className="flex lg:h-full w-full lg:w-1/3 shrink-0 flex-col gap-4 border-b lg:border-b-0 lg:border-r border-white/5 p-4 lg:p-5 min-h-0">
+      <div className="flex md:h-full w-full md:w-1/3 shrink-0 flex-col gap-4 border-b md:border-b-0 md:border-r border-white/5 p-4 md:p-5 min-h-0">
         <div className="flex-1 min-h-0 w-full overflow-hidden rounded-xl border border-white/10 bg-black flex items-center justify-center">
           <video
             src={videoSrc}

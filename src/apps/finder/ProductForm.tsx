@@ -101,9 +101,9 @@ export default function ProductForm({ item, onSave, onCancel }: ProductFormProps
       </div>
 
       {/* Side-by-side: image left, fields right */}
-      <div className="flex flex-col lg:flex-row gap-5">
+      <div className="flex flex-col md:flex-row gap-5">
         {/* Left — square product image */}
-        <div className="w-full lg:w-48 shrink-0">
+        <div className="w-full md:w-48 shrink-0">
           {displayImage ? (
             <div className="group/img relative aspect-square w-full overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]">
               <img src={displayImage} alt="" className="h-full w-full object-cover" />

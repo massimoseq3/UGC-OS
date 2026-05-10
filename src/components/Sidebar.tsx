@@ -36,8 +36,8 @@ export default function Sidebar() {
     .map((s) => s.category === 'admin' && !isAdmin ? { ...s, apps: [] } : s)
     .filter((s) => s.apps.length > 0)
 
-  // Below lg: render as overlay drawer with the collapsed (icon + label) layout.
-  // Above lg: fixed gutter — width follows the persisted collapse preference.
+  // Below md: render as overlay drawer with the collapsed (icon + label) layout.
+  // Above md: fixed gutter — width follows the persisted collapse preference.
   const widthClass = isDesktop
     ? collapsed ? 'w-20' : 'w-56'
     : 'w-20'

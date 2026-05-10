@@ -368,9 +368,9 @@ export default function VideoStudio() {
   const inFlightCount = inFlight.length
 
   return (
-    <div className="flex flex-col-reverse pb-28 lg:h-full lg:flex-row lg:pb-0">
+    <div className="flex flex-col-reverse pb-28 md:h-full md:flex-row md:pb-0">
       {/* Left — slot tabs + controls */}
-      <div className="flex w-full lg:w-1/2 shrink-0 flex-col lg:overflow-y-auto border-b lg:border-b-0 lg:border-r border-white/5">
+      <div className="flex w-full md:w-1/2 shrink-0 flex-col md:overflow-y-auto border-b md:border-b-0 md:border-r border-white/5">
         {/* Slot tab strip — same height + underline style as the right panel
             tabs so the two tab rows visually align across the divider. */}
         <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-white/5 px-5">
@@ -502,7 +502,7 @@ export default function VideoStudio() {
 
           {/* Generate button. Disabled while THIS slot is in flight; a different
               slot's generation doesn't block this one. */}
-          <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-white/5 bg-[#050505]/95 px-5 pb-4 pt-3 backdrop-blur-xl lg:static lg:left-auto lg:right-auto lg:z-auto lg:mt-auto lg:border-t-0 lg:bg-transparent lg:px-0 lg:pb-0 lg:pt-2 lg:backdrop-blur-none">
+          <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-white/5 bg-[#050505]/95 px-5 pb-4 pt-3 backdrop-blur-xl md:static md:left-auto md:right-auto md:z-auto md:mt-auto md:border-t-0 md:bg-transparent md:px-0 md:pb-0 md:pt-2 md:backdrop-blur-none">
             <button
               onClick={handleGenerate}
               disabled={!canGenerate}
