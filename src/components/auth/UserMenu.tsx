@@ -35,14 +35,14 @@ export default function UserMenu({ collapsed }: UserMenuProps) {
         className={`flex w-full items-center rounded-lg transition-colors hover:bg-white/[0.04] ${
           collapsed ? 'flex-col gap-1 px-1 py-2' : 'gap-3 px-3 py-2'
         }`}
-        title="My account"
+        title="My Account"
       >
         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-500 to-orange-500 text-[12px] font-semibold text-white">
           {initial}
         </span>
         {!collapsed && (
           <span className="min-w-0 flex-1 truncate text-left text-[12px] text-zinc-300">
-            My account
+            My Account
           </span>
         )}
       </button>

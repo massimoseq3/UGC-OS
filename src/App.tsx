@@ -1,4 +1,5 @@
-import SmileyLogo from './components/SmileyLogo'
+import AppLogo from './components/AppLogo'
+
 import MenuBar from './components/MenuBar'
 import Sidebar from './components/Sidebar'
 import ToastContainer from './components/Toast'
@@ -45,7 +46,7 @@ function AppPlaceholder({ appId }: { appId: string }) {
 function EmptyState() {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
-      <SmileyLogo className="h-16 w-16 text-zinc-100" />
+      <AppLogo className="h-16 w-16 text-zinc-100" />
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">
           UGC Lab
