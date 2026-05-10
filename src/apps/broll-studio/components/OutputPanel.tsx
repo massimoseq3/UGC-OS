@@ -178,17 +178,23 @@ function VariationCard({
     }
   }
 
-  const handleSaveToBank = () => {
-    if (!currentImage) return
-    useBankStore.getState().addBRoll({
-      imageUrl: currentImage.imageUrl,
-      prompt: currentImage.prompt,
-      productId: selectedProductId,
-      modelId: selectedModelId,
-      scriptId: selectedScriptId,
-    })
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+  const [savingToBank, setSavingToBank] = useState(false)
+  const handleSaveToBank = async () => {
+    if (!currentImage || savingToBank) return
+    setSavingToBank(true)
+    try {
+      await useBankStore.getState().addBRoll({
+        imageUrl: currentImage.imageUrl,
+        prompt: currentImage.prompt,
+        productId: selectedProductId,
+        modelId: selectedModelId,
+        scriptId: selectedScriptId,
+      })
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    } finally {
+      setSavingToBank(false)
+    }
   }
 
   const handleAnimateInVideoStudio = async () => {
@@ -342,13 +348,15 @@ function VariationCard({
               </button>
               <button
                 onClick={handleSaveToBank}
-                disabled={saved}
-                className={`flex flex-1 items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-[10px] font-medium transition-colors ${saved
+                disabled={saved || savingToBank}
+                className={`flex flex-1 items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-[10px] font-medium transition-colors disabled:cursor-not-allowed ${saved
                   ? 'border-emerald-500/30 bg-emerald-500/15 text-emerald-300'
                   : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20'
                 }`}
               >
-                {saved ? (
+                {savingToBank ? (
+                  <><Loader2 className="h-3 w-3 animate-spin" /> Saving…</>
+                ) : saved ? (
                   <><Check className="h-3 w-3" /> Saved</>
                 ) : (
                   <><FolderOpen className="h-3 w-3" /> Save to B-Roll Bank</>

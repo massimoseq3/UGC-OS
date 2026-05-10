@@ -121,32 +121,36 @@ function ProjectList({ onOpen }: { onOpen: (id: string) => void }) {
         </button>
       )}
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {projects.map((p) => {
           const isActive = p.id === activeProjectId
+          const itemCount = counts[p.id] ?? 0
           return (
             <div
               key={p.id}
-              className={`group relative cursor-pointer overflow-hidden rounded-xl border bg-white/[0.02] p-4 transition-all ${
+              className={`group relative flex aspect-square cursor-pointer flex-col overflow-hidden rounded-xl border bg-white/[0.02] p-4 transition-all hover:-translate-y-0.5 ${
                 isActive ? 'border-emerald-500/40 ring-1 ring-emerald-500/30' : 'border-white/10 hover:border-white/20'
               }`}
               onClick={() => onOpen(p.id)}
             >
-              <div className="flex items-start gap-3">
-                <FolderOpen className="mt-0.5 h-5 w-5 text-emerald-400" />
+              {/* Big folder icon centered top */}
+              <div className="flex flex-1 items-center justify-center">
+                <FolderOpen className="h-16 w-16 text-emerald-400/80" strokeWidth={1.25} />
+              </div>
+
+              {/* Name + count below */}
+              <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="truncate text-sm font-semibold tracking-tight text-zinc-100">{p.name}</h3>
-                    {isActive && (
-                      <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-emerald-300">
-                        Active
-                      </span>
-                    )}
-                  </div>
+                  <h3 className="truncate text-sm font-semibold tracking-tight text-zinc-100">{p.name}</h3>
                   <p className="mt-0.5 text-[11px] text-zinc-500">
-                    {(counts[p.id] ?? 0)} {(counts[p.id] ?? 0) === 1 ? 'item' : 'items'}
+                    {itemCount} {itemCount === 1 ? 'item' : 'items'}
                   </p>
                 </div>
+                {isActive && (
+                  <span className="shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-emerald-300">
+                    Active
+                  </span>
+                )}
               </div>
 
               <div className="mt-3 flex gap-2">

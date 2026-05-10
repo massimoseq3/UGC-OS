@@ -59,6 +59,7 @@ export default function OutputPanel({ result, isGenerating, error, onGenerate, o
   const [showSaveForm, setShowSaveForm] = useState(false)
   const [saveName, setSaveName] = useState('')
   const [saved, setSaved] = useState(false)
+  const [savingToBank, setSavingToBank] = useState(false)
 
   const addModel = useBankStore((s) => s.addModel)
   const resolvedImageUrl = useAssetUrl(result?.imageUrl)
@@ -80,19 +81,24 @@ export default function OutputPanel({ result, isGenerating, error, onGenerate, o
 
   const isPortrait = aspectRatio.includes('9:16')
 
-  const handleSave = () => {
-    if (!saveName.trim() || !result) return
-    addModel({
-      characterImage: result.imageUrl,
-      name: saveName.trim(),
-      notes: '',
-      jsonProfile: result.jsonPrompt as unknown as Record<string, unknown>,
-      source: 'character-studio',
-    })
-    setShowSaveForm(false)
-    setSaveName('')
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
+  const handleSave = async () => {
+    if (!saveName.trim() || !result || savingToBank) return
+    setSavingToBank(true)
+    try {
+      await addModel({
+        characterImage: result.imageUrl,
+        name: saveName.trim(),
+        notes: '',
+        jsonProfile: result.jsonPrompt as unknown as Record<string, unknown>,
+        source: 'character-studio',
+      })
+      setShowSaveForm(false)
+      setSaveName('')
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } finally {
+      setSavingToBank(false)
+    }
   }
 
   // Loading state with progress bar
@@ -204,14 +210,16 @@ export default function OutputPanel({ result, isGenerating, error, onGenerate, o
               />
               <button
                 onClick={handleSave}
-                disabled={!saveName.trim()}
-                className="rounded-full bg-sky-500/15 px-5 py-3 text-sm font-medium text-sky-400 transition-colors hover:bg-sky-500/25 disabled:opacity-40"
+                disabled={!saveName.trim() || savingToBank}
+                className="flex items-center gap-2 rounded-full bg-sky-500/15 px-5 py-3 text-sm font-medium text-sky-400 transition-colors hover:bg-sky-500/25 disabled:opacity-40"
               >
-                Save
+                {savingToBank && <Loader2 className="h-4 w-4 animate-spin" />}
+                {savingToBank ? 'Saving…' : 'Save'}
               </button>
               <button
                 onClick={() => { setShowSaveForm(false); setSaveName('') }}
-                className="rounded-full px-5 py-3 text-sm text-zinc-500 transition-colors hover:text-zinc-300"
+                disabled={savingToBank}
+                className="rounded-full px-5 py-3 text-sm text-zinc-500 transition-colors hover:text-zinc-300 disabled:opacity-40"
               >
                 Cancel
               </button>

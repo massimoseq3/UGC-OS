@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, ImagePlus, Download, Film } from 'lucide-react'
+import { X, ImagePlus, Download, Film, Loader2 } from 'lucide-react'
 import type { BRoll } from '../../stores/types'
 import { useAssetUrl } from '../../hooks/useAssetUrl'
 import { useAppStore } from '../../stores/appStore'
@@ -7,7 +7,7 @@ import { getAsBase64, isAssetRef } from '../../utils/assetStore'
 
 interface BRollFormProps {
   item?: BRoll | null
-  onSave: (data: Omit<BRoll, 'id' | 'createdAt'>) => void
+  onSave: (data: Omit<BRoll, 'id' | 'createdAt'>) => Promise<void> | void
   onCancel: () => void
 }
 
@@ -15,6 +15,7 @@ export default function BRollForm({ item, onSave, onCancel }: BRollFormProps) {
   const [imageUrl, setImageUrl] = useState(item?.imageUrl ?? '')
   const [prompt, setPrompt] = useState(item?.prompt ?? '')
   const [localImagePreview, setLocalImagePreview] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
   const resolvedImageUrl = useAssetUrl(imageUrl)
   const displayImage = localImagePreview ?? resolvedImageUrl
   const fileRef = useRef<HTMLInputElement>(null)
@@ -46,18 +47,24 @@ export default function BRollForm({ item, onSave, onCancel }: BRollFormProps) {
     a.click()
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (saving) return
     if (!prompt.trim()) return
-    onSave({
-      imageUrl,
-      prompt,
-      productId: item?.productId,
-      modelId: item?.modelId,
-      scriptId: item?.scriptId,
-      videoUrl: item?.videoUrl,
-      videos: item?.videos,
-    })
+    setSaving(true)
+    try {
+      await onSave({
+        imageUrl,
+        prompt,
+        productId: item?.productId,
+        modelId: item?.modelId,
+        scriptId: item?.scriptId,
+        videoUrl: item?.videoUrl,
+        videos: item?.videos,
+      })
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleSendToVideos = async () => {
@@ -155,9 +162,11 @@ export default function BRollForm({ item, onSave, onCancel }: BRollFormProps) {
             )}
             <button
               type="submit"
-              className="rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-zinc-900 transition-colors hover:bg-zinc-100"
+              disabled={saving}
+              className="flex items-center justify-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-zinc-900 transition-colors hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {item ? 'Save Changes' : 'Add B-Roll'}
+              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+              {saving ? 'Saving…' : (item ? 'Save Changes' : 'Add B-Roll')}
             </button>
           </div>
         </div>

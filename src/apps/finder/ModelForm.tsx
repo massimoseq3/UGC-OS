@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, ImagePlus, Download, Braces, Copy, Check } from 'lucide-react'
+import { X, ImagePlus, Download, Braces, Copy, Check, Loader2 } from 'lucide-react'
 import type { Model } from '../../stores/types'
 import { useAssetUrl } from '../../hooks/useAssetUrl'
 
 interface ModelFormProps {
   item?: Model | null
-  onSave: (data: Omit<Model, 'id' | 'createdAt'>) => void
+  onSave: (data: Omit<Model, 'id' | 'createdAt'>) => Promise<void> | void
   onCancel: () => void
 }
 
@@ -17,6 +17,7 @@ export default function ModelForm({ item, onSave, onCancel }: ModelFormProps) {
   const [jsonError, setJsonError] = useState('')
   const [jsonCopied, setJsonCopied] = useState(false)
   const [localPreview, setLocalPreview] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
   const resolvedAssetUrl = useAssetUrl(characterImage)
   const displayImage = localPreview ?? resolvedAssetUrl
   const fileRef = useRef<HTMLInputElement>(null)
@@ -48,8 +49,9 @@ export default function ModelForm({ item, onSave, onCancel }: ModelFormProps) {
     a.click()
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (saving) return
     if (!name.trim()) return
 
     let parsedJson = item?.jsonProfile ?? null
@@ -63,13 +65,18 @@ export default function ModelForm({ item, onSave, onCancel }: ModelFormProps) {
       }
     }
 
-    onSave({
-      name,
-      notes: item?.notes ?? '',
-      characterImage,
-      jsonProfile: parsedJson,
-      source,
-    })
+    setSaving(true)
+    try {
+      await onSave({
+        name,
+        notes: item?.notes ?? '',
+        characterImage,
+        jsonProfile: parsedJson,
+        source,
+      })
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -160,9 +167,11 @@ export default function ModelForm({ item, onSave, onCancel }: ModelFormProps) {
 
           <button
             type="submit"
-            className="rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-zinc-900 transition-colors hover:bg-zinc-100"
+            disabled={saving}
+            className="flex items-center justify-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-zinc-900 transition-colors hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {item ? 'Save Changes' : 'Add Character'}
+            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+            {saving ? 'Saving…' : (item ? 'Save Changes' : 'Add Character')}
           </button>
         </div>
       </div>

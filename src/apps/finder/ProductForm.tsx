@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, ImagePlus, Download } from 'lucide-react'
+import { X, ImagePlus, Download, Loader2 } from 'lucide-react'
 import type { Product } from '../../stores/types'
 import { useAssetUrl } from '../../hooks/useAssetUrl'
 
 interface ProductFormProps {
   item?: Product | null
-  onSave: (data: Omit<Product, 'id' | 'createdAt'>) => void
+  onSave: (data: Omit<Product, 'id' | 'createdAt'>) => Promise<void> | void
   onCancel: () => void
 }
 
@@ -34,6 +34,7 @@ export default function ProductForm({ item, onSave, onCancel }: ProductFormProps
   })
   const fileRef = useRef<HTMLInputElement>(null)
   const [localPreview, setLocalPreview] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
   const resolvedAssetUrl = useAssetUrl(form.productImage)
   const displayImage = localPreview ?? resolvedAssetUrl
 
@@ -75,10 +76,16 @@ export default function ProductForm({ item, onSave, onCancel }: ProductFormProps
     a.click()
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (saving) return
     if (!form.productName.trim() || !form.productDescription.trim() || !form.targetMarket.trim()) return
-    onSave(form)
+    setSaving(true)
+    try {
+      await onSave(form)
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -153,9 +160,11 @@ export default function ProductForm({ item, onSave, onCancel }: ProductFormProps
 
           <button
             type="submit"
-            className="mt-1 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-zinc-900 transition-colors hover:bg-zinc-100"
+            disabled={saving}
+            className="mt-1 flex items-center justify-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-zinc-900 transition-colors hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {item ? 'Save Changes' : 'Add Product'}
+            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+            {saving ? 'Saving…' : (item ? 'Save Changes' : 'Add Product')}
           </button>
         </div>
       </div>

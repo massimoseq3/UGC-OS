@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
-import { X } from 'lucide-react'
+import { X, Loader2 } from 'lucide-react'
 import type { VoicePreset } from '../../stores/types'
 import { VOICES, DEFAULT_VOICE_SETTINGS } from '../voice-studio/types'
 
 interface VoiceFormProps {
   item?: VoicePreset | null
-  onSave: (data: Omit<VoicePreset, 'id' | 'createdAt'>) => void
+  onSave: (data: Omit<VoicePreset, 'id' | 'createdAt'>) => Promise<void> | void
   onCancel: () => void
 }
 
@@ -14,6 +14,7 @@ export default function VoiceForm({ item, onSave, onCancel }: VoiceFormProps) {
   const [voiceId, setVoiceId] = useState(item?.voiceId ?? VOICES[0].id)
   const [stability, setStability] = useState<number>(item?.stability ?? DEFAULT_VOICE_SETTINGS.stability)
   const [linkedModelId] = useState(item?.linkedModelId ?? '')
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (item) {
@@ -23,21 +24,27 @@ export default function VoiceForm({ item, onSave, onCancel }: VoiceFormProps) {
     }
   }, [item])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (saving) return
     const voice = VOICES.find((v) => v.id === voiceId)
     if (!label.trim() || !voice) return
-    onSave({
-      label,
-      voiceId,
-      voiceName: voice.name,
-      gender: voice.gender,
-      stability,
-      similarityBoost: item?.similarityBoost ?? DEFAULT_VOICE_SETTINGS.similarityBoost,
-      style: item?.style ?? DEFAULT_VOICE_SETTINGS.style,
-      speed: item?.speed ?? DEFAULT_VOICE_SETTINGS.speed,
-      linkedModelId,
-    })
+    setSaving(true)
+    try {
+      await onSave({
+        label,
+        voiceId,
+        voiceName: voice.name,
+        gender: voice.gender,
+        stability,
+        similarityBoost: item?.similarityBoost ?? DEFAULT_VOICE_SETTINGS.similarityBoost,
+        style: item?.style ?? DEFAULT_VOICE_SETTINGS.style,
+        speed: item?.speed ?? DEFAULT_VOICE_SETTINGS.speed,
+        linkedModelId,
+      })
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -98,9 +105,11 @@ export default function VoiceForm({ item, onSave, onCancel }: VoiceFormProps) {
 
       <button
         type="submit"
-        className="mt-1 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-zinc-900 transition-colors hover:bg-zinc-100"
+        disabled={saving}
+        className="mt-1 flex items-center justify-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-zinc-900 transition-colors hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {item ? 'Save Changes' : 'Add Voice Preset'}
+        {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+        {saving ? 'Saving…' : (item ? 'Save Changes' : 'Add Voice Preset')}
       </button>
     </form>
   )
