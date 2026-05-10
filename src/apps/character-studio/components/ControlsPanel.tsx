@@ -298,36 +298,36 @@ export default function ControlsPanel({
         />
       </div>
 
-      {/* Horizontal segmented tabs (Voiceovers style — underline + counter badge) */}
-      <div className="border-b border-white/5 px-4">
-        <div className="flex items-center justify-start gap-4">
-          {TABS.map((tab) => {
-            const isActive = tab.id === activeTab
-            const fields = getTabFields(tab)
-            const filled = fields.filter((f) => (profile[f.key] ?? '').trim() !== '').length
-            return (
-              <button
-                key={tab.id}
-                onClick={() => onActiveTabChange(tab.id)}
-                className={`relative flex items-center gap-1.5 whitespace-nowrap px-1 py-3 text-[12px] font-medium tracking-tight transition-colors ${isActive
-                  ? 'text-zinc-100'
-                  : 'text-zinc-500 hover:text-zinc-300'
+      {/* Horizontal segmented tabs — same sizing/spacing as Voiceovers + B-Roll Videos */}
+      <div className="flex items-center gap-1 border-b border-white/5 px-5">
+        {TABS.map((tab) => {
+          const isActive = tab.id === activeTab
+          const fields = getTabFields(tab)
+          const filled = fields.filter((f) => (profile[f.key] ?? '').trim() !== '').length
+          return (
+            <button
+              key={tab.id}
+              onClick={() => onActiveTabChange(tab.id)}
+              className={`relative flex items-center whitespace-nowrap px-3 pb-2 pt-5 text-sm font-medium tracking-tight transition-colors ${isActive
+                ? 'text-zinc-100'
+                : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+            >
+              <span>{tab.label}</span>
+              <span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums ${isActive
+                ? 'bg-white/10 text-zinc-300'
+                : 'bg-white/[0.04] text-zinc-500'
+              }`}>
+                {filled}/{fields.length}
+              </span>
+              <span
+                className={`absolute inset-x-3 -bottom-px h-0.5 rounded-full transition-colors ${
+                  isActive ? 'bg-zinc-100' : 'bg-transparent'
                 }`}
-              >
-                <span>{tab.label}</span>
-                <span className={`flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[9px] font-semibold tabular-nums ${isActive
-                  ? 'bg-white/10 text-zinc-300'
-                  : 'bg-white/[0.04] text-zinc-500'
-                }`}>
-                  {filled}/{fields.length}
-                </span>
-                {isActive && (
-                  <span className="absolute inset-x-1 -bottom-px h-0.5 rounded-full bg-zinc-200" />
-                )}
-              </button>
-            )
-          })}
-        </div>
+              />
+            </button>
+          )
+        })}
       </div>
 
       {/* Scrollable parameter fields */}
