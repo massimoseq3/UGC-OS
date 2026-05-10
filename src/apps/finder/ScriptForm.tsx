@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
-import { X } from 'lucide-react'
+import { X, Loader2 } from 'lucide-react'
 import type { Script } from '../../stores/types'
 import { useBankStore } from '../../stores/bankStore'
 
 interface ScriptFormProps {
   item?: Script | null
-  onSave: (data: Omit<Script, 'id' | 'createdAt'>) => void
+  onSave: (data: Omit<Script, 'id' | 'createdAt'>) => Promise<void> | void
   onCancel: () => void
 }
 
@@ -13,6 +13,7 @@ export default function ScriptForm({ item, onSave, onCancel }: ScriptFormProps) 
   const [title, setTitle] = useState(item?.title ?? '')
   const [scriptText, setScriptText] = useState(item?.scriptText ?? '')
   const [linkedProductId, setLinkedProductId] = useState(item?.linkedProductId ?? '')
+  const [saving, setSaving] = useState(false)
   const products = useBankStore((s) => s.products)
 
   useEffect(() => {
@@ -23,15 +24,21 @@ export default function ScriptForm({ item, onSave, onCancel }: ScriptFormProps) 
     }
   }, [item])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (saving) return
     if (!title.trim() || !scriptText.trim()) return
-    onSave({
-      title,
-      scriptText,
-      linkedProductId,
-      source: item?.source ?? 'manual',
-    })
+    setSaving(true)
+    try {
+      await onSave({
+        title,
+        scriptText,
+        linkedProductId,
+        source: item?.source ?? 'manual',
+      })
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -81,9 +88,11 @@ export default function ScriptForm({ item, onSave, onCancel }: ScriptFormProps) 
 
       <button
         type="submit"
-        className="mt-1 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-zinc-900 transition-colors hover:bg-zinc-100"
+        disabled={saving}
+        className="mt-1 flex items-center justify-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-zinc-900 transition-colors hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {item ? 'Save Changes' : 'Add Script'}
+        {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+        {saving ? 'Saving…' : (item ? 'Save Changes' : 'Add Script')}
       </button>
     </form>
   )

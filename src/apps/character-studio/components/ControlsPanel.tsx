@@ -121,6 +121,10 @@ function PresetActions({
         >
           <FolderOpen className="h-3.5 w-3.5" strokeWidth={1.75} />
           Load Preset from Bank
+          <ChevronDown
+            className={`h-3.5 w-3.5 transition-transform ${loadOpen ? 'rotate-180' : ''}`}
+            strokeWidth={2}
+          />
         </button>
         {loadOpen && (
           <div className="absolute left-0 right-0 top-full z-30 mt-1.5 min-w-[260px] overflow-hidden rounded-xl border border-white/10 bg-[#0B0B0D] shadow-2xl">

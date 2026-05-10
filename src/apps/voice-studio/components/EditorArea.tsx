@@ -107,7 +107,7 @@ export default function EditorArea({
           <button
             onClick={onGenerate}
             disabled={!canGenerate || isGenerating || overLimit}
-            className="flex items-center justify-center gap-2 rounded-full bg-zinc-100 px-5 py-2.5 text-sm font-semibold tracking-tight text-zinc-900 transition-colors hover:bg-white disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-500"
+            className="flex items-center justify-center gap-2.5 rounded-full border border-white/15 bg-indigo-500 px-6 py-3.5 text-[13px] font-medium tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {isGenerating ? (
               <>

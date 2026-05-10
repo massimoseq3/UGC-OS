@@ -276,7 +276,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
             {/* Manual orphan cleanup (auto-cleanup runs on sign-in; this is a power-user fallback) */}
             <div className="mt-4 rounded-lg border border-white/5 bg-white/[0.02] p-3">
               <div className="text-[11px] text-zinc-500">
-                Find files in cloud storage that no item in your banks references. Cleanup runs automatically when you sign in — this button is for on-demand sweeps.
+                Removes files in your cloud storage that no item in your banks references. Cleanup runs automatically when you sign in — this button is for on-demand sweeps.
               </div>
 
               {storage.phase === 'idle' && (
@@ -285,7 +285,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                   onClick={handleScanOrphans}
                   className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 py-1.5 text-[12px] font-medium text-zinc-300 transition-colors hover:bg-white/[0.05]"
                 >
-                  Find orphan assets
+                  Clean up storage
                 </button>
               )}
 

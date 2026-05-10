@@ -90,8 +90,8 @@ export default function Finder() {
     if (saved.productImage && saved.productImage.startsWith('data:')) {
       saved.productImage = await saveFromDataUrl(saved.productImage)
     }
-    if (editingId) updateProduct(editingId, saved)
-    else addProduct(saved)
+    if (editingId) await updateProduct(editingId, saved)
+    else await addProduct(saved)
     closeForm()
   }, [editingId, updateProduct, addProduct])
 
@@ -100,20 +100,20 @@ export default function Finder() {
     if (saved.characterImage && saved.characterImage.startsWith('data:')) {
       saved.characterImage = await saveFromDataUrl(saved.characterImage)
     }
-    if (editingId) updateModel(editingId, saved)
-    else addModel(saved)
+    if (editingId) await updateModel(editingId, saved)
+    else await addModel(saved)
     closeForm()
   }, [editingId, updateModel, addModel])
 
-  const handleSaveScript = (data: Omit<Script, 'id' | 'createdAt'>) => {
-    if (editingId) updateScript(editingId, data)
-    else addScript(data)
+  const handleSaveScript = async (data: Omit<Script, 'id' | 'createdAt'>) => {
+    if (editingId) await updateScript(editingId, data)
+    else await addScript(data)
     closeForm()
   }
 
-  const handleSaveVoice = (data: Omit<VoicePreset, 'id' | 'createdAt'>) => {
-    if (editingId) updateVoice(editingId, data)
-    else addVoice(data)
+  const handleSaveVoice = async (data: Omit<VoicePreset, 'id' | 'createdAt'>) => {
+    if (editingId) await updateVoice(editingId, data)
+    else await addVoice(data)
     closeForm()
   }
 
@@ -122,8 +122,8 @@ export default function Finder() {
     if (saved.imageUrl && saved.imageUrl.startsWith('data:')) {
       saved.imageUrl = await saveFromDataUrl(saved.imageUrl)
     }
-    if (editingId) updateBRoll(editingId, saved)
-    else addBRoll(saved)
+    if (editingId) await updateBRoll(editingId, saved)
+    else await addBRoll(saved)
     closeForm()
   }, [editingId, updateBRoll, addBRoll])
 

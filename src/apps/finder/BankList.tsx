@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Trash2, Package, UserRound, FileText, Mic, Film, Plus, Braces, Video, Download } from 'lucide-react'
+import { Trash2, Package, UserRound, FileText, Mic, Film, Plus, Braces, Video, Download, Loader2 } from 'lucide-react'
 import type { Product, Model, Script, VoicePreset, BRoll } from '../../stores/types'
 import type { BankType } from '../../utils/constants'
 import { useBankStore } from '../../stores/bankStore'
@@ -11,18 +11,30 @@ interface BankListProps {
   onAdd: () => void
 }
 
-function ConfirmDelete({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () => void }) {
+// Local busy state stops a slow async delete from being clicked twice
+// (which would call the cloud delete twice and toast twice).
+function ConfirmDelete({ onConfirm, onCancel }: { onConfirm: () => Promise<void> | void; onCancel: () => void }) {
+  const [busy, setBusy] = useState(false)
+  const handleConfirm = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (busy) return
+    setBusy(true)
+    try { await onConfirm() } finally { setBusy(false) }
+  }
   return (
     <div className="flex items-center gap-2">
       <button
-        onClick={(e) => { e.stopPropagation(); onConfirm() }}
-        className="rounded-md bg-red-500/20 px-2 py-0.5 text-[11px] font-medium text-red-400 transition-colors hover:bg-red-500/30"
+        onClick={handleConfirm}
+        disabled={busy}
+        className="flex items-center gap-1 rounded-md bg-red-500/20 px-2 py-0.5 text-[11px] font-medium text-red-400 transition-colors hover:bg-red-500/30 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        Delete
+        {busy && <Loader2 className="h-3 w-3 animate-spin" />}
+        {busy ? 'Deleting…' : 'Delete'}
       </button>
       <button
-        onClick={(e) => { e.stopPropagation(); onCancel() }}
-        className="text-[11px] text-zinc-500 hover:text-zinc-300"
+        onClick={(e) => { e.stopPropagation(); if (!busy) onCancel() }}
+        disabled={busy}
+        className="text-[11px] text-zinc-500 hover:text-zinc-300 disabled:opacity-40"
       >
         Cancel
       </button>
@@ -87,47 +99,45 @@ function ModelCard({ item, onEdit, onDelete }: { item: Model; onEdit: () => void
   }
 
   return (
-    <div onClick={onEdit} className="group cursor-pointer rounded-xl border border-white/5 bg-white/[0.03] transition-all hover:border-white/15 hover:bg-white/[0.05] hover:-translate-y-0.5">
-      {/* Thumbnail — 9:16 portrait */}
-      <div className="relative aspect-[9/16] w-full overflow-hidden rounded-t-xl bg-white/[0.04]">
-        {resolvedImage ? (
-          <img src={resolvedImage} alt="" className="h-full w-full object-cover" />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center">
-            <UserRound className="h-10 w-10 text-zinc-800" strokeWidth={1} />
-          </div>
-        )}
-        {/* Badges overlay */}
-        <div className="absolute left-2 top-2 flex items-center gap-1">
-          {hasJson && (
-            <span className="flex items-center gap-1 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-sky-400 backdrop-blur-sm">
-              <Braces className="h-2.5 w-2.5" />
-              JSON
-            </span>
-          )}
+    <div
+      onClick={onEdit}
+      className="group relative aspect-[9/16] cursor-pointer overflow-hidden rounded-xl border border-white/5 bg-white/[0.03] transition-all hover:border-white/15 hover:-translate-y-0.5"
+    >
+      {resolvedImage ? (
+        <img src={resolvedImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center bg-white/[0.04]">
+          <UserRound className="h-12 w-12 text-zinc-800" strokeWidth={1} />
         </div>
-        {/* Action buttons overlay */}
-        <div className="absolute right-2 top-2 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-          {confirm ? (
-            <ConfirmDelete onConfirm={onDelete} onCancel={() => setConfirm(false)} />
-          ) : (
-            <>
-              {resolvedImage && (
-                <button onClick={handleDownload} className="rounded-lg bg-black/50 p-1.5 text-zinc-400 opacity-0 backdrop-blur-sm transition-all hover:text-zinc-200 group-hover:opacity-100">
-                  <Download className="h-3.5 w-3.5" />
-                </button>
-              )}
-              <button onClick={() => setConfirm(true)} className="rounded-lg bg-black/50 p-1.5 text-zinc-400 opacity-0 backdrop-blur-sm transition-all hover:text-red-400 group-hover:opacity-100">
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
-            </>
-          )}
-        </div>
+      )}
+      {/* Bottom info overlay — same gradient pattern as ProductCard */}
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/55 to-transparent p-3 pt-10">
+        <span className="block truncate text-sm font-semibold tracking-tight text-zinc-100">{item.name}</span>
+        <span className="text-[10px] text-zinc-300">{sourceLabel}</span>
       </div>
-      {/* Info */}
-      <div className="flex flex-col gap-1 p-3">
-        <span className="truncate text-sm font-semibold tracking-tight text-zinc-200">{item.name}</span>
-        <span className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-zinc-500 w-fit">{sourceLabel}</span>
+      {/* JSON badge top-left */}
+      {hasJson && (
+        <span className="absolute left-2 top-2 flex items-center gap-1 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-sky-400 backdrop-blur-sm">
+          <Braces className="h-2.5 w-2.5" />
+          JSON
+        </span>
+      )}
+      {/* Action buttons top-right */}
+      <div className="absolute right-2 top-2 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+        {confirm ? (
+          <ConfirmDelete onConfirm={onDelete} onCancel={() => setConfirm(false)} />
+        ) : (
+          <>
+            {resolvedImage && (
+              <button onClick={handleDownload} className="rounded-lg bg-black/50 p-1.5 text-zinc-400 opacity-0 backdrop-blur-sm transition-all hover:text-zinc-200 group-hover:opacity-100">
+                <Download className="h-3.5 w-3.5" />
+              </button>
+            )}
+            <button onClick={() => setConfirm(true)} className="rounded-lg bg-black/50 p-1.5 text-zinc-400 opacity-0 backdrop-blur-sm transition-all hover:text-red-400 group-hover:opacity-100">
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </>
+        )}
       </div>
     </div>
   )
