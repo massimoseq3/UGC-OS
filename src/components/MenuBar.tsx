@@ -4,6 +4,7 @@ import { useAppStore } from '../stores/appStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useCreditsStore } from '../stores/creditsStore'
 import ProjectSwitcher from './ProjectSwitcher'
+import AppLogo from './AppLogo'
 
 export default function MenuBar() {
   const toggleSidebar = useAppStore((s) => s.toggleSidebar)
@@ -32,6 +33,8 @@ export default function MenuBar() {
       >
         <Menu className="h-5 w-5" strokeWidth={1.75} />
       </button>
+
+      <AppLogo className="h-8 w-8" />
 
       <span className="text-[19px] font-bold tracking-tight text-zinc-100">
         UGC Lab
