@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { X, Loader2 } from 'lucide-react'
 import type { VoicePreset } from '../../stores/types'
 import { VOICES, DEFAULT_VOICE_SETTINGS } from '../voice-studio/types'
+import AddToProjectButton from '../../components/AddToProjectButton'
 
 interface VoiceFormProps {
   item?: VoicePreset | null
@@ -14,6 +15,7 @@ export default function VoiceForm({ item, onSave, onCancel }: VoiceFormProps) {
   const [voiceId, setVoiceId] = useState(item?.voiceId ?? VOICES[0].id)
   const [stability, setStability] = useState<number>(item?.stability ?? DEFAULT_VOICE_SETTINGS.stability)
   const [linkedModelId] = useState(item?.linkedModelId ?? '')
+  const [localProjectIds, setLocalProjectIds] = useState<string[]>(item?.projectIds ?? [])
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -41,6 +43,7 @@ export default function VoiceForm({ item, onSave, onCancel }: VoiceFormProps) {
         style: item?.style ?? DEFAULT_VOICE_SETTINGS.style,
         speed: item?.speed ?? DEFAULT_VOICE_SETTINGS.speed,
         linkedModelId,
+        projectIds: item ? item.projectIds : localProjectIds,
       })
     } finally {
       setSaving(false)
@@ -49,13 +52,21 @@ export default function VoiceForm({ item, onSave, onCancel }: VoiceFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <h3 className="text-sm font-semibold tracking-tight text-zinc-200">
           {item ? 'Edit Voice Preset' : 'New Voice Preset'}
         </h3>
-        <button type="button" onClick={onCancel} className="text-zinc-500 hover:text-zinc-300 transition-colors">
-          <X className="h-4 w-4" />
-        </button>
+        <div className="flex items-center gap-2">
+          <AddToProjectButton
+            bank="voices"
+            itemId={item?.id}
+            projectIds={item?.projectIds ?? localProjectIds}
+            onLocalChange={setLocalProjectIds}
+          />
+          <button type="button" onClick={onCancel} className="text-zinc-500 hover:text-zinc-300 transition-colors">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       <label className="flex flex-col gap-1">

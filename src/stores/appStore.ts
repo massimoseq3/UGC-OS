@@ -77,9 +77,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((state) => ({
       toasts: [...state.toasts, { id, message, type }],
     }))
-    setTimeout(() => {
-      get().removeToast(id)
-    }, 3000)
+    // Auto-dismiss is driven by the ToastItem component so the fade-out
+    // transition has a chance to play before the toast is unmounted.
   },
 
   removeToast: (id) => set((state) => ({

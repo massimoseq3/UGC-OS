@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { X, Loader2 } from 'lucide-react'
 import type { Script } from '../../stores/types'
 import { useBankStore } from '../../stores/bankStore'
+import AddToProjectButton from '../../components/AddToProjectButton'
 
 interface ScriptFormProps {
   item?: Script | null
@@ -13,6 +14,7 @@ export default function ScriptForm({ item, onSave, onCancel }: ScriptFormProps) 
   const [title, setTitle] = useState(item?.title ?? '')
   const [scriptText, setScriptText] = useState(item?.scriptText ?? '')
   const [linkedProductId, setLinkedProductId] = useState(item?.linkedProductId ?? '')
+  const [localProjectIds, setLocalProjectIds] = useState<string[]>(item?.projectIds ?? [])
   const [saving, setSaving] = useState(false)
   const products = useBankStore((s) => s.products)
 
@@ -35,6 +37,7 @@ export default function ScriptForm({ item, onSave, onCancel }: ScriptFormProps) 
         scriptText,
         linkedProductId,
         source: item?.source ?? 'manual',
+        projectIds: item ? item.projectIds : localProjectIds,
       })
     } finally {
       setSaving(false)
@@ -43,13 +46,21 @@ export default function ScriptForm({ item, onSave, onCancel }: ScriptFormProps) 
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <h3 className="text-sm font-semibold tracking-tight text-zinc-200">
           {item ? 'Edit Script' : 'New Script'}
         </h3>
-        <button type="button" onClick={onCancel} className="text-zinc-500 hover:text-zinc-300 transition-colors">
-          <X className="h-4 w-4" />
-        </button>
+        <div className="flex items-center gap-2">
+          <AddToProjectButton
+            bank="scripts"
+            itemId={item?.id}
+            projectIds={item?.projectIds ?? localProjectIds}
+            onLocalChange={setLocalProjectIds}
+          />
+          <button type="button" onClick={onCancel} className="text-zinc-500 hover:text-zinc-300 transition-colors">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       <label className="flex flex-col gap-1">
