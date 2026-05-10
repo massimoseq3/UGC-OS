@@ -5,7 +5,6 @@
 
 import { getSupabase, isCloudEnabled } from './supabase'
 import { useAuthStore } from '../stores/authStore'
-import { useSyncStore } from '../stores/syncStore'
 
 interface SignedUrlResponse {
   url: string
@@ -13,8 +12,8 @@ interface SignedUrlResponse {
   expiresIn: number
 }
 
-// 60s per network attempt. Beyond this we'd rather fail and let the queue
-// retry than tie up a worker slot indefinitely on a dead connection.
+// 60s per network attempt. Beyond this we'd rather fail and surface the error
+// than hold the UI on a dead connection.
 const ATTEMPT_TIMEOUT_MS = 60_000
 
 async function getAccessToken(): Promise<string | null> {
@@ -45,10 +44,8 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   })
 }
 
-// Atomic upload: this resolves only after BOTH the R2 PUT and the `assets`
-// row insert succeed. Failure surfaces as a thrown error so the upload queue
-// can apply backoff. We deliberately do not touch useSyncStore here — the
-// queue owns all sync-state accounting via subscribers.
+// Atomic upload: resolves only after BOTH the R2 PUT and the `assets` row
+// upsert succeed. Failure surfaces as a thrown error so the caller can react.
 export async function uploadAssetToR2(assetId: string, blob: Blob): Promise<void> {
   if (!isCloudEnabled()) return
   const userId = useAuthStore.getState().user?.id
@@ -57,11 +54,9 @@ export async function uploadAssetToR2(assetId: string, blob: Blob): Promise<void
   const { url, key } = await presign('put', assetId, blob.type, blob.size)
 
   // fetch() throws (rather than returning a non-OK Response) on CORS rejection,
-  // network failure, or timeout. The browser deliberately hides CORS detail for
-  // security reasons, so on a thrown error we name the R2 host and the current
-  // origin — that combination tells the user exactly what to fix in the bucket
-  // CORS policy. HTTP-level errors (4xx/5xx that did make it to R2) keep the
-  // raw status + body.
+  // network failure, or timeout. The browser hides CORS detail for security
+  // reasons — on a thrown error we name the R2 host and the current origin so
+  // the user can fix the bucket CORS policy directly.
   let putRes: Response
   try {
     putRes = await withTimeout(fetch(url, {
@@ -89,14 +84,10 @@ export async function uploadAssetToR2(assetId: string, blob: Blob): Promise<void
     byte_size: blob.size,
   })
   if (error) {
-    // Bubble up so the queue retries — a dangling R2 object without an
-    // `assets` row is exactly the broken state we're trying to avoid.
     throw new Error(`assets row insert failed: ${error.message}`)
   }
 }
 
-// Returns true if a remote `assets` row exists for the given id under the
-// current user. Used by cloudSync's backfill walk.
 export async function hasRemoteAssetRow(assetId: string): Promise<boolean> {
   if (!isCloudEnabled()) return false
   const userId = useAuthStore.getState().user?.id
@@ -106,8 +97,6 @@ export async function hasRemoteAssetRow(assetId: string): Promise<boolean> {
   return !!data
 }
 
-// Returns the set of asset ids the user already has in R2. Single round trip;
-// callers pass the full set of refs they care about so we IN-filter server-side.
 export async function existingRemoteAssetIds(assetIds: string[]): Promise<Set<string>> {
   if (!isCloudEnabled() || assetIds.length === 0) return new Set()
   const userId = useAuthStore.getState().user?.id
@@ -121,13 +110,11 @@ export async function existingRemoteAssetIds(assetIds: string[]): Promise<Set<st
   return new Set((data ?? []).map((row) => row.id as string))
 }
 
-// Fetch a blob from R2 by asset id. Returns null if not found / not ours.
 export async function downloadAssetFromR2(assetId: string): Promise<Blob | null> {
   if (!isCloudEnabled()) return null
   const userId = useAuthStore.getState().user?.id
   if (!userId) return null
 
-  // Confirm the asset belongs to this user before paying for a presign call.
   const sb = getSupabase()
   const { data, error } = await sb.from('assets').select('id, mime_type').eq('id', assetId).maybeSingle()
   if (error || !data) return null
@@ -138,34 +125,13 @@ export async function downloadAssetFromR2(assetId: string): Promise<Blob | null>
   return await res.blob()
 }
 
-// Module-level batching for asset row deletes. When the user deletes a bank
-// item that has an image (or worse, a project that touches several banks),
-// we fire many deleteAssetFromR2 calls in quick succession. Without batching
-// each one is its own ~300ms Supabase round trip; from a far region (e.g.
-// South Africa → US West) that adds up to seconds of perceived lag. We
-// coalesce all deletes scheduled within 100ms into a single DELETE…IN(…).
-let pendingAssetDeletes: string[] = []
-let assetDeleteTimer: ReturnType<typeof setTimeout> | null = null
-
+// Awaited single-row delete on the `assets` table. R2 object itself is left
+// in place — leftovers are cheap and a sweeper can clean them up later.
 export async function deleteAssetFromR2(assetId: string): Promise<void> {
   if (!isCloudEnabled()) return
   const userId = useAuthStore.getState().user?.id
   if (!userId) return
-
-  pendingAssetDeletes.push(assetId)
-  if (assetDeleteTimer) return
-  assetDeleteTimer = setTimeout(async () => {
-    assetDeleteTimer = null
-    const ids = pendingAssetDeletes
-    pendingAssetDeletes = []
-    if (ids.length === 0) return
-    useSyncStore.getState().startUpload()
-    try {
-      const sb = getSupabase()
-      const { error } = await sb.from('assets').delete().in('id', ids).eq('user_id', userId)
-      if (error) console.error('[r2] batch delete failed', error)
-    } finally {
-      useSyncStore.getState().endUpload()
-    }
-  }, 100)
+  const sb = getSupabase()
+  const { error } = await sb.from('assets').delete().eq('id', assetId).eq('user_id', userId)
+  if (error) throw new Error(`assets row delete: ${error.message}`)
 }

@@ -1,6 +1,27 @@
 import { create } from 'zustand'
+import { saveProfile } from '../lib/cloudSync'
+import { isCloudEnabled } from '../lib/supabase'
+import { useAuthStore } from './authStore'
+import { useAppStore } from './appStore'
 
 const STORAGE_KEY = 'ai-ugc-lab-settings'
+
+function cloudActive(): boolean {
+  return isCloudEnabled() && !!useAuthStore.getState().user
+}
+
+// Best-effort profile push. Awaited inline; failures toast and re-throw so
+// the caller can surface them too.
+async function pushProfile(): Promise<void> {
+  if (!cloudActive()) return
+  try {
+    await saveProfile()
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    try { useAppStore.getState().addToast(`Settings sync failed: ${msg}`, 'error') } catch { /* ignore */ }
+    throw e
+  }
+}
 
 interface SettingsState {
   kieApiKey: string
@@ -125,6 +146,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     const next = { kieApiKey: key, perAppModel: get().perAppModel, activeProjectId: get().activeProjectId }
     saveToStorage(next)
     set({ kieApiKey: key })
+    pushProfile().catch(() => { /* toast already raised */ })
   },
 
   hasKieApiKey: () => get().kieApiKey.length > 0,
@@ -139,6 +161,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     const next = { kieApiKey: get().kieApiKey, perAppModel: { ...get().perAppModel, [appId]: modelId }, activeProjectId: get().activeProjectId }
     saveToStorage(next)
     set({ perAppModel: next.perAppModel })
+    pushProfile().catch(() => { /* toast already raised */ })
   },
 
   getAppModel: (appId) => get().perAppModel[appId],
@@ -147,5 +170,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     const next = { kieApiKey: get().kieApiKey, perAppModel: get().perAppModel, activeProjectId: id }
     saveToStorage(next)
     set({ activeProjectId: id })
+    pushProfile().catch(() => { /* toast already raised */ })
   },
 }))

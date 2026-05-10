@@ -2,7 +2,6 @@ import { Package, UserRound, FileText, Mic, Film } from 'lucide-react'
 import type { Product, Model, Script, VoicePreset, BRoll } from '../stores/types'
 import type { BankType } from '../utils/constants'
 import { useAssetUrl } from '../hooks/useAssetUrl'
-import AssetSyncBadge from './AssetSyncBadge'
 
 type BankItem = Product | Model | Script | VoicePreset | BRoll
 
@@ -41,7 +40,6 @@ function Thumbnail({ src, fallback: Icon }: { src?: string; fallback: React.Elem
       ) : (
         <Icon className="h-4 w-4 text-zinc-600" />
       )}
-      <AssetSyncBadge refs={[src]} size="sm" className="absolute -right-1 -top-1" />
     </div>
   )
 }

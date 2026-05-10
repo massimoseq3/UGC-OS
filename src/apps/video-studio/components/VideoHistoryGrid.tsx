@@ -5,7 +5,6 @@ import { useAssetUrl } from '../../../hooks/useAssetUrl'
 import { useBankStore } from '../../../stores/bankStore'
 import { getModel } from '../../../utils/models'
 import ProjectTagPopover from './ProjectTagPopover'
-import AssetSyncBadge from '../../../components/AssetSyncBadge'
 
 const HEADS_UP_DISMISSED_KEY = 'video-studio:heads-up-dismissed'
 
@@ -274,8 +273,6 @@ function HistoryTile({ item, isActive, onSelect, onSaveToBank, onDownload, onDel
           <Play className="h-3 w-3 fill-white text-white" />
         </div>
       )}
-
-      <AssetSyncBadge refs={[item.videoUrl, item.thumbnailUrl]} size="sm" className="absolute left-1.5 bottom-9" />
 
       {/* Bottom metadata strip */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2 pb-1.5 pt-6">

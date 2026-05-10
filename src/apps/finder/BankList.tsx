@@ -4,7 +4,6 @@ import type { Product, Model, Script, VoicePreset, BRoll } from '../../stores/ty
 import type { BankType } from '../../utils/constants'
 import { useBankStore } from '../../stores/bankStore'
 import { useAssetUrl } from '../../hooks/useAssetUrl'
-import AssetSyncBadge from '../../components/AssetSyncBadge'
 
 interface BankListProps {
   bankType: BankType
@@ -68,7 +67,6 @@ function ProductCard({ item, onEdit, onDelete }: { item: Product; onEdit: () => 
           </button>
         )}
       </div>
-      <AssetSyncBadge refs={[item.productImage]} size="sm" className="absolute left-2 top-2" />
     </div>
   )
 }
@@ -107,7 +105,6 @@ function ModelCard({ item, onEdit, onDelete }: { item: Model; onEdit: () => void
               JSON
             </span>
           )}
-          <AssetSyncBadge refs={[item.characterImage]} size="sm" className="" />
         </div>
         {/* Action buttons overlay */}
         <div className="absolute right-2 top-2 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
@@ -217,11 +214,6 @@ function BRollCard({ item, onEdit, onDelete }: { item: BRoll; onEdit: () => void
             {videoCount} {videoCount === 1 ? 'video' : 'videos'}
           </span>
         )}
-        <AssetSyncBadge
-          refs={[item.imageUrl, item.videoUrl, ...(item.videos?.map((v) => v.url) ?? [])]}
-          size="sm"
-          className={videoCount > 0 ? 'absolute left-2 top-9' : 'absolute left-2 top-2'}
-        />
         {/* Action buttons overlay */}
         <div className="absolute right-2 top-2 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
           {confirm ? (
