@@ -55,7 +55,7 @@ interface BankState {
   getVoiceById: (id: string) => VoicePreset | undefined
 
   // B-Roll CRUD
-  addBRoll: (broll: Omit<BRoll, 'id' | 'createdAt'>) => Promise<BankActionResult>
+  addBRoll: (broll: Omit<BRoll, 'id' | 'createdAt'>) => Promise<string>
   updateBRoll: (id: string, updates: Partial<BRoll>) => Promise<BankActionResult>
   deleteBRoll: (id: string) => Promise<BankActionResult>
   getBRollById: (id: string) => BRoll | undefined
@@ -502,6 +502,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       return next
     })
     reportSuccess('Saved to B-Rolls bank')
+    return newBRoll.id
   },
 
   updateBRoll: async (id, updates) => {

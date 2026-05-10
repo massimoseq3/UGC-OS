@@ -34,3 +34,44 @@ export function useAssetUrl(ref: string | undefined | null): string | undefined 
 
   return url
 }
+
+export type AssetUrlStatus = 'idle' | 'loading' | 'ready' | 'failed'
+
+/**
+ * Like {@link useAssetUrl}, but returns a status flag so callers can distinguish
+ * "still loading from R2" from "asset not found". Logs a console warning on
+ * failure with the asset id and cloud-active state.
+ */
+export function useAssetUrlState(ref: string | undefined | null): { url: string | undefined; status: AssetUrlStatus } {
+  const [state, setState] = useState<{ url: string | undefined; status: AssetUrlStatus }>(() => {
+    if (!ref) return { url: undefined, status: 'idle' }
+    if (isAssetRef(ref)) return { url: undefined, status: 'loading' }
+    return { url: ref, status: 'ready' }
+  })
+
+  useEffect(() => {
+    if (!ref) {
+      setState({ url: undefined, status: 'idle' })
+      return
+    }
+    if (!isAssetRef(ref)) {
+      setState({ url: ref, status: 'ready' })
+      return
+    }
+
+    let cancelled = false
+    setState((prev) => prev.status === 'ready' && prev.url ? prev : { url: undefined, status: 'loading' })
+    getUrl(ref).then((resolved) => {
+      if (cancelled) return
+      if (resolved) {
+        setState({ url: resolved, status: 'ready' })
+      } else {
+        console.warn('[useAssetUrlState] asset unresolvable', { assetId: ref })
+        setState({ url: undefined, status: 'failed' })
+      }
+    })
+    return () => { cancelled = true }
+  }, [ref])
+
+  return state
+}
