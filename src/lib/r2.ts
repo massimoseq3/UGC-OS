@@ -56,11 +56,25 @@ export async function uploadAssetToR2(assetId: string, blob: Blob): Promise<void
 
   const { url, key } = await presign('put', assetId, blob.type, blob.size)
 
-  const putRes = await withTimeout(fetch(url, {
-    method: 'PUT',
-    headers: blob.type ? { 'content-type': blob.type } : {},
-    body: blob,
-  }), ATTEMPT_TIMEOUT_MS)
+  // fetch() throws (rather than returning a non-OK Response) on CORS rejection,
+  // network failure, or timeout. The browser deliberately hides CORS detail for
+  // security reasons, so on a thrown error we name the R2 host and the current
+  // origin — that combination tells the user exactly what to fix in the bucket
+  // CORS policy. HTTP-level errors (4xx/5xx that did make it to R2) keep the
+  // raw status + body.
+  let putRes: Response
+  try {
+    putRes = await withTimeout(fetch(url, {
+      method: 'PUT',
+      headers: blob.type ? { 'content-type': blob.type } : {},
+      body: blob,
+    }), ATTEMPT_TIMEOUT_MS)
+  } catch (err) {
+    const host = (() => { try { return new URL(url).host } catch { return 'r2.cloudflarestorage.com' } })()
+    const origin = typeof window !== 'undefined' ? window.location.origin : '<unknown origin>'
+    const reason = err instanceof Error ? err.message : String(err)
+    throw new Error(`R2 PUT to ${host} failed (${reason}). Likely a CORS misconfiguration — verify the bucket CORS policy allows ${origin} with method PUT.`)
+  }
   if (!putRes.ok) {
     const text = await putRes.text().catch(() => '')
     throw new Error(`R2 upload failed (${putRes.status}): ${text || putRes.statusText}`)
