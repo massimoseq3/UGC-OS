@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useSyncStore, type SyncStatus } from '../stores/syncStore'
 import * as uploadQueue from '../lib/uploadQueue'
 
+const MAX_ERROR_CHARS = 240
+
 // How long a 'syncing' state must persist before we actually flip the chip
 // to amber. Anything faster than this stays green — fast round trips feel
 // instant instead of flashing amber for 200ms.
@@ -16,6 +18,7 @@ export default function SyncStatusChip() {
   const lastError = useSyncStore((s) => s.lastError)
   const [open, setOpen] = useState(false)
   const [retrying, setRetrying] = useState(false)
+  const [failureDetail, setFailureDetail] = useState<string | null>(null)
   // Effective status: same as `status` except 'syncing' is delayed.
   const [effective, setEffective] = useState<SyncStatus>(status)
   const ref = useRef<HTMLDivElement>(null)
@@ -41,6 +44,23 @@ export default function SyncStatusChip() {
     document.addEventListener('mousedown', onDoc)
     return () => document.removeEventListener('mousedown', onDoc)
   }, [open])
+
+  // Pull the most recent failed entry's lastError when the popover opens, so
+  // the user can see *why* uploads failed without digging through DevTools.
+  // Re-fetched on every open so retries that re-fail produce fresh detail.
+  useEffect(() => {
+    if (!open || !hasFailures) { setFailureDetail(null); return }
+    let cancelled = false
+    uploadQueue.failedEntries().then((entries) => {
+      if (cancelled) return
+      const newest = entries
+        .filter((e) => e.lastError)
+        .sort((a, b) => b.addedAt - a.addedAt)[0]
+      const msg = newest?.lastError ?? null
+      setFailureDetail(msg && msg.length > MAX_ERROR_CHARS ? `${msg.slice(0, MAX_ERROR_CHARS)}…` : msg)
+    }).catch(() => { if (!cancelled) setFailureDetail(null) })
+    return () => { cancelled = true }
+  }, [open, hasFailures, failedUploads])
 
   if (effective === 'disabled') return null
 
@@ -102,6 +122,16 @@ export default function SyncStatusChip() {
                   {failedUploads === 1 ? 'An asset upload' : `${failedUploads} asset uploads`} couldn't reach the cloud after several retries.
                   Your files are still saved locally — click below to try again.
                 </div>
+                {failureDetail && (
+                  <details className="group rounded-md border border-red-500/20 bg-red-500/[0.06] px-2 py-1.5">
+                    <summary className="cursor-pointer select-none text-[10px] uppercase tracking-wider text-red-300/80 outline-none transition-colors hover:text-red-200">
+                      Show error detail
+                    </summary>
+                    <div className="mt-1.5 break-words font-mono text-[10px] leading-relaxed text-red-200/90">
+                      {failureDetail}
+                    </div>
+                  </details>
+                )}
                 <button
                   type="button"
                   onClick={handleRetry}
