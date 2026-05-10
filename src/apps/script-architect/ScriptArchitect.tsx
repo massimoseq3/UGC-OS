@@ -65,9 +65,9 @@ export default function ScriptArchitect() {
   }
 
   return (
-    <div className="flex flex-col pb-32 lg:flex-row lg:h-full lg:pb-0">
+    <div className="flex flex-col pb-32 md:flex-row md:h-full md:pb-0">
       {/* Left panel — inputs */}
-      <div className="flex w-full lg:w-1/2 shrink-0 flex-col border-b lg:border-b-0 lg:border-r border-white/5">
+      <div className="flex w-full md:w-1/2 shrink-0 flex-col border-b md:border-b-0 md:border-r border-white/5">
         <InputPanel
           winningTranscript={winningTranscript}
           onTranscriptChange={setWinningTranscript}
@@ -82,7 +82,7 @@ export default function ScriptArchitect() {
       </div>
 
       {/* Right panel — output */}
-      <div className="flex w-full lg:w-1/2 flex-col min-h-[300px] lg:min-h-0">
+      <div className="flex w-full md:w-1/2 flex-col min-h-[300px] md:min-h-0">
         <OutputPanel
           scriptText={generatedScript}
           linkedProductId={selectedProduct?.id ?? null}

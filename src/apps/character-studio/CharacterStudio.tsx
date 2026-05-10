@@ -157,14 +157,14 @@ export default function CharacterStudio() {
 
   return (
     <div
-      className="relative flex flex-col pb-72 lg:flex-row lg:h-full lg:pb-0"
+      className="relative flex flex-col pb-72 md:flex-row md:h-full md:pb-0"
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}
       onDrop={handleOverlayDrop}
     >
       {/* Controls panel */}
-      <div className="flex w-full lg:w-1/2 shrink-0 flex-col border-b lg:border-b-0 lg:border-r border-white/5">
+      <div className="flex w-full md:w-1/2 shrink-0 flex-col border-b md:border-b-0 md:border-r border-white/5">
         <ControlsPanel
           profile={profile}
           onProfileChange={setProfile}
@@ -179,7 +179,7 @@ export default function CharacterStudio() {
       </div>
 
       {/* Output panel */}
-      <div className="flex min-w-0 flex-1 flex-col lg:overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col md:overflow-hidden">
         <OutputPanel
           result={result}
           isGenerating={isGenerating}

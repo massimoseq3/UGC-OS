@@ -75,7 +75,7 @@ function Workspace() {
 
   // Below lg the sidebar is an overlay drawer, so content reaches the left edge.
   // Above lg it sits in a fixed gutter (collapsed = 80px, expanded = 224px).
-  const contentPadding = collapsed ? 'lg:pl-20' : 'lg:pl-56'
+  const contentPadding = collapsed ? 'md:pl-20' : 'md:pl-56'
 
   return (
     <div key={userId ?? 'local'} className="relative h-screen w-screen overflow-hidden text-white antialiased bg-[#050505]">

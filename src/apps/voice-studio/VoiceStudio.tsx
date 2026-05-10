@@ -104,10 +104,10 @@ export default function VoiceStudio() {
   }
 
   return (
-    <div className="flex flex-col pb-28 lg:h-full lg:pb-0">
-      <div className="flex flex-1 flex-col lg:min-h-0 lg:flex-row">
+    <div className="flex flex-col pb-28 md:h-full md:pb-0">
+      <div className="flex flex-1 flex-col md:min-h-0 md:flex-row">
         {/* Center — editor */}
-        <div className="flex flex-1 flex-col lg:min-h-0 lg:overflow-hidden">
+        <div className="flex flex-1 flex-col md:min-h-0 md:overflow-hidden">
           <EditorArea
             scriptText={scriptText}
             onScriptChange={setScriptText}
@@ -123,7 +123,7 @@ export default function VoiceStudio() {
         </div>
 
         {/* Right — settings / voice picker / history */}
-        <div className="flex w-full lg:w-[400px] shrink-0 flex-col border-t lg:border-t-0 lg:border-l border-white/5">
+        <div className="flex w-full md:w-[400px] shrink-0 flex-col border-t md:border-t-0 md:border-l border-white/5">
           <RightPanel
             settings={settings}
             onSettingsChange={setSettings}

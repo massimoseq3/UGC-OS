@@ -134,10 +134,10 @@ export default function Finder() {
   const editingBRoll = editingId ? brolls.find((b) => b.id === editingId) : null
 
   return (
-    <div className="flex flex-col lg:flex-row h-full">
+    <div className="flex flex-col md:flex-row h-full">
       {/* Sidebar — horizontal scrollable pills on mobile, vertical on desktop */}
-      <div className="flex lg:w-52 shrink-0 flex-row lg:flex-col overflow-x-auto lg:overflow-x-visible border-b lg:border-b-0 lg:border-r border-white/5 bg-white/[0.02] py-2 lg:py-3 px-2 lg:px-0 gap-1 lg:gap-0">
-        <span className="hidden lg:block mb-3 px-4 text-[11px] font-medium uppercase tracking-widest text-zinc-600">
+      <div className="flex md:w-52 shrink-0 flex-row md:flex-col overflow-x-auto md:overflow-x-visible border-b md:border-b-0 md:border-r border-white/5 bg-white/[0.02] py-2 md:py-3 px-2 md:px-0 gap-1 md:gap-0">
+        <span className="hidden md:block mb-3 px-4 text-[11px] font-medium uppercase tracking-widest text-zinc-600">
           Banks
         </span>
         {BANK_TYPES.map((bank) => {
@@ -147,7 +147,7 @@ export default function Finder() {
             <button
               key={bank}
               onClick={() => { setActiveBank(bank); closeForm() }}
-              className={`lg:mx-2 flex items-center gap-2 lg:gap-2.5 whitespace-nowrap rounded-lg px-3 py-2 text-left text-sm transition-colors ${isActive
+              className={`md:mx-2 flex items-center gap-2 md:gap-2.5 whitespace-nowrap rounded-lg px-3 py-2 text-left text-sm transition-colors ${isActive
                   ? 'bg-white/[0.07] text-zinc-200'
                   : 'text-zinc-500 hover:bg-white/[0.03] hover:text-zinc-300'
                 }`}

@@ -486,7 +486,7 @@ function SceneSection({
       </div>
 
       {/* Cards grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {scene.variations.map((variation, i) => {
           const key = `${scene.number}-${i}`
           const state = cardStates[key] ?? createDefaultCardState(variation.prompt)
@@ -540,7 +540,7 @@ function SkeletonScene() {
           <div className="skeleton h-3 w-48" />
         </div>
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {[0, 1, 2].map((i) => (
           <div key={i} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
             <div className="mb-2 flex items-center gap-2">
