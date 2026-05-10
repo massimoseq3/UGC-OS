@@ -16,7 +16,7 @@ import {
   estimateCredits,
   formatCredits,
 } from '../../utils/models'
-import { saveFromDataUrl, getUrl } from '../../utils/assetStore'
+import { getUrl } from '../../utils/assetStore'
 import { generateVideo } from './services/generateVideo'
 import type { VideoMode } from './types'
 import type { VideoHistoryItem } from '../../stores/types'
@@ -117,6 +117,10 @@ export default function VideoStudio() {
   const [previewHistoryId, setPreviewHistoryId] = useState<string | null>(null)
   const [rightTab, setRightTab] = useState<'history' | 'preview'>('history')
   const [savedToBank, setSavedToBank] = useState(false)
+  const [savingToBank, setSavingToBank] = useState(false)
+  // Track which history-tile saves are in flight so the tile can disable its
+  // own save button and the user can't double-click into duplicate BRolls.
+  const [savingHistoryIds, setSavingHistoryIds] = useState<Set<string>>(() => new Set())
 
   const addBRoll = useBankStore((s) => s.addBRoll)
   const updateBRoll = useBankStore((s) => s.updateBRoll)
@@ -287,10 +291,13 @@ export default function VideoStudio() {
 
   // Save the previewed video into the B-Rolls Bank. If the generation tracked
   // a sourceBRollId (start/end/reference came from the bank), append the video
-  // to that record. Otherwise create a fresh BRoll — preserving the start
-  // frame as the still if one was uploaded directly into the originating slot.
+  // to that record. Otherwise create a fresh, video-only BRoll — the bank card
+  // renders the video itself as the thumbnail when imageUrl is empty, which
+  // matches the user's mental model ("I saved the video, not the start frame").
+  // Awaited end-to-end so the saved-state badge only flips once the BRoll is
+  // durable AND the videoHistory linkage actually points at the new BRoll id.
   async function handleSaveToBank() {
-    if (!previewItem) return
+    if (!previewItem || savingToBank) return
 
     const newVideo = {
       url: previewItem.videoUrl,
@@ -298,63 +305,76 @@ export default function VideoStudio() {
       createdAt: previewItem.createdAt,
     }
 
-    const sourceId = previewItem.sourceBRollId
-    if (sourceId) {
-      const existing = getBRollById(sourceId)
-      if (existing) {
-        const nextVideos = [...(existing.videos ?? []), newVideo]
-        updateBRoll(sourceId, { videos: nextVideos })
-        updateVideoHistory(previewItem.id, { linkedBRollId: sourceId })
-        setSavedToBank(true)
-        setTimeout(() => setSavedToBank(false), 2000)
-        return
+    setSavingToBank(true)
+    try {
+      const sourceId = previewItem.sourceBRollId
+      if (sourceId) {
+        const existing = getBRollById(sourceId)
+        if (existing) {
+          const nextVideos = [...(existing.videos ?? []), newVideo]
+          await updateBRoll(sourceId, { videos: nextVideos })
+          await updateVideoHistory(previewItem.id, { linkedBRollId: sourceId })
+          setSavedToBank(true)
+          setTimeout(() => setSavedToBank(false), 2000)
+          return
+        }
       }
-    }
 
-    // Walk back to the slot that owned this generation (lastResultId match) to
-    // pull a fresh first-frame data URI for the still, if it's still around.
-    const owner = slots.find((s) => s.lastResultId === previewItem.id)
-    let imageUrl = ''
-    if (owner?.firstFrame?.dataUri) {
-      try {
-        imageUrl = await saveFromDataUrl(owner.firstFrame.dataUri)
-      } catch {
-        imageUrl = ''
-      }
+      const newBRollId = await addBRoll({
+        imageUrl: '',
+        prompt: previewItem.prompt,
+        videos: [newVideo],
+      })
+      await updateVideoHistory(previewItem.id, { linkedBRollId: newBRollId })
+      setSavedToBank(true)
+      setTimeout(() => setSavedToBank(false), 2000)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Save to B-Rolls bank failed.'
+      useAppStore.getState().addToast(msg, 'error')
+    } finally {
+      setSavingToBank(false)
     }
-
-    addBRoll({
-      imageUrl,
-      prompt: previewItem.prompt,
-      videos: [newVideo],
-    })
-    updateVideoHistory(previewItem.id, { linkedBRollId: 'pending' })
-    setSavedToBank(true)
-    setTimeout(() => setSavedToBank(false), 2000)
   }
 
   // Save a history-grid item directly (no preview required). Same linkage logic.
-  function handleSaveHistoryItem(item: VideoHistoryItem) {
+  async function handleSaveHistoryItem(item: VideoHistoryItem) {
     if (item.linkedBRollId) return
-    if (item.sourceBRollId) {
-      const existing = getBRollById(item.sourceBRollId)
-      if (existing) {
-        updateBRoll(item.sourceBRollId, {
-          videos: [
-            ...(existing.videos ?? []),
-            { url: item.videoUrl, aspectRatio: item.aspectRatio, createdAt: item.createdAt },
-          ],
-        })
-        updateVideoHistory(item.id, { linkedBRollId: item.sourceBRollId })
-        return
-      }
-    }
-    addBRoll({
-      imageUrl: '',
-      prompt: item.prompt,
-      videos: [{ url: item.videoUrl, aspectRatio: item.aspectRatio, createdAt: item.createdAt }],
+    if (savingHistoryIds.has(item.id)) return
+    setSavingHistoryIds((prev) => {
+      const next = new Set(prev)
+      next.add(item.id)
+      return next
     })
-    updateVideoHistory(item.id, { linkedBRollId: 'pending' })
+    try {
+      if (item.sourceBRollId) {
+        const existing = getBRollById(item.sourceBRollId)
+        if (existing) {
+          await updateBRoll(item.sourceBRollId, {
+            videos: [
+              ...(existing.videos ?? []),
+              { url: item.videoUrl, aspectRatio: item.aspectRatio, createdAt: item.createdAt },
+            ],
+          })
+          await updateVideoHistory(item.id, { linkedBRollId: item.sourceBRollId })
+          return
+        }
+      }
+      const newBRollId = await addBRoll({
+        imageUrl: '',
+        prompt: item.prompt,
+        videos: [{ url: item.videoUrl, aspectRatio: item.aspectRatio, createdAt: item.createdAt }],
+      })
+      await updateVideoHistory(item.id, { linkedBRollId: newBRollId })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Save to B-Rolls bank failed.'
+      useAppStore.getState().addToast(msg, 'error')
+    } finally {
+      setSavingHistoryIds((prev) => {
+        const next = new Set(prev)
+        next.delete(item.id)
+        return next
+      })
+    }
   }
 
   const credits = formatCredits(
@@ -554,6 +574,7 @@ export default function VideoStudio() {
               activeSlotIndex={activeSlotIndex}
               activeModelName={activeModel?.displayName ?? ''}
               savedToBank={savedToBank}
+              savingToBank={savingToBank}
               onSaveToBank={handleSaveToBank}
             />
           ) : (
@@ -561,6 +582,7 @@ export default function VideoStudio() {
               items={videoHistory}
               inFlight={inFlight}
               activeId={previewHistoryId}
+              savingIds={savingHistoryIds}
               onSelect={(item) => {
                 setPreviewHistoryId(item.id)
                 setSavedToBank(!!item.linkedBRollId)
@@ -643,6 +665,7 @@ function PreviewPane({
   activeSlotIndex,
   activeModelName,
   savedToBank,
+  savingToBank,
   onSaveToBank,
 }: {
   previewItem: VideoHistoryItem | null
@@ -651,6 +674,7 @@ function PreviewPane({
   activeSlotIndex: number
   activeModelName: string
   savedToBank: boolean
+  savingToBank: boolean
   onSaveToBank: () => void
 }) {
   const addItemToProject = useBankStore((s) => s.addItemToProject)
@@ -682,10 +706,15 @@ function PreviewPane({
             </button>
             <button
               onClick={onSaveToBank}
-              disabled={savedToBank || !!previewItem.linkedBRollId}
-              className="flex w-52 items-center justify-center gap-2 rounded-full border border-white/15 px-4 py-2 text-[12px] font-medium text-zinc-300 transition-colors hover:bg-white/[0.06] hover:text-zinc-100 disabled:cursor-not-allowed"
+              disabled={savedToBank || !!previewItem.linkedBRollId || savingToBank}
+              className="flex w-52 items-center justify-center gap-2 rounded-full border border-white/15 px-4 py-2 text-[12px] font-medium text-zinc-300 transition-colors hover:bg-white/[0.06] hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-70"
             >
-              {savedToBank || previewItem.linkedBRollId ? (
+              {savingToBank ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>Saving…</span>
+                </>
+              ) : savedToBank || previewItem.linkedBRollId ? (
                 <>
                   <Check className="h-3.5 w-3.5 text-emerald-400" />
                   <span className="text-emerald-400">Saved to B-Rolls</span>

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Download, Save, Trash2, Check, Film, Play, FolderOpen, Loader2, X } from 'lucide-react'
 import type { VideoHistoryItem } from '../../../stores/types'
-import { useAssetUrl } from '../../../hooks/useAssetUrl'
+import { useAssetUrlState } from '../../../hooks/useAssetUrl'
 import { useBankStore } from '../../../stores/bankStore'
 import { getModel } from '../../../utils/models'
 import ProjectTagPopover from './ProjectTagPopover'
@@ -44,6 +44,10 @@ interface VideoHistoryGridProps {
   items: VideoHistoryItem[]
   inFlight?: InFlightGen[]
   activeId: string | null
+  // Set of history-item ids whose save-to-bank is currently in flight. Tiles
+  // in this set show a spinner on their save action and ignore further clicks
+  // so the user can't double-tap into duplicate BRolls.
+  savingIds?: Set<string>
   onSelect: (item: VideoHistoryItem) => void
   onSaveToBank: (item: VideoHistoryItem) => void
   onDownload: (item: VideoHistoryItem) => void
@@ -57,6 +61,7 @@ export default function VideoHistoryGrid({
   items,
   inFlight = [],
   activeId,
+  savingIds,
   onSelect,
   onSaveToBank,
   onDownload,
@@ -134,6 +139,7 @@ export default function VideoHistoryGrid({
                   <HistoryTile
                     item={item}
                     isActive={item.id === activeId}
+                    isSaving={!!savingIds?.has(item.id)}
                     onSelect={() => onSelect(item)}
                     onSaveToBank={() => onSaveToBank(item)}
                     onDownload={() => onDownload(item)}
@@ -225,14 +231,15 @@ function formatElapsed(seconds: number): string {
 interface HistoryTileProps {
   item: VideoHistoryItem
   isActive: boolean
+  isSaving: boolean
   onSelect: () => void
   onSaveToBank: () => void
   onDownload: () => void
   onDelete: () => void
 }
 
-function HistoryTile({ item, isActive, onSelect, onSaveToBank, onDownload, onDelete }: HistoryTileProps) {
-  const url = useAssetUrl(item.videoUrl)
+function HistoryTile({ item, isActive, isSaving, onSelect, onSaveToBank, onDownload, onDelete }: HistoryTileProps) {
+  const { url, status } = useAssetUrlState(item.videoUrl)
   const [hovering, setHovering] = useState(false)
   const [tagOpen, setTagOpen] = useState(false)
   const isSaved = !!item.linkedBRollId
@@ -250,7 +257,7 @@ function HistoryTile({ item, isActive, onSelect, onSaveToBank, onDownload, onDel
       }`}
       style={ratio}
     >
-      {url ? (
+      {status === 'ready' && url ? (
         <video
           src={url}
           muted
@@ -261,9 +268,17 @@ function HistoryTile({ item, isActive, onSelect, onSaveToBank, onDownload, onDel
           onMouseLeave={(e) => { e.currentTarget.pause(); e.currentTarget.currentTime = 0 }}
           className="h-full w-full object-cover"
         />
+      ) : status === 'loading' ? (
+        <div className="flex h-full w-full flex-col items-center justify-center gap-1.5 bg-zinc-950">
+          <Loader2 className="h-5 w-5 animate-spin text-zinc-500" />
+          <span className="text-[9px] text-zinc-600">Loading preview…</span>
+        </div>
       ) : (
-        <div className="flex h-full w-full items-center justify-center bg-zinc-950">
+        <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-zinc-950 px-2 text-center">
           <Film className="h-6 w-6 text-zinc-700" />
+          {status === 'failed' && (
+            <span className="text-[9px] text-zinc-600">Couldn't load preview</span>
+          )}
         </div>
       )}
 
@@ -287,11 +302,11 @@ function HistoryTile({ item, isActive, onSelect, onSaveToBank, onDownload, onDel
         }`}
       >
         <TileButton
-          title={isSaved ? 'Saved to Bank' : 'Save to B-Rolls Bank'}
-          onClick={(e) => { e.stopPropagation(); if (!isSaved) onSaveToBank() }}
+          title={isSaved ? 'Saved to Bank' : isSaving ? 'Saving…' : 'Save to B-Rolls Bank'}
+          onClick={(e) => { e.stopPropagation(); if (!isSaved && !isSaving) onSaveToBank() }}
           tone={isSaved ? 'saved' : 'default'}
         >
-          {isSaved ? <Check className="h-3 w-3" /> : <Save className="h-3 w-3" />}
+          {isSaved ? <Check className="h-3 w-3" /> : isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
         </TileButton>
         <TileButton
           title="Download"
