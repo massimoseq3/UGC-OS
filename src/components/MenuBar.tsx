@@ -34,11 +34,14 @@ export default function MenuBar() {
         <Menu className="h-5 w-5" strokeWidth={1.75} />
       </button>
 
-      <AppLogo className="h-8 w-8" />
-
-      <span className="text-[19px] font-bold tracking-tight text-zinc-100">
-        UGC Lab
-      </span>
+      {/* Wrap logo + wordmark in a tight flex so they read as a unit
+          without affecting the rest of the menu-bar gap-3 spacing. */}
+      <div className="flex items-center gap-1.5">
+        <AppLogo className="h-8 w-8" />
+        <span className="text-[19px] font-bold tracking-tight text-zinc-100">
+          UGC Lab
+        </span>
+      </div>
 
       <div className="flex-1" />
 
