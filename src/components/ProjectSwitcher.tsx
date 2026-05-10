@@ -60,7 +60,7 @@ export default function ProjectSwitcher() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-2 w-72 overflow-hidden rounded-xl border border-white/10 bg-[#0B0B0D]/95 shadow-2xl backdrop-blur-xl">
+        <div className="absolute right-0 top-full z-50 mt-2 w-[min(288px,calc(100vw-1.5rem))] overflow-hidden rounded-xl border border-white/10 bg-[#0B0B0D]/95 shadow-2xl backdrop-blur-xl">
           <div className="border-b border-white/5 px-3 py-2 text-[10px] font-medium uppercase tracking-wider text-zinc-500">
             Active project
           </div>

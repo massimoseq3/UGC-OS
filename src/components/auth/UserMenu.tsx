@@ -48,7 +48,7 @@ export default function UserMenu({ collapsed }: UserMenuProps) {
       </button>
 
       {open && (
-        <div className={`absolute z-50 ${collapsed ? 'bottom-full left-1/2 mb-2 -translate-x-1/2' : 'bottom-full left-0 mb-2'} w-56 rounded-lg border border-white/10 bg-[#0a0a0a] p-1 shadow-xl`}>
+        <div className={`absolute z-50 ${collapsed ? 'bottom-full left-1/2 mb-2 -translate-x-1/2' : 'bottom-full left-0 mb-2'} w-[min(224px,calc(100vw-1.5rem))] rounded-lg border border-white/10 bg-[#0a0a0a] p-1 shadow-xl`}>
           <div className="flex items-center gap-2 border-b border-white/5 px-3 py-2.5">
             <User className="h-3.5 w-3.5 text-zinc-500" />
             <div className="min-w-0">

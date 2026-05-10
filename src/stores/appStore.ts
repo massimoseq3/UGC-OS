@@ -13,6 +13,7 @@ interface AppState {
   interAppPayload: InterAppPayload | null
   toasts: Toast[]
   sidebarCollapsed: boolean
+  mobileSidebarOpen: boolean
 
   openApp: (appId: string) => void
   setActiveApp: (appId: string | null) => void
@@ -21,6 +22,8 @@ interface AppState {
   addToast: (message: string, type?: Toast['type']) => void
   removeToast: (id: string) => void
   toggleSidebar: () => void
+  setMobileSidebarOpen: (open: boolean) => void
+  closeMobileSidebar: () => void
 }
 
 let toastCounter = 0
@@ -42,6 +45,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   interAppPayload: null,
   toasts: [],
   sidebarCollapsed: loadSidebarCollapsed(),
+  mobileSidebarOpen: false,
 
   openApp: (appId) => set((state) => ({
     activeApp: appId,
@@ -91,4 +95,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     return { sidebarCollapsed: next }
   }),
+
+  setMobileSidebarOpen: (open) => set({ mobileSidebarOpen: open }),
+  closeMobileSidebar: () => set({ mobileSidebarOpen: false }),
 }))

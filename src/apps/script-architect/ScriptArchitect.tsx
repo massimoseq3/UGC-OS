@@ -65,7 +65,7 @@ export default function ScriptArchitect() {
   }
 
   return (
-    <div className="flex flex-col lg:flex-row h-full">
+    <div className="flex flex-col pb-32 lg:flex-row lg:h-full lg:pb-0">
       {/* Left panel — inputs */}
       <div className="flex w-full lg:w-1/2 shrink-0 flex-col border-b lg:border-b-0 lg:border-r border-white/5">
         <InputPanel

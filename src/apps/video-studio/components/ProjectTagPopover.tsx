@@ -65,7 +65,7 @@ export default function ProjectTagPopover({
     <div
       ref={ref}
       onClick={(e) => e.stopPropagation()}
-      className={`${anchorClassName} w-56 overflow-hidden rounded-lg border border-white/10 bg-[#0B0B0D]/95 shadow-2xl backdrop-blur-xl`}
+      className={`${anchorClassName} w-[min(224px,calc(100vw-1.5rem))] overflow-hidden rounded-lg border border-white/10 bg-[#0B0B0D]/95 shadow-2xl backdrop-blur-xl`}
     >
       <div className="border-b border-white/5 px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider text-zinc-500">
         Add to project

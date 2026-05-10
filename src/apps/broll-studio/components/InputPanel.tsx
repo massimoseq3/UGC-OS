@@ -175,9 +175,9 @@ export default function InputPanel({
   const canGenerate = hasScript
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex flex-col lg:h-full">
       {/* Bank selections */}
-      <div className="flex-1 overflow-y-auto p-5">
+      <div className="flex-1 p-5 lg:overflow-y-auto">
         <div className="flex flex-col gap-3">
           {/* References section */}
           <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-400">
@@ -259,8 +259,8 @@ export default function InputPanel({
         </div>
       </div>
 
-      {/* Generate button */}
-      <div className="border-t border-white/5 p-4">
+      {/* Generate button — pinned to viewport bottom on mobile */}
+      <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-white/5 bg-[#050505]/95 p-4 backdrop-blur-xl lg:static lg:left-auto lg:right-auto lg:z-auto lg:bg-transparent lg:backdrop-blur-none">
         <button
           onClick={onGenerate}
           disabled={!canGenerate || isGenerating}

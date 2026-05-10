@@ -115,7 +115,7 @@ export default function VideoHistoryGrid({
             {/* CSS columns produce a true masonry layout: each column flows
                 independently so portrait + landscape tiles don't leave the
                 vertical gaps that grid-template-rows: auto creates. */}
-            <div className="columns-2 gap-2 [column-fill:_balance]">
+            <div className="columns-1 sm:columns-2 gap-2 [column-fill:_balance]">
               {inFlight.map((gen) => (
                 <div key={gen.id} className="mb-2 break-inside-avoid">
                   <InFlightTile gen={gen} />
@@ -128,7 +128,7 @@ export default function VideoHistoryGrid({
         {dayGroups.map(([dayTs, dayItems]) => (
           <div key={dayTs}>
             <DayPill label={dayLabel(dayTs)} />
-            <div className="columns-2 gap-2 [column-fill:_balance]">
+            <div className="columns-1 sm:columns-2 gap-2 [column-fill:_balance]">
               {dayItems.map((item) => (
                 <div key={item.id} className="mb-2 break-inside-avoid">
                   <HistoryTile

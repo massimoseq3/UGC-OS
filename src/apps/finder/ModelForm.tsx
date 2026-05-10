@@ -92,9 +92,9 @@ export default function ModelForm({ item, onSave, onCancel }: ModelFormProps) {
       </div>
 
       {/* Side-by-side: image left, fields right */}
-      <div className="flex gap-5">
+      <div className="flex flex-col lg:flex-row gap-5">
         {/* Left — 9:16 portrait image */}
-        <div className="relative group/img w-48 shrink-0">
+        <div className="relative group/img w-full lg:w-48 shrink-0">
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
