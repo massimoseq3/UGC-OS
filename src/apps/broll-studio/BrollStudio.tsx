@@ -123,8 +123,11 @@ export default function BrollStudio() {
         referenceImages,
       })
       setResult(res)
+      useAppStore.getState().addToast('B-roll image generated', 'success')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'B-Roll generation failed. Check your API key and try again.')
+      const msg = err instanceof Error ? err.message : 'B-Roll generation failed. Check your API key and try again.'
+      setError(msg)
+      useAppStore.getState().addToast(`B-roll generation failed: ${msg}`, 'error')
     } finally {
       setIsGenerating(false)
     }

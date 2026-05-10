@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { FlaskConical, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react'
+import SmileyLogo from '../SmileyLogo'
 import { useAuthStore } from '../../stores/authStore'
 
 type Mode = 'login' | 'signup'
@@ -43,9 +44,7 @@ export default function AuthScreen() {
         <div className="w-full max-w-sm space-y-6">
           {/* Brand */}
           <div className="flex flex-col items-center gap-3">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-500 to-orange-500 shadow-lg shadow-fuchsia-500/20">
-              <FlaskConical className="h-7 w-7 text-white" strokeWidth={2} />
-            </div>
+            <SmileyLogo className="h-16 w-16 text-zinc-100" />
             <div className="space-y-1 text-center">
               <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">UGC Lab</h1>
               <p className="text-sm text-zinc-500">

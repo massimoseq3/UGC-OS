@@ -64,8 +64,11 @@ export default function VoiceStudio() {
       setActivePlayerItem(item)
       // Pull the new credit balance after the generation has settled.
       refreshCredits()
+      useAppStore.getState().addToast('Voiceover generated', 'success')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Audio generation failed. Check your API key and try again.')
+      const msg = err instanceof Error ? err.message : 'Audio generation failed. Check your API key and try again.'
+      setError(msg)
+      useAppStore.getState().addToast(`Voiceover generation failed: ${msg}`, 'error')
     } finally {
       setIsGenerating(false)
     }

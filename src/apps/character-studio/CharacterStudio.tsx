@@ -137,11 +137,14 @@ export default function CharacterStudio() {
     try {
       const gen = await generateCharacter(profile, controller.signal, undefined, resolution)
       setResult(gen)
+      useAppStore.getState().addToast('Character generated', 'success')
     } catch (err) {
       if (controller.signal.aborted) {
         setError('Generation was cancelled. Try again.')
       } else {
-        setError(err instanceof Error ? err.message : 'Image generation failed. Check your API key and try again.')
+        const msg = err instanceof Error ? err.message : 'Image generation failed. Check your API key and try again.'
+        setError(msg)
+        useAppStore.getState().addToast(`Character generation failed: ${msg}`, 'error')
       }
     } finally {
       setIsGenerating(false)

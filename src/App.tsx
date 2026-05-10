@@ -1,4 +1,4 @@
-import { FlaskConical } from 'lucide-react'
+import SmileyLogo from './components/SmileyLogo'
 import MenuBar from './components/MenuBar'
 import Sidebar from './components/Sidebar'
 import ToastContainer from './components/Toast'
@@ -45,9 +45,7 @@ function AppPlaceholder({ appId }: { appId: string }) {
 function EmptyState() {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
-      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-500 to-orange-500 shadow-lg shadow-fuchsia-500/20">
-        <FlaskConical className="h-7 w-7 text-white" strokeWidth={2} />
-      </div>
+      <SmileyLogo className="h-16 w-16 text-zinc-100" />
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">
           UGC Lab
