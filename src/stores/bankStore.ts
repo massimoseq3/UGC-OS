@@ -191,6 +191,11 @@ function reportError(prefix: string, e: unknown) {
   throw e
 }
 
+// Tiny helper so each action can fire one consistent confirmation toast.
+function reportSuccess(msg: string) {
+  try { useAppStore.getState().addToast(msg, 'success') } catch { /* ignore */ }
+}
+
 async function cleanupAssets(...refs: (string | undefined)[]) {
   for (const ref of refs) {
     if (ref && isAssetRef(ref)) {
@@ -212,6 +217,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
+    reportSuccess(`Project "${newProject.name}" created`)
     return id
   },
 
@@ -225,6 +231,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
+    reportSuccess('Project updated')
   },
 
   deleteProject: async (id) => {
@@ -263,6 +270,7 @@ export const useBankStore = create<BankState>((set, get) => ({
     if (useSettingsStore.getState().activeProjectId === id) {
       useSettingsStore.getState().setActiveProject(null)
     }
+    const projectName = state.projects.find((p) => p.id === id)?.name
     set((s) => {
       const next = {
         projects: s.projects.filter((p) => p.id !== id),
@@ -276,6 +284,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...s, ...next })
       return next
     })
+    reportSuccess(projectName ? `Project "${projectName}" deleted` : 'Project deleted')
   },
 
   getProjectById: (id) => get().projects.find((p) => p.id === id),
@@ -320,6 +329,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
+    reportSuccess('Product saved')
   },
 
   updateProduct: async (id, updates) => {
@@ -337,6 +347,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
+    reportSuccess('Product updated')
   },
 
   deleteProduct: async (id) => {
@@ -349,6 +360,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
+    reportSuccess('Product deleted')
   },
 
   getProductById: (id) => get().products.find((p) => p.id === id),
@@ -363,6 +375,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
+    reportSuccess('Character saved')
   },
 
   updateModel: async (id, updates) => {
@@ -380,6 +393,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
+    reportSuccess('Character updated')
   },
 
   deleteModel: async (id) => {
@@ -392,6 +406,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
+    reportSuccess('Character deleted')
   },
 
   getModelById: (id) => get().models.find((m) => m.id === id),
@@ -406,6 +421,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
+    reportSuccess('Script saved')
   },
 
   updateScript: async (id, updates) => {
@@ -418,6 +434,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
+    reportSuccess('Script updated')
   },
 
   deleteScript: async (id) => {
@@ -429,6 +446,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
+    reportSuccess('Script deleted')
   },
 
   getScriptById: (id) => get().scripts.find((s) => s.id === id),
@@ -443,6 +461,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
+    reportSuccess('Voice saved')
   },
 
   updateVoice: async (id, updates) => {
@@ -455,6 +474,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
+    reportSuccess('Voice updated')
   },
 
   deleteVoice: async (id) => {
@@ -466,6 +486,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
+    reportSuccess('Voice deleted')
   },
 
   getVoiceById: (id) => get().voices.find((v) => v.id === id),
@@ -480,6 +501,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
+    reportSuccess('Saved to B-Rolls bank')
   },
 
   updateBRoll: async (id, updates) => {
@@ -497,6 +519,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
+    reportSuccess('B-roll updated')
   },
 
   deleteBRoll: async (id) => {
@@ -514,6 +537,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
+    reportSuccess('B-roll deleted')
   },
 
   getBRollById: (id) => get().brolls.find((b) => b.id === id),
@@ -538,6 +562,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
+    reportSuccess('Voiceover removed from history')
   },
 
   clearVoiceHistory: async () => {
@@ -553,6 +578,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
+    reportSuccess('Voice history cleared')
   },
 
   // ── Video History ────────────────────────────────────────────────
@@ -589,6 +615,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
+    reportSuccess('Video removed from history')
   },
 
   clearVideoHistory: async () => {
@@ -606,6 +633,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
+    reportSuccess('Video history cleared')
   },
 }))
 

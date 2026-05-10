@@ -54,8 +54,11 @@ export default function ScriptArchitect() {
         additionalContext,
       })
       setGeneratedScript(result.scriptText)
+      useAppStore.getState().addToast('Script generated', 'success')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Script generation failed. Check your API key and try again.')
+      const msg = err instanceof Error ? err.message : 'Script generation failed. Check your API key and try again.'
+      setError(msg)
+      useAppStore.getState().addToast(`Script generation failed: ${msg}`, 'error')
     } finally {
       setIsGenerating(false)
     }

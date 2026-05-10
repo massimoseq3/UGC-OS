@@ -259,6 +259,7 @@ export default function VideoStudio() {
       }
       addVideoHistory(historyEntry)
       patchSlot(slotIndex, { status: 'idle', error: null, lastResultId: historyEntry.id })
+      useAppStore.getState().addToast(`Video ${slotIndex + 1} ready`, 'success')
       // Auto-promote to Preview only if the user is still looking at this slot.
       // Otherwise leave them in their current context — the new tile will
       // surface in History where they can click it.
@@ -273,6 +274,7 @@ export default function VideoStudio() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Video generation failed.'
       patchSlot(slotIndex, { status: 'error', error: msg })
+      useAppStore.getState().addToast(`Video ${slotIndex + 1} failed: ${msg}`, 'error')
     } finally {
       setInFlight((prev) => prev.filter((i) => i.id !== inFlightId))
     }
