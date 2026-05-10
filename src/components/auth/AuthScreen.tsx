@@ -44,7 +44,7 @@ export default function AuthScreen() {
         <div className="w-full max-w-sm space-y-6">
           {/* Brand */}
           <div className="flex flex-col items-center gap-3">
-            <AppLogo className="h-16 w-16 text-zinc-100" />
+            <AppLogo className="h-12 w-12" />
             <div className="space-y-1 text-center">
               <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">UGC Lab</h1>
               <p className="text-sm text-zinc-500">
