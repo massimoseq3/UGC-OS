@@ -31,8 +31,16 @@ async function presign(op: 'put' | 'get', assetId: string, mimeType?: string, by
     body: JSON.stringify({ op, assetId, mimeType, byteSize }),
   }), ATTEMPT_TIMEOUT_MS)
   if (!res.ok) {
+    // Parse JSON error body so the toast shows the friendly server message
+    // (e.g. "Storage cap reached — you're using 5.23 GB of 10 GB.") rather
+    // than a raw "Presign failed (413): {...}".
     const text = await res.text().catch(() => '')
-    throw new Error(`Presign failed (${res.status}): ${text || res.statusText}`)
+    let friendly = text || res.statusText
+    try {
+      const parsed = JSON.parse(text) as { error?: string }
+      if (parsed.error) friendly = parsed.error
+    } catch { /* not JSON — fall back to the raw text */ }
+    throw new Error(friendly)
   }
   return await res.json() as SignedUrlResponse
 }

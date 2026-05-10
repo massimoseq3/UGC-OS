@@ -86,6 +86,30 @@ export async function purgeOrphans(
   return { ok, failed }
 }
 
+// Per-user storage cap. Mirrors the same value enforced in api/r2-sign.ts —
+// keep them in sync if either ever changes.
+export const STORAGE_CAP_BYTES = 10 * 1024 * 1024 * 1024 // 10 GB
+
+// Lightweight aggregate read for the Settings storage bar. Uses the same
+// `assets` table read as findOrphanAssets but only returns totals.
+export async function getStorageUsage(): Promise<{ totalBytes: number; assetCount: number }> {
+  if (!isCloudEnabled()) return { totalBytes: 0, assetCount: 0 }
+  const userId = useAuthStore.getState().user?.id
+  if (!userId) return { totalBytes: 0, assetCount: 0 }
+
+  const sb = getSupabase()
+  const { data, error } = await sb
+    .from('assets')
+    .select('byte_size')
+    .eq('user_id', userId)
+  if (error) throw new Error(`storage usage: ${error.message}`)
+  const rows = (data ?? []) as Array<{ byte_size: number }>
+  return {
+    totalBytes: rows.reduce((s, r) => s + Number(r.byte_size ?? 0), 0),
+    assetCount: rows.length,
+  }
+}
+
 export function formatBytes(n: number): string {
   if (!n) return '0 B'
   if (n < 1024) return `${n} B`

@@ -6,6 +6,9 @@ interface UserMenuProps {
   collapsed: boolean
 }
 
+// Sidebar account chip. The pill itself never shows the email — that lives
+// behind a click-to-open dropdown so users (and screenshots) don't leak it
+// at a glance. Sign-out is also in here for quick access from the sidebar.
 export default function UserMenu({ collapsed }: UserMenuProps) {
   const profile = useAuthStore((s) => s.profile)
   const signOut = useAuthStore((s) => s.signOut)
@@ -24,7 +27,6 @@ export default function UserMenu({ collapsed }: UserMenuProps) {
   if (!profile) return null
 
   const initial = (profile.email[0] || '?').toUpperCase()
-  const display = profile.display_name || profile.email
 
   return (
     <div ref={ref} className="relative">
@@ -33,13 +35,14 @@ export default function UserMenu({ collapsed }: UserMenuProps) {
         className={`flex w-full items-center rounded-lg transition-colors hover:bg-white/[0.04] ${
           collapsed ? 'flex-col gap-1 px-1 py-2' : 'gap-3 px-3 py-2'
         }`}
+        title="My account"
       >
         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-500 to-orange-500 text-[12px] font-semibold text-white">
           {initial}
         </span>
         {!collapsed && (
           <span className="min-w-0 flex-1 truncate text-left text-[12px] text-zinc-300">
-            {display}
+            My account
           </span>
         )}
       </button>
@@ -49,8 +52,8 @@ export default function UserMenu({ collapsed }: UserMenuProps) {
           <div className="flex items-center gap-2 border-b border-white/5 px-3 py-2.5">
             <User className="h-3.5 w-3.5 text-zinc-500" />
             <div className="min-w-0">
-              <div className="truncate text-[12px] font-medium text-zinc-200">{display}</div>
-              <div className="truncate text-[11px] text-zinc-500">{profile.email}</div>
+              <div className="text-[10px] uppercase tracking-wider text-zinc-500">Signed in as</div>
+              <div className="truncate text-[12px] font-medium text-zinc-200">{profile.email}</div>
             </div>
           </div>
           <button
