@@ -22,6 +22,11 @@ const PRESIGN_TTL_SECONDS = 1800
 // 30s 1080p video (~50 MB). Catches both runaway client bugs and abuse.
 const MAX_UPLOAD_BYTES = 200 * 1024 * 1024
 
+// Per-user storage cap. Enforced server-side here so a client can't bypass
+// by hitting the R2 PUT URL directly — we never sign one if the new upload
+// would push them over.
+const MAX_USER_BYTES = 10 * 1024 * 1024 * 1024 // 10 GB
+
 // Mime allowlist for puts. We don't enforce on gets — those just hand back
 // whatever R2 has — but writes should match what the app actually saves.
 const ALLOWED_PUT_MIME_PREFIXES = ['image/', 'video/', 'audio/']
@@ -82,6 +87,40 @@ export default async function handler(req: Request): Promise<Response> {
     }
     if (body.mimeType && !ALLOWED_PUT_MIME_PREFIXES.some((p) => body.mimeType!.startsWith(p))) {
       return json(415, { error: `Unsupported mime type: ${body.mimeType}` })
+    }
+
+    // Per-user storage cap. Sum the user's current `assets.byte_size` and
+    // reject if the new upload would push them over MAX_USER_BYTES.
+    const supabaseUrl = process.env.SUPABASE_URL
+    const supabaseAnon = process.env.SUPABASE_ANON_KEY
+    if (supabaseUrl && supabaseAnon && typeof body.byteSize === 'number') {
+      const tokenForRest = req.headers.get('authorization')!.slice('Bearer '.length)
+      const usageRes = await fetch(
+        `${supabaseUrl}/rest/v1/assets?select=byte_size&user_id=eq.${auth.userId}`,
+        {
+          headers: {
+            apikey: supabaseAnon,
+            Authorization: `Bearer ${tokenForRest}`,
+          },
+        },
+      )
+      if (usageRes.ok) {
+        const rows = await usageRes.json() as Array<{ byte_size: number }>
+        const currentBytes = rows.reduce((s, r) => s + Number(r.byte_size ?? 0), 0)
+        if (currentBytes + body.byteSize > MAX_USER_BYTES) {
+          const usedGb = (currentBytes / 1024 / 1024 / 1024).toFixed(2)
+          const capGb = (MAX_USER_BYTES / 1024 / 1024 / 1024).toFixed(0)
+          return json(413, {
+            error: `Storage cap reached — you're using ${usedGb} GB of ${capGb} GB. Free up space in Settings → Storage.`,
+            code: 'storage_cap',
+            usedBytes: currentBytes,
+            capBytes: MAX_USER_BYTES,
+          })
+        }
+      }
+      // If the usage query fails (network/REST hiccup), we let the upload
+      // through. The next upload retries the cap check; one slipping by is
+      // far better than a perma-block when Supabase is flaky.
     }
   }
 

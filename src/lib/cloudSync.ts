@@ -19,6 +19,7 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { getSupabase, isCloudEnabled } from './supabase'
 import { existingRemoteAssetIds, uploadAssetToR2 } from './r2'
 import { isAssetRef, getBlob } from '../utils/assetStore'
+import { findOrphanAssets, purgeOrphans } from '../utils/orphanCleanup'
 import type { Project, Product, Model, Script, VoicePreset, BRoll, VoiceHistoryItem, VideoHistoryItem } from '../stores/types'
 
 export type BankKey =
@@ -286,6 +287,21 @@ async function reconcileAssets() {
   }
 }
 
+// Once-per-session orphan sweep. Runs after hydrate so the bank state is
+// accurate. Logs results to the console; no UI noise — users who care can
+// see exact counts via Settings → Storage.
+async function sweepOrphansInBackground(): Promise<void> {
+  try {
+    const { orphans, totalBytes } = await findOrphanAssets()
+    if (orphans.length === 0) return
+    console.log(`[cloudSync] sweeping ${orphans.length} orphan asset(s) (~${(totalBytes / 1024 / 1024).toFixed(1)} MB)`)
+    const result = await purgeOrphans(orphans.map((o) => o.id))
+    console.log(`[cloudSync] orphan sweep done: ${result.ok} cleaned, ${result.failed.length} failed`)
+  } catch (e) {
+    console.warn('[cloudSync] sweepOrphansInBackground threw', e)
+  }
+}
+
 let started = false
 
 export async function startCloudSync() {
@@ -310,6 +326,10 @@ export async function startCloudSync() {
 
     // Best-effort recovery — don't block startup on this.
     reconcileAssets().catch((e) => console.warn('[cloudSync] reconcile failed', e))
+
+    // Sweep orphan assets in the background. Most users will never click the
+    // manual cleanup button; this keeps storage tidy without bothering them.
+    sweepOrphansInBackground().catch((e) => console.warn('[cloudSync] orphan sweep failed', e))
   } catch (e) {
     reportError('startup', e)
     started = false
