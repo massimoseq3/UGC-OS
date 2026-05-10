@@ -324,6 +324,15 @@ export async function startCloudSync() {
     await hydrateFromCloud(userId)
     console.log('[cloudSync] hydrated from cloud')
 
+    // Stamp last_active_at so the admin members table can show "last seen"
+    // instead of just join date. Fire-and-forget — failure isn't worth
+    // surfacing to the user.
+    getSupabase()
+      .from('profiles')
+      .update({ last_active_at: new Date().toISOString() })
+      .eq('id', userId)
+      .then(({ error }) => { if (error) console.warn('[cloudSync] last_active_at update failed', error) })
+
     // Best-effort recovery — don't block startup on this.
     reconcileAssets().catch((e) => console.warn('[cloudSync] reconcile failed', e))
 
