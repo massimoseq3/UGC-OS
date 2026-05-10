@@ -134,7 +134,7 @@ export default function BrollStudio() {
   }
 
   return (
-    <div className="flex flex-col lg:flex-row h-full">
+    <div className="flex flex-col pb-28 lg:flex-row lg:h-full lg:pb-0">
       {/* Left panel — inputs */}
       <div className="flex w-full lg:w-1/4 shrink-0 flex-col border-b lg:border-b-0 lg:border-r border-white/5">
         <InputPanel
@@ -158,7 +158,7 @@ export default function BrollStudio() {
       </div>
 
       {/* Right panel — output */}
-      <div className="flex w-full lg:w-3/4 flex-col overflow-hidden min-h-[400px] lg:min-h-0">
+      <div className="flex w-full lg:w-3/4 flex-col overflow-hidden">
         <OutputPanel
           result={result}
           isGenerating={isGenerating}

@@ -127,7 +127,7 @@ export default function OutputPanel({ result, isGenerating, error, onGenerate, o
   // Empty state — no result yet
   if (!result) {
     return (
-      <div className="flex h-full flex-col">
+      <div className="flex flex-col lg:h-full">
         <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8">
           <UserRound className="h-10 w-10 text-zinc-800" strokeWidth={1.5} />
           <p className="text-sm text-zinc-700">Configure parameters and generate</p>
@@ -142,8 +142,8 @@ export default function OutputPanel({ result, isGenerating, error, onGenerate, o
           </div>
         )}
 
-        {/* Generate button always visible */}
-        <div className="space-y-3 border-t border-white/5 p-4">
+        {/* Generate button always visible — pinned to viewport bottom on mobile */}
+        <div className="fixed bottom-0 left-0 right-0 z-30 space-y-3 border-t border-white/5 bg-[#050505]/95 p-4 backdrop-blur-xl lg:static lg:left-auto lg:right-auto lg:z-auto lg:border-t lg:bg-transparent lg:backdrop-blur-none">
           <AspectRatioToggle value={aspectRatio} onChange={onAspectRatioChange} />
           <ModelPicker
             appId="character-studio"
@@ -242,8 +242,8 @@ export default function OutputPanel({ result, isGenerating, error, onGenerate, o
         </div>
       </div>
 
-      {/* Generate button — pinned to bottom */}
-      <div className="space-y-2 border-t border-white/5 p-3">
+      {/* Generate button — pinned to bottom (sticky on mobile so it follows scroll) */}
+      <div className="sticky bottom-0 z-10 space-y-2 border-t border-white/5 bg-[#050505]/95 p-3 backdrop-blur-xl lg:static lg:bg-transparent lg:backdrop-blur-none">
         <AspectRatioToggle value={aspectRatio} onChange={onAspectRatioChange} />
         <ModelPicker
           appId="character-studio"

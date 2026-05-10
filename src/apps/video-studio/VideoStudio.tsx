@@ -368,12 +368,12 @@ export default function VideoStudio() {
   const inFlightCount = inFlight.length
 
   return (
-    <div className="flex h-full flex-col lg:flex-row">
+    <div className="flex flex-col-reverse pb-28 lg:h-full lg:flex-row lg:pb-0">
       {/* Left — slot tabs + controls */}
-      <div className="flex w-full lg:w-1/2 shrink-0 flex-col overflow-y-auto border-b lg:border-b-0 lg:border-r border-white/5">
+      <div className="flex w-full lg:w-1/2 shrink-0 flex-col lg:overflow-y-auto border-b lg:border-b-0 lg:border-r border-white/5">
         {/* Slot tab strip — same height + underline style as the right panel
             tabs so the two tab rows visually align across the divider. */}
-        <div className="flex shrink-0 items-center gap-1 border-b border-white/5 px-5">
+        <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-white/5 px-5">
           {slots.map((s, i) => (
             <SlotTab
               key={i}
@@ -502,7 +502,7 @@ export default function VideoStudio() {
 
           {/* Generate button. Disabled while THIS slot is in flight; a different
               slot's generation doesn't block this one. */}
-          <div className="mt-auto pt-2">
+          <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-white/5 bg-[#050505]/95 px-5 pb-4 pt-3 backdrop-blur-xl lg:static lg:left-auto lg:right-auto lg:z-auto lg:mt-auto lg:border-t-0 lg:bg-transparent lg:px-0 lg:pb-0 lg:pt-2 lg:backdrop-blur-none">
             <button
               onClick={handleGenerate}
               disabled={!canGenerate}
@@ -531,7 +531,7 @@ export default function VideoStudio() {
 
       {/* Right — History | Preview tabs */}
       <div className="flex flex-1 min-h-0 flex-col">
-        <div className="flex items-center gap-1 border-b border-white/5 px-5">
+        <div className="flex shrink-0 items-center gap-1 border-b border-white/5 px-5">
           <RightTabButton active={rightTab === 'history'} onClick={() => setRightTab('history')}>
             History
             {(videoHistory.length > 0 || inFlightCount > 0) && (

@@ -108,7 +108,7 @@ export default function ModelPicker({ appId, task, mode, value, onChange, costPa
             openUpward ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
           }`}
         >
-          <div className="max-h-[360px] overflow-y-auto p-1">
+          <div className="max-h-[min(360px,60vh)] overflow-y-auto p-1">
             {models.map((m) => (
               <ModelRow
                 key={m.id}

@@ -157,7 +157,7 @@ export default function CharacterStudio() {
 
   return (
     <div
-      className="relative flex flex-col lg:flex-row h-full"
+      className="relative flex flex-col pb-72 lg:flex-row lg:h-full lg:pb-0"
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}
@@ -179,7 +179,7 @@ export default function CharacterStudio() {
       </div>
 
       {/* Output panel */}
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden min-h-[300px] lg:min-h-0">
+      <div className="flex min-w-0 flex-1 flex-col lg:overflow-hidden">
         <OutputPanel
           result={result}
           isGenerating={isGenerating}

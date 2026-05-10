@@ -5,13 +5,22 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { useCreditsStore } from '../stores/creditsStore'
 import ProjectSwitcher from './ProjectSwitcher'
 import AppLogo from './AppLogo'
+import { useIsDesktop } from '../hooks/useBreakpoint'
 
 export default function MenuBar() {
   const toggleSidebar = useAppStore((s) => s.toggleSidebar)
+  const mobileSidebarOpen = useAppStore((s) => s.mobileSidebarOpen)
+  const setMobileSidebarOpen = useAppStore((s) => s.setMobileSidebarOpen)
   const apiKey = useSettingsStore((s) => s.kieApiKey)
   const balance = useCreditsStore((s) => s.balance)
   const refresh = useCreditsStore((s) => s.refresh)
   const [refreshing, setRefreshing] = useState(false)
+  const isDesktop = useIsDesktop()
+
+  const handleMenuClick = () => {
+    if (isDesktop) toggleSidebar()
+    else setMobileSidebarOpen(!mobileSidebarOpen)
+  }
 
   // Refresh on mount + whenever the API key changes.
   useEffect(() => {
@@ -25,9 +34,9 @@ export default function MenuBar() {
   }
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 flex h-14 items-center gap-3 border-b border-white/5 bg-[#09090b] px-3 select-none">
+    <header className="fixed top-0 left-0 right-0 z-50 flex h-14 items-center gap-2 sm:gap-3 border-b border-white/5 bg-[#09090b] px-2 sm:px-3 select-none">
       <button
-        onClick={toggleSidebar}
+        onClick={handleMenuClick}
         className="flex h-10 w-10 items-center justify-center rounded-lg text-zinc-300 transition-colors hover:bg-white/[0.06]"
         aria-label="Toggle sidebar"
       >
@@ -38,7 +47,7 @@ export default function MenuBar() {
           without affecting the rest of the menu-bar gap-3 spacing. */}
       <div className="flex items-center gap-1.5">
         <AppLogo className="h-8 w-8" />
-        <span className="text-[19px] font-bold tracking-tight text-zinc-100">
+        <span className="hidden sm:inline text-[19px] font-bold tracking-tight text-zinc-100">
           UGC Lab
         </span>
       </div>
@@ -58,7 +67,7 @@ export default function MenuBar() {
           <span className="tabular-nums">
             {balance !== null ? balance.toLocaleString() : '—'}
           </span>
-          <span className="text-zinc-500">credits left</span>
+          <span className="hidden sm:inline text-zinc-500">credits left</span>
           <button
             onClick={handleRefresh}
             disabled={refreshing}

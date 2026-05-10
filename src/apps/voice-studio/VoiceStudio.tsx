@@ -104,10 +104,10 @@ export default function VoiceStudio() {
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+    <div className="flex flex-col pb-28 lg:h-full lg:pb-0">
+      <div className="flex flex-1 flex-col lg:min-h-0 lg:flex-row">
         {/* Center — editor */}
-        <div className="flex min-h-[420px] lg:min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="flex flex-1 flex-col lg:min-h-0 lg:overflow-hidden">
           <EditorArea
             scriptText={scriptText}
             onScriptChange={setScriptText}

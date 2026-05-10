@@ -85,7 +85,7 @@ export default function InputPanel({
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex flex-col lg:h-full">
       {/* Scrollable inputs */}
       <div className="flex-1 overflow-y-auto p-5">
         {/* Step 01 — Winning Script */}
@@ -237,8 +237,8 @@ export default function InputPanel({
         </div>
       </div>
 
-      {/* Sticky generate button */}
-      <div className="shrink-0 border-t border-white/5 px-5 py-4">
+      {/* Generate button — pinned to viewport bottom on mobile */}
+      <div className="fixed bottom-0 left-0 right-0 z-30 shrink-0 border-t border-white/5 bg-[#050505]/95 px-5 py-4 backdrop-blur-xl lg:static lg:left-auto lg:right-auto lg:z-auto lg:bg-transparent lg:backdrop-blur-none">
         <button
           onClick={() => onGenerate(editableContext)}
           disabled={!canGenerate || isGenerating}

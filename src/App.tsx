@@ -48,7 +48,7 @@ function EmptyState() {
     <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
       <AppLogo className="h-12 w-12" />
       <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">
+        <h1 className="text-2xl font-bold tracking-tight text-zinc-100">
           UGC Lab
         </h1>
         <p className="text-sm text-zinc-500">
@@ -73,7 +73,9 @@ function Workspace() {
   const collapsed = useAppStore((s) => s.sidebarCollapsed)
   const userId = useAuthStore((s) => s.user?.id)
 
-  const contentPadding = collapsed ? 'pl-20' : 'pl-56'
+  // Below lg the sidebar is an overlay drawer, so content reaches the left edge.
+  // Above lg it sits in a fixed gutter (collapsed = 80px, expanded = 224px).
+  const contentPadding = collapsed ? 'lg:pl-20' : 'lg:pl-56'
 
   return (
     <div key={userId ?? 'local'} className="relative h-screen w-screen overflow-hidden text-white antialiased bg-[#050505]">

@@ -32,9 +32,9 @@ export default function EditorArea({
   const overLimit = charCount > MAX_CHARACTERS
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <div className="flex flex-col lg:h-full lg:overflow-hidden">
       {/* Body */}
-      <div className="flex flex-1 flex-col overflow-hidden px-8 pt-8">
+      <div className="flex flex-1 flex-col px-8 pt-8 lg:overflow-hidden">
         {/* Pull from Script bank — subtle dashed-border affordance */}
         <button
           type="button"
@@ -86,8 +86,8 @@ export default function EditorArea({
         />
       </div>
 
-      {/* Footer row */}
-      <div className="mt-4 flex items-center justify-between border-t border-white/5 px-5 py-5">
+      {/* Footer row — pinned to viewport bottom on mobile so Generate is always reachable */}
+      <div className="fixed bottom-0 left-0 right-0 z-30 flex items-center justify-between border-t border-white/5 bg-[#050505]/95 px-5 py-5 backdrop-blur-xl lg:static lg:left-auto lg:right-auto lg:z-auto lg:mt-4 lg:bg-transparent lg:backdrop-blur-none">
         {/* Left — character count */}
         <div className={`text-sm tabular-nums ${overLimit ? 'text-red-400' : 'text-zinc-400'}`}>
           <span className={overLimit ? 'text-red-300' : 'text-zinc-200'}>{charCount.toLocaleString()}</span>

@@ -95,9 +95,9 @@ export default function BRollForm({ item, onSave, onCancel }: BRollFormProps) {
       </div>
 
       {/* Side-by-side: image left, prompt right */}
-      <div className="flex gap-5">
+      <div className="flex flex-col lg:flex-row gap-5">
         {/* Left — b-roll image */}
-        <div className="relative group/img w-56 shrink-0">
+        <div className="relative group/img w-full lg:w-56 shrink-0">
           {displayImage ? (
             <>
               <img
