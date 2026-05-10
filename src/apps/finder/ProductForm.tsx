@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, ImagePlus, Download, Loader2 } from 'lucide-react'
+import { X, ImagePlus, Download, Loader2, AlertCircle } from 'lucide-react'
 import type { Product } from '../../stores/types'
 import { useAssetUrl } from '../../hooks/useAssetUrl'
+import AddToProjectButton from '../../components/AddToProjectButton'
 
 interface ProductFormProps {
   item?: Product | null
@@ -12,13 +13,15 @@ interface ProductFormProps {
 const FIELDS: { key: keyof Product; label: string; type: 'text' | 'textarea'; required?: boolean }[] = [
   { key: 'productName', label: 'Product Name', type: 'text', required: true },
   { key: 'productDescription', label: 'Description', type: 'textarea', required: true },
-  { key: 'targetMarket', label: 'Target Market', type: 'text', required: true },
+  { key: 'targetMarket', label: 'Target Market', type: 'text' },
   { key: 'painPoints', label: 'Pain Points', type: 'textarea' },
   { key: 'usps', label: 'USPs', type: 'textarea' },
   { key: 'benefits', label: 'Benefits', type: 'textarea' },
   { key: 'offer', label: 'Offer', type: 'text' },
   { key: 'cta', label: 'CTA', type: 'text' },
 ]
+
+const REQUIRED_KEYS = ['productName', 'productDescription'] as const
 
 export default function ProductForm({ item, onSave, onCancel }: ProductFormProps) {
   const [form, setForm] = useState({
@@ -32,9 +35,11 @@ export default function ProductForm({ item, onSave, onCancel }: ProductFormProps
     offer: item?.offer ?? '',
     cta: item?.cta ?? '',
   })
+  const [localProjectIds, setLocalProjectIds] = useState<string[]>(item?.projectIds ?? [])
   const fileRef = useRef<HTMLInputElement>(null)
   const [localPreview, setLocalPreview] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [showError, setShowError] = useState(false)
   const resolvedAssetUrl = useAssetUrl(form.productImage)
   const displayImage = localPreview ?? resolvedAssetUrl
 
@@ -54,7 +59,15 @@ export default function ProductForm({ item, onSave, onCancel }: ProductFormProps
     }
   }, [item])
 
-  const set = (key: string, value: string) => setForm((f) => ({ ...f, [key]: value }))
+  const set = (key: string, value: string) => {
+    setForm((f) => ({ ...f, [key]: value }))
+    if (showError && (REQUIRED_KEYS as readonly string[]).includes(key) && value.trim()) {
+      // Recompute whether all required fields are now filled.
+      const next = { ...form, [key]: value }
+      const stillMissing = REQUIRED_KEYS.some((k) => !next[k].trim())
+      if (!stillMissing) setShowError(false)
+    }
+  }
 
   const handleImage = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -76,28 +89,44 @@ export default function ProductForm({ item, onSave, onCancel }: ProductFormProps
     a.click()
   }
 
+  const missingRequired = REQUIRED_KEYS.filter((k) => !form[k].trim())
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (saving) return
-    if (!form.productName.trim() || !form.productDescription.trim() || !form.targetMarket.trim()) return
+    if (missingRequired.length > 0) {
+      setShowError(true)
+      return
+    }
+    setShowError(false)
     setSaving(true)
     try {
-      await onSave(form)
+      await onSave({ ...form, projectIds: item ? item.projectIds : localProjectIds })
     } finally {
       setSaving(false)
     }
   }
 
+  const projectIds = item?.projectIds ?? localProjectIds
+
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <h3 className="text-sm font-semibold tracking-tight text-zinc-200">
           {item ? 'Edit Product' : 'New Product'}
         </h3>
-        <button type="button" onClick={onCancel} className="text-zinc-500 hover:text-zinc-300 transition-colors">
-          <X className="h-4 w-4" />
-        </button>
+        <div className="flex items-center gap-2">
+          <AddToProjectButton
+            bank="products"
+            itemId={item?.id}
+            projectIds={projectIds}
+            onLocalChange={setLocalProjectIds}
+          />
+          <button type="button" onClick={onCancel} className="text-zinc-500 hover:text-zinc-300 transition-colors">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       {/* Side-by-side: image left, fields right */}
@@ -136,27 +165,39 @@ export default function ProductForm({ item, onSave, onCancel }: ProductFormProps
 
         {/* Right — all fields + save */}
         <div className="flex flex-1 flex-col gap-3 min-w-0">
-          {FIELDS.map(({ key, label, type, required }) => (
-            <label key={key} className="flex flex-col gap-1">
-              <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-500">
-                {label}{required && ' *'}
-              </span>
-              {type === 'textarea' ? (
-                <textarea
-                  value={form[key as keyof typeof form] as string}
-                  onChange={(e) => set(key, e.target.value)}
-                  rows={2}
-                  className="rounded-lg border border-white/10 bg-transparent px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-white/20 resize-none"
-                />
-              ) : (
-                <input
-                  value={form[key as keyof typeof form] as string}
-                  onChange={(e) => set(key, e.target.value)}
-                  className="rounded-lg border border-white/10 bg-transparent px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-white/20"
-                />
-              )}
-            </label>
-          ))}
+          {FIELDS.map(({ key, label, type, required }) => {
+            const isMissing = showError && required && !form[key as keyof typeof form].toString().trim()
+            const baseCls = 'rounded-lg border bg-transparent px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none transition-colors'
+            const borderCls = isMissing ? 'border-red-500/60 focus:border-red-400' : 'border-white/10 focus:border-white/20'
+            return (
+              <label key={key} className="flex flex-col gap-1">
+                <span className={`text-[11px] font-medium uppercase tracking-widest ${isMissing ? 'text-red-400' : 'text-zinc-500'}`}>
+                  {label}{required && ' *'}
+                </span>
+                {type === 'textarea' ? (
+                  <textarea
+                    value={form[key as keyof typeof form] as string}
+                    onChange={(e) => set(key, e.target.value)}
+                    rows={2}
+                    className={`${baseCls} ${borderCls} resize-none`}
+                  />
+                ) : (
+                  <input
+                    value={form[key as keyof typeof form] as string}
+                    onChange={(e) => set(key, e.target.value)}
+                    className={`${baseCls} ${borderCls}`}
+                  />
+                )}
+              </label>
+            )
+          })}
+
+          {showError && (
+            <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-[12px] text-red-300">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+              <span>Please fill in the required fields first.</span>
+            </div>
+          )}
 
           <button
             type="submit"

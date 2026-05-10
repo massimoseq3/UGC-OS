@@ -29,8 +29,16 @@ function ToastItem({ toast }: { toast: ToastType }) {
 
   useEffect(() => {
     // Trigger enter animation on next frame
-    requestAnimationFrame(() => setVisible(true))
-  }, [])
+    const enterFrame = requestAnimationFrame(() => setVisible(true))
+    // Schedule fade-out, then unmount once the transition completes
+    const fadeTimer = setTimeout(() => setVisible(false), 2800)
+    const removeTimer = setTimeout(() => removeToast(toast.id), 3000)
+    return () => {
+      cancelAnimationFrame(enterFrame)
+      clearTimeout(fadeTimer)
+      clearTimeout(removeTimer)
+    }
+  }, [removeToast, toast.id])
 
   const handleDismiss = () => {
     setVisible(false)
