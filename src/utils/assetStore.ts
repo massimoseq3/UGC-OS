@@ -1,7 +1,6 @@
-import { downloadAssetFromR2, deleteAssetFromR2 } from '../lib/r2'
+import { downloadAssetFromR2, deleteAssetFromR2, uploadAssetToR2 } from '../lib/r2'
 import { isCloudEnabled } from '../lib/supabase'
 import { useAuthStore } from '../stores/authStore'
-import { enqueueUpload, dropFromQueue, setBlobGetter } from '../lib/uploadQueue'
 
 const DB_NAME = 'ai-ugc-lab-assets'
 const DB_VERSION = 1
@@ -18,12 +17,8 @@ function cloudActive(): boolean {
   return isCloudEnabled() && !!useAuthStore.getState().user
 }
 
-// Object URL cache — prevents memory leaks from creating duplicate URLs
 const urlCache = new Map<string, string>()
-
-// In-memory fallback when IndexedDB is unavailable (e.g. private browsing)
 let fallbackStore: Map<string, StoredAsset> | null = null
-
 let dbPromise: Promise<IDBDatabase> | null = null
 
 function openDB(): Promise<IDBDatabase> {
@@ -56,16 +51,47 @@ function generateAssetId(): string {
   return `asset-${crypto.randomUUID()}`
 }
 
-// The upload queue needs to read blobs out of our IndexedDB store but can't
-// import from this file directly (circular). Hand it a getter at load time.
-setBlobGetter((id) => getBlob(id))
-
 export function isAssetRef(value: string | undefined | null): boolean {
   return typeof value === 'string' && value.startsWith('asset-')
 }
 
-// ── Save operations ──────────────────────────────────────────────────
+async function idbPut(asset: StoredAsset): Promise<void> {
+  if (fallbackStore) { fallbackStore.set(asset.id, asset); return }
+  try {
+    const db = await openDB()
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite')
+      tx.objectStore(STORE_NAME).put(asset)
+      tx.oncomplete = () => resolve()
+      tx.onerror = () => reject(tx.error)
+    })
+  } catch {
+    if (!fallbackStore) fallbackStore = new Map()
+    fallbackStore.set(asset.id, asset)
+  }
+}
 
+async function idbDelete(id: string): Promise<void> {
+  if (fallbackStore) { fallbackStore.delete(id); return }
+  try {
+    const db = await openDB()
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite')
+      tx.objectStore(STORE_NAME).delete(id)
+      tx.oncomplete = () => resolve()
+      tx.onerror = () => reject(tx.error)
+    })
+  } catch {
+    /* best effort */
+  }
+}
+
+// ── Save ─────────────────────────────────────────────────────────────
+
+// The canonical save path. Writes to IndexedDB, then (when cloud is active)
+// uploads the blob to R2 and inserts the `assets` row — all awaited. Throws
+// on any cloud-side failure. The local IDB write is intentionally not rolled
+// back: the blob is still useful in the current session even if R2 is down.
 export async function saveAsset(blob: Blob, mimeType?: string): Promise<string> {
   const id = generateAssetId()
   const asset: StoredAsset = {
@@ -75,32 +101,10 @@ export async function saveAsset(blob: Blob, mimeType?: string): Promise<string> 
     createdAt: Date.now(),
   }
 
-  // Always cache locally (so the current session keeps a fast object URL).
-  if (fallbackStore) {
-    fallbackStore.set(id, asset)
-  } else {
-    try {
-      const db = await openDB()
-      await new Promise<void>((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readwrite')
-        tx.objectStore(STORE_NAME).put(asset)
-        tx.oncomplete = () => resolve()
-        tx.onerror = () => reject(tx.error)
-      })
-    } catch {
-      if (!fallbackStore) fallbackStore = new Map()
-      fallbackStore.set(id, asset)
-    }
-  }
+  await idbPut(asset)
 
-  // Hand off to the durable upload queue. The queue owns retries, backoff,
-  // and surfacing failures to the sync chip. cloudSync gates bank-row pushes
-  // on queue readiness so a row referencing this asset never lands in
-  // Supabase before the blob is durable in R2.
   if (cloudActive()) {
-    enqueueUpload(id, blob, asset.mimeType).catch((e) =>
-      console.warn('[assetStore] enqueueUpload failed', e),
-    )
+    await uploadAssetToR2(id, blob)
   }
 
   return id
@@ -129,10 +133,9 @@ export async function saveFromBlobUrl(blobUrl: string): Promise<string> {
   return saveAsset(blob)
 }
 
-// ── Read operations ──────────────────────────────────────────────────
+// ── Read ─────────────────────────────────────────────────────────────
 
 export async function getBlob(assetId: string): Promise<Blob | null> {
-  // Local cache first.
   let local: Blob | null = null
   if (fallbackStore) {
     local = fallbackStore.get(assetId)?.blob ?? null
@@ -159,21 +162,8 @@ export async function getBlob(assetId: string): Promise<Blob | null> {
     try {
       const remote = await downloadAssetFromR2(assetId)
       if (remote) {
-        // Cache for next time. Best-effort, don't block.
         const asset: StoredAsset = { id: assetId, blob: remote, mimeType: remote.type, createdAt: Date.now() }
-        if (fallbackStore) {
-          fallbackStore.set(assetId, asset)
-        } else {
-          try {
-            const db = await openDB()
-            await new Promise<void>((resolve, reject) => {
-              const tx = db.transaction(STORE_NAME, 'readwrite')
-              tx.objectStore(STORE_NAME).put(asset)
-              tx.oncomplete = () => resolve()
-              tx.onerror = () => reject(tx.error)
-            })
-          } catch { /* cache miss only, not fatal */ }
-        }
+        await idbPut(asset).catch(() => { /* cache miss only, not fatal */ })
         return remote
       }
     } catch (e) {
@@ -184,7 +174,6 @@ export async function getBlob(assetId: string): Promise<Blob | null> {
 }
 
 export async function getUrl(assetId: string): Promise<string | null> {
-  // Return cached URL if we already created one
   const cached = urlCache.get(assetId)
   if (cached) return cached
 
@@ -214,38 +203,22 @@ export async function getAsBase64(assetId: string): Promise<{ base64: string; mi
 
 // ── Delete ───────────────────────────────────────────────────────────
 
+// Awaited delete across all three stores: IndexedDB + R2 `assets` row.
+// The R2 object itself is left as a cheap leak; a sweeper job can clean it up.
 export async function deleteAsset(assetId: string): Promise<void> {
-  // Revoke cached object URL
   const cached = urlCache.get(assetId)
   if (cached) {
     URL.revokeObjectURL(cached)
     urlCache.delete(assetId)
   }
 
-  // Stop any pending/failed upload retries for this asset — user no longer
-  // wants it.
-  dropFromQueue(assetId).catch(() => { /* best effort */ })
+  await idbDelete(assetId)
 
-  // Best-effort: drop the cloud `assets` row (R2 object stays — leftovers
-  // are cheap and a sweeper can clean them up later).
   if (cloudActive()) {
-    deleteAssetFromR2(assetId).catch((e) => console.warn('[assetStore] R2 delete failed', e))
-  }
-
-  if (fallbackStore) {
-    fallbackStore.delete(assetId)
-    return
-  }
-
-  try {
-    const db = await openDB()
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, 'readwrite')
-      tx.objectStore(STORE_NAME).delete(assetId)
-      tx.oncomplete = () => resolve()
-      tx.onerror = () => reject(tx.error)
-    })
-  } catch {
-    // Silent fail — asset might already be gone
+    try {
+      await deleteAssetFromR2(assetId)
+    } catch (e) {
+      console.warn('[assetStore] R2 metadata delete failed', e)
+    }
   }
 }

@@ -33,10 +33,10 @@ export default function ProjectSwitcher() {
 
   const active = projects.find((p) => p.id === activeProjectId) ?? null
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     const name = draftName.trim()
     if (!name) return
-    const id = addProject({ name })
+    const id = await addProject({ name })
     setActiveProject(id)
     setCreating(false)
     setDraftName('')

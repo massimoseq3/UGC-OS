@@ -52,10 +52,10 @@ export default function ProjectTagPopover({
 
   const memberOf = new Set(projectIds ?? [])
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     const name = draftName.trim()
     if (!name) return
-    const id = addProject({ name })
+    const id = await addProject({ name })
     onAdd(id)
     setDraftName('')
     setCreating(false)
