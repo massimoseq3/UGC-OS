@@ -1,981 +1,490 @@
 # UGC Lab — Product Specification
 
+_Last updated: 2026-05-12 (phase 18)_
+
 ## Document Purpose
 
-This is the product specification for UGC Lab — a unified workspace combining seven AI UGC ad production tools into a single platform with shared data banks and seamless inter-app workflows.
-
-This document serves as:
-1. A reference for prototyping
-2. The foundation for the Claude Code build spec (production version)
-
----
-
-## Current State Addendum (2026-05-06)
-
-The spec below was written for the original vision. The shipped app has evolved on a few axes — this section captures the deltas. The narrative further down still holds for product intent and design rationale; treat anything contradicting this addendum as historical.
-
-### What changed
-
-- **Shell aesthetic.** The macOS-style desktop / dock / menu bar has been replaced with a YouTube-style left sidebar. The sidebar is collapsible; menu bar is taller with a prominent "UGC Lab" wordmark. `Desktop.tsx`, `DesktopFolder.tsx`, and `Dock.tsx` were deleted.
-- **App count.** Seven apps, not six. Added **Generate Videos** (Video Studio Pro) for standalone text-to-video / image-to-video / frames-to-video / reference-to-video.
-- **App names.** Renamed to action-style verbs in the sidebar — "Generate Characters", "Extract Visual DNA", "Analyze Ads", "Generate Scripts", "Generate Voiceovers", "Generate B-Roll", "Generate Videos". Folder names + IDs in code are unchanged (`character-studio/`, etc.) for stable localStorage keys.
-- **API backend.** Gemini direct API was replaced with **kie.ai** as a unified gateway. One Bearer key gives access to ~74 models. `src/utils/gemini.ts` was deleted; `src/utils/kie.ts` is the new client. Three transport patterns coexist (createTask polling, OpenAI-compat SSE, Veo custom endpoint).
-- **Models.**
-  - **Text + vision:** Gemini 3 Flash on kie (chat completions, hard-coded, no picker).
-  - **Image gen:** GPT Image 2 default; picker also exposes Nano Banana 2, Flux 2 Pro, SeeDream 5 Lite, Imagen 4.
-  - **Video gen:** Six models — Seedance 2.0, Seedance 2.0 Fast, Kling 3.0, Veo 3.1 Fast/Lite/Quality. Per-model duration / resolution / aspect ratio constraints. Multi-dimensional pricing (Kling: resolution × audio).
-  - **TTS:** ElevenLabs v3 (`elevenlabs/text-to-dialogue-v3`), hard-coded. Voice catalog of 20 voices with gender + accent filters. Stability is a tri-state (Variable / Natural / Stable) — not a continuous slider.
-- **Settings.** Two-key flow (Gemini + Google) collapsed to one kie.ai key with a Test connection button that reports remaining credits via `GET /api/v1/chat/credit`.
-- **Pricing UI.** Model pickers and generate buttons now show estimated **credits**, not USD. The `usd` field has been removed from `Pricing`.
-- **B-Roll → Video Studio handoff.** Each generated still in B-Roll has an "Animate in Video Studio" button that dispatches an inter-app payload. Video Studio receives it, switches to image-to-video mode, and pre-fills the first frame.
-- **Voice schema migration.** Voice Studio dropped the Gemini-era `creativity` / `ambience` / `styleInstructions` fields. `bankStore.loadFromStorage` strips them from any persisted entries on load.
-
-### Where the spec is still authoritative
-
-- Product intent and target user (AI UGC ad creators)
-- Bank schemas (Products, Models, Scripts, Voices, B-Rolls) — same shape today, just typed cleaner
-- Inter-app payload pattern (`sendToApp` / `consumePayload`)
-- Each app's purpose and input/output contract
-- Design philosophy (dark, zinc, glass, tracking-tight)
-
-### Where the spec is wrong / outdated
-
-- Section 2 (OS Shell) — describes desktop + dock; we ship a sidebar
-- Section 13 (Technical Architecture) — describes Gemini direct calls; we ship kie.ai
-- Section 14 (Build Phases) — predates the kie.ai migration, sidebar redesign, and polish pass
-
-For an up-to-date code-level architecture overview see `CLAUDE.md` at the project root.
+This is the **product** specification for UGC Lab. It describes what the
+product is, who it's for, and how the surface area fits together. For
+code-level architecture, transport patterns, and file structure, see
+[CLAUDE.md](CLAUDE.md). For ops / hosting, see [DEPLOYMENT.md](DEPLOYMENT.md).
+For the threat model, see [SECURITY.md](SECURITY.md).
 
 ---
 
 ## Table of Contents
 
 1. [Product Overview](#1-product-overview)
-2. [The OS Shell](#2-the-os-shell)
-3. [Shared Data Banks](#3-shared-data-banks)
-4. [Bank Picker Component](#4-bank-picker-component)
-5. [App 1: UGC Character Studio](#5-app-1-ugc-character-studio)
-6. [App 2: Image DNA Extractor](#6-app-2-image-dna-extractor)
-7. [App 3: Ad Anatomy Pro](#7-app-3-ad-anatomy-pro)
-8. [App 4: Script Architect Pro](#8-app-4-script-architect-pro)
-9. [App 5: Voice Studio Pro](#9-app-5-voice-studio-pro)
-10. [App 6: B-Roll Studio Pro](#10-app-6-b-roll-studio-pro)
-11. [Inter-App Data Flow](#11-inter-app-data-flow)
-12. [Design System & Aesthetic](#12-design-system--aesthetic)
-13. [Technical Architecture](#13-technical-architecture)
-14. [Build Phases](#14-build-phases)
+2. [Workspace Shell](#2-workspace-shell)
+3. [The Eight Apps](#3-the-eight-apps)
+4. [Banks & Projects](#4-banks--projects)
+5. [Models & Pricing](#5-models--pricing)
+6. [Cloud Architecture](#6-cloud-architecture)
+7. [Design Language](#7-design-language)
+8. [Build Phases](#8-build-phases)
 
 ---
 
 ## 1. Product Overview
 
-### What It Is
+**UGC Lab** is a browser-based, YouTube-style workspace that unifies the
+production loop for AI UGC ads into a single environment. Seven creator
+apps and one admin app share a single set of data banks, so a product,
+character, script, voice, or B-Roll created in one app is immediately
+usable in the next.
 
-UGC Lab is a browser-based platform styled as a macOS desktop environment. It wraps six AI-powered tools for creating realistic UGC (user-generated content) ads into one unified workspace with shared data, eliminating redundant input and enabling one-click workflows between apps.
+### Who it's for
 
-### Core Problem Solved
+A private community of solo creators and small teams producing AI UGC
+ads at scale. Access is gated to members of an external **Skool**
+community via an email allowlist; non-members cannot sign up even if
+they have the URL.
 
-The standalone versions of these apps require users to re-enter the same product details, re-upload the same character images, and manually copy-paste outputs between tools. UGC Lab eliminates this friction with shared Product, Model, Script, and Voice banks that any app can read from.
+### Single API gateway
 
-### The Six Apps
+Every AI call — chat, vision, image generation, video generation,
+text-to-speech — goes through **kie.ai**. One user-supplied Bearer key
+gives access to the full model lineup the app uses. Inference cost is
+on the member (BYO key); the only platform cost to the operator is
+hosting + storage.
 
-| App | Phase | Role |
-|-----|-------|------|
-| UGC Character Studio | Character Creation | Build AI character profiles (JSON + image) |
-| Image DNA Extractor | Research / Utility | Reverse-engineer any image into structured JSON |
-| Ad Anatomy Pro | Research | Deconstruct winning video ads |
-| Script Architect Pro | Script Writing | Generate scripts from winning ad formulas |
-| Voice Studio Pro | Voice Generation | Generate realistic AI voiceovers |
-| B-Roll Studio Pro | Visual Generation | Generate B-roll image prompts per script segment |
+### Why one app, not seven tabs
 
-### The Five Shared Banks
-
-| Bank | Stores | Used By |
-|------|--------|---------|
-| Product Bank | Product image, name, description, target market, pain points, USPs, benefits, offer, CTA | Script Architect Pro, B-Roll Studio Pro |
-| Model Bank | Character image, JSON profile, name/label, notes | UGC Character Studio, B-Roll Studio Pro, Image DNA Extractor |
-| Script Bank | Script text, title/label, linked product, date | Script Architect Pro, Voice Studio Pro, B-Roll Studio Pro |
-| Voice Bank | Voice name, gender, style instructions, creativity, ambience, linked model, label | Voice Studio Pro |
-| B-Roll Bank | Still image, prompt, linked product/model/script, generated videos (with aspect ratios) | B-Roll Studio Pro, Finder (animate with Veo 3.1) |
-
----
-
-## 2. The OS Shell
-
-### 2.1 Desktop
-
-When the app first loads, the user sees a clean macOS-style desktop.
-
-**Wallpaper:** Dark, subtle gradient background. Near-black with a very soft color accent (matching the existing app aesthetic — think dark gradients with hints of deep blue or purple). Premium, minimal feel. No busy patterns.
-
-**Desktop Folders:** Five bank folders are displayed on the desktop, arranged in a grid in the upper-left area (macOS-style icon placement):
-
-```
-┌─────────────────────────────────────────────────────┐
-│  ● UGC Lab                                      🕐  │ ← Menu Bar
-├─────────────────────────────────────────────────────┤
-│                                                     │
-│   📦 Products (3)     👤 Models (5)                 │
-│                                                     │
-│   📝 Scripts (8)      🎙️ Voices (2)                 │
-│                                                     │
-│   🎬 B-Rolls (4)                                    │
-│                                                     │
-│                                                     │
-│                                                     │
-├─────────────────────────────────────────────────────┤
-│  📁  👤  🔍  🎬  ✍️  🎙️  🎞️                        │ ← Dock
-└─────────────────────────────────────────────────────┘
-```
-
-**Folder behavior:**
-- Each folder shows: icon, bank name, item count badge
-- Single-click: selects/highlights the folder (blue highlight ring, macOS style)
-- Double-click: opens the Finder app with that specific bank category pre-selected in the sidebar
-- Folders are not draggable in v1 (fixed position)
-
-### 2.2 Menu Bar
-
-Always visible at the top of the screen. Minimal.
-
-**Left side:**
-- UGC Lab logo (small icon) + "UGC Lab" wordmark
-- When an app is open: the app name appears after the logo (e.g., "UGC Lab — Script Architect Pro")
-
-**Right side:**
-- A subtle clock showing current time (reinforces the OS feel)
-- Optional: a small status indicator or settings icon (v2)
-
-**Style:** Semi-transparent dark background with blur, white text. Thin bottom border (1px, white at ~5% opacity). Height: ~32-36px.
-
-### 2.3 Dock
-
-Always visible at the bottom of the screen. Centered horizontally.
-
-**Layout (left to right):**
-1. Finder (folder icon)
-2. *Separator/divider*
-3. UGC Character Studio
-4. Image DNA Extractor
-5. Ad Anatomy Pro
-6. Script Architect Pro
-7. Voice Studio Pro
-8. B-Roll Studio Pro
-
-**Icon behavior:**
-- Default state: icon at resting size, subtle, slightly muted
-- Hover: icon scales up slightly (macOS magnification effect), tooltip with app name appears above
-- Active app: small dot indicator below the icon (white or accent-colored)
-- Click: opens that app as the main panel, or brings it to focus if already open
-
-**Style:** Floating pill shape with glass/blur background. Rounded corners. Subtle border (white at ~10% opacity). Sits ~12px above the bottom edge of the screen. Slight shadow underneath.
-
-**Dock height:** ~64-72px total (icon ~40-48px with padding).
-
-### 2.4 App Panel Behavior
-
-When a dock icon is clicked:
-1. The main area (between menu bar and dock) renders that app's full UI
-2. Transition: smooth fade-in or slide-up (200-300ms)
-3. The menu bar updates to show the active app name
-4. The dock icon gets a "running" dot indicator
-
-**State preservation:**
-- Each app maintains its state independently when switching between apps
-- If a user fills in half of Script Architect Pro, switches to Voice Studio Pro, and comes back, all their work is preserved
-- State is held in memory (React context/state) while apps are "running"
-
-**Closing an app:**
-- For the prototype: clicking a different app switches away. There's no explicit "close" — apps run until the page is refreshed
-- For the final build: the menu bar or window could have a close button that clears the app state and returns to the desktop
-
-**When no app is open:** The user sees the clean desktop with the bank folders.
+The same character, product, voice, and B-Roll show up across every
+tool. There is no copying between Notion, Midjourney, ElevenLabs, and
+Pika. Inter-app handoffs ("animate this still in B-Roll Videos", "use
+this script in Voiceovers") are one-click.
 
 ---
 
-## 3. Shared Data Banks
+## 2. Workspace Shell
 
-### 3.1 Product Bank
+### Top menu bar
 
-**Purpose:** Store reusable product profiles so users never have to re-enter product details across apps.
+- Hamburger to toggle the sidebar
+- **UGC Lab** wordmark
+- **Project switcher** chip — pick the active project, "All projects",
+  or "+ New project". Selecting a project auto-tags every new bank
+  item created while it's active.
+- **Credits chip** — remaining kie.ai credit balance, refreshed on
+  Settings save and on first load.
+- **User menu** — sign-out, settings.
 
-**Data schema per product:**
+### Left sidebar
 
-| Field | Type | Required | Notes |
-|-------|------|----------|-------|
-| id | string (UUID) | Auto | Unique identifier |
-| productImage | base64/URL | Optional | Product photo |
-| productName | string | Required | e.g., "LARQ Bottle" |
-| productDescription | string | Required | What it is and does |
-| targetMarket | string | Required | Who it's for |
-| painPoints | string | Recommended | Problems it solves |
-| usps | string | Recommended | Unique selling propositions |
-| benefits | string | Recommended | Outcomes for the user |
-| offer | string | Optional | e.g., "50% off for 24h" |
-| cta | string | Optional | e.g., "Shop Now" |
-| createdAt | timestamp | Auto | Date created |
+Collapsible, three sections + admin (admin entry only renders for
+admins):
 
-**Card display (in Finder and bank picker):**
-- Product image thumbnail (or placeholder icon)
-- Product name (bold)
-- Target market (small subtitle)
-- Completeness indicator (e.g., "7/9 fields")
+| Section | Entry | App folder |
+|---|---|---|
+| Library | Bank | `finder/` |
+| Create  | Characters | `character-studio/` |
+| Create  | Scripts | `script-architect/` |
+| Create  | Voiceovers | `voice-studio/` |
+| Create  | B-Roll Images | `broll-studio/` |
+| Create  | B-Roll Videos | `video-studio/` |
+| Tools   | Ad Analyzer | `ad-anatomy/` |
+| Admin   | Admin | `admin/` |
 
-**Consumed by:** Script Architect Pro (product context), B-Roll Studio Pro (product image + context)
+The sidebar's collapsed state and the active app persist across
+reloads. The mobile breakpoint (≤768px) collapses the sidebar into a
+drawer and stacks form panels vertically.
 
-### 3.2 Model Bank
+### Auth gate
 
-**Purpose:** Store reusable AI character profiles so users can select a consistent character across apps without re-uploading images.
-
-**Data schema per model:**
-
-| Field | Type | Required | Notes |
-|-------|------|----------|-------|
-| id | string (UUID) | Auto | Unique identifier |
-| characterImage | base64/URL | Required | The character image (generated or uploaded) |
-| jsonProfile | object | Optional | Full JSON from UGC Character Studio (physical, style, scene, pose, camera parameters) |
-| name | string | Required | User-assigned label, e.g., "Sarah - Bedroom" |
-| notes | string | Optional | Freeform notes |
-| source | string | Auto | "character-studio", "image-dna-extractor", or "manual-import" |
-| createdAt | timestamp | Auto | Date created |
-
-**Card display:**
-- Character image thumbnail
-- Name/label (bold)
-- Key attribute tags (e.g., "Female · 20s · Blonde") — parsed from JSON profile if available
-- Source badge (e.g., "UGC Character Studio" or "Imported")
-
-**Produced by:** UGC Character Studio (Save to Model Bank), Image DNA Extractor (optional save)
-**Consumed by:** B-Roll Studio Pro (character reference image), UGC Character Studio (Load from Model Bank)
-
-### 3.3 Script Bank
-
-**Purpose:** Store generated or manually added scripts for reuse across voice generation and B-roll creation.
-
-**Data schema per script:**
-
-| Field | Type | Required | Notes |
-|-------|------|----------|-------|
-| id | string (UUID) | Auto | Unique identifier |
-| title | string | Required | User-assigned or auto-generated (e.g., "LARQ - Lazy Girl Hook") |
-| scriptText | string | Required | Full script content |
-| linkedProductId | string | Optional | Reference to a Product Bank item |
-| source | string | Auto | "script-architect" or "manual" |
-| createdAt | timestamp | Auto | Date created |
-
-**Card display:**
-- Title (bold)
-- First 1-2 lines of script as preview (truncated)
-- Linked product name (if applicable)
-- Date
-
-**Produced by:** Script Architect Pro (Save to Script Bank)
-**Consumed by:** Voice Studio Pro (load script text), B-Roll Studio Pro (load script text)
-
-### 3.4 Voice Bank
-
-**Purpose:** Store voice configuration presets so users can instantly load their preferred voice settings.
-
-**Data schema per voice preset:**
-
-| Field | Type | Required | Notes |
-|-------|------|----------|-------|
-| id | string (UUID) | Auto | Unique identifier |
-| label | string | Required | e.g., "Sarah's chill voice" |
-| voiceName | string | Required | Gemini TTS voice ID (e.g., "Leda") |
-| gender | string | Required | "Female" or "Male" |
-| styleInstructions | string | Required | e.g., "Conversational, like talking to a friend" |
-| creativity | number | Required | Temperature value (0-2, default 1.3) |
-| ambience | string | Required | "Studio" or "Small Room" |
-| linkedModelId | string | Optional | Reference to a Model Bank item |
-| createdAt | timestamp | Auto | Date created |
-
-**Card display:**
-- Label (bold)
-- Voice name + style descriptor tag (e.g., "Leda · YOUTHFUL")
-- Style instructions preview (truncated)
-- Linked model name if applicable
-
-**Produced by:** Voice Studio Pro (Save Voice Preset)
-**Consumed by:** Voice Studio Pro (Load Voice Preset)
-
-### 3.5 B-Roll Bank
-
-**Purpose:** Store generated B-roll still images along with their prompts and metadata, enabling reuse and video animation directly from the Finder.
-
-**Data schema per B-roll item:**
-
-| Field | Type | Required | Notes |
-|-------|------|----------|-------|
-| id | string (UUID) | Auto | Unique identifier |
-| imageUrl | base64/URL | Required | The still image (generated or uploaded) |
-| prompt | string | Required | The image generation prompt |
-| productId | string | Optional | Reference to a Product Bank item |
-| modelId | string | Optional | Reference to a Model Bank item |
-| scriptId | string | Optional | Reference to a Script Bank item |
-| videoUrl | string | Optional | Most recent generated video URL |
-| videos | BRollVideo[] | Optional | History of all generated videos |
-| createdAt | timestamp | Auto | Date created |
-
-**BRollVideo sub-schema:**
-
-| Field | Type | Notes |
-|-------|------|-------|
-| url | string | Video data URL |
-| aspectRatio | string | "9:16" or "16:9" |
-| createdAt | timestamp | When this video was generated |
-
-**Card display (in Finder):**
-- Still image at original aspect ratio (no cropping, no black bars)
-- Download button overlay on hover
-- Delete button overlay on hover
-- Video count badge (if videos exist)
-- Click to open detail/edit view
-
-**Detail view (BRollForm):**
-- Full still image preview at original aspect ratio with Replace button
-- Editable prompt textarea
-- Save Changes button
-- Animate section (Veo 3.1 fast frame-to-video):
-  - Aspect ratio selector: 9:16 (Portrait) or 16:9 (Landscape)
-  - Animate button — uses the still as first frame + prompt
-  - Video carousel for past generations with navigation arrows
-  - Thumbnail strip for jumping between videos
-  - Download button per video
-  - Auto-persists new videos to store immediately
-
-**Produced by:** B-Roll Studio Pro ("Save to B-Roll Bank" button), Manual creation in Finder
-**Consumed by:** Finder (view, edit, animate with Veo 3.1)
+The entire app is wrapped in an auth gate. Bootstrapping → spinner.
+Signed-out → a single combined sign-in / sign-up screen. Signed-in →
+the workspace, keyed on `userId` so a sign-out + sign-in cleanly
+remounts. If Supabase env vars aren't configured, the app boots in
+**local-only mode** for offline / local development with a small
+banner reminding the developer.
 
 ---
 
-## 4. Bank Picker Component
+## 3. The Eight Apps
 
-The Bank Picker is a universal, reusable UI component that slides in from the right side of the screen whenever any app needs the user to select an item from a bank.
+### 3.1 Bank (`finder/`) — Library
 
-### Trigger
+Browser for every saved item. Tabs across the top: Projects, Products,
+Characters, Scripts, Voices, B-Rolls. Each tab shows a grid of cards.
+Click a card to open the edit form in a side panel; delete from the
+card's overflow menu.
 
-Any button labeled "Select Product," "Select Model," "Select Script," or "Load Voice Preset" inside any app.
+The Products tab is where you add a product manually (Products are not
+auto-generated by any app); every other bank is populated as a save
+action from the corresponding creator app.
 
-### Appearance
+The Projects tab is special — it has its own list view of projects
+(with member counts + delete) and a detail view that groups all tagged
+items by bank, with per-item untag buttons.
 
-- Slides in from the right edge
-- Width: approximately 35-40% of the screen
-- Height: full height of the app panel (menu bar to dock)
-- Semi-transparent dark backdrop dims the rest of the app (click backdrop to close)
-- Panel has its own subtle background with blur
+### 3.2 Characters (`character-studio/`) — Create
 
-### Layout
+Form → portrait image. Inputs are role, ethnicity, age band, vibe,
+lighting, camera settings, aspect ratio, and an image-resolution
+toggle (1K / 2K / 4K, gated by the selected model's tier support).
 
-```
-┌──────────────────────────┐
-│  ✕  Select Product       │ ← Header with title + close button
-├──────────────────────────┤
-│  🔍 Search...            │ ← Search/filter bar
-├──────────────────────────┤
-│                          │
-│  ┌────────────────────┐  │
-│  │ 📷 LARQ Bottle     │  │ ← Item cards
-│  │ Health-conscious... │  │
-│  └────────────────────┘  │
-│                          │
-│  ┌────────────────────┐  │
-│  │ 📷 PulsePro        │  │
-│  │ Athletes who...    │  │
-│  └────────────────────┘  │
-│                          │
-│  ┌────────────────────┐  │
-│  │ + Add New Product   │  │ ← Quick-add option
-│  └────────────────────┘  │
-│                          │
-│  ─────────────────────── │
-│  📁 Manage in Finder     │ ← Link to full bank management
-└──────────────────────────┘
-```
+**Drag-photo DNA extraction.** Drop a reference photo on the controls
+panel (or anywhere over the app surface) and the controls auto-fill
+via a vision pass — the system reads the photo's identifiable
+attributes back as form values, which you can then tweak before
+generating. This used to be a standalone "Image DNA Extractor" app
+(phase 10 folded it into Characters).
 
-### Interaction Flow
+Save → a `Model` bank entry with the prompt, parameters, and the
+generated image.
 
-1. User clicks "Select Product" (or Model, Script, Voice) inside an app
-2. Bank picker slides in from the right (300ms ease-out animation)
-3. Shows all items in the relevant bank as compact cards
-4. User can search/filter with the search bar at the top
-5. User clicks an item → item is selected → picker slides closed → app fields populate with that data
-6. Alternatively: user clicks "Add New" to quick-create an item without leaving the app
-7. Alternatively: user clicks "Manage in Finder" to open the full Finder view for that bank
-8. Clicking the backdrop or ✕ button closes the picker without selecting anything
+### 3.3 Scripts (`script-architect/`) — Create
 
----
+Pick a winning ad transcript + a product → generate a new script
+adapted to that product. Output is a multi-block hook / problem /
+solution / CTA structure that you can save to the Scripts bank or
+send straight to Voiceovers.
 
-## 5. App 1: UGC Character Studio
+The winning transcript can be typed/pasted, or piped in from Ad
+Analyzer's reconstruction button.
 
-### Role in Workflow
+### 3.4 Voiceovers (`voice-studio/`) — Create
 
-Build AI character profiles by selecting parameters across 5 categories. Generates a visualization and structured JSON prompt. Characters are saved to the Model Bank.
+ElevenLabs Multilingual v2 only — no model picker. Full-bleed script
+editor on the left; on the right a tabbed `Settings | History` panel
+with a sliding voice picker (~64 voices grouped by category — narrator,
+character, news, social, etc., with click-to-preview avatars showing a
+loading ring during preview).
 
-### What Changes from Standalone Version
+Generation parameters: Speed, Stability, Similarity, Style Exaggeration
+(maps to ElevenLabs' v2 flat-body params: `stability`, `similarityBoost`,
+`style`, `speed`).
 
-Minimal UI changes — the builder interface is already well-designed. The key additions are saving to Model Bank and loading from Model Bank.
+After generation a sticky bottom audio player surfaces play / pause /
+download / save-to-Voices-bank. Every generation also pushes a
+`VoiceHistoryItem` so it's recoverable for the next ~14 days even if
+not saved.
 
-### User Flow
+### 3.5 B-Roll Images (`broll-studio/`) — Create
 
-1. User opens UGC Character Studio from dock
-2. **Left panel — sidebar navigation:** 5 tabs (Physical, Style, Scene, Pose & Action, Camera) — identical to standalone
-3. **Left panel — controls area:** Parameter inputs with chip selections — identical to standalone
-4. **Left panel — sidebar bottom:**
-   - Preset buttons: "Car Interior" and "Default Model" (same as standalone)
-   - **NEW: "Load from Model Bank"** button — opens Bank Picker showing saved models. Selecting one loads that model's JSON parameters back into all fields, so the user can tweak and generate a new variation
-   - "Clear All Parameters" button (same as standalone)
-   - Light/Dark mode toggle (same as standalone)
-5. **Left panel — bottom:** "Generate Visualization" button (same as standalone)
-6. **Right panel — output:**
-   - Generated character image (same as standalone)
-   - JSON prompt data with "Copy" button (same as standalone)
-   - **NEW: "Save to Model Bank"** button — prompts for a name/label (e.g., "Sarah - Bedroom Setup"), saves image + JSON profile to Model Bank, shows confirmation toast
+Script → scene plan → still images. The app breaks the script into
+N scenes (configurable), then runs a per-scene image generation. Each
+scene card has its own model + resolution selectors so you can vary
+quality per shot. Saves a `BRoll` bank entry per scene; the entry has
+an "Animate in B-Roll Videos" button that hands the still to the
+video app as a start frame.
 
-### What Stays the Same
+### 3.6 B-Roll Videos (`video-studio/`) — Create
 
-- All 5 tab categories and every parameter/chip option
-- The preset system (Car Interior, Default Model)
-- The generate button and visualization output
-- The JSON output format
-- Light/dark mode toggle
+The most input-rich app. Four **parallel slots** — `Video 1 … Video 4` —
+each with its own prompt, start frame, end frame, reference images,
+aspect ratio, duration, resolution, audio toggle, and model. A status
+dot on each tab shows idle / generating (purple pulsing) / done /
+error.
 
-### Bank Integration
+**Capability-driven inputs.** There is no mode toggle. The selected
+model declares its capabilities (`text-to-video`, `image-to-video`,
+`frames-to-video`, `reference-to-video`) and the slots that apply
+appear. The mode is **inferred at generate time** from which slots
+are filled:
 
-- **Consumes:** Model Bank (optional — Load from Model Bank to use as starting point)
-- **Produces:** Model Bank entries (image + JSON profile)
+- references filled → `reference-to-video`
+- start + end frame → `frames-to-video`
+- start frame only → `image-to-video`
+- prompt only → `text-to-video`
 
-### Layout
+**Frame slots accept either Upload or Pick from B-Roll Bank** via the
+shared `VideoInputSlot` component. Reference grids support multi-select
+from the bank.
 
-Same split layout as standalone:
-- Left column (~50%): Sidebar nav + controls panel + generate button
-- Right column (~50%): Generated image + JSON output + save button
+**Fire-and-forget execution.** Clicking Generate captures the slot,
+pushes an `InFlightGen` into a transient queue, and returns control
+immediately. Switch tabs, start another slot in parallel. The right
+panel has two tabs:
 
----
+- **History** (default) — Google Flow-style 2-column grid of all past
+  generations. In-flight tiles render at the top as pulsing purple
+  skeletons with elapsed `mm:ss` timer. Hover plays the clip; hover
+  buttons offer Save-to-Bank, Download, Tag-to-Project, Delete.
+- **Preview** — big preview of the selected (or just-completed)
+  generation, with Save and Download buttons. When the active slot is
+  generating and nothing is selected, this tab shows a centered loading
+  state with the model name and "this can take 1–3 minutes — feel
+  free to switch slots."
 
-## 6. App 2: Image DNA Extractor
+**Save linkage.** When a generation is sourced from a B-Roll Bank still
+(via Pick from Bank in the start-frame slot or via the B-Roll Images
+"Animate" handoff), saving the video **appends** to that BRoll's
+`videos[]` array instead of creating an orphan record. A single BRoll
+can therefore hold one still plus several animations of it. Pure
+text-to-video saves create a video-only BRoll which renders with a
+video-element thumbnail in the bank.
 
-### Role in Workflow
+### 3.7 Ad Analyzer (`ad-anatomy/`) — Tools
 
-Utility/research tool. Upload any image, get its "Visual DNA" as structured JSON. Sits outside the main production pipeline but feeds into Model Bank and UGC Character Studio.
+Drop an ad image or a video frame → get a scorecard (hook strength,
+visual contrast, message clarity, etc.), a transcript reconstruction,
+and a visual playbook of recurring patterns. Two handoffs:
 
-### What Changes from Standalone Version
+- **Use script in Scripts** — sends the reconstructed transcript to
+  Script Architect as the "winning script" input.
+- **Save product** — extracts the product name + category and adds a
+  Products bank entry pre-filled from the analysis.
 
-Minimal. The core upload → analyze → JSON output flow stays the same. New additions are save-to-bank options on the output.
+### 3.8 Admin (`admin/`) — Admin
 
-### User Flow
+Sidebar entry only renders for users with `profiles.is_admin = true`.
 
-1. User opens Image DNA Extractor from dock
-2. **Left panel — input:**
-   - Upload zone: Drag & drop or click to upload an image (JPG, PNG, WEBP)
-   - After upload: image preview with "Clear & Upload New" button
-   - Analysis runs automatically on upload (same as standalone)
-3. **Right panel — output:**
-   - "Visual DNA" JSON viewer with expandable sections (Subject, Attire, Environment, Lighting, Camera)
-   - "Copy Prompt" button (same as standalone)
-   - **NEW: "Save to Model Bank"** button — visible when the analyzed image appears to be a person/character. Saves the image + extracted JSON to Model Bank, prompts for a name/label
-   - **NEW: "Use in Character Studio"** button — sends extracted parameters to UGC Character Studio as a starting point for building/tweaking a character
+- **Members tab** — every signed-up user, with storage usage
+  (aggregated from `member_storage` view), last-active timestamp,
+  and a disable / re-enable toggle.
+- **Allowlist editor** — manual add/remove of emails, complementing
+  the Zapier-driven Skool sync.
 
-### Bank Integration
-
-- **Consumes:** Nothing
-- **Produces:** Model Bank entries (optional — save analyzed images with their DNA)
-
-### Layout
-
-Same split layout as standalone:
-- Left column (~50%): Upload zone / image preview
-- Right column (~50%): JSON output + action buttons
-
----
-
-## 7. App 3: Ad Anatomy Pro
-
-### Role in Workflow
-
-Research entry point. Users upload competitor or high-performing video ads to understand what makes them work. Outputs feed into Script Architect Pro.
-
-### What Changes from Standalone Version
-
-Minimal changes. Ad Anatomy Pro is the most independent app — it analyzes external ads, so it doesn't consume data from any banks. The key additions are "Send to" buttons on its outputs.
-
-### User Flow
-
-1. User opens Ad Anatomy Pro from dock
-2. **Upload View:** Drag & drop or click to upload a video file (MP4, MOV, WebM, max 20MB). Video preview appears with file info.
-3. User clicks **"Decode Creative"** button
-4. **Loading state:** Spinner + "Gemini is dissecting the ad with brutal precision" + greyscale video preview
-5. **Results View:** Split layout — video player pinned on the left, scrollable analysis on the right
-
-### Output Sections (unchanged)
-
-1. **Scorecard** — Hook Strength, Structure Clarity, Visual Variety, Persuasion Depth, Overall Execution (each /10) + Analyst's Note
-2. **Transcript** — Full timestamped transcript with Copy button
-3. **Hook Breakdown** — The hook text, technique, why it works, adaptable template
-4. **Structure Map** — Runtime, pacing, beat-by-beat breakdown table
-5. **Psychology & Persuasion** — Primary levers, targeting signals
-6. **Visual Playbook** — Timestamped visual prompts for each frame
-7. **Opportunities for Improvement** — Specific weaknesses with fixes
-8. **AI Reconstruction Prompt** — Copy-paste prompt for generating a new script
-
-### New Actions (OS Integration)
-
-**On the Transcript section:**
-- Existing: "Copy" button
-- **New: "Send to Script Architect Pro"** button → saves transcript text, switches to Script Architect Pro, auto-populates the "Winning Script Transcript" field
-
-**On the AI Reconstruction Prompt section:**
-- Existing: "Copy Prompt" button
-- **New: "Send to Script Architect Pro"** button → same behavior but pastes the reconstruction prompt
-
-**On the results header area:**
-- **New: "Analyze Another"** button (already exists in standalone) — resets to upload view
-
-### Bank Integration
-
-- **Consumes:** Nothing
-- **Produces:** Feeds Script Architect Pro via "Send to" buttons (no bank storage needed in v1)
-
-### Layout
-
-Same split layout as standalone:
-- Left column (~320px): Fixed video player + file info + "Analyze Another" button
-- Right column (remaining): Scrollable analysis results
+Server-side RLS enforces the admin gate. The client-side hide is a
+UX layer, not a security boundary — see [SECURITY.md](SECURITY.md).
 
 ---
 
-## 8. App 4: Script Architect Pro
+## 4. Banks & Projects
 
-### Role in Workflow
+### Banks
 
-Takes a winning ad transcript (from Ad Anatomy Pro or pasted manually) + product context (from Product Bank) and generates a new script modeled on the winning structure.
+The app's persistent data. Bank metadata lives in `localStorage`
+(`ai-ugc-lab-banks`) and is mirrored to Postgres per signed-in user.
+Asset **blobs** (image, audio, video bytes) live in IndexedDB locally
+and are mirrored to Cloudflare R2 for cloud durability — bank rows
+store `asset://<id>` refs, not raw bytes.
 
-### What Changes from Standalone Version
+| Bank | Type | Source |
+|---|---|---|
+| `projects` | `Project` | Created via the project switcher or Projects tab |
+| `products` | `Product` | Manually added in Bank, or via Ad Analyzer save |
+| `models`   | `Model`   | Saved from Characters |
+| `scripts`  | `Script`  | Saved from Scripts |
+| `voices`   | `VoicePreset` | Saved from Voiceovers history |
+| `brolls`   | `BRoll`   | Saved from B-Roll Images and B-Roll Videos (paired) |
+| `voiceHistory` | `VoiceHistoryItem` | Auto-pushed on every voiceover generation |
+| `videoHistory` | `VideoHistoryItem` | Auto-pushed on every video generation |
 
-**Major change:** The entire Step 02 product details form (7+ fields) is replaced by a single Product Bank selection. This is the biggest UX improvement in the whole OS.
+`voiceHistory` and `videoHistory` are session-recovery layers, not
+user-curated banks — they're cleaned up on a 14-day retention policy
+and only the items the user explicitly saves are promoted to `voices`
+or `brolls`.
 
-### User Flow
+### Projects
 
-1. User opens Script Architect Pro from dock
-2. **Left panel — Step 01: Winning Script**
-   - Textarea for pasting a winning script transcript
-   - May already be pre-filled if user clicked "Send to Script Architect Pro" from Ad Anatomy Pro
-   - Label: "Winning Script Transcript"
-   - Placeholder: "Paste transcript here..."
-3. **Left panel — Step 02: Product Context**
-   - **"Select Product" card/button** at the top of this section
-   - Clicking it opens the Bank Picker (slides in from right) showing saved products
-   - After selection: the product card displays inline showing product image, name, and an expandable "Details" section showing all loaded fields
-   - **Below the product card:** A small "Additional context for this script" textarea for one-off instructions specific to this particular script (e.g., "Focus on the self-cleaning feature" or "This is for a summer campaign")
-   - If no products exist in the bank: the "Select Product" button shows a message like "No products yet — add one in Finder" with a link
-4. **Left panel — Generate button:** "Generate Script" (same as standalone)
-5. **Right panel — Output:**
-   - Generated script text display
-   - **"Copy Script"** button (same as standalone)
-   - **NEW: "Save to Script Bank"** button — saves script with auto-linked product reference, prompts for a title
-   - **NEW: "Send to Voice Studio"** button — switches to Voice Studio Pro with script pre-loaded in the text field
-   - **NEW: "Send to B-Roll Studio"** button — switches to B-Roll Studio Pro with script pre-loaded
+A `Project` is a lightweight grouping tag. Every other bank item has
+an optional `projectIds: string[]` — items can live in many projects
+(multi-membership). Setting an active project via the menu-bar chip
+auto-tags every new item produced while it's active. Deleting a
+project untags items from it but doesn't delete the items themselves.
 
-### What's Removed
+### Inter-app handoffs
 
-- Product Name input field → replaced by Product Bank
-- Target Market input field → replaced by Product Bank
-- Product Description textarea → replaced by Product Bank
-- Pain Points textarea → replaced by Product Bank
-- USPs textarea → replaced by Product Bank
-- Benefits textarea → replaced by Product Bank
-- Offer input → replaced by Product Bank
-- CTA input → replaced by Product Bank
-- Product Image upload → replaced by Product Bank
-- Context Profile upload → can be incorporated into Product Bank or dropped for v1
+Three wired today, using the `sendToApp` / `consumePayload` payload
+pattern:
 
-### Bank Integration
+- **Ad Analyzer → Scripts** — winning transcript / reconstruction
+- **Ad Analyzer → Bank** — auto-add Product
+- **Scripts → Voiceovers** — script text
+- **B-Roll Images → B-Roll Videos** — still dropped into the start
+  frame slot of the active video slot
 
-- **Consumes:** Product Bank (product details + image)
-- **Produces:** Script Bank entries (via "Save to Script Bank")
-
-### Layout
-
-Same split layout as standalone:
-- Left column (~50%): Inputs (winning script + product selection + additional context + generate button)
-- Right column (~50%): Output (generated script + action buttons)
+The handoff is one-shot: the receiving app consumes the payload on
+first render and clears it.
 
 ---
 
-## 9. App 5: Voice Studio Pro
+## 5. Models & Pricing
 
-### Role in Workflow
+### Registry as single source of truth
 
-Converts scripts into realistic AI voiceovers. Pulls scripts from the Script Bank and voice configurations from the Voice Bank.
+Every model — text, image, video, TTS — is declared in
+`src/utils/models.ts` as a `ModelEntry` with its slug, transport
+(`createTask` / `chat` / `veo`), capabilities, constraints, default
+flags, tier badges, and a `pricing` block. Adding or changing a model
+is a one-file edit. Service code reads from the registry; no slugs
+appear in app code.
 
-### What Changes from Standalone Version
+### Defaults
 
-Two new integrations: loading scripts from Script Bank, and saving/loading voice presets from Voice Bank. The core voice generation interface stays the same.
+| Capability | Default | Notes |
+|---|---|---|
+| Text + vision | Gemini 3 Flash | Hard-coded across every text-using app — no picker |
+| Image (text→image) | GPT Image 2 | Picker also: Nano Banana 2, Flux 2 Pro, Seedream 5 Lite, Imagen 4 |
+| Image (image→image) | GPT Image 2 Edit | Used by B-Roll Images when reference images are present |
+| Video | Veo 3.1 Fast | Picker also: Seedance 2.0, Seedance 2.0 Fast, Kling 3.0, Veo 3.1 Lite, Veo 3.1 Quality |
+| TTS | ElevenLabs Multilingual v2 | Hard-coded, no picker |
 
-### User Flow
+### Three transport patterns
 
-1. User opens Voice Studio Pro from dock
-2. **Left sidebar — controls:**
-   - **NEW at top: "Load Voice Preset"** button → opens Bank Picker showing saved voice presets → selecting one auto-fills: voice selection, style instructions, creativity, and ambience
-   - Creativity slider (same: 0-2, default 1.3)
-   - Room Ambience toggle: Studio / Small Room (same)
-   - Voice Selection: Gender toggle (Female/Male) + scrollable voice list (same)
-3. **Center panel — editor:**
-   - Style Instructions textarea (same, but may be pre-filled from voice preset)
-   - **Script Text section:**
-     - **NEW: "Select from Script Bank"** button above the textarea → Bank Picker slides in → pick saved script → text populates
-     - Or the text is already pre-filled if user clicked "Send to Voice Studio" from Script Architect Pro
-     - Or user types/pastes manually (same as standalone)
-   - "Generate Audio" floating button (same)
-4. **Right sidebar — Generated History:**
-   - Same as standalone: play/pause, download, delete for each generation
-   - Each item shows voice name, ambience tag, timestamp, text preview, waveform visualizer
-   - **NEW:** On each history item, a **"Save Voice Preset"** button that captures the current voice + style + creativity + ambience settings to the Voice Bank (prompts for a label)
+1. **Async createTask** — `POST /jobs/createTask` returns a taskId,
+   polled at `GET /jobs/recordInfo`. Used for image generation,
+   non-Veo video generation, and TTS.
+2. **OpenAI-compatible chat completions** — `POST /<slug>/v1/chat/completions`,
+   streaming SSE. Used for text + vision (Gemini 3 Flash).
+3. **Veo custom endpoint** — `POST /veo/generate` + `GET /veo/record-info`.
+   Veo 3.1 variants (Fast / Lite / Quality) are selected by the `model`
+   field in the body, not by URL.
 
-### What Stays the Same
+A fourth helper, `ensureHostedUrl`, uploads data: URIs to kie's file
+host and returns a public download URL for the image-conditioned video
+models that require URL inputs.
 
-- The 3-column layout (controls | editor | history)
-- All 30 voices (14 female, 16 male) with their style descriptors
-- Creativity slider behavior
-- Room ambience options
-- Audio generation, playback, waveform visualization, and download
-- Generation history panel
+### Pricing model
 
-### Bank Integration
+`ModelEntry.pricing.credits` is the flat per-unit credit cost.
+Multi-dimensional models declare a `priceFor(opts)` callback — Veo
+prices by (resolution, optional duration); Kling prices by (resolution,
+audio); Wan 2.7 prices by (resolution); ElevenLabs prices per 1k
+characters. `estimateCredits(modelId, params)` is the only public API
+callers need; `formatCredits` renders the result.
 
-- **Consumes:** Script Bank (load script text), Voice Bank (load voice presets)
-- **Produces:** Voice Bank entries (save voice presets)
+USD is **never** displayed. kie.ai is credit-based, and credit
+balances flow through the menu-bar chip.
 
-### Layout
+### Image resolution toggle
 
-Same 3-column layout as standalone:
-- Left sidebar (~340px): Voice controls
-- Center (flex): Style instructions + script text + generate button
-- Right sidebar (~400px): Generation history
+Image-capable apps (Characters, B-Roll Images) expose a 1K / 2K / 4K
+toggle gated by the selected model's `imageConstraints.resolutions`.
+Single-tier models hide the toggle; Flux 2 Pro trims to 1K/2K. The
+selected tier flows into `buildImageInput` and feeds the model-specific
+size field automatically.
 
----
+### Video constraints
 
-## 10. App 6: B-Roll Studio Pro
-
-### Role in Workflow
-
-Takes a product, character, and script, then generates 3 B-roll image prompt variations per script segment. This is where all the banks converge.
-
-### What Changes from Standalone Version
-
-**Major change:** All four manual inputs (product image upload, character image upload, product context textarea, script textarea) are replaced by bank selections. This is the second biggest UX improvement after Script Architect Pro.
-
-### User Flow
-
-1. User opens B-Roll Studio Pro from dock
-2. **Left panel — inputs (restructured):**
-   - **"Select Product"** card/button → Bank Picker → selects product → loads product image + product context
-   - **"Select Model"** card/button → Bank Picker → selects model → loads character image
-   - **"Select Script"** card/button → Bank Picker → selects script → loads script text
-   - Or the script is pre-filled if user clicked "Send to B-Roll Studio" from Script Architect Pro
-   - **"Additional context"** textarea below the three selections — for one-off notes (optional)
-   - **"Generate B-Roll Prompts"** button at bottom
-3. **Right panel — output (unchanged):**
-   - Scene count header (e.g., "7 SCENES")
-   - Scene-by-scene output, each with:
-     - Scene number + type tag (A-ROLL CHARACTER OR PRODUCT, etc.)
-     - Script line in italics
-     - 3 prompt variations:
-       - Option 1: LITERAL / ACTION
-       - Option 2: EMOTIONAL / REACTION
-       - Option 3: PRODUCT / DETAIL
-     - Copy button on each prompt
-
-### What's Removed
-
-- Product Image upload → replaced by Product Bank selection
-- A-Roll Character Image upload → replaced by Model Bank selection
-- Product Context textarea → replaced by Product Bank data
-- UGC Script textarea → replaced by Script Bank selection (or pre-filled via "Send to")
-
-### Bank Integration
-
-- **Consumes:** Product Bank (image + context), Model Bank (character image), Script Bank (script text)
-- **Produces:** B-Roll Bank entries (via "Save to B-Roll Bank" on each generated image)
-
-### Image Generation & Save Flow
-
-Each prompt variation has a "Generate Image" button that uses Gemini image generation (model: `gemini-3.1-flash-image-preview`) with optional reference images (product + model). Once generated, a "Save to B-Roll Bank" button appears that saves the image + prompt + linked product/model/script IDs to the B-Roll Bank. The button shows a green "Saved" confirmation for 2 seconds.
-
-### Video Animation (via Finder)
-
-Video animation from stills is handled in the Finder's B-Roll detail view (BRollForm), not in B-Roll Studio Pro. Users:
-1. Generate images in B-Roll Studio Pro and save to B-Roll Bank
-2. Open the B-Roll item in Finder to animate it using Veo 3.1 fast frame-to-video
-3. The still image becomes the first frame; the prompt drives the animation
-
-### Layout
-
-Same split layout as standalone:
-- Left column (~50%): Three bank selections + additional context + generate button
-- Right column (~50%): Scene-by-scene prompt output with image generation + save to bank
+Each video model declares allowed aspect ratios, durations, resolutions,
+audio support, and reference-image limits. The B-Roll Videos UI snaps
+choices to allowed values when the model changes. Veo currently exposes
+no duration parameter (priced per video at a single duration), so the
+duration toggle hides for Veo variants.
 
 ---
 
-## 11. Inter-App Data Flow
+## 6. Cloud Architecture
 
-### Complete Flow Map
-
-```
-                            ┌─────────────────┐
-                            │  PRODUCT BANK   │
-                            │  (shared data)  │
-                            └────────┬────────┘
-                                     │ product context + image
-                         ┌───────────┼───────────┐
-                         ▼           ▼           ▼
-┌──────────────┐   ┌──────────┐  ┌────────┐  ┌──────────┐
-│ Ad Anatomy   │──▶│ Script   │  │ B-Roll │  │          │
-│ Pro          │   │ Architect│─▶│ Studio │  │          │
-│              │   │ Pro      │  │ Pro    │  │          │
-│ (transcript) │   └────┬─────┘  └──┬─▲───┘  │          │
-└──────────────┘        │           │ │      │          │
-                        │ script    │ │model │          │
-                        ▼           │ │      │          │
-                  ┌──────────┐  ┌───┘ └────┐ │          │
-                  │ SCRIPT   │  │ MODEL    │ │          │
-                  │ BANK     │  │ BANK     │◀┤          │
-                  └────┬─────┘  └────▲─────┘ │          │
-                       │             │       │          │
-                       │ script      │model  │          │
-                       ▼             │       │          │
-                  ┌──────────┐  ┌────┴──────┐│          │
-                  │ Voice    │  │ UGC       ││ Image DNA│
-                  │ Studio   │  │ Character ││ Extractor│
-                  │ Pro      │  │ Studio    │└──────────┘
-                  └────┬─────┘  └───────────┘
-                       │
-                       ▼
-                  ┌──────────┐       ┌──────────┐
-                  │ VOICE    │       │ B-ROLL   │
-                  │ BANK     │       │ BANK     │◀── B-Roll Studio Pro (save images)
-                  └──────────┘       └────┬─────┘
-                                         │
-                                         ▼
-                                   ┌───────────┐
-                                   │  Finder   │
-                                   │ (animate  │
-                                   │ via Veo)  │
-                                   └───────────┘
-```
-
-### "Send to" Actions Summary
-
-| From | Action | To | What's Transferred |
-|------|--------|----|--------------------|
-| Ad Anatomy Pro | "Send to Script Architect Pro" (transcript) | Script Architect Pro | Transcript text → Winning Script field |
-| Ad Anatomy Pro | "Send to Script Architect Pro" (prompt) | Script Architect Pro | Reconstruction prompt → Winning Script field |
-| Script Architect Pro | "Send to Voice Studio" | Voice Studio Pro | Script text → Text field |
-| Script Architect Pro | "Send to B-Roll Studio" | B-Roll Studio Pro | Script text → Script field |
-| Image DNA Extractor | "Use in Character Studio" | UGC Character Studio | Extracted parameters → parameter fields |
-
-### "Save to Bank" Actions Summary
-
-| From | Action | Saved To | What's Saved |
-|------|--------|----------|-------------|
-| Script Architect Pro | "Save to Script Bank" | Script Bank | Script text + title + linked product |
-| UGC Character Studio | "Save to Model Bank" | Model Bank | Character image + JSON profile + name |
-| Image DNA Extractor | "Save to Model Bank" | Model Bank | Analyzed image + extracted JSON + name |
-| Voice Studio Pro | "Save Voice Preset" | Voice Bank | Voice + style + creativity + ambience + label |
-| B-Roll Studio Pro | "Save to B-Roll Bank" | B-Roll Bank | Still image + prompt + linked product/model/script IDs |
-| Finder (B-Roll detail) | "Animate" (Veo 3.1) | B-Roll Bank | Generated video added to item's video history |
-
----
-
-## 12. Design System & Aesthetic
-
-### Overall Aesthetic
-
-The existing apps share a consistent dark-first design language. The OS shell should feel like a natural container for them, not a redesign.
-
-**Core principles:**
-- Dark-first: near-black backgrounds (#050505 to #0A0A0A range)
-- Subtle gradients: radial gradients with very muted color hints
-- Glass/blur effects: backdrop-blur on panels, dock, menu bar
-- Minimal color: white/zinc text hierarchy with sparse accent colors
-- Tight tracking: font-tracking-tight across the board
-- Thin borders: 1px borders at white/5 to white/10 opacity
-
-### Color System
-
-**Backgrounds:**
-- Desktop wallpaper: custom dark gradient
-- Menu bar: semi-transparent dark with blur (#09090b at ~80% + backdrop-blur)
-- Dock: semi-transparent dark with blur (similar to menu bar)
-- App panels: inherit from individual app styles (each app has its own subtle background treatment)
-
-**Text:**
-- Primary: white (#FFFFFF) or near-white
-- Secondary: zinc-400 (#A1A1AA)
-- Muted: zinc-500 (#71717A) to zinc-600
-- Disabled: zinc-700 (#3F3F46)
-
-**Accent colors per app (preserved from standalone):**
-- UGC Character Studio: Sky blue (#0ea5e9)
-- Image DNA Extractor: Neon green (custom --neon variable)
-- Ad Anatomy Pro: Red/orange gradient (red-500 to orange-500)
-- Script Architect Pro: Blue (#2563eb)
-- Voice Studio Pro: Indigo (#6366f1)
-- B-Roll Studio Pro: White/neutral
-
-**Borders:** white at 5-10% opacity for subtle separation
-
-### Typography
-
-- Font family: DM Sans (loaded via Google Fonts)
-- Headings: font-bold, tracking-tight
-- Body: font-light to font-normal, tracking-tight
-- Labels/metadata: text-xs, uppercase, tracking-wider or tracking-widest
-- All text: zinc color scale
-
-### Shared Component Styles
-
-**Buttons (primary action):**
-- Rounded-full (pill shape)
-- App accent color background
-- White text, font-semibold
-- Shimmer hover effect (translucent white gradient sweep)
-- Subtle glow/shadow in dark mode
-
-**Cards (bank items):**
-- bg-white/5 or bg-zinc-900/40
-- border border-white/5
-- rounded-xl
-- Hover: border-white/10, slight background brightening
-- Padding: p-4
-
-**Input fields:**
-- bg-transparent or bg-white/5
-- border border-white/10
-- rounded-xl
-- Focus: border-white/20
-- Placeholder text: zinc-600
-
-### The "UGC Lab | App Name" Header Pattern
-
-In the standalone apps, each has a header pill showing "UGC Lab | App Name". In the OS version:
-- **Remove** the individual app header pills
-- The menu bar handles app identification globally
-- Each app panel can optionally have a subtle section header at the top of its content area, but not the full branded pill
-
----
-
-## 13. Technical Architecture
+UGC Lab is deployable as a multi-tenant cloud app. The same codebase
+boots in local-only mode if Supabase env vars are absent — useful for
+offline development.
 
 ### Stack
 
-- **Framework:** React + TypeScript
-- **Styling:** Tailwind CSS
-- **AI Backend:** Google Gemini API via unified client (`src/utils/gemini.ts`):
-  - Text: `gemini-3-flash-preview` (analysis, script gen, scene decomposition, image DNA)
-  - Image: `gemini-3.1-flash-image-preview` (B-roll image generation with reference images)
-  - Video: `veo-3.1-fast-generate-preview` (frame-to-video animation via `predictLongRunning` + polling)
-  - TTS: `gemini-2.5-flash-preview-tts` (voice generation)
-- **State Management:** React Context or Zustand for shared state (banks + inter-app communication)
-- **Data Persistence:** localStorage for the prototype; backend/database for production
+- **Frontend:** Vite SPA → Vercel Hobby
+- **Auth + Postgres:** Supabase Pro
+- **Asset blobs:** Cloudflare R2 (zero egress fees — chosen over
+  Supabase Storage specifically for video traffic)
+- **Membership sync:** Zapier zap: Skool → `allowlist` table
+- **Edge function:** `/api/r2-sign` mints scoped presigned R2 URLs
 
-### State Architecture
+### Access gate
 
-```
-appStore (Zustand)
-├── activeApp: string | null
-├── runningApps: string[]
-├── interAppPayload: { targetApp, targetField, data } | null
-├── launchApp(id)
-├── consumePayload()
-└── setPayload(...)
+Sign-up is gated by the `allowlist` table. A Postgres trigger
+(`enforce_allowlist`) on `auth.users` insert checks the email and
+raises if it's not present — no client-side bypass possible. Removing
+an email fires `on_allowlist_delete`, which stamps
+`profiles.disabled_at`; the app signs that user out on the next
+hydration. Re-adding clears `disabled_at`.
 
-bankStore (Zustand — persisted to localStorage)
-├── products: Product[]
-├── models: Model[]
-├── scripts: Script[]
-├── voices: VoicePreset[]
-├── brolls: BRoll[]
-├── add/update/delete/getById for each bank type
-└── loadFromStorage() / saveToStorage()
+Zapier keeps the table in sync with Skool membership events. Admins
+can also edit the allowlist manually from the Admin panel.
 
-settingsStore (Zustand — persisted to localStorage)
-├── apiKey: string
-├── setApiKey(key)
-└── getApiKey()  // throws if not set
-```
+### Per-user data isolation
 
-Each app's internal state lives in React component state (not in global stores). App state is preserved while the app is "running" (mounted but hidden) and lost on page refresh.
+Every bank table has RLS `auth.uid() = user_id` (read + write), plus
+an admin-read policy that uses a `SECURITY DEFINER` `is_admin()`
+function so admin reads bypass RLS cleanly without recursing. The
+`assets` table follows the same pattern; the `member_storage` view
+aggregates `byte_size` per user for the Admin → Members tab.
 
-### Key Implementation Notes
+### Asset pipeline
 
-**App switching:** Each app component is rendered but only the active one is visible (using CSS display or conditional rendering with state preservation). This ensures state is maintained when switching.
+`assetStore.saveAsset()` writes the blob to IndexedDB **and**
+fire-and-forget uploads to R2 via a presigned PUT from
+`/api/r2-sign`. `assetStore.getBlob()` falls back to R2 (presigned
+GET) when IndexedDB misses — useful when a user signs in on a
+fresh browser. `asset://<id>` refs in bank rows are stable across
+devices; the R2 object key is `auth/<userId>/<assetId>`, enforced
+server-side from the JWT.
 
-**"Send to" mechanism:** When a user clicks "Send to Script Architect Pro":
-1. Set `interAppPayload` with the target app, target field, and data
-2. Set `activeApp` to the target app
-3. The target app reads and consumes the payload on mount/focus, populating the relevant field
-4. Clear the payload
+### Sync layer
 
-**Bank Picker:** A single reusable component that:
-- Accepts a `bankType` prop ("products" | "models" | "scripts" | "voices" | "brolls")
-- Reads from the appropriate bank in global state
-- Returns the selected item via a callback
-- Any app can invoke it
-
-**Data persistence (prototype):** localStorage with JSON serialization. Banks are loaded on app start and saved on every change. Individual app states are kept in memory only (lost on refresh).
-
-**Data persistence (production):** Backend API with a database. User authentication, cloud storage for images, proper CRUD operations.
+`src/lib/cloudSync.ts` is a thin bridge over the existing Zustand
+stores. On sign-in: pull profile + every bank table, replace local
+state. After hydration: subscribe to `bankStore` + `settingsStore`
+and diff-push changes (debounced 300ms, per-bank upserts/deletes).
+First-time sign-in on a device that has local data does a one-shot
+migration push, gated by a per-user flag in localStorage so it never
+re-runs.
 
 ---
 
-## 14. Build Phases
+## 7. Design Language
 
-### Phase 1: OS Shell + Banks (Foundation)
-
-Build first because everything else depends on it.
-
-**Deliverables:**
-- Desktop with wallpaper
-- Menu bar (logo, app name, clock, settings gear)
-- Dock with all 7 icons (Finder + 6 apps) with hover effects and active indicators
-- Finder app with 5 bank categories (Product, Model, Script, Voice, B-Roll)
-- Full CRUD for each bank (add, view, edit, delete items)
-- B-Roll detail view with Veo 3.1 animation (BRollForm)
-- Bank Picker slide-in component
-- Desktop folder icons that open Finder to specific banks
-- App switching mechanism with state preservation
-- localStorage persistence for banks
-- Settings modal for API key configuration
-
-### Phase 2: UGC Character Studio + Image DNA Extractor (Character Pipeline)
-
-**Deliverables:**
-- UGC Character Studio (full standalone functionality + "Save to Model Bank" + "Load from Model Bank")
-- Image DNA Extractor (full standalone functionality + "Save to Model Bank" + "Use in Character Studio")
-
-### Phase 3: Ad Anatomy Pro + Script Architect Pro (Research & Script Pipeline)
-
-**Deliverables:**
-- Ad Anatomy Pro (full standalone functionality + "Send to Script Architect Pro" buttons)
-- Script Architect Pro (full functionality with Product Bank integration replacing manual fields + "Save to Script Bank" + "Send to Voice/B-Roll Studio" buttons)
-
-### Phase 4: Voice Studio Pro + B-Roll Studio Pro (Production Pipeline)
-
-**Deliverables:**
-- Voice Studio Pro (full functionality + Script Bank integration + Voice Bank save/load)
-- B-Roll Studio Pro (full functionality with Product Bank + Model Bank + Script Bank integration replacing all manual inputs + image generation + Save to B-Roll Bank)
-
-### Phase 5: Polish & Integration Testing
-
-**Deliverables:**
-- End-to-end workflow testing (Ad Anatomy Pro → Script Architect Pro → Voice Studio Pro → B-Roll Studio Pro)
-- Transition animations between apps
-- Empty states and onboarding hints
-- Error handling and edge cases
-- Performance optimization
+- **Tailwind only.** No CSS modules, no styled-components.
+- **Dark-first.** Background `#050505`–`#0A0A0A`. Borders `white/5`–`white/10`.
+  Glass surfaces via `backdrop-blur-xl`.
+- **Typography.** System sans, `tracking-tight` on most text.
+- **Transitions.** 200–300 ms `ease-out` for panel mounts, 150 ms for
+  hover/active.
+- **Tag styles.** Pulled from `TAG_STYLES` in `models.ts` — Recommended
+  (green), New (fuchsia), Fast (sky), Cheap (zinc).
+- **Aspect-ratio icons.** Outline rectangles proportional to ratio so
+  orientation is glanceable.
+- **Empty states.** Each app has an illustrated empty state explaining
+  the next action.
+- **Mobile.** Breakpoint at 768px; sidebar becomes a drawer, form
+  panels stack, generate bar pins to the bottom of the viewport.
 
 ---
 
-*Last Updated: March 11, 2026*
-*Version: 1.2 — Renamed to UGC Lab, reordered apps, renamed Character Studio → UGC Character Studio, Script Architect → Script Architect Pro, updated font to DM Sans*
+## 8. Build Phases
+
+1. **OS shell + banks** — initial commit, macOS-style desktop + dock.
+2. **Character Studio + Image DNA** — first creator app.
+3. **Ad Anatomy + Script Architect** — analyzer + script generator.
+4. **Voice Studio + B-Roll Studio** — TTS + first image-gen app.
+5. **Polish** — transitions, empty states, error handling.
+6. **Sidebar redesign** — YouTube-style left nav replaces the dock.
+7. **kie.ai migration** — every app onto kie.ai; one Bearer key; three
+   transports; Video Studio Pro added.
+8. **Polish pass** — credit chip; action-style app names; ElevenLabs
+   v3 voices; six video models with constraints + multi-dim pricing.
+9. **Cleanup pass** — drop `usd`, split `Mode` into `ImageMode` +
+   `VideoMode`, voice-shape migration.
+10. **DNA folded into Characters** — standalone DNA Extractor removed;
+    drag-photo becomes a Characters affordance.
+11. **Sidebar regrouping + ModelPicker redesign** — Library / Create /
+    Tools sections, terse noun names, provider avatars + tier badges
+    in the picker.
+12. **Voiceovers redesign + v2 swap** — full-bleed editor, sliding
+    voice picker with ~64 voices, click-to-preview, sticky audio
+    player. TTS swapped to ElevenLabs Multilingual v2.
+13. **B-Roll Videos: capability-driven UI + Bank-aware frame slots** —
+    mode toggle removed; inputs reveal based on model capabilities;
+    frame slots accept Upload or Pick from Bank; video saves linked
+    to source BRolls.
+14. **Pricing audit + Veo result-shape fix + aspect-ratio icons** —
+    every model rate reverified against kie.ai live pricing; Veo
+    record-info nesting fix; small aspect-ratio rectangles in the
+    segmented control.
+15. **Image resolution toggle + Veo Fast default + slimmer frame slots**
+    — 1K/2K/4K toggle gated by model tiers; B-Roll Videos default
+    swapped to Veo 3.1 Fast.
+16. **Pricing re-audit + B-Roll Videos history grid + Projects feature**
+    — per-video pricing for Veo / Sora; Google Flow-style history grid
+    with Save/Download/Tag/Delete; Projects bank + multi-tagging.
+17. **B-Roll Videos: 4 parallel slots + in-flight tiles + Preview tab**
+    — four independent slots, fire-and-forget generation, in-flight
+    tiles in History, Preview tab promotes the active slot's result.
+18. **Cloud-deployable, Skool-gated multi-tenant** — Supabase auth +
+    Postgres + RLS; Cloudflare R2 for blobs; presigned-URL edge
+    function; Zapier sync from Skool; admin panel with Members +
+    Allowlist; local-only mode preserved for offline dev.
+
+---
+
+## Keeping this doc honest
+
+When product-level intent changes (a new app, a renamed app, a
+new bank, a new architectural layer, a major UI redesign), update
+this file. For code-level details (file moves, new utilities, model
+slug changes), update `CLAUDE.md` instead. Every build phase that
+ships a coherent change should add a one-line bullet under section 8
+in both files.
