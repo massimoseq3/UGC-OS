@@ -10,6 +10,14 @@ The stack:
 - **Asset blob storage:** Cloudflare R2 ($0 egress)
 - **Membership sync:** Zapier zap from Skool → Supabase allowlist
 
+**Related docs.** The canonical database schema (tables, RLS policies,
+triggers) lives in [`supabase/migrations/0001_initial.sql`](supabase/migrations/0001_initial.sql)
+— treat it as the source of truth and re-run it when bootstrapping a
+new Supabase project. The client↔Postgres sync bridge is
+[`src/lib/cloudSync.ts`](src/lib/cloudSync.ts); the presigned-URL
+edge function is [`api/r2-sign.ts`](api/r2-sign.ts). For the threat
+model and known limitations, see [SECURITY.md](SECURITY.md).
+
 ---
 
 ## 1. Supabase project
