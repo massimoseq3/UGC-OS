@@ -17,8 +17,22 @@ interface SignedUrlResponse {
 const ATTEMPT_TIMEOUT_MS = 60_000
 
 async function getAccessToken(): Promise<string | null> {
-  const session = useAuthStore.getState().session
-  return session?.access_token ?? null
+  if (!isCloudEnabled()) return null
+  const sb = getSupabase()
+
+  const cached = useAuthStore.getState().session
+  const expiresAt = cached?.expires_at ?? 0
+  const nowSec = Math.floor(Date.now() / 1000)
+
+  if (cached?.access_token && expiresAt - nowSec > 60) {
+    return cached.access_token
+  }
+
+  // Background tabs throttle the SDK's auto-refresh timer, so the cached
+  // token can be expired by the time the user comes back. getSession() goes
+  // through the SDK's refresh path and returns a fresh token.
+  const { data } = await sb.auth.getSession()
+  return data.session?.access_token ?? cached?.access_token ?? null
 }
 
 async function presign(op: 'put' | 'get', assetId: string, mimeType?: string, byteSize?: number): Promise<SignedUrlResponse> {
@@ -147,7 +161,7 @@ export async function deleteAssetFromR2(assetId: string): Promise<void> {
   if (error) throw new Error(`assets row delete: ${error.message}`)
 
   try {
-    const token = useAuthStore.getState().session?.access_token
+    const token = await getAccessToken()
     if (!token) return
     const res = await fetch('/api/r2-delete', {
       method: 'POST',
