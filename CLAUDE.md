@@ -13,7 +13,7 @@ Sidebar is grouped into three sections (LIBRARY / CREATE / TOOLS). Display names
 | Create | Scripts | `script-architect/` | Winning ad + product → new script |
 | Create | Voiceovers | `voice-studio/` | Script → audio (ElevenLabs v2) |
 | Create | B-Roll Images | `broll-studio/` | Script → scenes → still images |
-| Create | B-Roll Videos | `video-studio/` | Prompt + optional start/end frames + optional reference images → b-roll video. Inputs are revealed by the selected model's capabilities (no mode toggle); frame slots accept Upload or Pick from B-Roll Bank. |
+| Create | B-Roll Videos | `video-studio/` | Prompt + optional start/end frames + optional reference images → b-roll video. Inputs are revealed by the selected model's capabilities (no mode toggle); frame slots accept Upload or Pick from B-Roll Bank. Four parallel slots — see B-Roll Videos: 4-slot model below. |
 | Tools | Ad Analyzer | `ad-anatomy/` | Ad image or video frame → scorecard + transcript + visual playbook |
 
 Folder names and the `id` strings in `src/utils/constants.ts` are stable on purpose — they're used in localStorage keys for per-app model selections.
@@ -32,7 +32,7 @@ Senior frontend engineer + product architect. Push back when something's flawed.
 
 ### Architecture
 - **Self-contained apps.** Each app under `src/apps/<name>/` owns its types, components, and service. Cross-app communication goes through the bank store (persistent state) or the inter-app payload (one-shot handoffs).
-- **Shared state** = banks (Products, Models, Scripts, Voices, B-Rolls, voiceHistory) + settings + active app. Persisted to localStorage. Asset blobs (audio, image, video) live in IndexedDB via `assetStore`, not localStorage.
+- **Shared state** = banks (Projects, Products, Models, Scripts, Voices, B-Rolls, voiceHistory, videoHistory) + settings + active app. Persisted to localStorage. Asset blobs (audio, image, video) live in IndexedDB via `assetStore` and mirror to Cloudflare R2 when cloud sync is active.
 - **No prop drilling.** Zustand stores for global state. Local React state for ephemeral UI.
 - **Model registry is single source of truth.** Add or change a model only by editing `src/utils/models.ts`. Don't sprinkle slugs through service files.
 
@@ -49,13 +49,13 @@ Senior frontend engineer + product architect. Push back when something's flawed.
 
 ## Tech Stack
 
-- React 18 + TypeScript
-- Vite (`npm run dev` → http://localhost:5173)
+- React 18 + TypeScript + Vite (`npm run dev` → http://localhost:5173)
 - Tailwind CSS 4
 - Zustand for global state
-- IndexedDB (`assetStore.ts`) for blobs
-- localStorage for everything else (bank metadata, settings, picker selections, sidebar collapsed state)
-- No backend. Bearer token sent directly from the client to kie.ai.
+- IndexedDB (`assetStore.ts`) for blobs, with Cloudflare R2 mirror when cloud sync is active
+- localStorage for bank metadata, settings, picker selections, sidebar collapsed state
+- **Cloud (opt-in)**: Supabase (auth + Postgres) for per-user state, Cloudflare R2 for assets. Enabled when `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` are set; absent → local-only mode (original 100% client-side behaviour). Access gated by email allowlist synced from Skool via Zapier.
+- kie.ai Bearer token sent directly from the client (no proxy).
 
 ## kie.ai client (`src/utils/kie.ts`)
 
@@ -82,7 +82,7 @@ Veo 3.1 family doesn't use `/jobs/createTask`. It hits:
 POST  https://api.kie.ai/api/v1/veo/generate
 GET   https://api.kie.ai/api/v1/veo/record-info?taskId=…
 ```
-Helper: `kieVeoGenerate(apiKey, body, opts)`. Variant (`veo3` / `veo3_fast` / `veo3_lite`) is selected via the `model` field in the body, not the URL.
+Helper: `kieVeoGenerate(apiKey, body, opts)`. Variant (`veo3` / `veo3_fast` / `veo3_lite`) is selected via the `model` field in the body, not the URL. Result URLs nest under `response.resultUrls` (not flat).
 
 ### File upload (when models need URLs, not base64)
 Image-to-image and image/frame-conditioned video models accept *public URLs only*. `ensureHostedUrl(apiKey, source)` uploads any `data:` URI via `POST /api/file-base64-upload` and returns the `downloadUrl`. http(s) URLs pass through. Hosted files expire after 3 days.
@@ -97,16 +97,16 @@ The full list lives in `src/utils/models.ts`. Defaults below; users can swap ima
 | Capability | Default | Notes |
 |---|---|---|
 | Text + vision | Gemini 3 Flash (`gemini-3-flash`) | Hard-coded across every text-using app — no picker |
-| Image (text→image) | GPT Image 2 (`gpt-image-2-text-to-image`) | Picker also exposes Nano Banana 2, Flux 2 Pro, SeeDream 5 Lite, Imagen 4 |
+| Image (text→image) | GPT Image 2 (`gpt-image-2-text-to-image`) | Picker also exposes Nano Banana 2, Flux 2 Pro, Seedream 5 Lite |
 | Image (image→image) | GPT Image 2 Edit (`gpt-image-2-image-to-image`) | Used by B-Roll when reference images are present |
-| Video (4 modes) | Seedance 2.0 (`bytedance/seedance-2`) | Picker exposes Seedance 2.0 Fast, Kling 3.0, Veo 3.1 Fast/Lite/Quality |
+| Video | Veo 3.1 Fast (`veo3_fast`) | Picker exposes Seedance 2.0, Seedance 2.0 Fast, Kling 3.0, Veo 3.1 Lite/Quality, Wan 2.7, Sora 2, Sora 2 Pro |
 | TTS | ElevenLabs Multilingual v2 (`elevenlabs/text-to-speech-multilingual-v2`) | Hard-coded — no picker; ~64-voice catalog grouped by category, slide-in picker |
 
 ### Pricing model
 
-Each `ModelEntry` declares `pricing.credits` (flat per-unit) plus an optional `priceFor(opts)` callback for models with multi-dimensional pricing (Kling: resolution × audio; Veo Quality: 4K is 2× others). `estimateCredits(modelId, params)` and `formatCredits` are the only public APIs callers need.
+Each `ModelEntry` declares `pricing.credits` (flat per-unit) plus an optional `priceFor(opts)` callback for models with multi-dimensional pricing (Kling: resolution × audio; Veo: per-resolution per-call rates; Sora 2/Pro: per (duration, resolution)). `estimateCredits(modelId, params)` and `formatCredits` are the only public APIs callers need. USD values are not stored — kie.ai is credit-based and we don't show dollars anywhere.
 
-USD values are **not** stored — kie.ai is credit-based and we don't show dollars anywhere.
+Some video models are billed **per call** (`unit: 'per-call'`), not per second — Veo 3.1 (all variants), Sora 2, Sora 2 Pro. Their `videoConstraints.durations` is `[]` so the UI hides the duration toggle; `buildVideoInput`'s branch for each omits duration.
 
 ### Video modes
 
@@ -119,153 +119,114 @@ type VideoMode =
 ```
 Each video model declares `videoModes: VideoMode[]` + `videoConstraints` (allowed durations, resolutions, aspect ratios, audio support). B-Roll Videos doesn't show a mode toggle — start frame, end frame, and reference image slots reveal based on the selected model's capabilities, and the mode is **inferred at generate time** from which slots are filled (`references → reference-to-video`, `start + end → frames-to-video`, `start only → image-to-video`, none → `text-to-video`). Constraint controls (aspect / duration / resolution / audio) snap to allowed values when the model changes.
 
+### B-Roll Videos: 4-slot model
+
+VideoStudio runs 4 independent slots. Each owns its full input set + a transient `status: 'idle' | 'generating' | 'error'`. Generate is fire-and-forget — pushes an `InFlightGen` into `inFlight[]` and returns, so the user can switch slots and start more in parallel. History tab (default) renders `InFlightTile` skeletons that swap to real `VideoHistoryItem`s on completion; auto-promote to Preview only if the user is still viewing the originating slot. `VideoHistoryItem.sourceBRollId` carries the frame source across slot switches so save-linkage survives. ModelPicker is per-slot via `value` + `onChange` (still writes through `setAppModel`).
+
 ### Per-model body shaping
 
-`buildImageInput(modelId, opts)` and `buildVideoInput(modelId, opts)` in `models.ts` produce the correct request body for each model. Callers pass a uniform options object; the builders handle the field-name differences (Seedance `first_frame_url` vs Kling `image_urls[]` vs Veo `imageUrls`).
+`buildImageInput(modelId, opts)` and `buildVideoInput(modelId, opts)` in `models.ts` produce the correct request body for each model. Callers pass a uniform options object; the builders handle field-name differences (Seedance `first_frame_url` vs Kling `image_urls[]` vs Veo `imageUrls`).
 
 ## File structure
 
+Files with non-obvious behaviour — others are self-explanatory.
+
 ```
 src/
-├── App.tsx                        # Shell: menu bar + sidebar + active app
-├── main.tsx                       # Entry point
-├── index.css                      # Tailwind + scrollbar styles
+├── App.tsx                     Wraps app in <AuthGate>; remounts on user change via key={userId}
 │
-├── components/                    # Shared UI
-│   ├── MenuBar.tsx                # Top bar: hamburger + UGC Lab wordmark
-│   ├── Sidebar.tsx                # Left nav (collapsible). Replaced the old Dock.
-│   ├── BankPicker.tsx             # Universal sliding panel for selecting bank items (supports brolls + multiSelect)
-│   ├── BankItemCard.tsx           # Reusable card for displaying bank items (incl. BRoll variant)
-│   ├── ModelPicker.tsx            # Dropdown with credit estimate inline
-│   ├── SettingsModal.tsx          # kie.ai API key + Test connection
-│   ├── GenerationProgress.tsx     # Loading bar with percent (no seconds)
-│   ├── Toast.tsx                  # Confirmation toasts
-│   └── video/
-│       ├── VideoInputSlot.tsx     # Frame slot (Upload | Pick from Bank); used for start/end frames
-│       └── VideoRefStrip.tsx      # Reference-images grid with multi-select Bank picker
+├── components/
+│   ├── Sidebar.tsx             Sections, admin entry (gated), UserMenu chip at bottom
+│   ├── ModelPicker.tsx         Provider avatars, $-tier badges, ★ recommended, inline credit estimate
+│   ├── BankPicker.tsx          Sliding panel; brolls support + optional multiSelect
+│   ├── ProjectSwitcher.tsx     Header chip; sets activeProjectId
+│   ├── ResolutionToggle.tsx    1K/2K/4K gated by imageConstraints.resolutions
+│   ├── auth/                   AuthGate, AuthScreen, UserMenu
+│   └── video/                  VideoInputSlot (Upload | Pick from Bank), VideoRefStrip
 │
 ├── stores/
-│   ├── bankStore.ts               # Banks + voiceHistory (one-shot v3 voice migration on load)
-│   ├── appStore.ts                # Active app, running apps, inter-app payload, sidebar collapsed
-│   ├── settingsStore.ts           # kieApiKey + perAppModel selections
-│   └── types.ts                   # Bank type definitions
+│   ├── bankStore.ts            Projects + 6 banks + voiceHistory + videoHistory; autoProjectIds on add
+│   ├── settingsStore.ts        kieApiKey, perAppModel, activeProjectId
+│   ├── authStore.ts            Supabase session + profile row
+│   └── appStore.ts             Active app, running apps, inter-app payload, sidebar collapsed
 │
 ├── apps/
-│   ├── finder/                    # Bank browser + edit forms
-│   ├── character-studio/          # Sidebar: "Characters" (drag-photo DNA extraction is built in)
-│   ├── ad-anatomy/                # Sidebar: "Ad Analyzer"
-│   ├── script-architect/          # Sidebar: "Scripts"
-│   ├── voice-studio/              # Sidebar: "Voiceovers" (ElevenLabs Multilingual v2)
-│   ├── broll-studio/              # Sidebar: "B-Roll Images" — text → still
-│   └── video-studio/              # Sidebar: "B-Roll Videos" — capability-driven slots, mode inferred at generate-time
+│   ├── finder/                 Banks browser + Projects tab
+│   ├── character-studio/       Drag-photo DNA extraction built in
+│   ├── video-studio/           4-slot Video Studio (VideoStudio.tsx + components/VideoHistoryGrid.tsx)
+│   ├── admin/                  Members + Allowlist; only shown when profiles.is_admin
+│   └── [ad-anatomy, script-architect, voice-studio, broll-studio]
 │
-├── hooks/
-│   └── useAssetUrl.ts             # Resolves asset:// refs to blob URLs for <img> / <video>
+├── lib/                        supabase.ts, cloudSync.ts (pull + debounced diff-push), r2.ts
+│
+├── hooks/useAssetUrl.ts        Resolves asset:// refs to blob URLs
 │
 └── utils/
-    ├── kie.ts                     # Unified kie.ai client (3 transports + file upload)
-    ├── models.ts                  # Model registry, ModelEntry, buildImageInput, buildVideoInput, estimateCredits
-    ├── assetStore.ts              # IndexedDB-backed blob persistence
-    ├── localStorage.ts            # Bank persistence helpers
-    └── constants.ts               # APP_REGISTRY, BANK_CONFIG (icons, accents, display names)
+    ├── kie.ts                  3 transports + file upload
+    ├── models.ts               Registry, buildImageInput/buildVideoInput, estimateCredits, getChatEndpointPath
+    ├── assetStore.ts           IndexedDB + R2 mirror
+    └── constants.ts            APP_REGISTRY, BANK_CONFIG
+
+api/                            r2-sign.ts (Vercel Edge: Supabase JWT → 5-min presigned URLs), r2-delete.ts
+supabase/migrations/0001_initial.sql   Tables, RLS, allowlist triggers
 ```
 
 ## Banks
 
-Persisted to `localStorage` under `ai-ugc-lab-banks`. Asset blobs (images, audio, video) are stored in IndexedDB via `assetStore`; the bank stores `asset://<id>` refs. `useAssetUrl(ref)` turns a ref into a blob URL.
+Persisted to `localStorage` under `ai-ugc-lab-banks`. Asset blobs live in IndexedDB via `assetStore` (mirrored to R2 in cloud mode); the bank stores `asset://<id>` refs. `useAssetUrl(ref)` turns a ref into a blob URL.
 
 | Bank | Type (in `stores/types.ts`) | Source |
 |---|---|---|
+| `projects` | `Project` | Created from header `ProjectSwitcher` or Finder's Projects tab |
 | `products` | `Product` | Manually added in Finder |
 | `models` | `Model` | Saved from Characters output |
 | `scripts` | `Script` | Saved from Scripts output |
 | `voices` | `VoicePreset` | Saved from Voiceovers history |
-| `brolls` | `BRoll` | Saved from B-Roll Images + B-Roll Videos. A single record can carry both `imageUrl` (still) and `videos[]` (animations) — when B-Roll Videos generates from a bank still, it appends to the source's `videos` array instead of creating an orphan record. |
+| `brolls` | `BRoll` | Saved from B-Roll Images + B-Roll Videos. A record can carry both `imageUrl` (still) and `videos[]` (animations) — B-Roll Videos appends to the source's `videos[]` when generating from a bank still. Saved video-history items stamp `linkedBRollId` so the badge persists; deletion only purges the blob if not linked. |
 | `voiceHistory` | `VoiceHistoryItem` | Auto-pushed on every Voiceovers generation |
+| `videoHistory` | `VideoHistoryItem` | Auto-pushed on every B-Roll Videos generation; 14-day retention |
 
-`VoicePreset` and `VoiceHistoryItem` carry the full Multilingual v2 parameter set: `voiceId`, `stability`, `similarityBoost`, `style`, `speed`. Legacy fields (`creativity`, `ambience`, `styleInstructions`) are stripped on load; missing v2 fields are backfilled with the model defaults (`0.75 / 0 / 1`) — see `migrateVoiceShape` in `bankStore.ts`.
+`VoicePreset` and `VoiceHistoryItem` carry the full Multilingual v2 parameter set: `voiceId`, `stability`, `similarityBoost`, `style`, `speed`. Legacy fields (`creativity`, `ambience`, `styleInstructions`) are stripped on load; missing v2 fields are backfilled with model defaults (`0.75 / 0 / 1`) — see `migrateVoiceShape` in `bankStore.ts`.
+
+**Projects (multi-membership tagging).** All bank items + `VideoHistoryItem` carry an optional `projectIds?: string[]`. When `settingsStore.activeProjectId` is set, every `addProduct / Model / Script / Voice / BRoll / VideoHistory` call auto-tags the new item via `autoProjectIds` in `bankStore.ts`. Deleting a project untags items from all banks but leaves them in place; if the deleted project was active, settings clears.
+
+## Auth + cloud sync
+
+`AuthGate` wraps the whole app. Bootstrapping → spinner; signed-out → `AuthScreen` (combined sign-in / sign-up); signed-in → workspace + `UserMenu` in sidebar bottom. When cloud env vars are absent, the app boots local-only with a small bottom banner.
+
+- **Allowlist enforcement.** Postgres trigger `enforce_allowlist` on `auth.users` insert blocks signups not in `public.allowlist` — no client-side bypass. `on_allowlist_delete` sets `profiles.disabled_at`; on hydration the app checks this and signs the user out. `on_allowlist_insert` clears it. Zapier syncs Skool membership events into the table.
+- **Cloud sync.** `src/lib/cloudSync.ts` pulls profile + all 8 bank tables on sign-in and replaces local state, then subscribes to `bankStore` + `settingsStore` and diff-pushes (debounced 300ms, per-bank upserts/deletes). `bankStore`/`settingsStore` stay localStorage-backed — cloudSync is a bridge. First-cloud-login uploads any pre-existing local snapshot once (gated by `ugc-lab:cloud-migrated:<userId>`).
+- **Assets.** `assetStore.saveAsset()` mirrors to R2 fire-and-forget via `src/lib/r2.ts`; `getBlob()` falls back to R2 when IndexedDB misses. Uploads go through `/api/r2-sign` (Vercel Edge) which verifies the Supabase JWT and mints 5-minute presigned URLs scoped to `auth/<userId>/<assetId>`. Bank rows don't know R2 exists — `asset-…` ids are stable.
+- **Schema.** Bank tables are JSONB-backed (id PK, user_id FK, project_ids[] GIN-indexed, data jsonb). RLS `auth.uid() = user_id` everywhere, with admin bypass via `profiles.is_admin`. `member_storage` view aggregates `assets.byte_size` per user. Bootstrap admin via `select public.bootstrap_admin('email');`.
+- **Admin app.** Sidebar entry shown only when `profiles.is_admin`. Tabs: Members (storage, last active, disable/re-enable) + Allowlist (manual add/remove).
+
+Full deploy stack (Vercel + Supabase + R2 + Zapier) is in `DEPLOYMENT.md`.
 
 ## Inter-app payloads
 
-```ts
-// Sender:
-sendToApp({ targetApp: 'video-studio', targetField: 'firstFrame', data: <dataUri> })
-
-// Consumer (in target app's component):
-useEffect(() => {
-  if (activeApp !== 'video-studio') return
-  if (!interAppPayload || interAppPayload.targetApp !== 'video-studio') return
-  if (interAppPayload.targetField === 'firstFrame') { ... }
-  consumePayload()
-}, [interAppPayload, activeApp, consumePayload])
-```
+One-shot handoffs. Sender calls `sendToApp({ targetApp, targetField, data })`. Consumer reads `interAppPayload` in a `useEffect` keyed on `activeApp`, dispatches on `targetField`, then calls `consumePayload()`.
 
 Wired today:
 - Ad Analyzer → Scripts (winning transcript / reconstruction prompt)
 - Ad Analyzer → Bank (productId)
 - Scripts → Voiceovers (script text)
-- B-Roll Images → B-Roll Videos (still as start frame; consumer drops it directly into the start-frame slot — no mode to set)
+- B-Roll Images → B-Roll Videos (still as start frame; consumer drops directly into the start-frame slot)
 
-## Build phases (history)
+## Recent changes
 
-1. OS shell + banks (initial commit, macOS-style)
-2. Character Studio + Image DNA
-3. Ad Anatomy + Script Architect
-4. Voice Studio + B-Roll Studio
-5. Polish: transitions, empty states, error handling
-6. **Sidebar redesign** — YouTube-style left nav replaces bottom dock; bigger menu bar.
-7. **kie.ai migration** — every app onto kie.ai. Added `kie.ts`, `models.ts`, `ModelPicker`, Video Studio Pro. Dropped `gemini.ts`. ElevenLabs Turbo 2.5 became TTS.
-8. **Polish pass** — Loading bar shows percent; action-style app names; eye icon for Analyze Ads; Settings simplified; Voice Studio rebuilt on ElevenLabs v3 with 20-voice catalog + filters; Video Studio expanded to 6 models with per-model constraints, 4 modes, multi-dim pricing for Kling, Veo's custom endpoint; B-Roll → Video Studio handoff.
-9. **Cleanup pass** — Drop `usd` field, split `Mode` into `ImageMode` + `VideoMode`, factor `getChatEndpointPath` into `models.ts`, delete dead `Desktop.tsx` + `DesktopFolder.tsx`, voice shape localStorage migration.
-10. **DNA folded into Character Studio** — Visual DNA extraction merged into Generate Characters as a drag-photo affordance (compact drop zone in the controls panel + full-area drag overlay). Standalone `image-dna/` app removed. Bank entries with `source: 'image-dna-extractor'` continue to load.
-11. **Sidebar regrouping + ModelPicker redesign** — Sidebar split into Library / Create / Tools sections. App display names switched to terse nouns (Bank / Characters / Scripts / Voiceovers / B-roll / Videos / Ad Analyzer). ModelPicker rebuilt with provider avatars, $-tier badges, and a yellow ★ on recommended models. Aspect ratio moved out of the Camera tab into a Portrait/Landscape pill toggle directly above the model picker.
-12. **Voiceovers redesign + v2 swap** — Voice Studio rebuilt to mirror ElevenLabs' speech-synthesis screen: full-bleed editor, right-side `Settings | History` panel with sliding voice picker, ~64-voice catalog grouped by category, click-to-preview avatars with loading rings, sticky bottom audio player after generation. TTS model swapped from `text-to-dialogue-v3` (dialogue-array body) to `text-to-speech-multilingual-v2` (flat body). Settings now expose Speed / Stability / Similarity / Style Exaggeration; `VoicePreset` + `VoiceHistoryItem` extended with the new fields and migrated.
-13. **B-Roll Videos: capability-driven UI + Bank-aware frame slots** — Mode toggle removed; start frame, end frame, and reference image slots reveal based on the selected model's capabilities, with the mode inferred at generate-time. Frame slots accept Upload **or** Pick from B-Roll Bank (BankPicker now supports `bankType="brolls"` + an optional `multiSelect` mode for adding several reference images at once). New shared components `VideoInputSlot` and `VideoRefStrip` under `src/components/video/`. Save linkage: when a generation uses a B-Roll Bank still as its source, the new video appends to that BRoll's `videos[]` instead of creating an orphan record; uploads-only saves persist the still alongside the video so the entry is paired. Settings migration `2026-05-video-studio-flatten-modes` collapses the four old per-mode model keys (`video-studio:video:image-to-video`, etc.) into a single `video-studio:video` key. Finder's BRoll card renders a video-element thumbnail for video-only BRolls (text-to-video saves) instead of the empty-film placeholder. Sidebar names finalized: B-Roll Images / B-Roll Videos.
-14. **Pricing audit + Veo result-shape fix + aspect-ratio icons** — All model `pricing` blocks reverified against kie.ai's live marketing pages (`kie.ai/{slug}` and `kie.ai/pricing`, last verified 2026-05-09). Highlights: image rates corrected (Nano Banana 2 4→8 credits/1K, Flux 2 Pro 5→14, GPT Image 2 4→3 / Edit 4→6, Seedream 5 Lite 3→3.5, all with new `priceFor` lookups for 2K/4K tiers); Gemini 3 Flash chat rate 0.015→0.10 cr/1k tokens (blended input/output); ElevenLabs Multilingual v2 swapped from per-call 0.5 to **per-1k-chars 12** (new `Pricing.unit` + `PriceParams.charCount`). Veo per-(duration, resolution) lookups fixed earlier in this session continue to apply. **Veo bug**: `kieVeoGenerate` was reading `record.resultUrls` flat, but Veo's record-info actually nests them under `response.resultUrls` — successful generations were rejecting with "Veo returned no result URLs." Fix reads `record.response?.resultUrls ?? record.response?.fullResultUrls ?? record.response?.originUrls` with backward-compatible fallbacks. **Aspect-ratio icons**: B-Roll Videos' Aspect segmented control now renders a small outlined rectangle proportional to each ratio (`AspectIcon` in `VideoStudio.tsx`) so users see orientation at a glance.
-15. **Image resolution toggle + Veo Fast default + slimmer frame slots** — Image generation now exposes a 1K / 2K / 4K toggle with per-tier credit cost. New shared `ResolutionToggle` component gated by each model's `imageConstraints.resolutions` — hides for single-tier models (Seedream 5 Lite), trims to `['1K','2K']` for Flux 2 Pro, full set for Nano Banana 2 / GPT Image 2 / GPT Image 2 (Edit). State lives in Characters (`CharacterStudio.tsx`) and B-Roll Images (`OutputPanel.tsx`), is plumbed through `generateCharacter` and `generateImage`, and snaps to the first supported tier when the model changes. `ImageGenOptions.sizeHint` replaced with `resolution: '1K' | '2K' | '4K'` (`ImageResolution` type) — `buildImageInput` passes it directly to each model's API field. **B-Roll Videos default** swapped from Seedance 2.0 to Veo 3.1 Fast (`defaultFor` moved); existing users keep their persisted choice via the migration. **Frame slots**: VideoInputSlot's empty Upload/Bank pad and the filled-image preview are now h-24 (was py-5 + full-natural-image height), so start/end frame slots no longer dominate the panel.
+Last 2–3 coherent bodies of work. Older history lives in `git log` — read it there, not here.
 
-16. **Pricing re-audit + B-Roll Videos history grid + Projects feature** — Live pricing rescraped from kie.ai/pricing (2026-05-09). Several rates were materially wrong:
-    - **Veo 3.1 (all variants)** is billed PER VIDEO, not per second. Duration is NOT a request parameter — kie's API spec exposes only resolution + aspect ratio + the optional image inputs. Registry entries switched to `unit: 'per-call'` with `priceFor` returning per-resolution rates (Fast 60/65/180; Lite 30/35/150; Quality 250/255/380). `videoConstraints.durations` set to `[]` so the UI hides the toggle (VideoStudio renders `grid-cols-2` instead of `grid-cols-3` and skips the duration `ChoiceControl`). `buildVideoInput`'s Veo branch already omits duration.
-    - **Sora 2 / Sora 2 Pro** are also per-video. Sora 2: 10s=30, 15s=35. Sora 2 Pro: standard 10s=150 / 15s=270, high 10s=330 / 15s=630. Both moved to `unit: 'per-call'` with `priceFor` keyed on (durationSeconds, resolution).
-    - **Wan 2.7** rates were off by 5×: corrected to 16 cr/s (720p) and 24 cr/s (1080p). Audio support removed — the kie spec doesn't expose a sound flag.
-    - **Seedream 5 Lite** corrected from 3.5 → 5.5 cr/image.
+- **Cloud-deployable, Skool-gated multi-tenant.** App is now deployable on Vercel with Supabase (auth + Postgres) for per-user state and Cloudflare R2 for asset blobs. Access gated by an email allowlist enforced by a Postgres trigger and synced from Skool via Zapier. Local-only mode preserved when env vars are absent. See **Auth + cloud sync** for the runtime shape and `DEPLOYMENT.md` for the deploy stack.
+- **B-Roll Videos: 4 parallel slots.** VideoStudio rebuilt around a 4-slot model so users can fire multiple generations in parallel without blocking. History tab is the default right-panel tab and renders in-flight tile skeletons that swap to real `VideoHistoryItem`s on completion. `VideoHistoryItem.sourceBRollId` keeps save-linkage stable across slot switches. See **B-Roll Videos: 4-slot model** for the runtime shape.
+- **Projects + per-slot pricing fixes.** New `projects` bank + `activeProjectId` setting + multi-membership tagging across all banks and `videoHistory`. Pricing re-audited against kie.ai/pricing: Veo 3.1 / Sora 2 / Sora 2 Pro are billed per-video (not per-second) with `unit: 'per-call'` and `priceFor` keyed on resolution (and duration for Sora). Wan 2.7 corrected to 16/24 cr/s; audio support removed.
 
-    **B-Roll Videos right panel rebuilt with Current|History tabs.** A new `VideoHistoryGrid` component renders past generations as a Google Flow-style 2-col grid: hover plays the clip, hover buttons offer Save-to-Bank / Download / Tag-to-Project / Delete. Empty state explains the 14-day retention policy. The `Current` tab keeps the existing big preview + Save/Download buttons. Below `Save to B-Rolls Bank` there's a **green Download button** (uses fetch + blob URL + anchor download).
-
-    **History persistence**: new `VideoHistoryItem` type + `videoHistory: VideoHistoryItem[]` on bankStore (parallel to `voiceHistory`). Every successful `generateVideo` pushes an entry with the assetId ref so blobs survive reloads. `addVideoHistory / updateVideoHistory / deleteVideoHistory / clearVideoHistory` mirror the voice CRUD. Saving a history item to the bank stamps `linkedBRollId` so the saved-state badge persists; deletion only purges the asset blob if it isn't linked.
-
-    **Projects feature** (new top-level concept):
-    - **Type** `Project { id, name, color?, createdAt }` in `stores/types.ts`. All bank items + `VideoHistoryItem` gained an optional `projectIds?: string[]`. Multi-membership tagging — items can live in many projects.
-    - **Bank** `'projects'` added to `BankType` + `BANK_CONFIG` (FolderOpen icon, emerald accent). Listed first in the Finder sidebar.
-    - **Active project** in `settingsStore` (`activeProjectId: string | null`). When set, every `addProduct / Model / Script / Voice / BRoll / VideoHistory` call auto-tags the new item via `autoProjectIds` helper in bankStore.
-    - **Header switcher** (`components/ProjectSwitcher.tsx`) — chip + dropdown next to the credits chip. Selecting a project sets active; "All projects" clears it; "+ New project" creates inline.
-    - **Finder Projects tab** (`apps/finder/ProjectsView.tsx`) — list (cards with member counts + Set active / Delete) and detail (member items grouped by type with untag buttons). Deleting a project untags items from all banks but leaves them in place; if the deleted project is active, settings clears.
-    - **B-Roll Videos history tile** got a folder action → `TagToProjectPopover` to toggle membership and create new projects inline.
-    - Persistence: projects + projectIds saved alongside the rest of the banks under `ai-ugc-lab-banks`. activeProjectId saved in `ai-ugc-lab-settings`.
-
-17. **B-Roll Videos: 4 parallel slots + in-flight tiles + Preview tab** — VideoStudio rebuilt around a 4-slot model. Each slot has independent prompt / start frame / end frame / references / aspect / duration / resolution / audio / model + transient `status: 'idle' | 'generating' | 'error'` and `lastResultId`. A `Slot` tab strip sits at the top of the left panel (`Video 1 … Video 4`) with a status dot per tab — purple pulsing while generating, emerald-dim if a previous run completed, red on error. Generations fire-and-forget: clicking Generate captures the slotIndex, pushes an `InFlightGen` into a transient `inFlight: InFlightGen[]` state, and returns immediately so the user can switch slots and start another in parallel. Multiple slots can run simultaneously without blocking each other. **Right panel tabs reordered**: History first (default), Preview second (renamed from Current). The History grid now renders `InFlightTile` skeletons at the top — pulsing purple gradient with the slot label, model name, elapsed `mm:ss` timer, and prompt preview. When a generation completes the in-flight tile is replaced by the real `VideoHistoryItem` and (only if the user is still viewing the originating slot) auto-promotes to Preview. **Preview tab**: when no item is selected but the active slot is generating, shows a centered loading state with the model name, an animated `GenerationProgress` bar, and the copy *"This can take 1–3 minutes. Feel free to switch slots and start another in parallel — results will appear in the History tab as they finish."* `VideoHistoryItem` gained an optional `sourceBRollId` field so save-linkage (append to source BRoll vs create new) survives across slot boundaries — the originating slot's frame's `sourceBRollId` is captured at generate time. ModelPicker is now driven per-slot via the `value`+`onChange` props (it still writes to `setAppModel` so the persisted default tracks the most-recent change across slots).
-
-18. **Cloud-deployable, Skool-gated multi-tenant** — App is now deployable to Vercel with Supabase auth + Postgres for per-user state and Cloudflare R2 for asset blobs. Skool has no public OAuth, so access is gated by an email **allowlist** synced from Skool via Zapier. New surface area:
-    - **Auth flow.** `src/components/auth/AuthGate.tsx` wraps the entire app. Bootstrapping → spinner; signed-out → `AuthScreen.tsx` (combined sign-in / sign-up); signed-in → workspace + `UserMenu` chip in sidebar bottom. Auth state lives in `src/stores/authStore.ts` (Zustand mirroring Supabase session + `profile` row). If `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` aren't set, the app boots in **local-only mode** with a small bottom banner — original 100% client-side behaviour preserved for local dev.
-    - **Allowlist gate.** New signups blocked unless email is in `public.allowlist`. Enforced by Postgres trigger `enforce_allowlist` on `auth.users` insert (in `supabase/migrations/0001_initial.sql`) — no client-side bypass possible. Removing an email fires `on_allowlist_delete` which sets `profiles.disabled_at`; app checks this on hydration and signs the user out. Re-adding (`on_allowlist_insert`) clears it. Zapier zaps in `DEPLOYMENT.md` keep the table in sync with Skool membership events.
-    - **Cloud sync layer.** `src/lib/cloudSync.ts` is a thin bridge over the existing Zustand stores. On sign-in: pulls profile + all 8 bank tables (`projects`, `products`, `models`, `scripts`, `voices`, `brolls`, `voice_history`, `video_history`) and replaces local state. After hydration, subscribes to `bankStore` + `settingsStore` and diff-pushes changes (debounced 300ms, per-bank upserts/deletes). **Stores stay localStorage-backed** — `bankStore.ts` / `settingsStore.ts` are unchanged. First-cloud-login uploads any pre-existing local snapshot one-shot (gated by `ugc-lab:cloud-migrated:<userId>` flag).
-    - **Asset pipeline (R2).** `src/utils/assetStore.ts` mirrors every `saveAsset()` to R2 fire-and-forget via `src/lib/r2.ts`, and `getBlob()` falls back to R2 when IndexedDB misses. `asset-…` ids stay the same — bank rows don't know R2 exists. Uploads go through `/api/r2-sign` (Vercel Edge function) which verifies the Supabase JWT and mints 5-minute presigned URLs scoped to `auth/<userId>/<assetId>`. The `assets` table maps id → r2_key + byte_size for the admin storage view.
-    - **Schema.** Bank tables JSONB-backed (id PK, user_id FK, project_ids[] GIN-indexed, data jsonb) — TypeScript types stay the source of truth. RLS `auth.uid() = user_id` on every table, plus admin bypass via `profiles.is_admin`. `member_storage` view aggregates `assets.byte_size` per user. Bootstrap admin via `select public.bootstrap_admin('email');`.
-    - **Admin app** `src/apps/admin/`. Sidebar entry shown only to admins (new `'admin'` category). Tabs: **Members** (storage usage, last active, disable/re-enable) + **Allowlist** (manual add/remove, complements Zapier).
-    - **Deploy stack** documented in `DEPLOYMENT.md` — Vercel Hobby + Supabase Pro + Cloudflare R2 + Zapier. Total infra ~$30–60/mo at 250–1000 members. R2 chosen over Supabase Storage for **zero egress fees** at video scale.
-    - Files added: `src/lib/{supabase,cloudSync,r2}.ts`, `src/stores/authStore.ts`, `src/components/auth/{AuthGate,AuthScreen,UserMenu}.tsx`, `src/apps/admin/{AdminPanel,MembersTable,AllowlistEditor}.tsx`, `api/r2-sign.ts`, `supabase/migrations/0001_initial.sql`, `vercel.json`, `.env.example`. Modified: `src/App.tsx` (wraps in `<AuthGate>` + remounts on user change via `key={userId}`), `src/components/Sidebar.tsx` (admin entry + UserMenu), `src/utils/assetStore.ts` (R2 mirror + lazy fetch), `src/utils/constants.ts` (admin category + entry).
-
-## When making changes (going forward)
+## When making changes
 
 After any non-trivial change to behaviour, file structure, or model lineup:
 
 1. Update this file (`CLAUDE.md`) so future-Claude has accurate context.
-2. Update `AI_UGC_Lab_OS_Spec.md` when feature-level intent changes (not for every refactor).
+2. Update `AI_UGC_Lab_OS_Spec.md` (product spec, project root) when feature-level intent changes — not for every refactor.
 3. Update the model table above if you register or remove a model.
-4. Add a one-line entry to **Build phases** when shipping a coherent body of work.
+4. Update **Recent changes** for coherent bodies of work — keep it to the last 2–3 entries. Drop the oldest when you add a new one. Anything older lives in `git log`.
 
 The user has explicitly asked for these docs to stay in sync with reality.
-
-## Documentation
-
-The product spec lives in `AI_UGC_Lab_OS_Spec.md` at the project root.
