@@ -303,7 +303,7 @@ export default function PromptBar({ state, onChange, onSubmit, isGenerating }: P
       // a portal at document.body, so it isn't trapped by our containing
       // block.
       className={`relative w-full rounded-2xl border bg-[#0B0B0D]/70 shadow-2xl backdrop-blur-xl transition-colors ${
-        dragOver ? 'border-yellow-500/40' : 'border-white/10'
+        dragOver ? 'border-green-500/40' : 'border-white/10'
       }`}
     >
       {/* Mode tabs — underline style, matches VoiceStudio's Settings/History
@@ -496,7 +496,7 @@ export default function PromptBar({ state, onChange, onSubmit, isGenerating }: P
                 onClick={() => onChange({ ...state, audio: !state.audio })}
                 className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] transition-colors ${
                   state.audio
-                    ? 'border-yellow-500/30 bg-yellow-500/10 text-yellow-200'
+                    ? 'border-green-500/30 bg-green-500/10 text-green-200'
                     : 'border-white/10 bg-white/[0.02] text-zinc-400 hover:bg-white/[0.05]'
                 }`}
               >
@@ -548,7 +548,7 @@ export default function PromptBar({ state, onChange, onSubmit, isGenerating }: P
           type="button"
           onClick={onSubmit}
           disabled={!canSubmit}
-          className="ml-auto flex h-9 w-9 items-center justify-center rounded-full bg-yellow-500 text-black transition-colors hover:bg-yellow-400 disabled:cursor-not-allowed disabled:opacity-40"
+          className="ml-auto flex h-9 w-9 items-center justify-center rounded-full bg-green-500 text-black transition-colors hover:bg-green-400 disabled:cursor-not-allowed disabled:opacity-40"
           title="Generate"
         >
           {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}

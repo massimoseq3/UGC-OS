@@ -4,7 +4,6 @@ import { useBankStore } from '../../stores/bankStore'
 import type { Product } from '../../stores/types'
 import InputPanel from './components/InputPanel'
 import OutputPanel from './components/OutputPanel'
-import ProviderChip from '../../components/ProviderChip'
 import { generateScript } from './services/generateScript'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
 
@@ -76,7 +75,6 @@ export default function ScriptArchitect() {
 
   return (
     <div className="relative flex flex-col pb-32 md:flex-row md:h-full md:pb-0">
-      <ProviderChip provider="Claude" />
       {/* Left panel — inputs */}
       <div className="flex w-full md:w-1/2 shrink-0 flex-col border-b md:border-b-0 md:border-r border-white/5">
         <InputPanel
