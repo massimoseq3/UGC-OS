@@ -1,9 +1,12 @@
+import { BrowserRouter } from 'react-router-dom'
+
 import AppLogo from './components/AppLogo'
 
 import MenuBar from './components/MenuBar'
 import Sidebar from './components/Sidebar'
 import ToastContainer from './components/Toast'
 import AuthGate from './components/auth/AuthGate'
+import RouterSync from './components/RouterSync'
 import { useAppStore } from './stores/appStore'
 import { useAuthStore } from './stores/authStore'
 import { getAppConfig } from './utils/constants'
@@ -62,7 +65,10 @@ function EmptyState() {
 export default function App() {
   return (
     <AuthGate>
-      <Workspace />
+      <BrowserRouter>
+        <RouterSync />
+        <Workspace />
+      </BrowserRouter>
     </AuthGate>
   )
 }
