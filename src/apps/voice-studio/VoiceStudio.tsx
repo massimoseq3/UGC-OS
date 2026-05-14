@@ -11,7 +11,6 @@ import EditorArea from './components/EditorArea'
 import RightPanel from './components/RightPanel'
 import BottomPlayer from './components/BottomPlayer'
 import BankPicker from '../../components/BankPicker'
-import ProviderChip from '../../components/ProviderChip'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
 
 export default function VoiceStudio() {
@@ -114,7 +113,6 @@ export default function VoiceStudio() {
 
   return (
     <div className="relative flex flex-col pb-28 md:h-full md:pb-0">
-      <ProviderChip provider="ElevenLabs" />
       <div className="flex flex-1 flex-col md:min-h-0 md:flex-row">
         {/* Center — editor */}
         <div className="flex flex-1 flex-col md:min-h-0 md:overflow-hidden">

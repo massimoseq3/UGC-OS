@@ -39,11 +39,11 @@ export default function GenerationProgress({
   return (
     <div className={`w-full ${className}`}>
       <div className="relative h-1 w-full overflow-hidden rounded-full bg-white/10">
-        <div className={`absolute inset-y-0 left-0 w-1/3 rounded-full ${color} animate-shimmer-sweep`} />
+        <div className={`shimmer-band absolute inset-y-0 left-0 w-1/2 ${color} animate-shimmer-sweep`} />
       </div>
       <div className="mt-2 space-y-0.5">
         <p className="text-xs text-zinc-500">{msgs[index]}</p>
-        <p className="text-[11px] text-zinc-600">This can take a couple of minutes — keep this tab open.</p>
+        <p className="text-[11px] text-zinc-600">You can keep working — we'll save this when it's done.</p>
       </div>
     </div>
   )

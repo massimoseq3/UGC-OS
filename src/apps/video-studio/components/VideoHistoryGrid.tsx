@@ -206,7 +206,6 @@ function InFlightTile({ gen }: { gen: InFlightGen }) {
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-3 text-center">
         <Loader2 className="h-5 w-5 animate-spin text-purple-300" />
         <p className="text-[10px] font-medium text-purple-100">{modelLabel}</p>
-        <p className="text-[10px] text-purple-300/60">Keep this tab open</p>
       </div>
 
       <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2 pb-1.5 pt-6">
