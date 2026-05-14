@@ -23,6 +23,11 @@ interface VideoInputSlotProps {
   // When set, BankPicker renders an inline tab strip so the user can switch
   // between these bank types without closing. See BankPicker for the prop shape.
   tabs?: Array<BankType | { type: BankType; filter?: (item: BankItem) => boolean }>
+  // Compact mode: small square tiles matching VideoRefStrip's footprint.
+  // Used by the Playground prompt bar so start/end frame tiles match the
+  // adjacent reference-image strip. Default is the full-size B-Roll Videos
+  // layout (h-40 with two side-by-side buttons).
+  compact?: boolean
 }
 
 // Each bank type stores its image in a different field. Extract whichever
@@ -54,9 +59,10 @@ async function bankItemToDataUri(item: BankItem): Promise<string | null> {
 //
 // When `tabs` is supplied (e.g. from Playground) the picker is multi-bank;
 // picking a Character or Product carries no `sourceBRollId`.
-export default function VideoInputSlot({ label, helper, value, onChange, bankType, tabs }: VideoInputSlotProps) {
+export default function VideoInputSlot({ label, helper, value, onChange, bankType, tabs, compact = false }: VideoInputSlotProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [actionMenu, setActionMenu] = useState(false)
 
   async function handleFile(file: File | null) {
     if (!file) return
@@ -72,6 +78,85 @@ export default function VideoInputSlot({ label, helper, value, onChange, bankTyp
     // characters / products the id is meaningless to the save-to-bank flow.
     const sourceBRollId = 'imageUrl' in picked && (picked as BRoll).imageUrl ? picked.id : undefined
     onChange({ dataUri, sourceBRollId })
+  }
+
+  // Compact mode produces a single 80×80 square that matches the
+  // VideoRefStrip add-tile footprint. Tapping reveals an inline menu with
+  // Upload / Pick from Bank. Used by the Playground prompt bar so all
+  // frame + ref tiles read as one visual row.
+  if (compact) {
+    return (
+      <div>
+        <label className="mb-2 block text-[10px] font-medium uppercase tracking-wider text-zinc-500">
+          {label}
+          {helper && <span className="text-zinc-700 normal-case"> {helper}</span>}
+        </label>
+
+        {value ? (
+          <div className="relative h-20 w-20 overflow-hidden rounded-lg border border-white/10">
+            <img src={value.dataUri} alt="" className="h-full w-full object-cover" />
+            <button
+              onClick={() => onChange(null)}
+              className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/70 text-white/80 hover:bg-black/90"
+            >
+              <X className="h-2.5 w-2.5" />
+            </button>
+            {value.sourceBRollId && (
+              <span className="absolute left-1 top-1 rounded-full bg-black/70 px-1 py-0.5 text-[9px] font-medium text-zinc-300">
+                Bank
+              </span>
+            )}
+          </div>
+        ) : (
+          <div className="relative">
+            <button
+              onClick={() => setActionMenu((v) => !v)}
+              className="flex h-20 w-20 items-center justify-center rounded-lg border border-dashed border-white/15 bg-white/[0.02] text-zinc-500 transition-colors hover:border-white/25 hover:text-zinc-300"
+            >
+              <Upload className="h-4 w-4" />
+            </button>
+            {actionMenu && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setActionMenu(false)} />
+                <div className="absolute left-0 top-full z-40 mt-1 w-40 overflow-hidden rounded-lg border border-white/10 bg-[#0B0B0D]/95 shadow-xl backdrop-blur-xl">
+                  <button
+                    onClick={() => { setActionMenu(false); fileInputRef.current?.click() }}
+                    className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-[12px] text-zinc-300 transition-colors hover:bg-white/[0.06]"
+                  >
+                    <Upload className="h-3.5 w-3.5 shrink-0" />
+                    Upload image
+                  </button>
+                  <button
+                    onClick={() => { setActionMenu(false); setPickerOpen(true) }}
+                    className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-[12px] text-zinc-300 transition-colors hover:bg-white/[0.06]"
+                  >
+                    <Library className="h-3.5 w-3.5 shrink-0" />
+                    Pick from Bank
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
+        />
+
+        <BankPicker
+          bankType={bankType ?? 'brolls'}
+          isOpen={pickerOpen}
+          onClose={() => setPickerOpen(false)}
+          onSelect={handleBankPick}
+          filter={tabs ? undefined : (item) => !!(item as BRoll).imageUrl}
+          tabs={tabs}
+        />
+      </div>
+    )
   }
 
   return (

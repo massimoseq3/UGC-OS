@@ -135,7 +135,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
         return perImage * imageCount
       },
     },
-    imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '4:3', '3:4', '3:2', '2:3'] },
+    imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
   },
   {
     id: 'flux-2/pro-text-to-image',
@@ -152,7 +152,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
         return perImage * imageCount
       },
     },
-    imageConstraints: { resolutions: ['1K', '2K'], aspectRatios: ['9:16', '16:9', '1:1', '4:3', '3:4', '3:2', '2:3'] },
+    imageConstraints: { resolutions: ['1K', '2K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
   },
   {
     id: 'seedream/5-lite-text-to-image',
@@ -182,7 +182,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
         return perImage * imageCount
       },
     },
-    imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '4:3', '3:4', '3:2', '2:3'] },
+    imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
     defaultFor: ['broll-studio', 'character-studio'],
   },
   {
@@ -201,7 +201,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
         return perImage * imageCount
       },
     },
-    imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '4:3', '3:4', '3:2', '2:3'] },
+    imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
     defaultFor: ['broll-studio', 'character-studio'],
   },
 

@@ -111,7 +111,7 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode, bottomPadd
       {visibleInFlight.length > 0 && (
         <>
           <DayPill label="In progress" />
-          <div className="columns-1 gap-2 sm:columns-2 lg:columns-3 [column-fill:_balance]">
+          <div className="columns-2 gap-2 sm:columns-3 lg:columns-4 xl:columns-5 [column-fill:_balance]">
             {visibleInFlight.map((gen) => (
               <div key={gen.id} className="mb-2 break-inside-avoid">
                 <InFlightTile gen={gen} />
@@ -124,7 +124,7 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode, bottomPadd
       {dayGroups.map(([dayTs, dayItems]) => (
         <div key={dayTs}>
           <DayPill label={dayLabel(dayTs)} />
-          <div className="columns-1 gap-2 sm:columns-2 lg:columns-3 [column-fill:_balance]">
+          <div className="columns-2 gap-2 sm:columns-3 lg:columns-4 xl:columns-5 [column-fill:_balance]">
             {dayItems.map((entry) => (
               <div key={`${entry.kind}-${entry.data.id}`} className="mb-2 break-inside-avoid">
                 {entry.kind === 'image' && (

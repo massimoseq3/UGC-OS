@@ -358,7 +358,7 @@ export default function PromptBar({ state, onChange, onSubmit, isGenerating }: P
             className="border-b border-white/5 px-3 py-3"
           >
             {supportsFrames && (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-wrap gap-3">
                 <VideoInputSlot
                   label="Start frame"
                   helper="— optional"
@@ -366,6 +366,7 @@ export default function PromptBar({ state, onChange, onSubmit, isGenerating }: P
                   onChange={(v) => setSlot('start', v)}
                   bankType="models"
                   tabs={PLAYGROUND_REF_TABS}
+                  compact
                 />
                 <VideoInputSlot
                   label="End frame"
@@ -374,6 +375,7 @@ export default function PromptBar({ state, onChange, onSubmit, isGenerating }: P
                   onChange={(v) => supportsEndFrame && setSlot('end', v)}
                   bankType="models"
                   tabs={PLAYGROUND_REF_TABS}
+                  compact
                 />
               </div>
             )}
