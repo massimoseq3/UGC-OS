@@ -27,7 +27,7 @@ import {
   type VideoMode,
 } from '../../utils/models'
 import { saveAsset, saveBase64Asset, isAssetRef, getAsBase64 } from '../../utils/assetStore'
-import type { MusicHistoryItem, VideoHistoryItem } from '../../stores/types'
+import type { ImageHistoryItem, MusicHistoryItem, VideoHistoryItem } from '../../stores/types'
 
 // ── Image ──────────────────────────────────────────────────────────
 
@@ -40,7 +40,7 @@ export interface PlaygroundImageInput {
   referenceUrls?: string[]
 }
 
-export async function generatePlaygroundImage(input: PlaygroundImageInput): Promise<string> {
+export async function generatePlaygroundImage(input: PlaygroundImageInput): Promise<ImageHistoryItem> {
   const apiKey = useSettingsStore.getState().getKieApiKey()
 
   const inputUrls: string[] = []
@@ -66,16 +66,21 @@ export async function generatePlaygroundImage(input: PlaygroundImageInput): Prom
   const { base64, mimeType } = await downloadAsBase64(urls[0])
   const assetId = await saveBase64Asset(base64, mimeType)
 
-  // Pushing to brolls keeps the new image inside the existing cloud-synced
-  // R2 + project-tagging infrastructure. Playground entries leave product /
-  // model / script linkages empty, which is how PlaygroundHistoryGrid
-  // identifies them.
-  await useBankStore.getState().addBRoll({
-    imageUrl: assetId,
+  // Push to imageHistory rather than brolls — generations live in a
+  // history strip until the user explicitly saves them to the B-Rolls Bank
+  // (matches the video history → save-to-bank flow exactly). Cleanup on
+  // delete only purges the asset if the user never saved.
+  const item: ImageHistoryItem = {
+    id: crypto.randomUUID(),
+    modelId: input.modelId,
     prompt: input.prompt,
-  })
-
-  return assetId
+    aspectRatio: input.aspectRatio,
+    resolution: input.resolution,
+    imageUrl: assetId,
+    createdAt: Date.now(),
+  }
+  await useBankStore.getState().addImageHistory(item)
+  return item
 }
 
 // ── Video ──────────────────────────────────────────────────────────

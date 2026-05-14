@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Product, Model, Script, VoicePreset, BRoll, VoiceHistoryItem, VideoHistoryItem, MusicHistoryItem, Project } from './types'
+import type { Product, Model, Script, VoicePreset, BRoll, VoiceHistoryItem, VideoHistoryItem, ImageHistoryItem, MusicHistoryItem, Project } from './types'
 import { isAssetRef, deleteAsset, saveFromDataUrl } from '../utils/assetStore'
 import { useSettingsStore } from './settingsStore'
 import { useAuthStore } from './authStore'
@@ -21,6 +21,7 @@ interface BankState {
   brolls: BRoll[]
   voiceHistory: VoiceHistoryItem[]
   videoHistory: VideoHistoryItem[]
+  imageHistory: ImageHistoryItem[]
   musicHistory: MusicHistoryItem[]
 
   // Project CRUD
@@ -28,8 +29,8 @@ interface BankState {
   updateProject: (id: string, updates: Partial<Project>) => Promise<BankActionResult>
   deleteProject: (id: string) => Promise<BankActionResult>
   getProjectById: (id: string) => Project | undefined
-  addItemToProject: (bank: 'products' | 'models' | 'scripts' | 'voices' | 'brolls' | 'videoHistory' | 'musicHistory', itemId: string, projectId: string) => Promise<BankActionResult>
-  removeItemFromProject: (bank: 'products' | 'models' | 'scripts' | 'voices' | 'brolls' | 'videoHistory' | 'musicHistory', itemId: string, projectId: string) => Promise<BankActionResult>
+  addItemToProject: (bank: 'products' | 'models' | 'scripts' | 'voices' | 'brolls' | 'videoHistory' | 'imageHistory' | 'musicHistory', itemId: string, projectId: string) => Promise<BankActionResult>
+  removeItemFromProject: (bank: 'products' | 'models' | 'scripts' | 'voices' | 'brolls' | 'videoHistory' | 'imageHistory' | 'musicHistory', itemId: string, projectId: string) => Promise<BankActionResult>
 
   // Product CRUD
   addProduct: (product: Omit<Product, 'id' | 'createdAt'>) => Promise<BankActionResult>
@@ -72,6 +73,12 @@ interface BankState {
   deleteVideoHistory: (id: string) => Promise<BankActionResult>
   clearVideoHistory: () => Promise<BankActionResult>
 
+  // Image History (Playground)
+  addImageHistory: (item: ImageHistoryItem) => Promise<BankActionResult>
+  updateImageHistory: (id: string, updates: Partial<ImageHistoryItem>) => Promise<BankActionResult>
+  deleteImageHistory: (id: string) => Promise<BankActionResult>
+  clearImageHistory: () => Promise<BankActionResult>
+
   // Music History (Playground)
   addMusicHistory: (item: MusicHistoryItem) => Promise<BankActionResult>
   updateMusicHistory: (id: string, updates: Partial<MusicHistoryItem>) => Promise<BankActionResult>
@@ -83,7 +90,7 @@ function generateId(): string {
   return crypto.randomUUID()
 }
 
-type BankData = Pick<BankState, 'projects' | 'products' | 'models' | 'scripts' | 'voices' | 'brolls' | 'voiceHistory' | 'videoHistory' | 'musicHistory'>
+type BankData = Pick<BankState, 'projects' | 'products' | 'models' | 'scripts' | 'voices' | 'brolls' | 'voiceHistory' | 'videoHistory' | 'imageHistory' | 'musicHistory'>
 
 function autoProjectIds(existing?: string[]): string[] | undefined {
   const active = useSettingsStore.getState().activeProjectId
@@ -123,13 +130,14 @@ function loadFromStorage(): BankData {
         brolls: parsed.brolls ?? [],
         voiceHistory: migrateVoiceShape<VoiceHistoryItem>(parsed.voiceHistory),
         videoHistory: Array.isArray(parsed.videoHistory) ? parsed.videoHistory : [],
+        imageHistory: Array.isArray(parsed.imageHistory) ? parsed.imageHistory : [],
         musicHistory: Array.isArray(parsed.musicHistory) ? parsed.musicHistory : [],
       }
     }
   } catch {
     /* corrupted — start fresh */
   }
-  return { projects: [], products: [], models: [], scripts: [], voices: [], brolls: [], voiceHistory: [], videoHistory: [], musicHistory: [] }
+  return { projects: [], products: [], models: [], scripts: [], voices: [], brolls: [], voiceHistory: [], videoHistory: [], imageHistory: [], musicHistory: [] }
 }
 
 let pendingSave: BankData | null = null
@@ -150,6 +158,7 @@ function flushSaveToStorage() {
       brolls: state.brolls,
       voiceHistory: state.voiceHistory,
       videoHistory: state.videoHistory,
+      imageHistory: state.imageHistory,
       musicHistory: state.musicHistory,
     }))
   } catch (error) {
@@ -258,6 +267,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       voices: scrub(state.voices),
       brolls: scrub(state.brolls),
       videoHistory: scrub(state.videoHistory),
+      imageHistory: scrub(state.imageHistory),
       musicHistory: scrub(state.musicHistory),
     }
 
@@ -271,6 +281,7 @@ export const useBankStore = create<BankState>((set, get) => ({
         ['voices', scrubbed.voices.filter((it, i) => it !== state.voices[i])],
         ['brolls', scrubbed.brolls.filter((it, i) => it !== state.brolls[i])],
         ['videoHistory', scrubbed.videoHistory.filter((it, i) => it !== state.videoHistory[i])],
+        ['imageHistory', scrubbed.imageHistory.filter((it, i) => it !== state.imageHistory[i])],
         ['musicHistory', scrubbed.musicHistory.filter((it, i) => it !== state.musicHistory[i])],
       ]
       for (const [table, rows] of dirty) {
@@ -291,6 +302,7 @@ export const useBankStore = create<BankState>((set, get) => ({
         voices: scrubbed.voices,
         brolls: scrubbed.brolls,
         videoHistory: scrubbed.videoHistory,
+        imageHistory: scrubbed.imageHistory,
         musicHistory: scrubbed.musicHistory,
       }
       saveToStorage({ ...s, ...next })
@@ -647,6 +659,63 @@ export const useBankStore = create<BankState>((set, get) => ({
       return next
     })
     reportSuccess('Video history cleared')
+  },
+
+  // ── Image History (Playground) ──────────────────────────────────
+  addImageHistory: async (item) => {
+    const projectIds = autoProjectIds(item.projectIds)
+    const newItem: ImageHistoryItem = { ...item, projectIds }
+    try { await pushRow('imageHistory', newItem) } catch (e) { reportError('Save image history', e) }
+    set((state) => {
+      const next = { imageHistory: [newItem, ...state.imageHistory] }
+      saveToStorage({ ...state, ...next })
+      return next
+    })
+  },
+
+  updateImageHistory: async (id, updates) => {
+    const old = get().imageHistory.find((h) => h.id === id)
+    if (!old) return
+    const updated: ImageHistoryItem = { ...old, ...updates }
+    try { await pushRow('imageHistory', updated) } catch (e) { reportError('Update image history', e) }
+    set((state) => {
+      const next = { imageHistory: state.imageHistory.map((h) => h.id === id ? updated : h) }
+      saveToStorage({ ...state, ...next })
+      return next
+    })
+  },
+
+  deleteImageHistory: async (id) => {
+    const item = get().imageHistory.find((h) => h.id === id)
+    if (!item) return
+    try { await dropRow('imageHistory', id) } catch (e) { reportError('Delete image history', e) }
+    // Only purge the asset blob if the image isn't saved to a BRoll record
+    // — saved entries reference the same `imageUrl`, and the BRoll owns it.
+    if (!item.linkedBRollId) await cleanupAssets(item.imageUrl)
+    set((state) => {
+      const next = { imageHistory: state.imageHistory.filter((h) => h.id !== id) }
+      saveToStorage({ ...state, ...next })
+      return next
+    })
+    reportSuccess('Image removed from history')
+  },
+
+  clearImageHistory: async () => {
+    const items = get().imageHistory
+    if (cloudActive()) {
+      for (const item of items) {
+        try { await dropRow('imageHistory', item.id) } catch (e) { console.warn('clear image history', e) }
+      }
+    }
+    for (const item of items) {
+      if (!item.linkedBRollId) await cleanupAssets(item.imageUrl)
+    }
+    set((state) => {
+      const next = { imageHistory: [] as ImageHistoryItem[] }
+      saveToStorage({ ...state, ...next })
+      return next
+    })
+    reportSuccess('Image history cleared')
   },
 
   // ── Music History (Playground) ──────────────────────────────────
