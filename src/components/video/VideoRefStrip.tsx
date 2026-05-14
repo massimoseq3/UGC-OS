@@ -2,9 +2,12 @@ import { useRef, useState } from 'react'
 import { Upload, X, Library, Plus } from 'lucide-react'
 import { fileToDataUri } from '../../utils/kie'
 import { isAssetRef, getAsBase64 } from '../../utils/assetStore'
-import type { BRoll } from '../../stores/types'
+import type { BRoll, Product, Model, Script, VoicePreset } from '../../stores/types'
+import type { BankType } from '../../utils/constants'
 import BankPicker from '../BankPicker'
 import type { VideoInputValue } from './VideoInputSlot'
+
+type BankItem = Product | Model | Script | VoicePreset | BRoll
 
 interface VideoRefStripProps {
   label: string
@@ -12,20 +15,32 @@ interface VideoRefStripProps {
   values: VideoInputValue[]
   onChange: (next: VideoInputValue[]) => void
   max: number
+  // When set, the BankPicker opens on this bank instead of the default 'brolls'.
+  bankType?: BankType
+  // When set, BankPicker renders an inline tab strip.
+  tabs?: Array<BankType | { type: BankType; filter?: (item: BankItem) => boolean }>
 }
 
-async function brollToDataUri(broll: BRoll): Promise<string | null> {
-  if (!broll.imageUrl) return null
-  if (broll.imageUrl.startsWith('data:')) return broll.imageUrl
-  if (isAssetRef(broll.imageUrl)) {
-    const asset = await getAsBase64(broll.imageUrl)
+function bankItemImageField(item: BankItem): string | undefined {
+  if ('imageUrl' in item && item.imageUrl) return item.imageUrl as string
+  if ('characterImage' in item && item.characterImage) return item.characterImage as string
+  if ('productImage' in item && item.productImage) return item.productImage as string
+  return undefined
+}
+
+async function bankItemToDataUri(item: BankItem): Promise<string | null> {
+  const src = bankItemImageField(item)
+  if (!src) return null
+  if (src.startsWith('data:')) return src
+  if (isAssetRef(src)) {
+    const asset = await getAsBase64(src)
     if (!asset) return null
     return `data:${asset.mimeType};base64,${asset.base64}`
   }
-  return broll.imageUrl
+  return src
 }
 
-export default function VideoRefStrip({ label, helper, values, onChange, max }: VideoRefStripProps) {
+export default function VideoRefStrip({ label, helper, values, onChange, max, bankType, tabs }: VideoRefStripProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [actionMenu, setActionMenu] = useState(false)
@@ -40,12 +55,14 @@ export default function VideoRefStrip({ label, helper, values, onChange, max }: 
   }
 
   async function handleBankPickMany(items: unknown[]) {
-    const brolls = items as BRoll[]
+    const picked = items as BankItem[]
     const slotsLeft = max - values.length
     const additions: VideoInputValue[] = []
-    for (const broll of brolls.slice(0, slotsLeft)) {
-      const dataUri = await brollToDataUri(broll)
-      if (dataUri) additions.push({ dataUri, sourceBRollId: broll.id })
+    for (const item of picked.slice(0, slotsLeft)) {
+      const dataUri = await bankItemToDataUri(item)
+      if (!dataUri) continue
+      const sourceBRollId = 'imageUrl' in item && (item as BRoll).imageUrl ? item.id : undefined
+      additions.push({ dataUri, sourceBRollId })
     }
     onChange([...values, ...additions])
   }
@@ -120,13 +137,14 @@ export default function VideoRefStrip({ label, helper, values, onChange, max }: 
       />
 
       <BankPicker
-        bankType="brolls"
+        bankType={bankType ?? 'brolls'}
         isOpen={pickerOpen}
         onClose={() => setPickerOpen(false)}
         onSelect={() => { /* unused in multi-select mode */ }}
         multiSelect
         onSelectMany={handleBankPickMany}
-        filter={(item) => !!(item as BRoll).imageUrl}
+        filter={tabs ? undefined : (item) => !!(item as BRoll).imageUrl}
+        tabs={tabs}
       />
     </div>
   )

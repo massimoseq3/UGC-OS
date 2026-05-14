@@ -30,7 +30,7 @@ export default function PresetCard({ preset, onClick }: PresetCardProps) {
         const v = videoRef.current
         if (v) { v.pause(); v.currentTime = 0 }
       }}
-      className="group relative flex aspect-[4/5] flex-col overflow-hidden rounded-xl border border-white/10 bg-white/[0.02] text-left transition-all hover:border-white/25 hover:bg-white/[0.04]"
+      className="group relative flex aspect-square flex-col overflow-hidden rounded-xl border border-white/10 bg-white/[0.02] text-left transition-all hover:border-white/25 hover:bg-white/[0.04]"
     >
       {/* Visual layer */}
       <div className="relative flex-1 overflow-hidden">

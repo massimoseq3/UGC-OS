@@ -2,8 +2,11 @@ import { useRef, useState } from 'react'
 import { Upload, X, Library } from 'lucide-react'
 import { fileToDataUri } from '../../utils/kie'
 import { isAssetRef, getAsBase64 } from '../../utils/assetStore'
-import type { BRoll } from '../../stores/types'
+import type { BRoll, Product, Model, Script, VoicePreset } from '../../stores/types'
+import type { BankType } from '../../utils/constants'
 import BankPicker from '../BankPicker'
+
+type BankItem = Product | Model | Script | VoicePreset | BRoll
 
 export interface VideoInputValue {
   dataUri: string
@@ -15,24 +18,43 @@ interface VideoInputSlotProps {
   helper?: string
   value: VideoInputValue | null
   onChange: (next: VideoInputValue | null) => void
+  // When set, the BankPicker opens on this bank instead of the default 'brolls'.
+  bankType?: BankType
+  // When set, BankPicker renders an inline tab strip so the user can switch
+  // between these bank types without closing. See BankPicker for the prop shape.
+  tabs?: Array<BankType | { type: BankType; filter?: (item: BankItem) => boolean }>
 }
 
-async function brollToDataUri(broll: BRoll): Promise<string | null> {
-  if (!broll.imageUrl) return null
-  if (broll.imageUrl.startsWith('data:')) return broll.imageUrl
-  if (isAssetRef(broll.imageUrl)) {
-    const asset = await getAsBase64(broll.imageUrl)
+// Each bank type stores its image in a different field. Extract whichever
+// one is present so this slot works with brolls / characters / products
+// when used in tab-mode.
+function bankItemImageField(item: BankItem): string | undefined {
+  if ('imageUrl' in item && item.imageUrl) return item.imageUrl as string
+  if ('characterImage' in item && item.characterImage) return item.characterImage as string
+  if ('productImage' in item && item.productImage) return item.productImage as string
+  return undefined
+}
+
+async function bankItemToDataUri(item: BankItem): Promise<string | null> {
+  const src = bankItemImageField(item)
+  if (!src) return null
+  if (src.startsWith('data:')) return src
+  if (isAssetRef(src)) {
+    const asset = await getAsBase64(src)
     if (!asset) return null
     return `data:${asset.mimeType};base64,${asset.base64}`
   }
-  return broll.imageUrl
+  return src
 }
 
 // Image input slot used by B-Roll Videos for start/end frames. Two sources:
 // Upload (file picker) and Pick from Bank (BankPicker filtered to brolls with
 // stills). Tracks the source BRoll id when picked from the bank so the save
 // flow can attach the generated video to the original record.
-export default function VideoInputSlot({ label, helper, value, onChange }: VideoInputSlotProps) {
+//
+// When `tabs` is supplied (e.g. from Playground) the picker is multi-bank;
+// picking a Character or Product carries no `sourceBRollId`.
+export default function VideoInputSlot({ label, helper, value, onChange, bankType, tabs }: VideoInputSlotProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
 
@@ -43,10 +65,13 @@ export default function VideoInputSlot({ label, helper, value, onChange }: Video
   }
 
   async function handleBankPick(item: unknown) {
-    const broll = item as BRoll
-    const dataUri = await brollToDataUri(broll)
+    const picked = item as BankItem
+    const dataUri = await bankItemToDataUri(picked)
     if (!dataUri) return
-    onChange({ dataUri, sourceBRollId: broll.id })
+    // Only BRolls carry a meaningful "source" for save-back linkage. For
+    // characters / products the id is meaningless to the save-to-bank flow.
+    const sourceBRollId = 'imageUrl' in picked && (picked as BRoll).imageUrl ? picked.id : undefined
+    onChange({ dataUri, sourceBRollId })
   }
 
   return (
@@ -105,11 +130,15 @@ export default function VideoInputSlot({ label, helper, value, onChange }: Video
       />
 
       <BankPicker
-        bankType="brolls"
+        bankType={bankType ?? 'brolls'}
         isOpen={pickerOpen}
         onClose={() => setPickerOpen(false)}
         onSelect={handleBankPick}
-        filter={(item) => !!(item as BRoll).imageUrl}
+        // Without tabs we keep the legacy filter (brolls with stills only).
+        // With tabs, each tab can supply its own filter and we don't apply
+        // a global one because Characters / Products always have an image.
+        filter={tabs ? undefined : (item) => !!(item as BRoll).imageUrl}
+        tabs={tabs}
       />
     </div>
   )

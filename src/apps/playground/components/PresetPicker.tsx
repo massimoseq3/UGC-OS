@@ -42,14 +42,17 @@ export default function PresetPicker({ onSelect }: PresetPickerProps) {
       </button>
 
       {open && (
-        <div className="absolute bottom-full right-0 z-40 mb-2 w-[min(640px,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-white/10 bg-[#0B0B0D]/95 shadow-2xl backdrop-blur-xl">
-          <div className="border-b border-white/5 px-4 py-3">
+        // Outer panel clamps to viewport height so the grid never spills off
+        // the top edge no matter where the prompt bar sits. Inner grid
+        // scrolls within the panel if it overflows.
+        <div className="absolute bottom-full right-0 z-40 mb-2 flex w-[min(560px,calc(100vw-2rem))] max-h-[calc(100vh-7rem)] flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0B0B0D]/95 shadow-2xl backdrop-blur-xl">
+          <div className="shrink-0 border-b border-white/5 px-4 py-3">
             <p className="text-[12px] font-medium text-zinc-200">UGC ad format presets</p>
             <p className="mt-0.5 text-[11px] text-zinc-500">
               Pick a format to prefill the prompt + aspect ratio.
             </p>
           </div>
-          <div className="grid max-h-[60vh] grid-cols-2 gap-3 overflow-y-auto p-4 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3 overflow-y-auto p-4 sm:grid-cols-3">
             {VIDEO_PRESETS.map((preset) => (
               <PresetCard key={preset.id} preset={preset} onClick={() => pick(preset)} />
             ))}

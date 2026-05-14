@@ -59,9 +59,12 @@ export interface VideoConstraints {
 // Resolutions are kie.ai's tier strings ('1K' | '2K' | '4K'). `default` is
 // what new sessions land on if no user preference is stored — defaults to
 // the first entry in `resolutions` if omitted.
+// `aspectRatios` enumerates the aspect strings the model accepts (e.g.
+// '1:1', '16:9'); omit when the model accepts the full common set.
 export interface ImageConstraints {
   resolutions: string[]
   default?: string
+  aspectRatios?: string[]
 }
 
 export interface ModelEntry {
@@ -132,7 +135,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
         return perImage * imageCount
       },
     },
-    imageConstraints: { resolutions: ['1K', '2K', '4K'] },
+    imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '4:3', '3:4', '3:2', '2:3'] },
   },
   {
     id: 'flux-2/pro-text-to-image',
@@ -149,7 +152,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
         return perImage * imageCount
       },
     },
-    imageConstraints: { resolutions: ['1K', '2K'] },
+    imageConstraints: { resolutions: ['1K', '2K'], aspectRatios: ['9:16', '16:9', '1:1', '4:3', '3:4', '3:2', '2:3'] },
   },
   {
     id: 'seedream/5-lite-text-to-image',
@@ -159,7 +162,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     modes: ['text-to-image'],
     tags: ['new', 'fast'],
     pricing: { unit: 'per-image', credits: 5.5 },
-    imageConstraints: { resolutions: ['1K'] },
+    imageConstraints: { resolutions: ['1K'], aspectRatios: ['9:16', '16:9', '1:1'] },
   },
   {
     id: 'gpt-image-2-text-to-image',
@@ -179,7 +182,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
         return perImage * imageCount
       },
     },
-    imageConstraints: { resolutions: ['1K', '2K', '4K'] },
+    imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '4:3', '3:4', '3:2', '2:3'] },
     defaultFor: ['broll-studio', 'character-studio'],
   },
   {
@@ -198,7 +201,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
         return perImage * imageCount
       },
     },
-    imageConstraints: { resolutions: ['1K', '2K', '4K'] },
+    imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '4:3', '3:4', '3:2', '2:3'] },
     defaultFor: ['broll-studio', 'character-studio'],
   },
 
@@ -459,9 +462,8 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     provider: 'Suno',
     task: 'music',
     modes: ['text-to-music'],
-    tags: ['recommended', 'new'],
+    tags: [],
     pricing: { unit: 'per-call', credits: 40 }, // TODO: confirm against kie.ai/pricing
-    defaultFor: ['playground'],
   },
   {
     id: 'suno-v5_5',
@@ -469,8 +471,9 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     provider: 'Suno',
     task: 'music',
     modes: ['text-to-music'],
-    tags: ['new'],
+    tags: ['recommended', 'new'],
     pricing: { unit: 'per-call', credits: 50 }, // TODO: confirm against kie.ai/pricing
+    defaultFor: ['playground'],
   },
 
   // ── Text-to-Speech ────────────────────────────────────────────

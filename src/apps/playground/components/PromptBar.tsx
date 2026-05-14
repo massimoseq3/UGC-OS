@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import {
   Image as ImageIcon,
   Film,
@@ -9,6 +10,7 @@ import {
   VolumeX,
 } from 'lucide-react'
 import ModelPicker from '../../../components/ModelPicker'
+import AspectIcon from '../../../components/AspectIcon'
 import {
   getDefaultModel,
   getModel,
@@ -19,10 +21,22 @@ import { useSettingsStore } from '../../../stores/settingsStore'
 import { fileToDataUri } from '../../../utils/kie'
 import VideoInputSlot, { type VideoInputValue } from '../../../components/video/VideoInputSlot'
 import VideoRefStrip from '../../../components/video/VideoRefStrip'
+import type { BankType } from '../../../utils/constants'
+import type { BRoll } from '../../../stores/types'
 import PresetPicker from './PresetPicker'
 import MentionPopover from './MentionPopover'
 import type { PlaygroundMode, BankReference } from '../types'
 import type { Preset } from '../presets'
+
+// Tabs passed to BankPicker when used from Playground refs. Characters comes
+// first so opening the picker lands the user there by default; B-Rolls are
+// filtered to those with stills (videos-only b-rolls aren't useful as image
+// refs).
+const PLAYGROUND_REF_TABS: Array<{ type: BankType; filter?: (item: BRoll | unknown) => boolean }> = [
+  { type: 'models' },
+  { type: 'products' },
+  { type: 'brolls', filter: (item) => !!(item as BRoll).imageUrl },
+]
 
 // Reference attached to the prompt — either dropped/uploaded by the user or
 // resolved from an @-mention. `source` distinguishes so the UI can render
@@ -238,9 +252,15 @@ export default function PromptBar({ state, onChange, onSubmit, isGenerating }: P
         ? c.durations[0]
         : durationFromPreset
 
+    // Append (with a blank-line separator) when there's already text in the
+    // textarea — users were losing typed context every time they picked a
+    // preset. Empty box → replace cleanly.
+    const existing = state.prompt.trim()
+    const nextPrompt = existing ? `${existing}\n\n${preset.prompt}` : preset.prompt
+
     onChange({
       ...state,
-      prompt: preset.prompt,
+      prompt: nextPrompt,
       aspectRatio: finalAspect,
       durationSeconds: finalDuration,
     })
@@ -277,13 +297,12 @@ export default function PromptBar({ state, onChange, onSubmit, isGenerating }: P
       onDragOver={(e) => { e.preventDefault(); if (state.mode !== 'music') setDragOver(true) }}
       onDragLeave={() => setDragOver(false)}
       onDrop={handleDrop}
-      // No `backdrop-filter` here on purpose — the shared BankPicker uses
-      // `position: fixed` to lock to the viewport, but a backdrop-filter
-      // ancestor establishes a containing block for fixed descendants, which
-      // pinned the picker to PromptBar's bounding box instead of the
-      // viewport (so it stayed partially visible when "closed"). Solid bg
-      // gives the same visual without the side effect.
-      className={`relative w-full rounded-2xl border bg-[#0B0B0D] shadow-2xl transition-colors ${
+      // Glassmorphism: translucent + backdrop blur so history tiles
+      // visibly slide *under* the bar as the grid scrolls behind it.
+      // Safe to use backdrop-filter here because BankPicker renders through
+      // a portal at document.body, so it isn't trapped by our containing
+      // block.
+      className={`relative w-full rounded-2xl border bg-[#0B0B0D]/70 shadow-2xl backdrop-blur-xl transition-colors ${
         dragOver ? 'border-yellow-500/40' : 'border-white/10'
       }`}
     >
@@ -323,53 +342,77 @@ export default function PromptBar({ state, onChange, onSubmit, isGenerating }: P
       </div>
 
       {/* Frame + reference inputs.
-          Video mode: start frame + end frame slots side-by-side (when the
-          model supports image-to-video / frames-to-video), then a reference
-          image strip for reference-to-video. Matches B-Roll Videos layout.
-          Image mode: a single reference strip — useful for image-to-image
-          and image-edit. Music mode: no refs (Suno doesn't accept them). */}
-      {state.mode === 'video' && (
-        <div className="border-b border-white/5 px-3 py-3">
-          {supportsFrames && (
-            <div className="grid grid-cols-2 gap-3">
-              <VideoInputSlot
-                label="Start frame"
-                helper="— optional"
-                value={startFrameValue()}
-                onChange={(v) => setSlot('start', v)}
-              />
-              <VideoInputSlot
-                label="End frame"
-                helper={supportsEndFrame ? '— optional' : '— not supported by this model'}
-                value={supportsEndFrame ? endFrameValue() : null}
-                onChange={(v) => supportsEndFrame && setSlot('end', v)}
-              />
-            </div>
-          )}
-          {refsAllowed && (
-            <div className={supportsFrames ? 'mt-3' : ''}>
-              <VideoRefStrip
-                label="Reference images"
-                helper="optional"
-                values={refStripValues()}
-                onChange={setRefStrip}
-                max={maxRefs}
-              />
-            </div>
-          )}
-        </div>
-      )}
-      {state.mode === 'image' && (
-        <div className="border-b border-white/5 px-3 py-3">
-          <VideoRefStrip
-            label="Reference images"
-            helper="optional — used for image-to-image when the model supports it"
-            values={refStripValues()}
-            onChange={setRefStrip}
-            max={4}
-          />
-        </div>
-      )}
+          Wrapped in AnimatePresence so swapping modes cross-fades instead
+          of hard-cutting. Video mode: start + end frame slots (when the
+          model supports image-to-video / frames-to-video) plus a reference
+          image strip for reference-to-video. Image mode: a single
+          reference strip. Music mode: no refs (Suno doesn't accept them). */}
+      <AnimatePresence mode="wait" initial={false}>
+        {state.mode === 'video' && (
+          <motion.div
+            key="video-refs"
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.15, ease: 'easeOut' }}
+            className="border-b border-white/5 px-3 py-3"
+          >
+            {supportsFrames && (
+              <div className="grid grid-cols-2 gap-3">
+                <VideoInputSlot
+                  label="Start frame"
+                  helper="— optional"
+                  value={startFrameValue()}
+                  onChange={(v) => setSlot('start', v)}
+                  bankType="models"
+                  tabs={PLAYGROUND_REF_TABS}
+                />
+                <VideoInputSlot
+                  label="End frame"
+                  helper={supportsEndFrame ? '— optional' : '— not supported by this model'}
+                  value={supportsEndFrame ? endFrameValue() : null}
+                  onChange={(v) => supportsEndFrame && setSlot('end', v)}
+                  bankType="models"
+                  tabs={PLAYGROUND_REF_TABS}
+                />
+              </div>
+            )}
+            {refsAllowed && (
+              <div className={supportsFrames ? 'mt-3' : ''}>
+                <VideoRefStrip
+                  label="Reference images"
+                  helper="optional"
+                  values={refStripValues()}
+                  onChange={setRefStrip}
+                  max={maxRefs}
+                  bankType="models"
+                  tabs={PLAYGROUND_REF_TABS}
+                />
+              </div>
+            )}
+          </motion.div>
+        )}
+        {state.mode === 'image' && (
+          <motion.div
+            key="image-refs"
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.15, ease: 'easeOut' }}
+            className="border-b border-white/5 px-3 py-3"
+          >
+            <VideoRefStrip
+              label="Reference images"
+              helper="optional"
+              values={refStripValues()}
+              onChange={setRefStrip}
+              max={4}
+              bankType="models"
+              tabs={PLAYGROUND_REF_TABS}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Textarea */}
       <div className="relative px-3 pt-2">
@@ -416,20 +459,28 @@ export default function PromptBar({ state, onChange, onSubmit, isGenerating }: P
           />
         </div>
 
-        {/* Constraint chips based on mode + model */}
+        {/* Constraint chips based on mode + model. Aspect chips include a
+            tiny outlined rectangle preview so users can see at a glance what
+            '9:16' vs '16:9' actually looks like. */}
         {state.mode === 'video' && model?.videoConstraints && (
           <>
             <ConstraintChip
               options={model.videoConstraints.aspectRatios}
               value={state.aspectRatio}
               onChange={(v) => onChange({ ...state, aspectRatio: v })}
+              render={(v) => (
+                <span className="flex items-center gap-1.5">
+                  <AspectIcon ratio={v} />
+                  <span>{v}</span>
+                </span>
+              )}
             />
             {model.videoConstraints.durations.length > 0 && (
               <ConstraintChip
                 options={model.videoConstraints.durations.map(String)}
                 value={String(state.durationSeconds)}
                 onChange={(v) => onChange({ ...state, durationSeconds: Number(v) })}
-                render={(v) => `${v}s`}
+                render={(v) => <span>{v}s</span>}
               />
             )}
             <ConstraintChip
@@ -455,11 +506,26 @@ export default function PromptBar({ state, onChange, onSubmit, isGenerating }: P
         )}
 
         {state.mode === 'image' && model?.imageConstraints && (
-          <ConstraintChip
-            options={model.imageConstraints.resolutions}
-            value={state.resolution}
-            onChange={(v) => onChange({ ...state, resolution: v })}
-          />
+          <>
+            {model.imageConstraints.aspectRatios && (
+              <ConstraintChip
+                options={model.imageConstraints.aspectRatios}
+                value={state.aspectRatio}
+                onChange={(v) => onChange({ ...state, aspectRatio: v })}
+                render={(v) => (
+                  <span className="flex items-center gap-1.5">
+                    <AspectIcon ratio={v} />
+                    <span>{v}</span>
+                  </span>
+                )}
+              />
+            )}
+            <ConstraintChip
+              options={model.imageConstraints.resolutions}
+              value={state.resolution}
+              onChange={(v) => onChange({ ...state, resolution: v })}
+            />
+          </>
         )}
 
         {state.mode === 'music' && (
@@ -499,7 +565,8 @@ function ConstraintChip({
   options: string[]
   value: string
   onChange: (next: string) => void
-  render?: (v: string) => string
+  // Returns the chip's content — pass JSX (e.g. icon + label) or a string.
+  render?: (v: string) => React.ReactNode
 }) {
   const [open, setOpen] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
@@ -518,7 +585,7 @@ function ConstraintChip({
         onClick={() => setOpen((v) => !v)}
         className="flex h-7 items-center gap-1 rounded-full border border-white/10 bg-white/[0.02] px-2.5 text-[11px] text-zinc-300 transition-colors hover:bg-white/[0.05]"
       >
-        <span>{render ? render(value) : value}</span>
+        {render ? render(value) : <span>{value}</span>}
       </button>
       {open && (
         <div className="absolute bottom-full left-0 z-40 mb-1 min-w-[100px] overflow-hidden rounded-md border border-white/10 bg-[#0B0B0D]/95 shadow-xl backdrop-blur-xl">

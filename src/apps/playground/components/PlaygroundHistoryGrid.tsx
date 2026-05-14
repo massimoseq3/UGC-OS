@@ -27,6 +27,9 @@ interface PlaygroundHistoryGridProps {
   inFlight: InFlightGen[]
   // Active mode filter — null shows everything.
   filterMode: PlaygroundMode | null
+  // Add bottom padding so content scrolls under a floating overlay (the
+  // glassmorphism prompt bar). Tuned to ~bar height + a comfortable margin.
+  bottomPadding?: boolean
 }
 
 function startOfDay(ts: number): number {
@@ -43,7 +46,7 @@ function dayLabel(dayTs: number): string {
   return new Date(dayTs).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })
 }
 
-export default function PlaygroundHistoryGrid({ inFlight, filterMode }: PlaygroundHistoryGridProps) {
+export default function PlaygroundHistoryGrid({ inFlight, filterMode, bottomPadding }: PlaygroundHistoryGridProps) {
   const brolls = useBankStore((s) => s.brolls)
   const videoHistory = useBankStore((s) => s.videoHistory)
   const musicHistory = useBankStore((s) => s.musicHistory)
@@ -104,7 +107,7 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode }: Playgrou
   }
 
   return (
-    <div className="h-full overflow-y-auto px-4 py-3">
+    <div className={`h-full overflow-y-auto px-4 py-3 ${bottomPadding ? 'pb-64' : ''}`}>
       {visibleInFlight.length > 0 && (
         <>
           <DayPill label="In progress" />

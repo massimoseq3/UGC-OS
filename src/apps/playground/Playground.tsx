@@ -139,23 +139,28 @@ export default function Playground() {
   const isGenerating = inFlight.length > 0
 
   return (
-    <div className="flex h-full flex-col">
-      {/* History grid fills the space above the prompt bar. */}
-      <div className="min-h-0 flex-1 overflow-hidden">
-        <PlaygroundHistoryGrid inFlight={inFlight} filterMode={filterMode} />
+    <div className="relative h-full">
+      {/* History grid fills the full height. Bottom padding leaves room for
+          the floating glassmorphism prompt bar so tiles scroll *underneath*
+          the bar instead of being clipped at its top edge. */}
+      <div className="h-full overflow-hidden">
+        <PlaygroundHistoryGrid inFlight={inFlight} filterMode={filterMode} bottomPadding />
       </div>
 
-      {/* Bottom-anchored prompt bar — the centerpiece of the surface. */}
-      <div className="mx-auto w-full max-w-3xl shrink-0 px-4 pb-4 pt-2">
-        <PromptBar
-          state={state}
-          onChange={setState}
-          onSubmit={handleSubmit}
-          isGenerating={isGenerating}
-        />
-        <p className="mt-2 text-center text-[10px] text-zinc-600">
-          Tip: type <span className="font-medium text-zinc-500">@</span> to reference Products, Characters, or B-Rolls.
-        </p>
+      {/* Bottom-anchored prompt bar — absolute over the grid so it floats
+          with a translucent glassmorphism backdrop. */}
+      <div className="pointer-events-none absolute bottom-0 left-0 right-0 px-4 pb-4 pt-2">
+        <div className="pointer-events-auto mx-auto w-full max-w-3xl">
+          <PromptBar
+            state={state}
+            onChange={setState}
+            onSubmit={handleSubmit}
+            isGenerating={isGenerating}
+          />
+          <p className="mt-2 text-center text-[10px] text-zinc-600">
+            Tip: type <span className="font-medium text-zinc-500">@</span> to reference Products, Characters, or B-Rolls.
+          </p>
+        </div>
       </div>
     </div>
   )
