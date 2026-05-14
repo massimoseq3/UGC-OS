@@ -9,24 +9,26 @@ import OutputPanel from './components/OutputPanel'
 import { generateCharacter } from './services/generateCharacter'
 import { analyzeImage } from './services/analyzeImage'
 import type { GenerationResult } from './services/generateCharacter'
+import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
 
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 const MAX_SIZE = 10 * 1024 * 1024
 
 export default function CharacterStudio() {
-  const [profile, setProfile] = useState<CharacterProfile>(createEmptyProfile)
-  const [result, setResult] = useState<GenerationResult | null>(null)
-  const [isGenerating, setIsGenerating] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<TabId>('physical')
+  const baseKey = useProjectScopedKey('character-studio')
+  const [profile, setProfile] = usePersistedState<CharacterProfile>(`${baseKey}:profile`, createEmptyProfile())
+  const [result, setResult] = usePersistedState<GenerationResult | null>(`${baseKey}:result`, null)
+  const [activeTab, setActiveTab] = usePersistedState<TabId>(`${baseKey}:tab`, 'physical')
   // Characters always opens at 1K — high-res image generation is opt-in
   // here. The user can pick 2K / 4K from the resolution toggle when they
   // want it.
-  const [resolution, setResolution] = useState<ImageResolution>('1K')
+  const [resolution, setResolution] = usePersistedState<ImageResolution>(`${baseKey}:resolution`, '1K')
+  const [extractedThumb, setExtractedThumb] = usePersistedState<string | null>(`${baseKey}:thumb`, null)
 
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [isExtracting, setIsExtracting] = useState(false)
   const [extractError, setExtractError] = useState<string | null>(null)
-  const [extractedThumb, setExtractedThumb] = useState<string | null>(null)
   const [overlayActive, setOverlayActive] = useState(false)
 
   const abortRef = useRef<AbortController | null>(null)

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useAppStore } from '../../stores/appStore'
 import { useBankStore } from '../../stores/bankStore'
 import type { Product, Model, Script } from '../../stores/types'
@@ -7,16 +7,19 @@ import { generateBroll } from './services/generateBroll'
 import InputPanel from './components/InputPanel'
 import OutputPanel from './components/OutputPanel'
 import BankPicker from '../../components/BankPicker'
+import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
 
 type PickerMode = 'products' | 'models' | 'scripts' | null
 
 export default function BrollStudio() {
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
-  const [selectedModel, setSelectedModel] = useState<Model | null>(null)
-  const [selectedScript, setSelectedScript] = useState<Script | null>(null)
-  const [scriptText, setScriptText] = useState('')
-  const [additionalContext, setAdditionalContext] = useState('')
-  const [result, setResult] = useState<BrollResult | null>(null)
+  const baseKey = useProjectScopedKey('broll-studio')
+  const [selectedProductId, setSelectedProductId] = usePersistedState<string | null>(`${baseKey}:productId`, null)
+  const [selectedModelId, setSelectedModelId] = usePersistedState<string | null>(`${baseKey}:modelId`, null)
+  const [selectedScriptId, setSelectedScriptId] = usePersistedState<string | null>(`${baseKey}:scriptId`, null)
+  const [scriptText, setScriptText] = usePersistedState(`${baseKey}:scriptText`, '')
+  const [additionalContext, setAdditionalContext] = usePersistedState(`${baseKey}:context`, '')
+  const [result, setResult] = usePersistedState<BrollResult | null>(`${baseKey}:result`, null)
+
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [pickerMode, setPickerMode] = useState<PickerMode>(null)
@@ -26,6 +29,22 @@ export default function BrollStudio() {
   const consumePayload = useAppStore((s) => s.consumePayload)
   const activeApp = useAppStore((s) => s.activeApp)
   const getScriptById = useBankStore((s) => s.getScriptById)
+  const products = useBankStore((s) => s.products)
+  const models = useBankStore((s) => s.models)
+  const scripts = useBankStore((s) => s.scripts)
+
+  const selectedProduct = useMemo<Product | null>(
+    () => (selectedProductId ? products.find((p) => p.id === selectedProductId) ?? null : null),
+    [selectedProductId, products],
+  )
+  const selectedModel = useMemo<Model | null>(
+    () => (selectedModelId ? models.find((m) => m.id === selectedModelId) ?? null : null),
+    [selectedModelId, models],
+  )
+  const selectedScript = useMemo<Script | null>(
+    () => (selectedScriptId ? scripts.find((s) => s.id === selectedScriptId) ?? null : null),
+    [selectedScriptId, scripts],
+  )
 
   // Consume inter-app payload (from Scripts "Send to B-Roll Images")
   useEffect(() => {
@@ -36,7 +55,7 @@ export default function BrollStudio() {
 
     if (targetField === 'scriptText' && typeof data === 'string') {
       setScriptText(data)
-      setSelectedScript(null)
+      setSelectedScriptId(null)
       setHighlightField('script')
       setTimeout(() => setHighlightField(null), 800)
     }
@@ -44,7 +63,7 @@ export default function BrollStudio() {
     if (targetField === 'scriptId' && typeof data === 'string') {
       const script = getScriptById(data)
       if (script) {
-        setSelectedScript(script)
+        setSelectedScriptId(script.id)
         setScriptText(script.scriptText)
         setHighlightField('script')
         setTimeout(() => setHighlightField(null), 800)
@@ -55,18 +74,18 @@ export default function BrollStudio() {
   }, [interAppPayload, activeApp, consumePayload, getScriptById])
 
   const handleSelectProduct = (item: unknown) => {
-    setSelectedProduct(item as Product)
+    setSelectedProductId((item as Product).id)
     setPickerMode(null)
   }
 
   const handleSelectModel = (item: unknown) => {
-    setSelectedModel(item as Model)
+    setSelectedModelId((item as Model).id)
     setPickerMode(null)
   }
 
   const handleSelectScript = (item: unknown) => {
     const script = item as Script
-    setSelectedScript(script)
+    setSelectedScriptId(script.id)
     setScriptText(script.scriptText)
     setPickerMode(null)
   }
@@ -146,10 +165,10 @@ export default function BrollStudio() {
           onSelectProduct={() => setPickerMode('products')}
           onSelectModel={() => setPickerMode('models')}
           onSelectScript={() => setPickerMode('scripts')}
-          onClearProduct={() => setSelectedProduct(null)}
-          onClearModel={() => setSelectedModel(null)}
-          onClearScript={() => setSelectedScript(null)}
-          onScriptTextChange={(v) => { setScriptText(v); setSelectedScript(null) }}
+          onClearProduct={() => setSelectedProductId(null)}
+          onClearModel={() => setSelectedModelId(null)}
+          onClearScript={() => setSelectedScriptId(null)}
+          onScriptTextChange={(v) => { setScriptText(v); setSelectedScriptId(null) }}
           onAdditionalContextChange={setAdditionalContext}
           onGenerate={handleGenerate}
           isGenerating={isGenerating}

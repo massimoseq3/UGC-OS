@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useAppStore } from '../../stores/appStore'
 import { useBankStore } from '../../stores/bankStore'
 import type { Product } from '../../stores/types'
@@ -6,12 +6,14 @@ import InputPanel from './components/InputPanel'
 import OutputPanel from './components/OutputPanel'
 import ProviderChip from '../../components/ProviderChip'
 import { generateScript } from './services/generateScript'
+import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
 
 export default function ScriptArchitect() {
-  const [winningTranscript, setWinningTranscript] = useState('')
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
-  const [additionalContext, setAdditionalContext] = useState('')
-  const [generatedScript, setGeneratedScript] = useState('')
+  const baseKey = useProjectScopedKey('script-architect')
+  const [winningTranscript, setWinningTranscript] = usePersistedState(`${baseKey}:transcript`, '')
+  const [selectedProductId, setSelectedProductId] = usePersistedState<string | null>(`${baseKey}:productId`, null)
+  const [additionalContext, setAdditionalContext] = usePersistedState(`${baseKey}:context`, '')
+  const [generatedScript, setGeneratedScript] = usePersistedState(`${baseKey}:script`, '')
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [highlightField, setHighlightField] = useState<string | null>(null)
@@ -20,6 +22,13 @@ export default function ScriptArchitect() {
   const consumePayload = useAppStore((s) => s.consumePayload)
   const activeApp = useAppStore((s) => s.activeApp)
   const getProductById = useBankStore((s) => s.getProductById)
+  const products = useBankStore((s) => s.products)
+
+  const selectedProduct = useMemo<Product | null>(
+    () => (selectedProductId ? products.find((p) => p.id === selectedProductId) ?? null : null),
+    [selectedProductId, products],
+  )
+  const handleProductSelect = (p: Product | null) => setSelectedProductId(p?.id ?? null)
 
   // Consume inter-app payloads from Ad Analyzer
   useEffect(() => {
@@ -36,7 +45,7 @@ export default function ScriptArchitect() {
 
     if (targetField === 'productId') {
       const product = getProductById(data as string)
-      if (product) setSelectedProduct(product)
+      if (product) setSelectedProductId(product.id)
     }
 
     consumePayload()
@@ -74,7 +83,7 @@ export default function ScriptArchitect() {
           winningTranscript={winningTranscript}
           onTranscriptChange={setWinningTranscript}
           selectedProduct={selectedProduct}
-          onProductSelect={setSelectedProduct}
+          onProductSelect={handleProductSelect}
           additionalContext={additionalContext}
           onAdditionalContextChange={setAdditionalContext}
           onGenerate={handleGenerate}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 
 interface GenerationProgressProps {
   isActive: boolean
@@ -7,48 +7,43 @@ interface GenerationProgressProps {
   className?: string
 }
 
+const DEFAULT_MESSAGES = ['Preparing...', 'Sending request...', 'Processing...', 'Almost done...']
+const ROTATE_MS = 4000
+
+// Indeterminate generation indicator. No percentage, no elapsed counter —
+// both produce anxiety. A shimmer band conveys "alive", a rotating status
+// line suggests "real work is happening", and the static expectation line
+// keeps users from refreshing the tab mid-job (which cancels the kie task).
 export default function GenerationProgress({
   isActive,
   color = 'bg-sky-500',
   messages,
   className = '',
 }: GenerationProgressProps) {
-  const [progress, setProgress] = useState(0)
-  const startTimeRef = useRef(0)
+  const msgs = messages && messages.length > 0 ? messages : DEFAULT_MESSAGES
+  const [index, setIndex] = useState(0)
 
   useEffect(() => {
     if (!isActive) {
-      setProgress(0)
+      setIndex(0)
       return
     }
-
-    startTimeRef.current = Date.now()
-    const interval = setInterval(() => {
-      const seconds = (Date.now() - startTimeRef.current) / 1000
-      setProgress(95 * (1 - Math.exp(-seconds / 15)))
-    }, 200)
-
-    return () => clearInterval(interval)
-  }, [isActive])
-
-  const defaultMessages = ['Preparing...', 'Sending request...', 'Processing...', 'Almost done...']
-  const msgs = messages || defaultMessages
-  const messageIndex = progress < 15 ? 0 : progress < 35 ? 1 : progress < 75 ? 2 : 3
-  const message = msgs[Math.min(messageIndex, msgs.length - 1)]
+    const id = setInterval(() => {
+      setIndex((i) => (i + 1) % msgs.length)
+    }, ROTATE_MS)
+    return () => clearInterval(id)
+  }, [isActive, msgs.length])
 
   if (!isActive) return null
 
   return (
     <div className={`w-full ${className}`}>
-      <div className="h-1 w-full overflow-hidden rounded-full bg-white/10">
-        <div
-          className={`h-full rounded-full ${color} transition-all duration-500 ease-out`}
-          style={{ width: `${progress}%` }}
-        />
+      <div className="relative h-1 w-full overflow-hidden rounded-full bg-white/10">
+        <div className={`absolute inset-y-0 left-0 w-1/3 rounded-full ${color} animate-shimmer-sweep`} />
       </div>
-      <div className="mt-2 flex items-center justify-between">
-        <p className="text-xs text-zinc-500">{message}</p>
-        <p className="text-xs tabular-nums text-zinc-600">{Math.round(progress)}%</p>
+      <div className="mt-2 space-y-0.5">
+        <p className="text-xs text-zinc-500">{msgs[index]}</p>
+        <p className="text-[11px] text-zinc-600">This can take a couple of minutes — keep this tab open.</p>
       </div>
     </div>
   )
