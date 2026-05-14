@@ -28,6 +28,7 @@ import { useSettingsStore } from '../../../stores/settingsStore'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
 import { getAsBase64, isAssetRef } from '../../../utils/assetStore'
 import { getDefaultModel, getModel, type ImageResolution } from '../../../utils/models'
+import { usePersistedState, useProjectScopedKey } from '../../../hooks/usePersistedState'
 
 interface OutputPanelProps {
   result: BrollResult | null
@@ -562,11 +563,26 @@ function SkeletonScene() {
 
 /* ─── Main OutputPanel ─── */
 export default function OutputPanel({ result, isGenerating, error, onAddVariation, onDeleteVariation, referenceImages, selectedProductId, selectedModelId, selectedScriptId }: OutputPanelProps) {
-  const [cardStates, setCardStates] = useState<Record<string, CardState>>({})
-  const [aspectRatio, setAspectRatio] = useState<string>(PORTRAIT_VALUE)
+  const baseKey = useProjectScopedKey('broll-studio')
+  const [cardStates, setCardStates] = usePersistedState<Record<string, CardState>>(
+    `${baseKey}:cardStates`,
+    {},
+    {
+      // Transient flags must reset on hydrate so a refresh mid-generation
+      // doesn't leave a card stuck on the spinner.
+      sanitize: (raw) => {
+        const next: Record<string, CardState> = {}
+        for (const k in raw) {
+          next[k] = { ...raw[k], isGeneratingImage: false, isAnimating: false }
+        }
+        return next
+      },
+    },
+  )
+  const [aspectRatio, setAspectRatio] = usePersistedState<string>(`${baseKey}:aspect`, PORTRAIT_VALUE)
   // B-Roll Images opens at 1K — high-res is opt-in. The user can pick
   // 2K / 4K from the resolution toggle when they want it.
-  const [resolution, setResolution] = useState<ImageResolution>('1K')
+  const [resolution, setResolution] = usePersistedState<ImageResolution>(`${baseKey}:resolution`, '1K')
 
   const persistedImageModel = useSettingsStore((s) => s.getAppModel('broll-studio:image:text-to-image'))
   const imageModelId = persistedImageModel ?? getDefaultModel('broll-studio', 'image', 'text-to-image')?.id

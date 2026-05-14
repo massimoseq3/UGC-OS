@@ -404,11 +404,6 @@ function VideoTile({
 
 function InFlightTile({ gen }: { gen: InFlightGen }) {
   const modelLabel = getModel(gen.modelId)?.displayName ?? gen.modelId
-  const [elapsed, setElapsed] = useState(() => Math.floor((Date.now() - gen.startedAt) / 1000))
-  useEffect(() => {
-    const t = setInterval(() => setElapsed(Math.floor((Date.now() - gen.startedAt) / 1000)), 1000)
-    return () => clearInterval(t)
-  }, [gen.startedAt])
 
   const Icon =
     gen.mode === 'image' ? ImageIcon
@@ -425,20 +420,13 @@ function InFlightTile({ gen }: { gen: InFlightGen }) {
         <Icon className="h-5 w-5 text-yellow-300" />
         <Loader2 className="h-4 w-4 animate-spin text-yellow-300" />
         <p className="text-[10px] font-medium text-yellow-100">{modelLabel}</p>
-        <p className="text-[10px] tabular-nums text-yellow-300/80">{formatElapsed(elapsed)}</p>
+        <p className="text-[10px] text-yellow-300/60">Keep this tab open</p>
       </div>
       <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2 pb-1.5 pt-6">
         <p className="line-clamp-2 text-[10px] text-zinc-300">{gen.prompt}</p>
       </div>
     </div>
   )
-}
-
-function formatElapsed(seconds: number): string {
-  if (seconds < 60) return `${seconds}s`
-  const m = Math.floor(seconds / 60)
-  const s = seconds % 60
-  return `${m}:${s.toString().padStart(2, '0')}`
 }
 
 // ── Preview modal ───────────────────────────────────────────────

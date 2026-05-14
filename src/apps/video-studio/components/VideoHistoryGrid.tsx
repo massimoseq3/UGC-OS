@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Download, Save, Trash2, Check, Film, Play, FolderOpen, Loader2, X } from 'lucide-react'
 import type { VideoHistoryItem } from '../../../stores/types'
 import { useAssetUrlState } from '../../../hooks/useAssetUrl'
@@ -191,11 +191,6 @@ function DayPill({ label }: { label: string }) {
 function InFlightTile({ gen }: { gen: InFlightGen }) {
   const ratio = aspectStyle(gen.aspectRatio)
   const modelLabel = getModel(gen.modelId)?.displayName ?? gen.modelId
-  const [elapsed, setElapsed] = useState(() => Math.floor((Date.now() - gen.startedAt) / 1000))
-  useEffect(() => {
-    const t = setInterval(() => setElapsed(Math.floor((Date.now() - gen.startedAt) / 1000)), 1000)
-    return () => clearInterval(t)
-  }, [gen.startedAt])
 
   return (
     <div
@@ -211,7 +206,7 @@ function InFlightTile({ gen }: { gen: InFlightGen }) {
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-3 text-center">
         <Loader2 className="h-5 w-5 animate-spin text-purple-300" />
         <p className="text-[10px] font-medium text-purple-100">{modelLabel}</p>
-        <p className="text-[10px] tabular-nums text-purple-300/80">{formatElapsed(elapsed)}</p>
+        <p className="text-[10px] text-purple-300/60">Keep this tab open</p>
       </div>
 
       <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2 pb-1.5 pt-6">
@@ -219,13 +214,6 @@ function InFlightTile({ gen }: { gen: InFlightGen }) {
       </div>
     </div>
   )
-}
-
-function formatElapsed(seconds: number): string {
-  if (seconds < 60) return `${seconds}s`
-  const m = Math.floor(seconds / 60)
-  const s = seconds % 60
-  return `${m}:${s.toString().padStart(2, '0')}`
 }
 
 interface HistoryTileProps {

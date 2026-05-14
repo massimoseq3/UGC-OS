@@ -18,6 +18,7 @@ import {
   formatCredits,
 } from '../../utils/models'
 import { getUrl } from '../../utils/assetStore'
+import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
 import { generateVideo } from './services/generateVideo'
 import type { VideoMode } from './types'
 import type { VideoHistoryItem } from '../../stores/types'
@@ -108,15 +109,18 @@ export default function VideoStudio() {
     [],
   )
 
-  // Slots are session-only state — they don't persist across reloads. The
-  // global persisted model selection is the only thing that bridges sessions.
-  const [slots, setSlots] = useState<Slot[]>(() =>
+  const baseKey = useProjectScopedKey('video-studio')
+  const [slots, setSlots] = usePersistedState<Slot[]>(
+    `${baseKey}:slots`,
     Array.from({ length: SLOT_COUNT }, () => makeSlot(initialModelId)),
   )
-  const [activeSlotIndex, setActiveSlotIndex] = useState(0)
+  const [activeSlotIndex, setActiveSlotIndex] = usePersistedState(`${baseKey}:activeSlot`, 0)
+  const [previewHistoryId, setPreviewHistoryId] = usePersistedState<string | null>(`${baseKey}:previewId`, null)
+  const [rightTab, setRightTab] = usePersistedState<'history' | 'preview'>(`${baseKey}:tab`, 'history')
+
+  // In-flight jobs are deliberately not persisted — kie taskIds can't be
+  // resumed from cold storage without rewiring the polling layer.
   const [inFlight, setInFlight] = useState<InFlightGen[]>([])
-  const [previewHistoryId, setPreviewHistoryId] = useState<string | null>(null)
-  const [rightTab, setRightTab] = useState<'history' | 'preview'>('history')
   const [savedToBank, setSavedToBank] = useState(false)
   const [savingToBank, setSavingToBank] = useState(false)
   // Track which history-tile saves are in flight so the tile can disable its

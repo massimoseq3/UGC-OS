@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useAppStore } from '../../stores/appStore'
 import { useBankStore } from '../../stores/bankStore'
 import { useCreditsStore } from '../../stores/creditsStore'
@@ -12,18 +12,26 @@ import RightPanel from './components/RightPanel'
 import BottomPlayer from './components/BottomPlayer'
 import BankPicker from '../../components/BankPicker'
 import ProviderChip from '../../components/ProviderChip'
+import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
 
 export default function VoiceStudio() {
-  const [settings, setSettings] = useState<VoiceSettings>(createDefaultSettings)
-  const [scriptText, setScriptText] = useState('')
+  const baseKey = useProjectScopedKey('voice-studio')
+  const [settings, setSettings] = usePersistedState<VoiceSettings>(`${baseKey}:settings`, createDefaultSettings())
+  const [scriptText, setScriptText] = usePersistedState(`${baseKey}:scriptText`, '')
+  const [activePlayerItemId, setActivePlayerItemId] = usePersistedState<string | null>(`${baseKey}:playerId`, null)
+
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [scriptPickerOpen, setScriptPickerOpen] = useState(false)
   const [highlightField, setHighlightField] = useState<string | null>(null)
-  const [activePlayerItem, setActivePlayerItem] = useState<VoiceHistoryItem | null>(null)
   const [detailsItem, setDetailsItem] = useState<VoiceHistoryItem | null>(null)
 
   const history = useBankStore((s) => s.voiceHistory)
+  const activePlayerItem = useMemo<VoiceHistoryItem | null>(
+    () => (activePlayerItemId ? history.find((h) => h.id === activePlayerItemId) ?? null : null),
+    [activePlayerItemId, history],
+  )
+  const setActivePlayerItem = (item: VoiceHistoryItem | null) => setActivePlayerItemId(item?.id ?? null)
   const addVoiceHistory = useBankStore((s) => s.addVoiceHistory)
   const deleteVoiceHistory = useBankStore((s) => s.deleteVoiceHistory)
 

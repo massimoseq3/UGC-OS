@@ -10,6 +10,7 @@ import PromptBar, { type PromptBarState, type PromptRef } from './components/Pro
 import PlaygroundHistoryGrid, { type InFlightGen } from './components/PlaygroundHistoryGrid'
 import { getDefaultModel, type AspectRatio, type ImageResolution, type VideoMode } from '../../utils/models'
 import type { PlaygroundMode } from './types'
+import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
 
 // Infer the video mode from which ref slots the user filled.
 function inferVideoMode(refs: PromptRef[]): VideoMode {
@@ -42,7 +43,9 @@ function initialState(): PromptBarState {
 }
 
 export default function Playground() {
-  const [state, setState] = useState<PromptBarState>(() => initialState())
+  const baseKey = useProjectScopedKey('playground')
+  const [state, setState] = usePersistedState<PromptBarState>(`${baseKey}:state`, initialState())
+  // In-flight jobs are session-only — see Video Studio for the same call.
   const [inFlight, setInFlight] = useState<InFlightGen[]>([])
   const interAppPayload = useAppStore((s) => s.interAppPayload)
   const consumePayload = useAppStore((s) => s.consumePayload)
