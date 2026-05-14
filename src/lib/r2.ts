@@ -3,7 +3,7 @@
 // We never talk to R2 directly with credentials — `/api/r2-sign` mints a
 // presigned URL scoped to the current user, then we PUT/GET against R2 with it.
 
-import { getSupabase, isCloudEnabled } from './supabase'
+import { getSupabase, isCloudEnabled, ensureFreshSession } from './supabase'
 import { useAuthStore } from '../stores/authStore'
 
 interface SignedUrlResponse {
@@ -17,22 +17,8 @@ interface SignedUrlResponse {
 const ATTEMPT_TIMEOUT_MS = 60_000
 
 async function getAccessToken(): Promise<string | null> {
-  if (!isCloudEnabled()) return null
-  const sb = getSupabase()
-
-  const cached = useAuthStore.getState().session
-  const expiresAt = cached?.expires_at ?? 0
-  const nowSec = Math.floor(Date.now() / 1000)
-
-  if (cached?.access_token && expiresAt - nowSec > 60) {
-    return cached.access_token
-  }
-
-  // Background tabs throttle the SDK's auto-refresh timer, so the cached
-  // token can be expired by the time the user comes back. getSession() goes
-  // through the SDK's refresh path and returns a fresh token.
-  const { data } = await sb.auth.getSession()
-  return data.session?.access_token ?? cached?.access_token ?? null
+  // Delegated to the shared helper so r2 + cloudSync use the same refresh path.
+  return ensureFreshSession()
 }
 
 async function presign(op: 'put' | 'get', assetId: string, mimeType?: string, byteSize?: number): Promise<SignedUrlResponse> {

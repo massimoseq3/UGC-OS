@@ -16,7 +16,7 @@ import { useAuthStore } from '../stores/authStore'
 import { useAppStore } from '../stores/appStore'
 import { useBankStore } from '../stores/bankStore'
 import { useSettingsStore } from '../stores/settingsStore'
-import { getSupabase, isCloudEnabled } from './supabase'
+import { getSupabase, isCloudEnabled, ensureFreshSession } from './supabase'
 import { existingRemoteAssetIds, uploadAssetToR2 } from './r2'
 import { isAssetRef, getBlob } from '../utils/assetStore'
 import { findOrphanAssets, purgeOrphans } from '../utils/orphanCleanup'
@@ -74,6 +74,7 @@ function walkAssetRefs(value: unknown, out: string[] = []): string[] {
 export async function saveRow(table: BankKey, row: { id: string }): Promise<void> {
   const userId = useAuthStore.getState().user?.id
   if (!userId) throw new Error('Not signed in')
+  await ensureFreshSession()
   const sb = getSupabase()
   const { error } = await sb.from(BANK_TO_TABLE[table]).upsert({
     id: row.id,
@@ -91,6 +92,7 @@ export async function saveRows(table: BankKey, rows: Array<{ id: string }>): Pro
   if (rows.length === 0) return
   const userId = useAuthStore.getState().user?.id
   if (!userId) throw new Error('Not signed in')
+  await ensureFreshSession()
   const sb = getSupabase()
   const isoNow = new Date().toISOString()
   const { error } = await sb.from(BANK_TO_TABLE[table]).upsert(rows.map((r) => ({
@@ -107,6 +109,7 @@ export async function saveRows(table: BankKey, rows: Array<{ id: string }>): Pro
 export async function deleteRow(table: BankKey, id: string): Promise<void> {
   const userId = useAuthStore.getState().user?.id
   if (!userId) throw new Error('Not signed in')
+  await ensureFreshSession()
   const sb = getSupabase()
   const { error } = await sb.from(BANK_TO_TABLE[table]).delete().eq('id', id).eq('user_id', userId)
   if (error) throw new Error(`${BANK_TO_TABLE[table]} delete: ${error.message}`)
@@ -116,6 +119,7 @@ export async function deleteRow(table: BankKey, id: string): Promise<void> {
 export async function saveProfile(): Promise<void> {
   const userId = useAuthStore.getState().user?.id
   if (!userId) throw new Error('Not signed in')
+  await ensureFreshSession()
   const sb = getSupabase()
   const s = useSettingsStore.getState()
   const { error } = await sb.from('profiles').update({
