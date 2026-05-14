@@ -68,7 +68,9 @@ export async function analyzeAd(videoFile: File): Promise<AnalysisResult> {
     },
   ]
 
-  const responseText = await kieChatCompletions(apiKey, endpoint, messages)
+  const responseText = await kieChatCompletions(apiKey, endpoint, messages, {
+    timeoutMs: 300_000,
+  })
 
   const cleaned = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
   const result: AnalysisResult = JSON.parse(cleaned)
