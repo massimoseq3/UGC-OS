@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Product, Model, Script, VoicePreset, BRoll, VoiceHistoryItem, VideoHistoryItem, Project } from './types'
+import type { Product, Model, Script, VoicePreset, BRoll, VoiceHistoryItem, VideoHistoryItem, MusicHistoryItem, Project } from './types'
 import { isAssetRef, deleteAsset, saveFromDataUrl } from '../utils/assetStore'
 import { useSettingsStore } from './settingsStore'
 import { useAuthStore } from './authStore'
@@ -21,14 +21,15 @@ interface BankState {
   brolls: BRoll[]
   voiceHistory: VoiceHistoryItem[]
   videoHistory: VideoHistoryItem[]
+  musicHistory: MusicHistoryItem[]
 
   // Project CRUD
   addProject: (project: Omit<Project, 'id' | 'createdAt'>) => Promise<string>
   updateProject: (id: string, updates: Partial<Project>) => Promise<BankActionResult>
   deleteProject: (id: string) => Promise<BankActionResult>
   getProjectById: (id: string) => Project | undefined
-  addItemToProject: (bank: 'products' | 'models' | 'scripts' | 'voices' | 'brolls' | 'videoHistory', itemId: string, projectId: string) => Promise<BankActionResult>
-  removeItemFromProject: (bank: 'products' | 'models' | 'scripts' | 'voices' | 'brolls' | 'videoHistory', itemId: string, projectId: string) => Promise<BankActionResult>
+  addItemToProject: (bank: 'products' | 'models' | 'scripts' | 'voices' | 'brolls' | 'videoHistory' | 'musicHistory', itemId: string, projectId: string) => Promise<BankActionResult>
+  removeItemFromProject: (bank: 'products' | 'models' | 'scripts' | 'voices' | 'brolls' | 'videoHistory' | 'musicHistory', itemId: string, projectId: string) => Promise<BankActionResult>
 
   // Product CRUD
   addProduct: (product: Omit<Product, 'id' | 'createdAt'>) => Promise<BankActionResult>
@@ -70,13 +71,19 @@ interface BankState {
   updateVideoHistory: (id: string, updates: Partial<VideoHistoryItem>) => Promise<BankActionResult>
   deleteVideoHistory: (id: string) => Promise<BankActionResult>
   clearVideoHistory: () => Promise<BankActionResult>
+
+  // Music History (Playground)
+  addMusicHistory: (item: MusicHistoryItem) => Promise<BankActionResult>
+  updateMusicHistory: (id: string, updates: Partial<MusicHistoryItem>) => Promise<BankActionResult>
+  deleteMusicHistory: (id: string) => Promise<BankActionResult>
+  clearMusicHistory: () => Promise<BankActionResult>
 }
 
 function generateId(): string {
   return crypto.randomUUID()
 }
 
-type BankData = Pick<BankState, 'projects' | 'products' | 'models' | 'scripts' | 'voices' | 'brolls' | 'voiceHistory' | 'videoHistory'>
+type BankData = Pick<BankState, 'projects' | 'products' | 'models' | 'scripts' | 'voices' | 'brolls' | 'voiceHistory' | 'videoHistory' | 'musicHistory'>
 
 function autoProjectIds(existing?: string[]): string[] | undefined {
   const active = useSettingsStore.getState().activeProjectId
@@ -116,12 +123,13 @@ function loadFromStorage(): BankData {
         brolls: parsed.brolls ?? [],
         voiceHistory: migrateVoiceShape<VoiceHistoryItem>(parsed.voiceHistory),
         videoHistory: Array.isArray(parsed.videoHistory) ? parsed.videoHistory : [],
+        musicHistory: Array.isArray(parsed.musicHistory) ? parsed.musicHistory : [],
       }
     }
   } catch {
     /* corrupted — start fresh */
   }
-  return { projects: [], products: [], models: [], scripts: [], voices: [], brolls: [], voiceHistory: [], videoHistory: [] }
+  return { projects: [], products: [], models: [], scripts: [], voices: [], brolls: [], voiceHistory: [], videoHistory: [], musicHistory: [] }
 }
 
 let pendingSave: BankData | null = null
@@ -142,6 +150,7 @@ function flushSaveToStorage() {
       brolls: state.brolls,
       voiceHistory: state.voiceHistory,
       videoHistory: state.videoHistory,
+      musicHistory: state.musicHistory,
     }))
   } catch (error) {
     console.error('Failed to save to storage', error)
@@ -249,6 +258,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       voices: scrub(state.voices),
       brolls: scrub(state.brolls),
       videoHistory: scrub(state.videoHistory),
+      musicHistory: scrub(state.musicHistory),
     }
 
     try {
@@ -261,6 +271,7 @@ export const useBankStore = create<BankState>((set, get) => ({
         ['voices', scrubbed.voices.filter((it, i) => it !== state.voices[i])],
         ['brolls', scrubbed.brolls.filter((it, i) => it !== state.brolls[i])],
         ['videoHistory', scrubbed.videoHistory.filter((it, i) => it !== state.videoHistory[i])],
+        ['musicHistory', scrubbed.musicHistory.filter((it, i) => it !== state.musicHistory[i])],
       ]
       for (const [table, rows] of dirty) {
         if (rows.length > 0) await pushRows(table, rows)
@@ -280,6 +291,7 @@ export const useBankStore = create<BankState>((set, get) => ({
         voices: scrubbed.voices,
         brolls: scrubbed.brolls,
         videoHistory: scrubbed.videoHistory,
+        musicHistory: scrubbed.musicHistory,
       }
       saveToStorage({ ...s, ...next })
       return next
@@ -635,6 +647,59 @@ export const useBankStore = create<BankState>((set, get) => ({
       return next
     })
     reportSuccess('Video history cleared')
+  },
+
+  // ── Music History (Playground) ──────────────────────────────────
+  addMusicHistory: async (item) => {
+    const projectIds = autoProjectIds(item.projectIds)
+    const newItem: MusicHistoryItem = { ...item, projectIds }
+    try { await pushRow('musicHistory', newItem) } catch (e) { reportError('Save music history', e) }
+    set((state) => {
+      const next = { musicHistory: [newItem, ...state.musicHistory] }
+      saveToStorage({ ...state, ...next })
+      return next
+    })
+  },
+
+  updateMusicHistory: async (id, updates) => {
+    const old = get().musicHistory.find((h) => h.id === id)
+    if (!old) return
+    const updated: MusicHistoryItem = { ...old, ...updates }
+    try { await pushRow('musicHistory', updated) } catch (e) { reportError('Update music history', e) }
+    set((state) => {
+      const next = { musicHistory: state.musicHistory.map((h) => h.id === id ? updated : h) }
+      saveToStorage({ ...state, ...next })
+      return next
+    })
+  },
+
+  deleteMusicHistory: async (id) => {
+    const item = get().musicHistory.find((h) => h.id === id)
+    if (!item) return
+    try { await dropRow('musicHistory', id) } catch (e) { reportError('Delete music history', e) }
+    await cleanupAssets(item.audioRef, item.coverImageRef)
+    set((state) => {
+      const next = { musicHistory: state.musicHistory.filter((h) => h.id !== id) }
+      saveToStorage({ ...state, ...next })
+      return next
+    })
+    reportSuccess('Track removed from history')
+  },
+
+  clearMusicHistory: async () => {
+    const items = get().musicHistory
+    if (cloudActive()) {
+      for (const item of items) {
+        try { await dropRow('musicHistory', item.id) } catch (e) { console.warn('clear music history', e) }
+      }
+    }
+    for (const item of items) await cleanupAssets(item.audioRef, item.coverImageRef)
+    set((state) => {
+      const next = { musicHistory: [] as MusicHistoryItem[] }
+      saveToStorage({ ...state, ...next })
+      return next
+    })
+    reportSuccess('Music history cleared')
   },
 }))
 

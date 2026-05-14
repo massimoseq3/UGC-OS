@@ -12,6 +12,7 @@ const APP_ID_TO_SLUG: Record<string, string> = {
   'broll-studio': 'broll-images',
   'video-studio': 'broll-videos',
   'ad-anatomy': 'ad-analyzer',
+  'playground': 'playground',
   'admin': 'admin',
 }
 

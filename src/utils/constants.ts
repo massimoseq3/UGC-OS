@@ -10,6 +10,7 @@ import {
   FileText,
   FolderOpen,
   Shield,
+  Sparkles,
 } from 'lucide-react'
 import type { ElementType } from 'react'
 
@@ -31,6 +32,7 @@ export const APP_REGISTRY: AppConfig[] = [
   { id: 'broll-studio', name: 'B-Roll Images', icon: Film, accent: '#f97316', category: 'create' },
   { id: 'video-studio', name: 'B-Roll Videos', icon: Video, accent: '#a855f7', category: 'create' },
   { id: 'ad-anatomy', name: 'Ad Analyzer', icon: Eye, accent: '#FB2B37', category: 'tools' },
+  { id: 'playground', name: 'Playground', icon: Sparkles, accent: '#eab308', category: 'tools' },
   { id: 'admin', name: 'Admin', icon: Shield, accent: '#fafafa', category: 'admin' },
 ]
 
