@@ -5,10 +5,8 @@ import {
   Music as MusicIcon,
   Send,
   Loader2,
-  X,
   Volume2,
   VolumeX,
-  Upload,
 } from 'lucide-react'
 import ModelPicker from '../../../components/ModelPicker'
 import {
@@ -19,6 +17,8 @@ import {
 } from '../../../utils/models'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import { fileToDataUri } from '../../../utils/kie'
+import VideoInputSlot, { type VideoInputValue } from '../../../components/video/VideoInputSlot'
+import VideoRefStrip from '../../../components/video/VideoRefStrip'
 import PresetPicker from './PresetPicker'
 import MentionPopover from './MentionPopover'
 import type { PlaygroundMode, BankReference } from '../types'
@@ -63,7 +63,6 @@ const MODE_TABS: Array<{ id: PlaygroundMode; label: string; icon: React.Componen
 
 export default function PromptBar({ state, onChange, onSubmit, isGenerating }: PromptBarProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Mention popover state — open when the user just typed an @ that isn't
   // followed by a space. `mentionQuery` is what follows the most recent @.
@@ -74,6 +73,46 @@ export default function PromptBar({ state, onChange, onSubmit, isGenerating }: P
 
   const model = getModel(state.modelId)
   const taskForMode: Task = state.mode === 'image' ? 'image' : state.mode === 'video' ? 'video' : 'music'
+
+  // Video ref slots derived from the refs[] array — start/end frames live as
+  // single-value slots, ref strip as a list. Mutating these calls back through
+  // setRefs which rewrites the whole refs[] array.
+  function startFrameValue(): VideoInputValue | null {
+    const r = state.refs.find((x) => x.slot === 'start')
+    return r ? { dataUri: r.url } : null
+  }
+  function endFrameValue(): VideoInputValue | null {
+    const r = state.refs.find((x) => x.slot === 'end')
+    return r ? { dataUri: r.url } : null
+  }
+  function refStripValues(): VideoInputValue[] {
+    return state.refs.filter((r) => r.slot === 'ref').map((r) => ({ dataUri: r.url }))
+  }
+
+  function setSlot(slot: PromptRef['slot'], value: VideoInputValue | null) {
+    const others = state.refs.filter((r) => r.slot !== slot)
+    if (!value) {
+      onChange({ ...state, refs: others })
+      return
+    }
+    onChange({
+      ...state,
+      refs: [...others, { url: value.dataUri, label: slot, source: 'upload', slot }],
+    })
+  }
+
+  function setRefStrip(values: VideoInputValue[]) {
+    const nonRefs = state.refs.filter((r) => r.slot !== 'ref')
+    const refs = values.map((v) => ({ url: v.dataUri, label: 'ref', source: 'upload' as const, slot: 'ref' as const }))
+    onChange({ ...state, refs: [...nonRefs, ...refs] })
+  }
+
+  // Veo 3.1 Fast caps reference inputs at 3; Seedance family allows up to 9.
+  // Match B-Roll Videos' rule.
+  const maxRefs = state.modelId === 'veo3_fast' ? 3 : 9
+  const refsAllowed = model?.supportsReferenceImages ?? false
+  const supportsFrames = !!model?.modes?.includes('image-to-video') || !!model?.modes?.includes('frames-to-video')
+  const supportsEndFrame = !!model?.modes?.includes('frames-to-video')
 
   // For Image we register text-to-image by default; pickers filter on task
   // alone so models can advertise multiple modes and the picker shows them.
@@ -99,17 +138,25 @@ export default function PromptBar({ state, onChange, onSubmit, isGenerating }: P
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.mode])
 
-  // Snap constraint controls to allowed values when the model changes.
+  // Snap constraint controls to allowed values when the model OR the mode
+  // changes. Video and Image constraint sets don't overlap (video tier
+  // strings like '720p' aren't valid image tiers like '1K'), so swapping
+  // modes without re-clamping leaves stale values in `state.resolution`.
   useEffect(() => {
+    const patch: Partial<PromptBarState> = {}
     if (state.mode === 'video' && model?.videoConstraints) {
       const c = model.videoConstraints
-      const patch: Partial<PromptBarState> = {}
       if (!c.aspectRatios.includes(state.aspectRatio)) patch.aspectRatio = c.aspectRatios[0]
       if (c.durations.length > 0 && !c.durations.includes(state.durationSeconds)) patch.durationSeconds = c.durations[0]
       if (!c.resolutions.includes(state.resolution)) patch.resolution = c.resolutions[0] ?? '720p'
       if (!c.supportsAudio) patch.audio = false
-      if (Object.keys(patch).length > 0) onChange({ ...state, ...patch })
+    } else if (state.mode === 'image' && model?.imageConstraints) {
+      const c = model.imageConstraints
+      if (!c.resolutions.includes(state.resolution)) {
+        patch.resolution = c.default ?? c.resolutions[0] ?? '1K'
+      }
     }
+    if (Object.keys(patch).length > 0) onChange({ ...state, ...patch })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.modelId, state.mode])
 
@@ -200,29 +247,24 @@ export default function PromptBar({ state, onChange, onSubmit, isGenerating }: P
     textareaRef.current?.focus()
   }
 
-  async function handleFileUpload(file: File | null) {
-    if (!file || state.mode === 'music') return
-    const dataUri = await fileToDataUri(file)
-    // Image mode → 'ref'; video mode → 'start' if no start frame yet, else 'ref'.
-    let slot: PromptRef['slot'] = 'ref'
-    if (state.mode === 'video' && !state.refs.some((r) => r.slot === 'start')) slot = 'start'
-    onChange({
-      ...state,
-      refs: [...state.refs, { url: dataUri, label: file.name, source: 'upload', slot }],
-    })
-  }
-
-  function removeRef(idx: number) {
-    onChange({ ...state, refs: state.refs.filter((_, i) => i !== idx) })
-  }
-
-  // Drag-and-drop anywhere on the bar.
-  function handleDrop(e: React.DragEvent) {
+  // Drag-and-drop image onto the prompt bar. Routes to the appropriate slot:
+  // - Video mode → start frame if empty, otherwise the reference strip.
+  // - Image mode → reference strip.
+  // - Music mode → ignored.
+  async function handleDrop(e: React.DragEvent) {
     e.preventDefault()
     setDragOver(false)
     if (state.mode === 'music') return
     const file = e.dataTransfer.files?.[0]
-    if (file && file.type.startsWith('image/')) handleFileUpload(file)
+    if (!file || !file.type.startsWith('image/')) return
+    const dataUri = await fileToDataUri(file)
+    if (state.mode === 'video' && supportsFrames && !startFrameValue()) {
+      setSlot('start', { dataUri })
+      return
+    }
+    if (refsAllowed || state.mode === 'image') {
+      setRefStrip([...refStripValues(), { dataUri }])
+    }
   }
 
   const canSubmit = state.prompt.trim().length > 0 && !!state.modelId && !isGenerating
@@ -235,12 +277,19 @@ export default function PromptBar({ state, onChange, onSubmit, isGenerating }: P
       onDragOver={(e) => { e.preventDefault(); if (state.mode !== 'music') setDragOver(true) }}
       onDragLeave={() => setDragOver(false)}
       onDrop={handleDrop}
-      className={`relative w-full rounded-2xl border bg-[#0B0B0D]/95 shadow-2xl backdrop-blur-xl transition-colors ${
+      // No `backdrop-filter` here on purpose — the shared BankPicker uses
+      // `position: fixed` to lock to the viewport, but a backdrop-filter
+      // ancestor establishes a containing block for fixed descendants, which
+      // pinned the picker to PromptBar's bounding box instead of the
+      // viewport (so it stayed partially visible when "closed"). Solid bg
+      // gives the same visual without the side effect.
+      className={`relative w-full rounded-2xl border bg-[#0B0B0D] shadow-2xl transition-colors ${
         dragOver ? 'border-yellow-500/40' : 'border-white/10'
       }`}
     >
-      {/* Mode tabs */}
-      <div className="flex items-center gap-1 border-b border-white/5 px-3 pt-3">
+      {/* Mode tabs — underline style, matches VoiceStudio's Settings/History
+          tab strip so the two pieces of chrome read consistently across apps. */}
+      <div className="flex items-center gap-1 border-b border-white/5 px-3">
         {MODE_TABS.map((tab) => {
           const Icon = tab.icon
           const active = state.mode === tab.id
@@ -249,43 +298,76 @@ export default function PromptBar({ state, onChange, onSubmit, isGenerating }: P
               key={tab.id}
               type="button"
               onClick={() => onChange({ ...state, mode: tab.id })}
-              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12px] font-medium transition-colors ${
-                active ? 'bg-white/[0.06] text-zinc-100' : 'text-zinc-500 hover:text-zinc-200'
+              className={`relative flex items-center gap-1.5 px-3 pb-2 pt-3 text-[13px] font-medium tracking-tight transition-colors ${
+                active ? 'text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
               <Icon className="h-3.5 w-3.5" />
               <span>{tab.label}</span>
+              <span
+                className={`absolute inset-x-3 -bottom-px h-0.5 rounded-full transition-colors ${
+                  active ? 'bg-zinc-100' : 'bg-transparent'
+                }`}
+              />
             </button>
           )
         })}
-        {state.mode === 'video' && (
+        {/* Presets apply to Image and Video modes — the curated UGC ad formats
+            describe a frame's content, which is meaningful for both a still
+            and a clip. Music mode has no curated presets in v1. */}
+        {(state.mode === 'image' || state.mode === 'video') && (
           <div className="ml-auto">
             <PresetPicker onSelect={applyPreset} />
           </div>
         )}
       </div>
 
-      {/* Ref strip */}
-      {state.refs.length > 0 && (
-        <div className="flex gap-2 overflow-x-auto border-b border-white/5 px-3 py-2">
-          {state.refs.map((ref, i) => (
-            <div
-              key={i}
-              className="relative h-14 w-14 shrink-0 overflow-hidden rounded-md border border-white/10 bg-white/[0.04]"
-            >
-              <img src={ref.url} alt="" className="h-full w-full object-cover" />
-              <button
-                type="button"
-                onClick={() => removeRef(i)}
-                className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-black/80 text-white/80 hover:bg-black hover:text-white"
-              >
-                <X className="h-2.5 w-2.5" />
-              </button>
-              <span className="absolute inset-x-0 bottom-0 truncate bg-black/70 px-1 py-0.5 text-[8px] text-zinc-300">
-                {ref.slot}
-              </span>
+      {/* Frame + reference inputs.
+          Video mode: start frame + end frame slots side-by-side (when the
+          model supports image-to-video / frames-to-video), then a reference
+          image strip for reference-to-video. Matches B-Roll Videos layout.
+          Image mode: a single reference strip — useful for image-to-image
+          and image-edit. Music mode: no refs (Suno doesn't accept them). */}
+      {state.mode === 'video' && (
+        <div className="border-b border-white/5 px-3 py-3">
+          {supportsFrames && (
+            <div className="grid grid-cols-2 gap-3">
+              <VideoInputSlot
+                label="Start frame"
+                helper="— optional"
+                value={startFrameValue()}
+                onChange={(v) => setSlot('start', v)}
+              />
+              <VideoInputSlot
+                label="End frame"
+                helper={supportsEndFrame ? '— optional' : '— not supported by this model'}
+                value={supportsEndFrame ? endFrameValue() : null}
+                onChange={(v) => supportsEndFrame && setSlot('end', v)}
+              />
             </div>
-          ))}
+          )}
+          {refsAllowed && (
+            <div className={supportsFrames ? 'mt-3' : ''}>
+              <VideoRefStrip
+                label="Reference images"
+                helper="optional"
+                values={refStripValues()}
+                onChange={setRefStrip}
+                max={maxRefs}
+              />
+            </div>
+          )}
+        </div>
+      )}
+      {state.mode === 'image' && (
+        <div className="border-b border-white/5 px-3 py-3">
+          <VideoRefStrip
+            label="Reference images"
+            helper="optional — used for image-to-image when the model supports it"
+            values={refStripValues()}
+            onChange={setRefStrip}
+            max={4}
+          />
         </div>
       )}
 
@@ -393,25 +475,6 @@ export default function PromptBar({ state, onChange, onSubmit, isGenerating }: P
             <span>{state.instrumental ? 'Instrumental' : 'With lyrics'}</span>
           </button>
         )}
-
-        {state.mode !== 'music' && (
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            title="Upload reference image"
-            className="flex h-7 items-center gap-1 rounded-full border border-white/10 bg-white/[0.02] px-2.5 text-[11px] text-zinc-400 transition-colors hover:bg-white/[0.05] hover:text-zinc-200"
-          >
-            <Upload className="h-3 w-3" />
-            <span>Image refs</span>
-          </button>
-        )}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => handleFileUpload(e.target.files?.[0] ?? null)}
-        />
 
         <button
           type="button"
