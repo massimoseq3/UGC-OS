@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { X, Search, Plus, FolderOpen, Check } from 'lucide-react'
 import type { BankType } from '../utils/constants'
 import { BANK_CONFIG } from '../utils/constants'
@@ -20,6 +21,12 @@ interface BankPickerProps {
   // Multi-select mode — accumulates selections, returns the array on confirm.
   multiSelect?: boolean
   onSelectMany?: (items: BankItem[]) => void
+  // When provided, the picker renders an inline tab strip so the user can
+  // switch between banks without closing. `bankType` becomes the *initial*
+  // active tab. The tabs array's order is the tab strip's order. Each tab
+  // can carry its own optional filter (used today to keep brolls with
+  // `imageUrl` only when surfacing them as image refs).
+  tabs?: Array<BankType | { type: BankType; filter?: (item: BankItem) => boolean }>
 }
 
 function getItemName(bankType: BankType, item: BankItem): string {
@@ -41,14 +48,25 @@ export default function BankPicker({
   filter,
   multiSelect = false,
   onSelectMany,
+  tabs,
 }: BankPickerProps) {
   const [search, setSearch] = useState('')
   const [showQuickAdd, setShowQuickAdd] = useState(false)
   const [quickAddName, setQuickAddName] = useState('')
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+  // When `tabs` is provided, the active bank is local state initialised to
+  // the caller's `bankType`. Otherwise the active bank is just `bankType`.
+  const [activeTab, setActiveTab] = useState<BankType>(bankType)
   const panelRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
   const isDesktop = useIsDesktop()
+
+  // Normalize the tabs prop into a stable shape.
+  const normalizedTabs = tabs?.map((t) =>
+    typeof t === 'string' ? { type: t, filter: undefined } : t
+  )
+  const currentBankType: BankType = normalizedTabs ? activeTab : bankType
+  const currentTabFilter = normalizedTabs?.find((t) => t.type === currentBankType)?.filter
 
   const products = useBankStore((s) => s.products)
   const models = useBankStore((s) => s.models)
@@ -63,13 +81,16 @@ export default function BankPicker({
   const sendToApp = useAppStore((s) => s.sendToApp)
 
   const items: BankItem[] =
-    bankType === 'products' ? products :
-    bankType === 'models' ? models :
-    bankType === 'scripts' ? scripts :
-    bankType === 'voices' ? voices :
+    currentBankType === 'products' ? products :
+    currentBankType === 'models' ? models :
+    currentBankType === 'scripts' ? scripts :
+    currentBankType === 'voices' ? voices :
     brolls
 
-  const itemsAfterFilter = filter ? items.filter(filter) : items
+  // Apply the per-tab filter (when in tab-mode) ahead of the caller's
+  // general filter so the caller-supplied filter stays in charge.
+  const itemsAfterTabFilter = currentTabFilter ? items.filter(currentTabFilter) : items
+  const itemsAfterFilter = filter ? itemsAfterTabFilter.filter(filter) : itemsAfterTabFilter
 
   const filtered = search.trim()
     ? itemsAfterFilter.filter((item) =>
@@ -80,20 +101,23 @@ export default function BankPicker({
   const isEmpty = items.length === 0
   // Brolls don't have a quick-add path (no useful empty record to create) — they
   // come from generation flows. Quick-add applies to the other bank types.
-  const supportsQuickAdd = bankType !== 'brolls'
+  const supportsQuickAdd = currentBankType !== 'brolls'
 
-  // Focus search on open, auto-expand quick-add if bank is empty
+  // Focus search on open, auto-expand quick-add if bank is empty.
+  // Also reset the active tab to the caller's initial `bankType` on open so
+  // re-opening the picker doesn't remember the last tab from a prior session.
   useEffect(() => {
     if (isOpen) {
       setSearch('')
       setQuickAddName('')
       setSelectedIds([])
+      setActiveTab(bankType)
       setShowQuickAdd(supportsQuickAdd && isEmpty)
       if (!isEmpty) {
         setTimeout(() => searchRef.current?.focus(), 100)
       }
     }
-  }, [isOpen, isEmpty, supportsQuickAdd])
+  }, [isOpen, isEmpty, supportsQuickAdd, bankType])
 
   // Close on Escape
   useEffect(() => {
@@ -129,16 +153,16 @@ export default function BankPicker({
     const name = quickAddName.trim()
     let newItem: BankItem | null = null
 
-    if (bankType === 'products') {
+    if (currentBankType === 'products') {
       addProduct({ productImage: '', productName: name, productDescription: '', targetMarket: '', painPoints: '', usps: '', benefits: '', offer: '', cta: '' })
       newItem = useBankStore.getState().products[useBankStore.getState().products.length - 1]
-    } else if (bankType === 'models') {
+    } else if (currentBankType === 'models') {
       addModel({ characterImage: '', name, notes: '', jsonProfile: null, source: 'manual-import' })
       newItem = useBankStore.getState().models[useBankStore.getState().models.length - 1]
-    } else if (bankType === 'scripts') {
+    } else if (currentBankType === 'scripts') {
       addScript({ title: name, scriptText: '', linkedProductId: '', source: 'manual' })
       newItem = useBankStore.getState().scripts[useBankStore.getState().scripts.length - 1]
-    } else if (bankType === 'voices') {
+    } else if (currentBankType === 'voices') {
       addVoice({ label: name, voiceId: '', voiceName: '', gender: 'Female', stability: 0.5, similarityBoost: 0.75, style: 0, speed: 1, linkedModelId: '' })
       newItem = useBankStore.getState().voices[useBankStore.getState().voices.length - 1]
     }
@@ -151,13 +175,20 @@ export default function BankPicker({
 
   const handleManageInFinder = () => {
     onClose()
-    sendToApp({ targetApp: 'finder', targetField: 'activeBank', data: bankType })
+    sendToApp({ targetApp: 'finder', targetField: 'activeBank', data: currentBankType })
     openApp('finder')
   }
 
-  const label = BANK_CONFIG[bankType].label
+  const label = BANK_CONFIG[currentBankType].label
 
-  return (
+  // Render through a portal so the picker is parented at document root,
+  // not inside whichever caller mounts it. This sidesteps the
+  // backdrop-filter / transform containing-block trap (callers with those
+  // styles otherwise pin our `position: fixed` to themselves).
+  const portalTarget = typeof document !== 'undefined' ? document.body : null
+  if (!portalTarget) return null
+
+  const picker = (
     <>
       {/* Backdrop */}
       <div
@@ -185,7 +216,7 @@ export default function BankPicker({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/5 px-5 py-3.5">
           <h3 className="text-sm font-semibold tracking-tight text-zinc-200">
-            Select {label.replace(/s$/, '')}
+            Select {normalizedTabs ? 'from bank' : label.replace(/s$/, '')}
           </h3>
           <button
             onClick={onClose}
@@ -194,6 +225,33 @@ export default function BankPicker({
             <X className="h-4 w-4" />
           </button>
         </div>
+
+        {/* Optional bank-switch tabs. Underline indicator, same style as
+            VoiceStudio's Settings/History tab strip. */}
+        {normalizedTabs && (
+          <div className="flex items-center gap-1 border-b border-white/5 px-3">
+            {normalizedTabs.map((t) => {
+              const active = t.type === currentBankType
+              return (
+                <button
+                  key={t.type}
+                  type="button"
+                  onClick={() => { setActiveTab(t.type); setSearch(''); setSelectedIds([]) }}
+                  className={`relative flex items-center gap-1.5 px-3 pb-2 pt-3 text-[13px] font-medium tracking-tight transition-colors ${
+                    active ? 'text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'
+                  }`}
+                >
+                  <span>{BANK_CONFIG[t.type].label}</span>
+                  <span
+                    className={`absolute inset-x-3 -bottom-px h-0.5 rounded-full transition-colors ${
+                      active ? 'bg-zinc-100' : 'bg-transparent'
+                    }`}
+                  />
+                </button>
+              )
+            })}
+          </div>
+        )}
 
         {/* Search — full width on mobile */}
         <div className="border-b border-white/5 px-4 py-3">
@@ -227,7 +285,7 @@ export default function BankPicker({
                 return (
                   <div key={item.id} className="relative">
                     <BankItemCard
-                      bankType={bankType}
+                      bankType={currentBankType}
                       item={item}
                       onClick={() => handleSelect(item)}
                       selected={isSelected}
@@ -311,4 +369,6 @@ export default function BankPicker({
       </div>
     </>
   )
+
+  return createPortal(picker, portalTarget)
 }

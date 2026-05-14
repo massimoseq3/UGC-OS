@@ -5,6 +5,7 @@ import { useSettingsStore } from '../../stores/settingsStore'
 import { useAppStore } from '../../stores/appStore'
 import { useAssetUrl } from '../../hooks/useAssetUrl'
 import ModelPicker from '../../components/ModelPicker'
+import AspectIcon from '../../components/AspectIcon'
 import GenerationProgress from '../../components/GenerationProgress'
 import VideoInputSlot, { type VideoInputValue } from '../../components/video/VideoInputSlot'
 import VideoRefStrip from '../../components/video/VideoRefStrip'
@@ -837,25 +838,6 @@ interface SegmentedControlProps<T> {
   value: T
   onChange: (v: T) => void
   renderOption?: (v: T) => ReactNode
-}
-
-// Tiny outlined rectangle scaled to the given aspect ratio. Bounded to a
-// 14×14 box so the icon stays compact next to the text label, with the
-// shape itself proportional inside.
-function AspectIcon({ ratio }: { ratio: string }) {
-  const [w, h] = ratio.split(':').map(Number)
-  if (!w || !h) return null
-  const max = 14
-  const longSide = Math.max(w, h)
-  const width = (w / longSide) * max
-  const height = (h / longSide) * max
-  return (
-    <span
-      className="inline-block shrink-0 rounded-[2px] border border-current"
-      style={{ width: `${width}px`, height: `${height}px` }}
-      aria-hidden="true"
-    />
-  )
 }
 
 // Picks segmented vs dropdown based on cardinality. Up to 3 options stay as

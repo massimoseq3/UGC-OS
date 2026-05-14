@@ -23,6 +23,16 @@ export default function RouterSync() {
   const navigate = useNavigate()
 
   // URL → store. Runs only when the path changes.
+  //
+  // `openApp` and `navigate` are intentionally NOT in the dep array: both are
+  // stable in our usage (Zustand action references and React Router 7's
+  // `useNavigate` both promise stability across renders), but listing them
+  // turned out to be a footgun — when paired with the second effect's
+  // `navigate` dep, certain back/forward transitions would re-fire both
+  // effects in a tight loop until React threw "Maximum update depth
+  // exceeded" and unmounted the tree, leaving the user staring at a blank
+  // page. Pulling the function references out of the dep array breaks the
+  // cycle without changing any observable behaviour.
   useEffect(() => {
     const slug = getSlugFromPath(location.pathname)
     const targetAppId = slug ? getAppIdForSlug(slug) : null
@@ -40,16 +50,19 @@ export default function RouterSync() {
     if (useAppStore.getState().activeApp !== targetAppId) {
       openApp(targetAppId)
     }
-  }, [location.pathname, isAdmin, openApp, navigate])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname, isAdmin])
 
-  // store → URL. Runs only when activeApp changes.
+  // store → URL. Runs only when activeApp changes. Same dep-array caveat as
+  // the effect above — `navigate` is omitted on purpose.
   useEffect(() => {
     const targetSlug = getSlugForAppId(activeApp)
     if (!targetSlug) return
     if (window.location.pathname !== `/${targetSlug}`) {
       navigate(`/${targetSlug}`)
     }
-  }, [activeApp, navigate])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeApp])
 
   return null
 }

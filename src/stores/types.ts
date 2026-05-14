@@ -122,6 +122,38 @@ export interface VoiceHistoryItem {
   createdAt: number
 }
 
+// One generation in the Playground image tab. Pushed automatically on every
+// successful image generation. `linkedBRollId` is set if the user has saved
+// the image to the B-Rolls bank — kept so the saved badge survives reloads
+// and so cleanup leaves the asset alone when the entry is deleted.
+export interface ImageHistoryItem {
+  id: string
+  modelId: string
+  prompt: string
+  aspectRatio: string
+  resolution?: string
+  imageUrl: string
+  linkedBRollId?: string
+  projectIds?: string[]
+  createdAt: number
+}
+
+// One generation in the Playground music tab. Pushed automatically on every
+// successful Suno generation. audioRef is an asset:// id so the audio blob
+// persists across reloads (IndexedDB + R2 mirror when cloud is active).
+export interface MusicHistoryItem {
+  id: string
+  modelId: string
+  prompt: string
+  instrumental: boolean
+  audioRef: string
+  coverImageRef?: string
+  title?: string
+  durationSeconds?: number
+  projectIds?: string[]
+  createdAt: number
+}
+
 export interface InterAppPayload {
   targetApp: string
   targetField: string

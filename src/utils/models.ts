@@ -10,15 +10,17 @@
 // the unit name 'per-call' is used to encode that the duration multiplier
 // shouldn't be applied to the credit count.
 
-export type Task = 'chat' | 'vision' | 'image' | 'video' | 'tts'
+export type Task = 'chat' | 'vision' | 'image' | 'video' | 'tts' | 'music'
 
 export type ImageMode = 'text-to-image' | 'image-to-image' | 'image-edit'
 
 export type VideoMode = 'text-to-video' | 'image-to-video' | 'frames-to-video' | 'reference-to-video'
 
+export type MusicMode = 'text-to-music'
+
 // Union for cases where either category is acceptable (registry filters,
 // per-app picker keys, etc.). Concrete callers should narrow.
-export type Mode = ImageMode | VideoMode
+export type Mode = ImageMode | VideoMode | MusicMode
 
 export type Tag = 'recommended' | 'new' | 'fast' | 'cheap'
 
@@ -57,9 +59,12 @@ export interface VideoConstraints {
 // Resolutions are kie.ai's tier strings ('1K' | '2K' | '4K'). `default` is
 // what new sessions land on if no user preference is stored — defaults to
 // the first entry in `resolutions` if omitted.
+// `aspectRatios` enumerates the aspect strings the model accepts (e.g.
+// '1:1', '16:9'); omit when the model accepts the full common set.
 export interface ImageConstraints {
   resolutions: string[]
   default?: string
+  aspectRatios?: string[]
 }
 
 export interface ModelEntry {
@@ -130,7 +135,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
         return perImage * imageCount
       },
     },
-    imageConstraints: { resolutions: ['1K', '2K', '4K'] },
+    imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
   },
   {
     id: 'flux-2/pro-text-to-image',
@@ -147,7 +152,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
         return perImage * imageCount
       },
     },
-    imageConstraints: { resolutions: ['1K', '2K'] },
+    imageConstraints: { resolutions: ['1K', '2K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
   },
   {
     id: 'seedream/5-lite-text-to-image',
@@ -157,7 +162,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     modes: ['text-to-image'],
     tags: ['new', 'fast'],
     pricing: { unit: 'per-image', credits: 5.5 },
-    imageConstraints: { resolutions: ['1K'] },
+    imageConstraints: { resolutions: ['1K'], aspectRatios: ['9:16', '16:9', '1:1'] },
   },
   {
     id: 'gpt-image-2-text-to-image',
@@ -177,7 +182,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
         return perImage * imageCount
       },
     },
-    imageConstraints: { resolutions: ['1K', '2K', '4K'] },
+    imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
     defaultFor: ['broll-studio', 'character-studio'],
   },
   {
@@ -196,7 +201,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
         return perImage * imageCount
       },
     },
-    imageConstraints: { resolutions: ['1K', '2K', '4K'] },
+    imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
     defaultFor: ['broll-studio', 'character-studio'],
   },
 
@@ -439,6 +444,36 @@ export const MODEL_REGISTRY: ModelEntry[] = [
       resolutions: ['standard', 'high'],
       aspectRatios: ['16:9', '9:16'],
     },
+  },
+
+  // ── Music generation (Suno via kie.ai) ────────────────────────
+  // Suno is reached through kie.ai's custom endpoint
+  //   POST /api/v1/generate     (NOT /jobs/createTask)
+  //   GET  /api/v1/generate/record-info?taskId=...
+  // The model variant is selected via the `model` field in the body
+  // ('V5', 'V5_5', etc.) — the endpoint path is the same for all variants.
+  // See docs at https://docs.kie.ai/suno-api/generate-music.md
+  //
+  // Pricing: kie.ai's pricing page is the authority. TODO: verify and replace
+  // the placeholder once we have real per-call rates from kie.ai/pricing.
+  {
+    id: 'suno-v5',
+    displayName: 'Suno V5',
+    provider: 'Suno',
+    task: 'music',
+    modes: ['text-to-music'],
+    tags: [],
+    pricing: { unit: 'per-call', credits: 40 }, // TODO: confirm against kie.ai/pricing
+  },
+  {
+    id: 'suno-v5_5',
+    displayName: 'Suno V5.5',
+    provider: 'Suno',
+    task: 'music',
+    modes: ['text-to-music'],
+    tags: ['recommended', 'new'],
+    pricing: { unit: 'per-call', credits: 50 }, // TODO: confirm against kie.ai/pricing
+    defaultFor: ['playground'],
   },
 
   // ── Text-to-Speech ────────────────────────────────────────────
@@ -724,6 +759,34 @@ export function buildVideoInput(modelId: string, opts: VideoGenOptions): Record<
     duration,
     resolution,
     generate_audio: opts.audio ?? true,
+  }
+}
+
+// ── Per-model music input builders ────────────────────────────
+//
+// Suno's /api/v1/generate body. v1 supports only customMode=false (no lyrics,
+// no style/title/persona/weight knobs). `callBackUrl` is required by the
+// schema even though we poll for results; we pass a no-op placeholder.
+
+export interface MusicGenOptions {
+  prompt: string
+  instrumental?: boolean
+}
+
+export function buildMusicInput(modelId: string, opts: MusicGenOptions): Record<string, unknown> {
+  const model = getModel(modelId)
+  if (!model || model.task !== 'music') throw new Error(`Not a music model: ${modelId}`)
+
+  // ModelEntry.id stores the registry id ('suno-v5') but Suno's API expects
+  // the bare variant string ('V5', 'V5_5', etc.). Strip the 'suno-' prefix.
+  const sunoVariant = modelId.replace(/^suno-/i, '').toUpperCase().replace('.', '_')
+
+  return {
+    prompt: opts.prompt,
+    customMode: false,
+    instrumental: !!opts.instrumental,
+    model: sunoVariant,
+    callBackUrl: 'https://kie.ai/',
   }
 }
 

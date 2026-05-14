@@ -573,6 +573,129 @@ export async function kieVeoGenerate(
   throw new Error('Veo generation timed out after 5 minutes.')
 }
 
+// ── Suno music generation (custom endpoint) ────────────────────
+//
+// Suno uses its own endpoint pair (NOT /jobs/createTask):
+//   POST /api/v1/generate                              -> { data: { taskId } }
+//   GET  /api/v1/generate/record-info?taskId=...       -> { data: { status, response, ... } }
+// Status values are Suno-specific: PENDING, TEXT_SUCCESS, FIRST_SUCCESS,
+// SUCCESS, plus error states. Result audio URLs live under response.sunoData[].
+
+export type SunoStatus =
+  | 'PENDING' | 'TEXT_SUCCESS' | 'FIRST_SUCCESS' | 'SUCCESS'
+  | 'CREATE_TASK_FAILED' | 'GENERATE_AUDIO_FAILED'
+  | 'CALLBACK_EXCEPTION' | 'SENSITIVE_WORD_ERROR'
+
+export interface SunoTrack {
+  id: string
+  audioUrl: string
+  streamAudioUrl?: string
+  imageUrl?: string
+  title?: string
+  tags?: string
+  duration?: number
+  createTime?: string
+}
+
+interface SunoRecordData {
+  taskId: string
+  status: SunoStatus
+  type?: string
+  operationType?: string
+  errorCode?: number
+  errorMessage?: string
+  response?: {
+    sunoData?: SunoTrack[]
+  }
+}
+
+const SUNO_TERMINAL_FAILURE: SunoStatus[] = [
+  'CREATE_TASK_FAILED', 'GENERATE_AUDIO_FAILED',
+  'CALLBACK_EXCEPTION', 'SENSITIVE_WORD_ERROR',
+]
+
+export async function kieMusicGenerate(
+  apiKey: string,
+  body: Record<string, unknown>,
+  signal?: AbortSignal,
+): Promise<string> {
+  const res = await fetchWithRetry(
+    'https://api.kie.ai/api/v1/generate',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(body),
+    },
+    { signal },
+  )
+  const json = (await res.json()) as KieEnvelope<{ taskId: string }>
+  if (json.code !== 200) throw new Error(friendlyHttpError(json.code, json.msg, 'POST /api/v1/generate'))
+  return json.data.taskId
+}
+
+export async function kieMusicPoll(
+  apiKey: string,
+  taskId: string,
+  signal?: AbortSignal,
+): Promise<SunoRecordData> {
+  const res = await fetchWithRetry(
+    `https://api.kie.ai/api/v1/generate/record-info?taskId=${encodeURIComponent(taskId)}`,
+    {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${apiKey}` },
+    },
+    { signal, timeoutMs: POLL_TIMEOUT_MS },
+  )
+  const env = (await res.json()) as KieEnvelope<SunoRecordData>
+  if (env.code !== 200) throw new Error(friendlyHttpError(env.code, env.msg, 'GET /api/v1/generate/record-info'))
+  return env.data
+}
+
+// Full run: create + poll until SUCCESS (the final terminal success state).
+// FIRST_SUCCESS and TEXT_SUCCESS are intermediate — they mean Suno produced
+// the first track / lyric pass but the full set isn't done. We wait for
+// SUCCESS so callers get the complete sunoData[] (typically 2 tracks).
+export async function runMusicTask(
+  apiKey: string,
+  body: Record<string, unknown>,
+  opts: RunTaskOptions = {},
+): Promise<SunoRecordData> {
+  const { signal, pollIntervalMs = POLL_INTERVAL_MS, maxPollAttempts = MAX_POLL_ATTEMPTS, onProgress } = opts
+
+  const taskId = await kieMusicGenerate(apiKey, body, signal)
+
+  for (let i = 0; i < maxPollAttempts; i++) {
+    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
+    await new Promise((r) => setTimeout(r, pollIntervalMs))
+
+    let record: SunoRecordData
+    try {
+      record = await kieMusicPoll(apiKey, taskId, signal)
+    } catch (err) {
+      if (signal?.aborted) throw err
+      continue
+    }
+
+    // Surface progress as a synthetic state ('generating' until SUCCESS).
+    onProgress?.(0, record.status === 'SUCCESS' ? 'success' : 'generating')
+
+    if (record.status === 'SUCCESS') {
+      if (!record.response?.sunoData?.length) {
+        throw new Error('Suno returned SUCCESS but no tracks.')
+      }
+      return record
+    }
+    if (SUNO_TERMINAL_FAILURE.includes(record.status)) {
+      throw new Error(friendlyTaskError(String(record.errorCode ?? ''), record.errorMessage ?? `Suno ${record.status}`))
+    }
+  }
+
+  throw new Error('Music generation timed out after 5 minutes.')
+}
+
 // ── File upload (kie.ai-hosted, 3 day retention) ───────────────
 //
 // Image and video models on kie.ai expect publicly accessible URLs in their

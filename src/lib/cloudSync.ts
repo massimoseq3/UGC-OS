@@ -20,11 +20,11 @@ import { getSupabase, isCloudEnabled, ensureFreshSession } from './supabase'
 import { existingRemoteAssetIds, uploadAssetToR2 } from './r2'
 import { isAssetRef, getBlob } from '../utils/assetStore'
 import { findOrphanAssets, purgeOrphans } from '../utils/orphanCleanup'
-import type { Project, Product, Model, Script, VoicePreset, BRoll, VoiceHistoryItem, VideoHistoryItem } from '../stores/types'
+import type { Project, Product, Model, Script, VoicePreset, BRoll, VoiceHistoryItem, VideoHistoryItem, ImageHistoryItem, MusicHistoryItem } from '../stores/types'
 
 export type BankKey =
   | 'projects' | 'products' | 'models' | 'scripts' | 'voices' | 'brolls'
-  | 'voiceHistory' | 'videoHistory'
+  | 'voiceHistory' | 'videoHistory' | 'imageHistory' | 'musicHistory'
 
 const BANK_TO_TABLE: Record<BankKey, string> = {
   projects: 'projects',
@@ -35,9 +35,11 @@ const BANK_TO_TABLE: Record<BankKey, string> = {
   brolls: 'brolls',
   voiceHistory: 'voice_history',
   videoHistory: 'video_history',
+  imageHistory: 'image_history',
+  musicHistory: 'music_history',
 }
 
-const BANK_KEYS: BankKey[] = ['projects', 'products', 'models', 'scripts', 'voices', 'brolls', 'voiceHistory', 'videoHistory']
+const BANK_KEYS: BankKey[] = ['projects', 'products', 'models', 'scripts', 'voices', 'brolls', 'voiceHistory', 'videoHistory', 'imageHistory', 'musicHistory']
 
 function reportError(context: string, err: unknown) {
   const msg = err instanceof Error ? err.message : (typeof err === 'string' ? err : JSON.stringify(err))
@@ -181,6 +183,8 @@ async function hydrateFromCloud(userId: string) {
     brolls: (next.brolls as BRoll[]) ?? [],
     voiceHistory: (next.voiceHistory as VoiceHistoryItem[]) ?? [],
     videoHistory: (next.videoHistory as VideoHistoryItem[]) ?? [],
+    imageHistory: (next.imageHistory as ImageHistoryItem[]) ?? [],
+    musicHistory: (next.musicHistory as MusicHistoryItem[]) ?? [],
   })
 
   try {
@@ -189,6 +193,7 @@ async function hydrateFromCloud(userId: string) {
       projects: s.projects, products: s.products, models: s.models,
       scripts: s.scripts, voices: s.voices, brolls: s.brolls,
       voiceHistory: s.voiceHistory, videoHistory: s.videoHistory,
+      imageHistory: s.imageHistory, musicHistory: s.musicHistory,
     }))
   } catch { /* ignore */ }
 }
