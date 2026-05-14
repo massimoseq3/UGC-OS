@@ -11,6 +11,7 @@ import EditorArea from './components/EditorArea'
 import RightPanel from './components/RightPanel'
 import BottomPlayer from './components/BottomPlayer'
 import BankPicker from '../../components/BankPicker'
+import ProviderChip from '../../components/ProviderChip'
 
 export default function VoiceStudio() {
   const [settings, setSettings] = useState<VoiceSettings>(createDefaultSettings)
@@ -104,7 +105,8 @@ export default function VoiceStudio() {
   }
 
   return (
-    <div className="flex flex-col pb-28 md:h-full md:pb-0">
+    <div className="relative flex flex-col pb-28 md:h-full md:pb-0">
+      <ProviderChip provider="ElevenLabs" />
       <div className="flex flex-1 flex-col md:min-h-0 md:flex-row">
         {/* Center — editor */}
         <div className="flex flex-1 flex-col md:min-h-0 md:overflow-hidden">
