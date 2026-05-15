@@ -14,7 +14,8 @@ const RETRYABLE_HTTP = new Set([429, 500, 502, 503, 504, 455])
 
 const POLL_INTERVAL_MS = 5_000
 const POLL_TIMEOUT_MS = 30_000
-const MAX_POLL_ATTEMPTS = 60 // 5 minutes
+const MAX_POLL_ATTEMPTS = 60 // 5 minutes — default for video tasks
+export const IMAGE_POLL_ATTEMPTS = 120 // 10 minutes — GPT Image 2 can run long on complex prompts
 
 // ── Types ───────────────────────────────────────────────────────
 
@@ -253,7 +254,8 @@ export async function pollTask(
     }
   }
 
-  throw new Error('Generation timed out after 5 minutes.')
+  const minutes = Math.round((maxPollAttempts * pollIntervalMs) / 60_000)
+  throw new Error(`Generation timed out after ${minutes} minute${minutes === 1 ? '' : 's'}.`)
 }
 
 export async function runTask(
@@ -278,10 +280,16 @@ export function parseResult(record: TaskRecord): ParsedResult {
   try {
     parsed = JSON.parse(record.resultJson || '{}')
   } catch {
-    // ignore
+    console.warn('[kie] parseResult: failed to JSON.parse resultJson', {
+      resultJson: record.resultJson?.slice(0, 400),
+    })
+  }
+  const resultUrls = parsed.resultUrls ?? []
+  if (resultUrls.length === 0) {
+    console.warn('[kie] parseResult: no resultUrls in', parsed)
   }
   return {
-    resultUrls: parsed.resultUrls ?? [],
+    resultUrls,
     raw: parsed,
   }
 }
@@ -301,7 +309,10 @@ export async function kieImageGenerate(
   input: Record<string, unknown>,
   opts: RunTaskOptions = {},
 ): Promise<string[]> {
-  const record = await runTask(apiKey, modelId, input, opts)
+  const record = await runTask(apiKey, modelId, input, {
+    ...opts,
+    maxPollAttempts: opts.maxPollAttempts ?? IMAGE_POLL_ATTEMPTS,
+  })
   return parseResult(record).resultUrls
 }
 

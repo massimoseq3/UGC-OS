@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import {
   Copy,
   Check,
@@ -21,7 +21,7 @@ import GenerationProgress from '../../../components/GenerationProgress'
 import ModelPicker from '../../../components/ModelPicker'
 import ResolutionToggle from '../../../components/ResolutionToggle'
 import type { BrollResult, Scene, PromptVariation, CardState, GeneratedImage, ReferenceImage } from '../types'
-import { generateImage } from '../services/generateBroll'
+import { startImageTask, finishImageTask } from '../services/generateBroll'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAppStore } from '../../../stores/appStore'
 import { useSettingsStore } from '../../../stores/settingsStore'
@@ -161,17 +161,48 @@ function VariationCard({
 
   const handleGenerateImage = async () => {
     onUpdateState({ isGeneratingImage: true, imageError: null })
+
+    // Two-phase: createTask first so we can persist the taskId, then poll.
+    // If we already have a pendingTaskId (mid-retry after a timeout), reuse it
+    // instead of burning another createTask call — kie may still be working on it.
+    let taskId = cardState.pendingTaskId
+    let modelId = cardState.pendingModelId
     try {
-      const imageUrl = await generateImage(cardState.editablePrompt, referenceImages, aspectRatio, resolution)
+      if (!taskId || !modelId) {
+        const started = await startImageTask(cardState.editablePrompt, referenceImages, aspectRatio, resolution)
+        taskId = started.taskId
+        modelId = started.modelId
+        onUpdateState({
+          pendingTaskId: taskId,
+          pendingModelId: modelId,
+          pendingStartedAt: Date.now(),
+        })
+      }
+    } catch (err) {
+      onUpdateState({
+        isGeneratingImage: false,
+        imageError: err instanceof Error ? err.message : 'Image generation failed. Try again.',
+      })
+      return
+    }
+
+    try {
+      const imageUrl = await finishImageTask(taskId, modelId)
       const newImage: GeneratedImage = { imageUrl, prompt: cardState.editablePrompt }
       const newImages = [...cardState.images, newImage]
       onUpdateState({
         isGeneratingImage: false,
+        imageError: null,
+        pendingTaskId: null,
+        pendingModelId: null,
+        pendingStartedAt: null,
         images: newImages,
         currentImageIndex: newImages.length - 1,
       })
       setSaved(false)
     } catch (err) {
+      // Leave pendingTaskId set — the user can hit Retry to resume polling
+      // the same kie job rather than starting fresh.
       onUpdateState({
         isGeneratingImage: false,
         imageError: err instanceof Error ? err.message : 'Image generation failed. Try again.',
@@ -290,11 +321,18 @@ function VariationCard({
       {/* Image area */}
       <div className="px-3 pb-3">
         {cardState.isGeneratingImage ? (
-          <div className="flex aspect-square items-center justify-center rounded-lg border border-white/[0.06] bg-white/[0.02]">
-            <div className="flex flex-col items-center gap-2">
-              <Loader2 className="h-5 w-5 animate-spin text-zinc-600" />
-              <span className="text-[10px] text-zinc-700">Generating...</span>
-            </div>
+          <div className="flex aspect-square items-center justify-center rounded-lg border border-white/[0.06] bg-white/[0.02] px-4">
+            <GenerationProgress
+              isActive
+              color="bg-orange-500"
+              messages={[
+                'Sending request to image model...',
+                'Composing the scene...',
+                'Rendering details...',
+                'Finalizing the frame...',
+              ]}
+              className="max-w-[220px]"
+            />
           </div>
         ) : hasImages && currentImage ? (
           <div className="flex flex-col gap-2">
@@ -397,9 +435,18 @@ function VariationCard({
               Generate B-Roll Image
             </button>
             {cardState.imageError && (
-              <div className="flex items-start gap-1.5 rounded-lg border border-red-500/20 bg-red-500/10 px-2.5 py-1.5">
-                <AlertCircle className="mt-0.5 h-3 w-3 shrink-0 text-red-400" />
-                <p className="text-[10px] leading-relaxed text-red-300">{cardState.imageError}</p>
+              <div className="flex flex-col gap-1.5 rounded-lg border border-red-500/20 bg-red-500/10 px-2.5 py-2">
+                <div className="flex items-start gap-1.5">
+                  <AlertCircle className="mt-0.5 h-3 w-3 shrink-0 text-red-400" />
+                  <p className="text-[10px] leading-relaxed text-red-300">{cardState.imageError}</p>
+                </div>
+                <button
+                  onClick={handleGenerateImage}
+                  className="self-end rounded-md border border-red-500/30 bg-red-500/15 px-2 py-1 text-[10px] font-medium text-red-200 transition-colors hover:bg-red-500/25"
+                >
+                  <RefreshCw className="mr-1 inline h-3 w-3" />
+                  {cardState.pendingTaskId ? 'Resume' : 'Retry'}
+                </button>
               </div>
             )}
           </div>
@@ -525,6 +572,9 @@ function createDefaultCardState(prompt: string): CardState {
     currentImageIndex: 0,
     isGeneratingImage: false,
     imageError: null,
+    pendingTaskId: null,
+    pendingModelId: null,
+    pendingStartedAt: null,
     videoUrl: null,
     isAnimating: false,
   }
@@ -568,12 +618,35 @@ export default function OutputPanel({ result, isGenerating, error, onAddVariatio
     `${baseKey}:cardStates`,
     {},
     {
-      // Transient flags must reset on hydrate so a refresh mid-generation
-      // doesn't leave a card stuck on the spinner.
+      // Transient flags reset on hydrate so a refresh mid-generation doesn't
+      // leave a stuck spinner — *except* when a `pendingTaskId` is persisted,
+      // in which case the mount-time resume effect picks up polling and the
+      // spinner should stay visible across the gap. Tasks older than 30 min
+      // are dropped: kie outputs persist for 3 days but polling something
+      // that old is almost always dead, and we surface a friendly chip instead.
       sanitize: (raw) => {
         const next: Record<string, CardState> = {}
+        const STALE_MS = 30 * 60_000
         for (const k in raw) {
-          next[k] = { ...raw[k], isGeneratingImage: false, isAnimating: false }
+          const card = raw[k]
+          const stale = card.pendingStartedAt && Date.now() - card.pendingStartedAt > STALE_MS
+          if (stale) {
+            next[k] = {
+              ...card,
+              isGeneratingImage: false,
+              isAnimating: false,
+              pendingTaskId: null,
+              pendingModelId: null,
+              pendingStartedAt: null,
+              imageError: 'Generation expired. Click Retry to regenerate.',
+            }
+          } else {
+            next[k] = {
+              ...card,
+              isGeneratingImage: !!card.pendingTaskId,
+              isAnimating: false,
+            }
+          }
         }
         return next
       },
@@ -626,6 +699,66 @@ export default function OutputPanel({ result, isGenerating, error, onAddVariatio
       return changed ? next : prev
     })
   }, [result])
+
+  // Refresh-resume: on mount, walk all cards and resume any in-flight kie task
+  // whose taskId survived the page refresh via usePersistedState. Guarded by a
+  // ref-set so React 18 strict-mode double-invoke and rapid project switches
+  // don't double-poll.
+  const resumingRef = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    for (const [key, card] of Object.entries(cardStates)) {
+      if (!card.pendingTaskId || !card.pendingModelId) continue
+      if (card.images.length > 0) continue
+      if (resumingRef.current.has(card.pendingTaskId)) continue
+      resumingRef.current.add(card.pendingTaskId)
+
+      const taskId = card.pendingTaskId
+      const modelId = card.pendingModelId
+      const prompt = card.editablePrompt
+      ;(async () => {
+        try {
+          const imageUrl = await finishImageTask(taskId, modelId)
+          const newImage: GeneratedImage = { imageUrl, prompt }
+          setCardStates((prev) => {
+            const existing = prev[key]
+            if (!existing) return prev
+            const newImages = [...existing.images, newImage]
+            return {
+              ...prev,
+              [key]: {
+                ...existing,
+                isGeneratingImage: false,
+                imageError: null,
+                pendingTaskId: null,
+                pendingModelId: null,
+                pendingStartedAt: null,
+                images: newImages,
+                currentImageIndex: newImages.length - 1,
+              },
+            }
+          })
+        } catch (err) {
+          setCardStates((prev) => {
+            const existing = prev[key]
+            if (!existing) return prev
+            return {
+              ...prev,
+              [key]: {
+                ...existing,
+                isGeneratingImage: false,
+                imageError: err instanceof Error ? err.message : 'Image generation failed. Try again.',
+              },
+            }
+          })
+        } finally {
+          resumingRef.current.delete(taskId)
+        }
+      })()
+    }
+    // Only on mount — fresh-task polling is owned by handleGenerateImage in the
+    // card itself, so this effect must not re-trigger when cardStates changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   if (isGenerating) {
     return (
