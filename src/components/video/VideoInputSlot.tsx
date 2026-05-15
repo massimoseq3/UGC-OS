@@ -5,6 +5,7 @@ import { isAssetRef, getAsBase64 } from '../../utils/assetStore'
 import type { BRoll, Product, Model, Script, VoicePreset } from '../../stores/types'
 import type { BankType } from '../../utils/constants'
 import BankPicker from '../BankPicker'
+import SlotActionMenu from './SlotActionMenu'
 
 type BankItem = Product | Model | Script | VoicePreset | BRoll
 
@@ -61,6 +62,7 @@ async function bankItemToDataUri(item: BankItem): Promise<string | null> {
 // picking a Character or Product carries no `sourceBRollId`.
 export default function VideoInputSlot({ label, helper, value, onChange, bankType, tabs, compact = false }: VideoInputSlotProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [actionMenu, setActionMenu] = useState(false)
 
@@ -108,35 +110,22 @@ export default function VideoInputSlot({ label, helper, value, onChange, bankTyp
             )}
           </div>
         ) : (
-          <div className="relative">
+          <>
             <button
+              ref={triggerRef}
               onClick={() => setActionMenu((v) => !v)}
               className="flex h-20 w-20 items-center justify-center rounded-lg border border-dashed border-white/15 bg-white/[0.02] text-zinc-500 transition-colors hover:border-white/25 hover:text-zinc-300"
             >
               <Upload className="h-4 w-4" />
             </button>
-            {actionMenu && (
-              <>
-                <div className="fixed inset-0 z-30" onClick={() => setActionMenu(false)} />
-                <div className="absolute left-0 top-full z-40 mt-1 w-40 overflow-hidden rounded-lg border border-white/10 bg-[#0B0B0D]/95 shadow-xl backdrop-blur-xl">
-                  <button
-                    onClick={() => { setActionMenu(false); fileInputRef.current?.click() }}
-                    className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-[12px] text-zinc-300 transition-colors hover:bg-white/[0.06]"
-                  >
-                    <Upload className="h-3.5 w-3.5 shrink-0" />
-                    Upload image
-                  </button>
-                  <button
-                    onClick={() => { setActionMenu(false); setPickerOpen(true) }}
-                    className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-[12px] text-zinc-300 transition-colors hover:bg-white/[0.06]"
-                  >
-                    <Library className="h-3.5 w-3.5 shrink-0" />
-                    Pick from Bank
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+            <SlotActionMenu
+              anchorRef={triggerRef}
+              open={actionMenu}
+              onClose={() => setActionMenu(false)}
+              onUpload={() => fileInputRef.current?.click()}
+              onPickFromBank={() => setPickerOpen(true)}
+            />
+          </>
         )}
 
         <input

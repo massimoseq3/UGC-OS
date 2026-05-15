@@ -98,26 +98,39 @@ export default function BankPicker({
       )
     : itemsAfterFilter
 
-  const isEmpty = items.length === 0
   // Brolls don't have a quick-add path (no useful empty record to create) — they
   // come from generation flows. Quick-add applies to the other bank types.
   const supportsQuickAdd = currentBankType !== 'brolls'
 
-  // Focus search on open, auto-expand quick-add if bank is empty.
-  // Also reset the active tab to the caller's initial `bankType` on open so
-  // re-opening the picker doesn't remember the last tab from a prior session.
+  // Reset transient state and pick the initial tab when the picker opens.
+  // CRITICAL: deps must be ONLY `isOpen` (plus the prop `bankType` for
+  // correctness). `isEmpty` and `supportsQuickAdd` depend on the active tab
+  // — if we listed them here, switching to a tab that flips either value
+  // (e.g. moving from a quick-add-able tab to B-Rolls) would re-run this
+  // effect and snap `activeTab` back to `bankType`. That was the bug
+  // preventing users from staying on the B-Rolls tab inside Playground.
   useEffect(() => {
     if (isOpen) {
       setSearch('')
       setQuickAddName('')
       setSelectedIds([])
       setActiveTab(bankType)
-      setShowQuickAdd(supportsQuickAdd && isEmpty)
-      if (!isEmpty) {
+      // Read live, don't depend on these in the deps array.
+      const initialItems =
+        bankType === 'products' ? products :
+        bankType === 'models' ? models :
+        bankType === 'scripts' ? scripts :
+        bankType === 'voices' ? voices :
+        brolls
+      const initialIsEmpty = initialItems.length === 0
+      const initialSupportsQuickAdd = bankType !== 'brolls'
+      setShowQuickAdd(initialSupportsQuickAdd && initialIsEmpty)
+      if (!initialIsEmpty) {
         setTimeout(() => searchRef.current?.focus(), 100)
       }
     }
-  }, [isOpen, isEmpty, supportsQuickAdd, bankType])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, bankType])
 
   // Close on Escape
   useEffect(() => {
