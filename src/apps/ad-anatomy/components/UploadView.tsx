@@ -1,6 +1,5 @@
 import { useState, useRef, useCallback } from 'react'
 import { Upload, Film, X, Clapperboard, Eye } from 'lucide-react'
-import ProviderChip from '../../../components/ProviderChip'
 
 const ACCEPTED_TYPES = ['video/mp4', 'video/quicktime', 'video/webm']
 const MAX_SIZE_MB = 50
@@ -57,7 +56,6 @@ export default function UploadView({ onAnalyze }: UploadViewProps) {
 
   return (
     <div className="relative flex h-full flex-col items-center justify-center gap-6 p-8">
-      <ProviderChip provider="Gemini" />
       <div className="flex flex-col items-center gap-2 text-center">
         <Eye className="h-8 w-8 text-[#FB2B37]/60" strokeWidth={1.5} />
         <h2 className="text-lg font-semibold tracking-tight text-zinc-200">

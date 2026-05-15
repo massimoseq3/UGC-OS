@@ -93,13 +93,19 @@ select {
 }
 
 /* Indeterminate progress shimmer — a colored band that sweeps left→right
-   across the track. Used by GenerationProgress for any long-running job. */
+   across the track. Used by GenerationProgress for any long-running job.
+   The band is masked with a horizontal alpha gradient so its edges feather
+   softly into the track instead of looking like a sliding rectangle. */
 @keyframes shimmer-sweep {
   0% { transform: translateX(-100%); }
-  100% { transform: translateX(300%); }
+  100% { transform: translateX(200%); }
 }
 .animate-shimmer-sweep {
-  animation: shimmer-sweep 1.6s ease-in-out infinite;
+  animation: shimmer-sweep 2s ease-in-out infinite;
+}
+.shimmer-band {
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 35%, black 65%, transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0%, black 35%, black 65%, transparent 100%);
 }
 
 /* Thin range slider — used by Voiceovers settings.
