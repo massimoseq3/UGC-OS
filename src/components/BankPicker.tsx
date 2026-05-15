@@ -98,7 +98,6 @@ export default function BankPicker({
       )
     : itemsAfterFilter
 
-  const isEmpty = items.length === 0
   // Brolls don't have a quick-add path (no useful empty record to create) — they
   // come from generation flows. Quick-add applies to the other bank types.
   const supportsQuickAdd = currentBankType !== 'brolls'
