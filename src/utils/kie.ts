@@ -14,8 +14,10 @@ const RETRYABLE_HTTP = new Set([429, 500, 502, 503, 504, 455])
 
 const POLL_INTERVAL_MS = 5_000
 const POLL_TIMEOUT_MS = 30_000
-const MAX_POLL_ATTEMPTS = 60 // 5 minutes — default for video tasks
+const MAX_POLL_ATTEMPTS = 60 // 5 minutes — default for short tasks
 export const IMAGE_POLL_ATTEMPTS = 120 // 10 minutes — GPT Image 2 can run long on complex prompts
+export const VIDEO_POLL_ATTEMPTS = 120 // 10 minutes — Veo Quality / Sora 2 Pro can exceed 5 min
+export const MUSIC_POLL_ATTEMPTS = 120 // 10 minutes — Suno can stall on busy days
 
 // ── Types ───────────────────────────────────────────────────────
 
@@ -340,7 +342,10 @@ export async function kieVideoGenerate(
   input: Record<string, unknown>,
   opts: RunTaskOptions = {},
 ): Promise<string[]> {
-  const record = await runTask(apiKey, modelId, input, opts)
+  const record = await runTask(apiKey, modelId, input, {
+    ...opts,
+    maxPollAttempts: opts.maxPollAttempts ?? VIDEO_POLL_ATTEMPTS,
+  })
   return parseResult(record).resultUrls
 }
 
@@ -509,14 +514,13 @@ interface VeoRecordData {
   errorCode?: string
 }
 
-export async function kieVeoGenerate(
+// Create-only leg of the Veo generation pipeline. Returns the kie taskId
+// so the caller can persist it and resume polling across reload.
+export async function kieVeoCreate(
   apiKey: string,
   body: Record<string, unknown>,
-  opts: RunTaskOptions = {},
-): Promise<string[]> {
-  const { signal, pollIntervalMs = POLL_INTERVAL_MS, maxPollAttempts = MAX_POLL_ATTEMPTS, onProgress } = opts
-
-  // 1) Create the task.
+  signal?: AbortSignal,
+): Promise<string> {
   const createRes = await fetchWithRetry(
     'https://api.kie.ai/api/v1/veo/generate',
     {
@@ -531,9 +535,18 @@ export async function kieVeoGenerate(
   )
   const createJson = (await createRes.json()) as KieEnvelope<VeoCreateData>
   if (createJson.code !== 200) throw new Error(friendlyHttpError(createJson.code, createJson.msg, 'POST /api/v1/veo/generate'))
-  const taskId = createJson.data.taskId
+  return createJson.data.taskId
+}
 
-  // 2) Poll until success / fail.
+// Poll-only leg. Polls an existing Veo taskId until success / fail and
+// returns the result URLs.
+export async function kieVeoPoll(
+  apiKey: string,
+  taskId: string,
+  opts: RunTaskOptions = {},
+): Promise<string[]> {
+  const { signal, pollIntervalMs = POLL_INTERVAL_MS, maxPollAttempts = VIDEO_POLL_ATTEMPTS, onProgress } = opts
+
   for (let i = 0; i < maxPollAttempts; i++) {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
     await new Promise((r) => setTimeout(r, pollIntervalMs))
@@ -550,7 +563,6 @@ export async function kieVeoGenerate(
       )
       const env = (await res.json()) as KieEnvelope<VeoRecordData>
       if (env.code !== 200) {
-        // Transient — keep going unless caller aborted
         if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
         continue
       }
@@ -573,7 +585,10 @@ export async function kieVeoGenerate(
         record.response?.originUrls ??
         record.resultUrls ??
         (record.resultJson ? (JSON.parse(record.resultJson) as { resultUrls?: string[] }).resultUrls ?? [] : [])
-      if (urls.length === 0) throw new Error('Veo returned no result URLs.')
+      if (urls.length === 0) {
+        console.warn('[kie] kieVeoPoll: success state but no resultUrls in', record)
+        throw new Error('Veo returned no result URLs.')
+      }
       return urls
     }
     if (record.errorMessage || record.state === 'fail') {
@@ -581,7 +596,19 @@ export async function kieVeoGenerate(
     }
   }
 
-  throw new Error('Veo generation timed out after 5 minutes.')
+  const minutes = Math.round((maxPollAttempts * pollIntervalMs) / 60_000)
+  throw new Error(`Veo generation timed out after ${minutes} minute${minutes === 1 ? '' : 's'}.`)
+}
+
+// Thin wrapper for callers that don't need refresh-resume (kept for
+// backwards compatibility with existing video-studio/broll-studio callers).
+export async function kieVeoGenerate(
+  apiKey: string,
+  body: Record<string, unknown>,
+  opts: RunTaskOptions = {},
+): Promise<string[]> {
+  const taskId = await kieVeoCreate(apiKey, body, opts.signal)
+  return kieVeoPoll(apiKey, taskId, opts)
 }
 
 // ── Suno music generation (custom endpoint) ────────────────────
@@ -665,18 +692,16 @@ export async function kieMusicPoll(
   return env.data
 }
 
-// Full run: create + poll until SUCCESS (the final terminal success state).
-// FIRST_SUCCESS and TEXT_SUCCESS are intermediate — they mean Suno produced
-// the first track / lyric pass but the full set isn't done. We wait for
-// SUCCESS so callers get the complete sunoData[] (typically 2 tracks).
-export async function runMusicTask(
+// Poll an existing Suno taskId until SUCCESS (the final terminal success
+// state). FIRST_SUCCESS and TEXT_SUCCESS are intermediate — they mean Suno
+// produced the first track / lyric pass but the full set isn't done. We
+// wait for SUCCESS so callers get the complete sunoData[] (typically 2 tracks).
+export async function pollMusicTask(
   apiKey: string,
-  body: Record<string, unknown>,
+  taskId: string,
   opts: RunTaskOptions = {},
 ): Promise<SunoRecordData> {
-  const { signal, pollIntervalMs = POLL_INTERVAL_MS, maxPollAttempts = MAX_POLL_ATTEMPTS, onProgress } = opts
-
-  const taskId = await kieMusicGenerate(apiKey, body, signal)
+  const { signal, pollIntervalMs = POLL_INTERVAL_MS, maxPollAttempts = MUSIC_POLL_ATTEMPTS, onProgress } = opts
 
   for (let i = 0; i < maxPollAttempts; i++) {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
@@ -690,7 +715,6 @@ export async function runMusicTask(
       continue
     }
 
-    // Surface progress as a synthetic state ('generating' until SUCCESS).
     onProgress?.(0, record.status === 'SUCCESS' ? 'success' : 'generating')
 
     if (record.status === 'SUCCESS') {
@@ -704,7 +728,18 @@ export async function runMusicTask(
     }
   }
 
-  throw new Error('Music generation timed out after 5 minutes.')
+  const minutes = Math.round((maxPollAttempts * pollIntervalMs) / 60_000)
+  throw new Error(`Music generation timed out after ${minutes} minute${minutes === 1 ? '' : 's'}.`)
+}
+
+// Thin wrapper for callers that don't need refresh-resume.
+export async function runMusicTask(
+  apiKey: string,
+  body: Record<string, unknown>,
+  opts: RunTaskOptions = {},
+): Promise<SunoRecordData> {
+  const taskId = await kieMusicGenerate(apiKey, body, opts.signal)
+  return pollMusicTask(apiKey, taskId, opts)
 }
 
 // ── File upload (kie.ai-hosted, 3 day retention) ───────────────

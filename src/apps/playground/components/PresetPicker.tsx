@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, Sparkles } from 'lucide-react'
+import { ChevronDown, Camera } from 'lucide-react'
 import { VIDEO_PRESETS, type Preset } from '../presets'
 import PresetCard from './PresetCard'
 
@@ -36,7 +36,7 @@ export default function PresetPicker({ onSelect }: PresetPickerProps) {
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[12px] font-medium text-zinc-200 transition-colors hover:bg-white/[0.06]"
       >
-        <Sparkles className="h-3.5 w-3.5 text-green-400" />
+        <Camera className="h-3.5 w-3.5 text-green-400" />
         <span>Presets</span>
         <ChevronDown className={`h-3 w-3 text-zinc-500 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>

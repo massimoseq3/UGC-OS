@@ -1,16 +1,23 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { useAppStore } from '../../stores/appStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import {
-  generatePlaygroundImage,
-  generatePlaygroundVideo,
-  generatePlaygroundMusic,
+  startPlaygroundImageTask,
+  finishPlaygroundImageTask,
+  startPlaygroundVideoTask,
+  finishPlaygroundVideoTask,
+  startPlaygroundMusicTask,
+  finishPlaygroundMusicTask,
 } from './service'
 import PromptBar, { type PromptBarState, type PromptRef } from './components/PromptBar'
-import PlaygroundHistoryGrid, { type InFlightGen } from './components/PlaygroundHistoryGrid'
-import { getDefaultModel, type AspectRatio, type ImageResolution, type VideoMode } from '../../utils/models'
-import type { PlaygroundMode } from './types'
+import PlaygroundHistoryGrid from './components/PlaygroundHistoryGrid'
+import { getDefaultModel, getModel, type AspectRatio, type ImageResolution, type VideoMode } from '../../utils/models'
+import type { PlaygroundMode, InFlightGen } from './types'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
+
+// Tasks older than this are almost always dead on kie's side too — resume
+// would just timeout. Surface the error and clear the tile.
+const STALE_TASK_MS = 30 * 60 * 1000 // 30 minutes
 
 // Infer the video mode from which ref slots the user filled.
 function inferVideoMode(refs: PromptRef[]): VideoMode {
@@ -45,8 +52,11 @@ function initialState(): PromptBarState {
 export default function Playground() {
   const baseKey = useProjectScopedKey('playground')
   const [state, setState] = usePersistedState<PromptBarState>(`${baseKey}:state`, initialState())
-  // In-flight jobs are session-only — see Video Studio for the same call.
-  const [inFlight, setInFlight] = useState<InFlightGen[]>([])
+  // Persisted across reload so a tab refresh / app switch can resume polling
+  // an in-flight kie task. Tasks without a `taskId` (still in the createTask
+  // leg when the tab died) and tasks older than 30 min are auto-expired on
+  // mount — see the resume effect below.
+  const [inFlight, setInFlight] = usePersistedState<InFlightGen[]>(`${baseKey}:inflight`, [])
   const interAppPayload = useAppStore((s) => s.interAppPayload)
   const consumePayload = useAppStore((s) => s.consumePayload)
   const activeApp = useAppStore((s) => s.activeApp)
@@ -74,63 +84,179 @@ export default function Playground() {
     consumePayload()
   }, [interAppPayload, activeApp, consumePayload])
 
+  // Resume-on-mount. Walks persisted inFlight[] and finishes any task that
+  // still has a taskId. useRef<Set> guards against React 18 strict-mode
+  // double-invoke. Only runs once on mount — new entries added during this
+  // session don't need resume, they already run in handleSubmit.
+  const resuming = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    for (const gen of inFlight) {
+      if (resuming.current.has(gen.id)) continue
+      if (!gen.taskId) {
+        setInFlight((prev) => prev.filter((g) => g.id !== gen.id))
+        continue
+      }
+      if (Date.now() - gen.startedAt > STALE_TASK_MS) {
+        setInFlight((prev) => prev.filter((g) => g.id !== gen.id))
+        addToast(`${gen.mode} generation expired (>30 min)`, 'error')
+        continue
+      }
+      resuming.current.add(gen.id)
+      void (async () => {
+        try {
+          if (gen.mode === 'image' && gen.imageParams) {
+            await finishPlaygroundImageTask(gen.taskId!, gen.modelId, {
+              prompt: gen.prompt,
+              aspectRatio: gen.imageParams.aspectRatio,
+              resolution: gen.imageParams.resolution,
+            })
+          } else if (gen.mode === 'video' && gen.videoParams) {
+            await finishPlaygroundVideoTask(gen.taskId!, gen.modelId, gen.videoParams.videoEndpoint, {
+              prompt: gen.prompt,
+              mode: gen.videoParams.mode,
+              aspectRatio: gen.videoParams.aspectRatio,
+              durationSeconds: gen.videoParams.durationSeconds,
+              resolution: gen.videoParams.resolution,
+              audio: gen.videoParams.audio,
+            })
+          } else if (gen.mode === 'music' && gen.musicParams) {
+            await finishPlaygroundMusicTask(gen.taskId!, gen.modelId, {
+              prompt: gen.prompt,
+              instrumental: gen.musicParams.instrumental,
+            })
+          }
+          addToast(`${gen.mode} resumed and ready`, 'success')
+        } catch (err) {
+          addToast(err instanceof Error ? err.message : `Resume failed (${gen.mode})`, 'error')
+        } finally {
+          setInFlight((prev) => prev.filter((g) => g.id !== gen.id))
+          resuming.current.delete(gen.id)
+        }
+      })()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   async function handleSubmit() {
     const promptText = state.prompt.trim()
     if (!promptText || !state.modelId) return
-    const inFlightId = crypto.randomUUID()
-    const modelId = state.modelId
+
+    const id = crypto.randomUUID()
     const mode = state.mode
+    const modelId = state.modelId
 
-    setInFlight((prev) => [
-      ...prev,
-      { id: inFlightId, mode, modelId, prompt: promptText, startedAt: Date.now() },
-    ])
-
-    try {
-      if (mode === 'image') {
-        await generatePlaygroundImage({
-          prompt: promptText,
-          modelId,
-          aspectRatio: state.aspectRatio as AspectRatio,
-          resolution: state.resolution as ImageResolution,
-          referenceUrls: state.refs.map((r) => r.url),
-        })
-        addToast('Image ready', 'success')
-      } else if (mode === 'video') {
-        const inferred = inferVideoMode(state.refs)
-        const first = state.refs.find((r) => r.slot === 'start')?.url
-          ?? (inferred === 'reference-to-video' ? undefined : state.refs.find((r) => r.slot === 'ref')?.url)
-        const last = state.refs.find((r) => r.slot === 'end')?.url
-        const references = state.refs.filter((r) => r.slot === 'ref').map((r) => r.url)
-        await generatePlaygroundVideo({
-          prompt: promptText,
-          modelId,
-          mode: inferred,
+    // Snapshot every input synchronously so subsequent prompt-bar edits don't
+    // mutate this job's params while it runs.
+    const imageParams = mode === 'image'
+      ? { aspectRatio: state.aspectRatio as AspectRatio, resolution: state.resolution as ImageResolution }
+      : undefined
+    const refsSnapshot = state.refs.slice()
+    const inferredVideoMode = inferVideoMode(refsSnapshot)
+    const videoParams = mode === 'video'
+      ? {
+          mode: inferredVideoMode,
           aspectRatio: state.aspectRatio,
           durationSeconds: state.durationSeconds,
           resolution: state.resolution,
           audio: state.audio,
-          firstFrameUrl: inferred === 'image-to-video' || inferred === 'frames-to-video' ? first : undefined,
-          lastFrameUrl: last,
-          referenceImageUrls: inferred === 'reference-to-video' ? references : undefined,
-        })
-        addToast('Video ready', 'success')
-      } else if (mode === 'music') {
-        await generatePlaygroundMusic({
+          videoEndpoint: getModel(modelId)?.videoEndpoint === 'veo' ? ('veo' as const) : undefined,
+        }
+      : undefined
+    const musicParams = mode === 'music'
+      ? { instrumental: state.instrumental }
+      : undefined
+
+    // Add to inFlight WITHOUT a taskId yet — covers the createTask leg.
+    setInFlight((prev) => [...prev, {
+      id, mode, modelId, prompt: promptText, startedAt: Date.now(),
+      imageParams, videoParams, musicParams,
+    }])
+
+    // Clear prompt + refs immediately so the user can queue the next one.
+    setState((s) => ({ ...s, prompt: '', refs: [] }))
+
+    try {
+      let taskId: string
+      let videoEndpoint: 'veo' | undefined
+
+      if (mode === 'image') {
+        const started = await startPlaygroundImageTask({
           prompt: promptText,
           modelId,
-          instrumental: state.instrumental,
+          aspectRatio: imageParams!.aspectRatio,
+          resolution: imageParams!.resolution,
+          referenceUrls: refsSnapshot.map((r) => r.url),
+        })
+        taskId = started.taskId
+      } else if (mode === 'video') {
+        const first = refsSnapshot.find((r) => r.slot === 'start')?.url
+          ?? (inferredVideoMode === 'reference-to-video' ? undefined : refsSnapshot.find((r) => r.slot === 'ref')?.url)
+        const last = refsSnapshot.find((r) => r.slot === 'end')?.url
+        const references = refsSnapshot.filter((r) => r.slot === 'ref').map((r) => r.url)
+        const started = await startPlaygroundVideoTask({
+          prompt: promptText,
+          modelId,
+          mode: inferredVideoMode,
+          aspectRatio: videoParams!.aspectRatio,
+          durationSeconds: videoParams!.durationSeconds,
+          resolution: videoParams!.resolution,
+          audio: videoParams!.audio,
+          firstFrameUrl: inferredVideoMode === 'image-to-video' || inferredVideoMode === 'frames-to-video' ? first : undefined,
+          lastFrameUrl: last,
+          referenceImageUrls: inferredVideoMode === 'reference-to-video' ? references : undefined,
+        })
+        taskId = started.taskId
+        videoEndpoint = started.videoEndpoint
+      } else {
+        const started = await startPlaygroundMusicTask({
+          prompt: promptText,
+          modelId,
+          instrumental: musicParams!.instrumental,
+        })
+        taskId = started.taskId
+      }
+
+      // Patch the in-flight entry with the taskId so a refresh from this
+      // point on resumes correctly. For video, also persist the endpoint
+      // identifier in case the model registry changes between sessions.
+      setInFlight((prev) => prev.map((g) => g.id === id
+        ? {
+            ...g,
+            taskId,
+            videoParams: g.videoParams && videoEndpoint !== undefined
+              ? { ...g.videoParams, videoEndpoint }
+              : g.videoParams,
+          }
+        : g))
+
+      if (mode === 'image') {
+        await finishPlaygroundImageTask(taskId, modelId, {
+          prompt: promptText,
+          aspectRatio: imageParams!.aspectRatio,
+          resolution: imageParams!.resolution,
+        })
+        addToast('Image ready', 'success')
+      } else if (mode === 'video') {
+        await finishPlaygroundVideoTask(taskId, modelId, videoEndpoint, {
+          prompt: promptText,
+          mode: inferredVideoMode,
+          aspectRatio: videoParams!.aspectRatio,
+          durationSeconds: videoParams!.durationSeconds,
+          resolution: videoParams!.resolution,
+          audio: videoParams!.audio,
+        })
+        addToast('Video ready', 'success')
+      } else {
+        await finishPlaygroundMusicTask(taskId, modelId, {
+          prompt: promptText,
+          instrumental: musicParams!.instrumental,
         })
         addToast('Track ready', 'success')
       }
-      // Clear the prompt + refs after a successful generation so the user
-      // starts fresh for the next one (ElevenLabs-like UX).
-      setState((s) => ({ ...s, prompt: '', refs: [] }))
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Generation failed.'
-      addToast(msg, 'error')
+      addToast(err instanceof Error ? err.message : 'Generation failed.', 'error')
     } finally {
-      setInFlight((prev) => prev.filter((g) => g.id !== inFlightId))
+      setInFlight((prev) => prev.filter((g) => g.id !== id))
     }
   }
 
@@ -139,6 +265,8 @@ export default function Playground() {
   // other tabs.
   const filterMode: PlaygroundMode = state.mode
 
+  // Submit button no longer disables on in-flight count — users can queue
+  // unlimited parallel generations. The prop stays for any future use.
   const isGenerating = inFlight.length > 0
 
   return (
