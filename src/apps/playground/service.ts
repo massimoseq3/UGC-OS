@@ -1,20 +1,29 @@
 // Per-modality generation orchestration for Playground.
 //
-// Each generate* function takes a uniform input shape, talks to kie.ai
-// through the appropriate helper, persists the result blob via assetStore,
-// and pushes a row into the right bank slice (brolls / videoHistory /
-// musicHistory). Errors are propagated raw — the project convention is to
-// surface kie.ai's error messages directly, no wrapping.
+// Each generation is split into a `startX` phase (resolves refs, builds the
+// kie body, POSTs createTask, returns the taskId) and a `finishX` phase
+// (polls the taskId, downloads the result, persists it as an asset, pushes
+// a row into the right bank slice). This shape lets Playground.tsx persist
+// the in-flight taskId between phases via usePersistedState so a tab
+// refresh / app switch can resume polling.
+//
+// Errors are propagated raw — the project convention is to surface kie.ai's
+// error messages directly, no wrapping.
 
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useBankStore } from '../../stores/bankStore'
 import {
-  kieImageGenerate,
-  kieVideoGenerate,
-  kieVeoGenerate,
+  createTask,
+  pollTask,
+  parseResult,
+  kieVeoCreate,
+  kieVeoPoll,
+  kieMusicGenerate,
+  pollMusicTask,
   ensureHostedUrl,
   downloadAsBase64,
-  runMusicTask,
+  IMAGE_POLL_ATTEMPTS,
+  VIDEO_POLL_ATTEMPTS,
 } from '../../utils/kie'
 import {
   buildImageInput,
@@ -31,7 +40,7 @@ import type { ImageHistoryItem, MusicHistoryItem, VideoHistoryItem } from '../..
 
 // ── Image ──────────────────────────────────────────────────────────
 
-export interface PlaygroundImageInput {
+export interface PlaygroundImageStartInput {
   prompt: string
   modelId: string
   aspectRatio: AspectRatio
@@ -40,7 +49,9 @@ export interface PlaygroundImageInput {
   referenceUrls?: string[]
 }
 
-export async function generatePlaygroundImage(input: PlaygroundImageInput): Promise<ImageHistoryItem> {
+export async function startPlaygroundImageTask(
+  input: PlaygroundImageStartInput,
+): Promise<{ taskId: string }> {
   const apiKey = useSettingsStore.getState().getKieApiKey()
 
   const inputUrls: string[] = []
@@ -60,22 +71,36 @@ export async function generatePlaygroundImage(input: PlaygroundImageInput): Prom
     resolution: input.resolution,
     inputUrls: inputUrls.length > 0 ? inputUrls : undefined,
   })
-  const urls = await kieImageGenerate(apiKey, input.modelId, body)
-  if (urls.length === 0) throw new Error('Image generation returned no result.')
+  const taskId = await createTask(apiKey, input.modelId, body)
+  return { taskId }
+}
 
+export interface PlaygroundImageFinishInput {
+  prompt: string
+  aspectRatio: AspectRatio
+  resolution?: ImageResolution
+}
+
+export async function finishPlaygroundImageTask(
+  taskId: string,
+  modelId: string,
+  params: PlaygroundImageFinishInput,
+): Promise<ImageHistoryItem> {
+  const apiKey = useSettingsStore.getState().getKieApiKey()
+  const record = await pollTask(apiKey, taskId, { maxPollAttempts: IMAGE_POLL_ATTEMPTS })
+  const urls = parseResult(record).resultUrls
+  if (urls.length === 0) {
+    throw new Error(`${modelId}: kie.ai returned no resultUrls. Check console for raw response.`)
+  }
   const { base64, mimeType } = await downloadAsBase64(urls[0])
   const assetId = await saveBase64Asset(base64, mimeType)
 
-  // Push to imageHistory rather than brolls — generations live in a
-  // history strip until the user explicitly saves them to the B-Rolls Bank
-  // (matches the video history → save-to-bank flow exactly). Cleanup on
-  // delete only purges the asset if the user never saved.
   const item: ImageHistoryItem = {
     id: crypto.randomUUID(),
-    modelId: input.modelId,
-    prompt: input.prompt,
-    aspectRatio: input.aspectRatio,
-    resolution: input.resolution,
+    modelId,
+    prompt: params.prompt,
+    aspectRatio: params.aspectRatio,
+    resolution: params.resolution,
     imageUrl: assetId,
     createdAt: Date.now(),
   }
@@ -85,7 +110,7 @@ export async function generatePlaygroundImage(input: PlaygroundImageInput): Prom
 
 // ── Video ──────────────────────────────────────────────────────────
 
-export interface PlaygroundVideoInput {
+export interface PlaygroundVideoStartInput {
   prompt: string
   modelId: string
   mode: VideoMode
@@ -99,7 +124,9 @@ export interface PlaygroundVideoInput {
   referenceImageUrls?: string[]
 }
 
-export async function generatePlaygroundVideo(input: PlaygroundVideoInput): Promise<VideoHistoryItem> {
+export async function startPlaygroundVideoTask(
+  input: PlaygroundVideoStartInput,
+): Promise<{ taskId: string; videoEndpoint?: 'veo' }> {
   const apiKey = useSettingsStore.getState().getKieApiKey()
   const model = getModel(input.modelId)
   if (!model) throw new Error(`Model not found: ${input.modelId}`)
@@ -146,13 +173,41 @@ export async function generatePlaygroundVideo(input: PlaygroundVideoInput): Prom
     referenceImageUrls,
   }
   const body = buildVideoInput(input.modelId, buildOpts)
+
+  if (model.videoEndpoint === 'veo') {
+    const taskId = await kieVeoCreate(apiKey, body)
+    return { taskId, videoEndpoint: 'veo' }
+  }
+
   const apiSlug = resolveVideoModelSlug(input.modelId, buildOpts)
+  const taskId = await createTask(apiKey, apiSlug, body)
+  return { taskId }
+}
 
-  const urls = model.videoEndpoint === 'veo'
-    ? await kieVeoGenerate(apiKey, body)
-    : await kieVideoGenerate(apiKey, apiSlug, body)
+export interface PlaygroundVideoFinishInput {
+  prompt: string
+  mode: VideoMode
+  aspectRatio: string
+  durationSeconds: number
+  resolution: string
+  audio: boolean
+}
 
-  if (urls.length === 0) throw new Error('Video generation returned no result.')
+export async function finishPlaygroundVideoTask(
+  taskId: string,
+  modelId: string,
+  videoEndpoint: 'veo' | undefined,
+  params: PlaygroundVideoFinishInput,
+): Promise<VideoHistoryItem> {
+  const apiKey = useSettingsStore.getState().getKieApiKey()
+
+  const urls = videoEndpoint === 'veo'
+    ? await kieVeoPoll(apiKey, taskId, { maxPollAttempts: VIDEO_POLL_ATTEMPTS })
+    : parseResult(await pollTask(apiKey, taskId, { maxPollAttempts: VIDEO_POLL_ATTEMPTS })).resultUrls
+
+  if (urls.length === 0) {
+    throw new Error(`${modelId}: kie.ai returned no resultUrls. Check console for raw response.`)
+  }
 
   const res = await fetch(urls[0])
   if (!res.ok) throw new Error(`Failed to download generated video (${res.status}).`)
@@ -161,13 +216,13 @@ export async function generatePlaygroundVideo(input: PlaygroundVideoInput): Prom
 
   const historyEntry: VideoHistoryItem = {
     id: crypto.randomUUID(),
-    modelId: input.modelId,
-    prompt: input.prompt,
-    mode: input.mode,
-    aspectRatio: input.aspectRatio,
-    durationSeconds: input.durationSeconds,
-    resolution: input.resolution,
-    audio: input.audio,
+    modelId,
+    prompt: params.prompt,
+    mode: params.mode,
+    aspectRatio: params.aspectRatio,
+    durationSeconds: params.durationSeconds,
+    resolution: params.resolution,
+    audio: params.audio,
     videoUrl: assetId,
     createdAt: Date.now(),
   }
@@ -177,32 +232,49 @@ export async function generatePlaygroundVideo(input: PlaygroundVideoInput): Prom
 
 // ── Music ──────────────────────────────────────────────────────────
 
-export interface PlaygroundMusicInput {
+export interface PlaygroundMusicStartInput {
   prompt: string
   modelId: string
   instrumental: boolean
 }
 
-export async function generatePlaygroundMusic(input: PlaygroundMusicInput): Promise<MusicHistoryItem> {
+export async function startPlaygroundMusicTask(
+  input: PlaygroundMusicStartInput,
+): Promise<{ taskId: string }> {
   const apiKey = useSettingsStore.getState().getKieApiKey()
-
   const body = buildMusicInput(input.modelId, {
     prompt: input.prompt,
     instrumental: input.instrumental,
   })
-  const record = await runMusicTask(apiKey, body)
+  const taskId = await kieMusicGenerate(apiKey, body)
+  return { taskId }
+}
+
+export interface PlaygroundMusicFinishInput {
+  prompt: string
+  instrumental: boolean
+}
+
+export async function finishPlaygroundMusicTask(
+  taskId: string,
+  modelId: string,
+  params: PlaygroundMusicFinishInput,
+): Promise<MusicHistoryItem> {
+  const apiKey = useSettingsStore.getState().getKieApiKey()
+  const record = await pollMusicTask(apiKey, taskId)
 
   // sunoData[] holds up to two tracks. We grab the first track here; future
   // could split into a stereo "pair tile". The streamUrl is preferred when
   // present because the regular audioUrl can lag a few seconds for v5 tracks.
   const track = record.response?.sunoData?.[0]
-  if (!track?.audioUrl) throw new Error('Suno returned no audio track.')
+  if (!track?.audioUrl) {
+    throw new Error(`${modelId}: Suno returned SUCCESS but no audioUrl.`)
+  }
 
   const dlUrl = track.audioUrl
   const res = await fetch(dlUrl)
   if (!res.ok) throw new Error(`Failed to download generated audio (${res.status}).`)
   const blob = await res.blob()
-  // Suno's CDN serves mpeg; saveAsset reads blob.type, fall back to mpeg.
   const audioRef = await saveAsset(blob, blob.type || 'audio/mpeg')
 
   let coverImageRef: string | undefined
@@ -220,9 +292,9 @@ export async function generatePlaygroundMusic(input: PlaygroundMusicInput): Prom
 
   const item: MusicHistoryItem = {
     id: crypto.randomUUID(),
-    modelId: input.modelId,
-    prompt: input.prompt,
-    instrumental: input.instrumental,
+    modelId,
+    prompt: params.prompt,
+    instrumental: params.instrumental,
     audioRef,
     coverImageRef,
     title: track.title,

@@ -5,7 +5,6 @@ import {
   Film,
   Music as MusicIcon,
   Send,
-  Loader2,
   Volume2,
   VolumeX,
 } from 'lucide-react'
@@ -287,7 +286,10 @@ export default function PromptBar({ state, onChange, onSubmit, isGenerating }: P
     }
   }
 
-  const canSubmit = state.prompt.trim().length > 0 && !!state.modelId && !isGenerating
+  // Parallel generations are allowed — the in-flight count never gates
+  // submit. The user's kie.ai credits are the natural ceiling.
+  const canSubmit = state.prompt.trim().length > 0 && !!state.modelId
+  void isGenerating
 
   // Position the mention popover near the textarea (lower-left for now).
   const popoverAnchor = { top: 8, left: 8 }
@@ -323,11 +325,13 @@ export default function PromptBar({ state, onChange, onSubmit, isGenerating }: P
             >
               <Icon className="h-3.5 w-3.5" />
               <span>{tab.label}</span>
-              <span
-                className={`absolute inset-x-3 -bottom-px h-0.5 rounded-full transition-colors ${
-                  active ? 'bg-zinc-100' : 'bg-transparent'
-                }`}
-              />
+              {active && (
+                <motion.span
+                  layoutId="playground-mode-underline"
+                  className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-zinc-100"
+                  transition={{ type: 'spring', stiffness: 500, damping: 40 }}
+                />
+              )}
             </button>
           )
         })}
@@ -342,79 +346,90 @@ export default function PromptBar({ state, onChange, onSubmit, isGenerating }: P
       </div>
 
       {/* Frame + reference inputs.
-          Wrapped in AnimatePresence so swapping modes cross-fades instead
-          of hard-cutting. Video mode: start + end frame slots (when the
-          model supports image-to-video / frames-to-video) plus a reference
-          image strip for reference-to-video. Image mode: a single
-          reference strip. Music mode: no refs (Suno doesn't accept them). */}
-      <AnimatePresence mode="wait" initial={false}>
-        {state.mode === 'video' && (
+          Height is animated via the CSS grid-rows trick (0fr ↔ 1fr) so
+          collapsing/expanding the section between Video / Image / Music
+          slides everything below it smoothly instead of snapping. An
+          inner AnimatePresence cross-fades between video↔image content
+          when both modes have refs. Music: no refs (Suno doesn't accept them). */}
+      <div
+        className="grid transition-[grid-template-rows] duration-200 ease-out"
+        style={{ gridTemplateRows: state.mode === 'music' ? '0fr' : '1fr' }}
+      >
+        <div className="overflow-hidden">
           <motion.div
-            key="video-refs"
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.15, ease: 'easeOut' }}
+            layout
+            transition={{ duration: 0.2, ease: 'easeOut' }}
             className="border-b border-white/5 px-3 py-3"
           >
-            {supportsFrames && (
-              <div className="flex flex-wrap gap-3">
-                <VideoInputSlot
-                  label="Start frame"
-                  helper="— optional"
-                  value={startFrameValue()}
-                  onChange={(v) => setSlot('start', v)}
-                  bankType="models"
-                  tabs={PLAYGROUND_REF_TABS}
-                  compact
-                />
-                <VideoInputSlot
-                  label="End frame"
-                  helper={supportsEndFrame ? '— optional' : '— not supported by this model'}
-                  value={supportsEndFrame ? endFrameValue() : null}
-                  onChange={(v) => supportsEndFrame && setSlot('end', v)}
-                  bankType="models"
-                  tabs={PLAYGROUND_REF_TABS}
-                  compact
-                />
-              </div>
-            )}
-            {refsAllowed && (
-              <div className={supportsFrames ? 'mt-3' : ''}>
-                <VideoRefStrip
-                  label="Reference images"
-                  helper="optional"
-                  values={refStripValues()}
-                  onChange={setRefStrip}
-                  max={maxRefs}
-                  bankType="models"
-                  tabs={PLAYGROUND_REF_TABS}
-                />
-              </div>
-            )}
+            <AnimatePresence mode="wait" initial={false}>
+              {state.mode === 'video' && (
+                <motion.div
+                  key="video-refs"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15, ease: 'easeOut' }}
+                >
+                  {supportsFrames && (
+                    <div className="flex flex-wrap gap-3">
+                      <VideoInputSlot
+                        label="Start frame"
+                        helper="— optional"
+                        value={startFrameValue()}
+                        onChange={(v) => setSlot('start', v)}
+                        bankType="models"
+                        tabs={PLAYGROUND_REF_TABS}
+                        compact
+                      />
+                      <VideoInputSlot
+                        label="End frame"
+                        helper={supportsEndFrame ? '— optional' : '— not supported by this model'}
+                        value={supportsEndFrame ? endFrameValue() : null}
+                        onChange={(v) => supportsEndFrame && setSlot('end', v)}
+                        bankType="models"
+                        tabs={PLAYGROUND_REF_TABS}
+                        compact
+                      />
+                    </div>
+                  )}
+                  {refsAllowed && (
+                    <div className={supportsFrames ? 'mt-3' : ''}>
+                      <VideoRefStrip
+                        label="Reference images"
+                        helper="optional"
+                        values={refStripValues()}
+                        onChange={setRefStrip}
+                        max={maxRefs}
+                        bankType="models"
+                        tabs={PLAYGROUND_REF_TABS}
+                      />
+                    </div>
+                  )}
+                </motion.div>
+              )}
+              {state.mode === 'image' && (
+                <motion.div
+                  key="image-refs"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15, ease: 'easeOut' }}
+                >
+                  <VideoRefStrip
+                    label="Reference images"
+                    helper="optional"
+                    values={refStripValues()}
+                    onChange={setRefStrip}
+                    max={4}
+                    bankType="models"
+                    tabs={PLAYGROUND_REF_TABS}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
-        )}
-        {state.mode === 'image' && (
-          <motion.div
-            key="image-refs"
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.15, ease: 'easeOut' }}
-            className="border-b border-white/5 px-3 py-3"
-          >
-            <VideoRefStrip
-              label="Reference images"
-              helper="optional"
-              values={refStripValues()}
-              onChange={setRefStrip}
-              max={4}
-              bankType="models"
-              tabs={PLAYGROUND_REF_TABS}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
+        </div>
+      </div>
 
       {/* Textarea */}
       <div className="relative px-3 pt-2">
@@ -443,8 +458,12 @@ export default function PromptBar({ state, onChange, onSubmit, isGenerating }: P
       </div>
 
       {/* Footer: model + constraints + submit */}
-      <div className="flex flex-wrap items-center gap-2 border-t border-white/5 px-3 py-2.5">
-        <div className="min-w-[160px] flex-1">
+      <motion.div
+        layout
+        transition={{ duration: 0.2, ease: 'easeOut' }}
+        className="flex flex-wrap items-center gap-2 border-t border-white/5 px-3 py-2.5"
+      >
+        <motion.div layout="position" className="min-w-[160px] flex-1">
           <ModelPicker
             appId="playground"
             task={taskForMode}
@@ -459,7 +478,7 @@ export default function PromptBar({ state, onChange, onSubmit, isGenerating }: P
                 : {}
             }
           />
-        </div>
+        </motion.div>
 
         {/* Constraint chips based on mode + model. Aspect chips include a
             tiny outlined rectangle preview so users can see at a glance what
@@ -544,16 +563,17 @@ export default function PromptBar({ state, onChange, onSubmit, isGenerating }: P
           </button>
         )}
 
-        <button
+        <motion.button
+          layout
           type="button"
           onClick={onSubmit}
           disabled={!canSubmit}
           className="ml-auto flex h-9 w-9 items-center justify-center rounded-full bg-green-500 text-black transition-colors hover:bg-green-400 disabled:cursor-not-allowed disabled:opacity-40"
           title="Generate"
         >
-          {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-        </button>
-      </div>
+          <Send className="h-4 w-4" />
+        </motion.button>
+      </motion.div>
     </div>
   )
 }
