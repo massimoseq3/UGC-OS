@@ -1,0 +1,78 @@
+import { useLayoutEffect, useState, type RefObject } from 'react'
+import { createPortal } from 'react-dom'
+import { Upload, Library } from 'lucide-react'
+
+interface SlotActionMenuProps {
+  // Anchor element — usually the "+" / upload tile that triggers the menu.
+  anchorRef: RefObject<HTMLElement | null>
+  open: boolean
+  onClose: () => void
+  onUpload: () => void
+  onPickFromBank: () => void
+}
+
+// Action menu that pops out of the slot's upload/+ button. Rendered via
+// portal so it escapes containers with `overflow-hidden` (the Playground's
+// grid-rows height-animation wrapper clips inline-absolute dropdowns).
+//
+// Auto-flips above the button when there's not enough room below, which
+// matters in the Playground because the prompt bar floats near the
+// viewport's bottom edge.
+export default function SlotActionMenu({ anchorRef, open, onClose, onUpload, onPickFromBank }: SlotActionMenuProps) {
+  const [pos, setPos] = useState<{ top: number; left: number; placement: 'below' | 'above' } | null>(null)
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setPos(null)
+      return
+    }
+    function measure() {
+      const el = anchorRef.current
+      if (!el) return
+      const rect = el.getBoundingClientRect()
+      const menuHeight = 80 // approx — two 36px rows
+      const spaceBelow = window.innerHeight - rect.bottom
+      const placement: 'below' | 'above' = spaceBelow >= menuHeight + 8 ? 'below' : 'above'
+      setPos({
+        top: placement === 'below' ? rect.bottom + 4 : rect.top - menuHeight - 4,
+        left: rect.left,
+        placement,
+      })
+    }
+    measure()
+    window.addEventListener('resize', measure)
+    window.addEventListener('scroll', measure, true)
+    return () => {
+      window.removeEventListener('resize', measure)
+      window.removeEventListener('scroll', measure, true)
+    }
+  }, [open, anchorRef])
+
+  if (!open || !pos) return null
+
+  return createPortal(
+    <>
+      <div className="fixed inset-0 z-[55]" onClick={onClose} />
+      <div
+        className="fixed z-[60] w-40 overflow-hidden rounded-lg border border-white/10 bg-[#0B0B0D]/95 shadow-xl backdrop-blur-xl"
+        style={{ top: pos.top, left: pos.left }}
+      >
+        <button
+          onClick={() => { onClose(); onUpload() }}
+          className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-[12px] text-zinc-300 transition-colors hover:bg-white/[0.06]"
+        >
+          <Upload className="h-3.5 w-3.5 shrink-0" />
+          Upload image
+        </button>
+        <button
+          onClick={() => { onClose(); onPickFromBank() }}
+          className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-[12px] text-zinc-300 transition-colors hover:bg-white/[0.06]"
+        >
+          <Library className="h-3.5 w-3.5 shrink-0" />
+          Pick from Bank
+        </button>
+      </div>
+    </>,
+    document.body,
+  )
+}

@@ -10,6 +10,7 @@ import { getUrl } from '../../../utils/assetStore'
 import { getModel } from '../../../utils/models'
 import type { ImageHistoryItem, VideoHistoryItem, MusicHistoryItem } from '../../../stores/types'
 import AudioTile from './AudioTile'
+import GenerationProgress from '../../../components/GenerationProgress'
 import type { PlaygroundMode, InFlightGen } from '../types'
 export type { InFlightGen }
 
@@ -409,13 +410,36 @@ function InFlightTile({ gen }: { gen: InFlightGen }) {
       <div className="absolute left-1.5 top-1.5 rounded-full bg-green-500/30 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-green-100 backdrop-blur">
         {gen.mode}
       </div>
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 px-3 text-center">
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center">
         <Icon className="h-5 w-5 text-green-300" />
-        <Loader2 className="h-4 w-4 animate-spin text-green-300" />
         <p className="text-[10px] font-medium text-green-100">{modelLabel}</p>
-        <p className="text-[9px] leading-snug text-green-200/70">
-          This may take a couple of minutes — keep this tab open.
-        </p>
+        <GenerationProgress
+          isActive
+          color="bg-green-500"
+          messages={
+            gen.mode === 'image'
+              ? [
+                  'Sending request to image model...',
+                  'Composing the scene...',
+                  'Rendering details...',
+                  'Finalizing the frame...',
+                ]
+              : gen.mode === 'video'
+              ? [
+                  'Sending request to video model...',
+                  'Storyboarding frames...',
+                  'Rendering motion...',
+                  'Finalizing the clip...',
+                ]
+              : [
+                  'Sending request to Suno...',
+                  'Composing the melody...',
+                  'Mixing the track...',
+                  'Mastering the audio...',
+                ]
+          }
+          className="max-w-[180px]"
+        />
       </div>
       <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2 pb-1.5 pt-6">
         <p className="line-clamp-2 text-[10px] text-zinc-300">{gen.prompt}</p>

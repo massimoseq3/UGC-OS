@@ -31,6 +31,41 @@ function inferVideoMode(refs: PromptRef[]): VideoMode {
   return 'text-to-video'
 }
 
+// When the user picks a text-to-image model but attaches reference images,
+// kie silently runs a text-only generation and ignores the refs — burning
+// credits for nothing. Mirror the B-Roll Studio swap (`startImageTask` in
+// `generateBroll.ts`): prefer the picked model's own i2i mode, fall back to
+// a same-family `-image-to-image` sibling, then the registry default i2i.
+function resolveImageModelForRefs(pickedId: string, hasRefs: boolean): string {
+  const targetMode = hasRefs ? 'image-to-image' : 'text-to-image'
+  const picked = getModel(pickedId)
+  if (picked?.modes?.includes(targetMode)) return picked.id
+  if (hasRefs && picked) {
+    const family = picked.id.replace(/-(text-to-image|image-to-image|image-edit).*$/, '')
+    const sibling = getModel(`${family}-image-to-image`)
+    if (sibling) return sibling.id
+  }
+  return useSettingsStore.getState().getAppModel(`playground:image:${targetMode}`)
+    ?? getDefaultModel('playground', 'image', targetMode)?.id
+    ?? pickedId
+}
+
+// For video, a silent ref-drop is harder to recover from — duration / aspect
+// / audio caps differ per model, so substituting a different model family
+// risks changing what the user expects. Try only a same-family sibling that
+// declares the inferred mode; otherwise return null so the caller surfaces a
+// toast and aborts. (No registry-default fallback — too lossy across families.)
+function resolveVideoModelForMode(pickedId: string, inferred: VideoMode): string | null {
+  const picked = getModel(pickedId)
+  if (picked?.modes?.includes(inferred)) return picked.id
+  if (picked) {
+    const family = picked.id.replace(/-(text-to-video|image-to-video|frames-to-video|reference-to-video).*$/, '')
+    const sibling = getModel(`${family}-${inferred}`)
+    if (sibling?.modes?.includes(inferred)) return sibling.id
+  }
+  return null
+}
+
 function initialState(): PromptBarState {
   const defaultImage = getDefaultModel('playground', 'image', 'text-to-image')?.id
     ?? getDefaultModel('broll-studio', 'image', 'text-to-image')?.id
@@ -143,15 +178,36 @@ export default function Playground() {
 
     const id = crypto.randomUUID()
     const mode = state.mode
-    const modelId = state.modelId
 
     // Snapshot every input synchronously so subsequent prompt-bar edits don't
     // mutate this job's params while it runs.
+    const refsSnapshot = state.refs.slice()
+    const hasRefs = refsSnapshot.length > 0
+    const inferredVideoMode = inferVideoMode(refsSnapshot)
+
+    // Auto-swap the model to match what the user actually attached.
+    // Image: text-to-image → image-to-image sibling when refs are present.
+    // Video: abort if the picked model can't run the inferred mode (refs
+    // would be silently dropped by the body builder otherwise).
+    let modelId = state.modelId
+    if (mode === 'image') {
+      modelId = resolveImageModelForRefs(state.modelId, hasRefs)
+    } else if (mode === 'video') {
+      const resolved = resolveVideoModelForMode(state.modelId, inferredVideoMode)
+      if (!resolved) {
+        const pickedLabel = getModel(state.modelId)?.displayName ?? state.modelId
+        addToast(
+          `${pickedLabel} doesn't support ${inferredVideoMode.replace(/-/g, ' ')}. Pick a different model or remove the reference frames.`,
+          'error',
+        )
+        return
+      }
+      modelId = resolved
+    }
+
     const imageParams = mode === 'image'
       ? { aspectRatio: state.aspectRatio as AspectRatio, resolution: state.resolution as ImageResolution }
       : undefined
-    const refsSnapshot = state.refs.slice()
-    const inferredVideoMode = inferVideoMode(refsSnapshot)
     const videoParams = mode === 'video'
       ? {
           mode: inferredVideoMode,
