@@ -416,23 +416,24 @@ function InFlightTile({ gen }: { gen: InFlightGen }) {
         <GenerationProgress
           isActive
           color="bg-green-500"
+          showHelper={false}
           messages={
             gen.mode === 'image'
               ? [
-                  'Sending request to image model...',
+                  'Sending request...',
                   'Composing the scene...',
                   'Rendering details...',
                   'Finalizing the frame...',
                 ]
               : gen.mode === 'video'
               ? [
-                  'Sending request to video model...',
+                  'Sending request...',
                   'Storyboarding frames...',
                   'Rendering motion...',
                   'Finalizing the clip...',
                 ]
               : [
-                  'Sending request to Suno...',
+                  'Sending request...',
                   'Composing the melody...',
                   'Mixing the track...',
                   'Mastering the audio...',
