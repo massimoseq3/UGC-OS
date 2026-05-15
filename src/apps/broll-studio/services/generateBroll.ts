@@ -2,10 +2,13 @@ import type { BrollInput, BrollResult, Scene, PromptVariation, ReferenceImage } 
 import { useSettingsStore } from '../../../stores/settingsStore'
 import {
   kieChatCompletions,
-  kieImageGenerate,
   kieVideoGenerate,
   ensureHostedUrl,
   downloadAsBase64,
+  createTask,
+  pollTask,
+  parseResult,
+  IMAGE_POLL_ATTEMPTS,
   type ChatMessage,
 } from '../../../utils/kie'
 import { getDefaultModel, getChatEndpointPath, buildImageInput, getModel, type AspectRatio, type ImageResolution } from '../../../utils/models'
@@ -129,16 +132,16 @@ export async function generateBroll(input: BrollInput): Promise<BrollResult> {
 }
 
 /**
- * Generate an image from a B-Roll prompt via kie.ai.
- * If reference images are provided, uses image-to-image (uploads each ref
- * to kie's hosted storage to get a public URL). Otherwise text-to-image.
+ * Phase 1 of B-Roll image generation: resolve model, host refs, POST createTask,
+ * return the kie taskId. Caller persists the taskId before awaiting completion
+ * so a tab refresh can resume the poll.
  */
-export async function generateImage(
+export async function startImageTask(
   prompt: string,
   referenceImages?: ReferenceImage[],
   aspectRatio: string = '9:16',
   resolution?: ImageResolution,
-): Promise<string> {
+): Promise<{ taskId: string; modelId: string }> {
   const apiKey = useSettingsStore.getState().getKieApiKey()
   const hasRefs = !!referenceImages?.length
   const mode = hasRefs ? 'image-to-image' : 'text-to-image'
@@ -186,12 +189,43 @@ export async function generateImage(
     resolution,
     inputUrls: inputUrls.length > 0 ? inputUrls : undefined,
   })
-  const urls = await kieImageGenerate(apiKey, modelId, body)
+  const taskId = await createTask(apiKey, modelId, body)
+  return { taskId, modelId }
+}
 
-  if (urls.length === 0) throw new Error('Image generation returned no result.')
-
+/**
+ * Phase 2 of B-Roll image generation: poll an existing kie taskId until success,
+ * download the resulting image, and persist it as an asset. Resumable — pass
+ * the taskId returned by `startImageTask` (possibly from a prior session).
+ */
+export async function finishImageTask(taskId: string, modelId: string): Promise<string> {
+  const apiKey = useSettingsStore.getState().getKieApiKey()
+  const record = await pollTask(apiKey, taskId, { maxPollAttempts: IMAGE_POLL_ATTEMPTS })
+  const urls = parseResult(record).resultUrls
+  if (urls.length === 0) {
+    throw new Error(`${modelId}: kie.ai returned no resultUrls. Check console for raw response.`)
+  }
   const { base64, mimeType } = await downloadAsBase64(urls[0])
   return saveBase64Asset(base64, mimeType)
+}
+
+/**
+ * Generate an image from a B-Roll prompt via kie.ai.
+ * If reference images are provided, uses image-to-image (uploads each ref
+ * to kie's hosted storage to get a public URL). Otherwise text-to-image.
+ *
+ * Thin wrapper over startImageTask + finishImageTask for callers that don't
+ * need refresh-resume. The OutputPanel uses the two-phase API directly so it
+ * can persist `pendingTaskId` between phases.
+ */
+export async function generateImage(
+  prompt: string,
+  referenceImages?: ReferenceImage[],
+  aspectRatio: string = '9:16',
+  resolution?: ImageResolution,
+): Promise<string> {
+  const { taskId, modelId } = await startImageTask(prompt, referenceImages, aspectRatio, resolution)
+  return finishImageTask(taskId, modelId)
 }
 
 /**

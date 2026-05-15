@@ -51,6 +51,11 @@ export interface CardState {
   currentImageIndex: number
   isGeneratingImage: boolean
   imageError: string | null
+  // In-flight kie taskId persisted across refresh so polling can resume.
+  // Cleared once the image lands in `images[]` or when the user resets the card.
+  pendingTaskId: string | null
+  pendingModelId: string | null
+  pendingStartedAt: number | null
   videoUrl: string | null
   isAnimating: boolean
 }
