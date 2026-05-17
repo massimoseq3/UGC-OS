@@ -56,8 +56,6 @@ interface CardDetailModalProps {
   // Open the script-level BankPicker (slide-in) when the user clicks a slot.
   onOpenCharacterPicker?: () => void
   onOpenProductPicker?: () => void
-  saved: boolean
-  savingToBank: boolean
   handleUndo: () => void
   handleRedo: () => void
   handleCommitDraft: (draft: string) => void
@@ -87,8 +85,6 @@ export default function CardDetailModal(props: CardDetailModalProps) {
     cardState,
     onUpdateState,
     onClose,
-    characterRef,
-    productRef,
     selectedProduct,
     selectedModel,
     selectedProductId,
@@ -719,7 +715,6 @@ function ModalGallery({
                   <div key={`img-${entry.idx}`} className="mb-2 break-inside-avoid">
                     <ImageTile
                       imageRef={entry.imageUrl}
-                      prompt={entry.prompt}
                       selected={isImageSelected(entry.idx)}
                       saved={savedImageIdxs.has(entry.idx)}
                       saving={savingImageIdxs.has(entry.idx)}
@@ -741,7 +736,6 @@ function ModalGallery({
                       videoRef={entry.videoUrl}
                       aspectRatio={entry.aspectRatio}
                       modelId={entry.modelId}
-                      prompt={entry.prompt}
                       selected={isVideoSelected(entry.idx)}
                       saved={savedVideoIdxs.has(entry.idx)}
                       saving={savingVideoIdxs.has(entry.idx)}
@@ -772,7 +766,6 @@ function ModalGallery({
 // than the previous h-3 w-3) so they're easier to hit.
 function ImageTile({
   imageRef,
-  prompt,
   selected,
   saved,
   saving,
@@ -782,7 +775,6 @@ function ImageTile({
   onCopyPrompt,
 }: {
   imageRef: string
-  prompt: string
   selected: boolean
   saved: boolean
   saving: boolean
@@ -851,7 +843,6 @@ function VideoTile({
   videoRef,
   aspectRatio,
   modelId,
-  prompt,
   selected,
   saved,
   saving,
@@ -863,7 +854,6 @@ function VideoTile({
   videoRef: string
   aspectRatio: string
   modelId: string
-  prompt: string
   selected: boolean
   saved: boolean
   saving: boolean
@@ -872,7 +862,6 @@ function VideoTile({
   onDelete: () => void
   onCopyPrompt: () => void
 }) {
-  void prompt
   const url = useAssetUrl(videoRef)
   const [hovering, setHovering] = useState(false)
   const ratio = aspectStyle(aspectRatio)

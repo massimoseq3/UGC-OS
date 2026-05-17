@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import {
   ImageIcon,
-  Video as VideoIcon,
   Loader2,
   AlertCircle,
   Play,
@@ -9,7 +8,7 @@ import {
 } from 'lucide-react'
 import GenerationProgress from '../../../components/GenerationProgress'
 import type { PromptVariation, CardState, GeneratedImage, ReferenceImage } from '../types'
-import type { VideoHistoryItem, BRoll, Product, Model } from '../../../stores/types'
+import type { VideoHistoryItem, Product, Model } from '../../../stores/types'
 import { enhanceVariationPrompt, generateNewVariation, startImageTask, finishImageTask } from '../services/generateBroll'
 import { startVideoTask, finishVideoTask } from '../services/generateVideo'
 import { useBankStore } from '../../../stores/bankStore'
@@ -92,7 +91,6 @@ export default function VariationCard(props: VariationCardProps) {
 
   const hasImages = cardState.images.length > 0
   const hasVideos = cardState.videos.length > 0
-  const currentImage: GeneratedImage | undefined = cardState.images[cardState.currentImageIndex]
   // Resolve the cover output for the scene card face. If `selected` points
   // at a valid generation, that wins; otherwise fall back to the most-recent
   // image, then video, then nothing.
@@ -113,8 +111,6 @@ export default function VariationCard(props: VariationCardProps) {
   const resolvedImageUrl = useAssetUrl(coverImage?.imageUrl)
   const resolvedVideoUrl = useAssetUrl(coverVideo?.url)
   const [detailOpen, setDetailOpen] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const [savingToBank, setSavingToBank] = useState(false)
   // Two-click confirm for the card-face trash icon. First click flips this
   // flag (icon styling switches to red); second click within ~3s actually
   // calls onDelete. Matches the old modal-footer Delete behaviour.
@@ -280,7 +276,6 @@ export default function VariationCard(props: VariationCardProps) {
           inFlightImages: prev.inFlightImages.filter((e) => e.id !== inFlightId),
         }
       })
-      setSaved(false)
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Image generation failed. Try again.'
       onUpdateStateFn((prev) => ({
@@ -292,55 +287,8 @@ export default function VariationCard(props: VariationCardProps) {
     }
   }
 
-  // Save the currently-selected output to the B-Roll Bank. If the cover is
-  // an image, bundle ALL of the card's videos into the same BRoll record so
-  // the still and its animations live together (matches the prior "save
-  // image + its current video" behaviour, just for an N-video card). If
-  // the cover is a video, save it as a video-only BRoll.
-  const handleSaveToBank = async () => {
-    if (savingToBank) return
-    if (cardState.images.length === 0 && cardState.videos.length === 0) return
-    setSavingToBank(true)
-    try {
-      const bank = useBankStore.getState()
-      const selImage = coverKind === 'image' ? coverImage : undefined
-      const selVideo = coverKind === 'video' ? coverVideo : undefined
-
-      // Save EXACTLY the selected output. Image cover → broll with that
-      // still + every accompanying video. Video cover → broll with that
-      // video only.
-      if (selImage) {
-        const allVideos = cardState.videos.map((v) => ({
-          url: v.url,
-          aspectRatio: v.aspectRatio,
-          createdAt: v.createdAt,
-        }))
-        await bank.addBRoll({
-          imageUrl: selImage.imageUrl,
-          prompt: selImage.prompt ?? cardState.editablePrompt,
-          productId: selectedProductId,
-          modelId: selectedModelId,
-          scriptId: selectedScriptId,
-          videos: allVideos.length > 0 ? allVideos : undefined,
-          sourceApp: 'broll-studio',
-        } as Omit<BRoll, 'id' | 'createdAt'>)
-      } else if (selVideo) {
-        await bank.addBRoll({
-          imageUrl: '',
-          prompt: selVideo.prompt ?? cardState.editablePrompt,
-          productId: selectedProductId,
-          modelId: selectedModelId,
-          scriptId: selectedScriptId,
-          videos: [{ url: selVideo.url, aspectRatio: selVideo.aspectRatio, createdAt: selVideo.createdAt }],
-          sourceApp: 'broll-studio',
-        } as Omit<BRoll, 'id' | 'createdAt'>)
-      }
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
-    } finally {
-      setSavingToBank(false)
-    }
-  }
+  // Save lives per-tile inside the modal's gallery now — the card itself
+  // no longer needs a bundle-save handler.
 
   const toDataUri = async (ref: string): Promise<string | null> => {
     if (!isAssetRef(ref)) return ref
@@ -485,15 +433,8 @@ export default function VariationCard(props: VariationCardProps) {
     }
   }
 
-  const handleAnimateStill = async (videoModelId: string | undefined) => {
-    if (!currentImage) return
-    const firstFrameDataUri = await toDataUri(currentImage.imageUrl)
-    if (!firstFrameDataUri) {
-      onUpdateState({ videoStatus: 'error', videoError: 'Could not load source image.' })
-      return
-    }
-    await runVideoTask('image-to-video', firstFrameDataUri, undefined, videoModelId)
-  }
+  // Animate-still was removed from the modal — Playground covers that flow.
+  // The runVideoTask 'image-to-video' branch stays in case it's needed later.
 
   const handleGenerateVideo = async (videoModelId: string | undefined) => {
     const refs = buildCardRefs()
@@ -674,8 +615,6 @@ export default function VariationCard(props: VariationCardProps) {
           selectedScriptId={selectedScriptId}
           onOpenCharacterPicker={onOpenCharacterPicker}
           onOpenProductPicker={onOpenProductPicker}
-          saved={saved}
-          savingToBank={savingToBank}
           handleUndo={handleUndo}
           handleRedo={handleRedo}
           handleCommitDraft={handleCommitDraft}
