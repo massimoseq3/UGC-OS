@@ -169,9 +169,10 @@ export default function BankPicker({
 
   const picker = (
     <>
-      {/* Backdrop */}
+      {/* Backdrop — z-[70] keeps the picker above the sidebar (z-40) and
+          above the B-Roll CardDetailModal (z-[60]) when opened from within. */}
       <div
-        className={`fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 ${
+        className={`fixed inset-0 z-[70] bg-black/50 transition-opacity duration-300 ${
           isOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
         }`}
         onClick={onClose}
@@ -180,7 +181,7 @@ export default function BankPicker({
       {/* Panel */}
       <div
         ref={panelRef}
-        className={`fixed z-50 flex flex-col border-white/5 bg-[#0a0a0a]/95 backdrop-blur-2xl transition-transform duration-300 ease-out ${
+        className={`fixed z-[80] flex flex-col border-white/5 bg-[#0a0a0a]/95 backdrop-blur-2xl transition-transform duration-300 ease-out ${
           isDesktop
             ? `right-0 top-14 bottom-0 w-[380px] border-l ${isOpen ? 'translate-x-0' : 'translate-x-full'}`
             : `inset-x-0 bottom-0 top-14 border-t rounded-t-2xl ${isOpen ? 'translate-y-0' : 'translate-y-full'}`

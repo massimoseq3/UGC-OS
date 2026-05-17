@@ -148,13 +148,23 @@ function ScriptCard({ item, onEdit, onDelete }: { item: Script; onEdit: () => vo
   const getProductById = useBankStore((s) => s.getProductById)
   const linked = item.linkedProductId ? getProductById(item.linkedProductId) : null
   const preview = item.scriptText.split('\n').slice(0, 2).join(' ').slice(0, 80)
+  // Legacy items predate `kind` — treat them as scripts.
+  const isPrompt = item.kind === 'reverse-engineer'
+  const badge = isPrompt
+    ? { label: 'PROMPT', className: 'bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-500/20' }
+    : { label: 'SCRIPT', className: 'bg-sky-500/15 text-sky-300 border-sky-500/20' }
   return (
     <div onClick={onEdit} className="group flex cursor-pointer gap-3 rounded-xl border border-white/5 bg-white/[0.03] p-3 transition-colors hover:border-white/10 hover:bg-white/[0.05]">
       <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-white/5">
         <FileText className="h-5 w-5 text-zinc-600" />
       </div>
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="truncate text-sm font-semibold tracking-tight text-zinc-200">{item.title}</span>
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <div className="flex items-center gap-2">
+          <span className={`shrink-0 rounded border px-1.5 py-0.5 text-[9px] font-semibold tracking-widest ${badge.className}`}>
+            {badge.label}
+          </span>
+          <span className="truncate text-sm font-semibold tracking-tight text-zinc-200">{item.title}</span>
+        </div>
         <span className="truncate text-xs text-zinc-500">{preview || 'Empty script'}</span>
         <div className="flex items-center gap-2">
           {linked && <span className="text-[10px] text-zinc-600">{linked.productName}</span>}

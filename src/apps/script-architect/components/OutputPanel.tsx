@@ -78,6 +78,7 @@ function VariationCard({ text, cardTitle, defaultSaveTitle, linkedProductId, mod
       scriptText: text,
       linkedProductId: linkedProductId ?? '',
       source: 'script-architect',
+      kind: mode === 'reverse-engineer' ? 'reverse-engineer' : 'remix',
     })
     setShowSaveForm(false)
     setSaved(true)
@@ -300,7 +301,7 @@ export default function OutputPanel({ variations, mode, linkedProductId, isGener
             ? `${angleLabel} variation`
             : isRemix
               ? `Script variation ${i + 1}`
-              : 'Reverse-engineered prompts'
+              : deriveTitleFromContent(text)
           return (
             <VariationCard
               key={i}
@@ -315,6 +316,33 @@ export default function OutputPanel({ variations, mode, linkedProductId, isGener
       </div>
     </div>
   )
+}
+
+// Derive a human-readable title from reverse-engineered prompt content.
+// Strategy: skip scene dividers and label lines, find the first prose
+// sentence, take ~6 words, Title Case. Falls back to a sensible default.
+function deriveTitleFromContent(text: string): string {
+  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean)
+  for (const line of lines) {
+    // Skip scene dividers ("--- Scene 1: HOOK ---") and short ALL-CAPS labels
+    // ("HOOK", "VISUAL:", "VOICEOVER:").
+    if (/^---/.test(line)) continue
+    if (/^[A-Z][A-Z\s:]{0,30}:?$/.test(line)) continue
+    // Strip leading markers like "Visual:", "Voiceover:", "1.", "- ".
+    const cleaned = line
+      .replace(/^[*\-•]\s+/, '')
+      .replace(/^\d+[.)]\s+/, '')
+      .replace(/^(visual|voiceover|action|dialogue|shot|scene|hook|cta)\s*[:\-]\s*/i, '')
+      .trim()
+    if (cleaned.length < 6) continue
+    const firstSentence = cleaned.split(/(?<=[.!?])\s+/)[0] ?? cleaned
+    const words = firstSentence.split(/\s+/).slice(0, 7).join(' ')
+    const trimmed = words.replace(/[.,;:!?\-]+$/, '').trim()
+    if (trimmed.length < 4) continue
+    // Title case the first letter only; preserve original casing otherwise.
+    return trimmed.charAt(0).toUpperCase() + trimmed.slice(1)
+  }
+  return 'Reverse-engineered prompts'
 }
 
 // Robust clipboard write with a textarea fallback for older browsers / non-

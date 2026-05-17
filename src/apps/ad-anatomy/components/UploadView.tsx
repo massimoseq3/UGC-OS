@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { Upload, Film, X, Clapperboard, Eye } from 'lucide-react'
+import { Upload, Film, X, Eye } from 'lucide-react'
 
 const ACCEPTED_TYPES = ['video/mp4', 'video/quicktime', 'video/webm']
 const MAX_SIZE_MB = 50
@@ -12,13 +12,14 @@ export default function UploadView({ onAnalyze }: UploadViewProps) {
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState(false)
-  // Window-wide drag overlay — visible whenever any drag enters the page,
-  // regardless of which child element the cursor is over. Tracks a counter
+  // Panel-scoped drag overlay — visible whenever a file drag enters the
+  // Ad Analyzer surface (not the sidebar or app chrome). Tracks a counter
   // so nested dragenter/leave from child elements don't flicker the overlay.
-  const [windowDragActive, setWindowDragActive] = useState(false)
+  const [panelDragActive, setPanelDragActive] = useState(false)
   const dragCounterRef = useRef(0)
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
 
   const validateAndSet = useCallback((f: File) => {
     setError(null)
@@ -34,9 +35,11 @@ export default function UploadView({ onAnalyze }: UploadViewProps) {
     setPreview(URL.createObjectURL(f))
   }, [])
 
-  // Window-wide drag-drop: listen at the document level so the user can
-  // drop their video anywhere on the page (not just on the dashed box).
+  // Panel-scoped drag-drop: listen on the Ad Analyzer panel only so the
+  // overlay covers just this surface — not the sidebar or app chrome.
   useEffect(() => {
+    const el = panelRef.current
+    if (!el) return
     function isVideoDrag(e: DragEvent): boolean {
       // dataTransfer.types is the only reliable signal during dragenter — the
       // file list isn't readable yet. Files drag-ins surface 'Files'.
@@ -46,7 +49,7 @@ export default function UploadView({ onAnalyze }: UploadViewProps) {
       if (!isVideoDrag(e)) return
       e.preventDefault()
       dragCounterRef.current += 1
-      setWindowDragActive(true)
+      setPanelDragActive(true)
     }
     const onDragOver = (e: DragEvent) => {
       if (!isVideoDrag(e)) return
@@ -57,26 +60,26 @@ export default function UploadView({ onAnalyze }: UploadViewProps) {
       dragCounterRef.current -= 1
       if (dragCounterRef.current <= 0) {
         dragCounterRef.current = 0
-        setWindowDragActive(false)
+        setPanelDragActive(false)
       }
     }
     const onDrop = (e: DragEvent) => {
       if (!isVideoDrag(e)) return
       e.preventDefault()
       dragCounterRef.current = 0
-      setWindowDragActive(false)
+      setPanelDragActive(false)
       const f = e.dataTransfer?.files?.[0]
       if (f) validateAndSet(f)
     }
-    document.addEventListener('dragenter', onDragEnter)
-    document.addEventListener('dragover', onDragOver)
-    document.addEventListener('dragleave', onDragLeave)
-    document.addEventListener('drop', onDrop)
+    el.addEventListener('dragenter', onDragEnter)
+    el.addEventListener('dragover', onDragOver)
+    el.addEventListener('dragleave', onDragLeave)
+    el.addEventListener('drop', onDrop)
     return () => {
-      document.removeEventListener('dragenter', onDragEnter)
-      document.removeEventListener('dragover', onDragOver)
-      document.removeEventListener('dragleave', onDragLeave)
-      document.removeEventListener('drop', onDrop)
+      el.removeEventListener('dragenter', onDragEnter)
+      el.removeEventListener('dragover', onDragOver)
+      el.removeEventListener('dragleave', onDragLeave)
+      el.removeEventListener('drop', onDrop)
     }
   }, [validateAndSet])
 
@@ -106,7 +109,7 @@ export default function UploadView({ onAnalyze }: UploadViewProps) {
   }
 
   return (
-    <div className="relative flex h-full flex-col items-center justify-center gap-6 p-8">
+    <div ref={panelRef} className="relative flex h-full flex-col items-center justify-center gap-6 p-8">
       <div className="flex flex-col items-center gap-2 text-center">
         <Eye className="h-8 w-8 text-[#FB2B37]/60" strokeWidth={1.5} />
         <h2 className="text-lg font-semibold tracking-tight text-zinc-200">
@@ -171,16 +174,13 @@ export default function UploadView({ onAnalyze }: UploadViewProps) {
             <span className="shrink-0 text-xs tabular-nums text-zinc-600">{formatSize(file.size)}</span>
           </div>
 
-          {/* Analyse button */}
+          {/* Analyze button — mirrors Scripts' generate-pill shape, kept red. */}
           <button
             onClick={() => onAnalyze(file)}
-            className="group relative flex items-center justify-center gap-2 overflow-hidden rounded-full bg-[#FB2B37] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#FB2B37]/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]"
+            className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-[#FB2B37] px-6 py-3.5 text-[13px] font-medium tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-[#FB2B37]/90 disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            <div className="pointer-events-none absolute inset-0 z-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-1000 group-hover:translate-x-full" />
-            <span className="relative z-10 flex items-center gap-2">
-              <Clapperboard className="h-4 w-4" />
-              Analyse Ad
-            </span>
+            <Eye className="h-4 w-4" />
+            <span>Analyze Ad</span>
           </button>
         </div>
       )}
@@ -189,10 +189,10 @@ export default function UploadView({ onAnalyze }: UploadViewProps) {
         <p className="text-sm text-[#FB2B37]">{error}</p>
       )}
 
-      {/* Window-wide drag overlay — covers everything in the app surface
-          when the user is dragging a video over the page. */}
-      {windowDragActive && (
-        <div className="pointer-events-none fixed inset-0 z-[70] flex items-center justify-center bg-[#FB2B37]/10 backdrop-blur-sm">
+      {/* Panel-scoped drag overlay — covers the Ad Analyzer surface only
+          (sidebar and app chrome remain visible). */}
+      {panelDragActive && (
+        <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center bg-[#FB2B37]/10 backdrop-blur-sm">
           <div className="flex flex-col items-center gap-4 rounded-3xl border-2 border-dashed border-[#FB2B37]/50 bg-black/40 px-12 py-10 text-center shadow-2xl">
             <Upload className="h-10 w-10 text-[#FB2B37]" />
             <p className="text-xl font-semibold tracking-tight text-zinc-100">

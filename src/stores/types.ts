@@ -28,6 +28,10 @@ export interface Script {
   scriptText: string
   linkedProductId: string
   source: 'script-architect' | 'manual'
+  // Distinguishes a generated ad script ('remix', default) from a
+  // reverse-engineered reconstruction prompt ('reverse-engineer').
+  // Drives the SCRIPT/PROMPT badge in the Scripts bank.
+  kind?: 'remix' | 'reverse-engineer'
   createdAt: number
 }
 

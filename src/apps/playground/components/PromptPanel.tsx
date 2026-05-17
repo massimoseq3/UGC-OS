@@ -382,6 +382,100 @@ export default function PromptPanel({ state, onChange, onSubmit, isGenerating }:
                   }
                 />
               </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {state.mode === 'video' && model?.videoConstraints && (
+                  <>
+                    <ConstraintChip
+                      options={model.videoConstraints.aspectRatios}
+                      value={state.aspectRatio}
+                      onChange={(v) => onChange({ ...state, aspectRatio: v })}
+                      render={(v) => (
+                        <span className="flex items-center gap-1.5">
+                          <AspectIcon ratio={v} />
+                          <span>{v}</span>
+                        </span>
+                      )}
+                    />
+                    {model.videoConstraints.durations.length > 0 && (
+                      <ConstraintChip
+                        options={model.videoConstraints.durations.map(String)}
+                        value={String(state.durationSeconds)}
+                        onChange={(v) => onChange({ ...state, durationSeconds: Number(v) })}
+                        render={(v) => <span>{v}s</span>}
+                      />
+                    )}
+                    <ConstraintChip
+                      options={model.videoConstraints.resolutions}
+                      value={state.resolution}
+                      onChange={(v) => onChange({ ...state, resolution: v })}
+                    />
+                    {model.videoConstraints.supportsAudio && (
+                      <button
+                        type="button"
+                        onClick={() => onChange({ ...state, audio: !state.audio })}
+                        className={`flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[12px] transition-colors ${
+                          state.audio
+                            ? 'border-green-500/30 bg-green-500/10 text-green-200'
+                            : 'border-white/10 bg-white/[0.02] text-zinc-400 hover:bg-white/[0.05]'
+                        }`}
+                      >
+                        {state.audio ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
+                        <span>{state.audio ? 'Audio' : 'Mute'}</span>
+                      </button>
+                    )}
+                  </>
+                )}
+
+                {state.mode === 'image' && model?.imageConstraints && (
+                  <>
+                    {model.imageConstraints.aspectRatios && (
+                      <ConstraintChip
+                        options={model.imageConstraints.aspectRatios}
+                        value={state.aspectRatio}
+                        onChange={(v) => onChange({ ...state, aspectRatio: v })}
+                        render={(v) => (
+                          <span className="flex items-center gap-1.5">
+                            <AspectIcon ratio={v} />
+                            <span>{v}</span>
+                          </span>
+                        )}
+                      />
+                    )}
+                    <ConstraintChip
+                      options={model.imageConstraints.resolutions}
+                      value={state.resolution}
+                      onChange={(v) => onChange({ ...state, resolution: v })}
+                    />
+                  </>
+                )}
+
+                {state.mode === 'music' && (
+                  <div className="inline-flex rounded-full border border-white/10 bg-white/[0.02] p-0.5">
+                    <button
+                      type="button"
+                      onClick={() => onChange({ ...state, instrumental: true })}
+                      className={`rounded-full px-4 py-1.5 text-[12px] transition-colors ${
+                        state.instrumental
+                          ? 'bg-green-500/15 text-green-200'
+                          : 'text-zinc-400 hover:text-zinc-200'
+                      }`}
+                    >
+                      Instrumental
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onChange({ ...state, instrumental: false })}
+                      className={`rounded-full px-4 py-1.5 text-[12px] transition-colors ${
+                        !state.instrumental
+                          ? 'bg-green-500/15 text-green-200'
+                          : 'text-zinc-400 hover:text-zinc-200'
+                      }`}
+                    >
+                      With lyrics
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Preset — clickable row that opens the slide-in picker.
@@ -509,103 +603,8 @@ export default function PromptPanel({ state, onChange, onSubmit, isGenerating }:
         )}
       </div>
 
-      {/* Bottom: pinned footer — constraint chips + big Generate button. */}
-      <div className="shrink-0 space-y-3 border-t border-white/5 px-5 py-4">
-        <div className="flex flex-wrap items-center gap-2">
-          {state.mode === 'video' && model?.videoConstraints && (
-            <>
-              <ConstraintChip
-                options={model.videoConstraints.aspectRatios}
-                value={state.aspectRatio}
-                onChange={(v) => onChange({ ...state, aspectRatio: v })}
-                render={(v) => (
-                  <span className="flex items-center gap-1.5">
-                    <AspectIcon ratio={v} />
-                    <span>{v}</span>
-                  </span>
-                )}
-              />
-              {model.videoConstraints.durations.length > 0 && (
-                <ConstraintChip
-                  options={model.videoConstraints.durations.map(String)}
-                  value={String(state.durationSeconds)}
-                  onChange={(v) => onChange({ ...state, durationSeconds: Number(v) })}
-                  render={(v) => <span>{v}s</span>}
-                />
-              )}
-              <ConstraintChip
-                options={model.videoConstraints.resolutions}
-                value={state.resolution}
-                onChange={(v) => onChange({ ...state, resolution: v })}
-              />
-              {model.videoConstraints.supportsAudio && (
-                <button
-                  type="button"
-                  onClick={() => onChange({ ...state, audio: !state.audio })}
-                  className={`flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[12px] transition-colors ${
-                    state.audio
-                      ? 'border-green-500/30 bg-green-500/10 text-green-200'
-                      : 'border-white/10 bg-white/[0.02] text-zinc-400 hover:bg-white/[0.05]'
-                  }`}
-                >
-                  {state.audio ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
-                  <span>{state.audio ? 'Audio' : 'Mute'}</span>
-                </button>
-              )}
-            </>
-          )}
-
-          {state.mode === 'image' && model?.imageConstraints && (
-            <>
-              {model.imageConstraints.aspectRatios && (
-                <ConstraintChip
-                  options={model.imageConstraints.aspectRatios}
-                  value={state.aspectRatio}
-                  onChange={(v) => onChange({ ...state, aspectRatio: v })}
-                  render={(v) => (
-                    <span className="flex items-center gap-1.5">
-                      <AspectIcon ratio={v} />
-                      <span>{v}</span>
-                    </span>
-                  )}
-                />
-              )}
-              <ConstraintChip
-                options={model.imageConstraints.resolutions}
-                value={state.resolution}
-                onChange={(v) => onChange({ ...state, resolution: v })}
-              />
-            </>
-          )}
-
-          {state.mode === 'music' && (
-            <div className="inline-flex rounded-full border border-white/10 bg-white/[0.02] p-0.5">
-              <button
-                type="button"
-                onClick={() => onChange({ ...state, instrumental: true })}
-                className={`rounded-full px-4 py-1.5 text-[12px] transition-colors ${
-                  state.instrumental
-                    ? 'bg-fuchsia-500/15 text-fuchsia-200'
-                    : 'text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
-                Instrumental
-              </button>
-              <button
-                type="button"
-                onClick={() => onChange({ ...state, instrumental: false })}
-                className={`rounded-full px-4 py-1.5 text-[12px] transition-colors ${
-                  !state.instrumental
-                    ? 'bg-fuchsia-500/15 text-fuchsia-200'
-                    : 'text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
-                With lyrics
-              </button>
-            </div>
-          )}
-        </div>
-
+      {/* Bottom: pinned footer — big Generate button. */}
+      <div className="shrink-0 border-t border-white/5 px-5 py-4">
         <button
           type="button"
           onClick={onSubmit}
