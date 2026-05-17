@@ -7,6 +7,14 @@ interface AllowlistRow {
   source: string
   added_at: string
   notes: string | null
+  first_name: string | null
+  last_name: string | null
+}
+
+interface CsvEntry {
+  email: string
+  firstName: string | null
+  lastName: string | null
 }
 
 const QUERY_TIMEOUT_MS = 15_000
@@ -70,11 +78,22 @@ function detectEmailColumn(header: string[], rows: string[][]): number {
   return bestIdx
 }
 
+// Match Skool's CSV header variants for name columns. Returns -1 if absent.
+function detectNameColumn(header: string[], kind: 'first' | 'last'): number {
+  const firstNames = ['first name', 'firstname', 'first', 'given name', 'givenname']
+  const lastNames = ['last name', 'lastname', 'last', 'surname', 'family name', 'familyname']
+  const wanted = kind === 'first' ? firstNames : lastNames
+  return header.findIndex((h) => wanted.includes(h.toLowerCase().trim()))
+}
+
 interface ImportPreview {
   fileName: string
-  newEmails: string[]
-  duplicates: string[]   // already on allowlist
-  invalid: string[]      // failed regex
+  newEntries: CsvEntry[]      // brand-new emails (with optional names)
+  // Existing allowlist rows whose names we'll refresh from the CSV (no email
+  // change, just name fields). Skipped when the CSV row carries no name.
+  nameUpdates: CsvEntry[]
+  duplicates: string[]         // already on allowlist, no name change to push
+  invalid: string[]            // failed regex
   // Allowlist emails NOT present in the CSV. Only removed if the user opts in
   // to sync mode in the modal. Excludes admin sources to avoid accidentally
   // booting yourself.
@@ -101,7 +120,7 @@ export default function AllowlistEditor() {
     try {
       const sb = getSupabase()
       const { data, error } = await withTimeout(
-        sb.from('allowlist').select('email, source, added_at, notes').order('added_at', { ascending: false }),
+        sb.from('allowlist').select('email, source, added_at, notes, first_name, last_name').order('added_at', { ascending: false }),
         QUERY_TIMEOUT_MS,
         'allowlist query',
       ) as { data: AllowlistRow[] | null; error: { message: string } | null }
@@ -176,37 +195,60 @@ export default function AllowlistEditor() {
       const header = parseCsvLine(lines[0])
       const body = lines.slice(1).map(parseCsvLine)
       const emailCol = detectEmailColumn(header, body)
+      const firstCol = emailCol === -1 ? -1 : detectNameColumn(header, 'first')
+      const lastCol = emailCol === -1 ? -1 : detectNameColumn(header, 'last')
 
-      // Single-column or no-header file: also collect the entire file as raw
-      // candidates so a list of bare emails works without a header row.
-      let candidates: string[] = []
+      // Collect (email, firstName, lastName) tuples. If we couldn't detect an
+      // email column we fall back to "every cell is a possible email" and
+      // skip name columns entirely.
+      let candidates: CsvEntry[] = []
+      const norm = (v: string | undefined): string | null => {
+        const t = (v ?? '').trim()
+        return t.length > 0 ? t : null
+      }
       if (emailCol === -1) {
-        // Treat every cell of every line as a possible email.
-        candidates = [header, ...body].flat().map((s) => s.trim().toLowerCase()).filter(Boolean)
+        candidates = [header, ...body].flat()
+          .map((s) => s.trim().toLowerCase())
+          .filter(Boolean)
+          .map((email) => ({ email, firstName: null, lastName: null }))
       } else {
-        candidates = body.map((row) => (row[emailCol] ?? '').trim().toLowerCase()).filter(Boolean)
+        candidates = body
+          .map((row) => ({
+            email: (row[emailCol] ?? '').trim().toLowerCase(),
+            firstName: firstCol === -1 ? null : norm(row[firstCol]),
+            lastName: lastCol === -1 ? null : norm(row[lastCol]),
+          }))
+          .filter((e) => e.email.length > 0)
       }
 
-      // De-dupe within the file itself
-      const seen = new Set<string>()
-      const deduped: string[] = []
-      for (const c of candidates) {
-        if (!seen.has(c)) { seen.add(c); deduped.push(c) }
-      }
+      // De-dupe within the file (last occurrence wins for name fields).
+      const byEmail = new Map<string, CsvEntry>()
+      for (const c of candidates) byEmail.set(c.email, c)
+      const deduped = Array.from(byEmail.values())
 
-      const valid: string[] = []
+      const valid: CsvEntry[] = []
       const invalid: string[] = []
       for (const c of deduped) {
-        if (EMAIL_RE.test(c)) valid.push(c)
-        else invalid.push(c)
+        if (EMAIL_RE.test(c.email)) valid.push(c)
+        else invalid.push(c.email)
       }
 
-      const onListSet = new Set(rows.map((r) => r.email.toLowerCase()))
-      const newEmails: string[] = []
+      const existingByEmail = new Map(rows.map((r) => [r.email.toLowerCase(), r]))
+      const newEntries: CsvEntry[] = []
+      const nameUpdates: CsvEntry[] = []
       const duplicates: string[] = []
       for (const v of valid) {
-        if (onListSet.has(v)) duplicates.push(v)
-        else newEmails.push(v)
+        const existing = existingByEmail.get(v.email)
+        if (!existing) {
+          newEntries.push(v)
+        } else if (
+          (v.firstName !== null && v.firstName !== existing.first_name) ||
+          (v.lastName !== null && v.lastName !== existing.last_name)
+        ) {
+          nameUpdates.push(v)
+        } else {
+          duplicates.push(v.email)
+        }
       }
 
       // Sync candidates: rows that are on the allowlist but NOT in the CSV.
@@ -214,7 +256,7 @@ export default function AllowlistEditor() {
       // — that protects 'admin'-flagged or future Zapier-flagged seeds from
       // being clobbered by a stale CSV. If you want to remove an admin you
       // can still do it manually with the trash button.
-      const csvSet = new Set(valid)
+      const csvSet = new Set(valid.map((v) => v.email))
       const removable: string[] = rows
         .filter((r) => !csvSet.has(r.email.toLowerCase()))
         .filter((r) => r.source === 'manual' || r.source === 'csv-import')
@@ -222,7 +264,8 @@ export default function AllowlistEditor() {
 
       setPreview({
         fileName: file.name,
-        newEmails,
+        newEntries,
+        nameUpdates,
         duplicates,
         invalid,
         removable,
@@ -234,25 +277,55 @@ export default function AllowlistEditor() {
 
   async function confirmImport(syncMode: boolean) {
     if (!preview) return
-    const willAdd = preview.newEmails.length
+    const willAdd = preview.newEntries.length
+    const willUpdate = preview.nameUpdates.length
     const willRemove = syncMode ? preview.removable.length : 0
-    if (willAdd === 0 && willRemove === 0) { setPreview(null); return }
+    if (willAdd === 0 && willUpdate === 0 && willRemove === 0) { setPreview(null); return }
     setImporting(true)
     try {
       const sb = getSupabase()
-      // Adds first, then optional removes. Each is a single round trip; RLS
-      // on `allowlist` is admin-only, so the admin can mutate many rows in
-      // one call. The on_allowlist_delete trigger disables matching profiles.
+      // Adds first, then name-only updates, then optional removes. RLS on
+      // `allowlist` is admin-only, so each batch is a single round trip. The
+      // on_allowlist_insert + on_allowlist_update_names triggers cascade
+      // names into the matching profile rows.
       if (willAdd > 0) {
         const { error } = await withTimeout(
           sb.from('allowlist').upsert(
-            preview.newEmails.map((email) => ({ email, source: 'csv-import' })),
+            preview.newEntries.map((e) => ({
+              email: e.email,
+              source: 'csv-import',
+              first_name: e.firstName,
+              last_name: e.lastName,
+            })),
             { onConflict: 'email', ignoreDuplicates: true },
           ),
           30_000,
           'bulk import (add)',
         ) as { error: { message: string } | null }
         if (error) throw error
+      }
+      if (willUpdate > 0) {
+        // Per-row UPDATE (not upsert) so we don't clobber source/added_at.
+        // Batched in parallel for speed.
+        const results = await Promise.allSettled(preview.nameUpdates.map((e) =>
+          withTimeout(
+            sb.from('allowlist').update({
+              first_name: e.firstName,
+              last_name: e.lastName,
+            }).eq('email', e.email),
+            30_000,
+            `name update ${e.email}`,
+          ) as Promise<{ error: { message: string } | null }>,
+        ))
+        const failures = results.filter((r) => r.status === 'rejected'
+          || (r.status === 'fulfilled' && r.value.error))
+        if (failures.length > 0) {
+          const first = failures[0]
+          const msg = first.status === 'rejected'
+            ? (first.reason instanceof Error ? first.reason.message : String(first.reason))
+            : (first.value.error?.message ?? 'unknown error')
+          throw new Error(`${failures.length} name update(s) failed: ${msg}`)
+        }
       }
       if (willRemove > 0) {
         const { error } = await withTimeout(
@@ -333,6 +406,7 @@ export default function AllowlistEditor() {
           <table className="w-full text-[12px]">
             <thead className="bg-white/[0.03] text-[11px] uppercase tracking-wider text-zinc-500">
               <tr>
+                <th className="px-3 py-2 text-left font-medium">Name</th>
                 <th className="px-3 py-2 text-left font-medium">Email</th>
                 <th className="px-3 py-2 text-left font-medium">Source</th>
                 <th className="px-3 py-2 text-left font-medium">Added</th>
@@ -341,10 +415,15 @@ export default function AllowlistEditor() {
             </thead>
             <tbody className="divide-y divide-white/5">
               {rows.length === 0 && (
-                <tr><td colSpan={4} className="px-3 py-6 text-center text-zinc-500">Empty — Zapier zap not yet wired, or no members yet.</td></tr>
+                <tr><td colSpan={5} className="px-3 py-6 text-center text-zinc-500">Empty — Zapier zap not yet wired, or no members yet.</td></tr>
               )}
-              {rows.map((r) => (
+              {rows.map((r) => {
+                const fullName = [r.first_name, r.last_name].filter(Boolean).join(' ')
+                return (
                 <tr key={r.email}>
+                  <td className="px-3 py-2 text-zinc-200">
+                    {fullName || <span className="text-zinc-600">—</span>}
+                  </td>
                   <td className="px-3 py-2 text-zinc-200">{r.email}</td>
                   <td className="px-3 py-2 text-zinc-400">{r.source}</td>
                   <td className="px-3 py-2 text-zinc-400">{new Date(r.added_at).toLocaleDateString()}</td>
@@ -358,7 +437,8 @@ export default function AllowlistEditor() {
                     </button>
                   </td>
                 </tr>
-              ))}
+                )
+              })}
             </tbody>
           </table>
         </div>
@@ -389,13 +469,18 @@ function ImportPreviewModal({
 }) {
   const [syncMode, setSyncMode] = useState(false)
   const willRemove = syncMode ? preview.removable.length : 0
-  const willAdd = preview.newEmails.length
+  const willAdd = preview.newEntries.length
+  const willUpdate = preview.nameUpdates.length
 
   let cta: string
-  if (willAdd === 0 && willRemove === 0) cta = 'Nothing to do'
-  else if (willAdd > 0 && willRemove > 0) cta = `Add ${willAdd} & remove ${willRemove}`
-  else if (willAdd > 0) cta = `Import ${willAdd}`
-  else cta = `Remove ${willRemove}`
+  if (willAdd === 0 && willUpdate === 0 && willRemove === 0) cta = 'Nothing to do'
+  else {
+    const bits: string[] = []
+    if (willAdd > 0) bits.push(`add ${willAdd}`)
+    if (willUpdate > 0) bits.push(`update ${willUpdate}`)
+    if (willRemove > 0) bits.push(`remove ${willRemove}`)
+    cta = bits.map((b, i) => i === 0 ? b[0].toUpperCase() + b.slice(1) : b).join(' & ')
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
@@ -411,7 +496,10 @@ function ImportPreviewModal({
         </div>
 
         <div className="mt-4 space-y-2">
-          <Stat color="emerald" label="New emails to add" value={preview.newEmails.length} />
+          <Stat color="emerald" label="New emails to add" value={preview.newEntries.length} />
+          {preview.nameUpdates.length > 0 && (
+            <Stat color="sky" label="Existing — name update" value={preview.nameUpdates.length} />
+          )}
           <Stat color="zinc" label="Already on allowlist" value={preview.duplicates.length} />
           {preview.invalid.length > 0 && (
             <Stat color="amber" label="Invalid (skipped)" value={preview.invalid.length} />
@@ -421,13 +509,21 @@ function ImportPreviewModal({
           )}
         </div>
 
-        {preview.newEmails.length > 0 && (
+        {preview.newEntries.length > 0 && (
           <details className="mt-3" open>
             <summary className="cursor-pointer text-[11px] text-zinc-400 hover:text-zinc-200">
-              New emails ({preview.newEmails.length})
+              New emails ({preview.newEntries.length})
             </summary>
             <div className="mt-1 max-h-32 overflow-y-auto rounded-lg border border-white/10 bg-white/[0.02] p-2 text-[11px] text-zinc-400">
-              {preview.newEmails.map((e) => <div key={e} className="truncate">{e}</div>)}
+              {preview.newEntries.map((e) => {
+                const name = [e.firstName, e.lastName].filter(Boolean).join(' ')
+                return (
+                  <div key={e.email} className="flex items-baseline justify-between gap-2 truncate">
+                    <span className="truncate">{e.email}</span>
+                    {name && <span className="shrink-0 text-zinc-600">{name}</span>}
+                  </div>
+                )
+              })}
             </div>
           </details>
         )}
@@ -498,11 +594,12 @@ function ImportPreviewModal({
   )
 }
 
-function Stat({ color, label, value, dim }: { color: 'emerald' | 'zinc' | 'amber' | 'red'; label: string; value: number; dim?: boolean }) {
+function Stat({ color, label, value, dim }: { color: 'emerald' | 'zinc' | 'amber' | 'red' | 'sky'; label: string; value: number; dim?: boolean }) {
   const dot =
     color === 'emerald' ? 'bg-emerald-400'
       : color === 'amber' ? 'bg-amber-400'
       : color === 'red' ? 'bg-red-400'
+      : color === 'sky' ? 'bg-sky-400'
       : 'bg-zinc-500'
   return (
     <div className={`flex items-center justify-between rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2 text-[12px] ${dim ? 'opacity-60' : ''}`}>

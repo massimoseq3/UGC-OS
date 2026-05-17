@@ -6,6 +6,8 @@ interface MemberRow {
   id: string
   email: string
   display_name: string | null
+  first_name: string | null
+  last_name: string | null
   is_admin: boolean
   disabled_at: string | null
   created_at: string
@@ -21,6 +23,14 @@ interface MemberRow {
   voice_history: number
   video_history: number
   assets_last_7d: number
+}
+
+// Render "First Last" with whichever fields are present; falls back to
+// display_name, otherwise an em-dash placeholder.
+function memberName(r: Pick<MemberRow, 'first_name' | 'last_name' | 'display_name'>): string {
+  const joined = [r.first_name, r.last_name].filter(Boolean).join(' ').trim()
+  if (joined) return joined
+  return (r.display_name ?? '').trim()
 }
 
 const QUERY_TIMEOUT_MS = 15_000
@@ -62,7 +72,7 @@ function withTimeout<T>(p: PromiseLike<T>, ms: number, label: string): Promise<T
   })
 }
 
-type SortKey = 'email' | 'created_at' | 'last_active_at' | 'total_bytes' | 'assets_last_7d'
+type SortKey = 'name' | 'email' | 'created_at' | 'last_active_at' | 'total_bytes' | 'assets_last_7d'
 type SortDir = 'asc' | 'desc'
 
 export default function MembersTable() {
@@ -92,7 +102,7 @@ export default function MembersTable() {
       // fail, so a single bad view doesn't blank the whole table.
       const [profilesRes, storageRes, activityRes] = await Promise.allSettled([
         withTimeout(
-          sb.from('profiles').select('id, email, display_name, is_admin, disabled_at, created_at, last_active_at'),
+          sb.from('profiles').select('id, email, display_name, first_name, last_name, is_admin, disabled_at, created_at, last_active_at'),
           QUERY_TIMEOUT_MS,
           'profiles query',
         ),
@@ -152,7 +162,7 @@ export default function MembersTable() {
         setActivityWarning(`Activity counts unavailable (${reason}). Did you run 0002_member_activity.sql?`)
       }
 
-      const profilesData = (profilesRes.value as { data: Array<Pick<MemberRow, 'id' | 'email' | 'display_name' | 'is_admin' | 'disabled_at' | 'created_at' | 'last_active_at'>> }).data ?? []
+      const profilesData = (profilesRes.value as { data: Array<Pick<MemberRow, 'id' | 'email' | 'display_name' | 'first_name' | 'last_name' | 'is_admin' | 'disabled_at' | 'created_at' | 'last_active_at'>> }).data ?? []
       const merged: MemberRow[] = profilesData.map((p) => {
         const s = storageMap.get(p.id)
         const a = activityMap.get(p.id)
@@ -206,7 +216,7 @@ export default function MembersTable() {
     } else {
       setSortKey(key)
       // Sensible default direction per column
-      setSortDir(key === 'email' ? 'asc' : 'desc')
+      setSortDir(key === 'email' || key === 'name' ? 'asc' : 'desc')
     }
   }
 
@@ -215,6 +225,9 @@ export default function MembersTable() {
     arr.sort((a, b) => {
       let cmp = 0
       switch (sortKey) {
+        case 'name':
+          cmp = memberName(a).localeCompare(memberName(b))
+          break
         case 'email':
           cmp = a.email.localeCompare(b.email)
           break
@@ -297,6 +310,7 @@ export default function MembersTable() {
         <table className="w-full text-[12px]">
           <thead className="bg-white/[0.03] text-[11px] uppercase tracking-wider text-zinc-500">
             <tr>
+              <SortableTh label="Name" k="name" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
               <SortableTh label="Email" k="email" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
               <SortableTh label="Joined" k="created_at" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
               <SortableTh label="Last active" k="last_active_at" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
@@ -307,11 +321,16 @@ export default function MembersTable() {
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5">
-            {sortedRows.map((r) => (
+            {sortedRows.map((r) => {
+              const name = memberName(r)
+              return (
               <tr key={r.id} className="text-zinc-300">
                 <td className="px-3 py-2 align-top">
-                  <div className="font-medium text-zinc-200">{r.email}</div>
+                  <div className="font-medium text-zinc-200">{name || <span className="text-zinc-600">—</span>}</div>
                   {r.is_admin && <div className="text-[10px] uppercase tracking-wider text-amber-400">Admin</div>}
+                </td>
+                <td className="px-3 py-2 align-top">
+                  <div className="text-zinc-300">{r.email}</div>
                   <div className="mt-1 text-[10px] text-zinc-500">
                     {r.products}p · {r.models}m · {r.scripts}s · {r.voices}v · {r.brolls}b · {r.video_history}vid
                   </div>
@@ -346,7 +365,8 @@ export default function MembersTable() {
                   </button>
                 </td>
               </tr>
-            ))}
+              )
+            })}
           </tbody>
         </table>
       </div>
