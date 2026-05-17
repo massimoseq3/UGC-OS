@@ -558,13 +558,13 @@ export default function PromptPanel({ state, onChange, onSubmit, isGenerating }:
                 <button
                   type="button"
                   onClick={() => onChange({ ...state, audio: !state.audio })}
-                  className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] transition-colors ${
+                  className={`flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[12px] transition-colors ${
                     state.audio
                       ? 'border-green-500/30 bg-green-500/10 text-green-200'
                       : 'border-white/10 bg-white/[0.02] text-zinc-400 hover:bg-white/[0.05]'
                   }`}
                 >
-                  {state.audio ? <Volume2 className="h-3 w-3" /> : <VolumeX className="h-3 w-3" />}
+                  {state.audio ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
                   <span>{state.audio ? 'Audio' : 'Mute'}</span>
                 </button>
               )}
@@ -599,7 +599,7 @@ export default function PromptPanel({ state, onChange, onSubmit, isGenerating }:
               <button
                 type="button"
                 onClick={() => onChange({ ...state, instrumental: true })}
-                className={`rounded-full px-3 py-1 text-[11px] transition-colors ${
+                className={`rounded-full px-4 py-1.5 text-[12px] transition-colors ${
                   state.instrumental
                     ? 'bg-fuchsia-500/15 text-fuchsia-200'
                     : 'text-zinc-400 hover:text-zinc-200'
@@ -610,7 +610,7 @@ export default function PromptPanel({ state, onChange, onSubmit, isGenerating }:
               <button
                 type="button"
                 onClick={() => onChange({ ...state, instrumental: false })}
-                className={`rounded-full px-3 py-1 text-[11px] transition-colors ${
+                className={`rounded-full px-4 py-1.5 text-[12px] transition-colors ${
                   !state.instrumental
                     ? 'bg-fuchsia-500/15 text-fuchsia-200'
                     : 'text-zinc-400 hover:text-zinc-200'
@@ -666,7 +666,7 @@ function ConstraintChip({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex h-7 items-center gap-1 rounded-full border border-white/10 bg-white/[0.02] px-2.5 text-[11px] text-zinc-300 transition-colors hover:bg-white/[0.05]"
+        className="flex h-9 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.02] px-3.5 text-[12px] text-zinc-300 transition-colors hover:bg-white/[0.05]"
       >
         {render ? render(value) : <span>{value}</span>}
       </button>

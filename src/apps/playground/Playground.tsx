@@ -346,19 +346,20 @@ export default function Playground() {
   return (
     <div className="relative flex flex-col md:h-full">
       <div className="flex flex-1 flex-col md:min-h-0 md:flex-row">
-        {/* Left — history grid */}
-        <div className="flex flex-1 flex-col md:min-h-0 md:overflow-hidden">
-          <PlaygroundHistoryGrid inFlight={inFlight} filterMode={filterMode} />
-        </div>
-
-        {/* Right — prompt panel (mirrors Voiceovers' right column) */}
-        <div className="flex w-full md:w-[400px] shrink-0 flex-col border-t md:border-t-0 md:border-l border-white/5">
+        {/* Left — prompt panel. On mobile we still want controls above the
+            grid, so the panel comes first in source order regardless. */}
+        <div className="flex w-full md:w-[400px] shrink-0 flex-col border-b md:border-b-0 md:border-r border-white/5">
           <PromptPanel
             state={state}
             onChange={setState}
             onSubmit={handleSubmit}
             isGenerating={isGenerating}
           />
+        </div>
+
+        {/* Right — history grid */}
+        <div className="flex flex-1 flex-col md:min-h-0 md:overflow-hidden">
+          <PlaygroundHistoryGrid inFlight={inFlight} filterMode={filterMode} />
         </div>
       </div>
     </div>
