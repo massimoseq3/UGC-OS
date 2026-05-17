@@ -95,8 +95,8 @@ export default function VideoInputSlot({ label, helper, value, onChange, bankTyp
         </label>
 
         {value ? (
-          <div className="relative h-20 w-20 overflow-hidden rounded-lg border border-white/10">
-            <img src={value.dataUri} alt="" className="h-full w-full object-cover" />
+          <div className="relative flex h-20 w-20 items-center justify-center overflow-hidden rounded-lg border border-white/10 bg-black/40">
+            <img src={value.dataUri} alt="" className="max-h-full max-w-full object-contain" />
             <button
               onClick={() => onChange(null)}
               className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/70 text-white/80 hover:bg-black/90"

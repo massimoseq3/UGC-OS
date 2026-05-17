@@ -161,7 +161,7 @@ export default function VideoStudio() {
       patch.duration = constraints.durations[0]
     }
     if (!constraints.resolutions.includes(activeSlot.resolution)) {
-      patch.resolution = constraints.resolutions[0] ?? '720p'
+      patch.resolution = constraints.default ?? constraints.resolutions[0] ?? '720p'
     }
     if (!constraints.supportsAudio) patch.audio = false
     if (!refsAllowed && activeSlot.references.length > 0) patch.references = []

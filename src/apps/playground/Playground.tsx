@@ -9,7 +9,7 @@ import {
   startPlaygroundMusicTask,
   finishPlaygroundMusicTask,
 } from './service'
-import PromptBar, { type PromptBarState, type PromptRef } from './components/PromptBar'
+import PromptPanel, { type PromptPanelState, type PromptRef } from './components/PromptPanel'
 import PlaygroundHistoryGrid from './components/PlaygroundHistoryGrid'
 import { getDefaultModel, getModel, type AspectRatio, type ImageResolution, type VideoMode } from '../../utils/models'
 import type { PlaygroundMode, InFlightGen } from './types'
@@ -66,7 +66,7 @@ function resolveVideoModelForMode(pickedId: string, inferred: VideoMode): string
   return null
 }
 
-function initialState(): PromptBarState {
+function initialState(): PromptPanelState {
   const defaultImage = getDefaultModel('playground', 'image', 'text-to-image')?.id
     ?? getDefaultModel('broll-studio', 'image', 'text-to-image')?.id
     ?? 'gpt-image-2-text-to-image'
@@ -78,15 +78,33 @@ function initialState(): PromptBarState {
     aspectRatio: '9:16',
     durationSeconds: 5,
     resolution: '1K',
-    audio: false,
-    instrumental: false,
+    audio: true,
+    instrumental: true,
     refs: [],
   }
 }
 
 export default function Playground() {
   const baseKey = useProjectScopedKey('playground')
-  const [state, setState] = usePersistedState<PromptBarState>(`${baseKey}:state`, initialState())
+  // Sanitize hydrated state so a few "users always want this" defaults
+  // re-assert themselves on every load:
+  // - Audio = on. Users routinely forget to flip the chip and end up with a
+  //   silent video clip. Easier to mute occasionally than miss audio always.
+  // - Instrumental = on. UGC ad scoring is overwhelmingly instrumental;
+  //   lyrics are the rare case worth opting into per-track.
+  // - Video resolution = the picked model's preferred default (e.g. 720p for
+  //   Seedance). Persisted state predating this default would otherwise
+  //   keep the old `resolutions[0]` value forever.
+  const [state, setState] = usePersistedState<PromptPanelState>(`${baseKey}:state`, initialState(), {
+    sanitize: (v) => {
+      const next = { ...v, audio: true, instrumental: true }
+      const m = getModel(v.modelId)
+      if (v.mode === 'video' && m?.videoConstraints?.default) {
+        next.resolution = m.videoConstraints.default
+      }
+      return next
+    },
+  })
   // Persisted across reload so a tab refresh / app switch can resume polling
   // an in-flight kie task. Tasks without a `taskId` (still in the createTask
   // leg when the tab died) and tasks older than 30 min are auto-expired on
@@ -326,27 +344,22 @@ export default function Playground() {
   const isGenerating = inFlight.length > 0
 
   return (
-    <div className="relative h-full">
-      {/* History grid fills the full height. Bottom padding leaves room for
-          the floating glassmorphism prompt bar so tiles scroll *underneath*
-          the bar instead of being clipped at its top edge. */}
-      <div className="h-full overflow-hidden">
-        <PlaygroundHistoryGrid inFlight={inFlight} filterMode={filterMode} bottomPadding />
-      </div>
-
-      {/* Bottom-anchored prompt bar — absolute over the grid so it floats
-          with a translucent glassmorphism backdrop. */}
-      <div className="pointer-events-none absolute bottom-0 left-0 right-0 px-4 pb-4 pt-2">
-        <div className="pointer-events-auto mx-auto w-full max-w-3xl">
-          <PromptBar
+    <div className="relative flex flex-col md:h-full">
+      <div className="flex flex-1 flex-col md:min-h-0 md:flex-row">
+        {/* Left — prompt panel. On mobile we still want controls above the
+            grid, so the panel comes first in source order regardless. */}
+        <div className="flex w-full md:w-[400px] shrink-0 flex-col border-b md:border-b-0 md:border-r border-white/5">
+          <PromptPanel
             state={state}
             onChange={setState}
             onSubmit={handleSubmit}
             isGenerating={isGenerating}
           />
-          <p className="mt-2 text-center text-[10px] text-zinc-600">
-            Tip: type <span className="font-medium text-zinc-500">@</span> to reference Products, Characters, or B-Rolls.
-          </p>
+        </div>
+
+        {/* Right — history grid */}
+        <div className="flex flex-1 flex-col md:min-h-0 md:overflow-hidden">
+          <PlaygroundHistoryGrid inFlight={inFlight} filterMode={filterMode} />
         </div>
       </div>
     </div>

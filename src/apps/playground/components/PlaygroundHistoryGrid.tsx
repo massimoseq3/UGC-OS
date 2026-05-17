@@ -25,9 +25,6 @@ interface PlaygroundHistoryGridProps {
   inFlight: InFlightGen[]
   // Active mode filter — null shows everything.
   filterMode: PlaygroundMode | null
-  // Add bottom padding so content scrolls under a floating overlay (the
-  // glassmorphism prompt bar). Tuned to ~bar height + a comfortable margin.
-  bottomPadding?: boolean
 }
 
 const HEADS_UP_DISMISSED_KEY = 'playground:heads-up-dismissed'
@@ -46,7 +43,7 @@ function dayLabel(dayTs: number): string {
   return new Date(dayTs).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })
 }
 
-export default function PlaygroundHistoryGrid({ inFlight, filterMode, bottomPadding }: PlaygroundHistoryGridProps) {
+export default function PlaygroundHistoryGrid({ inFlight, filterMode }: PlaygroundHistoryGridProps) {
   const imageHistory = useBankStore((s) => s.imageHistory)
   const videoHistory = useBankStore((s) => s.videoHistory)
   const musicHistory = useBankStore((s) => s.musicHistory)
@@ -155,7 +152,7 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode, bottomPadd
     <div className="flex h-full flex-col">
       {!headsUpDismissed && <HeadsUpBanner onDismiss={dismissHeadsUp} />}
 
-      <div className={`flex-1 overflow-y-auto px-4 py-3 ${bottomPadding ? 'pb-64' : ''}`}>
+      <div className="flex-1 overflow-y-auto px-4 py-3">
         {visibleInFlight.length > 0 && (
           <>
             <DayPill label="In progress" />
