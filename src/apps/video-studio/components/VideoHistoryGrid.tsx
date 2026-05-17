@@ -4,6 +4,7 @@ import type { VideoHistoryItem } from '../../../stores/types'
 import { useAssetUrlState } from '../../../hooks/useAssetUrl'
 import { useBankStore } from '../../../stores/bankStore'
 import { getModel } from '../../../utils/models'
+import type { InFlightGen } from '../types'
 import ProjectTagPopover from './ProjectTagPopover'
 
 const HEADS_UP_DISMISSED_KEY = 'video-studio:heads-up-dismissed'
@@ -26,18 +27,6 @@ function dayLabel(dayTs: number): string {
     day: 'numeric',
     year: 'numeric',
   })
-}
-
-// Transient in-flight generation, kept in component memory while the kie task
-// runs. Surfaced as a skeleton tile at the top of the grid so the user can
-// always see what's queued — even if they switched slots since launching it.
-export interface InFlightGen {
-  id: string
-  slotIndex: number
-  modelId: string
-  prompt: string
-  aspectRatio: string
-  startedAt: number
 }
 
 interface VideoHistoryGridProps {
