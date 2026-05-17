@@ -16,7 +16,7 @@ import { deleteAsset, isAssetRef } from './assetStore'
 // orphans and purged on the next cloud sign-in — imageHistory and
 // musicHistory were both omitted previously, which silently deleted any
 // Playground image / music gen that hadn't been re-saved to the Bank.
-const BANK_KEYS = ['projects', 'products', 'models', 'scripts', 'voices', 'brolls', 'voiceHistory', 'videoHistory', 'imageHistory', 'musicHistory'] as const
+const BANK_KEYS = ['products', 'models', 'scripts', 'voices', 'brolls', 'voiceHistory', 'videoHistory', 'imageHistory', 'musicHistory'] as const
 
 function walkAssetRefs(value: unknown, out: Set<string>) {
   if (typeof value === 'string') {

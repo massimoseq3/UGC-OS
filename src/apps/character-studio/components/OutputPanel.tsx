@@ -31,25 +31,27 @@ function AspectRatioToggle({ value, onChange }: { value: string; onChange: (v: s
     <div className="flex items-center gap-0.5 rounded-lg border border-white/10 bg-white/[0.02] p-0.5">
       <button
         onClick={() => onChange(PORTRAIT_VALUE)}
-        className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-[11px] font-medium transition-colors ${isPortrait
-          ? 'bg-sky-500/15 text-sky-300'
+        className={`flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1.5 text-[11px] font-medium transition-colors ${isPortrait
+          ? 'bg-white/[0.08] text-zinc-100'
           : 'text-zinc-500 hover:text-zinc-300'
         }`}
         title="Portrait 9:16"
       >
         <RectangleVertical className="h-3.5 w-3.5" strokeWidth={1.75} />
-        Portrait <span className="text-zinc-500">9:16</span>
+        <span>Portrait</span>
+        <span className={`tabular-nums ${isPortrait ? 'text-zinc-400' : 'text-zinc-600'}`}>9:16</span>
       </button>
       <button
         onClick={() => onChange(LANDSCAPE_VALUE)}
-        className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-[11px] font-medium transition-colors ${!isPortrait
-          ? 'bg-sky-500/15 text-sky-300'
+        className={`flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1.5 text-[11px] font-medium transition-colors ${!isPortrait
+          ? 'bg-white/[0.08] text-zinc-100'
           : 'text-zinc-500 hover:text-zinc-300'
         }`}
         title="Landscape 16:9"
       >
         <RectangleHorizontal className="h-3.5 w-3.5" strokeWidth={1.75} />
-        Landscape <span className="text-zinc-500">16:9</span>
+        <span>Landscape</span>
+        <span className={`tabular-nums ${!isPortrait ? 'text-zinc-400' : 'text-zinc-600'}`}>16:9</span>
       </button>
     </div>
   )
@@ -144,14 +146,20 @@ export default function OutputPanel({ result, isGenerating, error, onGenerate, o
 
         {/* Generate button always visible — pinned to viewport bottom on mobile */}
         <div className="fixed bottom-0 left-0 right-0 z-30 space-y-3 border-t border-white/5 bg-[#050505]/95 p-4 backdrop-blur-xl md:static md:left-auto md:right-auto md:z-auto md:border-t md:bg-transparent md:backdrop-blur-none">
-          <AspectRatioToggle value={aspectRatio} onChange={onAspectRatioChange} />
           <ModelPicker
             appId="character-studio"
             task="image"
             mode="text-to-image"
             costParams={{ imageCount: 1, resolution }}
           />
-          <ResolutionToggle modelId={selectedModelId} value={resolution} onChange={onResolutionChange} />
+          <div className="flex items-center gap-2">
+            <div className="flex-1">
+              <AspectRatioToggle value={aspectRatio} onChange={onAspectRatioChange} />
+            </div>
+            <div className="flex-1">
+              <ResolutionToggle modelId={selectedModelId} value={resolution} onChange={onResolutionChange} />
+            </div>
+          </div>
           <button
             onClick={onGenerate}
             disabled={!canGenerate}
@@ -244,14 +252,20 @@ export default function OutputPanel({ result, isGenerating, error, onGenerate, o
 
       {/* Generate button — pinned to bottom (sticky on mobile so it follows scroll) */}
       <div className="sticky bottom-0 z-10 space-y-2 border-t border-white/5 bg-[#050505]/95 p-3 backdrop-blur-xl md:static md:bg-transparent md:backdrop-blur-none">
-        <AspectRatioToggle value={aspectRatio} onChange={onAspectRatioChange} />
         <ModelPicker
           appId="character-studio"
           task="image"
           mode="text-to-image"
           costParams={{ imageCount: 1, resolution }}
         />
-        <ResolutionToggle modelId={selectedModelId} value={resolution} onChange={onResolutionChange} />
+        <div className="flex items-center gap-2">
+          <div className="flex-1">
+            <AspectRatioToggle value={aspectRatio} onChange={onAspectRatioChange} />
+          </div>
+          <div className="flex-1">
+            <ResolutionToggle modelId={selectedModelId} value={resolution} onChange={onResolutionChange} />
+          </div>
+        </div>
         <button
           onClick={onGenerate}
           disabled={!canGenerate || isGenerating}

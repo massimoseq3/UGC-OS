@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Package, UserRound, FileText, Mic, Film, FolderOpen } from 'lucide-react'
+import { Plus, Package, UserRound, FileText, Mic, Film } from 'lucide-react'
 import { useAppStore } from '../../stores/appStore'
 import { useBankStore } from '../../stores/bankStore'
 import type { BankType } from '../../utils/constants'
@@ -7,7 +7,6 @@ import { BANK_CONFIG } from '../../utils/constants'
 import type { Product, Model, Script, VoicePreset, BRoll } from '../../stores/types'
 import { saveFromDataUrl } from '../../utils/assetStore'
 import BankList from './BankList'
-import ProjectsView from './ProjectsView'
 import ProductForm from './ProductForm'
 import ModelForm from './ModelForm'
 import ScriptForm from './ScriptForm'
@@ -15,7 +14,6 @@ import VoiceForm from './VoiceForm'
 import BRollForm from './BRollForm'
 
 const SIDEBAR_ICONS: Record<BankType, React.ElementType> = {
-  projects: FolderOpen,
   products: Package,
   models: UserRound,
   scripts: FileText,
@@ -23,7 +21,7 @@ const SIDEBAR_ICONS: Record<BankType, React.ElementType> = {
   brolls: Film,
 }
 
-const BANK_TYPES: BankType[] = ['projects', 'products', 'models', 'scripts', 'voices', 'brolls']
+const BANK_TYPES: BankType[] = ['products', 'models', 'scripts', 'voices', 'brolls']
 
 export default function Finder() {
   const [activeBank, setActiveBank] = useState<BankType>('products')
@@ -33,7 +31,6 @@ export default function Finder() {
   const consumePayload = useAppStore((s) => s.consumePayload)
   const interAppPayload = useAppStore((s) => s.interAppPayload)
 
-  const projects = useBankStore((s) => s.projects)
   const products = useBankStore((s) => s.products)
   const models = useBankStore((s) => s.models)
   const scripts = useBankStore((s) => s.scripts)
@@ -50,19 +47,29 @@ export default function Finder() {
   const addBRoll = useBankStore((s) => s.addBRoll)
   const updateBRoll = useBankStore((s) => s.updateBRoll)
 
-  // Consume inter-app payload (e.g. desktop folder double-click)
+  // Consume inter-app payload.
+  // `activeBank`  → just switch to the bank.
+  // `openCreate`  → switch to the bank AND open the create form (no editingId).
   useEffect(() => {
-    if (interAppPayload?.targetApp === 'finder' && interAppPayload?.targetField === 'activeBank') {
+    if (interAppPayload?.targetApp !== 'finder') return
+    if (interAppPayload.targetField === 'activeBank') {
       const bank = interAppPayload.data as BankType
       if (BANK_TYPES.includes(bank)) {
         setActiveBank(bank)
+      }
+      consumePayload()
+    } else if (interAppPayload.targetField === 'openCreate') {
+      const bank = interAppPayload.data as BankType
+      if (BANK_TYPES.includes(bank)) {
+        setActiveBank(bank)
+        setEditingId(null)
+        setShowForm(true)
       }
       consumePayload()
     }
   }, [interAppPayload, consumePayload])
 
   const counts: Record<BankType, number> = {
-    projects: projects.length,
     products: products.length,
     models: models.length,
     scripts: scripts.length,
@@ -167,22 +174,18 @@ export default function Finder() {
           <h2 className="text-sm font-semibold tracking-tight text-zinc-200">
             {BANK_CONFIG[activeBank].label}
           </h2>
-          {activeBank !== 'projects' && (
-            <button
-              onClick={handleAdd}
-              className="flex items-center gap-1.5 rounded-full bg-white/[0.07] px-3 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:bg-white/10"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Add
-            </button>
-          )}
+          <button
+            onClick={handleAdd}
+            className="flex items-center gap-1.5 rounded-full bg-white/[0.07] px-3 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:bg-white/10"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add
+          </button>
         </div>
 
         {/* Content area — list or form */}
         <div className="flex-1 overflow-y-auto p-5">
-          {activeBank === 'projects' ? (
-            <ProjectsView />
-          ) : showForm ? (
+          {showForm ? (
             <div className={`mx-auto rounded-xl border border-white/5 bg-white/[0.02] p-5 ${['products', 'models', 'brolls', 'scripts'].includes(activeBank) ? 'max-w-3xl' : 'max-w-md'}`}>
               {activeBank === 'products' && (
                 <ProductForm item={editingProduct} onSave={handleSaveProduct} onCancel={closeForm} />

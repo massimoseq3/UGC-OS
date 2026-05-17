@@ -1,19 +1,19 @@
 import { create } from 'zustand'
-import type { Product, Model, Script, VoicePreset, BRoll, VoiceHistoryItem, VideoHistoryItem, ImageHistoryItem, MusicHistoryItem, ScriptHistoryItem, Project } from './types'
+import type { Product, Model, Script, VoicePreset, BRoll, VoiceHistoryItem, VideoHistoryItem, ImageHistoryItem, MusicHistoryItem, ScriptHistoryItem, BrollHistoryItem } from './types'
 import { isAssetRef, deleteAsset, saveFromDataUrl } from '../utils/assetStore'
-import { useSettingsStore } from './settingsStore'
 import { useAuthStore } from './authStore'
 import { isCloudEnabled } from '../lib/supabase'
-import { saveRow, saveRows, deleteRow, type BankKey } from '../lib/cloudSync'
+import { saveRow, deleteRow, type BankKey } from '../lib/cloudSync'
 import { useAppStore } from './appStore'
 
 const STORAGE_KEY = 'ai-ugc-lab-banks'
 const MIGRATION_FLAG = 'ai-ugc-lab-migrated-v2'
 
+const BROLL_HISTORY_CAP = 50
+
 type BankActionResult = void
 
 interface BankState {
-  projects: Project[]
   products: Product[]
   models: Model[]
   scripts: Script[]
@@ -24,14 +24,7 @@ interface BankState {
   imageHistory: ImageHistoryItem[]
   musicHistory: MusicHistoryItem[]
   scriptHistory: ScriptHistoryItem[]
-
-  // Project CRUD
-  addProject: (project: Omit<Project, 'id' | 'createdAt'>) => Promise<string>
-  updateProject: (id: string, updates: Partial<Project>) => Promise<BankActionResult>
-  deleteProject: (id: string) => Promise<BankActionResult>
-  getProjectById: (id: string) => Project | undefined
-  addItemToProject: (bank: 'products' | 'models' | 'scripts' | 'voices' | 'brolls' | 'videoHistory' | 'imageHistory' | 'musicHistory', itemId: string, projectId: string) => Promise<BankActionResult>
-  removeItemFromProject: (bank: 'products' | 'models' | 'scripts' | 'voices' | 'brolls' | 'videoHistory' | 'imageHistory' | 'musicHistory', itemId: string, projectId: string) => Promise<BankActionResult>
+  brollHistory: BrollHistoryItem[]
 
   // Product CRUD
   addProduct: (product: Omit<Product, 'id' | 'createdAt'>) => Promise<BankActionResult>
@@ -90,20 +83,19 @@ interface BankState {
   addScriptHistory: (item: ScriptHistoryItem) => Promise<BankActionResult>
   deleteScriptHistory: (id: string) => Promise<BankActionResult>
   clearScriptHistory: () => Promise<BankActionResult>
+
+  // B-Roll History (Scenes sessions) — local-only
+  upsertBrollHistory: (item: BrollHistoryItem) => Promise<BankActionResult>
+  deleteBrollHistory: (id: string) => Promise<BankActionResult>
+  clearBrollHistory: () => Promise<BankActionResult>
+  getBrollHistoryById: (id: string) => BrollHistoryItem | undefined
 }
 
 function generateId(): string {
   return crypto.randomUUID()
 }
 
-type BankData = Pick<BankState, 'projects' | 'products' | 'models' | 'scripts' | 'voices' | 'brolls' | 'voiceHistory' | 'videoHistory' | 'imageHistory' | 'musicHistory' | 'scriptHistory'>
-
-function autoProjectIds(existing?: string[]): string[] | undefined {
-  const active = useSettingsStore.getState().activeProjectId
-  if (!active) return existing
-  if (existing?.includes(active)) return existing
-  return [active, ...(existing ?? [])]
-}
+type BankData = Pick<BankState, 'products' | 'models' | 'scripts' | 'voices' | 'brolls' | 'voiceHistory' | 'videoHistory' | 'imageHistory' | 'musicHistory' | 'scriptHistory' | 'brollHistory'>
 
 function migrateVoiceShape<T>(arr: unknown): T[] {
   if (!Array.isArray(arr)) return []
@@ -128,7 +120,6 @@ function loadFromStorage(): BankData {
     if (raw) {
       const parsed = JSON.parse(raw)
       return {
-        projects: Array.isArray(parsed.projects) ? parsed.projects : [],
         products: parsed.products ?? [],
         models: parsed.models ?? [],
         scripts: parsed.scripts ?? [],
@@ -139,12 +130,13 @@ function loadFromStorage(): BankData {
         imageHistory: Array.isArray(parsed.imageHistory) ? parsed.imageHistory : [],
         musicHistory: Array.isArray(parsed.musicHistory) ? parsed.musicHistory : [],
         scriptHistory: Array.isArray(parsed.scriptHistory) ? parsed.scriptHistory : [],
+        brollHistory: Array.isArray(parsed.brollHistory) ? parsed.brollHistory : [],
       }
     }
   } catch {
     /* corrupted — start fresh */
   }
-  return { projects: [], products: [], models: [], scripts: [], voices: [], brolls: [], voiceHistory: [], videoHistory: [], imageHistory: [], musicHistory: [], scriptHistory: [] }
+  return { products: [], models: [], scripts: [], voices: [], brolls: [], voiceHistory: [], videoHistory: [], imageHistory: [], musicHistory: [], scriptHistory: [], brollHistory: [] }
 }
 
 let pendingSave: BankData | null = null
@@ -157,7 +149,6 @@ function flushSaveToStorage() {
   pendingSave = null
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      projects: state.projects,
       products: state.products,
       models: state.models,
       scripts: state.scripts,
@@ -168,6 +159,7 @@ function flushSaveToStorage() {
       imageHistory: state.imageHistory,
       musicHistory: state.musicHistory,
       scriptHistory: state.scriptHistory,
+      brollHistory: state.brollHistory,
     }))
   } catch (error) {
     console.error('Failed to save to storage', error)
@@ -201,11 +193,6 @@ async function pushRow(table: BankKey, row: { id: string }): Promise<void> {
   await saveRow(table, row)
 }
 
-async function pushRows(table: BankKey, rows: Array<{ id: string }>): Promise<void> {
-  if (!cloudActive() || rows.length === 0) return
-  await saveRows(table, rows)
-}
-
 async function dropRow(table: BankKey, id: string): Promise<void> {
   if (!cloudActive()) return
   await deleteRow(table, id)
@@ -233,128 +220,9 @@ async function cleanupAssets(...refs: (string | undefined)[]) {
 export const useBankStore = create<BankState>((set, get) => ({
   ...loadFromStorage(),
 
-  // ── Projects ─────────────────────────────────────────────────────
-  addProject: async (project) => {
-    const id = generateId()
-    const newProject: Project = { ...project, id, createdAt: Date.now() }
-    try { await pushRow('projects', newProject) } catch (e) { reportError('Save project', e) }
-    set((state) => {
-      const next = { projects: [...state.projects, newProject] }
-      saveToStorage({ ...state, ...next })
-      return next
-    })
-    reportSuccess(`Project "${newProject.name}" created`)
-    return id
-  },
-
-  updateProject: async (id, updates) => {
-    const existing = get().projects.find((p) => p.id === id)
-    if (!existing) return
-    const updated: Project = { ...existing, ...updates }
-    try { await pushRow('projects', updated) } catch (e) { reportError('Update project', e) }
-    set((state) => {
-      const next = { projects: state.projects.map((p) => p.id === id ? updated : p) }
-      saveToStorage({ ...state, ...next })
-      return next
-    })
-    reportSuccess('Project updated')
-  },
-
-  deleteProject: async (id) => {
-    const state = get()
-    const scrub = <T extends { id: string; projectIds?: string[] }>(arr: T[]): T[] =>
-      arr.map((item) =>
-        item.projectIds?.includes(id)
-          ? { ...item, projectIds: item.projectIds.filter((pid) => pid !== id) }
-          : item,
-      )
-    const scrubbed = {
-      products: scrub(state.products),
-      models: scrub(state.models),
-      scripts: scrub(state.scripts),
-      voices: scrub(state.voices),
-      brolls: scrub(state.brolls),
-      videoHistory: scrub(state.videoHistory),
-      imageHistory: scrub(state.imageHistory),
-      musicHistory: scrub(state.musicHistory),
-    }
-
-    try {
-      await dropRow('projects', id)
-      // Push the scrub-updated rows so cloud reflects the untag.
-      const dirty: Array<[BankKey, Array<{ id: string; projectIds?: string[] }>]> = [
-        ['products', scrubbed.products.filter((it, i) => it !== state.products[i])],
-        ['models', scrubbed.models.filter((it, i) => it !== state.models[i])],
-        ['scripts', scrubbed.scripts.filter((it, i) => it !== state.scripts[i])],
-        ['voices', scrubbed.voices.filter((it, i) => it !== state.voices[i])],
-        ['brolls', scrubbed.brolls.filter((it, i) => it !== state.brolls[i])],
-        ['videoHistory', scrubbed.videoHistory.filter((it, i) => it !== state.videoHistory[i])],
-        ['imageHistory', scrubbed.imageHistory.filter((it, i) => it !== state.imageHistory[i])],
-        ['musicHistory', scrubbed.musicHistory.filter((it, i) => it !== state.musicHistory[i])],
-      ]
-      for (const [table, rows] of dirty) {
-        if (rows.length > 0) await pushRows(table, rows)
-      }
-    } catch (e) { reportError('Delete project', e) }
-
-    if (useSettingsStore.getState().activeProjectId === id) {
-      useSettingsStore.getState().setActiveProject(null)
-    }
-    const projectName = state.projects.find((p) => p.id === id)?.name
-    set((s) => {
-      const next = {
-        projects: s.projects.filter((p) => p.id !== id),
-        products: scrubbed.products,
-        models: scrubbed.models,
-        scripts: scrubbed.scripts,
-        voices: scrubbed.voices,
-        brolls: scrubbed.brolls,
-        videoHistory: scrubbed.videoHistory,
-        imageHistory: scrubbed.imageHistory,
-        musicHistory: scrubbed.musicHistory,
-      }
-      saveToStorage({ ...s, ...next })
-      return next
-    })
-    reportSuccess(projectName ? `Project "${projectName}" deleted` : 'Project deleted')
-  },
-
-  getProjectById: (id) => get().projects.find((p) => p.id === id),
-
-  addItemToProject: async (bank, itemId, projectId) => {
-    const items = get()[bank] as Array<{ id: string; projectIds?: string[] }>
-    const item = items.find((x) => x.id === itemId)
-    if (!item) return
-    const updated = { ...item, projectIds: Array.from(new Set([...(item.projectIds ?? []), projectId])) }
-    try { await pushRow(bank, updated) } catch (e) { reportError('Tag project', e) }
-    set((s) => {
-      const arr = s[bank] as Array<{ id: string }>
-      const newArr = arr.map((x) => x.id === itemId ? updated : x)
-      const next = { [bank]: newArr } as Partial<BankState>
-      saveToStorage({ ...s, ...next } as BankData)
-      return next
-    })
-  },
-
-  removeItemFromProject: async (bank, itemId, projectId) => {
-    const items = get()[bank] as Array<{ id: string; projectIds?: string[] }>
-    const item = items.find((x) => x.id === itemId)
-    if (!item) return
-    const updated = { ...item, projectIds: (item.projectIds ?? []).filter((pid) => pid !== projectId) }
-    try { await pushRow(bank, updated) } catch (e) { reportError('Untag project', e) }
-    set((s) => {
-      const arr = s[bank] as Array<{ id: string }>
-      const newArr = arr.map((x) => x.id === itemId ? updated : x)
-      const next = { [bank]: newArr } as Partial<BankState>
-      saveToStorage({ ...s, ...next } as BankData)
-      return next
-    })
-  },
-
   // ── Products ─────────────────────────────────────────────────────
   addProduct: async (product) => {
-    const projectIds = autoProjectIds(product.projectIds)
-    const newProduct: Product = { ...product, projectIds, id: generateId(), createdAt: Date.now() }
+    const newProduct: Product = { ...product, id: generateId(), createdAt: Date.now() }
     try { await pushRow('products', newProduct) } catch (e) { reportError('Save product', e) }
     set((state) => {
       const next = { products: [...state.products, newProduct] }
@@ -399,8 +267,7 @@ export const useBankStore = create<BankState>((set, get) => ({
 
   // ── Models ───────────────────────────────────────────────────────
   addModel: async (model) => {
-    const projectIds = autoProjectIds(model.projectIds)
-    const newModel: Model = { ...model, projectIds, id: generateId(), createdAt: Date.now() }
+    const newModel: Model = { ...model, id: generateId(), createdAt: Date.now() }
     try { await pushRow('models', newModel) } catch (e) { reportError('Save character', e) }
     set((state) => {
       const next = { models: [...state.models, newModel] }
@@ -445,8 +312,7 @@ export const useBankStore = create<BankState>((set, get) => ({
 
   // ── Scripts ──────────────────────────────────────────────────────
   addScript: async (script) => {
-    const projectIds = autoProjectIds(script.projectIds)
-    const newScript: Script = { ...script, projectIds, id: generateId(), createdAt: Date.now() }
+    const newScript: Script = { ...script, id: generateId(), createdAt: Date.now() }
     try { await pushRow('scripts', newScript) } catch (e) { reportError('Save script', e) }
     set((state) => {
       const next = { scripts: [...state.scripts, newScript] }
@@ -485,8 +351,7 @@ export const useBankStore = create<BankState>((set, get) => ({
 
   // ── Voices ───────────────────────────────────────────────────────
   addVoice: async (voice) => {
-    const projectIds = autoProjectIds(voice.projectIds)
-    const newVoice: VoicePreset = { ...voice, projectIds, id: generateId(), createdAt: Date.now() }
+    const newVoice: VoicePreset = { ...voice, id: generateId(), createdAt: Date.now() }
     try { await pushRow('voices', newVoice) } catch (e) { reportError('Save voice', e) }
     set((state) => {
       const next = { voices: [...state.voices, newVoice] }
@@ -525,8 +390,7 @@ export const useBankStore = create<BankState>((set, get) => ({
 
   // ── B-Rolls ──────────────────────────────────────────────────────
   addBRoll: async (broll) => {
-    const projectIds = autoProjectIds(broll.projectIds)
-    const newBRoll: BRoll = { ...broll, projectIds, id: generateId(), createdAt: Date.now() }
+    const newBRoll: BRoll = { ...broll, id: generateId(), createdAt: Date.now() }
     try { await pushRow('brolls', newBRoll) } catch (e) { reportError('Save B-roll', e) }
     set((state) => {
       const next = { brolls: [...state.brolls, newBRoll] }
@@ -616,11 +480,9 @@ export const useBankStore = create<BankState>((set, get) => ({
 
   // ── Video History ────────────────────────────────────────────────
   addVideoHistory: async (item) => {
-    const projectIds = autoProjectIds(item.projectIds)
-    const newItem: VideoHistoryItem = { ...item, projectIds }
-    try { await pushRow('videoHistory', newItem) } catch (e) { reportError('Save video history', e) }
+    try { await pushRow('videoHistory', item) } catch (e) { reportError('Save video history', e) }
     set((state) => {
-      const next = { videoHistory: [newItem, ...state.videoHistory] }
+      const next = { videoHistory: [item, ...state.videoHistory] }
       saveToStorage({ ...state, ...next })
       return next
     })
@@ -671,11 +533,9 @@ export const useBankStore = create<BankState>((set, get) => ({
 
   // ── Image History (Playground) ──────────────────────────────────
   addImageHistory: async (item) => {
-    const projectIds = autoProjectIds(item.projectIds)
-    const newItem: ImageHistoryItem = { ...item, projectIds }
-    try { await pushRow('imageHistory', newItem) } catch (e) { reportError('Save image history', e) }
+    try { await pushRow('imageHistory', item) } catch (e) { reportError('Save image history', e) }
     set((state) => {
-      const next = { imageHistory: [newItem, ...state.imageHistory] }
+      const next = { imageHistory: [item, ...state.imageHistory] }
       saveToStorage({ ...state, ...next })
       return next
     })
@@ -728,11 +588,9 @@ export const useBankStore = create<BankState>((set, get) => ({
 
   // ── Music History (Playground) ──────────────────────────────────
   addMusicHistory: async (item) => {
-    const projectIds = autoProjectIds(item.projectIds)
-    const newItem: MusicHistoryItem = { ...item, projectIds }
-    try { await pushRow('musicHistory', newItem) } catch (e) { reportError('Save music history', e) }
+    try { await pushRow('musicHistory', item) } catch (e) { reportError('Save music history', e) }
     set((state) => {
-      const next = { musicHistory: [newItem, ...state.musicHistory] }
+      const next = { musicHistory: [item, ...state.musicHistory] }
       saveToStorage({ ...state, ...next })
       return next
     })
@@ -781,10 +639,8 @@ export const useBankStore = create<BankState>((set, get) => ({
 
   // ── Script History (Scripts tab) — local-only ────────────────────
   addScriptHistory: async (item) => {
-    const projectIds = autoProjectIds(item.projectIds)
-    const newItem: ScriptHistoryItem = { ...item, projectIds }
     set((state) => {
-      const next = { scriptHistory: [newItem, ...state.scriptHistory] }
+      const next = { scriptHistory: [item, ...state.scriptHistory] }
       saveToStorage({ ...state, ...next })
       return next
     })
@@ -807,6 +663,40 @@ export const useBankStore = create<BankState>((set, get) => ({
     })
     reportSuccess('Script history cleared')
   },
+
+  // ── B-Roll History (Scenes sessions) — local-only ────────────────
+  // Upsert by id. Keeps the entry at the head of the list (most-recent first)
+  // so an in-flight session sits at the top even as cardStates mutate. FIFO
+  // capped at BROLL_HISTORY_CAP — drops the oldest entries past the cap.
+  upsertBrollHistory: async (item) => {
+    set((state) => {
+      const filtered = state.brollHistory.filter((h) => h.id !== item.id)
+      const capped = [item, ...filtered].slice(0, BROLL_HISTORY_CAP)
+      const next = { brollHistory: capped }
+      saveToStorage({ ...state, ...next })
+      return next
+    })
+  },
+
+  deleteBrollHistory: async (id) => {
+    set((state) => {
+      const next = { brollHistory: state.brollHistory.filter((h) => h.id !== id) }
+      saveToStorage({ ...state, ...next })
+      return next
+    })
+    reportSuccess('Session removed from history')
+  },
+
+  clearBrollHistory: async () => {
+    set((state) => {
+      const next = { brollHistory: [] as BrollHistoryItem[] }
+      saveToStorage({ ...state, ...next })
+      return next
+    })
+    reportSuccess('B-Roll history cleared')
+  },
+
+  getBrollHistoryById: (id) => get().brollHistory.find((h) => h.id === id),
 }))
 
 // ── One-time migration: data URLs → IndexedDB asset IDs ─────────────

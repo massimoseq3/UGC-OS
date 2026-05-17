@@ -117,7 +117,7 @@ function PresetActions({
         <button
           type="button"
           onClick={() => { setLoadOpen((v) => !v); setSaveOpen(false) }}
-          className="flex items-center gap-1.5 rounded-full border border-sky-500/25 bg-sky-500/[0.08] px-3 py-1.5 text-[11px] font-medium text-sky-300 transition-colors hover:border-sky-500/35 hover:bg-sky-500/15 hover:text-sky-200"
+          className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] font-medium text-zinc-300 transition-colors hover:border-white/15 hover:bg-white/[0.08] hover:text-zinc-100"
         >
           <FolderOpen className="h-3.5 w-3.5" strokeWidth={1.75} />
           Load Preset from Bank
@@ -177,8 +177,8 @@ function PresetActions({
           type="button"
           onClick={() => { setSaveOpen((v) => !v); setLoadOpen(false) }}
           className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-medium transition-colors ${savedFlash
-            ? 'border-emerald-500/35 bg-emerald-500/15 text-emerald-200'
-            : 'border-emerald-500/25 bg-emerald-500/[0.08] text-emerald-300 hover:border-emerald-500/35 hover:bg-emerald-500/15 hover:text-emerald-200'
+            ? 'border-white/15 bg-white/10 text-white'
+            : 'border-white/10 bg-white/[0.04] text-zinc-300 hover:border-white/15 hover:bg-white/[0.08] hover:text-zinc-100'
           }`}
         >
           {savedFlash ? <Check className="h-3.5 w-3.5" strokeWidth={1.75} /> : <Bookmark className="h-3.5 w-3.5" strokeWidth={1.75} />}

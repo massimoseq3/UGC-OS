@@ -45,66 +45,81 @@ export function buildJsonPrompt(profile: CharacterProfile): Record<string, Recor
   return result
 }
 
-/**
- * Builds a natural language image generation prompt from the character profile.
- */
+// Builds a structured, labeled prompt grouped by category. Values are
+// preserved verbatim — never paraphrased — so chip presets and free-text
+// entries land in the model unchanged. Labels + section headers help the
+// image model parse the request without wading through comma soup.
 function buildImagePrompt(profile: CharacterProfile): string {
-  const parts: string[] = []
+  const SKIP_VALUES = new Set(['None', 'No makeup', 'Indoor (N/A)'])
+  const has = (v: string | undefined): v is string => !!v && !SKIP_VALUES.has(v)
 
-  // Physical description
-  const physicalParts = [
+  const sections: string[] = []
+
+  // Identity sentence — flows as natural prose since these read as one phrase.
+  const identityBits = [
     profile.gender,
-    profile.age && `aged ${profile.age}`,
+    has(profile.age) && `aged ${profile.age}`,
     profile.ethnicity,
-    profile.bodyType && `${profile.bodyType} build`,
-    profile.skinTone && `${profile.skinTone} skin tone`,
-    profile.skinTexture,
-    profile.eyeColor && `${profile.eyeColor} eyes`,
-    profile.eyeShape && `${profile.eyeShape} eye shape`,
-    profile.hairColor && `${profile.hairColor} hair`,
-    profile.hairStyle && `${profile.hairStyle}`,
-    profile.hairTexture && `${profile.hairTexture} texture`,
-    profile.facialFeatures,
-    profile.facialHair && profile.facialHair !== 'None' && profile.facialHair,
-    profile.distinguishingMarks && profile.distinguishingMarks !== 'None' && profile.distinguishingMarks,
-  ].filter(Boolean)
-  if (physicalParts.length) parts.push(`A ${physicalParts.join(', ')}.`)
+    has(profile.bodyType) && `with a ${profile.bodyType} build`,
+  ].filter(Boolean) as string[]
+  if (identityBits.length) {
+    sections.push(`Subject: ${identityBits.join(', ')}.`)
+  }
 
-  // Style
-  const styleParts = [
-    profile.clothingStyle && `Wearing ${profile.clothingStyle} style`,
-    profile.accessories && profile.accessories !== 'None' && `with ${profile.accessories}`,
-    profile.makeup && profile.makeup !== 'No makeup' && `${profile.makeup} makeup`,
-  ].filter(Boolean)
-  if (styleParts.length) parts.push(styleParts.join(', ') + '.')
+  // Physical attributes — one labeled line per facet so the model can parse
+  // each independently. Skips any unset field instead of stringing empties.
+  const physicalLines: string[] = []
+  if (has(profile.skinTone)) physicalLines.push(`Skin tone: ${profile.skinTone}.`)
+  if (has(profile.skinTexture)) physicalLines.push(`Skin texture: ${profile.skinTexture}.`)
+  const eyeBits = [
+    has(profile.eyeColor) && profile.eyeColor,
+    has(profile.eyeShape) && `${profile.eyeShape} shape`,
+  ].filter(Boolean) as string[]
+  if (eyeBits.length) physicalLines.push(`Eyes: ${eyeBits.join(', ')}.`)
+  const hairBits = [
+    has(profile.hairColor) && profile.hairColor,
+    has(profile.hairStyle) && profile.hairStyle,
+    has(profile.hairTexture) && `${profile.hairTexture} texture`,
+  ].filter(Boolean) as string[]
+  if (hairBits.length) physicalLines.push(`Hair: ${hairBits.join(', ')}.`)
+  if (has(profile.facialFeatures)) physicalLines.push(`Facial features: ${profile.facialFeatures}.`)
+  if (has(profile.facialHair)) physicalLines.push(`Facial hair: ${profile.facialHair}.`)
+  if (has(profile.distinguishingMarks)) physicalLines.push(`Distinguishing marks: ${profile.distinguishingMarks}.`)
+  if (physicalLines.length) sections.push(physicalLines.join(' '))
 
-  // Pose & action
-  const poseParts = [
-    profile.pose,
-    profile.action,
-    profile.expression && `${profile.expression} expression`,
-  ].filter(Boolean)
-  if (poseParts.length) parts.push(poseParts.join(', ') + '.')
+  // Wardrobe & styling — one labeled line per facet.
+  const wardrobeLines: string[] = []
+  if (has(profile.clothingStyle)) wardrobeLines.push(`Wardrobe: ${profile.clothingStyle}.`)
+  if (has(profile.accessories)) wardrobeLines.push(`Accessories: ${profile.accessories}.`)
+  if (has(profile.makeup)) wardrobeLines.push(`Makeup: ${profile.makeup}.`)
+  if (wardrobeLines.length) sections.push(wardrobeLines.join(' '))
 
-  // Scene
-  const sceneParts = [
-    profile.location,
-    profile.background,
-    profile.lighting,
-    profile.weather && profile.weather !== 'Indoor (N/A)' && profile.weather,
-    profile.timeOfDay,
-  ].filter(Boolean)
-  if (sceneParts.length) parts.push(sceneParts.join(', ') + '.')
+  // Scene / environment.
+  const sceneLines: string[] = []
+  if (has(profile.location)) sceneLines.push(`Location: ${profile.location}.`)
+  if (has(profile.background)) sceneLines.push(`Background: ${profile.background}.`)
+  if (has(profile.lighting)) sceneLines.push(`Lighting: ${profile.lighting}.`)
+  if (has(profile.weather)) sceneLines.push(`Weather: ${profile.weather}.`)
+  if (has(profile.timeOfDay)) sceneLines.push(`Time of day: ${profile.timeOfDay}.`)
+  if (sceneLines.length) sections.push(sceneLines.join(' '))
 
-  // Camera
-  const cameraParts = [
-    profile.shotType,
-    profile.cameraAngle && `${profile.cameraAngle} angle`,
-    profile.cameraDevice && `shot on ${profile.cameraDevice}`,
-  ].filter(Boolean)
-  if (cameraParts.length) parts.push(cameraParts.join(', ') + '.')
+  // Pose & action.
+  const poseLines: string[] = []
+  if (has(profile.pose)) poseLines.push(`Pose: ${profile.pose}.`)
+  if (has(profile.action)) poseLines.push(`Action: ${profile.action}.`)
+  if (has(profile.expression)) poseLines.push(`Expression: ${profile.expression}.`)
+  if (poseLines.length) sections.push(poseLines.join(' '))
 
-  return parts.join(' ')
+  // Camera / shot style. cameraDevice carries the photorealism style string
+  // verbatim — we keep it on its own line so it reads as the final directive.
+  const cameraBits = [
+    has(profile.shotType) && profile.shotType,
+    has(profile.cameraAngle) && `${profile.cameraAngle} angle`,
+  ].filter(Boolean) as string[]
+  if (cameraBits.length) sections.push(`Shot: ${cameraBits.join(', ')}.`)
+  if (has(profile.cameraDevice)) sections.push(`Style: ${profile.cameraDevice}`)
+
+  return sections.join('\n\n')
 }
 
 export async function generateCharacter(

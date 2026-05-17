@@ -51,8 +51,6 @@ export default function BankPicker({
   tabs,
 }: BankPickerProps) {
   const [search, setSearch] = useState('')
-  const [showQuickAdd, setShowQuickAdd] = useState(false)
-  const [quickAddName, setQuickAddName] = useState('')
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   // When `tabs` is provided, the active bank is local state initialised to
   // the caller's `bankType`. Otherwise the active bank is just `bankType`.
@@ -73,10 +71,6 @@ export default function BankPicker({
   const scripts = useBankStore((s) => s.scripts)
   const voices = useBankStore((s) => s.voices)
   const brolls = useBankStore((s) => s.brolls)
-  const addProduct = useBankStore((s) => s.addProduct)
-  const addModel = useBankStore((s) => s.addModel)
-  const addScript = useBankStore((s) => s.addScript)
-  const addVoice = useBankStore((s) => s.addVoice)
   const openApp = useAppStore((s) => s.openApp)
   const sendToApp = useAppStore((s) => s.sendToApp)
 
@@ -98,34 +92,24 @@ export default function BankPicker({
       )
     : itemsAfterFilter
 
-  // Brolls don't have a quick-add path (no useful empty record to create) — they
-  // come from generation flows. Quick-add applies to the other bank types.
-  const supportsQuickAdd = currentBankType !== 'brolls'
+  // Brolls don't have a Finder-form create path (no useful empty record to
+  // create) — they come from generation flows. Other bank types let the
+  // user jump to Bank with the create form pre-opened.
+  const supportsCreate = currentBankType !== 'brolls'
 
   // Reset transient state and pick the initial tab when the picker opens.
-  // CRITICAL: deps must be ONLY `isOpen` (plus the prop `bankType` for
-  // correctness). `isEmpty` and `supportsQuickAdd` depend on the active tab
-  // — if we listed them here, switching to a tab that flips either value
-  // (e.g. moving from a quick-add-able tab to B-Rolls) would re-run this
-  // effect and snap `activeTab` back to `bankType`. That was the bug
-  // preventing users from staying on the B-Rolls tab inside Playground.
   useEffect(() => {
     if (isOpen) {
       setSearch('')
-      setQuickAddName('')
       setSelectedIds([])
       setActiveTab(bankType)
-      // Read live, don't depend on these in the deps array.
       const initialItems =
         bankType === 'products' ? products :
         bankType === 'models' ? models :
         bankType === 'scripts' ? scripts :
         bankType === 'voices' ? voices :
         brolls
-      const initialIsEmpty = initialItems.length === 0
-      const initialSupportsQuickAdd = bankType !== 'brolls'
-      setShowQuickAdd(initialSupportsQuickAdd && initialIsEmpty)
-      if (!initialIsEmpty) {
+      if (initialItems.length > 0) {
         setTimeout(() => searchRef.current?.focus(), 100)
       }
     }
@@ -160,30 +144,12 @@ export default function BankPicker({
     onClose()
   }
 
-  const handleQuickAdd = () => {
-    if (!quickAddName.trim()) return
-
-    const name = quickAddName.trim()
-    let newItem: BankItem | null = null
-
-    if (currentBankType === 'products') {
-      addProduct({ productImage: '', productName: name, productDescription: '', targetMarket: '', painPoints: '', usps: '', benefits: '', offer: '', cta: '' })
-      newItem = useBankStore.getState().products[useBankStore.getState().products.length - 1]
-    } else if (currentBankType === 'models') {
-      addModel({ characterImage: '', name, notes: '', jsonProfile: null, source: 'manual-import' })
-      newItem = useBankStore.getState().models[useBankStore.getState().models.length - 1]
-    } else if (currentBankType === 'scripts') {
-      addScript({ title: name, scriptText: '', linkedProductId: '', source: 'manual' })
-      newItem = useBankStore.getState().scripts[useBankStore.getState().scripts.length - 1]
-    } else if (currentBankType === 'voices') {
-      addVoice({ label: name, voiceId: '', voiceName: '', gender: 'Female', stability: 0.5, similarityBoost: 0.75, style: 0, speed: 1, linkedModelId: '' })
-      newItem = useBankStore.getState().voices[useBankStore.getState().voices.length - 1]
-    }
-
-    if (newItem) {
-      onSelect(newItem)
-    }
+  // Jump to the Bank app with the create form for this bank pre-opened.
+  // Finder consumes `openCreate` (see Finder.tsx) to switch bank + open form.
+  const handleAddNew = () => {
     onClose()
+    sendToApp({ targetApp: 'finder', targetField: 'openCreate', data: currentBankType })
+    openApp('finder')
   }
 
   const handleManageInFinder = () => {
@@ -315,7 +281,7 @@ export default function BankPicker({
           )}
         </div>
 
-        {/* Footer — quick add + manage in finder */}
+        {/* Footer — add new (jumps to Bank with create form) + manage */}
         <div className="border-t border-white/5 px-4 py-3">
           {multiSelect ? (
             <button
@@ -325,7 +291,7 @@ export default function BankPicker({
             >
               Add {selectedIds.length || ''} {selectedIds.length === 1 ? 'item' : 'items'}
             </button>
-          ) : !supportsQuickAdd ? (
+          ) : !supportsCreate ? (
             <button
               onClick={handleManageInFinder}
               className="flex w-full items-center justify-center gap-1.5 py-2 text-xs text-zinc-600 transition-colors hover:text-zinc-400"
@@ -333,50 +299,23 @@ export default function BankPicker({
               <FolderOpen className="h-3 w-3" />
               Manage in Bank
             </button>
-          ) : showQuickAdd ? (
-            <div className="flex flex-col gap-2">
-              <input
-                value={quickAddName}
-                onChange={(e) => setQuickAddName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') handleQuickAdd() }}
-                placeholder={`${label.replace(/s$/, '')} name...`}
-                autoFocus
-                className="rounded-lg border border-white/10 bg-transparent px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-white/20"
-              />
-              <div className="flex gap-2">
-                <button
-                  onClick={handleQuickAdd}
-                  disabled={!quickAddName.trim()}
-                  className="flex-1 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium text-zinc-200 transition-colors hover:bg-white/15 disabled:opacity-40"
-                >
-                  Create & Select
-                </button>
-                <button
-                  onClick={() => { setShowQuickAdd(false); setQuickAddName('') }}
-                  className="rounded-lg px-3 py-1.5 text-xs text-zinc-500 transition-colors hover:text-zinc-300"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
           ) : (
-            <button
-              onClick={() => setShowQuickAdd(true)}
-              className="flex w-full items-center gap-2 rounded-xl border border-dashed border-white/10 p-3 text-sm text-zinc-500 transition-colors hover:border-white/20 hover:text-zinc-300"
-            >
-              <Plus className="h-4 w-4" />
-              Add New {label.replace(/s$/, '')}
-            </button>
-          )}
-
-          {!multiSelect && supportsQuickAdd && (
-            <button
-              onClick={handleManageInFinder}
-              className="mt-2 flex w-full items-center justify-center gap-1.5 py-2 text-xs text-zinc-600 transition-colors hover:text-zinc-400"
-            >
-              <FolderOpen className="h-3 w-3" />
-              Manage in Bank
-            </button>
+            <>
+              <button
+                onClick={handleAddNew}
+                className="flex w-full items-center justify-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-white/90"
+              >
+                <Plus className="h-4 w-4" />
+                Add New {label.replace(/s$/, '')}
+              </button>
+              <button
+                onClick={handleManageInFinder}
+                className="mt-2 flex w-full items-center justify-center gap-1.5 py-2 text-xs text-zinc-600 transition-colors hover:text-zinc-400"
+              >
+                <FolderOpen className="h-3 w-3" />
+                Manage in Bank
+              </button>
+            </>
           )}
         </div>
       </div>

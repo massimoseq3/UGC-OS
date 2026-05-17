@@ -3,7 +3,6 @@ import { Menu, Coins, RefreshCw } from 'lucide-react'
 import { useAppStore } from '../stores/appStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useCreditsStore } from '../stores/creditsStore'
-import ProjectSwitcher from './ProjectSwitcher'
 import AppLogo from './AppLogo'
 import { useIsDesktop } from '../hooks/useBreakpoint'
 
@@ -54,10 +53,7 @@ export default function MenuBar() {
 
       <div className="flex-1" />
 
-      <ProjectSwitcher />
-
-      {/* Credits chip — only visible once an API key is configured.
-          Locked to h-9 so it matches the ProjectSwitcher chip exactly. */}
+      {/* Credits chip — only visible once an API key is configured. */}
       {apiKey && (
         <div
           className="flex h-9 items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] pl-3 pr-1.5 text-xs font-medium text-zinc-200"

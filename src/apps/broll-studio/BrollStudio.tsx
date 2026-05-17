@@ -1,11 +1,11 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import { useAppStore } from '../../stores/appStore'
 import { useBankStore } from '../../stores/bankStore'
-import type { Product, Model, Script } from '../../stores/types'
-import type { BrollResult, PromptVariation, ReferenceImage, VariationTag, VariationRefs } from './types'
+import type { Product, Model, Script, BrollHistoryItem } from '../../stores/types'
+import type { BrollResult, PromptVariation, ReferenceImage, VariationTag, VariationRefs, CardState } from './types'
 import { generateBroll } from './services/generateBroll'
 import InputPanel from './components/InputPanel'
-import RightPanel from './components/RightPanel'
+import RightPanel, { backfillCardState } from './components/RightPanel'
 import BankPicker from '../../components/BankPicker'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
 
@@ -47,6 +47,17 @@ function migrateVariation(v: PromptVariation): PromptVariation {
   return { ...v, tag, label, refs }
 }
 
+function newSessionId(): string {
+  return crypto.randomUUID()
+}
+
+// Capped at 80 chars so the history row shows the gist without wrapping.
+function buildInputSummary(productName: string | undefined, scriptText: string): string {
+  const prefix = productName ? `${productName} — ` : ''
+  const body = scriptText.trim().replace(/\s+/g, ' ').slice(0, 80 - prefix.length)
+  return `${prefix}${body}`.trim() || 'Untitled session'
+}
+
 export default function BrollStudio() {
   const baseKey = useProjectScopedKey('broll-studio')
   const [selectedProductId, setSelectedProductId] = usePersistedState<string | null>(`${baseKey}:productId`, null)
@@ -75,6 +86,34 @@ export default function BrollStudio() {
     },
   )
 
+  // Per-card state — lifted from RightPanel so BrollStudio can snapshot it
+  // into the brollHistory bank whenever it changes. Sanitized on hydrate to
+  // clear transient flags + backfill legacy fields.
+  const [cardStates, setCardStates] = usePersistedState<Record<string, CardState>>(
+    `${baseKey}:cardStates`,
+    {},
+    {
+      sanitize: (raw) => {
+        const next: Record<string, CardState> = {}
+        for (const k in raw) {
+          const card = raw[k] as Partial<CardState> & Record<string, unknown>
+          const patched: CardState = backfillCardState(card)
+          patched.isGeneratingImage = false
+          patched.pendingTaskId = null
+          patched.pendingModelId = null
+          patched.pendingStartedAt = null
+          patched.videoStatus = 'idle'
+          patched.videoTaskId = null
+          patched.videoStartedAt = null
+          patched.isPromptWorking = false
+          patched.promptError = null
+          next[k] = patched
+        }
+        return next
+      },
+    },
+  )
+
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [pickerMode, setPickerMode] = useState<PickerMode>(null)
@@ -87,6 +126,19 @@ export default function BrollStudio() {
   const products = useBankStore((s) => s.products)
   const models = useBankStore((s) => s.models)
   const scripts = useBankStore((s) => s.scripts)
+  const upsertBrollHistory = useBankStore((s) => s.upsertBrollHistory)
+
+  // Active session id for the brollHistory upsert. Persisted so a refresh
+  // mid-session keeps editing the same history row instead of forking a new
+  // one. Cleared (= regenerated) whenever the user runs a fresh generation.
+  const [sessionId, setSessionId] = usePersistedState<string>(`${baseKey}:sessionId`, '')
+  const sessionIdRef = useRef(sessionId)
+  useEffect(() => { sessionIdRef.current = sessionId }, [sessionId])
+
+  // Active history row in the History tab — highlights the row that's
+  // currently being edited / restored.
+  const [activeHistoryId, setActiveHistoryId] = useState<string | null>(sessionId || null)
+  useEffect(() => { setActiveHistoryId(sessionId || null) }, [sessionId])
 
   const selectedProduct = useMemo<Product | null>(
     () => (selectedProductId ? products.find((p) => p.id === selectedProductId) ?? null : null),
@@ -127,6 +179,30 @@ export default function BrollStudio() {
 
     consumePayload()
   }, [interAppPayload, activeApp, consumePayload, getScriptById])
+
+  // Persist the current session into brollHistory whenever the result or
+  // card states change. Debounced ~1s so rapid edits (e.g. typing into a
+  // prompt) don't thrash localStorage. Only writes when there's actually a
+  // result to snapshot.
+  useEffect(() => {
+    if (!result || !sessionIdRef.current) return
+    const handle = setTimeout(() => {
+      const item: BrollHistoryItem = {
+        id: sessionIdRef.current,
+        createdAt: Date.now(),
+        inputSummary: buildInputSummary(selectedProduct?.productName, scriptText),
+        productId: selectedProductId ?? undefined,
+        modelId: selectedModelId ?? undefined,
+        scriptId: selectedScriptId ?? undefined,
+        scriptText: scriptText || undefined,
+        context: additionalContext || undefined,
+        result,
+        cardStates,
+      }
+      upsertBrollHistory(item)
+    }, 1000)
+    return () => clearTimeout(handle)
+  }, [result, cardStates, selectedProductId, selectedModelId, selectedScriptId, scriptText, additionalContext, selectedProduct, upsertBrollHistory])
 
   const handleSelectProduct = (item: unknown) => {
     setSelectedProductId((item as Product).id)
@@ -194,6 +270,11 @@ export default function BrollStudio() {
     if (!scriptText.trim()) return
     setIsGenerating(true)
     setError(null)
+    // Fresh session — clear any prior cardStates and stamp a new id so the
+    // History upsert lands as a new row.
+    const id = newSessionId()
+    setSessionId(id)
+    setCardStates({})
     try {
       const res = await generateBroll({
         productId: selectedProduct?.id ?? null,
@@ -214,6 +295,28 @@ export default function BrollStudio() {
     } finally {
       setIsGenerating(false)
     }
+  }
+
+  // Restore a B-Roll session from history. Loads all inputs + result +
+  // cardStates back into the workspace. Images/videos resume from their
+  // asset:// refs (IndexedDB / R2). Sets sessionId so further edits update
+  // the same history row instead of forking a new one.
+  const handleSelectHistory = (item: BrollHistoryItem) => {
+    setSessionId(item.id)
+    setSelectedProductId(item.productId ?? null)
+    setSelectedModelId(item.modelId ?? null)
+    setSelectedScriptId(item.scriptId ?? null)
+    setScriptText(item.scriptText ?? '')
+    setAdditionalContext(item.context ?? '')
+    setResult(item.result as BrollResult)
+    const restored: Record<string, CardState> = {}
+    for (const k in item.cardStates as Record<string, unknown>) {
+      restored[k] = backfillCardState(
+        (item.cardStates as Record<string, Partial<CardState> & Record<string, unknown>>)[k],
+      )
+    }
+    setCardStates(restored)
+    setActiveHistoryId(item.id)
   }
 
   return (
@@ -259,6 +362,10 @@ export default function BrollStudio() {
           modelContext={modelContext}
           onOpenCharacterPicker={() => setPickerMode('models')}
           onOpenProductPicker={() => setPickerMode('products')}
+          cardStates={cardStates}
+          setCardStates={setCardStates}
+          activeHistoryId={activeHistoryId}
+          onSelectHistory={handleSelectHistory}
         />
       </div>
 

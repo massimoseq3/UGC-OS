@@ -1,13 +1,11 @@
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
-import { useSettingsStore } from '../stores/settingsStore'
 
 const DRAFT_PREFIX = 'ai-ugc-lab:draft'
 
-// Project-scoped draft key. Re-keys reactively when the active project changes
-// so every consumer of usePersistedState re-hydrates from the right slot.
+// Stable draft key. Previously project-scoped; projects have been removed so
+// every app shares a single slot per (app, field) tuple.
 export function useProjectScopedKey(suffix: string): string {
-  const projectId = useSettingsStore((s) => s.activeProjectId)
-  return `${DRAFT_PREFIX}:${projectId ?? 'none'}:${suffix}`
+  return `${DRAFT_PREFIX}:${suffix}`
 }
 
 function readKey<T>(key: string, fallback: T): T {
@@ -28,8 +26,8 @@ interface UsePersistedStateOptions<T> {
 }
 
 // Drop-in replacement for useState that persists to localStorage under `key`.
-// When `key` changes (e.g. user switches active project), the value re-hydrates
-// from the new slot, falling back to `initial` when it's empty.
+// When `key` changes, the value re-hydrates from the new slot, falling back
+// to `initial` when it's empty.
 export function usePersistedState<T>(
   key: string,
   initial: T,

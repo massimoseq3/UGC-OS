@@ -1,12 +1,10 @@
-import { useMemo } from 'react'
 import type { BrollResult, PromptVariation, CardState, ReferenceImage } from '../types'
-import type { Product, Model } from '../../../stores/types'
-import { useSettingsStore } from '../../../stores/settingsStore'
+import type { Product, Model, BrollHistoryItem } from '../../../stores/types'
 import { useBankStore } from '../../../stores/bankStore'
 import { usePersistedState, useProjectScopedKey } from '../../../hooks/usePersistedState'
 import { type ImageResolution } from '../../../utils/models'
 import ScenesView from './ScenesView'
-import GalleryView from './GalleryView'
+import BrollHistoryView from './BrollHistoryView'
 
 interface RightPanelProps {
   result: BrollResult | null
@@ -25,11 +23,15 @@ interface RightPanelProps {
   modelContext?: string
   onOpenCharacterPicker?: () => void
   onOpenProductPicker?: () => void
+  cardStates: Record<string, CardState>
+  setCardStates: React.Dispatch<React.SetStateAction<Record<string, CardState>>>
+  activeHistoryId: string | null
+  onSelectHistory: (item: BrollHistoryItem) => void
 }
 
-type Tab = 'scenes' | 'gallery'
+type Tab = 'scenes' | 'history'
 
-// Right side of the B-Roll workspace. Owns the tab strip (Scenes / Gallery)
+// Right side of the B-Roll workspace. Owns the tab strip (Scenes / History)
 // and the persisted per-card state. Image / video settings now live INSIDE
 // each card's state — the page no longer has a global settings popover.
 export default function RightPanel(props: RightPanelProps) {
@@ -50,59 +52,20 @@ export default function RightPanel(props: RightPanelProps) {
     modelContext,
     onOpenCharacterPicker,
     onOpenProductPicker,
+    cardStates,
+    setCardStates,
+    activeHistoryId,
+    onSelectHistory,
   } = props
 
   const baseKey = useProjectScopedKey('broll-studio')
   const [tab, setTab] = usePersistedState<Tab>(`${baseKey}:rightTab`, 'scenes')
 
-  // Per-card state — sanitized on hydrate to clear transient flags after a
-  // refresh while preserving in-flight kie task ids. Also backfills the new
-  // per-card settings + prompt-history fields on legacy entries.
-  const [cardStates, setCardStates] = usePersistedState<Record<string, CardState>>(
-    `${baseKey}:cardStates`,
-    {},
-    {
-      sanitize: (raw) => {
-        const next: Record<string, CardState> = {}
-        for (const k in raw) {
-          const card = raw[k] as Partial<CardState> & Record<string, unknown>
-          // backfillCardState lifts legacy single-slot pending fields into
-          // the new in-flight arrays and drops stale entries.
-          const patched: CardState = backfillCardState(card)
-          // Clear the legacy single-slot transient flags now that their
-          // state lives on inFlightImages / inFlightVideos.
-          patched.isGeneratingImage = false
-          patched.pendingTaskId = null
-          patched.pendingModelId = null
-          patched.pendingStartedAt = null
-          patched.videoStatus = 'idle'
-          patched.videoTaskId = null
-          patched.videoStartedAt = null
-          patched.isPromptWorking = false
-          patched.promptError = null
-          next[k] = patched
-        }
-        return next
-      },
-    },
-  )
-
-  // Gallery tile count — B-Roll-tab origin only. Surfaced as a badge on the
-  // Gallery tab so the user sees it's worth a click even before they switch.
-  const brolls = useBankStore((s) => s.brolls)
-  const videoHistory = useBankStore((s) => s.videoHistory)
-  const activeProjectId = useSettingsStore((s) => s.activeProjectId)
-  const galleryCount = useMemo(() => {
-    const inProject = <T extends { projectIds?: string[] }>(it: T) =>
-      !activeProjectId || it.projectIds?.includes(activeProjectId)
-    const fromBroll = <T extends { sourceApp?: 'broll-studio' | 'playground' }>(it: T) =>
-      it.sourceApp === 'broll-studio'
-    const brollImages = brolls.filter((b) => inProject(b) && fromBroll(b) && b.imageUrl).length
-    const videos = videoHistory.filter((v) => inProject(v) && fromBroll(v)).length
-    return brollImages + videos
-  }, [brolls, videoHistory, activeProjectId])
+  const brollHistory = useBankStore((s) => s.brollHistory)
+  const deleteBrollHistory = useBankStore((s) => s.deleteBrollHistory)
 
   const sceneCount = result?.scenes.length ?? 0
+  const historyCount = brollHistory.length
 
   return (
     <div className="flex h-full flex-col">
@@ -118,11 +81,11 @@ export default function RightPanel(props: RightPanelProps) {
               </span>
             )}
           </TabButton>
-          <TabButton active={tab === 'gallery'} onClick={() => setTab('gallery')}>
-            Saved
-            {galleryCount > 0 && (
+          <TabButton active={tab === 'history'} onClick={() => setTab('history')}>
+            History
+            {historyCount > 0 && (
               <span className="ml-1.5 rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] text-zinc-300">
-                {galleryCount}
+                {historyCount}
               </span>
             )}
           </TabButton>
@@ -152,17 +115,44 @@ export default function RightPanel(props: RightPanelProps) {
             setCardStates={setCardStates}
           />
         ) : (
-          <GalleryView cardStates={cardStates} />
+          <BrollHistoryView
+            items={brollHistory}
+            activeId={activeHistoryId}
+            onSelect={(item) => {
+              onSelectHistory(item)
+              setTab('scenes')
+            }}
+            onDelete={(id) => { deleteBrollHistory(id) }}
+          />
         )}
       </div>
     </div>
   )
 }
 
+function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`relative flex items-center gap-1 px-3 pb-2 pt-5 text-sm font-medium tracking-tight transition-colors ${
+        active ? 'text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'
+      }`}
+    >
+      {children}
+      <span
+        className={`absolute inset-x-3 -bottom-px h-0.5 rounded-full transition-colors ${
+          active ? 'bg-zinc-100' : 'bg-transparent'
+        }`}
+      />
+    </button>
+  )
+}
+
 // Backfill new fields on legacy persisted card entries so older B-Roll runs
 // keep working after this rev. Defaults match what createDefaultCardState
-// produces for a fresh variation.
-function backfillCardState(card: Partial<CardState> & Record<string, unknown>): CardState {
+// produces for a fresh variation. Exported so BrollStudio's sanitize hook
+// shares the same logic when hoisting cardStates up.
+export function backfillCardState(card: Partial<CardState> & Record<string, unknown>): CardState {
   const editablePrompt = (card.editablePrompt as string) ?? ''
   const promptHistory = Array.isArray(card.promptHistory) && (card.promptHistory as string[]).length > 0
     ? (card.promptHistory as string[])
@@ -300,22 +290,4 @@ function legacyInFlightVideos(card: Partial<CardState> & Record<string, unknown>
     }]
   }
   return []
-}
-
-function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`relative flex items-center gap-1 px-3 pb-2 pt-5 text-sm font-medium tracking-tight transition-colors ${
-        active ? 'text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'
-      }`}
-    >
-      {children}
-      <span
-        className={`absolute inset-x-3 -bottom-px h-0.5 rounded-full transition-colors ${
-          active ? 'bg-zinc-100' : 'bg-transparent'
-        }`}
-      />
-    </button>
-  )
 }

@@ -110,11 +110,10 @@ export default function UploadView({ onAnalyze }: UploadViewProps) {
       <div className="flex flex-col items-center gap-2 text-center">
         <Eye className="h-8 w-8 text-[#FB2B37]/60" strokeWidth={1.5} />
         <h2 className="text-lg font-semibold tracking-tight text-zinc-200">
-          Analyse an Ad
+          Reverse Engineer Any Ad
         </h2>
         <p className="max-w-sm text-sm text-zinc-500">
-          Drop in a video ad and we&apos;ll dissect every frame — scorecard, transcript, and a
-          reverse-engineered prompt you can send to Scripts or B-Roll.
+          Drop in an ad and we&apos;ll analyze it with extreme precision so you can reverse-engineer every detail.
         </p>
       </div>
 
