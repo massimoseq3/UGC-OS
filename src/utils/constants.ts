@@ -31,8 +31,8 @@ export const APP_REGISTRY: AppConfig[] = [
   { id: 'voice-studio', name: 'Voiceovers', icon: Mic, accent: '#6366f1', category: 'create' },
   { id: 'broll-studio', name: 'B-Roll Images', icon: Film, accent: '#f97316', category: 'create' },
   { id: 'video-studio', name: 'B-Roll Videos', icon: Video, accent: '#a855f7', category: 'create' },
+  { id: 'playground', name: 'Playground', icon: ImagePlay, accent: '#eab308', category: 'create' },
   { id: 'ad-anatomy', name: 'Ad Analyzer', icon: Eye, accent: '#FB2B37', category: 'tools' },
-  { id: 'playground', name: 'Playground', icon: ImagePlay, accent: '#eab308', category: 'tools' },
   { id: 'admin', name: 'Admin', icon: Shield, accent: '#fafafa', category: 'admin' },
 ]
 
