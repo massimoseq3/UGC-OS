@@ -20,6 +20,7 @@ import {
   Package,
   Play,
   Copy,
+  Circle,
 } from 'lucide-react'
 import GenerationProgress from '../../../components/GenerationProgress'
 import ModelPicker from '../../../components/ModelPicker'
@@ -470,8 +471,9 @@ export default function CardDetailModal(props: CardDetailModalProps) {
               )}
 
               {/* 2) Reference Images — side-by-side BankPicker-style slot
-                  cards. Click opens the script-level picker. Same height as
-                  the model picker above. */}
+                  cards. Click body to pick from bank; tick-circle button at
+                  the top-right toggles whether the ref is sent to the model.
+                  Active slots are highlighted orange. */}
               <div>
                 <span className="text-sm font-medium text-zinc-200">Reference Images</span>
                 <div className="mt-2 grid grid-cols-2 gap-2">
@@ -482,6 +484,8 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                     name={selectedModel?.name}
                     imageRef={selectedModel?.characterImage}
                     onClick={() => onOpenCharacterPicker?.()}
+                    active={cardState.refsCharacter !== false}
+                    onToggleActive={() => onUpdateState({ refsCharacter: cardState.refsCharacter === false })}
                   />
                   <ReferenceSlotCard
                     icon={<Package className="h-4 w-4 text-amber-400" />}
@@ -490,6 +494,8 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                     name={selectedProduct?.productName}
                     imageRef={selectedProduct?.productImage}
                     onClick={() => onOpenProductPicker?.()}
+                    active={cardState.refsProduct !== false}
+                    onToggleActive={() => onUpdateState({ refsProduct: cardState.refsProduct === false })}
                   />
                 </div>
               </div>
@@ -1096,6 +1102,8 @@ function ReferenceSlotCard({
   name,
   imageRef,
   onClick,
+  active,
+  onToggleActive,
 }: {
   icon: React.ReactNode
   accentClass: string
@@ -1103,28 +1111,55 @@ function ReferenceSlotCard({
   name?: string | null
   imageRef?: string | null
   onClick: () => void
+  active: boolean
+  onToggleActive: () => void
 }) {
   const url = useAssetUrl(imageRef)
+  const hasRef = !!name
+  // Only the active+populated state earns the orange highlight.
+  const highlight = active && hasRef
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3 text-left transition-colors hover:border-white/20 hover:bg-white/[0.04]"
+    <div
+      className={`relative flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors ${
+        highlight
+          ? 'border-orange-500/40 bg-orange-500/10'
+          : 'border-white/10 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04]'
+      }`}
     >
-      {url ? (
-        <img src={url} alt="" className="h-9 w-9 shrink-0 rounded-lg object-cover" />
-      ) : (
-        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${accentClass}`}>
-          {icon}
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex min-w-0 flex-1 items-center gap-3 text-left"
+      >
+        {url ? (
+          <img src={url} alt="" className="h-9 w-9 shrink-0 rounded-lg object-cover" />
+        ) : (
+          <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${accentClass}`}>
+            {icon}
+          </div>
+        )}
+        <div className="flex min-w-0 flex-1 flex-col pr-6">
+          <span className="text-[10px] font-medium uppercase tracking-widest text-zinc-500">{kind}</span>
+          <span className={`truncate text-[13px] font-medium ${name ? 'text-zinc-100' : 'text-zinc-600'}`}>
+            {name || `Select ${kind.toLowerCase()}`}
+          </span>
         </div>
+      </button>
+      {hasRef && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onToggleActive() }}
+          title={active ? 'Active — click to disable' : 'Inactive — click to enable'}
+          className={`absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full border transition-colors ${
+            active
+              ? 'border-orange-500/60 bg-orange-500/20 text-orange-300 hover:bg-orange-500/30'
+              : 'border-white/15 bg-white/[0.04] text-zinc-500 hover:border-white/30 hover:text-zinc-300'
+          }`}
+        >
+          {active ? <Check className="h-3 w-3" strokeWidth={2.5} /> : <Circle className="h-3 w-3" />}
+        </button>
       )}
-      <div className="flex min-w-0 flex-1 flex-col">
-        <span className="text-[10px] font-medium uppercase tracking-widest text-zinc-500">{kind}</span>
-        <span className={`truncate text-[13px] font-medium ${name ? 'text-zinc-100' : 'text-zinc-600'}`}>
-          {name || `Select ${kind.toLowerCase()}`}
-        </span>
-      </div>
-    </button>
+    </div>
   )
 }
 

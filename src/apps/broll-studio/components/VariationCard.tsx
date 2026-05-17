@@ -125,13 +125,13 @@ export default function VariationCard(props: VariationCardProps) {
   // current iteration only renders these actions inside the modal.
   // ────────────────────────────────────────────────────────────────────────
 
-  // Always attach whatever script-level refs are selected. The user picks
-  // which character/product is used via the BankPicker cards inside the
-  // modal — no per-card on/off toggle anymore.
+  // Attach script-level refs respecting the per-card on/off toggles
+  // (cardState.refsCharacter / refsProduct), which the user controls via
+  // the tick-circle button in each ReferenceSlotCard.
   const buildCardRefs = (): ReferenceImage[] => {
     const out: ReferenceImage[] = []
-    if (characterRef) out.push(characterRef)
-    if (productRef) out.push(productRef)
+    if (characterRef && cardState.refsCharacter !== false) out.push(characterRef)
+    if (productRef && cardState.refsProduct !== false) out.push(productRef)
     return out
   }
 

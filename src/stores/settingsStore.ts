@@ -63,6 +63,13 @@ const MODEL_MIGRATIONS: Array<{ name: string; apply: (m: Record<string, string>)
     apply: (m) => { delete m['character-studio:image:text-to-image'] },
   },
   {
+    // Default for broll-studio image gen flipped to Nano Banana 2. Clear
+    // any stale persisted selection so users see the new default unless
+    // they pick explicitly afterwards.
+    name: '2026-05-broll-studio-nano-banana-default',
+    apply: (m) => { delete m['broll-studio:image:text-to-image'] },
+  },
+  {
     // B-Roll Videos dropped its mode toggle. Old per-mode keys
     // ('video-studio:video:image-to-video', etc.) collapse into a single
     // 'video-studio:video' slot. Take whichever per-mode value the user

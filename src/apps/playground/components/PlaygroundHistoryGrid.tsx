@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from 'react'
 import {
   Sparkles, Loader2, Download, Trash2, Bookmark, Check, Film, Image as ImageIcon,
-  Music as MusicIcon, Play, X,
+  Music as MusicIcon, Play, X, Copy,
 } from 'lucide-react'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAssetUrlState, useAssetUrl } from '../../../hooks/useAssetUrl'
@@ -194,7 +194,19 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode }: Playgrou
       </div>
 
       {previewItem && (
-        <PreviewModal entry={previewItem} onClose={() => setPreviewItem(null)} />
+        <PreviewModal
+          entry={previewItem}
+          onClose={() => setPreviewItem(null)}
+          isSaving={savingIds.has(previewItem.data.id)}
+          onSave={() => {
+            if (previewItem.kind === 'image') handleSaveImage(previewItem.data)
+            else if (previewItem.kind === 'video') handleSaveVideo(previewItem.data)
+          }}
+          onCopyPrompt={async (text) => {
+            const ok = await copyToClipboard(text)
+            addToast(ok ? 'Prompt copied to clipboard' : 'Copy failed', ok ? undefined : 'error')
+          }}
+        />
       )}
     </div>
   )
@@ -414,15 +426,55 @@ function InFlightTile({ gen }: { gen: InFlightGen }) {
 // ── Preview modal ───────────────────────────────────────────────
 
 // Centered lightbox for the clicked tile. Esc + click-the-backdrop closes.
-function PreviewModal({ entry, onClose }: { entry: HistoryEntry; onClose: () => void }) {
+// Action cluster (Save / Download / Trash / Close) sits top-right. Prompt
+// area is scrollable so a long prompt never pushes the media off-screen.
+function PreviewModal({
+  entry,
+  onClose,
+  onSave,
+  isSaving,
+  onCopyPrompt,
+}: {
+  entry: HistoryEntry
+  onClose: () => void
+  onSave: () => void
+  isSaving: boolean
+  onCopyPrompt: (text: string) => void
+}) {
   const imageUrl = useAssetUrl(entry.kind === 'image' ? entry.data.imageUrl : null)
   const videoUrl = useAssetUrl(entry.kind === 'video' ? entry.data.videoUrl : null)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
+
+  const prompt = entry.kind === 'image' || entry.kind === 'video' ? entry.data.prompt : ''
+  // Already-saved entries link a B-Roll id; show a tick instead of the bookmark.
+  const linked =
+    entry.kind === 'image'
+      ? !!entry.data.linkedBRollId
+      : entry.kind === 'video'
+      ? !!entry.data.linkedBRollId
+      : false
+
+  async function handleDownload() {
+    const url = entry.kind === 'image' ? imageUrl : videoUrl
+    if (!url) return
+    const fileName =
+      entry.kind === 'image'
+        ? `playground-${entry.data.id}.png`
+        : `playground-${entry.data.id}.mp4`
+    await downloadFile(url, fileName)
+  }
+
+  async function handleCopy() {
+    onCopyPrompt(prompt)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1800)
+  }
 
   // The bar is glassmorphic + lives in the playground tree, but the modal
   // needs to overlay EVERYTHING — including the prompt bar. We use `fixed`
@@ -431,24 +483,35 @@ function PreviewModal({ entry, onClose }: { entry: HistoryEntry; onClose: () => 
   // its `pointer-events-auto` inner div.
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm"
+      className="fixed inset-0 z-[60] flex flex-col bg-black/80 backdrop-blur-sm"
       onClick={onClose}
     >
-      <button
-        type="button"
-        onClick={onClose}
-        title="Close"
-        className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-black/40 text-white transition-colors hover:bg-black/60"
+      {/* Top-right action cluster — Save, Download, Close. Delete lives on
+          the grid tile only; one wrong click in here would nuke the item. */}
+      <div
+        className="absolute right-4 top-4 z-10 flex items-center gap-2"
+        onClick={(e) => e.stopPropagation()}
       >
-        <X className="h-4 w-4" />
-      </button>
+        <ModalActionButton title={linked ? 'Saved to B-Roll bank' : 'Save to B-Roll bank'} onClick={onSave} disabled={linked || isSaving} tone={linked ? 'saved' : 'default'}>
+          {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : linked ? <Check className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
+        </ModalActionButton>
+        <ModalActionButton title="Download" onClick={handleDownload}>
+          <Download className="h-4 w-4" />
+        </ModalActionButton>
+        <ModalActionButton title="Close" onClick={onClose}>
+          <X className="h-4 w-4" />
+        </ModalActionButton>
+      </div>
 
+      {/* Centered content — media gets the upper space, prompt block sits
+          underneath with its own scroll so long prompts never push the
+          media off-screen. */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[90vh] max-w-[90vw] flex-col items-center gap-3"
+        className="mx-auto flex h-full w-full max-w-5xl flex-col items-center justify-center gap-4 overflow-hidden px-6 py-16"
       >
         {entry.kind === 'image' && imageUrl && (
-          <img src={imageUrl} alt="" className="max-h-[80vh] max-w-[90vw] rounded-xl border border-white/10 object-contain" />
+          <img src={imageUrl} alt="" className="min-h-0 max-w-full flex-1 rounded-xl border border-white/10 object-contain" />
         )}
         {entry.kind === 'video' && videoUrl && (
           <video
@@ -456,14 +519,58 @@ function PreviewModal({ entry, onClose }: { entry: HistoryEntry; onClose: () => 
             controls
             autoPlay
             loop
-            className="max-h-[80vh] max-w-[90vw] rounded-xl border border-white/10"
+            className="min-h-0 max-w-full flex-1 rounded-xl border border-white/10 object-contain"
           />
         )}
-        <p className="max-w-2xl text-center text-[12px] leading-relaxed text-zinc-400">
-          {entry.kind === 'image' ? entry.data.prompt : entry.kind === 'video' ? entry.data.prompt : ''}
-        </p>
+
+        {prompt && (
+          <div className="flex w-full max-w-2xl shrink-0 flex-col items-center gap-2">
+            <div className="max-h-[18vh] w-full overflow-y-auto rounded-lg bg-white/[0.02] px-4 py-3 text-center text-[12px] leading-relaxed text-zinc-400">
+              {prompt}
+            </div>
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.04] px-3.5 py-1.5 text-[12px] font-medium text-zinc-300 transition-colors hover:bg-white/[0.08] hover:text-zinc-100"
+            >
+              {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+              <span>{copied ? 'Copied' : 'Copy prompt'}</span>
+            </button>
+          </div>
+        )}
       </div>
     </div>
+  )
+}
+
+function ModalActionButton({
+  children,
+  onClick,
+  title,
+  disabled,
+  tone = 'default',
+}: {
+  children: React.ReactNode
+  onClick: () => void
+  title: string
+  disabled?: boolean
+  tone?: 'default' | 'saved' | 'danger'
+}) {
+  const toneClass = tone === 'saved'
+    ? 'border-emerald-500/40 bg-emerald-500/20 text-emerald-200 hover:bg-emerald-500/30'
+    : tone === 'danger'
+    ? 'border-white/15 bg-black/40 text-zinc-200 hover:bg-red-500/30 hover:text-red-200 hover:border-red-500/40'
+    : 'border-white/15 bg-black/40 text-white hover:bg-black/60'
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      disabled={disabled}
+      className={`flex h-9 w-9 items-center justify-center rounded-full border transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${toneClass}`}
+    >
+      {children}
+    </button>
   )
 }
 
@@ -501,6 +608,27 @@ function aspectStyle(ar: string): React.CSSProperties {
   const [w, h] = ar.split(':').map(Number)
   if (!w || !h) return { aspectRatio: '9 / 16' }
   return { aspectRatio: `${w} / ${h}` }
+}
+
+async function copyToClipboard(text: string): Promise<boolean> {
+  if (!text) return false
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text)
+      return true
+    }
+    const ta = document.createElement('textarea')
+    ta.value = text
+    ta.style.position = 'fixed'
+    ta.style.opacity = '0'
+    document.body.appendChild(ta)
+    ta.select()
+    const ok = document.execCommand('copy')
+    document.body.removeChild(ta)
+    return ok
+  } catch {
+    return false
+  }
 }
 
 async function downloadFile(url: string, fileName: string) {
