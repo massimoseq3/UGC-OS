@@ -212,7 +212,7 @@ export default function InputPanel({
           <BankCard
             icon={FileText}
             label="Script"
-            accentClass="bg-violet-500/15 text-violet-400"
+            accentClass="bg-blue-500/15 text-blue-400"
             isEmpty={!selectedScript}
             onSelect={onSelectScript}
             onClear={selectedScript ? onClearScript : undefined}

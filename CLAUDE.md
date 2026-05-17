@@ -12,8 +12,7 @@ Sidebar is grouped into three sections (LIBRARY / CREATE / TOOLS). Display names
 | Create | Characters | `character-studio/` | Form → portrait image. Drop a reference image on the controls panel (or anywhere in the app surface) to auto-fill every field via vision-based DNA extraction. |
 | Create | Scripts | `script-architect/` | Winning ad + product → new script |
 | Create | Voiceovers | `voice-studio/` | Script → audio (ElevenLabs v2) |
-| Create | B-Roll Images | `broll-studio/` | Script → scenes → still images |
-| Create | B-Roll Videos | `video-studio/` | Prompt + optional start/end frames + optional reference images → b-roll video. Inputs are revealed by the selected model's capabilities (no mode toggle); frame slots accept Upload or Pick from B-Roll Bank. Four parallel slots — see B-Roll Videos: 4-slot model below. |
+| Create | B-Roll | `broll-studio/` | Script → scenes → still images + video clips. Each scene yields 4 variations (Character Speaking, Literal/Action, Emotional/Reaction, Product/Detail). Every variation card has both Generate Image and Generate Video buttons. Top-of-tab settings cover image model + aspect + resolution and video model + aspect + duration + resolution + audio. Video gens are fire-and-forget with refresh-safe resume. |
 | Tools | Ad Analyzer | `ad-anatomy/` | Ad image or video frame → scorecard + transcript + visual playbook |
 | Tools | Playground | `playground/` | Free-form Image / Video / Music surface. Single prompt bar, mode tabs, model picker, optional ref slots + drag-drop. `@`-mentions reference Products / Characters / B-Rolls and auto-attach the asset. 6 curated UGC-ad preset cards (video mode). |
 
@@ -106,7 +105,7 @@ The full list lives in `src/utils/models.ts`. Defaults below; users can swap ima
 | Capability | Default | Notes |
 |---|---|---|
 | Text + vision | Gemini 3 Flash (`gemini-3-flash`) | Hard-coded across every text-using app — no picker |
-| Image (text→image) | GPT Image 2 (`gpt-image-2-text-to-image`) | Picker also exposes Nano Banana 2, Flux 2 Pro, Seedream 5 Lite |
+| Image (text→image) | Nano Banana 2 (`nano-banana-2`) — B-Roll; GPT Image 2 (`gpt-image-2-text-to-image`) — Characters | Picker also exposes Flux 2 Pro, Seedream 5 Lite |
 | Image (image→image) | GPT Image 2 Edit (`gpt-image-2-image-to-image`) | Used by B-Roll when reference images are present |
 | Video | Veo 3.1 Fast (`veo3_fast`) | Picker exposes Seedance 2.0, Seedance 2.0 Fast, Kling 3.0, Veo 3.1 Lite/Quality, Wan 2.7, Sora 2, Sora 2 Pro |
 | TTS | ElevenLabs Multilingual v2 (`elevenlabs/text-to-speech-multilingual-v2`) | Hard-coded — no picker; ~64-voice catalog grouped by category, slide-in picker |
@@ -127,13 +126,11 @@ type VideoMode =
   | 'frames-to-video'       // start frame + end frame
   | 'reference-to-video'    // up to 9 reference images (Seedance) / 3 (Veo Fast)
 ```
-Each video model declares `videoModes: VideoMode[]` + `videoConstraints` (allowed durations, resolutions, aspect ratios, audio support). B-Roll Videos doesn't show a mode toggle — start frame, end frame, and reference image slots reveal based on the selected model's capabilities, and the mode is **inferred at generate time** from which slots are filled (`references → reference-to-video`, `start + end → frames-to-video`, `start only → image-to-video`, none → `text-to-video`). Constraint controls (aspect / duration / resolution / audio) snap to allowed values when the model changes.
+Each video model declares `videoModes: VideoMode[]` + `videoConstraints` (allowed durations, resolutions, aspect ratios, audio support). The B-Roll tab and Playground both infer mode at generate time from which inputs are filled (`references → reference-to-video`, `start + end → frames-to-video`, `start only → image-to-video`, none → `text-to-video`). Constraint controls (aspect / duration / resolution / audio) snap to allowed values when the model changes.
 
-### B-Roll Videos: 4-slot model
+### B-Roll: per-card video gen
 
-VideoStudio runs 4 independent slots. Each owns its full input set + a `status: 'idle' | 'generating' | 'error'`. Generate is fire-and-forget — pushes an `InFlightGen` into `inFlight[]` and returns, so the user can switch slots and start more in parallel. History tab (default) renders `InFlightTile` skeletons that swap to real `VideoHistoryItem`s on completion; auto-promote to Preview only if the user is still viewing the originating slot. `VideoHistoryItem.sourceBRollId` carries the frame source across slot switches so save-linkage survives. ModelPicker is per-slot via `value` + `onChange` (still writes through `setAppModel`).
-
-`inFlight[]` is persisted via `usePersistedState` (project-scoped). [`generateVideo.ts`](src/apps/video-studio/services/generateVideo.ts) is split into `startVideoTask` (resolves frames → createTask / kieVeoCreate → returns `taskId`) and `finishVideoTask` (polls → downloads → saves asset); `handleGenerate` stamps the `taskId` into the persisted entry between phases. A resume-on-mount effect walks persisted entries, evicts ones without a `taskId` (died before kie returned an id) by resetting the slot to `idle`, expires entries older than 30 min by setting `status: 'error'`, and resumes polling the rest. A small "Reset slot" link appears below the Generate button whenever the slot is `generating` / `error` — guaranteed one-click recovery for any failure mode the resume effect doesn't handle. `InFlightGen` carries `mode`, `durationSeconds`, `resolution`, `audio`, `sourceBRollId`, `videoEndpoint`, `taskId` so resumed history items are byte-identical to in-session ones.
+Every variation card in the B-Roll tab has both **Generate Image** and **Generate Video** buttons. Video generations are fire-and-forget — each card carries its own `videoStatus: 'idle' | 'generating' | 'error'` plus a persisted `videoTaskId`, so multiple cards can be generating in parallel and the user can refresh mid-flight. The video service [`broll-studio/services/generateVideo.ts`](src/apps/broll-studio/services/generateVideo.ts) exposes `startVideoTask` (resolves frames → createTask / kieVeoCreate → returns `taskId`) and `finishVideoTask` (polls → downloads → saves asset). OutputPanel's resume-on-mount effect walks every card and resumes any still-pending video task; entries older than 30 min are evicted with an error chip + Reset slot link. Each card snapshots `mode / durationSeconds / resolution / audio / aspectRatio / sourceBRollId / videoEndpoint` alongside its `videoTaskId` so resumed history items are byte-identical to in-session ones. Top-of-tab controls (image model + aspect + resolution; video model + aspect + duration + resolution + audio) are global — one set per page, persisted per project.
 
 ### Per-model body shaping
 
@@ -165,10 +162,10 @@ src/
 ├── apps/
 │   ├── finder/                 Banks browser + Projects tab
 │   ├── character-studio/       Drag-photo DNA extraction built in
-│   ├── video-studio/           4-slot Video Studio (VideoStudio.tsx + components/VideoHistoryGrid.tsx)
+│   ├── broll-studio/           Unified B-Roll tab: 4 variations per scene (Speaking + Literal + Emotional + Product); per-card Generate Image + Generate Video with refresh-resume
 │   ├── playground/             Free-form Image / Video / Music (PromptBar, PresetPicker, MentionPopover, PlaygroundHistoryGrid, service.ts)
 │   ├── admin/                  Members + Allowlist; only shown when profiles.is_admin
-│   └── [ad-anatomy, script-architect, voice-studio, broll-studio]
+│   └── [ad-anatomy, script-architect, voice-studio]
 │
 ├── lib/                        supabase.ts, cloudSync.ts (pull + debounced diff-push), r2.ts
 │
@@ -196,9 +193,9 @@ Persisted to `localStorage` under `ai-ugc-lab-banks`. Asset blobs live in Indexe
 | `models` | `Model` | Saved from Characters output |
 | `scripts` | `Script` | Saved from Scripts output |
 | `voices` | `VoicePreset` | Saved from Voiceovers history |
-| `brolls` | `BRoll` | Saved from B-Roll Images + B-Roll Videos. A record can carry both `imageUrl` (still) and `videos[]` (animations) — B-Roll Videos appends to the source's `videos[]` when generating from a bank still. Saved video-history items stamp `linkedBRollId` so the badge persists; deletion only purges the blob if not linked. |
+| `brolls` | `BRoll` | Saved from B-Roll cards. A record can carry both `imageUrl` (still) and `videos[]` (animations) — the Save button on a card appends to the source's `videos[]` when generating from a saved BRoll. Saved video-history items stamp `linkedBRollId` so the badge persists; deletion only purges the blob if not linked. |
 | `voiceHistory` | `VoiceHistoryItem` | Auto-pushed on every Voiceovers generation |
-| `videoHistory` | `VideoHistoryItem` | Auto-pushed on every B-Roll Videos generation; 14-day retention |
+| `videoHistory` | `VideoHistoryItem` | Auto-pushed on every B-Roll card video gen AND every Playground video gen — shared bank, visible from Playground's history grid; 14-day retention |
 | `musicHistory` | `MusicHistoryItem` | Auto-pushed on every Playground music generation. `audioRef` + optional `coverImageRef` are `asset://` ids; `instrumental`, `duration`, `title` are denormalized from `response.sunoData[0]` |
 
 `VoicePreset` and `VoiceHistoryItem` carry the full Multilingual v2 parameter set: `voiceId`, `stability`, `similarityBoost`, `style`, `speed`. Legacy fields (`creativity`, `ambience`, `styleInstructions`) are stripped on load; missing v2 fields are backfilled with model defaults (`0.75 / 0 / 1`) — see `migrateVoiceShape` in `bankStore.ts`.
@@ -225,16 +222,16 @@ Wired today:
 - Ad Analyzer → Scripts (winning transcript / reconstruction prompt)
 - Ad Analyzer → Bank (productId)
 - Scripts → Voiceovers (script text)
-- B-Roll Images → B-Roll Videos (still as start frame; consumer drops directly into the start-frame slot)
-- Anywhere → Playground (`prompt` prefill, `imageRef` as a ref slot, `videoStartFrame` as the start-frame slot + mode switch)
+- B-Roll Bank → Playground (`videoStartFrame` carries `{ imageUrl, prompt }`; opens Playground in video mode with the still pre-loaded as start frame and the prompt prefilled)
+- Anywhere → Playground (`prompt` prefill, `imageRef` as a ref slot, `videoStartFrame` as the start-frame slot + mode switch; accepts both bare data-URI strings and `{ imageUrl, prompt }` object form)
 
 ## Recent changes
 
 Last 2–3 coherent bodies of work. Older history lives in `git log` — read it there, not here.
 
-- **B-Roll Videos: refresh-resume parity with Playground.** Slots could get bricked in `status: 'generating'` if the tab refreshed mid-generation — `slots` (with status) was persisted but `inFlight[]` wasn't, leaving the slot stuck forever with the Generate button disabled. Fixed by porting Playground's two-phase pattern: [`generateVideo.ts`](src/apps/video-studio/services/generateVideo.ts) now exports `startVideoTask` + `finishVideoTask`; `InFlightGen` (hoisted to [`video-studio/types.ts`](src/apps/video-studio/types.ts)) carries `taskId` + all the params needed to mint a `VideoHistoryItem` on resume; `inFlight[]` is persisted via `usePersistedState`. A mount-time effect in [`VideoStudio.tsx`](src/apps/video-studio/VideoStudio.tsx) evicts stale (>30 min) or `taskId`-less entries and resumes polling the rest. A defensive "Reset slot" link below the Generate button gives the user a one-click escape from any future stuck state.
-- **Playground: parallel gens + refresh-resume + calmer loader.** Submit no longer blocks while a generation is in flight — users can queue unlimited parallel jobs across Image / Video / Music modes. Each [`service.ts`](src/apps/playground/service.ts) call is split into `startPlaygroundXTask` (createTask → returns taskId) and `finishPlaygroundXTask` (polls + downloads + saves). `inFlight[]` is now persisted via `usePersistedState` keyed per project; a resume-on-mount effect in [`Playground.tsx`](src/apps/playground/Playground.tsx) walks the persisted entries and polls any with a taskId to completion, expiring entries older than 30 min. Mirrors the B-Roll Images two-phase pattern from [`generateBroll.ts`](src/apps/broll-studio/services/generateBroll.ts). [`kie.ts`](src/utils/kie.ts) gains `kieVeoCreate`/`kieVeoPoll` + `pollMusicTask` extracted from the existing combined wrappers, and `VIDEO_POLL_ATTEMPTS` / `MUSIC_POLL_ATTEMPTS = 120` (10 min) to match `IMAGE_POLL_ATTEMPTS`. Each in-flight tile gains a static "This may take a couple of minutes — keep this tab open." line so users stop refreshing. Presets icon swapped from `Sparkles` → `Camera`.
-- **Refresh-safe drafts + honest progress UI.** Every app's working state (inputs, generated-but-unsaved outputs, slot configs, prompt bar) survives a page refresh via [`usePersistedState`](src/hooks/usePersistedState.ts), keyed per active project. Ad Analyzer additionally saves the uploaded ad to IndexedDB through `assetStore.saveAsset` so the video survives — previously it lived only as a blob URL. The old 95%-stuck progress bar in [`GenerationProgress`](src/components/GenerationProgress.tsx) is replaced with an indeterminate shimmer band (`@keyframes shimmer-sweep` in `index.css`) + rotating narration + a static "This can take a couple of minutes — keep this tab open" line. Elapsed-second counters on Video Studio and Playground in-flight tiles are removed — both anxiety-inducing patterns trained users to refresh.
+- **B-Roll: senior creative director prompt + per-variation refs + split video actions.** The system prompt in [`generateBroll.ts`](src/apps/broll-studio/services/generateBroll.ts) is now the rigorous "senior UGC creative director" version — every variation must name body / hand / gaze / micro-expression / setting / framing, integrate the realism stack into the scene (not bolted on), and obey the gender-neutral + "character" (not "subject") rule. The LLM also decides per scene: `<POSITION>` (hook/reframe/mechanism/payoff/CTA), `<VISIBILITY>` (yes/no — locks the product to the voiceover so it never appears on hook lines), and per variation: `<TAG>` (DIALOGUE/ACTION/EMOTIONAL/PRODUCT), `<LABEL>` (descriptive shot name like "MIRROR REACTION"), `<REFS>` (character/product/both/none). Each card now shows two toggle pills (Character / Product) initialised from `<REFS>` and overridable. Action row split: **Regenerate Image · Animate Still · Save to B-Roll Bank** (rounded pills) + **Generate Video** below. Animate Still = `image-to-video` using the card's still as start frame; Generate Video = `reference-to-video` using the toggled refs (falls back to image-to-video / text-to-video if the picked model can't honour the mode). [`buildCardRefs`](src/apps/broll-studio/components/OutputPanel.tsx) builds the per-card reference set from the toggle state + parent's character/product image. Default image model for B-Roll is now Nano Banana 2 (`recommended` star, `defaultFor: ['broll-studio']`); GPT Image 2 stays the Characters Studio default. Persisted scenes from earlier iterations migrate on hydrate via a `sanitize` in [`BrollStudio.tsx`](src/apps/broll-studio/BrollStudio.tsx) — old slash tags (`CHARACTER / SPEAKING` → `DIALOGUE`, etc) rewrite cleanly and missing `label`/`refs` get backfilled. New tag chip palette (cyan / lime / pink / amber) is visibly distinct.
+- **Playground: parallel gens + refresh-resume + calmer loader.** Submit no longer blocks while a generation is in flight — users can queue unlimited parallel jobs across Image / Video / Music modes. Each [`service.ts`](src/apps/playground/service.ts) call is split into `startPlaygroundXTask` (createTask → returns taskId) and `finishPlaygroundXTask` (polls + downloads + saves). `inFlight[]` is now persisted via `usePersistedState` keyed per project; a resume-on-mount effect in [`Playground.tsx`](src/apps/playground/Playground.tsx) walks the persisted entries and polls any with a taskId to completion, expiring entries older than 30 min. [`kie.ts`](src/utils/kie.ts) gains `kieVeoCreate`/`kieVeoPoll` + `pollMusicTask` extracted from the existing combined wrappers, and `VIDEO_POLL_ATTEMPTS` / `MUSIC_POLL_ATTEMPTS = 120` (10 min) to match `IMAGE_POLL_ATTEMPTS`. Each in-flight tile gains a static "This may take a couple of minutes — keep this tab open." line so users stop refreshing. Presets icon swapped from `Sparkles` → `Camera`.
+
 ## When making changes
 
 After any non-trivial change to behaviour, file structure, or model lineup:
@@ -243,5 +240,7 @@ After any non-trivial change to behaviour, file structure, or model lineup:
 2. Update `AI_UGC_Lab_OS_Spec.md` (product spec, project root) when feature-level intent changes — not for every refactor.
 3. Update the model table above if you register or remove a model.
 4. Update **Recent changes** for coherent bodies of work — keep it to the last 2–3 entries. Drop the oldest when you add a new one. Anything older lives in `git log`.
+
+**Aesthetic-only tweaks** (button reorder / colour swap / copy edit / spacing / chip restyle): skip the full preview verification workflow. Apply the change, run `npm run build` to type-check, and end. Reserve preview snapshots, DOM eval, and screenshot review for behavioural changes (new components, state changes, refs flow, generation logic, anything the user can't tell is right by glancing at a diff).
 
 The user has explicitly asked for these docs to stay in sync with reality.

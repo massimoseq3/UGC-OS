@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect } from 'react'
 import { useAppStore } from '../../stores/appStore'
 import { useBankStore } from '../../stores/bankStore'
 import type { Product, Model, Script } from '../../stores/types'
-import type { BrollResult, PromptVariation, ReferenceImage } from './types'
+import type { BrollResult, PromptVariation, ReferenceImage, VariationTag, VariationRefs } from './types'
 import { generateBroll } from './services/generateBroll'
 import InputPanel from './components/InputPanel'
 import OutputPanel from './components/OutputPanel'
@@ -11,6 +11,42 @@ import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersisted
 
 type PickerMode = 'products' | 'models' | 'scripts' | null
 
+// Map old slash-form tag values onto the new single-word union. Variations
+// generated before iteration 3 carry strings like 'CHARACTER / SPEAKING';
+// after migration they become 'DIALOGUE'. Keys are typed as `string` to
+// match raw localStorage values.
+const TAG_MIGRATION: Record<string, VariationTag> = {
+  'CHARACTER / SPEAKING': 'DIALOGUE',
+  'LITERAL / ACTION': 'ACTION',
+  'EMOTIONAL / REACTION': 'EMOTIONAL',
+  'PRODUCT / DETAIL': 'PRODUCT',
+  // Identity entries so already-migrated tags pass through unchanged.
+  'DIALOGUE': 'DIALOGUE',
+  'ACTION': 'ACTION',
+  'EMOTIONAL': 'EMOTIONAL',
+  'PRODUCT': 'PRODUCT',
+}
+
+const DEFAULT_LABELS: Record<VariationTag, string> = {
+  DIALOGUE: 'Talking to camera',
+  ACTION: 'Literal action',
+  EMOTIONAL: 'Emotional reaction',
+  PRODUCT: 'Product detail',
+}
+
+function migrateVariation(v: PromptVariation): PromptVariation {
+  const rawTag = (v.tag as unknown as string) ?? 'ACTION'
+  const tag = TAG_MIGRATION[rawTag] ?? 'ACTION'
+  // Old data stored a positional label like 'Option 1' — drop it for the
+  // descriptive default unless the LLM already filled in something better.
+  const looksPositional = !v.label || /^option\s*\d/i.test(v.label)
+  const label = looksPositional ? DEFAULT_LABELS[tag] : v.label
+  // Default refs to 'both' when the persisted variation didn't have any
+  // reference declaration. Keeps existing card behaviour (both refs attached).
+  const refs: VariationRefs = v.refs ?? 'both'
+  return { ...v, tag, label, refs }
+}
+
 export default function BrollStudio() {
   const baseKey = useProjectScopedKey('broll-studio')
   const [selectedProductId, setSelectedProductId] = usePersistedState<string | null>(`${baseKey}:productId`, null)
@@ -18,7 +54,26 @@ export default function BrollStudio() {
   const [selectedScriptId, setSelectedScriptId] = usePersistedState<string | null>(`${baseKey}:scriptId`, null)
   const [scriptText, setScriptText] = usePersistedState(`${baseKey}:scriptText`, '')
   const [additionalContext, setAdditionalContext] = usePersistedState(`${baseKey}:context`, '')
-  const [result, setResult] = usePersistedState<BrollResult | null>(`${baseKey}:result`, null)
+  const [result, setResult] = usePersistedState<BrollResult | null>(
+    `${baseKey}:result`,
+    null,
+    {
+      // Migrate persisted scenes from the legacy slash-form tag union
+      // (CHARACTER / SPEAKING etc) into the new clean union (DIALOGUE etc).
+      // Also backfill new fields (label, refs) on older variations so the
+      // UI doesn't render undefined chips. Runs once on hydrate.
+      sanitize: (raw) => {
+        if (!raw || !raw.scenes) return raw
+        return {
+          ...raw,
+          scenes: raw.scenes.map((s) => ({
+            ...s,
+            variations: s.variations.map(migrateVariation),
+          })),
+        }
+      },
+    },
+  )
 
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -121,9 +176,18 @@ export default function BrollStudio() {
   const modelContext = selectedModel
     ? `Model/Character: ${selectedModel.name}.${selectedModel.notes ? ` ${selectedModel.notes}.` : ''}${selectedModel.jsonProfile ? ` Profile: ${JSON.stringify(selectedModel.jsonProfile)}` : ''}`
     : ''
+  const characterRef: ReferenceImage | undefined = selectedModel?.characterImage
+    ? { dataUrl: selectedModel.characterImage, label: 'character' }
+    : undefined
+  const productRef: ReferenceImage | undefined = selectedProduct?.productImage
+    ? { dataUrl: selectedProduct.productImage, label: 'product' }
+    : undefined
+  // Combined ref bundle passed to the scene-generation LLM call — gives it
+  // visibility into which reference images the user has selected so it can
+  // emit sensible <REFS> tags per variation.
   const referenceImages: ReferenceImage[] = [
-    ...(selectedModel?.characterImage ? [{ dataUrl: selectedModel.characterImage, label: 'model' }] : []),
-    ...(selectedProduct?.productImage ? [{ dataUrl: selectedProduct.productImage, label: 'product' }] : []),
+    ...(characterRef ? [characterRef] : []),
+    ...(productRef ? [productRef] : []),
   ]
 
   const handleGenerate = async () => {
@@ -184,7 +248,8 @@ export default function BrollStudio() {
           error={error}
           onAddVariation={handleAddVariation}
           onDeleteVariation={handleDeleteVariation}
-          referenceImages={referenceImages}
+          characterRef={characterRef}
+          productRef={productRef}
           selectedProductId={selectedProduct?.id ?? undefined}
           selectedModelId={selectedModel?.id ?? undefined}
           selectedScriptId={selectedScript?.id ?? undefined}

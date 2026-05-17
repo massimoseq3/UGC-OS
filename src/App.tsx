@@ -17,7 +17,6 @@ import ScriptArchitect from './apps/script-architect/ScriptArchitect'
 import CharacterStudio from './apps/character-studio/CharacterStudio'
 import VoiceStudio from './apps/voice-studio/VoiceStudio'
 import BrollStudio from './apps/broll-studio/BrollStudio'
-import VideoStudio from './apps/video-studio/VideoStudio'
 import Playground from './apps/playground/Playground'
 import AdminPanel from './apps/admin/AdminPanel'
 
@@ -28,7 +27,6 @@ const APP_COMPONENTS: Record<string, React.ComponentType> = {
   'character-studio': CharacterStudio,
   'voice-studio': VoiceStudio,
   'broll-studio': BrollStudio,
-  'video-studio': VideoStudio,
   'playground': Playground,
   'admin': AdminPanel,
 }

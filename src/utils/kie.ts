@@ -237,7 +237,14 @@ export async function pollTask(
   for (let i = 0; i < maxPollAttempts; i++) {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
 
-    await new Promise(r => setTimeout(r, pollIntervalMs))
+    // First poll waits only 1.5s (kie usually returns 'queued' or 'running'
+    // immediately, but giving it a moment avoids hammering the API for tasks
+    // that haven't been registered server-side yet). Subsequent polls use the
+    // full interval. Without this, fast generations (e.g. GPT Image 2 nano
+    // tier finishing in ~10s) feel artificially slow by the full poll
+    // interval on the very first check.
+    const waitMs = i === 0 ? Math.min(1500, pollIntervalMs) : pollIntervalMs
+    await new Promise(r => setTimeout(r, waitMs))
 
     let record: TaskRecord
     try {

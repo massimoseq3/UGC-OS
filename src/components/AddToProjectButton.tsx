@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { FolderOpen, Plus } from 'lucide-react'
 import { useBankStore } from '../stores/bankStore'
-import ProjectTagPopover from '../apps/video-studio/components/ProjectTagPopover'
+import ProjectTagPopover from './ProjectTagPopover'
 
 type Bank = 'products' | 'models' | 'scripts' | 'voices' | 'brolls'
 

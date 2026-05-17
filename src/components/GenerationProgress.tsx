@@ -52,7 +52,7 @@ export default function GenerationProgress({
             with a long one ('Sending request to image model...') that wraps. */}
         <p className="min-h-[2.25rem] text-xs leading-snug text-zinc-500">{msgs[index]}</p>
         {showHelper && (
-          <p className="text-[11px] text-zinc-600">You can keep working — we'll save this when it's done.</p>
+          <p className="text-[11px] text-zinc-600">This can take a couple of minutes. Keep this tab open.</p>
         )}
       </div>
     </div>
