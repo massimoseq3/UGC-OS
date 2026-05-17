@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Package, Loader2, PenLine, ChevronDown, FileText, Wand2, Recycle } from 'lucide-react'
+import { Package, Loader2, PenLine, ChevronDown, FileText, Wand2 } from 'lucide-react'
 import type { Product, Script } from '../../../stores/types'
 import type { EditableProductContext, ScriptMode } from '../types'
 import { useBankStore } from '../../../stores/bankStore'
@@ -83,31 +83,25 @@ export default function InputPanel({
     onTranscriptChange(item.scriptText)
   }
 
-  const generateLabel = mode === 'remix' ? 'Generate 3 Variations' : 'Generate Prompts'
+  const generateLabel = mode === 'remix' ? 'Generate 3 Script Variations' : 'Generate Prompts'
 
   return (
     <div className="flex flex-col md:h-full">
-      {/* Mode toggle pinned at top */}
-      <div className="shrink-0 border-b border-white/5 px-5 pt-4 pb-3">
-        <div className="flex rounded-full border border-white/10 bg-white/[0.02] p-0.5">
-          <ModePill
-            active={mode === 'remix'}
-            onClick={() => onModeChange('remix')}
-            icon={Recycle}
-            label="Remix Transcript"
-          />
-          <ModePill
-            active={mode === 'reverse-engineer'}
-            onClick={() => onModeChange('reverse-engineer')}
-            icon={Wand2}
-            label="Reverse Engineer Ad"
-          />
+      {/* Mode tabs — aligned with the Output/History tab pattern used in the
+          right panel so the left/right strips read as one continuous bar.
+          Subtext under the tabs is intentionally absent so both strips share
+          the same baseline. */}
+      <div className="shrink-0 border-b border-white/5">
+        <div className="flex items-center gap-1 px-5">
+          <ModeTabButton active={mode === 'remix'} onClick={() => onModeChange('remix')}>
+            <PenLine className="h-3.5 w-3.5" />
+            Remix Script
+          </ModeTabButton>
+          <ModeTabButton active={mode === 'reverse-engineer'} onClick={() => onModeChange('reverse-engineer')}>
+            <Wand2 className="h-3.5 w-3.5" />
+            Reverse Engineer Ad
+          </ModeTabButton>
         </div>
-        <p className="mt-2 px-1 text-[11px] text-zinc-600">
-          {mode === 'remix'
-            ? 'Adapt a winning transcript into 3 fresh angles for your product.'
-            : 'Reverse engineer any ad adapted for your products and characters.'}
-        </p>
       </div>
 
       {/* Scrollable inputs */}
@@ -166,7 +160,14 @@ export default function InputPanel({
 
           {selectedProduct ? (
             <div className="mt-2">
-              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+              {/* Whole-card-clickable — hitting any part of the populated
+                  product card opens the picker. The Change label is a hover
+                  affordance only. */}
+              <button
+                type="button"
+                onClick={() => setProductPickerOpen(true)}
+                className="group w-full rounded-xl border border-white/10 bg-white/[0.03] p-3 text-left transition-colors hover:border-white/20 hover:bg-white/[0.05]"
+              >
                 <div className="flex items-center gap-3">
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white/5">
                     {resolvedProductImage ? (
@@ -183,14 +184,11 @@ export default function InputPanel({
                       {selectedProduct.targetMarket || 'No target market'}
                     </span>
                   </div>
-                  <button
-                    onClick={() => setProductPickerOpen(true)}
-                    className="shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-medium text-blue-400 transition-colors hover:bg-blue-500/10"
-                  >
+                  <span className="shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-medium text-blue-400 opacity-0 transition-opacity group-hover:opacity-100">
                     Change
-                  </button>
+                  </span>
                 </div>
-              </div>
+              </button>
 
               {editableContext && (
                 <div className="mt-3 overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]">
@@ -283,7 +281,7 @@ export default function InputPanel({
           {isGenerating ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              <span>{mode === 'remix' ? 'Generating 3 Variations...' : 'Generating Prompts...'}</span>
+              <span>{mode === 'remix' ? 'Generating 3 Script Variations...' : 'Generating Prompts...'}</span>
             </>
           ) : (
             <>
@@ -323,29 +321,36 @@ export default function InputPanel({
   )
 }
 
-function ModePill({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: React.ElementType; label: string }) {
+// Mode tab matching the Output/History TabButton in RightPanel.tsx so both
+// strips share the same underline aesthetic.
+function ModeTabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button
       onClick={onClick}
-      className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium tracking-tight transition-colors ${
-        active
-          ? 'bg-blue-500/20 text-blue-200'
-          : 'text-zinc-400 hover:text-zinc-200'
+      className={`relative flex items-center gap-1.5 px-3 pb-2 pt-5 text-sm font-medium tracking-tight transition-colors ${
+        active ? 'text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'
       }`}
     >
-      <Icon className="h-3.5 w-3.5" />
-      {label}
+      {children}
+      <span
+        className={`absolute inset-x-3 -bottom-px h-0.5 rounded-full transition-colors ${
+          active ? 'bg-zinc-100' : 'bg-transparent'
+        }`}
+      />
     </button>
   )
 }
 
+// Step labels for the 1/2/3 sections — Playground-style subheadings now,
+// dropping the tiny-uppercase look. The small numbered chip stays so the
+// progression still reads.
 function StepLabel({ step, label }: { step: number; label: string }) {
   return (
     <div className="flex items-center gap-2.5">
       <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-500/15 text-[10px] font-bold tabular-nums text-blue-400">
         {step}
       </span>
-      <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-500">{label}</span>
+      <span className="text-sm font-medium text-zinc-200">{label}</span>
     </div>
   )
 }

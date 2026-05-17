@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Check, Save, UserRound, Loader2, Download, AlertCircle, X, RectangleVertical, RectangleHorizontal } from 'lucide-react'
+import { Check, Bookmark, UserRound, Loader2, Download, AlertCircle, X, RectangleVertical, RectangleHorizontal } from 'lucide-react'
 import { useBankStore } from '../../../stores/bankStore'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import type { GenerationResult } from '../services/generateCharacter'
@@ -235,7 +235,7 @@ export default function OutputPanel({ result, isGenerating, error, onGenerate, o
               {saved ? (
                 <><Check className="h-4 w-4" /> Saved to Character Bank</>
               ) : (
-                <><Save className="h-4 w-4" /> Save to Character Bank</>
+                <><Bookmark className="h-4 w-4" /> Save to Character Bank</>
               )}
             </button>
           )}

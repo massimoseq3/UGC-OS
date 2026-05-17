@@ -1,4 +1,4 @@
-import type { VideoMode } from '../../utils/models'
+import type { VideoMode, ImageResolution } from '../../utils/models'
 
 export type SceneType =
   | 'A-ROLL CHARACTER'
@@ -76,14 +76,107 @@ export interface BrollInput {
 export interface GeneratedImage {
   imageUrl: string
   prompt: string
+  // Stamped on completion so the modal's right-column gallery can day-bucket
+  // images the same way Playground does. Older persisted entries get
+  // backfilled to Date.now() during hydrate.
+  createdAt: number
+}
+
+// A completed video generation kept on the card. Multiple videos can be
+// generated per card (regenerate, animate-from-different-stills, etc.) and
+// the user picks which one is the "cover" — see CardState.selected.
+export interface GeneratedVideo {
+  url: string
+  modelId: string
+  prompt: string
+  aspectRatio: string
+  durationSeconds: number
+  resolution: string
+  audio: boolean
+  mode: VideoMode
+  sourceBRollId?: string
+  createdAt: number
+}
+
+// Which output the user wants on the scene card's face. When unset, the
+// face falls back to the most-recent generation (image preferred).
+export interface SelectedOutput {
+  kind: 'image' | 'video'
+  index: number
+}
+
+// An image generation that's currently mid-flight. Stored as an array on
+// CardState so the user can fire multiple Generate Image clicks in parallel
+// (matches Playground's parallel queue). Each entry survives a refresh via
+// usePersistedState; the resume effect picks them up by taskId.
+export interface InFlightImage {
+  id: string
+  taskId: string | null
+  modelId: string | null
+  startedAt: number
+  prompt: string
+  aspectRatio: string
+  resolution: string
+  error?: string | null
+}
+
+// An in-flight video generation. Same parallel-queue semantics as images.
+export interface InFlightVideo {
+  id: string
+  taskId: string | null
+  modelId: string
+  endpoint?: 'veo'
+  startedAt: number
+  prompt: string
+  mode: VideoMode
+  aspectRatio: string
+  durationSeconds: number
+  resolution: string
+  audio: boolean
+  sourceBRollId?: string
+  error?: string | null
 }
 
 export interface CardState {
   editablePrompt: string
+  // Linear undo/redo history for the prompt. Each entry is a snapshot pushed
+  // on Done-after-edit, Enhance, or Regenerate prompt. promptHistoryIndex
+  // points at the live entry; Undo decrements, Redo increments. Trimmed of
+  // forward branch on new push.
+  promptHistory: string[]
+  promptHistoryIndex: number
   images: GeneratedImage[]
   currentImageIndex: number
+  // Completed videos for this card. The legacy CardState held one `videoUrl`
+  // string slot — the sanitize pass migrates that into the first entry here
+  // so older sessions don't lose their videos.
+  videos: GeneratedVideo[]
+  currentVideoIndex: number
+  // Which output appears on the scene card's face. Updated when the user
+  // clicks a thumbnail in the modal's right column. Null = let the card
+  // fall back to whatever generation it has (image preferred).
+  selected: SelectedOutput | null
+  // Parallel queue of mid-flight image generations. Each Generate Image
+  // click pushes an entry; refresh-resume walks this list. On success the
+  // entry is removed and the result appended to `images`.
+  inFlightImages: InFlightImage[]
+  // Same for videos.
+  inFlightVideos: InFlightVideo[]
   isGeneratingImage: boolean
   imageError: string | null
+  // Per-card image generation settings — owned by each card, not the page.
+  // Switches the mini-playground modal's Image tab inputs.
+  cardImageAspectRatio: string
+  cardImageResolution: ImageResolution
+  // Per-card video generation settings.
+  cardVideoAspectRatio: string
+  cardVideoDurationSeconds: number
+  cardVideoResolution: string
+  cardVideoAudio: boolean
+  // True while the prompt-rewrite LLM call is in flight (Enhance or Regenerate).
+  // Drives a "Working…" overlay on the prompt section.
+  isPromptWorking?: boolean
+  promptError?: string | null
   // In-flight kie taskId persisted across refresh so polling can resume.
   // Cleared once the image lands in `images[]` or when the user resets the card.
   pendingTaskId: string | null

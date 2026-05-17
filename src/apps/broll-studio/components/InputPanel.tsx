@@ -57,8 +57,17 @@ function BankCard({
     )
   }
 
+  // Whole-card-clickable: hitting any part of the populated card swaps the
+  // selection via the BankPicker. The small X clears it; that handler
+  // stops propagation so it doesn't also re-open the picker.
   return (
-    <div className={`rounded-xl border border-white/10 bg-white/[0.02] p-3 ${className ?? ''}`}>
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onSelect}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect() } }}
+      className={`group cursor-pointer rounded-xl border border-white/10 bg-white/[0.02] p-3 transition-colors hover:border-white/20 hover:bg-white/[0.04] ${className ?? ''}`}
+    >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${accentClass}`}>
@@ -67,16 +76,13 @@ function BankCard({
           <span className="text-[10px] font-medium uppercase tracking-widest text-zinc-600">{label}</span>
         </div>
         <div className="flex items-center gap-1">
-          <button
-            onClick={onSelect}
-            className="flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-300"
-          >
+          <span className="flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] text-zinc-500 opacity-0 transition-opacity group-hover:opacity-100">
             <RefreshCw className="h-2.5 w-2.5" />
             Change
-          </button>
+          </span>
           {onClear && (
             <button
-              onClick={onClear}
+              onClick={(e) => { e.stopPropagation(); onClear() }}
               title={`Remove ${label.toLowerCase()}`}
               aria-label={`Remove ${label.toLowerCase()}`}
               className="flex h-5 w-5 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-white/5 hover:text-red-400"
@@ -180,9 +186,7 @@ export default function InputPanel({
       <div className="flex-1 p-5 md:overflow-y-auto">
         <div className="flex flex-col gap-3">
           {/* References section */}
-          <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-400">
-            References
-          </span>
+          <span className="text-sm font-medium text-zinc-200">References</span>
 
           {/* Product */}
           <BankCard
@@ -242,17 +246,15 @@ export default function InputPanel({
           {/* Section separator */}
           <div className="my-2 h-px bg-white/5" />
 
-          {/* Additional context */}
+          {/* Additional instructions */}
           <div>
-            <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-600">
-              Additional Context
-            </span>
+            <span className="text-sm font-medium text-zinc-200">Additional Instructions</span>
             <textarea
               value={additionalContext}
               onChange={(e) => onAdditionalContextChange(e.target.value)}
               rows={3}
               placeholder="Optional notes for this generation (mood, style preferences, specific angles...)"
-              className="mt-1.5 w-full rounded-lg border border-white/10 bg-transparent px-3 py-2 text-sm text-zinc-200 placeholder-zinc-700 outline-none transition-colors focus:border-white/20 resize-none"
+              className="mt-2 w-full rounded-lg border border-white/10 bg-transparent px-3 py-2 text-sm text-zinc-200 placeholder-zinc-700 outline-none transition-colors focus:border-white/20 resize-none"
             />
           </div>
 

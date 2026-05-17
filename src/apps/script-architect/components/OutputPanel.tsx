@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Copy, Check, Save, ArrowUpRight, Mic, Film, PenLine, AlertCircle, Sparkles } from 'lucide-react'
+import { Copy, Check, Bookmark, ArrowUpRight, Mic, Film, PenLine, AlertCircle, Sparkles } from 'lucide-react'
 import GenerationProgress from '../../../components/GenerationProgress'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAppStore } from '../../../stores/appStore'
@@ -59,10 +59,15 @@ function VariationCard({ text, cardTitle, defaultSaveTitle, linkedProductId, mod
 
   const scenes = useMemo(() => splitScenes(text), [text])
 
-  const handleCopyAll = () => {
-    navigator.clipboard.writeText(text)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+  const handleCopyAll = async () => {
+    const ok = await copyToClipboard(text)
+    if (ok) {
+      setCopied(true)
+      addToast('Script copied to clipboard')
+      setTimeout(() => setCopied(false), 2000)
+    } else {
+      addToast('Copy failed', 'error')
+    }
   }
 
   const handleSave = () => {
@@ -162,7 +167,7 @@ function VariationCard({ text, cardTitle, defaultSaveTitle, linkedProductId, mod
                   : 'border-white/15 text-zinc-300 hover:bg-white/[0.06] hover:text-zinc-100'
               }`}
             >
-              {saved ? (<><Check className="h-3.5 w-3.5" /> Saved</>) : (<><Save className="h-3.5 w-3.5" /> Save to Bank</>)}
+              {saved ? (<><Check className="h-3.5 w-3.5" /> Saved</>) : (<><Bookmark className="h-3.5 w-3.5" /> Save to Bank</>)}
             </button>
             {mode === 'remix' && (
               <button
@@ -201,10 +206,16 @@ function VariationCard({ text, cardTitle, defaultSaveTitle, linkedProductId, mod
 
 function SceneChunkCard({ chunk }: { chunk: SceneChunk }) {
   const [copied, setCopied] = useState(false)
-  const handleCopy = () => {
-    navigator.clipboard.writeText(chunk.body)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+  const addToast = useAppStore((s) => s.addToast)
+  const handleCopy = async () => {
+    const ok = await copyToClipboard(chunk.body)
+    if (ok) {
+      setCopied(true)
+      addToast('Scene copied to clipboard')
+      setTimeout(() => setCopied(false), 2000)
+    } else {
+      addToast('Copy failed', 'error')
+    }
   }
   return (
     <div className="rounded-lg border border-white/5 bg-white/[0.02] p-3">
@@ -304,4 +315,27 @@ export default function OutputPanel({ variations, mode, linkedProductId, isGener
       </div>
     </div>
   )
+}
+
+// Robust clipboard write with a textarea fallback for older browsers / non-
+// secure contexts. Returns true if the copy succeeded.
+async function copyToClipboard(text: string): Promise<boolean> {
+  if (!text) return false
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text)
+      return true
+    }
+    const ta = document.createElement('textarea')
+    ta.value = text
+    ta.style.position = 'fixed'
+    ta.style.opacity = '0'
+    document.body.appendChild(ta)
+    ta.select()
+    const ok = document.execCommand('copy')
+    document.body.removeChild(ta)
+    return ok
+  } catch {
+    return false
+  }
 }

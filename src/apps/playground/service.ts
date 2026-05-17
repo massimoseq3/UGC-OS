@@ -108,6 +108,10 @@ export async function finishPlaygroundImageTask(
   return item
 }
 
+// Marker stamped on every record this service produces so the B-Roll tab's
+// Gallery view can filter Playground gens out — see types.ts BRoll/VideoHistoryItem.
+const PLAYGROUND_SOURCE: 'playground' = 'playground'
+
 // ── Video ──────────────────────────────────────────────────────────
 
 export interface PlaygroundVideoStartInput {
@@ -224,6 +228,7 @@ export async function finishPlaygroundVideoTask(
     resolution: params.resolution,
     audio: params.audio,
     videoUrl: assetId,
+    sourceApp: PLAYGROUND_SOURCE,
     createdAt: Date.now(),
   }
   await useBankStore.getState().addVideoHistory(historyEntry)

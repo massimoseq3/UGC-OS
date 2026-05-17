@@ -1,5 +1,5 @@
 import { useMemo, useState, useRef } from 'react'
-import { Search, Volume2, Save, Check, Trash2, Play, Pause, AlignLeft, Download } from 'lucide-react'
+import { Search, Volume2, Bookmark, Check, Trash2, Play, Pause, AlignLeft, Download } from 'lucide-react'
 import { useBankStore } from '../../../stores/bankStore'
 import type { VoiceHistoryItem } from '../../../stores/types'
 import { getUrl } from '../../../utils/assetStore'
@@ -278,7 +278,7 @@ export default function HistoryView({ items, activeId, onSelect, onDelete, onSho
                               {isSaved ? (
                                 <><Check className="h-3 w-3" /> Saved</>
                               ) : (
-                                <><Save className="h-3 w-3" /> Save preset</>
+                                <><Bookmark className="h-3 w-3" /> Save preset</>
                               )}
                             </button>
                           )}

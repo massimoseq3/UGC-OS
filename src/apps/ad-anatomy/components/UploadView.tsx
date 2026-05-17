@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { Upload, Film, X, Clapperboard, Eye } from 'lucide-react'
 
 const ACCEPTED_TYPES = ['video/mp4', 'video/quicktime', 'video/webm']
@@ -12,6 +12,11 @@ export default function UploadView({ onAnalyze }: UploadViewProps) {
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState(false)
+  // Window-wide drag overlay — visible whenever any drag enters the page,
+  // regardless of which child element the cursor is over. Tracks a counter
+  // so nested dragenter/leave from child elements don't flicker the overlay.
+  const [windowDragActive, setWindowDragActive] = useState(false)
+  const dragCounterRef = useRef(0)
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -28,6 +33,52 @@ export default function UploadView({ onAnalyze }: UploadViewProps) {
     setFile(f)
     setPreview(URL.createObjectURL(f))
   }, [])
+
+  // Window-wide drag-drop: listen at the document level so the user can
+  // drop their video anywhere on the page (not just on the dashed box).
+  useEffect(() => {
+    function isVideoDrag(e: DragEvent): boolean {
+      // dataTransfer.types is the only reliable signal during dragenter — the
+      // file list isn't readable yet. Files drag-ins surface 'Files'.
+      return Array.from(e.dataTransfer?.types ?? []).includes('Files')
+    }
+    const onDragEnter = (e: DragEvent) => {
+      if (!isVideoDrag(e)) return
+      e.preventDefault()
+      dragCounterRef.current += 1
+      setWindowDragActive(true)
+    }
+    const onDragOver = (e: DragEvent) => {
+      if (!isVideoDrag(e)) return
+      e.preventDefault()
+    }
+    const onDragLeave = (e: DragEvent) => {
+      if (!isVideoDrag(e)) return
+      dragCounterRef.current -= 1
+      if (dragCounterRef.current <= 0) {
+        dragCounterRef.current = 0
+        setWindowDragActive(false)
+      }
+    }
+    const onDrop = (e: DragEvent) => {
+      if (!isVideoDrag(e)) return
+      e.preventDefault()
+      dragCounterRef.current = 0
+      setWindowDragActive(false)
+      const f = e.dataTransfer?.files?.[0]
+      if (f) validateAndSet(f)
+    }
+    document.addEventListener('dragenter', onDragEnter)
+    document.addEventListener('dragover', onDragOver)
+    document.addEventListener('dragleave', onDragLeave)
+    document.addEventListener('drop', onDrop)
+    return () => {
+      document.removeEventListener('dragenter', onDragEnter)
+      document.removeEventListener('dragover', onDragOver)
+      document.removeEventListener('dragleave', onDragLeave)
+      document.removeEventListener('drop', onDrop)
+    }
+  }, [validateAndSet])
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -59,10 +110,11 @@ export default function UploadView({ onAnalyze }: UploadViewProps) {
       <div className="flex flex-col items-center gap-2 text-center">
         <Eye className="h-8 w-8 text-[#FB2B37]/60" strokeWidth={1.5} />
         <h2 className="text-lg font-semibold tracking-tight text-zinc-200">
-          Breakdown a Creative
+          Analyse an Ad
         </h2>
         <p className="max-w-sm text-sm text-zinc-500">
-          Upload a video ad and we'll dissect every frame, hook, and persuasion tactic.
+          Drop in a video ad and we&apos;ll dissect every frame — scorecard, transcript, and a
+          reverse-engineered prompt you can send to Scripts or B-Roll.
         </p>
       </div>
 
@@ -81,7 +133,7 @@ export default function UploadView({ onAnalyze }: UploadViewProps) {
           >
             <Upload className={`h-6 w-6 transition-colors ${dragOver ? 'text-[#FB2B37]' : 'text-zinc-600'}`} />
             <span className="text-sm text-zinc-400">
-              Drag & drop a video or <span className="text-zinc-200 underline underline-offset-2">browse</span>
+              Drag &amp; drop a video or <span className="text-zinc-200 underline underline-offset-2">browse</span>
             </span>
             <span className="text-[11px] text-zinc-600">MP4, MOV, WebM — max {MAX_SIZE_MB}MB</span>
           </button>
@@ -120,7 +172,7 @@ export default function UploadView({ onAnalyze }: UploadViewProps) {
             <span className="shrink-0 text-xs tabular-nums text-zinc-600">{formatSize(file.size)}</span>
           </div>
 
-          {/* Analyze button */}
+          {/* Analyse button */}
           <button
             onClick={() => onAnalyze(file)}
             className="group relative flex items-center justify-center gap-2 overflow-hidden rounded-full bg-[#FB2B37] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#FB2B37]/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]"
@@ -128,7 +180,7 @@ export default function UploadView({ onAnalyze }: UploadViewProps) {
             <div className="pointer-events-none absolute inset-0 z-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-1000 group-hover:translate-x-full" />
             <span className="relative z-10 flex items-center gap-2">
               <Clapperboard className="h-4 w-4" />
-              Breakdown Creative
+              Analyse Ad
             </span>
           </button>
         </div>
@@ -136,6 +188,20 @@ export default function UploadView({ onAnalyze }: UploadViewProps) {
 
       {error && (
         <p className="text-sm text-[#FB2B37]">{error}</p>
+      )}
+
+      {/* Window-wide drag overlay — covers everything in the app surface
+          when the user is dragging a video over the page. */}
+      {windowDragActive && (
+        <div className="pointer-events-none fixed inset-0 z-[70] flex items-center justify-center bg-[#FB2B37]/10 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-4 rounded-3xl border-2 border-dashed border-[#FB2B37]/50 bg-black/40 px-12 py-10 text-center shadow-2xl">
+            <Upload className="h-10 w-10 text-[#FB2B37]" />
+            <p className="text-xl font-semibold tracking-tight text-zinc-100">
+              Drop your video here to analyse
+            </p>
+            <p className="text-sm text-zinc-400">MP4, MOV, WebM — max {MAX_SIZE_MB}MB</p>
+          </div>
+        </div>
       )}
     </div>
   )
