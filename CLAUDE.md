@@ -241,6 +241,4 @@ After any non-trivial change to behaviour, file structure, or model lineup:
 3. Update the model table above if you register or remove a model.
 4. Update **Recent changes** for coherent bodies of work — keep it to the last 2–3 entries. Drop the oldest when you add a new one. Anything older lives in `git log`.
 
-**Aesthetic-only tweaks** (button reorder / colour swap / copy edit / spacing / chip restyle): skip the full preview verification workflow. Apply the change, run `npm run build` to type-check, and end. Reserve preview snapshots, DOM eval, and screenshot review for behavioural changes (new components, state changes, refs flow, generation logic, anything the user can't tell is right by glancing at a diff).
-
 The user has explicitly asked for these docs to stay in sync with reality.

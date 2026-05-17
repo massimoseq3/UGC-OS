@@ -1,18 +1,27 @@
 import { useMemo, useState, useEffect } from 'react'
 import { useAppStore } from '../../stores/appStore'
 import { useBankStore } from '../../stores/bankStore'
-import type { Product } from '../../stores/types'
+import type { Product, ScriptHistoryItem } from '../../stores/types'
 import InputPanel from './components/InputPanel'
-import OutputPanel from './components/OutputPanel'
+import RightPanel from './components/RightPanel'
 import { generateScript } from './services/generateScript'
+import type { ScriptMode, EditableProductContext } from './types'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
+
+interface ReverseEngineerPayload {
+  fullPrompt?: string
+  scenes?: Array<{ prompt: string; index: number; label: string; startTime: string; endTime: string }>
+}
 
 export default function ScriptArchitect() {
   const baseKey = useProjectScopedKey('script-architect')
+  const [mode, setMode] = usePersistedState<ScriptMode>(`${baseKey}:mode`, 'remix')
   const [winningTranscript, setWinningTranscript] = usePersistedState(`${baseKey}:transcript`, '')
+  const [reversePrompt, setReversePrompt] = usePersistedState(`${baseKey}:reversePrompt`, '')
   const [selectedProductId, setSelectedProductId] = usePersistedState<string | null>(`${baseKey}:productId`, null)
   const [additionalContext, setAdditionalContext] = usePersistedState(`${baseKey}:context`, '')
-  const [generatedScript, setGeneratedScript] = usePersistedState(`${baseKey}:script`, '')
+  const [variations, setVariations] = usePersistedState<string[]>(`${baseKey}:variations`, [])
+  const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [highlightField, setHighlightField] = useState<string | null>(null)
@@ -22,6 +31,9 @@ export default function ScriptArchitect() {
   const activeApp = useAppStore((s) => s.activeApp)
   const getProductById = useBankStore((s) => s.getProductById)
   const products = useBankStore((s) => s.products)
+  const scriptHistory = useBankStore((s) => s.scriptHistory)
+  const addScriptHistory = useBankStore((s) => s.addScriptHistory)
+  const deleteScriptHistory = useBankStore((s) => s.deleteScriptHistory)
 
   const selectedProduct = useMemo<Product | null>(
     () => (selectedProductId ? products.find((p) => p.id === selectedProductId) ?? null : null),
@@ -29,41 +41,72 @@ export default function ScriptArchitect() {
   )
   const handleProductSelect = (p: Product | null) => setSelectedProductId(p?.id ?? null)
 
-  // Consume inter-app payloads from Ad Analyzer
+  // Consume inter-app payloads
   useEffect(() => {
     if (activeApp !== 'script-architect') return
     if (!interAppPayload || interAppPayload.targetApp !== 'script-architect') return
 
     const { targetField, data } = interAppPayload
 
-    if (targetField === 'winningTranscript' || targetField === 'reconstructionPrompt') {
+    if (targetField === 'reverseEngineerPrompt') {
+      const payload = data as ReverseEngineerPayload | string
+      const full = typeof payload === 'string'
+        ? payload
+        : (payload.fullPrompt ?? (payload.scenes ?? [])
+            .map((s) => `--- Scene ${s.index}: ${s.label} (${s.startTime}-${s.endTime}) ---\n${s.prompt}`)
+            .join('\n\n'))
+      setMode('reverse-engineer')
+      setReversePrompt(full)
+      setHighlightField('reverse-prompt')
+      setTimeout(() => setHighlightField(null), 800)
+    } else if (targetField === 'winningTranscript' || targetField === 'reconstructionPrompt') {
+      setMode('remix')
       setWinningTranscript(data as string)
       setHighlightField('transcript')
       setTimeout(() => setHighlightField(null), 800)
-    }
-
-    if (targetField === 'productId') {
+    } else if (targetField === 'productId') {
       const product = getProductById(data as string)
       if (product) setSelectedProductId(product.id)
     }
 
     consumePayload()
-  }, [interAppPayload, activeApp, consumePayload, getProductById])
+  }, [interAppPayload, activeApp, consumePayload, getProductById, setMode, setReversePrompt, setWinningTranscript, setSelectedProductId])
 
-  const handleGenerate = async (productContext: any | null) => {
-    if (!winningTranscript.trim() || !selectedProduct) return
+  const handleGenerate = async (productContext: EditableProductContext | null) => {
+    const sourceFilled = mode === 'remix' ? winningTranscript.trim() : reversePrompt.trim()
+    if (!sourceFilled || !selectedProduct) return
 
     setIsGenerating(true)
     setError(null)
+    setActiveHistoryId(null)
     try {
       const result = await generateScript({
+        mode,
         winningTranscript,
+        reversePrompt,
         productId: selectedProduct.id,
         productContext,
         additionalContext,
       })
-      setGeneratedScript(result.scriptText)
-      useAppStore.getState().addToast('Script generated', 'success')
+      setVariations(result.variations)
+
+      const inputSource = mode === 'remix' ? winningTranscript : reversePrompt
+      const item: ScriptHistoryItem = {
+        id: crypto.randomUUID(),
+        mode,
+        variations: result.variations,
+        inputSummary: inputSource.slice(0, 200),
+        linkedProductId: selectedProduct.id,
+        productName: selectedProduct.productName,
+        createdAt: Date.now(),
+      }
+      addScriptHistory(item)
+      setActiveHistoryId(item.id)
+
+      useAppStore.getState().addToast(
+        mode === 'remix' ? '3 script variations generated' : 'Script rewritten',
+        'success',
+      )
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Script generation failed. Check your API key and try again.'
       setError(msg)
@@ -73,13 +116,28 @@ export default function ScriptArchitect() {
     }
   }
 
+  const handleSelectHistory = (item: ScriptHistoryItem) => {
+    setMode(item.mode)
+    setVariations(item.variations)
+    setActiveHistoryId(item.id)
+    setError(null)
+  }
+
+  const handleDeleteHistory = (id: string) => {
+    deleteScriptHistory(id)
+    if (activeHistoryId === id) setActiveHistoryId(null)
+  }
+
   return (
     <div className="relative flex flex-col pb-32 md:flex-row md:h-full md:pb-0">
-      {/* Left panel — inputs */}
       <div className="flex w-full md:w-1/2 shrink-0 flex-col border-b md:border-b-0 md:border-r border-white/5">
         <InputPanel
+          mode={mode}
+          onModeChange={setMode}
           winningTranscript={winningTranscript}
           onTranscriptChange={setWinningTranscript}
+          reversePrompt={reversePrompt}
+          onReversePromptChange={setReversePrompt}
           selectedProduct={selectedProduct}
           onProductSelect={handleProductSelect}
           additionalContext={additionalContext}
@@ -90,13 +148,17 @@ export default function ScriptArchitect() {
         />
       </div>
 
-      {/* Right panel — output */}
       <div className="flex w-full md:w-1/2 flex-col min-h-[300px] md:min-h-0">
-        <OutputPanel
-          scriptText={generatedScript}
+        <RightPanel
+          variations={variations}
+          mode={mode}
           linkedProductId={selectedProduct?.id ?? null}
           isGenerating={isGenerating}
           error={error}
+          history={scriptHistory}
+          activeHistoryId={activeHistoryId}
+          onSelectHistory={handleSelectHistory}
+          onDeleteHistory={handleDeleteHistory}
         />
       </div>
     </div>

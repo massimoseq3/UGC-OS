@@ -46,11 +46,12 @@ export default function GenerationProgress({
       <div className="relative h-1 w-full overflow-hidden rounded-full bg-white/10">
         <div className={`shimmer-band absolute inset-y-0 left-0 w-1/2 ${color} animate-shimmer-sweep`} />
       </div>
-      <div className="mt-2 space-y-0.5">
-        {/* Reserve 2 lines worth of vertical space so the surrounding layout
-            doesn't jump when a short message ('Composing the scene...') swaps
-            with a long one ('Sending request to image model...') that wraps. */}
-        <p className="min-h-[2.25rem] text-xs leading-snug text-zinc-500">{msgs[index]}</p>
+      <div className={`${showHelper ? 'mt-2' : 'mt-1.5'} space-y-0.5`}>
+        {/* When the helper line is shown, reserve 2 lines for the rotating
+            message so the layout doesn't jump on long-message wraps. When
+            it's hidden (Scripts / B-Roll prompt-gen), tighten to 1 line so
+            there's no awkward gap between the bar and the content below. */}
+        <p className={`${showHelper ? 'min-h-[2.25rem]' : ''} text-xs leading-snug text-zinc-500`}>{msgs[index]}</p>
         {showHelper && (
           <p className="text-[11px] text-zinc-600">This can take a couple of minutes. Keep this tab open.</p>
         )}

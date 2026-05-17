@@ -122,6 +122,9 @@ export default function Playground() {
     const { targetField, data } = interAppPayload
     if (targetField === 'prompt' && typeof data === 'string') {
       setState((s) => ({ ...s, prompt: data }))
+    } else if (targetField === 'videoPrompt' && typeof data === 'string') {
+      // Reverse Engineer scene prompt → land in video mode with the prompt prefilled.
+      setState((s) => ({ ...s, mode: 'video', prompt: data }))
     } else if (targetField === 'imageRef' && typeof data === 'string') {
       setState((s) => ({
         ...s,

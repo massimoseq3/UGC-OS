@@ -1296,6 +1296,7 @@ export default function OutputPanel({ result, isGenerating, error, onAddVariatio
           color="bg-orange-500"
           messages={['Analyzing script scenes...', 'Sending request...', 'Generating B-Roll prompts...', 'Finalizing scene breakdowns...']}
           className="mb-6"
+          showHelper={false}
         />
         <div className="flex-1 overflow-y-auto">
           <div className="flex flex-col gap-8">

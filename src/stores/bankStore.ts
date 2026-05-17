@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Product, Model, Script, VoicePreset, BRoll, VoiceHistoryItem, VideoHistoryItem, ImageHistoryItem, MusicHistoryItem, Project } from './types'
+import type { Product, Model, Script, VoicePreset, BRoll, VoiceHistoryItem, VideoHistoryItem, ImageHistoryItem, MusicHistoryItem, ScriptHistoryItem, Project } from './types'
 import { isAssetRef, deleteAsset, saveFromDataUrl } from '../utils/assetStore'
 import { useSettingsStore } from './settingsStore'
 import { useAuthStore } from './authStore'
@@ -23,6 +23,7 @@ interface BankState {
   videoHistory: VideoHistoryItem[]
   imageHistory: ImageHistoryItem[]
   musicHistory: MusicHistoryItem[]
+  scriptHistory: ScriptHistoryItem[]
 
   // Project CRUD
   addProject: (project: Omit<Project, 'id' | 'createdAt'>) => Promise<string>
@@ -84,13 +85,18 @@ interface BankState {
   updateMusicHistory: (id: string, updates: Partial<MusicHistoryItem>) => Promise<BankActionResult>
   deleteMusicHistory: (id: string) => Promise<BankActionResult>
   clearMusicHistory: () => Promise<BankActionResult>
+
+  // Script History (Scripts tab) — local-only
+  addScriptHistory: (item: ScriptHistoryItem) => Promise<BankActionResult>
+  deleteScriptHistory: (id: string) => Promise<BankActionResult>
+  clearScriptHistory: () => Promise<BankActionResult>
 }
 
 function generateId(): string {
   return crypto.randomUUID()
 }
 
-type BankData = Pick<BankState, 'projects' | 'products' | 'models' | 'scripts' | 'voices' | 'brolls' | 'voiceHistory' | 'videoHistory' | 'imageHistory' | 'musicHistory'>
+type BankData = Pick<BankState, 'projects' | 'products' | 'models' | 'scripts' | 'voices' | 'brolls' | 'voiceHistory' | 'videoHistory' | 'imageHistory' | 'musicHistory' | 'scriptHistory'>
 
 function autoProjectIds(existing?: string[]): string[] | undefined {
   const active = useSettingsStore.getState().activeProjectId
@@ -132,12 +138,13 @@ function loadFromStorage(): BankData {
         videoHistory: Array.isArray(parsed.videoHistory) ? parsed.videoHistory : [],
         imageHistory: Array.isArray(parsed.imageHistory) ? parsed.imageHistory : [],
         musicHistory: Array.isArray(parsed.musicHistory) ? parsed.musicHistory : [],
+        scriptHistory: Array.isArray(parsed.scriptHistory) ? parsed.scriptHistory : [],
       }
     }
   } catch {
     /* corrupted — start fresh */
   }
-  return { projects: [], products: [], models: [], scripts: [], voices: [], brolls: [], voiceHistory: [], videoHistory: [], imageHistory: [], musicHistory: [] }
+  return { projects: [], products: [], models: [], scripts: [], voices: [], brolls: [], voiceHistory: [], videoHistory: [], imageHistory: [], musicHistory: [], scriptHistory: [] }
 }
 
 let pendingSave: BankData | null = null
@@ -160,6 +167,7 @@ function flushSaveToStorage() {
       videoHistory: state.videoHistory,
       imageHistory: state.imageHistory,
       musicHistory: state.musicHistory,
+      scriptHistory: state.scriptHistory,
     }))
   } catch (error) {
     console.error('Failed to save to storage', error)
@@ -769,6 +777,35 @@ export const useBankStore = create<BankState>((set, get) => ({
       return next
     })
     reportSuccess('Music history cleared')
+  },
+
+  // ── Script History (Scripts tab) — local-only ────────────────────
+  addScriptHistory: async (item) => {
+    const projectIds = autoProjectIds(item.projectIds)
+    const newItem: ScriptHistoryItem = { ...item, projectIds }
+    set((state) => {
+      const next = { scriptHistory: [newItem, ...state.scriptHistory] }
+      saveToStorage({ ...state, ...next })
+      return next
+    })
+  },
+
+  deleteScriptHistory: async (id) => {
+    set((state) => {
+      const next = { scriptHistory: state.scriptHistory.filter((h) => h.id !== id) }
+      saveToStorage({ ...state, ...next })
+      return next
+    })
+    reportSuccess('Script removed from history')
+  },
+
+  clearScriptHistory: async () => {
+    set((state) => {
+      const next = { scriptHistory: [] as ScriptHistoryItem[] }
+      saveToStorage({ ...state, ...next })
+      return next
+    })
+    reportSuccess('Script history cleared')
   },
 }))
 
