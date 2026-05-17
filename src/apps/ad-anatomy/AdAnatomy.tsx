@@ -17,7 +17,11 @@ export default function AdAnatomy() {
   const [view, setView] = usePersistedState<ViewState>(`${baseKey}:view`, 'upload', {
     sanitize: (v) => (v === 'loading' ? 'upload' : v),
   })
-  const [result, setResult] = usePersistedState<AnalysisResult | null>(`${baseKey}:result`, null)
+  const [result, setResult] = usePersistedState<AnalysisResult | null>(`${baseKey}:result`, null, {
+    // Older persisted results predate the slim 3-section shape. Drop them so
+    // we never try to render undefined fields.
+    sanitize: (v) => (v && typeof v === 'object' && 'reverseEngineeredPrompt' in v ? v : null),
+  })
   const [uploadedRef, setUploadedRef] = usePersistedState<string | null>(`${baseKey}:upload`, null)
   const [fileName, setFileName] = usePersistedState(`${baseKey}:fileName`, '')
 

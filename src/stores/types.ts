@@ -138,6 +138,20 @@ export interface ImageHistoryItem {
   createdAt: number
 }
 
+// One script generation in the Scripts tab — auto-pushed on every successful
+// generateScript run. Holds 1 variation (reverse-engineer mode) or 3
+// variations (remix mode). Local-only (no cloud sync yet).
+export interface ScriptHistoryItem {
+  id: string
+  mode: 'remix' | 'reverse-engineer'
+  variations: string[]
+  inputSummary: string
+  linkedProductId?: string
+  productName?: string
+  projectIds?: string[]
+  createdAt: number
+}
+
 // One generation in the Playground music tab. Pushed automatically on every
 // successful Suno generation. audioRef is an asset:// id so the audio blob
 // persists across reloads (IndexedDB + R2 mirror when cloud is active).
