@@ -459,14 +459,22 @@ export async function generateNewVariation(
   sceneNumber: number,
   sceneType: string,
   scriptLine: string,
+  forceTag?: VariationTag,
+  productContext?: string,
+  modelContext?: string,
 ): Promise<PromptVariation> {
   const { apiKey, endpoint } = getChatEndpoint()
+
+  const tagInstruction = forceTag
+    ? `The variation MUST be a ${forceTag} shot.${forceTag === 'DIALOGUE' ? ' The character is on camera, looking into the phone front camera, saying the LINE verbatim — embed the exact LINE inline as dialogue (...says directly into the front camera: "<exact LINE text>").' : forceTag === 'ACTION' ? ' A literal demonstration of the moment the line describes — no talking to camera.' : forceTag === 'EMOTIONAL' ? " The character's face/body responding to the meaning of the line — no talking to camera." : ' Close-up / macro / detail on the product or visible after-state result.'}`
+    : ''
 
   const prompt = `Generate a single new creative image generation prompt for this B-Roll scene:
 
 Scene ${sceneNumber}: ${sceneType}
 Script line: "${scriptLine}"
-
+${tagInstruction ? `\n${tagInstruction}\n` : ''}
+${productContext ? `\n${productContext}\n` : ''}${modelContext ? `\n${modelContext}\nIMPORTANT: never describe the character's physical appearance in detail. Refer to them as "the character" — a visual reference image will be attached.\n` : ''}
 Provide a fresh creative angle. Follow the senior UGC creative director rules:
 1. Specificity over completeness — name exact body position, hand position, gaze, micro-expression, setting detail, framing.
 2. NEVER use he / him / his / she / her / "subject". Refer to the on-screen person as "the character" or "they / them / their".
@@ -478,7 +486,7 @@ Provide a fresh creative angle. Follow the senior UGC creative director rules:
 Respond with ONLY valid JSON (no markdown):
 {
   "label": "<short descriptive shot label, e.g. MIRROR REACTION>",
-  "tag": "DIALOGUE" | "ACTION" | "EMOTIONAL" | "PRODUCT",
+  "tag": "${forceTag ?? 'DIALOGUE" | "ACTION" | "EMOTIONAL" | "PRODUCT'}",
   "refs": "character" | "product" | "both" | "none",
   "prompt": "<60-110 word paragraph>"
 }`
@@ -490,11 +498,67 @@ Respond with ONLY valid JSON (no markdown):
   const cleaned = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
   const parsed = JSON.parse(cleaned) as { label: string; tag: PromptVariation['tag']; refs?: PromptVariation['refs']; prompt: string }
 
+  // Honour the forced tag even if the LLM ignores the instruction.
+  const finalTag: VariationTag = forceTag ?? parsed.tag
   return {
     id: nextId(),
-    label: parsed.label || defaultLabelFor(parsed.tag),
-    tag: parsed.tag,
-    refs: parseRefs(parsed.refs) ?? defaultRefsFor(parsed.tag, undefined),
+    label: parsed.label || defaultLabelFor(finalTag),
+    tag: finalTag,
+    refs: parseRefs(parsed.refs) ?? defaultRefsFor(finalTag, undefined),
     prompt: parsed.prompt,
   }
+}
+
+// Rewrite the user's draft prompt to obey the framework while keeping their
+// intent. Used by the Enhance button in CardDetailModal. The full system
+// instruction grounds the LLM; the user message names the target tag + scene
+// so the rewrite stays on-brief.
+export async function enhanceVariationPrompt(
+  draft: string,
+  scene: { number: number; scriptLine: string },
+  variation: { tag: VariationTag; label: string },
+  productContext?: string,
+  modelContext?: string,
+): Promise<string> {
+  const { apiKey, endpoint } = getChatEndpoint()
+
+  const userMessage = `Rewrite the draft below for the ${variation.tag} variation of this scene. Keep the user's intent; tighten the language; obey the framework. Return strict JSON only.
+
+Scene ${scene.number} — LINE: "${scene.scriptLine}"
+Variation tag: ${variation.tag}${variation.label ? `\nShot label: ${variation.label}` : ''}
+${productContext ? `\n${productContext}\n` : ''}${modelContext ? `\n${modelContext}\nIMPORTANT: never describe the character's physical appearance in detail. Refer to them as "the character".\n` : ''}
+Rules:
+- 60–110 words, single paragraph.
+- Specificity over completeness — body position, hand position, gaze, micro-expression, setting detail, framing.
+- Never "he/him/she/her/subject" — use "the character" or "they/them/their".
+- Integrate the realism stack into the prose (iPhone front camera, casual, natural handheld jitter, unedited photorealism, sharp focus). No "Style: ..." trailer.
+- DO NOT mention aspect ratio, resolution, or framing in numbers.
+- ${variation.tag === 'DIALOGUE' ? `Embed the LINE verbatim as dialogue (..."<exact LINE text>").` : 'No talking to camera unless the variation is DIALOGUE.'}
+
+Draft:
+"""
+${draft}
+"""
+
+Respond with ONLY valid JSON (no markdown):
+{
+  "prompt": "<rewritten 60-110 word paragraph>"
+}`
+
+  const messages: ChatMessage[] = [
+    { role: 'system', content: [{ type: 'text', text: SYSTEM_INSTRUCTION }] },
+    { role: 'user', content: [{ type: 'text', text: userMessage }] },
+  ]
+  const responseText = await kieChatCompletions(apiKey, endpoint, messages)
+  const cleaned = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+  // Some models return the prompt as a plain string when the JSON is malformed
+  // — handle both shapes so a slightly off-schema response still works.
+  try {
+    const parsed = JSON.parse(cleaned) as { prompt: string }
+    if (parsed?.prompt && typeof parsed.prompt === 'string') return parsed.prompt
+  } catch {
+    /* fall through */
+  }
+  // Last resort: strip any wrapper and use the raw text.
+  return cleaned.replace(/^["']|["']$/g, '').trim()
 }

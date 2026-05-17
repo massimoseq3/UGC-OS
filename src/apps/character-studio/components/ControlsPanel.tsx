@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { ChevronDown, Trash2, FolderOpen, Save, Check, Sparkles, X } from 'lucide-react'
+import { ChevronDown, Trash2, FolderOpen, Bookmark, Check, Sparkles, X } from 'lucide-react'
 import type { TabId, CharacterProfile, FieldGroup } from '../types'
 import { TABS, getTabFields, createEmptyProfile, PRESET_MARIE, PRESET_ZANE } from '../types'
 import type { Model } from '../../../stores/types'
@@ -181,7 +181,7 @@ function PresetActions({
             : 'border-emerald-500/25 bg-emerald-500/[0.08] text-emerald-300 hover:border-emerald-500/35 hover:bg-emerald-500/15 hover:text-emerald-200'
           }`}
         >
-          {savedFlash ? <Check className="h-3.5 w-3.5" strokeWidth={1.75} /> : <Save className="h-3.5 w-3.5" strokeWidth={1.75} />}
+          {savedFlash ? <Check className="h-3.5 w-3.5" strokeWidth={1.75} /> : <Bookmark className="h-3.5 w-3.5" strokeWidth={1.75} />}
           {savedFlash ? 'Saved' : 'Save as Preset'}
         </button>
         {saveOpen && (

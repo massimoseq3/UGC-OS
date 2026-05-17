@@ -8,7 +8,7 @@ import {
   FileText,
   Bot,
   Film,
-  Save,
+  Bookmark,
 } from 'lucide-react'
 import type { AnalysisResult, Scene } from '../types'
 import { useAppStore } from '../../../stores/appStore'
@@ -151,7 +151,7 @@ function TranscriptSection({ result }: { result: AnalysisResult }) {
             onClick={handleSaveToBank}
             className="flex items-center gap-1 rounded-full bg-white/[0.05] px-2.5 py-1 text-[11px] font-medium text-zinc-400 transition-colors hover:bg-white/10 hover:text-zinc-200"
           >
-            <Save className="h-3 w-3" />
+            <Bookmark className="h-3 w-3" />
             Save to Script Bank
           </button>
         </div>

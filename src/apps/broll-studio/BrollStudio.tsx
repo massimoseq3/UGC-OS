@@ -5,7 +5,7 @@ import type { Product, Model, Script } from '../../stores/types'
 import type { BrollResult, PromptVariation, ReferenceImage, VariationTag, VariationRefs } from './types'
 import { generateBroll } from './services/generateBroll'
 import InputPanel from './components/InputPanel'
-import OutputPanel from './components/OutputPanel'
+import RightPanel from './components/RightPanel'
 import BankPicker from '../../components/BankPicker'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
 
@@ -242,7 +242,7 @@ export default function BrollStudio() {
 
       {/* Right panel — output */}
       <div className="flex w-full md:w-3/4 flex-col overflow-hidden">
-        <OutputPanel
+        <RightPanel
           result={result}
           isGenerating={isGenerating}
           error={error}
@@ -250,9 +250,15 @@ export default function BrollStudio() {
           onDeleteVariation={handleDeleteVariation}
           characterRef={characterRef}
           productRef={productRef}
+          selectedProduct={selectedProduct}
+          selectedModel={selectedModel}
           selectedProductId={selectedProduct?.id ?? undefined}
           selectedModelId={selectedModel?.id ?? undefined}
           selectedScriptId={selectedScript?.id ?? undefined}
+          productContext={productContext}
+          modelContext={modelContext}
+          onOpenCharacterPicker={() => setPickerMode('models')}
+          onOpenProductPicker={() => setPickerMode('products')}
         />
       </div>
 

@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from 'react'
 import {
-  Sparkles, Loader2, Download, Trash2, Save, Check, Film, Image as ImageIcon,
+  Sparkles, Loader2, Download, Trash2, Bookmark, Check, Film, Image as ImageIcon,
   Music as MusicIcon, Play, X,
 } from 'lucide-react'
 import { useBankStore } from '../../../stores/bankStore'
@@ -98,7 +98,7 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode }: Playgrou
     if (item.linkedBRollId || savingIds.has(item.id)) return
     setSavingIds((prev) => new Set(prev).add(item.id))
     try {
-      const id = await addBRoll({ imageUrl: item.imageUrl, prompt: item.prompt })
+      const id = await addBRoll({ imageUrl: item.imageUrl, prompt: item.prompt, sourceApp: 'playground' })
       await updateImageHistory(item.id, { linkedBRollId: id })
     } catch (err) {
       addToast(err instanceof Error ? err.message : 'Save failed', 'error')
@@ -123,7 +123,7 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode }: Playgrou
           return
         }
       }
-      const newId = await addBRoll({ imageUrl: '', prompt: item.prompt, videos: [newVideo] })
+      const newId = await addBRoll({ imageUrl: '', prompt: item.prompt, videos: [newVideo], sourceApp: 'playground' })
       await updateVideoHistory(item.id, { linkedBRollId: newId })
     } catch (err) {
       addToast(err instanceof Error ? err.message : 'Save failed', 'error')
@@ -285,7 +285,7 @@ function ImageTile({
           tone={isSaved ? 'saved' : 'default'}
           onClick={(e) => { e.stopPropagation(); if (!isSaved && !isSaving) onSave() }}
         >
-          {isSaved ? <Check className="h-3 w-3" /> : isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+          {isSaved ? <Check className="h-3 w-3" /> : isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Bookmark className="h-3 w-3" />}
         </TileButton>
         <TileButton
           title="Download"
@@ -371,7 +371,7 @@ function VideoTile({
           tone={isSaved ? 'saved' : 'default'}
           onClick={(e) => { e.stopPropagation(); if (!isSaved && !isSaving) onSave() }}
         >
-          {isSaved ? <Check className="h-3 w-3" /> : isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+          {isSaved ? <Check className="h-3 w-3" /> : isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Bookmark className="h-3 w-3" />}
         </TileButton>
         <TileButton
           title="Download"

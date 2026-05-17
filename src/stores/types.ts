@@ -77,6 +77,11 @@ export interface BRoll {
   videoUrl?: string
   videos?: BRollVideo[]
   projectIds?: string[]
+  // Which app saved this BRoll. Drives B-Roll's Gallery tab so it surfaces
+  // only items the B-Roll workflow produced, not items saved from Playground.
+  // Missing on legacy entries (pre-2026-05); treated as 'playground' for
+  // gallery filter purposes.
+  sourceApp?: 'broll-studio' | 'playground'
   createdAt: number
 }
 
@@ -103,6 +108,9 @@ export interface VideoHistoryItem {
   // append the video to that record instead of creating a new one.
   sourceBRollId?: string
   projectIds?: string[]
+  // Which app produced this video. Drives B-Roll's Gallery tab so it ignores
+  // Playground video gens. Missing on legacy entries; treated as 'playground'.
+  sourceApp?: 'broll-studio' | 'playground'
   createdAt: number
 }
 
