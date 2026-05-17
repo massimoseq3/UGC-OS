@@ -1,4 +1,4 @@
-// Model registry for UGC Lab.
+// Model registry for UGC OS.
 //
 // Single source of truth for every kie.ai model the app exposes. Add new entries
 // here as we onboard models. Slugs must match kie.ai's `model` field exactly —

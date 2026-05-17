@@ -1,8 +1,8 @@
-# CLAUDE.md — UGC Lab
+# CLAUDE.md — UGC OS
 
 ## Project Identity
 
-You are building **UGC Lab** — a browser-based YouTube-style workspace that unifies seven AI tools for UGC ad production into a single environment with shared data banks. Every AI call goes through **kie.ai** as a unified API gateway: one user-supplied Bearer key gives access to every model the app uses (chat, vision, image gen, video gen, TTS, music).
+You are building **UGC OS** — a browser-based YouTube-style workspace that unifies seven AI tools for UGC ad production into a single environment with shared data banks. Every AI call goes through **kie.ai** as a unified API gateway: one user-supplied Bearer key gives access to every model the app uses (chat, vision, image gen, video gen, TTS, music).
 
 Sidebar is grouped into three sections (LIBRARY / CREATE / TOOLS). Display names match the section context — terse nouns, not action verbs:
 

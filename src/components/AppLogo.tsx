@@ -11,7 +11,7 @@ export default function AppLogo({ className = 'h-10 w-10' }: AppLogoProps) {
   return (
     <img
       src="/logo.png"
-      alt="UGC Lab"
+      alt="UGC OS"
       className={`shrink-0 object-contain ${className}`}
     />
   )

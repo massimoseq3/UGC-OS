@@ -4,7 +4,7 @@ _Last updated: 2026-05-12 (phase 18)_
 
 ## Architecture & threat model
 
-UGC Lab is a multi-tenant, cloud-hosted SPA gated to members of a
+UGC OS is a multi-tenant, cloud-hosted SPA gated to members of a
 private Skool community. The platform:
 
 - Runs as a Vite SPA on **Vercel** with a single Edge function

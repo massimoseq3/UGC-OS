@@ -1,6 +1,6 @@
-# UGC Lab — Deployment guide
+# UGC OS — Deployment guide
 
-This walks you through everything needed to host UGC Lab as a private,
+This walks you through everything needed to host UGC OS as a private,
 Skool-gated app for your community. Estimated time end-to-end: 60–90 min.
 
 The stack:
