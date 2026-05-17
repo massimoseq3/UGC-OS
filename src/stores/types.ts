@@ -1,15 +1,3 @@
-// A user-defined "smart folder" that aggregates references across banks. An
-// item can belong to many projects (multi-membership). The active project,
-// if set, auto-tags every newly created item via the bank store's add
-// methods — see `useSettingsStore.activeProjectId`.
-export interface Project {
-  id: string
-  name: string
-  // Optional accent (hex) — used for chips/dots in the UI.
-  color?: string
-  createdAt: number
-}
-
 export interface Product {
   id: string
   productImage: string
@@ -21,7 +9,6 @@ export interface Product {
   benefits: string
   offer: string
   cta: string
-  projectIds?: string[]
   createdAt: number
 }
 
@@ -32,7 +19,6 @@ export interface Model {
   name: string
   notes: string
   source: 'character-studio' | 'image-dna-extractor' | 'manual-import'
-  projectIds?: string[]
   createdAt: number
 }
 
@@ -42,7 +28,6 @@ export interface Script {
   scriptText: string
   linkedProductId: string
   source: 'script-architect' | 'manual'
-  projectIds?: string[]
   createdAt: number
 }
 
@@ -57,7 +42,6 @@ export interface VoicePreset {
   style: number
   speed: number
   linkedModelId: string
-  projectIds?: string[]
   createdAt: number
 }
 
@@ -76,7 +60,6 @@ export interface BRoll {
   scriptId?: string
   videoUrl?: string
   videos?: BRollVideo[]
-  projectIds?: string[]
   // Which app saved this BRoll. Drives B-Roll's Gallery tab so it surfaces
   // only items the B-Roll workflow produced, not items saved from Playground.
   // Missing on legacy entries (pre-2026-05); treated as 'playground' for
@@ -107,7 +90,6 @@ export interface VideoHistoryItem {
   // from the bank), keep the source id so a later "Save to Bank" can
   // append the video to that record instead of creating a new one.
   sourceBRollId?: string
-  projectIds?: string[]
   // Which app produced this video. Drives B-Roll's Gallery tab so it ignores
   // Playground video gens. Missing on legacy entries; treated as 'playground'.
   sourceApp?: 'broll-studio' | 'playground'
@@ -142,7 +124,6 @@ export interface ImageHistoryItem {
   resolution?: string
   imageUrl: string
   linkedBRollId?: string
-  projectIds?: string[]
   createdAt: number
 }
 
@@ -156,7 +137,6 @@ export interface ScriptHistoryItem {
   inputSummary: string
   linkedProductId?: string
   productName?: string
-  projectIds?: string[]
   createdAt: number
 }
 
@@ -172,8 +152,27 @@ export interface MusicHistoryItem {
   coverImageRef?: string
   title?: string
   durationSeconds?: number
-  projectIds?: string[]
   createdAt: number
+}
+
+// One B-Roll session — generated scenes + full per-card state (images, videos,
+// prompt history, ref toggles). Clicking restores the workspace to the exact
+// state it was in when the snapshot was last saved. Images/videos are
+// `asset://` refs so the blobs live in IndexedDB (or R2 mirror) and the row
+// stays small.
+export interface BrollHistoryItem {
+  id: string
+  createdAt: number
+  inputSummary: string
+  productId?: string
+  modelId?: string
+  scriptId?: string
+  scriptText?: string
+  context?: string
+  // Both stored as opaque JSON so this file stays decoupled from
+  // broll-studio's internal types.
+  result: unknown
+  cardStates: Record<string, unknown>
 }
 
 export interface InterAppPayload {

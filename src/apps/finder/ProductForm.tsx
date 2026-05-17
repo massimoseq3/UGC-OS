@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react'
 import { X, ImagePlus, Download, Loader2, AlertCircle } from 'lucide-react'
 import type { Product } from '../../stores/types'
 import { useAssetUrl } from '../../hooks/useAssetUrl'
-import AddToProjectButton from '../../components/AddToProjectButton'
 
 interface ProductFormProps {
   item?: Product | null
@@ -35,7 +34,6 @@ export default function ProductForm({ item, onSave, onCancel }: ProductFormProps
     offer: item?.offer ?? '',
     cta: item?.cta ?? '',
   })
-  const [localProjectIds, setLocalProjectIds] = useState<string[]>(item?.projectIds ?? [])
   const fileRef = useRef<HTMLInputElement>(null)
   const [localPreview, setLocalPreview] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -101,13 +99,11 @@ export default function ProductForm({ item, onSave, onCancel }: ProductFormProps
     setShowError(false)
     setSaving(true)
     try {
-      await onSave({ ...form, projectIds: item ? item.projectIds : localProjectIds })
+      await onSave(form)
     } finally {
       setSaving(false)
     }
   }
-
-  const projectIds = item?.projectIds ?? localProjectIds
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -116,17 +112,9 @@ export default function ProductForm({ item, onSave, onCancel }: ProductFormProps
         <h3 className="text-sm font-semibold tracking-tight text-zinc-200">
           {item ? 'Edit Product' : 'New Product'}
         </h3>
-        <div className="flex items-center gap-2">
-          <AddToProjectButton
-            bank="products"
-            itemId={item?.id}
-            projectIds={projectIds}
-            onLocalChange={setLocalProjectIds}
-          />
-          <button type="button" onClick={onCancel} className="text-zinc-500 hover:text-zinc-300 transition-colors">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
+        <button type="button" onClick={onCancel} className="text-zinc-500 hover:text-zinc-300 transition-colors">
+          <X className="h-4 w-4" />
+        </button>
       </div>
 
       {/* Side-by-side: image left, fields right */}

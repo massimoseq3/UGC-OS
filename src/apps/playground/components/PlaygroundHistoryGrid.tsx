@@ -27,8 +27,6 @@ interface PlaygroundHistoryGridProps {
   filterMode: PlaygroundMode | null
 }
 
-const HEADS_UP_DISMISSED_KEY = 'playground:heads-up-dismissed'
-
 function startOfDay(ts: number): number {
   const d = new Date(ts)
   d.setHours(0, 0, 0, 0)
@@ -59,15 +57,6 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode }: Playgrou
 
   const [savingIds, setSavingIds] = useState<Set<string>>(() => new Set())
   const [previewItem, setPreviewItem] = useState<HistoryEntry | null>(null)
-
-  // Dismissible 14-day-retention banner — choice persists across reloads.
-  const [headsUpDismissed, setHeadsUpDismissed] = useState<boolean>(() => {
-    try { return localStorage.getItem(HEADS_UP_DISMISSED_KEY) === '1' } catch { return false }
-  })
-  const dismissHeadsUp = () => {
-    setHeadsUpDismissed(true)
-    try { localStorage.setItem(HEADS_UP_DISMISSED_KEY, '1') } catch { /* ignore */ }
-  }
 
   const entries = useMemo<HistoryEntry[]>(() => {
     const out: HistoryEntry[] = []
@@ -135,7 +124,6 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode }: Playgrou
   if (entries.length === 0 && visibleInFlight.length === 0) {
     return (
       <div className="flex h-full flex-col">
-        {!headsUpDismissed && <HeadsUpBanner onDismiss={dismissHeadsUp} />}
         <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
           <Sparkles className="h-9 w-9 text-zinc-800" strokeWidth={1.5} />
           <p className="text-sm text-zinc-500">No generations yet</p>
@@ -150,8 +138,6 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode }: Playgrou
 
   return (
     <div className="flex h-full flex-col">
-      {!headsUpDismissed && <HeadsUpBanner onDismiss={dismissHeadsUp} />}
-
       <div className="flex-1 overflow-y-auto px-4 py-3">
         {visibleInFlight.length > 0 && (
           <>
@@ -210,27 +196,6 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode }: Playgrou
       {previewItem && (
         <PreviewModal entry={previewItem} onClose={() => setPreviewItem(null)} />
       )}
-    </div>
-  )
-}
-
-// ── Heads-up banner ─────────────────────────────────────────────
-
-function HeadsUpBanner({ onDismiss }: { onDismiss: () => void }) {
-  return (
-    <div className="flex items-start gap-2 border-b border-amber-500/15 bg-amber-500/5 px-4 py-2.5">
-      <p className="flex-1 text-[11px] leading-relaxed text-amber-300/80">
-        <span className="font-semibold">Heads up</span> — kie.ai retains generated media for 14
-        days. Save anything you want to keep to the B-Rolls Bank or download it, or it may be
-        deleted.
-      </p>
-      <button
-        onClick={onDismiss}
-        title="Dismiss"
-        className="-mr-1 flex h-5 w-5 shrink-0 items-center justify-center rounded text-amber-300/60 transition-colors hover:bg-amber-500/15 hover:text-amber-200"
-      >
-        <X className="h-3 w-3" />
-      </button>
     </div>
   )
 }

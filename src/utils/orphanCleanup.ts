@@ -11,7 +11,7 @@ import { useAuthStore } from '../stores/authStore'
 import { useBankStore } from '../stores/bankStore'
 import { deleteAsset, isAssetRef } from './assetStore'
 
-const BANK_KEYS = ['projects', 'products', 'models', 'scripts', 'voices', 'brolls', 'voiceHistory', 'videoHistory'] as const
+const BANK_KEYS = ['products', 'models', 'scripts', 'voices', 'brolls', 'voiceHistory', 'videoHistory'] as const
 
 function walkAssetRefs(value: unknown, out: Set<string>) {
   if (typeof value === 'string') {

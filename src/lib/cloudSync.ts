@@ -20,14 +20,13 @@ import { getSupabase, isCloudEnabled, ensureFreshSession } from './supabase'
 import { existingRemoteAssetIds, uploadAssetToR2 } from './r2'
 import { isAssetRef, getBlob } from '../utils/assetStore'
 import { findOrphanAssets, purgeOrphans } from '../utils/orphanCleanup'
-import type { Project, Product, Model, Script, VoicePreset, BRoll, VoiceHistoryItem, VideoHistoryItem, ImageHistoryItem, MusicHistoryItem } from '../stores/types'
+import type { Product, Model, Script, VoicePreset, BRoll, VoiceHistoryItem, VideoHistoryItem, ImageHistoryItem, MusicHistoryItem } from '../stores/types'
 
 export type BankKey =
-  | 'projects' | 'products' | 'models' | 'scripts' | 'voices' | 'brolls'
+  | 'products' | 'models' | 'scripts' | 'voices' | 'brolls'
   | 'voiceHistory' | 'videoHistory' | 'imageHistory' | 'musicHistory'
 
 const BANK_TO_TABLE: Record<BankKey, string> = {
-  projects: 'projects',
   products: 'products',
   models: 'models',
   scripts: 'scripts',
@@ -39,20 +38,12 @@ const BANK_TO_TABLE: Record<BankKey, string> = {
   musicHistory: 'music_history',
 }
 
-const BANK_KEYS: BankKey[] = ['projects', 'products', 'models', 'scripts', 'voices', 'brolls', 'voiceHistory', 'videoHistory', 'imageHistory', 'musicHistory']
+const BANK_KEYS: BankKey[] = ['products', 'models', 'scripts', 'voices', 'brolls', 'voiceHistory', 'videoHistory', 'imageHistory', 'musicHistory']
 
 function reportError(context: string, err: unknown) {
   const msg = err instanceof Error ? err.message : (typeof err === 'string' ? err : JSON.stringify(err))
   console.error(`[cloudSync] ${context}:`, err)
   try { useAppStore.getState().addToast(`Cloud — ${context}: ${msg}`, 'error') } catch { /* store not ready */ }
-}
-
-function projectIdsOf(item: unknown): string[] {
-  if (item && typeof item === 'object' && 'projectIds' in item) {
-    const v = (item as { projectIds?: unknown }).projectIds
-    if (Array.isArray(v)) return v.filter((x): x is string => typeof x === 'string')
-  }
-  return []
 }
 
 function walkAssetRefs(value: unknown, out: string[] = []): string[] {
@@ -81,15 +72,14 @@ export async function saveRow(table: BankKey, row: { id: string }): Promise<void
   const { error } = await sb.from(BANK_TO_TABLE[table]).upsert({
     id: row.id,
     user_id: userId,
-    project_ids: projectIdsOf(row),
     data: row,
     updated_at: new Date().toISOString(),
   })
   if (error) throw new Error(`${BANK_TO_TABLE[table]} upsert: ${error.message}`)
 }
 
-// Bulk variant — used by the project-untag-everywhere flow which mutates
-// many rows in one click. Sequential per-table to keep error reporting clean.
+// Bulk variant — kept for callers that need batched writes. Sequential per
+// table to keep error reporting clean.
 export async function saveRows(table: BankKey, rows: Array<{ id: string }>): Promise<void> {
   if (rows.length === 0) return
   const userId = useAuthStore.getState().user?.id
@@ -100,7 +90,6 @@ export async function saveRows(table: BankKey, rows: Array<{ id: string }>): Pro
   const { error } = await sb.from(BANK_TO_TABLE[table]).upsert(rows.map((r) => ({
     id: r.id,
     user_id: userId,
-    project_ids: projectIdsOf(r),
     data: r,
     updated_at: isoNow,
   })))
@@ -117,7 +106,7 @@ export async function deleteRow(table: BankKey, id: string): Promise<void> {
   if (error) throw new Error(`${BANK_TO_TABLE[table]} delete: ${error.message}`)
 }
 
-// Save the full profile sheet (kie key, per-app model selections, active project).
+// Save the full profile sheet (kie key, per-app model selections).
 export async function saveProfile(): Promise<void> {
   const userId = useAuthStore.getState().user?.id
   if (!userId) throw new Error('Not signed in')
@@ -127,7 +116,6 @@ export async function saveProfile(): Promise<void> {
   const { error } = await sb.from('profiles').update({
     kie_api_key: s.kieApiKey || null,
     per_app_model: s.perAppModel,
-    active_project_id: s.activeProjectId,
   }).eq('id', userId)
   if (error) throw new Error(`profile update: ${error.message}`)
 }
@@ -139,7 +127,7 @@ async function hydrateFromCloud(userId: string) {
 
   const { data: profile } = await sb
     .from('profiles')
-    .select('kie_api_key, per_app_model, active_project_id')
+    .select('kie_api_key, per_app_model')
     .eq('id', userId)
     .maybeSingle()
 
@@ -147,13 +135,11 @@ async function hydrateFromCloud(userId: string) {
     useSettingsStore.setState({
       kieApiKey: profile.kie_api_key ?? '',
       perAppModel: (profile.per_app_model as Record<string, string> | null) ?? {},
-      activeProjectId: (profile.active_project_id as string | null) ?? null,
     })
     try {
       localStorage.setItem('ai-ugc-lab-settings', JSON.stringify({
         kieApiKey: profile.kie_api_key ?? '',
         perAppModel: profile.per_app_model ?? {},
-        activeProjectId: profile.active_project_id ?? null,
       }))
     } catch { /* ignore */ }
   }
@@ -161,7 +147,7 @@ async function hydrateFromCloud(userId: string) {
   const tables = await Promise.all(
     BANK_KEYS.map(async (key) => {
       const table = BANK_TO_TABLE[key]
-      const { data, error } = await sb.from(table).select('id, data, project_ids').eq('user_id', userId)
+      const { data, error } = await sb.from(table).select('id, data').eq('user_id', userId)
       if (error) {
         reportError(`hydrate ${table}`, error)
         return [key, [] as unknown[]] as const
@@ -175,7 +161,6 @@ async function hydrateFromCloud(userId: string) {
   for (const [key, items] of tables) next[key] = items
 
   useBankStore.setState({
-    projects: (next.projects as Project[]) ?? [],
     products: (next.products as Product[]) ?? [],
     models: (next.models as Model[]) ?? [],
     scripts: (next.scripts as Script[]) ?? [],
@@ -190,10 +175,11 @@ async function hydrateFromCloud(userId: string) {
   try {
     const s = useBankStore.getState()
     localStorage.setItem('ai-ugc-lab-banks', JSON.stringify({
-      projects: s.projects, products: s.products, models: s.models,
+      products: s.products, models: s.models,
       scripts: s.scripts, voices: s.voices, brolls: s.brolls,
       voiceHistory: s.voiceHistory, videoHistory: s.videoHistory,
       imageHistory: s.imageHistory, musicHistory: s.musicHistory,
+      scriptHistory: s.scriptHistory, brollHistory: s.brollHistory,
     }))
   } catch { /* ignore */ }
 }

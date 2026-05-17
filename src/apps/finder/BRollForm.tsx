@@ -4,7 +4,6 @@ import type { BRoll } from '../../stores/types'
 import { useAssetUrl } from '../../hooks/useAssetUrl'
 import { useAppStore } from '../../stores/appStore'
 import { getAsBase64, isAssetRef } from '../../utils/assetStore'
-import AddToProjectButton from '../../components/AddToProjectButton'
 
 interface BRollFormProps {
   item?: BRoll | null
@@ -15,7 +14,6 @@ interface BRollFormProps {
 export default function BRollForm({ item, onSave, onCancel }: BRollFormProps) {
   const [imageUrl, setImageUrl] = useState(item?.imageUrl ?? '')
   const [prompt, setPrompt] = useState(item?.prompt ?? '')
-  const [localProjectIds, setLocalProjectIds] = useState<string[]>(item?.projectIds ?? [])
   const [localImagePreview, setLocalImagePreview] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const resolvedImageUrl = useAssetUrl(imageUrl)
@@ -63,7 +61,6 @@ export default function BRollForm({ item, onSave, onCancel }: BRollFormProps) {
         scriptId: item?.scriptId,
         videoUrl: item?.videoUrl,
         videos: item?.videos,
-        projectIds: item ? item.projectIds : localProjectIds,
       })
     } finally {
       setSaving(false)
@@ -92,17 +89,9 @@ export default function BRollForm({ item, onSave, onCancel }: BRollFormProps) {
         <h3 className="text-sm font-semibold tracking-tight text-zinc-200">
           {item ? 'B-Roll Details' : 'New B-Roll'}
         </h3>
-        <div className="flex items-center gap-2">
-          <AddToProjectButton
-            bank="brolls"
-            itemId={item?.id}
-            projectIds={item?.projectIds ?? localProjectIds}
-            onLocalChange={setLocalProjectIds}
-          />
-          <button type="button" onClick={onCancel} className="text-zinc-500 hover:text-zinc-300 transition-colors">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
+        <button type="button" onClick={onCancel} className="text-zinc-500 hover:text-zinc-300 transition-colors">
+          <X className="h-4 w-4" />
+        </button>
       </div>
 
       {/* Side-by-side: image left, prompt right */}

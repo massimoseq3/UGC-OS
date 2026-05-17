@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react'
 import { X, ImagePlus, Download, Loader2 } from 'lucide-react'
 import type { Model } from '../../stores/types'
 import { useAssetUrl } from '../../hooks/useAssetUrl'
-import AddToProjectButton from '../../components/AddToProjectButton'
 
 interface ModelFormProps {
   item?: Model | null
@@ -112,7 +111,6 @@ export default function ModelForm({ item, onSave, onCancel }: ModelFormProps) {
   const [name, setName] = useState(item?.name ?? '')
   const [characterImage, setCharacterImage] = useState(item?.characterImage ?? '')
   const [source] = useState<Model['source']>(item?.source ?? 'manual-import')
-  const [localProjectIds, setLocalProjectIds] = useState<string[]>(item?.projectIds ?? [])
   const [localPreview, setLocalPreview] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const resolvedAssetUrl = useAssetUrl(characterImage)
@@ -159,7 +157,6 @@ export default function ModelForm({ item, onSave, onCancel }: ModelFormProps) {
         characterImage,
         jsonProfile: item?.jsonProfile ?? null,
         source,
-        projectIds: item ? item.projectIds : localProjectIds,
       })
     } finally {
       setSaving(false)
@@ -176,14 +173,8 @@ export default function ModelForm({ item, onSave, onCancel }: ModelFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-      {/* Header — project + close */}
+      {/* Header — close */}
       <div className="flex items-center justify-end gap-2">
-        <AddToProjectButton
-          bank="models"
-          itemId={item?.id}
-          projectIds={item?.projectIds ?? localProjectIds}
-          onLocalChange={setLocalProjectIds}
-        />
         <button type="button" onClick={onCancel} className="text-zinc-500 hover:text-zinc-300 transition-colors">
           <X className="h-4 w-4" />
         </button>

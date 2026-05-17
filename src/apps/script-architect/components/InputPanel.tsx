@@ -108,7 +108,7 @@ export default function InputPanel({
       <div className="flex-1 overflow-y-auto p-5">
         {mode === 'remix' ? (
           <div className="mb-6">
-            <StepLabel step={1} label="Winning Script Transcript" />
+            <StepLabel step={1} label="Proven Script Transcript" />
 
             <button
               type="button"
@@ -134,7 +134,7 @@ export default function InputPanel({
               value={winningTranscript}
               onChange={(e) => onTranscriptChange(e.target.value)}
               rows={8}
-              placeholder="Paste a winning ad transcript here, or send one from Ad Analyzer..."
+              placeholder="Paste a proven ad transcript here, or send one from Ad Analyzer..."
               className={`w-full rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3 text-sm leading-relaxed text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-blue-500/30 resize-none ${highlightField === 'transcript' ? 'animate-field-flash' : ''}`}
             />
           </div>
@@ -295,10 +295,10 @@ export default function InputPanel({
           <p className="mt-2 text-center text-[11px] text-zinc-700">
             {!sourceFilled && !selectedProduct
               ? (mode === 'remix'
-                  ? 'Paste a winning script and select a product to generate'
+                  ? 'Paste a proven script and select a product to generate'
                   : 'Paste a reverse-engineered prompt and select a product to generate prompts')
               : !sourceFilled
-                ? (mode === 'remix' ? 'Paste a winning script transcript above' : 'Paste a reverse-engineered prompt above')
+                ? (mode === 'remix' ? 'Paste a proven script transcript above' : 'Paste a reverse-engineered prompt above')
                 : 'Select a product from your bank'}
           </p>
         )}
