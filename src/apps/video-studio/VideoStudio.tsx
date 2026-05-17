@@ -19,9 +19,13 @@ import {
 } from '../../utils/models'
 import { getUrl } from '../../utils/assetStore'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
-import { generateVideo } from './services/generateVideo'
-import type { VideoMode } from './types'
+import { startVideoTask, finishVideoTask } from './services/generateVideo'
+import type { VideoMode, InFlightGen } from './types'
 import type { VideoHistoryItem } from '../../stores/types'
+
+// Tasks older than this are almost always dead on kie's side too — resume
+// would just timeout. Surface the error and clear the tile.
+const STALE_TASK_MS = 30 * 60 * 1000
 
 const RESOLUTION_LABELS: Record<string, string> = {
   '480p': '480p',
@@ -57,15 +61,6 @@ interface Slot {
   // History item id of this slot's most recent successful generation. Used
   // by the Preview tab when the user clicks the slot's tab strip.
   lastResultId: string | null
-}
-
-interface InFlightGen {
-  id: string
-  slotIndex: number
-  modelId: string
-  prompt: string
-  aspectRatio: string
-  startedAt: number
 }
 
 // Mode is inferred from which slots the user filled, in priority order:
@@ -118,9 +113,11 @@ export default function VideoStudio() {
   const [previewHistoryId, setPreviewHistoryId] = usePersistedState<string | null>(`${baseKey}:previewId`, null)
   const [rightTab, setRightTab] = usePersistedState<'history' | 'preview'>(`${baseKey}:tab`, 'history')
 
-  // In-flight jobs are deliberately not persisted — kie taskIds can't be
-  // resumed from cold storage without rewiring the polling layer.
-  const [inFlight, setInFlight] = useState<InFlightGen[]>([])
+  // Persisted across reload so a tab refresh / app switch can resume polling
+  // an in-flight kie task. Tasks without a `taskId` (still in the createTask
+  // leg when the tab died) and tasks older than 30 min are auto-evicted on
+  // mount — see the resume effect below.
+  const [inFlight, setInFlight] = usePersistedState<InFlightGen[]>(`${baseKey}:inflight`, [])
   const [savedToBank, setSavedToBank] = useState(false)
   const [savingToBank, setSavingToBank] = useState(false)
   // Track which history-tile saves are in flight so the tile can disable its
@@ -214,13 +211,15 @@ export default function VideoStudio() {
 
   // Kicks off the active slot's generation. Captures the slotIndex at call time
   // so the user can switch tabs while it runs and still have results land in
-  // the right slot.
+  // the right slot. Two-phase: startVideoTask returns the kie taskId, which we
+  // stamp into the persisted InFlightGen so a refresh between phases can resume.
   async function handleGenerate() {
     if (!canGenerate) return
     const slotIndex = activeSlotIndex
     const slot = slots[slotIndex]
     const inFlightId = crypto.randomUUID()
     const mode = inferMode(slot)
+    const promptText = slot.prompt.trim()
     const sourceBRollId =
       slot.firstFrame?.sourceBRollId ??
       slot.lastFrame?.sourceBRollId ??
@@ -233,15 +232,20 @@ export default function VideoStudio() {
         id: inFlightId,
         slotIndex,
         modelId: slot.modelId,
-        prompt: slot.prompt,
+        prompt: promptText,
         aspectRatio: slot.aspectRatio,
+        durationSeconds: slot.duration,
+        resolution: slot.resolution,
+        audio: slot.audio,
+        mode,
+        sourceBRollId,
         startedAt: Date.now(),
       },
     ])
 
     try {
-      const res = await generateVideo({
-        prompt: slot.prompt.trim(),
+      const { taskId, videoEndpoint } = await startVideoTask({
+        prompt: promptText,
         mode,
         firstFrameDataUri: slot.firstFrame?.dataUri,
         lastFrameDataUri: slot.lastFrame?.dataUri,
@@ -253,10 +257,18 @@ export default function VideoStudio() {
         modelId: slot.modelId,
       })
 
+      // Stamp the taskId into the persisted entry — from this point on, a
+      // refresh can resume polling via the mount-time effect below.
+      setInFlight((prev) =>
+        prev.map((g) => (g.id === inFlightId ? { ...g, taskId, videoEndpoint } : g)),
+      )
+
+      const res = await finishVideoTask(taskId, slot.modelId, videoEndpoint, slot.duration, slot.aspectRatio)
+
       const historyEntry: VideoHistoryItem = {
         id: crypto.randomUUID(),
         modelId: slot.modelId,
-        prompt: slot.prompt.trim(),
+        prompt: promptText,
         mode,
         aspectRatio: res.aspectRatio,
         durationSeconds: res.durationSeconds,
@@ -287,6 +299,80 @@ export default function VideoStudio() {
     } finally {
       setInFlight((prev) => prev.filter((i) => i.id !== inFlightId))
     }
+  }
+
+  // Resume-on-mount. Walks persisted inFlight[] and finishes any task that
+  // still has a taskId. useRef<Set> guards against React 18 strict-mode
+  // double-invoke. Only runs once on mount — new entries added during this
+  // session don't need resume, they already run in handleGenerate.
+  const resuming = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    for (const gen of inFlight) {
+      if (resuming.current.has(gen.id)) continue
+
+      // No taskId means the job died inside startVideoTask before kie returned
+      // an id. Nothing to resume; just unstick the slot.
+      if (!gen.taskId) {
+        setInFlight((prev) => prev.filter((g) => g.id !== gen.id))
+        patchSlot(gen.slotIndex, { status: 'idle', error: null })
+        continue
+      }
+
+      if (Date.now() - gen.startedAt > STALE_TASK_MS) {
+        setInFlight((prev) => prev.filter((g) => g.id !== gen.id))
+        patchSlot(gen.slotIndex, {
+          status: 'error',
+          error: 'Generation expired (>30 min). Please try again.',
+        })
+        useAppStore.getState().addToast(`Slot ${gen.slotIndex + 1} generation expired`, 'error')
+        continue
+      }
+
+      resuming.current.add(gen.id)
+      void (async () => {
+        try {
+          const res = await finishVideoTask(
+            gen.taskId!,
+            gen.modelId,
+            gen.videoEndpoint,
+            gen.durationSeconds,
+            gen.aspectRatio,
+          )
+          const historyEntry: VideoHistoryItem = {
+            id: crypto.randomUUID(),
+            modelId: gen.modelId,
+            prompt: gen.prompt,
+            mode: gen.mode,
+            aspectRatio: res.aspectRatio,
+            durationSeconds: res.durationSeconds,
+            resolution: gen.resolution,
+            audio: gen.audio,
+            videoUrl: res.assetId,
+            sourceBRollId: gen.sourceBRollId,
+            createdAt: Date.now(),
+          }
+          addVideoHistory(historyEntry)
+          patchSlot(gen.slotIndex, { status: 'idle', error: null, lastResultId: historyEntry.id })
+          useAppStore.getState().addToast(`Slot ${gen.slotIndex + 1} resumed and ready`, 'success')
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : 'Resume failed.'
+          patchSlot(gen.slotIndex, { status: 'error', error: msg })
+          useAppStore.getState().addToast(`Slot ${gen.slotIndex + 1} failed: ${msg}`, 'error')
+        } finally {
+          setInFlight((prev) => prev.filter((g) => g.id !== gen.id))
+          resuming.current.delete(gen.id)
+        }
+      })()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Defensive escape hatch: if a slot ends up stuck in 'generating' / 'error'
+  // for any reason the resume effect doesn't handle, the user can always
+  // recover in one click rather than being bricked.
+  function resetActiveSlot() {
+    setInFlight((prev) => prev.filter((g) => g.slotIndex !== activeSlotIndex))
+    patchActive({ status: 'idle', error: null })
   }
 
   const previewItem = previewHistoryId
@@ -528,6 +614,17 @@ export default function VideoStudio() {
           {/* Generate button. Disabled while THIS slot is in flight; a different
               slot's generation doesn't block this one. */}
           <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-white/5 bg-[#050505]/95 px-5 pb-4 pt-3 backdrop-blur-xl md:static md:left-auto md:right-auto md:z-auto md:mt-auto md:border-t-0 md:bg-transparent md:px-0 md:pb-0 md:pt-2 md:backdrop-blur-none">
+            {(activeSlot.status === 'generating' || activeSlot.status === 'error') && (
+              <div className="mb-2 text-center">
+                <button
+                  type="button"
+                  onClick={resetActiveSlot}
+                  className="text-[11px] text-zinc-500 underline underline-offset-2 transition-colors hover:text-zinc-300"
+                >
+                  Reset slot
+                </button>
+              </div>
+            )}
             <button
               onClick={handleGenerate}
               disabled={!canGenerate}
