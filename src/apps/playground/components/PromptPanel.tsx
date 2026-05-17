@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
 import {
   Image as ImageIcon,
   Film,
@@ -353,11 +352,7 @@ export default function PromptPanel({ state, onChange, onSubmit, isGenerating }:
               <Icon className="h-3.5 w-3.5" />
               <span>{tab.label}</span>
               {active && (
-                <motion.span
-                  layoutId="playground-mode-underline"
-                  className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-zinc-100"
-                  transition={{ type: 'spring', stiffness: 500, damping: 40 }}
-                />
+                <span className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-zinc-100" />
               )}
             </button>
           )
@@ -414,15 +409,9 @@ export default function PromptPanel({ state, onChange, onSubmit, isGenerating }:
 
             {/* Reference inputs */}
             {hasRefsSection && (
-              <AnimatePresence mode="wait" initial={false}>
+              <>
                 {state.mode === 'video' && (
-                  <motion.div
-                    key="video-refs"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.15, ease: 'easeOut' }}
-                  >
+                  <div>
                     <span className="text-sm font-medium text-zinc-200">Reference frames</span>
                     {supportsFrames && (
                       <div className="mt-2 grid grid-cols-2 gap-3">
@@ -459,16 +448,10 @@ export default function PromptPanel({ state, onChange, onSubmit, isGenerating }:
                         />
                       </div>
                     )}
-                  </motion.div>
+                  </div>
                 )}
                 {state.mode === 'image' && (
-                  <motion.div
-                    key="image-refs"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.15, ease: 'easeOut' }}
-                  >
+                  <div>
                     <span className="text-sm font-medium text-zinc-200">Reference images</span>
                     <div className="mt-2">
                       <VideoRefStrip
@@ -481,9 +464,9 @@ export default function PromptPanel({ state, onChange, onSubmit, isGenerating }:
                         tabs={PLAYGROUND_REF_TABS}
                       />
                     </div>
-                  </motion.div>
+                  </div>
                 )}
-              </AnimatePresence>
+              </>
             )}
 
             {/* Prompt */}
