@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { FolderOpen, Check, Plus } from 'lucide-react'
-import { useBankStore } from '../../../stores/bankStore'
+import { useBankStore } from '../stores/bankStore'
 
 interface ProjectTagPopoverProps {
   // Currently-tagged project ids on the underlying item.

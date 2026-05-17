@@ -79,8 +79,8 @@ export default function BRollForm({ item, onSave, onCancel }: BRollFormProps) {
       dataUri = `data:${asset.mimeType};base64,${asset.base64}`
     }
     useAppStore.getState().sendToApp({
-      targetApp: 'video-studio',
-      targetField: 'firstFrame',
+      targetApp: 'playground',
+      targetField: 'videoStartFrame',
       data: { imageUrl: dataUri, prompt },
     })
   }
@@ -165,10 +165,10 @@ export default function BRollForm({ item, onSave, onCancel }: BRollFormProps) {
                 type="button"
                 onClick={handleSendToVideos}
                 className="flex items-center justify-center gap-2 rounded-full border border-purple-500/25 bg-purple-500/10 px-4 py-2 text-sm font-medium text-purple-300 transition-colors hover:bg-purple-500/20"
-                title="Send this image and prompt to B-Roll Videos as the first frame"
+                title="Open Playground in video mode with this image as the start frame"
               >
                 <Film className="h-3.5 w-3.5" />
-                Send to B-Roll Videos
+                Animate in Playground
               </button>
             )}
             <button

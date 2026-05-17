@@ -1,12 +1,12 @@
-// Two-phase video generation:
+// Two-phase video generation for B-Roll cards.
 //
 //   startVideoTask : resolves data URIs to hosted URLs, builds the kie body,
 //                    POSTs createTask (or kieVeoCreate), returns the taskId.
 //   finishVideoTask: polls the taskId, downloads the result, saves the asset.
 //
-// This split lets VideoStudio.tsx persist the in-flight taskId between phases
-// via usePersistedState so a tab refresh can resume polling. Mirrors the
-// pattern in playground/service.ts (startPlaygroundVideoTask / finish...).
+// Moved verbatim from the deleted video-studio app. OutputPanel persists the
+// in-flight taskId between phases via usePersistedState so a tab refresh can
+// resume polling. Mirrors playground/service.ts.
 
 import { useSettingsStore } from '../../../stores/settingsStore'
 import {
@@ -19,8 +19,26 @@ import {
   VIDEO_POLL_ATTEMPTS,
 } from '../../../utils/kie'
 import { saveAsset } from '../../../utils/assetStore'
-import { buildVideoInput, getModel, resolveVideoModelSlug } from '../../../utils/models'
-import type { VideoGenInput, VideoGenResult } from '../types'
+import { buildVideoInput, getModel, resolveVideoModelSlug, type VideoMode } from '../../../utils/models'
+
+export interface VideoGenInput {
+  prompt: string
+  mode: VideoMode
+  aspectRatio: string
+  durationSeconds: number
+  resolution: string
+  audio?: boolean
+  modelId: string
+  firstFrameDataUri?: string
+  lastFrameDataUri?: string
+  referenceDataUris?: string[]
+}
+
+export interface VideoGenResult {
+  assetId: string
+  durationSeconds: number
+  aspectRatio: string
+}
 
 export async function startVideoTask(
   input: VideoGenInput,
@@ -101,10 +119,4 @@ export async function finishVideoTask(
     durationSeconds,
     aspectRatio,
   }
-}
-
-// Thin one-shot wrapper for callers that don't need refresh-resume.
-export async function generateVideo(input: VideoGenInput, signal?: AbortSignal): Promise<VideoGenResult> {
-  const { taskId, videoEndpoint } = await startVideoTask(input, signal)
-  return finishVideoTask(taskId, input.modelId, videoEndpoint, input.durationSeconds, input.aspectRatio, signal)
 }

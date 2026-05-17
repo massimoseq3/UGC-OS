@@ -127,12 +127,27 @@ export default function Playground() {
         ...s,
         refs: [...s.refs, { url: data, label: 'imported', source: 'upload', slot: 'ref' }],
       }))
-    } else if (targetField === 'videoStartFrame' && typeof data === 'string') {
-      setState((s) => ({
-        ...s,
-        mode: 'video',
-        refs: [...s.refs.filter((r) => r.slot !== 'start'), { url: data, label: 'start', source: 'upload', slot: 'start' }],
-      }))
+    } else if (targetField === 'videoStartFrame') {
+      // Accept either a bare data URI (string) or { imageUrl, prompt } from
+      // upstream apps (B-Roll bank "Animate" sends the object form so the user
+      // arrives with the source prompt already in the bar).
+      let imageUrl: string | undefined
+      let incomingPrompt: string | undefined
+      if (typeof data === 'string') {
+        imageUrl = data
+      } else if (data && typeof data === 'object' && 'imageUrl' in data) {
+        const obj = data as { imageUrl: string; prompt?: string }
+        imageUrl = obj.imageUrl
+        incomingPrompt = obj.prompt
+      }
+      if (imageUrl) {
+        setState((s) => ({
+          ...s,
+          mode: 'video',
+          prompt: incomingPrompt?.trim() ? incomingPrompt : s.prompt,
+          refs: [...s.refs.filter((r) => r.slot !== 'start'), { url: imageUrl!, label: 'start', source: 'upload', slot: 'start' }],
+        }))
+      }
     }
     consumePayload()
   }, [interAppPayload, activeApp, consumePayload])
