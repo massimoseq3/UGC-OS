@@ -48,7 +48,7 @@ export default function MenuBar() {
       <div className="flex items-center gap-1.5">
         <AppLogo className="h-8 w-8" />
         <span className="hidden sm:inline text-[19px] font-bold tracking-tight text-zinc-100">
-          UGC Lab
+          UGC OS
         </span>
       </div>
 

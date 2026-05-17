@@ -46,7 +46,7 @@ export default function AuthScreen() {
           <div className="flex flex-col items-center gap-2">
             <AppLogo className="h-12 w-12" />
             <div className="space-y-1 text-center">
-              <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">UGC Lab</h1>
+              <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">UGC OS</h1>
               <p className="text-sm text-zinc-500">
                 {mode === 'login' ? 'Sign in to your workspace' : 'Create your account'}
               </p>
@@ -115,7 +115,7 @@ export default function AuthScreen() {
           <div className="text-center text-[12px] text-zinc-500">
             {mode === 'login' ? (
               <>
-                New to UGC Lab?{' '}
+                New to UGC OS?{' '}
                 <button
                   type="button"
                   onClick={() => { setMode('signup'); setError(null); setNeedsConfirm(false) }}

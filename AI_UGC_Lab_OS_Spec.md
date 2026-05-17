@@ -1,10 +1,10 @@
-# UGC Lab — Product Specification
+# UGC OS — Product Specification
 
 _Last updated: 2026-05-12 (phase 18)_
 
 ## Document Purpose
 
-This is the **product** specification for UGC Lab. It describes what the
+This is the **product** specification for UGC OS. It describes what the
 product is, who it's for, and how the surface area fits together. For
 code-level architecture, transport patterns, and file structure, see
 [CLAUDE.md](CLAUDE.md). For ops / hosting, see [DEPLOYMENT.md](DEPLOYMENT.md).
@@ -27,7 +27,7 @@ For the threat model, see [SECURITY.md](SECURITY.md).
 
 ## 1. Product Overview
 
-**UGC Lab** is a browser-based, YouTube-style workspace that unifies the
+**UGC OS** is a browser-based, YouTube-style workspace that unifies the
 production loop for AI UGC ads into a single environment. Seven creator
 apps and one admin app share a single set of data banks, so a product,
 character, script, voice, or B-Roll created in one app is immediately
@@ -62,7 +62,7 @@ this script in Voiceovers") are one-click.
 ### Top menu bar
 
 - Hamburger to toggle the sidebar
-- **UGC Lab** wordmark
+- **UGC OS** wordmark
 - **Project switcher** chip — pick the active project, "All projects",
   or "+ New project". Selecting a project auto-tags every new bank
   item created while it's active.
@@ -360,7 +360,7 @@ duration toggle hides for Veo variants.
 
 ## 6. Cloud Architecture
 
-UGC Lab is deployable as a multi-tenant cloud app. The same codebase
+UGC OS is deployable as a multi-tenant cloud app. The same codebase
 boots in local-only mode if Supabase env vars are absent — useful for
 offline development.
 

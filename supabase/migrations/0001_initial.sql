@@ -1,4 +1,4 @@
--- UGC Lab — initial schema
+-- UGC OS — initial schema
 -- Run this in Supabase SQL Editor (or via `supabase db push` if using the CLI).
 -- Idempotent: safe to re-run.
 --

@@ -52,7 +52,7 @@ function EmptyState() {
       <AppLogo className="h-12 w-12" />
       <div className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight text-zinc-100">
-          UGC Lab
+          UGC OS
         </h1>
         <p className="text-sm text-zinc-500">
           Pick a tool from the sidebar to get started.
