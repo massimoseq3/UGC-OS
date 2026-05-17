@@ -51,6 +51,11 @@ export interface PriceParams {
 export interface VideoConstraints {
   durations: number[]
   resolutions: string[]
+  // Preferred resolution when the constraint-snap effect runs. Falls back to
+  // `resolutions[0]` when omitted. Set per-model when the cheapest tier isn't
+  // the best out-of-the-box choice (e.g. Seedance defaults to 720p instead of
+  // its `480p`-first tier ordering).
+  default?: string
   aspectRatios: string[]
   supportsAudio?: boolean
 }
@@ -231,6 +236,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     videoConstraints: {
       durations: [4, 5, 6, 8, 10, 12, 15],
       resolutions: ['480p', '720p', '1080p'],
+      default: '720p',
       aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9'],
       supportsAudio: true,
     },
@@ -256,6 +262,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     videoConstraints: {
       durations: [4, 5, 6, 8, 10, 12, 15],
       resolutions: ['480p', '720p'],
+      default: '720p',
       aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4'],
       supportsAudio: true,
     },
