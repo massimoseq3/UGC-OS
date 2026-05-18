@@ -62,17 +62,17 @@ export default function LoadPresetDropdown({ onLoadProfile }: LoadPresetDropdown
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] font-medium text-zinc-300 transition-colors hover:border-white/15 hover:bg-white/[0.08] hover:text-zinc-100"
+        className="flex w-full items-center justify-center gap-2 rounded-full border border-sky-500/30 bg-sky-500/10 px-4 py-2.5 text-[13px] font-medium text-sky-200 transition-colors hover:border-sky-500/40 hover:bg-sky-500/20 hover:text-sky-100"
       >
-        <FolderOpen className="h-3.5 w-3.5" strokeWidth={1.75} />
+        <FolderOpen className="h-4 w-4" strokeWidth={1.75} />
         Load Preset from Bank
         <ChevronDown
-          className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`}
+          className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`}
           strokeWidth={2}
         />
       </button>
       {open && (
-        <div className="absolute bottom-full left-0 right-0 z-30 mb-1.5 min-w-[260px] overflow-hidden rounded-xl border border-white/10 bg-[#0B0B0D] shadow-2xl">
+        <div className="absolute left-0 right-0 top-full z-30 mt-1.5 min-w-[260px] overflow-hidden rounded-xl border border-white/10 bg-[#0B0B0D] shadow-2xl">
           <div className="max-h-[320px] overflow-y-auto p-1">
             <div className="px-2 pb-1 pt-1.5 text-[9px] font-semibold uppercase tracking-widest text-zinc-500">
               Starters

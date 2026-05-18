@@ -4,6 +4,7 @@ import type { TabId, CharacterProfile, FieldGroup } from '../types'
 import { TABS, getTabFields, createEmptyProfile } from '../types'
 import ChipField from './ChipField'
 import PhotoExtractZone from './PhotoExtractZone'
+import LoadPresetDropdown from './LoadPresetDropdown'
 
 interface ControlsPanelProps {
   profile: CharacterProfile
@@ -121,6 +122,11 @@ export default function ControlsPanel({
             </button>
           )
         })}
+      </div>
+
+      {/* Load Preset from Bank — sits right under the tabs, above the first field group */}
+      <div className="border-b border-white/5 px-3 py-2">
+        <LoadPresetDropdown onLoadProfile={onProfileChange} />
       </div>
 
       {/* Scrollable parameter fields (only scrolls internally on desktop) */}

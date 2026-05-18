@@ -1,16 +1,17 @@
 import { useMemo, useState } from 'react'
-import { Loader2, Trash2, Image as ImageIcon, UserRound, Bookmark, X, RectangleVertical, RectangleHorizontal } from 'lucide-react'
+import { Loader2, Trash2, Image as ImageIcon, UserRound, Bookmark, X, RectangleVertical, RectangleHorizontal, Download, Check } from 'lucide-react'
 import { useBankStore } from '../../../stores/bankStore'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import { useAssetUrlState } from '../../../hooks/useAssetUrl'
+import { getUrl } from '../../../utils/assetStore'
+import { useAppStore } from '../../../stores/appStore'
 import type { CharacterHistoryItem } from '../../../stores/types'
-import type { CharacterProfile } from '../types'
 import ModelPicker from '../../../components/ModelPicker'
 import ResolutionToggle from '../../../components/ResolutionToggle'
 import GenerationProgress from '../../../components/GenerationProgress'
 import { estimateCredits, formatCredits, getDefaultModel, getModel, type ImageResolution } from '../../../utils/models'
 import HistoryPreviewModal from './HistoryPreviewModal'
-import LoadPresetDropdown from './LoadPresetDropdown'
+import { buildJsonPrompt } from '../services/generateCharacter'
 
 // One running generation. Lives only in memory — there's no createTask/poll
 // split (generateCharacter is a single awaited promise), so a refresh ends
@@ -34,7 +35,6 @@ interface GalleryPanelProps {
   onAspectRatioChange: (value: string) => void
   resolution: ImageResolution
   onResolutionChange: (value: ImageResolution) => void
-  onLoadProfile: (profile: CharacterProfile) => void
 }
 
 const PORTRAIT_VALUE = 'Portrait (9:16)'
@@ -64,7 +64,6 @@ export default function GalleryPanel({
   onAspectRatioChange,
   resolution,
   onResolutionChange,
-  onLoadProfile,
 }: GalleryPanelProps) {
   const [previewItem, setPreviewItem] = useState<CharacterHistoryItem | null>(null)
 
@@ -143,7 +142,6 @@ export default function GalleryPanel({
             <p className="text-xs leading-relaxed text-red-300">{error}</p>
           </div>
         )}
-        <LoadPresetDropdown onLoadProfile={onLoadProfile} />
         <ModelPicker
           appId="character-studio"
           task="image"
@@ -204,6 +202,51 @@ function HistoryTile({
   onDelete: () => void
 }) {
   const { url, status } = useAssetUrlState(item.imageRef)
+  const addModel = useBankStore((s) => s.addModel)
+  const updateCharacterHistory = useBankStore((s) => s.updateCharacterHistory)
+  const models = useBankStore((s) => s.models)
+  const addToast = useAppStore((s) => s.addToast)
+  const [savingToBank, setSavingToBank] = useState(false)
+
+  const linkedModel = item.linkedModelId ? models.find((m) => m.id === item.linkedModelId) : undefined
+  const savedAsModel = !!linkedModel
+
+  async function handleSaveToBank(e: React.MouseEvent) {
+    e.stopPropagation()
+    if (savedAsModel || savingToBank) return
+    setSavingToBank(true)
+    try {
+      const name = autoName(item)
+      await addModel({
+        name,
+        characterImage: item.imageRef,
+        notes: '',
+        source: 'character-studio',
+        jsonProfile: buildJsonPrompt(item.profile) as Record<string, unknown>,
+      })
+      const justAdded = useBankStore.getState().models.find(
+        (m) => m.characterImage === item.imageRef && m.name === name,
+      )
+      if (justAdded) await updateCharacterHistory(item.id, { linkedModelId: justAdded.id })
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Save failed', 'error')
+    } finally {
+      setSavingToBank(false)
+    }
+  }
+
+  async function handleDownload(e: React.MouseEvent) {
+    e.stopPropagation()
+    const resolved = await getUrl(item.imageRef)
+    if (!resolved) return
+    const a = document.createElement('a')
+    a.href = resolved
+    a.download = `character-${item.id}.png`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+  }
+
   return (
     <div
       onClick={onClick}
@@ -219,7 +262,7 @@ function HistoryTile({
         </div>
       )}
 
-      {item.linkedModelId && (
+      {savedAsModel && (
         <div
           title="Saved to Characters bank"
           className="absolute left-1.5 top-1.5 flex h-5 items-center gap-1 rounded-md bg-emerald-500/30 px-1.5 text-[9px] font-medium text-emerald-100 backdrop-blur"
@@ -239,8 +282,49 @@ function HistoryTile({
           <Trash2 className="h-3 w-3" />
         </button>
       </div>
+
+      {/* Bottom hover actions — stacked pills with gradient backdrop */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col gap-1.5 bg-gradient-to-t from-black/85 via-black/60 to-transparent px-2 pb-2 pt-8 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100">
+        <button
+          type="button"
+          onClick={handleSaveToBank}
+          disabled={savedAsModel || savingToBank}
+          className={`flex w-full items-center justify-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[11px] font-medium backdrop-blur transition-colors ${savedAsModel
+            ? 'cursor-default border-emerald-500/40 bg-emerald-500/20 text-emerald-100'
+            : 'border-white/15 bg-black/60 text-zinc-100 hover:bg-black/80 disabled:opacity-60'
+          }`}
+        >
+          {savingToBank ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : savedAsModel ? (
+            <Check className="h-3 w-3" />
+          ) : (
+            <Bookmark className="h-3 w-3" />
+          )}
+          <span>{savedAsModel ? 'Saved to Bank' : savingToBank ? 'Saving…' : 'Save to Bank'}</span>
+        </button>
+        <button
+          type="button"
+          onClick={handleDownload}
+          className="flex w-full items-center justify-center gap-1.5 rounded-full border border-white/15 bg-black/60 px-2.5 py-1.5 text-[11px] font-medium text-zinc-100 backdrop-blur transition-colors hover:bg-black/80"
+        >
+          <Download className="h-3 w-3" />
+          <span>Download image</span>
+        </button>
+      </div>
     </div>
   )
+}
+
+// Auto-generate a sensible name when the user uses the inline tile save —
+// they can rename later from the Bank view. Falls back to a timestamp if
+// the profile is empty.
+function autoName(item: CharacterHistoryItem): string {
+  const p = item.profile
+  const bits = [p.gender, p.age, p.ethnicity].filter((v) => v && v.trim())
+  if (bits.length === 0) return `Character ${new Date(item.createdAt).toLocaleString()}`
+  const date = new Date(item.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  return `${bits.join(' · ')} · ${date}`
 }
 
 function InFlightTile({ gen, onCancel }: { gen: InFlightCharacterGen; onCancel: () => void }) {
