@@ -6,11 +6,13 @@ import { useAssetUrlState } from '../../../hooks/useAssetUrl'
 import { getUrl } from '../../../utils/assetStore'
 import { useAppStore } from '../../../stores/appStore'
 import type { CharacterHistoryItem } from '../../../stores/types'
+import type { CharacterProfile } from '../types'
 import ModelPicker from '../../../components/ModelPicker'
 import ResolutionToggle from '../../../components/ResolutionToggle'
 import GenerationProgress from '../../../components/GenerationProgress'
 import { estimateCredits, formatCredits, getDefaultModel, getModel, type ImageResolution } from '../../../utils/models'
 import HistoryPreviewModal from './HistoryPreviewModal'
+import LoadPresetDropdown from './LoadPresetDropdown'
 import { buildJsonPrompt } from '../services/generateCharacter'
 
 // One running generation. Lives only in memory — there's no createTask/poll
@@ -35,6 +37,7 @@ interface GalleryPanelProps {
   onAspectRatioChange: (value: string) => void
   resolution: ImageResolution
   onResolutionChange: (value: ImageResolution) => void
+  onLoadProfile: (profile: CharacterProfile) => void
 }
 
 const PORTRAIT_VALUE = 'Portrait (9:16)'
@@ -64,6 +67,7 @@ export default function GalleryPanel({
   onAspectRatioChange,
   resolution,
   onResolutionChange,
+  onLoadProfile,
 }: GalleryPanelProps) {
   const [previewItem, setPreviewItem] = useState<CharacterHistoryItem | null>(null)
 
@@ -89,6 +93,11 @@ export default function GalleryPanel({
 
   return (
     <div className="flex h-full min-w-0 flex-col">
+      {/* Preset card — sits at the very top of the right panel, above the gallery */}
+      <div className="border-b border-white/5 p-3">
+        <LoadPresetDropdown onLoadProfile={onLoadProfile} />
+      </div>
+
       {/* Scrollable gallery */}
       <div className="min-w-0 flex-1 overflow-y-auto">
         {isEmpty ? (

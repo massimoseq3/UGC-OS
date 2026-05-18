@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, FolderOpen, Sparkles } from 'lucide-react'
+import { ChevronDown, UserRound, Sparkles } from 'lucide-react'
 import type { CharacterProfile } from '../types'
 import { createEmptyProfile, PRESET_MARIE, PRESET_ZANE } from '../types'
 import type { Model } from '../../../stores/types'
@@ -62,12 +62,17 @@ export default function LoadPresetDropdown({ onLoadProfile }: LoadPresetDropdown
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-center gap-2 rounded-full border border-sky-500/30 bg-sky-500/10 px-4 py-2.5 text-[13px] font-medium text-sky-200 transition-colors hover:border-sky-500/40 hover:bg-sky-500/20 hover:text-sky-100"
+        className="flex w-full items-center gap-2.5 rounded-xl border border-white/10 bg-white/[0.02] px-2.5 py-2 text-left transition-colors hover:bg-white/[0.05]"
       >
-        <FolderOpen className="h-4 w-4" strokeWidth={1.75} />
-        Load Preset from Bank
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-sky-500/10 text-sky-400">
+          <UserRound className="h-3.5 w-3.5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[13px] font-medium text-zinc-100">Character Presets</div>
+          <div className="truncate text-[10px] text-zinc-500">Load saved character parameters</div>
+        </div>
         <ChevronDown
-          className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`}
+          className={`h-4 w-4 shrink-0 text-zinc-500 transition-transform ${open ? 'rotate-180' : ''}`}
           strokeWidth={2}
         />
       </button>
