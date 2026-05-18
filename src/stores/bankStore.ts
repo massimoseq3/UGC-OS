@@ -213,6 +213,18 @@ function reportError(prefix: string, e: unknown) {
   throw e
 }
 
+// Like reportError but doesn't re-throw — used by auto-history writes that
+// must keep local state in sync even when the cloud upsert fails (e.g. a
+// missing table migration, a transient RLS hiccup, network drop). The
+// toast still surfaces the failure so the user knows cloud sync didn't
+// land, but the local row is preserved so the gallery doesn't silently
+// drop the generation.
+function reportErrorSoft(prefix: string, e: unknown) {
+  const msg = e instanceof Error ? e.message : String(e)
+  console.warn(`[bankStore] ${prefix}:`, e)
+  try { useAppStore.getState().addToast(`${prefix}: ${msg}`, 'error') } catch { /* ignore */ }
+}
+
 // Tiny helper so each action can fire one consistent confirmation toast.
 function reportSuccess(msg: string) {
   try { useAppStore.getState().addToast(msg, 'success') } catch { /* ignore */ }
@@ -450,7 +462,7 @@ export const useBankStore = create<BankState>((set, get) => ({
 
   // ── Voice History ────────────────────────────────────────────────
   addVoiceHistory: async (item) => {
-    try { await pushRow('voiceHistory', item) } catch (e) { reportError('Save voice history', e) }
+    try { await pushRow('voiceHistory', item) } catch (e) { reportErrorSoft('Save voice history', e) }
     set((state) => {
       const next = { voiceHistory: [item, ...state.voiceHistory] }
       saveToStorage({ ...state, ...next })
@@ -461,7 +473,7 @@ export const useBankStore = create<BankState>((set, get) => ({
   deleteVoiceHistory: async (id) => {
     const item = get().voiceHistory.find((h) => h.id === id)
     if (!item) return
-    try { await dropRow('voiceHistory', id) } catch (e) { reportError('Delete voice history', e) }
+    try { await dropRow('voiceHistory', id) } catch (e) { reportErrorSoft('Delete voice history', e) }
     if (item.audioUrl) await cleanupAssets(item.audioUrl)
     set((state) => {
       const next = { voiceHistory: state.voiceHistory.filter((h) => h.id !== id) }
@@ -489,7 +501,7 @@ export const useBankStore = create<BankState>((set, get) => ({
 
   // ── Video History ────────────────────────────────────────────────
   addVideoHistory: async (item) => {
-    try { await pushRow('videoHistory', item) } catch (e) { reportError('Save video history', e) }
+    try { await pushRow('videoHistory', item) } catch (e) { reportErrorSoft('Save video history', e) }
     set((state) => {
       const next = { videoHistory: [item, ...state.videoHistory] }
       saveToStorage({ ...state, ...next })
@@ -501,7 +513,7 @@ export const useBankStore = create<BankState>((set, get) => ({
     const old = get().videoHistory.find((h) => h.id === id)
     if (!old) return
     const updated: VideoHistoryItem = { ...old, ...updates }
-    try { await pushRow('videoHistory', updated) } catch (e) { reportError('Update video history', e) }
+    try { await pushRow('videoHistory', updated) } catch (e) { reportErrorSoft('Update video history', e) }
     set((state) => {
       const next = { videoHistory: state.videoHistory.map((h) => h.id === id ? updated : h) }
       saveToStorage({ ...state, ...next })
@@ -512,7 +524,7 @@ export const useBankStore = create<BankState>((set, get) => ({
   deleteVideoHistory: async (id) => {
     const item = get().videoHistory.find((h) => h.id === id)
     if (!item) return
-    try { await dropRow('videoHistory', id) } catch (e) { reportError('Delete video history', e) }
+    try { await dropRow('videoHistory', id) } catch (e) { reportErrorSoft('Delete video history', e) }
     if (!item.linkedBRollId) await cleanupAssets(item.videoUrl, item.thumbnailUrl)
     set((state) => {
       const next = { videoHistory: state.videoHistory.filter((h) => h.id !== id) }
@@ -542,7 +554,7 @@ export const useBankStore = create<BankState>((set, get) => ({
 
   // ── Image History (Playground) ──────────────────────────────────
   addImageHistory: async (item) => {
-    try { await pushRow('imageHistory', item) } catch (e) { reportError('Save image history', e) }
+    try { await pushRow('imageHistory', item) } catch (e) { reportErrorSoft('Save image history', e) }
     set((state) => {
       const next = { imageHistory: [item, ...state.imageHistory] }
       saveToStorage({ ...state, ...next })
@@ -554,7 +566,7 @@ export const useBankStore = create<BankState>((set, get) => ({
     const old = get().imageHistory.find((h) => h.id === id)
     if (!old) return
     const updated: ImageHistoryItem = { ...old, ...updates }
-    try { await pushRow('imageHistory', updated) } catch (e) { reportError('Update image history', e) }
+    try { await pushRow('imageHistory', updated) } catch (e) { reportErrorSoft('Update image history', e) }
     set((state) => {
       const next = { imageHistory: state.imageHistory.map((h) => h.id === id ? updated : h) }
       saveToStorage({ ...state, ...next })
@@ -565,7 +577,7 @@ export const useBankStore = create<BankState>((set, get) => ({
   deleteImageHistory: async (id) => {
     const item = get().imageHistory.find((h) => h.id === id)
     if (!item) return
-    try { await dropRow('imageHistory', id) } catch (e) { reportError('Delete image history', e) }
+    try { await dropRow('imageHistory', id) } catch (e) { reportErrorSoft('Delete image history', e) }
     // Only purge the asset blob if the image isn't saved to a BRoll record
     // — saved entries reference the same `imageUrl`, and the BRoll owns it.
     if (!item.linkedBRollId) await cleanupAssets(item.imageUrl)
@@ -597,7 +609,7 @@ export const useBankStore = create<BankState>((set, get) => ({
 
   // ── Music History (Playground) ──────────────────────────────────
   addMusicHistory: async (item) => {
-    try { await pushRow('musicHistory', item) } catch (e) { reportError('Save music history', e) }
+    try { await pushRow('musicHistory', item) } catch (e) { reportErrorSoft('Save music history', e) }
     set((state) => {
       const next = { musicHistory: [item, ...state.musicHistory] }
       saveToStorage({ ...state, ...next })
@@ -609,7 +621,7 @@ export const useBankStore = create<BankState>((set, get) => ({
     const old = get().musicHistory.find((h) => h.id === id)
     if (!old) return
     const updated: MusicHistoryItem = { ...old, ...updates }
-    try { await pushRow('musicHistory', updated) } catch (e) { reportError('Update music history', e) }
+    try { await pushRow('musicHistory', updated) } catch (e) { reportErrorSoft('Update music history', e) }
     set((state) => {
       const next = { musicHistory: state.musicHistory.map((h) => h.id === id ? updated : h) }
       saveToStorage({ ...state, ...next })
@@ -620,7 +632,7 @@ export const useBankStore = create<BankState>((set, get) => ({
   deleteMusicHistory: async (id) => {
     const item = get().musicHistory.find((h) => h.id === id)
     if (!item) return
-    try { await dropRow('musicHistory', id) } catch (e) { reportError('Delete music history', e) }
+    try { await dropRow('musicHistory', id) } catch (e) { reportErrorSoft('Delete music history', e) }
     await cleanupAssets(item.audioRef, item.coverImageRef)
     set((state) => {
       const next = { musicHistory: state.musicHistory.filter((h) => h.id !== id) }
@@ -709,7 +721,7 @@ export const useBankStore = create<BankState>((set, get) => ({
 
   // ── Character History (Characters tab) ──────────────────────────
   addCharacterHistory: async (item) => {
-    try { await pushRow('characterHistory', item) } catch (e) { reportError('Save character history', e) }
+    try { await pushRow('characterHistory', item) } catch (e) { reportErrorSoft('Save character history', e) }
     set((state) => {
       const next = { characterHistory: [item, ...state.characterHistory] }
       saveToStorage({ ...state, ...next })
@@ -721,7 +733,7 @@ export const useBankStore = create<BankState>((set, get) => ({
     const old = get().characterHistory.find((h) => h.id === id)
     if (!old) return
     const updated: CharacterHistoryItem = { ...old, ...updates }
-    try { await pushRow('characterHistory', updated) } catch (e) { reportError('Update character history', e) }
+    try { await pushRow('characterHistory', updated) } catch (e) { reportErrorSoft('Update character history', e) }
     set((state) => {
       const next = { characterHistory: state.characterHistory.map((h) => h.id === id ? updated : h) }
       saveToStorage({ ...state, ...next })
@@ -732,7 +744,7 @@ export const useBankStore = create<BankState>((set, get) => ({
   deleteCharacterHistory: async (id) => {
     const item = get().characterHistory.find((h) => h.id === id)
     if (!item) return
-    try { await dropRow('characterHistory', id) } catch (e) { reportError('Delete character history', e) }
+    try { await dropRow('characterHistory', id) } catch (e) { reportErrorSoft('Delete character history', e) }
     // Only purge the asset blob if it isn't referenced by a saved Model.
     // The Model owns the image once saved; the history row is just an index.
     if (!item.linkedModelId) await cleanupAssets(item.imageRef)
