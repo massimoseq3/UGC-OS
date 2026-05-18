@@ -4,6 +4,7 @@ import type { TabId, CharacterProfile, FieldGroup } from '../types'
 import { TABS, getTabFields, createEmptyProfile } from '../types'
 import ChipField from './ChipField'
 import PhotoExtractZone from './PhotoExtractZone'
+import LoadPresetDropdown from './LoadPresetDropdown'
 
 interface ControlsPanelProps {
   profile: CharacterProfile
@@ -88,6 +89,11 @@ export default function ControlsPanel({
           onPhotoDrop={onPhotoDrop}
           onReset={onResetExtract}
         />
+      </div>
+
+      {/* Preset card — sits directly under the drop zone */}
+      <div className="border-b border-white/5 px-3 py-2">
+        <LoadPresetDropdown onLoadProfile={onProfileChange} />
       </div>
 
       {/* Fixed segmented tabs — Playground style. flex-1 per tab so all 4 fit
