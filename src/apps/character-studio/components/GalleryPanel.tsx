@@ -6,13 +6,11 @@ import { useAssetUrlState } from '../../../hooks/useAssetUrl'
 import { getUrl } from '../../../utils/assetStore'
 import { useAppStore } from '../../../stores/appStore'
 import type { CharacterHistoryItem } from '../../../stores/types'
-import type { CharacterProfile } from '../types'
 import ModelPicker from '../../../components/ModelPicker'
 import ResolutionToggle from '../../../components/ResolutionToggle'
 import GenerationProgress from '../../../components/GenerationProgress'
 import { estimateCredits, formatCredits, getDefaultModel, getModel, type ImageResolution } from '../../../utils/models'
 import HistoryPreviewModal from './HistoryPreviewModal'
-import LoadPresetDropdown from './LoadPresetDropdown'
 import { buildJsonPrompt } from '../services/generateCharacter'
 
 // One running generation. Lives only in memory — there's no createTask/poll
@@ -37,7 +35,6 @@ interface GalleryPanelProps {
   onAspectRatioChange: (value: string) => void
   resolution: ImageResolution
   onResolutionChange: (value: ImageResolution) => void
-  onLoadProfile: (profile: CharacterProfile) => void
 }
 
 const PORTRAIT_VALUE = 'Portrait (9:16)'
@@ -67,7 +64,6 @@ export default function GalleryPanel({
   onAspectRatioChange,
   resolution,
   onResolutionChange,
-  onLoadProfile,
 }: GalleryPanelProps) {
   const [previewItem, setPreviewItem] = useState<CharacterHistoryItem | null>(null)
 
@@ -146,7 +142,6 @@ export default function GalleryPanel({
             <p className="text-xs leading-relaxed text-red-300">{error}</p>
           </div>
         )}
-        <LoadPresetDropdown onLoadProfile={onLoadProfile} />
         <ModelPicker
           appId="character-studio"
           task="image"
@@ -306,7 +301,7 @@ function HistoryTile({
           ) : (
             <Bookmark className="h-3 w-3" />
           )}
-          <span>{savedAsModel ? 'Saved to bank' : savingToBank ? 'Saving…' : 'Save to Characters bank'}</span>
+          <span>{savedAsModel ? 'Saved to Bank' : savingToBank ? 'Saving…' : 'Save to Bank'}</span>
         </button>
         <button
           type="button"
