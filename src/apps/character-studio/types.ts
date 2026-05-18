@@ -25,6 +25,9 @@ export interface FieldGroup {
 export interface TabConfig {
   id: TabId
   label: string
+  // Optional shorter label used by the segmented tab strip when the long
+  // form would overflow narrow columns. Falls back to `label` if absent.
+  shortLabel?: string
   groups: FieldGroup[]
 }
 
@@ -235,6 +238,7 @@ export const TABS: TabConfig[] = [
   {
     id: 'pose',
     label: 'Pose & Action',
+    shortLabel: 'Pose',
     groups: [
       {
         id: 'pose',

@@ -159,6 +159,27 @@ export interface MusicHistoryItem {
   createdAt: number
 }
 
+// One generation in the Characters tab — auto-pushed on every successful
+// generateCharacter run. `imageRef` is an asset:// id (IndexedDB + R2 mirror).
+// `profile` is the full form snapshot so the preview modal's "Send to
+// Characters" can replace the live form with this generation's exact inputs.
+// `linkedModelId` is written when the user saves the entry to the Characters
+// bank — kept so the saved-state badge survives reloads and the cleanup pass
+// leaves the asset blob alone when the row is deleted.
+export interface CharacterHistoryItem {
+  id: string
+  imageRef: string
+  // The form values used to generate this image. Profile snapshot is loose
+  // by design — extra keys are tolerated so new form fields don't break
+  // hydration of older rows.
+  profile: Record<string, string>
+  modelId: string
+  aspectRatio: string
+  resolution?: string
+  linkedModelId?: string
+  createdAt: number
+}
+
 // One B-Roll session — generated scenes + full per-card state (images, videos,
 // prompt history, ref toggles). Clicking restores the workspace to the exact
 // state it was in when the snapshot was last saved. Images/videos are

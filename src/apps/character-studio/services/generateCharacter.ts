@@ -49,7 +49,7 @@ export function buildJsonPrompt(profile: CharacterProfile): Record<string, Recor
 // preserved verbatim — never paraphrased — so chip presets and free-text
 // entries land in the model unchanged. Labels + section headers help the
 // image model parse the request without wading through comma soup.
-function buildImagePrompt(profile: CharacterProfile): string {
+export function buildImagePrompt(profile: CharacterProfile): string {
   const SKIP_VALUES = new Set(['None', 'No makeup', 'Indoor (N/A)'])
   const has = (v: string | undefined): v is string => !!v && !SKIP_VALUES.has(v)
 
