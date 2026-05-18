@@ -1,14 +1,16 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Dna } from 'lucide-react'
 import { useAppStore } from '../../stores/appStore'
+import { useBankStore } from '../../stores/bankStore'
+import { useSettingsStore } from '../../stores/settingsStore'
 import type { CharacterProfile, TabId } from './types'
 import { createEmptyProfile, flattenDna, PHOTOREALISM_STYLE } from './types'
 import type { ImageResolution } from '../../utils/models'
+import { getDefaultModel } from '../../utils/models'
 import ControlsPanel from './components/ControlsPanel'
-import OutputPanel from './components/OutputPanel'
+import GalleryPanel, { type InFlightCharacterGen } from './components/GalleryPanel'
 import { generateCharacter } from './services/generateCharacter'
 import { analyzeImage } from './services/analyzeImage'
-import type { GenerationResult } from './services/generateCharacter'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
 
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
@@ -17,7 +19,6 @@ const MAX_SIZE = 10 * 1024 * 1024
 export default function CharacterStudio() {
   const baseKey = useProjectScopedKey('character-studio')
   const [profile, setProfile] = usePersistedState<CharacterProfile>(`${baseKey}:profile`, createEmptyProfile())
-  const [result, setResult] = usePersistedState<GenerationResult | null>(`${baseKey}:result`, null)
   const [activeTab, setActiveTab] = usePersistedState<TabId>(`${baseKey}:tab`, 'physical')
   // Characters always opens at 1K — high-res image generation is opt-in
   // here. The user can pick 2K / 4K from the resolution toggle when they
@@ -25,18 +26,25 @@ export default function CharacterStudio() {
   const [resolution, setResolution] = usePersistedState<ImageResolution>(`${baseKey}:resolution`, '1K')
   const [extractedThumb, setExtractedThumb] = usePersistedState<string | null>(`${baseKey}:thumb`, null)
 
-  const [isGenerating, setIsGenerating] = useState(false)
+  // Parallel generations: in-memory only. Each generateCharacter call is a
+  // single awaited promise (no createTask/poll split), so a refresh ends any
+  // in-flight gens — that matches prior behaviour. Persistence happens on
+  // success via addCharacterHistory.
+  const [inFlight, setInFlight] = useState<InFlightCharacterGen[]>([])
   const [error, setError] = useState<string | null>(null)
   const [isExtracting, setIsExtracting] = useState(false)
   const [extractError, setExtractError] = useState<string | null>(null)
   const [overlayActive, setOverlayActive] = useState(false)
 
-  const abortRef = useRef<AbortController | null>(null)
+  // Abort controllers keyed by gen id so per-tile Cancel can target one job.
+  const abortersRef = useRef<Map<string, AbortController>>(new Map())
   const dragDepthRef = useRef(0)
 
   const interAppPayload = useAppStore((s) => s.interAppPayload)
   const consumePayload = useAppStore((s) => s.consumePayload)
   const activeApp = useAppStore((s) => s.activeApp)
+
+  const addCharacterHistory = useBankStore((s) => s.addCharacterHistory)
 
   // Consume inter-app payload (kept for cross-app handoffs into the form)
   useEffect(() => {
@@ -128,33 +136,50 @@ export default function CharacterStudio() {
   }
 
   const handleGenerate = async () => {
-    abortRef.current?.abort()
-    const controller = new AbortController()
-    abortRef.current = controller
+    // Snapshot every input the gen depends on at click time — the user can
+    // freely mutate the form while this job runs in parallel.
+    const snapshotProfile = { ...profile }
+    const snapshotResolution = resolution
+    const snapshotAspect = profile.aspectRatio || 'Portrait (9:16)'
+    const modelId = useSettingsStore.getState().getAppModel('character-studio:image:text-to-image')
+      ?? getDefaultModel('character-studio', 'image', 'text-to-image')?.id
+      ?? 'unknown'
 
-    // No client-side timeout — high-res image generations can run past 90s.
-    // The user can still cancel manually via the Cancel button.
-    setIsGenerating(true)
+    const id = crypto.randomUUID()
+    const controller = new AbortController()
+    abortersRef.current.set(id, controller)
+    setInFlight((prev) => [...prev, { id, modelId, aspectRatio: snapshotAspect, startedAt: Date.now() }])
     setError(null)
+
     try {
-      const gen = await generateCharacter(profile, controller.signal, undefined, resolution)
-      setResult(gen)
+      const gen = await generateCharacter(snapshotProfile, controller.signal, undefined, snapshotResolution)
+      addCharacterHistory({
+        id: crypto.randomUUID(),
+        imageRef: gen.imageUrl,
+        profile: snapshotProfile,
+        modelId,
+        aspectRatio: snapshotAspect,
+        resolution: snapshotResolution,
+        createdAt: Date.now(),
+      })
       useAppStore.getState().addToast('Character generated', 'success')
     } catch (err) {
       if (controller.signal.aborted) {
-        setError('Generation was cancelled. Try again.')
+        // Silent — the user explicitly cancelled this one.
       } else {
         const msg = err instanceof Error ? err.message : 'Image generation failed. Check your API key and try again.'
         setError(msg)
         useAppStore.getState().addToast(`Character generation failed: ${msg}`, 'error')
       }
     } finally {
-      setIsGenerating(false)
+      abortersRef.current.delete(id)
+      setInFlight((prev) => prev.filter((g) => g.id !== id))
     }
   }
 
-  const handleCancel = () => {
-    abortRef.current?.abort()
+  const handleCancelGen = (id: string) => {
+    const controller = abortersRef.current.get(id)
+    controller?.abort()
   }
 
   return (
@@ -165,8 +190,8 @@ export default function CharacterStudio() {
       onDragOver={handleDragOver}
       onDrop={handleOverlayDrop}
     >
-      {/* Controls panel */}
-      <div className="flex w-full md:w-1/2 shrink-0 flex-col border-b md:border-b-0 md:border-r border-white/5">
+      {/* Controls panel — 50% on desktop */}
+      <div className="flex w-full min-w-0 md:w-1/2 shrink-0 flex-col border-b md:border-b-0 md:border-r border-white/5">
         <ControlsPanel
           profile={profile}
           onProfileChange={setProfile}
@@ -180,19 +205,19 @@ export default function CharacterStudio() {
         />
       </div>
 
-      {/* Output panel */}
-      <div className="flex min-w-0 flex-1 flex-col md:overflow-hidden">
-        <OutputPanel
-          result={result}
-          isGenerating={isGenerating}
+      {/* Gallery panel — 50% on desktop */}
+      <div className="flex min-w-0 w-full md:w-1/2 flex-col md:overflow-hidden">
+        <GalleryPanel
+          inFlight={inFlight}
+          onCancelGen={handleCancelGen}
           error={error}
           onGenerate={handleGenerate}
-          onCancel={handleCancel}
           canGenerate={Object.values(profile).some((v) => v.trim() !== '')}
           aspectRatio={profile.aspectRatio || 'Portrait (9:16)'}
           onAspectRatioChange={(value) => setProfile({ ...profile, aspectRatio: value })}
           resolution={resolution}
           onResolutionChange={setResolution}
+          onLoadProfile={setProfile}
         />
       </div>
 

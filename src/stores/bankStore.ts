@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Product, Model, Script, VoicePreset, BRoll, VoiceHistoryItem, VideoHistoryItem, ImageHistoryItem, MusicHistoryItem, ScriptHistoryItem, BrollHistoryItem } from './types'
+import type { Product, Model, Script, VoicePreset, BRoll, VoiceHistoryItem, VideoHistoryItem, ImageHistoryItem, MusicHistoryItem, ScriptHistoryItem, BrollHistoryItem, CharacterHistoryItem } from './types'
 import { isAssetRef, deleteAsset, saveFromDataUrl } from '../utils/assetStore'
 import { useAuthStore } from './authStore'
 import { isCloudEnabled } from '../lib/supabase'
@@ -25,6 +25,7 @@ interface BankState {
   musicHistory: MusicHistoryItem[]
   scriptHistory: ScriptHistoryItem[]
   brollHistory: BrollHistoryItem[]
+  characterHistory: CharacterHistoryItem[]
 
   // Product CRUD
   addProduct: (product: Omit<Product, 'id' | 'createdAt'>) => Promise<BankActionResult>
@@ -89,13 +90,19 @@ interface BankState {
   deleteBrollHistory: (id: string) => Promise<BankActionResult>
   clearBrollHistory: () => Promise<BankActionResult>
   getBrollHistoryById: (id: string) => BrollHistoryItem | undefined
+
+  // Character History (Characters tab)
+  addCharacterHistory: (item: CharacterHistoryItem) => Promise<BankActionResult>
+  updateCharacterHistory: (id: string, updates: Partial<CharacterHistoryItem>) => Promise<BankActionResult>
+  deleteCharacterHistory: (id: string) => Promise<BankActionResult>
+  clearCharacterHistory: () => Promise<BankActionResult>
 }
 
 function generateId(): string {
   return crypto.randomUUID()
 }
 
-type BankData = Pick<BankState, 'products' | 'models' | 'scripts' | 'voices' | 'brolls' | 'voiceHistory' | 'videoHistory' | 'imageHistory' | 'musicHistory' | 'scriptHistory' | 'brollHistory'>
+type BankData = Pick<BankState, 'products' | 'models' | 'scripts' | 'voices' | 'brolls' | 'voiceHistory' | 'videoHistory' | 'imageHistory' | 'musicHistory' | 'scriptHistory' | 'brollHistory' | 'characterHistory'>
 
 function migrateVoiceShape<T>(arr: unknown): T[] {
   if (!Array.isArray(arr)) return []
@@ -131,12 +138,13 @@ function loadFromStorage(): BankData {
         musicHistory: Array.isArray(parsed.musicHistory) ? parsed.musicHistory : [],
         scriptHistory: Array.isArray(parsed.scriptHistory) ? parsed.scriptHistory : [],
         brollHistory: Array.isArray(parsed.brollHistory) ? parsed.brollHistory : [],
+        characterHistory: Array.isArray(parsed.characterHistory) ? parsed.characterHistory : [],
       }
     }
   } catch {
     /* corrupted — start fresh */
   }
-  return { products: [], models: [], scripts: [], voices: [], brolls: [], voiceHistory: [], videoHistory: [], imageHistory: [], musicHistory: [], scriptHistory: [], brollHistory: [] }
+  return { products: [], models: [], scripts: [], voices: [], brolls: [], voiceHistory: [], videoHistory: [], imageHistory: [], musicHistory: [], scriptHistory: [], brollHistory: [], characterHistory: [] }
 }
 
 let pendingSave: BankData | null = null
@@ -160,6 +168,7 @@ function flushSaveToStorage() {
       musicHistory: state.musicHistory,
       scriptHistory: state.scriptHistory,
       brollHistory: state.brollHistory,
+      characterHistory: state.characterHistory,
     }))
   } catch (error) {
     console.error('Failed to save to storage', error)
@@ -697,6 +706,61 @@ export const useBankStore = create<BankState>((set, get) => ({
   },
 
   getBrollHistoryById: (id) => get().brollHistory.find((h) => h.id === id),
+
+  // ── Character History (Characters tab) ──────────────────────────
+  addCharacterHistory: async (item) => {
+    try { await pushRow('characterHistory', item) } catch (e) { reportError('Save character history', e) }
+    set((state) => {
+      const next = { characterHistory: [item, ...state.characterHistory] }
+      saveToStorage({ ...state, ...next })
+      return next
+    })
+  },
+
+  updateCharacterHistory: async (id, updates) => {
+    const old = get().characterHistory.find((h) => h.id === id)
+    if (!old) return
+    const updated: CharacterHistoryItem = { ...old, ...updates }
+    try { await pushRow('characterHistory', updated) } catch (e) { reportError('Update character history', e) }
+    set((state) => {
+      const next = { characterHistory: state.characterHistory.map((h) => h.id === id ? updated : h) }
+      saveToStorage({ ...state, ...next })
+      return next
+    })
+  },
+
+  deleteCharacterHistory: async (id) => {
+    const item = get().characterHistory.find((h) => h.id === id)
+    if (!item) return
+    try { await dropRow('characterHistory', id) } catch (e) { reportError('Delete character history', e) }
+    // Only purge the asset blob if it isn't referenced by a saved Model.
+    // The Model owns the image once saved; the history row is just an index.
+    if (!item.linkedModelId) await cleanupAssets(item.imageRef)
+    set((state) => {
+      const next = { characterHistory: state.characterHistory.filter((h) => h.id !== id) }
+      saveToStorage({ ...state, ...next })
+      return next
+    })
+    reportSuccess('Character removed from history')
+  },
+
+  clearCharacterHistory: async () => {
+    const items = get().characterHistory
+    if (cloudActive()) {
+      for (const item of items) {
+        try { await dropRow('characterHistory', item.id) } catch (e) { console.warn('clear character history', e) }
+      }
+    }
+    for (const item of items) {
+      if (!item.linkedModelId) await cleanupAssets(item.imageRef)
+    }
+    set((state) => {
+      const next = { characterHistory: [] as CharacterHistoryItem[] }
+      saveToStorage({ ...state, ...next })
+      return next
+    })
+    reportSuccess('Character history cleared')
+  },
 }))
 
 // ── One-time migration: data URLs → IndexedDB asset IDs ─────────────

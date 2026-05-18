@@ -20,11 +20,12 @@ import { getSupabase, isCloudEnabled, ensureFreshSession } from './supabase'
 import { existingRemoteAssetIds, uploadAssetToR2 } from './r2'
 import { isAssetRef, getBlob } from '../utils/assetStore'
 import { findOrphanAssets, purgeOrphans } from '../utils/orphanCleanup'
-import type { Product, Model, Script, VoicePreset, BRoll, VoiceHistoryItem, VideoHistoryItem, ImageHistoryItem, MusicHistoryItem } from '../stores/types'
+import type { Product, Model, Script, VoicePreset, BRoll, VoiceHistoryItem, VideoHistoryItem, ImageHistoryItem, MusicHistoryItem, CharacterHistoryItem } from '../stores/types'
 
 export type BankKey =
   | 'products' | 'models' | 'scripts' | 'voices' | 'brolls'
   | 'voiceHistory' | 'videoHistory' | 'imageHistory' | 'musicHistory'
+  | 'characterHistory'
 
 const BANK_TO_TABLE: Record<BankKey, string> = {
   products: 'products',
@@ -36,9 +37,10 @@ const BANK_TO_TABLE: Record<BankKey, string> = {
   videoHistory: 'video_history',
   imageHistory: 'image_history',
   musicHistory: 'music_history',
+  characterHistory: 'character_history',
 }
 
-const BANK_KEYS: BankKey[] = ['products', 'models', 'scripts', 'voices', 'brolls', 'voiceHistory', 'videoHistory', 'imageHistory', 'musicHistory']
+const BANK_KEYS: BankKey[] = ['products', 'models', 'scripts', 'voices', 'brolls', 'voiceHistory', 'videoHistory', 'imageHistory', 'musicHistory', 'characterHistory']
 
 function reportError(context: string, err: unknown) {
   const msg = err instanceof Error ? err.message : (typeof err === 'string' ? err : JSON.stringify(err))
@@ -170,6 +172,7 @@ async function hydrateFromCloud(userId: string) {
     videoHistory: (next.videoHistory as VideoHistoryItem[]) ?? [],
     imageHistory: (next.imageHistory as ImageHistoryItem[]) ?? [],
     musicHistory: (next.musicHistory as MusicHistoryItem[]) ?? [],
+    characterHistory: (next.characterHistory as CharacterHistoryItem[]) ?? [],
   })
 
   try {
@@ -180,6 +183,7 @@ async function hydrateFromCloud(userId: string) {
       voiceHistory: s.voiceHistory, videoHistory: s.videoHistory,
       imageHistory: s.imageHistory, musicHistory: s.musicHistory,
       scriptHistory: s.scriptHistory, brollHistory: s.brollHistory,
+      characterHistory: s.characterHistory,
     }))
   } catch { /* ignore */ }
 }
