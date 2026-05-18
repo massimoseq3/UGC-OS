@@ -91,6 +91,11 @@ export default function ControlsPanel({
         />
       </div>
 
+      {/* Preset card — sits directly under the drop zone */}
+      <div className="border-b border-white/5 px-3 py-2">
+        <LoadPresetDropdown onLoadProfile={onProfileChange} />
+      </div>
+
       {/* Fixed segmented tabs — Playground style. flex-1 per tab so all 4 fit
           the column with no horizontal scroll. Label + small count chip. */}
       <div className="flex min-w-0 items-center border-b border-white/5 px-2">
@@ -122,11 +127,6 @@ export default function ControlsPanel({
             </button>
           )
         })}
-      </div>
-
-      {/* Load Preset from Bank — sits right under the tabs, above the first field group */}
-      <div className="border-b border-white/5 px-3 py-2">
-        <LoadPresetDropdown onLoadProfile={onProfileChange} />
       </div>
 
       {/* Scrollable parameter fields (only scrolls internally on desktop) */}
