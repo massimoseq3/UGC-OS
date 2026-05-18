@@ -217,6 +217,7 @@ export default function CharacterStudio() {
           onAspectRatioChange={(value) => setProfile({ ...profile, aspectRatio: value })}
           resolution={resolution}
           onResolutionChange={setResolution}
+          onLoadProfile={setProfile}
         />
       </div>
 
