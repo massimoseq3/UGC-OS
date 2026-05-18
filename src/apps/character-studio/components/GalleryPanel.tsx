@@ -247,11 +247,11 @@ function InFlightTile({ gen, onCancel }: { gen: InFlightCharacterGen; onCancel: 
   const modelLabel = getModel(gen.modelId)?.displayName ?? gen.modelId
   return (
     <div
-      className="group relative overflow-hidden rounded-lg border border-green-500/30 bg-gradient-to-br from-green-500/[0.08] to-zinc-950"
+      className="group relative overflow-hidden rounded-lg border border-sky-500/30 bg-gradient-to-br from-sky-500/[0.08] to-zinc-950"
       style={aspectStyle(gen.aspectRatio)}
     >
-      <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-green-500/10 via-transparent to-green-500/5" />
-      <div className="absolute left-1.5 top-1.5 rounded-full bg-green-500/30 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-green-100 backdrop-blur">
+      <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-sky-500/10 via-transparent to-sky-500/5" />
+      <div className="absolute left-1.5 top-1.5 rounded-full bg-sky-500/30 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-sky-100 backdrop-blur">
         generating
       </div>
       <button
@@ -263,11 +263,11 @@ function InFlightTile({ gen, onCancel }: { gen: InFlightCharacterGen; onCancel: 
         <X className="h-3 w-3" />
       </button>
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center">
-        <UserRound className="h-5 w-5 text-green-300" />
-        <p className="text-[10px] font-medium text-green-100">{modelLabel}</p>
+        <UserRound className="h-5 w-5 text-sky-300" />
+        <p className="text-[10px] font-medium text-sky-100">{modelLabel}</p>
         <GenerationProgress
           isActive
-          color="bg-green-500"
+          color="bg-sky-500"
           showHelper={false}
           messages={[
             'Sending request...',
