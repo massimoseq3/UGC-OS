@@ -382,15 +382,44 @@ function HistoryTile({
   )
 }
 
-// Auto-generate a sensible name when the user uses the inline tile save —
-// they can rename later from the Bank view. Falls back to a timestamp if
-// the profile is empty.
+// Auto-generate a real first-name + last-initial when the user opens the
+// inline save input. Pool is keyed off the profile's gender field and
+// chosen at random so two saves rarely collide; the user can still edit
+// the draft before committing. Falls back to a unisex pool when gender
+// is empty or unrecognised.
+const FEMALE_NAMES = [
+  'Ava', 'Olivia', 'Mia', 'Sophia', 'Isabella', 'Emma', 'Amelia', 'Harper',
+  'Evelyn', 'Charlotte', 'Lily', 'Chloe', 'Zoe', 'Ella', 'Maya', 'Aria',
+  'Nora', 'Luna', 'Hazel', 'Ivy', 'Stella', 'Aurora', 'Violet', 'Penelope',
+  'Ruby', 'Sadie', 'Camila', 'Layla', 'Naomi', 'Sienna', 'Willow', 'Riley',
+  'Quinn', 'Eloise', 'Iris', 'Juniper', 'Maeve', 'Nova', 'Sage', 'Wren',
+]
+const MALE_NAMES = [
+  'Liam', 'Noah', 'Oliver', 'Elijah', 'Lucas', 'Mason', 'Logan', 'Ethan',
+  'James', 'Aiden', 'Jack', 'Levi', 'Benjamin', 'Henry', 'Sebastian', 'Owen',
+  'Daniel', 'Caleb', 'Wyatt', 'Julian', 'Leo', 'Hudson', 'Theo', 'Nathan',
+  'Isaac', 'Asher', 'Eli', 'Carter', 'Miles', 'Felix', 'Silas', 'Atlas',
+  'Kai', 'Jude', 'Ezra', 'August', 'Beckett', 'Rowan', 'Finn', 'Arlo',
+]
+const UNISEX_NAMES = [
+  'Riley', 'Quinn', 'Avery', 'Rowan', 'Sage', 'River', 'Sky', 'Reese',
+  'Phoenix', 'Wren', 'Blake', 'Cameron', 'Drew', 'Ellis', 'Finley', 'Hayden',
+  'Jordan', 'Kai', 'Lennon', 'Morgan', 'Nico', 'Parker', 'Remy', 'Sasha',
+  'Tatum', 'Wesley', 'Charlie', 'Emerson', 'Frankie', 'Indigo',
+]
+const LAST_INITIALS = 'ABCDEFGHIJKLMNOPRSTVW'.split('')
+
+function pick<T>(list: T[]): T {
+  return list[Math.floor(Math.random() * list.length)]
+}
+
 function autoName(item: CharacterHistoryItem): string {
-  const p = item.profile
-  const bits = [p.gender, p.age, p.ethnicity].filter((v) => v && v.trim())
-  if (bits.length === 0) return `Character ${new Date(item.createdAt).toLocaleString()}`
-  const date = new Date(item.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-  return `${bits.join(' · ')} · ${date}`
+  const g = (item.profile.gender || '').toLowerCase()
+  const pool =
+    g.startsWith('f') || g.includes('woman') ? FEMALE_NAMES :
+    g.startsWith('m') && !g.startsWith('mx') ? MALE_NAMES :
+    UNISEX_NAMES
+  return `${pick(pool)} ${pick(LAST_INITIALS)}.`
 }
 
 function InFlightTile({ gen, onCancel }: { gen: InFlightCharacterGen; onCancel: () => void }) {
