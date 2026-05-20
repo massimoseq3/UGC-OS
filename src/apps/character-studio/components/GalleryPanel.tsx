@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState, useEffect } from 'react'
 import { Loader2, Trash2, Image as ImageIcon, UserRound, Bookmark, X, RectangleVertical, RectangleHorizontal, Download, Check } from 'lucide-react'
 import { useBankStore } from '../../../stores/bankStore'
 import { useSettingsStore } from '../../../stores/settingsStore'
@@ -204,7 +204,7 @@ function HistoryTile({
 }: {
   item: CharacterHistoryItem
   onClick: () => void
-  onDelete: () => void
+  onDelete: () => void | Promise<unknown>
 }) {
   const { url, status } = useAssetUrlState(item.imageRef)
   const addModel = useBankStore((s) => s.addModel)
@@ -212,16 +212,31 @@ function HistoryTile({
   const models = useBankStore((s) => s.models)
   const addToast = useAppStore((s) => s.addToast)
   const [savingToBank, setSavingToBank] = useState(false)
+  const [nameDraft, setNameDraft] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const nameInputRef = useRef<HTMLInputElement | null>(null)
 
   const linkedModel = item.linkedModelId ? models.find((m) => m.id === item.linkedModelId) : undefined
   const savedAsModel = !!linkedModel
 
-  async function handleSaveToBank(e: React.MouseEvent) {
+  useEffect(() => {
+    if (nameDraft !== null) {
+      const id = window.setTimeout(() => nameInputRef.current?.focus(), 0)
+      return () => window.clearTimeout(id)
+    }
+  }, [nameDraft])
+
+  function openNameInput(e: React.MouseEvent) {
     e.stopPropagation()
     if (savedAsModel || savingToBank) return
+    setNameDraft(autoName(item))
+  }
+
+  async function commitSave() {
+    const name = (nameDraft ?? '').trim()
+    if (!name || savingToBank) return
     setSavingToBank(true)
     try {
-      const name = autoName(item)
       await addModel({
         name,
         characterImage: item.imageRef,
@@ -233,10 +248,22 @@ function HistoryTile({
         (m) => m.characterImage === item.imageRef && m.name === name,
       )
       if (justAdded) await updateCharacterHistory(item.id, { linkedModelId: justAdded.id })
+      setNameDraft(null)
     } catch (err) {
       addToast(err instanceof Error ? err.message : 'Save failed', 'error')
     } finally {
       setSavingToBank(false)
+    }
+  }
+
+  async function handleDelete(e: React.MouseEvent) {
+    e.stopPropagation()
+    if (deleting) return
+    setDeleting(true)
+    try {
+      await onDelete()
+    } catch {
+      setDeleting(false)
     }
   }
 
@@ -277,37 +304,71 @@ function HistoryTile({
         </div>
       )}
 
-      <div className="absolute right-1.5 top-1.5 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+      <div className={`absolute right-1.5 top-1.5 flex gap-1 transition-opacity ${deleting ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
         <button
           type="button"
-          title="Delete"
-          onClick={(e) => { e.stopPropagation(); onDelete() }}
-          className="flex h-6 w-6 items-center justify-center rounded-md bg-black/60 text-zinc-300 backdrop-blur transition-colors hover:bg-red-500/30 hover:text-red-200"
+          title={deleting ? 'Deleting…' : 'Delete'}
+          onClick={handleDelete}
+          disabled={deleting}
+          className="flex h-6 w-6 items-center justify-center rounded-md bg-black/60 text-zinc-300 backdrop-blur transition-colors hover:bg-red-500/30 hover:text-red-200 disabled:cursor-wait disabled:hover:bg-black/60 disabled:hover:text-zinc-300"
         >
-          <Trash2 className="h-3 w-3" />
+          {deleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
         </button>
       </div>
 
       {/* Bottom hover actions — stacked pills with gradient backdrop */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col gap-1.5 bg-gradient-to-t from-black/85 via-black/60 to-transparent px-2 pb-2 pt-8 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100">
-        <button
-          type="button"
-          onClick={handleSaveToBank}
-          disabled={savedAsModel || savingToBank}
-          className={`flex w-full items-center justify-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[11px] font-medium backdrop-blur transition-colors ${savedAsModel
-            ? 'cursor-default border-emerald-500/40 bg-emerald-500/20 text-emerald-100'
-            : 'border-white/15 bg-black/60 text-zinc-100 hover:bg-black/80 disabled:opacity-60'
-          }`}
-        >
-          {savingToBank ? (
-            <Loader2 className="h-3 w-3 animate-spin" />
-          ) : savedAsModel ? (
-            <Check className="h-3 w-3" />
-          ) : (
-            <Bookmark className="h-3 w-3" />
-          )}
-          <span>{savedAsModel ? 'Saved to Bank' : savingToBank ? 'Saving…' : 'Save to Bank'}</span>
-        </button>
+      <div className={`absolute inset-x-0 bottom-0 flex flex-col gap-1.5 bg-gradient-to-t from-black/85 via-black/60 to-transparent px-2 pb-2 pt-8 transition-opacity ${nameDraft !== null ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100'}`}>
+        {nameDraft !== null ? (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="flex items-center gap-1 rounded-full border border-white/15 bg-black/70 pl-2.5 pr-1 py-1 backdrop-blur"
+          >
+            <input
+              ref={nameInputRef}
+              type="text"
+              value={nameDraft}
+              onChange={(e) => setNameDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') { e.preventDefault(); commitSave() }
+                if (e.key === 'Escape') { e.preventDefault(); setNameDraft(null) }
+              }}
+              placeholder="Name this character"
+              disabled={savingToBank}
+              className="min-w-0 flex-1 bg-transparent text-[11px] font-medium text-zinc-100 placeholder:text-zinc-500 focus:outline-none"
+            />
+            <button
+              type="button"
+              title="Cancel"
+              onClick={() => setNameDraft(null)}
+              disabled={savingToBank}
+              className="flex h-5 w-5 items-center justify-center rounded-full text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
+            >
+              <X className="h-3 w-3" />
+            </button>
+            <button
+              type="button"
+              title="Save"
+              onClick={commitSave}
+              disabled={savingToBank || !nameDraft.trim()}
+              className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/80 text-white hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {savingToBank ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={openNameInput}
+            disabled={savedAsModel}
+            className={`flex w-full items-center justify-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[11px] font-medium backdrop-blur transition-colors ${savedAsModel
+              ? 'cursor-default border-emerald-500/40 bg-emerald-500/20 text-emerald-100'
+              : 'border-white/15 bg-black/60 text-zinc-100 hover:bg-black/80'
+            }`}
+          >
+            {savedAsModel ? <Check className="h-3 w-3" /> : <Bookmark className="h-3 w-3" />}
+            <span>{savedAsModel ? 'Saved to Bank' : 'Save to Bank'}</span>
+          </button>
+        )}
         <button
           type="button"
           onClick={handleDownload}
