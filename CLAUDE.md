@@ -105,7 +105,7 @@ The full list lives in `src/utils/models.ts`. Defaults below; users can swap ima
 | Capability | Default | Notes |
 |---|---|---|
 | Text + vision | Gemini 3 Flash (`gemini-3-flash`) | Hard-coded across every text-using app — no picker |
-| Image (text→image) | Nano Banana 2 (`nano-banana-2`) — B-Roll; GPT Image 2 (`gpt-image-2-text-to-image`) — Characters | Picker also exposes Flux 2 Pro, Seedream 5 Lite |
+| Image (text→image) | Nano Banana 2 (`nano-banana-2`) — B-Roll + Characters | Picker also exposes Flux 2 Pro, Seedream 5 Lite, GPT Image 2 |
 | Image (image→image) | GPT Image 2 Edit (`gpt-image-2-image-to-image`) | Used by B-Roll when reference images are present |
 | Video | Veo 3.1 Fast (`veo3_fast`) | Picker exposes Seedance 2.0, Seedance 2.0 Fast, Kling 3.0, Veo 3.1 Lite/Quality, Wan 2.7, Sora 2, Sora 2 Pro |
 | TTS | ElevenLabs Multilingual v2 (`elevenlabs/text-to-speech-multilingual-v2`) | Hard-coded — no picker; ~64-voice catalog grouped by category, slide-in picker |
