@@ -58,15 +58,19 @@ export interface RunTaskOptions {
 // ── Errors ──────────────────────────────────────────────────────
 
 function friendlyHttpError(status: number, msg: string, endpoint?: string): string {
-  if (status === 401) return 'Invalid or expired kie.ai API key. Open Settings to update.'
-  if (status === 402) return 'Insufficient kie.ai credits. Top up your account to continue.'
-  if (status === 422) return `Validation error${endpoint ? ` at ${endpoint}` : ''}: ${msg}`
-  if (status === 429) return 'kie.ai rate limit reached — wait a moment and try again.'
-  if (status === 433) return 'API key usage limit exceeded.'
-  if (status === 455) return 'kie.ai is undergoing maintenance — try again shortly.'
-  if (status >= 500) return `kie.ai server error (${status})${endpoint ? ` at ${endpoint}` : ''}. Try again in a moment.`
+  // CLAUDE.md rule: surface raw kie.ai response shape on failures. We add a short
+  // hint for common codes so the user can act, but the raw `msg` (kie's envelope
+  // text) is always appended verbatim — never replaced.
   const tag = endpoint ? ` at ${endpoint}` : ''
-  return `kie.ai error (${status})${tag}: ${msg || 'no response body'}`
+  const raw = msg || 'no response body'
+  if (status === 401) return `kie.ai 401 (invalid/expired API key)${tag}: ${raw}`
+  if (status === 402) return `kie.ai 402 (insufficient credits)${tag}: ${raw}`
+  if (status === 422) return `kie.ai 422 (validation error)${tag}: ${raw}`
+  if (status === 429) return `kie.ai 429 (rate limit)${tag}: ${raw}`
+  if (status === 433) return `kie.ai 433 (key usage limit exceeded)${tag}: ${raw}`
+  if (status === 455) return `kie.ai 455 (maintenance)${tag}: ${raw}`
+  if (status >= 500) return `kie.ai ${status} (server error)${tag}: ${raw}`
+  return `kie.ai error (${status})${tag}: ${raw}`
 }
 
 function endpointTag(method: string | undefined, url: string): string {

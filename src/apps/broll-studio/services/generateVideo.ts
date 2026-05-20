@@ -107,10 +107,19 @@ export async function finishVideoTask(
     ? await kieVeoPoll(apiKey, taskId, { signal, maxPollAttempts: VIDEO_POLL_ATTEMPTS })
     : parseResult(await pollTask(apiKey, taskId, { signal, maxPollAttempts: VIDEO_POLL_ATTEMPTS })).resultUrls
 
-  if (urls.length === 0) throw new Error(`${modelId}: kie.ai returned no resultUrls.`)
+  if (urls.length === 0) {
+    throw new Error(
+      `${modelId}: kie.ai returned no resultUrls. taskId=${taskId} endpoint=${videoEndpoint ?? 'jobs'}`,
+    )
+  }
 
   const res = await fetch(urls[0])
-  if (!res.ok) throw new Error(`Failed to download generated video (${res.status}).`)
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new Error(
+      `Failed to download generated video (${res.status} ${res.statusText}). url=${urls[0]} body=${body.slice(0, 200)}`,
+    )
+  }
   const blob = await res.blob()
   const assetId = await saveAsset(blob)
 

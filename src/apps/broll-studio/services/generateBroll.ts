@@ -427,7 +427,9 @@ export async function finishImageTask(taskId: string, modelId: string): Promise<
   const record = await pollTask(apiKey, taskId, { maxPollAttempts: IMAGE_POLL_ATTEMPTS })
   const urls = parseResult(record).resultUrls
   if (urls.length === 0) {
-    throw new Error(`${modelId}: kie.ai returned no resultUrls. Check console for raw response.`)
+    throw new Error(
+      `${modelId}: kie.ai returned no resultUrls. record=${JSON.stringify(record).slice(0, 400)}`,
+    )
   }
   const { base64, mimeType } = await downloadAsBase64(urls[0])
   return saveBase64Asset(base64, mimeType)
@@ -496,7 +498,13 @@ Respond with ONLY valid JSON (no markdown):
   ]
   const responseText = await kieChatCompletions(apiKey, endpoint, messages)
   const cleaned = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-  const parsed = JSON.parse(cleaned) as { label: string; tag: PromptVariation['tag']; refs?: PromptVariation['refs']; prompt: string }
+  let parsed: { label: string; tag: PromptVariation['tag']; refs?: PromptVariation['refs']; prompt: string }
+  try {
+    parsed = JSON.parse(cleaned)
+  } catch (e) {
+    const reason = e instanceof Error ? e.message : String(e)
+    throw new Error(`Bad JSON from variation model: ${reason} — body: ${cleaned.slice(0, 400)}`)
+  }
 
   // Honour the forced tag even if the LLM ignores the instruction.
   const finalTag: VariationTag = forceTag ?? parsed.tag

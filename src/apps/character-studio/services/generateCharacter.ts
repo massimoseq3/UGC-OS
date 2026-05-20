@@ -1,6 +1,6 @@
 import type { CharacterProfile } from '../types'
 import { useSettingsStore } from '../../../stores/settingsStore'
-import { kieImageGenerate, downloadAsBase64 } from '../../../utils/kie'
+import { createTask, pollTask, parseResult, downloadAsBase64, IMAGE_POLL_ATTEMPTS } from '../../../utils/kie'
 import { getDefaultModel, buildImageInput, type AspectRatio, type ImageResolution } from '../../../utils/models'
 import { saveBase64Asset } from '../../../utils/assetStore'
 
@@ -122,12 +122,15 @@ export function buildImagePrompt(profile: CharacterProfile): string {
   return sections.join('\n\n')
 }
 
-export async function generateCharacter(
+// Phase 1: build the prompt, POST createTask, return the taskId so the caller
+// can persist it before awaiting completion. A mid-flight refresh can resume
+// polling by calling finishCharacterTask with the stored taskId.
+export async function startCharacterTask(
   profile: CharacterProfile,
-  signal?: AbortSignal,
   modelIdOverride?: string,
   resolution?: ImageResolution,
-): Promise<GenerationResult> {
+  signal?: AbortSignal,
+): Promise<{ taskId: string; modelId: string }> {
   const apiKey = useSettingsStore.getState().getKieApiKey()
 
   const modelId = modelIdOverride
@@ -139,13 +142,38 @@ export async function generateCharacter(
   const aspectRatio: AspectRatio = profile.aspectRatio === 'Landscape (16:9)' ? '16:9' : '9:16'
 
   const body = buildImageInput(modelId, { prompt, aspectRatio, resolution })
-  const urls = await kieImageGenerate(apiKey, modelId, body, { signal })
+  const taskId = await createTask(apiKey, modelId, body, signal)
+  return { taskId, modelId }
+}
 
-  if (urls.length === 0) throw new Error('Image generation returned no result.')
-
+// Phase 2: poll the taskId, download the result, save as an asset. Resumable
+// across refreshes — call with the taskId returned by startCharacterTask
+// (possibly persisted from a prior session).
+export async function finishCharacterTask(
+  taskId: string,
+  modelId: string,
+  signal?: AbortSignal,
+): Promise<string> {
+  const apiKey = useSettingsStore.getState().getKieApiKey()
+  const record = await pollTask(apiKey, taskId, { signal, maxPollAttempts: IMAGE_POLL_ATTEMPTS })
+  const urls = parseResult(record).resultUrls
+  if (urls.length === 0) {
+    throw new Error(
+      `${modelId}: kie.ai returned no resultUrls. taskId=${taskId} record=${JSON.stringify(record).slice(0, 400)}`,
+    )
+  }
   const { base64, mimeType } = await downloadAsBase64(urls[0])
-  const assetId = await saveBase64Asset(base64, mimeType)
+  return saveBase64Asset(base64, mimeType)
+}
 
+export async function generateCharacter(
+  profile: CharacterProfile,
+  signal?: AbortSignal,
+  modelIdOverride?: string,
+  resolution?: ImageResolution,
+): Promise<GenerationResult> {
+  const { taskId, modelId } = await startCharacterTask(profile, modelIdOverride, resolution, signal)
+  const assetId = await finishCharacterTask(taskId, modelId, signal)
   return {
     imageUrl: assetId,
     jsonPrompt: buildJsonPrompt(profile),

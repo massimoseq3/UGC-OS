@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useState } from 'react'
 import { Dna } from 'lucide-react'
 import { useAppStore } from '../../stores/appStore'
 import { useBankStore } from '../../stores/bankStore'
@@ -9,9 +9,13 @@ import type { ImageResolution } from '../../utils/models'
 import { getDefaultModel } from '../../utils/models'
 import ControlsPanel from './components/ControlsPanel'
 import GalleryPanel, { type InFlightCharacterGen } from './components/GalleryPanel'
-import { generateCharacter } from './services/generateCharacter'
+import { startCharacterTask, finishCharacterTask } from './services/generateCharacter'
 import { analyzeImage } from './services/analyzeImage'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
+
+// In-flight character generations older than 30 min are evicted on resume —
+// matches the cap used by Playground so the user's mental model is uniform.
+const INFLIGHT_TTL_MS = 30 * 60 * 1000
 
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 const MAX_SIZE = 10 * 1024 * 1024
@@ -26,11 +30,11 @@ export default function CharacterStudio() {
   const [resolution, setResolution] = usePersistedState<ImageResolution>(`${baseKey}:resolution`, '1K')
   const [extractedThumb, setExtractedThumb] = usePersistedState<string | null>(`${baseKey}:thumb`, null)
 
-  // Parallel generations: in-memory only. Each generateCharacter call is a
-  // single awaited promise (no createTask/poll split), so a refresh ends any
-  // in-flight gens — that matches prior behaviour. Persistence happens on
-  // success via addCharacterHistory.
-  const [inFlight, setInFlight] = useState<InFlightCharacterGen[]>([])
+  // Parallel generations: persisted to localStorage so a mid-flight refresh
+  // resumes polling via finishCharacterTask. Stale entries (>30 min, e.g. a
+  // tab left overnight) are evicted on resume so the gallery doesn't stay
+  // stuck on a phantom spinner.
+  const [inFlight, setInFlight] = usePersistedState<InFlightCharacterGen[]>(`${baseKey}:in-flight`, [])
   const [error, setError] = useState<string | null>(null)
   const [isExtracting, setIsExtracting] = useState(false)
   const [extractError, setExtractError] = useState<string | null>(null)
@@ -135,10 +139,39 @@ export default function CharacterStudio() {
     handlePhotoDrop(file)
   }
 
+  // Finish an already-started task (poll → save asset → write history → drop
+  // the in-flight entry). Shared by handleGenerate (foreground) and the
+  // mount-time resume effect (background).
+  const finishGen = useCallback(async (gen: InFlightCharacterGen, controller: AbortController) => {
+    if (!gen.taskId) return
+    try {
+      const assetId = await finishCharacterTask(gen.taskId, gen.modelId, controller.signal)
+      addCharacterHistory({
+        id: crypto.randomUUID(),
+        imageRef: assetId,
+        profile: (gen.profile as CharacterProfile | undefined) ?? createEmptyProfile(),
+        modelId: gen.modelId,
+        aspectRatio: gen.aspectRatio,
+        resolution: gen.resolution,
+        createdAt: Date.now(),
+      })
+      useAppStore.getState().addToast('Character generated', 'success')
+    } catch (err) {
+      if (!controller.signal.aborted) {
+        const msg = err instanceof Error ? err.message : 'Image generation failed. Check your API key and try again.'
+        setError(msg)
+        useAppStore.getState().addToast(`Character generation failed: ${msg}`, 'error')
+      }
+    } finally {
+      abortersRef.current.delete(gen.id)
+      setInFlight((prev) => prev.filter((g) => g.id !== gen.id))
+    }
+  }, [addCharacterHistory, setInFlight])
+
   const handleGenerate = async () => {
     // Snapshot every input the gen depends on at click time — the user can
     // freely mutate the form while this job runs in parallel.
-    const snapshotProfile = { ...profile }
+    const snapshotProfile: CharacterProfile = { ...profile }
     const snapshotResolution = resolution
     const snapshotAspect = profile.aspectRatio || 'Portrait (9:16)'
     const modelId = useSettingsStore.getState().getAppModel('character-studio:image:text-to-image')
@@ -148,39 +181,83 @@ export default function CharacterStudio() {
     const id = crypto.randomUUID()
     const controller = new AbortController()
     abortersRef.current.set(id, controller)
-    setInFlight((prev) => [...prev, { id, modelId, aspectRatio: snapshotAspect, startedAt: Date.now() }])
+    // Stamp an entry without taskId immediately so the in-flight tile renders
+    // while createTask is on the wire. We fill in taskId as soon as it lands.
+    const placeholder: InFlightCharacterGen = {
+      id,
+      modelId,
+      aspectRatio: snapshotAspect,
+      startedAt: Date.now(),
+      resolution: snapshotResolution,
+      profile: snapshotProfile,
+    }
+    setInFlight((prev) => [...prev, placeholder])
     setError(null)
 
+    let taskId: string
     try {
-      const gen = await generateCharacter(snapshotProfile, controller.signal, undefined, snapshotResolution)
-      addCharacterHistory({
-        id: crypto.randomUUID(),
-        imageRef: gen.imageUrl,
-        profile: snapshotProfile,
-        modelId,
-        aspectRatio: snapshotAspect,
-        resolution: snapshotResolution,
-        createdAt: Date.now(),
-      })
-      useAppStore.getState().addToast('Character generated', 'success')
+      const start = await startCharacterTask(snapshotProfile, undefined, snapshotResolution, controller.signal)
+      taskId = start.taskId
     } catch (err) {
-      if (controller.signal.aborted) {
-        // Silent — the user explicitly cancelled this one.
-      } else {
+      abortersRef.current.delete(id)
+      setInFlight((prev) => prev.filter((g) => g.id !== id))
+      if (!controller.signal.aborted) {
         const msg = err instanceof Error ? err.message : 'Image generation failed. Check your API key and try again.'
         setError(msg)
         useAppStore.getState().addToast(`Character generation failed: ${msg}`, 'error')
       }
-    } finally {
-      abortersRef.current.delete(id)
-      setInFlight((prev) => prev.filter((g) => g.id !== id))
+      return
     }
+
+    // Persist taskId so a refresh between createTask and poll completion can
+    // still resume the gen via the mount-time effect.
+    setInFlight((prev) => prev.map((g) => g.id === id ? { ...g, taskId } : g))
+    await finishGen({ ...placeholder, taskId }, controller)
   }
 
   const handleCancelGen = (id: string) => {
     const controller = abortersRef.current.get(id)
     controller?.abort()
+    // Cancelling drops the entry even if the kie task itself can't be cancelled
+    // server-side — the user has signalled they don't want this one.
+    setInFlight((prev) => prev.filter((g) => g.id !== id))
+    abortersRef.current.delete(id)
   }
+
+  // Mount-time resume: walk the persisted in-flight list and either resume
+  // polling (entries with a taskId) or evict stale / un-started entries. Runs
+  // once on mount; new gens started this session are owned by handleGenerate.
+  const didResumeRef = useRef(false)
+  useEffect(() => {
+    if (didResumeRef.current) return
+    didResumeRef.current = true
+    const now = Date.now()
+    const toResume: InFlightCharacterGen[] = []
+    const toEvict: string[] = []
+    for (const gen of inFlight) {
+      const stale = now - gen.startedAt > INFLIGHT_TTL_MS
+      if (stale || !gen.taskId) {
+        toEvict.push(gen.id)
+      } else if (!abortersRef.current.has(gen.id)) {
+        toResume.push(gen)
+      }
+    }
+    if (toEvict.length > 0) {
+      setInFlight((prev) => prev.filter((g) => !toEvict.includes(g.id)))
+      useAppStore.getState().addToast(
+        `${toEvict.length} stalled character gen${toEvict.length === 1 ? '' : 's'} cleared.`,
+        'info',
+      )
+    }
+    for (const gen of toResume) {
+      const controller = new AbortController()
+      abortersRef.current.set(gen.id, controller)
+      void finishGen(gen, controller)
+    }
+    // We intentionally only resume on the first mount of this component.
+    // Subsequent setInFlight calls re-render but must not re-trigger the loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <div
