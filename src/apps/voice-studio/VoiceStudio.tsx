@@ -1,11 +1,11 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import { useAppStore } from '../../stores/appStore'
 import { useBankStore } from '../../stores/bankStore'
 import { useCreditsStore } from '../../stores/creditsStore'
 import type { Script, VoiceHistoryItem } from '../../stores/types'
 import type { VoiceSettings } from './types'
 import { createDefaultSettings } from './types'
-import { generateVoice } from './services/generateVoice'
+import { startVoiceTask, finishVoiceTask } from './services/generateVoice'
 import { getUrl } from '../../utils/assetStore'
 import EditorArea from './components/EditorArea'
 import RightPanel from './components/RightPanel'
@@ -13,11 +13,28 @@ import BottomPlayer from './components/BottomPlayer'
 import BankPicker from '../../components/BankPicker'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
 
+// Persisted in-flight TTS task. Survives a refresh so the user doesn't lose
+// the gen (and the kie credit) when the tab reloads mid-generation. Stale
+// entries (>30 min) are evicted on resume — matches the cap used by other
+// apps so behaviour is uniform.
+interface InFlightVoice {
+  id: string
+  taskId: string
+  settings: VoiceSettings
+  scriptText: string
+  startedAt: number
+}
+const INFLIGHT_TTL_MS = 30 * 60 * 1000
+
 export default function VoiceStudio() {
   const baseKey = useProjectScopedKey('voice-studio')
   const [settings, setSettings] = usePersistedState<VoiceSettings>(`${baseKey}:settings`, createDefaultSettings())
   const [scriptText, setScriptText] = usePersistedState(`${baseKey}:scriptText`, '')
   const [activePlayerItemId, setActivePlayerItemId] = usePersistedState<string | null>(`${baseKey}:playerId`, null)
+  // Persisted so a refresh between createTask and the audio download still
+  // resumes polling. We store the kie taskId + the original settings/script
+  // snapshot needed to build the history row on success.
+  const [inFlightVoice, setInFlightVoice] = usePersistedState<InFlightVoice | null>(`${baseKey}:in-flight`, null)
 
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -62,15 +79,16 @@ export default function VoiceStudio() {
 
   const refreshCredits = useCreditsStore((s) => s.refresh)
 
-  const handleGenerate = async () => {
-    if (!scriptText.trim()) return
+  // Shared finisher used by handleGenerate (foreground) and the mount-time
+  // resume effect (background) so both code paths land in the same place on
+  // success / failure.
+  const finishVoice = async (entry: InFlightVoice) => {
     setIsGenerating(true)
     setError(null)
     try {
-      const item = await generateVoice(settings, scriptText)
+      const item = await finishVoiceTask(entry.taskId, entry.settings, entry.scriptText)
       addVoiceHistory(item)
       setActivePlayerItem(item)
-      // Pull the new credit balance after the generation has settled.
       refreshCredits()
       useAppStore.getState().addToast('Voiceover generated', 'success')
     } catch (err) {
@@ -79,8 +97,57 @@ export default function VoiceStudio() {
       useAppStore.getState().addToast(`Voiceover generation failed: ${msg}`, 'error')
     } finally {
       setIsGenerating(false)
+      setInFlightVoice(null)
     }
   }
+
+  const handleGenerate = async () => {
+    if (!scriptText.trim()) return
+    if (inFlightVoice) return // single-slot — wait for the current gen to land or fail
+    setIsGenerating(true)
+    setError(null)
+
+    let taskId: string
+    try {
+      const start = await startVoiceTask(settings, scriptText)
+      taskId = start.taskId
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Audio generation failed. Check your API key and try again.'
+      setError(msg)
+      useAppStore.getState().addToast(`Voiceover generation failed: ${msg}`, 'error')
+      setIsGenerating(false)
+      return
+    }
+
+    const entry: InFlightVoice = {
+      id: crypto.randomUUID(),
+      taskId,
+      settings,
+      scriptText,
+      startedAt: Date.now(),
+    }
+    // Persist BEFORE we start the poll so a tab refresh during the poll can
+    // resume rather than burning the kie credit.
+    setInFlightVoice(entry)
+    await finishVoice(entry)
+  }
+
+  // Mount-time resume: if a persisted in-flight TTS taskId survived, poll it
+  // until success (or evict if it's older than 30 min — kie's record retention
+  // is short enough that an older taskId likely 404s anyway).
+  const didResumeRef = useRef(false)
+  useEffect(() => {
+    if (didResumeRef.current) return
+    didResumeRef.current = true
+    if (!inFlightVoice) return
+    if (Date.now() - inFlightVoice.startedAt > INFLIGHT_TTL_MS) {
+      setInFlightVoice(null)
+      useAppStore.getState().addToast('A stalled voice gen was cleared.', 'info')
+      return
+    }
+    void finishVoice(inFlightVoice)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleDeleteHistoryItem = (id: string) => {
     deleteVoiceHistory(id)

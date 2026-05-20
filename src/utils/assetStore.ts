@@ -211,6 +211,38 @@ export async function getAsBase64(assetId: string): Promise<{ base64: string; mi
   })
 }
 
+// ── Reset (sign-out) ─────────────────────────────────────────────────
+
+// Wipe every locally-cached blob + revoke every pending object URL. Called on
+// sign-out so the next user signing in on the same browser can't read the
+// previous user's assets via `getBlob(knownId)`. Cloud-mirrored blobs are
+// safe — `getBlob` falls back to R2 (scoped per user) when IndexedDB misses.
+export async function resetAssetStore(): Promise<void> {
+  for (const url of urlCache.values()) {
+    try { URL.revokeObjectURL(url) } catch { /* ignore */ }
+  }
+  urlCache.clear()
+  fallbackStore = null
+
+  // Drop the open connection so deleteDatabase doesn't have to wait on it.
+  if (dbPromise) {
+    try {
+      const db = await dbPromise
+      db.close()
+    } catch { /* ignore */ }
+    dbPromise = null
+  }
+
+  try {
+    await new Promise<void>((resolve) => {
+      const req = indexedDB.deleteDatabase(DB_NAME)
+      req.onsuccess = () => resolve()
+      req.onerror = () => resolve() // best-effort
+      req.onblocked = () => resolve()
+    })
+  } catch { /* ignore */ }
+}
+
 // ── Delete ───────────────────────────────────────────────────────────
 
 // Awaited delete across all three stores: IndexedDB + R2 `assets` row.

@@ -110,8 +110,39 @@ export default function ScenesView({
 
   // Refresh-resume: walk every card's in-flight queues on mount and finish
   // any kie task whose taskId survived the refresh. Drains parallel queues.
+  // Entries older than 30 min — or in-flight entries that never received a
+  // taskId (refresh during createTask) — are evicted with an error chip so the
+  // gallery doesn't stay stuck on a phantom spinner.
+  const INFLIGHT_TTL_MS = 30 * 60 * 1000
   const resumingRef = useRef<Set<string>>(new Set())
   useEffect(() => {
+    const now = Date.now()
+    // First pass: evict stale entries that can't be resumed.
+    setCardStates((prev) => {
+      const next = { ...prev }
+      let changed = false
+      for (const [key, card] of Object.entries(prev)) {
+        const stalledImages = card.inFlightImages.filter(
+          (e) => (!e.taskId || !e.modelId) && now - e.startedAt > INFLIGHT_TTL_MS,
+        )
+        const stalledVideos = card.inFlightVideos.filter(
+          (e) => !e.taskId && now - e.startedAt > INFLIGHT_TTL_MS,
+        )
+        if (stalledImages.length === 0 && stalledVideos.length === 0) continue
+        changed = true
+        next[key] = {
+          ...card,
+          inFlightImages: card.inFlightImages.map((e) =>
+            stalledImages.includes(e) ? { ...e, error: 'Generation stalled before kie returned a task id. Reset and try again.' } : e,
+          ),
+          inFlightVideos: card.inFlightVideos.map((e) =>
+            stalledVideos.includes(e) ? { ...e, error: 'Generation stalled before kie returned a task id. Reset and try again.' } : e,
+          ),
+        }
+      }
+      return changed ? next : prev
+    })
+
     for (const [key, card] of Object.entries(cardStates)) {
       // ── Image queue ────────────────────────────────────────────────
       for (const entry of card.inFlightImages) {

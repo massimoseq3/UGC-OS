@@ -137,6 +137,14 @@ function saveToStorage(state: { kieApiKey: string; perAppModel: Record<string, s
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
 }
 
+// Wipe the in-memory settings and the localStorage snapshot. Called on
+// sign-out so a different user signing in on the same browser can't pick
+// up the previous user's kie.ai API key or per-app model picks.
+export function resetSettingsStore(): void {
+  try { localStorage.removeItem(STORAGE_KEY) } catch { /* ignore */ }
+  useSettingsStore.setState({ kieApiKey: '', perAppModel: {} })
+}
+
 export const useSettingsStore = create<SettingsState>((set, get) => ({
   ...loadFromStorage(),
 

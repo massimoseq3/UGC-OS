@@ -77,6 +77,10 @@ export async function analyzeAd(videoFile: File): Promise<AnalysisResult> {
   })
 
   const cleaned = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-  const result: AnalysisResult = JSON.parse(cleaned)
-  return result
+  try {
+    return JSON.parse(cleaned) as AnalysisResult
+  } catch (e) {
+    const reason = e instanceof Error ? e.message : String(e)
+    throw new Error(`Bad JSON from ad analysis model: ${reason} — body: ${cleaned.slice(0, 400)}`)
+  }
 }

@@ -13,16 +13,21 @@ import { estimateCredits, formatCredits, getDefaultModel, getModel, type ImageRe
 import HistoryPreviewModal from './HistoryPreviewModal'
 import { buildJsonPrompt } from '../services/generateCharacter'
 
-// One running generation. Lives only in memory — there's no createTask/poll
-// split (generateCharacter is a single awaited promise), so a refresh ends
-// the in-flight state and we lose the gen. That mirrors how the Characters
-// flow worked before this change; persistence happens via characterHistory
-// once the gen lands.
+// One running generation. Persisted to localStorage so a mid-flight refresh
+// resumes polling instead of losing the job. `taskId` is the kie.ai task ref
+// returned by startCharacterTask; missing while the createTask request is
+// in flight, populated as soon as kie returns it. `profile` / `resolution`
+// are the snapshot needed to write the history row on success.
 export interface InFlightCharacterGen {
   id: string
   modelId: string
   aspectRatio: string
   startedAt: number
+  taskId?: string
+  resolution?: ImageResolution
+  // The CharacterProfile snapshot to write into characterHistory on success.
+  // Typed as Record<string, string> to avoid an import cycle through types.
+  profile?: Record<string, string>
 }
 
 interface GalleryPanelProps {

@@ -90,7 +90,9 @@ export async function finishPlaygroundImageTask(
   const record = await pollTask(apiKey, taskId, { maxPollAttempts: IMAGE_POLL_ATTEMPTS })
   const urls = parseResult(record).resultUrls
   if (urls.length === 0) {
-    throw new Error(`${modelId}: kie.ai returned no resultUrls. Check console for raw response.`)
+    throw new Error(
+      `${modelId}: kie.ai returned no resultUrls. record=${JSON.stringify(record).slice(0, 400)}`,
+    )
   }
   const { base64, mimeType } = await downloadAsBase64(urls[0])
   const assetId = await saveBase64Asset(base64, mimeType)
@@ -210,11 +212,18 @@ export async function finishPlaygroundVideoTask(
     : parseResult(await pollTask(apiKey, taskId, { maxPollAttempts: VIDEO_POLL_ATTEMPTS })).resultUrls
 
   if (urls.length === 0) {
-    throw new Error(`${modelId}: kie.ai returned no resultUrls. Check console for raw response.`)
+    throw new Error(
+      `${modelId}: kie.ai returned no resultUrls. taskId=${taskId} endpoint=${videoEndpoint ?? 'jobs'}`,
+    )
   }
 
   const res = await fetch(urls[0])
-  if (!res.ok) throw new Error(`Failed to download generated video (${res.status}).`)
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new Error(
+      `Failed to download generated video (${res.status} ${res.statusText}). url=${urls[0]} body=${body.slice(0, 200)}`,
+    )
+  }
   const blob = await res.blob()
   const assetId = await saveAsset(blob)
 
@@ -273,12 +282,19 @@ export async function finishPlaygroundMusicTask(
   // present because the regular audioUrl can lag a few seconds for v5 tracks.
   const track = record.response?.sunoData?.[0]
   if (!track?.audioUrl) {
-    throw new Error(`${modelId}: Suno returned SUCCESS but no audioUrl.`)
+    throw new Error(
+      `${modelId}: Suno returned SUCCESS but no audioUrl. record=${JSON.stringify(record).slice(0, 400)}`,
+    )
   }
 
   const dlUrl = track.audioUrl
   const res = await fetch(dlUrl)
-  if (!res.ok) throw new Error(`Failed to download generated audio (${res.status}).`)
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new Error(
+      `Failed to download generated audio (${res.status} ${res.statusText}). url=${dlUrl} body=${body.slice(0, 200)}`,
+    )
+  }
   const blob = await res.blob()
   const audioRef = await saveAsset(blob, blob.type || 'audio/mpeg')
 

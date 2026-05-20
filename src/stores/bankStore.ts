@@ -121,6 +121,31 @@ function migrateVoiceShape<T>(arr: unknown): T[] {
     })
 }
 
+const EMPTY_BANKS: BankData = {
+  products: [],
+  models: [],
+  scripts: [],
+  voices: [],
+  brolls: [],
+  voiceHistory: [],
+  videoHistory: [],
+  imageHistory: [],
+  musicHistory: [],
+  scriptHistory: [],
+  brollHistory: [],
+  characterHistory: [],
+}
+
+// Wipe the in-memory bank state and the localStorage snapshot. Called on
+// sign-out so a different user signing in on the same browser can't see
+// the previous user's data through a pre-hydration window or an offline reload.
+export function resetBankStore(): void {
+  pendingSave = null
+  saveScheduled = false
+  try { localStorage.removeItem(STORAGE_KEY) } catch { /* ignore */ }
+  useBankStore.setState(EMPTY_BANKS)
+}
+
 function loadFromStorage(): BankData {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -144,7 +169,7 @@ function loadFromStorage(): BankData {
   } catch {
     /* corrupted — start fresh */
   }
-  return { products: [], models: [], scripts: [], voices: [], brolls: [], voiceHistory: [], videoHistory: [], imageHistory: [], musicHistory: [], scriptHistory: [], brollHistory: [], characterHistory: [] }
+  return { ...EMPTY_BANKS }
 }
 
 let pendingSave: BankData | null = null

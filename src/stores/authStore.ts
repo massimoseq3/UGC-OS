@@ -1,6 +1,19 @@
 import { create } from 'zustand'
 import type { Session, User } from '@supabase/supabase-js'
 import { getSupabase, isCloudEnabled } from '../lib/supabase'
+import { resetBankStore } from './bankStore'
+import { resetSettingsStore } from './settingsStore'
+import { resetAssetStore } from '../utils/assetStore'
+
+// Wipe every local trace of the current user — banks, settings, IndexedDB
+// blobs, and their localStorage snapshots — so the next person to sign in
+// on this browser starts from a clean slate. Cloud data is untouched; the
+// next sign-in re-hydrates from Supabase + R2.
+async function wipeLocalUserData(): Promise<void> {
+  resetBankStore()
+  resetSettingsStore()
+  await resetAssetStore()
+}
 
 export interface ProfileRow {
   id: string
@@ -65,6 +78,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // If admin removed the user from allowlist, sign them out immediately.
       if (profile?.disabled_at) {
         await sb.auth.signOut()
+        await wipeLocalUserData()
         set({ session: null, user: null, profile: null, bootstrapping: false })
         return
       }
@@ -73,15 +87,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     // Keep state in sync with auth changes (other-tab sign-in, refresh, etc.)
     sb.auth.onAuthStateChange(async (_event, nextSession) => {
+      const prevUserId = get().user?.id
       const nextUser = nextSession?.user ?? null
       let nextProfile: ProfileRow | null = null
       if (nextUser) {
         nextProfile = await fetchProfile(nextUser.id)
         if (nextProfile?.disabled_at) {
           await sb.auth.signOut()
+          await wipeLocalUserData()
           set({ session: null, user: null, profile: null })
           return
         }
+      }
+      // If the user changed (sign-out or account swap in another tab), wipe
+      // every trace of the previous user before letting cloudSync hydrate
+      // the next account.
+      if (prevUserId && prevUserId !== nextUser?.id) {
+        await wipeLocalUserData()
       }
       set({ session: nextSession, user: nextUser, profile: nextProfile })
     })
@@ -126,6 +148,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (!isCloudEnabled()) return
     const sb = getSupabase()
     await sb.auth.signOut()
+    await wipeLocalUserData()
     set({ session: null, user: null, profile: null })
   },
 
