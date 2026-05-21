@@ -1093,29 +1093,6 @@ function TileDeleteButton({ onDelete }: { onDelete: () => void }) {
   )
 }
 
-function TileTextButton({
-  children,
-  onClick,
-  tone = 'default',
-}: {
-  children: React.ReactNode
-  onClick: (e: React.MouseEvent) => void
-  tone?: 'default' | 'saved'
-}) {
-  const toneClass = tone === 'saved'
-    ? 'bg-emerald-500/40 text-emerald-100 hover:bg-emerald-500/50'
-    : 'bg-black/60 text-zinc-200 hover:bg-black/80'
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[11px] font-medium backdrop-blur transition-colors ${toneClass}`}
-    >
-      {children}
-    </button>
-  )
-}
-
 function ModalTabButton({
   active,
   onClick,

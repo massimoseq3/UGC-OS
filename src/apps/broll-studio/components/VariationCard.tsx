@@ -328,10 +328,15 @@ export default function VariationCard(props: VariationCardProps) {
       // model can't take refs as refs, drop them and run pure
       // text-to-video — the user can switch to a ref-capable model if they
       // need the character/product on screen.
-      const modes = model.modes ?? []
-      const fallback: VideoMode | undefined = modes.includes('text-to-video')
+      // model.modes is the broader Mode union (also includes image modes);
+      // narrow to VideoMode before consuming.
+      const VIDEO_MODES: VideoMode[] = ['text-to-video', 'image-to-video', 'frames-to-video', 'reference-to-video']
+      const videoModes = (model.modes ?? []).filter((m): m is VideoMode =>
+        (VIDEO_MODES as string[]).includes(m),
+      )
+      const fallback: VideoMode | undefined = videoModes.includes('text-to-video')
         ? 'text-to-video'
-        : modes[0]
+        : videoModes[0]
       if (!fallback) {
         useAppStore.getState().addToast('Video model has no supported modes.', 'error')
         return
