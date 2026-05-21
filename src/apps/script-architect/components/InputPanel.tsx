@@ -126,7 +126,7 @@ export default function InputPanel({
 
             <div className="my-3 flex items-center gap-3">
               <div className="h-px flex-1 bg-white/[0.07]" />
-              <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-zinc-600">or paste transcript manually</span>
+              <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">or paste transcript manually</span>
               <div className="h-px flex-1 bg-white/[0.07]" />
             </div>
 
