@@ -53,7 +53,19 @@ function generateAssetId(): string {
 }
 
 export function isAssetRef(value: string | undefined | null): boolean {
-  return typeof value === 'string' && value.startsWith('asset-')
+  if (typeof value !== 'string') return false
+  // Two shapes are in use across the app: bare ids ("asset-xxx") from
+  // saveBase64Asset / saveFromDataUrl paths, and asset:// URIs from
+  // VariationCard's video write path. Both must be recognised or the
+  // useAssetUrl hook hands the raw string to <img>/<video>, which then
+  // tries to load `asset://…` (an unknown scheme) and fails silently.
+  return value.startsWith('asset-') || value.startsWith('asset://')
+}
+
+// Normalise either form to the bare IDB key. Safe to call on already-bare
+// ids; only strips the asset:// prefix when present.
+export function assetIdFromRef(value: string): string {
+  return value.startsWith('asset://') ? value.slice('asset://'.length) : value
 }
 
 async function idbPut(asset: StoredAsset): Promise<void> {
@@ -96,6 +108,9 @@ async function idbDelete(id: string): Promise<void> {
 // generation UI; the asset is always usable on the current device, and cross-
 // device sync degrades gracefully.
 export async function saveAsset(blob: Blob, mimeType?: string): Promise<string> {
+  if (blob.size === 0) {
+    throw new Error('saveAsset: refusing to save a 0-byte blob (would render as black / unplayable).')
+  }
   const id = generateAssetId()
   const asset: StoredAsset = {
     id,
@@ -145,7 +160,10 @@ export async function saveFromBlobUrl(blobUrl: string): Promise<string> {
 
 // ── Read ─────────────────────────────────────────────────────────────
 
-export async function getBlob(assetId: string): Promise<Blob | null> {
+export async function getBlob(refOrId: string): Promise<Blob | null> {
+  // Callers pass either a bare id or an asset:// URI — IDB only knows the
+  // bare key, so normalise up front.
+  const assetId = assetIdFromRef(refOrId)
   let local: Blob | null = null
   if (fallbackStore) {
     local = fallbackStore.get(assetId)?.blob ?? null
@@ -183,7 +201,8 @@ export async function getBlob(assetId: string): Promise<Blob | null> {
   return null
 }
 
-export async function getUrl(assetId: string): Promise<string | null> {
+export async function getUrl(refOrId: string): Promise<string | null> {
+  const assetId = assetIdFromRef(refOrId)
   const cached = urlCache.get(assetId)
   if (cached) return cached
 
@@ -247,7 +266,8 @@ export async function resetAssetStore(): Promise<void> {
 
 // Awaited delete across all three stores: IndexedDB + R2 `assets` row.
 // The R2 object itself is left as a cheap leak; a sweeper job can clean it up.
-export async function deleteAsset(assetId: string): Promise<void> {
+export async function deleteAsset(refOrId: string): Promise<void> {
+  const assetId = assetIdFromRef(refOrId)
   const cached = urlCache.get(assetId)
   if (cached) {
     URL.revokeObjectURL(cached)

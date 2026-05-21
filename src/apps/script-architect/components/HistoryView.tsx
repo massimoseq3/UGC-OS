@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Search, FileText, Trash2, Wand2, Recycle } from 'lucide-react'
+import { Search, FileText, Trash2, Wand2, PenLine } from 'lucide-react'
 import type { ScriptHistoryItem } from '../../../stores/types'
 
 interface HistoryViewProps {
@@ -97,7 +97,7 @@ export default function HistoryView({ items, activeId, onSelect, onDelete }: His
 
                 {dayItems.map((item) => {
                   const isActive = activeId === item.id
-                  const ModeIcon = item.mode === 'remix' ? Recycle : Wand2
+                  const ModeIcon = item.mode === 'remix' ? PenLine : Wand2
                   const modeColor = item.mode === 'remix' ? 'text-blue-300' : 'text-fuchsia-300'
                   const modeLabel = item.mode === 'remix'
                     ? `Remix · ${item.variations.length} variation${item.variations.length === 1 ? '' : 's'}`

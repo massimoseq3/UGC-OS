@@ -116,8 +116,12 @@ export default function VariationCard(props: VariationCardProps) {
   // calls onDelete. Matches the old modal-footer Delete behaviour.
   const [confirmingDelete, setConfirmingDelete] = useState(false)
 
-  const isGeneratingVideo = cardState.videoStatus === 'generating'
-  const isAnimating = isGeneratingVideo && cardState.videoMode === 'image-to-video'
+  // Drive the in-flight indicator off the parallel-queue array — the legacy
+  // single-slot `videoStatus` field is no longer written by runVideoTask so
+  // it stayed permanently 'idle', making the card face look idle even mid-gen.
+  const isGeneratingVideo = cardState.inFlightVideos.length > 0
+  const generatingVideoMode = cardState.inFlightVideos[0]?.mode
+  const isAnimating = isGeneratingVideo && generatingVideoMode === 'image-to-video'
 
   // ────────────────────────────────────────────────────────────────────────
   // Action handlers — owned here so both the modal (rendered as a child)
@@ -317,16 +321,34 @@ export default function VariationCard(props: VariationCardProps) {
 
     let effectiveMode = mode
     if (!model.modes?.includes(effectiveMode)) {
+      // The model can't honour the requested mode. We deliberately do NOT
+      // promote the reference image into a first-frame seed: hijacking
+      // image-to-video that way produced visibly distorted clips (the user
+      // saw the character locked into the static reference pose). When the
+      // model can't take refs as refs, drop them and run pure
+      // text-to-video — the user can switch to a ref-capable model if they
+      // need the character/product on screen.
+      // model.modes is the broader Mode union (also includes image modes);
+      // narrow to VideoMode before consuming.
       const VIDEO_MODES: VideoMode[] = ['text-to-video', 'image-to-video', 'frames-to-video', 'reference-to-video']
-      const fallback = model.modes?.find((m): m is VideoMode => (VIDEO_MODES as string[]).includes(m))
+      const videoModes = (model.modes ?? []).filter((m): m is VideoMode =>
+        (VIDEO_MODES as string[]).includes(m),
+      )
+      const fallback: VideoMode | undefined = videoModes.includes('text-to-video')
+        ? 'text-to-video'
+        : videoModes[0]
       if (!fallback) {
         useAppStore.getState().addToast('Video model has no supported modes.', 'error')
         return
       }
-      if (effectiveMode === 'reference-to-video' && fallback === 'image-to-video' && referenceDataUris?.length) {
-        firstFrameDataUri = referenceDataUris[0]
-        referenceDataUris = undefined
+      if (effectiveMode === 'reference-to-video' && referenceDataUris?.length) {
+        useAppStore.getState().addToast(
+          `${model.displayName} doesn't support reference images — generating from prompt only. Switch to Veo 3.1 Fast or Seedance 2.0 to use references.`,
+          'error',
+        )
       }
+      referenceDataUris = undefined
+      firstFrameDataUri = undefined
       effectiveMode = fallback
     }
 
@@ -491,6 +513,28 @@ export default function VariationCard(props: VariationCardProps) {
                   'Rendering details...',
                   'Finalizing the frame...',
                 ]}
+                className="max-w-[180px]"
+              />
+            </div>
+          ) : isGeneratingVideo && !coverImage && !coverVideo ? (
+            <div className="flex h-full w-full flex-col items-center justify-center gap-2 px-4">
+              <GenerationProgress
+                isActive
+                color="bg-orange-500"
+                showHelper={false}
+                messages={isAnimating
+                  ? [
+                      'Sending request...',
+                      'Animating still...',
+                      'Rendering motion...',
+                      'Finalizing the clip...',
+                    ]
+                  : [
+                      'Sending request...',
+                      'Storyboarding frames...',
+                      'Rendering motion...',
+                      'Finalizing the clip...',
+                    ]}
                 className="max-w-[180px]"
               />
             </div>

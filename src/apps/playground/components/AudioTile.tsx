@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Download, Trash2, Music as MusicIcon } from 'lucide-react'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
 import type { MusicHistoryItem } from '../../../stores/types'
@@ -15,6 +16,7 @@ export default function AudioTile({ item, onDownload, onDelete }: AudioTileProps
   const audioUrl = useAssetUrl(item.audioRef)
   const coverUrl = useAssetUrl(item.coverImageRef)
   const modelLabel = getModel(item.modelId)?.displayName ?? item.modelId
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   return (
     <div className="overflow-hidden rounded-lg border border-white/10 bg-white/[0.02]">
@@ -54,11 +56,24 @@ export default function AudioTile({ item, onDownload, onDelete }: AudioTileProps
           </button>
           <button
             type="button"
-            title="Delete"
-            onClick={onDelete}
-            className="flex h-6 w-6 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-red-500/15 hover:text-red-300"
+            title={confirmingDelete ? 'Click again to delete' : 'Delete'}
+            onClick={(e) => {
+              e.stopPropagation()
+              if (!confirmingDelete) {
+                setConfirmingDelete(true)
+                setTimeout(() => setConfirmingDelete(false), 3000)
+                return
+              }
+              onDelete()
+            }}
+            className={`flex h-6 items-center justify-center gap-1 rounded-md px-1.5 transition-colors ${
+              confirmingDelete
+                ? 'bg-red-500/30 text-red-100 ring-1 ring-red-400/60'
+                : 'text-zinc-400 hover:bg-red-500/15 hover:text-red-300'
+            }`}
           >
             <Trash2 className="h-3 w-3" />
+            {confirmingDelete && <span className="text-[9px] font-medium uppercase tracking-wider">Confirm</span>}
           </button>
         </div>
       </div>

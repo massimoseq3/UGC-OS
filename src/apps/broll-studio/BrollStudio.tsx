@@ -44,7 +44,14 @@ function migrateVariation(v: PromptVariation): PromptVariation {
   // Default refs to 'both' when the persisted variation didn't have any
   // reference declaration. Keeps existing card behaviour (both refs attached).
   const refs: VariationRefs = v.refs ?? 'both'
-  return { ...v, tag, label, refs }
+  // Strip any leftover LLM template wrappers from prompts persisted before
+  // the parser fix landed. Same regex set the parser now applies.
+  const prompt = (v.prompt ?? '')
+    .replace(/<LABEL>[\s\S]*?<\/LABEL>/g, '')
+    .replace(/<REFS>[\s\S]*?<\/REFS>/g, '')
+    .replace(/<\/?(PROMPT|VAR_\d+|TAG|POSITION|VISIBILITY)>/g, '')
+    .trim()
+  return { ...v, tag, label, refs, prompt }
 }
 
 function newSessionId(): string {
@@ -95,6 +102,11 @@ export default function BrollStudio() {
     {
       sanitize: (raw) => {
         const next: Record<string, CardState> = {}
+        const stripTags = (s: string) => s
+          .replace(/<LABEL>[\s\S]*?<\/LABEL>/g, '')
+          .replace(/<REFS>[\s\S]*?<\/REFS>/g, '')
+          .replace(/<\/?(PROMPT|VAR_\d+|TAG|POSITION|VISIBILITY)>/g, '')
+          .trim()
         for (const k in raw) {
           const card = raw[k] as Partial<CardState> & Record<string, unknown>
           const patched: CardState = backfillCardState(card)
@@ -107,6 +119,10 @@ export default function BrollStudio() {
           patched.videoStartedAt = null
           patched.isPromptWorking = false
           patched.promptError = null
+          // Clean leftover LLM template wrappers from anything the user typed
+          // before the parser fix shipped. Same regex set as the parser.
+          patched.editablePrompt = stripTags(patched.editablePrompt ?? '')
+          patched.promptHistory = (patched.promptHistory ?? []).map(stripTags)
           next[k] = patched
         }
         return next

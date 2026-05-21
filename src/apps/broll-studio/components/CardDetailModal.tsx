@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
   X,
@@ -19,6 +19,7 @@ import {
   User,
   Package,
   Play,
+  Pause,
   Copy,
   Circle,
 } from 'lucide-react'
@@ -135,6 +136,14 @@ export default function CardDetailModal(props: CardDetailModalProps) {
 
   const imageConstraints = imageModelId ? getModel(imageModelId)?.imageConstraints : undefined
   const videoConstraints = videoModelId ? getModel(videoModelId)?.videoConstraints : undefined
+  // Does the chosen video model accept reference-to-video? When false, the
+  // CHARACTER / PRODUCT slot cards dim with an explanatory tooltip — the
+  // toggles still flip so the user can pre-arm them for a model swap, but
+  // they no longer suggest the refs will be honoured at gen time.
+  const videoModelSupportsRefs = videoModelId
+    ? (getModel(videoModelId)?.modes ?? []).includes('reference-to-video')
+    : false
+  const videoModelName = videoModelId ? (getModel(videoModelId)?.displayName ?? videoModelId) : 'This model'
 
   // Re-clamp per-card settings when the user switches models. For audio:
   // FORCE on whenever the new model supports audio so it's the default for
@@ -486,6 +495,8 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                     onClick={() => onOpenCharacterPicker?.()}
                     active={cardState.refsCharacter !== false}
                     onToggleActive={() => onUpdateState({ refsCharacter: cardState.refsCharacter === false })}
+                    dimmed={!videoModelSupportsRefs}
+                    dimmedReason={`${videoModelName} doesn't accept reference images. Switch to Veo 3.1 Fast or Seedance 2.0 to use them.`}
                   />
                   <ReferenceSlotCard
                     icon={<Package className="h-4 w-4 text-amber-400" />}
@@ -496,6 +507,8 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                     onClick={() => onOpenProductPicker?.()}
                     active={cardState.refsProduct !== false}
                     onToggleActive={() => onUpdateState({ refsProduct: cardState.refsProduct === false })}
+                    dimmed={!videoModelSupportsRefs}
+                    dimmedReason={`${videoModelName} doesn't accept reference images. Switch to Veo 3.1 Fast or Seedance 2.0 to use them.`}
                   />
                 </div>
               </div>
@@ -616,8 +629,8 @@ interface ModalGalleryProps {
 type ModalEntry =
   | { kind: 'image'; idx: number; createdAt: number; imageUrl: string; prompt: string }
   | { kind: 'video'; idx: number; createdAt: number; videoUrl: string; aspectRatio: string; prompt: string; modelId: string }
-  | { kind: 'in-flight-image'; id: string; createdAt: number; prompt: string }
-  | { kind: 'in-flight-video'; id: string; createdAt: number; prompt: string; mode: 'animating' | 'rendering' }
+  | { kind: 'in-flight-image'; id: string; createdAt: number; prompt: string; aspectRatio: string }
+  | { kind: 'in-flight-video'; id: string; createdAt: number; prompt: string; mode: 'animating' | 'rendering'; aspectRatio: string }
 
 function ModalGallery({
   cardState,
@@ -647,7 +660,7 @@ function ModalGallery({
   // Unified per-card output stream, newest-first.
   const entries: ModalEntry[] = []
   for (const entry of cardState.inFlightImages) {
-    entries.push({ kind: 'in-flight-image', id: entry.id, createdAt: entry.startedAt, prompt: entry.prompt })
+    entries.push({ kind: 'in-flight-image', id: entry.id, createdAt: entry.startedAt, prompt: entry.prompt, aspectRatio: entry.aspectRatio })
   }
   for (const entry of cardState.inFlightVideos) {
     entries.push({
@@ -656,6 +669,7 @@ function ModalGallery({
       createdAt: entry.startedAt,
       prompt: entry.prompt,
       mode: entry.mode === 'image-to-video' ? 'animating' : 'rendering',
+      aspectRatio: entry.aspectRatio,
     })
   }
   cardState.images.forEach((img, idx) => {
@@ -814,22 +828,20 @@ function ImageTile({
       )}
       {/* Top-right trash — appears on hover */}
       <div className="absolute right-1.5 top-1.5 opacity-0 transition-opacity group-hover:opacity-100">
-        <TileIconButton title="Delete" tone="danger" onClick={(e) => { e.stopPropagation(); onDelete() }}>
-          <Trash2 className="h-4 w-4" />
-        </TileIconButton>
+        <TileDeleteButton onDelete={onDelete} />
       </div>
-      {/* Bottom-right: Copy prompt · Bookmark+text · Download */}
+      {/* Bottom-right: Copy prompt · Save · Download — all square */}
       <div className="absolute right-1.5 bottom-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
         <TileIconButton title="Copy prompt" onClick={(e) => { e.stopPropagation(); onCopyPrompt() }}>
           <Copy className="h-4 w-4" />
         </TileIconButton>
-        <TileTextButton
+        <TileIconButton
+          title={saved ? 'Saved to bank' : saving ? 'Saving…' : 'Save to bank'}
           tone={saved ? 'saved' : 'default'}
           onClick={(e) => { e.stopPropagation(); if (!saved && !saving) onSave() }}
         >
           {saved ? <Check className="h-4 w-4" /> : saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bookmark className="h-4 w-4" />}
-          <span>{saved ? 'Saved' : 'Save to Bank'}</span>
-        </TileTextButton>
+        </TileIconButton>
         <TileIconButton
           title="Download"
           onClick={async (e) => {
@@ -869,9 +881,23 @@ function VideoTile({
   onCopyPrompt: () => void
 }) {
   const url = useAssetUrl(videoRef)
+  const videoElRef = useRef<HTMLVideoElement>(null)
   const [hovering, setHovering] = useState(false)
+  const [playing, setPlaying] = useState(false)
   const ratio = aspectStyle(aspectRatio)
   const modelLabel = getModel(modelId)?.displayName ?? modelId
+
+  const togglePlay = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const v = videoElRef.current
+    if (!v) return
+    if (v.paused) {
+      v.play().catch(() => {})
+    } else {
+      v.pause()
+    }
+  }
+
   return (
     <div
       onMouseEnter={() => setHovering(true)}
@@ -886,11 +912,14 @@ function VideoTile({
     >
       {url ? (
         <video
+          ref={videoElRef}
           src={url}
           muted
           loop
           playsInline
           autoPlay={hovering}
+          onPlay={() => setPlaying(true)}
+          onPause={() => setPlaying(false)}
           className="h-full w-full object-cover"
         />
       ) : (
@@ -898,10 +927,29 @@ function VideoTile({
           <Loader2 className="h-5 w-5 animate-spin text-zinc-500" />
         </div>
       )}
-      {!hovering && url && (
-        <div className="pointer-events-none absolute left-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/60">
+      {/* Clickable play / pause overlay. Hidden while playing — autoplay on
+          hover means most of the time the user never has to click it. The
+          stopPropagation lets the user toggle playback without selecting the
+          tile as the cover. */}
+      {url && !playing && (
+        <button
+          type="button"
+          title="Play"
+          onClick={togglePlay}
+          className="pointer-events-auto absolute left-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur transition-colors hover:bg-black/85"
+        >
           <Play className="h-3 w-3 fill-white text-white" />
-        </div>
+        </button>
+      )}
+      {url && playing && hovering && (
+        <button
+          type="button"
+          title="Pause"
+          onClick={togglePlay}
+          className="pointer-events-auto absolute left-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur transition-colors hover:bg-black/85"
+        >
+          <Pause className="h-3 w-3 fill-white text-white" />
+        </button>
       )}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/80 to-transparent" />
       <p className="pointer-events-none absolute inset-x-2 bottom-1 line-clamp-1 text-[10px] text-zinc-300/90">{modelLabel}</p>
@@ -912,22 +960,20 @@ function VideoTile({
       )}
       {/* Top-right trash */}
       <div className="absolute right-1.5 top-1.5 opacity-0 transition-opacity group-hover:opacity-100">
-        <TileIconButton title="Delete" tone="danger" onClick={(e) => { e.stopPropagation(); onDelete() }}>
-          <Trash2 className="h-4 w-4" />
-        </TileIconButton>
+        <TileDeleteButton onDelete={onDelete} />
       </div>
-      {/* Bottom-right: Copy prompt · Bookmark+text · Download */}
+      {/* Bottom-right hover actions */}
       <div className="absolute right-1.5 bottom-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
         <TileIconButton title="Copy prompt" onClick={(e) => { e.stopPropagation(); onCopyPrompt() }}>
           <Copy className="h-4 w-4" />
         </TileIconButton>
-        <TileTextButton
+        <TileIconButton
+          title={saved ? 'Saved to bank' : saving ? 'Saving…' : 'Save to bank'}
           tone={saved ? 'saved' : 'default'}
           onClick={(e) => { e.stopPropagation(); if (!saved && !saving) onSave() }}
         >
           {saved ? <Check className="h-4 w-4" /> : saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bookmark className="h-4 w-4" />}
-          <span>{saved ? 'Saved' : 'Save to Bank'}</span>
-        </TileTextButton>
+        </TileIconButton>
         <TileIconButton
           title="Download"
           onClick={async (e) => {
@@ -951,16 +997,19 @@ function InFlightTile({ entry }: { entry: ModalEntry }) {
     ? (entry.kind === 'in-flight-video' && entry.mode === 'animating' ? 'animating' : 'rendering')
     : 'image'
   return (
-    <div className="relative aspect-square overflow-hidden rounded-lg border border-green-500/30 bg-gradient-to-br from-green-500/[0.08] to-zinc-950">
-      <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-green-500/10 via-transparent to-green-500/5" />
-      <div className="absolute left-1.5 top-1.5 rounded-full bg-green-500/30 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-green-100 backdrop-blur">
+    <div
+      className="relative overflow-hidden rounded-lg border border-orange-500/30 bg-gradient-to-br from-orange-500/[0.08] to-zinc-950"
+      style={aspectStyle(entry.aspectRatio)}
+    >
+      <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-orange-500/10 via-transparent to-orange-500/5" />
+      <div className="absolute left-1.5 top-1.5 rounded-full bg-orange-500/30 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-orange-100 backdrop-blur">
         {label}
       </div>
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center">
-        <Icon className="h-5 w-5 text-green-300" />
+        <Icon className="h-5 w-5 text-orange-300" />
         <GenerationProgress
           isActive
-          color="bg-green-500"
+          color="bg-orange-500"
           showHelper={false}
           messages={
             isVideo
@@ -996,10 +1045,12 @@ function TileIconButton({
   children: React.ReactNode
   onClick: (e: React.MouseEvent) => void
   title: string
-  tone?: 'default' | 'danger'
+  tone?: 'default' | 'danger' | 'saved'
 }) {
   const toneClass = tone === 'danger'
     ? 'bg-black/60 text-zinc-300 hover:bg-red-500/30 hover:text-red-200'
+    : tone === 'saved'
+    ? 'bg-emerald-500/40 text-emerald-100 hover:bg-emerald-500/50'
     : 'bg-black/60 text-zinc-200 hover:bg-black/80'
   return (
     <button
@@ -1013,25 +1064,31 @@ function TileIconButton({
   )
 }
 
-function TileTextButton({
-  children,
-  onClick,
-  tone = 'default',
-}: {
-  children: React.ReactNode
-  onClick: (e: React.MouseEvent) => void
-  tone?: 'default' | 'saved'
-}) {
-  const toneClass = tone === 'saved'
-    ? 'bg-emerald-500/40 text-emerald-100 hover:bg-emerald-500/50'
-    : 'bg-black/60 text-zinc-200 hover:bg-black/80'
+// Two-click delete inside the modal's tile gallery. First click flips to a
+// red "Confirm?" state for 3 s; second click within the window deletes.
+function TileDeleteButton({ onDelete }: { onDelete: () => void }) {
+  const [confirming, setConfirming] = useState(false)
   return (
     <button
       type="button"
-      onClick={onClick}
-      className={`flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[11px] font-medium backdrop-blur transition-colors ${toneClass}`}
+      title={confirming ? 'Click again to delete' : 'Delete'}
+      onClick={(e) => {
+        e.stopPropagation()
+        if (!confirming) {
+          setConfirming(true)
+          setTimeout(() => setConfirming(false), 3000)
+          return
+        }
+        onDelete()
+      }}
+      className={`flex h-8 items-center justify-center gap-1 rounded-md px-2 backdrop-blur transition-colors ${
+        confirming
+          ? 'bg-red-500/45 text-red-50 ring-1 ring-red-400/70'
+          : 'bg-black/60 text-zinc-300 hover:bg-red-500/30 hover:text-red-200'
+      }`}
     >
-      {children}
+      <Trash2 className="h-4 w-4" />
+      {confirming && <span className="text-[10px] font-medium uppercase tracking-wider">Confirm</span>}
     </button>
   )
 }
@@ -1104,6 +1161,8 @@ function ReferenceSlotCard({
   onClick,
   active,
   onToggleActive,
+  dimmed,
+  dimmedReason,
 }: {
   icon: React.ReactNode
   accentClass: string
@@ -1113,18 +1172,25 @@ function ReferenceSlotCard({
   onClick: () => void
   active: boolean
   onToggleActive: () => void
+  // True when the current video model doesn't support reference-to-video.
+  // The card stays clickable so the user can pre-arm the toggle for a model
+  // swap, but the visual state explains why nothing is highlighted.
+  dimmed?: boolean
+  dimmedReason?: string
 }) {
   const url = useAssetUrl(imageRef)
   const hasRef = !!name
-  // Only the active+populated state earns the orange highlight.
-  const highlight = active && hasRef
+  // Only the active+populated state earns the orange highlight — and not
+  // when the chosen model can't use refs.
+  const highlight = active && hasRef && !dimmed
   return (
     <div
+      title={dimmed ? dimmedReason : undefined}
       className={`relative flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors ${
         highlight
           ? 'border-orange-500/40 bg-orange-500/10'
           : 'border-white/10 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04]'
-      }`}
+      } ${dimmed ? 'opacity-50' : ''}`}
     >
       <button
         type="button"
