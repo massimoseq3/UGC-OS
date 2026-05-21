@@ -214,6 +214,7 @@ function HistoryTile({
   const [savingToBank, setSavingToBank] = useState(false)
   const [nameDraft, setNameDraft] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
   const nameInputRef = useRef<HTMLInputElement | null>(null)
 
   const linkedModel = item.linkedModelId ? models.find((m) => m.id === item.linkedModelId) : undefined
@@ -259,11 +260,17 @@ function HistoryTile({
   async function handleDelete(e: React.MouseEvent) {
     e.stopPropagation()
     if (deleting) return
+    if (!confirmingDelete) {
+      setConfirmingDelete(true)
+      setTimeout(() => setConfirmingDelete(false), 3000)
+      return
+    }
     setDeleting(true)
     try {
       await onDelete()
     } catch {
       setDeleting(false)
+      setConfirmingDelete(false)
     }
   }
 
@@ -304,15 +311,20 @@ function HistoryTile({
         </div>
       )}
 
-      <div className={`absolute right-1.5 top-1.5 flex gap-1 transition-opacity ${deleting ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+      <div className={`absolute right-1.5 top-1.5 flex gap-1 transition-opacity ${deleting || confirmingDelete ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
         <button
           type="button"
-          title={deleting ? 'Deleting…' : 'Delete'}
+          title={deleting ? 'Deleting…' : confirmingDelete ? 'Click again to delete' : 'Delete'}
           onClick={handleDelete}
           disabled={deleting}
-          className="flex h-6 w-6 items-center justify-center rounded-md bg-black/60 text-zinc-300 backdrop-blur transition-colors hover:bg-red-500/30 hover:text-red-200 disabled:cursor-wait disabled:hover:bg-black/60 disabled:hover:text-zinc-300"
+          className={`flex h-6 items-center justify-center gap-1 rounded-md px-1.5 backdrop-blur transition-colors disabled:cursor-wait ${
+            confirmingDelete
+              ? 'bg-red-500/45 text-red-50 ring-1 ring-red-400/70'
+              : 'bg-black/60 text-zinc-300 hover:bg-red-500/30 hover:text-red-200 disabled:hover:bg-black/60 disabled:hover:text-zinc-300'
+          }`}
         >
           {deleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+          {confirmingDelete && !deleting && <span className="text-[9px] font-medium uppercase tracking-wider">Confirm</span>}
         </button>
       </div>
 

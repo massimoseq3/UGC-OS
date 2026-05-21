@@ -130,7 +130,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     provider: 'Google',
     task: 'image',
     modes: ['text-to-image', 'image-to-image', 'image-edit'],
-    tags: ['recommended', 'new'],
+    tags: ['new'],
     supportsReferenceImages: true,
     pricing: {
       unit: 'per-image',
@@ -141,7 +141,6 @@ export const MODEL_REGISTRY: ModelEntry[] = [
       },
     },
     imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
-    defaultFor: ['broll-studio', 'character-studio'],
   },
   {
     id: 'flux-2/pro-text-to-image',
@@ -189,6 +188,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
       },
     },
     imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
+    defaultFor: ['broll-studio', 'character-studio'],
   },
   {
     id: 'gpt-image-2-image-to-image',
@@ -207,7 +207,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
       },
     },
     imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
-    defaultFor: ['character-studio'],
+    defaultFor: ['broll-studio', 'character-studio'],
   },
 
   // ── Video generation ──────────────────────────────────────────

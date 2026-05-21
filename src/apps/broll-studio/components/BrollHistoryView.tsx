@@ -145,6 +145,7 @@ function HistoryRow({
   const thumbRef = firstImageRef(cardStates)
   const thumbUrl = useAssetUrl(thumbRef ?? '')
   const count = sceneCount(result)
+  const [confirming, setConfirming] = useState(false)
 
   return (
     <div
@@ -179,14 +180,22 @@ function HistoryRow({
         <button
           onClick={(e) => {
             e.stopPropagation()
+            if (!confirming) {
+              setConfirming(true)
+              setTimeout(() => setConfirming(false), 3000)
+              return
+            }
             onDelete()
           }}
-          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-zinc-500 transition-all hover:bg-red-500/10 hover:text-red-400 ${
-            isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+          className={`flex h-7 shrink-0 items-center justify-center gap-1 rounded-full px-2 transition-all ${
+            confirming
+              ? 'bg-red-500/30 text-red-100 opacity-100 ring-1 ring-red-400/60'
+              : `text-zinc-500 hover:bg-red-500/10 hover:text-red-400 ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`
           }`}
-          title="Delete"
+          title={confirming ? 'Click again to delete' : 'Delete'}
         >
           <Trash2 className="h-3.5 w-3.5" />
+          {confirming && <span className="text-[10px] font-medium">Confirm</span>}
         </button>
       </div>
     </div>

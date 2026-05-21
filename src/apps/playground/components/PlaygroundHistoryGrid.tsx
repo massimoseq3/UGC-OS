@@ -61,7 +61,15 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode }: Playgrou
   const entries = useMemo<HistoryEntry[]>(() => {
     const out: HistoryEntry[] = []
     for (const i of imageHistory) out.push({ kind: 'image', createdAt: i.createdAt, data: i })
-    for (const v of videoHistory) out.push({ kind: 'video', createdAt: v.createdAt, data: v })
+    // Playground's history grid only shows generations that originated in
+    // Playground. B-Roll's per-card video gens write to the same
+    // videoHistory bank (so refresh-resume keeps working) but they belong
+    // in the B-Roll tab, not here. Legacy entries (no sourceApp field) are
+    // kept visible — they pre-date the field and would otherwise vanish.
+    for (const v of videoHistory) {
+      if (v.sourceApp === 'broll-studio') continue
+      out.push({ kind: 'video', createdAt: v.createdAt, data: v })
+    }
     for (const m of musicHistory) out.push({ kind: 'music', createdAt: m.createdAt, data: m })
     out.sort((a, b) => b.createdAt - a.createdAt)
     if (filterMode) return out.filter((e) => e.kind === filterMode)
@@ -274,13 +282,7 @@ function ImageTile({
         >
           <Download className="h-3 w-3" />
         </TileButton>
-        <TileButton
-          title="Delete"
-          tone="danger"
-          onClick={(e) => { e.stopPropagation(); onDelete() }}
-        >
-          <Trash2 className="h-3 w-3" />
-        </TileButton>
+        <DeleteConfirmButton onDelete={onDelete} />
       </div>
     </div>
   )
@@ -360,9 +362,7 @@ function VideoTile({
         >
           <Download className="h-3 w-3" />
         </TileButton>
-        <TileButton title="Delete" tone="danger" onClick={(e) => { e.stopPropagation(); onDelete() }}>
-          <Trash2 className="h-3 w-3" />
-        </TileButton>
+        <DeleteConfirmButton onDelete={onDelete} />
       </div>
     </div>
   )
@@ -575,6 +575,36 @@ function ModalActionButton({
 }
 
 // ── Shared bits ─────────────────────────────────────────────────
+
+// Two-click delete confirm. First click flips to a red "Confirm?" state for
+// 3 s; second click within the window fires onDelete. Mirrors VariationCard's
+// inline pattern so the house style stays consistent — no modal dialog.
+export function DeleteConfirmButton({ onDelete }: { onDelete: () => void }) {
+  const [confirming, setConfirming] = useState(false)
+  return (
+    <button
+      type="button"
+      title={confirming ? 'Click again to delete' : 'Delete'}
+      onClick={(e) => {
+        e.stopPropagation()
+        if (!confirming) {
+          setConfirming(true)
+          setTimeout(() => setConfirming(false), 3000)
+          return
+        }
+        onDelete()
+      }}
+      className={`flex h-6 items-center justify-center gap-1 rounded-md px-1.5 backdrop-blur transition-colors ${
+        confirming
+          ? 'bg-red-500/40 text-red-100 ring-1 ring-red-400/60'
+          : 'bg-black/60 text-zinc-300 hover:bg-red-500/30 hover:text-red-200'
+      }`}
+    >
+      <Trash2 className="h-3 w-3" />
+      {confirming && <span className="text-[9px] font-medium uppercase tracking-wider">Confirm</span>}
+    </button>
+  )
+}
 
 function TileButton({
   children,

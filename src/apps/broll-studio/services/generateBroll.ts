@@ -286,9 +286,21 @@ function parseScenes(responseText: string): Scene[] {
       const promptRaw = varBlock.match(/<PROMPT>([\s\S]*?)<\/PROMPT>/)?.[1]?.trim()
 
       const tag = FIXED_TAGS[i - 1]
-      // No nested PROMPT tag → treat the whole VAR_N body as the prompt (legacy).
-      const promptText = promptRaw || varBlock.trim()
-      if (!promptText) continue
+      // No nested PROMPT tag → treat the whole VAR_N body as the prompt
+      // (legacy). When the LLM omits the closing tag we'd otherwise paste the
+      // raw `<LABEL>…</LABEL><REFS>…</REFS><PROMPT>…` wrappers into the
+      // prompt field — strip them defensively before falling back.
+      const promptText = promptRaw || varBlock
+        .replace(/<LABEL>[\s\S]*?<\/LABEL>/g, '')
+        .replace(/<REFS>[\s\S]*?<\/REFS>/g, '')
+        .replace(/<\/?PROMPT>/g, '')
+        .trim()
+      // Final belt-and-braces — wipe any straggler control tags. Cheap to
+      // run, catches misformed LLM output without touching legitimate prose.
+      const cleanPrompt = promptText
+        .replace(/<\/?(LABEL|REFS|PROMPT|VAR_\d+|TAG|POSITION|VISIBILITY)>/g, '')
+        .trim()
+      if (!cleanPrompt) continue
 
       const label = labelRaw || defaultLabelFor(tag)
       const refs = parseRefs(refsRaw) ?? defaultRefsFor(tag, productVisible)
@@ -298,7 +310,7 @@ function parseScenes(responseText: string): Scene[] {
         tag,
         label,
         refs,
-        prompt: promptText,
+        prompt: cleanPrompt,
       })
     }
 

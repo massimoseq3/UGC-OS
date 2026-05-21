@@ -590,12 +590,24 @@ export async function kieVeoPoll(
     // older shapes (top-level resultUrls, stringified resultJson) just in
     // case kie ever changes the envelope.
     if (record.successFlag === 1 || record.state === 'success') {
-      const urls =
-        record.response?.resultUrls ??
-        record.response?.fullResultUrls ??
-        record.response?.originUrls ??
-        record.resultUrls ??
-        (record.resultJson ? (JSON.parse(record.resultJson) as { resultUrls?: string[] }).resultUrls ?? [] : [])
+      const fromResponse = record.response?.resultUrls
+      const fromFullResponse = record.response?.fullResultUrls
+      const fromOrigin = record.response?.originUrls
+      const fromTop = record.resultUrls
+      const fromJson = record.resultJson
+        ? (JSON.parse(record.resultJson) as { resultUrls?: string[] }).resultUrls
+        : undefined
+      const urls = fromResponse ?? fromFullResponse ?? fromOrigin ?? fromTop ?? fromJson ?? []
+      const chosen =
+        fromResponse ? 'response.resultUrls'
+          : fromFullResponse ? 'response.fullResultUrls'
+            : fromOrigin ? 'response.originUrls'
+              : fromTop ? 'resultUrls'
+                : fromJson ? 'resultJson(parsed).resultUrls'
+                  : '(none)'
+      // Log the envelope shape every time so debugging black-video reports
+      // can compare against the raw kie response side-by-side.
+      console.log('[kie] kieVeoPoll: result URLs extracted via', chosen, urls)
       if (urls.length === 0) {
         console.warn('[kie] kieVeoPoll: success state but no resultUrls in', record)
         throw new Error('Veo returned no result URLs.')
