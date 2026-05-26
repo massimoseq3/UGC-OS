@@ -2,16 +2,19 @@ import { useState } from 'react'
 import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react'
 import AppLogo from '../AppLogo'
 import { useAuthStore } from '../../stores/authStore'
+import { POLICY_VERSION } from '../../legal/version'
 
 type Mode = 'login' | 'signup'
 
 export default function AuthScreen() {
   const signIn = useAuthStore((s) => s.signIn)
   const signUp = useAuthStore((s) => s.signUp)
+  const acceptPolicies = useAuthStore((s) => s.acceptPolicies)
 
   const [mode, setMode] = useState<Mode>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [agreed, setAgreed] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [needsConfirm, setNeedsConfirm] = useState(false)
@@ -21,6 +24,7 @@ export default function AuthScreen() {
     setError(null)
     setNeedsConfirm(false)
     if (!email.trim() || !password) return
+    if (mode === 'signup' && !agreed) return
     setBusy(true)
     try {
       if (mode === 'login') {
@@ -30,6 +34,12 @@ export default function AuthScreen() {
         const res = await signUp(email, password)
         if (!res.ok) setError(res.error)
         else if (res.needsConfirm) setNeedsConfirm(true)
+        else {
+          // Session was returned immediately — stamp acceptance now. If
+          // needsConfirm was true the row isn't reachable yet (RLS sees no
+          // session); LegalAcceptModal will capture consent on first signin.
+          await acceptPolicies(POLICY_VERSION)
+        }
       }
     } finally {
       setBusy(false)
@@ -88,6 +98,23 @@ export default function AuthScreen() {
               />
             </div>
 
+            {mode === 'signup' && (
+              <label className="flex cursor-pointer items-start gap-2 pt-1 text-[11px] leading-snug text-zinc-400">
+                <input
+                  type="checkbox"
+                  checked={agreed}
+                  onChange={(e) => setAgreed(e.target.checked)}
+                  className="mt-0.5 h-3.5 w-3.5 shrink-0 cursor-pointer accent-sky-500"
+                />
+                <span>
+                  I agree to the{' '}
+                  <a href="/legal/terms" target="_blank" rel="noreferrer" className="text-zinc-200 underline">Terms</a>,{' '}
+                  <a href="/legal/privacy" target="_blank" rel="noreferrer" className="text-zinc-200 underline">Privacy Policy</a>, and{' '}
+                  <a href="/legal/aup" target="_blank" rel="noreferrer" className="text-zinc-200 underline">Acceptable Use Policy</a>.
+                </span>
+              </label>
+            )}
+
             {error && (
               <div className="flex items-start gap-2 rounded-md border border-red-500/20 bg-red-500/10 px-2.5 py-2 text-[11px] text-red-300">
                 <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
@@ -104,7 +131,7 @@ export default function AuthScreen() {
 
             <button
               type="submit"
-              disabled={busy || !email.trim() || !password}
+              disabled={busy || !email.trim() || !password || (mode === 'signup' && !agreed)}
               className="flex w-full items-center justify-center gap-2 rounded-lg bg-white py-2.5 text-sm font-medium text-zinc-900 transition-colors hover:bg-zinc-100 disabled:opacity-60"
             >
               {busy && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -141,6 +168,14 @@ export default function AuthScreen() {
           <p className="text-center text-[11px] text-zinc-600">
             Access is limited to members of the Skool community.
           </p>
+
+          <div className="flex items-center justify-center gap-3 text-[11px] text-zinc-600">
+            <a href="/legal/terms" className="transition-colors hover:text-zinc-300">Terms</a>
+            <span aria-hidden>·</span>
+            <a href="/legal/privacy" className="transition-colors hover:text-zinc-300">Privacy</a>
+            <span aria-hidden>·</span>
+            <a href="/legal/aup" className="transition-colors hover:text-zinc-300">AUP</a>
+          </div>
         </div>
       </div>
     </div>

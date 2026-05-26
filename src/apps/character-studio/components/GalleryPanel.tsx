@@ -9,6 +9,7 @@ import type { CharacterHistoryItem } from '../../../stores/types'
 import ModelPicker from '../../../components/ModelPicker'
 import ResolutionToggle from '../../../components/ResolutionToggle'
 import GenerationProgress from '../../../components/GenerationProgress'
+import AiContentDisclosure from '../../../components/AiContentDisclosure'
 import { estimateCredits, formatCredits, getDefaultModel, getModel, type ImageResolution } from '../../../utils/models'
 import HistoryPreviewModal from './HistoryPreviewModal'
 import { buildJsonPrompt } from '../services/generateCharacter'
@@ -136,6 +137,7 @@ export default function GalleryPanel({
                 </div>
               </div>
             ))}
+            <AiContentDisclosure />
           </div>
         )}
       </div>

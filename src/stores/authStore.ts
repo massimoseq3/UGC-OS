@@ -24,6 +24,10 @@ export interface ProfileRow {
   kie_api_key: string | null
   per_app_model: Record<string, string>
   active_project_id: string | null
+  tos_accepted_at: string | null
+  privacy_accepted_at: string | null
+  aup_accepted_at: string | null
+  policy_version_accepted: string | null
 }
 
 interface AuthState {
@@ -41,13 +45,16 @@ interface AuthState {
   signUp: (email: string, password: string) => Promise<{ ok: true; needsConfirm: boolean } | { ok: false; error: string }>
   signOut: () => Promise<void>
   refreshProfile: () => Promise<void>
+  // Stamps tos/privacy/aup acceptance + policy version. Used on signup and
+  // when an existing user re-accepts after a POLICY_VERSION bump.
+  acceptPolicies: (version: string) => Promise<{ ok: true } | { ok: false; error: string }>
 }
 
 async function fetchProfile(userId: string): Promise<ProfileRow | null> {
   const sb = getSupabase()
   const { data, error } = await sb
     .from('profiles')
-    .select('id, email, display_name, is_admin, disabled_at, kie_api_key, per_app_model, active_project_id')
+    .select('id, email, display_name, is_admin, disabled_at, kie_api_key, per_app_model, active_project_id, tos_accepted_at, privacy_accepted_at, aup_accepted_at, policy_version_accepted')
     .eq('id', userId)
     .maybeSingle()
   if (error) {
@@ -157,6 +164,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (!user) return
     const profile = await fetchProfile(user.id)
     set({ profile })
+  },
+
+  acceptPolicies: async (version) => {
+    const user = get().user
+    if (!isCloudEnabled() || !user) return { ok: false, error: 'Not signed in.' }
+    const sb = getSupabase()
+    const now = new Date().toISOString()
+    const { error } = await sb
+      .from('profiles')
+      .update({
+        tos_accepted_at: now,
+        privacy_accepted_at: now,
+        aup_accepted_at: now,
+        policy_version_accepted: version,
+      })
+      .eq('id', user.id)
+    if (error) return { ok: false, error: error.message }
+    const profile = await fetchProfile(user.id)
+    set({ profile })
+    return { ok: true }
   },
 }))
 
