@@ -21,7 +21,6 @@ export interface ProfileRow {
   display_name: string | null
   is_admin: boolean
   disabled_at: string | null
-  kie_api_key: string | null
   per_app_model: Record<string, string>
   active_project_id: string | null
   tos_accepted_at: string | null
@@ -54,7 +53,7 @@ async function fetchProfile(userId: string): Promise<ProfileRow | null> {
   const sb = getSupabase()
   const { data, error } = await sb
     .from('profiles')
-    .select('id, email, display_name, is_admin, disabled_at, kie_api_key, per_app_model, active_project_id, tos_accepted_at, privacy_accepted_at, aup_accepted_at, policy_version_accepted')
+    .select('id, email, display_name, is_admin, disabled_at, per_app_model, active_project_id, tos_accepted_at, privacy_accepted_at, aup_accepted_at, policy_version_accepted')
     .eq('id', userId)
     .maybeSingle()
   if (error) {

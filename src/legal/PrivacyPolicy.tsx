@@ -13,7 +13,15 @@ export default function PrivacyPolicy() {
       <H3>Information you provide</H3>
       <UL>
         <li><strong>Account data</strong> — email address, password (stored hashed by Supabase Auth), display name.</li>
-        <li><strong>API keys</strong> — your kie.ai Bearer key. Stored in your <code>profiles</code> row and used to call kie.ai directly from your browser.</li>
+        <li>
+          <strong>API keys</strong> — your kie.ai Bearer key. Stored{' '}
+          <strong>only in your browser's local storage</strong> on each device where you use the
+          Service. We do not transmit your kie.ai key to our servers, store it in our database,
+          or back it up. The key is read from local storage at request time and sent over TLS
+          directly to kie.ai with each generation. You will need to re-paste your key on each
+          new browser or device you sign in from. To remove the key, clear it in Settings or
+          clear your browser storage.
+        </li>
         <li><strong>Inputs</strong> — prompts, scripts, products, character profiles, reference images, audio.</li>
         <li><strong>Outputs</strong> — generated images, videos, voiceovers, and music produced by the Service on your behalf.</li>
       </UL>
@@ -85,6 +93,11 @@ export default function PrivacyPolicy() {
         asset access (5-minute lifetime, per-user prefix), Row-Level Security on all database
         tables, and a separate JWT verification step on signed-URL minting. No system is
         perfectly secure; you use the Service at your own risk.
+      </P>
+      <P>
+        Your kie.ai API key is intentionally kept out of our database; it lives only in your
+        browser's local storage and is sent directly to kie.ai over TLS at request time. This
+        means we — and any compromise of our database — cannot read it.
       </P>
 
       <H2>8. International transfers</H2>

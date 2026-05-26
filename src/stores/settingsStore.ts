@@ -149,10 +149,12 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   ...loadFromStorage(),
 
   setKieApiKey: (key) => {
+    // The kie.ai key lives in localStorage only — it is never written to the
+    // cloud. No pushProfile() call here (per-app model picks still sync via
+    // setAppModel below).
     const next = { kieApiKey: key, perAppModel: get().perAppModel }
     saveToStorage(next)
     set({ kieApiKey: key })
-    pushProfile().catch(() => { /* toast already raised */ })
   },
 
   hasKieApiKey: () => get().kieApiKey.length > 0,

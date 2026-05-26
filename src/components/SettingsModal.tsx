@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, Eye, EyeOff, Key, Check, ExternalLink, Loader2, AlertCircle, HardDrive, Trash2, LogOut, User, FileText } from 'lucide-react'
+import { X, Eye, EyeOff, Key, Check, ExternalLink, Loader2, AlertCircle, HardDrive, Trash2, LogOut, User } from 'lucide-react'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useAuthStore } from '../stores/authStore'
 import { isCloudEnabled } from '../lib/supabase'
@@ -35,6 +35,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
 
   const [kieDraft, setKieDraft] = useState(storedKieKey)
   const [showKie, setShowKie] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null)
@@ -49,6 +50,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   useEffect(() => {
     if (open) {
       setKieDraft(storedKieKey)
+      setSaving(false)
       setSaved(false)
       setShowKie(false)
       setTestResult(null)
@@ -56,8 +58,10 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
       setShowOrphanList(false)
       if (cloudOn) loadUsage()
     }
+    // Intentionally depend only on `open` — re-running this when storedKieKey
+    // changes (e.g. right after a save) would wipe the just-set `saved` flash.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, storedKieKey])
+  }, [open])
 
   async function loadUsage() {
     setUsageLoading(true)
@@ -74,8 +78,13 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
 
   if (!open) return null
 
-  function handleSave() {
+  async function handleSave() {
+    setSaving(true)
+    // Brief delay so the user sees the spinner — the underlying write to
+    // localStorage is synchronous and would otherwise look unresponsive.
+    await new Promise((resolve) => setTimeout(resolve, 350))
     setKieApiKey(kieDraft.trim())
+    setSaving(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
@@ -187,14 +196,18 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
             </button>
           </div>
 
+          <p className="text-[11px] leading-relaxed text-zinc-500">
+            Stored only in this browser. Do not share with anyone.
+          </p>
+
           <button
             type="button"
             onClick={handleTest}
             disabled={!kieDraft.trim() || testing}
-            className="flex items-center gap-2 text-[11px] text-zinc-400 transition-colors hover:text-zinc-200 disabled:opacity-50"
+            className="flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-[12px] font-medium text-zinc-200 transition-colors hover:border-white/20 hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white/[0.03]"
           >
-            {testing ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-            {testing ? 'Testing…' : 'Test connection'}
+            {testing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 text-zinc-400" />}
+            {testing ? 'Testing connection…' : 'Test connection'}
           </button>
 
           {testResult && (
@@ -215,20 +228,39 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
           )}
         </div>
 
-        <button
-          onClick={handleSave}
-          disabled={saved}
-          className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-white/10 py-2.5 text-sm font-medium text-zinc-200 transition-colors hover:bg-white/15 disabled:opacity-60"
-        >
-          {saved ? (
-            <>
-              <Check className="h-4 w-4 text-emerald-400" />
-              <span className="text-emerald-400">Saved</span>
-            </>
-          ) : (
-            'Save'
-          )}
-        </button>
+        {(() => {
+          const trimmedDraft = kieDraft.trim()
+          const hasPendingChange = trimmedDraft.length > 0 && trimmedDraft !== storedKieKey
+          const disabled = saving || saved || !hasPendingChange
+          const primary = hasPendingChange && !saving && !saved
+          return (
+            <button
+              onClick={handleSave}
+              disabled={disabled}
+              className={`mt-4 flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium transition-colors ${
+                saved
+                  ? 'bg-emerald-500/15 text-emerald-300'
+                  : primary
+                    ? 'bg-white text-zinc-900 hover:bg-zinc-200'
+                    : 'bg-white/10 text-zinc-400 disabled:cursor-not-allowed disabled:opacity-60'
+              }`}
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Saving…</span>
+                </>
+              ) : saved ? (
+                <>
+                  <Check className="h-4 w-4" />
+                  <span>Saved</span>
+                </>
+              ) : (
+                'Save'
+              )}
+            </button>
+          )
+        })()}
 
         {/* Storage card — only when cloud is active */}
         {cloudOn && (
@@ -415,31 +447,26 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
           </div>
         )}
 
-        {/* Legal — docs open in a new tab so the workspace stays intact */}
-        <div className="mt-6 border-t border-white/5 pt-5">
-          <div className="flex items-center gap-2">
-            <FileText className="h-3.5 w-3.5 text-zinc-500" />
-            <span className="text-sm font-medium text-zinc-300">Legal</span>
-          </div>
-          <div className="mt-3 space-y-1">
-            {[
-              { href: '/legal/terms', label: 'Terms of Service' },
-              { href: '/legal/privacy', label: 'Privacy Policy' },
-              { href: '/legal/aup', label: 'Acceptable Use Policy' },
-              { href: '/legal/dmca', label: 'DMCA / Copyright' },
-            ].map((item) => (
+        {/* Legal — compact inline footer, docs open in a new tab */}
+        <div className="mt-6 flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-white/5 pt-4 text-[11px] text-zinc-500">
+          {[
+            { href: '/legal/terms', label: 'Terms' },
+            { href: '/legal/privacy', label: 'Privacy' },
+            { href: '/legal/aup', label: 'AUP' },
+            { href: '/legal/dmca', label: 'DMCA' },
+          ].map((item, i) => (
+            <span key={item.href} className="flex items-center gap-2">
+              {i > 0 && <span className="text-zinc-700">·</span>}
               <a
-                key={item.href}
                 href={item.href}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center justify-between rounded-md px-3 py-2 text-[12px] text-zinc-300 transition-colors hover:bg-white/[0.04] hover:text-zinc-100"
+                className="transition-colors hover:text-zinc-300"
               >
-                <span>{item.label}</span>
-                <ExternalLink className="h-3 w-3 text-zinc-500" />
+                {item.label}
               </a>
-            ))}
-          </div>
+            </span>
+          ))}
         </div>
 
         {/* Account card — email + sign out, only when signed in */}
