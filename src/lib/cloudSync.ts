@@ -108,7 +108,9 @@ export async function deleteRow(table: BankKey, id: string): Promise<void> {
   if (error) throw new Error(`${BANK_TO_TABLE[table]} delete: ${error.message}`)
 }
 
-// Save the full profile sheet (kie key, per-app model selections).
+// Save the profile sheet (per-app model selections only). The kie.ai API key
+// is intentionally NOT included here — it lives in browser localStorage only,
+// never in the database. See CLAUDE.md "Auth + cloud sync".
 export async function saveProfile(): Promise<void> {
   const userId = useAuthStore.getState().user?.id
   if (!userId) throw new Error('Not signed in')
@@ -116,7 +118,6 @@ export async function saveProfile(): Promise<void> {
   const sb = getSupabase()
   const s = useSettingsStore.getState()
   const { error } = await sb.from('profiles').update({
-    kie_api_key: s.kieApiKey || null,
     per_app_model: s.perAppModel,
   }).eq('id', userId)
   if (error) throw new Error(`profile update: ${error.message}`)
@@ -129,19 +130,20 @@ async function hydrateFromCloud(userId: string) {
 
   const { data: profile } = await sb
     .from('profiles')
-    .select('kie_api_key, per_app_model')
+    .select('per_app_model')
     .eq('id', userId)
     .maybeSingle()
 
   if (profile) {
-    useSettingsStore.setState({
-      kieApiKey: profile.kie_api_key ?? '',
-      perAppModel: (profile.per_app_model as Record<string, string> | null) ?? {},
-    })
+    // kieApiKey is browser-local; preserve whatever loadFromStorage already
+    // hydrated from localStorage. Cloud hydration only refreshes perAppModel.
+    const existingKey = useSettingsStore.getState().kieApiKey
+    const nextPerAppModel = (profile.per_app_model as Record<string, string> | null) ?? {}
+    useSettingsStore.setState({ perAppModel: nextPerAppModel })
     try {
       localStorage.setItem('ai-ugc-lab-settings', JSON.stringify({
-        kieApiKey: profile.kie_api_key ?? '',
-        perAppModel: profile.per_app_model ?? {},
+        kieApiKey: existingKey,
+        perAppModel: nextPerAppModel,
       }))
     } catch { /* ignore */ }
   }
