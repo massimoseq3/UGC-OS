@@ -20,6 +20,7 @@ interface SettingsModalProps {
 
 type StorageState =
   | { phase: 'idle' }
+  | { phase: 'confirming' }
   | { phase: 'scanning' }
   | { phase: 'scanned'; orphans: OrphanAsset[]; totalBytes: number }
   | { phase: 'purging'; orphans: OrphanAsset[]; totalBytes: number; done: number; total: number }
@@ -314,11 +315,45 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
               {storage.phase === 'idle' && (
                 <button
                   type="button"
-                  onClick={handleScanOrphans}
+                  onClick={() => setStorage({ phase: 'confirming' })}
                   className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 py-1.5 text-[12px] font-medium text-zinc-300 transition-colors hover:bg-white/[0.05]"
                 >
                   Clean up storage
                 </button>
+              )}
+
+              {storage.phase === 'confirming' && (
+                <div className="mt-2 space-y-2 rounded-md border border-amber-500/20 bg-amber-500/[0.06] p-2.5">
+                  <div className="flex items-start gap-2 text-[11px] text-amber-200">
+                    <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
+                    <div className="space-y-1.5 leading-relaxed">
+                      <p className="font-medium text-amber-100">Are you sure you want to do this?</p>
+                      <p className="text-amber-200/90">
+                        This permanently deletes every file in your cloud storage that no item in your banks or history references. Anything you generated but never saved (or whose history entry you've since cleared) will be removed and cannot be recovered.
+                      </p>
+                      <p className="text-amber-200/90">
+                        Before continuing, make sure anything you want to keep — Playground generations, B-Roll variations, characters, voiceovers, music — has been saved to its bank.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-1.5">
+                    <button
+                      type="button"
+                      onClick={handleScanOrphans}
+                      className="flex flex-1 items-center justify-center gap-1.5 rounded-md bg-red-500/15 py-1.5 text-[11px] font-medium text-red-200 transition-colors hover:bg-red-500/25"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                      Continue
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStorage({ phase: 'idle' })}
+                      className="rounded-md border border-white/10 px-2 py-1.5 text-[11px] text-zinc-300 transition-colors hover:bg-white/[0.05]"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
               )}
 
               {storage.phase === 'scanning' && (
