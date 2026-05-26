@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, Eye, EyeOff, Key, Check, ExternalLink, Loader2, AlertCircle, HardDrive, Trash2, LogOut, User } from 'lucide-react'
+import { X, Eye, EyeOff, Key, Check, ExternalLink, Loader2, AlertCircle, HardDrive, Trash2, LogOut, User, FileText } from 'lucide-react'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useAuthStore } from '../stores/authStore'
 import { isCloudEnabled } from '../lib/supabase'
@@ -414,6 +414,33 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
             </div>
           </div>
         )}
+
+        {/* Legal — docs open in a new tab so the workspace stays intact */}
+        <div className="mt-6 border-t border-white/5 pt-5">
+          <div className="flex items-center gap-2">
+            <FileText className="h-3.5 w-3.5 text-zinc-500" />
+            <span className="text-sm font-medium text-zinc-300">Legal</span>
+          </div>
+          <div className="mt-3 space-y-1">
+            {[
+              { href: '/legal/terms', label: 'Terms of Service' },
+              { href: '/legal/privacy', label: 'Privacy Policy' },
+              { href: '/legal/aup', label: 'Acceptable Use Policy' },
+              { href: '/legal/dmca', label: 'DMCA / Copyright' },
+            ].map((item) => (
+              <a
+                key={item.href}
+                href={item.href}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-between rounded-md px-3 py-2 text-[12px] text-zinc-300 transition-colors hover:bg-white/[0.04] hover:text-zinc-100"
+              >
+                <span>{item.label}</span>
+                <ExternalLink className="h-3 w-3 text-zinc-500" />
+              </a>
+            ))}
+          </div>
+        </div>
 
         {/* Account card — email + sign out, only when signed in */}
         {cloudOn && profile && (

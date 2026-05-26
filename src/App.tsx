@@ -1,4 +1,4 @@
-import { BrowserRouter } from 'react-router-dom'
+import { BrowserRouter, Route, Routes } from 'react-router-dom'
 
 import AppLogo from './components/AppLogo'
 
@@ -7,6 +7,8 @@ import Sidebar from './components/Sidebar'
 import ToastContainer from './components/Toast'
 import AuthGate from './components/auth/AuthGate'
 import RouterSync from './components/RouterSync'
+import CookieBanner from './components/CookieBanner'
+import LegalAcceptModal from './components/LegalAcceptModal'
 import { useAppStore } from './stores/appStore'
 import { useAuthStore } from './stores/authStore'
 import { getAppConfig } from './utils/constants'
@@ -19,6 +21,11 @@ import VoiceStudio from './apps/voice-studio/VoiceStudio'
 import BrollStudio from './apps/broll-studio/BrollStudio'
 import Playground from './apps/playground/Playground'
 import AdminPanel from './apps/admin/AdminPanel'
+
+import TermsOfService from './legal/TermsOfService'
+import PrivacyPolicy from './legal/PrivacyPolicy'
+import AcceptableUsePolicy from './legal/AcceptableUsePolicy'
+import DMCAPolicy from './legal/DMCAPolicy'
 
 const APP_COMPONENTS: Record<string, React.ComponentType> = {
   'finder': Finder,
@@ -64,12 +71,26 @@ function EmptyState() {
 
 export default function App() {
   return (
-    <AuthGate>
-      <BrowserRouter>
-        <RouterSync />
-        <Workspace />
-      </BrowserRouter>
-    </AuthGate>
+    <BrowserRouter>
+      <Routes>
+        {/* Legal pages render outside AuthGate so signed-out visitors can read */}
+        <Route path="/legal/terms" element={<TermsOfService />} />
+        <Route path="/legal/privacy" element={<PrivacyPolicy />} />
+        <Route path="/legal/aup" element={<AcceptableUsePolicy />} />
+        <Route path="/legal/dmca" element={<DMCAPolicy />} />
+        <Route
+          path="*"
+          element={
+            <AuthGate>
+              <RouterSync />
+              <Workspace />
+              <CookieBanner />
+              <LegalAcceptModal />
+            </AuthGate>
+          }
+        />
+      </Routes>
+    </BrowserRouter>
   )
 }
 

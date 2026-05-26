@@ -7,6 +7,7 @@ import { generateBroll } from './services/generateBroll'
 import InputPanel from './components/InputPanel'
 import RightPanel, { backfillCardState } from './components/RightPanel'
 import BankPicker from '../../components/BankPicker'
+import AiContentDisclosure from '../../components/AiContentDisclosure'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
 
 type PickerMode = 'products' | 'models' | 'scripts' | null
@@ -404,6 +405,8 @@ export default function BrollStudio() {
         onSelect={handleSelectScript}
         onClose={() => setPickerMode(null)}
       />
+
+      {result && <AiContentDisclosure />}
     </div>
   )
 }

@@ -11,6 +11,7 @@ import { getModel } from '../../../utils/models'
 import type { ImageHistoryItem, VideoHistoryItem, MusicHistoryItem } from '../../../stores/types'
 import AudioTile from './AudioTile'
 import GenerationProgress from '../../../components/GenerationProgress'
+import AiContentDisclosure from '../../../components/AiContentDisclosure'
 import type { PlaygroundMode, InFlightGen } from '../types'
 export type { InFlightGen }
 
@@ -199,6 +200,7 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode }: Playgrou
             </div>
           </div>
         ))}
+        {dayGroups.length > 0 && <AiContentDisclosure />}
       </div>
 
       {previewItem && (
