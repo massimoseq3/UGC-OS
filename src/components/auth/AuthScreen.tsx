@@ -14,7 +14,6 @@ export default function AuthScreen() {
   const [mode, setMode] = useState<Mode>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [agreed, setAgreed] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [needsConfirm, setNeedsConfirm] = useState(false)
@@ -24,7 +23,6 @@ export default function AuthScreen() {
     setError(null)
     setNeedsConfirm(false)
     if (!email.trim() || !password) return
-    if (mode === 'signup' && !agreed) return
     setBusy(true)
     try {
       if (mode === 'login') {
@@ -98,23 +96,6 @@ export default function AuthScreen() {
               />
             </div>
 
-            {mode === 'signup' && (
-              <label className="flex cursor-pointer items-start gap-2 pt-1 text-[11px] leading-snug text-zinc-400">
-                <input
-                  type="checkbox"
-                  checked={agreed}
-                  onChange={(e) => setAgreed(e.target.checked)}
-                  className="mt-0.5 h-3.5 w-3.5 shrink-0 cursor-pointer accent-sky-500"
-                />
-                <span>
-                  I agree to the{' '}
-                  <a href="/legal/terms" target="_blank" rel="noreferrer" className="text-zinc-200 underline">Terms</a>,{' '}
-                  <a href="/legal/privacy" target="_blank" rel="noreferrer" className="text-zinc-200 underline">Privacy Policy</a>, and{' '}
-                  <a href="/legal/aup" target="_blank" rel="noreferrer" className="text-zinc-200 underline">Acceptable Use Policy</a>.
-                </span>
-              </label>
-            )}
-
             {error && (
               <div className="flex items-start gap-2 rounded-md border border-red-500/20 bg-red-500/10 px-2.5 py-2 text-[11px] text-red-300">
                 <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
@@ -131,12 +112,21 @@ export default function AuthScreen() {
 
             <button
               type="submit"
-              disabled={busy || !email.trim() || !password || (mode === 'signup' && !agreed)}
+              disabled={busy || !email.trim() || !password}
               className="flex w-full items-center justify-center gap-2 rounded-lg bg-white py-2.5 text-sm font-medium text-zinc-900 transition-colors hover:bg-zinc-100 disabled:opacity-60"
             >
               {busy && <Loader2 className="h-4 w-4 animate-spin" />}
               {mode === 'login' ? 'Sign in' : 'Create account'}
             </button>
+
+            {mode === 'signup' && (
+              <p className="pt-1 text-center text-[11px] leading-snug text-zinc-500">
+                By creating an account, you agree to our{' '}
+                <a href="/legal/terms" target="_blank" rel="noreferrer" className="text-zinc-300 underline">Terms</a>,{' '}
+                <a href="/legal/privacy" target="_blank" rel="noreferrer" className="text-zinc-300 underline">Privacy Policy</a>, and{' '}
+                <a href="/legal/aup" target="_blank" rel="noreferrer" className="text-zinc-300 underline">Acceptable Use Policy</a>.
+              </p>
+            )}
           </form>
 
           <div className="text-center text-[12px] text-zinc-500">

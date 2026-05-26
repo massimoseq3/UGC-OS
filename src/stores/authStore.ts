@@ -51,11 +51,21 @@ interface AuthState {
 
 async function fetchProfile(userId: string): Promise<ProfileRow | null> {
   const sb = getSupabase()
-  const { data, error } = await sb
-    .from('profiles')
-    .select('id, email, display_name, is_admin, disabled_at, per_app_model, active_project_id, tos_accepted_at, privacy_accepted_at, aup_accepted_at, policy_version_accepted')
-    .eq('id', userId)
-    .maybeSingle()
+  const fullCols = 'id, email, display_name, is_admin, disabled_at, per_app_model, active_project_id, tos_accepted_at, privacy_accepted_at, aup_accepted_at, policy_version_accepted'
+  const legacyCols = 'id, email, display_name, is_admin, disabled_at, per_app_model, active_project_id'
+  let { data, error } = await sb.from('profiles').select(fullCols).eq('id', userId).maybeSingle()
+  // If migration 0007 hasn't been applied in this environment, fall back to the
+  // legacy column set so users aren't silently locked out of sign-in. The
+  // LegalAcceptModal will fire as soon as the migration eventually runs.
+  if (error && /column .* does not exist|42703/i.test(`${error.message} ${(error as { code?: string }).code ?? ''}`)) {
+    console.warn('[auth] legal-acceptance columns missing — run migration 0007. Falling back.')
+    const r = await sb.from('profiles').select(legacyCols).eq('id', userId).maybeSingle()
+    data = r.data
+    error = r.error
+    if (data) {
+      data = { ...data, tos_accepted_at: null, privacy_accepted_at: null, aup_accepted_at: null, policy_version_accepted: null }
+    }
+  }
   if (error) {
     console.error('[auth] fetchProfile failed', error)
     return null

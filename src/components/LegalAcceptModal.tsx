@@ -10,7 +10,6 @@ import { POLICY_VERSION } from '../legal/version'
 export default function LegalAcceptModal() {
   const profile = useAuthStore((s) => s.profile)
   const acceptPolicies = useAuthStore((s) => s.acceptPolicies)
-  const [agreed, setAgreed] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -18,7 +17,7 @@ export default function LegalAcceptModal() {
   if (profile.policy_version_accepted === POLICY_VERSION) return null
 
   const submit = async () => {
-    if (!agreed || busy) return
+    if (busy) return
     setBusy(true)
     setError(null)
     const res = await acceptPolicies(POLICY_VERSION)
@@ -61,18 +60,6 @@ export default function LegalAcceptModal() {
           </li>
         </ul>
 
-        <label className="mb-4 flex cursor-pointer items-start gap-2.5 text-[13px] text-zinc-300">
-          <input
-            type="checkbox"
-            checked={agreed}
-            onChange={(e) => setAgreed(e.target.checked)}
-            className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-sky-500"
-          />
-          <span>
-            I have read and agree to the Terms of Service, Privacy Policy, and Acceptable Use Policy.
-          </span>
-        </label>
-
         {error && (
           <div className="mb-3 rounded-md border border-red-500/20 bg-red-500/10 px-3 py-2 text-[12px] text-red-300">
             {error}
@@ -81,12 +68,16 @@ export default function LegalAcceptModal() {
 
         <button
           onClick={submit}
-          disabled={!agreed || busy}
+          disabled={busy}
           className="flex w-full items-center justify-center gap-2 rounded-lg bg-white py-2.5 text-sm font-medium text-zinc-900 transition-colors hover:bg-zinc-100 disabled:opacity-50"
         >
           {busy && <Loader2 className="h-4 w-4 animate-spin" />}
           Accept &amp; continue
         </button>
+
+        <p className="mt-3 text-center text-[12px] leading-snug text-zinc-400">
+          By clicking <span className="font-medium text-zinc-200">Accept &amp; continue</span>, you agree to the updated Terms of Service, Privacy Policy, and Acceptable Use Policy.
+        </p>
       </div>
     </div>
   )
