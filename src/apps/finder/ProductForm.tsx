@@ -246,7 +246,7 @@ export default function ProductForm({ item, onSave, onCancel }: ProductFormProps
         <div className={`flex flex-1 flex-col gap-3 min-w-0 transition-opacity ${isExtracting ? 'pointer-events-none opacity-60' : ''}`}>
           {FIELDS.map(({ key, label, type, required, rows }) => {
             const isMissing = showError && required && !form[key as keyof typeof form].toString().trim()
-            const baseCls = 'rounded-lg border bg-transparent px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none transition-colors'
+            const baseCls = 'rounded-lg border bg-transparent px-3 py-1.5 text-[13px] text-zinc-200 placeholder-zinc-600 outline-none transition-colors'
             const borderCls = isMissing ? 'border-red-500/60 focus:border-red-400' : 'border-white/10 focus:border-white/20'
             return (
               <label key={key} className="flex flex-col gap-1">
