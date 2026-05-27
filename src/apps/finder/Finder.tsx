@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
-import { Plus, Package, UserRound, FileText, Mic, Film } from 'lucide-react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { Plus, Package, UserRound, FileText, Mic, Film, Upload } from 'lucide-react'
 import { useAppStore } from '../../stores/appStore'
 import { useBankStore } from '../../stores/bankStore'
 import type { BankType } from '../../utils/constants'
@@ -12,6 +12,8 @@ import ModelForm from './ModelForm'
 import ScriptForm from './ScriptForm'
 import VoiceForm from './VoiceForm'
 import BRollForm from './BRollForm'
+import { isValidImageFile } from './services/imageValidation'
+import { saveProductDraft } from './services/saveProductDraft'
 
 const SIDEBAR_ICONS: Record<BankType, React.ElementType> = {
   products: Package,
@@ -30,6 +32,12 @@ export default function Finder() {
 
   const consumePayload = useAppStore((s) => s.consumePayload)
   const interAppPayload = useAppStore((s) => s.interAppPayload)
+  const addToast = useAppStore((s) => s.addToast)
+
+  // Ids of products currently waiting on background extraction. Local only —
+  // resets on page refresh by design (interrupted extractions stay as orange-dot drafts).
+  const [inFlightIds, setInFlightIds] = useState<Set<string>>(new Set())
+  const bulkInputRef = useRef<HTMLInputElement>(null)
 
   const products = useBankStore((s) => s.products)
   const models = useBankStore((s) => s.models)
@@ -95,7 +103,7 @@ export default function Finder() {
   }
 
   const handleSaveProduct = useCallback(async (data: Omit<Product, 'id' | 'createdAt'>) => {
-    const saved = { ...data }
+    const saved: Omit<Product, 'id' | 'createdAt'> = { ...data, confirmed: true }
     if (saved.productImage && saved.productImage.startsWith('data:')) {
       saved.productImage = await saveFromDataUrl(saved.productImage)
     }
@@ -103,6 +111,51 @@ export default function Finder() {
     else await addProduct(saved)
     closeForm()
   }, [editingId, updateProduct, addProduct])
+
+  const trackInFlight = useCallback((id: string, active: boolean) => {
+    setInFlightIds((prev) => {
+      const next = new Set(prev)
+      if (active) next.add(id)
+      else next.delete(id)
+      return next
+    })
+  }, [])
+
+  const handleCancelDuringExtraction = useCallback((file: File, partial: Omit<Product, 'id' | 'createdAt'>) => {
+    closeForm()
+    saveProductDraft({
+      file,
+      initial: partial,
+      onStart: (id) => trackInFlight(id, true),
+      onFinish: (id, ok) => {
+        trackInFlight(id, false)
+        addToast(ok ? 'Draft product saved' : 'Saved as draft (extraction failed)', ok ? 'success' : 'info')
+      },
+    })
+  }, [trackInFlight, addToast])
+
+  const handleBulkFiles = useCallback(async (files: File[]) => {
+    const valid = files.filter(isValidImageFile)
+    const rejected = files.length - valid.length
+    if (valid.length === 0) {
+      addToast('No valid images (need JPG / PNG / WebP under 10 MB)', 'error')
+      return
+    }
+    if (rejected > 0) addToast(`Skipped ${rejected} unsupported file${rejected === 1 ? '' : 's'}`, 'info')
+
+    const results = await Promise.all(valid.map((file) => saveProductDraft({
+      file,
+      onStart: (id) => trackInFlight(id, true),
+      onFinish: (id) => trackInFlight(id, false),
+    })))
+
+    const succeeded = results.filter((r) => r.ok).length
+    const failed = results.length - succeeded
+    const summary = failed === 0
+      ? `${succeeded} product${succeeded === 1 ? '' : 's'} extracted`
+      : `${succeeded} of ${results.length} extracted, ${failed} failed — review drafts`
+    addToast(summary, failed === 0 ? 'success' : 'info')
+  }, [addToast, trackInFlight])
 
   const handleSaveModel = useCallback(async (data: Omit<Model, 'id' | 'createdAt'>) => {
     const saved = { ...data }
@@ -180,6 +233,29 @@ export default function Finder() {
             {sortOptions && counts[activeBank] > 0 && !showForm && (
               <SortControl value={sort} onChange={setSort} options={sortOptions} />
             )}
+            {activeBank === 'products' && !showForm && (
+              <>
+                <input
+                  ref={bulkInputRef}
+                  type="file"
+                  accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files ?? [])
+                    e.target.value = ''
+                    if (files.length > 0) handleBulkFiles(files)
+                  }}
+                />
+                <button
+                  onClick={() => bulkInputRef.current?.click()}
+                  className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-zinc-300 transition-colors hover:bg-white/[0.08]"
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  Bulk add
+                </button>
+              </>
+            )}
             <button
               onClick={handleAdd}
               className="flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-zinc-900 transition-colors hover:bg-zinc-100"
@@ -195,7 +271,12 @@ export default function Finder() {
           {showForm ? (
             <div className={`mx-auto rounded-xl border border-white/5 bg-white/[0.02] p-5 ${activeBank === 'products' ? 'max-w-5xl' : ['models', 'brolls', 'scripts'].includes(activeBank) ? 'max-w-3xl' : 'max-w-md'}`}>
               {activeBank === 'products' && (
-                <ProductForm item={editingProduct} onSave={handleSaveProduct} onCancel={closeForm} />
+                <ProductForm
+                  item={editingProduct}
+                  onSave={handleSaveProduct}
+                  onCancel={closeForm}
+                  onCancelDuringExtraction={handleCancelDuringExtraction}
+                />
               )}
               {activeBank === 'models' && (
                 <ModelForm item={editingModel} onSave={handleSaveModel} onCancel={closeForm} />
@@ -211,7 +292,14 @@ export default function Finder() {
               )}
             </div>
           ) : (
-            <BankList bankType={activeBank} onEdit={handleEdit} onAdd={handleAdd} sort={sort} />
+            <BankList
+              bankType={activeBank}
+              onEdit={handleEdit}
+              onAdd={handleAdd}
+              sort={sort}
+              inFlightProductIds={inFlightIds}
+              onBulkProductFiles={handleBulkFiles}
+            />
           )}
         </div>
       </div>

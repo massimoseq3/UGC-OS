@@ -10,6 +10,9 @@ export interface Product {
   offer: string
   cta: string
   createdAt: number
+  // undefined → legacy (no dot), false → draft (orange dot),
+  // true → user-confirmed via Save (green dot).
+  confirmed?: boolean
 }
 
 export interface Model {
