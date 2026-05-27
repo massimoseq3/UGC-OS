@@ -4,6 +4,7 @@ import type { Product } from '../../stores/types'
 import { useAssetUrl } from '../../hooks/useAssetUrl'
 import { useAppStore } from '../../stores/appStore'
 import { extractProductInfo } from './services/extractProductInfo'
+import { downloadImage } from '../../utils/downloadImage'
 
 const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024
@@ -148,10 +149,7 @@ export default function ProductForm({ item, onSave, onCancel }: ProductFormProps
 
   const handleDownload = () => {
     if (!displayImage) return
-    const a = document.createElement('a')
-    a.href = displayImage
-    a.download = `product-${form.productName || item?.id?.slice(0, 8) || 'image'}.png`
-    a.click()
+    downloadImage(displayImage, `product-${form.productName || item?.id?.slice(0, 8) || 'image'}`)
   }
 
   const missingRequired = REQUIRED_KEYS.filter((k) => !form[k].trim())

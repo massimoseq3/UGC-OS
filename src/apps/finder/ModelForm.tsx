@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { X, ImagePlus, Download, Loader2 } from 'lucide-react'
 import type { Model } from '../../stores/types'
 import { useAssetUrl } from '../../hooks/useAssetUrl'
+import { downloadImage } from '../../utils/downloadImage'
 
 interface ModelFormProps {
   item?: Model | null
@@ -138,10 +139,7 @@ export default function ModelForm({ item, onSave, onCancel }: ModelFormProps) {
 
   const handleDownload = () => {
     if (!displayImage) return
-    const a = document.createElement('a')
-    a.href = displayImage
-    a.download = `model-${name || item?.id.slice(0, 8) || 'image'}.png`
-    a.click()
+    downloadImage(displayImage, `model-${name || item?.id.slice(0, 8) || 'image'}`)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {

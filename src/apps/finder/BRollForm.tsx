@@ -4,6 +4,7 @@ import type { BRoll } from '../../stores/types'
 import { useAssetUrl } from '../../hooks/useAssetUrl'
 import { useAppStore } from '../../stores/appStore'
 import { getAsBase64, isAssetRef } from '../../utils/assetStore'
+import { downloadImage } from '../../utils/downloadImage'
 
 interface BRollFormProps {
   item?: BRoll | null
@@ -41,10 +42,7 @@ export default function BRollForm({ item, onSave, onCancel }: BRollFormProps) {
 
   const handleDownloadImage = () => {
     if (!displayImage) return
-    const a = document.createElement('a')
-    a.href = displayImage
-    a.download = `broll-${item?.id?.slice(0, 8) ?? 'image'}.png`
-    a.click()
+    downloadImage(displayImage, `broll-${item?.id?.slice(0, 8) ?? 'image'}`)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
