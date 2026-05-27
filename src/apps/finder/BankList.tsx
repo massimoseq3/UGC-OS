@@ -361,13 +361,7 @@ export default function BankList({ bankType, onEdit, onAdd }: BankListProps) {
 
   if (bankType === 'scripts') {
     if (scripts.length === 0) return <EmptyState icon={FileText} label="scripts" singular="script" onAdd={onAdd} />
-    return (
-      <div className="flex flex-col gap-2">
-        {scripts.map((s) => (
-          <ScriptCard key={s.id} item={s} onEdit={() => onEdit(s.id)} onDelete={() => deleteScript(s.id)} />
-        ))}
-      </div>
-    )
+    return <ScriptsList items={scripts} onEdit={onEdit} onDelete={deleteScript} />
   }
 
   if (bankType === 'voices') {
@@ -410,6 +404,21 @@ function ModelsList({ items, onEdit, onDelete }: { items: Model[]; onEdit: (id: 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
         {sorted.map((m) => (
           <ModelCard key={m.id} item={m} onEdit={() => onEdit(m.id)} onDelete={() => onDelete(m.id)} />
+        ))}
+      </div>
+    </>
+  )
+}
+
+function ScriptsList({ items, onEdit, onDelete }: { items: Script[]; onEdit: (id: string) => void; onDelete: (id: string) => void }) {
+  const [sort, setSort] = usePersistedState<SortOrder>('finder:sort:scripts', 'newest')
+  const sorted = useMemo(() => sortByOrder(items, sort, (s) => s.title), [items, sort])
+  return (
+    <>
+      <SortControl value={sort} onChange={setSort} options={SORT_OPTIONS_WITH_NAME} />
+      <div className="flex flex-col gap-2">
+        {sorted.map((s) => (
+          <ScriptCard key={s.id} item={s} onEdit={() => onEdit(s.id)} onDelete={() => onDelete(s.id)} />
         ))}
       </div>
     </>
