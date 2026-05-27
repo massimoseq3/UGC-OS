@@ -33,7 +33,6 @@ export async function saveProductDraft(opts: DraftSaveOptions): Promise<DraftSav
   const store = useBankStore.getState()
 
   const id = await store.addProduct({
-    productImage: assetRef,
     productName: placeholderName,
     productDescription: '',
     targetMarket: '',
