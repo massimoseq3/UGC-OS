@@ -1,9 +1,60 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Trash2, Package, UserRound, FileText, Mic, Film, Plus, Braces, Video, Download, Loader2 } from 'lucide-react'
 import type { Product, Model, Script, VoicePreset, BRoll } from '../../stores/types'
 import type { BankType } from '../../utils/constants'
 import { useBankStore } from '../../stores/bankStore'
 import { useAssetUrl } from '../../hooks/useAssetUrl'
+import { usePersistedState } from '../../hooks/usePersistedState'
+
+type SortOrder = 'newest' | 'oldest' | 'name-asc' | 'name-desc'
+
+const SORT_OPTIONS_WITH_NAME: { value: SortOrder; label: string }[] = [
+  { value: 'newest', label: 'Newest first' },
+  { value: 'oldest', label: 'Oldest first' },
+  { value: 'name-asc', label: 'Name A → Z' },
+  { value: 'name-desc', label: 'Name Z → A' },
+]
+
+const SORT_OPTIONS_DATE_ONLY: { value: SortOrder; label: string }[] = [
+  { value: 'newest', label: 'Newest first' },
+  { value: 'oldest', label: 'Oldest first' },
+]
+
+function sortByOrder<T extends { createdAt: number }>(items: T[], order: SortOrder, nameOf?: (item: T) => string): T[] {
+  const arr = [...items]
+  switch (order) {
+    case 'newest':
+      arr.sort((a, b) => b.createdAt - a.createdAt)
+      break
+    case 'oldest':
+      arr.sort((a, b) => a.createdAt - b.createdAt)
+      break
+    case 'name-asc':
+      arr.sort((a, b) => (nameOf?.(a) ?? '').localeCompare(nameOf?.(b) ?? '', undefined, { sensitivity: 'base' }))
+      break
+    case 'name-desc':
+      arr.sort((a, b) => (nameOf?.(b) ?? '').localeCompare(nameOf?.(a) ?? '', undefined, { sensitivity: 'base' }))
+      break
+  }
+  return arr
+}
+
+function SortControl({ value, onChange, options }: { value: SortOrder; onChange: (v: SortOrder) => void; options: { value: SortOrder; label: string }[] }) {
+  return (
+    <div className="mb-4 flex items-center justify-end gap-2">
+      <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-500">Sort</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value as SortOrder)}
+        className="rounded-lg border border-white/10 bg-[#0a0a0a] px-2.5 py-1.5 text-xs text-zinc-200 outline-none transition-colors hover:border-white/20 focus:border-white/20"
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>{o.label}</option>
+        ))}
+      </select>
+    </div>
+  )
+}
 
 interface BankListProps {
   bankType: BankType
@@ -300,24 +351,12 @@ export default function BankList({ bankType, onEdit, onAdd }: BankListProps) {
 
   if (bankType === 'products') {
     if (products.length === 0) return <EmptyState icon={Package} label="products" singular="product" onAdd={onAdd} />
-    return (
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-        {products.map((p) => (
-          <ProductCard key={p.id} item={p} onEdit={() => onEdit(p.id)} onDelete={() => deleteProduct(p.id)} />
-        ))}
-      </div>
-    )
+    return <ProductsList items={products} onEdit={onEdit} onDelete={deleteProduct} />
   }
 
   if (bankType === 'models') {
     if (models.length === 0) return <EmptyState icon={UserRound} label="characters" singular="character" onAdd={onAdd} />
-    return (
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-        {models.map((m) => (
-          <ModelCard key={m.id} item={m} onEdit={() => onEdit(m.id)} onDelete={() => deleteModel(m.id)} />
-        ))}
-      </div>
-    )
+    return <ModelsList items={models} onEdit={onEdit} onDelete={deleteModel} />
   }
 
   if (bankType === 'scripts') {
@@ -344,14 +383,53 @@ export default function BankList({ bankType, onEdit, onAdd }: BankListProps) {
 
   // brolls
   if (brolls.length === 0) return <EmptyState icon={Film} label="b-rolls" singular="b-roll" onAdd={onAdd} />
+  return <BRollsList items={brolls} onEdit={onEdit} onDelete={deleteBRoll} />
+}
+
+function ProductsList({ items, onEdit, onDelete }: { items: Product[]; onEdit: (id: string) => void; onDelete: (id: string) => void }) {
+  const [sort, setSort] = usePersistedState<SortOrder>('finder:sort:products', 'newest')
+  const sorted = useMemo(() => sortByOrder(items, sort, (p) => p.productName), [items, sort])
   return (
-    <div className="columns-2 sm:columns-3 lg:columns-4 gap-4">
-      {brolls.map((b) => (
-        <div key={b.id} className="mb-4 break-inside-avoid">
-          <BRollCard item={b} onEdit={() => onEdit(b.id)} onDelete={() => deleteBRoll(b.id)} />
-        </div>
-      ))}
-    </div>
+    <>
+      <SortControl value={sort} onChange={setSort} options={SORT_OPTIONS_WITH_NAME} />
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+        {sorted.map((p) => (
+          <ProductCard key={p.id} item={p} onEdit={() => onEdit(p.id)} onDelete={() => onDelete(p.id)} />
+        ))}
+      </div>
+    </>
+  )
+}
+
+function ModelsList({ items, onEdit, onDelete }: { items: Model[]; onEdit: (id: string) => void; onDelete: (id: string) => void }) {
+  const [sort, setSort] = usePersistedState<SortOrder>('finder:sort:models', 'newest')
+  const sorted = useMemo(() => sortByOrder(items, sort, (m) => m.name), [items, sort])
+  return (
+    <>
+      <SortControl value={sort} onChange={setSort} options={SORT_OPTIONS_WITH_NAME} />
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+        {sorted.map((m) => (
+          <ModelCard key={m.id} item={m} onEdit={() => onEdit(m.id)} onDelete={() => onDelete(m.id)} />
+        ))}
+      </div>
+    </>
+  )
+}
+
+function BRollsList({ items, onEdit, onDelete }: { items: BRoll[]; onEdit: (id: string) => void; onDelete: (id: string) => void }) {
+  const [sort, setSort] = usePersistedState<SortOrder>('finder:sort:brolls', 'newest')
+  const sorted = useMemo(() => sortByOrder(items, sort), [items, sort])
+  return (
+    <>
+      <SortControl value={sort} onChange={setSort} options={SORT_OPTIONS_DATE_ONLY} />
+      <div className="columns-2 sm:columns-3 lg:columns-4 gap-4">
+        {sorted.map((b) => (
+          <div key={b.id} className="mb-4 break-inside-avoid">
+            <BRollCard item={b} onEdit={() => onEdit(b.id)} onDelete={() => onDelete(b.id)} />
+          </div>
+        ))}
+      </div>
+    </>
   )
 }
 
