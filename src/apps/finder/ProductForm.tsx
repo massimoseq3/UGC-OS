@@ -1,7 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, ImagePlus, Download, Loader2, AlertCircle } from 'lucide-react'
+import { X, ImagePlus, Download, Loader2, AlertCircle, Sparkles } from 'lucide-react'
 import type { Product } from '../../stores/types'
 import { useAssetUrl } from '../../hooks/useAssetUrl'
+import { useAppStore } from '../../stores/appStore'
+import { extractProductInfo } from './services/extractProductInfo'
+
+const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024
 
 interface ProductFormProps {
   item?: Product | null
@@ -9,14 +14,14 @@ interface ProductFormProps {
   onCancel: () => void
 }
 
-const FIELDS: { key: keyof Product; label: string; type: 'text' | 'textarea'; required?: boolean }[] = [
+const FIELDS: { key: keyof Product; label: string; type: 'text' | 'textarea'; required?: boolean; rows?: number }[] = [
   { key: 'productName', label: 'Product Name', type: 'text', required: true },
-  { key: 'productDescription', label: 'Description', type: 'textarea', required: true },
-  { key: 'targetMarket', label: 'Target Market', type: 'text' },
-  { key: 'painPoints', label: 'Pain Points', type: 'textarea' },
-  { key: 'usps', label: 'USPs', type: 'textarea' },
-  { key: 'benefits', label: 'Benefits', type: 'textarea' },
-  { key: 'offer', label: 'Offer', type: 'text' },
+  { key: 'productDescription', label: 'Description', type: 'textarea', required: true, rows: 2 },
+  { key: 'targetMarket', label: 'Target Market', type: 'textarea', rows: 2 },
+  { key: 'painPoints', label: 'Pain Points', type: 'textarea', rows: 3 },
+  { key: 'usps', label: 'USPs', type: 'textarea', rows: 3 },
+  { key: 'benefits', label: 'Benefits', type: 'textarea', rows: 3 },
+  { key: 'offer', label: 'Offer', type: 'textarea', rows: 1 },
   { key: 'cta', label: 'CTA', type: 'text' },
 ]
 
@@ -35,11 +40,16 @@ export default function ProductForm({ item, onSave, onCancel }: ProductFormProps
     cta: item?.cta ?? '',
   })
   const fileRef = useRef<HTMLInputElement>(null)
+  const dragDepthRef = useRef(0)
   const [localPreview, setLocalPreview] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [showError, setShowError] = useState(false)
+  const [isExtracting, setIsExtracting] = useState(false)
+  const [extractError, setExtractError] = useState<string | null>(null)
+  const [overlayActive, setOverlayActive] = useState(false)
   const resolvedAssetUrl = useAssetUrl(form.productImage)
   const displayImage = localPreview ?? resolvedAssetUrl
+  const addToast = useAppStore((s) => s.addToast)
 
   useEffect(() => {
     if (item) {
@@ -79,6 +89,63 @@ export default function ProductForm({ item, onSave, onCancel }: ProductFormProps
     reader.readAsDataURL(file)
   }
 
+  const runExtraction = async (file: File) => {
+    setExtractError(null)
+    setIsExtracting(true)
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setForm((f) => ({ ...f, productImage: reader.result as string }))
+        setLocalPreview(reader.result as string)
+      }
+    }
+    reader.readAsDataURL(file)
+
+    try {
+      const result = await extractProductInfo(file)
+      setForm((f) => ({ ...f, ...result }))
+      setShowError(false)
+      addToast('Product info extracted', 'success')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to extract product info from image.'
+      setExtractError(message)
+      addToast('Extraction failed', 'error')
+    } finally {
+      setIsExtracting(false)
+    }
+  }
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    if (!Array.from(e.dataTransfer.types).includes('Files')) return
+    dragDepthRef.current += 1
+    setOverlayActive(true)
+  }
+  const handleDragLeave = () => {
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1)
+    if (dragDepthRef.current === 0) setOverlayActive(false)
+  }
+  const handleDragOver = (e: React.DragEvent) => {
+    if (!Array.from(e.dataTransfer.types).includes('Files')) return
+    e.preventDefault()
+  }
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    dragDepthRef.current = 0
+    setOverlayActive(false)
+    const file = e.dataTransfer.files[0]
+    if (!file) return
+    if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+      setExtractError('Unsupported format. Use JPG, PNG, or WebP.')
+      return
+    }
+    if (file.size > MAX_IMAGE_SIZE) {
+      setExtractError('File too large. Maximum size is 10 MB.')
+      return
+    }
+    runExtraction(file)
+  }
+
   const handleDownload = () => {
     if (!displayImage) return
     const a = document.createElement('a')
@@ -106,7 +173,22 @@ export default function ProductForm({ item, onSave, onCancel }: ProductFormProps
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+    <form
+      onSubmit={handleSubmit}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+      className="relative flex flex-col gap-4"
+    >
+      {overlayActive && (
+        <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center rounded-xl border-2 border-dashed border-emerald-400/60 bg-emerald-500/10 backdrop-blur-sm">
+          <div className="flex items-center gap-2 rounded-full bg-black/70 px-4 py-2 text-sm font-medium text-emerald-200">
+            <Sparkles className="h-4 w-4" />
+            Drop image to auto-fill product info
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-sm font-semibold tracking-tight text-zinc-200">
@@ -124,6 +206,12 @@ export default function ProductForm({ item, onSave, onCancel }: ProductFormProps
           {displayImage ? (
             <div className="group/img relative aspect-square w-full overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]">
               <img src={displayImage} alt="" className="h-full w-full object-cover" />
+              {isExtracting && (
+                <div className="absolute left-2 top-2 z-10 flex items-center gap-1.5 rounded-lg bg-black/70 px-2.5 py-1 text-[10px] font-medium text-emerald-200 backdrop-blur-sm">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Extracting…
+                </div>
+              )}
               <button
                 type="button"
                 onClick={handleDownload}
@@ -143,17 +231,20 @@ export default function ProductForm({ item, onSave, onCancel }: ProductFormProps
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              className="group flex aspect-square w-full items-center justify-center rounded-xl border border-dashed border-white/10 bg-white/[0.02] transition-colors hover:border-white/20"
+              className="group flex aspect-square w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-white/10 bg-white/[0.02] px-3 text-center transition-colors hover:border-white/20"
             >
               <ImagePlus className="h-6 w-6 text-zinc-600 transition-colors group-hover:text-zinc-400" />
+              <span className="text-[10px] font-medium uppercase tracking-widest text-zinc-600 transition-colors group-hover:text-zinc-500">
+                Drop to auto-fill
+              </span>
             </button>
           )}
         </div>
         <input ref={fileRef} type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" className="hidden" onChange={handleImage} />
 
         {/* Right — all fields + save */}
-        <div className="flex flex-1 flex-col gap-3 min-w-0">
-          {FIELDS.map(({ key, label, type, required }) => {
+        <div className={`flex flex-1 flex-col gap-3 min-w-0 transition-opacity ${isExtracting ? 'pointer-events-none opacity-60' : ''}`}>
+          {FIELDS.map(({ key, label, type, required, rows }) => {
             const isMissing = showError && required && !form[key as keyof typeof form].toString().trim()
             const baseCls = 'rounded-lg border bg-transparent px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none transition-colors'
             const borderCls = isMissing ? 'border-red-500/60 focus:border-red-400' : 'border-white/10 focus:border-white/20'
@@ -166,8 +257,8 @@ export default function ProductForm({ item, onSave, onCancel }: ProductFormProps
                   <textarea
                     value={form[key as keyof typeof form] as string}
                     onChange={(e) => set(key, e.target.value)}
-                    rows={2}
-                    className={`${baseCls} ${borderCls} resize-none`}
+                    rows={rows ?? 3}
+                    className={`${baseCls} ${borderCls} resize-y leading-relaxed`}
                   />
                 ) : (
                   <input
@@ -187,9 +278,16 @@ export default function ProductForm({ item, onSave, onCancel }: ProductFormProps
             </div>
           )}
 
+          {extractError && (
+            <div className="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-[12px] text-red-300">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+              <span className="break-words">{extractError}</span>
+            </div>
+          )}
+
           <button
             type="submit"
-            disabled={saving}
+            disabled={saving || isExtracting}
             className="mt-1 flex items-center justify-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-zinc-900 transition-colors hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {saving && <Loader2 className="h-4 w-4 animate-spin" />}
