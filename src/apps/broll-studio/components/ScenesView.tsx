@@ -405,7 +405,7 @@ function SceneSection({
           </span>
           <p
             className="text-base italic leading-relaxed text-zinc-400"
-            style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
+            style={{ fontFamily: "'Fraunces', Georgia, 'Times New Roman', serif" }}
           >
             &ldquo;{scene.scriptLine}&rdquo;
           </p>
