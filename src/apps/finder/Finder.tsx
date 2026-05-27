@@ -6,7 +6,7 @@ import type { BankType } from '../../utils/constants'
 import { BANK_CONFIG } from '../../utils/constants'
 import type { Product, Model, Script, VoicePreset, BRoll } from '../../stores/types'
 import { saveFromDataUrl } from '../../utils/assetStore'
-import BankList from './BankList'
+import BankList, { SortControl, useBankSort } from './BankList'
 import ProductForm from './ProductForm'
 import ModelForm from './ModelForm'
 import ScriptForm from './ScriptForm'
@@ -76,6 +76,8 @@ export default function Finder() {
     voices: voices.length,
     brolls: brolls.length,
   }
+
+  const [sort, setSort, sortOptions] = useBankSort(activeBank)
 
   const handleAdd = () => {
     setEditingId(null)
@@ -174,13 +176,18 @@ export default function Finder() {
           <h2 className="text-sm font-semibold tracking-tight text-zinc-200">
             {BANK_CONFIG[activeBank].label}
           </h2>
-          <button
-            onClick={handleAdd}
-            className="flex items-center gap-1.5 rounded-full bg-white/[0.07] px-3 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:bg-white/10"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Add
-          </button>
+          <div className="flex items-center gap-3">
+            {sortOptions && counts[activeBank] > 0 && !showForm && (
+              <SortControl value={sort} onChange={setSort} options={sortOptions} />
+            )}
+            <button
+              onClick={handleAdd}
+              className="flex items-center gap-1.5 rounded-full bg-white/[0.07] px-3 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:bg-white/10"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add
+            </button>
+          </div>
         </div>
 
         {/* Content area — list or form */}
@@ -204,7 +211,7 @@ export default function Finder() {
               )}
             </div>
           ) : (
-            <BankList bankType={activeBank} onEdit={handleEdit} onAdd={handleAdd} />
+            <BankList bankType={activeBank} onEdit={handleEdit} onAdd={handleAdd} sort={sort} />
           )}
         </div>
       </div>
