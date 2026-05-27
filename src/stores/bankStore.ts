@@ -28,7 +28,7 @@ interface BankState {
   characterHistory: CharacterHistoryItem[]
 
   // Product CRUD
-  addProduct: (product: Omit<Product, 'id' | 'createdAt'>) => Promise<BankActionResult>
+  addProduct: (product: Omit<Product, 'id' | 'createdAt'>) => Promise<string>
   updateProduct: (id: string, updates: Partial<Product>) => Promise<BankActionResult>
   deleteProduct: (id: string) => Promise<BankActionResult>
   getProductById: (id: string) => Product | undefined
@@ -276,6 +276,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       return next
     })
     reportSuccess('Product saved')
+    return newProduct.id
   },
 
   updateProduct: async (id, updates) => {

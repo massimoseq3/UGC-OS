@@ -5,14 +5,16 @@ import { useAssetUrl } from '../../hooks/useAssetUrl'
 import { useAppStore } from '../../stores/appStore'
 import { extractProductInfo } from './services/extractProductInfo'
 import { downloadImage } from '../../utils/downloadImage'
-
-const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
-const MAX_IMAGE_SIZE = 10 * 1024 * 1024
+import { ACCEPTED_IMAGE_TYPES, MAX_IMAGE_SIZE } from './services/imageValidation'
 
 interface ProductFormProps {
   item?: Product | null
   onSave: (data: Omit<Product, 'id' | 'createdAt'>) => Promise<void> | void
   onCancel: () => void
+  // Called when the user dismisses the form while extraction is still running.
+  // The parent takes over: persists the partial form as a draft and lets the
+  // extraction finish in the background.
+  onCancelDuringExtraction?: (file: File, partial: Omit<Product, 'id' | 'createdAt'>) => void
 }
 
 const FIELDS: { key: keyof Product; label: string; type: 'text' | 'textarea'; required?: boolean; rows?: number }[] = [
@@ -28,7 +30,7 @@ const FIELDS: { key: keyof Product; label: string; type: 'text' | 'textarea'; re
 
 const REQUIRED_KEYS = ['productName', 'productDescription'] as const
 
-export default function ProductForm({ item, onSave, onCancel }: ProductFormProps) {
+export default function ProductForm({ item, onSave, onCancel, onCancelDuringExtraction }: ProductFormProps) {
   const [form, setForm] = useState({
     productImage: item?.productImage ?? '',
     productName: item?.productName ?? '',
@@ -42,6 +44,7 @@ export default function ProductForm({ item, onSave, onCancel }: ProductFormProps
   })
   const fileRef = useRef<HTMLInputElement>(null)
   const dragDepthRef = useRef(0)
+  const extractingFileRef = useRef<File | null>(null)
   const [localPreview, setLocalPreview] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [showError, setShowError] = useState(false)
@@ -93,6 +96,7 @@ export default function ProductForm({ item, onSave, onCancel }: ProductFormProps
   const runExtraction = async (file: File) => {
     setExtractError(null)
     setIsExtracting(true)
+    extractingFileRef.current = file
 
     const reader = new FileReader()
     reader.onload = () => {
@@ -107,13 +111,21 @@ export default function ProductForm({ item, onSave, onCancel }: ProductFormProps
       const result = await extractProductInfo(file)
       setForm((f) => ({ ...f, ...result }))
       setShowError(false)
-      addToast('Product info extracted', 'success')
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to extract product info from image.'
       setExtractError(message)
       addToast('Extraction failed', 'error')
     } finally {
+      extractingFileRef.current = null
       setIsExtracting(false)
+    }
+  }
+
+  const handleClose = () => {
+    if (isExtracting && extractingFileRef.current && onCancelDuringExtraction) {
+      onCancelDuringExtraction(extractingFileRef.current, form)
+    } else {
+      onCancel()
     }
   }
 
@@ -192,7 +204,7 @@ export default function ProductForm({ item, onSave, onCancel }: ProductFormProps
         <h3 className="text-sm font-semibold tracking-tight text-zinc-200">
           {item ? 'Edit Product' : 'New Product'}
         </h3>
-        <button type="button" onClick={onCancel} className="text-zinc-500 hover:text-zinc-300 transition-colors">
+        <button type="button" onClick={handleClose} className="text-zinc-500 hover:text-zinc-300 transition-colors">
           <X className="h-4 w-4" />
         </button>
       </div>

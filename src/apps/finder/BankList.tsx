@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react'
-import { Trash2, Package, UserRound, FileText, Mic, Film, Plus, Braces, Video, Download, Loader2, ChevronDown } from 'lucide-react'
+import { useState, useMemo, useRef } from 'react'
+import { Trash2, Package, UserRound, FileText, Mic, Film, Plus, Braces, Video, Download, Loader2, ChevronDown, Sparkles } from 'lucide-react'
 import type { Product, Model, Script, VoicePreset, BRoll } from '../../stores/types'
 import type { BankType } from '../../utils/constants'
 import { useBankStore } from '../../stores/bankStore'
@@ -79,6 +79,8 @@ interface BankListProps {
   onEdit: (id: string) => void
   onAdd: () => void
   sort: SortOrder
+  inFlightProductIds?: Set<string>
+  onBulkProductFiles?: (files: File[]) => void
 }
 
 // Local busy state stops a slow async delete from being clicked twice
@@ -118,9 +120,18 @@ function productCompleteness(p: Product): string {
   return `${filled}/9 fields`
 }
 
-function ProductCard({ item, onEdit, onDelete }: { item: Product; onEdit: () => void; onDelete: () => void }) {
+// undefined → legacy product (predates the draft system, no dot).
+// false → draft awaiting user review (orange dot).
+// true → confirmed via Save in the form (green dot).
+function productState(p: Product): 'legacy' | 'draft' | 'confirmed' {
+  if (p.confirmed === undefined) return 'legacy'
+  return p.confirmed ? 'confirmed' : 'draft'
+}
+
+function ProductCard({ item, onEdit, onDelete, inFlight }: { item: Product; onEdit: () => void; onDelete: () => void; inFlight?: boolean }) {
   const [confirm, setConfirm] = useState(false)
   const resolvedImage = useAssetUrl(item.productImage)
+  const state = productState(item)
   return (
     <div
       onClick={onEdit}
@@ -133,6 +144,22 @@ function ProductCard({ item, onEdit, onDelete }: { item: Product; onEdit: () => 
           <Package className="h-12 w-12 text-zinc-800" strokeWidth={1} />
         </div>
       )}
+      {/* Top-left status indicator: Extracting badge (while in-flight) OR draft/confirmed dot */}
+      {inFlight ? (
+        <span className="absolute left-2 top-2 z-10 flex items-center gap-1 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-emerald-300 backdrop-blur-sm">
+          <Loader2 className="h-2.5 w-2.5 animate-spin" />
+          Extracting
+        </span>
+      ) : state !== 'legacy' ? (
+        <span
+          title={state === 'draft' ? 'Unconfirmed draft — open and save to confirm' : 'Confirmed'}
+          className={`absolute left-2 top-2 z-10 h-2 w-2 rounded-full ring-2 ${
+            state === 'draft'
+              ? 'bg-orange-400 ring-orange-400/20 shadow-[0_0_8px_rgba(251,146,60,0.5)]'
+              : 'bg-emerald-400 ring-emerald-400/20 shadow-[0_0_8px_rgba(74,222,128,0.5)]'
+          }`}
+        />
+      ) : null}
       {/* Bottom info overlay */}
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/55 to-transparent p-3 pt-10">
         <span className="block truncate text-sm font-semibold tracking-tight text-zinc-100">{item.productName}</span>
@@ -348,7 +375,7 @@ function VoiceCard({ item, onEdit, onDelete }: { item: VoicePreset; onEdit: () =
   )
 }
 
-export default function BankList({ bankType, onEdit, onAdd, sort }: BankListProps) {
+export default function BankList({ bankType, onEdit, onAdd, sort, inFlightProductIds, onBulkProductFiles }: BankListProps) {
   const products = useBankStore((s) => s.products)
   const models = useBankStore((s) => s.models)
   const scripts = useBankStore((s) => s.scripts)
@@ -361,8 +388,15 @@ export default function BankList({ bankType, onEdit, onAdd, sort }: BankListProp
   const deleteBRoll = useBankStore((s) => s.deleteBRoll)
 
   if (bankType === 'products') {
-    if (products.length === 0) return <EmptyState icon={Package} label="products" singular="product" onAdd={onAdd} />
-    return <ProductsList items={products} onEdit={onEdit} onDelete={deleteProduct} sort={sort} />
+    return (
+      <ProductsBankZone onBulkFiles={onBulkProductFiles}>
+        {products.length === 0 ? (
+          <EmptyState icon={Package} label="products" singular="product" onAdd={onAdd} />
+        ) : (
+          <ProductsList items={products} onEdit={onEdit} onDelete={deleteProduct} sort={sort} inFlightIds={inFlightProductIds} />
+        )}
+      </ProductsBankZone>
+    )
   }
 
   if (bankType === 'models') {
@@ -391,12 +425,56 @@ export default function BankList({ bankType, onEdit, onAdd, sort }: BankListProp
   return <BRollsList items={brolls} onEdit={onEdit} onDelete={deleteBRoll} sort={sort} />
 }
 
-function ProductsList({ items, onEdit, onDelete, sort }: { items: Product[]; onEdit: (id: string) => void; onDelete: (id: string) => void; sort: SortOrder }) {
+// Wraps the entire products view (empty-state OR grid) with a multi-file dropzone
+// that funnels into the parent's bulk-add handler. Mirrors the dragDepth pattern
+// used in ProductForm.tsx so nested children don't flicker the overlay.
+function ProductsBankZone({ children, onBulkFiles }: { children: React.ReactNode; onBulkFiles?: (files: File[]) => void }) {
+  const dragDepthRef = useRef(0)
+  const [overlay, setOverlay] = useState(false)
+  const hasFiles = (e: React.DragEvent) => Array.from(e.dataTransfer.types).includes('Files')
+
+  if (!onBulkFiles) return <>{children}</>
+
+  return (
+    <div
+      className="relative min-h-full"
+      onDragEnter={(e) => { if (!hasFiles(e)) return; dragDepthRef.current += 1; setOverlay(true) }}
+      onDragOver={(e) => { if (!hasFiles(e)) return; e.preventDefault() }}
+      onDragLeave={() => { dragDepthRef.current = Math.max(0, dragDepthRef.current - 1); if (dragDepthRef.current === 0) setOverlay(false) }}
+      onDrop={(e) => {
+        if (!hasFiles(e)) return
+        e.preventDefault()
+        dragDepthRef.current = 0
+        setOverlay(false)
+        const files = Array.from(e.dataTransfer.files)
+        if (files.length > 0) onBulkFiles(files)
+      }}
+    >
+      {overlay && (
+        <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center rounded-xl border-2 border-dashed border-emerald-400/60 bg-emerald-500/10 backdrop-blur-sm">
+          <div className="flex items-center gap-2 rounded-full bg-black/70 px-4 py-2 text-sm font-medium text-emerald-200">
+            <Sparkles className="h-4 w-4" />
+            Drop image(s) to bulk-add products
+          </div>
+        </div>
+      )}
+      {children}
+    </div>
+  )
+}
+
+function ProductsList({ items, onEdit, onDelete, sort, inFlightIds }: { items: Product[]; onEdit: (id: string) => void; onDelete: (id: string) => void; sort: SortOrder; inFlightIds?: Set<string> }) {
   const sorted = useMemo(() => sortByOrder(items, sort, (p) => p.productName), [items, sort])
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
       {sorted.map((p) => (
-        <ProductCard key={p.id} item={p} onEdit={() => onEdit(p.id)} onDelete={() => onDelete(p.id)} />
+        <ProductCard
+          key={p.id}
+          item={p}
+          onEdit={() => onEdit(p.id)}
+          onDelete={() => onDelete(p.id)}
+          inFlight={inFlightIds?.has(p.id)}
+        />
       ))}
     </div>
   )
