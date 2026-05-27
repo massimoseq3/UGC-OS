@@ -5,6 +5,7 @@ import type { BankType } from '../../utils/constants'
 import { useBankStore } from '../../stores/bankStore'
 import { useAssetUrl } from '../../hooks/useAssetUrl'
 import { usePersistedState } from '../../hooks/usePersistedState'
+import { downloadImage } from '../../utils/downloadImage'
 
 export type SortOrder = 'newest' | 'oldest' | 'name-asc' | 'name-desc'
 
@@ -161,10 +162,7 @@ function ModelCard({ item, onEdit, onDelete }: { item: Model; onEdit: () => void
   const handleDownload = (e: React.MouseEvent) => {
     e.stopPropagation()
     if (!resolvedImage) return
-    const a = document.createElement('a')
-    a.href = resolvedImage
-    a.download = `model-${item.name || item.id.slice(0, 8)}.png`
-    a.click()
+    downloadImage(resolvedImage, `model-${item.name || item.id.slice(0, 8)}`)
   }
 
   return (
@@ -269,12 +267,7 @@ function BRollCard({ item, onEdit, onDelete }: { item: BRoll; onEdit: () => void
     e.stopPropagation()
     const target = resolvedImage ?? resolvedVideo
     if (!target) return
-    const a = document.createElement('a')
-    a.href = target
-    a.download = resolvedImage
-      ? `broll-${item.id.slice(0, 8)}.png`
-      : `broll-${item.id.slice(0, 8)}.mp4`
-    a.click()
+    downloadImage(target, `broll-${item.id.slice(0, 8)}`, resolvedImage ? 'png' : 'mp4')
   }
 
   return (
