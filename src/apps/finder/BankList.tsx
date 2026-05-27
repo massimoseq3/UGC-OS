@@ -1,14 +1,83 @@
-import { useState } from 'react'
-import { Trash2, Package, UserRound, FileText, Mic, Film, Plus, Braces, Video, Download, Loader2 } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { Trash2, Package, UserRound, FileText, Mic, Film, Plus, Braces, Video, Download, Loader2, ChevronDown } from 'lucide-react'
 import type { Product, Model, Script, VoicePreset, BRoll } from '../../stores/types'
 import type { BankType } from '../../utils/constants'
 import { useBankStore } from '../../stores/bankStore'
 import { useAssetUrl } from '../../hooks/useAssetUrl'
+import { usePersistedState } from '../../hooks/usePersistedState'
+
+export type SortOrder = 'newest' | 'oldest' | 'name-asc' | 'name-desc'
+
+export const SORT_OPTIONS_WITH_NAME: { value: SortOrder; label: string }[] = [
+  { value: 'newest', label: 'Newest first' },
+  { value: 'oldest', label: 'Oldest first' },
+  { value: 'name-asc', label: 'Name A → Z' },
+  { value: 'name-desc', label: 'Name Z → A' },
+]
+
+export const SORT_OPTIONS_DATE_ONLY: { value: SortOrder; label: string }[] = [
+  { value: 'newest', label: 'Newest first' },
+  { value: 'oldest', label: 'Oldest first' },
+]
+
+function sortByOrder<T extends { createdAt: number }>(items: T[], order: SortOrder, nameOf?: (item: T) => string): T[] {
+  const arr = [...items]
+  switch (order) {
+    case 'newest':
+      arr.sort((a, b) => b.createdAt - a.createdAt)
+      break
+    case 'oldest':
+      arr.sort((a, b) => a.createdAt - b.createdAt)
+      break
+    case 'name-asc':
+      arr.sort((a, b) => (nameOf?.(a) ?? '').localeCompare(nameOf?.(b) ?? '', undefined, { sensitivity: 'base' }))
+      break
+    case 'name-desc':
+      arr.sort((a, b) => (nameOf?.(b) ?? '').localeCompare(nameOf?.(a) ?? '', undefined, { sensitivity: 'base' }))
+      break
+  }
+  return arr
+}
+
+export function SortControl({ value, onChange, options }: { value: SortOrder; onChange: (v: SortOrder) => void; options: { value: SortOrder; label: string }[] }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-500">Sort</span>
+      <div className="relative">
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value as SortOrder)}
+          className="appearance-none rounded-lg border border-white/10 bg-[#0a0a0a] py-1.5 pl-3 pr-8 text-xs text-zinc-200 outline-none transition-colors hover:border-white/20 focus:border-white/20"
+        >
+          {options.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+        <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
+      </div>
+    </div>
+  )
+}
+
+export function useBankSort(bankType: BankType): [SortOrder, (v: SortOrder) => void, { value: SortOrder; label: string }[] | null] {
+  const [productsSort, setProductsSort] = usePersistedState<SortOrder>('finder:sort:products', 'newest')
+  const [modelsSort, setModelsSort] = usePersistedState<SortOrder>('finder:sort:models', 'newest')
+  const [scriptsSort, setScriptsSort] = usePersistedState<SortOrder>('finder:sort:scripts', 'newest')
+  const [brollsSort, setBrollsSort] = usePersistedState<SortOrder>('finder:sort:brolls', 'newest')
+  switch (bankType) {
+    case 'products': return [productsSort, setProductsSort, SORT_OPTIONS_WITH_NAME]
+    case 'models': return [modelsSort, setModelsSort, SORT_OPTIONS_WITH_NAME]
+    case 'scripts': return [scriptsSort, setScriptsSort, SORT_OPTIONS_WITH_NAME]
+    case 'brolls': return [brollsSort, setBrollsSort, SORT_OPTIONS_DATE_ONLY]
+    default: return ['newest', () => {}, null]
+  }
+}
 
 interface BankListProps {
   bankType: BankType
   onEdit: (id: string) => void
   onAdd: () => void
+  sort: SortOrder
 }
 
 // Local busy state stops a slow async delete from being clicked twice
@@ -286,7 +355,7 @@ function VoiceCard({ item, onEdit, onDelete }: { item: VoicePreset; onEdit: () =
   )
 }
 
-export default function BankList({ bankType, onEdit, onAdd }: BankListProps) {
+export default function BankList({ bankType, onEdit, onAdd, sort }: BankListProps) {
   const products = useBankStore((s) => s.products)
   const models = useBankStore((s) => s.models)
   const scripts = useBankStore((s) => s.scripts)
@@ -300,35 +369,17 @@ export default function BankList({ bankType, onEdit, onAdd }: BankListProps) {
 
   if (bankType === 'products') {
     if (products.length === 0) return <EmptyState icon={Package} label="products" singular="product" onAdd={onAdd} />
-    return (
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-        {products.map((p) => (
-          <ProductCard key={p.id} item={p} onEdit={() => onEdit(p.id)} onDelete={() => deleteProduct(p.id)} />
-        ))}
-      </div>
-    )
+    return <ProductsList items={products} onEdit={onEdit} onDelete={deleteProduct} sort={sort} />
   }
 
   if (bankType === 'models') {
     if (models.length === 0) return <EmptyState icon={UserRound} label="characters" singular="character" onAdd={onAdd} />
-    return (
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-        {models.map((m) => (
-          <ModelCard key={m.id} item={m} onEdit={() => onEdit(m.id)} onDelete={() => deleteModel(m.id)} />
-        ))}
-      </div>
-    )
+    return <ModelsList items={models} onEdit={onEdit} onDelete={deleteModel} sort={sort} />
   }
 
   if (bankType === 'scripts') {
     if (scripts.length === 0) return <EmptyState icon={FileText} label="scripts" singular="script" onAdd={onAdd} />
-    return (
-      <div className="flex flex-col gap-2">
-        {scripts.map((s) => (
-          <ScriptCard key={s.id} item={s} onEdit={() => onEdit(s.id)} onDelete={() => deleteScript(s.id)} />
-        ))}
-      </div>
-    )
+    return <ScriptsList items={scripts} onEdit={onEdit} onDelete={deleteScript} sort={sort} />
   }
 
   if (bankType === 'voices') {
@@ -344,11 +395,49 @@ export default function BankList({ bankType, onEdit, onAdd }: BankListProps) {
 
   // brolls
   if (brolls.length === 0) return <EmptyState icon={Film} label="b-rolls" singular="b-roll" onAdd={onAdd} />
+  return <BRollsList items={brolls} onEdit={onEdit} onDelete={deleteBRoll} sort={sort} />
+}
+
+function ProductsList({ items, onEdit, onDelete, sort }: { items: Product[]; onEdit: (id: string) => void; onDelete: (id: string) => void; sort: SortOrder }) {
+  const sorted = useMemo(() => sortByOrder(items, sort, (p) => p.productName), [items, sort])
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+      {sorted.map((p) => (
+        <ProductCard key={p.id} item={p} onEdit={() => onEdit(p.id)} onDelete={() => onDelete(p.id)} />
+      ))}
+    </div>
+  )
+}
+
+function ModelsList({ items, onEdit, onDelete, sort }: { items: Model[]; onEdit: (id: string) => void; onDelete: (id: string) => void; sort: SortOrder }) {
+  const sorted = useMemo(() => sortByOrder(items, sort, (m) => m.name), [items, sort])
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+      {sorted.map((m) => (
+        <ModelCard key={m.id} item={m} onEdit={() => onEdit(m.id)} onDelete={() => onDelete(m.id)} />
+      ))}
+    </div>
+  )
+}
+
+function ScriptsList({ items, onEdit, onDelete, sort }: { items: Script[]; onEdit: (id: string) => void; onDelete: (id: string) => void; sort: SortOrder }) {
+  const sorted = useMemo(() => sortByOrder(items, sort, (s) => s.title), [items, sort])
+  return (
+    <div className="flex flex-col gap-2">
+      {sorted.map((s) => (
+        <ScriptCard key={s.id} item={s} onEdit={() => onEdit(s.id)} onDelete={() => onDelete(s.id)} />
+      ))}
+    </div>
+  )
+}
+
+function BRollsList({ items, onEdit, onDelete, sort }: { items: BRoll[]; onEdit: (id: string) => void; onDelete: (id: string) => void; sort: SortOrder }) {
+  const sorted = useMemo(() => sortByOrder(items, sort), [items, sort])
   return (
     <div className="columns-2 sm:columns-3 lg:columns-4 gap-4">
-      {brolls.map((b) => (
+      {sorted.map((b) => (
         <div key={b.id} className="mb-4 break-inside-avoid">
-          <BRollCard item={b} onEdit={() => onEdit(b.id)} onDelete={() => deleteBRoll(b.id)} />
+          <BRollCard item={b} onEdit={() => onEdit(b.id)} onDelete={() => onDelete(b.id)} />
         </div>
       ))}
     </div>
