@@ -16,9 +16,21 @@ import { useBankStore } from '../../../stores/bankStore'
 
 interface ResultsViewProps {
   result: AnalysisResult
-  videoSrc: string
+  // Set when the analysis came from a fresh upload; the asset:// blob URL.
+  videoSrc: string | null
+  // Set when the user restored from History; we don't keep the source video,
+  // only the saved first-frame still.
+  restoredThumbUrl?: string | null
   fileName: string
   onReset: () => void
+}
+
+// Pull a 3-6 word descriptor out of the file name if the LLM didn't return
+// adTitle. Kept here for the save flows since legacy results don't have it.
+function deriveFallbackTitle(fileName: string): string {
+  const stem = fileName.replace(/\.[^.]+$/, '')
+  const cleaned = stem.replace(/[_-]+/g, ' ').trim()
+  return cleaned || 'Untitled ad'
 }
 
 function useCopy() {
@@ -110,34 +122,44 @@ function ScorecardSection({ result }: { result: AnalysisResult }) {
 }
 
 /* ─── 2. Transcript ─── */
-function TranscriptSection({ result }: { result: AnalysisResult }) {
+function TranscriptSection({ result, fileName }: { result: AnalysisResult; fileName: string }) {
   const { copied, copy } = useCopy()
-  const [savingTitle, setSavingTitle] = useState<string | null>(null)
   const addToast = useAppStore((s) => s.addToast)
+  const sendToApp = useAppStore((s) => s.sendToApp)
   const addScript = useBankStore((s) => s.addScript)
 
   const withoutTimestamps = result.transcript.map((l) => l.text).join('\n')
+  const adTitle = result.adTitle?.trim() || deriveFallbackTitle(fileName)
+  const scriptTitle = `${adTitle} — Transcript`
 
   const handleSaveToBank = () => {
-    if (savingTitle !== null) {
-      const title = savingTitle.trim()
-      if (!title) return
-      addScript({
-        title,
-        scriptText: withoutTimestamps,
-        linkedProductId: '',
-        source: 'manual',
-      })
-      setSavingTitle(null)
-      addToast('Transcript saved to Script Bank')
-    } else {
-      setSavingTitle('')
-    }
+    addScript({
+      title: scriptTitle,
+      scriptText: withoutTimestamps,
+      linkedProductId: '',
+      source: 'manual',
+    })
+    addToast(`Saved "${scriptTitle}" to Script Bank`)
+  }
+
+  const handleSendToScripts = () => {
+    addScript({
+      title: scriptTitle,
+      scriptText: withoutTimestamps,
+      linkedProductId: '',
+      source: 'manual',
+    })
+    sendToApp({
+      targetApp: 'script-architect',
+      targetField: 'winningTranscript',
+      data: withoutTimestamps,
+    })
+    addToast('Sent to Scripts + saved to bank')
   }
 
   return (
     <Section>
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-3 flex items-center justify-between flex-wrap gap-2">
         <SectionHeader icon={FileText} title="Transcript" />
         <div className="flex items-center gap-1.5">
           <button
@@ -154,34 +176,15 @@ function TranscriptSection({ result }: { result: AnalysisResult }) {
             <Bookmark className="h-3 w-3" />
             Save to Script Bank
           </button>
+          <button
+            onClick={handleSendToScripts}
+            className="flex items-center gap-1 rounded-full bg-[#FB2B37]/10 px-2.5 py-1 text-[11px] font-medium text-[#FB2B37] transition-colors hover:bg-[#FB2B37]/20"
+          >
+            <Send className="h-3 w-3" />
+            Send to Scripts
+          </button>
         </div>
       </div>
-
-      {savingTitle !== null && (
-        <div className="mb-3 flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-2">
-          <input
-            value={savingTitle}
-            onChange={(e) => setSavingTitle(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleSaveToBank(); if (e.key === 'Escape') setSavingTitle(null) }}
-            autoFocus
-            placeholder="Enter script title..."
-            className="flex-1 bg-transparent text-sm text-zinc-200 placeholder-zinc-600 outline-none"
-          />
-          <button
-            onClick={handleSaveToBank}
-            disabled={!savingTitle.trim()}
-            className="rounded-full px-2.5 py-1 text-[11px] font-medium text-emerald-400 transition-colors hover:bg-emerald-500/10 disabled:opacity-30"
-          >
-            Save
-          </button>
-          <button
-            onClick={() => setSavingTitle(null)}
-            className="rounded-full px-2 py-1 text-[11px] font-medium text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-300"
-          >
-            Cancel
-          </button>
-        </div>
-      )}
 
       <div className="flex flex-col gap-0.5">
         {result.transcript.map((line, i) => (
@@ -233,7 +236,7 @@ function SceneCard({ scene }: { scene: Scene }) {
   )
 }
 
-function ReverseEngineeredSection({ result }: { result: AnalysisResult }) {
+function ReverseEngineeredSection({ result, fileName }: { result: AnalysisResult; fileName: string }) {
   const { copied, copy } = useCopy()
   const { reverseEngineeredPrompt } = result
   const scenes = reverseEngineeredPrompt.scenes
@@ -242,7 +245,28 @@ function ReverseEngineeredSection({ result }: { result: AnalysisResult }) {
   const addToast = useAppStore((s) => s.addToast)
   const addScript = useBankStore((s) => s.addScript)
 
+  const adTitle = result.adTitle?.trim() || deriveFallbackTitle(fileName)
+  const scriptTitle = `${adTitle} — Prompt`
+
+  const handleSaveToBank = () => {
+    addScript({
+      title: scriptTitle,
+      scriptText: fullPrompt,
+      linkedProductId: '',
+      source: 'script-architect',
+      kind: 'reverse-engineer',
+    })
+    addToast(`Saved "${scriptTitle}" to Script Bank`)
+  }
+
   const handleSendToScripts = () => {
+    addScript({
+      title: scriptTitle,
+      scriptText: fullPrompt,
+      linkedProductId: '',
+      source: 'script-architect',
+      kind: 'reverse-engineer',
+    })
     sendToApp({
       targetApp: 'script-architect',
       targetField: 'reverseEngineerPrompt',
@@ -251,14 +275,6 @@ function ReverseEngineeredSection({ result }: { result: AnalysisResult }) {
         totalDurationSeconds: reverseEngineeredPrompt.totalDurationSeconds,
         fullPrompt,
       },
-    })
-    // Auto-save the source prompt to the Scripts bank so the user has a permanent record.
-    const ts = new Date().toISOString().replace('T', ' ').slice(0, 16)
-    addScript({
-      title: `Reverse-engineered ad — ${ts}`,
-      scriptText: fullPrompt,
-      linkedProductId: '',
-      source: 'script-architect',
     })
     addToast('Sent to Scripts + saved to bank')
   }
@@ -274,6 +290,13 @@ function ReverseEngineeredSection({ result }: { result: AnalysisResult }) {
           >
             {copied ? <Check className="h-3 w-3 text-green-400" /> : <Copy className="h-3 w-3" />}
             {copied ? 'Copied' : scenes.length > 1 ? 'Copy All' : 'Copy Prompt'}
+          </button>
+          <button
+            onClick={handleSaveToBank}
+            className="flex items-center gap-1 rounded-full bg-white/[0.05] px-2.5 py-1 text-[11px] font-medium text-zinc-400 transition-colors hover:bg-white/10 hover:text-zinc-200"
+          >
+            <Bookmark className="h-3 w-3" />
+            Save to Script Bank
           </button>
           <button
             onClick={handleSendToScripts}
@@ -304,37 +327,79 @@ function ReverseEngineeredSection({ result }: { result: AnalysisResult }) {
 }
 
 /* ─── Main ResultsView ─── */
-export default function ResultsView({ result, videoSrc, fileName, onReset }: ResultsViewProps) {
+export default function ResultsView({ result, videoSrc, restoredThumbUrl, fileName, onReset }: ResultsViewProps) {
+  // Hide the left media column entirely when neither a video nor a saved
+  // still is available (e.g. restored from a history row whose thumbnail
+  // capture had failed). Results panels then take the full width.
+  const hasMedia = !!videoSrc || !!restoredThumbUrl
+
   return (
     <div className="flex flex-col md:flex-row h-full overflow-hidden">
-      {/* Left column — pinned video */}
-      <div className="flex md:h-full w-full md:w-1/3 shrink-0 flex-col gap-4 border-b md:border-b-0 md:border-r border-white/5 p-4 md:p-5 min-h-0">
-        <div className="flex-1 min-h-0 w-full overflow-hidden rounded-xl border border-white/10 bg-black flex items-center justify-center">
-          <video
-            src={videoSrc}
-            className="max-h-full max-w-full object-contain"
-            controls
-          />
+      {/* Left column — pinned video or restored still */}
+      {hasMedia && (
+        <div className="flex md:h-full w-full md:w-1/3 shrink-0 flex-col gap-4 border-b md:border-b-0 md:border-r border-white/5 p-4 md:p-5 min-h-0">
+          {/* Media sizes to its own aspect ratio so there are no letterbox
+              black bars. The flex parent centers it within whatever vertical
+              space is left after the caption / filename / button. */}
+          <div className="flex flex-1 min-h-0 w-full items-center justify-center">
+            {videoSrc ? (
+              <video
+                src={videoSrc}
+                className="block max-h-full max-w-full rounded-xl border border-white/10"
+                controls
+              />
+            ) : restoredThumbUrl ? (
+              <img
+                src={restoredThumbUrl}
+                alt="First frame of the analyzed ad"
+                className="block max-h-full max-w-full rounded-xl border border-white/10"
+              />
+            ) : null}
+          </div>
+          {/* When the live source is gone, make it explicit that this is the
+              saved still — not a broken or missing video. */}
+          {!videoSrc && restoredThumbUrl && (
+            <p className="-mt-2 shrink-0 text-center text-[11px] italic text-zinc-500">
+              Still frame — source ad not retained
+            </p>
+          )}
+          <div className="flex shrink-0 items-center gap-2 rounded-lg bg-white/[0.03] px-3 py-2 min-w-0">
+            <Film className="h-3.5 w-3.5 shrink-0 text-zinc-600" />
+            <span className="truncate text-xs text-zinc-500">{fileName}</span>
+          </div>
+          <button
+            onClick={onReset}
+            className="flex shrink-0 items-center justify-center gap-2 rounded-full border border-[#FB2B37]/20 bg-[#FB2B37]/10 px-4 py-2.5 text-sm font-medium text-[#FB2B37] transition-colors hover:bg-[#FB2B37]/20"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Analyze Another
+          </button>
         </div>
-        <div className="flex shrink-0 items-center gap-2 rounded-lg bg-white/[0.03] px-3 py-2 min-w-0">
-          <Film className="h-3.5 w-3.5 shrink-0 text-zinc-600" />
-          <span className="truncate text-xs text-zinc-500">{fileName}</span>
-        </div>
-        <button
-          onClick={onReset}
-          className="flex shrink-0 items-center justify-center gap-2 rounded-full border border-[#FB2B37]/20 bg-[#FB2B37]/10 px-4 py-2.5 text-sm font-medium text-[#FB2B37] transition-colors hover:bg-[#FB2B37]/20"
-        >
-          <RotateCcw className="h-3.5 w-3.5" />
-          Analyze Another
-        </button>
-      </div>
+      )}
 
       {/* Right column — scrollable results */}
       <div className="flex-1 overflow-y-auto p-5">
+        {/* When the left column is hidden, surface the Reset action above the
+            results so the user can always get back to a fresh upload. */}
+        {!hasMedia && (
+          <div className="mb-5 flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-white/[0.02] px-4 py-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <Film className="h-3.5 w-3.5 shrink-0 text-zinc-600" />
+              <span className="truncate text-xs text-zinc-500">{fileName || 'Untitled analysis'}</span>
+            </div>
+            <button
+              onClick={onReset}
+              className="flex shrink-0 items-center justify-center gap-2 rounded-full border border-[#FB2B37]/20 bg-[#FB2B37]/10 px-3.5 py-1.5 text-xs font-medium text-[#FB2B37] transition-colors hover:bg-[#FB2B37]/20"
+            >
+              <RotateCcw className="h-3 w-3" />
+              Analyze Another
+            </button>
+          </div>
+        )}
         <div className="flex flex-col gap-5">
           <ScorecardSection result={result} />
-          <TranscriptSection result={result} />
-          <ReverseEngineeredSection result={result} />
+          <TranscriptSection result={result} fileName={fileName} />
+          <ReverseEngineeredSection result={result} fileName={fileName} />
         </div>
       </div>
     </div>

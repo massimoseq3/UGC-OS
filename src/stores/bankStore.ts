@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Product, Model, Script, VoicePreset, BRoll, VoiceHistoryItem, VideoHistoryItem, ImageHistoryItem, MusicHistoryItem, ScriptHistoryItem, BrollHistoryItem, CharacterHistoryItem } from './types'
+import type { Product, Model, Script, VoicePreset, BRoll, VoiceHistoryItem, VideoHistoryItem, ImageHistoryItem, MusicHistoryItem, ScriptHistoryItem, BrollHistoryItem, CharacterHistoryItem, AdAnatomyHistoryItem } from './types'
 import { isAssetRef, deleteAsset, saveFromDataUrl } from '../utils/assetStore'
 import { useAuthStore } from './authStore'
 import { isCloudEnabled } from '../lib/supabase'
@@ -26,6 +26,7 @@ interface BankState {
   scriptHistory: ScriptHistoryItem[]
   brollHistory: BrollHistoryItem[]
   characterHistory: CharacterHistoryItem[]
+  adAnatomyHistory: AdAnatomyHistoryItem[]
 
   // Product CRUD
   addProduct: (product: Omit<Product, 'id' | 'createdAt'>) => Promise<string>
@@ -96,13 +97,20 @@ interface BankState {
   updateCharacterHistory: (id: string, updates: Partial<CharacterHistoryItem>) => Promise<BankActionResult>
   deleteCharacterHistory: (id: string) => Promise<BankActionResult>
   clearCharacterHistory: () => Promise<BankActionResult>
+
+  // Ad Anatomy History (Ad Analyzer)
+  addAdAnatomyHistory: (item: AdAnatomyHistoryItem) => Promise<BankActionResult>
+  updateAdAnatomyHistory: (id: string, updates: Partial<AdAnatomyHistoryItem>) => Promise<BankActionResult>
+  deleteAdAnatomyHistory: (id: string) => Promise<BankActionResult>
+  clearAdAnatomyHistory: () => Promise<BankActionResult>
+  getAdAnatomyHistoryById: (id: string) => AdAnatomyHistoryItem | undefined
 }
 
 function generateId(): string {
   return crypto.randomUUID()
 }
 
-type BankData = Pick<BankState, 'products' | 'models' | 'scripts' | 'voices' | 'brolls' | 'voiceHistory' | 'videoHistory' | 'imageHistory' | 'musicHistory' | 'scriptHistory' | 'brollHistory' | 'characterHistory'>
+type BankData = Pick<BankState, 'products' | 'models' | 'scripts' | 'voices' | 'brolls' | 'voiceHistory' | 'videoHistory' | 'imageHistory' | 'musicHistory' | 'scriptHistory' | 'brollHistory' | 'characterHistory' | 'adAnatomyHistory'>
 
 function migrateVoiceShape<T>(arr: unknown): T[] {
   if (!Array.isArray(arr)) return []
@@ -134,6 +142,7 @@ const EMPTY_BANKS: BankData = {
   scriptHistory: [],
   brollHistory: [],
   characterHistory: [],
+  adAnatomyHistory: [],
 }
 
 // Wipe the in-memory bank state and the localStorage snapshot. Called on
@@ -164,6 +173,7 @@ function loadFromStorage(): BankData {
         scriptHistory: Array.isArray(parsed.scriptHistory) ? parsed.scriptHistory : [],
         brollHistory: Array.isArray(parsed.brollHistory) ? parsed.brollHistory : [],
         characterHistory: Array.isArray(parsed.characterHistory) ? parsed.characterHistory : [],
+        adAnatomyHistory: Array.isArray(parsed.adAnatomyHistory) ? parsed.adAnatomyHistory : [],
       }
     }
   } catch {
@@ -194,6 +204,7 @@ function flushSaveToStorage() {
       scriptHistory: state.scriptHistory,
       brollHistory: state.brollHistory,
       characterHistory: state.characterHistory,
+      adAnatomyHistory: state.adAnatomyHistory,
     }))
   } catch (error) {
     console.error('Failed to save to storage', error)
@@ -799,6 +810,59 @@ export const useBankStore = create<BankState>((set, get) => ({
     })
     reportSuccess('Character history cleared')
   },
+
+  // ── Ad Anatomy History (Ad Analyzer) ────────────────────────────
+  addAdAnatomyHistory: async (item) => {
+    try { await pushRow('adAnatomyHistory', item) } catch (e) { reportErrorSoft('Save ad analysis', e) }
+    set((state) => {
+      const next = { adAnatomyHistory: [item, ...state.adAnatomyHistory] }
+      saveToStorage({ ...state, ...next })
+      return next
+    })
+  },
+
+  updateAdAnatomyHistory: async (id, updates) => {
+    const old = get().adAnatomyHistory.find((h) => h.id === id)
+    if (!old) return
+    const updated: AdAnatomyHistoryItem = { ...old, ...updates }
+    try { await pushRow('adAnatomyHistory', updated) } catch (e) { reportErrorSoft('Update ad analysis', e) }
+    set((state) => {
+      const next = { adAnatomyHistory: state.adAnatomyHistory.map((h) => h.id === id ? updated : h) }
+      saveToStorage({ ...state, ...next })
+      return next
+    })
+  },
+
+  deleteAdAnatomyHistory: async (id) => {
+    const item = get().adAnatomyHistory.find((h) => h.id === id)
+    if (!item) return
+    try { await dropRow('adAnatomyHistory', id) } catch (e) { reportErrorSoft('Delete ad analysis', e) }
+    await cleanupAssets(item.thumbnailRef, item.uploadedRef)
+    set((state) => {
+      const next = { adAnatomyHistory: state.adAnatomyHistory.filter((h) => h.id !== id) }
+      saveToStorage({ ...state, ...next })
+      return next
+    })
+    reportSuccess('Analysis removed from history')
+  },
+
+  clearAdAnatomyHistory: async () => {
+    const items = get().adAnatomyHistory
+    if (cloudActive()) {
+      for (const item of items) {
+        try { await dropRow('adAnatomyHistory', item.id) } catch (e) { console.warn('clear ad analysis history', e) }
+      }
+    }
+    for (const item of items) await cleanupAssets(item.thumbnailRef, item.uploadedRef)
+    set((state) => {
+      const next = { adAnatomyHistory: [] as AdAnatomyHistoryItem[] }
+      saveToStorage({ ...state, ...next })
+      return next
+    })
+    reportSuccess('Ad Analyzer history cleared')
+  },
+
+  getAdAnatomyHistoryById: (id) => get().adAnatomyHistory.find((h) => h.id === id),
 }))
 
 // ── One-time migration: data URLs → IndexedDB asset IDs ─────────────

@@ -203,6 +203,33 @@ export interface BrollHistoryItem {
   cardStates: Record<string, unknown>
 }
 
+// One analysis in the Ad Analyzer. Pushed before the request starts so the
+// History rail can show an in-flight row immediately. We don't keep the
+// source ad blob long-term — `uploadedRef` is held only while status is
+// 'analyzing', then deleted on success or error. `thumbnailRef` is the
+// first-frame still that persists for the row's lifetime.
+export interface AdAnatomyHistoryItem {
+  id: string
+  createdAt: number
+  // 'analyzing' → request in flight (or queued); 'complete' → result set;
+  // 'error' → request failed. Mount-time reconciler flips orphaned
+  // 'analyzing' rows to 'error' since chat completions can't resume.
+  status: 'analyzing' | 'complete' | 'error'
+  // Title Case descriptor. Empty until status === 'complete'; UI falls back
+  // to fileName in the meantime.
+  adTitle: string
+  fileName: string
+  mediaKind: 'video' | 'image'
+  thumbnailRef?: string
+  // Source ad asset id — only present while status === 'analyzing'. Dropped
+  // on success/error so the bank doesn't accumulate large video blobs.
+  uploadedRef?: string
+  // Opaque JSON so types.ts stays decoupled from ad-anatomy's internal types.
+  // Undefined until status === 'complete'.
+  result?: unknown
+  errorMessage?: string
+}
+
 export interface InterAppPayload {
   targetApp: string
   targetField: string
