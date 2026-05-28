@@ -1,13 +1,19 @@
 // Module-level analysis queue. Survives React unmounts (so a user switching
-// to another app mid-bulk doesn't kill the in-flight requests), but does NOT
-// survive a page refresh — kie.ai's chat-completions endpoint is a single
-// streaming HTTP request that can't be resumed. AdAnatomy's mount-time
-// reconciler flips any orphaned 'analyzing' rows to 'error'.
+// to another app mid-bulk doesn't kill the in-flight requests). With the
+// createTask transport, jobs can also survive a page refresh — the taskId is
+// persisted on the history row and `resumeAnalysisTask` re-attaches a poll.
+// Rows that fall back to the streaming transport still can't be resumed; the
+// mount-time reconciler flips those to 'error'.
 
-import { analyzeAd } from './analyzeAd'
+import {
+  startAnalysisTask,
+  pollAnalysisTask,
+  streamAnalysisFallback,
+} from './analyzeAd'
 import { captureFirstFrame } from '../utils/captureFirstFrame'
 import { saveAsset, deleteAsset } from '../../../utils/assetStore'
 import { useBankStore } from '../../../stores/bankStore'
+import type { AnalysisResult } from '../types'
 
 const MAX_CONCURRENT = 5
 
@@ -31,10 +37,41 @@ function deriveFallbackTitle(fileName: string): string {
   return cleaned || 'Untitled ad'
 }
 
-// Enqueue an analysis. The history row should already be in the bank with
-// status 'analyzing' and `uploadedRef` pointing at the source asset. The
-// queue handles: first-frame capture → kie.ai call → bank updates → source
-// asset cleanup.
+async function applySuccess(historyId: string, analysis: AnalysisResult, fileName: string) {
+  const { updateAdAnatomyHistory, getAdAnatomyHistoryById } = useBankStore.getState()
+  const current = getAdAnatomyHistoryById(historyId)
+  if (!current) return // row was deleted while we were polling
+  const adTitle = analysis.adTitle?.trim() || deriveFallbackTitle(fileName)
+  await updateAdAnatomyHistory(historyId, {
+    status: 'complete',
+    adTitle,
+    result: analysis,
+    uploadedRef: undefined,
+    taskId: undefined,
+  })
+  if (current.uploadedRef) {
+    deleteAsset(current.uploadedRef).catch(() => {})
+  }
+}
+
+async function applyFailure(historyId: string, err: unknown) {
+  const { updateAdAnatomyHistory, getAdAnatomyHistoryById } = useBankStore.getState()
+  const current = getAdAnatomyHistoryById(historyId)
+  if (!current) return
+  const errorMessage = err instanceof Error ? err.message : 'Analysis failed.'
+  await updateAdAnatomyHistory(historyId, {
+    status: 'error',
+    errorMessage,
+    uploadedRef: undefined,
+    taskId: undefined,
+  })
+  if (current.uploadedRef) {
+    deleteAsset(current.uploadedRef).catch(() => {})
+  }
+}
+
+// Enqueue a new analysis. History row should already be in the bank with
+// status: 'analyzing' and uploadedRef pointing at the source asset.
 export function enqueueAnalysis(historyId: string, file: File): void {
   queue.push(async () => {
     const { updateAdAnatomyHistory, getAdAnatomyHistoryById } = useBankStore.getState()
@@ -42,59 +79,58 @@ export function enqueueAnalysis(historyId: string, file: File): void {
     // Bail if the user deleted the row before we got a slot.
     if (!getAdAnatomyHistoryById(historyId)) return
 
-    // Best-effort thumbnail capture. Never blocks the analysis.
+    // Best-effort thumbnail capture — never blocks the analysis.
     try {
       const frame = await captureFirstFrame(file)
       const thumbnailRef = await saveAsset(frame, frame.type || 'image/jpeg')
-      // Only stamp the thumbnail if the row is still around.
       if (getAdAnatomyHistoryById(historyId)) {
         await updateAdAnatomyHistory(historyId, { thumbnailRef })
       } else {
-        // Row was deleted while we were capturing — clean up the orphan.
         deleteAsset(thumbnailRef).catch(() => {})
       }
     } catch (e) {
       console.warn('[ad-anatomy] thumbnail capture failed', e)
     }
 
-    // The analysis itself.
+    // Try the createTask transport first; if kie's chat endpoint doesn't
+    // support it for this model, fall back to streaming.
     try {
-      const analysis = await analyzeAd(file)
+      const outcome = await startAnalysisTask(file)
+      if (!getAdAnatomyHistoryById(historyId)) return
 
-      // Check again — the user may have deleted while we were waiting.
-      const current = getAdAnatomyHistoryById(historyId)
-      if (!current) return
-
-      const adTitle = analysis.adTitle?.trim() || deriveFallbackTitle(file.name)
-      await updateAdAnatomyHistory(historyId, {
-        status: 'complete',
-        adTitle,
-        result: analysis,
-        uploadedRef: undefined,
-      })
-      // Drop the source asset — we've fulfilled the "we don't keep the
-      // ad" promise from here on out.
-      if (current.uploadedRef) {
-        deleteAsset(current.uploadedRef).catch(() => {})
+      if (outcome.kind === 'task') {
+        await updateAdAnatomyHistory(historyId, { taskId: outcome.taskId })
+        const analysis = await pollAnalysisTask(outcome.taskId)
+        await applySuccess(historyId, analysis, file.name)
+      } else {
+        // Streaming fallback — can't resume across refresh.
+        const analysis = await streamAnalysisFallback(file)
+        await applySuccess(historyId, analysis, file.name)
       }
     } catch (err) {
-      const current = getAdAnatomyHistoryById(historyId)
-      if (!current) return
-      const errorMessage = err instanceof Error ? err.message : 'Analysis failed.'
-      await updateAdAnatomyHistory(historyId, {
-        status: 'error',
-        errorMessage,
-        uploadedRef: undefined,
-      })
-      if (current.uploadedRef) {
-        deleteAsset(current.uploadedRef).catch(() => {})
-      }
+      await applyFailure(historyId, err)
     }
   })
   pump()
 }
 
-// Exposed for debugging / verification only. The cap is otherwise opaque.
+// Resume polling for a row whose taskId we already have. Used by the mount-
+// time reconciler after a refresh. No thumbnail capture, no source file.
+export function resumeAnalysisTask(historyId: string, taskId: string, fileName: string): void {
+  queue.push(async () => {
+    const { getAdAnatomyHistoryById } = useBankStore.getState()
+    if (!getAdAnatomyHistoryById(historyId)) return
+    try {
+      const analysis = await pollAnalysisTask(taskId)
+      await applySuccess(historyId, analysis, fileName)
+    } catch (err) {
+      await applyFailure(historyId, err)
+    }
+  })
+  pump()
+}
+
+// Exposed for debugging / verification only.
 export function _debugRunningCount(): number {
   return running
 }

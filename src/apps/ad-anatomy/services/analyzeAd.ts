@@ -1,7 +1,16 @@
 import type { AnalysisResult } from '../types'
 import { useSettingsStore } from '../../../stores/settingsStore'
-import { kieChatCompletions, fileToDataUri, type ChatMessage } from '../../../utils/kie'
+import {
+  createTask,
+  pollTask,
+  kieChatCompletions,
+  fileToDataUri,
+  type ChatMessage,
+} from '../../../utils/kie'
 import { getChatEndpointPath } from '../../../utils/models'
+
+const CHAT_MODEL_ID = 'gemini-3-flash'
+const POLL_TIMEOUT_MS = 300_000
 
 const SYSTEM_INSTRUCTION = `You are an elite UGC ad analyst. You dissect social media video ads and produce three things: a brutally honest scorecard, an accurate timestamped transcript, and a reverse-engineered prompt that could be sent to a text-to-video model (e.g. Seedance, Veo) to recreate the ad ONE-FOR-ONE, faithfully.
 
@@ -56,34 +65,140 @@ AD TITLE: Produce a short (3–6 word) Title Case descriptor of the ad as a whol
   }
 }`
 
-export async function analyzeAd(videoFile: File): Promise<AnalysisResult> {
-  const apiKey = useSettingsStore.getState().getKieApiKey()
-  const endpoint = getChatEndpointPath()
+const USER_PROMPT = `Analyze this UGC ad video/image thoroughly. Produce: (1) a brutally honest scorecard, (2) an accurate timestamped transcript, (3) a reverse-engineered prompt — chunked into scenes of ≤15 seconds each. Each scene prompt MUST describe the original character in full identifying detail, describe the original product in full identifying detail, and embed the original spoken dialogue for that scene. Do not use placeholder tokens. Return the analysis as JSON.`
 
+async function buildMessages(videoFile: File): Promise<ChatMessage[]> {
   const dataUri = await fileToDataUri(videoFile)
-
-  const prompt = `Analyze this UGC ad video/image thoroughly. Produce: (1) a brutally honest scorecard, (2) an accurate timestamped transcript, (3) a reverse-engineered prompt — chunked into scenes of ≤15 seconds each. Each scene prompt MUST describe the original character in full identifying detail, describe the original product in full identifying detail, and embed the original spoken dialogue for that scene. Do not use placeholder tokens. Return the analysis as JSON.`
-
-  const messages: ChatMessage[] = [
+  return [
     { role: 'system', content: [{ type: 'text', text: SYSTEM_INSTRUCTION }] },
     {
       role: 'user',
       content: [
-        { type: 'text', text: prompt },
+        { type: 'text', text: USER_PROMPT },
         { type: 'image_url', image_url: { url: dataUri } },
       ],
     },
   ]
+}
 
-  const responseText = await kieChatCompletions(apiKey, endpoint, messages, {
-    timeoutMs: 300_000,
-  })
+// kie's chat completions response can be unwrapped into a single text blob
+// through several shapes depending on whether the recordInfo route returns the
+// raw OpenAI envelope, just the message string, or just `content`. Try the
+// known shapes in turn and surface the raw envelope if none match.
+function extractTextFromResultEnvelope(envelope: unknown): string | null {
+  if (typeof envelope === 'string') return envelope
+  if (!envelope || typeof envelope !== 'object') return null
+  const obj = envelope as Record<string, unknown>
 
-  const cleaned = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+  // OpenAI-shape
+  const choices = obj.choices
+  if (Array.isArray(choices) && choices[0] && typeof choices[0] === 'object') {
+    const first = choices[0] as Record<string, unknown>
+    const msg = first.message as Record<string, unknown> | undefined
+    if (msg && typeof msg.content === 'string') return msg.content
+    if (typeof first.text === 'string') return first.text
+  }
+
+  // Flatter shapes kie sometimes returns
+  if (typeof obj.content === 'string') return obj.content
+  if (typeof obj.response === 'string') return obj.response
+  if (typeof obj.output === 'string') return obj.output
+  if (typeof obj.text === 'string') return obj.text
+
+  return null
+}
+
+function parseAnalysisJson(rawText: string): AnalysisResult {
+  const cleaned = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+  let parsed: unknown
   try {
-    return JSON.parse(cleaned) as AnalysisResult
+    parsed = JSON.parse(cleaned)
   } catch (e) {
     const reason = e instanceof Error ? e.message : String(e)
     throw new Error(`Bad JSON from ad analysis model: ${reason} — body: ${cleaned.slice(0, 400)}`)
   }
+  if (!parsed || typeof parsed !== 'object' || !('reverseEngineeredPrompt' in parsed)) {
+    throw new Error(`Analysis response missing reverseEngineeredPrompt — body: ${cleaned.slice(0, 400)}`)
+  }
+  return parsed as AnalysisResult
+}
+
+// ── Public API ─────────────────────────────────────────────────────
+
+export type StartAnalysisOutcome =
+  | { kind: 'task'; taskId: string }
+  | { kind: 'fallback'; reason: string }
+
+// Kick off an analysis via kie's createTask flow. The taskId returned here
+// is what we persist on the history row so a refresh can resume the poll.
+// If kie rejects createTask for the chat model (the endpoint is rare for
+// chat), we resolve with `{ kind: 'fallback', reason }` and the queue falls
+// through to the streaming transport — current behaviour, parity with the
+// pre-v3 path.
+export async function startAnalysisTask(videoFile: File): Promise<StartAnalysisOutcome> {
+  const apiKey = useSettingsStore.getState().getKieApiKey()
+  const messages = await buildMessages(videoFile)
+
+  try {
+    const taskId = await createTask(apiKey, CHAT_MODEL_ID, {
+      messages,
+      stream: false,
+      reasoning_effort: 'low',
+      include_thoughts: false,
+    })
+    if (!taskId || typeof taskId !== 'string') {
+      return { kind: 'fallback', reason: 'createTask returned empty taskId' }
+    }
+    return { kind: 'task', taskId }
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err)
+    console.warn('[ad-anatomy] createTask rejected, falling back to streaming:', reason)
+    return { kind: 'fallback', reason }
+  }
+}
+
+// Resume / wait on an existing kie task. Used both for new analyses (right
+// after startAnalysisTask returned a taskId) and for mount-time resume after
+// a refresh.
+export async function pollAnalysisTask(taskId: string): Promise<AnalysisResult> {
+  const apiKey = useSettingsStore.getState().getKieApiKey()
+  const record = await pollTask(apiKey, taskId, { timeoutMs: POLL_TIMEOUT_MS })
+
+  // Parse resultJson — kie sometimes returns it as a JSON string holding the
+  // chat envelope, sometimes as a string holding the raw model text.
+  let envelope: unknown
+  try {
+    envelope = JSON.parse(record.resultJson || '""')
+  } catch {
+    envelope = record.resultJson
+  }
+  const text = extractTextFromResultEnvelope(envelope)
+  if (!text) {
+    throw new Error(
+      `Analysis task ${taskId} succeeded but no text could be extracted. Raw resultJson: ${record.resultJson?.slice(0, 400)}`,
+    )
+  }
+  return parseAnalysisJson(text)
+}
+
+// Streaming fallback. Same transport as before — kept as a safety net when
+// createTask is unavailable for the chat model. Cannot be resumed across
+// refresh; the queue knows this and the reconciler flips such rows to error.
+export async function streamAnalysisFallback(videoFile: File): Promise<AnalysisResult> {
+  const apiKey = useSettingsStore.getState().getKieApiKey()
+  const endpoint = getChatEndpointPath()
+  const messages = await buildMessages(videoFile)
+  const responseText = await kieChatCompletions(apiKey, endpoint, messages, {
+    timeoutMs: POLL_TIMEOUT_MS,
+  })
+  return parseAnalysisJson(responseText)
+}
+
+// Back-compat export: the old single-call surface. Composes start → poll →
+// fallback so existing callers (none in-tree after v3, but kept for safety)
+// keep working.
+export async function analyzeAd(videoFile: File): Promise<AnalysisResult> {
+  const outcome = await startAnalysisTask(videoFile)
+  if (outcome.kind === 'task') return pollAnalysisTask(outcome.taskId)
+  return streamAnalysisFallback(videoFile)
 }

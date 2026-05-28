@@ -9,7 +9,7 @@ import GenerationProgress from '../../components/GenerationProgress'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
 import { useAssetUrl } from '../../hooks/useAssetUrl'
 import { saveAsset } from '../../utils/assetStore'
-import { enqueueAnalysis } from './services/analysisQueue'
+import { enqueueAnalysis, resumeAnalysisTask } from './services/analysisQueue'
 import { useBankStore } from '../../stores/bankStore'
 
 // Cycled under the spinner during analysis so the user has something
@@ -42,16 +42,58 @@ export default function AdAnatomy() {
   const updateAdAnatomyHistory = useBankStore((s) => s.updateAdAnatomyHistory)
   const deleteAdAnatomyHistory = useBankStore((s) => s.deleteAdAnatomyHistory)
 
-  // Mount-time reconciler: flip any row stuck in 'analyzing' (e.g. left over
-  // from a refresh) to 'error'. Chat completions can't resume.
+  // Mount-time reconciler. Two passes:
+  //  1. Resume any 'analyzing' row that still has a kie taskId (createTask
+  //     transport — refresh-safe). Flip the rest to 'error' (streaming
+  //     transport rows can't resume).
+  //  2. One-time dedupe of duplicate-pair rows from the pre-fix bulk-drop bug
+  //     (same fileName + createdAt within 2s). Guarded by a localStorage flag
+  //     so it runs once per browser.
   useEffect(() => {
-    const stuck = useBankStore.getState().adAnatomyHistory.filter((h) => h.status === 'analyzing')
-    for (const item of stuck) {
-      void updateAdAnatomyHistory(item.id, {
-        status: 'error',
-        errorMessage: 'Analysis was interrupted. Re-upload to retry.',
-        uploadedRef: undefined,
-      })
+    const items = useBankStore.getState().adAnatomyHistory
+
+    // Pass 1: resume / fail in-flight rows
+    for (const item of items) {
+      if (item.status !== 'analyzing') continue
+      if (item.taskId) {
+        resumeAnalysisTask(item.id, item.taskId, item.fileName)
+      } else {
+        void updateAdAnatomyHistory(item.id, {
+          status: 'error',
+          errorMessage: 'Analysis was interrupted. Re-upload to retry.',
+          uploadedRef: undefined,
+        })
+      }
+    }
+
+    // Pass 2: one-time dedupe of duplicate-pair rows
+    const DEDUP_FLAG = 'ugc-lab:ad-anatomy-dedup-v1'
+    try {
+      if (!localStorage.getItem(DEDUP_FLAG)) {
+        const groups = new Map<string, typeof items>()
+        for (const item of items) {
+          const bucket = Math.floor(item.createdAt / 2000)
+          const key = `${item.fileName}::${bucket}`
+          const arr = groups.get(key) ?? []
+          arr.push(item)
+          groups.set(key, arr)
+        }
+        const { deleteAdAnatomyHistory: deleteRow } = useBankStore.getState()
+        for (const group of groups.values()) {
+          if (group.length <= 1) continue
+          // Prefer the row with a thumbnailRef (analysis actually started);
+          // otherwise keep the newest.
+          const keeper =
+            group.find((r) => !!r.thumbnailRef) ??
+            group.slice().sort((a, b) => b.createdAt - a.createdAt)[0]
+          for (const row of group) {
+            if (row.id !== keeper.id) void deleteRow(row.id)
+          }
+        }
+        localStorage.setItem(DEDUP_FLAG, '1')
+      }
+    } catch (e) {
+      console.warn('[ad-anatomy] dedupe pass failed', e)
     }
     // Only run once on mount; we deliberately don't want this firing on later
     // status flips back to 'analyzing' from genuine new uploads.
