@@ -98,6 +98,9 @@ export default function ScriptArchitect() {
         inputSummary: inputSource.slice(0, 200),
         linkedProductId: selectedProduct.id,
         productName: selectedProduct.productName,
+        winningTranscript,
+        reversePrompt,
+        additionalContext,
         createdAt: Date.now(),
       }
       addScriptHistory(item)
@@ -121,6 +124,13 @@ export default function ScriptArchitect() {
     setVariations(item.variations)
     setActiveHistoryId(item.id)
     setError(null)
+    // Restore the left-panel inputs too. Older rows (saved before these
+    // fields existed) fall back to the inputSummary slice for the source so
+    // something sensible reappears.
+    setWinningTranscript(item.winningTranscript ?? (item.mode === 'remix' ? item.inputSummary : ''))
+    setReversePrompt(item.reversePrompt ?? (item.mode === 'reverse-engineer' ? item.inputSummary : ''))
+    setAdditionalContext(item.additionalContext ?? '')
+    setSelectedProductId(item.linkedProductId ?? null)
   }
 
   const handleDeleteHistory = (id: string) => {
