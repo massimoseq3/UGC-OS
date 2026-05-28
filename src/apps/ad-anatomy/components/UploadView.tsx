@@ -1,6 +1,10 @@
 import { useRef, useCallback, useEffect, useState } from 'react'
 import { Upload, Eye } from 'lucide-react'
 
+// IMPORTANT: The drop overlay lives on the panel root. Do NOT add an onDrop
+// handler to the button — React onDrop on a child + native drop on the panel
+// fire both, which causes every file to enqueue twice (5 files → 10 rows).
+
 const ACCEPTED_TYPES = ['video/mp4', 'video/quicktime', 'video/webm']
 const MAX_SIZE_MB = 50
 
@@ -20,7 +24,6 @@ function validate(file: File): string | null {
 }
 
 export default function UploadView({ onAnalyze }: UploadViewProps) {
-  const [dragOver, setDragOver] = useState(false)
   // Panel-scoped drag overlay — visible whenever a file drag enters the
   // Ad Analyzer surface (not the sidebar or app chrome). Tracks a counter
   // so nested dragenter/leave from child elements don't flicker the overlay.
@@ -89,13 +92,6 @@ export default function UploadView({ onAnalyze }: UploadViewProps) {
     }
   }, [handleFiles])
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    setDragOver(false)
-    const files = Array.from(e.dataTransfer.files)
-    if (files.length > 0) handleFiles(files)
-  }, [handleFiles])
-
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? [])
     if (files.length > 0) handleFiles(files)
@@ -117,15 +113,12 @@ export default function UploadView({ onAnalyze }: UploadViewProps) {
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
-        onDrop={handleDrop}
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
-        onDragLeave={() => setDragOver(false)}
-        className={`flex h-56 w-full max-w-md flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed transition-all duration-200 ${dragOver
+        className={`flex h-56 w-full max-w-md flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed transition-all duration-200 ${panelDragActive
           ? 'border-[#FB2B37]/40 bg-[#FB2B37]/5'
           : 'border-white/10 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04]'
           }`}
       >
-        <Upload className={`h-6 w-6 transition-colors ${dragOver ? 'text-[#FB2B37]' : 'text-zinc-600'}`} />
+        <Upload className={`h-6 w-6 transition-colors ${panelDragActive ? 'text-[#FB2B37]' : 'text-zinc-600'}`} />
         <span className="text-sm text-zinc-400">
           Drag &amp; drop one or more ads, or <span className="text-zinc-200 underline underline-offset-2">browse</span>
         </span>

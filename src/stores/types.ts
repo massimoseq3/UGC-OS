@@ -224,6 +224,10 @@ export interface AdAnatomyHistoryItem {
   // Source ad asset id — only present while status === 'analyzing'. Dropped
   // on success/error so the bank doesn't accumulate large video blobs.
   uploadedRef?: string
+  // kie.ai job id. Set after createTask returns. Persisted so a refresh-
+  // mid-analysis can resume polling instead of dropping the result. Missing
+  // when the analyser falls back to the streaming transport.
+  taskId?: string
   // Opaque JSON so types.ts stays decoupled from ad-anatomy's internal types.
   // Undefined until status === 'complete'.
   result?: unknown
