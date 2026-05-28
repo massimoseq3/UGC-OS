@@ -1,16 +1,19 @@
 import { useEffect, useState } from 'react'
+import { AlertCircle, RotateCcw } from 'lucide-react'
 import UploadView from './components/UploadView'
 import ResultsView from './components/ResultsView'
-import { analyzeAd } from './services/analyzeAd'
+import HistoryRail from './components/HistoryRail'
 import type { AnalysisResult } from './types'
+import type { AdAnatomyHistoryItem } from '../../stores/types'
 import GenerationProgress from '../../components/GenerationProgress'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
 import { useAssetUrl } from '../../hooks/useAssetUrl'
-import { saveAsset, deleteAsset } from '../../utils/assetStore'
+import { saveAsset } from '../../utils/assetStore'
+import { enqueueAnalysis } from './services/analysisQueue'
+import { useBankStore } from '../../stores/bankStore'
 
 // Cycled under the spinner during analysis so the user has something
-// interesting to read while the kie task runs. UGC / direct-response /
-// short-form video lore — short enough to scan in 4-5 seconds each.
+// interesting to read while the kie task runs.
 const AD_FACTS = [
   'The first 1.5 seconds of a UGC ad decide whether a viewer scrolls or stays.',
   'Ads filmed on a real iPhone front camera outperform DSLR-shot ads on TikTok 3× as often.',
@@ -30,94 +33,119 @@ const AD_FACTS = [
 ]
 const FACT_ROTATE_MS = 5000
 
-type ViewState = 'upload' | 'loading' | 'results'
-
 export default function AdAnatomy() {
   const baseKey = useProjectScopedKey('ad-anatomy')
-  // 'loading' is transient — never persist it. If a refresh happens mid-analyze
-  // we'd otherwise come back into a fake loading screen that never resolves.
-  const [view, setView] = usePersistedState<ViewState>(`${baseKey}:view`, 'upload', {
-    sanitize: (v) => (v === 'loading' ? 'upload' : v),
-  })
-  const [result, setResult] = usePersistedState<AnalysisResult | null>(`${baseKey}:result`, null, {
-    // Older persisted results predate the slim 3-section shape. Drop them so
-    // we never try to render undefined fields.
-    sanitize: (v) => (v && typeof v === 'object' && 'reverseEngineeredPrompt' in v ? v : null),
-  })
-  const [uploadedRef, setUploadedRef] = usePersistedState<string | null>(`${baseKey}:upload`, null)
-  const [fileName, setFileName] = usePersistedState(`${baseKey}:fileName`, '')
+  const [selectedId, setSelectedId] = usePersistedState<string | null>(`${baseKey}:selectedId`, null)
 
-  const [error, setError] = useState<string | null>(null)
+  const adAnatomyHistory = useBankStore((s) => s.adAnatomyHistory)
+  const addAdAnatomyHistory = useBankStore((s) => s.addAdAnatomyHistory)
+  const updateAdAnatomyHistory = useBankStore((s) => s.updateAdAnatomyHistory)
+  const deleteAdAnatomyHistory = useBankStore((s) => s.deleteAdAnatomyHistory)
 
-  // Resolves an asset id (asset-xxxx) back to a fresh blob URL after refresh.
-  const videoSrc = useAssetUrl(uploadedRef) ?? null
-
-  const handleAnalyze = async (file: File) => {
-    setView('loading')
-    setFileName(file.name)
-    setError(null)
-
-    // Save the upload to IndexedDB so it survives a refresh. Drop any
-    // previous upload to avoid leaking storage.
-    if (uploadedRef) {
-      deleteAsset(uploadedRef).catch(() => {})
+  // Mount-time reconciler: flip any row stuck in 'analyzing' (e.g. left over
+  // from a refresh) to 'error'. Chat completions can't resume.
+  useEffect(() => {
+    const stuck = useBankStore.getState().adAnatomyHistory.filter((h) => h.status === 'analyzing')
+    for (const item of stuck) {
+      void updateAdAnatomyHistory(item.id, {
+        status: 'error',
+        errorMessage: 'Analysis was interrupted. Re-upload to retry.',
+        uploadedRef: undefined,
+      })
     }
-    const ref = await saveAsset(file, file.type)
-    setUploadedRef(ref)
+    // Only run once on mount; we deliberately don't want this firing on later
+    // status flips back to 'analyzing' from genuine new uploads.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-    try {
-      const analysis = await analyzeAd(file)
-      setResult(analysis)
-      setView('results')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Analysis failed. Check your API key and try again.')
-      setView('upload')
+  const handleAnalyze = async (files: File[]) => {
+    let firstId: string | null = null
+    for (const file of files) {
+      try {
+        const uploadedRef = await saveAsset(file, file.type)
+        const id = crypto.randomUUID()
+        const item: AdAnatomyHistoryItem = {
+          id,
+          createdAt: Date.now(),
+          status: 'analyzing',
+          adTitle: '',
+          fileName: file.name,
+          mediaKind: file.type.startsWith('image/') ? 'image' : 'video',
+          uploadedRef,
+        }
+        await addAdAnatomyHistory(item)
+        enqueueAnalysis(id, file)
+        if (firstId === null) firstId = id
+      } catch (e) {
+        console.warn('[ad-anatomy] failed to enqueue analysis for', file.name, e)
+      }
     }
+    if (firstId) setSelectedId(firstId)
   }
 
-  const handleReset = () => {
-    if (uploadedRef) deleteAsset(uploadedRef).catch(() => {})
-    setResult(null)
-    setView('upload')
-    setUploadedRef(null)
-    setFileName('')
-    setError(null)
+  const handleDelete = (id: string) => {
+    void deleteAdAnatomyHistory(id)
+    if (selectedId === id) setSelectedId(null)
   }
 
-  if (view === 'loading') {
-    return <AnalyzingView videoSrc={videoSrc} fileName={fileName} />
-  }
-
-  if (view === 'results' && result && videoSrc) {
-    return (
-      <ResultsView
-        result={result}
-        videoSrc={videoSrc}
-        fileName={fileName}
-        onReset={handleReset}
-      />
-    )
-  }
+  const selected = selectedId
+    ? adAnatomyHistory.find((h) => h.id === selectedId) ?? null
+    : null
 
   return (
-    <>
-      <UploadView onAnalyze={handleAnalyze} />
-      {error && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 rounded-lg bg-[#FB2B37]/15 px-4 py-2 text-sm text-[#FB2B37]">
-          {error}
-        </div>
-      )}
-    </>
+    <div className="flex h-full overflow-hidden">
+      <HistoryRail
+        items={adAnatomyHistory}
+        selectedId={selectedId}
+        onSelect={setSelectedId}
+        onNew={() => setSelectedId(null)}
+        onDelete={handleDelete}
+      />
+      <div className="flex-1 min-w-0">
+        {!selected ? (
+          <UploadView onAnalyze={handleAnalyze} />
+        ) : selected.status === 'analyzing' ? (
+          <AnalyzingPane item={selected} />
+        ) : selected.status === 'error' ? (
+          <ErrorPane item={selected} onRetry={() => setSelectedId(null)} />
+        ) : (
+          <CompletePane item={selected} onReset={() => setSelectedId(null)} />
+        )}
+      </div>
+    </div>
   )
 }
 
-// Analysis-in-progress screen.
-//   • Headline above the looping playback so the user knows what's happening.
-//   • A red scanning bar sweeps top-to-bottom across the video to convey
-//     "AI is reading this frame by frame."
-//   • Rotating facts panel instead of a static "couple of minutes" line.
-function AnalyzingView({ videoSrc, fileName }: { videoSrc: string | null; fileName: string }) {
+// ── Pane: completed analysis ────────────────────────────────────────
+function CompletePane({ item, onReset }: { item: AdAnatomyHistoryItem; onReset: () => void }) {
+  const result = item.result as AnalysisResult | null
+  const thumbUrl = useAssetUrl(item.thumbnailRef ?? null) ?? null
+  if (!result) {
+    return (
+      <ErrorPane
+        item={{ ...item, status: 'error', errorMessage: 'Result missing — please re-analyse.' }}
+        onRetry={onReset}
+      />
+    )
+  }
+  return (
+    <ResultsView
+      result={result}
+      videoSrc={null}
+      restoredThumbUrl={thumbUrl}
+      fileName={item.fileName}
+      onReset={onReset}
+    />
+  )
+}
+
+// ── Pane: analysis in progress ──────────────────────────────────────
+function AnalyzingPane({ item }: { item: AdAnatomyHistoryItem }) {
   const [factIndex, setFactIndex] = useState(0)
+  // Prefer the live source asset (gives us a playing preview) over the
+  // stamped thumbnail. Falls back to thumbnail once source is cleaned up.
+  const sourceUrl = useAssetUrl(item.uploadedRef ?? null)
+  const thumbUrl = useAssetUrl(item.thumbnailRef ?? null)
   useEffect(() => {
     const id = setInterval(() => setFactIndex((i) => (i + 1) % AD_FACTS.length), FACT_ROTATE_MS)
     return () => clearInterval(id)
@@ -129,25 +157,28 @@ function AnalyzingView({ videoSrc, fileName }: { videoSrc: string | null; fileNa
         <h2 className="text-xl font-semibold tracking-tight text-zinc-100">
           Analysing your ad
         </h2>
-        {fileName && (
-          <p className="max-w-md truncate text-xs text-zinc-500">{fileName}</p>
+        {item.fileName && (
+          <p className="max-w-md truncate text-xs text-zinc-500">{item.fileName}</p>
         )}
       </div>
 
-      {videoSrc && (
+      {(sourceUrl || thumbUrl) && (
         <div
           className="relative max-h-80 max-w-72 overflow-hidden rounded-xl border border-[#FB2B37]/30 shadow-[0_0_40px_-10px_rgba(251,43,55,0.6)]"
           style={{ aspectRatio: '9 / 16' }}
         >
-          <video src={videoSrc} className="h-full w-full object-cover" muted autoPlay loop playsInline />
-          {/* Scanning bar — a horizontal red gradient that sweeps top→bottom */}
+          {sourceUrl ? (
+            <video src={sourceUrl} className="h-full w-full object-cover" muted autoPlay loop playsInline />
+          ) : (
+            <img src={thumbUrl!} alt="" className="h-full w-full object-cover" />
+          )}
+          {/* Scanning bar */}
           <div className="pointer-events-none absolute inset-0 overflow-hidden">
             <div
               className="absolute inset-x-0 h-1/3 -top-1/3 bg-gradient-to-b from-transparent via-[#FB2B37]/50 to-transparent"
               style={{ animation: 'broll-scanner 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite' }}
             />
           </div>
-          {/* Vignette tint */}
           <div className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-[#FB2B37]/20" />
         </div>
       )}
@@ -160,7 +191,6 @@ function AnalyzingView({ videoSrc, fileName }: { videoSrc: string | null; fileNa
           showHelper={false}
           className="w-full"
         />
-        {/* Rotating facts. The min-h prevents layout jump when a fact wraps. */}
         <div className="flex min-h-[60px] w-full items-start gap-2 rounded-xl border border-white/5 bg-white/[0.02] px-3.5 py-3">
           <span className="mt-0.5 shrink-0 rounded-full bg-[#FB2B37]/15 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest text-[#FB2B37]/80">
             Did you know
@@ -169,6 +199,7 @@ function AnalyzingView({ videoSrc, fileName }: { videoSrc: string | null; fileNa
             {AD_FACTS[factIndex]}
           </p>
         </div>
+        <p className="text-[11px] text-zinc-600">Feel free to upload more ads or jump to another tool — this keeps running in the background.</p>
       </div>
 
       <style>{`
@@ -185,6 +216,29 @@ function AnalyzingView({ videoSrc, fileName }: { videoSrc: string | null; fileNa
           animation: fade-in 280ms ease-out;
         }
       `}</style>
+    </div>
+  )
+}
+
+// ── Pane: error ─────────────────────────────────────────────────────
+function ErrorPane({ item, onRetry }: { item: AdAnatomyHistoryItem; onRetry: () => void }) {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-5 px-6">
+      <AlertCircle className="h-10 w-10 text-[#FB2B37]/70" strokeWidth={1.5} />
+      <div className="flex flex-col items-center gap-2 text-center">
+        <h2 className="text-lg font-semibold tracking-tight text-zinc-100">Analysis failed</h2>
+        <p className="max-w-md text-xs text-zinc-500">{item.fileName}</p>
+      </div>
+      <div className="max-w-md rounded-xl border border-[#FB2B37]/20 bg-[#FB2B37]/[0.06] px-4 py-3 text-center">
+        <p className="text-sm text-zinc-300">{item.errorMessage || 'Something went wrong.'}</p>
+      </div>
+      <button
+        onClick={onRetry}
+        className="flex items-center gap-2 rounded-full border border-[#FB2B37]/20 bg-[#FB2B37]/10 px-4 py-2 text-sm font-medium text-[#FB2B37] transition-colors hover:bg-[#FB2B37]/20"
+      >
+        <RotateCcw className="h-3.5 w-3.5" />
+        Re-upload to retry
+      </button>
     </div>
   )
 }

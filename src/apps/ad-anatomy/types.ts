@@ -29,6 +29,11 @@ export interface ReverseEngineeredPrompt {
 }
 
 export interface AnalysisResult {
+  // 3–6 word descriptor of the ad — used as the History row title and
+  // as the auto-name stem for Script Bank saves. Title Case, no trailing
+  // punctuation. May be missing on legacy persisted results; callers
+  // should fall back to fileName.
+  adTitle: string
   scorecard: Scorecard
   transcript: TranscriptLine[]
   reverseEngineeredPrompt: ReverseEngineeredPrompt

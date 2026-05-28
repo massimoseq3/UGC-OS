@@ -20,12 +20,12 @@ import { getSupabase, isCloudEnabled, ensureFreshSession } from './supabase'
 import { existingRemoteAssetIds, uploadAssetToR2 } from './r2'
 import { isAssetRef, getBlob } from '../utils/assetStore'
 import { findOrphanAssets, purgeOrphans } from '../utils/orphanCleanup'
-import type { Product, Model, Script, VoicePreset, BRoll, VoiceHistoryItem, VideoHistoryItem, ImageHistoryItem, MusicHistoryItem, CharacterHistoryItem } from '../stores/types'
+import type { Product, Model, Script, VoicePreset, BRoll, VoiceHistoryItem, VideoHistoryItem, ImageHistoryItem, MusicHistoryItem, CharacterHistoryItem, AdAnatomyHistoryItem } from '../stores/types'
 
 export type BankKey =
   | 'products' | 'models' | 'scripts' | 'voices' | 'brolls'
   | 'voiceHistory' | 'videoHistory' | 'imageHistory' | 'musicHistory'
-  | 'characterHistory'
+  | 'characterHistory' | 'adAnatomyHistory'
 
 const BANK_TO_TABLE: Record<BankKey, string> = {
   products: 'products',
@@ -38,9 +38,10 @@ const BANK_TO_TABLE: Record<BankKey, string> = {
   imageHistory: 'image_history',
   musicHistory: 'music_history',
   characterHistory: 'character_history',
+  adAnatomyHistory: 'ad_anatomy_history',
 }
 
-const BANK_KEYS: BankKey[] = ['products', 'models', 'scripts', 'voices', 'brolls', 'voiceHistory', 'videoHistory', 'imageHistory', 'musicHistory', 'characterHistory']
+const BANK_KEYS: BankKey[] = ['products', 'models', 'scripts', 'voices', 'brolls', 'voiceHistory', 'videoHistory', 'imageHistory', 'musicHistory', 'characterHistory', 'adAnatomyHistory']
 
 function reportError(context: string, err: unknown) {
   const msg = err instanceof Error ? err.message : (typeof err === 'string' ? err : JSON.stringify(err))
@@ -175,6 +176,7 @@ async function hydrateFromCloud(userId: string) {
     imageHistory: (next.imageHistory as ImageHistoryItem[]) ?? [],
     musicHistory: (next.musicHistory as MusicHistoryItem[]) ?? [],
     characterHistory: (next.characterHistory as CharacterHistoryItem[]) ?? [],
+    adAnatomyHistory: (next.adAnatomyHistory as AdAnatomyHistoryItem[]) ?? [],
   })
 
   try {
@@ -186,6 +188,7 @@ async function hydrateFromCloud(userId: string) {
       imageHistory: s.imageHistory, musicHistory: s.musicHistory,
       scriptHistory: s.scriptHistory, brollHistory: s.brollHistory,
       characterHistory: s.characterHistory,
+      adAnatomyHistory: s.adAnatomyHistory,
     }))
   } catch { /* ignore */ }
 }

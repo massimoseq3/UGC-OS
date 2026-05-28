@@ -23,7 +23,10 @@ SCENE PROMPT QUALITY: Each scene's prompt field must be a fully self-contained S
 
 LABEL: Each scene's label is a short noun phrase (3–6 words) describing the shot — e.g. "Mirror reaction hook", "Product unboxing close-up", "Bathroom routine reveal".
 
+AD TITLE: Produce a short (3–6 word) Title Case descriptor of the ad as a whole, naming the product/brand and the angle. Examples: "Dunkin Zero-Sugar Berry Energy", "Glow Skin Serum Routine Reveal", "Tarte Two-Minute Glam Tutorial". No quotes, no trailing punctuation.
+
 {
+  "adTitle": "<3-6 word Title Case descriptor>",
   "scorecard": {
     "scores": [
       { "label": "Hook Strength", "score": <1-10> },
