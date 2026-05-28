@@ -10,7 +10,9 @@ import {
 import { getChatEndpointPath } from '../../../utils/models'
 
 const CHAT_MODEL_ID = 'gemini-3-flash'
-const POLL_TIMEOUT_MS = 300_000
+// Streaming fallback timeout — kept generous since chat completions don't
+// have intermediate progress signals like the task-based flow.
+const STREAM_TIMEOUT_MS = 300_000
 
 const SYSTEM_INSTRUCTION = `You are an elite UGC ad analyst. You dissect social media video ads and produce three things: a brutally honest scorecard, an accurate timestamped transcript, and a reverse-engineered prompt that could be sent to a text-to-video model (e.g. Seedance, Veo) to recreate the ad ONE-FOR-ONE, faithfully.
 
@@ -162,7 +164,7 @@ export async function startAnalysisTask(videoFile: File): Promise<StartAnalysisO
 // a refresh.
 export async function pollAnalysisTask(taskId: string): Promise<AnalysisResult> {
   const apiKey = useSettingsStore.getState().getKieApiKey()
-  const record = await pollTask(apiKey, taskId, { timeoutMs: POLL_TIMEOUT_MS })
+  const record = await pollTask(apiKey, taskId)
 
   // Parse resultJson — kie sometimes returns it as a JSON string holding the
   // chat envelope, sometimes as a string holding the raw model text.
@@ -189,7 +191,7 @@ export async function streamAnalysisFallback(videoFile: File): Promise<AnalysisR
   const endpoint = getChatEndpointPath()
   const messages = await buildMessages(videoFile)
   const responseText = await kieChatCompletions(apiKey, endpoint, messages, {
-    timeoutMs: POLL_TIMEOUT_MS,
+    timeoutMs: STREAM_TIMEOUT_MS,
   })
   return parseAnalysisJson(responseText)
 }
