@@ -498,13 +498,17 @@ export const useBankStore = create<BankState>((set, get) => ({
   getBRollById: (id) => get().brolls.find((b) => b.id === id),
 
   // ── Voice History ────────────────────────────────────────────────
+  // Local set() runs first so the gallery updates synchronously; the cloud
+  // upsert is fired in the background. A hung Supabase call must never block
+  // localStorage from being written or the row would be lost on reload after
+  // hydrateFromCloud replaces local state with what's on the server.
   addVoiceHistory: async (item) => {
-    try { await pushRow('voiceHistory', item) } catch (e) { reportErrorSoft('Save voice history', e) }
     set((state) => {
       const next = { voiceHistory: [item, ...state.voiceHistory] }
       saveToStorage({ ...state, ...next })
       return next
     })
+    try { await pushRow('voiceHistory', item) } catch (e) { reportErrorSoft('Save voice history', e) }
   },
 
   deleteVoiceHistory: async (id) => {
@@ -538,24 +542,24 @@ export const useBankStore = create<BankState>((set, get) => ({
 
   // ── Video History ────────────────────────────────────────────────
   addVideoHistory: async (item) => {
-    try { await pushRow('videoHistory', item) } catch (e) { reportErrorSoft('Save video history', e) }
     set((state) => {
       const next = { videoHistory: [item, ...state.videoHistory] }
       saveToStorage({ ...state, ...next })
       return next
     })
+    try { await pushRow('videoHistory', item) } catch (e) { reportErrorSoft('Save video history', e) }
   },
 
   updateVideoHistory: async (id, updates) => {
     const old = get().videoHistory.find((h) => h.id === id)
     if (!old) return
     const updated: VideoHistoryItem = { ...old, ...updates }
-    try { await pushRow('videoHistory', updated) } catch (e) { reportErrorSoft('Update video history', e) }
     set((state) => {
       const next = { videoHistory: state.videoHistory.map((h) => h.id === id ? updated : h) }
       saveToStorage({ ...state, ...next })
       return next
     })
+    try { await pushRow('videoHistory', updated) } catch (e) { reportErrorSoft('Update video history', e) }
   },
 
   deleteVideoHistory: async (id) => {
@@ -591,24 +595,24 @@ export const useBankStore = create<BankState>((set, get) => ({
 
   // ── Image History (Playground) ──────────────────────────────────
   addImageHistory: async (item) => {
-    try { await pushRow('imageHistory', item) } catch (e) { reportErrorSoft('Save image history', e) }
     set((state) => {
       const next = { imageHistory: [item, ...state.imageHistory] }
       saveToStorage({ ...state, ...next })
       return next
     })
+    try { await pushRow('imageHistory', item) } catch (e) { reportErrorSoft('Save image history', e) }
   },
 
   updateImageHistory: async (id, updates) => {
     const old = get().imageHistory.find((h) => h.id === id)
     if (!old) return
     const updated: ImageHistoryItem = { ...old, ...updates }
-    try { await pushRow('imageHistory', updated) } catch (e) { reportErrorSoft('Update image history', e) }
     set((state) => {
       const next = { imageHistory: state.imageHistory.map((h) => h.id === id ? updated : h) }
       saveToStorage({ ...state, ...next })
       return next
     })
+    try { await pushRow('imageHistory', updated) } catch (e) { reportErrorSoft('Update image history', e) }
   },
 
   deleteImageHistory: async (id) => {
@@ -646,24 +650,24 @@ export const useBankStore = create<BankState>((set, get) => ({
 
   // ── Music History (Playground) ──────────────────────────────────
   addMusicHistory: async (item) => {
-    try { await pushRow('musicHistory', item) } catch (e) { reportErrorSoft('Save music history', e) }
     set((state) => {
       const next = { musicHistory: [item, ...state.musicHistory] }
       saveToStorage({ ...state, ...next })
       return next
     })
+    try { await pushRow('musicHistory', item) } catch (e) { reportErrorSoft('Save music history', e) }
   },
 
   updateMusicHistory: async (id, updates) => {
     const old = get().musicHistory.find((h) => h.id === id)
     if (!old) return
     const updated: MusicHistoryItem = { ...old, ...updates }
-    try { await pushRow('musicHistory', updated) } catch (e) { reportErrorSoft('Update music history', e) }
     set((state) => {
       const next = { musicHistory: state.musicHistory.map((h) => h.id === id ? updated : h) }
       saveToStorage({ ...state, ...next })
       return next
     })
+    try { await pushRow('musicHistory', updated) } catch (e) { reportErrorSoft('Update music history', e) }
   },
 
   deleteMusicHistory: async (id) => {
@@ -758,24 +762,24 @@ export const useBankStore = create<BankState>((set, get) => ({
 
   // ── Character History (Characters tab) ──────────────────────────
   addCharacterHistory: async (item) => {
-    try { await pushRow('characterHistory', item) } catch (e) { reportErrorSoft('Save character history', e) }
     set((state) => {
       const next = { characterHistory: [item, ...state.characterHistory] }
       saveToStorage({ ...state, ...next })
       return next
     })
+    try { await pushRow('characterHistory', item) } catch (e) { reportErrorSoft('Save character history', e) }
   },
 
   updateCharacterHistory: async (id, updates) => {
     const old = get().characterHistory.find((h) => h.id === id)
     if (!old) return
     const updated: CharacterHistoryItem = { ...old, ...updates }
-    try { await pushRow('characterHistory', updated) } catch (e) { reportErrorSoft('Update character history', e) }
     set((state) => {
       const next = { characterHistory: state.characterHistory.map((h) => h.id === id ? updated : h) }
       saveToStorage({ ...state, ...next })
       return next
     })
+    try { await pushRow('characterHistory', updated) } catch (e) { reportErrorSoft('Update character history', e) }
   },
 
   deleteCharacterHistory: async (id) => {
@@ -813,24 +817,24 @@ export const useBankStore = create<BankState>((set, get) => ({
 
   // ── Ad Anatomy History (Ad Analyzer) ────────────────────────────
   addAdAnatomyHistory: async (item) => {
-    try { await pushRow('adAnatomyHistory', item) } catch (e) { reportErrorSoft('Save ad analysis', e) }
     set((state) => {
       const next = { adAnatomyHistory: [item, ...state.adAnatomyHistory] }
       saveToStorage({ ...state, ...next })
       return next
     })
+    try { await pushRow('adAnatomyHistory', item) } catch (e) { reportErrorSoft('Save ad analysis', e) }
   },
 
   updateAdAnatomyHistory: async (id, updates) => {
     const old = get().adAnatomyHistory.find((h) => h.id === id)
     if (!old) return
     const updated: AdAnatomyHistoryItem = { ...old, ...updates }
-    try { await pushRow('adAnatomyHistory', updated) } catch (e) { reportErrorSoft('Update ad analysis', e) }
     set((state) => {
       const next = { adAnatomyHistory: state.adAnatomyHistory.map((h) => h.id === id ? updated : h) }
       saveToStorage({ ...state, ...next })
       return next
     })
+    try { await pushRow('adAnatomyHistory', updated) } catch (e) { reportErrorSoft('Update ad analysis', e) }
   },
 
   deleteAdAnatomyHistory: async (id) => {
