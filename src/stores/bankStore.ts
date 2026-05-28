@@ -232,15 +232,35 @@ function cloudActive(): boolean {
   return isCloudEnabled() && !!useAuthStore.getState().user
 }
 
-// Cloud-aware single-row save. Awaited; throws on failure.
+// Hard timeout for any single cloud round-trip. Without this, a stalled
+// fetch (mid re-auth, browser extension blocking the request, dropped
+// connection that never RSTs) leaves the caller awaiting forever — which
+// is what froze the Characters tab's "Save to Bank" spinner. Long enough
+// for a slow connection to complete; short enough that the user sees a
+// failure toast within a reasonable wait.
+const CLOUD_SYNC_TIMEOUT_MS = 15_000
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`${label} timed out after ${ms / 1000}s — saved on this device but not synced to other devices`))
+    }, ms)
+    promise.then(
+      (v) => { clearTimeout(timer); resolve(v) },
+      (e) => { clearTimeout(timer); reject(e) },
+    )
+  })
+}
+
+// Cloud-aware single-row save. Awaited; throws on failure or timeout.
 async function pushRow(table: BankKey, row: { id: string }): Promise<void> {
   if (!cloudActive()) return
-  await saveRow(table, row)
+  await withTimeout(saveRow(table, row), CLOUD_SYNC_TIMEOUT_MS, `Cloud save (${table})`)
 }
 
 async function dropRow(table: BankKey, id: string): Promise<void> {
   if (!cloudActive()) return
-  await deleteRow(table, id)
+  await withTimeout(deleteRow(table, id), CLOUD_SYNC_TIMEOUT_MS, `Cloud delete (${table})`)
 }
 
 function reportError(prefix: string, e: unknown) {
@@ -278,14 +298,19 @@ export const useBankStore = create<BankState>((set, get) => ({
   ...loadFromStorage(),
 
   // ── Products ─────────────────────────────────────────────────────
+  // Every CRUD add/update writes local state BEFORE awaiting the cloud
+  // round-trip. If the cloud push hangs or times out, the bank still
+  // reflects the user's action — `reportError` then surfaces the failure
+  // as a toast and rethrows so callers can react. This is what unblocks
+  // the Characters "Save to Bank" spinner when Supabase is unresponsive.
   addProduct: async (product) => {
     const newProduct: Product = { ...product, id: generateId(), createdAt: Date.now() }
-    try { await pushRow('products', newProduct) } catch (e) { reportError('Save product', e) }
     set((state) => {
       const next = { products: [...state.products, newProduct] }
       saveToStorage({ ...state, ...next })
       return next
     })
+    try { await pushRow('products', newProduct) } catch (e) { reportError('Save product', e) }
     reportSuccess('Product saved')
     return newProduct.id
   },
@@ -294,17 +319,15 @@ export const useBankStore = create<BankState>((set, get) => ({
     const old = get().products.find((p) => p.id === id)
     if (!old) return
     const updated: Product = { ...old, ...updates }
-    try { await pushRow('products', updated) } catch (e) { reportError('Update product', e) }
-
     if (updates.productImage && old.productImage && old.productImage !== updates.productImage) {
       cleanupAssets(old.productImage)
     }
-
     set((state) => {
       const next = { products: state.products.map((p) => p.id === id ? updated : p) }
       saveToStorage({ ...state, ...next })
       return next
     })
+    try { await pushRow('products', updated) } catch (e) { reportError('Update product', e) }
     reportSuccess('Product updated')
   },
 
@@ -326,12 +349,12 @@ export const useBankStore = create<BankState>((set, get) => ({
   // ── Models ───────────────────────────────────────────────────────
   addModel: async (model) => {
     const newModel: Model = { ...model, id: generateId(), createdAt: Date.now() }
-    try { await pushRow('models', newModel) } catch (e) { reportError('Save character', e) }
     set((state) => {
       const next = { models: [...state.models, newModel] }
       saveToStorage({ ...state, ...next })
       return next
     })
+    try { await pushRow('models', newModel) } catch (e) { reportError('Save character', e) }
     reportSuccess('Character saved')
   },
 
@@ -339,17 +362,15 @@ export const useBankStore = create<BankState>((set, get) => ({
     const old = get().models.find((m) => m.id === id)
     if (!old) return
     const updated: Model = { ...old, ...updates }
-    try { await pushRow('models', updated) } catch (e) { reportError('Update character', e) }
-
     if (updates.characterImage && old.characterImage && old.characterImage !== updates.characterImage) {
       cleanupAssets(old.characterImage)
     }
-
     set((state) => {
       const next = { models: state.models.map((m) => m.id === id ? updated : m) }
       saveToStorage({ ...state, ...next })
       return next
     })
+    try { await pushRow('models', updated) } catch (e) { reportError('Update character', e) }
     reportSuccess('Character updated')
   },
 
@@ -371,12 +392,12 @@ export const useBankStore = create<BankState>((set, get) => ({
   // ── Scripts ──────────────────────────────────────────────────────
   addScript: async (script) => {
     const newScript: Script = { ...script, id: generateId(), createdAt: Date.now() }
-    try { await pushRow('scripts', newScript) } catch (e) { reportError('Save script', e) }
     set((state) => {
       const next = { scripts: [...state.scripts, newScript] }
       saveToStorage({ ...state, ...next })
       return next
     })
+    try { await pushRow('scripts', newScript) } catch (e) { reportError('Save script', e) }
     reportSuccess('Script saved')
   },
 
@@ -384,12 +405,12 @@ export const useBankStore = create<BankState>((set, get) => ({
     const old = get().scripts.find((s) => s.id === id)
     if (!old) return
     const updated: Script = { ...old, ...updates }
-    try { await pushRow('scripts', updated) } catch (e) { reportError('Update script', e) }
     set((state) => {
       const next = { scripts: state.scripts.map((s) => s.id === id ? updated : s) }
       saveToStorage({ ...state, ...next })
       return next
     })
+    try { await pushRow('scripts', updated) } catch (e) { reportError('Update script', e) }
     reportSuccess('Script updated')
   },
 
@@ -410,12 +431,12 @@ export const useBankStore = create<BankState>((set, get) => ({
   // ── Voices ───────────────────────────────────────────────────────
   addVoice: async (voice) => {
     const newVoice: VoicePreset = { ...voice, id: generateId(), createdAt: Date.now() }
-    try { await pushRow('voices', newVoice) } catch (e) { reportError('Save voice', e) }
     set((state) => {
       const next = { voices: [...state.voices, newVoice] }
       saveToStorage({ ...state, ...next })
       return next
     })
+    try { await pushRow('voices', newVoice) } catch (e) { reportError('Save voice', e) }
     reportSuccess('Voice saved')
   },
 
@@ -423,12 +444,12 @@ export const useBankStore = create<BankState>((set, get) => ({
     const old = get().voices.find((v) => v.id === id)
     if (!old) return
     const updated: VoicePreset = { ...old, ...updates }
-    try { await pushRow('voices', updated) } catch (e) { reportError('Update voice', e) }
     set((state) => {
       const next = { voices: state.voices.map((v) => v.id === id ? updated : v) }
       saveToStorage({ ...state, ...next })
       return next
     })
+    try { await pushRow('voices', updated) } catch (e) { reportError('Update voice', e) }
     reportSuccess('Voice updated')
   },
 
@@ -449,12 +470,12 @@ export const useBankStore = create<BankState>((set, get) => ({
   // ── B-Rolls ──────────────────────────────────────────────────────
   addBRoll: async (broll) => {
     const newBRoll: BRoll = { ...broll, id: generateId(), createdAt: Date.now() }
-    try { await pushRow('brolls', newBRoll) } catch (e) { reportError('Save B-roll', e) }
     set((state) => {
       const next = { brolls: [...state.brolls, newBRoll] }
       saveToStorage({ ...state, ...next })
       return next
     })
+    try { await pushRow('brolls', newBRoll) } catch (e) { reportError('Save B-roll', e) }
     reportSuccess('Saved to B-Rolls bank')
     return newBRoll.id
   },
@@ -463,17 +484,15 @@ export const useBankStore = create<BankState>((set, get) => ({
     const old = get().brolls.find((b) => b.id === id)
     if (!old) return
     const updated: BRoll = { ...old, ...updates }
-    try { await pushRow('brolls', updated) } catch (e) { reportError('Update B-roll', e) }
-
     if (updates.imageUrl && old.imageUrl && old.imageUrl !== updates.imageUrl) {
       cleanupAssets(old.imageUrl)
     }
-
     set((state) => {
       const next = { brolls: state.brolls.map((b) => b.id === id ? updated : b) }
       saveToStorage({ ...state, ...next })
       return next
     })
+    try { await pushRow('brolls', updated) } catch (e) { reportError('Update B-roll', e) }
     reportSuccess('B-roll updated')
   },
 
