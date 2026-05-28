@@ -5,6 +5,7 @@ import {
   pollTask,
   kieChatCompletions,
   fileToDataUri,
+  ensureHostedUrl,
   type ChatMessage,
 } from '../../../utils/kie'
 import { getChatEndpointPath } from '../../../utils/models'
@@ -69,15 +70,20 @@ AD TITLE: Produce a short (3–6 word) Title Case descriptor of the ad as a whol
 
 const USER_PROMPT = `Analyze this UGC ad video/image thoroughly. Produce: (1) a brutally honest scorecard, (2) an accurate timestamped transcript, (3) a reverse-engineered prompt — chunked into scenes of ≤15 seconds each. Each scene prompt MUST describe the original character in full identifying detail, describe the original product in full identifying detail, and embed the original spoken dialogue for that scene. Do not use placeholder tokens. Return the analysis as JSON.`
 
-async function buildMessages(videoFile: File): Promise<ChatMessage[]> {
+// Upload the ad to kie's file host once and reference the returned URL in the
+// chat message. Avoids inflating the createTask payload with ~66 MB of inline
+// base64 on a 50 MB upload. Hosted files expire after 3 days on kie's side —
+// enough to outlive any single analysis.
+async function buildMessages(videoFile: File, apiKey: string): Promise<ChatMessage[]> {
   const dataUri = await fileToDataUri(videoFile)
+  const hostedUrl = await ensureHostedUrl(apiKey, dataUri)
   return [
     { role: 'system', content: [{ type: 'text', text: SYSTEM_INSTRUCTION }] },
     {
       role: 'user',
       content: [
         { type: 'text', text: USER_PROMPT },
-        { type: 'image_url', image_url: { url: dataUri } },
+        { type: 'image_url', image_url: { url: hostedUrl } },
       ],
     },
   ]
@@ -139,7 +145,7 @@ export type StartAnalysisOutcome =
 // pre-v3 path.
 export async function startAnalysisTask(videoFile: File): Promise<StartAnalysisOutcome> {
   const apiKey = useSettingsStore.getState().getKieApiKey()
-  const messages = await buildMessages(videoFile)
+  const messages = await buildMessages(videoFile, apiKey)
 
   try {
     const taskId = await createTask(apiKey, CHAT_MODEL_ID, {
@@ -189,7 +195,7 @@ export async function pollAnalysisTask(taskId: string): Promise<AnalysisResult> 
 export async function streamAnalysisFallback(videoFile: File): Promise<AnalysisResult> {
   const apiKey = useSettingsStore.getState().getKieApiKey()
   const endpoint = getChatEndpointPath()
-  const messages = await buildMessages(videoFile)
+  const messages = await buildMessages(videoFile, apiKey)
   const responseText = await kieChatCompletions(apiKey, endpoint, messages, {
     timeoutMs: STREAM_TIMEOUT_MS,
   })

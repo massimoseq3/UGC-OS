@@ -12,6 +12,7 @@ import {
 } from './analyzeAd'
 import { captureFirstFrame } from '../utils/captureFirstFrame'
 import { saveAsset, deleteAsset } from '../../../utils/assetStore'
+// `deleteAsset` is still used by applyFailure below.
 import { useBankStore } from '../../../stores/bankStore'
 import type { AnalysisResult } from '../types'
 
@@ -42,16 +43,15 @@ async function applySuccess(historyId: string, analysis: AnalysisResult, fileNam
   const current = getAdAnatomyHistoryById(historyId)
   if (!current) return // row was deleted while we were polling
   const adTitle = analysis.adTitle?.trim() || deriveFallbackTitle(fileName)
+  // Keep `uploadedRef` so the results view can play back the source. It's
+  // local-only (saveAsset is called with skipCloud), and a mount-time TTL
+  // sweep in AdAnatomy.tsx evicts it after 14 days.
   await updateAdAnatomyHistory(historyId, {
     status: 'complete',
     adTitle,
     result: analysis,
-    uploadedRef: undefined,
     taskId: undefined,
   })
-  if (current.uploadedRef) {
-    deleteAsset(current.uploadedRef).catch(() => {})
-  }
 }
 
 async function applyFailure(historyId: string, err: unknown) {

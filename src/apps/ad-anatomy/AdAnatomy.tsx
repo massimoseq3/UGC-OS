@@ -8,7 +8,7 @@ import type { AdAnatomyHistoryItem } from '../../stores/types'
 import GenerationProgress from '../../components/GenerationProgress'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
 import { useAssetUrl } from '../../hooks/useAssetUrl'
-import { saveAsset } from '../../utils/assetStore'
+import { saveAsset, deleteAsset } from '../../utils/assetStore'
 import { enqueueAnalysis, resumeAnalysisTask } from './services/analysisQueue'
 import { useBankStore } from '../../stores/bankStore'
 
@@ -66,6 +66,24 @@ export default function AdAnatomy() {
       }
     }
 
+    // Pass 1.5: TTL sweep for retained source videos. Idempotent — only
+    // fires for `complete` rows still carrying an uploadedRef older than the
+    // window. The thumbnail + saved analysis stay; the playback source goes.
+    const SOURCE_TTL_MS = 14 * 86_400_000
+    let purgedSources = 0
+    for (const item of items) {
+      if (item.status !== 'complete') continue
+      if (!item.uploadedRef) continue
+      if (Date.now() - item.createdAt < SOURCE_TTL_MS) continue
+      const refToDrop = item.uploadedRef
+      void updateAdAnatomyHistory(item.id, { uploadedRef: undefined })
+      deleteAsset(refToDrop).catch(() => {})
+      purgedSources++
+    }
+    if (purgedSources > 0) {
+      console.log(`[ad-anatomy] TTL sweep dropped ${purgedSources} source video(s)`)
+    }
+
     // Pass 2: one-time dedupe of duplicate-pair rows
     const DEDUP_FLAG = 'ugc-lab:ad-anatomy-dedup-v1'
     try {
@@ -104,7 +122,9 @@ export default function AdAnatomy() {
     let firstId: string | null = null
     for (const file of files) {
       try {
-        const uploadedRef = await saveAsset(file, file.type)
+        // Source ad blob is local-only: kept in IndexedDB for playback, never
+        // mirrored to R2. Evicted by the mount-time TTL sweep after 14 days.
+        const uploadedRef = await saveAsset(file, file.type, { skipCloud: true })
         const id = crypto.randomUUID()
         const item: AdAnatomyHistoryItem = {
           id,
@@ -161,6 +181,10 @@ export default function AdAnatomy() {
 // ── Pane: completed analysis ────────────────────────────────────────
 function CompletePane({ item, onReset }: { item: AdAnatomyHistoryItem; onReset: () => void }) {
   const result = item.result as AnalysisResult | null
+  // Source video lives locally for up to 14 days (mount-time TTL sweep evicts
+  // older ones). When resolvable, ResultsView renders a real <video controls>;
+  // otherwise it falls back to the still-frame thumbnail + caption.
+  const sourceUrl = useAssetUrl(item.uploadedRef ?? null) ?? null
   const thumbUrl = useAssetUrl(item.thumbnailRef ?? null) ?? null
   if (!result) {
     return (
@@ -173,7 +197,7 @@ function CompletePane({ item, onReset }: { item: AdAnatomyHistoryItem; onReset: 
   return (
     <ResultsView
       result={result}
-      videoSrc={null}
+      videoSrc={sourceUrl}
       restoredThumbUrl={thumbUrl}
       fileName={item.fileName}
       onReset={onReset}

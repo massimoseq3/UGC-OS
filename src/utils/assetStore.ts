@@ -101,13 +101,20 @@ async function idbDelete(id: string): Promise<void> {
 
 // ── Save ─────────────────────────────────────────────────────────────
 
+export interface SaveAssetOptions {
+  // Skip the R2 mirror entirely. Use for blobs the user explicitly does NOT
+  // want stored in the cloud (e.g. Ad Analyzer source uploads — kept locally
+  // for playback but never synced).
+  skipCloud?: boolean
+}
+
 // The canonical save path. Writes to IndexedDB and returns immediately so the
 // UI can render the asset without waiting on the network. When cloud is active,
 // the R2 mirror runs in the background — failures surface as a toast but do
 // not block the caller. This means a misconfigured R2/CORS won't hang the
 // generation UI; the asset is always usable on the current device, and cross-
 // device sync degrades gracefully.
-export async function saveAsset(blob: Blob, mimeType?: string): Promise<string> {
+export async function saveAsset(blob: Blob, mimeType?: string, opts: SaveAssetOptions = {}): Promise<string> {
   if (blob.size === 0) {
     throw new Error('saveAsset: refusing to save a 0-byte blob (would render as black / unplayable).')
   }
@@ -121,7 +128,7 @@ export async function saveAsset(blob: Blob, mimeType?: string): Promise<string> 
 
   await idbPut(asset)
 
-  if (cloudActive()) {
+  if (!opts.skipCloud && cloudActive()) {
     void uploadAssetToR2(id, blob).catch((err) => {
       const msg = err instanceof Error ? err.message : String(err)
       console.warn('[assetStore] R2 mirror failed', err)
