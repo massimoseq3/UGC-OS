@@ -220,6 +220,25 @@ export default function BrollStudio() {
     return () => clearTimeout(handle)
   }, [result, cardStates, selectedProductId, selectedModelId, selectedScriptId, scriptText, additionalContext, selectedProduct, upsertBrollHistory])
 
+  // Wipe the visible scenes for a blank slate. The prior session is already
+  // saved as its own brollHistory row (keyed by the old sessionId); clearing
+  // the sessionId here means the next generation forks a fresh row and the
+  // History upsert effect skips (it early-returns when result/sessionId is
+  // empty), so nothing is overwritten.
+  const handleClearOutput = () => {
+    setResult(null)
+    setCardStates({})
+    setSessionId('')
+    setError(null)
+    // Also clear the inputs / references so the workspace is a true blank
+    // slate (the prior session is preserved as its own brollHistory row).
+    setSelectedProductId(null)
+    setSelectedModelId(null)
+    setSelectedScriptId(null)
+    setScriptText('')
+    setAdditionalContext('')
+  }
+
   const handleSelectProduct = (item: unknown) => {
     setSelectedProductId((item as Product).id)
     setPickerMode(null)
@@ -382,6 +401,7 @@ export default function BrollStudio() {
           setCardStates={setCardStates}
           activeHistoryId={activeHistoryId}
           onSelectHistory={handleSelectHistory}
+          onClearOutput={handleClearOutput}
         />
       </div>
 

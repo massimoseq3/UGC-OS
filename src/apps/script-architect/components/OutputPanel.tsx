@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Copy, Check, Bookmark, ArrowUpRight, Mic, Film, PenLine, AlertCircle, Sparkles } from 'lucide-react'
+import { Copy, Check, Bookmark, ArrowUpRight, Mic, Film, PenLine, AlertCircle, Sparkles, X } from 'lucide-react'
 import GenerationProgress from '../../../components/GenerationProgress'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAppStore } from '../../../stores/appStore'
@@ -11,6 +11,7 @@ interface OutputPanelProps {
   linkedProductId: string | null
   isGenerating?: boolean
   error?: string | null
+  onClear?: () => void
 }
 
 const SCENE_REGEX = /(^|\n)--- Scene \d+.*?---/
@@ -239,7 +240,7 @@ function SceneChunkCard({ chunk }: { chunk: SceneChunk }) {
   )
 }
 
-export default function OutputPanel({ variations, mode, linkedProductId, isGenerating, error }: OutputPanelProps) {
+export default function OutputPanel({ variations, mode, linkedProductId, isGenerating, error, onClear }: OutputPanelProps) {
   if (isGenerating) {
     const message = mode === 'remix'
       ? ['Building 3 angles...', 'Sending parallel requests...', 'Writing variations...', 'Polishing final drafts...']
@@ -287,6 +288,16 @@ export default function OutputPanel({ variations, mode, linkedProductId, isGener
             ? `Generated Scripts (${variations.length} variation${variations.length === 1 ? '' : 's'})`
             : 'Generated Scene Prompts'}
         </h3>
+        {onClear && (
+          <button
+            onClick={onClear}
+            title="Clear inputs and output. Past runs stay in the History tab."
+            className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-200"
+          >
+            <X className="h-3.5 w-3.5" strokeWidth={2} />
+            Clear
+          </button>
+        )}
       </div>
       <div className="flex flex-1 min-h-0 flex-col gap-4 overflow-y-auto p-5">
         {variations.map((text, i) => {
@@ -297,11 +308,10 @@ export default function OutputPanel({ variations, mode, linkedProductId, isGener
             : isRemix
               ? `Variation ${i + 1}`
               : 'Scene prompts'
-          const defaultSaveTitle = angleLabel
-            ? `${angleLabel} variation`
-            : isRemix
-              ? `Script variation ${i + 1}`
-              : deriveTitleFromContent(text)
+          const defaultSaveTitle = deriveTitleFromContent(
+            text,
+            isRemix ? 'Untitled script' : 'Reverse-engineered prompts',
+          )
           return (
             <VariationCard
               key={i}
@@ -321,15 +331,18 @@ export default function OutputPanel({ variations, mode, linkedProductId, isGener
 // Derive a human-readable title from reverse-engineered prompt content.
 // Strategy: skip scene dividers and label lines, find the first prose
 // sentence, take ~6 words, Title Case. Falls back to a sensible default.
-function deriveTitleFromContent(text: string): string {
+function deriveTitleFromContent(text: string, fallback = 'Untitled script'): string {
   const lines = text.split('\n').map((l) => l.trim()).filter(Boolean)
   for (const line of lines) {
     // Skip scene dividers ("--- Scene 1: HOOK ---") and short ALL-CAPS labels
     // ("HOOK", "VISUAL:", "VOICEOVER:").
     if (/^---/.test(line)) continue
     if (/^[A-Z][A-Z\s:]{0,30}:?$/.test(line)) continue
-    // Strip leading markers like "Visual:", "Voiceover:", "1.", "- ".
+    // Skip lines that are only a bracketed section label, e.g. "[HOOK]".
+    if (/^\[[^\]]+\]\s*$/.test(line)) continue
+    // Strip leading markers like "[HOOK]", "Visual:", "Voiceover:", "1.", "- ".
     const cleaned = line
+      .replace(/^\[[^\]]+\]\s*/, '')
       .replace(/^[*\-•]\s+/, '')
       .replace(/^\d+[.)]\s+/, '')
       .replace(/^(visual|voiceover|action|dialogue|shot|scene|hook|cta)\s*[:\-]\s*/i, '')
@@ -342,7 +355,7 @@ function deriveTitleFromContent(text: string): string {
     // Title case the first letter only; preserve original casing otherwise.
     return trimmed.charAt(0).toUpperCase() + trimmed.slice(1)
   }
-  return 'Reverse-engineered prompts'
+  return fallback
 }
 
 // Robust clipboard write with a textarea fallback for older browsers / non-

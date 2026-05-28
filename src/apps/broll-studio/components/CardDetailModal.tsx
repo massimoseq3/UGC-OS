@@ -92,6 +92,8 @@ export default function CardDetailModal(props: CardDetailModalProps) {
     selectedProductId,
     selectedModelId,
     selectedScriptId,
+    characterRef,
+    productRef,
     onOpenCharacterPicker,
     onOpenProductPicker,
     handleUndo,
@@ -103,7 +105,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
     handleGenerateVideo,
   } = props
 
-  const [tab, setTab] = useState<Tab>('video')
+  const [tab, setTab] = useState<Tab>('image')
   const [draft, setDraft] = useState(cardState.editablePrompt)
   // Per-tile saved/saving sets so the Bookmark button can show a check.
   const [savedImageIdxs, setSavedImageIdxs] = useState<Set<number>>(new Set())
@@ -144,6 +146,13 @@ export default function CardDetailModal(props: CardDetailModalProps) {
     ? (getModel(videoModelId)?.modes ?? []).includes('reference-to-video')
     : false
   const videoModelName = videoModelId ? (getModel(videoModelId)?.displayName ?? videoModelId) : 'This model'
+
+  // Is at least one reference image currently armed? When so, the video model
+  // picker greys out models that can't take refs so the user can't pick one
+  // that would silently drop the character/product.
+  const hasActiveRef =
+    (!!characterRef && cardState.refsCharacter !== false) ||
+    (!!productRef && cardState.refsProduct !== false)
 
   // Re-clamp per-card settings when the user switches models. For audio:
   // FORCE on whenever the new model supports audio so it's the default for
@@ -363,15 +372,15 @@ export default function CardDetailModal(props: CardDetailModalProps) {
           </div>
         </div>
 
-        {/* Tab strip — Video first, Image second. */}
+        {/* Tab strip — Image first (default), Video second. */}
         <div className="flex items-center gap-1 border-b border-white/5 px-5">
-          <ModalTabButton active={tab === 'video'} onClick={() => setTab('video')}>
-            <VideoIcon className="h-3.5 w-3.5" />
-            Video
-          </ModalTabButton>
           <ModalTabButton active={tab === 'image'} onClick={() => setTab('image')}>
             <ImageIcon className="h-3.5 w-3.5" />
             Image
+          </ModalTabButton>
+          <ModalTabButton active={tab === 'video'} onClick={() => setTab('video')}>
+            <VideoIcon className="h-3.5 w-3.5" />
+            Video
           </ModalTabButton>
         </div>
 
@@ -424,6 +433,8 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                     <ModelPicker
                       appId="broll-studio"
                       task="video"
+                      requireMode={hasActiveRef ? 'reference-to-video' : undefined}
+                      requireModeNote="Greyed-out models don't support reference image-to-video. To use these, generate still frames in the Image tab, then send them to Playground for start/end frames."
                       costParams={{
                         durationSeconds: cardState.cardVideoDurationSeconds,
                         resolution: cardState.cardVideoResolution,
@@ -511,6 +522,11 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                     dimmedReason={`${videoModelName} doesn't accept reference images. Switch to Veo 3.1 Fast or Seedance 2.0 to use them.`}
                   />
                 </div>
+                {hasActiveRef && !videoModelSupportsRefs && (
+                  <p className="mt-2 text-[11px] leading-relaxed text-amber-400/80">
+                    {videoModelName} doesn't support reference images — this will generate text-to-video only. Pick Veo 3.1 Fast or Seedance 2.0 to use your character/product.
+                  </p>
+                )}
               </div>
 
               {/* 3) Prompt — always-editable textarea */}
@@ -884,6 +900,9 @@ function VideoTile({
   const videoElRef = useRef<HTMLVideoElement>(null)
   const [hovering, setHovering] = useState(false)
   const [playing, setPlaying] = useState(false)
+  // Hover-autoplay must stay muted (browsers block unmuted autoplay), but an
+  // explicit Play click is a user gesture and should play with sound.
+  const [unmuted, setUnmuted] = useState(false)
   const ratio = aspectStyle(aspectRatio)
   const modelLabel = getModel(modelId)?.displayName ?? modelId
 
@@ -892,10 +911,23 @@ function VideoTile({
     const v = videoElRef.current
     if (!v) return
     if (v.paused) {
+      // Explicit play → unmute so the generated clip is audible.
+      setUnmuted(true)
+      v.muted = false
       v.play().catch(() => {})
     } else {
       v.pause()
     }
+  }
+
+  const toggleMute = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const v = videoElRef.current
+    setUnmuted((prev) => {
+      const next = !prev
+      if (v) v.muted = !next
+      return next
+    })
   }
 
   return (
@@ -914,7 +946,7 @@ function VideoTile({
         <video
           ref={videoElRef}
           src={url}
-          muted
+          muted={!unmuted}
           loop
           playsInline
           autoPlay={hovering}
@@ -949,6 +981,16 @@ function VideoTile({
           className="pointer-events-auto absolute left-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur transition-colors hover:bg-black/85"
         >
           <Pause className="h-3 w-3 fill-white text-white" />
+        </button>
+      )}
+      {url && (hovering || unmuted) && (
+        <button
+          type="button"
+          title={unmuted ? 'Mute' : 'Unmute'}
+          onClick={toggleMute}
+          className="pointer-events-auto absolute left-10 top-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur transition-colors hover:bg-black/85"
+        >
+          {unmuted ? <Volume2 className="h-3 w-3" /> : <VolumeX className="h-3 w-3" />}
         </button>
       )}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/80 to-transparent" />

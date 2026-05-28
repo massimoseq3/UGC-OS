@@ -21,9 +21,17 @@ interface ModelPickerProps {
   onChange?: (modelId: string) => void
   // Used to compute credits-per-generation estimate shown inline.
   costParams?: CostEstimateParams
+  // When set, models whose `modes` don't include this are greyed out (muted)
+  // but still selectable — a hint, not a hard block (e.g. B-Roll passes
+  // 'reference-to-video' so non-reference-capable video models dim while a
+  // ref is attached, but the user can still pick one for text-to-video).
+  requireMode?: Mode
+  // One-line explanation shown as a footer under the dropdown list when
+  // requireMode dims at least one model.
+  requireModeNote?: string
 }
 
-export default function ModelPicker({ appId, task, mode, value, onChange, costParams }: ModelPickerProps) {
+export default function ModelPicker({ appId, task, mode, value, onChange, costParams, requireMode, requireModeNote }: ModelPickerProps) {
   const setAppModel = useSettingsStore((s) => s.setAppModel)
   const getAppModel = useSettingsStore((s) => s.getAppModel)
   const persistedKey = `${appId}:${task}${mode ? `:${mode}` : ''}`
@@ -109,16 +117,25 @@ export default function ModelPicker({ appId, task, mode, value, onChange, costPa
           }`}
         >
           <div className="max-h-[min(360px,60vh)] overflow-y-auto p-1">
-            {models.map((m) => (
-              <ModelRow
-                key={m.id}
-                model={m}
-                active={m.id === resolved}
-                costParams={costParams}
-                onClick={() => pick(m.id)}
-              />
-            ))}
+            {models.map((m) => {
+              const muted = requireMode ? !m.modes?.includes(requireMode) : false
+              return (
+                <ModelRow
+                  key={m.id}
+                  model={m}
+                  active={m.id === resolved}
+                  costParams={costParams}
+                  muted={muted}
+                  onClick={() => pick(m.id)}
+                />
+              )
+            })}
           </div>
+          {requireMode && requireModeNote && models.some((m) => !m.modes?.includes(requireMode)) && (
+            <p className="border-t border-white/5 px-3 py-2 text-[11px] leading-relaxed text-zinc-500">
+              {requireModeNote}
+            </p>
+          )}
         </div>
       )}
     </div>
@@ -129,10 +146,11 @@ interface ModelRowProps {
   model: ModelEntry
   active: boolean
   costParams?: CostEstimateParams
+  muted?: boolean
   onClick: () => void
 }
 
-function ModelRow({ model, active, costParams, onClick }: ModelRowProps) {
+function ModelRow({ model, active, costParams, muted, onClick }: ModelRowProps) {
   const credits = estimateCredits(model.id, costParams)
   const creditsLabel = formatCredits(credits)
   const isRecommended = model.tags.includes('recommended')
@@ -142,8 +160,8 @@ function ModelRow({ model, active, costParams, onClick }: ModelRowProps) {
       type="button"
       onClick={onClick}
       className={`flex w-full items-center gap-3 rounded-lg px-2.5 py-2.5 text-left transition-colors ${
-        active ? 'bg-white/[0.06]' : 'hover:bg-white/[0.04]'
-      }`}
+        muted ? 'opacity-45 hover:opacity-70' : ''
+      } ${active ? 'bg-white/[0.06]' : 'hover:bg-white/[0.04]'}`}
     >
       <ProviderLogo provider={model.provider} />
 

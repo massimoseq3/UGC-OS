@@ -326,7 +326,6 @@ export const MODEL_REGISTRY: ModelEntry[] = [
       resolutions: ['720p', '1080p', '4k'],
       aspectRatios: ['16:9', '9:16'],
     },
-    defaultFor: ['broll-studio'],
   },
   {
     id: 'veo3_lite',
