@@ -144,6 +144,12 @@ export interface ScriptHistoryItem {
   inputSummary: string
   linkedProductId?: string
   productName?: string
+  // Full inputs captured at generation time so selecting a history row can
+  // restore the left panel (not just the output). Optional for back-compat
+  // with rows saved before this was added.
+  winningTranscript?: string
+  reversePrompt?: string
+  additionalContext?: string
   createdAt: number
 }
 
