@@ -7,16 +7,23 @@
 // fully hydrated from cloud (which startCloudSync guarantees on sign-in).
 
 import { getSupabase, isCloudEnabled } from '../lib/supabase'
+import type { BankKey } from '../lib/cloudSync'
 import { useAuthStore } from '../stores/authStore'
 import { useBankStore } from '../stores/bankStore'
 import { deleteAsset, isAssetRef } from './assetStore'
 
-// Every bank that stores `asset-…` refs anywhere in its `data` JSONB.
-// Missing entries here cause their assets to be wrongly classified as
-// orphans and purged on the next cloud sign-in — imageHistory and
-// musicHistory were both omitted previously, which silently deleted any
-// Playground image / music gen that hadn't been re-saved to the Bank.
-const BANK_KEYS = ['products', 'models', 'scripts', 'voices', 'brolls', 'voiceHistory', 'videoHistory', 'imageHistory', 'musicHistory'] as const
+// Every bank that stores `asset-…` refs anywhere in its `data` JSONB. This MUST
+// list every bank — a missing entry causes that bank's assets to be wrongly
+// classified as orphans and purged on the next cloud sign-in (this previously
+// silently deleted imageHistory/musicHistory, then characterHistory gens). The
+// `satisfies Record<BankKey, true>` guard forces the compiler to fail if a new
+// BankKey is added without listing it here, so the list can't drift again. A
+// type-only import of BankKey keeps this free of the cloudSync import cycle.
+const BANK_KEYS = Object.keys({
+  products: true, models: true, scripts: true, voices: true, brolls: true,
+  voiceHistory: true, videoHistory: true, imageHistory: true, musicHistory: true,
+  characterHistory: true, adAnatomyHistory: true,
+} satisfies Record<BankKey, true>) as BankKey[]
 
 function walkAssetRefs(value: unknown, out: Set<string>) {
   if (typeof value === 'string') {

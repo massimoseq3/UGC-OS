@@ -19,6 +19,28 @@ export function isCloudEnabled(): boolean {
   return !!(url && anonKey)
 }
 
+// supabase-js takes the access token via navigator.locks before every request
+// (to attach the Authorization header). The default lock can stall indefinitely
+// after a backgrounded tab returns — which hung our upserts until their 15s
+// timeout fired. This replacement bounds lock acquisition: if we can't get the
+// lock within ~2s, we run the operation WITHOUT it rather than block. A rare
+// cross-tab token race is acceptable for a single-user app; an indefinite stall
+// is not. Matches the signature supabase-js expects: (name, acquireTimeout, fn).
+const LOCK_ACQUIRE_TIMEOUT_MS = 2_000
+async function nonBlockingLock<R>(name: string, _acquireTimeout: number, fn: () => Promise<R>): Promise<R> {
+  const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined
+  if (!locks?.request || typeof AbortSignal === 'undefined' || !AbortSignal.timeout) {
+    return fn()
+  }
+  try {
+    return await locks.request(name, { signal: AbortSignal.timeout(LOCK_ACQUIRE_TIMEOUT_MS) }, () => fn())
+  } catch {
+    // Acquisition timed out / aborted (another tab holds the lock, or the SDK's
+    // own lock stalled). Proceed unlocked instead of hanging the request.
+    return fn()
+  }
+}
+
 export function getSupabase(): SupabaseClient {
   if (!isCloudEnabled()) {
     throw new Error(
@@ -31,6 +53,7 @@ export function getSupabase(): SupabaseClient {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
+        lock: nonBlockingLock,
       },
     })
     // Keep the cached token current. Fires on SIGNED_IN / TOKEN_REFRESHED /
