@@ -3,7 +3,7 @@ import type { Product, Model, Script, VoicePreset, BRoll, VoiceHistoryItem, Vide
 import { isAssetRef, deleteAsset, saveFromDataUrl } from '../utils/assetStore'
 import { useAuthStore } from './authStore'
 import { isCloudEnabled } from '../lib/supabase'
-import { saveRow, deleteRow, type BankKey } from '../lib/cloudSync'
+import { saveRow, deleteRow, recordPendingUpsert, recordPendingDelete, clearPending, type BankKey } from '../lib/cloudSync'
 import { useAppStore } from './appStore'
 
 const STORAGE_KEY = 'ai-ugc-lab-banks'
@@ -243,7 +243,7 @@ const CLOUD_SYNC_TIMEOUT_MS = 15_000
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => {
-      reject(new Error(`${label} timed out after ${ms / 1000}s — saved on this device but not synced to other devices`))
+      reject(new Error(`${label} timed out after ${ms / 1000}s — saved on this device; will retry syncing automatically`))
     }, ms)
     promise.then(
       (v) => { clearTimeout(timer); resolve(v) },
@@ -252,15 +252,21 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   })
 }
 
-// Cloud-aware single-row save. Awaited; throws on failure or timeout.
+// Cloud-aware single-row save. Awaited; throws on failure or timeout. The row
+// is recorded in the persistent outbox first, so a failed/timed-out push is
+// replayed on the next drain (startup / tab focus) instead of being lost.
 async function pushRow(table: BankKey, row: { id: string }): Promise<void> {
   if (!cloudActive()) return
+  recordPendingUpsert(table, row)
   await withTimeout(saveRow(table, row), CLOUD_SYNC_TIMEOUT_MS, `Cloud save (${table})`)
+  clearPending(table, row.id)
 }
 
 async function dropRow(table: BankKey, id: string): Promise<void> {
   if (!cloudActive()) return
+  recordPendingDelete(table, id)
   await withTimeout(deleteRow(table, id), CLOUD_SYNC_TIMEOUT_MS, `Cloud delete (${table})`)
+  clearPending(table, id)
 }
 
 function reportError(prefix: string, e: unknown) {

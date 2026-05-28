@@ -1,16 +1,21 @@
-// Bridges the Zustand stores to Supabase Postgres with a strictly synchronous
-// save model. There is no diff-push subscriber, no debounced background pump,
-// no persistent retry queue. Each user-initiated change awaits the full
-// cloud round trip before reporting success — that's the contract that fixes
-// "stuck on syncing" and "refresh loses data".
+// Bridges the Zustand stores to Supabase Postgres. Each user-initiated change
+// writes local state first (synchronous localStorage), then pushes the row to
+// the cloud. A push that fails or times out is recorded in a persistent
+// localStorage outbox and replayed later (on startup and on tab focus), so a
+// transient cloud stall can never silently drop a row — the data-loss bug that
+// flipped this module away from its earlier "no retry queue" design.
 //
 // Public surface:
 //   • startCloudSync() / stopCloudSync() — hydrate-on-signin, reset-on-signout
 //   • saveRow / deleteRow                — used by bankStore actions
+//   • recordPendingUpsert / recordPendingDelete / clearPending — outbox, used
+//                                          by bankStore's push/drop wrappers
 //   • saveProfile                        — used by settingsStore actions
 //
-// Stores stay localStorage-backed (source of truth in the browser). On
-// sign-in we hydrate stores from cloud, replacing local state.
+// Stores stay localStorage-backed (source of truth in the browser). On sign-in
+// we hydrate stores from cloud, but the hydrate is non-destructive: a per-table
+// fetch error keeps the existing local rows, and any outbox-pending rows are
+// overlaid so an unsynced row survives a refresh.
 
 import { useAuthStore } from '../stores/authStore'
 import { useAppStore } from '../stores/appStore'
@@ -47,6 +52,100 @@ function reportError(context: string, err: unknown) {
   const msg = err instanceof Error ? err.message : (typeof err === 'string' ? err : JSON.stringify(err))
   console.error(`[cloudSync] ${context}:`, err)
   try { useAppStore.getState().addToast(`Cloud — ${context}: ${msg}`, 'error') } catch { /* store not ready */ }
+}
+
+// ── Persistent sync outbox ──────────────────────────────────────────
+//
+// A localStorage-backed queue of cloud writes that haven't been confirmed.
+// `upserts` keep the full row snapshot (needed to replay and to overlay during
+// hydrate); `deletes` keep just the id. An upsert and a delete for the same id
+// are mutually exclusive — recording one clears the other.
+
+const OUTBOX_KEY = 'ugc-lab:sync-outbox'
+
+interface Outbox {
+  upserts: Partial<Record<BankKey, Record<string, { id: string }>>>
+  deletes: Partial<Record<BankKey, string[]>>
+}
+
+function readOutbox(): Outbox {
+  try {
+    const raw = localStorage.getItem(OUTBOX_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<Outbox>
+      return { upserts: parsed.upserts ?? {}, deletes: parsed.deletes ?? {} }
+    }
+  } catch { /* corrupted — start empty */ }
+  return { upserts: {}, deletes: {} }
+}
+
+function writeOutbox(ob: Outbox) {
+  try { localStorage.setItem(OUTBOX_KEY, JSON.stringify(ob)) } catch { /* quota — ignore */ }
+}
+
+export function recordPendingUpsert(table: BankKey, row: { id: string }): void {
+  const ob = readOutbox()
+  ;(ob.upserts[table] ??= {})[row.id] = row
+  if (ob.deletes[table]) ob.deletes[table] = ob.deletes[table]!.filter((d) => d !== row.id)
+  writeOutbox(ob)
+}
+
+export function recordPendingDelete(table: BankKey, id: string): void {
+  const ob = readOutbox()
+  if (ob.upserts[table]) delete ob.upserts[table]![id]
+  const list = (ob.deletes[table] ??= [])
+  if (!list.includes(id)) list.push(id)
+  writeOutbox(ob)
+}
+
+export function clearPending(table: BankKey, id: string): void {
+  const ob = readOutbox()
+  if (ob.upserts[table]) delete ob.upserts[table]![id]
+  if (ob.deletes[table]) ob.deletes[table] = ob.deletes[table]!.filter((d) => d !== id)
+  writeOutbox(ob)
+}
+
+// Overlay the outbox onto a base array of rows for one bank: pending upserts
+// add/replace by id, pending deletes remove by id. Used during hydrate so an
+// unsynced local row survives the cloud pull.
+function applyOutbox(table: BankKey, base: unknown[]): unknown[] {
+  const ob = readOutbox()
+  const upserts = ob.upserts[table]
+  const deletes = ob.deletes[table]
+  if (!upserts && !deletes) return base
+  const byId = new Map<string, unknown>()
+  for (const row of base) byId.set((row as { id: string }).id, row)
+  for (const [id, row] of Object.entries(upserts ?? {})) byId.set(id, row)
+  for (const id of deletes ?? []) byId.delete(id)
+  return Array.from(byId.values())
+}
+
+let draining = false
+
+// Replay every queued write. Best-effort: a write that fails again stays
+// queued for the next drain. Runs after hydrate and on tab focus.
+export async function drainOutbox(): Promise<void> {
+  if (draining) return
+  if (!isCloudEnabled() || !useAuthStore.getState().user) return
+  const ob = readOutbox()
+  const hasWork = BANK_KEYS.some((k) => Object.keys(ob.upserts[k] ?? {}).length > 0 || (ob.deletes[k]?.length ?? 0) > 0)
+  if (!hasWork) return
+
+  draining = true
+  try {
+    for (const key of BANK_KEYS) {
+      for (const row of Object.values(ob.upserts[key] ?? {})) {
+        try { await saveRow(key, row); clearPending(key, row.id) }
+        catch (e) { console.warn(`[cloudSync] outbox upsert ${key}/${row.id} still failing`, e) }
+      }
+      for (const id of [...(ob.deletes[key] ?? [])]) {
+        try { await deleteRow(key, id); clearPending(key, id) }
+        catch (e) { console.warn(`[cloudSync] outbox delete ${key}/${id} still failing`, e) }
+      }
+    }
+  } finally {
+    draining = false
+  }
 }
 
 function walkAssetRefs(value: unknown, out: string[] = []): string[] {
@@ -149,16 +248,20 @@ async function hydrateFromCloud(userId: string) {
     } catch { /* ignore */ }
   }
 
+  const localState = useBankStore.getState()
   const tables = await Promise.all(
     BANK_KEYS.map(async (key) => {
       const table = BANK_TO_TABLE[key]
       const { data, error } = await sb.from(table).select('id, data').eq('user_id', userId)
-      if (error) {
-        reportError(`hydrate ${table}`, error)
-        return [key, [] as unknown[]] as const
-      }
-      const items = (data ?? []).map((row) => row.data as unknown)
-      return [key, items] as const
+      // On a fetch error, keep whatever loadFromStorage already gave us for this
+      // bank — never replace good local rows with an empty array just because
+      // the cloud was momentarily unreachable.
+      const base = error
+        ? (reportError(`hydrate ${table}`, error), (localState[key] as unknown[]) ?? [])
+        : (data ?? []).map((row) => row.data as unknown)
+      // Overlay the outbox so a row that was created locally but never synced
+      // (push failed/timed out) survives the pull instead of vanishing.
+      return [key, applyOutbox(key, base)] as const
     }),
   )
 
@@ -306,6 +409,20 @@ async function sweepOrphansInBackground(): Promise<void> {
   }
 }
 
+// Drain the outbox when the tab regains focus — pairs with the visibility
+// session-refresh in supabase.ts so a backgrounded tab that missed a sync
+// catches up the moment the user comes back. Installed once.
+let focusDrainInstalled = false
+function installOutboxDrainOnFocus() {
+  if (focusDrainInstalled || typeof document === 'undefined') return
+  focusDrainInstalled = true
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      drainOutbox().catch((e) => console.warn('[cloudSync] focus drain failed', e))
+    }
+  })
+}
+
 let started = false
 
 export async function startCloudSync() {
@@ -327,6 +444,11 @@ export async function startCloudSync() {
     }
     await hydrateFromCloud(userId)
     console.log('[cloudSync] hydrated from cloud')
+
+    // Replay any writes that didn't confirm in a previous session (push failed
+    // or timed out). Best-effort; don't block startup.
+    drainOutbox().catch((e) => console.warn('[cloudSync] outbox drain failed', e))
+    installOutboxDrainOnFocus()
 
     // Stamp last_active_at so the admin members table can show "last seen"
     // instead of just join date. Fire-and-forget — failure isn't worth
