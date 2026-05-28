@@ -128,6 +128,19 @@ export default function ScriptArchitect() {
     if (activeHistoryId === id) setActiveHistoryId(null)
   }
 
+  // Full blank slate: wipe the visible output AND the inputs (source text +
+  // selected product + context). Generated runs already live in the History
+  // tab (auto-pushed on generate), so nothing is lost.
+  const handleClearOutput = () => {
+    setVariations([])
+    setActiveHistoryId(null)
+    setError(null)
+    setWinningTranscript('')
+    setReversePrompt('')
+    setSelectedProductId(null)
+    setAdditionalContext('')
+  }
+
   return (
     <div className="relative flex flex-col pb-32 md:flex-row md:h-full md:pb-0">
       <div className="flex w-full md:w-1/2 shrink-0 flex-col border-b md:border-b-0 md:border-r border-white/5">
@@ -159,6 +172,7 @@ export default function ScriptArchitect() {
           activeHistoryId={activeHistoryId}
           onSelectHistory={handleSelectHistory}
           onDeleteHistory={handleDeleteHistory}
+          onClearOutput={handleClearOutput}
         />
       </div>
     </div>

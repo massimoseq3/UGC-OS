@@ -17,6 +17,7 @@ interface RightPanelProps {
   activeHistoryId: string | null
   onSelectHistory: (item: ScriptHistoryItem) => void
   onDeleteHistory: (id: string) => void
+  onClearOutput: () => void
 }
 
 export default function RightPanel({
@@ -29,6 +30,7 @@ export default function RightPanel({
   activeHistoryId,
   onSelectHistory,
   onDeleteHistory,
+  onClearOutput,
 }: RightPanelProps) {
   const [tab, setTab] = useState<Tab>('output')
 
@@ -61,6 +63,7 @@ export default function RightPanel({
             linkedProductId={linkedProductId}
             isGenerating={isGenerating}
             error={error}
+            onClear={onClearOutput}
           />
         ) : (
           <HistoryView

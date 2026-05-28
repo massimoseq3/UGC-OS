@@ -1,3 +1,4 @@
+import { X } from 'lucide-react'
 import type { BrollResult, PromptVariation, CardState, ReferenceImage } from '../types'
 import type { Product, Model, BrollHistoryItem } from '../../../stores/types'
 import { useBankStore } from '../../../stores/bankStore'
@@ -27,6 +28,7 @@ interface RightPanelProps {
   setCardStates: React.Dispatch<React.SetStateAction<Record<string, CardState>>>
   activeHistoryId: string | null
   onSelectHistory: (item: BrollHistoryItem) => void
+  onClearOutput: () => void
 }
 
 type Tab = 'scenes' | 'history'
@@ -56,6 +58,7 @@ export default function RightPanel(props: RightPanelProps) {
     setCardStates,
     activeHistoryId,
     onSelectHistory,
+    onClearOutput,
   } = props
 
   const baseKey = useProjectScopedKey('broll-studio')
@@ -90,6 +93,16 @@ export default function RightPanel(props: RightPanelProps) {
             )}
           </TabButton>
         </div>
+        {tab === 'scenes' && result && (
+          <button
+            onClick={onClearOutput}
+            title="Clear inputs and scenes. This session stays in the History tab."
+            className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-200"
+          >
+            <X className="h-3.5 w-3.5" strokeWidth={2} />
+            Clear
+          </button>
+        )}
       </div>
 
       <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">

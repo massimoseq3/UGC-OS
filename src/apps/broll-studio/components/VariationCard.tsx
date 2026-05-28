@@ -322,12 +322,11 @@ export default function VariationCard(props: VariationCardProps) {
     let effectiveMode = mode
     if (!model.modes?.includes(effectiveMode)) {
       // The model can't honour the requested mode. We deliberately do NOT
-      // promote the reference image into a first-frame seed: hijacking
-      // image-to-video that way produced visibly distorted clips (the user
-      // saw the character locked into the static reference pose). When the
-      // model can't take refs as refs, drop them and run pure
-      // text-to-video — the user can switch to a ref-capable model if they
-      // need the character/product on screen.
+      // promote the reference image into a first-frame seed (that hijack
+      // produced distorted clips) and we don't silently swap models. When the
+      // chosen model can't take refs as refs, drop them and run text-to-video
+      // — the picker greys these models out and the Reference Images note
+      // tells the user this will be text-to-video only.
       // model.modes is the broader Mode union (also includes image modes);
       // narrow to VideoMode before consuming.
       const VIDEO_MODES: VideoMode[] = ['text-to-video', 'image-to-video', 'frames-to-video', 'reference-to-video']
@@ -343,7 +342,7 @@ export default function VariationCard(props: VariationCardProps) {
       }
       if (effectiveMode === 'reference-to-video' && referenceDataUris?.length) {
         useAppStore.getState().addToast(
-          `${model.displayName} doesn't support reference images — generating from prompt only. Switch to Veo 3.1 Fast or Seedance 2.0 to use references.`,
+          `${model.displayName} doesn't support reference images — generating text-to-video only.`,
           'error',
         )
       }
