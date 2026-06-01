@@ -6,6 +6,7 @@ import { useAppStore } from '../../stores/appStore'
 import { extractProductInfo } from './services/extractProductInfo'
 import { downloadImage } from '../../utils/downloadImage'
 import { ACCEPTED_IMAGE_TYPES, MAX_IMAGE_SIZE } from './services/imageValidation'
+import { humanizeError } from '../../utils/friendlyError'
 
 interface ProductFormProps {
   item?: Product | null
@@ -112,7 +113,7 @@ export default function ProductForm({ item, onSave, onCancel, onCancelDuringExtr
       setForm((f) => ({ ...f, ...result }))
       setShowError(false)
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to extract product info from image.'
+      const message = humanizeError(err, 'Failed to extract product info from image.')
       setExtractError(message)
       addToast('Extraction failed', 'error')
     } finally {

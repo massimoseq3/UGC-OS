@@ -10,6 +10,7 @@ import { finishVideoTask } from '../services/generateVideo'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAppStore } from '../../../stores/appStore'
 import VariationCard from './VariationCard'
+import { humanizeError } from '../../../utils/friendlyError'
 
 interface ScenesViewProps {
   result: BrollResult | null
@@ -174,7 +175,7 @@ export default function ScenesView({
               }
             })
           } catch (err) {
-            const msg = err instanceof Error ? err.message : 'Image generation failed. Try again.'
+            const msg = humanizeError(err, 'Image generation failed. Try again.')
             setCardStates((prev) => {
               const existing = prev[key]
               if (!existing) return prev
@@ -259,7 +260,7 @@ export default function ScenesView({
             await useBankStore.getState().addVideoHistory(historyEntry)
             useAppStore.getState().addToast('B-Roll video ready', 'success')
           } catch (err) {
-            const msg = err instanceof Error ? err.message : 'Video resume failed.'
+            const msg = humanizeError(err, 'Video resume failed.')
             setCardStates((prev) => {
               const existing = prev[key]
               if (!existing) return prev

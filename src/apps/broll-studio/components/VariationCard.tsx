@@ -17,6 +17,7 @@ import { useAssetUrl } from '../../../hooks/useAssetUrl'
 import { getAsBase64, isAssetRef } from '../../../utils/assetStore'
 import { getModel, type VideoMode } from '../../../utils/models'
 import CardDetailModal from './CardDetailModal'
+import { humanizeError } from '../../../utils/friendlyError'
 
 // Tag-driven chip wording + palette. Top-left chip shows what the variation
 // IS (Dialogue / Action / Emotional / Product shot); roll type (A-Roll /
@@ -194,7 +195,7 @@ export default function VariationCard(props: VariationCardProps) {
       pushPromptHistory(rewritten)
       onUpdateState({ isPromptWorking: false, promptError: null })
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Enhance failed.'
+      const msg = humanizeError(err, 'Enhance failed.')
       onUpdateState({ isPromptWorking: false, promptError: msg })
       useAppStore.getState().addToast(`Enhance failed: ${msg}`, 'error')
     }
@@ -215,7 +216,7 @@ export default function VariationCard(props: VariationCardProps) {
       pushPromptHistory(fresh.prompt)
       onUpdateState({ isPromptWorking: false, promptError: null })
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Regenerate failed.'
+      const msg = humanizeError(err, 'Regenerate failed.')
       onUpdateState({ isPromptWorking: false, promptError: msg })
       useAppStore.getState().addToast(`Regenerate failed: ${msg}`, 'error')
     }
@@ -258,7 +259,7 @@ export default function VariationCard(props: VariationCardProps) {
         ),
       }))
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Image generation failed. Try again.'
+      const msg = humanizeError(err, 'Image generation failed. Try again.')
       onUpdateStateFn((prev) => ({
         inFlightImages: prev.inFlightImages.map((e) =>
           e.id === inFlightId ? { ...e, error: msg } : e,
@@ -281,7 +282,7 @@ export default function VariationCard(props: VariationCardProps) {
         }
       })
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Image generation failed. Try again.'
+      const msg = humanizeError(err, 'Image generation failed. Try again.')
       onUpdateStateFn((prev) => ({
         inFlightImages: prev.inFlightImages.map((e) =>
           e.id === inFlightId ? { ...e, error: msg } : e,
@@ -444,7 +445,7 @@ export default function VariationCard(props: VariationCardProps) {
       await useBankStore.getState().addVideoHistory(historyEntry)
       useAppStore.getState().addToast('B-Roll video ready', 'success')
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Video generation failed.'
+      const msg = humanizeError(err, 'Video generation failed.')
       onUpdateStateFn((prev) => ({
         inFlightVideos: prev.inFlightVideos.map((e) =>
           e.id === inFlightId ? { ...e, error: msg } : e,

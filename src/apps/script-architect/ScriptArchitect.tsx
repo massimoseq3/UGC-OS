@@ -5,6 +5,7 @@ import type { Product, ScriptHistoryItem } from '../../stores/types'
 import InputPanel from './components/InputPanel'
 import RightPanel from './components/RightPanel'
 import { generateScript } from './services/generateScript'
+import { humanizeError } from '../../utils/friendlyError'
 import type { ScriptMode, EditableProductContext } from './types'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
 
@@ -111,7 +112,7 @@ export default function ScriptArchitect() {
         'success',
       )
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Script generation failed. Check your API key and try again.'
+      const msg = humanizeError(err, 'Script generation failed. Check your API key and try again.')
       setError(msg)
       useAppStore.getState().addToast(`Script generation failed: ${msg}`, 'error')
     } finally {

@@ -12,6 +12,7 @@ import type { ImageHistoryItem, VideoHistoryItem, MusicHistoryItem } from '../..
 import AudioTile from './AudioTile'
 import GenerationProgress from '../../../components/GenerationProgress'
 import type { PlaygroundMode, InFlightGen } from '../types'
+import { humanizeError } from '../../../utils/friendlyError'
 export type { InFlightGen }
 
 // A single unified history entry. Image/Video/Music streams flow into this
@@ -98,7 +99,7 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode }: Playgrou
       const id = await addBRoll({ imageUrl: item.imageUrl, prompt: item.prompt, sourceApp: 'playground' })
       await updateImageHistory(item.id, { linkedBRollId: id })
     } catch (err) {
-      addToast(err instanceof Error ? err.message : 'Save failed', 'error')
+      addToast(humanizeError(err, 'Save failed'), 'error')
     } finally {
       setSavingIds((prev) => { const next = new Set(prev); next.delete(item.id); return next })
     }
@@ -123,7 +124,7 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode }: Playgrou
       const newId = await addBRoll({ imageUrl: '', prompt: item.prompt, videos: [newVideo], sourceApp: 'playground' })
       await updateVideoHistory(item.id, { linkedBRollId: newId })
     } catch (err) {
-      addToast(err instanceof Error ? err.message : 'Save failed', 'error')
+      addToast(humanizeError(err, 'Save failed'), 'error')
     } finally {
       setSavingIds((prev) => { const next = new Set(prev); next.delete(item.id); return next })
     }

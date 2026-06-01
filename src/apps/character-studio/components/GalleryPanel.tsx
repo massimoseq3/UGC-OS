@@ -5,6 +5,7 @@ import { useSettingsStore } from '../../../stores/settingsStore'
 import { useAssetUrlState } from '../../../hooks/useAssetUrl'
 import { getUrl } from '../../../utils/assetStore'
 import { useAppStore } from '../../../stores/appStore'
+import { humanizeError } from '../../../utils/friendlyError'
 import type { CharacterHistoryItem } from '../../../stores/types'
 import ModelPicker from '../../../components/ModelPicker'
 import ResolutionToggle from '../../../components/ResolutionToggle'
@@ -251,7 +252,7 @@ function HistoryTile({
       if (justAdded) await updateCharacterHistory(item.id, { linkedModelId: justAdded.id })
       setNameDraft(null)
     } catch (err) {
-      addToast(err instanceof Error ? err.message : 'Save failed', 'error')
+      addToast(humanizeError(err, 'Save failed'), 'error')
     } finally {
       setSavingToBank(false)
     }

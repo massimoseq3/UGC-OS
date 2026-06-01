@@ -36,6 +36,7 @@ import { useAppStore } from '../../../stores/appStore'
 import { getUrl } from '../../../utils/assetStore'
 import { getDefaultModel, getModel, estimateCredits, formatCredits, type ImageResolution } from '../../../utils/models'
 import { tagChipStyle, tagLabel, rollTypeForTag } from './VariationCard'
+import { humanizeError } from '../../../utils/friendlyError'
 
 type Tab = 'video' | 'image'
 
@@ -230,7 +231,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
       } as Omit<BRoll, 'id' | 'createdAt'>)
       setSavedImageIdxs((prev) => new Set(prev).add(index))
     } catch (err) {
-      useAppStore.getState().addToast(err instanceof Error ? err.message : 'Save failed', 'error')
+      useAppStore.getState().addToast(humanizeError(err, 'Save failed'), 'error')
     } finally {
       setSavingImageIdxs((prev) => {
         const next = new Set(prev)
@@ -257,7 +258,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
       } as Omit<BRoll, 'id' | 'createdAt'>)
       setSavedVideoIdxs((prev) => new Set(prev).add(index))
     } catch (err) {
-      useAppStore.getState().addToast(err instanceof Error ? err.message : 'Save failed', 'error')
+      useAppStore.getState().addToast(humanizeError(err, 'Save failed'), 'error')
     } finally {
       setSavingVideoIdxs((prev) => {
         const next = new Set(prev)
@@ -336,7 +337,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
       }
       useAppStore.getState().addToast('Prompt copied', 'success')
     } catch (err) {
-      useAppStore.getState().addToast(err instanceof Error ? err.message : 'Copy failed', 'error')
+      useAppStore.getState().addToast(humanizeError(err, 'Copy failed'), 'error')
     }
   }
 
