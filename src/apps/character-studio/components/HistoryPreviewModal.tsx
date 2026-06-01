@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { X, Bookmark, Download, Check, Loader2, Copy } from 'lucide-react'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAppStore } from '../../../stores/appStore'
+import { humanizeError } from '../../../utils/friendlyError'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
 import { getUrl } from '../../../utils/assetStore'
 import type { CharacterHistoryItem } from '../../../stores/types'
@@ -53,7 +54,7 @@ export default function HistoryPreviewModal({ item, onClose }: HistoryPreviewMod
       setShowSaveForm(false)
       setName('')
     } catch (e) {
-      addToast(e instanceof Error ? e.message : 'Save failed', 'error')
+      addToast(humanizeError(e, 'Save failed'), 'error')
     } finally {
       setSaving(false)
     }

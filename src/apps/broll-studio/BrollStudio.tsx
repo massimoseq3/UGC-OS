@@ -8,6 +8,7 @@ import InputPanel from './components/InputPanel'
 import RightPanel, { backfillCardState } from './components/RightPanel'
 import BankPicker from '../../components/BankPicker'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
+import { humanizeError } from '../../utils/friendlyError'
 
 type PickerMode = 'products' | 'models' | 'scripts' | null
 
@@ -324,7 +325,7 @@ export default function BrollStudio() {
       setResult(res)
       useAppStore.getState().addToast('B-roll image generated', 'success')
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'B-Roll generation failed. Check your API key and try again.'
+      const msg = humanizeError(err, 'B-Roll generation failed. Check your API key and try again.')
       setError(msg)
       useAppStore.getState().addToast(`B-roll generation failed: ${msg}`, 'error')
     } finally {

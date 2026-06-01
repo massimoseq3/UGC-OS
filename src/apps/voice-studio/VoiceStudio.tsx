@@ -7,6 +7,7 @@ import type { VoiceSettings } from './types'
 import { createDefaultSettings } from './types'
 import { startVoiceTask, finishVoiceTask } from './services/generateVoice'
 import { getUrl } from '../../utils/assetStore'
+import { humanizeError } from '../../utils/friendlyError'
 import EditorArea from './components/EditorArea'
 import RightPanel from './components/RightPanel'
 import BottomPlayer from './components/BottomPlayer'
@@ -92,7 +93,7 @@ export default function VoiceStudio() {
       refreshCredits()
       useAppStore.getState().addToast('Voiceover generated', 'success')
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Audio generation failed. Check your API key and try again.'
+      const msg = humanizeError(err, 'Audio generation failed. Check your API key and try again.')
       setError(msg)
       useAppStore.getState().addToast(`Voiceover generation failed: ${msg}`, 'error')
     } finally {
@@ -112,7 +113,7 @@ export default function VoiceStudio() {
       const start = await startVoiceTask(settings, scriptText)
       taskId = start.taskId
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Audio generation failed. Check your API key and try again.'
+      const msg = humanizeError(err, 'Audio generation failed. Check your API key and try again.')
       setError(msg)
       useAppStore.getState().addToast(`Voiceover generation failed: ${msg}`, 'error')
       setIsGenerating(false)

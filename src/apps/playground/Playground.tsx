@@ -14,6 +14,7 @@ import PlaygroundHistoryGrid from './components/PlaygroundHistoryGrid'
 import { getDefaultModel, getModel, type AspectRatio, type ImageResolution, type VideoMode } from '../../utils/models'
 import type { PlaygroundMode, InFlightGen } from './types'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
+import { humanizeError } from '../../utils/friendlyError'
 
 // Tasks older than this are almost always dead on kie's side too — resume
 // would just timeout. Surface the error and clear the tile.
@@ -198,7 +199,7 @@ export default function Playground() {
           }
           addToast(`${gen.mode} resumed and ready`, 'success')
         } catch (err) {
-          addToast(err instanceof Error ? err.message : `Resume failed (${gen.mode})`, 'error')
+          addToast(humanizeError(err, `Resume failed (${gen.mode})`), 'error')
         } finally {
           setInFlight((prev) => prev.filter((g) => g.id !== gen.id))
           resuming.current.delete(gen.id)
@@ -346,7 +347,7 @@ export default function Playground() {
         addToast('Track ready', 'success')
       }
     } catch (err) {
-      addToast(err instanceof Error ? err.message : 'Generation failed.', 'error')
+      addToast(humanizeError(err, 'Generation failed.'), 'error')
     } finally {
       setInFlight((prev) => prev.filter((g) => g.id !== id))
     }

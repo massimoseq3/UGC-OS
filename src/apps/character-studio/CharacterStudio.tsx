@@ -10,6 +10,7 @@ import { getDefaultModel } from '../../utils/models'
 import ControlsPanel from './components/ControlsPanel'
 import GalleryPanel, { type InFlightCharacterGen } from './components/GalleryPanel'
 import { startCharacterTask, finishCharacterTask } from './services/generateCharacter'
+import { humanizeError } from '../../utils/friendlyError'
 import { analyzeImage } from './services/analyzeImage'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
 
@@ -96,7 +97,7 @@ export default function CharacterStudio() {
       newProfile.cameraDevice = PHOTOREALISM_STYLE
       setProfile(newProfile)
     } catch (err) {
-      setExtractError(err instanceof Error ? err.message : 'Failed to extract DNA from image.')
+      setExtractError(humanizeError(err, 'Failed to extract DNA from image.'))
       setExtractedThumb(null)
     } finally {
       setIsExtracting(false)
@@ -158,7 +159,7 @@ export default function CharacterStudio() {
       useAppStore.getState().addToast('Character generated', 'success')
     } catch (err) {
       if (!controller.signal.aborted) {
-        const msg = err instanceof Error ? err.message : 'Image generation failed. Check your API key and try again.'
+        const msg = humanizeError(err, 'Image generation failed. Check your API key and try again.')
         setError(msg)
         useAppStore.getState().addToast(`Character generation failed: ${msg}`, 'error')
       }
@@ -202,7 +203,7 @@ export default function CharacterStudio() {
       abortersRef.current.delete(id)
       setInFlight((prev) => prev.filter((g) => g.id !== id))
       if (!controller.signal.aborted) {
-        const msg = err instanceof Error ? err.message : 'Image generation failed. Check your API key and try again.'
+        const msg = humanizeError(err, 'Image generation failed. Check your API key and try again.')
         setError(msg)
         useAppStore.getState().addToast(`Character generation failed: ${msg}`, 'error')
       }

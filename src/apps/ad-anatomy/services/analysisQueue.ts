@@ -15,6 +15,7 @@ import { saveAsset, deleteAsset } from '../../../utils/assetStore'
 // `deleteAsset` is still used by applyFailure below.
 import { useBankStore } from '../../../stores/bankStore'
 import type { AnalysisResult } from '../types'
+import { humanizeError } from '../../../utils/friendlyError'
 
 const MAX_CONCURRENT = 5
 
@@ -58,7 +59,7 @@ async function applyFailure(historyId: string, err: unknown) {
   const { updateAdAnatomyHistory, getAdAnatomyHistoryById } = useBankStore.getState()
   const current = getAdAnatomyHistoryById(historyId)
   if (!current) return
-  const errorMessage = err instanceof Error ? err.message : 'Analysis failed.'
+  const errorMessage = humanizeError(err, 'Analysis failed.')
   await updateAdAnatomyHistory(historyId, {
     status: 'error',
     errorMessage,
