@@ -125,51 +125,6 @@ export const MODEL_REGISTRY: ModelEntry[] = [
   // Image models — pricing from kie.ai/{slug} marketing pages. Resolution
   // tiers map to the `resolution` cost param: '1K' (default), '2K', '4K'.
   {
-    id: 'nano-banana-2',
-    displayName: 'Nano Banana 2',
-    provider: 'Google',
-    task: 'image',
-    modes: ['text-to-image', 'image-to-image', 'image-edit'],
-    tags: ['new'],
-    supportsReferenceImages: true,
-    pricing: {
-      unit: 'per-image',
-      credits: 8,
-      priceFor: ({ imageCount = 1, resolution = '1K' }) => {
-        const perImage = resolution === '4K' ? 18 : resolution === '2K' ? 12 : 8
-        return perImage * imageCount
-      },
-    },
-    imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
-  },
-  {
-    id: 'flux-2/pro-text-to-image',
-    displayName: 'Flux 2 Pro',
-    provider: 'Black Forest Labs',
-    task: 'image',
-    modes: ['text-to-image'],
-    tags: [],
-    pricing: {
-      unit: 'per-image',
-      credits: 14,
-      priceFor: ({ imageCount = 1, resolution = '1K' }) => {
-        const perImage = resolution === '2K' ? 24 : 14  // Pro tier; Flash variant exists separately
-        return perImage * imageCount
-      },
-    },
-    imageConstraints: { resolutions: ['1K', '2K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
-  },
-  {
-    id: 'seedream/5-lite-text-to-image',
-    displayName: 'Seedream 5 Lite',
-    provider: 'ByteDance',
-    task: 'image',
-    modes: ['text-to-image'],
-    tags: ['new', 'fast'],
-    pricing: { unit: 'per-image', credits: 5.5 },
-    imageConstraints: { resolutions: ['1K'], aspectRatios: ['9:16', '16:9', '1:1'] },
-  },
-  {
     id: 'gpt-image-2-text-to-image',
     displayName: 'GPT Image 2',
     provider: 'OpenAI',
@@ -209,6 +164,34 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
     defaultFor: ['broll-studio', 'character-studio'],
   },
+  {
+    id: 'nano-banana-2',
+    displayName: 'Nano Banana 2',
+    provider: 'Google',
+    task: 'image',
+    modes: ['text-to-image', 'image-to-image', 'image-edit'],
+    tags: ['new'],
+    supportsReferenceImages: true,
+    pricing: {
+      unit: 'per-image',
+      credits: 8,
+      priceFor: ({ imageCount = 1, resolution = '1K' }) => {
+        const perImage = resolution === '4K' ? 18 : resolution === '2K' ? 12 : 8
+        return perImage * imageCount
+      },
+    },
+    imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
+  },
+  {
+    id: 'seedream/5-lite-text-to-image',
+    displayName: 'Seedream 5 Lite',
+    provider: 'ByteDance',
+    task: 'image',
+    modes: ['text-to-image'],
+    tags: ['new', 'fast'],
+    pricing: { unit: 'per-image', credits: 5.5 },
+    imageConstraints: { resolutions: ['1K'], aspectRatios: ['9:16', '16:9', '1:1'] },
+  },
 
   // ── Video generation ──────────────────────────────────────────
 
@@ -240,7 +223,6 @@ export const MODEL_REGISTRY: ModelEntry[] = [
       aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9'],
       supportsAudio: true,
     },
-    defaultFor: ['broll-studio'],
   },
   {
     id: 'bytedance/seedance-2-fast',
@@ -326,6 +308,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
       resolutions: ['720p', '1080p', '4k'],
       aspectRatios: ['16:9', '9:16'],
     },
+    defaultFor: ['broll-studio'],
   },
   {
     id: 'veo3_lite',
@@ -604,13 +587,6 @@ export function buildImageInput(modelId: string, opts: ImageGenOptions): Record<
       resolution,
       output_format: 'jpg',
       ...(opts.inputUrls?.length ? { image_input: opts.inputUrls } : {}),
-    }
-  }
-  if (modelId === 'flux-2/pro-text-to-image') {
-    return {
-      prompt: opts.prompt,
-      aspect_ratio: ar,
-      resolution,
     }
   }
   if (modelId === 'seedream/5-lite-text-to-image') {

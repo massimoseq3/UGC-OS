@@ -60,9 +60,9 @@ Full list in `src/utils/models.ts`. Defaults below; users can swap image and vid
 | Capability | Default | Notes |
 |---|---|---|
 | Text + vision | Gemini 3 Flash (`gemini-3-flash`) | Hard-coded everywhere — no picker |
-| Image (text→image) | GPT Image 2 (`gpt-image-2-text-to-image`) | Picker also: Nano Banana 2, Flux 2 Pro, Seedream 5 Lite |
+| Image (text→image) | GPT Image 2 (`gpt-image-2-text-to-image`) | Picker also: Nano Banana 2, Seedream 5 Lite |
 | Image (image→image) | GPT Image 2 Edit (`gpt-image-2-image-to-image`) | Used when reference images are present |
-| Video | Seedance 2.0 (`bytedance/seedance-2`) | Ref-capable. Picker also: Seedance 2.0 Fast, Veo 3.1 Fast/Lite/Quality, Kling 3.0, Wan 2.7, Sora 2, Sora 2 Pro |
+| Video | Seedance 2.0 (`bytedance/seedance-2`); B-Roll defaults to Veo 3.1 Fast (`veo3_fast`) | Ref-capable. Picker also: Seedance 2.0 Fast, Veo 3.1 Fast/Lite/Quality, Kling 3.0, Wan 2.7, Sora 2, Sora 2 Pro |
 | TTS | ElevenLabs Multilingual v2 (`elevenlabs/text-to-speech-multilingual-v2`) | Hard-coded; ~64-voice catalog, slide-in picker |
 | Music | Suno V5 (`suno-v5`) | Playground only. Picker also: Suno V5.5 |
 

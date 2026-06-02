@@ -92,6 +92,22 @@ const MODEL_MIGRATIONS: Array<{ name: string; apply: (m: Record<string, string>)
       }
     },
   },
+  {
+    // Flux 2 Pro was removed from the image model lineup. Drop any persisted
+    // selection so those slots fall back to the registry default (GPT Image 2).
+    name: '2026-06-remove-flux-2-pro',
+    apply: (m) => {
+      for (const k of Object.keys(m)) {
+        if (m[k] === 'flux-2/pro-text-to-image') delete m[k]
+      }
+    },
+  },
+  {
+    // B-Roll video default flipped to Veo 3.1 Fast. Clear any persisted
+    // selection so users see the new default unless they pick explicitly after.
+    name: '2026-06-broll-veo-fast-default',
+    apply: (m) => { delete m['broll-studio:video'] },
+  },
 ]
 
 function loadFromStorage(): { kieApiKey: string; perAppModel: Record<string, string> } {
