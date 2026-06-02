@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   ImageIcon,
   Loader2,
@@ -15,7 +15,7 @@ import { useBankStore } from '../../../stores/bankStore'
 import { useAppStore } from '../../../stores/appStore'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
 import { getAsBase64, isAssetRef } from '../../../utils/assetStore'
-import { getModel, type VideoMode } from '../../../utils/models'
+import { getModel, type VideoMode, type ImageResolution } from '../../../utils/models'
 import CardDetailModal from './CardDetailModal'
 import { humanizeError } from '../../../utils/friendlyError'
 import { rollTypeForTag, tagLabel, tagChipStyle } from './variationTags'
@@ -42,6 +42,12 @@ interface VariationCardProps {
   modelContext?: string
   onOpenCharacterPicker?: () => void
   onOpenProductPicker?: () => void
+  // Batch trigger. Each increment (from a Generate-all action) fires one image
+  // generation. Undefined = no batch.
+  generateImageToken?: number
+  // Settings the active batch run chose (model is global; these override the
+  // card's own aspect/resolution for the batched gen only).
+  batchImageOverride?: { aspectRatio: string; resolution?: ImageResolution } | null
 }
 
 export default function VariationCard(props: VariationCardProps) {
@@ -64,6 +70,8 @@ export default function VariationCard(props: VariationCardProps) {
     modelContext,
     onOpenCharacterPicker,
     onOpenProductPicker,
+    generateImageToken,
+    batchImageOverride,
   } = props
 
   const hasImages = cardState.images.length > 0
@@ -96,9 +104,15 @@ export default function VariationCard(props: VariationCardProps) {
   // Drive the in-flight indicator off the parallel-queue array — the legacy
   // single-slot `videoStatus` field is no longer written by runVideoTask so
   // it stayed permanently 'idle', making the card face look idle even mid-gen.
-  const isGeneratingVideo = cardState.inFlightVideos.length > 0
-  const generatingVideoMode = cardState.inFlightVideos[0]?.mode
+  // Errored entries linger in the queue so the gallery can offer Retry — they
+  // must NOT count as "still generating" or the card face spins forever.
+  const activeInFlightVideos = cardState.inFlightVideos.filter((e) => !e.error)
+  const isGeneratingVideo = activeInFlightVideos.length > 0
+  const generatingVideoMode = activeInFlightVideos[0]?.mode
   const isAnimating = isGeneratingVideo && generatingVideoMode === 'image-to-video'
+  const hasFailedInFlight =
+    cardState.inFlightImages.some((e) => e.error) || cardState.inFlightVideos.some((e) => e.error)
+  const isGeneratingImageInFlight = cardState.inFlightImages.some((e) => !e.error)
 
   // ────────────────────────────────────────────────────────────────────────
   // Action handlers — owned here so both the modal (rendered as a child)
@@ -198,14 +212,18 @@ export default function VariationCard(props: VariationCardProps) {
     }
   }
 
-  // Non-blocking parallel image generation. Each click pushes a new entry
-  // onto `inFlightImages`; the button never disables. Completion removes
-  // the entry and appends to `images`.
-  const handleGenerateImage = async () => {
+  // Non-blocking parallel image generation. Each call pushes a new entry onto
+  // `inFlightImages`; the button never disables. Completion removes the entry
+  // and appends to `images`; failure leaves the entry with an `error` so the
+  // gallery renders a Retry tile. Params are explicit so a retry re-runs the
+  // failed entry's exact prompt/settings.
+  const runImageGen = async (
+    promptText: string,
+    imageAspectRatio: string,
+    imageResolution: ImageResolution | undefined,
+    refs: ReferenceImage[],
+  ) => {
     const inFlightId = crypto.randomUUID()
-    const promptText = cardState.editablePrompt
-    const imageAspectRatio = cardState.cardImageAspectRatio
-    const imageResolution = cardState.cardImageResolution
 
     // Push the in-flight entry immediately so the gallery shows the tile.
     onUpdateStateFn((prev) => ({
@@ -218,7 +236,7 @@ export default function VariationCard(props: VariationCardProps) {
           startedAt: Date.now(),
           prompt: promptText,
           aspectRatio: imageAspectRatio,
-          resolution: imageResolution,
+          resolution: imageResolution ?? '',
         },
       ],
     }))
@@ -226,7 +244,7 @@ export default function VariationCard(props: VariationCardProps) {
     let taskId: string
     let modelId: string
     try {
-      const started = await startImageTask(promptText, buildCardRefs(), imageAspectRatio, imageResolution)
+      const started = await startImageTask(promptText, refs, imageAspectRatio, imageResolution)
       taskId = started.taskId
       modelId = started.modelId
       onUpdateStateFn((prev) => ({
@@ -267,6 +285,42 @@ export default function VariationCard(props: VariationCardProps) {
       useAppStore.getState().addToast(`Image generation failed: ${msg}`, 'error')
     }
   }
+
+  const handleGenerateImage = () =>
+    runImageGen(
+      cardState.editablePrompt,
+      cardState.cardImageAspectRatio,
+      cardState.cardImageResolution,
+      buildCardRefs(),
+    )
+
+  // Batch trigger. When the parent bumps `generateImageToken` (Generate-all),
+  // fire one image gen with the card's current prompt/settings. The ref guard
+  // means it never fires on mount or re-renders — only on a real increment —
+  // and prompt-less cards are skipped.
+  const lastImageTokenRef = useRef(generateImageToken ?? 0)
+  useEffect(() => {
+    const tok = generateImageToken ?? 0
+    if (tok === lastImageTokenRef.current) return
+    lastImageTokenRef.current = tok
+    if (!cardState.editablePrompt.trim()) return
+    // A batch run picks the model (global) + resolution + aspect once for the
+    // whole run; honour those instead of each card's own settings. No override
+    // (shouldn't happen) → fall back to the card's settings.
+    if (batchImageOverride) {
+      void runImageGen(
+        cardState.editablePrompt,
+        batchImageOverride.aspectRatio,
+        batchImageOverride.resolution,
+        buildCardRefs(),
+      )
+    } else {
+      void handleGenerateImage()
+    }
+    // Intentionally only react to the token; the rest is read fresh from this
+    // render's closure.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [generateImageToken])
 
   // Save lives per-tile inside the modal's gallery now — the card itself
   // no longer needs a bundle-save handler.
@@ -449,6 +503,31 @@ export default function VariationCard(props: VariationCardProps) {
     )
   }
 
+  // Retry a failed in-flight gen: drop the errored entry, then re-fire. Images
+  // re-run their captured prompt/settings exactly; videos re-run via the
+  // standard handler (refs are rebuilt from the current toggles).
+  const handleRetryInFlight = (id: string, isVideo: boolean) => {
+    if (isVideo) {
+      const failed = cardState.inFlightVideos.find((e) => e.id === id)
+      if (!failed) return
+      onUpdateStateFn((prev) => ({ inFlightVideos: prev.inFlightVideos.filter((e) => e.id !== id) }))
+      void handleGenerateVideo(failed.modelId)
+    } else {
+      const failed = cardState.inFlightImages.find((e) => e.id === id)
+      if (!failed) return
+      onUpdateStateFn((prev) => ({ inFlightImages: prev.inFlightImages.filter((e) => e.id !== id) }))
+      void runImageGen(failed.prompt, failed.aspectRatio, failed.resolution as ImageResolution, buildCardRefs())
+    }
+  }
+
+  const handleDismissInFlight = (id: string, isVideo: boolean) => {
+    if (isVideo) {
+      onUpdateStateFn((prev) => ({ inFlightVideos: prev.inFlightVideos.filter((e) => e.id !== id) }))
+    } else {
+      onUpdateStateFn((prev) => ({ inFlightImages: prev.inFlightImages.filter((e) => e.id !== id) }))
+    }
+  }
+
   const handleResetVideo = () => {
     onUpdateState({
       videoStatus: 'idle',
@@ -465,7 +544,7 @@ export default function VariationCard(props: VariationCardProps) {
   const isManual = variation.id.startsWith('manual-') || variation.label === 'Manual Option'
   // "Has any video at all" — drives the small video count badge on cards
   // whose cover is the image.
-  const showVideoBadge = hasVideos && coverKind === 'image'
+  const showVideoBadge = hasVideos && coverKind === 'image' && !hasFailedInFlight
   const tagText = tagLabel(variation.tag)
   const rollText = rollTypeForTag(variation.tag)
 
@@ -569,6 +648,18 @@ export default function VariationCard(props: VariationCardProps) {
               {isAnimating ? 'Animating' : 'Rendering'}
             </span>
           )}
+          {isGeneratingImageInFlight && !isGeneratingVideo && !cardState.isGeneratingImage && (
+            <span className="pointer-events-none absolute right-2 top-2 flex items-center gap-1 rounded-full border border-orange-400/30 bg-orange-500/30 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-orange-100 backdrop-blur">
+              <Loader2 className="h-2.5 w-2.5 animate-spin" />
+              Generating
+            </span>
+          )}
+          {hasFailedInFlight && !isGeneratingVideo && !isGeneratingImageInFlight && !cardState.isGeneratingImage && (
+            <span className="pointer-events-none absolute right-2 top-2 flex items-center gap-1 rounded-full border border-red-400/40 bg-red-500/30 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-red-100 backdrop-blur">
+              <AlertCircle className="h-2.5 w-2.5" />
+              Failed
+            </span>
+          )}
           {cardState.videoStatus === 'error' && (
             <span className="pointer-events-none absolute right-2 top-2 flex items-center gap-1 rounded-full border border-red-400/40 bg-red-500/30 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-red-100 backdrop-blur">
               <AlertCircle className="h-2.5 w-2.5" />
@@ -643,6 +734,8 @@ export default function VariationCard(props: VariationCardProps) {
           handleGenerateImage={handleGenerateImage}
           handleGenerateVideo={handleGenerateVideo}
           handleResetVideo={handleResetVideo}
+          handleRetryInFlight={handleRetryInFlight}
+          handleDismissInFlight={handleDismissInFlight}
         />
       )}
     </>

@@ -75,6 +75,9 @@ interface CardDetailModalProps {
   handleAnimateStill?: (videoModelId: string | undefined) => void
   handleGenerateVideo: (videoModelId: string | undefined) => void
   handleResetVideo: () => void
+  // Re-fire / drop a failed in-flight gen surfaced in the gallery.
+  handleRetryInFlight: (id: string, isVideo: boolean) => void
+  handleDismissInFlight: (id: string, isVideo: boolean) => void
 }
 
 // Playground-faithful per-variation workspace.
@@ -110,6 +113,8 @@ export default function CardDetailModal(props: CardDetailModalProps) {
     handleRegeneratePrompt,
     handleGenerateImage,
     handleGenerateVideo,
+    handleRetryInFlight,
+    handleDismissInFlight,
   } = props
 
   const [tab, setTab] = useState<Tab>('image')
@@ -624,6 +629,8 @@ export default function CardDetailModal(props: CardDetailModalProps) {
               onDeleteImage={handleDeleteImageTile}
               onDeleteVideo={handleDeleteVideoTile}
               onCopyPrompt={handleCopyPrompt}
+              onRetryInFlight={handleRetryInFlight}
+              onDismissInFlight={handleDismissInFlight}
             />
           </div>
         </div>

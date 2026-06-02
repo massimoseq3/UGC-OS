@@ -10,7 +10,7 @@ Sidebar is grouped into three sections (LIBRARY / CREATE / TOOLS). Display names
 
 | Section | Sidebar entry | Folder | Job |
 |---|---|---|---|
-| Library | Bank | `finder/` | Banks browser + Projects tab |
+| Library | Bank | `finder/` | Banks browser |
 | Create | Characters | `character-studio/` | Form → portrait image. Drop a reference photo anywhere to auto-fill every field via vision-based DNA extraction. |
 | Create | Scripts | `script-architect/` | Winning ad + product → new script |
 | Create | Voiceovers | `voice-studio/` | Script → audio (ElevenLabs v2) |
@@ -37,7 +37,7 @@ Senior frontend engineer + product architect. Push back when something's flawed.
 
 ## Tech Stack
 
-- React 18 + TypeScript + Vite (`npm run dev` → http://localhost:5173). Tailwind CSS 4. Zustand for global state.
+- React 19 + TypeScript + Vite (`npm run dev` → http://localhost:5173). Tailwind CSS 4. Zustand for global state.
 - IndexedDB (`assetStore.ts`) for blobs, mirrored to Cloudflare R2 when cloud sync is active. localStorage for bank metadata, settings, picker selections.
 - **Cloud (opt-in):** Supabase (auth + Postgres) + R2. Enabled when `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` are set; absent → local-only mode (100% client-side). Access gated by email allowlist synced from Skool via Zapier.
 - kie.ai Bearer token sent directly from the client (no proxy).
@@ -75,7 +75,7 @@ Full list in `src/utils/models.ts`. Defaults below; users can swap image and vid
 
 Most files are self-explanatory. These carry behaviour worth knowing before you touch them:
 
-- `stores/bankStore.ts` — all banks + history + `autoProjectIds` tagging on add + `migrateVoiceShape`.
+- `stores/bankStore.ts` — all banks + history + `migrateVoiceShape`.
 - `utils/orphanCleanup.ts` — once-per-sign-in asset sweep. Its bank list **must** cover every bank (compile-time `satisfies Record<BankKey, true>` guard) or it deletes that bank's live assets from IDB + R2. Local-only banks (`brollHistory`, `scriptHistory`) are walked separately via `LOCAL_BANK_KEYS`.
 - `utils/assetStore.ts` — IndexedDB blobs + fire-and-forget R2 mirror; `getBlob()` falls back to R2 on miss.
 - `utils/friendlyError.ts` — `humanizeError(err, fallback)`, the ordered rule table for end-user error copy.
@@ -87,14 +87,12 @@ Most files are self-explanatory. These carry behaviour worth knowing before you 
 
 Persisted to `localStorage` under `ai-ugc-lab-banks`. Asset blobs live in IndexedDB (mirrored to R2 in cloud mode); rows store `asset://<id>` refs. `useAssetUrl(ref)` turns a ref into a blob URL. Types are in `stores/types.ts`.
 
-`projects`, `products`, `models` (from Characters), `scripts`, `voices`, `brolls`, plus auto-pushed history banks: `voiceHistory`, `videoHistory`, `musicHistory`, `characterHistory`. Gotchas:
+`products`, `models` (from Characters), `scripts`, `voices`, `brolls`, plus auto-pushed history banks: `voiceHistory`, `videoHistory`, `musicHistory`, `characterHistory`. Gotchas:
 
 - **`brolls`** can carry both `imageUrl` (still) and `videos[]` (animations); saving a card appends to the source's `videos[]`. Saved video-history items stamp `linkedBRollId`; deletion only purges the blob if not linked.
 - **`videoHistory`** is shared by B-Roll and Playground (for refresh-resume); Playground's grid filters out `sourceApp === 'broll-studio'`. 14-day retention.
 - **`characterHistory`** carries `imageRef` + the full `profile` snapshot; `linkedModelId` is set on save-to-bank and gates blob purge. Presets aren't a bank — reuse a recipe by saving to `models` and reloading via the Controls header dropdown.
 - **`VoicePreset` / `VoiceHistoryItem`** carry the full v2 param set (`voiceId`, `stability`, `similarityBoost`, `style`, `speed`). Legacy fields are stripped and missing v2 fields backfilled (`0.75 / 0 / 1`) by `migrateVoiceShape`.
-
-**Projects (multi-membership).** Every bank item + video/music history carries optional `projectIds?: string[]`. When `settingsStore.activeProjectId` is set, every add auto-tags via `autoProjectIds`. Deleting a project untags items but leaves them; if it was active, settings clears.
 
 ## Auth + cloud sync
 

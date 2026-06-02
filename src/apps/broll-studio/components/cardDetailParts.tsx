@@ -4,7 +4,7 @@
 // modal's orchestration (state + handlers). These all communicate via props.
 import { useState, useEffect, useRef } from 'react'
 import {
-  ImageIcon, Video as VideoIcon, Loader2, Check, Download, Trash2, Bookmark, Volume2, VolumeX, Play, Pause, Copy, Circle,
+  ImageIcon, Video as VideoIcon, Loader2, Check, Download, Trash2, Bookmark, Volume2, VolumeX, Play, Pause, Copy, Circle, AlertCircle, RefreshCw, X,
 } from 'lucide-react'
 import GenerationProgress from '../../../components/GenerationProgress'
 import type { CardState } from '../types'
@@ -28,13 +28,22 @@ export interface ModalGalleryProps {
   onDeleteImage: (index: number) => void
   onDeleteVideo: (index: number) => void
   onCopyPrompt: (text: string) => void
+  // Re-fire / drop a failed in-flight entry (one whose `error` is set).
+  onRetryInFlight: (id: string, isVideo: boolean) => void
+  onDismissInFlight: (id: string, isVideo: boolean) => void
 }
 
 type ModalEntry =
   | { kind: 'image'; idx: number; createdAt: number; imageUrl: string; prompt: string }
   | { kind: 'video'; idx: number; createdAt: number; videoUrl: string; aspectRatio: string; prompt: string; modelId: string }
-  | { kind: 'in-flight-image'; id: string; createdAt: number; prompt: string; aspectRatio: string }
-  | { kind: 'in-flight-video'; id: string; createdAt: number; prompt: string; mode: 'animating' | 'rendering'; aspectRatio: string }
+  | { kind: 'in-flight-image'; id: string; createdAt: number; prompt: string; aspectRatio: string; error?: string | null }
+  | { kind: 'in-flight-video'; id: string; createdAt: number; prompt: string; mode: 'animating' | 'rendering'; aspectRatio: string; error?: string | null }
+
+// An in-flight entry carries an `error` once its generation failed; that's the
+// signal to render it as a Failed tile (retry/dismiss) instead of a spinner.
+function inFlightError(e: ModalEntry): string | null | undefined {
+  return e.kind === 'in-flight-image' || e.kind === 'in-flight-video' ? e.error : undefined
+}
 
 export function ModalGallery({
   cardState,
@@ -49,6 +58,8 @@ export function ModalGallery({
   onDeleteImage,
   onDeleteVideo,
   onCopyPrompt,
+  onRetryInFlight,
+  onDismissInFlight,
 }: ModalGalleryProps) {
   const noSelectionYet = !cardState.selected
   useEffect(() => {
@@ -64,7 +75,7 @@ export function ModalGallery({
   // Unified per-card output stream, newest-first.
   const entries: ModalEntry[] = []
   for (const entry of cardState.inFlightImages) {
-    entries.push({ kind: 'in-flight-image', id: entry.id, createdAt: entry.startedAt, prompt: entry.prompt, aspectRatio: entry.aspectRatio })
+    entries.push({ kind: 'in-flight-image', id: entry.id, createdAt: entry.startedAt, prompt: entry.prompt, aspectRatio: entry.aspectRatio, error: entry.error })
   }
   for (const entry of cardState.inFlightVideos) {
     entries.push({
@@ -74,6 +85,7 @@ export function ModalGallery({
       prompt: entry.prompt,
       mode: entry.mode === 'image-to-video' ? 'animating' : 'rendering',
       aspectRatio: entry.aspectRatio,
+      error: entry.error,
     })
   }
   cardState.images.forEach((img, idx) => {
@@ -85,6 +97,8 @@ export function ModalGallery({
   entries.sort((a, b) => b.createdAt - a.createdAt)
 
   const inFlight = entries.filter((e) => e.kind === 'in-flight-image' || e.kind === 'in-flight-video')
+  const inFlightActive = inFlight.filter((e) => !inFlightError(e))
+  const inFlightFailed = inFlight.filter((e) => inFlightError(e))
   const finished = entries.filter((e) => e.kind === 'image' || e.kind === 'video')
 
   const dayGroups = new Map<number, ModalEntry[]>()
@@ -116,15 +130,36 @@ export function ModalGallery({
 
   return (
     <div className="flex-1 overflow-y-auto px-4 py-3">
-      {inFlight.length > 0 && (
+      {inFlightActive.length > 0 && (
         <>
           <DayPill label="In progress" />
           <div className="columns-2 gap-2 [column-fill:_balance]">
-            {inFlight.map((entry) => (
+            {inFlightActive.map((entry) => (
               <div key={entry.kind === 'in-flight-image' || entry.kind === 'in-flight-video' ? entry.id : ''} className="mb-2 break-inside-avoid">
                 <InFlightTile entry={entry} />
               </div>
             ))}
+          </div>
+        </>
+      )}
+
+      {inFlightFailed.length > 0 && (
+        <>
+          <DayPill label="Failed" />
+          <div className="columns-2 gap-2 [column-fill:_balance]">
+            {inFlightFailed.map((entry) => {
+              const id = entry.kind === 'in-flight-image' || entry.kind === 'in-flight-video' ? entry.id : ''
+              const isVideo = entry.kind === 'in-flight-video'
+              return (
+                <div key={id} className="mb-2 break-inside-avoid">
+                  <FailedTile
+                    entry={entry}
+                    onRetry={() => onRetryInFlight(id, isVideo)}
+                    onDismiss={() => onDismissInFlight(id, isVideo)}
+                  />
+                </div>
+              )
+            })}
           </div>
         </>
       )}
@@ -451,6 +486,55 @@ function InFlightTile({ entry }: { entry: ModalEntry }) {
       </div>
       <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2 pb-1.5 pt-6">
         <p className="line-clamp-2 text-[10px] text-zinc-300">{entry.prompt}</p>
+      </div>
+    </div>
+  )
+}
+
+// A failed generation tile — replaces the perpetual spinner once an in-flight
+// entry carries an `error`. Retry re-fires the same gen; Dismiss drops it.
+function FailedTile({
+  entry,
+  onRetry,
+  onDismiss,
+}: {
+  entry: ModalEntry
+  onRetry: () => void
+  onDismiss: () => void
+}) {
+  if (entry.kind !== 'in-flight-image' && entry.kind !== 'in-flight-video') return null
+  return (
+    <div
+      className="relative overflow-hidden rounded-lg border border-red-500/40 bg-gradient-to-br from-red-500/[0.1] to-zinc-950"
+      style={aspectStyle(entry.aspectRatio)}
+    >
+      <div className="absolute left-1.5 top-1.5 rounded-full bg-red-500/30 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-red-100 backdrop-blur">
+        Failed
+      </div>
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-3 text-center">
+        <AlertCircle className="h-5 w-5 text-red-300" />
+        <p className="line-clamp-3 text-[10px] leading-relaxed text-red-200">{entry.error}</p>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={onRetry}
+            className="flex items-center gap-1 rounded-full border border-white/15 bg-orange-500 px-2.5 py-1 text-[10px] font-medium text-white transition-colors hover:bg-orange-400"
+          >
+            <RefreshCw className="h-3 w-3" />
+            Retry
+          </button>
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-medium text-zinc-300 transition-colors hover:bg-white/[0.08]"
+          >
+            <X className="h-3 w-3" />
+            Dismiss
+          </button>
+        </div>
+      </div>
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2 pb-1.5 pt-6">
+        <p className="line-clamp-1 text-[10px] text-zinc-400">{entry.prompt}</p>
       </div>
     </div>
   )
