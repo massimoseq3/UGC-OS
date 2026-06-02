@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useRef } from 'react'
+import { useCallback, useMemo, useState, useEffect, useRef } from 'react'
 import { useAppStore } from '../../stores/appStore'
 import { useBankStore } from '../../stores/bankStore'
 import type { Product, Model, Script, BrollHistoryItem } from '../../stores/types'
@@ -258,29 +258,38 @@ export default function BrollStudio() {
     setPickerMode(null)
   }
 
-  const handleAddVariation = (sceneNumber: number, variation: PromptVariation) => {
-    if (!result) return
-    setResult({
-      ...result,
-      scenes: result.scenes.map((s) =>
-        s.number === sceneNumber
-          ? { ...s, variations: [...s.variations, { ...variation, label: `Option ${s.variations.length + 1}` }] }
-          : s
-      ),
+  // Functional setResult + useCallback keeps these referentially stable so the
+  // memoized VariationCardRow doesn't re-render every card on each render.
+  const handleAddVariation = useCallback((sceneNumber: number, variation: PromptVariation) => {
+    setResult((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        scenes: prev.scenes.map((s) =>
+          s.number === sceneNumber
+            ? { ...s, variations: [...s.variations, { ...variation, label: `Option ${s.variations.length + 1}` }] }
+            : s
+        ),
+      }
     })
-  }
+  }, [setResult])
 
-  const handleDeleteVariation = (sceneNumber: number, variationId: string) => {
-    if (!result) return
-    setResult({
-      ...result,
-      scenes: result.scenes.map((s) =>
-        s.number === sceneNumber
-          ? { ...s, variations: s.variations.filter((v) => v.id !== variationId) }
-          : s
-      ),
+  const handleDeleteVariation = useCallback((sceneNumber: number, variationId: string) => {
+    setResult((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        scenes: prev.scenes.map((s) =>
+          s.number === sceneNumber
+            ? { ...s, variations: s.variations.filter((v) => v.id !== variationId) }
+            : s
+        ),
+      }
     })
-  }
+  }, [setResult])
+
+  const handleOpenCharacterPicker = useCallback(() => setPickerMode('models'), [])
+  const handleOpenProductPicker = useCallback(() => setPickerMode('products'), [])
 
   // Build context strings and reference images from selected bank items
   const productContext = selectedProduct
@@ -289,12 +298,14 @@ export default function BrollStudio() {
   const modelContext = selectedModel
     ? `Model/Character: ${selectedModel.name}.${selectedModel.notes ? ` ${selectedModel.notes}.` : ''}${selectedModel.jsonProfile ? ` Profile: ${JSON.stringify(selectedModel.jsonProfile)}` : ''}`
     : ''
-  const characterRef: ReferenceImage | undefined = selectedModel?.characterImage
-    ? { dataUrl: selectedModel.characterImage, label: 'character' }
-    : undefined
-  const productRef: ReferenceImage | undefined = selectedProduct?.productImage
-    ? { dataUrl: selectedProduct.productImage, label: 'product' }
-    : undefined
+  const characterRef = useMemo<ReferenceImage | undefined>(
+    () => (selectedModel?.characterImage ? { dataUrl: selectedModel.characterImage, label: 'character' } : undefined),
+    [selectedModel?.characterImage],
+  )
+  const productRef = useMemo<ReferenceImage | undefined>(
+    () => (selectedProduct?.productImage ? { dataUrl: selectedProduct.productImage, label: 'product' } : undefined),
+    [selectedProduct?.productImage],
+  )
   // Combined ref bundle passed to the scene-generation LLM call — gives it
   // visibility into which reference images the user has selected so it can
   // emit sensible <REFS> tags per variation.
@@ -397,8 +408,8 @@ export default function BrollStudio() {
           selectedScriptId={selectedScript?.id ?? undefined}
           productContext={productContext}
           modelContext={modelContext}
-          onOpenCharacterPicker={() => setPickerMode('models')}
-          onOpenProductPicker={() => setPickerMode('products')}
+          onOpenCharacterPicker={handleOpenCharacterPicker}
+          onOpenProductPicker={handleOpenProductPicker}
           cardStates={cardStates}
           setCardStates={setCardStates}
           activeHistoryId={activeHistoryId}

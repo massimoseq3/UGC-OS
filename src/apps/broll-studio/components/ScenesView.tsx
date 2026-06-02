@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef } from 'react'
-import { Film, AlertCircle, Plus } from 'lucide-react'
+import { memo, useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { Film, AlertCircle, Plus, Images, X } from 'lucide-react'
 import GenerationProgress from '../../../components/GenerationProgress'
 import type { BrollResult, Scene, PromptVariation, CardState, ReferenceImage } from '../types'
 import type { Product, Model } from '../../../stores/types'
@@ -9,6 +10,12 @@ import { finishImageTask } from '../services/generateBroll'
 import { finishVideoTask } from '../services/generateVideo'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAppStore } from '../../../stores/appStore'
+import { useSettingsStore } from '../../../stores/settingsStore'
+import { useCreditsStore } from '../../../stores/creditsStore'
+import { getDefaultModel, getModel, estimateCredits, formatCredits, type ImageResolution } from '../../../utils/models'
+import ModelPicker from '../../../components/ModelPicker'
+import ConstraintChip from '../../../components/ConstraintChip'
+import AspectIcon from '../../../components/AspectIcon'
 import VariationCard from './VariationCard'
 import { humanizeError } from '../../../utils/friendlyError'
 
@@ -81,6 +88,68 @@ export default function ScenesView({
     },
     [setCardStates],
   )
+
+  // ─── Batch image generation ────────────────────────────────────────────
+  // Fire image gen for many cards at once. Rather than lift the gen logic out
+  // of VariationCard (it reads the latest card state at fire time), we bump a
+  // per-card token; each card's own effect then runs handleGenerateImage. A
+  // confirm step shows the aggregate cost against the live balance first.
+  const balance = useCreditsStore((s) => s.balance)
+  // Reactive global B-Roll image model so the picker, cost, and valid
+  // resolutions/aspects in the confirm dialog all update as the user changes it.
+  const batchImageModelId =
+    useSettingsStore((s) => s.perAppModel['broll-studio:image:text-to-image']) ??
+    getDefaultModel('broll-studio', 'image', 'text-to-image')?.id
+  const [batchTokens, setBatchTokens] = useState<Record<string, number>>({})
+  const [batchConfirm, setBatchConfirm] = useState<{ keys: string[]; scope: string } | null>(null)
+  // Resolution + aspect chosen for the run (model lives in the global setting).
+  const [batchResolution, setBatchResolution] = useState<ImageResolution | undefined>(undefined)
+  const [batchAspect, setBatchAspect] = useState<string | undefined>(undefined)
+  // The settings the in-flight batch chose, read by each card's batch effect.
+  const [batchImageOverride, setBatchImageOverride] = useState<
+    { aspectRatio: string; resolution?: ImageResolution } | null
+  >(null)
+
+  // Clamp the picked resolution/aspect to what the current model supports, so
+  // switching models in the dialog never leaves an invalid selection.
+  const batchImgConstraints = batchImageModelId ? getModel(batchImageModelId)?.imageConstraints : undefined
+  const batchResOptions = (batchImgConstraints?.resolutions ?? []) as ImageResolution[]
+  const batchAspectOptions = batchImgConstraints?.aspectRatios ?? []
+  const effectiveBatchRes =
+    batchResolution && batchResOptions.includes(batchResolution) ? batchResolution : batchResOptions[0]
+  const effectiveBatchAspect =
+    batchAspect && batchAspectOptions.includes(batchAspect)
+      ? batchAspect
+      : batchAspectOptions.includes('9:16')
+        ? '9:16'
+        : batchAspectOptions[0]
+  const batchPerImage = batchImageModelId
+    ? estimateCredits(batchImageModelId, { imageCount: 1, resolution: effectiveBatchRes })
+    : null
+  const batchTotalCredits =
+    batchConfirm && batchPerImage != null ? batchPerImage * batchConfirm.keys.length : null
+  const batchOverBudget = batchTotalCredits != null && balance !== null && batchTotalCredits > balance
+
+  const requestBatch = (keys: string[], scope: string) => {
+    // Only cards with a prompt can generate; skip the rest silently.
+    const targets = keys.filter((k) => (cardStates[k]?.editablePrompt ?? '').trim())
+    if (targets.length === 0) {
+      useAppStore.getState().addToast('No prompts ready to generate.', 'error')
+      return
+    }
+    setBatchConfirm({ keys: targets, scope })
+  }
+
+  const confirmBatch = () => {
+    if (!batchConfirm) return
+    setBatchImageOverride({ aspectRatio: effectiveBatchAspect ?? '9:16', resolution: effectiveBatchRes })
+    setBatchTokens((prev) => {
+      const next = { ...prev }
+      for (const k of batchConfirm.keys) next[k] = (next[k] ?? 0) + 1
+      return next
+    })
+    setBatchConfirm(null)
+  }
 
   // Rebuild card states from the current result. Carries existing state
   // forward when prompts match (same generation, re-render); drops orphaned
@@ -321,8 +390,24 @@ export default function ScenesView({
     )
   }
 
+  const allKeys = result.scenes.flatMap((s) => s.variations.map((_, i) => `${s.number}-${i}`))
+
   return (
     <div className="flex-1 overflow-y-auto px-5 py-4">
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <span className="text-[11px] font-medium uppercase tracking-wider text-zinc-600">
+          {result.scenes.length} scene{result.scenes.length === 1 ? '' : 's'}
+        </span>
+        <button
+          type="button"
+          onClick={() => requestBatch(allKeys, 'All scenes')}
+          title="Generate images for every variation across all scenes"
+          className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/15 bg-orange-500 px-3.5 py-1.5 text-[11px] font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors hover:bg-orange-400"
+        >
+          <Images className="h-3.5 w-3.5" />
+          Generate all images
+        </button>
+      </div>
       <div className="flex flex-col gap-10">
         {result.scenes.map((scene) => (
           <SceneSection
@@ -344,12 +429,194 @@ export default function ScenesView({
             modelContext={modelContext}
             onOpenCharacterPicker={onOpenCharacterPicker}
             onOpenProductPicker={onOpenProductPicker}
+            batchTokens={batchTokens}
+            batchImageOverride={batchImageOverride}
+            onGenerateScene={() =>
+              requestBatch(
+                scene.variations.map((_, i) => `${scene.number}-${i}`),
+                `Scene ${scene.number}`,
+              )
+            }
           />
         ))}
       </div>
+
+      {batchConfirm && createPortal(
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm"
+          onClick={() => setBatchConfirm(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-2xl border border-white/10 bg-zinc-950/95 p-5 shadow-2xl"
+          >
+            <h3 className="text-sm font-medium text-zinc-100">
+              Generate {batchConfirm.keys.length} image{batchConfirm.keys.length === 1 ? '' : 's'}
+            </h3>
+            <p className="mt-1 text-xs text-zinc-500">{batchConfirm.scope} · all fire in parallel.</p>
+
+            {/* Run settings — model is the shared B-Roll image model; resolution
+                and aspect apply to every card in this batch. */}
+            <div className="mt-4 flex flex-col gap-2.5">
+              <span className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">Model</span>
+              <ModelPicker
+                appId="broll-studio"
+                task="image"
+                mode="text-to-image"
+                costParams={{ imageCount: 1, resolution: effectiveBatchRes }}
+              />
+              {(batchAspectOptions.length > 0 || batchResOptions.length > 0) && (
+                <div className="flex flex-wrap items-center gap-2">
+                  {batchAspectOptions.length > 0 && (
+                    <ConstraintChip
+                      openDirection="up"
+                      options={batchAspectOptions}
+                      value={effectiveBatchAspect ?? batchAspectOptions[0]}
+                      onChange={(v) => setBatchAspect(v)}
+                      render={(v) => (
+                        <span className="flex items-center gap-1.5">
+                          <AspectIcon ratio={v} />
+                          <span>{v}</span>
+                        </span>
+                      )}
+                    />
+                  )}
+                  {batchResOptions.length > 0 && (
+                    <ConstraintChip
+                      openDirection="up"
+                      options={batchResOptions as string[]}
+                      value={(effectiveBatchRes ?? batchResOptions[0]) as string}
+                      onChange={(v) => setBatchResolution(v as ImageResolution)}
+                    />
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-3 flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-xs">
+              <span className="text-zinc-400">Estimated cost</span>
+              <span className="font-medium text-zinc-100">{formatCredits(batchTotalCredits) ?? '— credits'}</span>
+            </div>
+            {balance !== null && (
+              <p className={`mt-1.5 text-[11px] ${batchOverBudget ? 'text-red-400' : 'text-zinc-500'}`}>
+                Your balance: {balance.toLocaleString()} credits{batchOverBudget ? ' — not enough' : ''}
+              </p>
+            )}
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setBatchConfirm(null)}
+                className="flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1.5 text-[12px] font-medium text-zinc-300 transition-colors hover:bg-white/[0.06]"
+              >
+                <X className="h-3.5 w-3.5" />
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmBatch}
+                className="flex items-center gap-1.5 rounded-full border border-white/15 bg-orange-500 px-4 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-orange-400"
+              >
+                <Images className="h-3.5 w-3.5" />
+                Generate
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
     </div>
   )
 }
+
+// Memoized per-card row. Binds the key-taking parent callbacks into the
+// per-card closures VariationCard expects, with stable identity — so one
+// card's state change no longer re-renders every other card in every scene.
+// Effective only because the props from BrollStudio (refs, handlers) are
+// referentially stable (useMemo/useCallback there) and cardStates[key] keeps
+// the same reference for cards that didn't change.
+const VariationCardRow = memo(function VariationCardRow({
+  cardKey,
+  sceneNumber,
+  scriptLine,
+  variation,
+  cardState,
+  onUpdateCardState,
+  onUpdateCardStateFn,
+  onDeleteVariation,
+  characterRef,
+  productRef,
+  selectedProduct,
+  selectedModel,
+  selectedProductId,
+  selectedModelId,
+  selectedScriptId,
+  productContext,
+  modelContext,
+  onOpenCharacterPicker,
+  onOpenProductPicker,
+  generateImageToken,
+  batchImageOverride,
+}: {
+  cardKey: string
+  sceneNumber: number
+  scriptLine: string
+  variation: PromptVariation
+  cardState: CardState
+  onUpdateCardState: (key: string, updates: Partial<CardState>) => void
+  onUpdateCardStateFn: (key: string, updater: (prev: CardState) => Partial<CardState>) => void
+  onDeleteVariation: (sceneNumber: number, variationId: string) => void
+  characterRef?: ReferenceImage
+  productRef?: ReferenceImage
+  selectedProduct?: Product | null
+  selectedModel?: Model | null
+  selectedProductId?: string
+  selectedModelId?: string
+  selectedScriptId?: string
+  productContext?: string
+  modelContext?: string
+  onOpenCharacterPicker?: () => void
+  onOpenProductPicker?: () => void
+  generateImageToken?: number
+  batchImageOverride?: { aspectRatio: string; resolution?: ImageResolution } | null
+}) {
+  const variationId = variation.id
+  const onUpdateState = useCallback(
+    (updates: Partial<CardState>) => onUpdateCardState(cardKey, updates),
+    [onUpdateCardState, cardKey],
+  )
+  const onUpdateStateFn = useCallback(
+    (updater: (prev: CardState) => Partial<CardState>) => onUpdateCardStateFn(cardKey, updater),
+    [onUpdateCardStateFn, cardKey],
+  )
+  const onDelete = useCallback(
+    () => onDeleteVariation(sceneNumber, variationId),
+    [onDeleteVariation, sceneNumber, variationId],
+  )
+  return (
+    <VariationCard
+      sceneNumber={sceneNumber}
+      scriptLine={scriptLine}
+      variation={variation}
+      cardState={cardState}
+      onUpdateState={onUpdateState}
+      onUpdateStateFn={onUpdateStateFn}
+      onDelete={onDelete}
+      characterRef={characterRef}
+      productRef={productRef}
+      selectedProduct={selectedProduct}
+      selectedModel={selectedModel}
+      selectedProductId={selectedProductId}
+      selectedModelId={selectedModelId}
+      selectedScriptId={selectedScriptId}
+      productContext={productContext}
+      modelContext={modelContext}
+      onOpenCharacterPicker={onOpenCharacterPicker}
+      onOpenProductPicker={onOpenProductPicker}
+      generateImageToken={generateImageToken}
+      batchImageOverride={batchImageOverride}
+    />
+  )
+})
 
 function SceneSection({
   scene,
@@ -369,6 +636,9 @@ function SceneSection({
   modelContext,
   onOpenCharacterPicker,
   onOpenProductPicker,
+  batchTokens,
+  batchImageOverride,
+  onGenerateScene,
 }: {
   scene: Scene
   cardStates: Record<string, CardState>
@@ -387,30 +657,44 @@ function SceneSection({
   modelContext?: string
   onOpenCharacterPicker?: () => void
   onOpenProductPicker?: () => void
+  batchTokens: Record<string, number>
+  batchImageOverride?: { aspectRatio: string; resolution?: ImageResolution } | null
+  onGenerateScene: () => void
 }) {
   return (
     <div style={{ contentVisibility: 'auto', containIntrinsicSize: '700px' }}>
       {/* Scene header — number + tiny line chip + the line itself. The
           spoken-duration chip was removed (its estimate was unreliable). */}
-      <div className="mb-5 flex items-center gap-4">
-        <span
-          className="text-4xl font-bold tabular-nums text-zinc-800"
-          style={{ fontFamily: "'DM Sans', ui-sans-serif, system-ui, sans-serif" }}
-        >
-          {String(scene.number).padStart(2, '0')}
-        </span>
-        <div className="h-8 w-px bg-white/10" />
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <span className="inline-flex w-fit rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
-            Line {scene.number}
-          </span>
-          <p
-            className="text-base italic leading-relaxed text-zinc-400"
-            style={{ fontFamily: "'Fraunces', Georgia, 'Times New Roman', serif" }}
+      <div className="mb-5 flex items-center justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-4">
+          <span
+            className="text-4xl font-bold tabular-nums text-zinc-800"
+            style={{ fontFamily: "'DM Sans', ui-sans-serif, system-ui, sans-serif" }}
           >
-            &ldquo;{scene.scriptLine}&rdquo;
-          </p>
+            {String(scene.number).padStart(2, '0')}
+          </span>
+          <div className="h-8 w-px bg-white/10" />
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <span className="inline-flex w-fit rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+              Line {scene.number}
+            </span>
+            <p
+              className="text-base italic leading-relaxed text-zinc-400"
+              style={{ fontFamily: "'Fraunces', Georgia, 'Times New Roman', serif" }}
+            >
+              &ldquo;{scene.scriptLine}&rdquo;
+            </p>
+          </div>
         </div>
+        <button
+          type="button"
+          onClick={onGenerateScene}
+          title="Generate images for every variation in this scene"
+          className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[11px] font-medium text-zinc-300 transition-colors hover:border-white/20 hover:bg-white/[0.06] hover:text-zinc-100"
+        >
+          <Images className="h-3.5 w-3.5" />
+          Generate all
+        </button>
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
@@ -418,16 +702,16 @@ function SceneSection({
           const key = `${scene.number}-${i}`
           const state = cardStates[key] ?? createDefaultCardState(variation)
           return (
-            <VariationCard
+            <VariationCardRow
               key={variation.id}
+              cardKey={key}
               sceneNumber={scene.number}
               scriptLine={scene.scriptLine}
               variation={variation}
               cardState={state}
-              onUpdateState={(updates) => onUpdateCardState(key, updates)}
-              onUpdateStateFn={(updater: (prev: CardState) => Partial<CardState>) => onUpdateCardStateFn(key, updater)}
-              // Every variation is deletable now — not just manual ones.
-              onDelete={() => onDeleteVariation(scene.number, variation.id)}
+              onUpdateCardState={onUpdateCardState}
+              onUpdateCardStateFn={onUpdateCardStateFn}
+              onDeleteVariation={onDeleteVariation}
               characterRef={characterRef}
               productRef={productRef}
               selectedProduct={selectedProduct}
@@ -439,6 +723,8 @@ function SceneSection({
               modelContext={modelContext}
               onOpenCharacterPicker={onOpenCharacterPicker}
               onOpenProductPicker={onOpenProductPicker}
+              generateImageToken={batchTokens[key]}
+              batchImageOverride={batchImageOverride}
             />
           )
         })}
