@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 
 import AppLogo from './components/AppLogo'
@@ -13,14 +14,17 @@ import { useAppStore } from './stores/appStore'
 import { useAuthStore } from './stores/authStore'
 import { getAppConfig } from './utils/constants'
 
-import Finder from './apps/finder/Finder'
-import AdAnatomy from './apps/ad-anatomy/AdAnatomy'
-import ScriptArchitect from './apps/script-architect/ScriptArchitect'
-import CharacterStudio from './apps/character-studio/CharacterStudio'
-import VoiceStudio from './apps/voice-studio/VoiceStudio'
-import BrollStudio from './apps/broll-studio/BrollStudio'
-import Playground from './apps/playground/Playground'
-import AdminPanel from './apps/admin/AdminPanel'
+// Apps are code-split: each chunk loads on first activation, not at startup.
+// They stay mounted after first open (see runningApps below), so switching
+// back to an already-opened app is instant.
+const Finder = lazy(() => import('./apps/finder/Finder'))
+const AdAnatomy = lazy(() => import('./apps/ad-anatomy/AdAnatomy'))
+const ScriptArchitect = lazy(() => import('./apps/script-architect/ScriptArchitect'))
+const CharacterStudio = lazy(() => import('./apps/character-studio/CharacterStudio'))
+const VoiceStudio = lazy(() => import('./apps/voice-studio/VoiceStudio'))
+const BrollStudio = lazy(() => import('./apps/broll-studio/BrollStudio'))
+const Playground = lazy(() => import('./apps/playground/Playground'))
+const AdminPanel = lazy(() => import('./apps/admin/AdminPanel'))
 
 import TermsOfService from './legal/TermsOfService'
 import PrivacyPolicy from './legal/PrivacyPolicy'
@@ -134,7 +138,13 @@ function Workspace() {
               }`}
             >
               <div className="h-full overflow-y-auto bg-transparent">
-                {Component ? <Component /> : <AppPlaceholder appId={appId} />}
+                {Component ? (
+                  <Suspense fallback={<AppPlaceholder appId={appId} />}>
+                    <Component />
+                  </Suspense>
+                ) : (
+                  <AppPlaceholder appId={appId} />
+                )}
               </div>
             </div>
           )

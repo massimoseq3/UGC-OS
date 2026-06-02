@@ -32,7 +32,10 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   const setKieApiKey = useSettingsStore((s) => s.setKieApiKey)
   const profile = useAuthStore((s) => s.profile)
   const signOut = useAuthStore((s) => s.signOut)
-  const cloudOn = isCloudEnabled() && !!useAuthStore((s) => s.user)
+  // Call the hook unconditionally (not behind `isCloudEnabled() &&`) so hook
+  // order is stable across renders — rules-of-hooks.
+  const authUser = useAuthStore((s) => s.user)
+  const cloudOn = isCloudEnabled() && !!authUser
 
   const [kieDraft, setKieDraft] = useState(storedKieKey)
   const [showKie, setShowKie] = useState(false)

@@ -18,31 +18,7 @@ import { getAsBase64, isAssetRef } from '../../../utils/assetStore'
 import { getModel, type VideoMode } from '../../../utils/models'
 import CardDetailModal from './CardDetailModal'
 import { humanizeError } from '../../../utils/friendlyError'
-
-// Tag-driven chip wording + palette. Top-left chip shows what the variation
-// IS (Dialogue / Action / Emotional / Product shot); roll type (A-Roll /
-// B-Roll) moves to the small bottom text so the face stays scannable.
-const TAG_LABELS: Record<PromptVariation['tag'], string> = {
-  DIALOGUE: 'Dialogue',
-  ACTION: 'Action',
-  EMOTIONAL: 'Emotional',
-  PRODUCT: 'Product shot',
-}
-const TAG_CHIP_STYLES: Record<PromptVariation['tag'], string> = {
-  DIALOGUE: 'bg-cyan-500/25 text-cyan-100 border-cyan-400/40',
-  ACTION: 'bg-lime-500/25 text-lime-100 border-lime-400/40',
-  EMOTIONAL: 'bg-pink-500/25 text-pink-100 border-pink-400/40',
-  PRODUCT: 'bg-amber-500/25 text-amber-100 border-amber-400/40',
-}
-export function rollTypeForTag(tag: PromptVariation['tag']): 'A-Roll' | 'B-Roll' {
-  return tag === 'DIALOGUE' ? 'A-Roll' : 'B-Roll'
-}
-export function tagLabel(tag: PromptVariation['tag']): string {
-  return TAG_LABELS[tag]
-}
-export function tagChipStyle(tag: PromptVariation['tag']): string {
-  return TAG_CHIP_STYLES[tag]
-}
+import { rollTypeForTag, tagLabel, tagChipStyle } from './variationTags'
 
 interface VariationCardProps {
   sceneNumber: number

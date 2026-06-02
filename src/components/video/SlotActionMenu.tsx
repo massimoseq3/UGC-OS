@@ -22,10 +22,9 @@ export default function SlotActionMenu({ anchorRef, open, onClose, onUpload, onP
   const [pos, setPos] = useState<{ top: number; left: number; placement: 'below' | 'above' } | null>(null)
 
   useLayoutEffect(() => {
-    if (!open) {
-      setPos(null)
-      return
-    }
+    // When closed the component renders null regardless of `pos`, so there's
+    // no need to reset position here — reopening re-measures before paint.
+    if (!open) return
     function measure() {
       const el = anchorRef.current
       if (!el) return

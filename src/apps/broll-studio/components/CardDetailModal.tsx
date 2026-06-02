@@ -35,7 +35,7 @@ import { useBankStore } from '../../../stores/bankStore'
 import { useAppStore } from '../../../stores/appStore'
 import { getUrl } from '../../../utils/assetStore'
 import { getDefaultModel, getModel, estimateCredits, formatCredits, type ImageResolution } from '../../../utils/models'
-import { tagChipStyle, tagLabel, rollTypeForTag } from './VariationCard'
+import { tagChipStyle, tagLabel, rollTypeForTag } from './variationTags'
 import { humanizeError } from '../../../utils/friendlyError'
 
 type Tab = 'video' | 'image'

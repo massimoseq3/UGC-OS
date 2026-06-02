@@ -3,7 +3,7 @@ import { Film, AlertCircle, Plus } from 'lucide-react'
 import GenerationProgress from '../../../components/GenerationProgress'
 import type { BrollResult, Scene, PromptVariation, CardState, ReferenceImage } from '../types'
 import type { Product, Model } from '../../../stores/types'
-import { refsToToggles } from '../types'
+import { createDefaultCardState } from '../cardState'
 import type { VideoHistoryItem } from '../../../stores/types'
 import { finishImageTask } from '../services/generateBroll'
 import { finishVideoTask } from '../services/generateVideo'
@@ -486,53 +486,4 @@ function SkeletonScene() {
       </div>
     </div>
   )
-}
-
-// Initial CardState for a freshly-mounted variation. Per-card settings
-// default to 9:16 / 1K / 5s / 720p / audio-on — same defaults the old global
-// SettingsPopover used as seed values.
-export function createDefaultCardState(variation: PromptVariation): CardState {
-  const { refsCharacter, refsProduct } = refsToToggles(variation.refs ?? 'both')
-  const initialPrompt = variation.prompt ?? ''
-  return {
-    editablePrompt: initialPrompt,
-    promptHistory: [initialPrompt],
-    promptHistoryIndex: 0,
-    images: [],
-    currentImageIndex: 0,
-    videos: [],
-    currentVideoIndex: 0,
-    selected: null,
-    inFlightImages: [],
-    inFlightVideos: [],
-    isGeneratingImage: false,
-    imageError: null,
-    pendingTaskId: null,
-    pendingModelId: null,
-    pendingStartedAt: null,
-    refsCharacter,
-    refsProduct,
-    cardImageAspectRatio: '9:16',
-    cardImageResolution: '1K',
-    cardVideoAspectRatio: '9:16',
-    cardVideoDurationSeconds: 5,
-    cardVideoResolution: '720p',
-    cardVideoAudio: true,
-    isPromptWorking: false,
-    promptError: null,
-    videoStatus: 'idle',
-    videoUrl: null,
-    videoError: null,
-    videoTaskId: null,
-    videoModelId: null,
-    videoEndpoint: undefined,
-    videoStartedAt: null,
-    videoSourceBRollId: undefined,
-    videoAspectRatio: null,
-    videoDurationSeconds: null,
-    videoResolution: null,
-    videoAudio: null,
-    videoMode: null,
-    videoPrompt: null,
-  }
 }

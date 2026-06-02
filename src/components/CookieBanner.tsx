@@ -1,20 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Cookie, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 const STORAGE_KEY = 'ugc-lab:cookie-consent'
 
 export default function CookieBanner() {
-  const [dismissed, setDismissed] = useState(true)
-
-  useEffect(() => {
-    try {
-      const v = localStorage.getItem(STORAGE_KEY)
-      setDismissed(v === 'accepted')
-    } catch {
-      setDismissed(false)
-    }
-  }, [])
+  // Read consent synchronously on first render (client-only app, no SSR) so we
+  // never flash the banner and never setState from an effect.
+  const [dismissed, setDismissed] = useState(() => {
+    try { return localStorage.getItem(STORAGE_KEY) === 'accepted' } catch { return false }
+  })
 
   if (dismissed) return null
 

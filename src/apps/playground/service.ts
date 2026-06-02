@@ -112,7 +112,7 @@ export async function finishPlaygroundImageTask(
 
 // Marker stamped on every record this service produces so the B-Roll tab's
 // Gallery view can filter Playground gens out — see types.ts BRoll/VideoHistoryItem.
-const PLAYGROUND_SOURCE: 'playground' = 'playground'
+const PLAYGROUND_SOURCE = 'playground' as const
 
 // ── Video ──────────────────────────────────────────────────────────
 

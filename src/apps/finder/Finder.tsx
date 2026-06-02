@@ -6,7 +6,8 @@ import type { BankType } from '../../utils/constants'
 import { BANK_CONFIG } from '../../utils/constants'
 import type { Product, Model, Script, VoicePreset, BRoll } from '../../stores/types'
 import { saveFromDataUrl } from '../../utils/assetStore'
-import BankList, { SortControl, useBankSort } from './BankList'
+import BankList, { SortControl } from './BankList'
+import { useBankSort } from './bankSort'
 import ProductForm from './ProductForm'
 import ModelForm from './ModelForm'
 import ScriptForm from './ScriptForm'
@@ -58,6 +59,10 @@ export default function Finder() {
   // Consume inter-app payload.
   // `activeBank`  → just switch to the bank.
   // `openCreate`  → switch to the bank AND open the create form (no editingId).
+  // This is a one-shot reaction to an external store event (and must call the
+  // side-effecting consumePayload), so setting state inside the effect is the
+  // correct tool here — not a cascading-render smell.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (interAppPayload?.targetApp !== 'finder') return
     if (interAppPayload.targetField === 'activeBank') {
@@ -76,6 +81,7 @@ export default function Finder() {
       consumePayload()
     }
   }, [interAppPayload, consumePayload])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const counts: Record<BankType, number> = {
     products: products.length,

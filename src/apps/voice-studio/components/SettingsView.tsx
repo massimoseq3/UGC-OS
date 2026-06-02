@@ -1,7 +1,7 @@
 import { ChevronRight, RotateCcw } from 'lucide-react'
 import type { VoiceSettings } from '../types'
 import { DEFAULT_VOICE_SETTINGS, getVoiceById } from '../types'
-import { seedColor } from './VoicePickerView'
+import { seedColor } from './seedColor'
 import Slider from './Slider'
 
 interface SettingsViewProps {

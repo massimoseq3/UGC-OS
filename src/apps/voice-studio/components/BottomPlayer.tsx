@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { Play, Pause, RotateCcw, RotateCw, Download, ChevronDown, AlignLeft } from 'lucide-react'
 import type { VoiceHistoryItem } from '../../../stores/types'
 import { getUrl } from '../../../utils/assetStore'
-import { seedColor } from './VoicePickerView'
+import { seedColor } from './seedColor'
 
 interface BottomPlayerProps {
   item: VoiceHistoryItem
@@ -42,8 +42,10 @@ export default function BottomPlayer({ item, onClose, onShowDetails }: BottomPla
   const animRef = useRef<number>(0)
   const trackRef = useRef<HTMLDivElement>(null)
 
-  // Animate the progress bar while audio is playing.
-  const tick = useCallback(() => {
+  // Animate the progress bar while audio is playing. Named function expression
+  // so the self-referential requestAnimationFrame(tick) binds to the function's
+  // own name (in scope here) rather than the outer const being initialised.
+  const tick = useCallback(function tick() {
     const audio = audioRef.current
     if (!audio) return
     if (audio.duration) setDuration(audio.duration)
