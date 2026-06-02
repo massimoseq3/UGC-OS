@@ -88,7 +88,7 @@ export default function BankPicker({
 
   const filtered = search.trim()
     ? itemsAfterFilter.filter((item) =>
-        getItemName(bankType, item).toLowerCase().includes(search.toLowerCase())
+        getItemName(currentBankType, item).toLowerCase().includes(search.toLowerCase())
       )
     : itemsAfterFilter
 

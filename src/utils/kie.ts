@@ -73,6 +73,28 @@ function friendlyHttpError(status: number, msg: string, endpoint?: string): stri
   return `kie.ai error (${status})${tag}: ${raw}`
 }
 
+// Carries the kie/HTTP status code alongside the message so poll loops can tell
+// "won't fix itself by waiting" (bad key, no credits, validation) apart from
+// transient blips (network, 429, 5xx maintenance) and fail fast.
+class KieHttpError extends Error {
+  status: number
+  constructor(status: number, message: string) {
+    super(message)
+    this.name = 'KieHttpError'
+    this.status = status
+  }
+}
+
+// Codes where continuing to poll is pointless: bad/expired key, no credits,
+// forbidden, validation, key-usage-cap. 429 (rate limit), 455 (maintenance) and
+// 5xx stay retryable. 404 is deliberately excluded — an early poll can 404 while
+// a freshly-created task is still registering server-side.
+const TERMINAL_POLL_STATUS = new Set([401, 402, 403, 422, 433])
+
+function isTerminalPollError(err: unknown): boolean {
+  return err instanceof KieHttpError && TERMINAL_POLL_STATUS.has(err.status)
+}
+
 function endpointTag(method: string | undefined, url: string): string {
   let path = url
   try { path = new URL(url).pathname } catch { /* leave as-is */ }
@@ -144,14 +166,14 @@ async function fetchWithRetry(
           const ra = res.headers.get('Retry-After')
           const waitMs = ra ? parseInt(ra, 10) * 1000 : NaN
           if (!isNaN(waitMs) && waitMs > 0 && waitMs <= 60_000) {
-            lastError = new Error(friendlyHttpError(res.status, msg, tag))
+            lastError = new KieHttpError(res.status, friendlyHttpError(res.status, msg, tag))
             await new Promise(r => setTimeout(r, waitMs))
             continue
           }
         }
-        lastError = new Error(friendlyHttpError(res.status, msg, tag))
+        lastError = new KieHttpError(res.status, friendlyHttpError(res.status, msg, tag))
       } else {
-        throw new Error(friendlyHttpError(res.status, msg, tag))
+        throw new KieHttpError(res.status, friendlyHttpError(res.status, msg, tag))
       }
     } catch (err) {
       clearTimeout(timer)
@@ -198,7 +220,7 @@ async function authedFetch<T>(
   )
   const json = (await res.json()) as KieEnvelope<T>
   if (json.code !== 200) {
-    throw new Error(friendlyHttpError(json.code, json.msg, endpointTag(init.method, `${BASE_URL}${path}`)))
+    throw new KieHttpError(json.code, friendlyHttpError(json.code, json.msg, endpointTag(init.method, `${BASE_URL}${path}`)))
   }
   return json.data
 }
@@ -254,8 +276,11 @@ export async function pollTask(
     try {
       record = await getTaskRecord(apiKey, taskId, signal)
     } catch (err) {
-      // Transient poll error — keep going unless caller aborted
+      // Transient poll error — keep going unless caller aborted. A terminal
+      // credential/credit/validation error won't resolve by waiting, so surface
+      // it now instead of burning the full ~10-minute poll window.
       if (signal?.aborted) throw err
+      if (isTerminalPollError(err)) throw err
       continue
     }
 
@@ -575,11 +600,15 @@ export async function kieVeoPoll(
       const env = (await res.json()) as KieEnvelope<VeoRecordData>
       if (env.code !== 200) {
         if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
+        if (TERMINAL_POLL_STATUS.has(env.code)) {
+          throw new KieHttpError(env.code, friendlyHttpError(env.code, env.msg, 'GET /veo/record-info'))
+        }
         continue
       }
       record = env.data
     } catch (err) {
       if (signal?.aborted) throw err
+      if (isTerminalPollError(err)) throw err
       continue
     }
 
@@ -735,6 +764,7 @@ export async function pollMusicTask(
       record = await kieMusicPoll(apiKey, taskId, signal)
     } catch (err) {
       if (signal?.aborted) throw err
+      if (isTerminalPollError(err)) throw err
       continue
     }
 
