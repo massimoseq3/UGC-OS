@@ -8,6 +8,7 @@ import { useAssetUrlState, useAssetUrl } from '../../../hooks/useAssetUrl'
 import { useAppStore } from '../../../stores/appStore'
 import { getUrl } from '../../../utils/assetStore'
 import { getModel } from '../../../utils/models'
+import { sectionLabel, groupByDay } from '../../../utils/history'
 import type { ImageHistoryItem, VideoHistoryItem, MusicHistoryItem } from '../../../stores/types'
 import AudioTile from './AudioTile'
 import GenerationProgress from '../../../components/GenerationProgress'
@@ -26,20 +27,6 @@ interface PlaygroundHistoryGridProps {
   inFlight: InFlightGen[]
   // Active mode filter — null shows everything.
   filterMode: PlaygroundMode | null
-}
-
-function startOfDay(ts: number): number {
-  const d = new Date(ts)
-  d.setHours(0, 0, 0, 0)
-  return d.getTime()
-}
-
-function dayLabel(dayTs: number): string {
-  const today = startOfDay(Date.now())
-  const yesterday = today - 86_400_000
-  if (dayTs === today) return 'Today'
-  if (dayTs === yesterday) return 'Yesterday'
-  return new Date(dayTs).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })
 }
 
 export default function PlaygroundHistoryGrid({ inFlight, filterMode }: PlaygroundHistoryGridProps) {
@@ -77,16 +64,7 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode }: Playgrou
     return out
   }, [imageHistory, videoHistory, musicHistory, filterMode])
 
-  const dayGroups = useMemo(() => {
-    const map = new Map<number, HistoryEntry[]>()
-    for (const e of entries) {
-      const day = startOfDay(e.createdAt)
-      const arr = map.get(day) ?? []
-      arr.push(e)
-      map.set(day, arr)
-    }
-    return Array.from(map.entries()).sort(([a], [b]) => b - a)
-  }, [entries])
+  const dayGroups = useMemo(() => groupByDay(entries, (e) => e.createdAt), [entries])
 
   const visibleInFlight = filterMode ? inFlight.filter((g) => g.mode === filterMode) : inFlight
 
@@ -163,7 +141,7 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode }: Playgrou
 
         {dayGroups.map(([dayTs, dayItems]) => (
           <div key={dayTs}>
-            <DayPill label={dayLabel(dayTs)} />
+            <DayPill label={sectionLabel(dayTs)} />
             <div className="columns-2 gap-2 sm:columns-3 lg:columns-4 xl:columns-5 [column-fill:_balance]">
               {dayItems.map((entry) => (
                 <div key={`${entry.kind}-${entry.data.id}`} className="mb-2 break-inside-avoid">

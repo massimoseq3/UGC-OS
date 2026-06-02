@@ -27,17 +27,17 @@ Mechanical wins. Result: **eslint 24 errors → 0** (7 pre-existing `exhaustive-
 
 ---
 
-## Phase 1 — Kill the duplication  (the real velocity win)
+## Phase 1 — Kill the duplication  (reassessed after verification)
 
-Extract shared layers, one at a time, each verified before the next. After this, a logic change happens in ONE file.
+On close inspection, most of the audit's claimed duplication was over-counted (same as the Phase 0 "strip 53 console.logs" claim). What's actually here:
 
-- [ ] **`src/utils/history.ts`** — shared `startOfDay`, `formatRelative`, `sectionLabel`, day-bucketing. Replace the 3 copies in `voice-studio/HistoryView`, `broll-studio/BrollHistoryView`, `playground/PlaygroundHistoryGrid`. *(smallest, safest — do first to prove the pattern)*
-- [ ] **`src/utils/asyncToast.ts`** — one `runWithToast(fn, { success, fallback })` wrapper around the try/catch → `humanizeError` → `addToast` pattern repeated 6+ times. Adopt across apps.
-- [ ] **Shared UI primitives** in `src/components/ui/` — `Modal` (backdrop + portal + Esc), `Badge`/`Chip`, `IconButton`. Replace the copy-pasted Tailwind strings in the modals/cards. → design tweaks happen once.
-- [ ] **`useSaveToBank` hook** — unify the "save generation → add to bank → set linkedId → toast, with double-tap guard" flow used in character-studio, playground, broll-studio.
-- [ ] **Generation engine** `src/utils/generation.ts` (or a `useGeneration` hook) — one `startTask`/`finishTask`/`resumeTasks` abstraction over the create→poll→download→saveAsset→resume-on-mount flow. Migrate the 4 app services to call it. *(biggest item in this phase — do last, migrate one app at a time)*
+- [x] **`src/utils/history.ts`** ✅ DONE — `startOfDay`/`formatRelative`/`sectionLabel` + day-bucketing were byte-identical across voice/broll/playground history views. Real win, ~90 lines removed, behaviour identical. (This was the genuine clean extraction.)
+- [~] **`runWithToast` wrapper — SKIPPED (would be a leaky abstraction).** The only shared unit is one line (`addToast(humanizeError(err, fallback), 'error')`, already encapsulated by `humanizeError`). The surrounding handling genuinely varies per site (`setError` / `setExtractError` / Set cleanup / different prefixes). A wrapper forcing all of these through one signature would cost ~the same lines and hide the local state updates.
+- [~] **Shared UI `Modal` — LOW PRIORITY (consistency, not velocity).** The 8 modal overlays legitimately differ: `z-[300]` (legal, must top everything), `z-[100]` (Settings), `z-[60]` (card modals), varying opacity/layout. Badge fragment repeats only 2×. Extracting a robust portal+Esc Modal and migrating 8 callers is real regression risk for a consistency-only payoff.
+- [~] **`useSaveToBank` — MARGINAL.** The save flows share a *shape*, but the saving-state representation differs per site: `Set<string>` (playground), `boolean` (gallery/preview modal), `Set<number>` + a separate "saved" set (CardDetailModal). A shared hook fits ~2 sites awkwardly.
+- [~] **Generation engine — RECOMMEND NOT BUILDING (already factored).** The shared kernel (`createTask`/`pollTask`/`parseResult`/`kieVeoCreate`/`saveAsset`/`ensureHostedUrl`) is **already** extracted into `utils/kie.ts`. The per-app `start*Task`/`finish*Task` services are legitimately *different orchestrations* of those primitives (TTS flat body + audio probe vs. frame-URL resolution + Veo branch + video probe). Wrapping them in a one-size engine = indirection over well-factored code, and it's the riskiest area (polling/resume, a past data-loss bug source).
 
-**Exit check:** each generation surface (Characters, Voiceovers, B-Roll, Playground) still generates, saves, and resumes-after-refresh identically. Verify each in-browser.
+**Conclusion:** the codebase core (`kie.ts` transport, `models.ts` registry) is *better factored than the audit implied*. The real remaining velocity lever is **Phase 2** — the two genuinely-oversized files you can't navigate (`CardDetailModal` 1321 lines, `bankStore` 955 lines) — not more de-duplication.
 
 ---
 

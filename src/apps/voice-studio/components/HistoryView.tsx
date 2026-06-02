@@ -3,6 +3,7 @@ import { Search, Volume2, Bookmark, Check, Trash2, Play, Pause, AlignLeft, Downl
 import { useBankStore } from '../../../stores/bankStore'
 import type { VoiceHistoryItem } from '../../../stores/types'
 import { getUrl } from '../../../utils/assetStore'
+import { formatRelative, sectionLabel, groupByDay } from '../../../utils/history'
 import { seedColor } from './seedColor'
 
 interface HistoryViewProps {
@@ -11,32 +12,6 @@ interface HistoryViewProps {
   onSelect: (item: VoiceHistoryItem) => void
   onDelete: (id: string) => void
   onShowDetails: (item: VoiceHistoryItem) => void
-}
-
-function formatRelative(ts: number): string {
-  const diff = Date.now() - ts
-  if (diff < 60_000) return 'just now'
-  if (diff < 3600_000) return `${Math.floor(diff / 60_000)}m ago`
-  if (diff < 86_400_000) return `${Math.floor(diff / 3600_000)}h ago`
-  return `${Math.floor(diff / 86_400_000)}d ago`
-}
-
-function startOfDay(ts: number): number {
-  const d = new Date(ts)
-  d.setHours(0, 0, 0, 0)
-  return d.getTime()
-}
-
-function sectionLabel(dayTs: number): string {
-  const today = startOfDay(Date.now())
-  const yesterday = today - 86_400_000
-  if (dayTs === today) return 'Today'
-  if (dayTs === yesterday) return 'Yesterday'
-  return new Date(dayTs).toLocaleDateString(undefined, {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  })
 }
 
 async function resolveAudioUrl(ref: string): Promise<string> {
@@ -108,14 +83,7 @@ export default function HistoryView({ items, activeId, onSelect, onDelete, onSho
       .slice()
       .sort((a, b) => b.createdAt - a.createdAt)
 
-    const map = new Map<number, VoiceHistoryItem[]>()
-    for (const it of filtered) {
-      const day = startOfDay(it.createdAt)
-      const arr = map.get(day) ?? []
-      arr.push(it)
-      map.set(day, arr)
-    }
-    return Array.from(map.entries()).sort(([a], [b]) => b - a)
+    return groupByDay(filtered, (it) => it.createdAt)
   }, [items, query])
 
   const handleSavePreset = (item: VoiceHistoryItem) => {

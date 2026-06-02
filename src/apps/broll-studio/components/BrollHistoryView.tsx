@@ -3,34 +3,13 @@ import { Search, Film, Trash2 } from 'lucide-react'
 import type { BrollHistoryItem } from '../../../stores/types'
 import type { BrollResult, CardState } from '../types'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
+import { formatRelative, sectionLabel, groupByDay } from '../../../utils/history'
 
 interface BrollHistoryViewProps {
   items: BrollHistoryItem[]
   activeId: string | null
   onSelect: (item: BrollHistoryItem) => void
   onDelete: (id: string) => void
-}
-
-function formatRelative(ts: number): string {
-  const diff = Date.now() - ts
-  if (diff < 60_000) return 'just now'
-  if (diff < 3600_000) return `${Math.floor(diff / 60_000)}m ago`
-  if (diff < 86_400_000) return `${Math.floor(diff / 3600_000)}h ago`
-  return `${Math.floor(diff / 86_400_000)}d ago`
-}
-
-function startOfDay(ts: number): number {
-  const d = new Date(ts)
-  d.setHours(0, 0, 0, 0)
-  return d.getTime()
-}
-
-function sectionLabel(dayTs: number): string {
-  const today = startOfDay(Date.now())
-  const yesterday = today - 86_400_000
-  if (dayTs === today) return 'Today'
-  if (dayTs === yesterday) return 'Yesterday'
-  return new Date(dayTs).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })
 }
 
 // Pull the first image url found in any card's image list. Used for the
@@ -62,14 +41,7 @@ export default function BrollHistoryView({ items, activeId, onSelect, onDelete }
       .slice()
       .sort((a, b) => b.createdAt - a.createdAt)
 
-    const map = new Map<number, BrollHistoryItem[]>()
-    for (const it of filtered) {
-      const day = startOfDay(it.createdAt)
-      const arr = map.get(day) ?? []
-      arr.push(it)
-      map.set(day, arr)
-    }
-    return Array.from(map.entries()).sort(([a], [b]) => b - a)
+    return groupByDay(filtered, (it) => it.createdAt)
   }, [items, query])
 
   if (items.length === 0) {
