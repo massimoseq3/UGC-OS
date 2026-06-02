@@ -275,7 +275,7 @@ export default function Finder() {
         {/* Content area — list or form */}
         <div className="flex-1 overflow-y-auto p-5">
           {showForm ? (
-            <div className={`mx-auto rounded-xl border border-white/5 bg-white/[0.02] p-5 ${activeBank === 'products' ? 'max-w-5xl' : ['models', 'brolls', 'scripts'].includes(activeBank) ? 'max-w-3xl' : 'max-w-md'}`}>
+            <div className={`rounded-xl border border-white/5 bg-white/[0.02] p-5 ${activeBank === 'products' ? 'h-full' : `mx-auto ${['models', 'brolls', 'scripts'].includes(activeBank) ? 'max-w-3xl' : 'max-w-md'}`}`}>
               {activeBank === 'products' && (
                 <ProductForm
                   item={editingProduct}

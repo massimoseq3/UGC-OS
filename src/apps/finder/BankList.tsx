@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef } from 'react'
-import { Trash2, Package, UserRound, FileText, Mic, Film, Plus, Braces, Video, Download, Loader2, ChevronDown, Sparkles } from 'lucide-react'
+import { Trash2, Package, UserRound, FileText, Mic, Film, Plus, Video, Download, Loader2, ChevronDown, Sparkles } from 'lucide-react'
 import type { Product, Model, Script, VoicePreset, BRoll } from '../../stores/types'
 import type { BankType } from '../../utils/constants'
 import { useBankStore } from '../../stores/bankStore'
@@ -137,7 +137,6 @@ function ModelCard({ item, onEdit, onDelete }: { item: Model; onEdit: () => void
   const [confirm, setConfirm] = useState(false)
   const resolvedImage = useAssetUrl(item.characterImage)
   const sourceLabel = item.source === 'character-studio' ? 'Characters' : item.source === 'image-dna-extractor' ? 'Image DNA' : 'Imported'
-  const hasJson = item.jsonProfile !== null
 
   const handleDownload = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -162,13 +161,6 @@ function ModelCard({ item, onEdit, onDelete }: { item: Model; onEdit: () => void
         <span className="block truncate text-sm font-semibold tracking-tight text-zinc-100">{item.name}</span>
         <span className="text-[10px] text-zinc-300">{sourceLabel}</span>
       </div>
-      {/* JSON badge top-left */}
-      {hasJson && (
-        <span className="absolute left-2 top-2 flex items-center gap-1 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-sky-400 backdrop-blur-sm">
-          <Braces className="h-2.5 w-2.5" />
-          JSON
-        </span>
-      )}
       {/* Action buttons top-right */}
       <div className="absolute right-2 top-2 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
         {confirm ? (
