@@ -158,6 +158,10 @@ export default function CardDetailModal(props: CardDetailModalProps) {
     ? (getModel(videoModelId)?.modes ?? []).includes('reference-to-video')
     : false
   const videoModelName = videoModelId ? (getModel(videoModelId)?.displayName ?? videoModelId) : 'This model'
+  // The "doesn't support reference images" caveat is about VIDEO models only —
+  // image models always accept references (image-to-image), so dim the slots
+  // and show the warning solely while the Video tab is active.
+  const refsUnsupportedForVideo = tab === 'video' && !videoModelSupportsRefs
 
   // Is at least one reference image currently armed? When so, the video model
   // picker greys out models that can't take refs so the user can't pick one
@@ -518,7 +522,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                     onClick={() => onOpenCharacterPicker?.()}
                     active={cardState.refsCharacter !== false}
                     onToggleActive={() => onUpdateState({ refsCharacter: cardState.refsCharacter === false })}
-                    dimmed={!videoModelSupportsRefs}
+                    dimmed={refsUnsupportedForVideo}
                     dimmedReason={`${videoModelName} doesn't accept reference images. Switch to Veo 3.1 Fast or Seedance 2.0 to use them.`}
                   />
                   <ReferenceSlotCard
@@ -530,11 +534,11 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                     onClick={() => onOpenProductPicker?.()}
                     active={cardState.refsProduct !== false}
                     onToggleActive={() => onUpdateState({ refsProduct: cardState.refsProduct === false })}
-                    dimmed={!videoModelSupportsRefs}
+                    dimmed={refsUnsupportedForVideo}
                     dimmedReason={`${videoModelName} doesn't accept reference images. Switch to Veo 3.1 Fast or Seedance 2.0 to use them.`}
                   />
                 </div>
-                {hasActiveRef && !videoModelSupportsRefs && (
+                {hasActiveRef && refsUnsupportedForVideo && (
                   <p className="mt-2 text-[11px] leading-relaxed text-amber-400/80">
                     {videoModelName} doesn't support reference images — this will generate text-to-video only. Pick Veo 3.1 Fast or Seedance 2.0 to use your character/product.
                   </p>
