@@ -45,8 +45,8 @@ On close inspection, most of the audit's claimed duplication was over-counted (s
 
 Only the files that actively hurt. Skip `models.ts` (big but isolated data) and `kie.ts` unless they keep causing friction.
 
-- [ ] **Split `CardDetailModal.tsx` (1,321 → ~5 files)** — extract `ModalGallery`, `ImageTile`/`VideoTile`/`InFlightTile`, the reference-slot panel, and move generation handlers into a `useCardGeneration` hook. Phase 1's engine makes this much smaller.
-- [ ] **Split `bankStore.ts` (955 / 60 methods)** — factor the repeated `add/update/delete → recordPending → saveRow` CRUD into a generic `makeBankSlice(key)` helper so the 5 entity banks + history banks share one implementation instead of 5 copies. (Keep it one store; just stop hand-writing each method.)
+- [x] **Split `CardDetailModal.tsx`** ✅ DONE — 1,321 → **633** (orchestration: state + handlers) + **686** (`cardDetailParts.tsx`: `ModalGallery`, `ImageTile`/`VideoTile`/`InFlightTile`, `DayPill`, `ModalTabButton`/`IconChipButton`/`ReferenceSlotCard`, `aspectStyle`, tile-download). Pure code-motion via props; also deduped a 4th copy of `startOfDay`/`dayLabel` against `utils/history`. tsc clean, 0 lint errors, modal verified rendering in-browser. (Did NOT extract a `useCardGeneration` hook — the handlers are tightly bound to local saved/saving Sets; moving them would obscure more than help.)
+- [ ] **Split `bankStore.ts` (955 / 60 methods)** — factor the repeated `add/update/delete → recordPending → saveRow` CRUD into a generic `makeBankSlice(key)` helper. ⚠️ HIGHER RISK — touches the persistence + cloud-sync layer that caused past data-loss bugs, and can't be fully verified in local-only mode (no Supabase env). Recommend its own isolated PR + careful sync round-trip testing, or deferring unless it keeps causing friction.
 
 **Exit check:** banks save/sync/hydrate identically; B-Roll modal behaves identically. Verify in-browser + confirm cloud sync round-trips.
 
