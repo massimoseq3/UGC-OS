@@ -28,11 +28,17 @@ export default function GenerationProgress({
   const msgs = messages && messages.length > 0 ? messages : DEFAULT_MESSAGES
   const [index, setIndex] = useState(0)
 
+  // Reset the rotating message to the first line whenever a new generation
+  // starts. Done during render (React's "adjust state on prop change" pattern)
+  // rather than in an effect, so it doesn't trigger a cascading re-render.
+  const [prevActive, setPrevActive] = useState(isActive)
+  if (isActive !== prevActive) {
+    setPrevActive(isActive)
+    setIndex(0)
+  }
+
   useEffect(() => {
-    if (!isActive) {
-      setIndex(0)
-      return
-    }
+    if (!isActive) return
     const id = setInterval(() => {
       setIndex((i) => (i + 1) % msgs.length)
     }, ROTATE_MS)

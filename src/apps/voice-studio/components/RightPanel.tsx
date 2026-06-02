@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import type { VoiceSettings } from '../types'
 import type { VoiceHistoryItem } from '../../../stores/types'
 import SettingsView from './SettingsView'
@@ -41,10 +41,13 @@ export default function RightPanel({
   const openPicker = () => setVoicePickerOpen(true)
   const closePicker = () => setVoicePickerOpen(false)
 
-  // When details opens (e.g. from BottomPlayer), make sure we're on the History tab.
-  useEffect(() => {
+  // When details opens (e.g. from BottomPlayer), make sure we're on the History
+  // tab. Done during render (prop-change sync), not in an effect.
+  const [prevDetails, setPrevDetails] = useState(detailsItem)
+  if (detailsItem !== prevDetails) {
+    setPrevDetails(detailsItem)
     if (detailsItem) setTab('history')
-  }, [detailsItem])
+  }
 
   const handleSelectVoice = (voice: { id: string; name: string; gender?: 'Female' | 'Male' }) => {
     onSettingsChange({

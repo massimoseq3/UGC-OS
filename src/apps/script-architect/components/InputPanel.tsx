@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Package, Loader2, PenLine, ChevronDown, FileText, Wand2 } from 'lucide-react'
 import type { Product, Script } from '../../../stores/types'
 import type { EditableProductContext, ScriptMode } from '../types'
@@ -59,12 +59,16 @@ export default function InputPanel({
   const sendToApp = useAppStore((s) => s.sendToApp)
   const resolvedProductImage = useAssetUrl(selectedProduct?.productImage)
 
-  useEffect(() => {
+  // Rebuild the editable context whenever a different product is selected.
+  // Done during render (prop-change sync) so it never setState-from-effect.
+  const [prevProduct, setPrevProduct] = useState(selectedProduct)
+  if (selectedProduct !== prevProduct) {
+    setPrevProduct(selectedProduct)
     if (selectedProduct) {
       setEditableContext(createEditableContext(selectedProduct))
       setDetailsOpen(false)
     }
-  }, [selectedProduct])
+  }
 
   const sourceFilled = mode === 'remix' ? winningTranscript.trim().length > 0 : reversePrompt.trim().length > 0
   const canGenerate = sourceFilled && selectedProduct !== null

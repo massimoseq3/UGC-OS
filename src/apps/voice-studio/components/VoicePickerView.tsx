@@ -3,17 +3,9 @@ import { ArrowLeft, Search, Play, Pause, Check } from 'lucide-react'
 import type { VoiceOption, VoiceCategory } from '../types'
 import { VOICES, VOICE_CATEGORIES } from '../types'
 
-const PREVIEW_BASE = 'https://static.aiquickdraw.com/elevenlabs/voice'
+import { seedColor } from './seedColor'
 
-// Deterministic gradient seed — keeps a voice's avatar color stable across mounts.
-function seedColor(id: string): string {
-  let hash = 0
-  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) | 0
-  const hues = [220, 260, 290, 330, 0, 25, 90, 150, 175, 200]
-  const a = hues[Math.abs(hash) % hues.length]
-  const b = hues[Math.abs(hash >> 4) % hues.length]
-  return `linear-gradient(135deg, hsl(${a} 70% 60%), hsl(${b} 65% 45%))`
-}
+const PREVIEW_BASE = 'https://static.aiquickdraw.com/elevenlabs/voice'
 
 interface VoicePickerViewProps {
   selectedId: string
@@ -220,5 +212,3 @@ export default function VoicePickerView({ selectedId, onSelect, onClose }: Voice
     </div>
   )
 }
-
-export { seedColor }

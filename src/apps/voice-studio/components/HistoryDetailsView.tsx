@@ -4,7 +4,7 @@ import type { VoiceHistoryItem } from '../../../stores/types'
 import type { VoiceSettings } from '../types'
 import { getVoiceById } from '../types'
 import { getUrl } from '../../../utils/assetStore'
-import { seedColor } from './VoicePickerView'
+import { seedColor } from './seedColor'
 
 interface HistoryDetailsViewProps {
   item: VoiceHistoryItem

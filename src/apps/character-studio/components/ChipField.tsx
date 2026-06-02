@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Plus, Check, X, Lock, Unlock } from 'lucide-react'
 
 const STORAGE_KEY = 'ai-ugc-lab-custom-chips'
@@ -39,14 +39,15 @@ export default function ChipField({ label, fieldKey, value, chips, onChange, pla
   const isFilled = value.trim() !== ''
   const [showAddInput, setShowAddInput] = useState(false)
   const [newChipValue, setNewChipValue] = useState('')
-  const [customChips, setCustomChips] = useState<string[]>([])
+  // Load this field's custom chips synchronously (localStorage) and re-sync
+  // during render if the field key ever changes — no setState-from-effect.
+  const [customChips, setCustomChips] = useState<string[]>(() => loadCustomChips()[fieldKey] ?? [])
+  const [loadedKey, setLoadedKey] = useState(fieldKey)
+  if (fieldKey !== loadedKey) {
+    setLoadedKey(fieldKey)
+    setCustomChips(loadCustomChips()[fieldKey] ?? [])
+  }
   const [locked, setLocked] = useState(defaultLocked)
-
-  // Load custom chips for this field on mount
-  useEffect(() => {
-    const all = loadCustomChips()
-    setCustomChips(all[fieldKey] ?? [])
-  }, [fieldKey])
 
   const addCustomChip = () => {
     const trimmed = newChipValue.trim()

@@ -3,7 +3,7 @@ import { Search, Volume2, Bookmark, Check, Trash2, Play, Pause, AlignLeft, Downl
 import { useBankStore } from '../../../stores/bankStore'
 import type { VoiceHistoryItem } from '../../../stores/types'
 import { getUrl } from '../../../utils/assetStore'
-import { seedColor } from './VoicePickerView'
+import { seedColor } from './seedColor'
 
 interface HistoryViewProps {
   items: VoiceHistoryItem[]

@@ -22,8 +22,12 @@ export default function AuthGate({ children }: AuthGateProps) {
   }, [bootstrap])
 
   // Run cloud sync once we have a session + profile. Re-runs if the user
-  // signs out and a different account signs in (we stop + restart).
+  // signs out and a different account signs in (we stop + restart). This
+  // effect orchestrates an external subscription (start/stopCloudSync) with
+  // cleanup, so the synchronous loading-flag setState calls are the standard
+  // async-effect pattern, not a cascading-render smell.
   const userId = session?.user.id
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!isCloudEnabled()) { setSyncReady(true); return }
     if (!userId) { stopCloudSync(); setSyncReady(false); return }
@@ -40,6 +44,7 @@ export default function AuthGate({ children }: AuthGateProps) {
       })
     return () => { cancelled = true; stopCloudSync() }
   }, [userId])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // No Supabase env configured — fall back to local-only mode so devs can
   // run the app without a backend. Print a banner so it's obvious.

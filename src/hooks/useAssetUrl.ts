@@ -6,33 +6,28 @@ import { isAssetRef, getUrl } from '../utils/assetStore'
  * - If ref is an asset ID ("asset-xxx"), loads from IndexedDB and returns an object URL.
  * - If ref is a data URL, blob URL, or http URL, returns it as-is.
  * - Returns undefined while loading or if ref is empty.
+ *
+ * The synchronous (pass-through / empty) cases are derived during render so we
+ * never call setState inside the effect for them. The async result is stored
+ * tagged with the ref it resolved, so a stale load for a previous ref is
+ * ignored by the render-time comparison instead of needing a reset setState.
  */
 export function useAssetUrl(ref: string | undefined | null): string | undefined {
-  const [url, setUrl] = useState<string | undefined>(() => {
-    if (!ref) return undefined
-    if (isAssetRef(ref)) return undefined // will load async
-    return ref // data:, blob:, http: — pass through
-  })
+  const [entry, setEntry] = useState<{ ref: string; url: string | undefined }>()
+  const isAsset = !!ref && isAssetRef(ref)
 
   useEffect(() => {
-    if (!ref) {
-      setUrl(undefined)
-      return
-    }
-
-    if (!isAssetRef(ref)) {
-      setUrl(ref)
-      return
-    }
-
+    if (!isAsset) return
     let cancelled = false
-    getUrl(ref).then((resolved) => {
-      if (!cancelled) setUrl(resolved ?? undefined)
+    getUrl(ref!).then((resolved) => {
+      if (!cancelled) setEntry({ ref: ref!, url: resolved ?? undefined })
     })
     return () => { cancelled = true }
-  }, [ref])
+  }, [ref, isAsset])
 
-  return url
+  if (!ref) return undefined
+  if (!isAsset) return ref // data:, blob:, http: — pass through
+  return entry && entry.ref === ref ? entry.url : undefined
 }
 
 export type AssetUrlStatus = 'idle' | 'loading' | 'ready' | 'failed'
@@ -43,35 +38,25 @@ export type AssetUrlStatus = 'idle' | 'loading' | 'ready' | 'failed'
  * failure with the asset id and cloud-active state.
  */
 export function useAssetUrlState(ref: string | undefined | null): { url: string | undefined; status: AssetUrlStatus } {
-  const [state, setState] = useState<{ url: string | undefined; status: AssetUrlStatus }>(() => {
-    if (!ref) return { url: undefined, status: 'idle' }
-    if (isAssetRef(ref)) return { url: undefined, status: 'loading' }
-    return { url: ref, status: 'ready' }
-  })
+  const [entry, setEntry] = useState<{ ref: string; url: string | undefined; status: AssetUrlStatus }>()
+  const isAsset = !!ref && isAssetRef(ref)
 
   useEffect(() => {
-    if (!ref) {
-      setState({ url: undefined, status: 'idle' })
-      return
-    }
-    if (!isAssetRef(ref)) {
-      setState({ url: ref, status: 'ready' })
-      return
-    }
-
+    if (!isAsset) return
     let cancelled = false
-    setState((prev) => prev.status === 'ready' && prev.url ? prev : { url: undefined, status: 'loading' })
-    getUrl(ref).then((resolved) => {
+    getUrl(ref!).then((resolved) => {
       if (cancelled) return
       if (resolved) {
-        setState({ url: resolved, status: 'ready' })
+        setEntry({ ref: ref!, url: resolved, status: 'ready' })
       } else {
         console.warn('[useAssetUrlState] asset unresolvable', { assetId: ref })
-        setState({ url: undefined, status: 'failed' })
+        setEntry({ ref: ref!, url: undefined, status: 'failed' })
       }
     })
     return () => { cancelled = true }
-  }, [ref])
+  }, [ref, isAsset])
 
-  return state
+  if (!ref) return { url: undefined, status: 'idle' }
+  if (!isAsset) return { url: ref, status: 'ready' }
+  return entry && entry.ref === ref ? { url: entry.url, status: entry.status } : { url: undefined, status: 'loading' }
 }

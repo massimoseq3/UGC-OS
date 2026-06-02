@@ -345,12 +345,12 @@ function deriveTitleFromContent(text: string, fallback = 'Untitled script'): str
       .replace(/^\[[^\]]+\]\s*/, '')
       .replace(/^[*\-•]\s+/, '')
       .replace(/^\d+[.)]\s+/, '')
-      .replace(/^(visual|voiceover|action|dialogue|shot|scene|hook|cta)\s*[:\-]\s*/i, '')
+      .replace(/^(visual|voiceover|action|dialogue|shot|scene|hook|cta)\s*[:-]\s*/i, '')
       .trim()
     if (cleaned.length < 6) continue
     const firstSentence = cleaned.split(/(?<=[.!?])\s+/)[0] ?? cleaned
     const words = firstSentence.split(/\s+/).slice(0, 7).join(' ')
-    const trimmed = words.replace(/[.,;:!?\-]+$/, '').trim()
+    const trimmed = words.replace(/[.,;:!?-]+$/, '').trim()
     if (trimmed.length < 4) continue
     // Title case the first letter only; preserve original casing otherwise.
     return trimmed.charAt(0).toUpperCase() + trimmed.slice(1)
