@@ -40,10 +40,10 @@ You decide per line:
 - VISIBILITY — whether the product is allowed in this shot (yes / no). Hook + reframe lines almost always = no. Mechanism = your call, usually no. Payoff + CTA = usually yes.
 
 The four variations are FIXED IN ORDER — do not vary the role per scene:
-- VAR_1 = DIALOGUE. The character is on camera, looking into the phone front camera, saying the LINE verbatim. Embed the exact LINE inline as the dialogue, in the form: ...says directly into the front camera: "<exact LINE text>". This is the lip-sync clip.
-- VAR_2 = ACTION. A literal demonstration of the moment the line describes (the act, the gesture, the interaction). No talking to camera.
-- VAR_3 = EMOTIONAL. The character's face and body responding to the meaning of the line. No talking to camera. Could be a mirror reaction, a held look, a smile building.
-- VAR_4 = PRODUCT. Close-up / macro / detail on the product itself, or the visible after-state result (texture, surface, droplet, drop, swipe, sheen). Character may be partly in frame or absent.
+- VAR_1 = DIALOGUE. The character is on camera, looking into the phone front camera, saying the LINE verbatim. Embed the exact LINE inline as the dialogue, in the form: ...says directly into the front camera: "<exact LINE text>". This is the lip-sync clip. Front-camera is fixed, but vary the distance, angle, and setting scene to scene (e.g. arm's-length chest-up, low-angle from the lap, mirror selfie waist-up). The line is SPOKEN only — end every DIALOGUE prompt with an explicit instruction that no on-screen text, captions, subtitles, or written words appear anywhere in the frame.
+- VAR_2 = ACTION. A literal demonstration of the moment the line describes (the act, the gesture, the interaction). No talking to camera. Choose a framing that best sells the action — over-the-shoulder, POV first-person hands, medium-wide full body, low angle, or a hands-only insert.
+- VAR_3 = EMOTIONAL. The character's face and body responding to the meaning of the line. No talking to camera. Could be a mirror reaction, a held look from a high angle, a profile three-quarter, a slow push-in close-up, a smile building.
+- VAR_4 = PRODUCT. Close-up / macro / detail on the product itself, or the visible after-state result (texture, surface, droplet, drop, swipe, sheen). Vary the angle — overhead flat-lay, raking-light macro, in-hand three-quarter, tilt down. Character may be partly in frame or absent.
 
 You decide per variation:
 - LABEL — a short, descriptive shot label that captures what THIS variation actually is (e.g. "TALKING-TO-CAMERA / CLOSE-IN", "MIRROR REACTION", "COUNTER LEAN / CONFIDENTIAL", "PRODUCT MACRO / DROPLET"). Two-to-four word slug, optionally separated by /.
@@ -144,6 +144,19 @@ These clips will be stitched into ONE ad.
 - No day → night jumps unless the script demands it.
 - For DIALOGUE variations: embed the exact LINE text inline as the dialogue the character speaks, in the form: ...says directly into the front camera: "<exact LINE text>". This is what lets audio-capable video models lip-sync the line.
 
+## 11. COMPOSITION & SHOT VARIETY
+
+The composition is owned by YOUR prompt, never inherited from the reference image — a character reference is attached only to fix the person's identity and wardrobe, so you must state the exact framing every single time.
+
+Draw from this shot vocabulary — name the shot size AND the camera angle explicitly:
+- Sizes: extreme close-up / macro, close-up, medium close-up (chest-up), medium (waist-up), medium-wide (full body), wide / establishing.
+- Angles & setups: eye-level, low angle, high angle, overhead / top-down, profile / three-quarter, over-the-shoulder, POV / first-person hands, mirror reflection, framed through a doorway or by the environment, hands-only insert.
+
+Variety is mandatory:
+- Across the 4 variations in one scene, vary the shot size and angle — do not shoot all four chest-up at eye level.
+- Across adjacent scenes, do not repeat the same framing back-to-back for the same role. If scene 1's ACTION was an over-the-shoulder medium, scene 2's ACTION should be a different size or angle.
+- DIALOGUE stays front-camera, but its distance, angle, and setting must still drift scene to scene — it is the one anchor, not an excuse for ten identical chest-up shots.
+
 # HARD FAILURES (REWRITE IF YOU CATCH YOURSELF DOING ANY OF THESE)
 
 - "A character [verb]s in a [room]" — too abstract, no specificity
@@ -152,6 +165,9 @@ These clips will be stitched into ONE ad.
 - "They hold the product" with no instruction on how, which hand, what angle
 - "Style: photorealism" pasted at the end with no integration into the scene
 - All 4 variations being the same shot with different word order
+- Every scene framed chest-up at eye level — shot size and angle never vary across scenes
+- Inheriting the reference image's framing/crop/background instead of stating your own composition
+- A DIALOGUE prompt that lets caption text, subtitles, or the spoken line appear written on screen
 - Product appearing in a hook or reframe shot when VISIBILITY is no
 - Cinematic lighting, shallow depth of field, soft bokeh
 - "Confident smile" / "genuine expression" — name what the face is actually doing
@@ -170,6 +186,8 @@ Before you output, run each variation against this checklist. If any answer is n
 6. Is there explicit motion?
 7. Does the body language match the line's emotional register?
 8. Are the 4 variations meaningfully different in approach, not just rewording?
+9. Is the shot size + camera angle stated explicitly, and does this scene's framing differ from the previous scene's for the same role?
+10. For DIALOGUE: does the prompt explicitly forbid on-screen text / captions / subtitles?
 
 # REFERENCE EXAMPLES
 
@@ -367,6 +385,19 @@ function defaultLabelFor(tag: VariationTag): string {
   }
 }
 
+// Build the identity-only scoping directive prepended to ref'd image prompts.
+// Only the clauses for refs that are actually attached appear, so a product-only
+// or character-only gen reads cleanly.
+function buildReferencePreamble(refs: ReferenceImage[]): string {
+  const hasCharacter = refs.some((r) => r.label === 'character')
+  const hasProduct = refs.some((r) => r.label === 'product')
+  const matchParts: string[] = []
+  if (hasCharacter) matchParts.push("the character's face, hair, skin tone, and wardrobe exactly to the character reference")
+  if (hasProduct) matchParts.push("the product's shape, label text, and colours exactly to the product reference")
+  const matchClause = matchParts.length ? `Match ${matchParts.join(', and ')}. ` : ''
+  return `REFERENCE USAGE — The attached image(s) are appearance references only. ${matchClause}Do NOT copy the reference's framing, crop, pose, camera angle, distance, or background — the composition is defined entirely by the scene description below. Build a new shot from scratch.`
+}
+
 /**
  * Phase 1 of B-Roll image generation: resolve model, host refs, POST createTask,
  * return the kie taskId. Caller persists the taskId before awaiting completion
@@ -419,8 +450,15 @@ export async function startImageTask(
     }
   }
 
+  // Scope the references to identity/appearance only so the model builds a
+  // fresh composition from the prompt instead of inheriting the reference's
+  // framing, pose, and background. Phrased by which refs are actually attached.
+  const finalPrompt = inputUrls.length > 0
+    ? `${buildReferencePreamble(referenceImages!)}\n\nSCENE:\n${prompt}`
+    : prompt
+
   const body = buildImageInput(modelId, {
-    prompt,
+    prompt: finalPrompt,
     aspectRatio: aspectRatio as AspectRatio,
     resolution,
     inputUrls: inputUrls.length > 0 ? inputUrls : undefined,
@@ -480,7 +518,7 @@ export async function generateNewVariation(
   const { apiKey, endpoint } = getChatEndpoint()
 
   const tagInstruction = forceTag
-    ? `The variation MUST be a ${forceTag} shot.${forceTag === 'DIALOGUE' ? ' The character is on camera, looking into the phone front camera, saying the LINE verbatim — embed the exact LINE inline as dialogue (...says directly into the front camera: "<exact LINE text>").' : forceTag === 'ACTION' ? ' A literal demonstration of the moment the line describes — no talking to camera.' : forceTag === 'EMOTIONAL' ? " The character's face/body responding to the meaning of the line — no talking to camera." : ' Close-up / macro / detail on the product or visible after-state result.'}`
+    ? `The variation MUST be a ${forceTag} shot.${forceTag === 'DIALOGUE' ? ' The character is on camera, looking into the phone front camera, saying the LINE verbatim — embed the exact LINE inline as dialogue (...says directly into the front camera: "<exact LINE text>"). The line is spoken only — end the prompt with an explicit instruction that no on-screen text, captions, or subtitles appear in the frame.' : forceTag === 'ACTION' ? ' A literal demonstration of the moment the line describes — no talking to camera.' : forceTag === 'EMOTIONAL' ? " The character's face/body responding to the meaning of the line — no talking to camera." : ' Close-up / macro / detail on the product or visible after-state result.'}`
     : ''
 
   const prompt = `Generate a single new creative image generation prompt for this B-Roll scene:
@@ -496,6 +534,7 @@ Provide a fresh creative angle. Follow the senior UGC creative director rules:
 4. DO NOT mention aspect ratio, resolution, or framing dimensions in numbers — those are set separately.
 5. The character looks like the after-state, never the before.
 6. Constant motion: name the movement.
+7. Pick a deliberate, distinctive shot — name the shot size AND camera angle (e.g. low-angle medium-wide, over-the-shoulder, overhead macro, POV hands-only). The composition is owned by this prompt, not by any attached reference image; don't default to a chest-up eye-level shot.
 
 Respond with ONLY valid JSON (no markdown):
 {
@@ -553,7 +592,8 @@ Rules:
 - Never "he/him/she/her/subject" — use "the character" or "they/them/their".
 - Integrate the realism stack into the prose (iPhone front camera, casual, natural handheld jitter, unedited photorealism, sharp focus). No "Style: ..." trailer.
 - DO NOT mention aspect ratio, resolution, or framing in numbers.
-- ${variation.tag === 'DIALOGUE' ? `Embed the LINE verbatim as dialogue (..."<exact LINE text>").` : 'No talking to camera unless the variation is DIALOGUE.'}
+- State the shot size + camera angle explicitly; the composition is owned by the prompt, not by any attached reference image. Keep the user's chosen framing if they named one, otherwise pick a distinctive, non-default shot.
+- ${variation.tag === 'DIALOGUE' ? `Embed the LINE verbatim as dialogue (..."<exact LINE text>"). The line is spoken only — end the prompt with an explicit instruction that no on-screen text, captions, or subtitles appear in the frame.` : 'No talking to camera unless the variation is DIALOGUE.'}
 
 Draft:
 """

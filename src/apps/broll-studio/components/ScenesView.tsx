@@ -227,7 +227,7 @@ export default function ScenesView({
         ;(async () => {
           try {
             const imageUrl = await finishImageTask(taskId, modelId)
-            const newImage = { imageUrl, prompt, createdAt: Date.now() }
+            const newImage = { imageUrl, prompt, modelId, createdAt: Date.now() }
             setCardStates((prev) => {
               const existing = prev[key]
               if (!existing) return prev
@@ -668,8 +668,8 @@ function SceneSection({
       <div className="mb-5 flex items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-4">
           <span
-            className="text-4xl font-bold tabular-nums text-zinc-800"
-            style={{ fontFamily: "'DM Sans', ui-sans-serif, system-ui, sans-serif" }}
+            className="text-4xl font-normal tabular-nums text-zinc-800"
+            style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
           >
             {String(scene.number).padStart(2, '0')}
           </span>
@@ -679,8 +679,8 @@ function SceneSection({
               Line {scene.number}
             </span>
             <p
-              className="text-base italic leading-relaxed text-zinc-400"
-              style={{ fontFamily: "'Fraunces', Georgia, 'Times New Roman', serif" }}
+              className="text-lg font-normal not-italic leading-relaxed text-zinc-400"
+              style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
             >
               &ldquo;{scene.scriptLine}&rdquo;
             </p>
