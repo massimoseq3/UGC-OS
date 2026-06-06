@@ -327,32 +327,47 @@ export default function CardDetailModal(props: CardDetailModalProps) {
   }
 
   // ─── Per-tile copy prompt ──────────────────────────────────────────────
-  // Uses navigator.clipboard.writeText with a document.execCommand fallback
-  // for older browsers. Guards against an empty/whitespace-only prompt so
-  // the toast doesn't lie about copying nothing.
+  // Tries the async Clipboard API first, then falls back to the legacy
+  // execCommand path. The fallback must also run when navigator.clipboard
+  // EXISTS but writeText() rejects — which is exactly what happens inside
+  // embedded webviews (e.g. the Claude desktop browser) where the document
+  // lacks clipboard-write permission or focus. Guards against an empty prompt
+  // so the toast doesn't lie about copying nothing.
+  const legacyCopy = (text: string): boolean => {
+    try {
+      const ta = document.createElement('textarea')
+      ta.value = text
+      ta.style.position = 'fixed'
+      ta.style.opacity = '0'
+      document.body.appendChild(ta)
+      ta.select()
+      const ok = document.execCommand('copy')
+      document.body.removeChild(ta)
+      return ok
+    } catch {
+      return false
+    }
+  }
+
   const handleCopyPrompt = async (text: string) => {
     const trimmed = (text ?? '').trim()
     if (!trimmed) {
       useAppStore.getState().addToast('No prompt to copy', 'error')
       return
     }
-    try {
-      if (navigator.clipboard && window.isSecureContext) {
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
         await navigator.clipboard.writeText(text)
-      } else {
-        // Legacy fallback — older browsers / non-secure contexts
-        const ta = document.createElement('textarea')
-        ta.value = text
-        ta.style.position = 'fixed'
-        ta.style.opacity = '0'
-        document.body.appendChild(ta)
-        ta.select()
-        document.execCommand('copy')
-        document.body.removeChild(ta)
+        useAppStore.getState().addToast('Prompt copied', 'success')
+        return
+      } catch {
+        // Fall through to the legacy path below.
       }
+    }
+    if (legacyCopy(text)) {
       useAppStore.getState().addToast('Prompt copied', 'success')
-    } catch (err) {
-      useAppStore.getState().addToast(humanizeError(err, 'Copy failed'), 'error')
+    } else {
+      useAppStore.getState().addToast('Copy failed', 'error')
     }
   }
 

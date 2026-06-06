@@ -76,6 +76,9 @@ export interface BrollInput {
 export interface GeneratedImage {
   imageUrl: string
   prompt: string
+  // The image model that produced this generation, shown on the gallery tile.
+  // Optional because entries persisted before this field existed won't have it.
+  modelId?: string
   // Stamped on completion so the modal's right-column gallery can day-bucket
   // images the same way Playground does. Older persisted entries get
   // backfilled to Date.now() during hydrate.

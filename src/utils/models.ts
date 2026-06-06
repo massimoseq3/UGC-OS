@@ -143,7 +143,6 @@ export const MODEL_REGISTRY: ModelEntry[] = [
       },
     },
     imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
-    defaultFor: ['broll-studio', 'character-studio'],
   },
   {
     id: 'gpt-image-2-image-to-image',
@@ -162,7 +161,6 @@ export const MODEL_REGISTRY: ModelEntry[] = [
       },
     },
     imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
-    defaultFor: ['broll-studio', 'character-studio'],
   },
   {
     id: 'nano-banana-2',
@@ -170,8 +168,11 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     provider: 'Google',
     task: 'image',
     modes: ['text-to-image', 'image-to-image', 'image-edit'],
-    tags: ['new'],
+    tags: ['recommended', 'new'],
     supportsReferenceImages: true,
+    // Default for B-Roll and Characters: identity-consistent and lets the
+    // prompt own the composition rather than inheriting the reference's framing.
+    defaultFor: ['broll-studio', 'character-studio'],
     pricing: {
       unit: 'per-image',
       credits: 8,
