@@ -124,6 +124,29 @@ export const MODEL_REGISTRY: ModelEntry[] = [
 
   // Image models — pricing from kie.ai/{slug} marketing pages. Resolution
   // tiers map to the `resolution` cost param: '1K' (default), '2K', '4K'.
+  // Nano Banana 2 leads the list so it's the app-wide default for both
+  // text-to-image and image-to-image (it's first among `candidates` in
+  // getDefaultModel and first in the picker). Identity-consistent and lets
+  // the prompt own the composition rather than inheriting the reference's framing.
+  {
+    id: 'nano-banana-2',
+    displayName: 'Nano Banana 2',
+    provider: 'Google',
+    task: 'image',
+    modes: ['text-to-image', 'image-to-image', 'image-edit'],
+    tags: ['recommended', 'new'],
+    supportsReferenceImages: true,
+    defaultFor: ['broll-studio', 'character-studio'],
+    pricing: {
+      unit: 'per-image',
+      credits: 8,
+      priceFor: ({ imageCount = 1, resolution = '1K' }) => {
+        const perImage = resolution === '4K' ? 18 : resolution === '2K' ? 12 : 8
+        return perImage * imageCount
+      },
+    },
+    imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
+  },
   {
     id: 'gpt-image-2-text-to-image',
     displayName: 'GPT Image 2',
@@ -157,27 +180,6 @@ export const MODEL_REGISTRY: ModelEntry[] = [
       credits: 6,
       priceFor: ({ imageCount = 1, resolution = '1K' }) => {
         const perImage = resolution === '4K' ? 16 : resolution === '2K' ? 10 : 6
-        return perImage * imageCount
-      },
-    },
-    imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
-  },
-  {
-    id: 'nano-banana-2',
-    displayName: 'Nano Banana 2',
-    provider: 'Google',
-    task: 'image',
-    modes: ['text-to-image', 'image-to-image', 'image-edit'],
-    tags: ['recommended', 'new'],
-    supportsReferenceImages: true,
-    // Default for B-Roll and Characters: identity-consistent and lets the
-    // prompt own the composition rather than inheriting the reference's framing.
-    defaultFor: ['broll-studio', 'character-studio'],
-    pricing: {
-      unit: 'per-image',
-      credits: 8,
-      priceFor: ({ imageCount = 1, resolution = '1K' }) => {
-        const perImage = resolution === '4K' ? 18 : resolution === '2K' ? 12 : 8
         return perImage * imageCount
       },
     },

@@ -13,6 +13,56 @@ interface BankItemCardProps {
 }
 
 export default function BankItemCard({ bankType, item, onClick, selected }: BankItemCardProps) {
+  // Image-backed banks (characters / products / b-rolls) render as full image
+  // cards that adapt to the image's natural aspect ratio — 16:9 / 9:16 / square
+  // — matching how the Bank browser shows them. Scripts / voices have no image,
+  // so they keep the compact row layout.
+  if (bankType === 'models') {
+    const m = item as Model
+    return (
+      <ImageCard
+        src={m.characterImage}
+        fallback={UserRound}
+        fallbackAspect="aspect-[9/16]"
+        name={m.name || 'Untitled Model'}
+        sublabel={m.source === 'character-studio' ? 'Characters' : m.source === 'image-dna-extractor' ? 'Image DNA' : 'Imported'}
+        onClick={onClick}
+        selected={selected}
+      />
+    )
+  }
+
+  if (bankType === 'products') {
+    const p = item as Product
+    return (
+      <ImageCard
+        src={p.productImage}
+        fallback={Package}
+        fallbackAspect="aspect-square"
+        name={p.productName || 'Untitled Product'}
+        sublabel={p.targetMarket || 'No target market'}
+        onClick={onClick}
+        selected={selected}
+      />
+    )
+  }
+
+  if (bankType === 'brolls') {
+    const b = item as BRoll
+    const videoCount = b.videos?.length ?? 0
+    return (
+      <ImageCard
+        src={b.imageUrl}
+        fallback={Film}
+        fallbackAspect="aspect-video"
+        name={b.prompt || 'Untitled B-Roll'}
+        sublabel={`${b.imageUrl ? 'Still' : 'Video only'}${videoCount > 0 ? ` · ${videoCount} clip${videoCount === 1 ? '' : 's'}` : ''}`}
+        onClick={onClick}
+        selected={selected}
+      />
+    )
+  }
+
   return (
     <button
       onClick={onClick}
@@ -22,57 +72,53 @@ export default function BankItemCard({ bankType, item, onClick, selected }: Bank
           : 'border-white/5 bg-white/[0.03] hover:border-white/10 hover:bg-white/[0.06]'
       }`}
     >
-      {bankType === 'products' && <ProductContent item={item as Product} />}
-      {bankType === 'models' && <ModelContent item={item as Model} />}
       {bankType === 'scripts' && <ScriptContent item={item as Script} />}
       {bankType === 'voices' && <VoiceContent item={item as VoicePreset} />}
-      {bankType === 'brolls' && <BRollContent item={item as BRoll} />}
     </button>
   )
 }
 
-function Thumbnail({ src, fallback: Icon }: { src?: string; fallback: React.ElementType }) {
+// Full image card — shows the asset at its natural aspect ratio with a
+// gradient name overlay, mirroring the Bank browser's character/product cards.
+function ImageCard({
+  src,
+  fallback: Icon,
+  fallbackAspect,
+  name,
+  sublabel,
+  onClick,
+  selected,
+}: {
+  src?: string
+  fallback: React.ElementType
+  fallbackAspect: string
+  name: string
+  sublabel?: string
+  onClick: () => void
+  selected?: boolean
+}) {
   const resolvedUrl = useAssetUrl(src)
   return (
-    <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white/5">
+    <button
+      onClick={onClick}
+      className={`group relative block w-full overflow-hidden rounded-xl border text-left transition-all ${
+        selected
+          ? 'border-sky-500/50 ring-1 ring-sky-500/40'
+          : 'border-white/5 bg-white/[0.03] hover:border-white/15 hover:-translate-y-0.5'
+      }`}
+    >
       {resolvedUrl ? (
-        <img src={resolvedUrl} alt="" className="h-full w-full object-cover" />
+        <img src={resolvedUrl} alt="" className="block w-full" />
       ) : (
-        <Icon className="h-4 w-4 text-zinc-600" />
+        <div className={`flex ${fallbackAspect} w-full items-center justify-center bg-white/[0.04]`}>
+          <Icon className="h-10 w-10 text-zinc-800" strokeWidth={1} />
+        </div>
       )}
-    </div>
-  )
-}
-
-function ProductContent({ item }: { item: Product }) {
-  return (
-    <>
-      <Thumbnail src={item.productImage} fallback={Package} />
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="truncate text-sm font-semibold tracking-tight text-zinc-200">
-          {item.productName || 'Untitled Product'}
-        </span>
-        <span className="truncate text-xs text-zinc-500">
-          {item.targetMarket || 'No target market'}
-        </span>
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/55 to-transparent p-3 pt-10">
+        <span className="block truncate text-sm font-semibold tracking-tight text-zinc-100">{name}</span>
+        {sublabel && <span className="block truncate text-xs text-zinc-400">{sublabel}</span>}
       </div>
-    </>
-  )
-}
-
-function ModelContent({ item }: { item: Model }) {
-  return (
-    <>
-      <Thumbnail src={item.characterImage} fallback={UserRound} />
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="truncate text-sm font-semibold tracking-tight text-zinc-200">
-          {item.name || 'Untitled Model'}
-        </span>
-        <span className="truncate text-xs text-zinc-500">
-          {item.source === 'character-studio' ? 'Characters' : item.source === 'image-dna-extractor' ? 'Image DNA' : 'Imported'}
-        </span>
-      </div>
-    </>
+    </button>
   )
 }
 
@@ -80,7 +126,7 @@ function ScriptContent({ item }: { item: Script }) {
   const preview = item.scriptText.split('\n').slice(0, 2).join(' ').slice(0, 60)
   return (
     <>
-      <Thumbnail fallback={FileText} />
+      <RowThumbnail fallback={FileText} />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="truncate text-sm font-semibold tracking-tight text-zinc-200">
           {item.title || 'Untitled Script'}
@@ -93,29 +139,10 @@ function ScriptContent({ item }: { item: Script }) {
   )
 }
 
-function BRollContent({ item }: { item: BRoll }) {
-  const hasImage = !!item.imageUrl
-  const videoCount = item.videos?.length ?? 0
-  return (
-    <>
-      <Thumbnail src={hasImage ? item.imageUrl : undefined} fallback={Film} />
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="truncate text-sm font-semibold tracking-tight text-zinc-200">
-          {item.prompt || 'Untitled B-Roll'}
-        </span>
-        <span className="truncate text-xs text-zinc-500">
-          {hasImage ? 'Still' : 'Video only'}
-          {videoCount > 0 ? ` · ${videoCount} clip${videoCount === 1 ? '' : 's'}` : ''}
-        </span>
-      </div>
-    </>
-  )
-}
-
 function VoiceContent({ item }: { item: VoicePreset }) {
   return (
     <>
-      <Thumbnail fallback={Mic} />
+      <RowThumbnail fallback={Mic} />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="truncate text-sm font-semibold tracking-tight text-zinc-200">
           {item.label || 'Untitled Preset'}
@@ -125,5 +152,13 @@ function VoiceContent({ item }: { item: VoicePreset }) {
         </span>
       </div>
     </>
+  )
+}
+
+function RowThumbnail({ fallback: Icon }: { fallback: React.ElementType }) {
+  return (
+    <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white/5">
+      <Icon className="h-4 w-4 text-zinc-600" />
+    </div>
   )
 }

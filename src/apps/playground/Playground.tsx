@@ -70,7 +70,7 @@ function resolveVideoModelForMode(pickedId: string, inferred: VideoMode): string
 function initialState(): PromptPanelState {
   const defaultImage = getDefaultModel('playground', 'image', 'text-to-image')?.id
     ?? getDefaultModel('broll-studio', 'image', 'text-to-image')?.id
-    ?? 'gpt-image-2-text-to-image'
+    ?? 'nano-banana-2'
   const persistedImage = useSettingsStore.getState().getAppModel('playground:image:text-to-image')
   return {
     mode: 'image',

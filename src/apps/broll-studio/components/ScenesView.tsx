@@ -668,7 +668,7 @@ function SceneSection({
       <div className="mb-5 flex items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-4">
           <span
-            className="text-4xl font-normal tabular-nums text-zinc-800"
+            className="text-5xl font-normal italic tabular-nums text-zinc-800"
             style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
           >
             {String(scene.number).padStart(2, '0')}
