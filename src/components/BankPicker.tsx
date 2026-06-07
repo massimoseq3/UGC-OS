@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { X, Search, Plus, FolderOpen, Check } from 'lucide-react'
+import { X, Search, Plus, FolderOpen, Check, ChevronDown } from 'lucide-react'
 import type { BankType } from '../utils/constants'
 import { BANK_CONFIG } from '../utils/constants'
 import { useBankStore } from '../stores/bankStore'
@@ -8,6 +8,7 @@ import { useAppStore } from '../stores/appStore'
 import type { Product, Model, Script, VoicePreset, BRoll } from '../stores/types'
 import BankItemCard from './BankItemCard'
 import { useIsDesktop } from '../hooks/useBreakpoint'
+import { sortByOrder, SORT_OPTIONS_WITH_NAME, SORT_OPTIONS_DATE_ONLY, type SortOrder } from '../apps/finder/bankSort'
 
 type BankItem = Product | Model | Script | VoicePreset | BRoll
 
@@ -52,6 +53,9 @@ export default function BankPicker({
 }: BankPickerProps) {
   const [search, setSearch] = useState('')
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+  // Picker sort is local (not the Bank's persisted choice) so it always
+  // defaults to "Newest first" — resets on open and on tab switch below.
+  const [sort, setSort] = useState<SortOrder>('newest')
   // When `tabs` is provided, the active bank is local state initialised to
   // the caller's `bankType`. Otherwise the active bank is just `bankType`.
   const [activeTab, setActiveTab] = useState<BankType>(bankType)
@@ -92,6 +96,24 @@ export default function BankPicker({
       )
     : itemsAfterFilter
 
+  // Same sort options as the Bank browser. `sortOptions` is null for banks the
+  // Bank doesn't sort (voices) — we then leave the list in its natural order.
+  const sortOptions =
+    currentBankType === 'products' || currentBankType === 'models' || currentBankType === 'scripts'
+      ? SORT_OPTIONS_WITH_NAME
+      : currentBankType === 'brolls'
+      ? SORT_OPTIONS_DATE_ONLY
+      : null
+  const sorted = useMemo(() => {
+    if (!sortOptions) return filtered
+    const nameOf =
+      currentBankType === 'products' ? (it: BankItem) => (it as Product).productName :
+      currentBankType === 'models' ? (it: BankItem) => (it as Model).name :
+      currentBankType === 'scripts' ? (it: BankItem) => (it as Script).title :
+      undefined
+    return sortByOrder(filtered, sort, nameOf)
+  }, [filtered, sort, sortOptions, currentBankType])
+
   // Brolls don't have a Finder-form create path (no useful empty record to
   // create) — they come from generation flows. Other bank types let the
   // user jump to Bank with the create form pre-opened.
@@ -102,6 +124,7 @@ export default function BankPicker({
     if (isOpen) {
       setSearch('')
       setSelectedIds([])
+      setSort('newest')
       setActiveTab(bankType)
       const initialItems =
         bankType === 'products' ? products :
@@ -139,7 +162,7 @@ export default function BankPicker({
 
   const handleConfirmMulti = () => {
     if (!onSelectMany || selectedIds.length === 0) return
-    const picked = filtered.filter((it) => selectedIds.includes(it.id))
+    const picked = sorted.filter((it) => selectedIds.includes(it.id))
     onSelectMany(picked)
     onClose()
   }
@@ -216,7 +239,7 @@ export default function BankPicker({
                 <button
                   key={t.type}
                   type="button"
-                  onClick={() => { setActiveTab(t.type); setSearch(''); setSelectedIds([]) }}
+                  onClick={() => { setActiveTab(t.type); setSearch(''); setSelectedIds([]); setSort('newest') }}
                   className={`relative flex items-center gap-1.5 px-3 pb-2 pt-3 text-[13px] font-medium tracking-tight transition-colors ${
                     active ? 'text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'
                   }`}
@@ -247,9 +270,29 @@ export default function BankPicker({
           </div>
         </div>
 
+        {/* Sort — mirrors the Bank browser's options (shared persisted state).
+            Hidden for banks the Bank doesn't sort (voices). */}
+        {sortOptions && (
+          <div className="flex items-center justify-end gap-2 border-b border-white/5 px-4 py-2">
+            <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-500">Sort</span>
+            <div className="relative">
+              <select
+                value={sort}
+                onChange={(e) => setSort(e.target.value as SortOrder)}
+                className="appearance-none rounded-lg border border-white/10 bg-[#0a0a0a] py-1.5 pl-3 pr-8 text-xs text-zinc-200 outline-none transition-colors hover:border-white/20 focus:border-white/20"
+              >
+                {sortOptions.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
+            </div>
+          </div>
+        )}
+
         {/* Item list */}
         <div className="flex-1 overflow-y-auto px-4 py-3">
-          {filtered.length === 0 ? (
+          {sorted.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
               <span className="text-sm text-zinc-600">
                 {search ? 'No matches found' : `No ${label.toLowerCase()} yet`}
@@ -259,8 +302,16 @@ export default function BankPicker({
               </span>
             </div>
           ) : (
-            <div className="flex flex-col gap-2">
-              {filtered.map((item) => {
+            <div
+              className={
+                // Image-backed banks render as cards in a 2-column grid;
+                // scripts / voices stay single-column rows.
+                currentBankType === 'models' || currentBankType === 'products' || currentBankType === 'brolls'
+                  ? 'grid grid-cols-2 gap-2'
+                  : 'flex flex-col gap-2'
+              }
+            >
+              {sorted.map((item) => {
                 const isSelected = multiSelect && selectedIds.includes(item.id)
                 return (
                   <div key={item.id} className="relative">

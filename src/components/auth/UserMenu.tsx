@@ -37,11 +37,11 @@ export default function UserMenu({ collapsed }: UserMenuProps) {
         }`}
         title="My Account"
       >
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-500 to-orange-500 text-[12px] font-semibold text-white">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#e8dcc8] to-[#c4a77d] text-[12px] font-semibold text-stone-800">
           {initial}
         </span>
         {!collapsed && (
-          <span className="min-w-0 flex-1 truncate text-left text-[12px] text-zinc-300">
+          <span className="min-w-0 flex-1 truncate text-left text-sm text-zinc-300">
             My Account
           </span>
         )}

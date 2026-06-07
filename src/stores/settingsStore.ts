@@ -108,6 +108,33 @@ const MODEL_MIGRATIONS: Array<{ name: string; apply: (m: Record<string, string>)
     name: '2026-06-broll-veo-fast-default',
     apply: (m) => { delete m['broll-studio:video'] },
   },
+  {
+    // Image default flipped to Nano Banana 2 app-wide. Drop GPT Image 2 (the
+    // previous default) from the picker-persistence layer so users land on the
+    // new default unless they pick it explicitly afterwards. Playground also
+    // snapshots its image model inside its draft `state` blob (not just
+    // perAppModel), so repair those keys directly too.
+    name: '2026-06-image-default-nano-banana',
+    apply: (m) => {
+      const OLD = ['gpt-image-2-text-to-image', 'gpt-image-2-image-to-image']
+      for (const k of Object.keys(m)) {
+        if (OLD.includes(m[k])) delete m[k]
+      }
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i)
+          if (!key || !key.endsWith(':playground:state')) continue
+          const raw = localStorage.getItem(key)
+          if (!raw) continue
+          const parsed = JSON.parse(raw)
+          if (parsed && OLD.includes(parsed.modelId)) {
+            parsed.modelId = 'nano-banana-2'
+            localStorage.setItem(key, JSON.stringify(parsed))
+          }
+        }
+      } catch { /* ignore */ }
+    },
+  },
 ]
 
 function loadFromStorage(): { kieApiKey: string; perAppModel: Record<string, string> } {

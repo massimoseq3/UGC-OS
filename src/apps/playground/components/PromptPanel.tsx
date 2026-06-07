@@ -40,6 +40,14 @@ const PLAYGROUND_REF_TABS: Array<{ type: BankType; filter?: (item: BRoll | unkno
   { type: 'brolls', filter: (item) => !!(item as BRoll).imageUrl },
 ]
 
+// Start/end frame picker leads with B-Rolls — the most common source for a
+// video's opening frame — then characters and products.
+const PLAYGROUND_FRAME_TABS: Array<{ type: BankType; filter?: (item: BRoll | unknown) => boolean }> = [
+  { type: 'brolls', filter: (item) => !!(item as BRoll).imageUrl },
+  { type: 'models' },
+  { type: 'products' },
+]
+
 // Reference attached to the prompt — either dropped/uploaded by the user or
 // resolved from an @-mention. `source` distinguishes so the UI can render
 // the right chip text.
@@ -514,8 +522,8 @@ export default function PromptPanel({ state, onChange, onSubmit, isGenerating }:
                           helper="— optional"
                           value={startFrameValue()}
                           onChange={(v) => setSlot('start', v)}
-                          bankType="models"
-                          tabs={PLAYGROUND_REF_TABS}
+                          bankType="brolls"
+                          tabs={PLAYGROUND_FRAME_TABS}
                           compact
                         />
                         <VideoInputSlot
@@ -523,8 +531,8 @@ export default function PromptPanel({ state, onChange, onSubmit, isGenerating }:
                           helper={supportsEndFrame ? '— optional' : '— not supported'}
                           value={supportsEndFrame ? endFrameValue() : null}
                           onChange={(v) => supportsEndFrame && setSlot('end', v)}
-                          bankType="models"
-                          tabs={PLAYGROUND_REF_TABS}
+                          bankType="brolls"
+                          tabs={PLAYGROUND_FRAME_TABS}
                           compact
                         />
                       </div>
