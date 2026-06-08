@@ -90,6 +90,17 @@ export async function findOrphanAssets(): Promise<{
     for (const item of arr) walkAssetRefs(item, refs)
   }
 
+  // Safety tripwire: an empty in-use ref set while the cloud holds assets almost
+  // always means bank state didn't actually hydrate (a failed/empty hydrate, a
+  // corrupted localStorage fallback, an IDB eviction) — NOT that every asset is
+  // genuinely orphaned. Refuse to classify the user's entire asset store as
+  // orphans; deleting it (IDB + R2) is irreversible. Returning zero orphans is
+  // always safe — the user can re-run cleanup once state is healthy.
+  if (refs.size === 0 && all.length > 0) {
+    console.warn(`[orphanCleanup] aborting: 0 in-use refs but ${all.length} cloud asset(s) — bank state looks unhydrated, not classifying as orphans`)
+    return { orphans: [], totalBytes: 0, total: all.length, totalAssetBytes }
+  }
+
   const orphans = all.filter((a) => !refs.has(a.id))
   const totalBytes = orphans.reduce((s, a) => s + Number(a.byte_size ?? 0), 0)
   return { orphans, totalBytes, total: all.length, totalAssetBytes }
