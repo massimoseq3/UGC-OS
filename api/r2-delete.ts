@@ -25,7 +25,7 @@ function json(status: number, body: unknown): Response {
   })
 }
 
-async function verifyUser(authHeader: string | null): Promise<{ userId: string } | { error: string }> {
+async function verifyUser(authHeader: string | null): Promise<{ userId: string } | { error: string; status?: number }> {
   if (!authHeader?.startsWith('Bearer ')) return { error: 'Missing bearer token' }
   const token = authHeader.slice('Bearer '.length)
   const supabaseUrl = process.env.SUPABASE_URL
@@ -41,6 +41,21 @@ async function verifyUser(authHeader: string | null): Promise<{ userId: string }
   if (!res.ok) return { error: 'Invalid session' }
   const user = await res.json() as { id?: string }
   if (!user.id) return { error: 'No user id in session' }
+
+  // Reject members removed from the allowlist (profile stamped disabled_at) so
+  // a revoked-but-still-valid token can't keep deleting R2 objects. Fail open
+  // on a profile-lookup error; RLS (migration 0012) backstops the DB side.
+  try {
+    const profRes = await fetch(
+      `${supabaseUrl}/rest/v1/profiles?select=disabled_at&id=eq.${user.id}`,
+      { headers: { apikey: supabaseAnon, Authorization: `Bearer ${token}` } },
+    )
+    if (profRes.ok) {
+      const rows = await profRes.json() as Array<{ disabled_at: string | null }>
+      if (rows[0]?.disabled_at) return { error: 'Account access has been revoked.', status: 403 }
+    }
+  } catch { /* fail open */ }
+
   return { userId: user.id }
 }
 
@@ -48,7 +63,7 @@ export default async function handler(req: Request): Promise<Response> {
   if (req.method !== 'POST') return json(405, { error: 'POST only' })
 
   const auth = await verifyUser(req.headers.get('authorization'))
-  if ('error' in auth) return json(401, { error: auth.error })
+  if ('error' in auth) return json(auth.status ?? 401, { error: auth.error })
 
   let body: DeleteBody
   try {

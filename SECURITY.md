@@ -1,6 +1,6 @@
 # Security
 
-_Last updated: 2026-05-12 (phase 18)_
+_Last updated: 2026-06-08 (security-hardening pass)_
 
 ## Architecture & threat model
 
@@ -35,8 +35,14 @@ is no longer accurate.
   client-side.
 - **Disable on removal:** when an email is deleted from `allowlist`,
   the `on_allowlist_delete` trigger stamps the matching profile's
-  `disabled_at`. The client checks this on hydration and signs the
-  user out.
+  `disabled_at`. Enforcement is now **server-side**: the
+  `is_active()` SECURITY DEFINER helper is folded into every per-user
+  `*_self_all` RLS policy (migration `0012`), so a disabled member's
+  JWT no longer satisfies row access; the Edge functions
+  (`r2-sign`, `r2-delete`) also reject a disabled profile. The client
+  still signs the user out on hydration for a clean UX. (The auth
+  session itself is not revoked, so the server-side checks — not the
+  token's validity — are the enforcement boundary.)
 - **Session:** standard Supabase JWT sessions, refreshed by the
   Supabase SDK. Sign-out clears the session and the Zustand stores
   (`bankStore`, `settingsStore`, `authStore`) for a clean remount.
@@ -75,7 +81,12 @@ is no longer accurate.
   tricks are rejected at the edge before any signing happens.
 - **Upload guards:** 200 MB per-object cap, 10 GB per-user cap
   (enforced against `assets.byte_size`), MIME allowlist
-  (`image/`, `video/`, `audio/` prefixes only).
+  (`image/`, `video/`, `audio/` prefixes only). `byteSize` is
+  **required** on a `put` presign — omitting it no longer skips the
+  caps. Caveat: a presigned PUT can't bind `Content-Length` into the
+  signature, so a client that declares a small `byteSize` could still
+  PUT a larger object; pinning the size needs a presigned POST policy
+  (`content-length-range`) — tracked below.
 - **CORS.** The bucket's CORS policy must restrict
   `AllowedOrigins` to the production Vercel domain and (optionally)
   `http://localhost:5173` for development. See
@@ -85,10 +96,12 @@ is no longer accurate.
 
 - **BYO key.** Each member provides their own kie.ai Bearer key in
   Settings. The user — not the operator — pays for inference.
-- **Storage.** The key is kept in browser `localStorage` and
-  mirrored to `profiles.kie_api_key` (RLS-protected, readable only
-  by the owner and admins) so it syncs across devices for the same
-  user.
+- **Storage.** The key is kept in browser `localStorage` **only** —
+  it is never written to or read from Supabase. (An earlier design
+  mirrored it to `profiles.kie_api_key`; that column was dropped in
+  migration `0008`, so the database never holds the key. Members
+  re-paste it on each new browser.) Because it never reaches the DB,
+  no admin read path can expose it.
 - **Transport.** All kie.ai calls go directly from the browser to
   kie.ai over HTTPS, with the key in the `Authorization: Bearer`
   header.
@@ -110,7 +123,7 @@ is no longer accurate.
 | Asset blobs | Cloudflare R2 | Until deleted | At rest (Cloudflare-managed) |
 | Asset cache | Browser IndexedDB | Until cleared / signed out | Browser-managed |
 | Settings | Browser localStorage | Until cleared / signed out | None — treat as plaintext |
-| Profile (incl. kie.ai key) | Supabase Postgres | Until account deleted | At rest (Supabase-managed) |
+| Profile (per-app model, consent — **no** kie.ai key) | Supabase Postgres | Until account deleted | At rest (Supabase-managed) |
 
 Sign-out clears IndexedDB asset cache and Zustand state; localStorage
 keys for settings persist by design so the kie.ai key isn't lost on a
@@ -176,12 +189,26 @@ These are accepted today and tracked as future work:
    per-user usage query fails, the upload is allowed through to
    avoid perma-blocking. Tracked failures + periodic reconciliation
    are planned.
-4. **kie.ai key is browser-visible** — see §"kie.ai API key handling"
+4. **Presigned PUT can't pin `Content-Length`/`Content-Type`** — the
+   caps and MIME allowlist are checked against the client-declared
+   `byteSize`/`mimeType` at sign time, but the signature doesn't bind
+   them, so a client can declare a small object and PUT a larger /
+   different-typed one (scoped to its own `auth/<userId>/` prefix —
+   a storage-cost abuse, not a cross-tenant break). Closing it fully
+   means moving uploads to a presigned POST policy with
+   `content-length-range`.
+5. **kie.ai key is browser-visible** — see §"kie.ai API key handling"
    above. A future option is to proxy kie.ai through a server-side
    edge function so the key stays on the server.
-5. **Admin gate is RLS-only on the read side, plus client-side hide
+6. **Admin gate is RLS-only on the read side, plus client-side hide
    on the navigation side** — the gate is sound for data, but the
    client-side hide leaks the existence of the Admin app.
+7. **No full Content-Security-Policy** — `vercel.json` sets
+   clickjacking/MIME/referrer/HSTS headers and `frame-ancestors
+   'none'`, but not a `script-src`/`connect-src` allowlist (which
+   would bound XSS exfiltration of the localStorage kie.ai key). A
+   scoped CSP — validated in `Content-Security-Policy-Report-Only`
+   against real Supabase/kie.ai/R2 traffic first — is the next step.
 
 ## Reporting vulnerabilities
 

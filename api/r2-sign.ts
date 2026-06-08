@@ -45,7 +45,7 @@ function json(status: number, body: unknown): Response {
   })
 }
 
-async function verifyUser(authHeader: string | null): Promise<{ userId: string } | { error: string }> {
+async function verifyUser(authHeader: string | null): Promise<{ userId: string } | { error: string; status?: number }> {
   if (!authHeader?.startsWith('Bearer ')) return { error: 'Missing bearer token' }
   const token = authHeader.slice('Bearer '.length)
   const supabaseUrl = process.env.SUPABASE_URL
@@ -61,6 +61,24 @@ async function verifyUser(authHeader: string | null): Promise<{ userId: string }
   if (!res.ok) return { error: 'Invalid session' }
   const user = await res.json() as { id?: string }
   if (!user.id) return { error: 'No user id in session' }
+
+  // A valid JWT is not enough: a member removed from the allowlist has their
+  // profile stamped with `disabled_at` but keeps a refreshable token. Reject
+  // disabled accounts so they can't keep minting R2 URLs after removal. We fail
+  // OPEN if the profile lookup itself errors (network/REST hiccup) — same
+  // philosophy as the storage-cap check below, and RLS (migration 0012) is the
+  // backstop for the Postgres side regardless.
+  try {
+    const profRes = await fetch(
+      `${supabaseUrl}/rest/v1/profiles?select=disabled_at&id=eq.${user.id}`,
+      { headers: { apikey: supabaseAnon, Authorization: `Bearer ${token}` } },
+    )
+    if (profRes.ok) {
+      const rows = await profRes.json() as Array<{ disabled_at: string | null }>
+      if (rows[0]?.disabled_at) return { error: 'Account access has been revoked.', status: 403 }
+    }
+  } catch { /* fail open — see comment above */ }
+
   return { userId: user.id }
 }
 
@@ -68,7 +86,7 @@ export default async function handler(req: Request): Promise<Response> {
   if (req.method !== 'POST') return json(405, { error: 'POST only' })
 
   const auth = await verifyUser(req.headers.get('authorization'))
-  if ('error' in auth) return json(401, { error: auth.error })
+  if ('error' in auth) return json(auth.status ?? 401, { error: auth.error })
 
   let body: SignBody
   try {
@@ -82,7 +100,18 @@ export default async function handler(req: Request): Promise<Response> {
   if (!/^[a-zA-Z0-9._-]+$/.test(body.assetId)) return json(400, { error: 'assetId has invalid characters' })
 
   if (body.op === 'put') {
-    if (typeof body.byteSize === 'number' && body.byteSize > MAX_UPLOAD_BYTES) {
+    // byteSize is REQUIRED for puts. It used to be optional, which meant a
+    // client could omit it to skip BOTH the per-upload size cap and the
+    // per-user storage cap entirely. (Note: a presigned PUT can't pin
+    // Content-Length into the signature, so a client that declares a small
+    // byteSize can still PUT a larger object — closing that fully needs a
+    // presigned POST policy with content-length-range. Requiring byteSize at
+    // least removes the trivial "omit it" bypass and keeps the caps honest for
+    // the real client, which always sends blob.size.)
+    if (typeof body.byteSize !== 'number' || !Number.isFinite(body.byteSize) || body.byteSize < 0) {
+      return json(400, { error: 'byteSize (non-negative number) required for put' })
+    }
+    if (body.byteSize > MAX_UPLOAD_BYTES) {
       return json(413, { error: `Upload exceeds ${MAX_UPLOAD_BYTES / (1024 * 1024)} MB limit` })
     }
     if (body.mimeType && !ALLOWED_PUT_MIME_PREFIXES.some((p) => body.mimeType!.startsWith(p))) {
@@ -93,7 +122,7 @@ export default async function handler(req: Request): Promise<Response> {
     // reject if the new upload would push them over MAX_USER_BYTES.
     const supabaseUrl = process.env.SUPABASE_URL
     const supabaseAnon = process.env.SUPABASE_ANON_KEY
-    if (supabaseUrl && supabaseAnon && typeof body.byteSize === 'number') {
+    if (supabaseUrl && supabaseAnon) {
       const tokenForRest = req.headers.get('authorization')!.slice('Bearer '.length)
       const usageRes = await fetch(
         `${supabaseUrl}/rest/v1/assets?select=byte_size&user_id=eq.${auth.userId}`,
