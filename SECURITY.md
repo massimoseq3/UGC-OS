@@ -1,6 +1,6 @@
 # Security
 
-_Last updated: 2026-05-12 (phase 18)_
+_Last updated: 2026-06-08 (phase 18)_
 
 ## Architecture & threat model
 
@@ -67,15 +67,23 @@ is no longer accurate.
   `auth/<userId>/<assetId>` in the bucket. The user id is taken
   exclusively from the **Supabase JWT**, never from request body —
   see `verifyUser()` in `api/r2-sign.ts`.
-- **Presigned URLs only.** Members never receive R2 bucket
-  credentials. Uploads and downloads go through short-lived
-  (30-minute) presigned URLs minted by `/api/r2-sign`.
+- **Presigned credentials only.** Members never receive R2 bucket
+  credentials. Downloads go through short-lived (30-minute) presigned
+  GET URLs; uploads go through a short-lived presigned **POST policy** —
+  both minted by `/api/r2-sign`.
 - **Path-traversal hardening.** `assetId` is regex-validated
   against `/^[a-zA-Z0-9._-]+$/`; slashes, dots, and URL-encoding
   tricks are rejected at the edge before any signing happens.
-- **Upload guards:** 200 MB per-object cap, 10 GB per-user cap
-  (enforced against `assets.byte_size`), MIME allowlist
-  (`image/`, `video/`, `audio/` prefixes only).
+- **Upload guards (enforced at upload time).** Uploads use a presigned
+  **POST policy** rather than a presigned PUT, so the **200 MB
+  per-object cap** (`content-length-range`, max = the declared
+  `byteSize` capped at 200 MB) and the **exact `Content-Type`** (MIME
+  allowlist: `image/`, `video/`, `audio/` prefixes only) are bound into
+  the signed policy and rejected by R2 itself if violated — not merely
+  checked at sign time. A presigned PUT could not bind Content-Length or
+  Content-Type into the signature, so those limits used to be advisory;
+  they are now hard. The **10 GB per-user cap** is summed from
+  `assets.byte_size` at sign time (see "Known limitations").
 - **CORS.** The bucket's CORS policy must restrict
   `AllowedOrigins` to the production Vercel domain and (optionally)
   `http://localhost:5173` for development. See
@@ -122,12 +130,17 @@ The only server-side surface area beyond Supabase. It:
 
 1. Verifies the caller's Supabase JWT by calling `${SUPABASE_URL}/auth/v1/user`
    with the bearer token. Anonymous or invalid tokens get 401.
-2. Validates the request body (`op` ∈ {put, get}, `assetId` regex,
-   `mimeType` allowlist on PUT, `byteSize` ≤ 200 MB on PUT).
+2. Validates the request body (`op` ∈ {put, get}, `assetId` regex; on
+   PUT, a `mimeType` in the allowlist and a positive `byteSize` ≤ 200 MB
+   are both required).
 3. On PUT, checks the user's current `assets.byte_size` sum vs the
    10 GB cap and rejects if exceeded.
-4. Mints an aws4-signed URL via `aws4fetch` scoped to
-   `auth/<userId>/<assetId>` with a 30-minute TTL.
+4. For GET, mints an `aws4fetch` query-signed download URL. For PUT,
+   builds and SigV4-signs a **presigned POST policy** whose
+   `content-length-range` (max = the declared `byteSize`, capped at
+   200 MB) and exact `Content-Type` conditions are enforced by R2 at
+   upload time. Both are scoped to `auth/<userId>/<assetId>` with a
+   30-minute TTL.
 
 The function never returns object data — only signed URLs. R2 access
 keys are kept in Vercel environment variables and never leave the
@@ -182,6 +195,13 @@ These are accepted today and tracked as future work:
 5. **Admin gate is RLS-only on the read side, plus client-side hide
    on the navigation side** — the gate is sound for data, but the
    client-side hide leaks the existence of the Admin app.
+6. **Per-user 10 GB cap trusts client-written `assets.byte_size`** —
+   the **per-object** 200 MB cap is now hard-enforced by the POST
+   policy's `content-length-range`, but the per-user *total* is summed
+   from the `assets` rows the client writes (RLS-scoped to itself). A
+   client that under-reports `byte_size` could accumulate more than
+   10 GB of individually-capped objects. A server-side reconcile against
+   R2's actual object sizes is planned.
 
 ## Reporting vulnerabilities
 
