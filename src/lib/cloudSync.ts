@@ -61,7 +61,22 @@ function reportError(context: string, err: unknown) {
 // hydrate); `deletes` keep just the id. An upsert and a delete for the same id
 // are mutually exclusive — recording one clears the other.
 
-const OUTBOX_KEY = 'ugc-lab:sync-outbox'
+// Outbox key is namespaced PER USER. The full row snapshot lives here, so a
+// global key was a cross-tenant leak: on a shared browser, a row user A queued
+// (push failed/timed out) before signing out would be replayed by drainOutbox
+// under user B's id (re-attributing A's data to B, which RLS can't catch since
+// the client supplies B's own uid) and overlaid into B's UI by applyOutbox.
+// Per-user namespacing means B only ever reads its own `…:<B-id>` slot, so A's
+// queue is unreachable while B is signed in. wipeLocalUserData() additionally
+// purges every `…:sync-outbox*` key on sign-out / account-swap so no residue
+// is left for the next person. The legacy global `ugc-lab:sync-outbox` key
+// (pre-namespacing) is intentionally never read again.
+const OUTBOX_KEY_PREFIX = 'ugc-lab:sync-outbox'
+
+function outboxKey(): string | null {
+  const userId = useAuthStore.getState().user?.id
+  return userId ? `${OUTBOX_KEY_PREFIX}:${userId}` : null
+}
 
 interface Outbox {
   upserts: Partial<Record<BankKey, Record<string, { id: string }>>>
@@ -69,8 +84,10 @@ interface Outbox {
 }
 
 function readOutbox(): Outbox {
+  const key = outboxKey()
+  if (!key) return { upserts: {}, deletes: {} }
   try {
-    const raw = localStorage.getItem(OUTBOX_KEY)
+    const raw = localStorage.getItem(key)
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<Outbox>
       return { upserts: parsed.upserts ?? {}, deletes: parsed.deletes ?? {} }
@@ -80,7 +97,9 @@ function readOutbox(): Outbox {
 }
 
 function writeOutbox(ob: Outbox) {
-  try { localStorage.setItem(OUTBOX_KEY, JSON.stringify(ob)) } catch { /* quota — ignore */ }
+  const key = outboxKey()
+  if (!key) return
+  try { localStorage.setItem(key, JSON.stringify(ob)) } catch { /* quota — ignore */ }
 }
 
 export function recordPendingUpsert(table: BankKey, row: { id: string }): void {
@@ -225,7 +244,11 @@ export async function saveProfile(): Promise<void> {
 
 // ── Hydrate / startup ──────────────────────────────────────────────
 
-async function hydrateFromCloud(userId: string) {
+// Returns true only if EVERY bank table hydrated cleanly. A false return means
+// at least one table fell back to local state (cloud fetch errored), which the
+// caller uses to skip the destructive orphan sweep — sweeping against a bank
+// that hydrated to `[]` would classify live assets as orphans and delete them.
+async function hydrateFromCloud(userId: string): Promise<boolean> {
   const sb = getSupabase()
 
   const { data: profile } = await sb
@@ -249,6 +272,7 @@ async function hydrateFromCloud(userId: string) {
   }
 
   const localState = useBankStore.getState()
+  let anyError = false
   const tables = await Promise.all(
     BANK_KEYS.map(async (key) => {
       const table = BANK_TO_TABLE[key]
@@ -256,6 +280,7 @@ async function hydrateFromCloud(userId: string) {
       // On a fetch error, keep whatever loadFromStorage already gave us for this
       // bank — never replace good local rows with an empty array just because
       // the cloud was momentarily unreachable.
+      if (error) anyError = true
       const base = error
         ? (reportError(`hydrate ${table}`, error), (localState[key] as unknown[]) ?? [])
         : (data ?? []).map((row) => row.data as unknown)
@@ -294,6 +319,8 @@ async function hydrateFromCloud(userId: string) {
       adAnatomyHistory: s.adAnatomyHistory,
     }))
   } catch { /* ignore */ }
+
+  return !anyError
 }
 
 // First cloud login on this browser: if the user already has local data and
@@ -442,8 +469,8 @@ export async function startCloudSync() {
       console.log('[cloudSync] uploading local snapshot to cloud (first login)')
       await uploadEntireSnapshot(userId)
     }
-    await hydrateFromCloud(userId)
-    console.log('[cloudSync] hydrated from cloud')
+    const hydratedClean = await hydrateFromCloud(userId)
+    console.log(`[cloudSync] hydrated from cloud${hydratedClean ? '' : ' (with per-table errors)'}`)
 
     // Replay any writes that didn't confirm in a previous session (push failed
     // or timed out). Best-effort; don't block startup.
@@ -464,7 +491,15 @@ export async function startCloudSync() {
 
     // Sweep orphan assets in the background. Most users will never click the
     // manual cleanup button; this keeps storage tidy without bothering them.
-    sweepOrphansInBackground().catch((e) => console.warn('[cloudSync] orphan sweep failed', e))
+    // ONLY when hydrate was fully clean — a bank that fell back to local (or
+    // empty) state because its cloud fetch errored would make live assets look
+    // orphaned, and the sweep deletes from IDB + R2 irreversibly. The opt-in
+    // Settings → Storage sweep still lets the user reclaim space deliberately.
+    if (hydratedClean) {
+      sweepOrphansInBackground().catch((e) => console.warn('[cloudSync] orphan sweep failed', e))
+    } else {
+      console.warn('[cloudSync] skipping auto orphan sweep — hydrate had per-table errors; unsafe to classify orphans')
+    }
   } catch (e) {
     reportError('startup', e)
     started = false

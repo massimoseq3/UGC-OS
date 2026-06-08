@@ -5,13 +5,36 @@ import { resetBankStore } from './bankStore'
 import { resetSettingsStore } from './settingsStore'
 import { resetAssetStore } from '../utils/assetStore'
 
+// Remove every localStorage key whose name starts with any of these prefixes.
+// Used to clear per-user residue that the store-reset helpers don't own:
+//   • sync-outbox — holds full row snapshots of unsynced writes (a global key
+//     here was a cross-tenant leak; now per-user, but still purged for hygiene
+//     plus the legacy pre-namespacing key)
+//   • draft       — Playground/other app editor state (prompt text + uploaded
+//     image data-URIs), keyed `ai-ugc-lab:draft:*`
+//   • custom-chips — Character Studio custom trait chips
+// All of these otherwise survive sign-out and surface for the next person.
+const LOCAL_RESIDUE_PREFIXES = ['ugc-lab:sync-outbox', 'ai-ugc-lab:draft', 'ai-ugc-lab-custom-chips']
+
+function clearLocalResidue(): void {
+  try {
+    const keys: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (k && LOCAL_RESIDUE_PREFIXES.some((p) => k.startsWith(p))) keys.push(k)
+    }
+    for (const k of keys) localStorage.removeItem(k)
+  } catch { /* localStorage unavailable — nothing to clear */ }
+}
+
 // Wipe every local trace of the current user — banks, settings, IndexedDB
-// blobs, and their localStorage snapshots — so the next person to sign in
-// on this browser starts from a clean slate. Cloud data is untouched; the
-// next sign-in re-hydrates from Supabase + R2.
+// blobs, the sync outbox, app drafts, and their localStorage snapshots — so the
+// next person to sign in on this browser starts from a clean slate. Cloud data
+// is untouched; the next sign-in re-hydrates from Supabase + R2.
 async function wipeLocalUserData(): Promise<void> {
   resetBankStore()
   resetSettingsStore()
+  clearLocalResidue()
   await resetAssetStore()
 }
 

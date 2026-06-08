@@ -107,7 +107,7 @@ function base64Utf8(str: string): string {
   return btoa(binary)
 }
 
-async function verifyUser(authHeader: string | null): Promise<{ userId: string } | { error: string }> {
+async function verifyUser(authHeader: string | null): Promise<{ userId: string } | { error: string; status?: number }> {
   if (!authHeader?.startsWith('Bearer ')) return { error: 'Missing bearer token' }
   const token = authHeader.slice('Bearer '.length)
   const supabaseUrl = process.env.SUPABASE_URL
@@ -123,6 +123,24 @@ async function verifyUser(authHeader: string | null): Promise<{ userId: string }
   if (!res.ok) return { error: 'Invalid session' }
   const user = await res.json() as { id?: string }
   if (!user.id) return { error: 'No user id in session' }
+
+  // A valid JWT is not enough: a member removed from the allowlist has their
+  // profile stamped with `disabled_at` but keeps a refreshable token. Reject
+  // disabled accounts so they can't keep minting R2 URLs after removal. We fail
+  // OPEN if the profile lookup itself errors (network/REST hiccup) — same
+  // philosophy as the storage-cap check below, and RLS (migration 0012) is the
+  // backstop for the Postgres side regardless.
+  try {
+    const profRes = await fetch(
+      `${supabaseUrl}/rest/v1/profiles?select=disabled_at&id=eq.${user.id}`,
+      { headers: { apikey: supabaseAnon, Authorization: `Bearer ${token}` } },
+    )
+    if (profRes.ok) {
+      const rows = await profRes.json() as Array<{ disabled_at: string | null }>
+      if (rows[0]?.disabled_at) return { error: 'Account access has been revoked.', status: 403 }
+    }
+  } catch { /* fail open — see comment above */ }
+
   return { userId: user.id }
 }
 
@@ -130,7 +148,7 @@ export default async function handler(req: Request): Promise<Response> {
   if (req.method !== 'POST') return json(405, { error: 'POST only' })
 
   const auth = await verifyUser(req.headers.get('authorization'))
-  if ('error' in auth) return json(401, { error: auth.error })
+  if ('error' in auth) return json(auth.status ?? 401, { error: auth.error })
 
   let body: SignBody
   try {
