@@ -64,19 +64,27 @@ in **Auth → Providers → Email → Confirm email = off** for a smoother UX.
 
 ### CORS
 
-Add this CORS policy to the bucket so the browser can PUT directly:
+Add this CORS policy to the bucket so the browser can upload and download
+directly:
 
 ```json
 [
   {
     "AllowedOrigins": ["https://your-domain.com", "http://localhost:5173"],
-    "AllowedMethods": ["PUT", "GET", "HEAD"],
+    "AllowedMethods": ["POST", "GET", "HEAD"],
     "AllowedHeaders": ["*"],
     "ExposeHeaders": ["ETag"],
     "MaxAgeSeconds": 3600
   }
 ]
 ```
+
+`POST` is required: uploads use a presigned **POST policy** (multipart
+form) rather than a presigned PUT, so the per-object size cap and the MIME
+allowlist are bound into the signed policy and enforced by R2 at upload
+time. `GET`/`HEAD` cover presigned downloads. (If you're upgrading an older
+deploy whose policy still lists `PUT`, swap it for `POST` or uploads will
+fail CORS.)
 
 Replace `https://your-domain.com` with your actual deployed domain after
 step 3 below.
