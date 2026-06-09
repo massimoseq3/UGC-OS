@@ -4,6 +4,7 @@ import {
   X,
   ImageIcon,
   Video as VideoIcon,
+  Film,
   RefreshCw,
   Loader2,
   AlertCircle,
@@ -23,6 +24,7 @@ import type { BRoll, Product, Model } from '../../../stores/types'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAppStore } from '../../../stores/appStore'
+import { useAssetUrl } from '../../../hooks/useAssetUrl'
 import { getDefaultModel, getModel, estimateCredits, formatCredits, type ImageResolution } from '../../../utils/models'
 import { tagChipStyle, tagLabel, rollTypeForTag } from './variationTags'
 import { humanizeError } from '../../../utils/friendlyError'
@@ -44,7 +46,7 @@ function rekeyAfterDelete(set: Set<number>, removed: number): Set<number> {
   return next
 }
 
-type Tab = 'video' | 'image'
+type Tab = 'video' | 'image' | 'animate'
 
 interface CardDetailModalProps {
   sceneNumber: number
@@ -72,7 +74,8 @@ interface CardDetailModalProps {
   handleRegeneratePrompt: () => void
   handleGenerateImage: () => void
   handleSaveToBank?: () => void
-  handleAnimateStill?: (videoModelId: string | undefined) => void
+  // Animate a still (image-to-video). startFrameRef is one of the card's images.
+  handleAnimate: (startFrameRef: string | undefined, videoModelId: string | undefined) => void
   handleGenerateVideo: (videoModelId: string | undefined) => void
   handleResetVideo: () => void
   // Re-fire / drop a failed in-flight gen surfaced in the gallery.
@@ -113,11 +116,23 @@ export default function CardDetailModal(props: CardDetailModalProps) {
     handleRegeneratePrompt,
     handleGenerateImage,
     handleGenerateVideo,
+    handleAnimate,
     handleRetryInFlight,
     handleDismissInFlight,
   } = props
 
   const [tab, setTab] = useState<Tab>('image')
+  // Animate tab: which still gets animated. Null → fall back to the cover /
+  // latest image. Set explicitly when the user clicks "Animate" on a tile.
+  const [animateFrameRef, setAnimateFrameRef] = useState<string | null>(null)
+  const latestImageRef = cardState.images.length > 0
+    ? cardState.images[cardState.images.length - 1].imageUrl
+    : undefined
+  const selectedImageRef = cardState.selected?.kind === 'image'
+    ? cardState.images[cardState.selected.index]?.imageUrl
+    : undefined
+  const effectiveAnimateFrame = animateFrameRef ?? selectedImageRef ?? latestImageRef
+  const animateFrameUrl = useAssetUrl(effectiveAnimateFrame)
   const [draft, setDraft] = useState(cardState.editablePrompt)
   // Per-tile saved/saving sets so the Bookmark button can show a check.
   const [savedImageIdxs, setSavedImageIdxs] = useState<Set<number>>(new Set())
@@ -413,6 +428,10 @@ export default function CardDetailModal(props: CardDetailModalProps) {
             <VideoIcon className="h-3.5 w-3.5" />
             Video
           </ModalTabButton>
+          <ModalTabButton active={tab === 'animate'} onClick={() => setTab('animate')}>
+            <Film className="h-3.5 w-3.5" />
+            Animate
+          </ModalTabButton>
         </div>
 
         {/* Body — fixed 50/50 grid; content scrolls inside each column. */}
@@ -420,112 +439,71 @@ export default function CardDetailModal(props: CardDetailModalProps) {
           {/* LEFT 50% — model + refs + prompt + generate */}
           <div className="col-span-1 flex min-h-0 flex-col overflow-y-auto border-b border-white/5 md:border-b-0 md:border-r">
             <div className="flex flex-col gap-6 px-5 py-6">
-              {/* 1) Model + constraint chips */}
+              {/* 1) Model picker. Constraint chips moved below the prompt. */}
               {tab === 'image' ? (
                 <div>
                   <span className="text-sm font-medium text-zinc-200">Image Model</span>
-                  <div className="mt-2 flex flex-col gap-2">
+                  <div className="mt-2">
                     <ModelPicker
                       appId="broll-studio"
                       task="image"
                       mode="text-to-image"
                       costParams={{ imageCount: 1, resolution: cardState.cardImageResolution }}
                     />
-                    <div className="flex flex-wrap items-center gap-2">
-                      {imageConstraints?.aspectRatios && imageConstraints.aspectRatios.length > 0 && (
-                        <ConstraintChip
-                          openDirection="down"
-                          options={imageConstraints.aspectRatios}
-                          value={cardState.cardImageAspectRatio}
-                          onChange={(v) => onUpdateState({ cardImageAspectRatio: v })}
-                          render={(v) => (
-                            <span className="flex items-center gap-1.5">
-                              <AspectIcon ratio={v} />
-                              <span>{v}</span>
-                            </span>
-                          )}
-                        />
-                      )}
-                      {imageConstraints?.resolutions && imageConstraints.resolutions.length > 0 && (
-                        <ConstraintChip
-                          openDirection="down"
-                          options={imageConstraints.resolutions as string[]}
-                          value={cardState.cardImageResolution}
-                          onChange={(v) => onUpdateState({ cardImageResolution: v as ImageResolution })}
-                        />
-                      )}
-                    </div>
                   </div>
                 </div>
               ) : (
                 <div>
                   <span className="text-sm font-medium text-zinc-200">Video Model</span>
-                  <div className="mt-2 flex flex-col gap-2">
+                  <div className="mt-2">
                     <ModelPicker
                       appId="broll-studio"
                       task="video"
-                      requireMode={hasActiveRef ? 'reference-to-video' : undefined}
-                      requireModeNote="Greyed-out models don't support reference image-to-video. To use these, generate still frames in the Image tab, then send them to Playground for start/end frames."
+                      requireMode={tab === 'animate' ? 'image-to-video' : (hasActiveRef ? 'reference-to-video' : undefined)}
+                      requireModeNote={tab === 'animate'
+                        ? "Greyed-out models can't animate a still — they have no image-to-video mode. Pick Veo 3.1 Fast, Seedance 2.0, or another image-to-video model."
+                        : "Greyed-out models don't support reference image-to-video. To use these, generate still frames in the Image tab, then send them to Playground for start/end frames."}
                       costParams={{
                         durationSeconds: cardState.cardVideoDurationSeconds,
                         resolution: cardState.cardVideoResolution,
                         audio: cardState.cardVideoAudio,
                       }}
                     />
-                    {videoConstraints && (
-                      <div className="flex flex-wrap items-center gap-2">
-                        <ConstraintChip
-                          openDirection="down"
-                          options={videoConstraints.aspectRatios}
-                          value={cardState.cardVideoAspectRatio}
-                          onChange={(v) => onUpdateState({ cardVideoAspectRatio: v })}
-                          render={(v) => (
-                            <span className="flex items-center gap-1.5">
-                              <AspectIcon ratio={v} />
-                              <span>{v}</span>
-                            </span>
-                          )}
-                        />
-                        {videoConstraints.durations.length > 0 && (
-                          <ConstraintChip
-                            openDirection="down"
-                            options={videoConstraints.durations.map(String)}
-                            value={String(cardState.cardVideoDurationSeconds)}
-                            onChange={(v) => onUpdateState({ cardVideoDurationSeconds: Number(v) })}
-                            render={(v) => <span>{v}s</span>}
-                          />
-                        )}
-                        <ConstraintChip
-                          openDirection="down"
-                          options={videoConstraints.resolutions}
-                          value={cardState.cardVideoResolution}
-                          onChange={(v) => onUpdateState({ cardVideoResolution: v })}
-                        />
-                        {videoConstraints.supportsAudio && (
-                          <button
-                            type="button"
-                            onClick={() => onUpdateState({ cardVideoAudio: !cardState.cardVideoAudio })}
-                            className={`flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[12px] transition-colors ${
-                              cardState.cardVideoAudio
-                                ? 'border-green-500/30 bg-green-500/10 text-green-200'
-                                : 'border-white/10 bg-white/[0.02] text-zinc-400 hover:bg-white/[0.05]'
-                            }`}
-                          >
-                            {cardState.cardVideoAudio ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
-                            <span>{cardState.cardVideoAudio ? 'Audio' : 'Mute'}</span>
-                          </button>
-                        )}
-                      </div>
-                    )}
                   </div>
                 </div>
               )}
 
-              {/* 2) Reference Images — side-by-side BankPicker-style slot
-                  cards. Click body to pick from bank; tick-circle button at
-                  the top-right toggles whether the ref is sent to the model.
-                  Active slots are highlighted orange. */}
-              <div>
+              {/* 2) Animate tab → Start frame preview. Image/Video tabs →
+                  the Character / Product reference slot cards. */}
+              {tab === 'animate' ? (
+                <div>
+                  <span className="text-sm font-medium text-zinc-200">Start frame</span>
+                  <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">
+                    The still that gets animated. Click <span className="font-medium text-zinc-400">Animate</span> on any image in the gallery to swap it.
+                  </p>
+                  <div className="mt-2">
+                    {effectiveAnimateFrame && animateFrameUrl ? (
+                      <div
+                        className="relative max-w-[140px] overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]"
+                        style={aspectStyle(cardState.cardVideoAspectRatio)}
+                      >
+                        <img src={animateFrameUrl} alt="" className="h-full w-full object-cover" />
+                      </div>
+                    ) : (
+                      <div className="flex aspect-video w-full flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-white/10 bg-white/[0.02] px-4 text-center">
+                        <ImageIcon className="h-6 w-6 text-zinc-700" strokeWidth={1.5} />
+                        <p className="text-[11px] leading-relaxed text-zinc-500">
+                          Generate an image in the Image tab first, then click Animate on it.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  {/* Reference Images — side-by-side BankPicker-style slot
+                      cards. Click the body to pick from the bank; the
+                      tick-circle toggles whether the ref is sent. */}
                 <span className="text-sm font-medium text-zinc-200">Reference Images</span>
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   <ReferenceSlotCard
@@ -558,7 +536,8 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                     {videoModelName} doesn't support reference images — this will generate text-to-video only. Pick Veo 3.1 Fast or Seedance 2.0 to use your character/product.
                   </p>
                 )}
-              </div>
+                </div>
+              )}
 
               {/* 3) Prompt — always-editable textarea */}
               <div>
@@ -597,7 +576,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                   onBlur={handleDraftBlur}
-                  rows={10}
+                  rows={6}
                   placeholder="Write your custom B-roll prompt here..."
                   className="w-full resize-none rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-3 text-[13px] leading-relaxed text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-white/20 focus:bg-white/[0.05]"
                 />
@@ -610,7 +589,80 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                 )}
               </div>
 
-              {/* 4) Generate button — orange Playground-pill */}
+              {/* 4) Output settings — aspect / resolution (+ duration, audio).
+                  Sits below the prompt, just above Generate. Image tab shows
+                  image constraints; Video + Animate show video constraints. */}
+              {tab === 'image' ? (
+                imageConstraints && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {imageConstraints.aspectRatios && imageConstraints.aspectRatios.length > 0 && (
+                      <ConstraintChip
+                        options={imageConstraints.aspectRatios}
+                        value={cardState.cardImageAspectRatio}
+                        onChange={(v) => onUpdateState({ cardImageAspectRatio: v })}
+                        render={(v) => (
+                          <span className="flex items-center gap-1.5">
+                            <AspectIcon ratio={v} />
+                            <span>{v}</span>
+                          </span>
+                        )}
+                      />
+                    )}
+                    {imageConstraints.resolutions && imageConstraints.resolutions.length > 0 && (
+                      <ConstraintChip
+                        options={imageConstraints.resolutions as string[]}
+                        value={cardState.cardImageResolution}
+                        onChange={(v) => onUpdateState({ cardImageResolution: v as ImageResolution })}
+                      />
+                    )}
+                  </div>
+                )
+              ) : (
+                videoConstraints && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <ConstraintChip
+                      options={videoConstraints.aspectRatios}
+                      value={cardState.cardVideoAspectRatio}
+                      onChange={(v) => onUpdateState({ cardVideoAspectRatio: v })}
+                      render={(v) => (
+                        <span className="flex items-center gap-1.5">
+                          <AspectIcon ratio={v} />
+                          <span>{v}</span>
+                        </span>
+                      )}
+                    />
+                    {videoConstraints.durations.length > 0 && (
+                      <ConstraintChip
+                        options={videoConstraints.durations.map(String)}
+                        value={String(cardState.cardVideoDurationSeconds)}
+                        onChange={(v) => onUpdateState({ cardVideoDurationSeconds: Number(v) })}
+                        render={(v) => <span>{v}s</span>}
+                      />
+                    )}
+                    <ConstraintChip
+                      options={videoConstraints.resolutions}
+                      value={cardState.cardVideoResolution}
+                      onChange={(v) => onUpdateState({ cardVideoResolution: v })}
+                    />
+                    {videoConstraints.supportsAudio && (
+                      <button
+                        type="button"
+                        onClick={() => onUpdateState({ cardVideoAudio: !cardState.cardVideoAudio })}
+                        className={`flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[12px] transition-colors ${
+                          cardState.cardVideoAudio
+                            ? 'border-green-500/30 bg-green-500/10 text-green-200'
+                            : 'border-white/10 bg-white/[0.02] text-zinc-400 hover:bg-white/[0.05]'
+                        }`}
+                      >
+                        {cardState.cardVideoAudio ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
+                        <span>{cardState.cardVideoAudio ? 'Audio' : 'Mute'}</span>
+                      </button>
+                    )}
+                  </div>
+                )
+              )}
+
+              {/* 5) Generate button — orange Playground-pill */}
               {tab === 'image' ? (
                 <button
                   onClick={handleGenerateImage}
@@ -620,7 +672,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                   <ImageIcon className="h-4 w-4" />
                   Generate Image{imageCreditsLabel ? ` (${imageCreditsLabel})` : ''}
                 </button>
-              ) : (
+              ) : tab === 'video' ? (
                 <button
                   onClick={() => handleGenerateVideo(videoModelId)}
                   disabled={!cardState.editablePrompt.trim()}
@@ -628,6 +680,16 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                 >
                   <VideoIcon className="h-4 w-4" />
                   Generate Video{videoCreditsLabel ? ` (${videoCreditsLabel})` : ''}
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleAnimate(effectiveAnimateFrame, videoModelId)}
+                  disabled={!cardState.editablePrompt.trim() || !effectiveAnimateFrame}
+                  title={!effectiveAnimateFrame ? 'Generate an image first, then animate it' : undefined}
+                  className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-orange-500 px-6 py-3.5 text-[13px] font-medium tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <Film className="h-4 w-4" />
+                  Animate{videoCreditsLabel ? ` (${videoCreditsLabel})` : ''}
                 </button>
               )}
             </div>
@@ -648,6 +710,13 @@ export default function CardDetailModal(props: CardDetailModalProps) {
               onDeleteImage={handleDeleteImageTile}
               onDeleteVideo={handleDeleteVideoTile}
               onCopyPrompt={handleCopyPrompt}
+              onAnimateImage={(index) => {
+                const ref = cardState.images[index]?.imageUrl
+                if (ref) {
+                  setAnimateFrameRef(ref)
+                  setTab('animate')
+                }
+              }}
               onRetryInFlight={handleRetryInFlight}
               onDismissInFlight={handleDismissInFlight}
             />
@@ -656,4 +725,11 @@ export default function CardDetailModal(props: CardDetailModalProps) {
       </div>
     </div>
   ), document.body)
+}
+
+// Shape the Animate start-frame preview to the chosen video aspect ratio.
+function aspectStyle(ar: string): React.CSSProperties {
+  const [w, h] = ar.split(':').map(Number)
+  if (!w || !h) return { aspectRatio: '9 / 16' }
+  return { aspectRatio: `${w} / ${h}` }
 }

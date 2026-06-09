@@ -357,8 +357,15 @@ function InFlightTile({ gen }: { gen: InFlightGen }) {
     : gen.mode === 'video' ? Film
     : MusicIcon
 
+  // Shape the placeholder to match the image/video that's coming so the grid
+  // doesn't jump when the result lands. Music has no aspect — keep it square.
+  const ar = gen.imageParams?.aspectRatio ?? gen.videoParams?.aspectRatio
+
   return (
-    <div className="relative aspect-square overflow-hidden rounded-lg border border-green-500/30 bg-gradient-to-br from-green-500/[0.08] to-zinc-950">
+    <div
+      className="relative overflow-hidden rounded-lg border border-green-500/30 bg-gradient-to-br from-green-500/[0.08] to-zinc-950"
+      style={ar ? aspectStyle(ar) : { aspectRatio: '1 / 1' }}
+    >
       <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-green-500/10 via-transparent to-green-500/5" />
       <div className="absolute left-1.5 top-1.5 rounded-full bg-green-500/30 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-green-100 backdrop-blur">
         {gen.mode}

@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, useEffect } from 'react'
-import { Loader2, Trash2, Image as ImageIcon, UserRound, Bookmark, X, RectangleVertical, RectangleHorizontal, Download, Check } from 'lucide-react'
+import { Loader2, Trash2, Image as ImageIcon, UserRound, Bookmark, X, Download, Check } from 'lucide-react'
 import { useBankStore } from '../../../stores/bankStore'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import { useAssetUrlState } from '../../../hooks/useAssetUrl'
@@ -8,7 +8,8 @@ import { useAppStore } from '../../../stores/appStore'
 import { humanizeError } from '../../../utils/friendlyError'
 import type { CharacterHistoryItem } from '../../../stores/types'
 import ModelPicker from '../../../components/ModelPicker'
-import ResolutionToggle from '../../../components/ResolutionToggle'
+import ConstraintChip from '../../../components/ConstraintChip'
+import AspectIcon from '../../../components/AspectIcon'
 import GenerationProgress from '../../../components/GenerationProgress'
 import { estimateCredits, formatCredits, getDefaultModel, getModel, type ImageResolution } from '../../../utils/models'
 import HistoryPreviewModal from './HistoryPreviewModal'
@@ -43,8 +44,15 @@ interface GalleryPanelProps {
   onResolutionChange: (value: ImageResolution) => void
 }
 
-const PORTRAIT_VALUE = 'Portrait (9:16)'
-const LANDSCAPE_VALUE = 'Landscape (16:9)'
+// Aspect options offered by the dropdown. Stored values may be legacy verbose
+// strings ('Portrait (9:16)') or raw ratios — normalizeAspect() collapses both
+// to a raw ratio so the chip highlights the right option.
+const ASPECT_OPTIONS = ['9:16', '16:9', '1:1']
+function normalizeAspect(ar: string): string {
+  if (ar.includes('16:9')) return '16:9'
+  if (ar.includes('1:1')) return '1:1'
+  return '9:16'
+}
 
 function startOfDay(ts: number): number {
   const d = new Date(ts)
@@ -148,19 +156,39 @@ export default function GalleryPanel({
             <p className="text-xs leading-relaxed text-red-300">{error}</p>
           </div>
         )}
-        <ModelPicker
-          appId="character-studio"
-          task="image"
-          mode="text-to-image"
-          costParams={{ imageCount: 1, resolution }}
-        />
+        {/* Model picker + aspect/resolution chips share one row so the
+            controls stay compact. Resolution options show their credit cost. */}
         <div className="flex items-center gap-2">
-          <div className="flex-1">
-            <AspectRatioToggle value={aspectRatio} onChange={onAspectRatioChange} />
+          <div className="min-w-0 flex-1">
+            <ModelPicker
+              appId="character-studio"
+              task="image"
+              mode="text-to-image"
+              costParams={{ imageCount: 1, resolution }}
+            />
           </div>
-          <div className="flex-1">
-            <ResolutionToggle modelId={selectedModelId} value={resolution} onChange={onResolutionChange} />
-          </div>
+          <ConstraintChip
+            align="right"
+            options={ASPECT_OPTIONS}
+            value={normalizeAspect(aspectRatio)}
+            onChange={onAspectRatioChange}
+            render={(v) => (
+              <span className="flex items-center gap-1.5">
+                <AspectIcon ratio={v} />
+                <span>{v}</span>
+              </span>
+            )}
+          />
+          <ConstraintChip
+            align="right"
+            options={getModel(selectedModelId ?? '')?.imageConstraints?.resolutions ?? ['1K', '2K', '4K']}
+            value={resolution}
+            onChange={(v) => onResolutionChange(v as ImageResolution)}
+            renderOption={(v) => {
+              const credits = formatCredits(estimateCredits(selectedModelId ?? '', { imageCount: 1, resolution: v as ImageResolution }))
+              return <span>{v}{credits ? ` · ${credits}` : ''}</span>
+            }}
+          />
         </div>
         <button
           onClick={onGenerate}
@@ -195,6 +223,7 @@ function DayPill({ label }: { label: string }) {
 
 function aspectStyle(ar: string): React.CSSProperties {
   if (ar.includes('16:9')) return { aspectRatio: '16 / 9' }
+  if (ar.includes('1:1')) return { aspectRatio: '1 / 1' }
   return { aspectRatio: '9 / 16' }
 }
 
@@ -469,34 +498,3 @@ function InFlightTile({ gen, onCancel }: { gen: InFlightCharacterGen; onCancel: 
   )
 }
 
-function AspectRatioToggle({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const isPortrait = value.includes('9:16')
-  return (
-    <div className="flex items-center gap-0.5 rounded-lg border border-white/10 bg-white/[0.02] p-0.5">
-      <button
-        onClick={() => onChange(PORTRAIT_VALUE)}
-        className={`flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1.5 text-[11px] font-medium transition-colors ${isPortrait
-          ? 'bg-white/[0.08] text-zinc-100'
-          : 'text-zinc-500 hover:text-zinc-300'
-        }`}
-        title="Portrait 9:16"
-      >
-        <RectangleVertical className="h-3.5 w-3.5" strokeWidth={1.75} />
-        <span>Portrait</span>
-        <span className={`tabular-nums ${isPortrait ? 'text-zinc-400' : 'text-zinc-600'}`}>9:16</span>
-      </button>
-      <button
-        onClick={() => onChange(LANDSCAPE_VALUE)}
-        className={`flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1.5 text-[11px] font-medium transition-colors ${!isPortrait
-          ? 'bg-white/[0.08] text-zinc-100'
-          : 'text-zinc-500 hover:text-zinc-300'
-        }`}
-        title="Landscape 16:9"
-      >
-        <RectangleHorizontal className="h-3.5 w-3.5" strokeWidth={1.75} />
-        <span>Landscape</span>
-        <span className={`tabular-nums ${!isPortrait ? 'text-zinc-400' : 'text-zinc-600'}`}>16:9</span>
-      </button>
-    </div>
-  )
-}

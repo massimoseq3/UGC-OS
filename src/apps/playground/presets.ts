@@ -75,3 +75,23 @@ export const VIDEO_PRESETS: Preset[] = [
     defaultDuration: 8,
   },
 ]
+
+// Image-mode presets. Surfaced only when the Image tab is active — these are
+// product-photography recipes, not motion formats, so they don't belong in the
+// video list. Attach a reference image first; the prompt treats it as the exact
+// product to reproduce.
+export const IMAGE_PRESETS: Preset[] = [
+  {
+    id: 'product-hero-white',
+    title: 'Product hero shot',
+    description: 'Studio photo on pure white — preserves your reference exactly.',
+    prompt: `Using the attached reference image as the exact product, generate a professional studio product photograph of THIS product, preserving its exact shape, proportions, colors, materials, textures, branding, logos, label text, and every visual detail with 100% accuracy. Do not alter, restyle, redesign, or reinterpret the product in any way.
+
+Place the product centered on a seamless pure white (#FFFFFF) background. Use soft, even, diffused studio lighting from above and slightly in front, with a gentle natural soft shadow directly beneath the product to ground it. No harsh shadows, no colored light, no reflections of other objects.
+
+Composition: product perfectly centered, slight three-quarter angle if the product has a clear "front," straight-on if it's symmetrical. Generous negative space around the product. Subject fills roughly 60–70% of the frame.
+
+Style: clean, premium e-commerce hero shot. Photorealistic, ultra-sharp focus across the entire product, true-to-life color, high dynamic range, crisp edges. Shot on a 100mm macro lens, f/8, ISO 100. 8k resolution. 1:1 square aspect ratio.`,
+    defaultAspect: '1:1',
+  },
+]

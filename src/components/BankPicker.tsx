@@ -274,7 +274,6 @@ export default function BankPicker({
             Hidden for banks the Bank doesn't sort (voices). */}
         {sortOptions && (
           <div className="flex items-center justify-end gap-2 border-b border-white/5 px-4 py-2">
-            <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-500">Sort</span>
             <div className="relative">
               <select
                 value={sort}

@@ -8,14 +8,22 @@ export default function ConstraintChip({
   value,
   onChange,
   render,
+  renderOption,
   openDirection = 'up',
+  align = 'left',
 }: {
   options: string[]
   value: string
   onChange: (next: string) => void
   render?: (v: string) => React.ReactNode
+  // Optional richer rendering for the dropdown options only (e.g. show the
+  // per-option credit cost) while the trigger stays compact via `render`.
+  renderOption?: (v: string) => React.ReactNode
   // 'up' matches Playground's footer position; 'down' is for top-of-page bars.
   openDirection?: 'up' | 'down'
+  // Horizontal anchor of the menu. 'right' keeps a wide menu from overflowing
+  // (and being clipped) when the chip sits near the right edge of its panel.
+  align?: 'left' | 'right'
 }) {
   const [open, setOpen] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
@@ -38,9 +46,9 @@ export default function ConstraintChip({
       </button>
       {open && (
         <div
-          className={`absolute left-0 z-40 min-w-[100px] overflow-hidden rounded-md border border-white/10 bg-[#0B0B0D]/95 shadow-xl backdrop-blur-xl ${
+          className={`absolute z-40 min-w-[100px] overflow-hidden rounded-md border border-white/10 bg-[#0B0B0D]/95 shadow-xl backdrop-blur-xl ${
             openDirection === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'
-          }`}
+          } ${align === 'right' ? 'right-0' : 'left-0'}`}
         >
           {options.map((opt) => (
             <button
@@ -51,7 +59,7 @@ export default function ConstraintChip({
                 opt === value ? 'bg-white/[0.08] text-zinc-100' : 'text-zinc-300 hover:bg-white/[0.05]'
               }`}
             >
-              {render ? render(opt) : opt}
+              {renderOption ? renderOption(opt) : render ? render(opt) : opt}
             </button>
           ))}
         </div>

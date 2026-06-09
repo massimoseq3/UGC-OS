@@ -294,9 +294,9 @@ export const TABS: TabConfig[] = [
 ]
 
 // aspectRatio is part of the profile but doesn't render as a tab field — it lives
-// in the OutputPanel toggle next to the Generate button.
+// in the dropdown next to the Generate button. Stored as a raw ratio.
 export const ASPECT_RATIO_KEY = 'aspectRatio'
-export const DEFAULT_ASPECT_RATIO = 'Portrait (9:16)'
+export const DEFAULT_ASPECT_RATIO = '9:16'
 
 // Flatten a tab's groups into a single list of fields.
 export function getTabFields(tab: TabConfig): FieldConfig[] {
@@ -335,7 +335,7 @@ export const PRESET_DEFAULT: CharacterProfile = {
   shotType: 'Medium shot (waist up)',
   cameraAngle: 'Eye Level',
   cameraDevice: PHOTOREALISM_STYLE,
-  aspectRatio: 'Portrait (9:16)',
+  aspectRatio: '9:16',
 }
 
 export const PRESET_CAR: CharacterProfile = {
@@ -367,7 +367,7 @@ export const PRESET_CAR: CharacterProfile = {
   shotType: 'Close-up face',
   cameraAngle: 'Eye Level',
   cameraDevice: PHOTOREALISM_STYLE,
-  aspectRatio: 'Portrait (9:16)',
+  aspectRatio: '9:16',
 }
 
 export const PRESET_MARIE: CharacterProfile = {
@@ -399,7 +399,7 @@ export const PRESET_MARIE: CharacterProfile = {
   shotType: 'Third-Person Shot',
   cameraAngle: 'Eye Level',
   cameraDevice: PHOTOREALISM_STYLE,
-  aspectRatio: 'Portrait (9:16)',
+  aspectRatio: '9:16',
 }
 
 export const PRESET_ZANE: CharacterProfile = {
@@ -431,7 +431,7 @@ export const PRESET_ZANE: CharacterProfile = {
   shotType: 'Third-Person Shot',
   cameraAngle: 'Eye Level',
   cameraDevice: PHOTOREALISM_STYLE,
-  aspectRatio: 'Portrait (9:16)',
+  aspectRatio: '9:16',
 }
 
 export function createEmptyProfile(): CharacterProfile {
