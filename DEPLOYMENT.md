@@ -64,14 +64,13 @@ in **Auth → Providers → Email → Confirm email = off** for a smoother UX.
 
 ### CORS
 
-Add this CORS policy to the bucket so the browser can upload and download
-directly:
+Add this CORS policy to the bucket so the browser can PUT directly:
 
 ```json
 [
   {
     "AllowedOrigins": ["https://your-domain.com", "http://localhost:5173"],
-    "AllowedMethods": ["POST", "GET", "HEAD"],
+    "AllowedMethods": ["PUT", "GET", "HEAD"],
     "AllowedHeaders": ["*"],
     "ExposeHeaders": ["ETag"],
     "MaxAgeSeconds": 3600
@@ -79,12 +78,11 @@ directly:
 ]
 ```
 
-`POST` is required: uploads use a presigned **POST policy** (multipart
-form) rather than a presigned PUT, so the per-object size cap and the MIME
-allowlist are bound into the signed policy and enforced by R2 at upload
-time. `GET`/`HEAD` cover presigned downloads. (If you're upgrading an older
-deploy whose policy still lists `PUT`, swap it for `POST` or uploads will
-fail CORS.)
+`PUT` is required — uploads use a presigned **PUT** URL. Do **not** switch this
+to a presigned POST policy to bind size/MIME caps: Cloudflare R2 does not
+implement the S3 POST Object operation and returns `501 Not Implemented`, which
+the browser surfaces as an opaque "Failed to fetch / CORS" error. (We tried it
+in PR #111 and it broke every upload.) `GET`/`HEAD` cover presigned downloads.
 
 Replace `https://your-domain.com` with your actual deployed domain after
 step 3 below.

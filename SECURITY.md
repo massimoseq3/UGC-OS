@@ -73,24 +73,20 @@ is no longer accurate.
   `auth/<userId>/<assetId>` in the bucket. The user id is taken
   exclusively from the **Supabase JWT**, never from request body —
   see `verifyUser()` in `api/r2-sign.ts`.
-- **Presigned credentials only.** Members never receive R2 bucket
-  credentials. Downloads go through short-lived (30-minute) presigned
-  GET URLs; uploads go through a short-lived presigned **POST policy** —
-  both minted by `/api/r2-sign`.
+- **Presigned URLs only.** Members never receive R2 bucket
+  credentials. Uploads and downloads go through short-lived
+  (30-minute) presigned URLs minted by `/api/r2-sign`.
 - **Path-traversal hardening.** `assetId` is regex-validated
   against `/^[a-zA-Z0-9._-]+$/`; slashes, dots, and URL-encoding
   tricks are rejected at the edge before any signing happens.
-- **Upload guards (enforced at upload time).** Uploads use a presigned
-  **POST policy** rather than a presigned PUT, so the **200 MB
-  per-object cap** (`content-length-range`, max = the declared
-  `byteSize` capped at 200 MB) and the **exact `Content-Type`** (MIME
-  allowlist: `image/`, `video/`, `audio/` prefixes only) are bound into
-  the signed policy and rejected by R2 itself if violated — not merely
-  checked at sign time. A presigned PUT could not bind Content-Length or
-  Content-Type into the signature, so those limits used to be advisory;
-  they are now hard. `byteSize` and `mimeType` are **required** on a
-  `put` presign. The **10 GB per-user cap** is summed from
-  `assets.byte_size` at sign time (see "Known limitations").
+- **Upload guards:** 200 MB per-object cap, 10 GB per-user cap
+  (enforced against `assets.byte_size`), MIME allowlist
+  (`image/`, `video/`, `audio/` prefixes only). `byteSize` is
+  **required** on a `put` presign — omitting it no longer skips the
+  caps. Caveat: a presigned PUT can't bind `Content-Length` into the
+  signature, so a client that declares a small `byteSize` could still
+  PUT a larger object; pinning the size needs a presigned POST policy
+  (`content-length-range`) — tracked below.
 - **CORS.** The bucket's CORS policy must restrict
   `AllowedOrigins` to the production Vercel domain and (optionally)
   `http://localhost:5173` for development. See
@@ -139,17 +135,12 @@ The only server-side surface area beyond Supabase. It:
 
 1. Verifies the caller's Supabase JWT by calling `${SUPABASE_URL}/auth/v1/user`
    with the bearer token. Anonymous or invalid tokens get 401.
-2. Validates the request body (`op` ∈ {put, get}, `assetId` regex; on
-   PUT, a `mimeType` in the allowlist and a positive `byteSize` ≤ 200 MB
-   are both required).
+2. Validates the request body (`op` ∈ {put, get}, `assetId` regex,
+   `mimeType` allowlist on PUT, `byteSize` ≤ 200 MB on PUT).
 3. On PUT, checks the user's current `assets.byte_size` sum vs the
    10 GB cap and rejects if exceeded.
-4. For GET, mints an `aws4fetch` query-signed download URL. For PUT,
-   builds and SigV4-signs a **presigned POST policy** whose
-   `content-length-range` (max = the declared `byteSize`, capped at
-   200 MB) and exact `Content-Type` conditions are enforced by R2 at
-   upload time. Both are scoped to `auth/<userId>/<assetId>` with a
-   30-minute TTL.
+4. Mints an aws4-signed URL via `aws4fetch` scoped to
+   `auth/<userId>/<assetId>` with a 30-minute TTL.
 
 The function never returns object data — only signed URLs. R2 access
 keys are kept in Vercel environment variables and never leave the
@@ -198,18 +189,14 @@ These are accepted today and tracked as future work:
    per-user usage query fails, the upload is allowed through to
    avoid perma-blocking. Tracked failures + periodic reconciliation
    are planned.
-4. **Per-user 10 GB cap trusts client-written `assets.byte_size`** —
-   uploads now use a presigned **POST policy**, so the per-object
-   200 MB cap (`content-length-range`) and the exact `Content-Type` are
-   bound into the signature and enforced by R2 at upload time. This
-   closes the old presigned-PUT gap (where a client could declare a
-   small `byteSize` and then PUT a larger / different-typed object,
-   scoped to its own `auth/<userId>/` prefix — storage-cost abuse, not a
-   cross-tenant break). The per-user *total*, however, is still summed
-   from the `assets` rows the client writes (RLS-scoped to itself), so a
-   client that under-reports `byte_size` could accumulate more than
-   10 GB of individually-capped objects. A server-side reconcile against
-   R2's actual object sizes is planned.
+4. **Presigned PUT can't pin `Content-Length`/`Content-Type`** — the
+   caps and MIME allowlist are checked against the client-declared
+   `byteSize`/`mimeType` at sign time, but the signature doesn't bind
+   them, so a client can declare a small object and PUT a larger /
+   different-typed one (scoped to its own `auth/<userId>/` prefix —
+   a storage-cost abuse, not a cross-tenant break). Closing it fully
+   means moving uploads to a presigned POST policy with
+   `content-length-range`.
 5. **kie.ai key is browser-visible** — see §"kie.ai API key handling"
    above. A future option is to proxy kie.ai through a server-side
    edge function so the key stays on the server.
