@@ -3,14 +3,15 @@ import { Trash2, Package, UserRound, FileText, Mic, Film, Plus, Video, Download,
 import type { Product, Model, Script, VoicePreset, BRoll } from '../../stores/types'
 import type { BankType } from '../../utils/constants'
 import { useBankStore } from '../../stores/bankStore'
+import { useAppStore } from '../../stores/appStore'
 import { useAssetUrl } from '../../hooks/useAssetUrl'
+import { getAsBase64, isAssetRef } from '../../utils/assetStore'
 import { downloadImage } from '../../utils/downloadImage'
 import { sortByOrder, type SortOrder } from './bankSort'
 
 export function SortControl({ value, onChange, options }: { value: SortOrder; onChange: (v: SortOrder) => void; options: { value: SortOrder; label: string }[] }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-500">Sort</span>
       <div className="relative">
         <select
           value={value}
@@ -242,6 +243,23 @@ function BRollCard({ item, onEdit, onDelete }: { item: BRoll; onEdit: () => void
     downloadImage(target, `broll-${item.id.slice(0, 8)}`, resolvedImage ? 'png' : 'mp4')
   }
 
+  // Send the still to Playground in video mode as the start frame.
+  const handleAnimate = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!item.imageUrl) return
+    let dataUri = item.imageUrl
+    if (isAssetRef(item.imageUrl)) {
+      const asset = await getAsBase64(item.imageUrl)
+      if (!asset) return
+      dataUri = `data:${asset.mimeType};base64,${asset.base64}`
+    }
+    useAppStore.getState().sendToApp({
+      targetApp: 'playground',
+      targetField: 'videoStartFrame',
+      data: { imageUrl: dataUri, prompt: item.prompt },
+    })
+  }
+
   return (
     <div onClick={onEdit} className="group cursor-pointer rounded-xl border border-white/5 bg-white/[0.03] transition-all hover:border-white/15 hover:bg-white/[0.05] hover:-translate-y-0.5">
       {/* Thumbnail — adapts to image's natural aspect ratio */}
@@ -283,6 +301,17 @@ function BRollCard({ item, onEdit, onDelete }: { item: BRoll; onEdit: () => void
             </>
           )}
         </div>
+        {/* Animate in Playground — green pill, bottom-left, image cards only */}
+        {hasImage && (
+          <button
+            onClick={handleAnimate}
+            title="Open Playground in video mode with this image as the start frame"
+            className="absolute left-2 bottom-2 flex items-center gap-1 whitespace-nowrap rounded-full border border-green-500/40 bg-green-500/80 px-2.5 py-1 text-[10px] font-medium text-white opacity-0 backdrop-blur-sm transition-all hover:bg-green-500 group-hover:opacity-100"
+          >
+            <Film className="h-3 w-3" />
+            Animate in playground
+          </button>
+        )}
       </div>
       {/* Info */}
       <div className="flex flex-col gap-0.5 p-3">

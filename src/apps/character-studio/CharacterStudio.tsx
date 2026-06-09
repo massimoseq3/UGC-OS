@@ -174,7 +174,7 @@ export default function CharacterStudio() {
     // freely mutate the form while this job runs in parallel.
     const snapshotProfile: CharacterProfile = { ...profile }
     const snapshotResolution = resolution
-    const snapshotAspect = profile.aspectRatio || 'Portrait (9:16)'
+    const snapshotAspect = profile.aspectRatio || '9:16'
     const modelId = useSettingsStore.getState().getAppModel('character-studio:image:text-to-image')
       ?? getDefaultModel('character-studio', 'image', 'text-to-image')?.id
       ?? 'unknown'
@@ -291,7 +291,7 @@ export default function CharacterStudio() {
           error={error}
           onGenerate={handleGenerate}
           canGenerate={Object.values(profile).some((v) => v.trim() !== '')}
-          aspectRatio={profile.aspectRatio || 'Portrait (9:16)'}
+          aspectRatio={profile.aspectRatio || '9:16'}
           onAspectRatioChange={(value) => setProfile({ ...profile, aspectRatio: value })}
           resolution={resolution}
           onResolutionChange={setResolution}

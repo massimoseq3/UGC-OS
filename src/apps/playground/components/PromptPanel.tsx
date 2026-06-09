@@ -28,7 +28,7 @@ import type { BRoll } from '../../../stores/types'
 import PresetPickerView from './PresetPickerView'
 import MentionPopover from './MentionPopover'
 import type { PlaygroundMode, BankReference } from '../types'
-import type { Preset } from '../presets'
+import { VIDEO_PRESETS, IMAGE_PRESETS, type Preset } from '../presets'
 
 // Tabs passed to BankPicker when used from Playground refs. Characters comes
 // first so opening the picker lands the user there by default; B-Rolls are
@@ -75,6 +75,9 @@ export interface PromptPanelState {
 interface PromptPanelProps {
   state: PromptPanelState
   onChange: (next: PromptPanelState) => void
+  // Mode switch is special-cased so the parent can stash/restore each tab's
+  // own prompt + refs instead of carrying them across tabs.
+  onModeChange: (mode: PlaygroundMode) => void
   onSubmit: () => void
   isGenerating: boolean
 }
@@ -85,7 +88,7 @@ const MODE_TABS: Array<{ id: PlaygroundMode; label: string; icon: React.Componen
   { id: 'music', label: 'Music', icon: MusicIcon },
 ]
 
-export default function PromptPanel({ state, onChange, onSubmit, isGenerating }: PromptPanelProps) {
+export default function PromptPanel({ state, onChange, onModeChange, onSubmit, isGenerating }: PromptPanelProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Mention popover state — open when the user just typed an @ that isn't
@@ -253,15 +256,19 @@ export default function PromptPanel({ state, onChange, onSubmit, isGenerating }:
   function applyPreset(preset: Preset) {
     const aspectFromPreset = preset.defaultAspect ?? state.aspectRatio
     const durationFromPreset = preset.defaultDuration ?? state.durationSeconds
-    // Clamp aspect / duration to the current model's constraints if it's a
-    // video model — otherwise the constraint useEffect will snap them.
-    const c = model?.videoConstraints
-    const finalAspect = c && !c.aspectRatios.includes(aspectFromPreset)
-      ? c.aspectRatios[0]
+    // Clamp aspect / duration to the active model's constraints so the chips
+    // don't show an unsupported value (the constraint useEffect only re-snaps
+    // on model/mode change, not on a preset apply).
+    const vc = model?.videoConstraints
+    const allowedAspects = state.mode === 'image'
+      ? model?.imageConstraints?.aspectRatios
+      : vc?.aspectRatios
+    const finalAspect = allowedAspects && !allowedAspects.includes(aspectFromPreset)
+      ? allowedAspects[0]
       : aspectFromPreset
     const finalDuration =
-      c && c.durations.length > 0 && !c.durations.includes(durationFromPreset)
-        ? c.durations[0]
+      vc && vc.durations.length > 0 && !vc.durations.includes(durationFromPreset)
+        ? vc.durations[0]
         : durationFromPreset
 
     // Append (with a blank-line separator) when there's already text in the
@@ -352,7 +359,7 @@ export default function PromptPanel({ state, onChange, onSubmit, isGenerating }:
             <button
               key={tab.id}
               type="button"
-              onClick={() => onChange({ ...state, mode: tab.id })}
+              onClick={() => onModeChange(tab.id)}
               className={`relative flex items-center gap-1.5 px-3 pb-2 pt-3 text-[13px] font-medium tracking-tight transition-colors ${
                 active ? 'text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'
               }`}
@@ -390,124 +397,7 @@ export default function PromptPanel({ state, onChange, onSubmit, isGenerating }:
                   }
                 />
               </div>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                {state.mode === 'video' && model?.videoConstraints && (
-                  <>
-                    <ConstraintChip
-                      options={model.videoConstraints.aspectRatios}
-                      value={state.aspectRatio}
-                      onChange={(v) => onChange({ ...state, aspectRatio: v })}
-                      render={(v) => (
-                        <span className="flex items-center gap-1.5">
-                          <AspectIcon ratio={v} />
-                          <span>{v}</span>
-                        </span>
-                      )}
-                    />
-                    {model.videoConstraints.durations.length > 0 && (
-                      <ConstraintChip
-                        options={model.videoConstraints.durations.map(String)}
-                        value={String(state.durationSeconds)}
-                        onChange={(v) => onChange({ ...state, durationSeconds: Number(v) })}
-                        render={(v) => <span>{v}s</span>}
-                      />
-                    )}
-                    <ConstraintChip
-                      options={model.videoConstraints.resolutions}
-                      value={state.resolution}
-                      onChange={(v) => onChange({ ...state, resolution: v })}
-                    />
-                    {model.videoConstraints.supportsAudio && (
-                      <button
-                        type="button"
-                        onClick={() => onChange({ ...state, audio: !state.audio })}
-                        className={`flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[12px] transition-colors ${
-                          state.audio
-                            ? 'border-green-500/30 bg-green-500/10 text-green-200'
-                            : 'border-white/10 bg-white/[0.02] text-zinc-400 hover:bg-white/[0.05]'
-                        }`}
-                      >
-                        {state.audio ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
-                        <span>{state.audio ? 'Audio' : 'Mute'}</span>
-                      </button>
-                    )}
-                  </>
-                )}
-
-                {state.mode === 'image' && model?.imageConstraints && (
-                  <>
-                    {model.imageConstraints.aspectRatios && (
-                      <ConstraintChip
-                        options={model.imageConstraints.aspectRatios}
-                        value={state.aspectRatio}
-                        onChange={(v) => onChange({ ...state, aspectRatio: v })}
-                        render={(v) => (
-                          <span className="flex items-center gap-1.5">
-                            <AspectIcon ratio={v} />
-                            <span>{v}</span>
-                          </span>
-                        )}
-                      />
-                    )}
-                    <ConstraintChip
-                      options={model.imageConstraints.resolutions}
-                      value={state.resolution}
-                      onChange={(v) => onChange({ ...state, resolution: v })}
-                    />
-                  </>
-                )}
-
-                {state.mode === 'music' && (
-                  <div className="inline-flex rounded-full border border-white/10 bg-white/[0.02] p-0.5">
-                    <button
-                      type="button"
-                      onClick={() => onChange({ ...state, instrumental: true })}
-                      className={`rounded-full px-4 py-1.5 text-[12px] transition-colors ${
-                        state.instrumental
-                          ? 'bg-green-500/15 text-green-200'
-                          : 'text-zinc-400 hover:text-zinc-200'
-                      }`}
-                    >
-                      Instrumental
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onChange({ ...state, instrumental: false })}
-                      className={`rounded-full px-4 py-1.5 text-[12px] transition-colors ${
-                        !state.instrumental
-                          ? 'bg-green-500/15 text-green-200'
-                          : 'text-zinc-400 hover:text-zinc-200'
-                      }`}
-                    >
-                      With lyrics
-                    </button>
-                  </div>
-                )}
-              </div>
             </div>
-
-            {/* Preset — clickable row that opens the slide-in picker.
-                Outer styling mirrors ModelPicker's trigger row so the two
-                stack at the same height with matching typography. */}
-            {presetsApplicable && (
-              <div>
-                <span className="text-sm font-medium text-zinc-200">Preset</span>
-                <button
-                  type="button"
-                  onClick={() => setPresetOpen(true)}
-                  className="mt-2 flex w-full items-center gap-2.5 rounded-xl border border-white/10 bg-white/[0.02] px-2.5 py-2 text-left transition-colors hover:bg-white/[0.05]"
-                >
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-green-500/10 text-green-400">
-                    <Camera className="h-3.5 w-3.5" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-[13px] font-medium text-zinc-100">UGC Presets</div>
-                    <div className="truncate text-[10px] text-zinc-500">Prefill the prompt + aspect ratio</div>
-                  </div>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-zinc-500" />
-                </button>
-              </div>
-            )}
 
             {/* Reference inputs */}
             {hasRefsSection && (
@@ -574,6 +464,21 @@ export default function PromptPanel({ state, onChange, onSubmit, isGenerating }:
             {/* Prompt */}
             <div className="relative">
               <span className="text-sm font-medium text-zinc-200">Prompt</span>
+              {/* UGC Prompt Presets — slim row between the heading and the
+                  textarea. Opens the slide-in picker. */}
+              {presetsApplicable && (
+                <button
+                  type="button"
+                  onClick={() => setPresetOpen(true)}
+                  className="mt-2 flex w-full items-center gap-2 rounded-lg border border-white/10 bg-white/[0.02] px-2.5 py-1.5 text-left transition-colors hover:bg-white/[0.05]"
+                >
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-green-500/10 text-green-400">
+                    <Camera className="h-3 w-3" />
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-zinc-100">UGC Prompt Presets</span>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-zinc-500" />
+                </button>
+              )}
               <textarea
                 ref={textareaRef}
                 value={state.prompt}
@@ -600,13 +505,114 @@ export default function PromptPanel({ state, onChange, onSubmit, isGenerating }:
                 Tip: type <span className="font-medium text-zinc-400">@</span> to reference Products, Characters, or B-Rolls.
               </p>
             </div>
+
+            {/* Output settings — aspect ratio / resolution (+ duration, audio,
+                lyrics per mode). Sits below the prompt, just above Generate. */}
+            <div className="flex flex-wrap items-center gap-2">
+              {state.mode === 'video' && model?.videoConstraints && (
+                <>
+                  <ConstraintChip
+                    options={model.videoConstraints.aspectRatios}
+                    value={state.aspectRatio}
+                    onChange={(v) => onChange({ ...state, aspectRatio: v })}
+                    render={(v) => (
+                      <span className="flex items-center gap-1.5">
+                        <AspectIcon ratio={v} />
+                        <span>{v}</span>
+                      </span>
+                    )}
+                  />
+                  {model.videoConstraints.durations.length > 0 && (
+                    <ConstraintChip
+                      options={model.videoConstraints.durations.map(String)}
+                      value={String(state.durationSeconds)}
+                      onChange={(v) => onChange({ ...state, durationSeconds: Number(v) })}
+                      render={(v) => <span>{v}s</span>}
+                    />
+                  )}
+                  <ConstraintChip
+                    options={model.videoConstraints.resolutions}
+                    value={state.resolution}
+                    onChange={(v) => onChange({ ...state, resolution: v })}
+                  />
+                  {model.videoConstraints.supportsAudio && (
+                    <button
+                      type="button"
+                      onClick={() => onChange({ ...state, audio: !state.audio })}
+                      className={`flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[12px] transition-colors ${
+                        state.audio
+                          ? 'border-green-500/30 bg-green-500/10 text-green-200'
+                          : 'border-white/10 bg-white/[0.02] text-zinc-400 hover:bg-white/[0.05]'
+                      }`}
+                    >
+                      {state.audio ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
+                      <span>{state.audio ? 'Audio' : 'Mute'}</span>
+                    </button>
+                  )}
+                </>
+              )}
+
+              {state.mode === 'image' && model?.imageConstraints && (
+                <>
+                  {model.imageConstraints.aspectRatios && (
+                    <ConstraintChip
+                      options={model.imageConstraints.aspectRatios}
+                      value={state.aspectRatio}
+                      onChange={(v) => onChange({ ...state, aspectRatio: v })}
+                      render={(v) => (
+                        <span className="flex items-center gap-1.5">
+                          <AspectIcon ratio={v} />
+                          <span>{v}</span>
+                        </span>
+                      )}
+                    />
+                  )}
+                  <ConstraintChip
+                    options={model.imageConstraints.resolutions}
+                    value={state.resolution}
+                    onChange={(v) => onChange({ ...state, resolution: v })}
+                  />
+                </>
+              )}
+
+              {state.mode === 'music' && (
+                <div className="inline-flex rounded-full border border-white/10 bg-white/[0.02] p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => onChange({ ...state, instrumental: true })}
+                    className={`rounded-full px-4 py-1.5 text-[12px] transition-colors ${
+                      state.instrumental
+                        ? 'bg-green-500/15 text-green-200'
+                        : 'text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    Instrumental
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onChange({ ...state, instrumental: false })}
+                    className={`rounded-full px-4 py-1.5 text-[12px] transition-colors ${
+                      !state.instrumental
+                        ? 'bg-green-500/15 text-green-200'
+                        : 'text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    With lyrics
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Slide-in preset picker — covers panel body when open. */}
         {presetOpen && (
           <div className="absolute inset-0 bg-[#0A0A0A]">
-            <PresetPickerView onSelect={applyPreset} onClose={() => setPresetOpen(false)} />
+            <PresetPickerView
+              presets={state.mode === 'image' ? IMAGE_PRESETS : VIDEO_PRESETS}
+              onSelect={applyPreset}
+              onClose={() => setPresetOpen(false)}
+            />
           </div>
         )}
       </div>

@@ -4,7 +4,7 @@
 // modal's orchestration (state + handlers). These all communicate via props.
 import { useState, useEffect, useRef } from 'react'
 import {
-  ImageIcon, Video as VideoIcon, Loader2, Check, Download, Trash2, Bookmark, Volume2, VolumeX, Play, Pause, Copy, Circle, AlertCircle, RefreshCw, X,
+  ImageIcon, Video as VideoIcon, Film, Loader2, Check, Download, Trash2, Bookmark, Volume2, VolumeX, Play, Pause, Copy, Circle, AlertCircle, RefreshCw, X,
 } from 'lucide-react'
 import GenerationProgress from '../../../components/GenerationProgress'
 import type { CardState } from '../types'
@@ -18,7 +18,7 @@ import { startOfDay, sectionLabel } from '../../../utils/history'
 export interface ModalGalleryProps {
   cardState: CardState
   onUpdateState: (updates: Partial<CardState>) => void
-  setTab: (t: 'image' | 'video') => void
+  setTab: (t: 'image' | 'video' | 'animate') => void
   savedImageIdxs: Set<number>
   savingImageIdxs: Set<number>
   savedVideoIdxs: Set<number>
@@ -28,6 +28,8 @@ export interface ModalGalleryProps {
   onDeleteImage: (index: number) => void
   onDeleteVideo: (index: number) => void
   onCopyPrompt: (text: string) => void
+  // Open the Animate tab with this image set as the start frame.
+  onAnimateImage: (index: number) => void
   // Re-fire / drop a failed in-flight entry (one whose `error` is set).
   onRetryInFlight: (id: string, isVideo: boolean) => void
   onDismissInFlight: (id: string, isVideo: boolean) => void
@@ -58,6 +60,7 @@ export function ModalGallery({
   onDeleteImage,
   onDeleteVideo,
   onCopyPrompt,
+  onAnimateImage,
   onRetryInFlight,
   onDismissInFlight,
 }: ModalGalleryProps) {
@@ -185,6 +188,7 @@ export function ModalGallery({
                       onSave={() => onSaveImage(entry.idx)}
                       onDelete={() => onDeleteImage(entry.idx)}
                       onCopyPrompt={() => onCopyPrompt(entry.prompt)}
+                      onAnimate={() => onAnimateImage(entry.idx)}
                     />
                   </div>
                 )
@@ -234,6 +238,7 @@ function ImageTile({
   onSave,
   onDelete,
   onCopyPrompt,
+  onAnimate,
 }: {
   imageRef: string
   modelId?: string
@@ -244,6 +249,7 @@ function ImageTile({
   onSave: () => void
   onDelete: () => void
   onCopyPrompt: () => void
+  onAnimate?: () => void
 }) {
   const { url, status } = useAssetUrlState(imageRef)
   const modelLabel = modelId ? getModel(modelId)?.displayName ?? modelId : null
@@ -265,12 +271,24 @@ function ImageTile({
       )}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/80 to-transparent" />
       {modelLabel && (
-        <p className="pointer-events-none absolute left-2 bottom-1 max-w-[70%] truncate text-[10px] text-zinc-300/90">{modelLabel}</p>
+        <p className="pointer-events-none absolute left-2 bottom-1 max-w-[70%] truncate text-[10px] text-zinc-300/90 transition-opacity group-hover:opacity-0">{modelLabel}</p>
       )}
       {selected && (
         <span className="pointer-events-none absolute left-1.5 top-1.5 rounded-full bg-orange-500/90 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-orange-50 backdrop-blur">
           Cover
         </span>
+      )}
+      {/* Animate — opens the Animate tab with this still as the start frame. */}
+      {onAnimate && (
+        <button
+          type="button"
+          title="Animate this image into a video"
+          onClick={(e) => { e.stopPropagation(); onAnimate() }}
+          className="absolute left-1.5 bottom-1.5 flex items-center gap-1 whitespace-nowrap rounded-full border border-orange-400/50 bg-orange-500/85 px-2.5 py-1 text-[10px] font-medium text-white opacity-0 backdrop-blur transition-opacity hover:bg-orange-500 group-hover:opacity-100"
+        >
+          <Film className="h-3 w-3" />
+          Animate B-Roll
+        </button>
       )}
       {/* Top-right trash — appears on hover */}
       <div className="absolute right-1.5 top-1.5 opacity-0 transition-opacity group-hover:opacity-100">

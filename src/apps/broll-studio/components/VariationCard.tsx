@@ -485,8 +485,21 @@ export default function VariationCard(props: VariationCardProps) {
     }
   }
 
-  // Animate-still was removed from the modal — Playground covers that flow.
-  // The runVideoTask 'image-to-video' branch stays in case it's needed later.
+  // Animate a still into a video (image-to-video) from inside the modal's
+  // Animate tab. The start frame is one of this card's generated images,
+  // converted to a data URI the model can seed from.
+  const handleAnimate = async (startFrameRef: string | undefined, videoModelId: string | undefined) => {
+    if (!startFrameRef) {
+      useAppStore.getState().addToast('Generate or pick an image to animate first.', 'error')
+      return
+    }
+    const dataUri = await toDataUri(startFrameRef)
+    if (!dataUri) {
+      useAppStore.getState().addToast('Could not load the start frame.', 'error')
+      return
+    }
+    await runVideoTask('image-to-video', dataUri, undefined, videoModelId)
+  }
 
   const handleGenerateVideo = async (videoModelId: string | undefined) => {
     const refs = buildCardRefs()
@@ -733,6 +746,7 @@ export default function VariationCard(props: VariationCardProps) {
           handleRegeneratePrompt={handleRegeneratePrompt}
           handleGenerateImage={handleGenerateImage}
           handleGenerateVideo={handleGenerateVideo}
+          handleAnimate={handleAnimate}
           handleResetVideo={handleResetVideo}
           handleRetryInFlight={handleRetryInFlight}
           handleDismissInFlight={handleDismissInFlight}

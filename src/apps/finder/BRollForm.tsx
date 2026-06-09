@@ -151,7 +151,7 @@ export default function BRollForm({ item, onSave, onCancel }: BRollFormProps) {
               <button
                 type="button"
                 onClick={handleSendToVideos}
-                className="flex items-center justify-center gap-2 rounded-full border border-purple-500/25 bg-purple-500/10 px-4 py-2 text-sm font-medium text-purple-300 transition-colors hover:bg-purple-500/20"
+                className="flex items-center justify-center gap-2 rounded-full border border-green-500/30 bg-green-500/10 px-4 py-2 text-sm font-medium text-green-300 transition-colors hover:bg-green-500/20"
                 title="Open Playground in video mode with this image as the start frame"
               >
                 <Film className="h-3.5 w-3.5" />

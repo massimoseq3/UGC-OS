@@ -139,7 +139,9 @@ export async function startCharacterTask(
   if (!modelId) throw new Error('No image model configured for Characters.')
 
   const prompt = buildImagePrompt(profile)
-  const aspectRatio: AspectRatio = profile.aspectRatio === 'Landscape (16:9)' ? '16:9' : '9:16'
+  // Tolerate both legacy verbose values ('Landscape (16:9)') and raw ratios.
+  const ar = profile.aspectRatio ?? ''
+  const aspectRatio: AspectRatio = ar.includes('16:9') ? '16:9' : ar.includes('1:1') ? '1:1' : '9:16'
 
   const body = buildImageInput(modelId, { prompt, aspectRatio, resolution })
   const taskId = await createTask(apiKey, modelId, body, signal)

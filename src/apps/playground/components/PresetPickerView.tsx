@@ -1,8 +1,11 @@
 import { ArrowLeft } from 'lucide-react'
-import { VIDEO_PRESETS, type Preset } from '../presets'
+import { type Preset } from '../presets'
 import PresetCard from './PresetCard'
 
 interface PresetPickerViewProps {
+  // Presets to show — image vs video list is chosen by the caller (PromptPanel)
+  // based on the active mode.
+  presets: Preset[]
   onSelect: (preset: Preset) => void
   onClose: () => void
 }
@@ -10,7 +13,7 @@ interface PresetPickerViewProps {
 // Full-panel slide-in picker — replaces the previous dropdown popover.
 // Mirrors the VoicePickerView pattern in voice-studio so the chrome reads
 // consistently across right-panel apps.
-export default function PresetPickerView({ onSelect, onClose }: PresetPickerViewProps) {
+export default function PresetPickerView({ presets, onSelect, onClose }: PresetPickerViewProps) {
   return (
     <div className="flex h-full flex-col">
       {/* Header — back arrow + title, matches VoicePickerView */}
@@ -33,7 +36,7 @@ export default function PresetPickerView({ onSelect, onClose }: PresetPickerView
       {/* Grid — single column on narrow panel for breathability */}
       <div className="flex-1 overflow-y-auto p-4">
         <div className="grid grid-cols-2 gap-3">
-          {VIDEO_PRESETS.map((preset) => (
+          {presets.map((preset) => (
             <PresetCard
               key={preset.id}
               preset={preset}

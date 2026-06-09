@@ -111,6 +111,14 @@ export default function Playground() {
   // leg when the tab died) and tasks older than 30 min are auto-expired on
   // mount — see the resume effect below.
   const [inFlight, setInFlight] = usePersistedState<InFlightGen[]>(`${baseKey}:inflight`, [])
+  // Per-tab prompt + refs. Each mode keeps its own inputs so typing a video
+  // prompt and flipping to Image doesn't drag the text along. Persisted so a
+  // refresh keeps every tab's draft. The active tab's inputs live in `state`;
+  // this only holds the *other* tabs' stashed drafts.
+  const [promptStash, setPromptStash] = usePersistedState<Record<PlaygroundMode, { prompt: string; refs: PromptRef[] }>>(
+    `${baseKey}:promptstash`,
+    { image: { prompt: '', refs: [] }, video: { prompt: '', refs: [] }, music: { prompt: '', refs: [] } },
+  )
   const interAppPayload = useAppStore((s) => s.interAppPayload)
   const consumePayload = useAppStore((s) => s.consumePayload)
   const activeApp = useAppStore((s) => s.activeApp)
@@ -265,8 +273,9 @@ export default function Playground() {
       imageParams, videoParams, musicParams,
     }])
 
-    // Clear prompt + refs immediately so the user can queue the next one.
-    setState((s) => ({ ...s, prompt: '', refs: [] }))
+    // Leave the prompt + refs in place so the user can fire off the same (or a
+    // tweaked) generation again immediately — gens run in parallel, each job
+    // already snapshotted its own inputs above.
 
     try {
       let taskId: string
@@ -353,6 +362,15 @@ export default function Playground() {
     }
   }
 
+  // Switch tabs without bleeding inputs across them: stash the current tab's
+  // prompt + refs, then restore whatever the target tab had last.
+  function handleModeChange(nextMode: PlaygroundMode) {
+    if (nextMode === state.mode) return
+    setPromptStash((prev) => ({ ...prev, [state.mode]: { prompt: state.prompt, refs: state.refs } }))
+    const restored = promptStash[nextMode] ?? { prompt: '', refs: [] }
+    setState((s) => ({ ...s, mode: nextMode, prompt: restored.prompt, refs: restored.refs }))
+  }
+
   // Filter the history grid to the active mode. Users frequently bounce
   // between modes and want to see what they just made, not noise from the
   // other tabs.
@@ -371,6 +389,7 @@ export default function Playground() {
           <PromptPanel
             state={state}
             onChange={setState}
+            onModeChange={handleModeChange}
             onSubmit={handleSubmit}
             isGenerating={isGenerating}
           />
