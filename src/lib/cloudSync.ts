@@ -141,14 +141,37 @@ function applyOutbox(table: BankKey, base: unknown[]): unknown[] {
 
 let draining = false
 
+function outboxHasWork(ob: Outbox = readOutbox()): boolean {
+  return BANK_KEYS.some((k) => Object.keys(ob.upserts[k] ?? {}).length > 0 || (ob.deletes[k]?.length ?? 0) > 0)
+}
+
+// In-session retry timer. The startup + tab-focus drains only fire after a
+// refresh or an app switch — without this, a row that failed to push sat in
+// the outbox for the rest of the session, making the "will retry syncing
+// automatically" toast a lie until the next reload. Doubling backoff so a
+// real Supabase outage isn't hammered; reset once a drain clears the queue.
+const DRAIN_RETRY_BASE_MS = 30_000
+const DRAIN_RETRY_MAX_MS = 5 * 60_000
+let drainRetryMs = DRAIN_RETRY_BASE_MS
+let drainTimer: ReturnType<typeof setTimeout> | null = null
+
+export function scheduleOutboxDrain(): void {
+  if (drainTimer || !outboxHasWork()) return
+  drainTimer = setTimeout(() => {
+    drainTimer = null
+    drainRetryMs = Math.min(drainRetryMs * 2, DRAIN_RETRY_MAX_MS)
+    drainOutbox().catch((e) => console.warn('[cloudSync] scheduled drain failed', e))
+  }, drainRetryMs)
+}
+
 // Replay every queued write. Best-effort: a write that fails again stays
-// queued for the next drain. Runs after hydrate and on tab focus.
+// queued for the next drain. Runs after hydrate, on tab focus, and on the
+// scheduleOutboxDrain backoff timer.
 export async function drainOutbox(): Promise<void> {
   if (draining) return
   if (!isCloudEnabled() || !useAuthStore.getState().user) return
   const ob = readOutbox()
-  const hasWork = BANK_KEYS.some((k) => Object.keys(ob.upserts[k] ?? {}).length > 0 || (ob.deletes[k]?.length ?? 0) > 0)
-  if (!hasWork) return
+  if (!outboxHasWork(ob)) return
 
   draining = true
   try {
@@ -164,6 +187,8 @@ export async function drainOutbox(): Promise<void> {
     }
   } finally {
     draining = false
+    if (outboxHasWork()) scheduleOutboxDrain()
+    else drainRetryMs = DRAIN_RETRY_BASE_MS
   }
 }
 
@@ -184,19 +209,50 @@ function walkAssetRefs(value: unknown, out: string[] = []): string[] {
 
 // ── Public mutation helpers ─────────────────────────────────────────
 
+// Per-attempt hard abort for single-row writes. A promise-race timeout (like
+// bankStore's withTimeout backstop) only abandons the await — the underlying
+// fetch keeps hanging on whatever dead connection caused the stall, and a
+// retry would queue behind it. AbortController actually cancels the request,
+// so the retry goes out as a fresh request on a fresh connection.
+const ROW_ATTEMPT_TIMEOUT_MS = 6_000
+
+function attemptSignal(): { signal: AbortSignal; done: () => void } {
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), ROW_ATTEMPT_TIMEOUT_MS)
+  return { signal: ctrl.signal, done: () => clearTimeout(timer) }
+}
+
+async function upsertRowOnce(table: BankKey, row: { id: string }, userId: string): Promise<void> {
+  const { signal, done } = attemptSignal()
+  try {
+    const { error } = await getSupabase().from(BANK_TO_TABLE[table]).upsert({
+      id: row.id,
+      user_id: userId,
+      data: row,
+      updated_at: new Date().toISOString(),
+    }).abortSignal(signal)
+    if (error) throw new Error(`${BANK_TO_TABLE[table]} upsert: ${error.message}`)
+  } finally {
+    done()
+  }
+}
+
 // Save one bank row. Awaited. Throws on failure so callers can react.
+// Two bounded attempts: the common failure here is a stalled connection after
+// a long-lived tab (the fetch hangs, no error ever fires), and historically a
+// page refresh "fixed" it because the new page got a fresh connection. The
+// abort-and-retry reproduces that recovery without bothering the user.
 export async function saveRow(table: BankKey, row: { id: string }): Promise<void> {
   const userId = useAuthStore.getState().user?.id
   if (!userId) throw new Error('Not signed in')
   await ensureFreshSession()
-  const sb = getSupabase()
-  const { error } = await sb.from(BANK_TO_TABLE[table]).upsert({
-    id: row.id,
-    user_id: userId,
-    data: row,
-    updated_at: new Date().toISOString(),
-  })
-  if (error) throw new Error(`${BANK_TO_TABLE[table]} upsert: ${error.message}`)
+  try {
+    await upsertRowOnce(table, row, userId)
+  } catch (first) {
+    console.warn(`[cloudSync] ${BANK_TO_TABLE[table]} upsert attempt 1 failed — retrying once`, first)
+    await ensureFreshSession()
+    await upsertRowOnce(table, row, userId)
+  }
 }
 
 // Bulk variant — kept for callers that need batched writes. Sequential per
@@ -217,14 +273,29 @@ export async function saveRows(table: BankKey, rows: Array<{ id: string }>): Pro
   if (error) throw new Error(`${BANK_TO_TABLE[table]} bulk upsert: ${error.message}`)
 }
 
-// Delete one bank row. Awaited.
+async function deleteRowOnce(table: BankKey, id: string, userId: string): Promise<void> {
+  const { signal, done } = attemptSignal()
+  try {
+    const { error } = await getSupabase().from(BANK_TO_TABLE[table])
+      .delete().eq('id', id).eq('user_id', userId).abortSignal(signal)
+    if (error) throw new Error(`${BANK_TO_TABLE[table]} delete: ${error.message}`)
+  } finally {
+    done()
+  }
+}
+
+// Delete one bank row. Awaited. Same bounded-attempts shape as saveRow.
 export async function deleteRow(table: BankKey, id: string): Promise<void> {
   const userId = useAuthStore.getState().user?.id
   if (!userId) throw new Error('Not signed in')
   await ensureFreshSession()
-  const sb = getSupabase()
-  const { error } = await sb.from(BANK_TO_TABLE[table]).delete().eq('id', id).eq('user_id', userId)
-  if (error) throw new Error(`${BANK_TO_TABLE[table]} delete: ${error.message}`)
+  try {
+    await deleteRowOnce(table, id, userId)
+  } catch (first) {
+    console.warn(`[cloudSync] ${BANK_TO_TABLE[table]} delete attempt 1 failed — retrying once`, first)
+    await ensureFreshSession()
+    await deleteRowOnce(table, id, userId)
+  }
 }
 
 // Save the profile sheet (per-app model selections only). The kie.ai API key

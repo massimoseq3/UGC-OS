@@ -3,7 +3,7 @@ import type { Product, Model, Script, VoicePreset, BRoll, VoiceHistoryItem, Vide
 import { isAssetRef, deleteAsset, saveFromDataUrl } from '../utils/assetStore'
 import { useAuthStore } from './authStore'
 import { isCloudEnabled } from '../lib/supabase'
-import { saveRow, deleteRow, recordPendingUpsert, recordPendingDelete, clearPending, type BankKey } from '../lib/cloudSync'
+import { saveRow, deleteRow, recordPendingUpsert, recordPendingDelete, clearPending, scheduleOutboxDrain, type BankKey } from '../lib/cloudSync'
 import { useAppStore } from './appStore'
 
 const STORAGE_KEY = 'ai-ugc-lab-banks'
@@ -232,13 +232,13 @@ function cloudActive(): boolean {
   return isCloudEnabled() && !!useAuthStore.getState().user
 }
 
-// Hard timeout for any single cloud round-trip. Without this, a stalled
-// fetch (mid re-auth, browser extension blocking the request, dropped
-// connection that never RSTs) leaves the caller awaiting forever — which
-// is what froze the Characters tab's "Save to Bank" spinner. Long enough
-// for a slow connection to complete; short enough that the user sees a
-// failure toast within a reasonable wait.
-const CLOUD_SYNC_TIMEOUT_MS = 15_000
+// Backstop timeout for any single cloud round-trip. saveRow/deleteRow are
+// internally self-bounding now (two attempts hard-aborted at 6s each, plus
+// two 3s-capped session checks ≈ 18s worst case), so in practice they settle
+// on their own; this outer guard only exists so a future code path that
+// forgets to bound itself can't freeze a save spinner forever. Must stay
+// ABOVE the inner worst case or it fires mid-retry.
+const CLOUD_SYNC_TIMEOUT_MS = 20_000
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -254,18 +254,30 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 
 // Cloud-aware single-row save. Awaited; throws on failure or timeout. The row
 // is recorded in the persistent outbox first, so a failed/timed-out push is
-// replayed on the next drain (startup / tab focus) instead of being lost.
+// replayed on the next drain (startup / tab focus / in-session backoff timer —
+// the scheduleOutboxDrain call below is what makes the toast's "will retry
+// syncing automatically" true without a refresh).
 async function pushRow(table: BankKey, row: { id: string }): Promise<void> {
   if (!cloudActive()) return
   recordPendingUpsert(table, row)
-  await withTimeout(saveRow(table, row), CLOUD_SYNC_TIMEOUT_MS, `Cloud save (${table})`)
+  try {
+    await withTimeout(saveRow(table, row), CLOUD_SYNC_TIMEOUT_MS, `Cloud save (${table})`)
+  } catch (e) {
+    scheduleOutboxDrain()
+    throw e
+  }
   clearPending(table, row.id)
 }
 
 async function dropRow(table: BankKey, id: string): Promise<void> {
   if (!cloudActive()) return
   recordPendingDelete(table, id)
-  await withTimeout(deleteRow(table, id), CLOUD_SYNC_TIMEOUT_MS, `Cloud delete (${table})`)
+  try {
+    await withTimeout(deleteRow(table, id), CLOUD_SYNC_TIMEOUT_MS, `Cloud delete (${table})`)
+  } catch (e) {
+    scheduleOutboxDrain()
+    throw e
+  }
   clearPending(table, id)
 }
 
