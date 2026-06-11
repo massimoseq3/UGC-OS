@@ -22,6 +22,7 @@ import { getModel, type VideoMode, type ImageResolution } from '../../../utils/m
 import CardDetailModal from './CardDetailModal'
 import { humanizeError } from '../../../utils/friendlyError'
 import { rollTypeForTag, tagLabel, tagChipStyle } from './variationTags'
+import { downloadImage } from '../../../utils/downloadImage'
 
 interface VariationCardProps {
   sceneNumber: number
@@ -374,20 +375,7 @@ export default function VariationCard(props: VariationCardProps) {
       useAppStore.getState().addToast('Could not load the file.', 'error')
       return
     }
-    try {
-      const res = await fetch(url)
-      const blob = await res.blob()
-      const objectUrl = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = objectUrl
-      a.download = `broll-scene-${sceneNumber}.${coverKind === 'image' ? 'png' : 'mp4'}`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
-    } catch {
-      window.open(url, '_blank', 'noopener,noreferrer')
-    }
+    await downloadImage(url, `broll-scene-${sceneNumber}`, coverKind === 'image' ? 'png' : 'mp4')
   }
 
   const toDataUri = async (ref: string): Promise<string | null> => {
@@ -637,7 +625,7 @@ export default function VariationCard(props: VariationCardProps) {
             <div className="flex h-full w-full flex-col items-center justify-center gap-2 px-4">
               <GenerationProgress
                 isActive
-                color="bg-orange-500"
+                color="bg-broll-500"
                 showHelper={false}
                 messages={[
                   'Sending request...',
@@ -652,7 +640,7 @@ export default function VariationCard(props: VariationCardProps) {
             <div className="flex h-full w-full flex-col items-center justify-center gap-2 px-4">
               <GenerationProgress
                 isActive
-                color="bg-orange-500"
+                color="bg-broll-500"
                 showHelper={false}
                 messages={isAnimating
                   ? [
@@ -726,7 +714,7 @@ export default function VariationCard(props: VariationCardProps) {
             </span>
           )}
           {isGeneratingImageInFlight && !isGeneratingVideo && !cardState.isGeneratingImage && (
-            <span className="pointer-events-none absolute right-2 top-2 flex items-center gap-1 rounded-full border border-orange-400/30 bg-orange-500/30 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-orange-100 backdrop-blur">
+            <span className="pointer-events-none absolute right-2 top-2 flex items-center gap-1 rounded-full border border-broll-400/30 bg-broll-500/30 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-broll-100 backdrop-blur">
               <Loader2 className="h-2.5 w-2.5 animate-spin" />
               Generating
             </span>

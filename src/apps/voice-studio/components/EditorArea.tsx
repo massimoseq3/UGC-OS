@@ -41,7 +41,7 @@ export default function EditorArea({
           onClick={onSelectScript}
           className="group flex items-center gap-3 rounded-full border border-dashed border-white/10 bg-white/[0.015] px-4 py-3 text-left transition-colors hover:border-white/20 hover:bg-white/[0.03]"
         >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-500/10 text-indigo-300/80 transition-colors group-hover:bg-indigo-500/15 group-hover:text-indigo-300">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-voice-500/10 text-voice-300/80 transition-colors group-hover:bg-voice-500/15 group-hover:text-voice-300">
             <FileText className="h-4 w-4" />
           </div>
           <div className="min-w-0 flex-1">
@@ -80,7 +80,7 @@ export default function EditorArea({
       <div className="px-5 pt-3">
         <GenerationProgress
           isActive={isGenerating}
-          color="bg-indigo-500"
+          color="bg-voice-500"
           messages={['Preparing audio...', 'Sending request...', 'Generating speech...', 'Encoding audio...']}
           className="mb-3"
         />
@@ -107,7 +107,7 @@ export default function EditorArea({
           <button
             onClick={onGenerate}
             disabled={!canGenerate || isGenerating || overLimit}
-            className="flex items-center justify-center gap-2.5 rounded-full border border-white/15 bg-indigo-500 px-6 py-3.5 text-[13px] font-medium tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex items-center justify-center gap-2.5 rounded-full border border-white/15 bg-voice-500 px-6 py-3.5 text-[13px] font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-voice-400 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {isGenerating ? (
               <>

@@ -46,7 +46,7 @@ export default function MentionPopover({ query, onSelect, anchor }: MentionPopov
 
   return (
     <div
-      className="absolute z-50 w-[300px] overflow-hidden rounded-xl border border-white/10 bg-[#0B0B0D]/95 shadow-2xl backdrop-blur-xl"
+      className="absolute z-50 w-[300px] overflow-hidden rounded-2xl border border-white/10 bg-[#0B0B0D]/95 shadow-2xl backdrop-blur-xl"
       style={{ top: anchor.top, left: anchor.left }}
     >
       {total === 0 ? (
@@ -69,13 +69,13 @@ export default function MentionPopover({ query, onSelect, anchor }: MentionPopov
             </Section>
           )}
           {matchedCharacters.length > 0 && (
-            <Section label="Characters" icon={UserRound}>
+            <Section label="Influencers" icon={UserRound}>
               {matchedCharacters.map((c) => (
                 <MentionRow
                   key={c.id}
                   imageRef={c.characterImage}
                   title={c.name}
-                  subtitle="Character"
+                  subtitle="Influencer"
                   onClick={() => onSelect({ kind: 'character', item: c as Character })}
                 />
               ))}

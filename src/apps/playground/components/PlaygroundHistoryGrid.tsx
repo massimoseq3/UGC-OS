@@ -9,6 +9,7 @@ import { useAppStore } from '../../../stores/appStore'
 import { getUrl } from '../../../utils/assetStore'
 import { getModel } from '../../../utils/models'
 import { sectionLabel, groupByDay } from '../../../utils/history'
+import { downloadImage } from '../../../utils/downloadImage'
 import type { ImageHistoryItem, VideoHistoryItem, MusicHistoryItem } from '../../../stores/types'
 import AudioTile from './AudioTile'
 import GenerationProgress from '../../../components/GenerationProgress'
@@ -168,7 +169,7 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode }: Playgrou
                       item={entry.data}
                       onDownload={async () => {
                         const url = await getUrl(entry.data.audioRef)
-                        if (url) downloadFile(url, `playground-${entry.data.id}.mp3`)
+                        if (url) downloadImage(url, `playground-${entry.data.id}`, 'mp3')
                       }}
                       onDelete={() => deleteMusicHistory(entry.data.id)}
                     />
@@ -252,7 +253,7 @@ function ImageTile({
           onClick={async (e) => {
             e.stopPropagation()
             const u = await getUrl(item.imageUrl)
-            if (u) downloadFile(u, `playground-${item.id}.png`)
+            if (u) downloadImage(u, `playground-${item.id}`)
           }}
         >
           <Download className="h-3 w-3" />
@@ -327,7 +328,7 @@ function VideoTile({
           onClick={async (e) => {
             e.stopPropagation()
             const u = await getUrl(item.videoUrl)
-            if (u) downloadFile(u, `playground-${item.id}.mp4`)
+            if (u) downloadImage(u, `playground-${item.id}`, 'mp4')
           }}
         >
           <Download className="h-3 w-3" />
@@ -354,19 +355,19 @@ function InFlightTile({ gen }: { gen: InFlightGen }) {
 
   return (
     <div
-      className="relative overflow-hidden rounded-lg border border-green-500/30 bg-gradient-to-br from-green-500/[0.08] to-zinc-950"
+      className="relative overflow-hidden rounded-lg border border-playground-500/30 bg-gradient-to-br from-playground-500/[0.08] to-zinc-950"
       style={ar ? aspectStyle(ar) : { aspectRatio: '1 / 1' }}
     >
-      <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-green-500/10 via-transparent to-green-500/5" />
-      <div className="absolute left-1.5 top-1.5 rounded-full bg-green-500/30 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-green-100 backdrop-blur">
+      <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-playground-500/10 via-transparent to-playground-500/5" />
+      <div className="absolute left-1.5 top-1.5 rounded-full bg-playground-500/30 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-playground-100 backdrop-blur">
         {gen.mode}
       </div>
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center">
-        <Icon className="h-5 w-5 text-green-300" />
-        <p className="text-[10px] font-medium text-green-100">{modelLabel}</p>
+        <Icon className="h-5 w-5 text-playground-300" />
+        <p className="text-[10px] font-medium text-playground-100">{modelLabel}</p>
         <GenerationProgress
           isActive
-          color="bg-green-500"
+          color="bg-playground-500"
           showHelper={false}
           messages={
             gen.mode === 'image'
@@ -440,11 +441,7 @@ function PreviewModal({
   async function handleDownload() {
     const url = entry.kind === 'image' ? imageUrl : videoUrl
     if (!url) return
-    const fileName =
-      entry.kind === 'image'
-        ? `playground-${entry.data.id}.png`
-        : `playground-${entry.data.id}.mp4`
-    await downloadFile(url, fileName)
+    await downloadImage(url, `playground-${entry.data.id}`, entry.kind === 'image' ? 'png' : 'mp4')
   }
 
   async function handleCopy() {
@@ -482,26 +479,40 @@ function PreviewModal({
 
       {/* Centered content — media gets the upper space, prompt block sits
           underneath with its own scroll so long prompts never push the
-          media off-screen. */}
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="mx-auto flex h-full w-full max-w-5xl flex-col items-center justify-center gap-4 overflow-hidden px-6 py-16"
-      >
+          media off-screen. Only the media + prompt block swallow clicks;
+          anywhere else inside the wrapper bubbles up to the backdrop and
+          closes the modal. The media element shrinks to the image's real
+          rendered size (max-h/max-w in a centered flex box), so the border
+          hugs the picture — no letterbox bars. */}
+      <div className="mx-auto flex h-full w-full max-w-5xl flex-col items-center justify-center gap-4 overflow-hidden px-6 py-16">
         {entry.kind === 'image' && imageUrl && (
-          <img src={imageUrl} alt="" className="min-h-0 max-w-full flex-1 rounded-xl border border-white/10 object-contain" />
+          <div className="flex min-h-0 w-full flex-1 items-center justify-center">
+            <img
+              src={imageUrl}
+              alt=""
+              onClick={(e) => e.stopPropagation()}
+              className="max-h-full max-w-full rounded-xl border border-white/10 object-contain"
+            />
+          </div>
         )}
         {entry.kind === 'video' && videoUrl && (
-          <video
-            src={videoUrl}
-            controls
-            autoPlay
-            loop
-            className="min-h-0 max-w-full flex-1 rounded-xl border border-white/10 object-contain"
-          />
+          <div className="flex min-h-0 w-full flex-1 items-center justify-center">
+            <video
+              src={videoUrl}
+              controls
+              autoPlay
+              loop
+              onClick={(e) => e.stopPropagation()}
+              className="max-h-full max-w-full rounded-xl border border-white/10 object-contain"
+            />
+          </div>
         )}
 
         {prompt && (
-          <div className="flex w-full max-w-2xl shrink-0 flex-col items-center gap-2">
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="flex w-full max-w-2xl shrink-0 flex-col items-center gap-2"
+          >
             <div className="max-h-[18vh] w-full overflow-y-auto rounded-lg bg-white/[0.02] px-4 py-3 text-center text-[12px] leading-relaxed text-zinc-400">
               {prompt}
             </div>
@@ -635,22 +646,5 @@ async function copyToClipboard(text: string): Promise<boolean> {
     return ok
   } catch {
     return false
-  }
-}
-
-async function downloadFile(url: string, fileName: string) {
-  try {
-    const res = await fetch(url)
-    const blob = await res.blob()
-    const objectUrl = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = objectUrl
-    a.download = fileName
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
-  } catch {
-    window.open(url, '_blank', 'noopener,noreferrer')
   }
 }

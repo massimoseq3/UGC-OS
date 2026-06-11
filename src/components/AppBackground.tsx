@@ -1,17 +1,65 @@
-// Tiled SVG noise (desaturated fractal turbulence). Safari doesn't dither CSS
-// gradients, so a near-black radial gradient shows hard 8-bit banding there —
-// a faint grain layer on top breaks the bands up in every browser.
-const GRAIN_URL = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`
+import { useEffect, useRef } from 'react'
 
-/** Shared full-screen workspace background: radial gradient + grain overlay. */
+// Safari doesn't dither CSS gradients, so a near-black radial gradient shows
+// hard 8-bit banding there no matter what's layered on top. Instead of a CSS
+// gradient we paint the same gradient once into a canvas and add ±2-level
+// random noise per pixel — true dithering, so there are no bands left to see
+// in any browser. Repainted (debounced) on resize; cost is a one-time pass.
+function paint(canvas: HTMLCanvasElement) {
+  const w = window.innerWidth
+  const h = window.innerHeight
+  if (w === 0 || h === 0) return
+  canvas.width = w
+  canvas.height = h
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+
+  // Same stops as the old CSS gradient: circle at 0% 0%, farthest-corner.
+  const radius = Math.hypot(w, h)
+  const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, radius)
+  gradient.addColorStop(0, '#1f1f22')
+  gradient.addColorStop(0.45, '#09090b')
+  gradient.addColorStop(1, '#000000')
+  ctx.fillStyle = gradient
+  ctx.fillRect(0, 0, w, h)
+
+  const image = ctx.getImageData(0, 0, w, h)
+  const px = image.data
+  for (let i = 0; i < px.length; i += 4) {
+    const noise = (Math.random() - 0.5) * 4.5
+    px[i] += noise
+    px[i + 1] += noise
+    px[i + 2] += noise
+  }
+  ctx.putImageData(image, 0, 0)
+}
+
+/** Shared full-screen workspace background: dithered radial gradient. */
 export default function AppBackground() {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    paint(canvas)
+
+    let timer: number | undefined
+    const onResize = () => {
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => paint(canvas), 150)
+    }
+    window.addEventListener('resize', onResize)
+    return () => {
+      window.removeEventListener('resize', onResize)
+      window.clearTimeout(timer)
+    }
+  }, [])
+
   return (
-    <div className="pointer-events-none fixed inset-0 z-0">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,#1f1f22_0%,#09090b_45%,#000000_100%)]" />
-      <div
-        className="absolute inset-0 opacity-[0.035]"
-        style={{ backgroundImage: GRAIN_URL, backgroundRepeat: 'repeat', backgroundSize: '128px 128px' }}
-      />
-    </div>
+    <canvas
+      ref={canvasRef}
+      aria-hidden
+      className="pointer-events-none fixed inset-0 z-0 h-full w-full bg-[#09090b]"
+    />
   )
 }

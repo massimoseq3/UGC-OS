@@ -4,6 +4,7 @@ import type { Product, Script } from '../../../stores/types'
 import type { EditableProductContext, ScriptMode } from '../types'
 import { useBankStore } from '../../../stores/bankStore'
 import BankPicker from '../../../components/BankPicker'
+import SegmentedToggle from '../../../components/SegmentedToggle'
 import { useAppStore } from '../../../stores/appStore'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
 
@@ -91,21 +92,17 @@ export default function InputPanel({
 
   return (
     <div className="flex flex-col md:h-full">
-      {/* Mode tabs — aligned with the Output/History tab pattern used in the
-          right panel so the left/right strips read as one continuous bar.
-          Subtext under the tabs is intentionally absent so both strips share
-          the same baseline. */}
-      <div className="shrink-0 border-b border-white/5">
-        <div className="flex items-center gap-1 px-5">
-          <ModeTabButton active={mode === 'remix'} onClick={() => onModeChange('remix')}>
-            <PenLine className="h-3.5 w-3.5" />
-            Remix Script
-          </ModeTabButton>
-          <ModeTabButton active={mode === 'reverse-engineer'} onClick={() => onModeChange('reverse-engineer')}>
-            <Wand2 className="h-3.5 w-3.5" />
-            Reverse Engineer Ad
-          </ModeTabButton>
-        </div>
+      {/* Mode toggle — rounded segmented pill, mirrored by the Output/History
+          toggle in the right panel so both strips share the same baseline. */}
+      <div className="flex shrink-0 items-center px-5 pb-2 pt-4">
+        <SegmentedToggle<ScriptMode>
+          value={mode}
+          onChange={onModeChange}
+          options={[
+            { value: 'remix', label: 'Remix Script', icon: PenLine },
+            { value: 'reverse-engineer', label: 'Reverse Engineer Ad', icon: Wand2 },
+          ]}
+        />
       </div>
 
       {/* Scrollable inputs — a flex column so step 1's textarea can absorb
@@ -120,7 +117,7 @@ export default function InputPanel({
               onClick={() => setScriptPickerOpen(true)}
               className="group mt-2 flex w-full items-center gap-3 rounded-full border border-dashed border-white/10 bg-white/[0.015] px-4 py-3 text-left transition-colors hover:border-white/20 hover:bg-white/[0.03]"
             >
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-500/10 text-blue-300/80 transition-colors group-hover:bg-blue-500/15 group-hover:text-blue-300">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-scripts-500/10 text-scripts-300/80 transition-colors group-hover:bg-scripts-500/15 group-hover:text-scripts-300">
                 <FileText className="h-4 w-4" />
               </div>
               <div className="min-w-0 flex-1">
@@ -140,7 +137,7 @@ export default function InputPanel({
               onChange={(e) => onTranscriptChange(e.target.value)}
               rows={8}
               placeholder="Paste a proven ad transcript here, or send one from Ad Analyzer..."
-              className={`min-h-[160px] w-full grow rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3 text-sm leading-relaxed text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-blue-500/30 resize-none ${highlightField === 'transcript' ? 'animate-field-flash' : ''}`}
+              className={`min-h-[160px] w-full grow rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3 text-sm leading-relaxed text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-scripts-500/30 resize-none ${highlightField === 'transcript' ? 'animate-field-flash' : ''}`}
             />
           </div>
         ) : (
@@ -154,7 +151,7 @@ export default function InputPanel({
               onChange={(e) => onReversePromptChange(e.target.value)}
               rows={14}
               placeholder={'Paste the reverse-engineered prompt from Ad Analyzer here.\n\nExample (multi-scene):\n--- Scene 1: Mirror reaction hook (00:00-00:08) ---\nA woman in her late 20s with shoulder-length auburn hair, wearing a cream cable-knit sweater, stands in a softly-lit bathroom holding a clear glass dropper bottle... She says: "I had dark spots for years and nothing worked."\n\n--- Scene 2: Product reveal (00:08-00:15) ---\n...'}
-              className={`mt-3 min-h-[200px] w-full grow rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3 font-mono text-xs leading-relaxed text-zinc-200 placeholder-zinc-700 outline-none transition-colors focus:border-blue-500/30 resize-none ${highlightField === 'reverse-prompt' ? 'animate-field-flash' : ''}`}
+              className={`mt-3 min-h-[200px] w-full grow rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3 font-mono text-xs leading-relaxed text-zinc-200 placeholder-zinc-700 outline-none transition-colors focus:border-scripts-500/30 resize-none ${highlightField === 'reverse-prompt' ? 'animate-field-flash' : ''}`}
             />
           </div>
         )}
@@ -189,7 +186,7 @@ export default function InputPanel({
                       {selectedProduct.targetMarket || 'No target market'}
                     </span>
                   </div>
-                  <span className="shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-medium text-blue-400 opacity-0 transition-opacity group-hover:opacity-100">
+                  <span className="shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-medium text-scripts-400 opacity-0 transition-opacity group-hover:opacity-100">
                     Change
                   </span>
                 </div>
@@ -203,7 +200,7 @@ export default function InputPanel({
                     aria-expanded={detailsOpen}
                   >
                     <div className="flex items-center gap-2">
-                      <PenLine className="h-3.5 w-3.5 text-blue-400" strokeWidth={1.75} />
+                      <PenLine className="h-3.5 w-3.5 text-scripts-400" strokeWidth={1.75} />
                       <span className="text-[12px] font-medium text-zinc-200">Edit product details for this script</span>
                     </div>
                     <ChevronDown
@@ -231,10 +228,10 @@ export default function InputPanel({
               {products.length > 0 ? (
                 <button
                   onClick={() => setProductPickerOpen(true)}
-                  className="flex w-full items-center gap-3 rounded-full border border-dashed border-white/10 bg-white/[0.02] px-4 py-3.5 text-left transition-colors hover:border-blue-500/30 hover:bg-blue-500/5"
+                  className="flex w-full items-center gap-3 rounded-full border border-dashed border-white/10 bg-white/[0.02] px-4 py-3.5 text-left transition-colors hover:border-scripts-500/30 hover:bg-scripts-500/5"
                 >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-500/10">
-                    <Package className="h-5 w-5 text-blue-400" />
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-scripts-500/10">
+                    <Package className="h-5 w-5 text-scripts-400" />
                   </div>
                   <div className="flex flex-col">
                     <span className="text-sm font-medium text-zinc-300">Select Product</span>
@@ -250,7 +247,7 @@ export default function InputPanel({
                     <span className="text-sm text-zinc-500">No products yet</span>
                     <button
                       onClick={handleOpenFinder}
-                      className="text-left text-xs text-blue-400 transition-colors hover:text-blue-300"
+                      className="text-left text-xs text-scripts-400 transition-colors hover:text-scripts-300"
                     >
                       Add one in Bank
                     </button>
@@ -271,7 +268,7 @@ export default function InputPanel({
             placeholder={mode === 'remix'
               ? "Additional context for this script (e.g. 'Focus on the self-cleaning feature', 'Summer campaign tone')..."
               : "Additional context for the rewrite (e.g. 'Keep tone playful', 'Make the CTA softer')..."}
-            className="mt-2 w-full rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-blue-500/30 resize-none"
+            className="mt-2 w-full rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-scripts-500/30 resize-none"
           />
         </div>
       </div>
@@ -281,7 +278,7 @@ export default function InputPanel({
         <button
           onClick={() => onGenerate(editableContext)}
           disabled={!canGenerate || isGenerating}
-          className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-blue-500 px-6 py-3.5 text-[13px] font-medium tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-blue-400 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-scripts-500 px-6 py-3.5 text-[13px] font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-scripts-400 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {isGenerating ? (
             <>
@@ -326,33 +323,13 @@ export default function InputPanel({
   )
 }
 
-// Mode tab matching the Output/History TabButton in RightPanel.tsx so both
-// strips share the same underline aesthetic.
-function ModeTabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`relative flex items-center gap-1.5 px-3 pb-2 pt-5 text-sm font-medium tracking-tight transition-colors ${
-        active ? 'text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'
-      }`}
-    >
-      {children}
-      <span
-        className={`absolute inset-x-3 -bottom-px h-0.5 rounded-full transition-colors ${
-          active ? 'bg-zinc-100' : 'bg-transparent'
-        }`}
-      />
-    </button>
-  )
-}
-
 // Step labels for the 1/2/3 sections — Playground-style subheadings now,
 // dropping the tiny-uppercase look. The small numbered chip stays so the
 // progression still reads.
 function StepLabel({ step, label }: { step: number; label: string }) {
   return (
     <div className="flex items-center gap-2.5">
-      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-500/15 text-[10px] font-bold tabular-nums text-blue-400">
+      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-scripts-500/15 text-[10px] font-bold tabular-nums text-scripts-400">
         {step}
       </span>
       <span className="text-sm font-medium text-zinc-200">{label}</span>
@@ -368,7 +345,7 @@ function EditableField({ label, value, onChange }: { label: string; value: strin
         value={value}
         onChange={(e) => onChange(e.target.value)}
         rows={2}
-        className="w-full rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-xs leading-relaxed text-zinc-400 placeholder-zinc-700 outline-none transition-colors focus:border-blue-500/30 focus:text-zinc-200 resize-none"
+        className="w-full rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-xs leading-relaxed text-zinc-400 placeholder-zinc-700 outline-none transition-colors focus:border-scripts-500/30 focus:text-zinc-200 resize-none"
       />
     </label>
   )

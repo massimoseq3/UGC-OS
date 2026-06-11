@@ -230,7 +230,7 @@ function AnalyzingPane({ item }: { item: AdAnatomyHistoryItem }) {
 
       {(sourceUrl || thumbUrl) && (
         <div
-          className="relative max-h-80 max-w-72 overflow-hidden rounded-xl border border-[#FB2B37]/30 shadow-[0_0_40px_-10px_rgba(251,43,55,0.6)]"
+          className="relative max-h-80 max-w-72 overflow-hidden rounded-xl border border-[#FF5257]/30 shadow-[0_0_40px_-10px_rgba(255,82,87,0.6)]"
           style={{ aspectRatio: '9 / 16' }}
         >
           {sourceUrl ? (
@@ -241,24 +241,24 @@ function AnalyzingPane({ item }: { item: AdAnatomyHistoryItem }) {
           {/* Scanning bar */}
           <div className="pointer-events-none absolute inset-0 overflow-hidden">
             <div
-              className="absolute inset-x-0 h-1/3 -top-1/3 bg-gradient-to-b from-transparent via-[#FB2B37]/50 to-transparent"
+              className="absolute inset-x-0 h-1/3 -top-1/3 bg-gradient-to-b from-transparent via-[#FF5257]/50 to-transparent"
               style={{ animation: 'broll-scanner 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite' }}
             />
           </div>
-          <div className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-[#FB2B37]/20" />
+          <div className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-[#FF5257]/20" />
         </div>
       )}
 
       <div className="flex w-full max-w-md flex-col items-center gap-3">
         <GenerationProgress
           isActive
-          color="bg-[#FB2B37]"
+          color="bg-[#FF5257]"
           messages={['Preparing ad for analysis...', 'Sending request...', 'Dissecting the ad...', 'Compiling results...']}
           showHelper={false}
           className="w-full"
         />
         <div className="flex min-h-[60px] w-full items-start gap-2 rounded-xl border border-white/5 bg-white/[0.02] px-3.5 py-3">
-          <span className="mt-0.5 shrink-0 rounded-full bg-[#FB2B37]/15 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest text-[#FB2B37]/80">
+          <span className="mt-0.5 shrink-0 rounded-full bg-[#FF5257]/15 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest text-[#FF5257]/80">
             Did you know
           </span>
           <p key={factIndex} className="animate-fade-in text-[12px] leading-relaxed text-zinc-400">
@@ -290,17 +290,17 @@ function AnalyzingPane({ item }: { item: AdAnatomyHistoryItem }) {
 function ErrorPane({ item, onRetry }: { item: AdAnatomyHistoryItem; onRetry: () => void }) {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-5 px-6">
-      <AlertCircle className="h-10 w-10 text-[#FB2B37]/70" strokeWidth={1.5} />
+      <AlertCircle className="h-10 w-10 text-[#FF5257]/70" strokeWidth={1.5} />
       <div className="flex flex-col items-center gap-2 text-center">
         <h2 className="text-lg font-semibold tracking-tight text-zinc-100">Analysis failed</h2>
         <p className="max-w-md text-xs text-zinc-500">{item.fileName}</p>
       </div>
-      <div className="max-w-md rounded-xl border border-[#FB2B37]/20 bg-[#FB2B37]/[0.06] px-4 py-3 text-center">
+      <div className="max-w-md rounded-xl border border-[#FF5257]/20 bg-[#FF5257]/[0.06] px-4 py-3 text-center">
         <p className="text-sm text-zinc-300">{item.errorMessage || 'Something went wrong.'}</p>
       </div>
       <button
         onClick={onRetry}
-        className="flex items-center gap-2 rounded-full border border-[#FB2B37]/20 bg-[#FB2B37]/10 px-4 py-2 text-sm font-medium text-[#FB2B37] transition-colors hover:bg-[#FB2B37]/20"
+        className="flex items-center gap-2 rounded-full border border-[#FF5257]/20 bg-[#FF5257]/10 px-4 py-2 text-sm font-medium text-[#FF5257] transition-colors hover:bg-[#FF5257]/20"
       >
         <RotateCcw className="h-3.5 w-3.5" />
         Re-upload to retry

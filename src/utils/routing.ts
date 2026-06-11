@@ -6,7 +6,7 @@ export const DEFAULT_SLUG = 'bank'
 
 const APP_ID_TO_SLUG: Record<string, string> = {
   'finder': 'bank',
-  'character-studio': 'characters',
+  'character-studio': 'influencers',
   'script-architect': 'scripts',
   'voice-studio': 'voiceovers',
   'broll-studio': 'broll',
@@ -15,9 +15,12 @@ const APP_ID_TO_SLUG: Record<string, string> = {
   'admin': 'admin',
 }
 
-const SLUG_TO_APP_ID: Record<string, string> = Object.fromEntries(
-  Object.entries(APP_ID_TO_SLUG).map(([id, slug]) => [slug, id])
-)
+const SLUG_TO_APP_ID: Record<string, string> = {
+  ...Object.fromEntries(Object.entries(APP_ID_TO_SLUG).map(([id, slug]) => [slug, id])),
+  // Legacy alias from before the Characters → Influencers rebrand so old
+  // bookmarks keep resolving.
+  'characters': 'character-studio',
+}
 
 export function getSlugForAppId(appId: string | null): string | null {
   if (!appId) return null

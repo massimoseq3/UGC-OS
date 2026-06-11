@@ -14,6 +14,7 @@ import GenerationProgress from '../../../components/GenerationProgress'
 import { estimateCredits, formatCredits, getDefaultModel, getModel, type ImageResolution } from '../../../utils/models'
 import HistoryPreviewModal from './HistoryPreviewModal'
 import { buildJsonPrompt } from '../services/generateCharacter'
+import { downloadImage } from '../../../utils/downloadImage'
 
 // One running generation. Persisted to localStorage so a mid-flight refresh
 // resumes polling instead of losing the job. `taskId` is the kie.ai task ref
@@ -111,7 +112,7 @@ export default function GalleryPanel({
             <p className="text-sm text-zinc-500">No generations yet</p>
             <p className="max-w-[300px] text-xs leading-relaxed text-zinc-600">
               Configure parameters on the left and hit Generate.
-              Every character you make lands here, sorted by day.
+              Every influencer you make lands here, sorted by day.
             </p>
           </div>
         ) : (
@@ -176,7 +177,12 @@ export default function GalleryPanel({
             onChange={(v) => onResolutionChange(v as ImageResolution)}
             renderOption={(v) => {
               const credits = formatCredits(estimateCredits(selectedModelId ?? '', { imageCount: 1, resolution: v as ImageResolution }))
-              return <span>{v}{credits ? ` · ${credits}` : ''}</span>
+              return (
+                <span className="flex w-full items-center justify-between gap-6">
+                  <span>{v}</span>
+                  {credits && <span className="text-zinc-500">{credits}</span>}
+                </span>
+              )
             }}
           />
           <ConstraintChip
@@ -196,11 +202,11 @@ export default function GalleryPanel({
         <button
           onClick={onGenerate}
           disabled={!canGenerate}
-          className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-sky-500 px-6 py-3.5 text-[13px] font-medium tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-40"
+          className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-influencers-500 px-6 py-3.5 text-[13px] font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-influencers-400 disabled:cursor-not-allowed disabled:opacity-40"
         >
           <UserRound className="h-4 w-4" />
           <span>
-            Generate Character{creditsLabel ? ` (${creditsLabel})` : ''}
+            Generate Influencer{creditsLabel ? ` (${creditsLabel})` : ''}
             {inFlight.length > 0 && ` · ${inFlight.length} running`}
           </span>
         </button>
@@ -311,12 +317,7 @@ function HistoryTile({
     e.stopPropagation()
     const resolved = await getUrl(item.imageRef)
     if (!resolved) return
-    const a = document.createElement('a')
-    a.href = resolved
-    a.download = `character-${item.id}.png`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
+    await downloadImage(resolved, `influencer-${item.id}`)
   }
 
   return (
@@ -336,8 +337,8 @@ function HistoryTile({
 
       {savedAsModel && (
         <div
-          title="Saved to Characters bank"
-          className="absolute left-1.5 top-1.5 flex h-5 items-center gap-1 rounded-md bg-emerald-500/30 px-1.5 text-[9px] font-medium text-emerald-100 backdrop-blur"
+          title="Saved to Influencers bank"
+          className="absolute left-1.5 top-1.5 flex h-6 items-center gap-1 rounded-full bg-emerald-500/30 px-2 text-[9px] font-medium text-emerald-100 backdrop-blur"
         >
           <Bookmark className="h-3 w-3" strokeWidth={2} />
           Saved
@@ -350,80 +351,100 @@ function HistoryTile({
           title={deleting ? 'Deleting…' : confirmingDelete ? 'Click again to delete' : 'Delete'}
           onClick={handleDelete}
           disabled={deleting}
-          className={`flex h-6 items-center justify-center gap-1 rounded-md px-1.5 backdrop-blur transition-colors disabled:cursor-wait ${
+          className={`flex h-8 items-center justify-center gap-1 rounded-full px-2 backdrop-blur transition-colors disabled:cursor-wait ${
             confirmingDelete
               ? 'bg-red-500/45 text-red-50 ring-1 ring-red-400/70'
               : 'bg-black/60 text-zinc-300 hover:bg-red-500/30 hover:text-red-200 disabled:hover:bg-black/60 disabled:hover:text-zinc-300'
           }`}
         >
-          {deleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+          {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
           {confirmingDelete && !deleting && <span className="text-[9px] font-medium uppercase tracking-wider">Confirm</span>}
         </button>
       </div>
 
-      {/* Bottom hover actions — stacked pills with gradient backdrop */}
-      <div className={`absolute inset-x-0 bottom-0 flex flex-col gap-1.5 bg-gradient-to-t from-black/85 via-black/60 to-transparent px-2 pb-2 pt-8 transition-opacity ${nameDraft !== null ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100'}`}>
-        {nameDraft !== null ? (
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="flex items-center gap-1 rounded-full border border-white/15 bg-black/70 pl-2.5 pr-1 py-1 backdrop-blur"
-          >
-            <input
-              ref={nameInputRef}
-              type="text"
-              value={nameDraft}
-              onChange={(e) => setNameDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') { e.preventDefault(); commitSave() }
-                if (e.key === 'Escape') { e.preventDefault(); setNameDraft(null) }
-              }}
-              placeholder="Name this character"
-              disabled={savingToBank}
-              className="min-w-0 flex-1 bg-transparent text-[11px] font-medium text-zinc-100 placeholder:text-zinc-500 focus:outline-none"
-            />
-            <button
-              type="button"
-              title="Cancel"
-              onClick={() => setNameDraft(null)}
-              disabled={savingToBank}
-              className="flex h-5 w-5 items-center justify-center rounded-full text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
-            >
-              <X className="h-3 w-3" />
-            </button>
-            <button
-              type="button"
-              title="Save"
-              onClick={commitSave}
-              disabled={savingToBank || !nameDraft.trim()}
-              className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/80 text-white hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {savingToBank ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-            </button>
-          </div>
-        ) : (
+      {/* Bottom hover actions — round icon buttons bottom-right, matching the
+          B-Roll tile cluster. The inline name input still takes over the
+          bottom edge while a save is being named. */}
+      {nameDraft !== null ? (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="absolute inset-x-2 bottom-2 flex items-center gap-1 rounded-full border border-white/15 bg-black/70 py-1 pl-2.5 pr-1 backdrop-blur"
+        >
+          <input
+            ref={nameInputRef}
+            type="text"
+            value={nameDraft}
+            onChange={(e) => setNameDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); commitSave() }
+              if (e.key === 'Escape') { e.preventDefault(); setNameDraft(null) }
+            }}
+            placeholder="Name this influencer"
+            disabled={savingToBank}
+            className="min-w-0 flex-1 bg-transparent text-[11px] font-medium text-zinc-100 placeholder:text-zinc-500 focus:outline-none"
+          />
           <button
             type="button"
-            onClick={openNameInput}
-            disabled={savedAsModel}
-            className={`flex w-full items-center justify-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[11px] font-medium backdrop-blur transition-colors ${savedAsModel
-              ? 'cursor-default border-emerald-500/40 bg-emerald-500/20 text-emerald-100'
-              : 'border-white/15 bg-black/60 text-zinc-100 hover:bg-black/80'
-            }`}
+            title="Cancel"
+            onClick={() => setNameDraft(null)}
+            disabled={savingToBank}
+            className="flex h-5 w-5 items-center justify-center rounded-full text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
           >
-            {savedAsModel ? <Check className="h-3 w-3" /> : <Bookmark className="h-3 w-3" />}
-            <span>{savedAsModel ? 'Saved to Bank' : 'Save to Bank'}</span>
+            <X className="h-3 w-3" />
           </button>
-        )}
-        <button
-          type="button"
-          onClick={handleDownload}
-          className="flex w-full items-center justify-center gap-1.5 rounded-full border border-white/15 bg-black/60 px-2.5 py-1.5 text-[11px] font-medium text-zinc-100 backdrop-blur transition-colors hover:bg-black/80"
-        >
-          <Download className="h-3 w-3" />
-          <span>Download image</span>
-        </button>
-      </div>
+          <button
+            type="button"
+            title="Save"
+            onClick={commitSave}
+            disabled={savingToBank || !nameDraft.trim()}
+            className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/80 text-white hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {savingToBank ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+          </button>
+        </div>
+      ) : (
+        <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          <TileIconButton
+            title={savedAsModel ? 'Saved to Bank' : savingToBank ? 'Saving…' : 'Save to Bank'}
+            tone={savedAsModel ? 'saved' : 'default'}
+            onClick={openNameInput}
+          >
+            {savedAsModel ? <Check className="h-4 w-4" /> : savingToBank ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bookmark className="h-4 w-4" />}
+          </TileIconButton>
+          <TileIconButton title="Download image" onClick={handleDownload}>
+            <Download className="h-4 w-4" />
+          </TileIconButton>
+        </div>
+      )}
     </div>
+  )
+}
+
+// Round 32px hover icon button — mirrors the B-Roll tile cluster so gallery
+// tiles read the same across apps.
+function TileIconButton({
+  children,
+  onClick,
+  title,
+  tone = 'default',
+}: {
+  children: React.ReactNode
+  onClick: (e: React.MouseEvent) => void
+  title: string
+  tone?: 'default' | 'saved'
+}) {
+  const toneClass = tone === 'saved'
+    ? 'bg-emerald-500/40 text-emerald-100 hover:bg-emerald-500/50'
+    : 'bg-black/60 text-zinc-200 hover:bg-black/80'
+  return (
+    <button
+      type="button"
+      title={title}
+      onClick={onClick}
+      className={`flex h-8 w-8 items-center justify-center rounded-full backdrop-blur transition-colors ${toneClass}`}
+    >
+      {children}
+    </button>
   )
 }
 
@@ -466,31 +487,31 @@ function InFlightTile({ gen, onCancel }: { gen: InFlightCharacterGen; onCancel: 
   const modelLabel = getModel(gen.modelId)?.displayName ?? gen.modelId
   return (
     <div
-      className="group relative overflow-hidden rounded-lg border border-sky-500/30 bg-gradient-to-br from-sky-500/[0.08] to-zinc-950"
+      className="group relative overflow-hidden rounded-lg border border-influencers-500/30 bg-gradient-to-br from-influencers-500/[0.08] to-zinc-950"
       style={aspectStyle(gen.aspectRatio)}
     >
-      <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-sky-500/10 via-transparent to-sky-500/5" />
-      <div className="absolute left-1.5 top-1.5 rounded-full bg-sky-500/30 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-sky-100 backdrop-blur">
+      <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-influencers-500/10 via-transparent to-influencers-500/5" />
+      <div className="absolute left-1.5 top-1.5 rounded-full bg-influencers-500/30 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-influencers-100 backdrop-blur">
         generating
       </div>
       <button
         type="button"
         title="Cancel"
         onClick={onCancel}
-        className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-md bg-black/60 text-zinc-300 opacity-0 backdrop-blur transition-opacity hover:bg-red-500/30 hover:text-red-200 group-hover:opacity-100"
+        className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-zinc-300 opacity-0 backdrop-blur transition-opacity hover:bg-red-500/30 hover:text-red-200 group-hover:opacity-100"
       >
         <X className="h-3 w-3" />
       </button>
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center">
-        <UserRound className="h-5 w-5 text-sky-300" />
-        <p className="text-[10px] font-medium text-sky-100">{modelLabel}</p>
+        <UserRound className="h-5 w-5 text-influencers-300" />
+        <p className="text-[10px] font-medium text-influencers-100">{modelLabel}</p>
         <GenerationProgress
           isActive
-          color="bg-sky-500"
+          color="bg-influencers-500"
           showHelper={false}
           messages={[
             'Sending request...',
-            'Composing the character...',
+            'Composing the influencer...',
             'Rendering details...',
             'Finalizing the frame...',
           ]}

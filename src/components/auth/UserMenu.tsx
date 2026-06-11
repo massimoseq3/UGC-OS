@@ -30,17 +30,23 @@ export default function UserMenu({ collapsed }: UserMenuProps) {
 
   return (
     <div ref={ref} className="relative">
+      {/* Avatar matches the 20px icon size of the other sidebar rows
+          (Settings etc.) so the bottom cluster reads as one set. */}
       <button
         onClick={() => setOpen((v) => !v)}
-        className={`flex w-full items-center rounded-lg transition-colors hover:bg-white/[0.04] ${
+        className={`flex w-full items-center rounded-full transition-colors hover:bg-white/[0.04] ${
           collapsed ? 'flex-col gap-1 px-1 py-2' : 'gap-3 px-3 py-2'
         }`}
         title="My Account"
       >
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#e8dcc8] to-[#c4a77d] text-[12px] font-semibold text-stone-800">
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#e8dcc8] to-[#c4a77d] text-[10px] font-semibold text-stone-800">
           {initial}
         </span>
-        {!collapsed && (
+        {collapsed ? (
+          <span className="text-center text-[10px] leading-tight font-normal text-zinc-300">
+            Account
+          </span>
+        ) : (
           <span className="min-w-0 flex-1 truncate text-left text-sm text-zinc-300">
             My Account
           </span>

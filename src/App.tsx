@@ -4,7 +4,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import AppLogo from './components/AppLogo'
 import AppBackground from './components/AppBackground'
 
-import MenuBar from './components/MenuBar'
+import { Menu } from 'lucide-react'
 import Sidebar from './components/Sidebar'
 import ToastContainer from './components/Toast'
 import AuthGate from './components/auth/AuthGate'
@@ -55,6 +55,22 @@ function AppPlaceholder({ appId }: { appId: string }) {
         {config.name}
       </span>
     </div>
+  )
+}
+
+// With the top bar gone, mobile needs its own way to open the sidebar
+// drawer — a small floating burger pinned top-left. Hidden on md+ where the
+// sidebar is always visible and carries its own burger.
+function MobileMenuButton() {
+  const setMobileSidebarOpen = useAppStore((s) => s.setMobileSidebarOpen)
+  return (
+    <button
+      onClick={() => setMobileSidebarOpen(true)}
+      className="fixed left-3 top-3 z-30 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-[#09090b]/80 text-zinc-300 backdrop-blur transition-colors hover:bg-white/[0.06] md:hidden"
+      aria-label="Open sidebar"
+    >
+      <Menu className="h-5 w-5" strokeWidth={1.75} />
+    </button>
   )
 }
 
@@ -115,12 +131,12 @@ function Workspace() {
       <AppBackground />
 
       <div className="relative z-10 h-full w-full">
-        <MenuBar />
         <Sidebar />
+        <MobileMenuButton />
 
         {/* Empty state — visible when no app is active */}
         <div
-          className={`absolute inset-0 pt-14 ${contentPadding} transition-[padding] duration-200 ease-out ${
+          className={`absolute inset-0 ${contentPadding} transition-[padding] duration-200 ease-out ${
             activeApp ? 'pointer-events-none opacity-0' : 'pointer-events-auto opacity-100'
           }`}
         >
@@ -134,7 +150,7 @@ function Workspace() {
           return (
             <div
               key={appId}
-              className={`absolute inset-0 pt-14 ${contentPadding} transition-[padding] duration-200 ease-out ${
+              className={`absolute inset-0 ${contentPadding} transition-[padding] duration-200 ease-out ${
                 isActive ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
               }`}
             >

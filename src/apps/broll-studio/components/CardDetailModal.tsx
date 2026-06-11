@@ -412,7 +412,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                 {tagLabel(variation.tag)}
               </span>
             )}
-            <span className="text-[10px] uppercase tracking-wider text-zinc-500">
+            <span className="text-[10px] uppercase tracking-wider text-zinc-400">
               {rollTypeForTag(variation.tag)} · Scene {sceneNumber}
             </span>
           </div>
@@ -531,7 +531,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                           onClick={() => onUpdateState({ cardVideoAudio: !cardState.cardVideoAudio })}
                           className={`flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[12px] transition-colors ${
                             cardState.cardVideoAudio
-                              ? 'border-green-500/30 bg-green-500/10 text-green-200'
+                              ? 'border-broll-500/40 bg-broll-500/15 text-broll-200'
                               : 'border-white/10 bg-white/[0.02] text-zinc-400 hover:bg-white/[0.05]'
                           }`}
                         >
@@ -580,7 +580,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                   <ReferenceSlotCard
                     icon={<User className="h-4 w-4 text-sky-400" />}
                     accentClass="bg-sky-500/15 text-sky-400"
-                    kind="Character"
+                    kind="Influencer"
                     name={selectedModel?.name}
                     imageRef={selectedModel?.characterImage}
                     onClick={() => onOpenCharacterPicker?.()}
@@ -604,7 +604,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                 </div>
                 {hasActiveRef && refsUnsupportedForVideo && (
                   <p className="mt-2 text-[11px] leading-relaxed text-amber-400/80">
-                    {videoModelName} doesn't support reference images — this will generate text-to-video only. Pick Veo 3.1 Fast or Seedance 2.0 to use your character/product.
+                    {videoModelName} doesn't support reference images — this will generate text-to-video only. Pick Veo 3.1 Fast or Seedance 2.0 to use your influencer/product.
                   </p>
                 )}
                 </div>
@@ -667,7 +667,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                 <button
                   onClick={handleGenerateImage}
                   disabled={!cardState.editablePrompt.trim()}
-                  className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-orange-500 px-6 py-3.5 text-[13px] font-medium tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-broll-500 px-6 py-3.5 text-[13px] font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <ImageIcon className="h-4 w-4" />
                   Generate Image{imageCreditsLabel ? ` (${imageCreditsLabel})` : ''}
@@ -676,7 +676,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                 <button
                   onClick={() => handleGenerateVideo(videoModelId)}
                   disabled={!cardState.editablePrompt.trim()}
-                  className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-orange-500 px-6 py-3.5 text-[13px] font-medium tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-broll-500 px-6 py-3.5 text-[13px] font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <VideoIcon className="h-4 w-4" />
                   Generate Video{videoCreditsLabel ? ` (${videoCreditsLabel})` : ''}
@@ -686,7 +686,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                   onClick={() => handleAnimate(effectiveAnimateFrame, videoModelId)}
                   disabled={!cardState.editablePrompt.trim() || !effectiveAnimateFrame}
                   title={!effectiveAnimateFrame ? 'Generate an image first, then animate it' : undefined}
-                  className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-orange-500 px-6 py-3.5 text-[13px] font-medium tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-broll-500 px-6 py-3.5 text-[13px] font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <Film className="h-4 w-4" />
                   Animate{videoCreditsLabel ? ` (${videoCreditsLabel})` : ''}

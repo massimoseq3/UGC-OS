@@ -372,8 +372,8 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
-    try { await pushRow('models', newModel) } catch (e) { reportError('Save character', e) }
-    reportSuccess('Character saved')
+    try { await pushRow('models', newModel) } catch (e) { reportError('Save influencer', e) }
+    reportSuccess('Influencer saved')
   },
 
   updateModel: async (id, updates) => {
@@ -388,21 +388,21 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
-    try { await pushRow('models', updated) } catch (e) { reportError('Update character', e) }
-    reportSuccess('Character updated')
+    try { await pushRow('models', updated) } catch (e) { reportError('Update influencer', e) }
+    reportSuccess('Influencer updated')
   },
 
   deleteModel: async (id) => {
     const item = get().models.find((m) => m.id === id)
     if (!item) return
-    try { await dropRow('models', id) } catch (e) { reportError('Delete character', e) }
+    try { await dropRow('models', id) } catch (e) { reportError('Delete influencer', e) }
     if (item.characterImage) await cleanupAssets(item.characterImage)
     set((state) => {
       const next = { models: state.models.filter((m) => m.id !== id) }
       saveToStorage({ ...state, ...next })
       return next
     })
-    reportSuccess('Character deleted')
+    reportSuccess('Influencer deleted')
   },
 
   getModelById: (id) => get().models.find((m) => m.id === id),
@@ -804,7 +804,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
-    try { await pushRow('characterHistory', item) } catch (e) { reportErrorSoft('Save character history', e) }
+    try { await pushRow('characterHistory', item) } catch (e) { reportErrorSoft('Save influencer history', e) }
   },
 
   updateCharacterHistory: async (id, updates) => {
@@ -816,13 +816,13 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
-    try { await pushRow('characterHistory', updated) } catch (e) { reportErrorSoft('Update character history', e) }
+    try { await pushRow('characterHistory', updated) } catch (e) { reportErrorSoft('Update influencer history', e) }
   },
 
   deleteCharacterHistory: async (id) => {
     const item = get().characterHistory.find((h) => h.id === id)
     if (!item) return
-    try { await dropRow('characterHistory', id) } catch (e) { reportErrorSoft('Delete character history', e) }
+    try { await dropRow('characterHistory', id) } catch (e) { reportErrorSoft('Delete influencer history', e) }
     // Only purge the asset blob if it isn't referenced by a saved Model.
     // The Model owns the image once saved; the history row is just an index.
     if (!item.linkedModelId) await cleanupAssets(item.imageRef)
@@ -831,7 +831,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
-    reportSuccess('Character removed from history')
+    reportSuccess('Influencer removed from history')
   },
 
   clearCharacterHistory: async () => {
@@ -849,7 +849,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
-    reportSuccess('Character history cleared')
+    reportSuccess('Influencer history cleared')
   },
 
   // ── Ad Anatomy History (Ad Analyzer) ────────────────────────────

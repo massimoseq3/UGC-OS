@@ -9,12 +9,6 @@ const ICON_MAP = {
   error: AlertTriangle,
 }
 
-const STYLE_MAP = {
-  success: 'border-emerald-500/20 bg-emerald-500/5',
-  info: 'border-blue-500/20 bg-blue-500/5',
-  error: 'border-red-500/20 bg-red-500/5',
-}
-
 const ICON_STYLE_MAP = {
   success: 'text-emerald-400',
   info: 'text-blue-400',
@@ -45,19 +39,24 @@ function ToastItem({ toast }: { toast: ToastType }) {
     setTimeout(() => removeToast(toast.id), 200)
   }
 
+  // Compact neutral pill — the type only tints the icon, so a toast reads as
+  // a quiet status blip rather than a colored banner.
   return (
     <div
-      className={`flex items-center gap-3 rounded-xl border px-4 py-3 shadow-lg backdrop-blur-xl transition-all duration-200 ease-out ${STYLE_MAP[type]} ${
+      className={`flex items-center gap-2 self-end rounded-full border border-white/10 bg-[#0B0B0D]/90 py-1.5 pl-3 pr-1.5 shadow-lg backdrop-blur-xl transition-all duration-200 ease-out ${
         visible
-          ? 'translate-x-0 opacity-100'
-          : 'translate-x-8 opacity-0'
+          ? 'translate-y-0 opacity-100'
+          : '-translate-y-2 opacity-0'
       }`}
     >
-      <Icon className={`h-4 w-4 shrink-0 ${ICON_STYLE_MAP[type]}`} strokeWidth={2} />
-      <span className="text-sm font-medium text-zinc-200">{toast.message}</span>
+      <Icon className={`h-3.5 w-3.5 shrink-0 ${ICON_STYLE_MAP[type]}`} strokeWidth={2} />
+      <span className="max-w-[260px] truncate text-[12px] font-medium text-zinc-300" title={toast.message}>
+        {toast.message}
+      </span>
       <button
         onClick={handleDismiss}
-        className="ml-2 shrink-0 rounded-md p-2 lg:p-0.5 text-zinc-600 transition-colors hover:text-zinc-400"
+        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-zinc-600 transition-colors hover:bg-white/[0.06] hover:text-zinc-300"
+        aria-label="Dismiss"
       >
         <X className="h-3 w-3" />
       </button>
@@ -71,7 +70,7 @@ export default function ToastContainer() {
   if (toasts.length === 0) return null
 
   return (
-    <div className="fixed top-14 lg:top-12 right-4 left-4 lg:left-auto z-[100] flex flex-col gap-2">
+    <div className="fixed right-4 top-4 z-[100] flex flex-col items-end gap-1.5">
       {toasts.map((toast) => (
         <ToastItem key={toast.id} toast={toast} />
       ))}

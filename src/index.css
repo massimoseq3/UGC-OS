@@ -1,5 +1,55 @@
 @import "tailwindcss";
 
+/* Per-app accent palettes. Each app's UI references its own family
+   (bg-influencers-500, text-voice-300, …) so changing an app's accent is a
+   one-line edit here (plus the hex in utils/constants.ts for sidebar/bank
+   chrome). Shades are derived from the base with color-mix so the ramp
+   stays consistent. */
+@theme {
+  /* Influencers — pink #F74F9E */
+  --color-influencers-100: color-mix(in oklab, #F74F9E 25%, white);
+  --color-influencers-200: color-mix(in oklab, #F74F9E 40%, white);
+  --color-influencers-300: color-mix(in oklab, #F74F9E 60%, white);
+  --color-influencers-400: color-mix(in oklab, #F74F9E 80%, white);
+  --color-influencers-500: #F74F9E;
+  --color-influencers-600: color-mix(in oklab, #F74F9E 85%, black);
+
+  /* Scripts — orange #F7821B */
+  --color-scripts-100: color-mix(in oklab, #F7821B 25%, white);
+  --color-scripts-200: color-mix(in oklab, #F7821B 40%, white);
+  --color-scripts-300: color-mix(in oklab, #F7821B 60%, white);
+  --color-scripts-400: color-mix(in oklab, #F7821B 80%, white);
+  --color-scripts-500: #F7821B;
+  --color-scripts-600: color-mix(in oklab, #F7821B 85%, black);
+
+  /* Voiceovers — blue #007AFF */
+  --color-voice-100: color-mix(in oklab, #007AFF 25%, white);
+  --color-voice-200: color-mix(in oklab, #007AFF 40%, white);
+  --color-voice-300: color-mix(in oklab, #007AFF 60%, white);
+  --color-voice-400: color-mix(in oklab, #007AFF 80%, white);
+  --color-voice-500: #007AFF;
+  --color-voice-600: color-mix(in oklab, #007AFF 85%, black);
+
+  /* B-Roll — purple #7165FF */
+  --color-broll-100: color-mix(in oklab, #7165FF 25%, white);
+  --color-broll-200: color-mix(in oklab, #7165FF 40%, white);
+  --color-broll-300: color-mix(in oklab, #7165FF 60%, white);
+  --color-broll-400: color-mix(in oklab, #7165FF 80%, white);
+  --color-broll-500: #7165FF;
+  --color-broll-600: color-mix(in oklab, #7165FF 85%, black);
+
+  /* Playground — green #62BA46 */
+  --color-playground-100: color-mix(in oklab, #62BA46 25%, white);
+  --color-playground-200: color-mix(in oklab, #62BA46 40%, white);
+  --color-playground-300: color-mix(in oklab, #62BA46 60%, white);
+  --color-playground-400: color-mix(in oklab, #62BA46 80%, white);
+  --color-playground-500: #62BA46;
+  --color-playground-600: color-mix(in oklab, #62BA46 85%, black);
+
+  /* Ad Analyzer — red #FF5257 (used as literal hex in ad-anatomy) */
+  --color-analyzer-500: #FF5257;
+}
+
 html,
 body,
 #root {
@@ -74,9 +124,9 @@ select {
 
 /* Send-to field highlight flash */
 @keyframes field-flash {
-  0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); }
-  50% { box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15); }
-  100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+  0% { box-shadow: 0 0 0 0 rgba(0, 122, 255, 0.4); }
+  50% { box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.15); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 122, 255, 0); }
 }
 .animate-field-flash {
   animation: field-flash 0.8s ease-out;

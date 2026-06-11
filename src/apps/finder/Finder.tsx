@@ -7,6 +7,7 @@ import { BANK_CONFIG } from '../../utils/constants'
 import type { Product, Model, Script, VoicePreset, BRoll } from '../../stores/types'
 import { saveFromDataUrl } from '../../utils/assetStore'
 import BankList, { SortControl } from './BankList'
+import SegmentedToggle from '../../components/SegmentedToggle'
 import { useBankSort } from './bankSort'
 import ProductForm from './ProductForm'
 import ModelForm from './ModelForm'
@@ -103,10 +104,12 @@ export default function Finder() {
     setShowForm(true)
   }
 
-  const closeForm = () => {
+  // Memoized — captured by the useCallback save handlers below, so it must
+  // be referentially stable for the React Compiler to keep their memoization.
+  const closeForm = useCallback(() => {
     setEditingId(null)
     setShowForm(false)
-  }
+  }, [])
 
   const handleSaveProduct = useCallback(async (data: Omit<Product, 'id' | 'createdAt'>) => {
     const saved: Omit<Product, 'id' | 'createdAt'> = { ...data, confirmed: true }
@@ -116,7 +119,7 @@ export default function Finder() {
     if (editingId) await updateProduct(editingId, saved)
     else await addProduct(saved)
     closeForm()
-  }, [editingId, updateProduct, addProduct])
+  }, [editingId, updateProduct, addProduct, closeForm])
 
   const trackInFlight = useCallback((id: string, active: boolean) => {
     setInFlightIds((prev) => {
@@ -138,7 +141,7 @@ export default function Finder() {
         addToast(ok ? 'Draft product saved' : 'Saved as draft (extraction failed)', ok ? 'success' : 'info')
       },
     })
-  }, [trackInFlight, addToast])
+  }, [trackInFlight, addToast, closeForm])
 
   const handleBulkFiles = useCallback(async (files: File[]) => {
     const valid = files.filter(isValidImageFile)
@@ -171,7 +174,7 @@ export default function Finder() {
     if (editingId) await updateModel(editingId, saved)
     else await addModel(saved)
     closeForm()
-  }, [editingId, updateModel, addModel])
+  }, [editingId, updateModel, addModel, closeForm])
 
   const handleSaveScript = async (data: Omit<Script, 'id' | 'createdAt'>) => {
     if (editingId) await updateScript(editingId, data)
@@ -193,7 +196,7 @@ export default function Finder() {
     if (editingId) await updateBRoll(editingId, saved)
     else await addBRoll(saved)
     closeForm()
-  }, [editingId, updateBRoll, addBRoll])
+  }, [editingId, updateBRoll, addBRoll, closeForm])
 
   const editingProduct = editingId ? products.find((p) => p.id === editingId) : null
   const editingModel = editingId ? models.find((m) => m.id === editingId) : null
@@ -202,112 +205,95 @@ export default function Finder() {
   const editingBRoll = editingId ? brolls.find((b) => b.id === editingId) : null
 
   return (
-    <div className="flex flex-col md:flex-row h-full">
-      {/* Sidebar — horizontal scrollable pills on mobile, vertical on desktop */}
-      <div className="flex md:w-52 shrink-0 flex-row md:flex-col overflow-x-auto md:overflow-x-visible border-b md:border-b-0 md:border-r border-white/5 bg-white/[0.02] py-2 md:py-3 px-2 md:px-0 gap-1 md:gap-0">
-        <span className="hidden md:block mb-3 px-4 text-[11px] font-medium uppercase tracking-widest text-zinc-600">
-          Banks
-        </span>
-        {BANK_TYPES.map((bank) => {
-          const Icon = SIDEBAR_ICONS[bank]
-          const isActive = activeBank === bank
-          return (
-            <button
-              key={bank}
-              onClick={() => { setActiveBank(bank); closeForm() }}
-              className={`md:mx-2 flex items-center gap-2 md:gap-2.5 whitespace-nowrap rounded-full px-3 py-2 text-left text-sm transition-colors ${isActive
-                  ? 'bg-white/[0.07] text-zinc-200'
-                  : 'text-zinc-500 hover:bg-white/[0.03] hover:text-zinc-300'
-                }`}
-            >
-              <Icon className="h-4 w-4 shrink-0" strokeWidth={1.5} />
-              <span className="flex-1 tracking-tight">{BANK_CONFIG[bank].label}</span>
-              <span className="text-[11px] tabular-nums text-zinc-600">{counts[bank]}</span>
-            </button>
-          )
-        })}
+    <div className="flex h-full flex-col">
+      {/* Header — bank toggle on the left, actions on the right. Replaces
+          the old Banks sidebar so the browser gets the full width. */}
+      <div className="flex flex-col gap-3 border-b border-white/5 px-5 pb-3 pt-4 lg:flex-row lg:items-center">
+        <div className="min-w-0 flex-1">
+          <SegmentedToggle<BankType>
+            value={activeBank}
+            onChange={(bank) => { setActiveBank(bank); closeForm() }}
+            options={BANK_TYPES.map((bank) => ({
+              value: bank,
+              label: BANK_CONFIG[bank].label,
+              icon: SIDEBAR_ICONS[bank],
+              badge: counts[bank] > 0 ? counts[bank] : undefined,
+            }))}
+          />
+        </div>
+        <div className="flex shrink-0 items-center justify-end gap-3">
+          {sortOptions && counts[activeBank] > 0 && !showForm && (
+            <SortControl value={sort} onChange={setSort} options={sortOptions} />
+          )}
+          {activeBank === 'products' && !showForm && (
+            <>
+              <input
+                ref={bulkInputRef}
+                type="file"
+                accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  const files = Array.from(e.target.files ?? [])
+                  e.target.value = ''
+                  if (files.length > 0) handleBulkFiles(files)
+                }}
+              />
+              <button
+                onClick={() => bulkInputRef.current?.click()}
+                className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-zinc-300 transition-colors hover:bg-white/[0.08]"
+              >
+                <Upload className="h-3.5 w-3.5" />
+                Bulk add
+              </button>
+            </>
+          )}
+          <button
+            onClick={handleAdd}
+            className="flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-zinc-900 transition-colors hover:bg-zinc-100"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add
+          </button>
+        </div>
       </div>
 
-      {/* Main content */}
-      <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/5 px-5 py-3">
-          <h2 className="text-sm font-semibold tracking-tight text-zinc-200">
-            {BANK_CONFIG[activeBank].label}
-          </h2>
-          <div className="flex items-center gap-3">
-            {sortOptions && counts[activeBank] > 0 && !showForm && (
-              <SortControl value={sort} onChange={setSort} options={sortOptions} />
+      {/* Content area — list or form. Forms render unboxed so they get the
+          full width of the section. */}
+      <div className="flex-1 overflow-y-auto p-5">
+        {showForm ? (
+          <div className={`mx-auto ${['products', 'models', 'brolls', 'scripts'].includes(activeBank) ? 'max-w-4xl' : 'max-w-md'}`}>
+            {activeBank === 'products' && (
+              <ProductForm
+                item={editingProduct}
+                onSave={handleSaveProduct}
+                onCancel={closeForm}
+                onCancelDuringExtraction={handleCancelDuringExtraction}
+              />
             )}
-            {activeBank === 'products' && !showForm && (
-              <>
-                <input
-                  ref={bulkInputRef}
-                  type="file"
-                  accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
-                  multiple
-                  className="hidden"
-                  onChange={(e) => {
-                    const files = Array.from(e.target.files ?? [])
-                    e.target.value = ''
-                    if (files.length > 0) handleBulkFiles(files)
-                  }}
-                />
-                <button
-                  onClick={() => bulkInputRef.current?.click()}
-                  className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-zinc-300 transition-colors hover:bg-white/[0.08]"
-                >
-                  <Upload className="h-3.5 w-3.5" />
-                  Bulk add
-                </button>
-              </>
+            {activeBank === 'models' && (
+              <ModelForm item={editingModel} onSave={handleSaveModel} onCancel={closeForm} />
             )}
-            <button
-              onClick={handleAdd}
-              className="flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-zinc-900 transition-colors hover:bg-zinc-100"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Add
-            </button>
+            {activeBank === 'scripts' && (
+              <ScriptForm item={editingScript} onSave={handleSaveScript} onCancel={closeForm} />
+            )}
+            {activeBank === 'voices' && (
+              <VoiceForm item={editingVoice} onSave={handleSaveVoice} onCancel={closeForm} />
+            )}
+            {activeBank === 'brolls' && (
+              <BRollForm item={editingBRoll} onSave={handleSaveBRoll} onCancel={closeForm} />
+            )}
           </div>
-        </div>
-
-        {/* Content area — list or form */}
-        <div className="flex-1 overflow-y-auto p-5">
-          {showForm ? (
-            <div className={`rounded-xl border border-white/5 bg-white/[0.02] p-5 ${activeBank === 'products' ? 'h-full' : `mx-auto ${['models', 'brolls', 'scripts'].includes(activeBank) ? 'max-w-3xl' : 'max-w-md'}`}`}>
-              {activeBank === 'products' && (
-                <ProductForm
-                  item={editingProduct}
-                  onSave={handleSaveProduct}
-                  onCancel={closeForm}
-                  onCancelDuringExtraction={handleCancelDuringExtraction}
-                />
-              )}
-              {activeBank === 'models' && (
-                <ModelForm item={editingModel} onSave={handleSaveModel} onCancel={closeForm} />
-              )}
-              {activeBank === 'scripts' && (
-                <ScriptForm item={editingScript} onSave={handleSaveScript} onCancel={closeForm} />
-              )}
-              {activeBank === 'voices' && (
-                <VoiceForm item={editingVoice} onSave={handleSaveVoice} onCancel={closeForm} />
-              )}
-              {activeBank === 'brolls' && (
-                <BRollForm item={editingBRoll} onSave={handleSaveBRoll} onCancel={closeForm} />
-              )}
-            </div>
-          ) : (
-            <BankList
-              bankType={activeBank}
-              onEdit={handleEdit}
-              onAdd={handleAdd}
-              sort={sort}
-              inFlightProductIds={inFlightIds}
-              onBulkProductFiles={handleBulkFiles}
-            />
-          )}
-        </div>
+        ) : (
+          <BankList
+            bankType={activeBank}
+            onEdit={handleEdit}
+            onAdd={handleAdd}
+            sort={sort}
+            inFlightProductIds={inFlightIds}
+            onBulkProductFiles={handleBulkFiles}
+          />
+        )}
       </div>
     </div>
   )

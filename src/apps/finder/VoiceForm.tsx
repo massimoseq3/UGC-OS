@@ -95,7 +95,7 @@ export default function VoiceForm({ item, onSave, onCancel }: VoiceFormProps) {
           step={0.05}
           value={stability}
           onChange={(e) => setStability(parseFloat(e.target.value))}
-          className="mt-1 w-full accent-indigo-500"
+          className="mt-1 w-full accent-voice-500"
         />
         <div className="mt-1 flex items-center justify-between text-[10px] text-zinc-700">
           <span>Variable</span>

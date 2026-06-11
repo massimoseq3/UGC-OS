@@ -29,10 +29,9 @@ const FIELD_META: Record<string, { label: string; type: 'text' | 'textarea'; req
   cta: { label: 'CTA', type: 'text' },
 }
 
-// Two balanced columns so the form fills the width and the textareas can grow
-// vertically to fill the height — no page scroll.
-const COLUMN_A = ['productName', 'productDescription', 'painPoints', 'benefits'] as const
-const COLUMN_B = ['targetMarket', 'usps', 'offer', 'cta'] as const
+// One stacked column — fields read top-to-bottom and the page scrolls,
+// instead of the old two-column grid that crammed textareas side by side.
+const FIELD_ORDER = ['productName', 'productDescription', 'targetMarket', 'painPoints', 'usps', 'benefits', 'offer', 'cta'] as const
 
 const REQUIRED_KEYS = ['productName', 'productDescription'] as const
 
@@ -176,24 +175,25 @@ export default function ProductForm({ item, onSave, onCancel, onCancelDuringExtr
     const { label, type, required } = FIELD_META[key]
     const value = form[key as keyof typeof form] as string
     const isMissing = showError && required && !value.toString().trim()
-    const baseCls = 'rounded-lg border bg-transparent px-3 py-2 text-[13px] text-zinc-200 placeholder-zinc-600 outline-none transition-colors'
+    const baseCls = 'w-full rounded-2xl border bg-white/[0.02] px-4 py-3 text-[13px] text-zinc-200 placeholder-zinc-600 outline-none transition-colors'
     const borderCls = isMissing ? 'border-red-500/60 focus:border-red-400' : 'border-white/10 focus:border-white/20'
     return (
-      <label key={key} className={`flex flex-col gap-1 ${type === 'textarea' ? 'min-h-0 flex-1' : ''}`}>
-        <span className={`text-[11px] font-medium uppercase tracking-widest ${isMissing ? 'text-red-400' : 'text-zinc-500'}`}>
+      <label key={key} className="flex flex-col gap-1.5">
+        <span className={`text-[11px] font-medium uppercase tracking-widest ${isMissing ? 'text-red-400' : 'text-zinc-400'}`}>
           {label}{required && ' *'}
         </span>
         {type === 'textarea' ? (
           <textarea
             value={value}
             onChange={(e) => set(key, e.target.value)}
-            className={`${baseCls} ${borderCls} min-h-[64px] flex-1 resize-none leading-relaxed`}
+            rows={3}
+            className={`${baseCls} ${borderCls} min-h-[84px] resize-none leading-relaxed`}
           />
         ) : (
           <input
             value={value}
             onChange={(e) => set(key, e.target.value)}
-            className={`${baseCls} ${borderCls}`}
+            className={`${baseCls} ${borderCls} rounded-full`}
           />
         )}
       </label>
@@ -223,7 +223,7 @@ export default function ProductForm({ item, onSave, onCancel, onCancelDuringExtr
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
-      className="relative flex h-full flex-col gap-4"
+      className="relative flex flex-col gap-4"
     >
       {overlayActive && (
         <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center rounded-xl border-2 border-dashed border-emerald-400/60 bg-emerald-500/10 backdrop-blur-sm">
@@ -243,8 +243,8 @@ export default function ProductForm({ item, onSave, onCancel, onCancelDuringExtr
         </button>
       </div>
 
-      {/* Side-by-side: image left, fields right */}
-      <div className="flex min-h-0 flex-1 flex-col gap-5 md:flex-row">
+      {/* Side-by-side: image left, fields right (single stacked column) */}
+      <div className="flex flex-col gap-5 md:flex-row">
         {/* Left — square product image */}
         <div className="w-full md:w-56 shrink-0">
           {displayImage ? (
@@ -287,10 +287,9 @@ export default function ProductForm({ item, onSave, onCancel, onCancelDuringExtr
         <input ref={fileRef} type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" className="hidden" onChange={handleImage} />
 
         {/* Right — all fields + save */}
-        <div className={`flex min-h-0 flex-1 flex-col gap-3 min-w-0 transition-opacity ${isExtracting ? 'pointer-events-none opacity-60' : ''}`}>
-          <div className="grid min-h-0 flex-1 grid-cols-1 gap-x-4 gap-y-3 md:grid-cols-2">
-            <div className="flex min-h-0 flex-col gap-3">{COLUMN_A.map(renderField)}</div>
-            <div className="flex min-h-0 flex-col gap-3">{COLUMN_B.map(renderField)}</div>
+        <div className={`flex min-w-0 flex-1 flex-col gap-3 transition-opacity ${isExtracting ? 'pointer-events-none opacity-60' : ''}`}>
+          <div className="flex flex-col gap-4">
+            {FIELD_ORDER.map(renderField)}
           </div>
 
           {showError && (

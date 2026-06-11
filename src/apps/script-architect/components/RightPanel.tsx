@@ -3,6 +3,7 @@ import type { ScriptHistoryItem } from '../../../stores/types'
 import type { ScriptMode } from '../types'
 import OutputPanel from './OutputPanel'
 import HistoryView from './HistoryView'
+import SegmentedToggle from '../../../components/SegmentedToggle'
 
 type Tab = 'output' | 'history'
 
@@ -41,18 +42,15 @@ export default function RightPanel({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-1 border-b border-white/5 px-5">
-        <TabButton active={tab === 'output'} onClick={() => setTab('output')}>
-          Output
-        </TabButton>
-        <TabButton active={tab === 'history'} onClick={() => setTab('history')}>
-          History
-          {history.length > 0 && (
-            <span className="ml-1.5 rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] text-zinc-300">
-              {history.length}
-            </span>
-          )}
-        </TabButton>
+      <div className="flex items-center px-5 pb-2 pt-4">
+        <SegmentedToggle<Tab>
+          value={tab}
+          onChange={setTab}
+          options={[
+            { value: 'output', label: 'Output' },
+            { value: 'history', label: 'History', badge: history.length > 0 ? history.length : undefined },
+          ]}
+        />
       </div>
 
       <div className="relative min-h-0 flex-1 overflow-hidden">
@@ -75,23 +73,5 @@ export default function RightPanel({
         )}
       </div>
     </div>
-  )
-}
-
-function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`relative flex items-center gap-1 px-3 pb-2 pt-5 text-sm font-medium tracking-tight transition-colors ${
-        active ? 'text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'
-      }`}
-    >
-      {children}
-      <span
-        className={`absolute inset-x-3 -bottom-px h-0.5 rounded-full transition-colors ${
-          active ? 'bg-zinc-100' : 'bg-transparent'
-        }`}
-      />
-    </button>
   )
 }
