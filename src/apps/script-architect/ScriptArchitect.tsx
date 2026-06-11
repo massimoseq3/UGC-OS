@@ -6,7 +6,7 @@ import InputPanel from './components/InputPanel'
 import RightPanel from './components/RightPanel'
 import { generateScript } from './services/generateScript'
 import { humanizeError } from '../../utils/friendlyError'
-import type { ScriptMode, EditableProductContext } from './types'
+import { WRITE_STYLE_META, type ScriptMode, type EditableProductContext, type WriteStyle, type WriteFormat, type WriteLength } from './types'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
 
 interface ReverseEngineerPayload {
@@ -19,6 +19,10 @@ export default function ScriptArchitect() {
   const [mode, setMode] = usePersistedState<ScriptMode>(`${baseKey}:mode`, 'remix')
   const [winningTranscript, setWinningTranscript] = usePersistedState(`${baseKey}:transcript`, '')
   const [reversePrompt, setReversePrompt] = usePersistedState(`${baseKey}:reversePrompt`, '')
+  const [brief, setBrief] = usePersistedState(`${baseKey}:brief`, '')
+  const [writeStyle, setWriteStyle] = usePersistedState<WriteStyle>(`${baseKey}:writeStyle`, 'pas')
+  const [writeFormat, setWriteFormat] = usePersistedState<WriteFormat>(`${baseKey}:writeFormat`, 'script')
+  const [writeLength, setWriteLength] = usePersistedState<WriteLength>(`${baseKey}:writeLength`, 15)
   const [selectedProductId, setSelectedProductId] = usePersistedState<string | null>(`${baseKey}:productId`, null)
   const [additionalContext, setAdditionalContext] = usePersistedState(`${baseKey}:context`, '')
   const [variations, setVariations] = usePersistedState<string[]>(`${baseKey}:variations`, [])
@@ -74,7 +78,7 @@ export default function ScriptArchitect() {
   }, [interAppPayload, activeApp, consumePayload, getProductById, setMode, setReversePrompt, setWinningTranscript, setSelectedProductId])
 
   const handleGenerate = async (productContext: EditableProductContext | null) => {
-    const sourceFilled = mode === 'remix' ? winningTranscript.trim() : reversePrompt.trim()
+    const sourceFilled = mode === 'write' ? brief.trim() : mode === 'remix' ? winningTranscript.trim() : reversePrompt.trim()
     if (!sourceFilled || !selectedProduct) return
 
     setIsGenerating(true)
@@ -85,13 +89,17 @@ export default function ScriptArchitect() {
         mode,
         winningTranscript,
         reversePrompt,
+        brief,
+        writeStyle,
+        writeFormat,
+        writeLength,
         productId: selectedProduct.id,
         productContext,
         additionalContext,
       })
       setVariations(result.variations)
 
-      const inputSource = mode === 'remix' ? winningTranscript : reversePrompt
+      const inputSource = mode === 'write' ? brief : mode === 'remix' ? winningTranscript : reversePrompt
       const item: ScriptHistoryItem = {
         id: crypto.randomUUID(),
         mode,
@@ -102,13 +110,19 @@ export default function ScriptArchitect() {
         winningTranscript,
         reversePrompt,
         additionalContext,
+        brief,
+        writeStyle,
+        writeFormat,
+        writeLength,
         createdAt: Date.now(),
       }
       addScriptHistory(item)
       setActiveHistoryId(item.id)
 
       useAppStore.getState().addToast(
-        mode === 'remix' ? '3 script variations generated' : 'Script rewritten',
+        mode === 'write'
+          ? (writeFormat === 'scenes' ? '3 scene drafts generated' : '3 scripts generated')
+          : mode === 'remix' ? '3 script variations generated' : 'Script rewritten',
         'success',
       )
     } catch (err) {
@@ -132,6 +146,14 @@ export default function ScriptArchitect() {
     setReversePrompt(item.reversePrompt ?? (item.mode === 'reverse-engineer' ? item.inputSummary : ''))
     setAdditionalContext(item.additionalContext ?? '')
     setSelectedProductId(item.linkedProductId ?? null)
+    if (item.mode === 'write') {
+      setBrief(item.brief ?? item.inputSummary)
+      if (item.writeStyle && item.writeStyle in WRITE_STYLE_META) setWriteStyle(item.writeStyle as WriteStyle)
+      if (item.writeFormat) setWriteFormat(item.writeFormat)
+      if (item.writeLength === 10 || item.writeLength === 15 || item.writeLength === 30 || item.writeLength === 60) {
+        setWriteLength(item.writeLength)
+      }
+    }
   }
 
   const handleDeleteHistory = (id: string) => {
@@ -148,6 +170,7 @@ export default function ScriptArchitect() {
     setError(null)
     setWinningTranscript('')
     setReversePrompt('')
+    setBrief('')
     setSelectedProductId(null)
     setAdditionalContext('')
   }
@@ -162,6 +185,14 @@ export default function ScriptArchitect() {
           onTranscriptChange={setWinningTranscript}
           reversePrompt={reversePrompt}
           onReversePromptChange={setReversePrompt}
+          brief={brief}
+          onBriefChange={setBrief}
+          writeStyle={writeStyle}
+          onWriteStyleChange={setWriteStyle}
+          writeFormat={writeFormat}
+          onWriteFormatChange={setWriteFormat}
+          writeLength={writeLength}
+          onWriteLengthChange={setWriteLength}
           selectedProduct={selectedProduct}
           onProductSelect={handleProductSelect}
           additionalContext={additionalContext}
@@ -176,6 +207,8 @@ export default function ScriptArchitect() {
         <RightPanel
           variations={variations}
           mode={mode}
+          writeFormat={writeFormat}
+          writeStyleLabel={WRITE_STYLE_META[writeStyle].label}
           linkedProductId={selectedProduct?.id ?? null}
           isGenerating={isGenerating}
           error={error}

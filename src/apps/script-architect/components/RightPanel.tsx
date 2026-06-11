@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { ScriptHistoryItem } from '../../../stores/types'
-import type { ScriptMode } from '../types'
+import type { ScriptMode, WriteFormat } from '../types'
 import OutputPanel from './OutputPanel'
 import HistoryView from './HistoryView'
 import SegmentedToggle from '../../../components/SegmentedToggle'
@@ -10,6 +10,8 @@ type Tab = 'output' | 'history'
 interface RightPanelProps {
   variations: string[]
   mode: ScriptMode
+  writeFormat: WriteFormat
+  writeStyleLabel: string
   linkedProductId: string | null
   isGenerating: boolean
   error: string | null
@@ -24,6 +26,8 @@ interface RightPanelProps {
 export default function RightPanel({
   variations,
   mode,
+  writeFormat,
+  writeStyleLabel,
   linkedProductId,
   isGenerating,
   error,
@@ -58,6 +62,8 @@ export default function RightPanel({
           <OutputPanel
             variations={variations}
             mode={mode}
+            writeFormat={writeFormat}
+            writeStyleLabel={writeStyleLabel}
             linkedProductId={linkedProductId}
             isGenerating={isGenerating}
             error={error}
