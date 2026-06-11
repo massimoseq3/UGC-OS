@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Search, FileText, Trash2, Wand2, PenLine } from 'lucide-react'
+import { Search, FileText, Trash2, Wand2, PenLine, Sparkles } from 'lucide-react'
 import type { ScriptHistoryItem } from '../../../stores/types'
 
 interface HistoryViewProps {
@@ -125,13 +125,15 @@ export default function HistoryView({ items, activeId, onSelect, onDelete }: His
 
                 {dayItems.map((item) => {
                   const isActive = activeId === item.id
-                  const ModeIcon = item.mode === 'remix' ? PenLine : Wand2
-                  const modeColor = item.mode === 'remix' ? 'text-scripts-300' : 'text-fuchsia-300'
+                  const ModeIcon = item.mode === 'write' ? Sparkles : item.mode === 'remix' ? PenLine : Wand2
+                  const modeColor = item.mode === 'write' ? 'text-emerald-300' : item.mode === 'remix' ? 'text-scripts-300' : 'text-fuchsia-300'
                   // Meta stays short and neutral — the colored icon already
                   // says which mode it was; extra labels were just clutter.
-                  const metaLead = item.mode === 'remix'
-                    ? `${item.variations.length} variation${item.variations.length === 1 ? '' : 's'}`
-                    : 'Reverse engineered'
+                  const metaLead = item.mode === 'write'
+                    ? `${item.variations.length} take${item.variations.length === 1 ? '' : 's'}${item.writeLength ? ` · ${item.writeLength}s` : ''}`
+                    : item.mode === 'remix'
+                      ? `${item.variations.length} variation${item.variations.length === 1 ? '' : 's'}`
+                      : 'Reverse engineered'
                   return (
                     <div
                       key={item.id}
