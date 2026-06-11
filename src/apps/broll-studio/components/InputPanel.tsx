@@ -44,9 +44,9 @@ function BankCard({
     return (
       <button
         onClick={onSelect}
-        className={`flex w-full items-center gap-3 rounded-xl border border-dashed border-white/10 p-4 text-left transition-colors hover:border-white/20 hover:bg-white/[0.02] ${className ?? ''}`}
+        className={`flex w-full items-center gap-3 rounded-full border border-dashed border-white/10 px-4 py-3.5 text-left transition-colors hover:border-white/20 hover:bg-white/[0.02] ${className ?? ''}`}
       >
-        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${accentClass}`}>
+        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${accentClass}`}>
           <Icon className="h-5 w-5" strokeWidth={1.5} />
         </div>
         <div>
@@ -66,11 +66,11 @@ function BankCard({
       tabIndex={0}
       onClick={onSelect}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect() } }}
-      className={`group cursor-pointer rounded-xl border border-white/10 bg-white/[0.02] p-3 transition-colors hover:border-white/20 hover:bg-white/[0.04] ${className ?? ''}`}
+      className={`group cursor-pointer rounded-3xl border border-white/10 bg-white/[0.02] p-3.5 transition-colors hover:border-white/20 hover:bg-white/[0.04] ${className ?? ''}`}
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${accentClass}`}>
+          <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${accentClass}`}>
             <Icon className="h-3.5 w-3.5" strokeWidth={1.5} />
           </div>
           <span className="text-[10px] font-medium uppercase tracking-widest text-zinc-600">{label}</span>

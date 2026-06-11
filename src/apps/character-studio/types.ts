@@ -11,9 +11,40 @@ export const PHOTOREALISM_STYLE =
 export interface FieldConfig {
   key: string
   label: string
+  // Default typeahead options: focusing the field's input opens a searchable
+  // dropdown of these. (Historically rendered as chip rows — the name stuck.)
   chips: string[]
   placeholder?: string
+  // Optional larger typeahead list; overrides `chips` as the dropdown source
+  // when present (e.g. the full ethnicity list).
+  suggestions?: string[]
 }
+
+// Searchable ethnicity/nationality list for the Ethnicity typeahead. Broad
+// categories live on the quick chips; this covers the specific ones without
+// cluttering the chip row. Free text still works for anything not listed
+// (e.g. "French mixed with Moroccan").
+export const ETHNICITY_SUGGESTIONS: string[] = [
+  // Broad categories first (the old quick chips), then specifics A-Z.
+  'Caucasian', 'Black', 'Asian', 'Hispanic/Latino', 'Middle Eastern', 'South Asian', 'Mixed',
+  'Afghan', 'African American', 'Albanian', 'Algerian', 'American', 'Argentinian', 'Armenian',
+  'Australian', 'Austrian', 'Bangladeshi', 'Belgian', 'Bolivian', 'Brazilian', 'British',
+  'Bulgarian', 'Cambodian', 'Cameroonian', 'Canadian', 'Caribbean', 'Chilean', 'Chinese',
+  'Colombian', 'Congolese', 'Costa Rican', 'Croatian', 'Cuban', 'Czech', 'Danish', 'Dominican',
+  'Dutch', 'Ecuadorian', 'Egyptian', 'Emirati', 'Eritrean', 'Estonian', 'Ethiopian', 'Filipino',
+  'Finnish', 'French', 'Georgian', 'German', 'Ghanaian', 'Greek', 'Guatemalan', 'Haitian',
+  'Hawaiian', 'Honduran', 'Hungarian', 'Icelandic', 'Indian', 'Indigenous / Native American',
+  'Indonesian', 'Iranian / Persian', 'Iraqi', 'Irish', 'Israeli', 'Italian', 'Ivorian',
+  'Jamaican', 'Japanese', 'Jordanian', 'Kazakh', 'Kenyan', 'Korean', 'Kurdish', 'Lebanese',
+  'Lithuanian', 'Malaysian', 'Maori', 'Mexican', 'Mongolian', 'Moroccan', 'Nepali',
+  'New Zealander', 'Nigerian', 'Norwegian', 'Pacific Islander', 'Pakistani', 'Palestinian',
+  'Panamanian', 'Paraguayan', 'Peruvian', 'Polish', 'Portuguese', 'Puerto Rican', 'Romanian',
+  'Russian', 'Rwandan', 'Salvadoran', 'Saudi', 'Scottish', 'Senegalese', 'Serbian',
+  'Singaporean', 'Slovak', 'Somali', 'South African', 'Spanish', 'Sri Lankan', 'Sudanese',
+  'Swedish', 'Swiss', 'Syrian', 'Taiwanese', 'Tanzanian', 'Thai', 'Tibetan', 'Tunisian',
+  'Turkish', 'Ugandan', 'Ukrainian', 'Uruguayan', 'Uzbek', 'Venezuelan', 'Vietnamese',
+  'Welsh', 'Yemeni', 'Zimbabwean',
+]
 
 export interface FieldGroup {
   id: string
@@ -56,7 +87,9 @@ export const TABS: TabConfig[] = [
           {
             key: 'ethnicity',
             label: 'Ethnicity',
-            chips: ['Japanese', 'Norwegian', 'American', 'French mixed with Moroccan', 'South African', 'Caucasian', 'Black', 'Asian', 'Hispanic/Latino', 'Middle Eastern', 'South Asian', 'Mixed'],
+            chips: ['Caucasian', 'Black', 'Asian', 'Hispanic/Latino', 'Middle Eastern', 'South Asian', 'Mixed'],
+            suggestions: ETHNICITY_SUGGESTIONS,
+            placeholder: 'Search nationalities or type your own...',
           },
           {
             key: 'bodyType',

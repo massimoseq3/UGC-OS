@@ -215,7 +215,7 @@ export default function Finder() {
             <button
               key={bank}
               onClick={() => { setActiveBank(bank); closeForm() }}
-              className={`md:mx-2 flex items-center gap-2 md:gap-2.5 whitespace-nowrap rounded-lg px-3 py-2 text-left text-sm transition-colors ${isActive
+              className={`md:mx-2 flex items-center gap-2 md:gap-2.5 whitespace-nowrap rounded-full px-3 py-2 text-left text-sm transition-colors ${isActive
                   ? 'bg-white/[0.07] text-zinc-200'
                   : 'text-zinc-500 hover:bg-white/[0.03] hover:text-zinc-300'
                 }`}

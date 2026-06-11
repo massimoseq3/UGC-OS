@@ -39,9 +39,9 @@ export default function EditorArea({
         <button
           type="button"
           onClick={onSelectScript}
-          className="group flex items-center gap-3 rounded-xl border border-dashed border-white/10 bg-white/[0.015] px-4 py-3 text-left transition-colors hover:border-white/20 hover:bg-white/[0.03]"
+          className="group flex items-center gap-3 rounded-full border border-dashed border-white/10 bg-white/[0.015] px-4 py-3 text-left transition-colors hover:border-white/20 hover:bg-white/[0.03]"
         >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-300/80 transition-colors group-hover:bg-indigo-500/15 group-hover:text-indigo-300">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-500/10 text-indigo-300/80 transition-colors group-hover:bg-indigo-500/15 group-hover:text-indigo-300">
             <FileText className="h-4 w-4" />
           </div>
           <div className="min-w-0 flex-1">

@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom'
 import { LAST_UPDATED } from './version'
 import AppLogo from '../components/AppLogo'
+import AppBackground from '../components/AppBackground'
 
 interface NavItem {
   to: string
@@ -27,7 +28,7 @@ export default function LegalLayout({ title, children }: LegalLayoutProps) {
   // can't scroll.
   return (
     <div className="relative h-screen w-full overflow-y-auto bg-[#050505] text-zinc-200 antialiased">
-      <div className="pointer-events-none fixed inset-0 z-0 bg-[radial-gradient(circle_at_0%_0%,#1f1f22_0%,#09090b_45%,#000000_100%)]" />
+      <AppBackground />
 
       <div className="relative z-10 mx-auto max-w-5xl px-6 py-10">
         {/* Header */}

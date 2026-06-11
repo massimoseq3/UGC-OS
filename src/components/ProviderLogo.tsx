@@ -148,7 +148,7 @@ const PROVIDERS: Record<string, LogoEntry> = {
 
 function FallbackLetter({ provider, size }: { provider: string; size: NonNullable<ProviderLogoProps['size']> }) {
   return (
-    <div className={`flex shrink-0 items-center justify-center rounded-md bg-zinc-800/60 font-semibold text-zinc-300 ${SIZE_CLASS[size]} ${size === 'sm' ? 'text-[10px]' : 'text-[11px]'}`}>
+    <div className={`flex shrink-0 items-center justify-center rounded-full bg-zinc-800/60 font-semibold text-zinc-300 ${SIZE_CLASS[size]} ${size === 'sm' ? 'text-[10px]' : 'text-[11px]'}`}>
       {provider.charAt(0).toUpperCase()}
     </div>
   )
@@ -159,7 +159,7 @@ export default function ProviderLogo({ provider, size = 'md' }: ProviderLogoProp
   if (!entry) return <FallbackLetter provider={provider} size={size} />
 
   return (
-    <div className={`flex shrink-0 items-center justify-center rounded-md ${entry.bg} ${SIZE_CLASS[size]} ${ICON_PADDING[size]}`}>
+    <div className={`flex shrink-0 items-center justify-center rounded-full ${entry.bg} ${SIZE_CLASS[size]} ${ICON_PADDING[size]}`}>
       {entry.svg ? (
         entry.svg()
       ) : (

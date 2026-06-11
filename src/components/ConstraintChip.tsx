@@ -11,6 +11,7 @@ export default function ConstraintChip({
   renderOption,
   openDirection = 'up',
   align = 'left',
+  size = 'md',
 }: {
   options: string[]
   value: string
@@ -24,6 +25,8 @@ export default function ConstraintChip({
   // Horizontal anchor of the menu. 'right' keeps a wide menu from overflowing
   // (and being clipped) when the chip sits near the right edge of its panel.
   align?: 'left' | 'right'
+  // 'lg' matches the large ModelPicker trigger height in footer rows.
+  size?: 'md' | 'lg'
 }) {
   const [open, setOpen] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
@@ -40,7 +43,9 @@ export default function ConstraintChip({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex h-9 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.02] px-3.5 text-[12px] text-zinc-300 transition-colors hover:bg-white/[0.05]"
+        className={`flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.02] text-zinc-300 transition-colors hover:bg-white/[0.05] ${
+          size === 'lg' ? 'h-12 px-4 text-[13px]' : 'h-9 px-3.5 text-[12px]'
+        }`}
       >
         {render ? render(value) : <span>{value}</span>}
       </button>
