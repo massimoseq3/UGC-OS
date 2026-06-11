@@ -118,7 +118,7 @@ function VariationCard({ text, cardTitle, defaultSaveTitle, linkedProductId, mod
     <div className="flex shrink-0 flex-col rounded-3xl border border-white/5 bg-black/20 overflow-hidden">
       <div className="flex items-center justify-between border-b border-white/5 px-4 py-2.5">
         <div className="flex items-center gap-2">
-          <span className="rounded-full bg-blue-500/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-blue-300">
+          <span className="rounded-full bg-scripts-500/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-scripts-300">
             {cardTitle}
           </span>
           {scenes && (
@@ -155,12 +155,12 @@ function VariationCard({ text, cardTitle, defaultSaveTitle, linkedProductId, mod
               onKeyDown={(e) => { if (e.key === 'Enter') handleSave() }}
               placeholder="Script title..."
               autoFocus
-              className="flex-1 rounded-full border border-white/10 bg-transparent px-4 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-blue-500/30"
+              className="flex-1 rounded-full border border-white/10 bg-transparent px-4 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-scripts-500/30"
             />
             <button
               onClick={handleSave}
               disabled={!saveTitle.trim()}
-              className="rounded-full bg-blue-500/15 px-4 py-2 text-xs font-medium text-blue-400 transition-colors hover:bg-blue-500/25 disabled:opacity-40"
+              className="rounded-full bg-scripts-500/15 px-4 py-2 text-xs font-medium text-scripts-400 transition-colors hover:bg-scripts-500/25 disabled:opacity-40"
             >
               Save
             </button>
@@ -186,7 +186,7 @@ function VariationCard({ text, cardTitle, defaultSaveTitle, linkedProductId, mod
             {mode === 'remix' && (
               <button
                 onClick={handleSendToVoiceStudio}
-                className="flex flex-1 min-w-0 items-center justify-center gap-2 rounded-full border border-indigo-500/20 bg-indigo-500/10 px-4 py-2.5 text-[12px] font-medium tracking-tight text-indigo-400 transition-colors hover:bg-indigo-500/20"
+                className="flex flex-1 min-w-0 items-center justify-center gap-2 rounded-full border border-voice-500/20 bg-voice-500/10 px-4 py-2.5 text-[12px] font-medium tracking-tight text-voice-400 transition-colors hover:bg-voice-500/20"
               >
                 <Mic className="h-4 w-4" strokeWidth={1.75} />
                 Send to Voiceovers
@@ -195,7 +195,7 @@ function VariationCard({ text, cardTitle, defaultSaveTitle, linkedProductId, mod
             )}
             <button
               onClick={handleSendToBrollStudio}
-              className="flex flex-1 min-w-0 items-center justify-center gap-2 rounded-full border border-orange-500/20 bg-orange-500/10 px-4 py-2.5 text-[12px] font-medium tracking-tight text-orange-400 transition-colors hover:bg-orange-500/20"
+              className="flex flex-1 min-w-0 items-center justify-center gap-2 rounded-full border border-broll-500/20 bg-broll-500/10 px-4 py-2.5 text-[12px] font-medium tracking-tight text-broll-400 transition-colors hover:bg-broll-500/20"
             >
               <Film className="h-4 w-4" strokeWidth={1.75} />
               Send to B-Roll
@@ -234,7 +234,7 @@ function SceneChunkCard({ chunk }: { chunk: SceneChunk }) {
   return (
     <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="truncate text-[10px] font-semibold uppercase tracking-widest text-blue-300/80">
+        <span className="truncate text-[10px] font-semibold uppercase tracking-widest text-scripts-300/80">
           {chunk.header.replace(/^---\s*|\s*---$/g, '')}
         </span>
         <button
@@ -266,7 +266,7 @@ export default function OutputPanel({ variations, mode, linkedProductId, isGener
       : ['Reading scene blueprint...', 'Mapping product into structure...', 'Rewriting scenes...', 'Preserving structure...']
     return (
       <div className="flex h-full flex-col gap-2 p-5">
-        <GenerationProgress isActive color="bg-blue-500" messages={message} showHelper={false} />
+        <GenerationProgress isActive color="bg-scripts-500" messages={message} showHelper={false} />
         <div className="flex flex-1 min-h-0 flex-col gap-3 rounded-3xl border border-white/5 bg-black/20 p-5">
           <div className="skeleton h-4 w-full" />
           <div className="skeleton h-4 w-[90%]" />

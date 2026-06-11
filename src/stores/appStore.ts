@@ -73,6 +73,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   addToast: (message, type = 'success') => {
+    // Dedupe: several code paths can report the same outcome back-to-back
+    // (e.g. parallel saves). If an identical toast is already on screen,
+    // don't stack a twin under it.
+    if (get().toasts.some((t) => t.message === message && (t.type ?? 'success') === type)) return
     const id = `toast-${++toastCounter}`
     set((state) => ({
       toasts: [...state.toasts, { id, message, type }],

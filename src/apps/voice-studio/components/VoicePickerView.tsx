@@ -108,7 +108,7 @@ export default function VoicePickerView({ selectedId, onSelect, onClose }: Voice
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search voices..."
-            className="w-full rounded-full border border-white/10 bg-transparent py-2 pl-10 pr-3 text-sm text-zinc-100 placeholder-zinc-500 outline-none transition-colors focus:border-indigo-500/40"
+            className="w-full rounded-full border border-white/10 bg-transparent py-2 pl-10 pr-3 text-sm text-zinc-100 placeholder-zinc-500 outline-none transition-colors focus:border-voice-500/40"
           />
         </div>
 
@@ -122,7 +122,7 @@ export default function VoicePickerView({ selectedId, onSelect, onClose }: Voice
                 onClick={() => setCategory(c)}
                 className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
                   active
-                    ? 'bg-indigo-500/25 text-indigo-200'
+                    ? 'bg-voice-500/25 text-voice-200'
                     : 'bg-white/[0.05] text-zinc-300 hover:bg-white/[0.08] hover:text-zinc-100'
                 }`}
               >
@@ -151,7 +151,7 @@ export default function VoicePickerView({ selectedId, onSelect, onClose }: Voice
                   key={voice.id}
                   onClick={() => onSelect(voice)}
                   className={`group flex cursor-pointer items-center gap-3 rounded-xl px-3 py-3 transition-colors ${
-                    isSelected ? 'bg-indigo-500/15' : 'hover:bg-white/[0.04]'
+                    isSelected ? 'bg-voice-500/15' : 'hover:bg-white/[0.04]'
                   }`}
                 >
                   {/* Avatar with loading ring */}
@@ -172,7 +172,7 @@ export default function VoicePickerView({ selectedId, onSelect, onClose }: Voice
                     )}
                     {/* Static playing ring */}
                     {isPlaying && (
-                      <span className="absolute -inset-[3px] rounded-full border-2 border-indigo-400" />
+                      <span className="absolute -inset-[3px] rounded-full border-2 border-voice-400" />
                     )}
                     {/* Play/Pause icon overlay (visible on hover, or while playing/loading) */}
                     <span
@@ -201,7 +201,7 @@ export default function VoicePickerView({ selectedId, onSelect, onClose }: Voice
 
                   {/* Selected check */}
                   {isSelected && (
-                    <Check className="h-4 w-4 shrink-0 text-indigo-300" />
+                    <Check className="h-4 w-4 shrink-0 text-voice-300" />
                   )}
                 </div>
               )

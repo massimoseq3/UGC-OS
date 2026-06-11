@@ -358,7 +358,7 @@ export default function ScenesView({
       <div className="flex h-full flex-col overflow-hidden p-5">
         <GenerationProgress
           isActive
-          color="bg-orange-500"
+          color="bg-broll-500"
           messages={['Analyzing script scenes...', 'Sending request...', 'Generating B-Roll prompts...', 'Finalizing scene breakdowns...']}
           className="mb-6"
           showHelper={false}
@@ -395,14 +395,14 @@ export default function ScenesView({
   return (
     <div className="flex-1 overflow-y-auto px-5 py-4">
       <div className="mb-5 flex items-center justify-between gap-3">
-        <span className="text-[11px] font-medium uppercase tracking-wider text-zinc-600">
+        <span className="text-[11px] font-medium uppercase tracking-wider text-zinc-400">
           {result.scenes.length} scene{result.scenes.length === 1 ? '' : 's'}
         </span>
         <button
           type="button"
           onClick={() => requestBatch(allKeys, 'All scenes')}
           title="Generate images for every variation across all scenes"
-          className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/15 bg-orange-500 px-3.5 py-1.5 text-[11px] font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors hover:bg-orange-400"
+          className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/15 bg-broll-500 px-3.5 py-1.5 text-[11px] font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors hover:bg-broll-400"
         >
           <Images className="h-3.5 w-3.5" />
           Generate all images
@@ -458,7 +458,7 @@ export default function ScenesView({
             {/* Run settings — model is the shared B-Roll image model; resolution
                 and aspect apply to every card in this batch. */}
             <div className="mt-4 flex flex-col gap-2.5">
-              <span className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">Model</span>
+              <span className="text-[11px] font-medium uppercase tracking-wider text-zinc-400">Model</span>
               <ModelPicker
                 appId="broll-studio"
                 task="image"
@@ -514,7 +514,7 @@ export default function ScenesView({
               <button
                 type="button"
                 onClick={confirmBatch}
-                className="flex items-center gap-1.5 rounded-full border border-white/15 bg-orange-500 px-4 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-orange-400"
+                className="flex items-center gap-1.5 rounded-full border border-white/15 bg-broll-500 px-4 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-broll-400"
               >
                 <Images className="h-3.5 w-3.5" />
                 Generate

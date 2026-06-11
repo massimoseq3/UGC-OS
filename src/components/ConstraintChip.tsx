@@ -51,7 +51,7 @@ export default function ConstraintChip({
       </button>
       {open && (
         <div
-          className={`absolute z-40 min-w-[100px] overflow-hidden rounded-md border border-white/10 bg-[#0B0B0D]/95 shadow-xl backdrop-blur-xl ${
+          className={`absolute z-40 min-w-[140px] overflow-hidden rounded-2xl border border-white/10 bg-[#0B0B0D]/95 p-1 shadow-xl backdrop-blur-xl ${
             openDirection === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'
           } ${align === 'right' ? 'right-0' : 'left-0'}`}
         >
@@ -60,7 +60,7 @@ export default function ConstraintChip({
               key={opt}
               type="button"
               onClick={() => { onChange(opt); setOpen(false) }}
-              className={`block w-full px-3 py-1.5 text-left text-[11px] transition-colors ${
+              className={`flex w-full items-center whitespace-nowrap rounded-full px-3 py-1.5 text-left text-[11px] transition-colors ${
                 opt === value ? 'bg-white/[0.08] text-zinc-100' : 'text-zinc-300 hover:bg-white/[0.05]'
               }`}
             >

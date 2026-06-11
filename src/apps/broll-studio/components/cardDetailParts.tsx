@@ -12,6 +12,7 @@ import { useAssetUrlState, useAssetUrl } from '../../../hooks/useAssetUrl'
 import { getUrl } from '../../../utils/assetStore'
 import { getModel } from '../../../utils/models'
 import { startOfDay, sectionLabel } from '../../../utils/history'
+import { downloadImage } from '../../../utils/downloadImage'
 
 // ─── Modal gallery — per-card masonry ────────────────────────────────────
 
@@ -258,7 +259,7 @@ function ImageTile({
       onClick={onClick}
       className={`group relative cursor-pointer overflow-hidden rounded-lg border bg-black transition-colors ${
         selected
-          ? 'border-orange-500/70 ring-2 ring-orange-500/40'
+          ? 'border-broll-500/70 ring-2 ring-broll-500/40'
           : 'border-white/10 hover:border-white/30'
       }`}
     >
@@ -274,7 +275,7 @@ function ImageTile({
         <p className="pointer-events-none absolute left-2 bottom-1 max-w-[70%] truncate text-[10px] text-zinc-300/90 transition-opacity group-hover:opacity-0">{modelLabel}</p>
       )}
       {selected && (
-        <span className="pointer-events-none absolute left-1.5 top-1.5 rounded-full bg-orange-500/90 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-orange-50 backdrop-blur">
+        <span className="pointer-events-none absolute left-1.5 top-1.5 rounded-full bg-broll-500/90 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-broll-50 backdrop-blur">
           Cover
         </span>
       )}
@@ -284,7 +285,7 @@ function ImageTile({
           type="button"
           title="Animate this image into a video"
           onClick={(e) => { e.stopPropagation(); onAnimate() }}
-          className="absolute left-1.5 bottom-1.5 flex h-8 items-center gap-1.5 whitespace-nowrap rounded-full border border-orange-400/50 bg-orange-500/85 px-3 text-[11px] font-medium text-white opacity-0 backdrop-blur transition-opacity hover:bg-orange-500 group-hover:opacity-100"
+          className="absolute left-1.5 bottom-1.5 flex h-8 items-center gap-1.5 whitespace-nowrap rounded-full border border-broll-400/50 bg-broll-500/85 px-3 text-[11px] font-medium text-white opacity-0 backdrop-blur transition-opacity hover:bg-broll-500 group-hover:opacity-100"
         >
           <Film className="h-3 w-3" />
           Animate B-Roll
@@ -311,7 +312,7 @@ function ImageTile({
           onClick={async (e) => {
             e.stopPropagation()
             const u = await getUrl(imageRef)
-            if (u) downloadFile(u, `broll-${Date.now()}.png`)
+            if (u) downloadImage(u, `broll-${Date.now()}`)
           }}
         >
           <Download className="h-4 w-4" />
@@ -385,7 +386,7 @@ function VideoTile({
       onClick={onClick}
       className={`group relative cursor-pointer overflow-hidden rounded-lg border bg-black transition-colors ${
         selected
-          ? 'border-orange-500/70 ring-2 ring-orange-500/40'
+          ? 'border-broll-500/70 ring-2 ring-broll-500/40'
           : 'border-white/10 hover:border-white/30'
       }`}
       style={ratio}
@@ -444,7 +445,7 @@ function VideoTile({
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/80 to-transparent" />
       <p className="pointer-events-none absolute inset-x-2 bottom-1 line-clamp-1 text-[10px] text-zinc-300/90">{modelLabel}</p>
       {selected && (
-        <span className="pointer-events-none absolute left-1.5 bottom-1.5 rounded-full bg-orange-500/90 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-orange-50 backdrop-blur">
+        <span className="pointer-events-none absolute left-1.5 bottom-1.5 rounded-full bg-broll-500/90 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-broll-50 backdrop-blur">
           Cover
         </span>
       )}
@@ -469,7 +470,7 @@ function VideoTile({
           onClick={async (e) => {
             e.stopPropagation()
             const u = await getUrl(videoRef)
-            if (u) downloadFile(u, `broll-${Date.now()}.mp4`)
+            if (u) downloadImage(u, `broll-${Date.now()}`, 'mp4')
           }}
         >
           <Download className="h-4 w-4" />
@@ -488,18 +489,18 @@ function InFlightTile({ entry }: { entry: ModalEntry }) {
     : 'image'
   return (
     <div
-      className="relative overflow-hidden rounded-lg border border-orange-500/30 bg-gradient-to-br from-orange-500/[0.08] to-zinc-950"
+      className="relative overflow-hidden rounded-lg border border-broll-500/30 bg-gradient-to-br from-broll-500/[0.08] to-zinc-950"
       style={aspectStyle(entry.aspectRatio)}
     >
-      <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-orange-500/10 via-transparent to-orange-500/5" />
-      <div className="absolute left-1.5 top-1.5 rounded-full bg-orange-500/30 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-orange-100 backdrop-blur">
+      <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-broll-500/10 via-transparent to-broll-500/5" />
+      <div className="absolute left-1.5 top-1.5 rounded-full bg-broll-500/30 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-broll-100 backdrop-blur">
         {label}
       </div>
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center">
-        <Icon className="h-5 w-5 text-orange-300" />
+        <Icon className="h-5 w-5 text-broll-300" />
         <GenerationProgress
           isActive
-          color="bg-orange-500"
+          color="bg-broll-500"
           showHelper={false}
           messages={
             isVideo
@@ -543,7 +544,7 @@ function FailedTile({
           <button
             type="button"
             onClick={onRetry}
-            className="flex items-center gap-1 rounded-full border border-white/15 bg-orange-500 px-2.5 py-1 text-[10px] font-medium text-white transition-colors hover:bg-orange-400"
+            className="flex items-center gap-1 rounded-full border border-white/15 bg-broll-500 px-2.5 py-1 text-[10px] font-medium text-white transition-colors hover:bg-broll-400"
           >
             <RefreshCw className="h-3 w-3" />
             Retry
@@ -705,7 +706,7 @@ export function ReferenceSlotCard({
 }: {
   icon: React.ReactNode
   accentClass: string
-  kind: 'Character' | 'Product'
+  kind: 'Influencer' | 'Product'
   name?: string | null
   imageRef?: string | null
   onClick: () => void
@@ -727,7 +728,7 @@ export function ReferenceSlotCard({
       title={dimmed ? dimmedReason : undefined}
       className={`relative flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors ${
         highlight
-          ? 'border-orange-500/40 bg-orange-500/10'
+          ? 'border-broll-500/40 bg-broll-500/10'
           : 'border-white/10 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04]'
       } ${dimmed ? 'opacity-50' : ''}`}
     >
@@ -744,7 +745,7 @@ export function ReferenceSlotCard({
           </div>
         )}
         <div className="flex min-w-0 flex-1 flex-col pr-6">
-          <span className="text-[10px] font-medium uppercase tracking-widest text-zinc-500">{kind}</span>
+          <span className="text-[10px] font-medium uppercase tracking-widest text-zinc-400">{kind}</span>
           <span className={`truncate text-[13px] font-medium ${name ? 'text-zinc-100' : 'text-zinc-600'}`}>
             {name || `Select ${kind.toLowerCase()}`}
           </span>
@@ -757,7 +758,7 @@ export function ReferenceSlotCard({
           title={active ? 'Active — click to disable' : 'Inactive — click to enable'}
           className={`absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full border transition-colors ${
             active
-              ? 'border-orange-500/60 bg-orange-500/20 text-orange-300 hover:bg-orange-500/30'
+              ? 'border-broll-500/60 bg-broll-500/20 text-broll-300 hover:bg-broll-500/30'
               : 'border-white/15 bg-white/[0.04] text-zinc-500 hover:border-white/30 hover:text-zinc-300'
           }`}
         >
@@ -775,21 +776,4 @@ function aspectStyle(ar: string): React.CSSProperties {
   const [w, h] = ar.split(':').map(Number)
   if (!w || !h) return { aspectRatio: '9 / 16' }
   return { aspectRatio: `${w} / ${h}` }
-}
-
-async function downloadFile(url: string, fileName: string) {
-  try {
-    const res = await fetch(url)
-    const blob = await res.blob()
-    const objectUrl = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = objectUrl
-    a.download = fileName
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
-  } catch {
-    window.open(url, '_blank', 'noopener,noreferrer')
-  }
 }

@@ -7,6 +7,7 @@ import { useBankStore } from '../stores/bankStore'
 import { useAppStore } from '../stores/appStore'
 import type { Product, Model, Script, VoicePreset, BRoll } from '../stores/types'
 import BankItemCard from './BankItemCard'
+import SegmentedToggle from './SegmentedToggle'
 import { useIsDesktop } from '../hooks/useBreakpoint'
 import { sortByOrder, SORT_OPTIONS_WITH_NAME, SORT_OPTIONS_DATE_ONLY, type SortOrder } from '../apps/finder/bankSort'
 
@@ -206,7 +207,7 @@ export default function BankPicker({
         ref={panelRef}
         className={`fixed z-[80] flex flex-col border-white/5 bg-[#0a0a0a]/95 backdrop-blur-2xl transition-transform duration-300 ease-out ${
           isDesktop
-            ? `right-0 top-14 bottom-0 w-[380px] border-l ${isOpen ? 'translate-x-0' : 'translate-x-full'}`
+            ? `right-0 top-0 bottom-0 w-[380px] border-l ${isOpen ? 'translate-x-0' : 'translate-x-full'}`
             : `inset-x-0 bottom-0 top-14 border-t rounded-t-2xl ${isOpen ? 'translate-y-0' : 'translate-y-full'}`
         }`}
       >
@@ -223,42 +224,27 @@ export default function BankPicker({
           </h3>
           <button
             onClick={onClose}
-            className="rounded-lg p-2 lg:p-1 text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-300"
+            className="rounded-full p-2 lg:p-1 text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-300"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Optional bank-switch tabs. Underline indicator, same style as
-            VoiceStudio's Settings/History tab strip. */}
+        {/* Optional bank-switch toggle — same rounded segmented control as
+            the rest of the app. */}
         {normalizedTabs && (
-          <div className="flex items-center gap-1 border-b border-white/5 px-3">
-            {normalizedTabs.map((t) => {
-              const active = t.type === currentBankType
-              return (
-                <button
-                  key={t.type}
-                  type="button"
-                  onClick={() => { setActiveTab(t.type); setSearch(''); setSelectedIds([]); setSort('newest') }}
-                  className={`relative flex items-center gap-1.5 px-3 pb-2 pt-3 text-[13px] font-medium tracking-tight transition-colors ${
-                    active ? 'text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'
-                  }`}
-                >
-                  <span>{BANK_CONFIG[t.type].label}</span>
-                  <span
-                    className={`absolute inset-x-3 -bottom-px h-0.5 rounded-full transition-colors ${
-                      active ? 'bg-zinc-100' : 'bg-transparent'
-                    }`}
-                  />
-                </button>
-              )
-            })}
+          <div className="flex items-center border-b border-white/5 px-4 py-3">
+            <SegmentedToggle<BankType>
+              value={currentBankType}
+              onChange={(t) => { setActiveTab(t); setSearch(''); setSelectedIds([]); setSort('newest') }}
+              options={normalizedTabs.map((t) => ({ value: t.type, label: BANK_CONFIG[t.type].label }))}
+            />
           </div>
         )}
 
         {/* Search — full width on mobile */}
         <div className="border-b border-white/5 px-4 py-3">
-          <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2">
+          <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-2">
             <Search className="h-3.5 w-3.5 shrink-0 text-zinc-600" />
             <input
               ref={searchRef}
@@ -278,7 +264,7 @@ export default function BankPicker({
               <select
                 value={sort}
                 onChange={(e) => setSort(e.target.value as SortOrder)}
-                className="appearance-none rounded-lg border border-white/10 bg-[#0a0a0a] py-1.5 pl-3 pr-8 text-xs text-zinc-200 outline-none transition-colors hover:border-white/20 focus:border-white/20"
+                className="appearance-none rounded-full border border-white/10 bg-[#0a0a0a] py-1.5 pl-3.5 pr-8 text-xs text-zinc-200 outline-none transition-colors hover:border-white/20 focus:border-white/20"
               >
                 {sortOptions.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>
@@ -321,7 +307,10 @@ export default function BankPicker({
                       selected={isSelected}
                     />
                     {isSelected && (
-                      <div className="pointer-events-none absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-sky-500 text-white">
+                      <div
+                        className="pointer-events-none absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full text-white"
+                        style={{ backgroundColor: BANK_CONFIG[currentBankType].accent }}
+                      >
                         <Check className="h-3 w-3" strokeWidth={3} />
                       </div>
                     )}
@@ -338,7 +327,7 @@ export default function BankPicker({
             <button
               onClick={handleConfirmMulti}
               disabled={selectedIds.length === 0}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-sky-500 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex w-full items-center justify-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Add {selectedIds.length || ''} {selectedIds.length === 1 ? 'item' : 'items'}
             </button>

@@ -125,7 +125,7 @@ export default function HistoryView({ items, activeId, onSelect, onDelete, onSho
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search history..."
-            className="w-full rounded-full border border-white/10 bg-transparent py-2 pl-10 pr-3 text-sm text-zinc-100 placeholder-zinc-500 outline-none transition-colors focus:border-indigo-500/40"
+            className="w-full rounded-full border border-white/10 bg-transparent py-2 pl-10 pr-3 text-sm text-zinc-100 placeholder-zinc-500 outline-none transition-colors focus:border-voice-500/40"
           />
         </div>
       </div>
@@ -157,9 +157,9 @@ export default function HistoryView({ items, activeId, onSelect, onDelete, onSho
                     <div
                       key={item.id}
                       onClick={() => onSelect(item)}
-                      className={`group cursor-pointer rounded-xl px-3 py-3 transition-colors ${
+                      className={`group cursor-pointer rounded-2xl px-3 py-3 transition-colors ${
                         isActive
-                          ? 'bg-indigo-500/15 ring-1 ring-indigo-500/20'
+                          ? 'bg-voice-500/15 ring-1 ring-voice-500/20'
                           : 'hover:bg-white/[0.04]'
                       }`}
                     >
@@ -220,12 +220,12 @@ export default function HistoryView({ items, activeId, onSelect, onDelete, onSho
                                 onKeyDown={(e) => { if (e.key === 'Enter') handleSavePreset(item) }}
                                 placeholder="Preset name..."
                                 autoFocus
-                                className="w-32 rounded-full border border-white/10 bg-transparent px-2.5 py-1 text-[11px] text-zinc-200 placeholder-zinc-600 outline-none focus:border-indigo-500/30"
+                                className="w-32 rounded-full border border-white/10 bg-transparent px-2.5 py-1 text-[11px] text-zinc-200 placeholder-zinc-600 outline-none focus:border-voice-500/30"
                               />
                               <button
                                 onClick={() => handleSavePreset(item)}
                                 disabled={!saveLabel.trim()}
-                                className="rounded-full bg-indigo-500/15 px-2.5 py-1 text-[11px] font-medium text-indigo-300 transition-colors hover:bg-indigo-500/25 disabled:opacity-40"
+                                className="rounded-full bg-voice-500/15 px-2.5 py-1 text-[11px] font-medium text-voice-300 transition-colors hover:bg-voice-500/25 disabled:opacity-40"
                               >
                                 Save
                               </button>

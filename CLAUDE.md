@@ -11,12 +11,12 @@ Sidebar is grouped into three sections (LIBRARY / CREATE / TOOLS). Display names
 | Section | Sidebar entry | Folder | Job |
 |---|---|---|---|
 | Library | Bank | `finder/` | Banks browser |
-| Create | Characters | `character-studio/` | Form → portrait image. Drop a reference photo anywhere to auto-fill every field via vision-based DNA extraction. |
+| Create | Influencers | `character-studio/` | Form → portrait image. Drop a reference photo anywhere to auto-fill every field via vision-based DNA extraction. Display name rebranded from "Characters" — folder, ids, types, and LLM prompts keep the character naming. |
 | Create | Scripts | `script-architect/` | Winning ad + product → new script |
 | Create | Voiceovers | `voice-studio/` | Script → audio (ElevenLabs v2) |
 | Create | B-Roll | `broll-studio/` | Script → scenes → 4 variations/scene (Speaking / Literal / Emotional / Product). Each card has Generate Image **and** Generate Video; video gens are fire-and-forget with refresh-safe resume. |
 | Tools | Ad Analyzer | `ad-anatomy/` | Ad image or video frame → scorecard + transcript + visual playbook |
-| Tools | Playground | `playground/` | Free-form Image / Video / Music. Prompt bar, mode tabs, model picker, ref slots + drag-drop. `@`-mentions reference Products / Characters / B-Rolls and auto-attach the asset. |
+| Tools | Playground | `playground/` | Free-form Image / Video / Music. Prompt bar, mode tabs, model picker, ref slots + drag-drop. `@`-mentions reference Products / Influencers / B-Rolls and auto-attach the asset. |
 
 ## Role
 
@@ -31,7 +31,7 @@ Senior frontend engineer + product architect. Push back when something's flawed.
 - **No prop drilling.** Zustand stores for global state; local React state for ephemeral UI.
 - **Model registry is the single source of truth.** Add or change a model only by editing `src/utils/models.ts`. Don't sprinkle slugs through service files.
 
-**Styling.** Tailwind only. Dark-first: backgrounds `#050505`–`#0A0A0A`, borders `white/5`–`white/10`, glass via `backdrop-blur-xl`. Tracking-tight text. Transitions 200–300 ms for panels, 150 ms for hover. Tags use `TAG_STYLES` from `models.ts` (Recommended green / New fuchsia / Fast sky / Cheap zinc).
+**Styling.** Tailwind only. Per-app accent palettes are custom Tailwind families (`influencers-*`, `scripts-*`, `voice-*`, `broll-*`, `playground-*`) defined in the `@theme` block of `index.css` (Ad Analyzer uses literal `#FF5257`); the matching hexes for sidebar/bank chrome live in `constants.ts`. Change an accent there, not by sprinkling new color classes. Dark-first: backgrounds `#050505`–`#0A0A0A`, borders `white/5`–`white/10`, glass via `backdrop-blur-xl`. Tracking-tight text. Transitions 200–300 ms for panels, 150 ms for hover. Tags use `TAG_STYLES` from `models.ts` (Recommended green / New fuchsia / Fast sky / Cheap zinc).
 
 **Errors.** End-user generation surfaces show friendly copy via `humanizeError()` (see `utils/friendlyError.ts`). Infra/admin/Settings surfaces still surface the raw kie.ai message — the operator debugs there. Note: the kie envelope can return `{ code: 5xx, msg: "...maintained..." }` inside an HTTP 200 during maintenance windows — not a code bug.
 
@@ -87,7 +87,7 @@ Most files are self-explanatory. These carry behaviour worth knowing before you 
 
 Persisted to `localStorage` under `ai-ugc-lab-banks`. Asset blobs live in IndexedDB (mirrored to R2 in cloud mode); rows store `asset://<id>` refs. `useAssetUrl(ref)` turns a ref into a blob URL. Types are in `stores/types.ts`.
 
-`products`, `models` (from Characters), `scripts`, `voices`, `brolls`, plus auto-pushed history banks: `voiceHistory`, `videoHistory`, `musicHistory`, `characterHistory`. Gotchas:
+`products`, `models` (from Influencers), `scripts`, `voices`, `brolls`, plus auto-pushed history banks: `voiceHistory`, `videoHistory`, `musicHistory`, `characterHistory`. Gotchas:
 
 - **`brolls`** can carry both `imageUrl` (still) and `videos[]` (animations); saving a card appends to the source's `videos[]`. Saved video-history items stamp `linkedBRollId`; deletion only purges the blob if not linked.
 - **`videoHistory`** is shared by B-Roll and Playground (for refresh-resume); Playground's grid filters out `sourceApp === 'broll-studio'`. 14-day retention.

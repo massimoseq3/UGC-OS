@@ -19,6 +19,10 @@ interface InputPanelProps {
   onGenerate: () => void
   isGenerating: boolean
   highlightField?: string | null
+  // Clear-output control — lives up here next to the References heading so
+  // the right panel's toggle strip stays clean. Hidden until there's a result.
+  onClearOutput?: () => void
+  hasResult?: boolean
 }
 
 function BankCard({
@@ -73,7 +77,7 @@ function BankCard({
           <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${accentClass}`}>
             <Icon className="h-3.5 w-3.5" strokeWidth={1.5} />
           </div>
-          <span className="text-[10px] font-medium uppercase tracking-widest text-zinc-600">{label}</span>
+          <span className="text-[10px] font-medium uppercase tracking-widest text-zinc-400">{label}</span>
         </div>
         <div className="flex items-center gap-1">
           <span className="flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] text-zinc-500 opacity-0 transition-opacity group-hover:opacity-100">
@@ -176,6 +180,8 @@ export default function InputPanel({
   onGenerate,
   isGenerating,
   highlightField,
+  onClearOutput,
+  hasResult,
 }: InputPanelProps) {
   const hasScript = scriptText.trim().length > 0
   const canGenerate = hasScript
@@ -186,7 +192,19 @@ export default function InputPanel({
       <div className="flex-1 p-5 md:overflow-y-auto">
         <div className="flex flex-col gap-3">
           {/* References section */}
-          <span className="text-sm font-medium text-zinc-200">References</span>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm font-medium text-zinc-200">References</span>
+            {onClearOutput && hasResult && (
+              <button
+                onClick={onClearOutput}
+                title="Clear inputs and scenes. This session stays in the History tab."
+                className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-zinc-400 transition-colors hover:bg-white/5 hover:text-zinc-200"
+              >
+                <X className="h-3.5 w-3.5" strokeWidth={2} />
+                Clear
+              </button>
+            )}
+          </div>
 
           {/* Product */}
           <BankCard
@@ -203,8 +221,8 @@ export default function InputPanel({
           {/* Character */}
           <BankCard
             icon={UserRound}
-            label="Character"
-            accentClass="bg-sky-500/15 text-sky-400"
+            label="Influencer"
+            accentClass="bg-influencers-500/15 text-influencers-400"
             isEmpty={!selectedModel}
             onSelect={onSelectModel}
             onClear={selectedModel ? onClearModel : undefined}
@@ -216,7 +234,7 @@ export default function InputPanel({
           <BankCard
             icon={FileText}
             label="Script"
-            accentClass="bg-blue-500/15 text-blue-400"
+            accentClass="bg-scripts-500/15 text-scripts-400"
             isEmpty={!selectedScript}
             onSelect={onSelectScript}
             onClear={selectedScript ? onClearScript : undefined}
@@ -228,7 +246,7 @@ export default function InputPanel({
           {/* "or paste script manually" divider */}
           <div className="flex items-center gap-3">
             <div className="h-px flex-1 bg-white/5" />
-            <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-700">or paste script manually</span>
+            <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-400">or paste script manually</span>
             <div className="h-px flex-1 bg-white/5" />
           </div>
 
@@ -266,7 +284,7 @@ export default function InputPanel({
         <button
           onClick={onGenerate}
           disabled={!canGenerate || isGenerating}
-          className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-orange-500 px-6 py-3.5 text-[13px] font-medium tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-orange-400 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-broll-500 px-6 py-3.5 text-[13px] font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-broll-400 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {isGenerating ? (
             <>

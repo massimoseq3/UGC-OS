@@ -51,12 +51,6 @@ const CATEGORY_ACCENT: Record<string, string> = {
   Camera: 'bg-violet-400/40',
 }
 
-const SOURCE_LABELS: Record<Model['source'], string> = {
-  'character-studio': 'Character Studio',
-  'image-dna-extractor': 'DNA Extracted',
-  'manual-import': 'Manually added',
-}
-
 function camelToTitle(key: string): string {
   return key
     .replace(/([A-Z])/g, ' $1')
@@ -164,8 +158,7 @@ export default function ModelForm({ item, onSave, onCancel }: ModelFormProps) {
   const sections = buildSections((item?.jsonProfile as Record<string, unknown> | null) ?? null)
   const savedDate = item?.createdAt ? new Date(item.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : null
   const metaParts = [
-    'Character',
-    SOURCE_LABELS[source],
+    'Influencer',
     savedDate ? `Saved ${savedDate}` : null,
   ].filter(Boolean)
 
@@ -208,7 +201,7 @@ export default function ModelForm({ item, onSave, onCancel }: ModelFormProps) {
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Unnamed character"
+            placeholder="Unnamed influencer"
             className="w-full bg-transparent text-3xl font-semibold tracking-tight text-zinc-100 placeholder-zinc-700 outline-none border-b border-transparent transition-colors focus:border-white/15 -mx-1 px-1 py-1"
           />
           <p className="text-xs text-zinc-500">
@@ -218,10 +211,10 @@ export default function ModelForm({ item, onSave, onCancel }: ModelFormProps) {
       </div>
 
       {/* Spec sheet */}
-      <div className="rounded-2xl border border-white/5 bg-white/[0.015] p-6">
+      <div>
         {sections.length === 0 ? (
           <p className="py-8 text-center text-xs text-zinc-500">
-            {item ? 'No DNA on file for this character.' : 'DNA will appear here after generating from Characters.'}
+            {item ? 'No DNA on file for this influencer.' : 'DNA will appear here after generating from Influencers.'}
           </p>
         ) : (
           <div className="flex flex-col gap-7">
@@ -252,7 +245,7 @@ export default function ModelForm({ item, onSave, onCancel }: ModelFormProps) {
         className="flex items-center justify-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-zinc-900 transition-colors hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-        {saving ? 'Saving…' : (item ? 'Save Changes' : 'Add Character')}
+        {saving ? 'Saving…' : (item ? 'Save Changes' : 'Add Influencer')}
       </button>
     </form>
   )

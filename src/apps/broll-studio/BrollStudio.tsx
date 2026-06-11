@@ -388,6 +388,8 @@ export default function BrollStudio() {
           onGenerate={handleGenerate}
           isGenerating={isGenerating}
           highlightField={highlightField}
+          onClearOutput={handleClearOutput}
+          hasResult={!!result}
         />
       </div>
 
@@ -414,7 +416,6 @@ export default function BrollStudio() {
           setCardStates={setCardStates}
           activeHistoryId={activeHistoryId}
           onSelectHistory={handleSelectHistory}
-          onClearOutput={handleClearOutput}
         />
       </div>
 

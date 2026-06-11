@@ -63,7 +63,7 @@ export default function BrollHistoryView({ items, activeId, onSelect, onDelete }
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search history..."
-            className="w-full rounded-full border border-white/10 bg-transparent py-2 pl-10 pr-3 text-sm text-zinc-100 placeholder-zinc-500 outline-none transition-colors focus:border-orange-500/40"
+            className="w-full rounded-full border border-white/10 bg-transparent py-2 pl-10 pr-3 text-sm text-zinc-100 placeholder-zinc-500 outline-none transition-colors focus:border-broll-500/40"
           />
         </div>
       </div>
@@ -122,8 +122,8 @@ function HistoryRow({
   return (
     <div
       onClick={onSelect}
-      className={`group cursor-pointer rounded-xl px-3 py-3 transition-colors ${
-        isActive ? 'bg-orange-500/15 ring-1 ring-orange-500/20' : 'hover:bg-white/[0.04]'
+      className={`group cursor-pointer rounded-2xl px-3 py-3 transition-colors ${
+        isActive ? 'bg-broll-500/15 ring-1 ring-broll-500/20' : 'hover:bg-white/[0.04]'
       }`}
     >
       <div className="flex items-start gap-3">
@@ -131,10 +131,10 @@ function HistoryRow({
           <img
             src={thumbUrl}
             alt=""
-            className="h-12 w-12 shrink-0 rounded-lg border border-white/10 object-cover"
+            className="h-12 w-12 shrink-0 rounded-xl border border-white/10 object-cover"
           />
         ) : (
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-orange-300/70">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/[0.04] text-broll-300/70">
             <Film className="h-5 w-5" />
           </span>
         )}
@@ -143,7 +143,7 @@ function HistoryRow({
             {item.inputSummary || '(no preview)'}
           </p>
           <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-zinc-500">
-            <span className="text-orange-300">{count} scene{count === 1 ? '' : 's'}</span>
+            <span className="text-zinc-300">{count} scene{count === 1 ? '' : 's'}</span>
             <span>·</span>
             <span>{formatRelative(item.createdAt)}</span>
           </div>

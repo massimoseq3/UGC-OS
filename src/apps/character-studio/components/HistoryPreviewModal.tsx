@@ -5,6 +5,7 @@ import { useAppStore } from '../../../stores/appStore'
 import { humanizeError } from '../../../utils/friendlyError'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
 import { getUrl } from '../../../utils/assetStore'
+import { downloadImage } from '../../../utils/downloadImage'
 import type { CharacterHistoryItem } from '../../../stores/types'
 import { buildImagePrompt, buildJsonPrompt } from '../services/generateCharacter'
 
@@ -64,12 +65,7 @@ export default function HistoryPreviewModal({ item, onClose }: HistoryPreviewMod
     if (!imageUrl) return
     const url = await getUrl(item.imageRef)
     if (!url) return
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `character-${item.id}.png`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
+    await downloadImage(url, `influencer-${item.id}`)
   }
 
   async function handleCopyPrompt() {
@@ -93,7 +89,7 @@ export default function HistoryPreviewModal({ item, onClose }: HistoryPreviewMod
         onClick={(e) => e.stopPropagation()}
       >
         <ModalActionButton
-          title={savedAsModel ? 'Saved to Characters bank' : 'Save to Characters bank'}
+          title={savedAsModel ? 'Saved to Influencers bank' : 'Save to Influencers bank'}
           onClick={() => setShowSaveForm(true)}
           disabled={savedAsModel}
           tone={savedAsModel ? 'saved' : 'default'}
@@ -108,17 +104,26 @@ export default function HistoryPreviewModal({ item, onClose }: HistoryPreviewMod
         </ModalActionButton>
       </div>
 
-      {/* Centered content */}
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="mx-auto flex h-full w-full max-w-5xl flex-col items-center justify-center gap-4 overflow-hidden px-6 py-16"
-      >
+      {/* Centered content — the media element shrinks to the image's real
+          rendered size so the border hugs the picture (no letterbox bars),
+          and clicks anywhere outside it close the modal. */}
+      <div className="mx-auto flex h-full w-full max-w-5xl flex-col items-center justify-center gap-4 overflow-hidden px-6 py-16">
         {imageUrl && (
-          <img src={imageUrl} alt="" className="min-h-0 max-w-full flex-1 rounded-xl border border-white/10 object-contain" />
+          <div className="flex min-h-0 w-full flex-1 items-center justify-center">
+            <img
+              src={imageUrl}
+              alt=""
+              onClick={(e) => e.stopPropagation()}
+              className="max-h-full max-w-full rounded-xl border border-white/10 object-contain"
+            />
+          </div>
         )}
 
         {showSaveForm ? (
-          <div className="flex w-full max-w-md shrink-0 items-center gap-2 rounded-full border border-white/10 bg-[#0B0B0D]/95 p-1.5 backdrop-blur">
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="flex w-full max-w-md shrink-0 items-center gap-2 rounded-full border border-white/10 bg-[#0B0B0D]/95 p-1.5 backdrop-blur"
+          >
             <input
               autoFocus
               value={name}
@@ -127,14 +132,14 @@ export default function HistoryPreviewModal({ item, onClose }: HistoryPreviewMod
                 if (e.key === 'Enter') commitSave()
                 if (e.key === 'Escape') { setShowSaveForm(false); setName('') }
               }}
-              placeholder="Character name…"
+              placeholder="Influencer name…"
               className="flex-1 rounded-full bg-transparent px-3 py-1.5 text-[12px] text-zinc-200 placeholder-zinc-600 outline-none"
             />
             <button
               type="button"
               onClick={commitSave}
               disabled={!name.trim() || saving}
-              className="flex items-center gap-1.5 rounded-full bg-sky-500/15 px-3 py-1.5 text-[12px] font-medium text-sky-400 transition-colors hover:bg-sky-500/25 disabled:opacity-40"
+              className="flex items-center gap-1.5 rounded-full bg-influencers-500/15 px-3 py-1.5 text-[12px] font-medium text-influencers-400 transition-colors hover:bg-influencers-500/25 disabled:opacity-40"
             >
               {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               {saving ? 'Saving…' : 'Save'}
@@ -150,7 +155,10 @@ export default function HistoryPreviewModal({ item, onClose }: HistoryPreviewMod
             </button>
           </div>
         ) : (
-          <div className="flex w-full max-w-2xl shrink-0 flex-col items-center gap-2">
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="flex w-full max-w-2xl shrink-0 flex-col items-center gap-2"
+          >
             <div className="max-h-[18vh] w-full overflow-y-auto rounded-lg bg-white/[0.02] px-4 py-3 text-center text-[12px] leading-relaxed text-zinc-400 whitespace-pre-wrap">
               {prompt}
             </div>

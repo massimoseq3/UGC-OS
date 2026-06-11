@@ -52,7 +52,7 @@ function ConfirmDelete({ onConfirm, onCancel }: { onConfirm: () => Promise<void>
       <button
         onClick={handleConfirm}
         disabled={busy}
-        className="flex items-center gap-1 rounded-md bg-red-500/20 px-2 py-0.5 text-[11px] font-medium text-red-400 transition-colors hover:bg-red-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+        className="flex items-center gap-1 rounded-full bg-red-500/20 px-2.5 py-0.5 text-[11px] font-medium text-red-400 transition-colors hover:bg-red-500/30 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {busy && <Loader2 className="h-3 w-3 animate-spin" />}
         {busy ? 'Deleting…' : 'Delete'}
@@ -89,7 +89,7 @@ function ProductCard({ item, onEdit, onDelete, inFlight }: { item: Product; onEd
   return (
     <div
       onClick={onEdit}
-      className="group relative aspect-square cursor-pointer overflow-hidden rounded-xl border border-white/5 bg-white/[0.03] transition-all hover:border-white/15 hover:-translate-y-0.5"
+      className="group relative aspect-square cursor-pointer overflow-hidden rounded-2xl border border-white/5 bg-white/[0.03] transition-all hover:border-white/15 hover:-translate-y-0.5"
     >
       {resolvedImage ? (
         <img src={resolvedImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
@@ -100,7 +100,7 @@ function ProductCard({ item, onEdit, onDelete, inFlight }: { item: Product; onEd
       )}
       {/* Top-left status indicator: Extracting badge (while in-flight) OR draft/confirmed dot */}
       {inFlight ? (
-        <span className="absolute left-2 top-2 z-10 flex items-center gap-1 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-emerald-300 backdrop-blur-sm">
+        <span className="absolute left-2 top-2 z-10 flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-medium text-emerald-300 backdrop-blur-sm">
           <Loader2 className="h-2.5 w-2.5 animate-spin" />
           Extracting
         </span>
@@ -117,15 +117,14 @@ function ProductCard({ item, onEdit, onDelete, inFlight }: { item: Product; onEd
       {/* Bottom info overlay */}
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/55 to-transparent p-3 pt-10">
         <span className="block truncate text-sm font-semibold tracking-tight text-zinc-100">{item.productName}</span>
-        <span className="block truncate text-xs text-zinc-400">{item.targetMarket || 'No target market'}</span>
-        <span className="text-[10px] text-zinc-500">{productCompleteness(item)}</span>
+        <span className="text-[10px] text-zinc-400">{productCompleteness(item)}</span>
       </div>
       {/* Delete button overlay */}
       <div className="absolute right-2 top-2" onClick={(e) => e.stopPropagation()}>
         {confirm ? (
           <ConfirmDelete onConfirm={onDelete} onCancel={() => setConfirm(false)} />
         ) : (
-          <button onClick={() => setConfirm(true)} className="rounded-lg bg-black/50 p-1.5 text-zinc-400 opacity-0 backdrop-blur-sm transition-all hover:text-red-400 group-hover:opacity-100">
+          <button onClick={() => setConfirm(true)} className="rounded-full bg-black/50 p-1.5 text-zinc-400 opacity-0 backdrop-blur-sm transition-all hover:text-red-400 group-hover:opacity-100">
             <Trash2 className="h-3.5 w-3.5" />
           </button>
         )}
@@ -137,7 +136,6 @@ function ProductCard({ item, onEdit, onDelete, inFlight }: { item: Product; onEd
 function ModelCard({ item, onEdit, onDelete }: { item: Model; onEdit: () => void; onDelete: () => void }) {
   const [confirm, setConfirm] = useState(false)
   const resolvedImage = useAssetUrl(item.characterImage)
-  const sourceLabel = item.source === 'character-studio' ? 'Characters' : item.source === 'image-dna-extractor' ? 'Image DNA' : 'Imported'
 
   const handleDownload = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -148,7 +146,7 @@ function ModelCard({ item, onEdit, onDelete }: { item: Model; onEdit: () => void
   return (
     <div
       onClick={onEdit}
-      className="group relative aspect-[9/16] cursor-pointer overflow-hidden rounded-xl border border-white/5 bg-white/[0.03] transition-all hover:border-white/15 hover:-translate-y-0.5"
+      className="group relative aspect-[9/16] cursor-pointer overflow-hidden rounded-2xl border border-white/5 bg-white/[0.03] transition-all hover:border-white/15 hover:-translate-y-0.5"
     >
       {resolvedImage ? (
         <img src={resolvedImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
@@ -160,7 +158,6 @@ function ModelCard({ item, onEdit, onDelete }: { item: Model; onEdit: () => void
       {/* Bottom info overlay — same gradient pattern as ProductCard */}
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/55 to-transparent p-3 pt-10">
         <span className="block truncate text-sm font-semibold tracking-tight text-zinc-100">{item.name}</span>
-        <span className="text-[10px] text-zinc-300">{sourceLabel}</span>
       </div>
       {/* Action buttons top-right */}
       <div className="absolute right-2 top-2 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
@@ -169,11 +166,11 @@ function ModelCard({ item, onEdit, onDelete }: { item: Model; onEdit: () => void
         ) : (
           <>
             {resolvedImage && (
-              <button onClick={handleDownload} className="rounded-lg bg-black/50 p-1.5 text-zinc-400 opacity-0 backdrop-blur-sm transition-all hover:text-zinc-200 group-hover:opacity-100">
+              <button onClick={handleDownload} className="rounded-full bg-black/50 p-1.5 text-zinc-400 opacity-0 backdrop-blur-sm transition-all hover:text-zinc-200 group-hover:opacity-100">
                 <Download className="h-3.5 w-3.5" />
               </button>
             )}
-            <button onClick={() => setConfirm(true)} className="rounded-lg bg-black/50 p-1.5 text-zinc-400 opacity-0 backdrop-blur-sm transition-all hover:text-red-400 group-hover:opacity-100">
+            <button onClick={() => setConfirm(true)} className="rounded-full bg-black/50 p-1.5 text-zinc-400 opacity-0 backdrop-blur-sm transition-all hover:text-red-400 group-hover:opacity-100">
               <Trash2 className="h-3.5 w-3.5" />
             </button>
           </>
@@ -192,15 +189,15 @@ function ScriptCard({ item, onEdit, onDelete }: { item: Script; onEdit: () => vo
   const isPrompt = item.kind === 'reverse-engineer'
   const badge = isPrompt
     ? { label: 'PROMPT', className: 'bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-500/20' }
-    : { label: 'SCRIPT', className: 'bg-sky-500/15 text-sky-300 border-sky-500/20' }
+    : { label: 'SCRIPT', className: 'bg-scripts-500/15 text-scripts-300 border-scripts-500/20' }
   return (
-    <div onClick={onEdit} className="group flex cursor-pointer gap-3 rounded-xl border border-white/5 bg-white/[0.03] p-3 transition-colors hover:border-white/10 hover:bg-white/[0.05]">
-      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-white/5">
+    <div onClick={onEdit} className="group flex cursor-pointer gap-3 rounded-2xl border border-white/5 bg-white/[0.03] p-3 transition-colors hover:border-white/10 hover:bg-white/[0.05]">
+      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/5">
         <FileText className="h-5 w-5 text-zinc-600" />
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex items-center gap-2">
-          <span className={`shrink-0 rounded border px-1.5 py-0.5 text-[9px] font-semibold tracking-widest ${badge.className}`}>
+          <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-semibold tracking-widest ${badge.className}`}>
             {badge.label}
           </span>
           <span className="truncate text-sm font-semibold tracking-tight text-zinc-200">{item.title}</span>
@@ -261,9 +258,9 @@ function BRollCard({ item, onEdit, onDelete }: { item: BRoll; onEdit: () => void
   }
 
   return (
-    <div onClick={onEdit} className="group cursor-pointer rounded-xl border border-white/5 bg-white/[0.03] transition-all hover:border-white/15 hover:bg-white/[0.05] hover:-translate-y-0.5">
+    <div onClick={onEdit} className="group relative cursor-pointer overflow-hidden rounded-2xl border border-white/5 bg-white/[0.03] transition-all hover:border-white/15 hover:bg-white/[0.05] hover:-translate-y-0.5">
       {/* Thumbnail — adapts to image's natural aspect ratio */}
-      <div className="relative w-full overflow-hidden rounded-t-xl">
+      <div className="relative w-full overflow-hidden">
         {resolvedImage ? (
           <img src={resolvedImage} alt="" className="block w-full" />
         ) : isVideoOnly ? (
@@ -281,7 +278,7 @@ function BRollCard({ item, onEdit, onDelete }: { item: BRoll; onEdit: () => void
         )}
         {/* Video badge */}
         {videoCount > 0 && (
-          <span className="absolute left-2 top-2 flex items-center gap-1 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400 backdrop-blur-sm">
+          <span className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-medium text-emerald-400 backdrop-blur-sm">
             <Video className="h-2.5 w-2.5" />
             {videoCount} {videoCount === 1 ? 'video' : 'videos'}
           </span>
@@ -292,10 +289,10 @@ function BRollCard({ item, onEdit, onDelete }: { item: BRoll; onEdit: () => void
             <ConfirmDelete onConfirm={onDelete} onCancel={() => setConfirm(false)} />
           ) : (
             <>
-              <button onClick={handleDownload} className="rounded-lg bg-black/50 p-1.5 text-zinc-400 opacity-0 backdrop-blur-sm transition-all hover:text-zinc-200 group-hover:opacity-100">
+              <button onClick={handleDownload} className="rounded-full bg-black/50 p-1.5 text-zinc-400 opacity-0 backdrop-blur-sm transition-all hover:text-zinc-200 group-hover:opacity-100">
                 <Download className="h-3.5 w-3.5" />
               </button>
-              <button onClick={() => setConfirm(true)} className="rounded-lg bg-black/50 p-1.5 text-zinc-400 opacity-0 backdrop-blur-sm transition-all hover:text-red-400 group-hover:opacity-100">
+              <button onClick={() => setConfirm(true)} className="rounded-full bg-black/50 p-1.5 text-zinc-400 opacity-0 backdrop-blur-sm transition-all hover:text-red-400 group-hover:opacity-100">
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
             </>
@@ -306,17 +303,17 @@ function BRollCard({ item, onEdit, onDelete }: { item: BRoll; onEdit: () => void
           <button
             onClick={handleAnimate}
             title="Open Playground in video mode with this image as the start frame"
-            className="absolute left-2 bottom-2 flex items-center gap-1 whitespace-nowrap rounded-full border border-green-500/40 bg-green-500/80 px-2.5 py-1 text-[10px] font-medium text-white opacity-0 backdrop-blur-sm transition-all hover:bg-green-500 group-hover:opacity-100"
+            className="absolute left-2 bottom-2 z-10 flex items-center gap-1 whitespace-nowrap rounded-full border border-playground-500/40 bg-playground-500/80 px-2.5 py-1 text-[10px] font-medium text-white opacity-0 backdrop-blur-sm transition-all hover:bg-playground-500 group-hover:opacity-100"
           >
             <Film className="h-3 w-3" />
             Animate in playground
           </button>
         )}
       </div>
-      {/* Info */}
-      <div className="flex flex-col gap-0.5 p-3">
-        <p className="text-[11px] leading-relaxed text-zinc-500 line-clamp-2">{promptPreview}</p>
-        <span className="text-[10px] text-zinc-700">{new Date(item.createdAt).toLocaleDateString()}</span>
+      {/* Info — gradient overlay, same pattern as the Influencer cards */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/55 to-transparent p-3 pt-10">
+        <p className="text-[12px] font-medium leading-snug text-zinc-100 line-clamp-2">{promptPreview}</p>
+        <span className="text-[10px] text-zinc-400">{new Date(item.createdAt).toLocaleDateString()}</span>
       </div>
     </div>
   )
@@ -325,8 +322,8 @@ function BRollCard({ item, onEdit, onDelete }: { item: BRoll; onEdit: () => void
 function VoiceCard({ item, onEdit, onDelete }: { item: VoicePreset; onEdit: () => void; onDelete: () => void }) {
   const [confirm, setConfirm] = useState(false)
   return (
-    <div onClick={onEdit} className="group flex cursor-pointer gap-3 rounded-xl border border-white/5 bg-white/[0.03] p-3 transition-colors hover:border-white/10 hover:bg-white/[0.05]">
-      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-white/5">
+    <div onClick={onEdit} className="group flex cursor-pointer gap-3 rounded-2xl border border-white/5 bg-white/[0.03] p-3 transition-colors hover:border-white/10 hover:bg-white/[0.05]">
+      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/5">
         <Mic className="h-5 w-5 text-zinc-600" />
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -374,7 +371,7 @@ export default function BankList({ bankType, onEdit, onAdd, sort, inFlightProduc
   }
 
   if (bankType === 'models') {
-    if (models.length === 0) return <EmptyState icon={UserRound} label="characters" singular="character" onAdd={onAdd} />
+    if (models.length === 0) return <EmptyState icon={UserRound} label="influencers" singular="influencer" onAdd={onAdd} />
     return <ModelsList items={models} onEdit={onEdit} onDelete={deleteModel} sort={sort} />
   }
 
@@ -501,7 +498,7 @@ function EmptyState({ icon: Icon, label, singular, onAdd }: { icon: React.Elemen
       </div>
       <button
         onClick={onAdd}
-        className="flex items-center gap-1.5 rounded-xl bg-white/[0.07] px-4 py-2 text-sm font-medium text-zinc-300 transition-colors hover:bg-white/10"
+        className="flex items-center gap-1.5 rounded-full bg-white/[0.07] px-4 py-2 text-sm font-medium text-zinc-300 transition-colors hover:bg-white/10"
       >
         <Plus className="h-4 w-4" />
         Add Your First {singular.charAt(0).toUpperCase() + singular.slice(1)}

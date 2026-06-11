@@ -67,7 +67,7 @@ function useCopy() {
 function SectionHeader({ icon: Icon, title }: { icon: React.ElementType; title: string }) {
   return (
     <div className="mb-3 flex items-center gap-2">
-      <Icon className="h-4 w-4 text-[#FB2B37]/80" strokeWidth={1.5} />
+      <Icon className="h-4 w-4 text-[#FF5257]/80" strokeWidth={1.5} />
       <h3 className="text-sm font-semibold tracking-tight text-zinc-200">{title}</h3>
     </div>
   )
@@ -86,7 +86,7 @@ function scoreColor(score: number) {
   if (score >= 9) return { text: 'text-cyan-400', border: 'border-cyan-400/20', bg: 'bg-cyan-400/10' }
   if (score >= 7) return { text: 'text-green-500', border: 'border-green-500/20', bg: 'bg-green-500/10' }
   if (score >= 5) return { text: 'text-amber-500', border: 'border-amber-500/20', bg: 'bg-amber-500/10' }
-  return { text: 'text-[#FB2B37]', border: 'border-[#FB2B37]/20', bg: 'bg-[#FB2B37]/10' }
+  return { text: 'text-[#FF5257]', border: 'border-[#FF5257]/20', bg: 'bg-[#FF5257]/10' }
 }
 
 function ScorecardSection({ result }: { result: AnalysisResult }) {
@@ -178,7 +178,7 @@ function TranscriptSection({ result, fileName }: { result: AnalysisResult; fileN
           </button>
           <button
             onClick={handleSendToScripts}
-            className="flex items-center gap-1 rounded-full bg-[#FB2B37]/10 px-2.5 py-1 text-[11px] font-medium text-[#FB2B37] transition-colors hover:bg-[#FB2B37]/20"
+            className="flex items-center gap-1 rounded-full bg-[#FF5257]/10 px-2.5 py-1 text-[11px] font-medium text-[#FF5257] transition-colors hover:bg-[#FF5257]/20"
           >
             <Send className="h-3 w-3" />
             Send to Scripts
@@ -213,7 +213,7 @@ function SceneCard({ scene }: { scene: Scene }) {
     <div className="rounded-lg border border-white/5 bg-white/[0.02] p-4">
       <div className="mb-2.5 flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="shrink-0 rounded-md bg-[#FB2B37]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-[#FB2B37]">
+          <span className="shrink-0 rounded-md bg-[#FF5257]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-[#FF5257]">
             Scene {scene.index}
           </span>
           <span className="truncate text-xs font-medium text-zinc-300">{scene.label}</span>
@@ -300,7 +300,7 @@ function ReverseEngineeredSection({ result, fileName }: { result: AnalysisResult
           </button>
           <button
             onClick={handleSendToScripts}
-            className="flex items-center gap-1 rounded-full bg-[#FB2B37]/10 px-2.5 py-1 text-[11px] font-medium text-[#FB2B37] transition-colors hover:bg-[#FB2B37]/20"
+            className="flex items-center gap-1 rounded-full bg-[#FF5257]/10 px-2.5 py-1 text-[11px] font-medium text-[#FF5257] transition-colors hover:bg-[#FF5257]/20"
           >
             <Send className="h-3 w-3" />
             Send to Scripts
@@ -369,7 +369,7 @@ export default function ResultsView({ result, videoSrc, restoredThumbUrl, fileNa
           </div>
           <button
             onClick={onReset}
-            className="flex shrink-0 items-center justify-center gap-2 rounded-full border border-[#FB2B37]/20 bg-[#FB2B37]/10 px-4 py-2.5 text-sm font-medium text-[#FB2B37] transition-colors hover:bg-[#FB2B37]/20"
+            className="flex shrink-0 items-center justify-center gap-2 rounded-full border border-[#FF5257]/20 bg-[#FF5257]/10 px-4 py-2.5 text-sm font-medium text-[#FF5257] transition-colors hover:bg-[#FF5257]/20"
           >
             <RotateCcw className="h-3.5 w-3.5" />
             Analyze Another
@@ -389,7 +389,7 @@ export default function ResultsView({ result, videoSrc, restoredThumbUrl, fileNa
             </div>
             <button
               onClick={onReset}
-              className="flex shrink-0 items-center justify-center gap-2 rounded-full border border-[#FB2B37]/20 bg-[#FB2B37]/10 px-3.5 py-1.5 text-xs font-medium text-[#FB2B37] transition-colors hover:bg-[#FB2B37]/20"
+              className="flex shrink-0 items-center justify-center gap-2 rounded-full border border-[#FF5257]/20 bg-[#FF5257]/10 px-3.5 py-1.5 text-xs font-medium text-[#FF5257] transition-colors hover:bg-[#FF5257]/20"
             >
               <RotateCcw className="h-3 w-3" />
               Analyze Another

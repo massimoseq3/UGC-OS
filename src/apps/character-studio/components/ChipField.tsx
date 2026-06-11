@@ -21,10 +21,22 @@ export default function ChipField({ label, value, onChange, suggestions, placeho
   const [open, setOpen] = useState(false)
 
   const q = value.trim().toLowerCase()
-  const matches = suggestions.filter((s) => s.toLowerCase().includes(q))
-  // An exact single match means the user just picked (or finished typing) a
-  // listed value — no point re-showing it under the input.
-  const showDropdown = open && !locked && matches.length > 0 && !(matches.length === 1 && matches[0].toLowerCase() === q)
+  // Two sections: the options that match the current text float to the top,
+  // a hairline separator, then every other option. With no text yet, a
+  // "None" option (when the field has one) takes the top slot instead, so
+  // the most common "skip this field" pick is always one click away. The
+  // dropdown opens on every focus — even when the field already holds a
+  // value — so clicking into a filled field still shows the full menu.
+  let topSection: string[]
+  let restSection: string[]
+  if (q) {
+    topSection = suggestions.filter((s) => s.toLowerCase().includes(q))
+    restSection = suggestions.filter((s) => !s.toLowerCase().includes(q))
+  } else {
+    topSection = suggestions.filter((s) => s.toLowerCase() === 'none')
+    restSection = suggestions.filter((s) => s.toLowerCase() !== 'none')
+  }
+  const showDropdown = open && !locked && suggestions.length > 0
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -52,27 +64,38 @@ export default function ChipField({ label, value, onChange, suggestions, placeho
           onKeyDown={(e) => { if (e.key === 'Escape') setOpen(false) }}
           readOnly={locked}
           placeholder={placeholder ?? `Search or type ${label.toLowerCase()}...`}
-          className={`w-full rounded-full border border-white/15 bg-transparent px-4 py-2 text-sm text-zinc-100 placeholder-zinc-500 outline-none transition-colors focus:border-sky-500/40 ${locked ? 'cursor-not-allowed opacity-70' : ''}`}
+          className={`w-full rounded-full border border-white/15 bg-transparent px-4 py-2 text-sm text-zinc-100 placeholder-zinc-500 outline-none transition-colors focus:border-influencers-500/40 ${locked ? 'cursor-not-allowed opacity-70' : ''}`}
         />
         {showDropdown && (
           <div className="absolute left-0 right-0 top-full z-30 mt-1.5 overflow-hidden rounded-2xl border border-white/10 bg-[#0B0B0D] shadow-2xl">
             <div className="max-h-52 overflow-y-auto p-1">
-              {matches.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => { onChange(s); setOpen(false) }}
-                  className={`block w-full truncate rounded-lg px-3 py-1.5 text-left text-[12px] transition-colors ${
-                    s === value ? 'bg-white/[0.08] text-zinc-100' : 'text-zinc-300 hover:bg-white/[0.06]'
-                  }`}
-                >
-                  {s}
-                </button>
+              {topSection.map((s) => (
+                <SuggestionRow key={s} text={s} selected={s === value} onPick={() => { onChange(s); setOpen(false) }} />
+              ))}
+              {topSection.length > 0 && restSection.length > 0 && (
+                <div className="mx-2 my-1 h-px bg-white/[0.08]" />
+              )}
+              {restSection.map((s) => (
+                <SuggestionRow key={s} text={s} selected={s === value} onPick={() => { onChange(s); setOpen(false) }} />
               ))}
             </div>
           </div>
         )}
       </div>
     </div>
+  )
+}
+
+function SuggestionRow({ text, selected, onPick }: { text: string; selected: boolean; onPick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onPick}
+      className={`block w-full truncate rounded-full px-3 py-1.5 text-left text-[12px] transition-colors ${
+        selected ? 'bg-white/[0.08] text-zinc-100' : 'text-zinc-300 hover:bg-white/[0.06]'
+      }`}
+    >
+      {text}
+    </button>
   )
 }

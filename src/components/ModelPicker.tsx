@@ -97,7 +97,7 @@ export default function ModelPicker({ appId, task, mode, value, onChange, costPa
             ? 'flex h-9 w-full items-center gap-2 rounded-full border border-white/10 bg-white/[0.02] px-2 text-left transition-colors hover:bg-white/[0.05]'
             : large
             ? 'flex h-12 w-full items-center gap-3 rounded-full border border-white/10 bg-white/[0.02] px-4 text-left transition-colors hover:bg-white/[0.05]'
-            : 'flex w-full items-center gap-2.5 rounded-full border border-white/10 bg-white/[0.02] px-3 py-2 text-left transition-colors hover:bg-white/[0.05]'
+            : 'flex h-12 w-full items-center gap-2.5 rounded-full border border-white/10 bg-white/[0.02] px-3 text-left transition-colors hover:bg-white/[0.05]'
         }
       >
         {selected ? (
@@ -115,14 +115,11 @@ export default function ModelPicker({ appId, task, mode, value, onChange, costPa
           ) : (
             <>
               <ProviderLogo provider={selected.provider} />
-              <div className="flex min-w-0 flex-1 flex-col">
-                <div className="flex items-center gap-1.5">
-                  <span className={`truncate font-medium text-zinc-100 ${large ? 'text-[14px]' : 'text-[13px]'}`}>{selected.displayName}</span>
-                  {selected.tags.includes('recommended') && (
-                    <Star className="h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400" strokeWidth={1.5} />
-                  )}
-                </div>
-                <span className={`truncate text-zinc-500 ${large ? 'text-[11px]' : 'text-[10px]'}`}>{selected.provider}</span>
+              <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                <span className={`truncate font-medium text-zinc-100 ${large ? 'text-[14px]' : 'text-[13px]'}`}>{selected.displayName}</span>
+                {selected.tags.includes('recommended') && (
+                  <Star className="h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400" strokeWidth={1.5} />
+                )}
               </div>
               {selectedCredits != null && (
                 <span className={`shrink-0 tabular-nums text-zinc-500 ${large ? 'text-[12px]' : 'text-[11px]'}`}>{formatCredits(selectedCredits)}</span>
@@ -137,7 +134,7 @@ export default function ModelPicker({ appId, task, mode, value, onChange, costPa
 
       {open && (
         <div
-          className={`absolute left-0 right-0 z-50 overflow-hidden rounded-xl border border-white/10 bg-[#0B0B0D]/95 shadow-2xl backdrop-blur-xl ${
+          className={`absolute left-0 right-0 z-50 overflow-hidden rounded-2xl border border-white/10 bg-[#0B0B0D]/95 shadow-2xl backdrop-blur-xl ${
             openUpward ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
           }`}
         >
@@ -184,20 +181,17 @@ function ModelRow({ model, active, costParams, muted, onClick }: ModelRowProps) 
     <button
       type="button"
       onClick={onClick}
-      className={`flex w-full items-center gap-3 rounded-lg px-2.5 py-2.5 text-left transition-colors ${
+      className={`flex h-12 w-full items-center gap-3 rounded-full px-2.5 text-left transition-colors ${
         muted ? 'opacity-45 hover:opacity-70' : ''
       } ${active ? 'bg-white/[0.06]' : 'hover:bg-white/[0.04]'}`}
     >
       <ProviderLogo provider={model.provider} />
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex items-center gap-1.5">
-          <span className="truncate text-[13px] font-semibold text-zinc-100">{model.displayName}</span>
-          {isRecommended && (
-            <Star className="h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400" strokeWidth={1.5} />
-          )}
-        </div>
-        <span className="truncate text-[10px] text-zinc-500">{model.provider}</span>
+      <div className="flex min-w-0 flex-1 items-center gap-1.5">
+        <span className="truncate text-[13px] font-semibold text-zinc-100">{model.displayName}</span>
+        {isRecommended && (
+          <Star className="h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400" strokeWidth={1.5} />
+        )}
       </div>
 
       <div className="flex shrink-0 items-center gap-1.5">

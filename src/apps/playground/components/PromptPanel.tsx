@@ -9,6 +9,7 @@ import {
   VolumeX,
 } from 'lucide-react'
 import ModelPicker from '../../../components/ModelPicker'
+import SegmentedToggle from '../../../components/SegmentedToggle'
 import AspectIcon from '../../../components/AspectIcon'
 import ConstraintChip from '../../../components/ConstraintChip'
 import {
@@ -25,7 +26,8 @@ import VideoInputSlot, { type VideoInputValue } from '../../../components/video/
 import VideoRefStrip from '../../../components/video/VideoRefStrip'
 import type { BankType } from '../../../utils/constants'
 import type { BRoll } from '../../../stores/types'
-import PresetPickerView from './PresetPickerView'
+import PresetCard from './PresetCard'
+import SlideOver from '../../../components/SlideOver'
 import MentionPopover from './MentionPopover'
 import type { PlaygroundMode, BankReference } from '../types'
 import { VIDEO_PRESETS, IMAGE_PRESETS, type Preset } from '../presets'
@@ -347,31 +349,16 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
       onDragLeave={() => setDragOver(false)}
       onDrop={handleDrop}
       className={`relative flex h-full flex-col transition-colors ${
-        dragOver ? 'bg-green-500/[0.04]' : ''
+        dragOver ? 'bg-playground-500/[0.04]' : ''
       }`}
     >
-      {/* Top: mode tabs strip — mirrors Voiceovers' Settings/History pattern. */}
-      <div className="flex items-center gap-1 border-b border-white/5 px-5">
-        {MODE_TABS.map((tab) => {
-          const Icon = tab.icon
-          const active = state.mode === tab.id
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => onModeChange(tab.id)}
-              className={`relative flex items-center gap-1.5 px-3 pb-2 pt-3 text-[13px] font-medium tracking-tight transition-colors ${
-                active ? 'text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'
-              }`}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              <span>{tab.label}</span>
-              {active && (
-                <span className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-zinc-100" />
-              )}
-            </button>
-          )
-        })}
+      {/* Top: mode toggle — mirrors Voiceovers' Settings/History pattern. */}
+      <div className="flex items-center px-5 pb-2 pt-4">
+        <SegmentedToggle<PlaygroundMode>
+          value={state.mode}
+          onChange={onModeChange}
+          options={MODE_TABS.map((tab) => ({ value: tab.id, label: tab.label, icon: tab.icon }))}
+        />
       </div>
 
       {/* Middle: scrollable body — model picker, preset, refs, prompt. */}
@@ -437,7 +424,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
                       onClick={() => onChange({ ...state, audio: !state.audio })}
                       className={`flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[12px] transition-colors ${
                         state.audio
-                          ? 'border-green-500/30 bg-green-500/10 text-green-200'
+                          ? 'border-playground-500/30 bg-playground-500/10 text-playground-200'
                           : 'border-white/10 bg-white/[0.02] text-zinc-400 hover:bg-white/[0.05]'
                       }`}
                     >
@@ -480,7 +467,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
                     onClick={() => onChange({ ...state, instrumental: true })}
                     className={`rounded-full px-4 py-1.5 text-[12px] transition-colors ${
                       state.instrumental
-                        ? 'bg-green-500/15 text-green-200'
+                        ? 'bg-playground-500/15 text-playground-200'
                         : 'text-zinc-400 hover:text-zinc-200'
                     }`}
                   >
@@ -491,7 +478,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
                     onClick={() => onChange({ ...state, instrumental: false })}
                     className={`rounded-full px-4 py-1.5 text-[12px] transition-colors ${
                       !state.instrumental
-                        ? 'bg-green-500/15 text-green-200'
+                        ? 'bg-playground-500/15 text-playground-200'
                         : 'text-zinc-400 hover:text-zinc-200'
                     }`}
                   >
@@ -577,7 +564,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
                   onClick={() => setPresetOpen(true)}
                   className="mt-2 flex w-full items-center gap-2 rounded-full border border-white/10 bg-white/[0.02] px-3 py-1.5 text-left transition-colors hover:bg-white/[0.05]"
                 >
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-500/10 text-green-400">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-playground-500/10 text-playground-400">
                     <Camera className="h-3 w-3" />
                   </span>
                   <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-zinc-100">UGC Prompt Presets</span>
@@ -607,23 +594,34 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
                 />
               )}
               <p className="mt-2 text-[11px] text-zinc-500">
-                Tip: type <span className="font-medium text-zinc-400">@</span> to reference Products, Characters, or B-Rolls.
+                Tip: type <span className="font-medium text-zinc-400">@</span> to reference Products, Influencers, or B-Rolls.
               </p>
             </div>
 
           </div>
         </div>
 
-        {/* Slide-in preset picker — covers panel body when open. */}
-        {presetOpen && (
-          <div className="absolute inset-0 bg-[#0A0A0A]">
-            <PresetPickerView
-              presets={state.mode === 'image' ? IMAGE_PRESETS : VIDEO_PRESETS}
-              onSelect={applyPreset}
-              onClose={() => setPresetOpen(false)}
-            />
+        {/* Preset picker — right-edge slide-over, same chrome as the bank
+            pickers so the app reads as one pattern. */}
+        <SlideOver
+          open={presetOpen}
+          onClose={() => setPresetOpen(false)}
+          title="UGC Prompt Presets"
+          subtitle="Pick a format to prefill the prompt + aspect ratio"
+        >
+          <div className="grid grid-cols-2 gap-3 p-4">
+            {(state.mode === 'image' ? IMAGE_PRESETS : VIDEO_PRESETS).map((preset) => (
+              <PresetCard
+                key={preset.id}
+                preset={preset}
+                onClick={() => {
+                  applyPreset(preset)
+                  setPresetOpen(false)
+                }}
+              />
+            ))}
           </div>
-        )}
+        </SlideOver>
       </div>
 
       {/* Bottom: pinned footer — big Generate button. */}
@@ -632,7 +630,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
           type="button"
           onClick={onSubmit}
           disabled={!canSubmit}
-          className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-green-500 px-6 py-3.5 text-[13px] font-medium tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-green-400 disabled:cursor-not-allowed disabled:opacity-40"
+          className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-playground-500 px-6 py-3.5 text-[13px] font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-playground-400 disabled:cursor-not-allowed disabled:opacity-40"
         >
           <GenerateIcon className="h-4 w-4" />
           <span>

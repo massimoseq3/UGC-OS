@@ -1,10 +1,10 @@
-import { X } from 'lucide-react'
 import type { BrollResult, PromptVariation, CardState, ReferenceImage } from '../types'
 import type { Product, Model, BrollHistoryItem } from '../../../stores/types'
 import { useBankStore } from '../../../stores/bankStore'
 import { usePersistedState, useProjectScopedKey } from '../../../hooks/usePersistedState'
 import ScenesView from './ScenesView'
 import BrollHistoryView from './BrollHistoryView'
+import SegmentedToggle from '../../../components/SegmentedToggle'
 
 interface RightPanelProps {
   result: BrollResult | null
@@ -27,7 +27,6 @@ interface RightPanelProps {
   setCardStates: React.Dispatch<React.SetStateAction<Record<string, CardState>>>
   activeHistoryId: string | null
   onSelectHistory: (item: BrollHistoryItem) => void
-  onClearOutput: () => void
 }
 
 type Tab = 'scenes' | 'history'
@@ -57,7 +56,6 @@ export default function RightPanel(props: RightPanelProps) {
     setCardStates,
     activeHistoryId,
     onSelectHistory,
-    onClearOutput,
   } = props
 
   const baseKey = useProjectScopedKey('broll-studio')
@@ -71,37 +69,18 @@ export default function RightPanel(props: RightPanelProps) {
 
   return (
     <div className="flex h-full flex-col">
-      {/* Tab strip — no global Settings popover anymore: each card owns its
+      {/* Toggle strip — no global Settings popover anymore: each card owns its
           own settings inside its detail modal. */}
-      <div className="flex items-center justify-between gap-3 border-b border-white/5 px-5">
-        <div className="flex items-center gap-1">
-          <TabButton active={tab === 'scenes'} onClick={() => setTab('scenes')}>
-            Scenes
-            {sceneCount > 0 && (
-              <span className="ml-1.5 rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] text-zinc-300">
-                {sceneCount}
-              </span>
-            )}
-          </TabButton>
-          <TabButton active={tab === 'history'} onClick={() => setTab('history')}>
-            History
-            {historyCount > 0 && (
-              <span className="ml-1.5 rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] text-zinc-300">
-                {historyCount}
-              </span>
-            )}
-          </TabButton>
-        </div>
-        {tab === 'scenes' && result && (
-          <button
-            onClick={onClearOutput}
-            title="Clear inputs and scenes. This session stays in the History tab."
-            className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-200"
-          >
-            <X className="h-3.5 w-3.5" strokeWidth={2} />
-            Clear
-          </button>
-        )}
+      <div className="flex items-center px-5 pb-2 pt-4">
+        <SegmentedToggle<Tab>
+          className="min-w-0"
+          value={tab}
+          onChange={setTab}
+          options={[
+            { value: 'scenes', label: 'Scenes', badge: sceneCount > 0 ? sceneCount : undefined },
+            { value: 'history', label: 'History', badge: historyCount > 0 ? historyCount : undefined },
+          ]}
+        />
       </div>
 
       <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -139,23 +118,5 @@ export default function RightPanel(props: RightPanelProps) {
         )}
       </div>
     </div>
-  )
-}
-
-function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`relative flex items-center gap-1 px-3 pb-2 pt-5 text-sm font-medium tracking-tight transition-colors ${
-        active ? 'text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'
-      }`}
-    >
-      {children}
-      <span
-        className={`absolute inset-x-3 -bottom-px h-0.5 rounded-full transition-colors ${
-          active ? 'bg-zinc-100' : 'bg-transparent'
-        }`}
-      />
-    </button>
   )
 }

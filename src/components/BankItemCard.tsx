@@ -12,8 +12,20 @@ interface BankItemCardProps {
   selected?: boolean
 }
 
+// Selected-state classes per bank so the highlight follows each bank's
+// accent (see the @theme palettes in index.css / BANK_CONFIG hexes).
+const IMAGE_SELECTED: Record<string, string> = {
+  models: 'border-influencers-500/50 ring-1 ring-influencers-500/40',
+  products: 'border-amber-500/50 ring-1 ring-amber-500/40',
+  brolls: 'border-broll-500/50 ring-1 ring-broll-500/40',
+}
+const ROW_SELECTED: Record<string, string> = {
+  scripts: 'border-scripts-500/40 bg-scripts-500/[0.08]',
+  voices: 'border-voice-500/40 bg-voice-500/[0.08]',
+}
+
 export default function BankItemCard({ bankType, item, onClick, selected }: BankItemCardProps) {
-  // Image-backed banks (characters / products / b-rolls) render as full image
+  // Image-backed banks (influencers / products / b-rolls) render as full image
   // cards that adapt to the image's natural aspect ratio — 16:9 / 9:16 / square
   // — matching how the Bank browser shows them. Scripts / voices have no image,
   // so they keep the compact row layout.
@@ -24,10 +36,9 @@ export default function BankItemCard({ bankType, item, onClick, selected }: Bank
         src={m.characterImage}
         fallback={UserRound}
         fallbackAspect="aspect-[9/16]"
-        name={m.name || 'Untitled Model'}
-        sublabel={m.source === 'character-studio' ? 'Characters' : m.source === 'image-dna-extractor' ? 'Image DNA' : 'Imported'}
+        name={m.name || 'Untitled Influencer'}
         onClick={onClick}
-        selected={selected}
+        selectedClass={selected ? IMAGE_SELECTED.models : undefined}
       />
     )
   }
@@ -40,9 +51,8 @@ export default function BankItemCard({ bankType, item, onClick, selected }: Bank
         fallback={Package}
         fallbackAspect="aspect-square"
         name={p.productName || 'Untitled Product'}
-        sublabel={p.targetMarket || 'No target market'}
         onClick={onClick}
-        selected={selected}
+        selectedClass={selected ? IMAGE_SELECTED.products : undefined}
       />
     )
   }
@@ -58,7 +68,7 @@ export default function BankItemCard({ bankType, item, onClick, selected }: Bank
         name={b.prompt || 'Untitled B-Roll'}
         sublabel={`${b.imageUrl ? 'Still' : 'Video only'}${videoCount > 0 ? ` · ${videoCount} clip${videoCount === 1 ? '' : 's'}` : ''}`}
         onClick={onClick}
-        selected={selected}
+        selectedClass={selected ? IMAGE_SELECTED.brolls : undefined}
       />
     )
   }
@@ -66,9 +76,9 @@ export default function BankItemCard({ bankType, item, onClick, selected }: Bank
   return (
     <button
       onClick={onClick}
-      className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors ${
+      className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition-colors ${
         selected
-          ? 'border-sky-500/40 bg-sky-500/[0.08]'
+          ? ROW_SELECTED[bankType] ?? 'border-white/20 bg-white/[0.06]'
           : 'border-white/5 bg-white/[0.03] hover:border-white/10 hover:bg-white/[0.06]'
       }`}
     >
@@ -79,7 +89,7 @@ export default function BankItemCard({ bankType, item, onClick, selected }: Bank
 }
 
 // Full image card — shows the asset at its natural aspect ratio with a
-// gradient name overlay, mirroring the Bank browser's character/product cards.
+// gradient name overlay, mirroring the Bank browser's influencer/product cards.
 function ImageCard({
   src,
   fallback: Icon,
@@ -87,7 +97,7 @@ function ImageCard({
   name,
   sublabel,
   onClick,
-  selected,
+  selectedClass,
 }: {
   src?: string
   fallback: React.ElementType
@@ -95,16 +105,14 @@ function ImageCard({
   name: string
   sublabel?: string
   onClick: () => void
-  selected?: boolean
+  selectedClass?: string
 }) {
   const resolvedUrl = useAssetUrl(src)
   return (
     <button
       onClick={onClick}
-      className={`group relative block w-full overflow-hidden rounded-xl border text-left transition-all ${
-        selected
-          ? 'border-sky-500/50 ring-1 ring-sky-500/40'
-          : 'border-white/5 bg-white/[0.03] hover:border-white/15 hover:-translate-y-0.5'
+      className={`group relative block w-full overflow-hidden rounded-2xl border text-left transition-all ${
+        selectedClass ?? 'border-white/5 bg-white/[0.03] hover:border-white/15 hover:-translate-y-0.5'
       }`}
     >
       {resolvedUrl ? (
@@ -157,7 +165,7 @@ function VoiceContent({ item }: { item: VoicePreset }) {
 
 function RowThumbnail({ fallback: Icon }: { fallback: React.ElementType }) {
   return (
-    <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white/5">
+    <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/5">
       <Icon className="h-4 w-4 text-zinc-600" />
     </div>
   )

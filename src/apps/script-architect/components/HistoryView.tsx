@@ -31,6 +31,34 @@ function sectionLabel(dayTs: number): string {
   return new Date(dayTs).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })
 }
 
+// Two-click confirm delete — same pattern as the B-Roll / Ad Analyzer
+// history rows so destructive actions behave identically everywhere.
+function DeleteRowButton({ onDelete, alwaysVisible }: { onDelete: () => void; alwaysVisible: boolean }) {
+  const [confirming, setConfirming] = useState(false)
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation()
+        if (!confirming) {
+          setConfirming(true)
+          setTimeout(() => setConfirming(false), 3000)
+          return
+        }
+        onDelete()
+      }}
+      className={`flex h-7 shrink-0 items-center justify-center gap-1 rounded-full px-2 transition-all ${
+        confirming
+          ? 'bg-red-500/30 text-red-100 opacity-100 ring-1 ring-red-400/60'
+          : `text-zinc-500 hover:bg-red-500/10 hover:text-red-400 ${alwaysVisible ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`
+      }`}
+      title={confirming ? 'Click again to delete' : 'Delete'}
+    >
+      <Trash2 className="h-3.5 w-3.5" />
+      {confirming && <span className="text-[10px] font-medium">Confirm</span>}
+    </button>
+  )
+}
+
 export default function HistoryView({ items, activeId, onSelect, onDelete }: HistoryViewProps) {
   const [query, setQuery] = useState('')
 
@@ -75,7 +103,7 @@ export default function HistoryView({ items, activeId, onSelect, onDelete }: His
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search history..."
-            className="w-full rounded-full border border-white/10 bg-transparent py-2 pl-10 pr-3 text-sm text-zinc-100 placeholder-zinc-500 outline-none transition-colors focus:border-blue-500/40"
+            className="w-full rounded-full border border-white/10 bg-transparent py-2 pl-10 pr-3 text-sm text-zinc-100 placeholder-zinc-500 outline-none transition-colors focus:border-scripts-500/40"
           />
         </div>
       </div>
@@ -98,16 +126,18 @@ export default function HistoryView({ items, activeId, onSelect, onDelete }: His
                 {dayItems.map((item) => {
                   const isActive = activeId === item.id
                   const ModeIcon = item.mode === 'remix' ? PenLine : Wand2
-                  const modeColor = item.mode === 'remix' ? 'text-blue-300' : 'text-fuchsia-300'
-                  const modeLabel = item.mode === 'remix'
-                    ? `Remix · ${item.variations.length} variation${item.variations.length === 1 ? '' : 's'}`
-                    : 'Reverse engineer'
+                  const modeColor = item.mode === 'remix' ? 'text-scripts-300' : 'text-fuchsia-300'
+                  // Meta stays short and neutral — the colored icon already
+                  // says which mode it was; extra labels were just clutter.
+                  const metaLead = item.mode === 'remix'
+                    ? `${item.variations.length} variation${item.variations.length === 1 ? '' : 's'}`
+                    : 'Reverse engineered'
                   return (
                     <div
                       key={item.id}
                       onClick={() => onSelect(item)}
-                      className={`group cursor-pointer rounded-xl px-3 py-3 transition-colors ${
-                        isActive ? 'bg-blue-500/15 ring-1 ring-blue-500/20' : 'hover:bg-white/[0.04]'
+                      className={`group cursor-pointer rounded-2xl px-3 py-3 transition-colors ${
+                        isActive ? 'bg-scripts-500/15 ring-1 ring-scripts-500/20' : 'hover:bg-white/[0.04]'
                       }`}
                     >
                       <div className="flex items-start gap-3">
@@ -119,25 +149,19 @@ export default function HistoryView({ items, activeId, onSelect, onDelete }: His
                             {item.inputSummary || '(no preview)'}
                           </p>
                           <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-zinc-500">
-                            <span className={modeColor}>{modeLabel}</span>
+                            <span className="text-zinc-300">{metaLead}</span>
                             {item.productName && (
                               <>
                                 <span>·</span>
-                                <span>{item.productName}</span>
+                                <span className="truncate">{item.productName}</span>
                               </>
                             )}
                             <span>·</span>
-                            <span>{formatRelative(item.createdAt)}</span>
+                            <span className="shrink-0">{formatRelative(item.createdAt)}</span>
                           </div>
                         </div>
 
-                        <button
-                          onClick={(e) => { e.stopPropagation(); onDelete(item.id) }}
-                          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-zinc-500 transition-all hover:bg-red-500/10 hover:text-red-400 ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
-                          title="Delete"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                        <DeleteRowButton onDelete={() => onDelete(item.id)} alwaysVisible={isActive} />
                       </div>
                     </div>
                   )
