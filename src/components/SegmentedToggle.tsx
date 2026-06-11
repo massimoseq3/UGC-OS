@@ -14,6 +14,10 @@ interface SegmentedToggleProps<T extends string> {
   value: T
   onChange: (value: T) => void
   className?: string
+  // Default: fills its column with equal-width segments. When true, the
+  // control shrinks to its content (segments sized to their labels) so it
+  // doesn't stretch across the full width.
+  fitContent?: boolean
 }
 
 // Rounded pill segmented control — the house replacement for the old
@@ -24,6 +28,7 @@ export default function SegmentedToggle<T extends string>({
   value,
   onChange,
   className = '',
+  fitContent = false,
 }: SegmentedToggleProps<T>) {
   const containerRef = useRef<HTMLDivElement>(null)
   const buttonRefs = useRef<Map<T, HTMLButtonElement | null>>(new Map())
@@ -50,7 +55,7 @@ export default function SegmentedToggle<T extends string>({
   return (
     <div
       ref={containerRef}
-      className={`relative flex w-full items-center gap-0.5 rounded-full border border-white/10 bg-white/[0.03] p-1 ${className}`}
+      className={`relative ${fitContent ? 'inline-flex w-auto' : 'flex w-full'} items-center gap-0.5 rounded-full border border-white/10 bg-white/[0.03] p-1 ${className}`}
     >
       {indicator && (
         <div
@@ -68,7 +73,7 @@ export default function SegmentedToggle<T extends string>({
             ref={(el) => { buttonRefs.current.set(opt.value, el) }}
             type="button"
             onClick={() => onChange(opt.value)}
-            className={`relative z-[1] flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium tracking-tight transition-colors duration-200 ${
+            className={`relative z-[1] flex min-w-0 ${fitContent ? '' : 'flex-1'} items-center justify-center gap-1.5 rounded-full px-3.5 py-2 text-[12px] font-medium tracking-tight transition-colors duration-200 ${
               active ? 'text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'
             }`}
           >

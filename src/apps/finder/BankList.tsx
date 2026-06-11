@@ -16,7 +16,7 @@ export function SortControl({ value, onChange, options }: { value: SortOrder; on
         <select
           value={value}
           onChange={(e) => onChange(e.target.value as SortOrder)}
-          className="appearance-none rounded-full border border-white/10 bg-[#0a0a0a] py-1.5 pl-3.5 pr-8 text-xs text-zinc-200 outline-none transition-colors hover:border-white/20 focus:border-white/20"
+          className="h-11 appearance-none rounded-full border border-white/10 bg-[#0a0a0a] pl-4 pr-8 text-xs text-zinc-200 outline-none transition-colors hover:border-white/20 focus:border-white/20"
         >
           {options.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
@@ -188,12 +188,12 @@ function ScriptCard({ item, onEdit, onDelete }: { item: Script; onEdit: () => vo
   // Legacy items predate `kind` — treat them as scripts.
   const isPrompt = item.kind === 'reverse-engineer'
   const badge = isPrompt
-    ? { label: 'PROMPT', className: 'bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-500/20' }
-    : { label: 'SCRIPT', className: 'bg-scripts-500/15 text-scripts-300 border-scripts-500/20' }
+    ? { label: 'SCENES', className: 'bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-500/20', icon: 'text-fuchsia-300', iconBg: 'bg-fuchsia-500/10' }
+    : { label: 'SCRIPT', className: 'bg-scripts-500/15 text-scripts-300 border-scripts-500/20', icon: 'text-scripts-300', iconBg: 'bg-scripts-500/10' }
   return (
-    <div onClick={onEdit} className="group flex cursor-pointer gap-3 rounded-2xl border border-white/5 bg-white/[0.03] p-3 transition-colors hover:border-white/10 hover:bg-white/[0.05]">
-      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/5">
-        <FileText className="h-5 w-5 text-zinc-600" />
+    <div onClick={onEdit} className="group flex cursor-pointer items-center gap-3 rounded-full border border-white/5 bg-white/[0.03] p-3 transition-colors hover:border-white/10 hover:bg-white/[0.05]">
+      <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${badge.iconBg}`}>
+        <FileText className={`h-5 w-5 ${badge.icon}`} />
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex items-center gap-2">
@@ -298,14 +298,15 @@ function BRollCard({ item, onEdit, onDelete }: { item: BRoll; onEdit: () => void
             </>
           )}
         </div>
-        {/* Animate in Playground — green pill, bottom-left, image cards only */}
+        {/* Animate in Playground — full-width bar across the card bottom on
+            hover, image cards only. Bigger hit target than the old pill. */}
         {hasImage && (
           <button
             onClick={handleAnimate}
             title="Open Playground in video mode with this image as the start frame"
-            className="absolute left-2 bottom-2 z-10 flex items-center gap-1 whitespace-nowrap rounded-full border border-playground-500/40 bg-playground-500/80 px-2.5 py-1 text-[10px] font-medium text-white opacity-0 backdrop-blur-sm transition-all hover:bg-playground-500 group-hover:opacity-100"
+            className="absolute inset-x-0 bottom-0 z-20 flex items-center justify-center gap-1.5 whitespace-nowrap bg-playground-500/90 py-2.5 text-[11px] font-semibold text-white opacity-0 backdrop-blur-sm transition-all hover:bg-playground-500 group-hover:opacity-100"
           >
-            <Film className="h-3 w-3" />
+            <Film className="h-3.5 w-3.5" />
             Animate in playground
           </button>
         )}
@@ -322,7 +323,7 @@ function BRollCard({ item, onEdit, onDelete }: { item: BRoll; onEdit: () => void
 function VoiceCard({ item, onEdit, onDelete }: { item: VoicePreset; onEdit: () => void; onDelete: () => void }) {
   const [confirm, setConfirm] = useState(false)
   return (
-    <div onClick={onEdit} className="group flex cursor-pointer gap-3 rounded-2xl border border-white/5 bg-white/[0.03] p-3 transition-colors hover:border-white/10 hover:bg-white/[0.05]">
+    <div onClick={onEdit} className="group flex cursor-pointer items-center gap-3 rounded-full border border-white/5 bg-white/[0.03] p-3 transition-colors hover:border-white/10 hover:bg-white/[0.05]">
       <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/5">
         <Mic className="h-5 w-5 text-zinc-600" />
       </div>
@@ -437,7 +438,7 @@ function ProductsBankZone({ children, onBulkFiles }: { children: React.ReactNode
 function ProductsList({ items, onEdit, onDelete, sort, inFlightIds }: { items: Product[]; onEdit: (id: string) => void; onDelete: (id: string) => void; sort: SortOrder; inFlightIds?: Set<string> }) {
   const sorted = useMemo(() => sortByOrder(items, sort, (p) => p.productName), [items, sort])
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
       {sorted.map((p) => (
         <ProductCard
           key={p.id}
@@ -454,7 +455,7 @@ function ProductsList({ items, onEdit, onDelete, sort, inFlightIds }: { items: P
 function ModelsList({ items, onEdit, onDelete, sort }: { items: Model[]; onEdit: (id: string) => void; onDelete: (id: string) => void; sort: SortOrder }) {
   const sorted = useMemo(() => sortByOrder(items, sort, (m) => m.name), [items, sort])
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
       {sorted.map((m) => (
         <ModelCard key={m.id} item={m} onEdit={() => onEdit(m.id)} onDelete={() => onDelete(m.id)} />
       ))}

@@ -13,10 +13,27 @@ const BUILTIN_PRESETS: Array<{ id: string; name: string; profile: CharacterProfi
   { id: 'builtin-zane', name: 'Zane', profile: PRESET_ZANE },
 ]
 
-function ModelThumb({ assetRef }: { assetRef: string }) {
-  const url = useAssetUrl(assetRef)
-  if (!url) return <div className="h-10 w-10 shrink-0 rounded-lg bg-white/5" />
-  return <img src={url} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" />
+// Small influencer card — mirrors the Bank's portrait cards (9:16 image with
+// a name overlay) but at a compact size so a few fit per row in the slide-over.
+function PresetCard({ imageRef, name, onClick }: { imageRef?: string; name: string; onClick: () => void }) {
+  const url = useAssetUrl(imageRef)
+  return (
+    <button
+      onClick={onClick}
+      className="group relative block aspect-[9/16] w-full overflow-hidden rounded-xl border border-white/5 bg-white/[0.03] transition-all hover:border-white/15 hover:-translate-y-0.5"
+    >
+      {url ? (
+        <img src={url} alt="" className="absolute inset-0 h-full w-full object-cover" />
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center bg-white/[0.04]">
+          <Sparkles className="h-6 w-6 text-zinc-700" strokeWidth={1.5} />
+        </div>
+      )}
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent p-2 pt-6">
+        <span className="block truncate text-[11px] font-semibold tracking-tight text-zinc-100">{name}</span>
+      </div>
+    </button>
+  )
 }
 
 function flattenJsonProfile(json: unknown): Record<string, string> {
@@ -74,44 +91,30 @@ export default function LoadPresetDropdown({ onLoadProfile }: LoadPresetDropdown
         title="Influencer Presets"
         subtitle="Pick a recipe to fill the form"
       >
-        <div className="flex flex-col gap-1 p-3">
-          <div className="px-2 pb-1 pt-1.5 text-[9px] font-semibold uppercase tracking-widest text-zinc-500">
+        <div className="p-3">
+          <div className="px-1 pb-2 pt-0.5 text-[9px] font-semibold uppercase tracking-widest text-zinc-500">
             Starters
           </div>
-          {BUILTIN_PRESETS.map((p) => (
-            <button
-              key={p.id}
-              onClick={() => apply(p.profile)}
-              className="flex w-full items-center gap-3 rounded-full px-2 py-1.5 text-left text-sm text-zinc-200 transition-colors hover:bg-white/[0.06]"
-            >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/5">
-                <Sparkles className="h-4 w-4 text-zinc-500" strokeWidth={1.5} />
-              </span>
-              <span className="truncate">{p.name}</span>
-            </button>
-          ))}
+          <div className="grid grid-cols-3 gap-2">
+            {BUILTIN_PRESETS.map((p) => (
+              <PresetCard key={p.id} name={p.name} onClick={() => apply(p.profile)} />
+            ))}
+          </div>
           {bankModels.filter((m) => m.jsonProfile).length > 0 && (
             <>
-              <div className="mx-2 my-1 h-px bg-white/5" />
-              <div className="px-2 pb-1 pt-1.5 text-[9px] font-semibold uppercase tracking-widest text-zinc-500">
+              <div className="px-1 pb-2 pt-4 text-[9px] font-semibold uppercase tracking-widest text-zinc-500">
                 Bank
               </div>
-              {bankModels.filter((m) => m.jsonProfile).map((m: Model) => (
-                <button
-                  key={m.id}
-                  onClick={() => m.jsonProfile && apply(flattenJsonProfile(m.jsonProfile))}
-                  className="flex w-full items-center gap-3 rounded-full px-2 py-1.5 text-left text-sm text-zinc-200 transition-colors hover:bg-white/[0.06]"
-                >
-                  {m.characterImage ? (
-                    <ModelThumb assetRef={m.characterImage} />
-                  ) : (
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/5">
-                      <Sparkles className="h-4 w-4 text-zinc-500" strokeWidth={1.5} />
-                    </span>
-                  )}
-                  <span className="truncate">{m.name}</span>
-                </button>
-              ))}
+              <div className="grid grid-cols-3 gap-2">
+                {bankModels.filter((m) => m.jsonProfile).map((m: Model) => (
+                  <PresetCard
+                    key={m.id}
+                    imageRef={m.characterImage}
+                    name={m.name}
+                    onClick={() => m.jsonProfile && apply(flattenJsonProfile(m.jsonProfile))}
+                  />
+                ))}
+              </div>
             </>
           )}
         </div>

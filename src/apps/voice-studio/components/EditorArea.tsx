@@ -116,7 +116,7 @@ export default function EditorArea({
               </>
             ) : (
               <>
-                <Mic className="h-4 w-4" />
+                <Mic className="h-4 w-4" strokeWidth={2.5} />
                 <span>Generate Voiceover</span>
               </>
             )}

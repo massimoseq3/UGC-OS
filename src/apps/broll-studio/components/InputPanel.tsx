@@ -61,42 +61,35 @@ function BankCard({
     )
   }
 
-  // Whole-card-clickable: hitting any part of the populated card swaps the
-  // selection via the BankPicker. The small X clears it; that handler
-  // stops propagation so it doesn't also re-open the picker.
+  // Populated state mirrors the empty state's single-row pill so selecting a
+  // reference doesn't change the card's shape or height — it stays fully
+  // rounded and same-size. Whole card re-opens the picker; the X clears
+  // (stopPropagation so it doesn't also re-open).
   return (
     <div
       role="button"
       tabIndex={0}
       onClick={onSelect}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect() } }}
-      className={`group cursor-pointer rounded-3xl border border-white/10 bg-white/[0.02] p-3.5 transition-colors hover:border-white/20 hover:bg-white/[0.04] ${className ?? ''}`}
+      className={`group flex cursor-pointer items-center gap-3 rounded-full border border-white/10 bg-white/[0.02] px-4 py-3.5 transition-colors hover:border-white/20 hover:bg-white/[0.04] ${className ?? ''}`}
     >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${accentClass}`}>
-            <Icon className="h-3.5 w-3.5" strokeWidth={1.5} />
-          </div>
-          <span className="text-[10px] font-medium uppercase tracking-widest text-zinc-400">{label}</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <span className="flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] text-zinc-500 opacity-0 transition-opacity group-hover:opacity-100">
-            <RefreshCw className="h-2.5 w-2.5" />
-            Change
-          </span>
-          {onClear && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onClear() }}
-              title={`Remove ${label.toLowerCase()}`}
-              aria-label={`Remove ${label.toLowerCase()}`}
-              className="flex h-5 w-5 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-white/5 hover:text-red-400"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          )}
-        </div>
+      <div className="min-w-0 flex-1">{children}</div>
+      <div className="flex shrink-0 items-center gap-1">
+        <span className="hidden items-center gap-1 rounded-md px-2 py-0.5 text-[10px] text-zinc-500 group-hover:flex">
+          <RefreshCw className="h-2.5 w-2.5" />
+          Change
+        </span>
+        {onClear && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onClear() }}
+            title={`Remove ${label.toLowerCase()}`}
+            aria-label={`Remove ${label.toLowerCase()}`}
+            className="flex h-6 w-6 items-center justify-center rounded-full text-zinc-500 transition-colors hover:bg-white/5 hover:text-red-400"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
-      <div className="mt-2">{children}</div>
     </div>
   )
 }
@@ -109,18 +102,16 @@ function ProductCard({ product }: { product: Product }) {
         <img
           src={resolvedImage}
           alt={product.productName}
-          className="h-10 w-10 rounded-lg object-cover"
+          className="h-10 w-10 shrink-0 rounded-full object-cover"
         />
       ) : (
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/5">
-          <Package className="h-4 w-4 text-zinc-600" />
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-amber-400">
+          <Package className="h-5 w-5" strokeWidth={1.5} />
         </div>
       )}
       <div className="min-w-0 flex-1">
-        <p className="truncate text-xs font-medium text-zinc-300">{product.productName}</p>
-        {product.targetMarket && (
-          <p className="truncate text-[10px] text-zinc-600">{product.targetMarket}</p>
-        )}
+        <p className="truncate text-sm font-medium text-zinc-200">{product.productName}</p>
+        <p className="truncate text-[11px] text-zinc-500">Product</p>
       </div>
     </div>
   )
@@ -134,31 +125,32 @@ function ModelCard({ model }: { model: Model }) {
         <img
           src={resolvedImage}
           alt={model.name}
-          className="h-10 w-10 rounded-lg object-cover"
+          className="h-10 w-10 shrink-0 rounded-full object-cover"
         />
       ) : (
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/5">
-          <UserRound className="h-4 w-4 text-zinc-600" />
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-influencers-500/15 text-influencers-400">
+          <UserRound className="h-5 w-5" strokeWidth={1.5} />
         </div>
       )}
       <div className="min-w-0 flex-1">
-        <p className="truncate text-xs font-medium text-zinc-300">{model.name}</p>
-        <p className="truncate text-[10px] text-zinc-600">{model.source}</p>
+        <p className="truncate text-sm font-medium text-zinc-200">{model.name}</p>
+        <p className="truncate text-[11px] text-zinc-500">Influencer</p>
       </div>
     </div>
   )
 }
 
-function ScriptCard({ script, scriptText }: { script: Script | null; scriptText: string }) {
-  const preview = script
-    ? script.scriptText.slice(0, 80) + (script.scriptText.length > 80 ? '...' : '')
-    : scriptText.slice(0, 80) + (scriptText.length > 80 ? '...' : '')
+function ScriptCard({ script }: { script: Script | null; scriptText: string }) {
   const title = script?.title ?? 'Imported Script'
-
   return (
-    <div>
-      <p className="text-xs font-medium text-zinc-300">{title}</p>
-      <p className="mt-0.5 text-[10px] leading-relaxed text-zinc-600 line-clamp-2">{preview}</p>
+    <div className="flex items-center gap-3">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-scripts-500/15 text-scripts-400">
+        <FileText className="h-5 w-5" strokeWidth={1.5} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium text-zinc-200">{title}</p>
+        <p className="truncate text-[11px] text-zinc-500">Script</p>
+      </div>
     </div>
   )
 }
@@ -293,7 +285,7 @@ export default function InputPanel({
             </>
           ) : (
             <>
-              <Film className="h-4 w-4" />
+              <Film className="h-4 w-4" strokeWidth={2.5} />
               <span>Generate B-Roll Prompts</span>
             </>
           )}
