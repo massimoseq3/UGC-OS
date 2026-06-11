@@ -136,10 +136,10 @@ export interface ImageHistoryItem {
 
 // One script generation in the Scripts tab — auto-pushed on every successful
 // generateScript run. Holds 1 variation (reverse-engineer mode) or 3
-// variations (remix mode). Local-only (no cloud sync yet).
+// variations (write / remix modes). Local-only (no cloud sync yet).
 export interface ScriptHistoryItem {
   id: string
-  mode: 'remix' | 'reverse-engineer'
+  mode: 'write' | 'remix' | 'reverse-engineer'
   variations: string[]
   inputSummary: string
   linkedProductId?: string
@@ -150,6 +150,12 @@ export interface ScriptHistoryItem {
   winningTranscript?: string
   reversePrompt?: string
   additionalContext?: string
+  // Write New mode inputs. Plain string/number so store types don't import
+  // app-level unions.
+  brief?: string
+  writeStyle?: string
+  writeFormat?: 'script' | 'scenes'
+  writeLength?: number
   createdAt: number
 }
 

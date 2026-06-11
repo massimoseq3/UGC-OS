@@ -12,7 +12,7 @@ Sidebar is grouped into three sections (LIBRARY / CREATE / TOOLS). Display names
 |---|---|---|---|
 | Library | Bank | `finder/` | Banks browser |
 | Create | Influencers | `character-studio/` | Form → portrait image. Drop a reference photo anywhere to auto-fill every field via vision-based DNA extraction. Display name rebranded from "Characters" — folder, ids, types, and LLM prompts keep the character naming. |
-| Create | Scripts | `script-architect/` | Winning ad + product → new script |
+| Create | Scripts | `script-architect/` | Three modes: Write New (brief + style + 10/15/30/60s → 3 human-sounding takes, as plain script or scene blueprint), Remix Script (winning transcript → 3 variations), Remix Scenes (Ad Analyzer blueprint → rewritten scene prompts) |
 | Create | Voiceovers | `voice-studio/` | Script → audio (ElevenLabs v2) |
 | Create | B-Roll | `broll-studio/` | Script → scenes → 4 variations/scene (Speaking / Literal / Emotional / Product). Each card has Generate Image **and** Generate Video; video gens are fire-and-forget with refresh-safe resume. |
 | Tools | Ad Analyzer | `ad-anatomy/` | Ad image or video frame → scorecard + transcript + visual playbook |
