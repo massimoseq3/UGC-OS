@@ -16,7 +16,7 @@ export function SortControl({ value, onChange, options }: { value: SortOrder; on
         <select
           value={value}
           onChange={(e) => onChange(e.target.value as SortOrder)}
-          className="appearance-none rounded-lg border border-white/10 bg-[#0a0a0a] py-1.5 pl-3 pr-8 text-xs text-zinc-200 outline-none transition-colors hover:border-white/20 focus:border-white/20"
+          className="appearance-none rounded-full border border-white/10 bg-[#0a0a0a] py-1.5 pl-3.5 pr-8 text-xs text-zinc-200 outline-none transition-colors hover:border-white/20 focus:border-white/20"
         >
           {options.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>

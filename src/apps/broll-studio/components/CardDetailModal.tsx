@@ -438,8 +438,8 @@ export default function CardDetailModal(props: CardDetailModalProps) {
         <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden md:grid-cols-2">
           {/* LEFT 50% — model + refs + prompt + generate */}
           <div className="col-span-1 flex min-h-0 flex-col overflow-y-auto border-b border-white/5 md:border-b-0 md:border-r">
-            <div className="flex flex-col gap-6 px-5 py-6">
-              {/* 1) Model picker. Constraint chips moved below the prompt. */}
+            <div className="flex grow flex-col gap-6 px-5 py-6">
+              {/* 1) Model picker + its constraint chips (resolution first). */}
               {tab === 'image' ? (
                 <div>
                   <span className="text-sm font-medium text-zinc-200">Image Model</span>
@@ -451,6 +451,32 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                       costParams={{ imageCount: 1, resolution: cardState.cardImageResolution }}
                     />
                   </div>
+                  {imageConstraints && (
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      {imageConstraints.resolutions && imageConstraints.resolutions.length > 0 && (
+                        <ConstraintChip
+                          openDirection="down"
+                          options={imageConstraints.resolutions as string[]}
+                          value={cardState.cardImageResolution}
+                          onChange={(v) => onUpdateState({ cardImageResolution: v as ImageResolution })}
+                        />
+                      )}
+                      {imageConstraints.aspectRatios && imageConstraints.aspectRatios.length > 0 && (
+                        <ConstraintChip
+                          openDirection="down"
+                          options={imageConstraints.aspectRatios}
+                          value={cardState.cardImageAspectRatio}
+                          onChange={(v) => onUpdateState({ cardImageAspectRatio: v })}
+                          render={(v) => (
+                            <span className="flex items-center gap-1.5">
+                              <AspectIcon ratio={v} />
+                              <span>{v}</span>
+                            </span>
+                          )}
+                        />
+                      )}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div>
@@ -470,10 +496,55 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                       }}
                     />
                   </div>
+                  {videoConstraints && (
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <ConstraintChip
+                        openDirection="down"
+                        options={videoConstraints.resolutions}
+                        value={cardState.cardVideoResolution}
+                        onChange={(v) => onUpdateState({ cardVideoResolution: v })}
+                      />
+                      <ConstraintChip
+                        openDirection="down"
+                        options={videoConstraints.aspectRatios}
+                        value={cardState.cardVideoAspectRatio}
+                        onChange={(v) => onUpdateState({ cardVideoAspectRatio: v })}
+                        render={(v) => (
+                          <span className="flex items-center gap-1.5">
+                            <AspectIcon ratio={v} />
+                            <span>{v}</span>
+                          </span>
+                        )}
+                      />
+                      {videoConstraints.durations.length > 0 && (
+                        <ConstraintChip
+                          openDirection="down"
+                          options={videoConstraints.durations.map(String)}
+                          value={String(cardState.cardVideoDurationSeconds)}
+                          onChange={(v) => onUpdateState({ cardVideoDurationSeconds: Number(v) })}
+                          render={(v) => <span>{v}s</span>}
+                        />
+                      )}
+                      {videoConstraints.supportsAudio && (
+                        <button
+                          type="button"
+                          onClick={() => onUpdateState({ cardVideoAudio: !cardState.cardVideoAudio })}
+                          className={`flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[12px] transition-colors ${
+                            cardState.cardVideoAudio
+                              ? 'border-green-500/30 bg-green-500/10 text-green-200'
+                              : 'border-white/10 bg-white/[0.02] text-zinc-400 hover:bg-white/[0.05]'
+                          }`}
+                        >
+                          {cardState.cardVideoAudio ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
+                          <span>{cardState.cardVideoAudio ? 'Audio' : 'Mute'}</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* 2) Animate tab → Start frame preview. Image/Video tabs →
+              {/* 3) Animate tab → Start frame preview. Image/Video tabs →
                   the Character / Product reference slot cards. */}
               {tab === 'animate' ? (
                 <div>
@@ -539,8 +610,10 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                 </div>
               )}
 
-              {/* 3) Prompt — always-editable textarea */}
-              <div>
+              {/* 4) Prompt — always-editable textarea. Grows to absorb the
+                  column's leftover height (Playground's expand-don't-scroll
+                  pattern); overflow scrolls inside the textarea. */}
+              <div className="flex grow flex-col">
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                   <span className="text-sm font-medium text-zinc-200">Prompt</span>
                   <div className="flex flex-wrap items-center gap-1">
@@ -578,7 +651,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                   onBlur={handleDraftBlur}
                   rows={6}
                   placeholder="Write your custom B-roll prompt here..."
-                  className="w-full resize-none rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-3 text-[13px] leading-relaxed text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-white/20 focus:bg-white/[0.05]"
+                  className="min-h-[120px] w-full grow resize-none rounded-2xl border border-white/10 bg-white/[0.03] px-3.5 py-3 text-[13px] leading-relaxed text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-white/20 focus:bg-white/[0.05]"
                 />
 
                 {cardState.promptError && (
@@ -588,79 +661,6 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                   </div>
                 )}
               </div>
-
-              {/* 4) Output settings — aspect / resolution (+ duration, audio).
-                  Sits below the prompt, just above Generate. Image tab shows
-                  image constraints; Video + Animate show video constraints. */}
-              {tab === 'image' ? (
-                imageConstraints && (
-                  <div className="flex flex-wrap items-center gap-2">
-                    {imageConstraints.aspectRatios && imageConstraints.aspectRatios.length > 0 && (
-                      <ConstraintChip
-                        options={imageConstraints.aspectRatios}
-                        value={cardState.cardImageAspectRatio}
-                        onChange={(v) => onUpdateState({ cardImageAspectRatio: v })}
-                        render={(v) => (
-                          <span className="flex items-center gap-1.5">
-                            <AspectIcon ratio={v} />
-                            <span>{v}</span>
-                          </span>
-                        )}
-                      />
-                    )}
-                    {imageConstraints.resolutions && imageConstraints.resolutions.length > 0 && (
-                      <ConstraintChip
-                        options={imageConstraints.resolutions as string[]}
-                        value={cardState.cardImageResolution}
-                        onChange={(v) => onUpdateState({ cardImageResolution: v as ImageResolution })}
-                      />
-                    )}
-                  </div>
-                )
-              ) : (
-                videoConstraints && (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <ConstraintChip
-                      options={videoConstraints.aspectRatios}
-                      value={cardState.cardVideoAspectRatio}
-                      onChange={(v) => onUpdateState({ cardVideoAspectRatio: v })}
-                      render={(v) => (
-                        <span className="flex items-center gap-1.5">
-                          <AspectIcon ratio={v} />
-                          <span>{v}</span>
-                        </span>
-                      )}
-                    />
-                    {videoConstraints.durations.length > 0 && (
-                      <ConstraintChip
-                        options={videoConstraints.durations.map(String)}
-                        value={String(cardState.cardVideoDurationSeconds)}
-                        onChange={(v) => onUpdateState({ cardVideoDurationSeconds: Number(v) })}
-                        render={(v) => <span>{v}s</span>}
-                      />
-                    )}
-                    <ConstraintChip
-                      options={videoConstraints.resolutions}
-                      value={cardState.cardVideoResolution}
-                      onChange={(v) => onUpdateState({ cardVideoResolution: v })}
-                    />
-                    {videoConstraints.supportsAudio && (
-                      <button
-                        type="button"
-                        onClick={() => onUpdateState({ cardVideoAudio: !cardState.cardVideoAudio })}
-                        className={`flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[12px] transition-colors ${
-                          cardState.cardVideoAudio
-                            ? 'border-green-500/30 bg-green-500/10 text-green-200'
-                            : 'border-white/10 bg-white/[0.02] text-zinc-400 hover:bg-white/[0.05]'
-                        }`}
-                      >
-                        {cardState.cardVideoAudio ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
-                        <span>{cardState.cardVideoAudio ? 'Audio' : 'Mute'}</span>
-                      </button>
-                    )}
-                  </div>
-                )
-              )}
 
               {/* 5) Generate button — orange Playground-pill */}
               {tab === 'image' ? (

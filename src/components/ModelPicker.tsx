@@ -29,9 +29,15 @@ interface ModelPickerProps {
   // One-line explanation shown as a footer under the dropdown list when
   // requireMode dims at least one model.
   requireModeNote?: string
+  // Slim single-line trigger (h-9, no provider sub-line) so the picker can
+  // sit inline with ConstraintChips in a footer row.
+  compact?: boolean
+  // Roomier trigger (more padding, larger type) for footer rows where the
+  // picker is the primary control. Ignored when `compact` is set.
+  large?: boolean
 }
 
-export default function ModelPicker({ appId, task, mode, value, onChange, costParams, requireMode, requireModeNote }: ModelPickerProps) {
+export default function ModelPicker({ appId, task, mode, value, onChange, costParams, requireMode, requireModeNote, compact, large }: ModelPickerProps) {
   const setAppModel = useSettingsStore((s) => s.setAppModel)
   const getAppModel = useSettingsStore((s) => s.getAppModel)
   const persistedKey = `${appId}:${task}${mode ? `:${mode}` : ''}`
@@ -86,24 +92,43 @@ export default function ModelPicker({ appId, task, mode, value, onChange, costPa
           }
           setOpen((v) => !v)
         }}
-        className="flex w-full items-center gap-2.5 rounded-xl border border-white/10 bg-white/[0.02] px-2.5 py-2 text-left transition-colors hover:bg-white/[0.05]"
+        className={
+          compact
+            ? 'flex h-9 w-full items-center gap-2 rounded-full border border-white/10 bg-white/[0.02] px-2 text-left transition-colors hover:bg-white/[0.05]'
+            : large
+            ? 'flex h-12 w-full items-center gap-3 rounded-full border border-white/10 bg-white/[0.02] px-4 text-left transition-colors hover:bg-white/[0.05]'
+            : 'flex w-full items-center gap-2.5 rounded-full border border-white/10 bg-white/[0.02] px-3 py-2 text-left transition-colors hover:bg-white/[0.05]'
+        }
       >
         {selected ? (
-          <>
-            <ProviderLogo provider={selected.provider} />
-            <div className="flex min-w-0 flex-1 flex-col">
-              <div className="flex items-center gap-1.5">
-                <span className="truncate text-[13px] font-medium text-zinc-100">{selected.displayName}</span>
-                {selected.tags.includes('recommended') && (
-                  <Star className="h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400" strokeWidth={1.5} />
-                )}
+          compact ? (
+            <>
+              <ProviderLogo provider={selected.provider} size="sm" />
+              <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-zinc-100">{selected.displayName}</span>
+              {selected.tags.includes('recommended') && (
+                <Star className="h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400" strokeWidth={1.5} />
+              )}
+              {selectedCredits != null && (
+                <span className="shrink-0 text-[11px] tabular-nums text-zinc-500">{formatCredits(selectedCredits)}</span>
+              )}
+            </>
+          ) : (
+            <>
+              <ProviderLogo provider={selected.provider} />
+              <div className="flex min-w-0 flex-1 flex-col">
+                <div className="flex items-center gap-1.5">
+                  <span className={`truncate font-medium text-zinc-100 ${large ? 'text-[14px]' : 'text-[13px]'}`}>{selected.displayName}</span>
+                  {selected.tags.includes('recommended') && (
+                    <Star className="h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400" strokeWidth={1.5} />
+                  )}
+                </div>
+                <span className={`truncate text-zinc-500 ${large ? 'text-[11px]' : 'text-[10px]'}`}>{selected.provider}</span>
               </div>
-              <span className="truncate text-[10px] text-zinc-500">{selected.provider}</span>
-            </div>
-            {selectedCredits != null && (
-              <span className="shrink-0 text-[11px] tabular-nums text-zinc-500">{formatCredits(selectedCredits)}</span>
-            )}
-          </>
+              {selectedCredits != null && (
+                <span className={`shrink-0 tabular-nums text-zinc-500 ${large ? 'text-[12px]' : 'text-[11px]'}`}>{formatCredits(selectedCredits)}</span>
+              )}
+            </>
+          )
         ) : (
           <span className="flex-1 truncate text-sm text-zinc-400">Select model</span>
         )}

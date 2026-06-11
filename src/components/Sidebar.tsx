@@ -112,7 +112,7 @@ function SidebarRow({ app, active, collapsed, onClick }: SidebarRowProps) {
     return (
       <button
         onClick={onClick}
-        className={`flex w-full flex-col items-center gap-1 rounded-lg px-1 py-2 transition-colors ${
+        className={`flex w-full flex-col items-center gap-1 rounded-full px-1 py-2 transition-colors ${
           active ? 'bg-white/[0.08]' : 'hover:bg-white/[0.04]'
         }`}
       >
@@ -135,7 +135,7 @@ function SidebarRow({ app, active, collapsed, onClick }: SidebarRowProps) {
   return (
     <button
       onClick={onClick}
-      className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 transition-colors ${
+      className={`flex w-full items-center gap-3 rounded-full px-3 py-2 transition-colors ${
         active ? 'bg-white/[0.08]' : 'hover:bg-white/[0.04]'
       }`}
     >

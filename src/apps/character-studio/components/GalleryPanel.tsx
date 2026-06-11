@@ -165,10 +165,23 @@ export default function GalleryPanel({
               task="image"
               mode="text-to-image"
               costParams={{ imageCount: 1, resolution }}
+              large
             />
           </div>
           <ConstraintChip
             align="right"
+            size="lg"
+            options={getModel(selectedModelId ?? '')?.imageConstraints?.resolutions ?? ['1K', '2K', '4K']}
+            value={resolution}
+            onChange={(v) => onResolutionChange(v as ImageResolution)}
+            renderOption={(v) => {
+              const credits = formatCredits(estimateCredits(selectedModelId ?? '', { imageCount: 1, resolution: v as ImageResolution }))
+              return <span>{v}{credits ? ` · ${credits}` : ''}</span>
+            }}
+          />
+          <ConstraintChip
+            align="right"
+            size="lg"
             options={ASPECT_OPTIONS}
             value={normalizeAspect(aspectRatio)}
             onChange={onAspectRatioChange}
@@ -178,16 +191,6 @@ export default function GalleryPanel({
                 <span>{v}</span>
               </span>
             )}
-          />
-          <ConstraintChip
-            align="right"
-            options={getModel(selectedModelId ?? '')?.imageConstraints?.resolutions ?? ['1K', '2K', '4K']}
-            value={resolution}
-            onChange={(v) => onResolutionChange(v as ImageResolution)}
-            renderOption={(v) => {
-              const credits = formatCredits(estimateCredits(selectedModelId ?? '', { imageCount: 1, resolution: v as ImageResolution }))
-              return <span>{v}{credits ? ` · ${credits}` : ''}</span>
-            }}
           />
         </div>
         <button

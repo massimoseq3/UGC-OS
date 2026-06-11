@@ -284,7 +284,7 @@ function ImageTile({
           type="button"
           title="Animate this image into a video"
           onClick={(e) => { e.stopPropagation(); onAnimate() }}
-          className="absolute left-1.5 bottom-1.5 flex items-center gap-1 whitespace-nowrap rounded-full border border-orange-400/50 bg-orange-500/85 px-2.5 py-1 text-[10px] font-medium text-white opacity-0 backdrop-blur transition-opacity hover:bg-orange-500 group-hover:opacity-100"
+          className="absolute left-1.5 bottom-1.5 flex h-8 items-center gap-1.5 whitespace-nowrap rounded-full border border-orange-400/50 bg-orange-500/85 px-3 text-[11px] font-medium text-white opacity-0 backdrop-blur transition-opacity hover:bg-orange-500 group-hover:opacity-100"
         >
           <Film className="h-3 w-3" />
           Animate B-Roll
@@ -596,7 +596,7 @@ function TileIconButton({
       type="button"
       title={title}
       onClick={onClick}
-      className={`flex h-8 w-8 items-center justify-center rounded-md backdrop-blur transition-colors ${toneClass}`}
+      className={`flex h-8 w-8 items-center justify-center rounded-full backdrop-blur transition-colors ${toneClass}`}
     >
       {children}
     </button>
@@ -620,7 +620,7 @@ function TileDeleteButton({ onDelete }: { onDelete: () => void }) {
         }
         onDelete()
       }}
-      className={`flex h-8 items-center justify-center gap-1 rounded-md px-2 backdrop-blur transition-colors ${
+      className={`flex h-8 items-center justify-center gap-1 rounded-full px-2 backdrop-blur transition-colors ${
         confirming
           ? 'bg-red-500/45 text-red-50 ring-1 ring-red-400/70'
           : 'bg-black/60 text-zinc-300 hover:bg-red-500/30 hover:text-red-200'

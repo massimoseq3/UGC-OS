@@ -129,7 +129,7 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode }: Playgrou
         {visibleInFlight.length > 0 && (
           <>
             <DayPill label="In progress" />
-            <div className="columns-2 gap-2 sm:columns-3 lg:columns-4 xl:columns-5 [column-fill:_balance]">
+            <div className="columns-2 gap-2.5 lg:columns-3 xl:columns-4 [column-fill:_balance]">
               {visibleInFlight.map((gen) => (
                 <div key={gen.id} className="mb-2 break-inside-avoid">
                   <InFlightTile gen={gen} />
@@ -142,7 +142,7 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode }: Playgrou
         {dayGroups.map(([dayTs, dayItems]) => (
           <div key={dayTs}>
             <DayPill label={sectionLabel(dayTs)} />
-            <div className="columns-2 gap-2 sm:columns-3 lg:columns-4 xl:columns-5 [column-fill:_balance]">
+            <div className="columns-2 gap-2.5 lg:columns-3 xl:columns-4 [column-fill:_balance]">
               {dayItems.map((entry) => (
                 <div key={`${entry.kind}-${entry.data.id}`} className="mb-2 break-inside-avoid">
                   {entry.kind === 'image' && (
@@ -239,10 +239,6 @@ function ImageTile({
             : <ImageIcon className="h-6 w-6 text-zinc-700" />}
         </div>
       )}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2 pb-1.5 pt-6">
-        <p className="line-clamp-2 text-[10px] text-zinc-300">{item.prompt}</p>
-      </div>
-
       <div className="absolute right-1.5 top-1.5 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
         <TileButton
           title={isSaved ? 'Saved to B-Rolls' : isSaving ? 'Saving…' : 'Save to B-Rolls Bank'}
@@ -285,7 +281,6 @@ function VideoTile({
   const { url, status } = useAssetUrlState(item.videoUrl)
   const [hovering, setHovering] = useState(false)
   const ratio = aspectStyle(item.aspectRatio)
-  const modelLabel = getModel(item.modelId)?.displayName ?? item.modelId
   const isSaved = !!item.linkedBRollId
 
   return (
@@ -319,10 +314,6 @@ function VideoTile({
         </div>
       )}
 
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2 pb-1.5 pt-6">
-        <p className="line-clamp-1 text-[10px] font-medium text-zinc-200">{modelLabel}</p>
-        <p className="line-clamp-1 text-[10px] text-zinc-400">{item.prompt}</p>
-      </div>
       <div className="absolute right-1.5 top-1.5 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
         <TileButton
           title={isSaved ? 'Saved to B-Rolls' : isSaving ? 'Saving…' : 'Save to B-Rolls Bank'}

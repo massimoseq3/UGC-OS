@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 
 import AppLogo from './components/AppLogo'
+import AppBackground from './components/AppBackground'
 
 import MenuBar from './components/MenuBar'
 import Sidebar from './components/Sidebar'
@@ -111,7 +112,7 @@ function Workspace() {
   return (
     <div key={userId ?? 'local'} className="relative h-screen w-screen overflow-hidden text-white antialiased bg-[#050505]">
       {/* Universal Background Gradient */}
-      <div className="fixed inset-0 z-0 bg-[radial-gradient(circle_at_0%_0%,#1f1f22_0%,#09090b_45%,#000000_100%)] pointer-events-none" />
+      <AppBackground />
 
       <div className="relative z-10 h-full w-full">
         <MenuBar />

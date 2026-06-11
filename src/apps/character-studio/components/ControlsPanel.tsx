@@ -1,6 +1,6 @@
-import { useState } from 'react'
-import { ChevronDown, Trash2 } from 'lucide-react'
-import type { TabId, CharacterProfile, FieldGroup } from '../types'
+import { useRef } from 'react'
+import { Trash2 } from 'lucide-react'
+import type { TabId, CharacterProfile } from '../types'
 import { TABS, getTabFields, createEmptyProfile } from '../types'
 import ChipField from './ChipField'
 import PhotoExtractZone from './PhotoExtractZone'
@@ -31,41 +31,22 @@ export default function ControlsPanel({
 }: ControlsPanelProps) {
   const currentTab = TABS.find((t) => t.id === activeTab)!
 
-  // Track which groups are collapsed. Empty set = all groups open (the default).
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
-
-  const toggleGroup = (id: string) => {
-    setCollapsed((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
+  // Anchor refs for the section TOC — keyed by group id, pointing at the
+  // first field row of each group so a TOC click can scroll to it.
+  const groupAnchors = useRef<Record<string, HTMLDivElement | null>>({})
 
   const setField = (key: string, value: string) => {
     onProfileChange({ ...profile, [key]: value })
   }
 
-  const renderGroupFields = (group: FieldGroup) => (
-    <div className="flex flex-col gap-5">
-      {group.fields.map((field) => (
-        <ChipField
-          key={field.key}
-          fieldKey={field.key}
-          label={field.label}
-          value={profile[field.key] ?? ''}
-          chips={field.chips}
-          onChange={(v) => setField(field.key, v)}
-          placeholder={field.placeholder}
-          defaultLocked={field.key === 'cameraDevice'}
-        />
-      ))}
-    </div>
+  // Fields render as one flat divided list; each group's first field carries
+  // the scroll anchor for the TOC.
+  const flatFields = currentTab.groups.flatMap((group) =>
+    group.fields.map((field, i) => ({ field, anchorId: i === 0 ? group.id : null })),
   )
 
-  // If the tab only has one group, render its fields flat — no accordion.
-  const isFlat = currentTab.groups.length === 1
+  // Single-group tabs don't need a table of contents.
+  const showToc = currentTab.groups.length > 1
 
   return (
     <div className="flex min-w-0 flex-col md:h-full">
@@ -129,48 +110,48 @@ export default function ControlsPanel({
         })}
       </div>
 
-      {/* Scrollable parameter fields (only scrolls internally on desktop) */}
+      {/* Horizontal section TOC — replaces the old per-group accordions.
+          Clicking a label scrolls the field list to that section. */}
+      {showToc && (
+        <div className="flex items-center gap-1 overflow-x-auto border-b border-white/5 px-3 py-2">
+          {currentTab.groups.map((group) => {
+            const GroupIcon = group.icon
+            return (
+              <button
+                key={group.id}
+                type="button"
+                onClick={() => groupAnchors.current[group.id]?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-medium text-zinc-400 transition-colors hover:bg-white/[0.05] hover:text-zinc-200"
+              >
+                {GroupIcon && <GroupIcon className="h-3 w-3" strokeWidth={1.5} />}
+                {group.label}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Scrollable parameter fields (only scrolls internally on desktop) —
+          one flat list, a hairline separator between every field. */}
       <div className="min-w-0 flex-1 p-4 md:overflow-y-auto">
-        {isFlat ? (
-          renderGroupFields(currentTab.groups[0])
-        ) : (
-          <div className="flex flex-col gap-3">
-            {currentTab.groups.map((group) => {
-              const groupFilled = group.fields.filter((f) => (profile[f.key] ?? '').trim() !== '').length
-              const isOpen = !collapsed.has(group.id)
-              const GroupIcon = group.icon
-              return (
-                <div key={group.id} className="overflow-hidden rounded-xl border border-white/5 bg-white/[0.015]">
-                  <button
-                    onClick={() => toggleGroup(group.id)}
-                    className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left transition-colors hover:bg-white/[0.03]"
-                  >
-                    <div className="flex items-center gap-2">
-                      <ChevronDown
-                        className={`h-3.5 w-3.5 text-zinc-300 transition-transform duration-200 ${isOpen ? '' : '-rotate-90'}`}
-                        strokeWidth={2}
-                      />
-                      {GroupIcon && (
-                        <GroupIcon className="h-3.5 w-3.5 text-zinc-300" strokeWidth={1.25} />
-                      )}
-                      <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-100">
-                        {group.label}
-                      </span>
-                    </div>
-                    <span className="text-[10px] tabular-nums text-zinc-400">
-                      {groupFilled}/{group.fields.length}
-                    </span>
-                  </button>
-                  {isOpen && (
-                    <div className="border-t border-white/5 px-4 py-4">
-                      {renderGroupFields(group)}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )}
+        <div className="flex flex-col divide-y divide-white/5">
+          {flatFields.map(({ field, anchorId }) => (
+            <div
+              key={field.key}
+              ref={anchorId ? (el) => { groupAnchors.current[anchorId] = el } : undefined}
+              className="scroll-mt-2 py-3.5 first:pt-0 last:pb-0"
+            >
+              <ChipField
+                label={field.label}
+                value={profile[field.key] ?? ''}
+                onChange={(v) => setField(field.key, v)}
+                placeholder={field.placeholder}
+                defaultLocked={field.key === 'cameraDevice'}
+                suggestions={field.suggestions ?? field.chips}
+              />
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )

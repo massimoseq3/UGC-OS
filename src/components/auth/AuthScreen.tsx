@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react'
 import AppLogo from '../AppLogo'
+import AppBackground from '../AppBackground'
 import { useAuthStore } from '../../stores/authStore'
 import { POLICY_VERSION } from '../../legal/version'
 
@@ -46,7 +47,7 @@ export default function AuthScreen() {
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-[#050505] text-white antialiased">
-      <div className="fixed inset-0 z-0 bg-[radial-gradient(circle_at_0%_0%,#1f1f22_0%,#09090b_45%,#000000_100%)] pointer-events-none" />
+      <AppBackground />
 
       <div className="relative z-10 flex h-full w-full items-center justify-center px-6">
         <div className="w-full max-w-sm space-y-6">

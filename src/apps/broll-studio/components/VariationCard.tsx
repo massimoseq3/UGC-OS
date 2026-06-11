@@ -5,16 +5,19 @@ import {
   AlertCircle,
   Play,
   Trash2,
+  Bookmark,
+  Check,
+  Download,
 } from 'lucide-react'
 import GenerationProgress from '../../../components/GenerationProgress'
 import type { PromptVariation, CardState, GeneratedImage, ReferenceImage } from '../types'
-import type { VideoHistoryItem, Product, Model } from '../../../stores/types'
+import type { VideoHistoryItem, Product, Model, BRoll } from '../../../stores/types'
 import { enhanceVariationPrompt, generateNewVariation, startImageTask, finishImageTask } from '../services/generateBroll'
 import { startVideoTask, finishVideoTask } from '../services/generateVideo'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAppStore } from '../../../stores/appStore'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
-import { getAsBase64, isAssetRef } from '../../../utils/assetStore'
+import { getAsBase64, getUrl, isAssetRef } from '../../../utils/assetStore'
 import { getModel, type VideoMode, type ImageResolution } from '../../../utils/models'
 import CardDetailModal from './CardDetailModal'
 import { humanizeError } from '../../../utils/friendlyError'
@@ -100,6 +103,9 @@ export default function VariationCard(props: VariationCardProps) {
   // flag (icon styling switches to red); second click within ~3s actually
   // calls onDelete. Matches the old modal-footer Delete behaviour.
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  // Card-face quick save: bookmarks the cover output to the B-Rolls bank.
+  const [savingCover, setSavingCover] = useState(false)
+  const [savedCover, setSavedCover] = useState(false)
 
   // Drive the in-flight indicator off the parallel-queue array — the legacy
   // single-slot `videoStatus` field is no longer written by runVideoTask so
@@ -322,8 +328,67 @@ export default function VariationCard(props: VariationCardProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [generateImageToken])
 
-  // Save lives per-tile inside the modal's gallery now — the card itself
-  // no longer needs a bundle-save handler.
+  // Card-face quick save — bookmarks the current cover (image or video) to
+  // the B-Rolls bank, mirroring the modal's per-tile save payloads.
+  const handleSaveCover = async () => {
+    if (savedCover || savingCover) return
+    setSavingCover(true)
+    try {
+      if (coverKind === 'image' && coverImage) {
+        await useBankStore.getState().addBRoll({
+          imageUrl: coverImage.imageUrl,
+          prompt: coverImage.prompt,
+          productId: selectedProductId,
+          modelId: selectedModelId,
+          scriptId: selectedScriptId,
+          sourceApp: 'broll-studio',
+        } as Omit<BRoll, 'id' | 'createdAt'>)
+      } else if (coverKind === 'video' && coverVideo) {
+        await useBankStore.getState().addBRoll({
+          imageUrl: '',
+          prompt: coverVideo.prompt,
+          productId: selectedProductId,
+          modelId: selectedModelId,
+          scriptId: selectedScriptId,
+          videos: [{ url: coverVideo.url, aspectRatio: coverVideo.aspectRatio, createdAt: coverVideo.createdAt }],
+          sourceApp: 'broll-studio',
+        } as Omit<BRoll, 'id' | 'createdAt'>)
+      } else {
+        return
+      }
+      setSavedCover(true)
+      useAppStore.getState().addToast('Saved to B-Rolls bank', 'success')
+    } catch (err) {
+      useAppStore.getState().addToast(humanizeError(err, 'Save failed'), 'error')
+    } finally {
+      setSavingCover(false)
+    }
+  }
+
+  // Card-face download — saves the current cover (image or video) to disk.
+  const handleDownloadCover = async () => {
+    const ref = coverKind === 'image' ? coverImage?.imageUrl : coverVideo?.url
+    if (!ref) return
+    const url = await getUrl(ref)
+    if (!url) {
+      useAppStore.getState().addToast('Could not load the file.', 'error')
+      return
+    }
+    try {
+      const res = await fetch(url)
+      const blob = await res.blob()
+      const objectUrl = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = objectUrl
+      a.download = `broll-scene-${sceneNumber}.${coverKind === 'image' ? 'png' : 'mp4'}`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
+    } catch {
+      window.open(url, '_blank', 'noopener,noreferrer')
+    }
+  }
 
   const toDataUri = async (ref: string): Promise<string | null> => {
     if (!isAssetRef(ref)) return ref
@@ -566,7 +631,6 @@ export default function VariationCard(props: VariationCardProps) {
       <div className="group flex flex-col gap-1.5">
         <div
           onClick={() => setDetailOpen(true)}
-          title={variation.label}
           className="relative aspect-[9/16] cursor-pointer overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.02] transition-colors hover:border-white/15"
         >
           {cardState.isGeneratingImage ? (
@@ -683,7 +747,7 @@ export default function VariationCard(props: VariationCardProps) {
           {/* Top-right hover-reveal trash. Two-click confirm so a user can't
               accidentally nuke a variation. The card body is still clickable
               to open the detail modal, so no Maximize button is needed. */}
-          <div className="absolute right-2 top-2 opacity-0 transition-opacity group-hover:opacity-100">
+          <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
             <button
               type="button"
               title={confirmingDelete ? 'Click again to delete' : 'Delete variation'}
@@ -696,7 +760,7 @@ export default function VariationCard(props: VariationCardProps) {
                 }
                 onDelete()
               }}
-              className={`flex h-7 w-7 items-center justify-center rounded-md border backdrop-blur transition-colors ${
+              className={`flex h-7 w-7 items-center justify-center rounded-full border backdrop-blur transition-colors ${
                 confirmingDelete
                   ? 'border-red-400/60 bg-red-500/40 text-red-50 hover:bg-red-500/55'
                   : 'border-white/20 bg-white/15 text-white hover:bg-red-500/30 hover:text-red-100 hover:border-red-400/40'
@@ -705,6 +769,33 @@ export default function VariationCard(props: VariationCardProps) {
               <Trash2 className="h-3.5 w-3.5" />
             </button>
           </div>
+
+          {/* Bottom-right hover-reveal actions: save-to-bank + download for
+              the current cover. Only shown once the card has an output. */}
+          {coverKind && (
+            <div className="absolute bottom-2 right-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+              <button
+                type="button"
+                title={savedCover ? 'Saved to B-Rolls bank' : savingCover ? 'Saving…' : 'Save to B-Rolls bank'}
+                onClick={(e) => { e.stopPropagation(); void handleSaveCover() }}
+                className={`flex h-7 w-7 items-center justify-center rounded-full border backdrop-blur transition-colors ${
+                  savedCover
+                    ? 'border-emerald-400/50 bg-emerald-500/30 text-emerald-100'
+                    : 'border-white/20 bg-white/15 text-white hover:bg-white/25'
+                }`}
+              >
+                {savedCover ? <Check className="h-3.5 w-3.5" /> : savingCover ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Bookmark className="h-3.5 w-3.5" />}
+              </button>
+              <button
+                type="button"
+                title={coverKind === 'image' ? 'Download image' : 'Download video'}
+                onClick={(e) => { e.stopPropagation(); void handleDownloadCover() }}
+                className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25"
+              >
+                <Download className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
 
           {cardState.imageError && !hasImages && !cardState.isGeneratingImage && (
             <div className="absolute inset-x-2 bottom-2 flex items-start gap-1.5 rounded-lg border border-red-500/30 bg-red-500/15 px-2 py-1.5 backdrop-blur">

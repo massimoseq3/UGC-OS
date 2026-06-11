@@ -108,18 +108,19 @@ export default function InputPanel({
         </div>
       </div>
 
-      {/* Scrollable inputs */}
-      <div className="flex-1 overflow-y-auto p-5">
+      {/* Scrollable inputs — a flex column so step 1's textarea can absorb
+          leftover height (same expand-don't-scroll pattern as Playground). */}
+      <div className="flex flex-1 flex-col overflow-y-auto p-5">
         {mode === 'remix' ? (
-          <div className="mb-6">
+          <div className="mb-6 flex grow flex-col">
             <StepLabel step={1} label="Proven Script Transcript" />
 
             <button
               type="button"
               onClick={() => setScriptPickerOpen(true)}
-              className="group mt-2 flex w-full items-center gap-3 rounded-xl border border-dashed border-white/10 bg-white/[0.015] px-4 py-3 text-left transition-colors hover:border-white/20 hover:bg-white/[0.03]"
+              className="group mt-2 flex w-full items-center gap-3 rounded-full border border-dashed border-white/10 bg-white/[0.015] px-4 py-3 text-left transition-colors hover:border-white/20 hover:bg-white/[0.03]"
             >
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-300/80 transition-colors group-hover:bg-blue-500/15 group-hover:text-blue-300">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-500/10 text-blue-300/80 transition-colors group-hover:bg-blue-500/15 group-hover:text-blue-300">
                 <FileText className="h-4 w-4" />
               </div>
               <div className="min-w-0 flex-1">
@@ -139,11 +140,11 @@ export default function InputPanel({
               onChange={(e) => onTranscriptChange(e.target.value)}
               rows={8}
               placeholder="Paste a proven ad transcript here, or send one from Ad Analyzer..."
-              className={`w-full rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3 text-sm leading-relaxed text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-blue-500/30 resize-none ${highlightField === 'transcript' ? 'animate-field-flash' : ''}`}
+              className={`min-h-[160px] w-full grow rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3 text-sm leading-relaxed text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-blue-500/30 resize-none ${highlightField === 'transcript' ? 'animate-field-flash' : ''}`}
             />
           </div>
         ) : (
-          <div className="mb-6">
+          <div className="mb-6 flex grow flex-col">
             <StepLabel step={1} label="Reverse-Engineered Prompt" />
             <p className="mt-2 text-[11px] text-zinc-600">
               Paste the prompt from Ad Analyzer&apos;s &quot;Send to Scripts&quot;, or write your own scene blueprint.
@@ -153,7 +154,7 @@ export default function InputPanel({
               onChange={(e) => onReversePromptChange(e.target.value)}
               rows={14}
               placeholder={'Paste the reverse-engineered prompt from Ad Analyzer here.\n\nExample (multi-scene):\n--- Scene 1: Mirror reaction hook (00:00-00:08) ---\nA woman in her late 20s with shoulder-length auburn hair, wearing a cream cable-knit sweater, stands in a softly-lit bathroom holding a clear glass dropper bottle... She says: "I had dark spots for years and nothing worked."\n\n--- Scene 2: Product reveal (00:08-00:15) ---\n...'}
-              className={`mt-3 w-full rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3 font-mono text-xs leading-relaxed text-zinc-200 placeholder-zinc-700 outline-none transition-colors focus:border-blue-500/30 resize-none ${highlightField === 'reverse-prompt' ? 'animate-field-flash' : ''}`}
+              className={`mt-3 min-h-[200px] w-full grow rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3 font-mono text-xs leading-relaxed text-zinc-200 placeholder-zinc-700 outline-none transition-colors focus:border-blue-500/30 resize-none ${highlightField === 'reverse-prompt' ? 'animate-field-flash' : ''}`}
             />
           </div>
         )}
@@ -170,7 +171,7 @@ export default function InputPanel({
               <button
                 type="button"
                 onClick={() => setProductPickerOpen(true)}
-                className="group w-full rounded-xl border border-white/10 bg-white/[0.03] p-3 text-left transition-colors hover:border-white/20 hover:bg-white/[0.05]"
+                className="group w-full rounded-3xl border border-white/10 bg-white/[0.03] p-3.5 text-left transition-colors hover:border-white/20 hover:bg-white/[0.05]"
               >
                 <div className="flex items-center gap-3">
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white/5">
@@ -195,7 +196,7 @@ export default function InputPanel({
               </button>
 
               {editableContext && (
-                <div className="mt-3 overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]">
+                <div className="mt-3 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]">
                   <button
                     onClick={() => setDetailsOpen((v) => !v)}
                     className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left transition-colors hover:bg-white/[0.03]"
@@ -230,9 +231,9 @@ export default function InputPanel({
               {products.length > 0 ? (
                 <button
                   onClick={() => setProductPickerOpen(true)}
-                  className="flex w-full items-center gap-3 rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-4 text-left transition-colors hover:border-blue-500/30 hover:bg-blue-500/5"
+                  className="flex w-full items-center gap-3 rounded-full border border-dashed border-white/10 bg-white/[0.02] px-4 py-3.5 text-left transition-colors hover:border-blue-500/30 hover:bg-blue-500/5"
                 >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/10">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-500/10">
                     <Package className="h-5 w-5 text-blue-400" />
                   </div>
                   <div className="flex flex-col">
@@ -241,8 +242,8 @@ export default function InputPanel({
                   </div>
                 </button>
               ) : (
-                <div className="flex items-center gap-3 rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-4">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/5">
+                <div className="flex items-center gap-3 rounded-full border border-dashed border-white/10 bg-white/[0.02] px-4 py-3.5">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/5">
                     <Package className="h-5 w-5 text-zinc-700" />
                   </div>
                   <div className="flex flex-col">
@@ -270,7 +271,7 @@ export default function InputPanel({
             placeholder={mode === 'remix'
               ? "Additional context for this script (e.g. 'Focus on the self-cleaning feature', 'Summer campaign tone')..."
               : "Additional context for the rewrite (e.g. 'Keep tone playful', 'Make the CTA softer')..."}
-            className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-blue-500/30 resize-none"
+            className="mt-2 w-full rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-blue-500/30 resize-none"
           />
         </div>
       </div>

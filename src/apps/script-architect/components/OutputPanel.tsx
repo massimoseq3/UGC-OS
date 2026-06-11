@@ -53,6 +53,9 @@ function VariationCard({ text, cardTitle, defaultSaveTitle, linkedProductId, mod
   const [showSaveForm, setShowSaveForm] = useState(false)
   const [saveTitle, setSaveTitle] = useState(defaultSaveTitle)
   const [saved, setSaved] = useState(false)
+  // Sticky "already in the bank" flag — `saved` is only the 3s visual flash.
+  // Send-to-app auto-saves use this to avoid writing duplicate bank rows.
+  const [savedOnce, setSavedOnce] = useState(false)
 
   const addScript = useBankStore((s) => s.addScript)
   const sendToApp = useAppStore((s) => s.sendToApp)
@@ -71,9 +74,7 @@ function VariationCard({ text, cardTitle, defaultSaveTitle, linkedProductId, mod
     }
   }
 
-  const handleSave = () => {
-    const title = saveTitle.trim()
-    if (!title) return
+  const saveToBank = (title: string) => {
     addScript({
       title,
       scriptText: text,
@@ -81,20 +82,31 @@ function VariationCard({ text, cardTitle, defaultSaveTitle, linkedProductId, mod
       source: 'script-architect',
       kind: mode === 'reverse-engineer' ? 'reverse-engineer' : 'remix',
     })
-    setShowSaveForm(false)
+    setSavedOnce(true)
     setSaved(true)
-    addToast('Script saved to bank')
     setTimeout(() => setSaved(false), 3000)
   }
 
+  const handleSave = () => {
+    const title = saveTitle.trim()
+    if (!title) return
+    saveToBank(title)
+    setShowSaveForm(false)
+    addToast('Script saved to bank')
+  }
+
   const handleSendToVoiceStudio = () => {
+    const autoSaved = !savedOnce
+    if (autoSaved) saveToBank(defaultSaveTitle)
     sendToApp({ targetApp: 'voice-studio', targetField: 'scriptText', data: text })
-    addToast('Script sent to Voiceovers')
+    addToast(autoSaved ? 'Script saved to bank · sent to Voiceovers' : 'Script sent to Voiceovers')
   }
 
   const handleSendToBrollStudio = () => {
+    const autoSaved = !savedOnce
+    if (autoSaved) saveToBank(defaultSaveTitle)
     sendToApp({ targetApp: 'broll-studio', targetField: 'scriptText', data: text })
-    addToast('Script sent to B-Roll')
+    addToast(autoSaved ? 'Script saved to bank · sent to B-Roll' : 'Script sent to B-Roll')
   }
 
   const handleSendToPlayground = () => {
@@ -103,14 +115,14 @@ function VariationCard({ text, cardTitle, defaultSaveTitle, linkedProductId, mod
   }
 
   return (
-    <div className="flex shrink-0 flex-col rounded-xl border border-white/5 bg-black/20 overflow-hidden">
+    <div className="flex shrink-0 flex-col rounded-3xl border border-white/5 bg-black/20 overflow-hidden">
       <div className="flex items-center justify-between border-b border-white/5 px-4 py-2.5">
         <div className="flex items-center gap-2">
-          <span className="rounded-md bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-blue-300">
+          <span className="rounded-full bg-blue-500/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-blue-300">
             {cardTitle}
           </span>
           {scenes && (
-            <span className="rounded bg-white/5 px-2 py-0.5 text-[10px] text-zinc-500">
+            <span className="rounded-full bg-white/5 px-2.5 py-0.5 text-[10px] text-zinc-500">
               {scenes.length} scene{scenes.length === 1 ? '' : 's'}
             </span>
           )}
@@ -177,7 +189,7 @@ function VariationCard({ text, cardTitle, defaultSaveTitle, linkedProductId, mod
                 className="flex flex-1 min-w-0 items-center justify-center gap-2 rounded-full border border-indigo-500/20 bg-indigo-500/10 px-4 py-2.5 text-[12px] font-medium tracking-tight text-indigo-400 transition-colors hover:bg-indigo-500/20"
               >
                 <Mic className="h-4 w-4" strokeWidth={1.75} />
-                Voiceovers
+                Send to Voiceovers
                 <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.75} />
               </button>
             )}
@@ -186,7 +198,7 @@ function VariationCard({ text, cardTitle, defaultSaveTitle, linkedProductId, mod
               className="flex flex-1 min-w-0 items-center justify-center gap-2 rounded-full border border-orange-500/20 bg-orange-500/10 px-4 py-2.5 text-[12px] font-medium tracking-tight text-orange-400 transition-colors hover:bg-orange-500/20"
             >
               <Film className="h-4 w-4" strokeWidth={1.75} />
-              B-Roll
+              Send to B-Roll
               <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.75} />
             </button>
             {mode === 'reverse-engineer' && (
@@ -195,7 +207,7 @@ function VariationCard({ text, cardTitle, defaultSaveTitle, linkedProductId, mod
                 className="flex flex-1 min-w-0 items-center justify-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5 text-[12px] font-medium tracking-tight text-emerald-400 transition-colors hover:bg-emerald-500/20"
               >
                 <Sparkles className="h-4 w-4" strokeWidth={1.75} />
-                Playground
+                Send to Playground
                 <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.75} />
               </button>
             )}
@@ -220,7 +232,7 @@ function SceneChunkCard({ chunk }: { chunk: SceneChunk }) {
     }
   }
   return (
-    <div className="rounded-lg border border-white/5 bg-white/[0.02] p-3">
+    <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className="truncate text-[10px] font-semibold uppercase tracking-widest text-blue-300/80">
           {chunk.header.replace(/^---\s*|\s*---$/g, '')}
@@ -233,7 +245,7 @@ function SceneChunkCard({ chunk }: { chunk: SceneChunk }) {
           {copied ? 'Copied' : 'Copy'}
         </button>
       </div>
-      <pre className="whitespace-pre-wrap rounded-md bg-black/30 p-2.5 font-sans text-xs leading-relaxed text-zinc-400">
+      <pre className="whitespace-pre-wrap rounded-xl bg-black/30 p-2.5 font-sans text-xs leading-relaxed text-zinc-400">
         {chunk.body}
       </pre>
     </div>
@@ -241,6 +253,13 @@ function SceneChunkCard({ chunk }: { chunk: SceneChunk }) {
 }
 
 export default function OutputPanel({ variations, mode, linkedProductId, isGenerating, error, onClear }: OutputPanelProps) {
+  // Resolve the linked product's name so saved scripts get a meaningful
+  // default title ("<Product> — Hook-Led Script") instead of a content slice.
+  const products = useBankStore((s) => s.products)
+  const productName = linkedProductId
+    ? products.find((p) => p.id === linkedProductId)?.productName
+    : undefined
+
   if (isGenerating) {
     const message = mode === 'remix'
       ? ['Building 3 angles...', 'Sending parallel requests...', 'Writing variations...', 'Polishing final drafts...']
@@ -248,7 +267,7 @@ export default function OutputPanel({ variations, mode, linkedProductId, isGener
     return (
       <div className="flex h-full flex-col gap-2 p-5">
         <GenerationProgress isActive color="bg-blue-500" messages={message} showHelper={false} />
-        <div className="flex flex-1 min-h-0 flex-col gap-3 rounded-xl border border-white/5 bg-black/20 p-5">
+        <div className="flex flex-1 min-h-0 flex-col gap-3 rounded-3xl border border-white/5 bg-black/20 p-5">
           <div className="skeleton h-4 w-full" />
           <div className="skeleton h-4 w-[90%]" />
           <div className="skeleton h-4 w-[95%]" />
@@ -308,10 +327,12 @@ export default function OutputPanel({ variations, mode, linkedProductId, isGener
             : isRemix
               ? `Variation ${i + 1}`
               : 'Scene prompts'
-          const defaultSaveTitle = deriveTitleFromContent(
-            text,
-            isRemix ? 'Untitled script' : 'Reverse-engineered prompts',
-          )
+          const defaultSaveTitle = isRemix && productName
+            ? `${productName} — ${angleLabel ?? `Variation ${i + 1}`} Script`
+            : deriveTitleFromContent(
+                text,
+                isRemix ? 'Untitled script' : 'Reverse-engineered prompts',
+              )
           return (
             <VariationCard
               key={i}
