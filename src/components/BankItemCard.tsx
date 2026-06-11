@@ -76,7 +76,7 @@ export default function BankItemCard({ bankType, item, onClick, selected }: Bank
   return (
     <button
       onClick={onClick}
-      className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition-colors ${
+      className={`flex w-full items-center gap-3 rounded-full border p-3 text-left transition-colors ${
         selected
           ? ROW_SELECTED[bankType] ?? 'border-white/20 bg-white/[0.06]'
           : 'border-white/5 bg-white/[0.03] hover:border-white/10 hover:bg-white/[0.06]'
@@ -122,9 +122,9 @@ function ImageCard({
           <Icon className="h-10 w-10 text-zinc-800" strokeWidth={1} />
         </div>
       )}
-      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/55 to-transparent p-3 pt-10">
-        <span className="block truncate text-sm font-semibold tracking-tight text-zinc-100">{name}</span>
-        {sublabel && <span className="block truncate text-xs text-zinc-400">{sublabel}</span>}
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/55 to-transparent p-2.5 pt-10">
+        <span className="block truncate text-[11px] font-semibold leading-tight tracking-tight text-zinc-100">{name}</span>
+        {sublabel && <span className="block truncate text-[10px] text-zinc-400">{sublabel}</span>}
       </div>
     </button>
   )

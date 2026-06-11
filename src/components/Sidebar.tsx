@@ -68,11 +68,11 @@ export default function Sidebar() {
       <aside
         className={`fixed bottom-0 left-0 top-0 z-40 flex flex-col border-r border-white/5 bg-[#09090b] transition-[width,transform] duration-200 ease-out ${widthClass} ${translateClass}`}
       >
-        {/* Header — burger + logo in one rounded pill (no divider line),
-            replacing the old full-width top bar. */}
+        {/* Header — burger + logo on a plain row, separated from the nav by a
+            hairline divider (replaces the old rounded "island" pill). */}
         <div
-          className={`flex shrink-0 select-none items-center rounded-full border border-white/10 bg-white/[0.03] ${
-            showExpanded ? 'mx-3 mt-3 gap-1 py-1 pl-1 pr-3' : 'mx-2 mt-3 flex-col gap-1 px-1.5 py-1.5'
+          className={`flex shrink-0 select-none items-center border-b border-white/5 ${
+            showExpanded ? 'gap-1.5 px-3 py-3' : 'flex-col gap-1 px-2 py-3'
           }`}
         >
           <button

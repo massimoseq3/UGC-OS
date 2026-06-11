@@ -409,7 +409,7 @@ export default function InputPanel({
             </>
           ) : (
             <>
-              <PenLine className="h-4 w-4" />
+              <PenLine className="h-4 w-4" strokeWidth={2.5} />
               <span>{generateLabel}</span>
             </>
           )}

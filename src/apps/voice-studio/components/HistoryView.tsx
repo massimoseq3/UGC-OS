@@ -157,7 +157,7 @@ export default function HistoryView({ items, activeId, onSelect, onDelete, onSho
                     <div
                       key={item.id}
                       onClick={() => onSelect(item)}
-                      className={`group cursor-pointer rounded-2xl px-3 py-3 transition-colors ${
+                      className={`group cursor-pointer rounded-[28px] px-4 py-3 transition-colors ${
                         isActive
                           ? 'bg-voice-500/15 ring-1 ring-voice-500/20'
                           : 'hover:bg-white/[0.04]'
