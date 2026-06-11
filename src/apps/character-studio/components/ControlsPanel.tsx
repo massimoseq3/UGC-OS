@@ -39,9 +39,35 @@ export default function ControlsPanel({
 
   return (
     <div className="flex min-w-0 flex-col md:h-full">
+      {/* Preset picker + reference-image drop zone sit at the top, with a
+          subtle "Clear All" link tucked directly beneath them. */}
+      <div className="flex items-stretch gap-2 px-3 pt-2">
+        <div className="min-w-0 flex-1">
+          <LoadPresetDropdown onLoadProfile={onProfileChange} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <PhotoExtractZone
+            isExtracting={isExtracting}
+            extractError={extractError}
+            thumbnail={extractedThumb}
+            onPhotoDrop={onPhotoDrop}
+            onReset={onResetExtract}
+          />
+        </div>
+      </div>
+      <div className="px-3 pb-2 pt-1">
+        <button
+          type="button"
+          onClick={() => setConfirmClear(true)}
+          className="text-[11px] text-zinc-500 underline decoration-zinc-600 underline-offset-2 transition-colors hover:text-zinc-300 hover:decoration-zinc-400"
+        >
+          Clear All
+        </button>
+      </div>
+
       {/* Rounded segmented toggle — filled so all 4 tabs share the column
-          with no horizontal scroll. Label + small filled-count chip. */}
-      <div className="px-2 pb-1 pt-2">
+          with no horizontal scroll. */}
+      <div className="px-2 pb-1 pt-0.5">
         <SegmentedToggle<TabId>
           value={activeTab}
           onChange={onActiveTabChange}
@@ -55,32 +81,6 @@ export default function ControlsPanel({
             }
           })}
         />
-      </div>
-
-      {/* Preset picker + reference-image drop zone live below the toggles.
-          The clear-all control (X-in-circle) sits next to the drop zone. */}
-      <div className="flex items-stretch gap-2 border-b border-white/5 px-3 pb-2.5 pt-1">
-        <div className="min-w-0 flex-1">
-          <LoadPresetDropdown onLoadProfile={onProfileChange} />
-        </div>
-        <div className="min-w-0 flex-1">
-          <PhotoExtractZone
-            isExtracting={isExtracting}
-            extractError={extractError}
-            thumbnail={extractedThumb}
-            onPhotoDrop={onPhotoDrop}
-            onReset={onResetExtract}
-          />
-        </div>
-        <button
-          type="button"
-          onClick={() => setConfirmClear(true)}
-          title="Clear all fields"
-          aria-label="Clear all fields"
-          className="flex w-10 shrink-0 items-center justify-center self-stretch rounded-2xl border border-red-500/15 bg-red-500/[0.04] text-red-400/80 transition-colors hover:border-red-500/30 hover:bg-red-500/15 hover:text-red-300"
-        >
-          <XCircle className="h-5 w-5" strokeWidth={1.75} />
-        </button>
       </div>
 
       {/* Scrollable parameter fields (only scrolls internally on desktop) —

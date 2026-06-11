@@ -68,11 +68,12 @@ export default function Sidebar() {
       <aside
         className={`fixed bottom-0 left-0 top-0 z-40 flex flex-col border-r border-white/5 bg-[#09090b] transition-[width,transform] duration-200 ease-out ${widthClass} ${translateClass}`}
       >
-        {/* Header — burger + logo on a plain row, separated from the nav by a
-            hairline divider (replaces the old rounded "island" pill). */}
+        {/* Header — burger + logo on a plain row, separated from the nav by an
+            inset hairline divider (same side gaps as the section dividers
+            below; replaces the old rounded "island" pill). */}
         <div
-          className={`flex shrink-0 select-none items-center border-b border-white/5 ${
-            showExpanded ? 'gap-1.5 px-3 py-3' : 'flex-col gap-1 px-2 py-3'
+          className={`flex shrink-0 select-none items-center ${
+            showExpanded ? 'gap-2 px-3 py-3' : 'flex-col gap-1 px-2 py-3'
           }`}
         >
           <button
@@ -82,15 +83,16 @@ export default function Sidebar() {
           >
             <Menu className="h-5 w-5" strokeWidth={1.75} />
           </button>
-          <div className={`flex items-center gap-1.5 ${showExpanded ? 'min-w-0' : ''}`}>
-            <AppLogo className="h-7 w-7 shrink-0" />
+          <div className={`flex items-center gap-2 ${showExpanded ? 'min-w-0' : ''}`}>
+            <AppLogo className="h-8 w-8 shrink-0" />
             {showExpanded && (
-              <span className="truncate text-[16px] font-bold tracking-tight text-zinc-100">
+              <span className="truncate text-[18px] font-bold tracking-tight text-zinc-100">
                 UGC OS
               </span>
             )}
           </div>
         </div>
+        <div className="mx-3 border-t border-white/5" />
 
         <div className="flex-1 overflow-y-auto px-2 py-3">
           {sections.map((section, i) => (
