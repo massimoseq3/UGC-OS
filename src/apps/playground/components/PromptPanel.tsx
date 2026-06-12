@@ -369,7 +369,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
           <div className="flex grow flex-col gap-6 px-5 pb-6 pt-3">
             {/* Model */}
             <div>
-              <span className="text-sm font-medium text-zinc-200">{modelHeading}</span>
+              <span className="text-sm font-medium text-ink-200">{modelHeading}</span>
               <div className="mt-2">
                 <ModelPicker
                   appId="playground"
@@ -427,7 +427,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
                       className={`flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[12px] transition-colors ${
                         state.audio
                           ? 'border-playground-500/30 bg-playground-500/10 text-playground-200'
-                          : 'border-white/10 bg-white/[0.02] text-zinc-400 hover:bg-white/[0.05]'
+                          : 'border-ink/10 bg-ink/[0.02] text-ink-400 hover:bg-ink/[0.05]'
                       }`}
                     >
                       {state.audio ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
@@ -463,14 +463,14 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
               )}
 
               {state.mode === 'music' && (
-                <div className="inline-flex rounded-full border border-white/10 bg-white/[0.02] p-0.5">
+                <div className="inline-flex rounded-full border border-ink/10 bg-ink/[0.02] p-0.5">
                   <button
                     type="button"
                     onClick={() => onChange({ ...state, instrumental: true })}
                     className={`rounded-full px-4 py-1.5 text-[12px] transition-colors ${
                       state.instrumental
                         ? 'bg-playground-500/15 text-playground-200'
-                        : 'text-zinc-400 hover:text-zinc-200'
+                        : 'text-ink-400 hover:text-ink-200'
                     }`}
                   >
                     Instrumental
@@ -481,7 +481,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
                     className={`rounded-full px-4 py-1.5 text-[12px] transition-colors ${
                       !state.instrumental
                         ? 'bg-playground-500/15 text-playground-200'
-                        : 'text-zinc-400 hover:text-zinc-200'
+                        : 'text-ink-400 hover:text-ink-200'
                     }`}
                   >
                     With lyrics
@@ -496,7 +496,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
               <>
                 {state.mode === 'video' && (
                   <div>
-                    <span className="text-sm font-medium text-zinc-200">Reference frames</span>
+                    <span className="text-sm font-medium text-ink-200">Reference frames</span>
                     {supportsFrames && (
                       <div className="mt-2 grid grid-cols-2 gap-3">
                         <VideoInputSlot
@@ -536,7 +536,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
                 )}
                 {state.mode === 'image' && (
                   <div>
-                    <span className="text-sm font-medium text-zinc-200">Reference images</span>
+                    <span className="text-sm font-medium text-ink-200">Reference images</span>
                     <div className="mt-2">
                       <VideoRefStrip
                         label=""
@@ -557,20 +557,20 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
                 fills the page without making the panel itself scroll; once at
                 max size, overflow scrolls inside the textarea. */}
             <div className="relative flex grow flex-col">
-              <span className="text-sm font-medium text-zinc-200">Prompt</span>
+              <span className="text-sm font-medium text-ink-200">Prompt</span>
               {/* UGC Prompt Presets — slim row between the heading and the
                   textarea. Opens the slide-in picker. */}
               {presetsApplicable && (
                 <button
                   type="button"
                   onClick={() => setPresetOpen(true)}
-                  className="mt-2 flex w-full items-center gap-2 rounded-full border border-white/10 bg-white/[0.02] px-3 py-1.5 text-left transition-colors hover:bg-white/[0.05]"
+                  className="mt-2 flex w-full items-center gap-2 rounded-full border border-ink/10 bg-ink/[0.02] px-3 py-1.5 text-left transition-colors hover:bg-ink/[0.05]"
                 >
                   <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-playground-500/10 text-playground-400">
                     <Camera className="h-3 w-3" />
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-zinc-100">UGC Prompt Presets</span>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-zinc-500" />
+                  <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-ink-100">UGC Prompt Presets</span>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" />
                 </button>
               )}
               <textarea
@@ -586,7 +586,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
                     ? 'Describe the video… (type @ to reference banks)'
                     : 'Describe the music — genre, mood, instruments…'
                 }
-                className="mt-2 min-h-[120px] w-full grow resize-none rounded-2xl border border-white/10 bg-white/[0.03] px-3.5 py-3 text-[13px] text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-white/20 focus:bg-white/[0.05]"
+                className="mt-2 min-h-[120px] w-full grow resize-none rounded-2xl border border-ink/10 bg-ink/[0.03] px-3.5 py-3 text-[13px] text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-ink/20 focus:bg-ink/[0.05]"
               />
               {mentionOpen && state.mode !== 'music' && (
                 <MentionPopover
@@ -595,8 +595,8 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
                   anchor={popoverAnchor}
                 />
               )}
-              <p className="mt-2 text-[11px] text-zinc-500">
-                Tip: type <span className="font-medium text-zinc-400">@</span> to reference Products, Influencers, or B-Rolls.
+              <p className="mt-2 text-[11px] text-ink-500">
+                Tip: type <span className="font-medium text-ink-400">@</span> to reference Products, Influencers, or B-Rolls.
               </p>
             </div>
 
@@ -632,7 +632,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
       </div>
 
       {/* Bottom: pinned footer — big Generate button. */}
-      <div className="shrink-0 border-t border-white/5 px-5 py-4">
+      <div className="shrink-0 border-t border-ink/5 px-5 py-4">
         <button
           type="button"
           onClick={onSubmit}

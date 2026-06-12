@@ -61,8 +61,8 @@ function DeleteRowButton({ onDelete, alwaysVisible }: { onDelete: () => void; al
       }}
       className={`flex h-7 shrink-0 items-center justify-center gap-1 rounded-full px-2 transition-all ${
         confirming
-          ? 'bg-red-500/30 text-red-100 opacity-100 ring-1 ring-red-400/60'
-          : `text-zinc-500 hover:bg-red-500/10 hover:text-red-400 ${alwaysVisible ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`
+          ? 'bg-red-500/30 text-red-100 light:text-red-900 opacity-100 ring-1 ring-red-400/60'
+          : `text-ink-500 hover:bg-red-500/10 hover:text-red-400 light:hover:text-red-600 ${alwaysVisible ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`
       }`}
       title={confirming ? 'Click again to delete' : 'Delete'}
     >
@@ -100,23 +100,23 @@ export default function HistoryView({ items, activeId, onSelect, onDelete }: His
   if (items.length === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-6">
-        <FileText className="h-10 w-10 text-zinc-800" strokeWidth={1.5} />
-        <p className="text-sm text-zinc-300">No scripts yet</p>
-        <p className="text-center text-xs text-zinc-500">Your generated scripts will land here.</p>
+        <FileText className="h-10 w-10 text-ink-800" strokeWidth={1.5} />
+        <p className="text-sm text-ink-300">No scripts yet</p>
+        <p className="text-center text-xs text-ink-500">Your generated scripts will land here.</p>
       </div>
     )
   }
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <div className="border-b border-white/5 px-5 py-4">
+      <div className="border-b border-ink/5 px-5 py-4">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-500" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search history..."
-            className="w-full rounded-full border border-white/10 bg-transparent py-2 pl-10 pr-3 text-sm text-zinc-100 placeholder-zinc-500 outline-none transition-colors focus:border-scripts-500/40"
+            className="w-full rounded-full border border-ink/10 bg-transparent py-2 pl-10 pr-3 text-sm text-ink-100 placeholder-ink-500 outline-none transition-colors focus:border-scripts-500/40"
           />
         </div>
       </div>
@@ -124,14 +124,14 @@ export default function HistoryView({ items, activeId, onSelect, onDelete }: His
       <div className="flex-1 overflow-y-auto">
         {groups.length === 0 ? (
           <div className="flex h-full items-center justify-center px-6 text-center">
-            <span className="text-sm text-zinc-500">No matches.</span>
+            <span className="text-sm text-ink-500">No matches.</span>
           </div>
         ) : (
           <div className="flex flex-col gap-1 p-2">
             {groups.map(([dayTs, dayItems]) => (
               <div key={dayTs} className="flex flex-col gap-0.5">
                 <div className="my-2 flex items-center justify-center">
-                  <span className="rounded-full bg-white/[0.06] px-3 py-1 text-[11px] font-medium text-zinc-300">
+                  <span className="rounded-full bg-ink/[0.06] px-3 py-1 text-[11px] font-medium text-ink-300">
                     {sectionLabel(dayTs)}
                   </span>
                 </div>
@@ -139,7 +139,7 @@ export default function HistoryView({ items, activeId, onSelect, onDelete }: His
                 {dayItems.map((item) => {
                   const isActive = activeId === item.id
                   const ModeIcon = item.mode === 'write' ? PenLine : item.mode === 'remix' ? FileText : Clapperboard
-                  const modeColor = item.mode === 'write' ? 'text-emerald-300' : item.mode === 'remix' ? 'text-scripts-300' : 'text-fuchsia-300'
+                  const modeColor = item.mode === 'write' ? 'text-emerald-300 light:text-emerald-700' : item.mode === 'remix' ? 'text-scripts-300' : 'text-fuchsia-300 light:text-fuchsia-700'
                   const count = item.variations.length
                   const countLabel = item.mode === 'write'
                     ? `${count} take${count === 1 ? '' : 's'}`
@@ -149,17 +149,17 @@ export default function HistoryView({ items, activeId, onSelect, onDelete }: His
                       key={item.id}
                       onClick={() => onSelect(item)}
                       className={`group flex cursor-pointer items-center gap-3 rounded-full px-3.5 py-3 transition-colors ${
-                        isActive ? 'bg-scripts-500/15 ring-1 ring-scripts-500/20' : 'hover:bg-white/[0.04]'
+                        isActive ? 'bg-scripts-500/15 ring-1 ring-scripts-500/20' : 'hover:bg-ink/[0.04]'
                       }`}
                     >
-                      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.04] ${modeColor}`}>
+                      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ink/[0.04] ${modeColor}`}>
                         <ModeIcon className="h-4 w-4" />
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium leading-snug text-zinc-100">
+                        <p className="truncate text-sm font-medium leading-snug text-ink-100">
                           {historyTitle(item)}
                         </p>
-                        <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-zinc-500">
+                        <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-ink-500">
                           <span>{countLabel}</span>
                           <span>·</span>
                           <span className="shrink-0">{formatRelative(item.createdAt)}</span>

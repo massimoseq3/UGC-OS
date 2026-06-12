@@ -205,7 +205,7 @@ export default function BankPicker({
       {/* Panel */}
       <div
         ref={panelRef}
-        className={`fixed z-[80] flex flex-col border-white/5 bg-[#0a0a0a]/95 backdrop-blur-2xl transition-transform duration-300 ease-out ${
+        className={`fixed z-[80] flex flex-col border-ink/5 bg-surface-1/95 backdrop-blur-2xl transition-transform duration-300 ease-out ${
           isDesktop
             ? `right-0 top-0 bottom-0 w-[380px] border-l ${isOpen ? 'translate-x-0' : 'translate-x-full'}`
             : `inset-x-0 bottom-0 top-14 border-t rounded-t-2xl ${isOpen ? 'translate-y-0' : 'translate-y-full'}`
@@ -214,17 +214,17 @@ export default function BankPicker({
         {/* Drag handle — mobile only */}
         {!isDesktop && (
           <div className="flex justify-center pt-2 pb-1">
-            <div className="h-1 w-10 rounded-full bg-white/20" />
+            <div className="h-1 w-10 rounded-full bg-ink/20" />
           </div>
         )}
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/5 px-5 py-3.5">
-          <h3 className="text-sm font-semibold tracking-tight text-zinc-200">
+        <div className="flex items-center justify-between border-b border-ink/5 px-5 py-3.5">
+          <h3 className="text-sm font-semibold tracking-tight text-ink-200">
             Select {normalizedTabs ? 'from bank' : label.replace(/s$/, '')}
           </h3>
           <button
             onClick={onClose}
-            className="rounded-full p-2 lg:p-1 text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-300"
+            className="rounded-full p-2 lg:p-1 text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-300"
           >
             <X className="h-4 w-4" />
           </button>
@@ -233,7 +233,7 @@ export default function BankPicker({
         {/* Optional bank-switch toggle — same rounded segmented control as
             the rest of the app. */}
         {normalizedTabs && (
-          <div className="flex items-center border-b border-white/5 px-4 py-3">
+          <div className="flex items-center border-b border-ink/5 px-4 py-3">
             <SegmentedToggle<BankType>
               value={currentBankType}
               onChange={(t) => { setActiveTab(t); setSearch(''); setSelectedIds([]); setSort('newest') }}
@@ -243,15 +243,15 @@ export default function BankPicker({
         )}
 
         {/* Search — full width on mobile */}
-        <div className="border-b border-white/5 px-4 py-3">
-          <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-2">
-            <Search className="h-3.5 w-3.5 shrink-0 text-zinc-600" />
+        <div className="border-b border-ink/5 px-4 py-3">
+          <div className="flex items-center gap-2 rounded-full border border-ink/10 bg-ink/[0.03] px-3.5 py-2">
+            <Search className="h-3.5 w-3.5 shrink-0 text-ink-600" />
             <input
               ref={searchRef}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={`Search ${label.toLowerCase()}...`}
-              className="w-full bg-transparent text-sm text-zinc-200 placeholder-zinc-600 outline-none"
+              className="w-full bg-transparent text-sm text-ink-200 placeholder-ink-600 outline-none"
             />
           </div>
         </div>
@@ -259,18 +259,18 @@ export default function BankPicker({
         {/* Sort — mirrors the Bank browser's options (shared persisted state).
             Hidden for banks the Bank doesn't sort (voices). */}
         {sortOptions && (
-          <div className="flex items-center justify-end gap-2 border-b border-white/5 px-4 py-2">
+          <div className="flex items-center justify-end gap-2 border-b border-ink/5 px-4 py-2">
             <div className="relative">
               <select
                 value={sort}
                 onChange={(e) => setSort(e.target.value as SortOrder)}
-                className="appearance-none rounded-full border border-white/10 bg-[#0a0a0a] py-1.5 pl-3.5 pr-8 text-xs text-zinc-200 outline-none transition-colors hover:border-white/20 focus:border-white/20"
+                className="appearance-none rounded-full border border-ink/10 bg-surface-1 py-1.5 pl-3.5 pr-8 text-xs text-ink-200 outline-none transition-colors hover:border-ink/20 focus:border-ink/20"
               >
                 {sortOptions.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
               </select>
-              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
+              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-500" />
             </div>
           </div>
         )}
@@ -279,10 +279,10 @@ export default function BankPicker({
         <div className="flex-1 overflow-y-auto px-4 py-3">
           {sorted.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
-              <span className="text-sm text-zinc-600">
+              <span className="text-sm text-ink-600">
                 {search ? 'No matches found' : `No ${label.toLowerCase()} yet`}
               </span>
-              <span className="text-xs text-zinc-700">
+              <span className="text-xs text-ink-700">
                 {search ? 'Try a different search' : 'Add one below to get started'}
               </span>
             </div>
@@ -322,19 +322,19 @@ export default function BankPicker({
         </div>
 
         {/* Footer — add new (jumps to Bank with create form) + manage */}
-        <div className="border-t border-white/5 px-4 py-3">
+        <div className="border-t border-ink/5 px-4 py-3">
           {multiSelect ? (
             <button
               onClick={handleConfirmMulti}
               disabled={selectedIds.length === 0}
-              className="flex w-full items-center justify-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex w-full items-center justify-center gap-2 rounded-full bg-ink px-4 py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-ink/90 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Add {selectedIds.length || ''} {selectedIds.length === 1 ? 'item' : 'items'}
             </button>
           ) : !supportsCreate ? (
             <button
               onClick={handleManageInFinder}
-              className="flex w-full items-center justify-center gap-1.5 py-2 text-xs text-zinc-600 transition-colors hover:text-zinc-400"
+              className="flex w-full items-center justify-center gap-1.5 py-2 text-xs text-ink-600 transition-colors hover:text-ink-400"
             >
               <FolderOpen className="h-3 w-3" />
               Manage in Bank
@@ -343,14 +343,14 @@ export default function BankPicker({
             <>
               <button
                 onClick={handleAddNew}
-                className="flex w-full items-center justify-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-white/90"
+                className="flex w-full items-center justify-center gap-2 rounded-full bg-ink px-4 py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-ink/90"
               >
                 <Plus className="h-4 w-4" />
                 Add New {label.replace(/s$/, '')}
               </button>
               <button
                 onClick={handleManageInFinder}
-                className="mt-2 flex w-full items-center justify-center gap-1.5 py-2 text-xs text-zinc-600 transition-colors hover:text-zinc-400"
+                className="mt-2 flex w-full items-center justify-center gap-1.5 py-2 text-xs text-ink-600 transition-colors hover:text-ink-400"
               >
                 <FolderOpen className="h-3 w-3" />
                 Manage in Bank

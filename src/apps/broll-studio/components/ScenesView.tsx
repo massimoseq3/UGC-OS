@@ -377,13 +377,13 @@ export default function ScenesView({
   if (!result) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-8">
-        <Film className="h-10 w-10 text-zinc-800" strokeWidth={1.5} />
-        <p className="text-sm text-zinc-700">Select your inputs and generate</p>
-        <p className="text-xs text-zinc-800">B-Roll prompts will appear here</p>
+        <Film className="h-10 w-10 text-ink-800" strokeWidth={1.5} />
+        <p className="text-sm text-ink-700">Select your inputs and generate</p>
+        <p className="text-xs text-ink-800">B-Roll prompts will appear here</p>
         {error && (
           <div className="mt-2 flex max-w-sm items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2">
-            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-400" />
-            <p className="text-xs leading-relaxed text-red-300">{error}</p>
+            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-400 light:text-red-600" />
+            <p className="text-xs leading-relaxed text-red-300 light:text-red-700">{error}</p>
           </div>
         )}
       </div>
@@ -395,7 +395,7 @@ export default function ScenesView({
   return (
     <div className="flex-1 overflow-y-auto px-5 py-4">
       <div className="mb-5 flex items-center justify-between gap-3">
-        <span className="text-[11px] font-medium uppercase tracking-wider text-zinc-400">
+        <span className="text-[11px] font-medium uppercase tracking-wider text-ink-400">
           {result.scenes.length} scene{result.scenes.length === 1 ? '' : 's'}
         </span>
         <button
@@ -448,17 +448,17 @@ export default function ScenesView({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md rounded-2xl border border-white/10 bg-zinc-950/95 p-5 shadow-2xl"
+            className="w-full max-w-md rounded-2xl border border-ink/10 bg-ink-950/95 p-5 shadow-2xl"
           >
-            <h3 className="text-sm font-medium text-zinc-100">
+            <h3 className="text-sm font-medium text-ink-100">
               Generate {batchConfirm.keys.length} image{batchConfirm.keys.length === 1 ? '' : 's'}
             </h3>
-            <p className="mt-1 text-xs text-zinc-500">{batchConfirm.scope} · all fire in parallel.</p>
+            <p className="mt-1 text-xs text-ink-500">{batchConfirm.scope} · all fire in parallel.</p>
 
             {/* Run settings — model is the shared B-Roll image model; resolution
                 and aspect apply to every card in this batch. */}
             <div className="mt-4 flex flex-col gap-2.5">
-              <span className="text-[11px] font-medium uppercase tracking-wider text-zinc-400">Model</span>
+              <span className="text-[11px] font-medium uppercase tracking-wider text-ink-400">Model</span>
               <ModelPicker
                 appId="broll-studio"
                 task="image"
@@ -493,12 +493,12 @@ export default function ScenesView({
               )}
             </div>
 
-            <div className="mt-3 flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-xs">
-              <span className="text-zinc-400">Estimated cost</span>
-              <span className="font-medium text-zinc-100">{formatCredits(batchTotalCredits) ?? '— credits'}</span>
+            <div className="mt-3 flex items-center justify-between rounded-xl border border-ink/10 bg-ink/[0.03] px-3 py-2.5 text-xs">
+              <span className="text-ink-400">Estimated cost</span>
+              <span className="font-medium text-ink-100">{formatCredits(batchTotalCredits) ?? '— credits'}</span>
             </div>
             {balance !== null && (
-              <p className={`mt-1.5 text-[11px] ${batchOverBudget ? 'text-red-400' : 'text-zinc-500'}`}>
+              <p className={`mt-1.5 text-[11px] ${batchOverBudget ? 'text-red-400 light:text-red-600' : 'text-ink-500'}`}>
                 Your balance: {balance.toLocaleString()} credits{batchOverBudget ? ' — not enough' : ''}
               </p>
             )}
@@ -506,7 +506,7 @@ export default function ScenesView({
               <button
                 type="button"
                 onClick={() => setBatchConfirm(null)}
-                className="flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1.5 text-[12px] font-medium text-zinc-300 transition-colors hover:bg-white/[0.06]"
+                className="flex items-center gap-1 rounded-full border border-ink/10 bg-ink/[0.03] px-3.5 py-1.5 text-[12px] font-medium text-ink-300 transition-colors hover:bg-ink/[0.06]"
               >
                 <X className="h-3.5 w-3.5" />
                 Cancel
@@ -668,18 +668,18 @@ function SceneSection({
       <div className="mb-5 flex items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-4">
           <span
-            className="text-5xl font-normal italic tabular-nums text-zinc-800"
+            className="text-5xl font-normal italic tabular-nums text-ink-800"
             style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
           >
             {String(scene.number).padStart(2, '0')}
           </span>
-          <div className="h-8 w-px bg-white/10" />
+          <div className="h-8 w-px bg-ink/10" />
           <div className="flex min-w-0 flex-col gap-1.5">
-            <span className="inline-flex w-fit rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+            <span className="inline-flex w-fit rounded-full border border-ink/10 bg-ink/[0.03] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-ink-400">
               Line {scene.number}
             </span>
             <p
-              className="text-lg font-normal not-italic leading-relaxed text-zinc-400"
+              className="text-lg font-normal not-italic leading-relaxed text-ink-400"
               style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
             >
               &ldquo;{scene.scriptLine}&rdquo;
@@ -690,7 +690,7 @@ function SceneSection({
           type="button"
           onClick={onGenerateScene}
           title="Generate images for every variation in this scene"
-          className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[11px] font-medium text-zinc-300 transition-colors hover:border-white/20 hover:bg-white/[0.06] hover:text-zinc-100"
+          className="flex shrink-0 items-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.03] px-3 py-1.5 text-[11px] font-medium text-ink-300 transition-colors hover:border-ink/20 hover:bg-ink/[0.06] hover:text-ink-100"
         >
           <Images className="h-3.5 w-3.5" />
           Generate all
@@ -747,10 +747,10 @@ function AddNewCard({ onAdd }: { onAdd: (variation: PromptVariation) => void }) 
   return (
     <button
       onClick={handleAdd}
-      className="flex aspect-[9/16] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-white/[0.08] transition-colors hover:border-white/15 hover:bg-white/[0.02]"
+      className="flex aspect-[9/16] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-ink/[0.08] transition-colors hover:border-ink/15 hover:bg-ink/[0.02]"
     >
-      <Plus className="h-5 w-5 text-zinc-700" />
-      <span className="text-[10px] font-medium text-zinc-600">Add option</span>
+      <Plus className="h-5 w-5 text-ink-700" />
+      <span className="text-[10px] font-medium text-ink-600">Add option</span>
     </button>
   )
 }
@@ -767,7 +767,7 @@ function SkeletonScene() {
       </div>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
         {[0, 1, 2, 3, 4].map((i) => (
-          <div key={i} className="rounded-xl border border-white/[0.06] bg-white/[0.02] aspect-[9/16]" />
+          <div key={i} className="rounded-xl border border-ink/[0.06] bg-ink/[0.02] aspect-[9/16]" />
         ))}
       </div>
     </div>

@@ -212,7 +212,7 @@ export default function VoiceStudio() {
         </div>
 
         {/* Right — settings / voice picker / history */}
-        <div className="flex w-full md:w-[400px] shrink-0 flex-col border-t md:border-t-0 md:border-l border-white/5">
+        <div className="flex w-full md:w-[400px] shrink-0 flex-col border-t md:border-t-0 md:border-l border-ink/5">
           <RightPanel
             settings={settings}
             onSettingsChange={setSettings}

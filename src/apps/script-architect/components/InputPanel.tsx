@@ -174,23 +174,23 @@ export default function InputPanel({
             tabIndex={0}
             onClick={() => setProductPickerOpen(true)}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setProductPickerOpen(true) } }}
-            className="group flex w-full cursor-pointer items-center gap-3 rounded-full border border-white/10 bg-white/[0.02] px-4 py-3.5 text-left transition-colors hover:border-white/20 hover:bg-white/[0.04]"
+            className="group flex w-full cursor-pointer items-center gap-3 rounded-full border border-ink/10 bg-ink/[0.02] px-4 py-3.5 text-left transition-colors hover:border-ink/20 hover:bg-ink/[0.04]"
           >
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/5">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-ink/5">
               {resolvedProductImage ? (
                 <img src={resolvedProductImage} alt="" className="h-full w-full object-cover" />
               ) : (
-                <Package className="h-5 w-5 text-zinc-600" />
+                <Package className="h-5 w-5 text-ink-600" />
               )}
             </div>
             <div className="flex min-w-0 flex-1 flex-col">
-              <span className="truncate text-sm font-medium tracking-tight text-zinc-200">
+              <span className="truncate text-sm font-medium tracking-tight text-ink-200">
                 {selectedProduct.productName}
               </span>
-              <span className="truncate text-[11px] text-zinc-500">Product</span>
+              <span className="truncate text-[11px] text-ink-500">Product</span>
             </div>
             <div className="flex shrink-0 items-center gap-1">
-              <span className="hidden items-center gap-1 rounded-md px-2 py-0.5 text-[10px] text-zinc-500 group-hover:flex">
+              <span className="hidden items-center gap-1 rounded-md px-2 py-0.5 text-[10px] text-ink-500 group-hover:flex">
                 <RefreshCw className="h-2.5 w-2.5" />
                 Change
               </span>
@@ -199,7 +199,7 @@ export default function InputPanel({
                 onClick={(e) => { e.stopPropagation(); onProductSelect(null) }}
                 title="Remove product"
                 aria-label="Remove product"
-                className="flex h-6 w-6 items-center justify-center rounded-full text-zinc-500 transition-colors hover:bg-white/5 hover:text-red-400"
+                className="flex h-6 w-6 items-center justify-center rounded-full text-ink-500 transition-colors hover:bg-ink/5 hover:text-red-400 light:hover:text-red-600"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -210,13 +210,13 @@ export default function InputPanel({
             <button
               type="button"
               onClick={() => setDetailsOpen(true)}
-              className="mt-1.5 flex w-full items-center justify-between gap-2 rounded-full border border-white/10 bg-white/[0.02] px-4 py-2.5 text-left transition-colors hover:border-white/20 hover:bg-white/[0.04]"
+              className="mt-1.5 flex w-full items-center justify-between gap-2 rounded-full border border-ink/10 bg-ink/[0.02] px-4 py-2.5 text-left transition-colors hover:border-ink/20 hover:bg-ink/[0.04]"
             >
               <div className="flex items-center gap-2">
                 <PenLine className="h-3.5 w-3.5 text-scripts-400" strokeWidth={1.75} />
-                <span className="text-[12px] font-medium text-zinc-200">Edit product details for this script</span>
+                <span className="text-[12px] font-medium text-ink-200">Edit product details for this script</span>
               </div>
-              <ChevronRight className="h-4 w-4 text-zinc-400" strokeWidth={2} />
+              <ChevronRight className="h-4 w-4 text-ink-400" strokeWidth={2} />
             </button>
           )}
         </div>
@@ -225,23 +225,23 @@ export default function InputPanel({
           {products.length > 0 ? (
             <button
               onClick={() => setProductPickerOpen(true)}
-              className="flex w-full items-center gap-3 rounded-full border border-dashed border-white/10 bg-white/[0.02] px-4 py-3.5 text-left transition-colors hover:border-scripts-500/30 hover:bg-scripts-500/5"
+              className="flex w-full items-center gap-3 rounded-full border border-dashed border-ink/10 bg-ink/[0.02] px-4 py-3.5 text-left transition-colors hover:border-scripts-500/30 hover:bg-scripts-500/5"
             >
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/10">
-                <Package className="h-5 w-5 text-amber-400" />
+                <Package className="h-5 w-5 text-amber-400 light:text-amber-600" />
               </div>
               <div className="flex flex-col">
-                <span className="text-sm font-medium text-zinc-300">Select Product</span>
-                <span className="text-xs text-zinc-600">Choose from your Product Bank</span>
+                <span className="text-sm font-medium text-ink-300">Select Product</span>
+                <span className="text-xs text-ink-600">Choose from your Product Bank</span>
               </div>
             </button>
           ) : (
-            <div className="flex items-center gap-3 rounded-full border border-dashed border-white/10 bg-white/[0.02] px-4 py-3.5">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/5">
-                <Package className="h-5 w-5 text-zinc-700" />
+            <div className="flex items-center gap-3 rounded-full border border-dashed border-ink/10 bg-ink/[0.02] px-4 py-3.5">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-ink/5">
+                <Package className="h-5 w-5 text-ink-700" />
               </div>
               <div className="flex flex-col">
-                <span className="text-sm text-zinc-500">No products yet</span>
+                <span className="text-sm text-ink-500">No products yet</span>
                 <button
                   onClick={handleOpenFinder}
                   className="text-left text-xs text-scripts-400 transition-colors hover:text-scripts-300"
@@ -292,8 +292,8 @@ export default function InputPanel({
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setStyleSlideOpen(true) } }}
                 className={`group mt-2 flex w-full cursor-pointer items-center gap-3 rounded-full border px-4 py-3.5 text-left transition-colors ${
                   styleChosen
-                    ? 'border-white/10 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04]'
-                    : 'border-dashed border-white/10 bg-white/[0.02] hover:border-scripts-500/30 hover:bg-scripts-500/5'
+                    ? 'border-ink/10 bg-ink/[0.02] hover:border-ink/20 hover:bg-ink/[0.04]'
+                    : 'border-dashed border-ink/10 bg-ink/[0.02] hover:border-scripts-500/30 hover:bg-scripts-500/5'
                 }`}
               >
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-scripts-500/10 text-scripts-400">
@@ -302,19 +302,19 @@ export default function InputPanel({
                 <div className="min-w-0 flex-1">
                   {styleChosen ? (
                     <>
-                      <div className="truncate text-[13px] font-medium tracking-tight text-zinc-200">{WRITE_STYLE_META[writeStyle].label}</div>
-                      <div className="truncate text-[11px] leading-snug text-zinc-500">{WRITE_STYLE_META[writeStyle].hint}</div>
+                      <div className="truncate text-[13px] font-medium tracking-tight text-ink-200">{WRITE_STYLE_META[writeStyle].label}</div>
+                      <div className="truncate text-[11px] leading-snug text-ink-500">{WRITE_STYLE_META[writeStyle].hint}</div>
                     </>
                   ) : (
                     <>
-                      <div className="text-sm font-medium text-zinc-300">Select a style</div>
-                      <div className="text-xs text-zinc-600">Choose how the script is structured</div>
+                      <div className="text-sm font-medium text-ink-300">Select a style</div>
+                      <div className="text-xs text-ink-600">Choose how the script is structured</div>
                     </>
                   )}
                 </div>
                 {styleChosen ? (
                   <div className="flex shrink-0 items-center gap-1">
-                    <span className="hidden items-center gap-1 rounded-md px-2 py-0.5 text-[10px] text-zinc-500 group-hover:flex">
+                    <span className="hidden items-center gap-1 rounded-md px-2 py-0.5 text-[10px] text-ink-500 group-hover:flex">
                       <RefreshCw className="h-2.5 w-2.5" />
                       Change
                     </span>
@@ -323,13 +323,13 @@ export default function InputPanel({
                       onClick={(e) => { e.stopPropagation(); setStyleChosen(false) }}
                       title="Clear style"
                       aria-label="Clear style"
-                      className="flex h-6 w-6 items-center justify-center rounded-full text-zinc-500 transition-colors hover:bg-white/5 hover:text-red-400"
+                      className="flex h-6 w-6 items-center justify-center rounded-full text-ink-500 transition-colors hover:bg-ink/5 hover:text-red-400 light:hover:text-red-600"
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 ) : (
-                  <ChevronRight className="h-4 w-4 shrink-0 text-zinc-500" strokeWidth={2} />
+                  <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" strokeWidth={2} />
                 )}
               </div>
             </div>
@@ -347,7 +347,7 @@ export default function InputPanel({
                 onChange={(e) => onBriefChange(e.target.value)}
                 rows={6}
                 placeholder={"e.g. A girl in her 20s talking about this serum like she's telling her best friend — focus on how fast it cleared her skin texture. Casual, a little funny, end with the discount code."}
-                className="mt-3 h-[150px] w-full resize-none overflow-y-auto rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3 text-sm leading-relaxed text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-scripts-500/30"
+                className="mt-3 h-[150px] w-full resize-none overflow-y-auto rounded-2xl border border-ink/10 bg-ink/[0.02] px-4 py-3 text-sm leading-relaxed text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-scripts-500/30"
               />
 
               {/* Length — a segmented toggle (same sliding animation as the
@@ -393,9 +393,9 @@ export default function InputPanel({
             </div>
 
             <div className="my-3 flex items-center gap-3">
-              <div className="h-px flex-1 bg-white/[0.07]" />
-              <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">or paste transcript manually</span>
-              <div className="h-px flex-1 bg-white/[0.07]" />
+              <div className="h-px flex-1 bg-ink/[0.07]" />
+              <span className="text-[10px] font-medium uppercase tracking-wider text-ink-600">or paste transcript manually</span>
+              <div className="h-px flex-1 bg-ink/[0.07]" />
             </div>
 
             <textarea
@@ -403,7 +403,7 @@ export default function InputPanel({
               onChange={(e) => { onTranscriptChange(e.target.value); setRemixScript(null) }}
               rows={8}
               placeholder="Paste a proven ad transcript here, or send one from Ad Analyzer..."
-              className={`min-h-[160px] w-full grow rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3 text-sm leading-relaxed text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-scripts-500/30 resize-none ${highlightField === 'transcript' ? 'animate-field-flash' : ''}`}
+              className={`min-h-[160px] w-full grow rounded-2xl border border-ink/10 bg-ink/[0.02] px-4 py-3 text-sm leading-relaxed text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-scripts-500/30 resize-none ${highlightField === 'transcript' ? 'animate-field-flash' : ''}`}
             />
           </div>
         ) : (
@@ -418,7 +418,7 @@ export default function InputPanel({
                 selected={sceneScript}
                 label="Scene"
                 icon={Clapperboard}
-                accentClass="bg-fuchsia-500/10 text-fuchsia-300/80"
+                accentClass="bg-fuchsia-500/10 text-fuchsia-300/80 light:text-fuchsia-700/80"
                 onSelect={() => setScriptPickerOpen(true)}
                 onClear={() => setSceneScript(null)}
                 className={highlightField === 'reverse-prompt' ? 'animate-field-flash' : ''}
@@ -426,9 +426,9 @@ export default function InputPanel({
             </div>
 
             <div className="my-3 flex items-center gap-3">
-              <div className="h-px flex-1 bg-white/[0.07]" />
-              <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">or paste scene transcript manually</span>
-              <div className="h-px flex-1 bg-white/[0.07]" />
+              <div className="h-px flex-1 bg-ink/[0.07]" />
+              <span className="text-[10px] font-medium uppercase tracking-wider text-ink-600">or paste scene transcript manually</span>
+              <div className="h-px flex-1 bg-ink/[0.07]" />
             </div>
 
             <textarea
@@ -436,7 +436,7 @@ export default function InputPanel({
               onChange={(e) => { onReversePromptChange(e.target.value); setSceneScript(null) }}
               rows={10}
               placeholder={'Paste the reverse-engineered prompt from Ad Analyzer here.\n\nExample (multi-scene):\n--- Scene 1: Mirror reaction hook (00:00-00:08) ---\nA woman in her late 20s with shoulder-length auburn hair, wearing a cream cable-knit sweater, stands in a softly-lit bathroom holding a clear glass dropper bottle... She says: "I had dark spots for years and nothing worked."\n\n--- Scene 2: Product reveal (00:08-00:15) ---\n...'}
-              className={`h-[200px] w-full resize-none overflow-y-auto rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3 font-mono text-xs leading-relaxed text-zinc-200 placeholder-zinc-700 outline-none transition-colors focus:border-scripts-500/30 ${highlightField === 'reverse-prompt' ? 'animate-field-flash' : ''}`}
+              className={`h-[200px] w-full resize-none overflow-y-auto rounded-2xl border border-ink/10 bg-ink/[0.02] px-4 py-3 font-mono text-xs leading-relaxed text-ink-200 placeholder-ink-700 outline-none transition-colors focus:border-scripts-500/30 ${highlightField === 'reverse-prompt' ? 'animate-field-flash' : ''}`}
             />
           </div>
         )}
@@ -458,14 +458,14 @@ export default function InputPanel({
               placeholder={mode === 'remix'
                 ? "Additional context for this script (e.g. 'Focus on the self-cleaning feature', 'Summer campaign tone')..."
                 : "Additional context for the rewrite (e.g. 'Keep tone playful', 'Make the CTA softer')..."}
-              className="mt-2 w-full rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-scripts-500/30 resize-none"
+              className="mt-2 w-full rounded-2xl border border-ink/10 bg-ink/[0.02] px-4 py-3 text-sm text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-scripts-500/30 resize-none"
             />
           </div>
         )}
       </div>
 
       {/* Generate button */}
-      <div className="fixed bottom-0 left-0 right-0 z-30 shrink-0 border-t border-white/5 bg-[#050505]/95 px-5 py-4 backdrop-blur-xl md:static md:left-auto md:right-auto md:z-auto md:bg-transparent md:backdrop-blur-none">
+      <div className="fixed bottom-0 left-0 right-0 z-30 shrink-0 border-t border-ink/5 bg-surface-0/95 px-5 py-4 backdrop-blur-xl md:static md:left-auto md:right-auto md:z-auto md:bg-transparent md:backdrop-blur-none">
         <button
           onClick={() => onGenerate(editableContext)}
           disabled={!canGenerate || isGenerating}
@@ -518,7 +518,7 @@ export default function InputPanel({
             <button
               type="button"
               onClick={handleUpdateBank}
-              className="w-full rounded-full border border-white/10 bg-white/[0.02] px-5 py-2.5 text-[13px] font-medium tracking-tight text-zinc-300 transition-colors hover:border-white/20 hover:bg-white/[0.05] hover:text-zinc-100"
+              className="w-full rounded-full border border-ink/10 bg-ink/[0.02] px-5 py-2.5 text-[13px] font-medium tracking-tight text-ink-300 transition-colors hover:border-ink/20 hover:bg-ink/[0.05] hover:text-ink-100"
             >
               Update product in bank
             </button>
@@ -556,17 +556,17 @@ export default function InputPanel({
                 className={`flex items-center gap-3 rounded-full border px-4 py-3 text-left transition-colors ${
                   active
                     ? 'border-scripts-500/30 bg-scripts-500/10'
-                    : 'border-white/5 bg-white/[0.02] hover:border-white/10 hover:bg-white/[0.04]'
+                    : 'border-ink/5 bg-ink/[0.02] hover:border-ink/10 hover:bg-ink/[0.04]'
                 }`}
               >
-                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${active ? 'bg-scripts-500/10 text-scripts-400' : 'bg-white/5 text-zinc-500'}`}>
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${active ? 'bg-scripts-500/10 text-scripts-400' : 'bg-ink/5 text-ink-500'}`}>
                   <FileText className="h-5 w-5" strokeWidth={1.75} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className={`text-[13px] font-medium tracking-tight ${active ? 'text-scripts-300' : 'text-zinc-200'}`}>
+                  <div className={`text-[13px] font-medium tracking-tight ${active ? 'text-scripts-300' : 'text-ink-200'}`}>
                     {WRITE_STYLE_META[style].label}
                   </div>
-                  <div className="text-[11px] leading-snug text-zinc-500">{WRITE_STYLE_META[style].hint}</div>
+                  <div className="text-[11px] leading-snug text-ink-500">{WRITE_STYLE_META[style].hint}</div>
                 </div>
               </button>
             )
@@ -585,20 +585,20 @@ function StepLabel({ label, tooltip }: { label: string; tooltip?: string }) {
   const [hover, setHover] = useState(false)
   return (
     <span
-      className={`relative inline-block text-sm font-medium text-zinc-200 ${tooltip ? 'cursor-help' : ''}`}
+      className={`relative inline-block text-sm font-medium text-ink-200 ${tooltip ? 'cursor-help' : ''}`}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       onFocus={() => setHover(true)}
       onBlur={() => setHover(false)}
       tabIndex={tooltip ? 0 : -1}
     >
-      <span className={tooltip ? 'underline decoration-dotted decoration-zinc-600 underline-offset-4' : ''}>
+      <span className={tooltip ? 'underline decoration-dotted decoration-ink-600 underline-offset-4' : ''}>
         {label}
       </span>
       {tooltip && hover && (
         <span
           role="tooltip"
-          className="pointer-events-none absolute left-0 top-full z-20 mt-2 w-72 rounded-xl bg-black px-3.5 py-2.5 text-[12px] font-normal leading-snug text-zinc-100 shadow-xl ring-1 ring-white/10"
+          className="pointer-events-none absolute left-0 top-full z-20 mt-2 w-72 rounded-xl bg-surface-2 px-3.5 py-2.5 text-[12px] font-normal leading-snug text-ink-100 shadow-xl ring-1 ring-ink/10"
         >
           {tooltip}
         </span>
@@ -632,14 +632,14 @@ function ScriptBankCard({
       <button
         type="button"
         onClick={onSelect}
-        className={`group flex w-full items-center gap-3 rounded-full border border-dashed border-white/10 bg-white/[0.015] px-4 py-3 text-left transition-colors hover:border-white/20 hover:bg-white/[0.03] ${className ?? ''}`}
+        className={`group flex w-full items-center gap-3 rounded-full border border-dashed border-ink/10 bg-ink/[0.015] px-4 py-3 text-left transition-colors hover:border-ink/20 hover:bg-ink/[0.03] ${className ?? ''}`}
       >
         <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors ${accentClass}`}>
           <Icon className="h-4 w-4" />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-medium text-zinc-200">{label}</div>
-          <div className="text-xs text-zinc-400">Click to select from bank</div>
+          <div className="text-sm font-medium text-ink-200">{label}</div>
+          <div className="text-xs text-ink-400">Click to select from bank</div>
         </div>
       </button>
     )
@@ -650,17 +650,17 @@ function ScriptBankCard({
       tabIndex={0}
       onClick={onSelect}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect() } }}
-      className={`group flex w-full cursor-pointer items-center gap-3 rounded-full border border-white/10 bg-white/[0.02] px-4 py-3 transition-colors hover:border-white/20 hover:bg-white/[0.04] ${className ?? ''}`}
+      className={`group flex w-full cursor-pointer items-center gap-3 rounded-full border border-ink/10 bg-ink/[0.02] px-4 py-3 transition-colors hover:border-ink/20 hover:bg-ink/[0.04] ${className ?? ''}`}
     >
       <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${accentClass}`}>
         <Icon className="h-4 w-4" />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium text-zinc-200">{selected.title}</div>
-        <div className="truncate text-[11px] text-zinc-500">{label}</div>
+        <div className="truncate text-sm font-medium text-ink-200">{selected.title}</div>
+        <div className="truncate text-[11px] text-ink-500">{label}</div>
       </div>
       <div className="flex shrink-0 items-center gap-1">
-        <span className="hidden items-center gap-1 rounded-md px-2 py-0.5 text-[10px] text-zinc-500 group-hover:flex">
+        <span className="hidden items-center gap-1 rounded-md px-2 py-0.5 text-[10px] text-ink-500 group-hover:flex">
           <RefreshCw className="h-2.5 w-2.5" />
           Change
         </span>
@@ -669,7 +669,7 @@ function ScriptBankCard({
           onClick={(e) => { e.stopPropagation(); onClear() }}
           title={`Remove ${label.toLowerCase()}`}
           aria-label={`Remove ${label.toLowerCase()}`}
-          className="flex h-6 w-6 items-center justify-center rounded-full text-zinc-500 transition-colors hover:bg-white/5 hover:text-red-400"
+          className="flex h-6 w-6 items-center justify-center rounded-full text-ink-500 transition-colors hover:bg-ink/5 hover:text-red-400 light:hover:text-red-600"
         >
           <X className="h-3.5 w-3.5" />
         </button>
@@ -716,12 +716,12 @@ function OutputToggle({ value, onChange }: { value: WriteFormat; onChange: (v: W
   return (
     <div
       ref={containerRef}
-      className="relative grid grid-cols-2 gap-1 rounded-full border border-white/10 bg-white/[0.02] p-1"
+      className="relative grid grid-cols-2 gap-1 rounded-full border border-ink/10 bg-ink/[0.02] p-1"
     >
       {indicator && (
         <div
           aria-hidden
-          className="absolute bottom-1 top-1 rounded-full bg-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition-[left,width] duration-200 ease-out"
+          className="absolute bottom-1 top-1 rounded-full bg-ink/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition-[left,width] duration-200 ease-out"
           style={{ left: indicator.left, width: indicator.width }}
         />
       )}
@@ -729,7 +729,7 @@ function OutputToggle({ value, onChange }: { value: WriteFormat; onChange: (v: W
         const active = opt.value === value
         const Icon = opt.icon
         const tone = opt.accent === 'fuchsia'
-          ? { iconBg: 'bg-fuchsia-500/15 text-fuchsia-300', text: 'text-fuchsia-300' }
+          ? { iconBg: 'bg-fuchsia-500/15 text-fuchsia-300 light:text-fuchsia-700', text: 'text-fuchsia-300 light:text-fuchsia-700' }
           : { iconBg: 'bg-scripts-500/15 text-scripts-300', text: 'text-scripts-300' }
         return (
           <button
@@ -739,12 +739,12 @@ function OutputToggle({ value, onChange }: { value: WriteFormat; onChange: (v: W
             onClick={() => onChange(opt.value)}
             className="relative z-[1] flex w-full items-center gap-3 rounded-full px-3.5 py-2.5 text-left"
           >
-            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors ${active ? tone.iconBg : 'bg-white/5 text-zinc-500'}`}>
+            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors ${active ? tone.iconBg : 'bg-ink/5 text-ink-500'}`}>
               <Icon className="h-4 w-4" strokeWidth={1.75} />
             </div>
             <div className="min-w-0 flex-1">
-              <div className={`truncate text-[12px] font-medium tracking-tight transition-colors ${active ? tone.text : 'text-zinc-300'}`}>{opt.title}</div>
-              <div className="truncate text-[10px] leading-snug text-zinc-600">{opt.desc}</div>
+              <div className={`truncate text-[12px] font-medium tracking-tight transition-colors ${active ? tone.text : 'text-ink-300'}`}>{opt.title}</div>
+              <div className="truncate text-[10px] leading-snug text-ink-600">{opt.desc}</div>
             </div>
           </button>
         )
@@ -756,12 +756,12 @@ function OutputToggle({ value, onChange }: { value: WriteFormat; onChange: (v: W
 function EditableField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
     <label className="flex flex-col gap-1.5">
-      <span className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500">{label}</span>
+      <span className="text-[11px] font-semibold uppercase tracking-widest text-ink-500">{label}</span>
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
         rows={3}
-        className="w-full rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3 text-[13px] leading-relaxed text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-scripts-500/30 resize-none"
+        className="w-full rounded-2xl border border-ink/10 bg-ink/[0.02] px-4 py-3 text-[13px] leading-relaxed text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-scripts-500/30 resize-none"
       />
     </label>
   )

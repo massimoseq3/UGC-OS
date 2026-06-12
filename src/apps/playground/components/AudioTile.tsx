@@ -19,7 +19,8 @@ export default function AudioTile({ item, onDownload, onDelete }: AudioTileProps
   const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   return (
-    <div className="overflow-hidden rounded-lg border border-white/10 bg-white/[0.02]">
+    <div className="overflow-hidden rounded-lg border border-ink/10 bg-ink/[0.02]">
+      {/* Album-cover area stays dark in both themes — it stands in for media. */}
       <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-fuchsia-900/30 via-zinc-900 to-black">
         {coverUrl ? (
           <img src={coverUrl} alt="" className="h-full w-full object-cover" />
@@ -36,10 +37,10 @@ export default function AudioTile({ item, onDownload, onDelete }: AudioTileProps
       </div>
 
       <div className="p-2.5">
-        <p className="line-clamp-1 text-[11px] font-medium text-zinc-200">
+        <p className="line-clamp-1 text-[11px] font-medium text-ink-200">
           {item.title || modelLabel}
         </p>
-        <p className="line-clamp-1 text-[10px] text-zinc-500">{item.prompt}</p>
+        <p className="line-clamp-1 text-[10px] text-ink-500">{item.prompt}</p>
 
         {audioUrl && (
           <audio src={audioUrl} controls className="mt-2 h-8 w-full" preload="metadata" />
@@ -50,7 +51,7 @@ export default function AudioTile({ item, onDownload, onDelete }: AudioTileProps
             type="button"
             title="Download"
             onClick={onDownload}
-            className="flex h-6 w-6 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-white/[0.05] hover:text-zinc-200"
+            className="flex h-6 w-6 items-center justify-center rounded-md text-ink-400 transition-colors hover:bg-ink/[0.05] hover:text-ink-200"
           >
             <Download className="h-3 w-3" />
           </button>
@@ -68,8 +69,8 @@ export default function AudioTile({ item, onDownload, onDelete }: AudioTileProps
             }}
             className={`flex h-6 items-center justify-center gap-1 rounded-md px-1.5 transition-colors ${
               confirmingDelete
-                ? 'bg-red-500/30 text-red-100 ring-1 ring-red-400/60'
-                : 'text-zinc-400 hover:bg-red-500/15 hover:text-red-300'
+                ? 'bg-red-500/30 text-red-100 light:text-red-900 ring-1 ring-red-400/60'
+                : 'text-ink-400 hover:bg-red-500/15 hover:text-red-300 light:hover:text-red-700'
             }`}
           >
             <Trash2 className="h-3 w-3" />

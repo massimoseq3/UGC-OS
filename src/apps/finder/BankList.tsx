@@ -16,13 +16,13 @@ export function SortControl({ value, onChange, options }: { value: SortOrder; on
         <select
           value={value}
           onChange={(e) => onChange(e.target.value as SortOrder)}
-          className="h-11 appearance-none rounded-full border border-white/10 bg-[#0a0a0a] pl-4 pr-8 text-xs text-zinc-200 outline-none transition-colors hover:border-white/20 focus:border-white/20"
+          className="h-11 appearance-none rounded-full border border-ink/10 bg-surface-1 pl-4 pr-8 text-xs text-ink-200 outline-none transition-colors hover:border-ink/20 focus:border-ink/20"
         >
           {options.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
         </select>
-        <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
+        <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-500" />
       </div>
     </div>
   )
@@ -52,7 +52,7 @@ function ConfirmDelete({ onConfirm, onCancel }: { onConfirm: () => Promise<void>
       <button
         onClick={handleConfirm}
         disabled={busy}
-        className="flex items-center gap-1 rounded-full bg-red-500/20 px-2.5 py-0.5 text-[11px] font-medium text-red-400 transition-colors hover:bg-red-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+        className="flex items-center gap-1 rounded-full bg-red-500/20 px-2.5 py-0.5 text-[11px] font-medium text-red-400 light:text-red-600 transition-colors hover:bg-red-500/30 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {busy && <Loader2 className="h-3 w-3 animate-spin" />}
         {busy ? 'Deleting…' : 'Delete'}
@@ -60,7 +60,7 @@ function ConfirmDelete({ onConfirm, onCancel }: { onConfirm: () => Promise<void>
       <button
         onClick={(e) => { e.stopPropagation(); if (!busy) onCancel() }}
         disabled={busy}
-        className="text-[11px] text-zinc-500 hover:text-zinc-300 disabled:opacity-40"
+        className="text-[11px] text-ink-500 hover:text-ink-300 disabled:opacity-40"
       >
         Cancel
       </button>
@@ -89,13 +89,13 @@ function ProductCard({ item, onEdit, onDelete, inFlight }: { item: Product; onEd
   return (
     <div
       onClick={onEdit}
-      className="group relative aspect-square cursor-pointer overflow-hidden rounded-2xl border border-white/5 bg-white/[0.03] transition-all hover:border-white/15 hover:-translate-y-0.5"
+      className="group relative aspect-square cursor-pointer overflow-hidden rounded-2xl border border-ink/5 bg-ink/[0.03] transition-all hover:border-ink/15 hover:-translate-y-0.5"
     >
       {resolvedImage ? (
         <img src={resolvedImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
       ) : (
-        <div className="absolute inset-0 flex items-center justify-center bg-white/[0.04]">
-          <Package className="h-12 w-12 text-zinc-800" strokeWidth={1} />
+        <div className="absolute inset-0 flex items-center justify-center bg-ink/[0.04]">
+          <Package className="h-12 w-12 text-ink-800" strokeWidth={1} />
         </div>
       )}
       {/* Top-left status indicator: Extracting badge (while in-flight) OR draft/confirmed dot */}
@@ -146,13 +146,13 @@ function ModelCard({ item, onEdit, onDelete }: { item: Model; onEdit: () => void
   return (
     <div
       onClick={onEdit}
-      className="group relative aspect-[9/16] cursor-pointer overflow-hidden rounded-2xl border border-white/5 bg-white/[0.03] transition-all hover:border-white/15 hover:-translate-y-0.5"
+      className="group relative aspect-[9/16] cursor-pointer overflow-hidden rounded-2xl border border-ink/5 bg-ink/[0.03] transition-all hover:border-ink/15 hover:-translate-y-0.5"
     >
       {resolvedImage ? (
         <img src={resolvedImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
       ) : (
-        <div className="absolute inset-0 flex items-center justify-center bg-white/[0.04]">
-          <UserRound className="h-12 w-12 text-zinc-800" strokeWidth={1} />
+        <div className="absolute inset-0 flex items-center justify-center bg-ink/[0.04]">
+          <UserRound className="h-12 w-12 text-ink-800" strokeWidth={1} />
         </div>
       )}
       {/* Bottom info overlay — same gradient pattern as ProductCard */}
@@ -188,10 +188,10 @@ function ScriptCard({ item, onEdit, onDelete }: { item: Script; onEdit: () => vo
   // Legacy items predate `kind` — treat them as scripts.
   const isPrompt = item.kind === 'reverse-engineer'
   const badge = isPrompt
-    ? { label: 'SCENES', className: 'bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-500/20', icon: 'text-fuchsia-300', iconBg: 'bg-fuchsia-500/10' }
+    ? { label: 'SCENES', className: 'bg-fuchsia-500/15 text-fuchsia-300 light:text-fuchsia-700 border-fuchsia-500/20', icon: 'text-fuchsia-300 light:text-fuchsia-700', iconBg: 'bg-fuchsia-500/10' }
     : { label: 'SCRIPT', className: 'bg-scripts-500/15 text-scripts-300 border-scripts-500/20', icon: 'text-scripts-300', iconBg: 'bg-scripts-500/10' }
   return (
-    <div onClick={onEdit} className="group flex cursor-pointer items-center gap-3 rounded-full border border-white/5 bg-white/[0.03] p-3 transition-colors hover:border-white/10 hover:bg-white/[0.05]">
+    <div onClick={onEdit} className="group flex cursor-pointer items-center gap-3 rounded-full border border-ink/5 bg-ink/[0.03] p-3 transition-colors hover:border-ink/10 hover:bg-ink/[0.05]">
       <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${badge.iconBg}`}>
         <FileText className={`h-5 w-5 ${badge.icon}`} />
       </div>
@@ -200,19 +200,19 @@ function ScriptCard({ item, onEdit, onDelete }: { item: Script; onEdit: () => vo
           <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-semibold tracking-widest ${badge.className}`}>
             {badge.label}
           </span>
-          <span className="truncate text-sm font-semibold tracking-tight text-zinc-200">{item.title}</span>
+          <span className="truncate text-sm font-semibold tracking-tight text-ink-200">{item.title}</span>
         </div>
-        <span className="truncate text-xs text-zinc-500">{preview || 'Empty script'}</span>
+        <span className="truncate text-xs text-ink-500">{preview || 'Empty script'}</span>
         <div className="flex items-center gap-2">
-          {linked && <span className="text-[10px] text-zinc-600">{linked.productName}</span>}
-          <span className="text-[10px] text-zinc-700">{new Date(item.createdAt).toLocaleDateString()}</span>
+          {linked && <span className="text-[10px] text-ink-600">{linked.productName}</span>}
+          <span className="text-[10px] text-ink-700">{new Date(item.createdAt).toLocaleDateString()}</span>
         </div>
       </div>
       <div className="shrink-0 self-start" onClick={(e) => e.stopPropagation()}>
         {confirm ? (
           <ConfirmDelete onConfirm={onDelete} onCancel={() => setConfirm(false)} />
         ) : (
-          <button onClick={() => setConfirm(true)} className="rounded p-1 text-zinc-700 opacity-0 transition-all hover:text-red-400 group-hover:opacity-100">
+          <button onClick={() => setConfirm(true)} className="rounded p-1 text-ink-700 opacity-0 transition-all hover:text-red-400 group-hover:opacity-100">
             <Trash2 className="h-3.5 w-3.5" />
           </button>
         )}
@@ -258,7 +258,7 @@ function BRollCard({ item, onEdit, onDelete }: { item: BRoll; onEdit: () => void
   }
 
   return (
-    <div onClick={onEdit} className="group relative cursor-pointer overflow-hidden rounded-2xl border border-white/5 bg-white/[0.03] transition-all hover:border-white/15 hover:bg-white/[0.05] hover:-translate-y-0.5">
+    <div onClick={onEdit} className="group relative cursor-pointer overflow-hidden rounded-2xl border border-ink/5 bg-ink/[0.03] transition-all hover:border-ink/15 hover:bg-ink/[0.05] hover:-translate-y-0.5">
       {/* Thumbnail — adapts to image's natural aspect ratio */}
       <div className="relative w-full overflow-hidden">
         {resolvedImage ? (
@@ -272,8 +272,8 @@ function BRollCard({ item, onEdit, onDelete }: { item: BRoll; onEdit: () => void
             className="block w-full"
           />
         ) : (
-          <div className="flex aspect-video w-full items-center justify-center bg-white/[0.04]">
-            <Film className="h-10 w-10 text-zinc-800" strokeWidth={1} />
+          <div className="flex aspect-video w-full items-center justify-center bg-ink/[0.04]">
+            <Film className="h-10 w-10 text-ink-800" strokeWidth={1} />
           </div>
         )}
         {/* Video badge */}
@@ -323,14 +323,14 @@ function BRollCard({ item, onEdit, onDelete }: { item: BRoll; onEdit: () => void
 function VoiceCard({ item, onEdit, onDelete }: { item: VoicePreset; onEdit: () => void; onDelete: () => void }) {
   const [confirm, setConfirm] = useState(false)
   return (
-    <div onClick={onEdit} className="group flex cursor-pointer items-center gap-3 rounded-full border border-white/5 bg-white/[0.03] p-3 transition-colors hover:border-white/10 hover:bg-white/[0.05]">
-      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/5">
-        <Mic className="h-5 w-5 text-zinc-600" />
+    <div onClick={onEdit} className="group flex cursor-pointer items-center gap-3 rounded-full border border-ink/5 bg-ink/[0.03] p-3 transition-colors hover:border-ink/10 hover:bg-ink/[0.05]">
+      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-ink/5">
+        <Mic className="h-5 w-5 text-ink-600" />
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="truncate text-sm font-semibold tracking-tight text-zinc-200">{item.label}</span>
-        <span className="text-xs text-zinc-500">{item.voiceName}{item.gender ? ` · ${item.gender}` : ''}</span>
-        <span className="truncate text-[10px] tabular-nums text-zinc-600">
+        <span className="truncate text-sm font-semibold tracking-tight text-ink-200">{item.label}</span>
+        <span className="text-xs text-ink-500">{item.voiceName}{item.gender ? ` · ${item.gender}` : ''}</span>
+        <span className="truncate text-[10px] tabular-nums text-ink-600">
           Stability {item.stability.toFixed(2)}
         </span>
       </div>
@@ -338,7 +338,7 @@ function VoiceCard({ item, onEdit, onDelete }: { item: VoicePreset; onEdit: () =
         {confirm ? (
           <ConfirmDelete onConfirm={onDelete} onCancel={() => setConfirm(false)} />
         ) : (
-          <button onClick={() => setConfirm(true)} className="rounded p-1 text-zinc-700 opacity-0 transition-all hover:text-red-400 group-hover:opacity-100">
+          <button onClick={() => setConfirm(true)} className="rounded p-1 text-ink-700 opacity-0 transition-all hover:text-red-400 group-hover:opacity-100">
             <Trash2 className="h-3.5 w-3.5" />
           </button>
         )}
@@ -490,16 +490,16 @@ function BRollsList({ items, onEdit, onDelete, sort }: { items: BRoll[]; onEdit:
 function EmptyState({ icon: Icon, label, singular, onAdd }: { icon: React.ElementType; label: string; singular: string; onAdd: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
-      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/[0.04]">
-        <Icon className="h-7 w-7 text-zinc-700" strokeWidth={1.5} />
+      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-ink/[0.04]">
+        <Icon className="h-7 w-7 text-ink-700" strokeWidth={1.5} />
       </div>
       <div className="flex flex-col gap-1">
-        <p className="text-sm font-medium text-zinc-500">No {label} yet</p>
-        <p className="text-xs text-zinc-700">Add your first {singular} to get started</p>
+        <p className="text-sm font-medium text-ink-500">No {label} yet</p>
+        <p className="text-xs text-ink-700">Add your first {singular} to get started</p>
       </div>
       <button
         onClick={onAdd}
-        className="flex items-center gap-1.5 rounded-full bg-white/[0.07] px-4 py-2 text-sm font-medium text-zinc-300 transition-colors hover:bg-white/10"
+        className="flex items-center gap-1.5 rounded-full bg-ink/[0.07] px-4 py-2 text-sm font-medium text-ink-300 transition-colors hover:bg-ink/10"
       >
         <Plus className="h-4 w-4" />
         Add Your First {singular.charAt(0).toUpperCase() + singular.slice(1)}

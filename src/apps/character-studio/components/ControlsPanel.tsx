@@ -69,7 +69,7 @@ export default function ControlsPanel({
       </div>
 
       {/* Divider between the presets and the toggle. */}
-      <div className="mx-3 border-t border-white/5" />
+      <div className="mx-3 border-t border-ink/5" />
 
       {/* Rounded segmented toggle — filled so all 4 tabs share the column
           with no horizontal scroll. */}
@@ -93,7 +93,7 @@ export default function ControlsPanel({
           fields flow without dividers; a hairline separator only marks the
           boundary between groups (identity → skin → eyes → hair, …). */}
       <div className="min-w-0 flex-1 p-4 md:overflow-y-auto">
-        <div className="flex flex-col divide-y divide-white/5">
+        <div className="flex flex-col divide-y divide-ink/5">
           {currentTab.groups.map((group) => (
             <div key={group.id} className="flex flex-col gap-4 py-4 first:pt-0 last:pb-0">
               {group.fields.map((field) => (

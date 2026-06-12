@@ -48,10 +48,10 @@ export default function GenerateBar({
   const creditsLabel = formatCredits(estimateCredits(selectedModelId ?? '', { imageCount: 1, resolution }))
 
   return (
-    <div className="sticky bottom-0 z-10 min-w-0 space-y-2 border-t border-white/5 bg-[#050505]/95 p-3 backdrop-blur-xl md:static md:bg-transparent md:backdrop-blur-none">
+    <div className="sticky bottom-0 z-10 min-w-0 space-y-2 border-t border-ink/5 bg-surface-0/95 p-3 backdrop-blur-xl md:static md:bg-transparent md:backdrop-blur-none">
       {error && (
         <div className="flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2">
-          <p className="text-xs leading-relaxed text-red-300">{error}</p>
+          <p className="text-xs leading-relaxed text-red-300 light:text-red-700">{error}</p>
         </div>
       )}
       {/* Model picker + aspect/resolution chips share one row so the
@@ -77,7 +77,7 @@ export default function GenerateBar({
             return (
               <span className="flex w-full items-center justify-between gap-6">
                 <span>{v}</span>
-                {credits && <span className="text-zinc-500">{credits}</span>}
+                {credits && <span className="text-ink-500">{credits}</span>}
               </span>
             )
           }}

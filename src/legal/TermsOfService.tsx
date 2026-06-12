@@ -77,7 +77,7 @@ export default function TermsOfService() {
         We may suspend or terminate your account at any time for breach of these Terms, for
         violations of the Acceptable Use Policy, or if your community membership ends. You may
         stop using the Service at any time; deletion of stored content can be requested at{' '}
-        <a className="text-zinc-100 underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
+        <a className="text-ink-100 underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
       </P>
 
       <H2>9. Disclaimer of Warranties</H2>
@@ -122,7 +122,7 @@ export default function TermsOfService() {
 
       <H2>14. Contact</H2>
       <P>
-        Questions about these Terms: <a className="text-zinc-100 underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
+        Questions about these Terms: <a className="text-ink-100 underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
       </P>
     </LegalLayout>
   )

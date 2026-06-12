@@ -20,13 +20,13 @@ function PresetCard({ imageRef, name, onClick }: { imageRef?: string; name: stri
   return (
     <button
       onClick={onClick}
-      className="group relative block aspect-[9/16] w-full overflow-hidden rounded-xl border border-white/5 bg-white/[0.03] transition-all hover:border-white/15 hover:-translate-y-0.5"
+      className="group relative block aspect-[9/16] w-full overflow-hidden rounded-xl border border-ink/5 bg-ink/[0.03] transition-all hover:border-ink/15 hover:-translate-y-0.5"
     >
       {url ? (
         <img src={url} alt="" className="absolute inset-0 h-full w-full object-cover" />
       ) : (
-        <div className="absolute inset-0 flex items-center justify-center bg-white/[0.04]">
-          <Sparkles className="h-6 w-6 text-zinc-700" strokeWidth={1.5} />
+        <div className="absolute inset-0 flex items-center justify-center bg-ink/[0.04]">
+          <Sparkles className="h-6 w-6 text-ink-700" strokeWidth={1.5} />
         </div>
       )}
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent p-2 pt-6">
@@ -73,13 +73,13 @@ export default function LoadPresetDropdown({ onLoadProfile }: LoadPresetDropdown
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex h-12 w-full items-center gap-3 rounded-full border border-white/10 bg-white/[0.02] px-4 text-left transition-colors hover:bg-white/[0.05]"
+        className="flex h-12 w-full items-center gap-3 rounded-full border border-ink/10 bg-ink/[0.02] px-4 text-left transition-colors hover:bg-ink/[0.05]"
       >
         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-influencers-500/10 text-influencers-400">
           <UserRound className="h-3.5 w-3.5" />
         </span>
-        <div className="min-w-0 flex-1 truncate text-[14px] font-medium text-zinc-100">Influencer Presets</div>
-        <ChevronRight className="h-4 w-4 shrink-0 text-zinc-500" strokeWidth={2} />
+        <div className="min-w-0 flex-1 truncate text-[14px] font-medium text-ink-100">Influencer Presets</div>
+        <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" strokeWidth={2} />
       </button>
 
       <SlideOver
@@ -89,7 +89,7 @@ export default function LoadPresetDropdown({ onLoadProfile }: LoadPresetDropdown
         subtitle="Pick a recipe to fill the form"
       >
         <div className="p-3">
-          <div className="px-1 pb-2 pt-0.5 text-[9px] font-semibold uppercase tracking-widest text-zinc-500">
+          <div className="px-1 pb-2 pt-0.5 text-[9px] font-semibold uppercase tracking-widest text-ink-500">
             Starters
           </div>
           <div className="grid grid-cols-3 gap-2">
@@ -99,7 +99,7 @@ export default function LoadPresetDropdown({ onLoadProfile }: LoadPresetDropdown
           </div>
           {bankModels.filter((m) => m.jsonProfile).length > 0 && (
             <>
-              <div className="px-1 pb-2 pt-4 text-[9px] font-semibold uppercase tracking-widest text-zinc-500">
+              <div className="px-1 pb-2 pt-4 text-[9px] font-semibold uppercase tracking-widest text-ink-500">
                 Bank
               </div>
               <div className="grid grid-cols-3 gap-2">

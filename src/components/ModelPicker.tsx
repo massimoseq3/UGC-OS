@@ -69,7 +69,7 @@ export default function ModelPicker({ appId, task, mode, value, onChange, costPa
 
   if (models.length === 0) {
     return (
-      <div className="text-[11px] text-zinc-600">
+      <div className="text-[11px] text-ink-600">
         No models available for {task}{mode ? ` / ${mode}` : ''}.
       </div>
     )
@@ -94,47 +94,47 @@ export default function ModelPicker({ appId, task, mode, value, onChange, costPa
         }}
         className={
           compact
-            ? 'flex h-9 w-full items-center gap-2 rounded-full border border-white/10 bg-white/[0.02] px-2 text-left transition-colors hover:bg-white/[0.05]'
+            ? 'flex h-9 w-full items-center gap-2 rounded-full border border-ink/10 bg-ink/[0.02] px-2 text-left transition-colors hover:bg-ink/[0.05]'
             : large
-            ? 'flex h-12 w-full items-center gap-3 rounded-full border border-white/10 bg-white/[0.02] px-4 text-left transition-colors hover:bg-white/[0.05]'
-            : 'flex h-12 w-full items-center gap-2.5 rounded-full border border-white/10 bg-white/[0.02] px-3 text-left transition-colors hover:bg-white/[0.05]'
+            ? 'flex h-12 w-full items-center gap-3 rounded-full border border-ink/10 bg-ink/[0.02] px-4 text-left transition-colors hover:bg-ink/[0.05]'
+            : 'flex h-12 w-full items-center gap-2.5 rounded-full border border-ink/10 bg-ink/[0.02] px-3 text-left transition-colors hover:bg-ink/[0.05]'
         }
       >
         {selected ? (
           compact ? (
             <>
               <ProviderLogo provider={selected.provider} size="sm" />
-              <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-zinc-100">{selected.displayName}</span>
+              <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-ink-100">{selected.displayName}</span>
               {selected.tags.includes('recommended') && (
-                <Star className="h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400" strokeWidth={1.5} />
+                <Star className="h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400 light:fill-yellow-600 light:text-yellow-600" strokeWidth={1.5} />
               )}
               {selectedCredits != null && (
-                <span className="shrink-0 text-[11px] tabular-nums text-zinc-500">{formatCredits(selectedCredits)}</span>
+                <span className="shrink-0 text-[11px] tabular-nums text-ink-500">{formatCredits(selectedCredits)}</span>
               )}
             </>
           ) : (
             <>
               <ProviderLogo provider={selected.provider} />
               <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                <span className={`truncate font-medium text-zinc-100 ${large ? 'text-[14px]' : 'text-[13px]'}`}>{selected.displayName}</span>
+                <span className={`truncate font-medium text-ink-100 ${large ? 'text-[14px]' : 'text-[13px]'}`}>{selected.displayName}</span>
                 {selected.tags.includes('recommended') && (
-                  <Star className="h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400" strokeWidth={1.5} />
+                  <Star className="h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400 light:fill-yellow-600 light:text-yellow-600" strokeWidth={1.5} />
                 )}
               </div>
               {selectedCredits != null && (
-                <span className={`shrink-0 tabular-nums text-zinc-500 ${large ? 'text-[12px]' : 'text-[11px]'}`}>{formatCredits(selectedCredits)}</span>
+                <span className={`shrink-0 tabular-nums text-ink-500 ${large ? 'text-[12px]' : 'text-[11px]'}`}>{formatCredits(selectedCredits)}</span>
               )}
             </>
           )
         ) : (
-          <span className="flex-1 truncate text-sm text-zinc-400">Select model</span>
+          <span className="flex-1 truncate text-sm text-ink-400">Select model</span>
         )}
-        <ChevronDown className={`h-4 w-4 shrink-0 text-zinc-500 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`h-4 w-4 shrink-0 text-ink-500 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
       {open && (
         <div
-          className={`absolute left-0 right-0 z-50 overflow-hidden rounded-2xl border border-white/10 bg-[#0B0B0D]/95 shadow-2xl backdrop-blur-xl ${
+          className={`absolute left-0 right-0 z-50 overflow-hidden rounded-2xl border border-ink/10 bg-surface-2/95 shadow-2xl backdrop-blur-xl ${
             openUpward ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
           }`}
         >
@@ -154,7 +154,7 @@ export default function ModelPicker({ appId, task, mode, value, onChange, costPa
             })}
           </div>
           {requireMode && requireModeNote && models.some((m) => !m.modes?.includes(requireMode)) && (
-            <p className="border-t border-white/5 px-3 py-2 text-[11px] leading-relaxed text-zinc-500">
+            <p className="border-t border-ink/5 px-3 py-2 text-[11px] leading-relaxed text-ink-500">
               {requireModeNote}
             </p>
           )}
@@ -183,23 +183,23 @@ function ModelRow({ model, active, costParams, muted, onClick }: ModelRowProps) 
       onClick={onClick}
       className={`flex h-12 w-full items-center gap-3 rounded-full px-2.5 text-left transition-colors ${
         muted ? 'opacity-45 hover:opacity-70' : ''
-      } ${active ? 'bg-white/[0.06]' : 'hover:bg-white/[0.04]'}`}
+      } ${active ? 'bg-ink/[0.06]' : 'hover:bg-ink/[0.04]'}`}
     >
       <ProviderLogo provider={model.provider} />
 
       <div className="flex min-w-0 flex-1 items-center gap-1.5">
-        <span className="truncate text-[13px] font-semibold text-zinc-100">{model.displayName}</span>
+        <span className="truncate text-[13px] font-semibold text-ink-100">{model.displayName}</span>
         {isRecommended && (
-          <Star className="h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400" strokeWidth={1.5} />
+          <Star className="h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400 light:fill-yellow-600 light:text-yellow-600" strokeWidth={1.5} />
         )}
       </div>
 
       <div className="flex shrink-0 items-center gap-1.5">
         {creditsLabel && (
-          <span className="text-[11px] tabular-nums text-zinc-400">{creditsLabel}</span>
+          <span className="text-[11px] tabular-nums text-ink-400">{creditsLabel}</span>
         )}
         {active ? (
-          <Check className="h-4 w-4 text-sky-400" />
+          <Check className="h-4 w-4 text-sky-400 light:text-sky-600" />
         ) : (
           <span className="h-4 w-4" />
         )}

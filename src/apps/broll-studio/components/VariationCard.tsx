@@ -619,7 +619,7 @@ export default function VariationCard(props: VariationCardProps) {
       <div className="group flex flex-col gap-1.5">
         <div
           onClick={() => setDetailOpen(true)}
-          className="relative aspect-[9/16] cursor-pointer overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.02] transition-colors hover:border-white/15"
+          className="relative aspect-[9/16] cursor-pointer overflow-hidden rounded-xl border border-ink/[0.08] bg-ink/[0.02] transition-colors hover:border-ink/15"
         >
           {cardState.isGeneratingImage ? (
             <div className="flex h-full w-full flex-col items-center justify-center gap-2 px-4">
@@ -685,8 +685,8 @@ export default function VariationCard(props: VariationCardProps) {
             </>
           ) : (
             <div className="flex h-full w-full flex-col items-center justify-center gap-2 px-4 text-center">
-              <ImageIcon className="h-7 w-7 text-zinc-700" strokeWidth={1.5} />
-              <p className="text-[11px] text-zinc-500">Click to set up</p>
+              <ImageIcon className="h-7 w-7 text-ink-700" strokeWidth={1.5} />
+              <p className="text-[11px] text-ink-500">Click to set up</p>
             </div>
           )}
 
@@ -787,15 +787,15 @@ export default function VariationCard(props: VariationCardProps) {
 
           {cardState.imageError && !hasImages && !cardState.isGeneratingImage && (
             <div className="absolute inset-x-2 bottom-2 flex items-start gap-1.5 rounded-lg border border-red-500/30 bg-red-500/15 px-2 py-1.5 backdrop-blur">
-              <AlertCircle className="mt-0.5 h-3 w-3 shrink-0 text-red-300" />
-              <p className="line-clamp-2 text-[10px] leading-relaxed text-red-200">{cardState.imageError}</p>
+              <AlertCircle className="mt-0.5 h-3 w-3 shrink-0 text-red-300 light:text-red-700" />
+              <p className="line-clamp-2 text-[10px] leading-relaxed text-red-200 light:text-red-800">{cardState.imageError}</p>
             </div>
           )}
         </div>
 
         {/* Bottom text — roll type. Centred + small so it reads as a quiet label. */}
         {!isManual && (
-          <p className="text-center text-[10px] font-medium tracking-wider text-zinc-500">
+          <p className="text-center text-[10px] font-medium tracking-wider text-ink-500">
             {rollText}
           </p>
         )}

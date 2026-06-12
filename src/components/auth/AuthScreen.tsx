@@ -46,7 +46,7 @@ export default function AuthScreen() {
   }
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-[#050505] text-white antialiased">
+    <div className="relative h-screen w-screen overflow-hidden bg-surface-0 text-ink antialiased">
       <AppBackground />
 
       <div className="relative z-10 flex h-full w-full items-center justify-center px-6">
@@ -55,8 +55,8 @@ export default function AuthScreen() {
           <div className="flex flex-col items-center gap-2">
             <AppLogo className="h-12 w-12" />
             <div className="space-y-1 text-center">
-              <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">UGC OS</h1>
-              <p className="text-sm text-zinc-500">
+              <h1 className="text-2xl font-semibold tracking-tight text-ink-100">UGC OS</h1>
+              <p className="text-sm text-ink-500">
                 {mode === 'login' ? 'Sign in to your workspace' : 'Create your account'}
               </p>
             </div>
@@ -65,10 +65,10 @@ export default function AuthScreen() {
           {/* Card */}
           <form
             onSubmit={handleSubmit}
-            className="space-y-3 rounded-xl border border-white/10 bg-white/[0.03] p-5 backdrop-blur-xl"
+            className="space-y-3 rounded-xl border border-ink/10 bg-ink/[0.03] p-5 backdrop-blur-xl"
           >
             <div>
-              <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-zinc-500">
+              <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-ink-500">
                 Email
               </label>
               <input
@@ -77,12 +77,12 @@ export default function AuthScreen() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-white/20 focus:bg-white/[0.07]"
+                className="w-full rounded-lg border border-ink/10 bg-ink/5 px-3 py-2.5 text-sm text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-ink/20 focus:bg-ink/[0.07]"
                 placeholder="you@example.com"
               />
             </div>
             <div>
-              <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-zinc-500">
+              <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-ink-500">
                 Password
               </label>
               <input
@@ -92,20 +92,20 @@ export default function AuthScreen() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={8}
-                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-white/20 focus:bg-white/[0.07]"
+                className="w-full rounded-lg border border-ink/10 bg-ink/5 px-3 py-2.5 text-sm text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-ink/20 focus:bg-ink/[0.07]"
                 placeholder={mode === 'login' ? '••••••••' : 'Min 8 characters'}
               />
             </div>
 
             {error && (
-              <div className="flex items-start gap-2 rounded-md border border-red-500/20 bg-red-500/10 px-2.5 py-2 text-[11px] text-red-300">
+              <div className="flex items-start gap-2 rounded-md border border-red-500/20 bg-red-500/10 px-2.5 py-2 text-[11px] text-red-300 light:text-red-700">
                 <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
                 <span>{error}</span>
               </div>
             )}
 
             {needsConfirm && (
-              <div className="flex items-start gap-2 rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-2 text-[11px] text-emerald-300">
+              <div className="flex items-start gap-2 rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-2 text-[11px] text-emerald-300 light:text-emerald-700">
                 <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0" />
                 <span>Check your inbox to confirm your email, then sign in.</span>
               </div>
@@ -114,30 +114,30 @@ export default function AuthScreen() {
             <button
               type="submit"
               disabled={busy || !email.trim() || !password}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-white py-2.5 text-sm font-medium text-zinc-900 transition-colors hover:bg-zinc-100 disabled:opacity-60"
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-ink py-2.5 text-sm font-medium text-ink-900 transition-colors hover:bg-ink-100 disabled:opacity-60"
             >
               {busy && <Loader2 className="h-4 w-4 animate-spin" />}
               {mode === 'login' ? 'Sign in' : 'Create account'}
             </button>
 
             {mode === 'signup' && (
-              <p className="pt-1 text-center text-[11px] leading-snug text-zinc-500">
+              <p className="pt-1 text-center text-[11px] leading-snug text-ink-500">
                 By creating an account, you agree to our{' '}
-                <a href="/legal/terms" target="_blank" rel="noreferrer" className="text-zinc-300 underline">Terms</a>,{' '}
-                <a href="/legal/privacy" target="_blank" rel="noreferrer" className="text-zinc-300 underline">Privacy Policy</a>, and{' '}
-                <a href="/legal/aup" target="_blank" rel="noreferrer" className="text-zinc-300 underline">Acceptable Use Policy</a>.
+                <a href="/legal/terms" target="_blank" rel="noreferrer" className="text-ink-300 underline">Terms</a>,{' '}
+                <a href="/legal/privacy" target="_blank" rel="noreferrer" className="text-ink-300 underline">Privacy Policy</a>, and{' '}
+                <a href="/legal/aup" target="_blank" rel="noreferrer" className="text-ink-300 underline">Acceptable Use Policy</a>.
               </p>
             )}
           </form>
 
-          <div className="text-center text-[12px] text-zinc-500">
+          <div className="text-center text-[12px] text-ink-500">
             {mode === 'login' ? (
               <>
                 New to UGC OS?{' '}
                 <button
                   type="button"
                   onClick={() => { setMode('signup'); setError(null); setNeedsConfirm(false) }}
-                  className="text-zinc-300 transition-colors hover:text-white"
+                  className="text-ink-300 transition-colors hover:text-ink"
                 >
                   Create an account
                 </button>
@@ -148,7 +148,7 @@ export default function AuthScreen() {
                 <button
                   type="button"
                   onClick={() => { setMode('login'); setError(null); setNeedsConfirm(false) }}
-                  className="text-zinc-300 transition-colors hover:text-white"
+                  className="text-ink-300 transition-colors hover:text-ink"
                 >
                   Sign in
                 </button>
@@ -156,16 +156,16 @@ export default function AuthScreen() {
             )}
           </div>
 
-          <p className="text-center text-[11px] text-zinc-600">
+          <p className="text-center text-[11px] text-ink-600">
             Access is limited to members of the Skool community.
           </p>
 
-          <div className="flex items-center justify-center gap-3 text-[11px] text-zinc-600">
-            <a href="/legal/terms" className="transition-colors hover:text-zinc-300">Terms</a>
+          <div className="flex items-center justify-center gap-3 text-[11px] text-ink-600">
+            <a href="/legal/terms" className="transition-colors hover:text-ink-300">Terms</a>
             <span aria-hidden>·</span>
-            <a href="/legal/privacy" className="transition-colors hover:text-zinc-300">Privacy</a>
+            <a href="/legal/privacy" className="transition-colors hover:text-ink-300">Privacy</a>
             <span aria-hidden>·</span>
-            <a href="/legal/aup" className="transition-colors hover:text-zinc-300">AUP</a>
+            <a href="/legal/aup" className="transition-colors hover:text-ink-300">AUP</a>
           </div>
         </div>
       </div>

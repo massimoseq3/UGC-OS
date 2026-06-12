@@ -55,12 +55,12 @@ export default function SegmentedToggle<T extends string>({
   return (
     <div
       ref={containerRef}
-      className={`relative ${fitContent ? 'inline-flex w-auto' : 'flex w-full'} items-center gap-0.5 rounded-full border border-white/10 bg-white/[0.03] p-1 ${className}`}
+      className={`relative ${fitContent ? 'inline-flex w-auto' : 'flex w-full'} items-center gap-0.5 rounded-full border border-ink/10 bg-ink/[0.03] p-1 ${className}`}
     >
       {indicator && (
         <div
           aria-hidden
-          className="absolute bottom-1 top-1 rounded-full bg-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition-[left,width] duration-200 ease-out"
+          className="absolute bottom-1 top-1 rounded-full bg-ink/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] light:shadow-none transition-[left,width] duration-200 ease-out"
           style={{ left: indicator.left, width: indicator.width }}
         />
       )}
@@ -74,7 +74,7 @@ export default function SegmentedToggle<T extends string>({
             type="button"
             onClick={() => onChange(opt.value)}
             className={`relative z-[1] flex min-w-0 ${fitContent ? '' : 'flex-1'} items-center justify-center gap-1.5 rounded-full px-3.5 py-2 text-[12px] font-medium tracking-tight transition-colors duration-200 ${
-              active ? 'text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'
+              active ? 'text-ink-100' : 'text-ink-400 hover:text-ink-200'
             }`}
           >
             {Icon && <Icon className="h-3.5 w-3.5 shrink-0" />}
@@ -82,7 +82,7 @@ export default function SegmentedToggle<T extends string>({
             {opt.badge != null && (
               <span
                 className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold tabular-nums transition-colors duration-200 ${
-                  active ? 'bg-white/10 text-zinc-300' : 'bg-white/[0.04] text-zinc-500'
+                  active ? 'bg-ink/10 text-ink-300' : 'bg-ink/[0.04] text-ink-500'
                 }`}
               >
                 {opt.badge}

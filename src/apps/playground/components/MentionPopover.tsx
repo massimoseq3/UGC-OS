@@ -46,11 +46,11 @@ export default function MentionPopover({ query, onSelect, anchor }: MentionPopov
 
   return (
     <div
-      className="absolute z-50 w-[300px] overflow-hidden rounded-2xl border border-white/10 bg-[#0B0B0D]/95 shadow-2xl backdrop-blur-xl"
+      className="absolute z-50 w-[300px] overflow-hidden rounded-2xl border border-ink/10 bg-surface-2/95 shadow-2xl backdrop-blur-xl"
       style={{ top: anchor.top, left: anchor.left }}
     >
       {total === 0 ? (
-        <div className="px-3 py-4 text-center text-[12px] text-zinc-500">
+        <div className="px-3 py-4 text-center text-[12px] text-ink-500">
           {q ? `No matches for "${query}"` : 'No bank items yet.'}
         </div>
       ) : (
@@ -112,8 +112,8 @@ function Section({
   return (
     <div className="mb-1">
       <div className="flex items-center gap-1.5 px-2 pt-1.5 pb-1">
-        <Icon className="h-3 w-3 text-zinc-600" />
-        <span className="text-[10px] uppercase tracking-wider text-zinc-600">{label}</span>
+        <Icon className="h-3 w-3 text-ink-600" />
+        <span className="text-[10px] uppercase tracking-wider text-ink-600">{label}</span>
       </div>
       {children}
     </div>
@@ -138,14 +138,14 @@ function MentionRow({
       // Use mousedown so we fire before the textarea's blur handler closes
       // the popover; click would never reach us.
       onMouseDown={(e) => { e.preventDefault(); onClick() }}
-      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-white/[0.05]"
+      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-ink/[0.05]"
     >
-      <div className="h-7 w-7 shrink-0 overflow-hidden rounded-md border border-white/10 bg-white/[0.04]">
+      <div className="h-7 w-7 shrink-0 overflow-hidden rounded-md border border-ink/10 bg-ink/[0.04]">
         {url && <img src={url} alt="" className="h-full w-full object-cover" />}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[12px] font-medium text-zinc-200">{title}</p>
-        <p className="truncate text-[10px] text-zinc-500">{subtitle}</p>
+        <p className="truncate text-[12px] font-medium text-ink-200">{title}</p>
+        <p className="truncate text-[10px] text-ink-500">{subtitle}</p>
       </div>
     </button>
   )

@@ -102,10 +102,10 @@ export default function UploadView({ onAnalyze }: UploadViewProps) {
     <div ref={panelRef} className="relative flex h-full flex-col items-center justify-center gap-6 p-8">
       <div className="flex flex-col items-center gap-2 text-center">
         <Eye className="h-8 w-8 text-[#FF5257]/60" strokeWidth={1.5} />
-        <h2 className="text-lg font-semibold tracking-tight text-zinc-200">
+        <h2 className="text-lg font-semibold tracking-tight text-ink-200">
           Reverse Engineer Any Ad
         </h2>
-        <p className="max-w-sm text-sm text-zinc-500">
+        <p className="max-w-sm text-sm text-ink-500">
           Drop in one or more ads and we&apos;ll analyze them with extreme precision so you can reverse-engineer every detail.
         </p>
       </div>
@@ -115,15 +115,15 @@ export default function UploadView({ onAnalyze }: UploadViewProps) {
         onClick={() => inputRef.current?.click()}
         className={`flex h-56 w-full max-w-md flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed transition-all duration-200 ${panelDragActive
           ? 'border-[#FF5257]/40 bg-[#FF5257]/5'
-          : 'border-white/10 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04]'
+          : 'border-ink/10 bg-ink/[0.02] hover:border-ink/20 hover:bg-ink/[0.04]'
           }`}
       >
-        <Upload className={`h-6 w-6 transition-colors ${panelDragActive ? 'text-[#FF5257]' : 'text-zinc-600'}`} />
-        <span className="text-sm text-zinc-400">
-          Drag &amp; drop one or more ads, or <span className="text-zinc-200 underline underline-offset-2">browse</span>
+        <Upload className={`h-6 w-6 transition-colors ${panelDragActive ? 'text-[#FF5257]' : 'text-ink-600'}`} />
+        <span className="text-sm text-ink-400">
+          Drag &amp; drop one or more ads, or <span className="text-ink-200 underline underline-offset-2">browse</span>
         </span>
-        <span className="text-[11px] text-zinc-600">MP4, MOV, WebM — max {MAX_SIZE_MB}MB each</span>
-        <span className="text-[10px] uppercase tracking-widest text-zinc-700">Up to 5 analyse in parallel · the rest queue</span>
+        <span className="text-[11px] text-ink-600">MP4, MOV, WebM — max {MAX_SIZE_MB}MB each</span>
+        <span className="text-[10px] uppercase tracking-widest text-ink-700">Up to 5 analyse in parallel · the rest queue</span>
       </button>
       <input
         ref={inputRef}
@@ -139,7 +139,7 @@ export default function UploadView({ onAnalyze }: UploadViewProps) {
           <p className="text-[11px] font-medium uppercase tracking-widest text-[#FF5257]/80">Skipped</p>
           {rejected.map((r) => (
             <p key={r.name} className="truncate text-xs text-[#FF5257]/90">
-              <span className="text-zinc-400">{r.name}</span> — {r.reason}
+              <span className="text-ink-400">{r.name}</span> — {r.reason}
             </p>
           ))}
         </div>
@@ -149,12 +149,12 @@ export default function UploadView({ onAnalyze }: UploadViewProps) {
           (sidebar and app chrome remain visible). */}
       {panelDragActive && (
         <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center bg-[#FF5257]/10 backdrop-blur-sm">
-          <div className="flex flex-col items-center gap-4 rounded-3xl border-2 border-dashed border-[#FF5257]/50 bg-black/40 px-12 py-10 text-center shadow-2xl">
+          <div className="flex flex-col items-center gap-4 rounded-3xl border-2 border-dashed border-[#FF5257]/50 bg-surface-2 px-12 py-10 text-center shadow-2xl">
             <Upload className="h-10 w-10 text-[#FF5257]" />
-            <p className="text-xl font-semibold tracking-tight text-zinc-100">
+            <p className="text-xl font-semibold tracking-tight text-ink-100">
               Drop your ads here to analyse
             </p>
-            <p className="text-sm text-zinc-400">MP4, MOV, WebM — max {MAX_SIZE_MB}MB each</p>
+            <p className="text-sm text-ink-400">MP4, MOV, WebM — max {MAX_SIZE_MB}MB each</p>
           </div>
         </div>
       )}

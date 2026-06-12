@@ -208,7 +208,7 @@ export default function Finder() {
     <div className="flex h-full flex-col">
       {/* Header — bank toggle on the left, actions on the right. Replaces
           the old Banks sidebar so the browser gets the full width. */}
-      <div className="flex flex-col gap-3 border-b border-white/5 px-5 pb-3 pt-4 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex flex-col gap-3 border-b border-ink/5 px-5 pb-3 pt-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0 overflow-x-auto">
           <SegmentedToggle<BankType>
             fitContent
@@ -242,7 +242,7 @@ export default function Finder() {
               />
               <button
                 onClick={() => bulkInputRef.current?.click()}
-                className="flex h-11 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-4 text-xs font-semibold text-zinc-300 transition-colors hover:bg-white/[0.08]"
+                className="flex h-11 items-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.04] px-4 text-xs font-semibold text-ink-300 transition-colors hover:bg-ink/[0.08]"
               >
                 <Upload className="h-3.5 w-3.5" />
                 Bulk add
@@ -251,7 +251,7 @@ export default function Finder() {
           )}
           <button
             onClick={handleAdd}
-            className="flex h-11 items-center gap-1.5 rounded-full bg-white px-4 text-xs font-semibold text-zinc-900 transition-colors hover:bg-zinc-100"
+            className="flex h-11 items-center gap-1.5 rounded-full bg-ink px-4 text-xs font-semibold text-ink-900 transition-colors hover:bg-ink-100"
           >
             <Plus className="h-3.5 w-3.5" />
             Add

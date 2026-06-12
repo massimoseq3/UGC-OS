@@ -42,12 +42,12 @@ export default function ChipField({ label, value, onChange, suggestions, placeho
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center gap-1.5">
         <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${isFilled ? 'bg-emerald-500' : 'bg-red-500'}`} />
-        <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-300">{label}</span>
+        <span className="text-[11px] font-medium uppercase tracking-widest text-ink-300">{label}</span>
         {defaultLocked && (
           <button
             type="button"
             onClick={() => setLocked((v) => !v)}
-            className="ml-auto flex items-center gap-1 rounded-full border border-white/[0.06] bg-white/[0.02] px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-zinc-500 transition-colors hover:border-white/10 hover:bg-white/[0.04] hover:text-zinc-300"
+            className="ml-auto flex items-center gap-1 rounded-full border border-ink/[0.06] bg-ink/[0.02] px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-ink-500 transition-colors hover:border-ink/10 hover:bg-ink/[0.04] hover:text-ink-300"
             title={locked ? 'Click to enable editing' : 'Click to lock the value back'}
           >
             {locked ? <Lock className="h-2.5 w-2.5" /> : <Unlock className="h-2.5 w-2.5" />}
@@ -64,16 +64,16 @@ export default function ChipField({ label, value, onChange, suggestions, placeho
           onKeyDown={(e) => { if (e.key === 'Escape') setOpen(false) }}
           readOnly={locked}
           placeholder={placeholder ?? `Search or type ${label.toLowerCase()}...`}
-          className={`w-full rounded-full border border-white/15 bg-transparent px-4 py-2 text-sm text-zinc-100 placeholder-zinc-500 outline-none transition-colors focus:border-influencers-500/40 ${locked ? 'cursor-not-allowed opacity-70' : ''}`}
+          className={`w-full rounded-full border border-ink/15 bg-transparent px-4 py-2 text-sm text-ink-100 placeholder-ink-500 outline-none transition-colors focus:border-influencers-500/40 ${locked ? 'cursor-not-allowed opacity-70' : ''}`}
         />
         {showDropdown && (
-          <div className="absolute left-0 right-0 top-full z-30 mt-1.5 overflow-hidden rounded-2xl border border-white/10 bg-[#0B0B0D] shadow-2xl">
+          <div className="absolute left-0 right-0 top-full z-30 mt-1.5 overflow-hidden rounded-2xl border border-ink/10 bg-surface-2 shadow-2xl">
             <div className="max-h-52 overflow-y-auto p-1">
               {topSection.map((s) => (
                 <SuggestionRow key={s} text={s} selected={s === value} onPick={() => { onChange(s); setOpen(false) }} />
               ))}
               {topSection.length > 0 && restSection.length > 0 && (
-                <div className="mx-2 my-1 h-px bg-white/[0.08]" />
+                <div className="mx-2 my-1 h-px bg-ink/[0.08]" />
               )}
               {restSection.map((s) => (
                 <SuggestionRow key={s} text={s} selected={s === value} onPick={() => { onChange(s); setOpen(false) }} />
@@ -92,7 +92,7 @@ function SuggestionRow({ text, selected, onPick }: { text: string; selected: boo
       type="button"
       onClick={onPick}
       className={`block w-full truncate rounded-full px-3 py-1.5 text-left text-[12px] transition-colors ${
-        selected ? 'bg-white/[0.08] text-zinc-100' : 'text-zinc-300 hover:bg-white/[0.06]'
+        selected ? 'bg-ink/[0.08] text-ink-100' : 'text-ink-300 hover:bg-ink/[0.06]'
       }`}
     >
       {text}

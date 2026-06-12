@@ -261,7 +261,7 @@ export default function MembersTable() {
 
   if (loading) {
     return (
-      <div className="flex h-32 flex-col items-center justify-center gap-2 text-zinc-500">
+      <div className="flex h-32 flex-col items-center justify-center gap-2 text-ink-500">
         <Loader2 className="h-4 w-4 animate-spin" />
         {slowHint && <span className="text-[11px]">Still loading… retrying via timeout if it stalls.</span>}
       </div>
@@ -271,10 +271,10 @@ export default function MembersTable() {
   if (profilesError) {
     return (
       <div className="space-y-3">
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-[12px] text-red-300">
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-[12px] text-red-300 light:text-red-700">
           {profilesError}
         </div>
-        <button onClick={load} className="flex items-center gap-1.5 rounded-md border border-white/10 px-2.5 py-1 text-[11px] text-zinc-300 transition-colors hover:bg-white/[0.05]">
+        <button onClick={load} className="flex items-center gap-1.5 rounded-md border border-ink/10 px-2.5 py-1 text-[11px] text-ink-300 transition-colors hover:bg-ink/[0.05]">
           <RefreshCw className="h-3 w-3" /> Try again
         </button>
       </div>
@@ -284,31 +284,31 @@ export default function MembersTable() {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <div className="text-[13px] text-zinc-400">
-          <span className="text-zinc-200">{rows.length}</span> {rows.length === 1 ? 'member' : 'members'}
-          <span className="text-zinc-600"> · {formatBytes(totals.totalBytes)} total · {totals.totalAssets7d} {totals.totalAssets7d === 1 ? 'generation' : 'generations'} this week</span>
+        <div className="text-[13px] text-ink-400">
+          <span className="text-ink-200">{rows.length}</span> {rows.length === 1 ? 'member' : 'members'}
+          <span className="text-ink-600"> · {formatBytes(totals.totalBytes)} total · {totals.totalAssets7d} {totals.totalAssets7d === 1 ? 'generation' : 'generations'} this week</span>
         </div>
-        <button onClick={load} className="flex items-center gap-1.5 rounded-md border border-white/10 px-2.5 py-1 text-[11px] text-zinc-300 transition-colors hover:bg-white/[0.05]">
+        <button onClick={load} className="flex items-center gap-1.5 rounded-md border border-ink/10 px-2.5 py-1 text-[11px] text-ink-300 transition-colors hover:bg-ink/[0.05]">
           <RefreshCw className="h-3 w-3" /> Refresh
         </button>
       </div>
 
       {storageWarning && (
-        <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5 text-[11px] text-amber-200">
+        <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5 text-[11px] text-amber-200 light:text-amber-800">
           <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
           <span>{storageWarning}</span>
         </div>
       )}
       {activityWarning && (
-        <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5 text-[11px] text-amber-200">
+        <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5 text-[11px] text-amber-200 light:text-amber-800">
           <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
           <span>{activityWarning}</span>
         </div>
       )}
 
-      <div className="overflow-hidden rounded-lg border border-white/10">
+      <div className="overflow-hidden rounded-lg border border-ink/10">
         <table className="w-full text-[12px]">
-          <thead className="bg-white/[0.03] text-[11px] uppercase tracking-wider text-zinc-500">
+          <thead className="bg-ink/[0.03] text-[11px] uppercase tracking-wider text-ink-500">
             <tr>
               <SortableTh label="Name" k="name" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
               <SortableTh label="Email" k="email" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
@@ -320,46 +320,46 @@ export default function MembersTable() {
               <th className="px-3 py-2 text-right font-medium"></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/5">
+          <tbody className="divide-y divide-ink/5">
             {sortedRows.map((r) => {
               const name = memberName(r)
               return (
-              <tr key={r.id} className="text-zinc-300">
+              <tr key={r.id} className="text-ink-300">
                 <td className="px-3 py-2 align-top">
-                  <div className="font-medium text-zinc-200">{name || <span className="text-zinc-600">—</span>}</div>
-                  {r.is_admin && <div className="text-[10px] uppercase tracking-wider text-amber-400">Admin</div>}
+                  <div className="font-medium text-ink-200">{name || <span className="text-ink-600">—</span>}</div>
+                  {r.is_admin && <div className="text-[10px] uppercase tracking-wider text-amber-400 light:text-amber-600">Admin</div>}
                 </td>
                 <td className="px-3 py-2 align-top">
-                  <div className="text-zinc-300">{r.email}</div>
-                  <div className="mt-1 text-[10px] text-zinc-500">
+                  <div className="text-ink-300">{r.email}</div>
+                  <div className="mt-1 text-[10px] text-ink-500">
                     {r.products}p · {r.models}m · {r.scripts}s · {r.voices}v · {r.brolls}b · {r.video_history}vid
                   </div>
                 </td>
-                <td className="px-3 py-2 align-top text-zinc-400">{formatDate(r.created_at)}</td>
-                <td className="px-3 py-2 align-top text-zinc-400">{formatRelative(r.last_active_at)}</td>
-                <td className="px-3 py-2 align-top text-zinc-400">
+                <td className="px-3 py-2 align-top text-ink-400">{formatDate(r.created_at)}</td>
+                <td className="px-3 py-2 align-top text-ink-400">{formatRelative(r.last_active_at)}</td>
+                <td className="px-3 py-2 align-top text-ink-400">
                   {formatBytes(r.total_bytes)}
-                  <span className="text-zinc-600"> ({r.asset_count})</span>
+                  <span className="text-ink-600"> ({r.asset_count})</span>
                 </td>
-                <td className="px-3 py-2 align-top text-zinc-400">
+                <td className="px-3 py-2 align-top text-ink-400">
                   {r.assets_last_7d > 0 ? (
-                    <span className="text-zinc-200">{r.assets_last_7d}</span>
+                    <span className="text-ink-200">{r.assets_last_7d}</span>
                   ) : (
-                    <span className="text-zinc-600">0</span>
+                    <span className="text-ink-600">0</span>
                   )}
                 </td>
                 <td className="px-3 py-2 align-top">
                   {r.disabled_at ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] text-red-300"><Ban className="h-2.5 w-2.5" /> Disabled</span>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] text-red-300 light:text-red-700"><Ban className="h-2.5 w-2.5" /> Disabled</span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-300"><CheckCircle2 className="h-2.5 w-2.5" /> Active</span>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-300 light:text-emerald-700"><CheckCircle2 className="h-2.5 w-2.5" /> Active</span>
                   )}
                 </td>
                 <td className="px-3 py-2 align-top text-right">
                   <button
                     onClick={() => toggleDisabled(r)}
                     disabled={busyId === r.id || r.is_admin}
-                    className="rounded-md border border-white/10 px-2 py-1 text-[11px] text-zinc-300 transition-colors hover:bg-white/[0.05] disabled:opacity-40"
+                    className="rounded-md border border-ink/10 px-2 py-1 text-[11px] text-ink-300 transition-colors hover:bg-ink/[0.05] disabled:opacity-40"
                   >
                     {r.disabled_at ? 'Re-enable' : 'Disable'}
                   </button>
@@ -371,8 +371,8 @@ export default function MembersTable() {
         </table>
       </div>
 
-      <p className="text-[10px] text-zinc-600">
-        Bank counts: <span className="text-zinc-500">p</span>roducts · <span className="text-zinc-500">m</span>odels · <span className="text-zinc-500">s</span>cripts · <span className="text-zinc-500">v</span>oices · <span className="text-zinc-500">b</span>-rolls · <span className="text-zinc-500">vid</span>eos.
+      <p className="text-[10px] text-ink-600">
+        Bank counts: <span className="text-ink-500">p</span>roducts · <span className="text-ink-500">m</span>odels · <span className="text-ink-500">s</span>cripts · <span className="text-ink-500">v</span>oices · <span className="text-ink-500">b</span>-rolls · <span className="text-ink-500">vid</span>eos.
       </p>
     </div>
   )
@@ -391,7 +391,7 @@ function SortableTh({
   return (
     <th
       onClick={() => onClick(k)}
-      className="cursor-pointer select-none px-3 py-2 text-left font-medium transition-colors hover:text-zinc-300"
+      className="cursor-pointer select-none px-3 py-2 text-left font-medium transition-colors hover:text-ink-300"
     >
       <span className="inline-flex items-center gap-1">
         {label}

@@ -108,9 +108,9 @@ export default function HistoryView({ items, activeId, onSelect, onDelete, onSho
   if (items.length === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-6">
-        <Volume2 className="h-10 w-10 text-zinc-800" strokeWidth={1.5} />
-        <p className="text-sm text-zinc-300">No voiceovers yet</p>
-        <p className="text-center text-xs text-zinc-500">Your generated voiceovers will land here.</p>
+        <Volume2 className="h-10 w-10 text-ink-800" strokeWidth={1.5} />
+        <p className="text-sm text-ink-300">No voiceovers yet</p>
+        <p className="text-center text-xs text-ink-500">Your generated voiceovers will land here.</p>
       </div>
     )
   }
@@ -118,14 +118,14 @@ export default function HistoryView({ items, activeId, onSelect, onDelete, onSho
   return (
     <div className="flex h-full flex-col overflow-hidden">
       {/* Search */}
-      <div className="border-b border-white/5 px-5 py-4">
+      <div className="border-b border-ink/5 px-5 py-4">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-500" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search history..."
-            className="w-full rounded-full border border-white/10 bg-transparent py-2 pl-10 pr-3 text-sm text-zinc-100 placeholder-zinc-500 outline-none transition-colors focus:border-voice-500/40"
+            className="w-full rounded-full border border-ink/10 bg-transparent py-2 pl-10 pr-3 text-sm text-ink-100 placeholder-ink-500 outline-none transition-colors focus:border-voice-500/40"
           />
         </div>
       </div>
@@ -134,7 +134,7 @@ export default function HistoryView({ items, activeId, onSelect, onDelete, onSho
       <div className="flex-1 overflow-y-auto">
         {groups.length === 0 ? (
           <div className="flex h-full items-center justify-center px-6 text-center">
-            <span className="text-sm text-zinc-500">No matches.</span>
+            <span className="text-sm text-ink-500">No matches.</span>
           </div>
         ) : (
           <div className="flex flex-col gap-1 p-2">
@@ -142,7 +142,7 @@ export default function HistoryView({ items, activeId, onSelect, onDelete, onSho
               <div key={dayTs} className="flex flex-col gap-0.5">
                 {/* Day section header — pill, centered */}
                 <div className="my-2 flex items-center justify-center">
-                  <span className="rounded-full bg-white/[0.06] px-3 py-1 text-[11px] font-medium text-zinc-300">
+                  <span className="rounded-full bg-ink/[0.06] px-3 py-1 text-[11px] font-medium text-ink-300">
                     {sectionLabel(dayTs)}
                   </span>
                 </div>
@@ -160,7 +160,7 @@ export default function HistoryView({ items, activeId, onSelect, onDelete, onSho
                       className={`group cursor-pointer px-4 py-3 transition-colors ${
                         isActive
                           ? 'rounded-3xl bg-voice-500/15 ring-1 ring-voice-500/20'
-                          : 'rounded-full hover:bg-white/[0.04]'
+                          : 'rounded-full hover:bg-ink/[0.04]'
                       }`}
                     >
                       <div className="flex items-center gap-3">
@@ -169,11 +169,11 @@ export default function HistoryView({ items, activeId, onSelect, onDelete, onSho
                           style={{ background: seedColor(item.voiceId) }}
                         />
                         <div className="min-w-0 flex-1">
-                          <p className="line-clamp-2 text-sm leading-snug text-zinc-100">
+                          <p className="line-clamp-2 text-sm leading-snug text-ink-100">
                             {item.scriptPreview}
                           </p>
-                          <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-zinc-500">
-                            <span className="text-zinc-300">{item.voiceName}</span>
+                          <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-ink-500">
+                            <span className="text-ink-300">{item.voiceName}</span>
                             <span>·</span>
                             <span>{formatRelative(item.createdAt)}</span>
                           </div>
@@ -187,21 +187,21 @@ export default function HistoryView({ items, activeId, onSelect, onDelete, onSho
                         >
                           <button
                             onClick={(e) => { e.stopPropagation(); togglePreview(item) }}
-                            className="flex h-7 w-7 items-center justify-center rounded-full text-zinc-300 transition-colors hover:bg-white/5 hover:text-zinc-100"
+                            className="flex h-7 w-7 items-center justify-center rounded-full text-ink-300 transition-colors hover:bg-ink/5 hover:text-ink-100"
                             title={isPreviewing ? 'Pause' : 'Play'}
                           >
                             {isPreviewing ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
                           </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); onShowDetails(item) }}
-                            className="flex h-7 w-7 items-center justify-center rounded-full text-zinc-300 transition-colors hover:bg-white/5 hover:text-zinc-100"
+                            className="flex h-7 w-7 items-center justify-center rounded-full text-ink-300 transition-colors hover:bg-ink/5 hover:text-ink-100"
                             title="Show details"
                           >
                             <AlignLeft className="h-3.5 w-3.5" />
                           </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); handleDownload(item) }}
-                            className="flex h-7 w-7 items-center justify-center rounded-full text-zinc-300 transition-colors hover:bg-white/5 hover:text-zinc-100"
+                            className="flex h-7 w-7 items-center justify-center rounded-full text-ink-300 transition-colors hover:bg-ink/5 hover:text-ink-100"
                             title="Download"
                           >
                             <Download className="h-3.5 w-3.5" />
@@ -211,7 +211,7 @@ export default function HistoryView({ items, activeId, onSelect, onDelete, onSho
 
                       {/* Save preset / Delete row — only when active */}
                       {isActive && (
-                        <div onClick={(e) => e.stopPropagation()} className="mt-3 flex items-center gap-1.5 border-t border-white/5 pt-2.5">
+                        <div onClick={(e) => e.stopPropagation()} className="mt-3 flex items-center gap-1.5 border-t border-ink/5 pt-2.5">
                           {inSaveForm ? (
                             <div className="flex items-center gap-1.5">
                               <input
@@ -220,7 +220,7 @@ export default function HistoryView({ items, activeId, onSelect, onDelete, onSho
                                 onKeyDown={(e) => { if (e.key === 'Enter') handleSavePreset(item) }}
                                 placeholder="Preset name..."
                                 autoFocus
-                                className="w-32 rounded-full border border-white/10 bg-transparent px-2.5 py-1 text-[11px] text-zinc-200 placeholder-zinc-600 outline-none focus:border-voice-500/30"
+                                className="w-32 rounded-full border border-ink/10 bg-transparent px-2.5 py-1 text-[11px] text-ink-200 placeholder-ink-600 outline-none focus:border-voice-500/30"
                               />
                               <button
                                 onClick={() => handleSavePreset(item)}
@@ -231,7 +231,7 @@ export default function HistoryView({ items, activeId, onSelect, onDelete, onSho
                               </button>
                               <button
                                 onClick={() => { setSaveFormId(null); setSaveLabel('') }}
-                                className="text-[11px] text-zinc-500 hover:text-zinc-300"
+                                className="text-[11px] text-ink-500 hover:text-ink-300"
                               >
                                 Cancel
                               </button>
@@ -240,7 +240,7 @@ export default function HistoryView({ items, activeId, onSelect, onDelete, onSho
                             <button
                               onClick={() => setSaveFormId(item.id)}
                               className={`flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium transition-colors ${
-                                isSaved ? 'text-green-400' : 'text-zinc-300 hover:bg-white/5 hover:text-zinc-100'
+                                isSaved ? 'text-green-400 light:text-green-600' : 'text-ink-300 hover:bg-ink/5 hover:text-ink-100'
                               }`}
                             >
                               {isSaved ? (
@@ -255,7 +255,7 @@ export default function HistoryView({ items, activeId, onSelect, onDelete, onSho
 
                           <button
                             onClick={() => onDelete(item.id)}
-                            className="flex h-6 w-6 items-center justify-center rounded-full text-zinc-500 transition-colors hover:bg-red-500/10 hover:text-red-400"
+                            className="flex h-6 w-6 items-center justify-center rounded-full text-ink-500 transition-colors hover:bg-red-500/10 hover:text-red-400 light:hover:text-red-600"
                             title="Delete"
                           >
                             <Trash2 className="h-3 w-3" />

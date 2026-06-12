@@ -34,7 +34,7 @@ export default function UserMenu({ collapsed }: UserMenuProps) {
           (Settings etc.) so the bottom cluster reads as one set. */}
       <button
         onClick={() => setOpen((v) => !v)}
-        className={`flex w-full items-center rounded-full transition-colors hover:bg-white/[0.04] ${
+        className={`flex w-full items-center rounded-full transition-colors hover:bg-ink/[0.04] ${
           collapsed ? 'flex-col gap-1 px-1 py-2' : 'gap-3 px-3 py-2'
         }`}
         title="My Account"
@@ -43,28 +43,28 @@ export default function UserMenu({ collapsed }: UserMenuProps) {
           {initial}
         </span>
         {collapsed ? (
-          <span className="text-center text-[10px] leading-tight font-normal text-zinc-300">
+          <span className="text-center text-[10px] leading-tight font-normal text-ink-300">
             Account
           </span>
         ) : (
-          <span className="min-w-0 flex-1 truncate text-left text-sm text-zinc-300">
+          <span className="min-w-0 flex-1 truncate text-left text-sm text-ink-300">
             My Account
           </span>
         )}
       </button>
 
       {open && (
-        <div className={`absolute z-50 ${collapsed ? 'bottom-full left-1/2 mb-2 -translate-x-1/2' : 'bottom-full left-0 mb-2'} w-[min(224px,calc(100vw-1.5rem))] rounded-lg border border-white/10 bg-[#0a0a0a] p-1 shadow-xl`}>
-          <div className="flex items-center gap-2 border-b border-white/5 px-3 py-2.5">
-            <User className="h-3.5 w-3.5 text-zinc-500" />
+        <div className={`absolute z-50 ${collapsed ? 'bottom-full left-1/2 mb-2 -translate-x-1/2' : 'bottom-full left-0 mb-2'} w-[min(224px,calc(100vw-1.5rem))] rounded-lg border border-ink/10 bg-surface-1 p-1 shadow-xl`}>
+          <div className="flex items-center gap-2 border-b border-ink/5 px-3 py-2.5">
+            <User className="h-3.5 w-3.5 text-ink-500" />
             <div className="min-w-0">
-              <div className="text-[10px] uppercase tracking-wider text-zinc-500">Signed in as</div>
-              <div className="truncate text-[12px] font-medium text-zinc-200">{profile.email}</div>
+              <div className="text-[10px] uppercase tracking-wider text-ink-500">Signed in as</div>
+              <div className="truncate text-[12px] font-medium text-ink-200">{profile.email}</div>
             </div>
           </div>
           <button
             onClick={() => { setOpen(false); signOut() }}
-            className="mt-1 flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-[12px] text-zinc-300 transition-colors hover:bg-white/[0.06]"
+            className="mt-1 flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-[12px] text-ink-300 transition-colors hover:bg-ink/[0.06]"
           >
             <LogOut className="h-3.5 w-3.5" />
             Sign out

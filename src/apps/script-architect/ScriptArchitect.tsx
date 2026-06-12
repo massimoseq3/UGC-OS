@@ -190,7 +190,7 @@ export default function ScriptArchitect() {
 
   return (
     <div className="relative flex flex-col pb-32 md:flex-row md:h-full md:pb-0">
-      <div className="flex w-full md:w-1/2 shrink-0 flex-col border-b md:border-b-0 md:border-r border-white/5">
+      <div className="flex w-full md:w-1/2 shrink-0 flex-col border-b md:border-b-0 md:border-r border-ink/5">
         <InputPanel
           mode={mode}
           onModeChange={setMode}

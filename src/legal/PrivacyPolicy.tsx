@@ -77,7 +77,7 @@ export default function PrivacyPolicy() {
         Depending on your jurisdiction (GDPR, UK GDPR, CCPA/CPRA, and similar laws), you may
         have the right to access, correct, delete, port, or restrict processing of your personal
         data, and to object to processing or withdraw consent. To exercise these rights, email{' '}
-        <a className="text-zinc-100 underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
+        <a className="text-ink-100 underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
       </P>
 
       <H2>6. Cookies &amp; local storage</H2>
@@ -121,7 +121,7 @@ export default function PrivacyPolicy() {
 
       <H2>11. Contact</H2>
       <P>
-        Privacy questions or requests: <a className="text-zinc-100 underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
+        Privacy questions or requests: <a className="text-ink-100 underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
       </P>
     </LegalLayout>
   )

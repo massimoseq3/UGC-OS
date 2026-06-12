@@ -51,7 +51,7 @@ export default function AuthGate({ children }: AuthGateProps) {
   if (!isCloudEnabled()) {
     return (
       <>
-        <div className="fixed bottom-3 left-1/2 z-[200] -translate-x-1/2 flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-[11px] text-amber-300 backdrop-blur">
+        <div className="fixed bottom-3 left-1/2 z-[200] -translate-x-1/2 flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-[11px] text-amber-300 light:text-amber-700 backdrop-blur">
           <AlertTriangle className="h-3 w-3" />
           Local-only mode — set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY for cloud sync.
         </div>
@@ -62,7 +62,7 @@ export default function AuthGate({ children }: AuthGateProps) {
 
   if (bootstrapping) {
     return (
-      <div className="flex h-screen w-screen items-center justify-center bg-[#050505] text-zinc-500">
+      <div className="flex h-screen w-screen items-center justify-center bg-surface-0 text-ink-500">
         <Loader2 className="h-5 w-5 animate-spin" />
       </div>
     )
@@ -74,7 +74,7 @@ export default function AuthGate({ children }: AuthGateProps) {
 
   if (syncing || !syncReady) {
     return (
-      <div className="flex h-screen w-screen flex-col items-center justify-center gap-3 bg-[#050505] text-zinc-400">
+      <div className="flex h-screen w-screen flex-col items-center justify-center gap-3 bg-surface-0 text-ink-400">
         <Loader2 className="h-5 w-5 animate-spin" />
         <span className="text-[12px]">Syncing your workspace…</span>
       </div>

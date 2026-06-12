@@ -50,30 +50,30 @@ export default function VoiceForm({ item, onSave, onCancel }: VoiceFormProps) {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-sm font-semibold tracking-tight text-zinc-200">
+        <h3 className="text-sm font-semibold tracking-tight text-ink-200">
           {item ? 'Edit Voice Preset' : 'New Voice Preset'}
         </h3>
-        <button type="button" onClick={onCancel} className="text-zinc-500 hover:text-zinc-300 transition-colors">
+        <button type="button" onClick={onCancel} className="text-ink-500 hover:text-ink-300 transition-colors">
           <X className="h-4 w-4" />
         </button>
       </div>
 
       <label className="flex flex-col gap-1">
-        <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-500">Label *</span>
+        <span className="text-[11px] font-medium uppercase tracking-widest text-ink-500">Label *</span>
         <input
           value={label}
           onChange={(e) => setLabel(e.target.value)}
           placeholder={`e.g. "Punchy hook voice"`}
-          className="rounded-lg border border-white/10 bg-transparent px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-white/20"
+          className="rounded-lg border border-ink/10 bg-transparent px-3 py-2 text-sm text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-ink/20"
         />
       </label>
 
       <label className="flex flex-col gap-1">
-        <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-500">Voice *</span>
+        <span className="text-[11px] font-medium uppercase tracking-widest text-ink-500">Voice *</span>
         <select
           value={voiceId}
           onChange={(e) => setVoiceId(e.target.value)}
-          className="rounded-lg border border-white/10 bg-[#0A0A0A] px-3 py-2 text-sm text-zinc-200 outline-none focus:border-white/20"
+          className="rounded-lg border border-ink/10 bg-surface-1 px-3 py-2 text-sm text-ink-200 outline-none focus:border-ink/20"
         >
           {VOICES.map((v) => (
             <option key={v.id} value={v.id}>
@@ -85,8 +85,8 @@ export default function VoiceForm({ item, onSave, onCancel }: VoiceFormProps) {
 
       <label className="flex flex-col gap-1">
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-500">Stability *</span>
-          <span className="text-[11px] tabular-nums text-zinc-400">{stability.toFixed(2)}</span>
+          <span className="text-[11px] font-medium uppercase tracking-widest text-ink-500">Stability *</span>
+          <span className="text-[11px] tabular-nums text-ink-400">{stability.toFixed(2)}</span>
         </div>
         <input
           type="range"
@@ -97,7 +97,7 @@ export default function VoiceForm({ item, onSave, onCancel }: VoiceFormProps) {
           onChange={(e) => setStability(parseFloat(e.target.value))}
           className="mt-1 w-full accent-voice-500"
         />
-        <div className="mt-1 flex items-center justify-between text-[10px] text-zinc-700">
+        <div className="mt-1 flex items-center justify-between text-[10px] text-ink-700">
           <span>Variable</span>
           <span>Stable</span>
         </div>
@@ -106,7 +106,7 @@ export default function VoiceForm({ item, onSave, onCancel }: VoiceFormProps) {
       <button
         type="submit"
         disabled={saving}
-        className="mt-1 flex items-center justify-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-zinc-900 transition-colors hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
+        className="mt-1 flex items-center justify-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-ink-900 transition-colors hover:bg-ink-100 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {saving && <Loader2 className="h-4 w-4 animate-spin" />}
         {saving ? 'Saving…' : (item ? 'Save Changes' : 'Add Voice Preset')}

@@ -8,6 +8,19 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=DM+Sans:wght@500;600;700&family=Fraunces:ital,opsz,wght@1,14..144,400&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
     <title>UGC OS</title>
+    <script>
+      // Set the theme before first paint so light-mode users don't get a dark
+      // flash (and vice versa). Mirrors stores/themeStore.ts — same key.
+      try {
+        var pref = localStorage.getItem('ai-ugc-lab-theme') || 'dark'
+        var resolved = pref === 'system'
+          ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+          : pref
+        document.documentElement.dataset.theme = resolved === 'light' ? 'light' : 'dark'
+      } catch (e) {
+        document.documentElement.dataset.theme = 'dark'
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Coins, Menu, RefreshCw, Settings } from 'lucide-react'
+import { Coins, Menu, Moon, RefreshCw, Settings, Sun } from 'lucide-react'
 import { useAppStore } from '../stores/appStore'
+import { useThemeStore } from '../stores/themeStore'
 import { useAuthStore } from '../stores/authStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useCreditsStore } from '../stores/creditsStore'
@@ -66,7 +67,7 @@ export default function Sidebar() {
         />
       )}
       <aside
-        className={`fixed bottom-0 left-0 top-0 z-40 flex flex-col border-r border-white/5 bg-[#09090b] transition-[width,transform] duration-200 ease-out ${widthClass} ${translateClass}`}
+        className={`fixed bottom-0 left-0 top-0 z-40 flex flex-col border-r border-ink/5 bg-surface-1 transition-[width,transform] duration-200 ease-out ${widthClass} ${translateClass}`}
       >
         {/* Header — burger + logo on a plain row, separated from the nav by an
             inset hairline divider (same side gaps as the section dividers
@@ -78,7 +79,7 @@ export default function Sidebar() {
         >
           <button
             onClick={handleBurger}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-zinc-300 transition-colors hover:bg-white/[0.06]"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ink-300 transition-colors hover:bg-ink/[0.06]"
             aria-label="Toggle sidebar"
           >
             <Menu className="h-5 w-5" strokeWidth={1.75} />
@@ -86,20 +87,20 @@ export default function Sidebar() {
           <div className={`flex items-center gap-2 ${showExpanded ? 'min-w-0' : ''}`}>
             <AppLogo className="h-8 w-8 shrink-0" />
             {showExpanded && (
-              <span className="truncate text-[18px] font-bold tracking-tight text-zinc-100">
+              <span className="truncate text-[18px] font-bold tracking-tight text-ink-100">
                 UGC OS
               </span>
             )}
           </div>
         </div>
-        <div className="mx-3 border-t border-white/5" />
+        <div className="mx-3 border-t border-ink/5" />
 
         <div className="flex-1 overflow-y-auto px-2 py-3">
           {sections.map((section, i) => (
             <div key={section.category}>
-              {i > 0 && <div className="mx-1 my-3 border-t border-white/5" />}
+              {i > 0 && <div className="mx-1 my-3 border-t border-ink/5" />}
               {showExpanded && (
-                <div className="px-3 pb-1.5 pt-1 text-[10px] font-medium uppercase tracking-wider text-zinc-500">
+                <div className="px-3 pb-1.5 pt-1 text-[10px] font-medium uppercase tracking-wider text-ink-500">
                   {section.label}
                 </div>
               )}
@@ -118,8 +119,9 @@ export default function Sidebar() {
           ))}
         </div>
 
-        <div className="space-y-1 border-t border-white/5 px-2 py-3">
+        <div className="space-y-1 border-t border-ink/5 px-2 py-3">
           <CreditsChip collapsed={!showExpanded} />
+          <ThemeQuickToggle collapsed={!showExpanded} />
           <SidebarRow
             app={{ id: 'settings', name: 'Settings', icon: Settings, accent: '#a1a1aa', category: 'tools' }}
             active={false}
@@ -131,6 +133,40 @@ export default function Sidebar() {
       </aside>
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </>
+  )
+}
+
+// One-click dark/light flip. Sets an explicit preference (overriding
+// "system"); the three-way control lives in Settings → Appearance.
+function ThemeQuickToggle({ collapsed }: { collapsed: boolean }) {
+  const resolved = useThemeStore((s) => s.resolved)
+  const setPref = useThemeStore((s) => s.setPref)
+  const next = resolved === 'dark' ? 'light' : 'dark'
+  const Icon = resolved === 'dark' ? Sun : Moon
+  const label = resolved === 'dark' ? 'Light mode' : 'Dark mode'
+
+  if (collapsed) {
+    return (
+      <button
+        onClick={() => setPref(next)}
+        className="flex w-full flex-col items-center gap-1 rounded-full px-1 py-2 transition-colors hover:bg-ink/[0.04]"
+        title={`Switch to ${next} mode`}
+      >
+        <Icon className="h-5 w-5 shrink-0 text-ink-300" strokeWidth={1.75} />
+        <span className="text-center text-[10px] leading-tight font-normal text-ink-300">{label}</span>
+      </button>
+    )
+  }
+
+  return (
+    <button
+      onClick={() => setPref(next)}
+      className="flex w-full items-center gap-3 rounded-full px-3 py-2 transition-colors hover:bg-ink/[0.04]"
+      title={`Switch to ${next} mode`}
+    >
+      <Icon className="h-5 w-5 shrink-0 text-ink-300" strokeWidth={1.75} />
+      <span className="truncate text-sm font-normal text-ink-300">{label}</span>
+    </button>
   )
 }
 
@@ -172,29 +208,29 @@ function CreditsChip({ collapsed }: { collapsed: boolean }) {
       <button
         onClick={handleRefresh}
         disabled={refreshing}
-        className="flex w-full flex-col items-center gap-1 rounded-full px-1 py-2 transition-colors hover:bg-white/[0.04] disabled:opacity-60"
+        className="flex w-full flex-col items-center gap-1 rounded-full px-1 py-2 transition-colors hover:bg-ink/[0.04] disabled:opacity-60"
         title="kie.ai credits remaining — click to refresh"
       >
-        <Coins className={`h-5 w-5 shrink-0 text-zinc-300 ${refreshing ? 'animate-pulse' : ''}`} strokeWidth={1.75} />
-        <span className="text-center text-[10px] leading-tight tabular-nums text-zinc-300">{label}</span>
+        <Coins className={`h-5 w-5 shrink-0 text-ink-300 ${refreshing ? 'animate-pulse' : ''}`} strokeWidth={1.75} />
+        <span className="text-center text-[10px] leading-tight tabular-nums text-ink-300">{label}</span>
       </button>
     )
   }
 
   return (
     <div
-      className="flex w-full items-center gap-3 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2"
+      className="flex w-full items-center gap-3 rounded-full border border-ink/10 bg-ink/[0.04] px-3 py-2"
       title="kie.ai credits remaining"
     >
-      <Coins className="h-5 w-5 shrink-0 text-zinc-300" strokeWidth={1.75} />
-      <span className="min-w-0 flex-1 truncate text-sm text-zinc-300">
+      <Coins className="h-5 w-5 shrink-0 text-ink-300" strokeWidth={1.75} />
+      <span className="min-w-0 flex-1 truncate text-sm text-ink-300">
         <span className="tabular-nums">{label}</span>
-        <span className="text-zinc-500"> credits</span>
+        <span className="text-ink-500"> credits</span>
       </span>
       <button
         onClick={handleRefresh}
         disabled={refreshing}
-        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-zinc-500 transition-colors hover:bg-white/[0.08] hover:text-zinc-200 disabled:opacity-50"
+        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-ink-500 transition-colors hover:bg-ink/[0.08] hover:text-ink-200 disabled:opacity-50"
         title="Refresh credits balance"
         aria-label="Refresh credits balance"
       >
@@ -219,17 +255,16 @@ function SidebarRow({ app, active, collapsed, onClick }: SidebarRowProps) {
       <button
         onClick={onClick}
         className={`flex w-full flex-col items-center gap-1 rounded-full px-1 py-2 transition-colors ${
-          active ? 'bg-white/[0.08]' : 'hover:bg-white/[0.04]'
+          active ? 'bg-ink/[0.08]' : 'hover:bg-ink/[0.04]'
         }`}
       >
         <Icon
-          className="h-5 w-5 shrink-0"
-          style={{ color: active ? '#fafafa' : undefined }}
+          className={`h-5 w-5 shrink-0 ${active ? 'text-ink-50' : ''}`}
           strokeWidth={active ? 2 : 1.75}
         />
         <span
           className={`text-center text-[10px] leading-tight ${
-            active ? 'font-medium text-white' : 'font-normal text-zinc-300'
+            active ? 'font-medium text-ink' : 'font-normal text-ink-300'
           }`}
         >
           {app.name}
@@ -242,17 +277,16 @@ function SidebarRow({ app, active, collapsed, onClick }: SidebarRowProps) {
     <button
       onClick={onClick}
       className={`flex w-full items-center gap-3 rounded-full px-3 py-2 transition-colors ${
-        active ? 'bg-white/[0.08]' : 'hover:bg-white/[0.04]'
+        active ? 'bg-ink/[0.08]' : 'hover:bg-ink/[0.04]'
       }`}
     >
       <Icon
-        className="h-5 w-5 shrink-0"
-        style={{ color: active ? '#fafafa' : undefined }}
+        className={`h-5 w-5 shrink-0 ${active ? 'text-ink-50' : ''}`}
         strokeWidth={active ? 2 : 1.75}
       />
       <span
         className={`truncate text-sm ${
-          active ? 'font-medium text-white' : 'font-normal text-zinc-300'
+          active ? 'font-medium text-ink' : 'font-normal text-ink-300'
         }`}
       >
         {app.name}

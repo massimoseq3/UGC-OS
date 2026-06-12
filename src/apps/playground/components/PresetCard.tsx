@@ -30,7 +30,7 @@ export default function PresetCard({ preset, onClick }: PresetCardProps) {
         const v = videoRef.current
         if (v) { v.pause(); v.currentTime = 0 }
       }}
-      className="group relative flex aspect-square flex-col overflow-hidden rounded-xl border border-white/10 bg-white/[0.02] text-left transition-all hover:border-white/25 hover:bg-white/[0.04]"
+      className="group relative flex aspect-square flex-col overflow-hidden rounded-xl border border-ink/10 bg-ink/[0.02] text-left transition-all hover:border-ink/25 hover:bg-ink/[0.04]"
     >
       {/* Visual layer */}
       <div className="relative flex-1 overflow-hidden">
@@ -67,9 +67,9 @@ export default function PresetCard({ preset, onClick }: PresetCardProps) {
       </div>
 
       {/* Metadata */}
-      <div className="border-t border-white/5 px-3 py-2.5">
-        <p className="text-[12px] font-medium tracking-tight text-zinc-100">{preset.title}</p>
-        <p className="mt-0.5 line-clamp-1 text-[11px] text-zinc-500">{preset.description}</p>
+      <div className="border-t border-ink/5 px-3 py-2.5">
+        <p className="text-[12px] font-medium tracking-tight text-ink-100">{preset.title}</p>
+        <p className="mt-0.5 line-clamp-1 text-[11px] text-ink-500">{preset.description}</p>
       </div>
     </button>
   )

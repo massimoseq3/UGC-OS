@@ -50,8 +50,8 @@ function AppPlaceholder({ appId }: { appId: string }) {
 
   return (
     <div className="flex h-full flex-col items-center justify-center gap-3">
-      <Icon className="h-10 w-10 text-zinc-600" strokeWidth={1.5} />
-      <span className="text-sm font-medium tracking-tight text-zinc-600">
+      <Icon className="h-10 w-10 text-ink-600" strokeWidth={1.5} />
+      <span className="text-sm font-medium tracking-tight text-ink-600">
         {config.name}
       </span>
     </div>
@@ -66,7 +66,7 @@ function MobileMenuButton() {
   return (
     <button
       onClick={() => setMobileSidebarOpen(true)}
-      className="fixed left-3 top-3 z-30 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-[#09090b]/80 text-zinc-300 backdrop-blur transition-colors hover:bg-white/[0.06] md:hidden"
+      className="fixed left-3 top-3 z-30 flex h-10 w-10 items-center justify-center rounded-full border border-ink/10 bg-surface-1/80 text-ink-300 backdrop-blur transition-colors hover:bg-ink/[0.06] md:hidden"
       aria-label="Open sidebar"
     >
       <Menu className="h-5 w-5" strokeWidth={1.75} />
@@ -79,10 +79,10 @@ function EmptyState() {
     <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
       <AppLogo className="h-12 w-12" />
       <div className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight text-zinc-100">
+        <h1 className="text-2xl font-bold tracking-tight text-ink-100">
           UGC OS
         </h1>
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-ink-500">
           Pick a tool from the sidebar to get started.
         </p>
       </div>
@@ -126,7 +126,7 @@ function Workspace() {
   const contentPadding = collapsed ? 'md:pl-20' : 'md:pl-56'
 
   return (
-    <div key={userId ?? 'local'} className="relative h-screen w-screen overflow-hidden text-white antialiased bg-[#050505]">
+    <div key={userId ?? 'local'} className="relative h-screen w-screen overflow-hidden text-ink antialiased bg-surface-0">
       {/* Universal Background Gradient */}
       <AppBackground />
 

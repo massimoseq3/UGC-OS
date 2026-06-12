@@ -53,19 +53,19 @@ export default function SlotActionMenu({ anchorRef, open, onClose, onUpload, onP
     <>
       <div className="fixed inset-0 z-[55]" onClick={onClose} />
       <div
-        className="fixed z-[60] w-40 overflow-hidden rounded-lg border border-white/10 bg-[#0B0B0D]/95 shadow-xl backdrop-blur-xl"
+        className="fixed z-[60] w-40 overflow-hidden rounded-lg border border-ink/10 bg-surface-2/95 shadow-xl backdrop-blur-xl"
         style={{ top: pos.top, left: pos.left }}
       >
         <button
           onClick={() => { onClose(); onUpload() }}
-          className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-[12px] text-zinc-300 transition-colors hover:bg-white/[0.06]"
+          className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-[12px] text-ink-300 transition-colors hover:bg-ink/[0.06]"
         >
           <Upload className="h-3.5 w-3.5 shrink-0" />
           Upload image
         </button>
         <button
           onClick={() => { onClose(); onPickFromBank() }}
-          className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-[12px] text-zinc-300 transition-colors hover:bg-white/[0.06]"
+          className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-[12px] text-ink-300 transition-colors hover:bg-ink/[0.06]"
         >
           <Library className="h-3.5 w-3.5 shrink-0" />
           Pick from Bank

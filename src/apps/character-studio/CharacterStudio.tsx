@@ -269,7 +269,7 @@ export default function CharacterStudio() {
       onDrop={handleOverlayDrop}
     >
       {/* Controls panel — 50% on desktop */}
-      <div className="flex w-full min-w-0 md:w-1/2 shrink-0 flex-col border-b md:border-b-0 md:border-r border-white/5">
+      <div className="flex w-full min-w-0 md:w-1/2 shrink-0 flex-col border-b md:border-b-0 md:border-r border-ink/5">
         <ControlsPanel
           profile={profile}
           onProfileChange={setProfile}
@@ -305,7 +305,7 @@ export default function CharacterStudio() {
               <Dna className="h-8 w-8 text-green-400" strokeWidth={1.5} />
             </div>
             <p className="text-sm font-medium text-green-300">Drop to extract DNA</p>
-            <p className="text-xs text-zinc-500">Auto-fills every field from the photo</p>
+            <p className="text-xs text-ink-500">Auto-fills every field from the photo</p>
           </div>
         </div>
       )}

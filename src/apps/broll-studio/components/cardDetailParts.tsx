@@ -122,9 +122,9 @@ export function ModalGallery({
   if (entries.length === 0) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
-        <ImageIcon className="h-8 w-8 text-zinc-800" strokeWidth={1.5} />
-        <p className="text-sm text-zinc-500">No generations yet</p>
-        <p className="max-w-[220px] text-xs leading-relaxed text-zinc-600">
+        <ImageIcon className="h-8 w-8 text-ink-800" strokeWidth={1.5} />
+        <p className="text-sm text-ink-500">No generations yet</p>
+        <p className="max-w-[220px] text-xs leading-relaxed text-ink-600">
           Pick a model and hit Generate. Outputs land here — click any to set
           it as the cover.
         </p>
@@ -260,7 +260,7 @@ function ImageTile({
       className={`group relative cursor-pointer overflow-hidden rounded-lg border bg-black transition-colors ${
         selected
           ? 'border-broll-500/70 ring-2 ring-broll-500/40'
-          : 'border-white/10 hover:border-white/30'
+          : 'border-ink/10 hover:border-ink/30'
       }`}
     >
       {status === 'ready' && url ? (
@@ -275,7 +275,7 @@ function ImageTile({
         <p className="pointer-events-none absolute left-2 bottom-1 max-w-[70%] truncate text-[10px] text-zinc-300/90 transition-opacity group-hover:opacity-0">{modelLabel}</p>
       )}
       {selected && (
-        <span className="pointer-events-none absolute left-1.5 top-1.5 rounded-full bg-broll-500/90 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-broll-50 backdrop-blur">
+        <span className="pointer-events-none absolute left-1.5 top-1.5 rounded-full bg-broll-500/90 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-white backdrop-blur">
           Cover
         </span>
       )}
@@ -387,7 +387,7 @@ function VideoTile({
       className={`group relative cursor-pointer overflow-hidden rounded-lg border bg-black transition-colors ${
         selected
           ? 'border-broll-500/70 ring-2 ring-broll-500/40'
-          : 'border-white/10 hover:border-white/30'
+          : 'border-ink/10 hover:border-ink/30'
       }`}
       style={ratio}
     >
@@ -405,7 +405,7 @@ function VideoTile({
         />
       ) : (
         <div className="flex h-full w-full items-center justify-center">
-          <Loader2 className="h-5 w-5 animate-spin text-zinc-500" />
+          <Loader2 className="h-5 w-5 animate-spin text-ink-500" />
         </div>
       )}
       {/* Clickable play / pause overlay. Hidden while playing — autoplay on
@@ -445,7 +445,7 @@ function VideoTile({
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/80 to-transparent" />
       <p className="pointer-events-none absolute inset-x-2 bottom-1 line-clamp-1 text-[10px] text-zinc-300/90">{modelLabel}</p>
       {selected && (
-        <span className="pointer-events-none absolute left-1.5 bottom-1.5 rounded-full bg-broll-500/90 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-broll-50 backdrop-blur">
+        <span className="pointer-events-none absolute left-1.5 bottom-1.5 rounded-full bg-broll-500/90 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-white backdrop-blur">
           Cover
         </span>
       )}
@@ -489,7 +489,7 @@ function InFlightTile({ entry }: { entry: ModalEntry }) {
     : 'image'
   return (
     <div
-      className="relative overflow-hidden rounded-lg border border-broll-500/30 bg-gradient-to-br from-broll-500/[0.08] to-zinc-950"
+      className="relative overflow-hidden rounded-lg border border-broll-500/30 bg-gradient-to-br from-broll-500/[0.08] to-ink-950"
       style={aspectStyle(entry.aspectRatio)}
     >
       <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-broll-500/10 via-transparent to-broll-500/5" />
@@ -531,15 +531,15 @@ function FailedTile({
   if (entry.kind !== 'in-flight-image' && entry.kind !== 'in-flight-video') return null
   return (
     <div
-      className="relative overflow-hidden rounded-lg border border-red-500/40 bg-gradient-to-br from-red-500/[0.1] to-zinc-950"
+      className="relative overflow-hidden rounded-lg border border-red-500/40 bg-gradient-to-br from-red-500/[0.1] to-ink-950"
       style={aspectStyle(entry.aspectRatio)}
     >
-      <div className="absolute left-1.5 top-1.5 rounded-full bg-red-500/30 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-red-100 backdrop-blur">
+      <div className="absolute left-1.5 top-1.5 rounded-full bg-red-500/30 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-red-100 light:text-red-900 backdrop-blur">
         Failed
       </div>
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-3 text-center">
-        <AlertCircle className="h-5 w-5 text-red-300" />
-        <p className="line-clamp-3 text-[10px] leading-relaxed text-red-200">{entry.error}</p>
+        <AlertCircle className="h-5 w-5 text-red-300 light:text-red-700" />
+        <p className="line-clamp-3 text-[10px] leading-relaxed text-red-200 light:text-red-800">{entry.error}</p>
         <div className="flex items-center gap-1.5">
           <button
             type="button"
@@ -552,7 +552,7 @@ function FailedTile({
           <button
             type="button"
             onClick={onDismiss}
-            className="flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-medium text-zinc-300 transition-colors hover:bg-white/[0.08]"
+            className="flex items-center gap-1 rounded-full border border-ink/10 bg-ink/[0.04] px-2.5 py-1 text-[10px] font-medium text-ink-300 transition-colors hover:bg-ink/[0.08]"
           >
             <X className="h-3 w-3" />
             Dismiss
@@ -571,7 +571,7 @@ function FailedTile({
 function DayPill({ label }: { label: string }) {
   return (
     <div className="my-2 flex items-center justify-center">
-      <span className="rounded-full bg-white/[0.06] px-3 py-1 text-[11px] font-medium text-zinc-300">{label}</span>
+      <span className="rounded-full bg-ink/[0.06] px-3 py-1 text-[11px] font-medium text-ink-300">{label}</span>
     </div>
   )
 }
@@ -646,13 +646,13 @@ export function ModalTabButton({
     <button
       onClick={onClick}
       className={`relative flex items-center gap-1.5 px-3 pb-2 pt-3 text-[13px] font-medium tracking-tight transition-colors ${
-        active ? 'text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'
+        active ? 'text-ink-100' : 'text-ink-400 hover:text-ink-200'
       }`}
     >
       {children}
       <span
         className={`absolute inset-x-3 -bottom-px h-0.5 rounded-full transition-colors ${
-          active ? 'bg-zinc-100' : 'bg-transparent'
+          active ? 'bg-ink-100' : 'bg-transparent'
         }`}
       />
     </button>
@@ -674,8 +674,8 @@ export function IconChipButton({
 }) {
   const toneClass =
     tone === 'emerald'
-      ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20'
-      : 'border-white/[0.06] bg-white/[0.02] text-zinc-400 hover:bg-white/[0.05] hover:text-zinc-200'
+      ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200 light:text-emerald-800 hover:bg-emerald-500/20'
+      : 'border-ink/[0.06] bg-ink/[0.02] text-ink-400 hover:bg-ink/[0.05] hover:text-ink-200'
   return (
     <button
       type="button"
@@ -690,7 +690,7 @@ export function IconChipButton({
 }
 
 // Reference Images slot card — Bank-picker-style. Same outer shell as
-// the ModelPicker rows: rounded-xl border + bg-white/[0.02] + p-3 with an
+// the ModelPicker rows: rounded-xl border + bg-ink/[0.02] + p-3 with an
 // icon avatar on the left. Click opens the script-level BankPicker.
 export function ReferenceSlotCard({
   icon,
@@ -729,7 +729,7 @@ export function ReferenceSlotCard({
       className={`relative flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors ${
         highlight
           ? 'border-broll-500/40 bg-broll-500/10'
-          : 'border-white/10 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04]'
+          : 'border-ink/10 bg-ink/[0.02] hover:border-ink/20 hover:bg-ink/[0.04]'
       } ${dimmed ? 'opacity-50' : ''}`}
     >
       <button
@@ -745,8 +745,8 @@ export function ReferenceSlotCard({
           </div>
         )}
         <div className="flex min-w-0 flex-1 flex-col pr-6">
-          <span className="text-[10px] font-medium uppercase tracking-widest text-zinc-400">{kind}</span>
-          <span className={`truncate text-[13px] font-medium ${name ? 'text-zinc-100' : 'text-zinc-600'}`}>
+          <span className="text-[10px] font-medium uppercase tracking-widest text-ink-400">{kind}</span>
+          <span className={`truncate text-[13px] font-medium ${name ? 'text-ink-100' : 'text-ink-600'}`}>
             {name || `Select ${kind.toLowerCase()}`}
           </span>
         </div>
@@ -759,7 +759,7 @@ export function ReferenceSlotCard({
           className={`absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full border transition-colors ${
             active
               ? 'border-broll-500/60 bg-broll-500/20 text-broll-300 hover:bg-broll-500/30'
-              : 'border-white/15 bg-white/[0.04] text-zinc-500 hover:border-white/30 hover:text-zinc-300'
+              : 'border-ink/15 bg-ink/[0.04] text-ink-500 hover:border-ink/30 hover:text-ink-300'
           }`}
         >
           {active ? <Check className="h-3 w-3" strokeWidth={2.5} /> : <Circle className="h-3 w-3" />}

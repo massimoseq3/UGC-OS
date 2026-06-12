@@ -91,15 +91,15 @@ export default function HistoryDetailsView({ item, onClose, onRestoreText, onRes
   return (
     <div className="flex h-full flex-col overflow-hidden">
       {/* Back header */}
-      <div className="flex items-center gap-2 border-b border-white/5 px-5 py-4">
+      <div className="flex items-center gap-2 border-b border-ink/5 px-5 py-4">
         <button
           onClick={onClose}
-          className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-300 transition-colors hover:bg-white/5 hover:text-zinc-100"
+          className="flex h-8 w-8 items-center justify-center rounded-full text-ink-300 transition-colors hover:bg-ink/5 hover:text-ink-100"
           aria-label="Back to history"
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
-        <span className="text-sm font-medium text-zinc-200">Back to history</span>
+        <span className="text-sm font-medium text-ink-200">Back to history</span>
       </div>
 
       {/* Body */}
@@ -111,25 +111,25 @@ export default function HistoryDetailsView({ item, onClose, onRestoreText, onRes
             style={{ background: seedColor(item.voiceId) }}
           />
           <div className="min-w-0 flex-1">
-            <div className="truncate text-base font-semibold text-zinc-100">
+            <div className="truncate text-base font-semibold text-ink-100">
               {voice ? `${voice.name} — ${voice.description}` : item.voiceName}
             </div>
-            <div className="text-xs text-zinc-500">{formatRelative(item.createdAt)}</div>
+            <div className="text-xs text-ink-500">{formatRelative(item.createdAt)}</div>
           </div>
         </div>
 
         {/* Pills */}
         <div className="mt-3 flex flex-wrap gap-1.5">
-          <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[11px] text-zinc-300">
+          <span className="rounded-full border border-ink/10 bg-ink/[0.03] px-2.5 py-1 text-[11px] text-ink-300">
             Eleven Multilingual v2
           </span>
-          <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[11px] text-zinc-300">
+          <span className="rounded-full border border-ink/10 bg-ink/[0.03] px-2.5 py-1 text-[11px] text-ink-300">
             {item.scriptText.length} chars
           </span>
         </div>
 
         {/* Script text */}
-        <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-zinc-300">
+        <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-ink-300">
           {item.scriptText}
         </p>
 
@@ -137,14 +137,14 @@ export default function HistoryDetailsView({ item, onClose, onRestoreText, onRes
         <div className="mt-5 grid grid-cols-2 gap-2">
           <button
             onClick={togglePlay}
-            className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2.5 text-sm font-medium text-zinc-200 transition-colors hover:bg-white/[0.05]"
+            className="flex items-center justify-center gap-2 rounded-xl border border-ink/10 bg-ink/[0.02] px-3 py-2.5 text-sm font-medium text-ink-200 transition-colors hover:bg-ink/[0.05]"
           >
             {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
             {isPlaying ? 'Pause' : 'Play'}
           </button>
           <button
             onClick={handleRestoreText}
-            className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2.5 text-sm font-medium text-zinc-200 transition-colors hover:bg-white/[0.05]"
+            className="flex items-center justify-center gap-2 rounded-xl border border-ink/10 bg-ink/[0.02] px-3 py-2.5 text-sm font-medium text-ink-200 transition-colors hover:bg-ink/[0.05]"
           >
             <RotateCcw className="h-4 w-4" />
             Add text to edit
@@ -153,7 +153,7 @@ export default function HistoryDetailsView({ item, onClose, onRestoreText, onRes
 
         <button
           onClick={handleDownload}
-          className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2.5 text-sm font-medium text-zinc-200 transition-colors hover:bg-white/[0.05]"
+          className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-ink/10 bg-ink/[0.02] px-3 py-2.5 text-sm font-medium text-ink-200 transition-colors hover:bg-ink/[0.05]"
         >
           <Download className="h-4 w-4" />
           Download audio
@@ -161,7 +161,7 @@ export default function HistoryDetailsView({ item, onClose, onRestoreText, onRes
 
         {/* Settings list */}
         <div className="mt-6">
-          <div className="mb-3 text-sm font-semibold text-zinc-100">Settings</div>
+          <div className="mb-3 text-sm font-semibold text-ink-100">Settings</div>
           <div className="flex flex-col gap-2.5">
             <SettingRow label="Model" value="Eleven Multilingual v2" />
             <SettingRow label="Speed" value={`${item.speed.toFixed(2)}×`} />
@@ -172,7 +172,7 @@ export default function HistoryDetailsView({ item, onClose, onRestoreText, onRes
 
           <button
             onClick={handleRestoreSettings}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2.5 text-sm font-medium text-zinc-200 transition-colors hover:bg-white/[0.05]"
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-ink/10 bg-ink/[0.02] px-3 py-2.5 text-sm font-medium text-ink-200 transition-colors hover:bg-ink/[0.05]"
           >
             <RotateCcw className="h-4 w-4" />
             Restore settings
@@ -186,12 +186,12 @@ export default function HistoryDetailsView({ item, onClose, onRestoreText, onRes
 function SettingRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline gap-3 text-sm">
-      <span className="text-zinc-500">{label}</span>
+      <span className="text-ink-500">{label}</span>
       <span
-        className="flex-1 self-center border-b border-dashed border-white/10"
+        className="flex-1 self-center border-b border-dashed border-ink/10"
         aria-hidden
       />
-      <span className="tabular-nums text-zinc-200">{value}</span>
+      <span className="tabular-nums text-ink-200">{value}</span>
     </div>
   )
 }

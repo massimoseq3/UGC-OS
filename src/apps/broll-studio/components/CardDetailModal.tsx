@@ -402,24 +402,24 @@ export default function CardDetailModal(props: CardDetailModalProps) {
 
       <div
         onClick={(e) => e.stopPropagation()}
-        className="flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-zinc-950/95 shadow-2xl"
+        className="flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-ink/10 bg-ink-950/95 shadow-2xl"
       >
         {/* Header — chip + scene line only. Descriptive ALL-CAPS label is gone. */}
-        <div className="flex items-center justify-between gap-3 border-b border-white/5 px-5 py-3">
+        <div className="flex items-center justify-between gap-3 border-b border-ink/5 px-5 py-3">
           <div className="flex min-w-0 items-center gap-2">
             {!isManual && (
               <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium tracking-tight ${tagChipStyle(variation.tag)}`}>
                 {tagLabel(variation.tag)}
               </span>
             )}
-            <span className="text-[10px] uppercase tracking-wider text-zinc-400">
+            <span className="text-[10px] uppercase tracking-wider text-ink-400">
               {rollTypeForTag(variation.tag)} · Scene {sceneNumber}
             </span>
           </div>
         </div>
 
         {/* Tab strip — Image first (default), Video second. */}
-        <div className="flex items-center gap-1 border-b border-white/5 px-5">
+        <div className="flex items-center gap-1 border-b border-ink/5 px-5">
           <ModalTabButton active={tab === 'image'} onClick={() => setTab('image')}>
             <ImageIcon className="h-3.5 w-3.5" />
             Image
@@ -437,12 +437,12 @@ export default function CardDetailModal(props: CardDetailModalProps) {
         {/* Body — fixed 50/50 grid; content scrolls inside each column. */}
         <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden md:grid-cols-2">
           {/* LEFT 50% — model + refs + prompt + generate */}
-          <div className="col-span-1 flex min-h-0 flex-col overflow-y-auto border-b border-white/5 md:border-b-0 md:border-r">
+          <div className="col-span-1 flex min-h-0 flex-col overflow-y-auto border-b border-ink/5 md:border-b-0 md:border-r">
             <div className="flex grow flex-col gap-6 px-5 py-6">
               {/* 1) Model picker + its constraint chips (resolution first). */}
               {tab === 'image' ? (
                 <div>
-                  <span className="text-sm font-medium text-zinc-200">Image Model</span>
+                  <span className="text-sm font-medium text-ink-200">Image Model</span>
                   <div className="mt-2">
                     <ModelPicker
                       appId="broll-studio"
@@ -480,7 +480,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                 </div>
               ) : (
                 <div>
-                  <span className="text-sm font-medium text-zinc-200">Video Model</span>
+                  <span className="text-sm font-medium text-ink-200">Video Model</span>
                   <div className="mt-2">
                     <ModelPicker
                       appId="broll-studio"
@@ -532,7 +532,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                           className={`flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[12px] transition-colors ${
                             cardState.cardVideoAudio
                               ? 'border-broll-500/40 bg-broll-500/15 text-broll-200'
-                              : 'border-white/10 bg-white/[0.02] text-zinc-400 hover:bg-white/[0.05]'
+                              : 'border-ink/10 bg-ink/[0.02] text-ink-400 hover:bg-ink/[0.05]'
                           }`}
                         >
                           {cardState.cardVideoAudio ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
@@ -548,22 +548,22 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                   the Character / Product reference slot cards. */}
               {tab === 'animate' ? (
                 <div>
-                  <span className="text-sm font-medium text-zinc-200">Start frame</span>
-                  <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">
-                    The still that gets animated. Click <span className="font-medium text-zinc-400">Animate</span> on any image in the gallery to swap it.
+                  <span className="text-sm font-medium text-ink-200">Start frame</span>
+                  <p className="mt-1 text-[11px] leading-relaxed text-ink-500">
+                    The still that gets animated. Click <span className="font-medium text-ink-400">Animate</span> on any image in the gallery to swap it.
                   </p>
                   <div className="mt-2">
                     {effectiveAnimateFrame && animateFrameUrl ? (
                       <div
-                        className="relative max-w-[140px] overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]"
+                        className="relative max-w-[140px] overflow-hidden rounded-xl border border-ink/10 bg-ink/[0.02]"
                         style={aspectStyle(cardState.cardVideoAspectRatio)}
                       >
                         <img src={animateFrameUrl} alt="" className="h-full w-full object-cover" />
                       </div>
                     ) : (
-                      <div className="flex aspect-video w-full flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-white/10 bg-white/[0.02] px-4 text-center">
-                        <ImageIcon className="h-6 w-6 text-zinc-700" strokeWidth={1.5} />
-                        <p className="text-[11px] leading-relaxed text-zinc-500">
+                      <div className="flex aspect-video w-full flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-ink/10 bg-ink/[0.02] px-4 text-center">
+                        <ImageIcon className="h-6 w-6 text-ink-700" strokeWidth={1.5} />
+                        <p className="text-[11px] leading-relaxed text-ink-500">
                           Generate an image in the Image tab first, then click Animate on it.
                         </p>
                       </div>
@@ -575,11 +575,11 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                   {/* Reference Images — side-by-side BankPicker-style slot
                       cards. Click the body to pick from the bank; the
                       tick-circle toggles whether the ref is sent. */}
-                <span className="text-sm font-medium text-zinc-200">Reference Images</span>
+                <span className="text-sm font-medium text-ink-200">Reference Images</span>
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   <ReferenceSlotCard
-                    icon={<User className="h-4 w-4 text-sky-400" />}
-                    accentClass="bg-sky-500/15 text-sky-400"
+                    icon={<User className="h-4 w-4 text-sky-400 light:text-sky-600" />}
+                    accentClass="bg-sky-500/15 text-sky-400 light:text-sky-600"
                     kind="Influencer"
                     name={selectedModel?.name}
                     imageRef={selectedModel?.characterImage}
@@ -590,8 +590,8 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                     dimmedReason={`${videoModelName} doesn't accept reference images. Switch to Veo 3.1 Fast or Seedance 2.0 to use them.`}
                   />
                   <ReferenceSlotCard
-                    icon={<Package className="h-4 w-4 text-amber-400" />}
-                    accentClass="bg-amber-500/15 text-amber-400"
+                    icon={<Package className="h-4 w-4 text-amber-400 light:text-amber-600" />}
+                    accentClass="bg-amber-500/15 text-amber-400 light:text-amber-600"
                     kind="Product"
                     name={selectedProduct?.productName}
                     imageRef={selectedProduct?.productImage}
@@ -603,7 +603,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                   />
                 </div>
                 {hasActiveRef && refsUnsupportedForVideo && (
-                  <p className="mt-2 text-[11px] leading-relaxed text-amber-400/80">
+                  <p className="mt-2 text-[11px] leading-relaxed text-amber-400/80 light:text-amber-600/80">
                     {videoModelName} doesn't support reference images — this will generate text-to-video only. Pick Veo 3.1 Fast or Seedance 2.0 to use your influencer/product.
                   </p>
                 )}
@@ -615,7 +615,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                   pattern); overflow scrolls inside the textarea. */}
               <div className="flex grow flex-col">
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-sm font-medium text-zinc-200">Prompt</span>
+                  <span className="text-sm font-medium text-ink-200">Prompt</span>
                   <div className="flex flex-wrap items-center gap-1">
                     {/* Enhance + Regenerate sit next to each other on the
                         right, then Undo/Redo. Both use the default grey
@@ -651,13 +651,13 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                   onBlur={handleDraftBlur}
                   rows={6}
                   placeholder="Write your custom B-roll prompt here..."
-                  className="min-h-[120px] w-full grow resize-none rounded-2xl border border-white/10 bg-white/[0.03] px-3.5 py-3 text-[13px] leading-relaxed text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-white/20 focus:bg-white/[0.05]"
+                  className="min-h-[120px] w-full grow resize-none rounded-2xl border border-ink/10 bg-ink/[0.03] px-3.5 py-3 text-[13px] leading-relaxed text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-ink/20 focus:bg-ink/[0.05]"
                 />
 
                 {cardState.promptError && (
                   <div className="mt-2 flex items-start gap-1.5 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2">
-                    <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-400" />
-                    <p className="text-[11px] leading-relaxed text-red-300">{cardState.promptError}</p>
+                    <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-400 light:text-red-600" />
+                    <p className="text-[11px] leading-relaxed text-red-300 light:text-red-700">{cardState.promptError}</p>
                   </div>
                 )}
               </div>

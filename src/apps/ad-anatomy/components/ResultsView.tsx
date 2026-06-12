@@ -68,14 +68,14 @@ function SectionHeader({ icon: Icon, title }: { icon: React.ElementType; title: 
   return (
     <div className="mb-3 flex items-center gap-2">
       <Icon className="h-4 w-4 text-[#FF5257]/80" strokeWidth={1.5} />
-      <h3 className="text-sm font-semibold tracking-tight text-zinc-200">{title}</h3>
+      <h3 className="text-sm font-semibold tracking-tight text-ink-200">{title}</h3>
     </div>
   )
 }
 
 function Section({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`rounded-xl border border-white/5 bg-white/[0.02] p-5 ${className}`}>
+    <div className={`rounded-xl border border-ink/5 bg-ink/[0.02] p-5 ${className}`}>
       {children}
     </div>
   )
@@ -83,7 +83,7 @@ function Section({ children, className = '' }: { children: React.ReactNode; clas
 
 /* ─── 1. Scorecard ─── */
 function scoreColor(score: number) {
-  if (score >= 9) return { text: 'text-cyan-400', border: 'border-cyan-400/20', bg: 'bg-cyan-400/10' }
+  if (score >= 9) return { text: 'text-cyan-400 light:text-cyan-600', border: 'border-cyan-400/20', bg: 'bg-cyan-400/10' }
   if (score >= 7) return { text: 'text-green-500', border: 'border-green-500/20', bg: 'bg-green-500/10' }
   if (score >= 5) return { text: 'text-amber-500', border: 'border-amber-500/20', bg: 'bg-amber-500/10' }
   return { text: 'text-[#FF5257]', border: 'border-[#FF5257]/20', bg: 'bg-[#FF5257]/10' }
@@ -101,20 +101,20 @@ function ScorecardSection({ result }: { result: AnalysisResult }) {
             const isOverall = s.label === 'Overall Execution'
             return (
               <div key={s.label}>
-                {isOverall && <div className="mb-2 mt-1 h-px w-full bg-white/10" />}
+                {isOverall && <div className="mb-2 mt-1 h-px w-full bg-ink/10" />}
                 <div className="flex items-center gap-3">
                   <span className={`w-10 shrink-0 rounded-md py-1 text-center text-sm font-semibold tabular-nums tracking-tight ${color.bg} ${color.text}`}>
                     {s.score}
                   </span>
-                  <span className={`text-sm ${isOverall ? 'font-bold text-zinc-200' : 'text-zinc-400'}`}>{s.label}</span>
+                  <span className={`text-sm ${isOverall ? 'font-bold text-ink-200' : 'text-ink-400'}`}>{s.label}</span>
                 </div>
               </div>
             )
           })}
         </div>
-        <div className="flex-1 rounded-lg bg-white/[0.03] px-4 py-3">
-          <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-600">Analyst&apos;s Note</span>
-          <p className="mt-1.5 text-sm leading-relaxed text-zinc-400">{scorecard.analystNote}</p>
+        <div className="flex-1 rounded-lg bg-ink/[0.03] px-4 py-3">
+          <span className="text-[11px] font-medium uppercase tracking-widest text-ink-600">Analyst&apos;s Note</span>
+          <p className="mt-1.5 text-sm leading-relaxed text-ink-400">{scorecard.analystNote}</p>
         </div>
       </div>
     </Section>
@@ -164,14 +164,14 @@ function TranscriptSection({ result, fileName }: { result: AnalysisResult; fileN
         <div className="flex items-center gap-1.5">
           <button
             onClick={() => copy(withoutTimestamps)}
-            className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-300"
+            className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-300"
           >
-            {copied ? <Check className="h-3 w-3 text-green-400" /> : <Copy className="h-3 w-3" />}
+            {copied ? <Check className="h-3 w-3 text-green-400 light:text-green-600" /> : <Copy className="h-3 w-3" />}
             {copied ? 'Copied' : 'Copy'}
           </button>
           <button
             onClick={handleSaveToBank}
-            className="flex items-center gap-1 rounded-full bg-white/[0.05] px-2.5 py-1 text-[11px] font-medium text-zinc-400 transition-colors hover:bg-white/10 hover:text-zinc-200"
+            className="flex items-center gap-1 rounded-full bg-ink/[0.05] px-2.5 py-1 text-[11px] font-medium text-ink-400 transition-colors hover:bg-ink/10 hover:text-ink-200"
           >
             <Bookmark className="h-3 w-3" />
             Save to Script Bank
@@ -188,9 +188,9 @@ function TranscriptSection({ result, fileName }: { result: AnalysisResult; fileN
 
       <div className="flex flex-col gap-0.5">
         {result.transcript.map((line, i) => (
-          <div key={i} className="flex gap-3 rounded-lg px-3 py-1.5 transition-colors hover:bg-white/[0.03]">
-            <span className="shrink-0 tabular-nums text-[11px] text-zinc-700">{line.timestamp}</span>
-            <span className="text-sm text-zinc-400">{line.text}</span>
+          <div key={i} className="flex gap-3 rounded-lg px-3 py-1.5 transition-colors hover:bg-ink/[0.03]">
+            <span className="shrink-0 tabular-nums text-[11px] text-ink-700">{line.timestamp}</span>
+            <span className="text-sm text-ink-400">{line.text}</span>
           </div>
         ))}
       </div>
@@ -210,26 +210,26 @@ function joinScenes(scenes: Scene[]): string {
 function SceneCard({ scene }: { scene: Scene }) {
   const { copied, copy } = useCopy()
   return (
-    <div className="rounded-lg border border-white/5 bg-white/[0.02] p-4">
+    <div className="rounded-lg border border-ink/5 bg-ink/[0.02] p-4">
       <div className="mb-2.5 flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           <span className="shrink-0 rounded-md bg-[#FF5257]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-[#FF5257]">
             Scene {scene.index}
           </span>
-          <span className="truncate text-xs font-medium text-zinc-300">{scene.label}</span>
-          <span className="shrink-0 rounded bg-white/5 px-2 py-0.5 tabular-nums text-[10px] text-zinc-500">
+          <span className="truncate text-xs font-medium text-ink-300">{scene.label}</span>
+          <span className="shrink-0 rounded bg-ink/5 px-2 py-0.5 tabular-nums text-[10px] text-ink-500">
             {scene.startTime}–{scene.endTime} · {scene.durationSeconds}s
           </span>
         </div>
         <button
           onClick={() => copy(scene.prompt)}
-          className="flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium text-zinc-600 transition-colors hover:bg-white/5 hover:text-zinc-300"
+          className="flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium text-ink-600 transition-colors hover:bg-ink/5 hover:text-ink-300"
         >
-          {copied ? <Check className="h-3 w-3 text-green-400" /> : <Copy className="h-3 w-3" />}
+          {copied ? <Check className="h-3 w-3 text-green-400 light:text-green-600" /> : <Copy className="h-3 w-3" />}
           {copied ? 'Copied' : 'Copy'}
         </button>
       </div>
-      <pre className="whitespace-pre-wrap rounded-lg bg-black/30 p-3 font-sans text-xs leading-relaxed text-zinc-400">
+      <pre className="whitespace-pre-wrap rounded-lg bg-surface-0 p-3 font-sans text-xs leading-relaxed text-ink-400">
         {scene.prompt}
       </pre>
     </div>
@@ -286,14 +286,14 @@ function ReverseEngineeredSection({ result, fileName }: { result: AnalysisResult
         <div className="flex items-center gap-1.5">
           <button
             onClick={() => copy(fullPrompt)}
-            className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-300"
+            className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-300"
           >
-            {copied ? <Check className="h-3 w-3 text-green-400" /> : <Copy className="h-3 w-3" />}
+            {copied ? <Check className="h-3 w-3 text-green-400 light:text-green-600" /> : <Copy className="h-3 w-3" />}
             {copied ? 'Copied' : scenes.length > 1 ? 'Copy All' : 'Copy Prompt'}
           </button>
           <button
             onClick={handleSaveToBank}
-            className="flex items-center gap-1 rounded-full bg-white/[0.05] px-2.5 py-1 text-[11px] font-medium text-zinc-400 transition-colors hover:bg-white/10 hover:text-zinc-200"
+            className="flex items-center gap-1 rounded-full bg-ink/[0.05] px-2.5 py-1 text-[11px] font-medium text-ink-400 transition-colors hover:bg-ink/10 hover:text-ink-200"
           >
             <Bookmark className="h-3 w-3" />
             Save to Script Bank
@@ -308,11 +308,11 @@ function ReverseEngineeredSection({ result, fileName }: { result: AnalysisResult
         </div>
       </div>
 
-      <div className="mb-3 flex flex-wrap gap-2 text-[11px] text-zinc-500">
-        <span className="rounded-full bg-white/5 px-2.5 py-0.5">
+      <div className="mb-3 flex flex-wrap gap-2 text-[11px] text-ink-500">
+        <span className="rounded-full bg-ink/5 px-2.5 py-0.5">
           Total: {reverseEngineeredPrompt.totalDurationSeconds}s
         </span>
-        <span className="rounded-full bg-white/5 px-2.5 py-0.5">
+        <span className="rounded-full bg-ink/5 px-2.5 py-0.5">
           {scenes.length === 1 ? '1 scene' : `${scenes.length} scenes (≤15s each)`}
         </span>
       </div>
@@ -337,7 +337,7 @@ export default function ResultsView({ result, videoSrc, restoredThumbUrl, fileNa
     <div className="flex flex-col md:flex-row h-full overflow-hidden">
       {/* Left column — pinned video or restored still */}
       {hasMedia && (
-        <div className="flex md:h-full w-full md:w-1/3 shrink-0 flex-col gap-4 border-b md:border-b-0 md:border-r border-white/5 p-4 md:p-5 min-h-0">
+        <div className="flex md:h-full w-full md:w-1/3 shrink-0 flex-col gap-4 border-b md:border-b-0 md:border-r border-ink/5 p-4 md:p-5 min-h-0">
           {/* Media sizes to its own aspect ratio so there are no letterbox
               black bars. The flex parent centers it within whatever vertical
               space is left after the caption / filename / button. */}
@@ -345,27 +345,27 @@ export default function ResultsView({ result, videoSrc, restoredThumbUrl, fileNa
             {videoSrc ? (
               <video
                 src={videoSrc}
-                className="block max-h-full max-w-full rounded-xl border border-white/10"
+                className="block max-h-full max-w-full rounded-xl border border-ink/10"
                 controls
               />
             ) : restoredThumbUrl ? (
               <img
                 src={restoredThumbUrl}
                 alt="First frame of the analyzed ad"
-                className="block max-h-full max-w-full rounded-xl border border-white/10"
+                className="block max-h-full max-w-full rounded-xl border border-ink/10"
               />
             ) : null}
           </div>
           {/* When the live source is gone, make it explicit that this is the
               saved still — not a broken or missing video. */}
           {!videoSrc && restoredThumbUrl && (
-            <p className="-mt-2 shrink-0 text-center text-[11px] italic text-zinc-500">
+            <p className="-mt-2 shrink-0 text-center text-[11px] italic text-ink-500">
               Still frame — source ad not retained
             </p>
           )}
-          <div className="flex shrink-0 items-center gap-2 rounded-lg bg-white/[0.03] px-3 py-2 min-w-0">
-            <Film className="h-3.5 w-3.5 shrink-0 text-zinc-600" />
-            <span className="truncate text-xs text-zinc-500">{fileName}</span>
+          <div className="flex shrink-0 items-center gap-2 rounded-lg bg-ink/[0.03] px-3 py-2 min-w-0">
+            <Film className="h-3.5 w-3.5 shrink-0 text-ink-600" />
+            <span className="truncate text-xs text-ink-500">{fileName}</span>
           </div>
           <button
             onClick={onReset}
@@ -382,10 +382,10 @@ export default function ResultsView({ result, videoSrc, restoredThumbUrl, fileNa
         {/* When the left column is hidden, surface the Reset action above the
             results so the user can always get back to a fresh upload. */}
         {!hasMedia && (
-          <div className="mb-5 flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-white/[0.02] px-4 py-3">
+          <div className="mb-5 flex items-center justify-between gap-3 rounded-xl border border-ink/5 bg-ink/[0.02] px-4 py-3">
             <div className="flex min-w-0 items-center gap-2">
-              <Film className="h-3.5 w-3.5 shrink-0 text-zinc-600" />
-              <span className="truncate text-xs text-zinc-500">{fileName || 'Untitled analysis'}</span>
+              <Film className="h-3.5 w-3.5 shrink-0 text-ink-600" />
+              <span className="truncate text-xs text-ink-500">{fileName || 'Untitled analysis'}</span>
             </div>
             <button
               onClick={onReset}

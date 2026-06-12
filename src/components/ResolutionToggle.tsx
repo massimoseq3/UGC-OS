@@ -17,7 +17,7 @@ export default function ResolutionToggle({ modelId, value, onChange }: Resolutio
   if (tiers.length === 0) return null
 
   return (
-    <div className="flex w-full items-center gap-0.5 rounded-lg border border-white/10 bg-white/[0.02] p-0.5">
+    <div className="flex w-full items-center gap-0.5 rounded-lg border border-ink/10 bg-ink/[0.02] p-0.5">
       {tiers.map((tier) => {
         const credits = formatCredits(estimateCredits(modelId ?? '', { imageCount: 1, resolution: tier }))
         const active = tier === value
@@ -26,12 +26,12 @@ export default function ResolutionToggle({ modelId, value, onChange }: Resolutio
             key={tier}
             onClick={() => onChange(tier)}
             className={`flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1.5 text-[11px] font-medium transition-colors ${
-              active ? 'bg-white/[0.08] text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'
+              active ? 'bg-ink/[0.08] text-ink-100' : 'text-ink-500 hover:text-ink-300'
             }`}
           >
             <span>{tier}</span>
             {credits && (
-              <span className={`tabular-nums ${active ? 'text-zinc-400' : 'text-zinc-600'}`}>
+              <span className={`tabular-nums ${active ? 'text-ink-400' : 'text-ink-600'}`}>
                 {credits}
               </span>
             )}

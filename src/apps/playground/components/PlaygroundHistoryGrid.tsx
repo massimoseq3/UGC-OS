@@ -113,9 +113,9 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode }: Playgrou
     return (
       <div className="flex h-full flex-col">
         <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
-          <Sparkles className="h-9 w-9 text-zinc-800" strokeWidth={1.5} />
-          <p className="text-sm text-zinc-500">No generations yet</p>
-          <p className="max-w-[300px] text-xs leading-relaxed text-zinc-600">
+          <Sparkles className="h-9 w-9 text-ink-800" strokeWidth={1.5} />
+          <p className="text-sm text-ink-500">No generations yet</p>
+          <p className="max-w-[300px] text-xs leading-relaxed text-ink-600">
             Pick a preset or type a prompt below and hit Generate.
             Everything you make lands here, sorted by day.
           </p>
@@ -203,7 +203,7 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode }: Playgrou
 function DayPill({ label }: { label: string }) {
   return (
     <div className="my-2 flex items-center justify-center">
-      <span className="rounded-full bg-white/[0.06] px-3 py-1 text-[11px] font-medium text-zinc-300">{label}</span>
+      <span className="rounded-full bg-ink/[0.06] px-3 py-1 text-[11px] font-medium text-ink-300">{label}</span>
     </div>
   )
 }
@@ -229,15 +229,15 @@ function ImageTile({
   return (
     <div
       onClick={onClick}
-      className="group relative cursor-pointer overflow-hidden rounded-lg border border-white/10 bg-black transition-colors hover:border-white/20"
+      className="group relative cursor-pointer overflow-hidden rounded-lg border border-ink/10 bg-black transition-colors hover:border-ink/20"
     >
       {status === 'ready' && url ? (
         <img src={url} alt="" className="block h-auto w-full" />
       ) : (
         <div className="flex aspect-square w-full items-center justify-center">
           {status === 'loading'
-            ? <Loader2 className="h-5 w-5 animate-spin text-zinc-500" />
-            : <ImageIcon className="h-6 w-6 text-zinc-700" />}
+            ? <Loader2 className="h-5 w-5 animate-spin text-ink-500" />
+            : <ImageIcon className="h-6 w-6 text-ink-700" />}
         </div>
       )}
       <div className="absolute right-1.5 top-1.5 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
@@ -289,7 +289,7 @@ function VideoTile({
       onMouseEnter={() => setHovering(true)}
       onMouseLeave={() => setHovering(false)}
       onClick={onClick}
-      className="group relative cursor-pointer overflow-hidden rounded-lg border border-white/10 bg-black transition-colors hover:border-white/20"
+      className="group relative cursor-pointer overflow-hidden rounded-lg border border-ink/10 bg-black transition-colors hover:border-ink/20"
       style={ratio}
     >
       {status === 'ready' && url ? (
@@ -304,8 +304,8 @@ function VideoTile({
       ) : (
         <div className="flex h-full w-full items-center justify-center">
           {status === 'loading'
-            ? <Loader2 className="h-5 w-5 animate-spin text-zinc-500" />
-            : <Film className="h-6 w-6 text-zinc-700" />}
+            ? <Loader2 className="h-5 w-5 animate-spin text-ink-500" />
+            : <Film className="h-6 w-6 text-ink-700" />}
         </div>
       )}
 
@@ -355,7 +355,7 @@ function InFlightTile({ gen }: { gen: InFlightGen }) {
 
   return (
     <div
-      className="relative overflow-hidden rounded-lg border border-playground-500/30 bg-gradient-to-br from-playground-500/[0.08] to-zinc-950"
+      className="relative overflow-hidden rounded-lg border border-playground-500/30 bg-gradient-to-br from-playground-500/[0.08] to-ink-950"
       style={ar ? aspectStyle(ar) : { aspectRatio: '1 / 1' }}
     >
       <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-playground-500/10 via-transparent to-playground-500/5" />
@@ -394,8 +394,8 @@ function InFlightTile({ gen }: { gen: InFlightGen }) {
           className="max-w-[180px]"
         />
       </div>
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2 pb-1.5 pt-6">
-        <p className="line-clamp-2 text-[10px] text-zinc-300">{gen.prompt}</p>
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 light:from-white/80 to-transparent px-2 pb-1.5 pt-6">
+        <p className="line-clamp-2 text-[10px] text-ink-300">{gen.prompt}</p>
       </div>
     </div>
   )

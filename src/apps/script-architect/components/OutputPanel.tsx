@@ -125,23 +125,23 @@ function VariationCard({ text, cardTitle, defaultSaveTitle, linkedProductId, mod
   }
 
   return (
-    <div className="flex shrink-0 flex-col rounded-3xl border border-white/5 bg-black/20 overflow-hidden">
-      <div className="flex items-center justify-between border-b border-white/5 px-4 py-2.5">
+    <div className="flex shrink-0 flex-col rounded-3xl border border-ink/5 bg-surface-1 overflow-hidden">
+      <div className="flex items-center justify-between border-b border-ink/5 px-4 py-2.5">
         <div className="flex items-center gap-2">
           <span className="rounded-full bg-scripts-500/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-scripts-300">
             {cardTitle}
           </span>
           {scenes && (
-            <span className="rounded-full bg-white/5 px-2.5 py-0.5 text-[10px] text-zinc-500">
+            <span className="rounded-full bg-ink/5 px-2.5 py-0.5 text-[10px] text-ink-500">
               {scenes.length} scene{scenes.length === 1 ? '' : 's'}
             </span>
           )}
         </div>
         <button
           onClick={handleCopyAll}
-          className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-300"
+          className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-300"
         >
-          {copied ? <Check className="h-3 w-3 text-green-400" /> : <Copy className="h-3 w-3" />}
+          {copied ? <Check className="h-3 w-3 text-green-400 light:text-green-600" /> : <Copy className="h-3 w-3" />}
           {copied ? 'Copied' : scenes ? 'Copy Full Script' : 'Copy'}
         </button>
       </div>
@@ -150,14 +150,14 @@ function VariationCard({ text, cardTitle, defaultSaveTitle, linkedProductId, mod
         {scenes ? (
           scenes.map((scene, i) => <SceneChunkCard key={i} chunk={scene} />)
         ) : mode === 'reverse-engineer' ? (
-          <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed tracking-tight text-zinc-100">
+          <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed tracking-tight text-ink-100">
             {text}
           </pre>
         ) : (
           // Each source line is its own paragraph: normal line-height within a
           // (wrapped) sentence, a slight gap between sentences. No `font-sans`
           // — that falls back to system-ui; we want the inherited Geist.
-          <div className="flex flex-col gap-2 text-sm leading-normal tracking-tight text-zinc-100">
+          <div className="flex flex-col gap-2 text-sm leading-normal tracking-tight text-ink-100">
             {text.split('\n').map((line, i) =>
               line.trim() === ''
                 ? <div key={i} aria-hidden className="h-1.5" />
@@ -167,7 +167,7 @@ function VariationCard({ text, cardTitle, defaultSaveTitle, linkedProductId, mod
         )}
       </div>
 
-      <div className="flex flex-col gap-2 border-t border-white/5 p-3">
+      <div className="flex flex-col gap-2 border-t border-ink/5 p-3">
         {showSaveForm ? (
           <div className="flex gap-2">
             <input
@@ -176,7 +176,7 @@ function VariationCard({ text, cardTitle, defaultSaveTitle, linkedProductId, mod
               onKeyDown={(e) => { if (e.key === 'Enter') handleSave() }}
               placeholder="Script title..."
               autoFocus
-              className="flex-1 rounded-full border border-white/10 bg-transparent px-4 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-scripts-500/30"
+              className="flex-1 rounded-full border border-ink/10 bg-transparent px-4 py-2 text-sm text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-scripts-500/30"
             />
             <button
               onClick={handleSave}
@@ -187,7 +187,7 @@ function VariationCard({ text, cardTitle, defaultSaveTitle, linkedProductId, mod
             </button>
             <button
               onClick={() => setShowSaveForm(false)}
-              className="rounded-full px-4 py-2 text-xs text-zinc-500 transition-colors hover:text-zinc-300"
+              className="rounded-full px-4 py-2 text-xs text-ink-500 transition-colors hover:text-ink-300"
             >
               Cancel
             </button>
@@ -198,8 +198,8 @@ function VariationCard({ text, cardTitle, defaultSaveTitle, linkedProductId, mod
               onClick={() => setShowSaveForm(true)}
               className={`flex flex-1 min-w-0 items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-[12px] font-medium tracking-tight transition-colors ${
                 saved
-                  ? 'border-green-500/20 bg-green-500/10 text-green-400'
-                  : 'border-white/15 text-zinc-300 hover:bg-white/[0.06] hover:text-zinc-100'
+                  ? 'border-green-500/20 bg-green-500/10 text-green-400 light:text-green-600'
+                  : 'border-ink/15 text-ink-300 hover:bg-ink/[0.06] hover:text-ink-100'
               }`}
             >
               {saved ? (<><Check className="h-3.5 w-3.5" /> Saved</>) : (<><Bookmark className="h-3.5 w-3.5" /> Save to Bank</>)}
@@ -225,7 +225,7 @@ function VariationCard({ text, cardTitle, defaultSaveTitle, linkedProductId, mod
             {!isSpokenScript && (
               <button
                 onClick={handleSendToPlayground}
-                className="flex flex-1 min-w-0 items-center justify-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5 text-[12px] font-medium tracking-tight text-emerald-400 transition-colors hover:bg-emerald-500/20"
+                className="flex flex-1 min-w-0 items-center justify-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5 text-[12px] font-medium tracking-tight text-emerald-400 light:text-emerald-600 transition-colors hover:bg-emerald-500/20"
               >
                 <Sparkles className="h-4 w-4" strokeWidth={1.75} />
                 Send to Playground
@@ -253,20 +253,20 @@ function SceneChunkCard({ chunk }: { chunk: SceneChunk }) {
     }
   }
   return (
-    <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-3">
+    <div className="rounded-2xl border border-ink/5 bg-ink/[0.02] p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className="truncate text-[10px] font-semibold uppercase tracking-widest text-scripts-300/80">
           {chunk.header.replace(/^---\s*|\s*---$/g, '')}
         </span>
         <button
           onClick={handleCopy}
-          className="flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium text-zinc-600 transition-colors hover:bg-white/5 hover:text-zinc-300"
+          className="flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium text-ink-600 transition-colors hover:bg-ink/5 hover:text-ink-300"
         >
-          {copied ? <Check className="h-3 w-3 text-green-400" /> : <Copy className="h-3 w-3" />}
+          {copied ? <Check className="h-3 w-3 text-green-400 light:text-green-600" /> : <Copy className="h-3 w-3" />}
           {copied ? 'Copied' : 'Copy'}
         </button>
       </div>
-      <pre className="whitespace-pre-wrap rounded-xl bg-black/30 p-2.5 font-sans text-xs leading-relaxed text-zinc-400">
+      <pre className="whitespace-pre-wrap rounded-xl bg-surface-0 p-2.5 font-sans text-xs leading-relaxed text-ink-400">
         {chunk.body}
       </pre>
     </div>
@@ -294,7 +294,7 @@ export default function OutputPanel({ variations, mode, liveMode, writeStyleLabe
     return (
       <div className="flex h-full flex-col gap-2 p-5">
         <GenerationProgress isActive color="bg-scripts-500" messages={message} showHelper={false} />
-        <div className="flex flex-1 min-h-0 flex-col gap-3 rounded-3xl border border-white/5 bg-black/20 p-5">
+        <div className="flex flex-1 min-h-0 flex-col gap-3 rounded-3xl border border-ink/5 bg-surface-1 p-5">
           <div className="skeleton h-4 w-full" />
           <div className="skeleton h-4 w-[90%]" />
           <div className="skeleton h-4 w-[95%]" />
@@ -310,16 +310,16 @@ export default function OutputPanel({ variations, mode, liveMode, writeStyleLabe
   if (variations.length === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-8">
-        <PenLine className="h-8 w-8 text-zinc-800" strokeWidth={1.5} />
-        <p className="text-sm text-zinc-700">
+        <PenLine className="h-8 w-8 text-ink-800" strokeWidth={1.5} />
+        <p className="text-sm text-ink-700">
           {copyMode === 'write'
             ? 'Your 3 takes will appear here'
             : copyMode === 'remix' ? 'Your 3 script variations will appear here' : 'Your scene prompts will appear here'}
         </p>
         {error && (
           <div className="mt-2 flex max-w-sm items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2">
-            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-400" />
-            <p className="text-xs leading-relaxed text-red-300">{error}</p>
+            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-400 light:text-red-600" />
+            <p className="text-xs leading-relaxed text-red-300 light:text-red-700">{error}</p>
           </div>
         )}
       </div>
