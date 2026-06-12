@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useThemeStore, type ResolvedTheme } from '../stores/themeStore'
 
 // Safari doesn't dither CSS gradients, so a near-black radial gradient shows
 // hard 8-bit banding there no matter what's layered on top. We paint the
@@ -11,7 +12,12 @@ import { useEffect, useRef } from 'react'
 // to paint at the device pixel ratio so the canvas maps 1:1 to physical pixels
 // and the noise survives to the screen. Repainted (debounced) on resize / DPR
 // change; cost is a one-time pass.
-function paint(canvas: HTMLCanvasElement) {
+const GRADIENT_STOPS: Record<ResolvedTheme, [string, string, string]> = {
+  dark: ['#1f1f22', '#09090b', '#000000'],
+  light: ['#ffffff', '#f6f6f7', '#e9e9eb'],
+}
+
+function paint(canvas: HTMLCanvasElement, theme: ResolvedTheme) {
   const cssW = window.innerWidth
   const cssH = window.innerHeight
   if (cssW === 0 || cssH === 0) return
@@ -28,10 +34,11 @@ function paint(canvas: HTMLCanvasElement) {
   // Same stops as the old CSS gradient: circle at 0% 0%, farthest-corner.
   // Coordinates are in device pixels now, so the gradient scales naturally.
   const radius = Math.hypot(w, h)
+  const stops = GRADIENT_STOPS[theme]
   const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, radius)
-  gradient.addColorStop(0, '#1f1f22')
-  gradient.addColorStop(0.45, '#09090b')
-  gradient.addColorStop(1, '#000000')
+  gradient.addColorStop(0, stops[0])
+  gradient.addColorStop(0.45, stops[1])
+  gradient.addColorStop(1, stops[2])
   ctx.fillStyle = gradient
   ctx.fillRect(0, 0, w, h)
 
@@ -51,16 +58,17 @@ function paint(canvas: HTMLCanvasElement) {
 /** Shared full-screen workspace background: dithered radial gradient. */
 export default function AppBackground() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const theme = useThemeStore((s) => s.resolved)
 
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-    paint(canvas)
+    paint(canvas, theme)
 
     let timer: number | undefined
     const repaint = () => {
       window.clearTimeout(timer)
-      timer = window.setTimeout(() => paint(canvas), 150)
+      timer = window.setTimeout(() => paint(canvas, theme), 150)
     }
     window.addEventListener('resize', repaint)
     // Dragging the window between a Retina and non-Retina monitor changes the
@@ -73,13 +81,13 @@ export default function AppBackground() {
       dprQuery.removeEventListener?.('change', repaint)
       window.clearTimeout(timer)
     }
-  }, [])
+  }, [theme])
 
   return (
     <canvas
       ref={canvasRef}
       aria-hidden
-      className="pointer-events-none fixed inset-0 z-0 h-full w-full bg-[#09090b]"
+      className="pointer-events-none fixed inset-0 z-0 h-full w-full bg-surface-1"
     />
   )
 }

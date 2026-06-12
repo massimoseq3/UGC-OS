@@ -156,7 +156,7 @@ export default function BottomPlayer({ item, onClose, onShowDetails }: BottomPla
   const progressPct = duration > 0 ? (currentTime / duration) * 100 : 0
 
   return (
-    <div className="border-t border-white/5 bg-[#0A0A0A]">
+    <div className="border-t border-ink/5 bg-surface-1">
       <div className="flex items-center gap-4 px-5 py-3">
         {/* Voice avatar + meta */}
         <div className="flex min-w-0 w-[28%] items-center gap-3">
@@ -165,11 +165,11 @@ export default function BottomPlayer({ item, onClose, onShowDetails }: BottomPla
             style={{ background: seedColor(item.voiceId) }}
           />
           <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-medium text-zinc-100">
+            <div className="truncate text-sm font-medium text-ink-100">
               {item.scriptPreview}
             </div>
-            <div className="truncate text-[11px] text-zinc-500">
-              <span className="text-zinc-400">{item.voiceName}</span>
+            <div className="truncate text-[11px] text-ink-500">
+              <span className="text-ink-400">{item.voiceName}</span>
               {' · '}Created {formatRelative(item.createdAt)}
             </div>
           </div>
@@ -179,7 +179,7 @@ export default function BottomPlayer({ item, onClose, onShowDetails }: BottomPla
         <div className="flex flex-1 items-center gap-3">
           <button
             onClick={() => skip(-10)}
-            className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-white/5 hover:text-zinc-100"
+            className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ink-400 transition-colors hover:bg-ink/5 hover:text-ink-100"
             title="Back 10 seconds"
           >
             <RotateCcw className="h-4 w-4" />
@@ -187,21 +187,21 @@ export default function BottomPlayer({ item, onClose, onShowDetails }: BottomPla
           </button>
           <button
             onClick={togglePlay}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-900 transition-colors hover:bg-white"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ink-100 text-ink-900 transition-colors hover:bg-ink"
             title={isPlaying ? 'Pause' : 'Play'}
           >
             {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 translate-x-px" />}
           </button>
           <button
             onClick={() => skip(10)}
-            className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-white/5 hover:text-zinc-100"
+            className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ink-400 transition-colors hover:bg-ink/5 hover:text-ink-100"
             title="Forward 10 seconds"
           >
             <RotateCw className="h-4 w-4" />
             <span className="absolute text-[7px] font-bold">10</span>
           </button>
 
-          <span className="min-w-[36px] text-right text-[11px] tabular-nums text-zinc-500">
+          <span className="min-w-[36px] text-right text-[11px] tabular-nums text-ink-500">
             {formatTime(currentTime)}
           </span>
 
@@ -209,19 +209,19 @@ export default function BottomPlayer({ item, onClose, onShowDetails }: BottomPla
           <div
             ref={trackRef}
             onClick={seekFromEvent}
-            className="group relative h-1.5 flex-1 cursor-pointer rounded-full bg-white/[0.08]"
+            className="group relative h-1.5 flex-1 cursor-pointer rounded-full bg-ink/[0.08]"
           >
             <div
-              className="absolute inset-y-0 left-0 rounded-full bg-zinc-100"
+              className="absolute inset-y-0 left-0 rounded-full bg-ink-100"
               style={{ width: `${progressPct}%` }}
             />
             <div
-              className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-zinc-100 opacity-0 shadow transition-opacity group-hover:opacity-100"
+              className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-ink-100 opacity-0 shadow transition-opacity group-hover:opacity-100"
               style={{ left: `${progressPct}%` }}
             />
           </div>
 
-          <span className="min-w-[36px] text-[11px] tabular-nums text-zinc-500">
+          <span className="min-w-[36px] text-[11px] tabular-nums text-ink-500">
             {formatTime(duration)}
           </span>
         </div>
@@ -230,21 +230,21 @@ export default function BottomPlayer({ item, onClose, onShowDetails }: BottomPla
         <div className="flex shrink-0 items-center gap-1">
           <button
             onClick={() => onShowDetails(item)}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-200"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-200"
             title="Show details"
           >
             <AlignLeft className="h-3.5 w-3.5" />
           </button>
           <button
             onClick={handleDownload}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-200"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-200"
             title="Download"
           >
             <Download className="h-3.5 w-3.5" />
           </button>
           <button
             onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-200"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-200"
             title="Close player"
           >
             <ChevronDown className="h-4 w-4" />

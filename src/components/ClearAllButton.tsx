@@ -23,7 +23,7 @@ export default function ClearAllButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className={`text-[11px] text-zinc-500 underline decoration-zinc-600 underline-offset-2 transition-colors hover:text-zinc-300 hover:decoration-zinc-400 ${className}`}
+        className={`text-[11px] text-ink-500 underline decoration-ink-600 underline-offset-2 transition-colors hover:text-ink-300 hover:decoration-ink-400 ${className}`}
       >
         Clear All
       </button>
@@ -35,20 +35,20 @@ export default function ClearAllButton({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-xs rounded-2xl border border-white/10 bg-[#0c0c0e] p-5 shadow-2xl"
+            className="w-full max-w-xs rounded-2xl border border-ink/10 bg-surface-2 p-5 shadow-2xl"
           >
             <div className="flex flex-col items-center gap-1.5 text-center">
-              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-red-500/10 text-red-400">
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-red-500/10 text-red-400 light:text-red-600">
                 <XCircle className="h-6 w-6" strokeWidth={1.75} />
               </div>
-              <p className="mt-1 text-sm font-semibold tracking-tight text-zinc-100">Clear all?</p>
-              <p className="text-xs leading-relaxed text-zinc-400">{confirmBody}</p>
+              <p className="mt-1 text-sm font-semibold tracking-tight text-ink-100">Clear all?</p>
+              <p className="text-xs leading-relaxed text-ink-400">{confirmBody}</p>
             </div>
             <div className="mt-4 flex gap-2">
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="flex-1 rounded-full border border-white/10 py-2 text-xs font-medium text-zinc-300 transition-colors hover:bg-white/5"
+                className="flex-1 rounded-full border border-ink/10 py-2 text-xs font-medium text-ink-300 transition-colors hover:bg-ink/5"
               >
                 Cancel
               </button>

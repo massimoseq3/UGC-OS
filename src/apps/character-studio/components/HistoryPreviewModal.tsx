@@ -122,7 +122,7 @@ export default function HistoryPreviewModal({ item, onClose }: HistoryPreviewMod
         {showSaveForm ? (
           <div
             onClick={(e) => e.stopPropagation()}
-            className="flex w-full max-w-md shrink-0 items-center gap-2 rounded-full border border-white/10 bg-[#0B0B0D]/95 p-1.5 backdrop-blur"
+            className="flex w-full max-w-md shrink-0 items-center gap-2 rounded-full border border-ink/10 bg-surface-2/95 p-1.5 backdrop-blur"
           >
             <input
               autoFocus
@@ -133,7 +133,7 @@ export default function HistoryPreviewModal({ item, onClose }: HistoryPreviewMod
                 if (e.key === 'Escape') { setShowSaveForm(false); setName('') }
               }}
               placeholder="Influencer name…"
-              className="flex-1 rounded-full bg-transparent px-3 py-1.5 text-[12px] text-zinc-200 placeholder-zinc-600 outline-none"
+              className="flex-1 rounded-full bg-transparent px-3 py-1.5 text-[12px] text-ink-200 placeholder-ink-600 outline-none"
             />
             <button
               type="button"
@@ -148,7 +148,7 @@ export default function HistoryPreviewModal({ item, onClose }: HistoryPreviewMod
               type="button"
               onClick={() => { setShowSaveForm(false); setName('') }}
               disabled={saving}
-              className="rounded-full px-2 py-1.5 text-[12px] text-zinc-500 transition-colors hover:text-zinc-300 disabled:opacity-40"
+              className="rounded-full px-2 py-1.5 text-[12px] text-ink-500 transition-colors hover:text-ink-300 disabled:opacity-40"
               aria-label="Cancel"
             >
               <X className="h-3.5 w-3.5" />

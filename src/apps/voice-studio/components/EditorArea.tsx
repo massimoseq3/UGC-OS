@@ -52,17 +52,17 @@ export default function EditorArea({
             tabIndex={0}
             onClick={onSelectScript}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectScript() } }}
-            className="group flex w-full cursor-pointer items-center gap-3 rounded-full border border-white/10 bg-white/[0.02] px-4 py-3 transition-colors hover:border-white/20 hover:bg-white/[0.04]"
+            className="group flex w-full cursor-pointer items-center gap-3 rounded-full border border-ink/10 bg-ink/[0.02] px-4 py-3 transition-colors hover:border-ink/20 hover:bg-ink/[0.04]"
           >
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-voice-500/15 text-voice-300">
               <FileText className="h-4 w-4" />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-medium text-zinc-200">{selectedScript.title}</div>
-              <div className="truncate text-[11px] text-zinc-500">Script</div>
+              <div className="truncate text-sm font-medium text-ink-200">{selectedScript.title}</div>
+              <div className="truncate text-[11px] text-ink-500">Script</div>
             </div>
             <div className="flex shrink-0 items-center gap-1">
-              <span className="hidden items-center gap-1 rounded-md px-2 py-0.5 text-[10px] text-zinc-500 group-hover:flex">
+              <span className="hidden items-center gap-1 rounded-md px-2 py-0.5 text-[10px] text-ink-500 group-hover:flex">
                 <RefreshCw className="h-2.5 w-2.5" />
                 Change
               </span>
@@ -71,7 +71,7 @@ export default function EditorArea({
                 onClick={(e) => { e.stopPropagation(); onClearScript() }}
                 title="Remove script"
                 aria-label="Remove script"
-                className="flex h-6 w-6 items-center justify-center rounded-full text-zinc-500 transition-colors hover:bg-white/5 hover:text-red-400"
+                className="flex h-6 w-6 items-center justify-center rounded-full text-ink-500 transition-colors hover:bg-ink/5 hover:text-red-400 light:hover:text-red-600"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -81,23 +81,23 @@ export default function EditorArea({
           <button
             type="button"
             onClick={onSelectScript}
-            className="group flex items-center gap-3 rounded-full border border-dashed border-white/10 bg-white/[0.015] px-4 py-3 text-left transition-colors hover:border-white/20 hover:bg-white/[0.03]"
+            className="group flex items-center gap-3 rounded-full border border-dashed border-ink/10 bg-ink/[0.015] px-4 py-3 text-left transition-colors hover:border-ink/20 hover:bg-ink/[0.03]"
           >
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-voice-500/10 text-voice-300/80 transition-colors group-hover:bg-voice-500/15 group-hover:text-voice-300">
               <FileText className="h-4 w-4" />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-sm font-medium text-zinc-200">Script</div>
-              <div className="text-xs text-zinc-400">Click to select from bank</div>
+              <div className="text-sm font-medium text-ink-200">Script</div>
+              <div className="text-xs text-ink-400">Click to select from bank</div>
             </div>
           </button>
         )}
 
         {/* OR divider */}
         <div className="my-4 flex items-center gap-3">
-          <div className="h-px flex-1 bg-white/[0.07]" />
-          <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">or paste script manually</span>
-          <div className="h-px flex-1 bg-white/[0.07]" />
+          <div className="h-px flex-1 bg-ink/[0.07]" />
+          <span className="text-[10px] font-medium uppercase tracking-wider text-ink-600">or paste script manually</span>
+          <div className="h-px flex-1 bg-ink/[0.07]" />
         </div>
 
         {/* Textarea — borderless, full-bleed, minimal aesthetic */}
@@ -105,7 +105,7 @@ export default function EditorArea({
           value={scriptText}
           onChange={(e) => onScriptChange(e.target.value)}
           placeholder="Type or paste your ad script here to turn it into a voiceover..."
-          className={`flex-1 resize-none bg-transparent text-base leading-relaxed text-zinc-100 placeholder-zinc-600 outline-none ${
+          className={`flex-1 resize-none bg-transparent text-base leading-relaxed text-ink-100 placeholder-ink-600 outline-none ${
             highlightField === 'script' ? 'animate-field-flash' : ''
           }`}
         />
@@ -119,8 +119,8 @@ export default function EditorArea({
       {/* Error */}
       {error && (
         <div className="mx-5 mb-3 mt-4 flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2">
-          <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-400" />
-          <p className="text-xs leading-relaxed text-red-300">{error}</p>
+          <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-400 light:text-red-600" />
+          <p className="text-xs leading-relaxed text-red-300 light:text-red-700">{error}</p>
         </div>
       )}
 
@@ -135,11 +135,11 @@ export default function EditorArea({
       </div>
 
       {/* Footer row — pinned to viewport bottom on mobile so Generate is always reachable */}
-      <div className="fixed bottom-0 left-0 right-0 z-30 flex items-center justify-between border-t border-white/5 bg-[#050505]/95 px-5 py-5 backdrop-blur-xl md:static md:left-auto md:right-auto md:z-auto md:mt-4 md:bg-transparent md:backdrop-blur-none">
+      <div className="fixed bottom-0 left-0 right-0 z-30 flex items-center justify-between border-t border-ink/5 bg-surface-0/95 px-5 py-5 backdrop-blur-xl md:static md:left-auto md:right-auto md:z-auto md:mt-4 md:bg-transparent md:backdrop-blur-none">
         {/* Left — character count */}
-        <div className={`text-sm tabular-nums ${overLimit ? 'text-red-400' : 'text-zinc-400'}`}>
-          <span className={overLimit ? 'text-red-300' : 'text-zinc-200'}>{charCount.toLocaleString()}</span>
-          <span className="text-zinc-500"> / {MAX_CHARACTERS.toLocaleString()} characters</span>
+        <div className={`text-sm tabular-nums ${overLimit ? 'text-red-400 light:text-red-600' : 'text-ink-400'}`}>
+          <span className={overLimit ? 'text-red-300 light:text-red-700' : 'text-ink-200'}>{charCount.toLocaleString()}</span>
+          <span className="text-ink-500"> / {MAX_CHARACTERS.toLocaleString()} characters</span>
         </div>
 
         {/* Right — download + generate */}
@@ -147,7 +147,7 @@ export default function EditorArea({
           <button
             onClick={onDownloadLatest}
             disabled={!hasLatest}
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 text-zinc-300 transition-colors hover:bg-white/5 hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-ink/10 text-ink-300 transition-colors hover:bg-ink/5 hover:text-ink-100 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
             title="Download latest"
           >
             <Download className="h-4 w-4" />

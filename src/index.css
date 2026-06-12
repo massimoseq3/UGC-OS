@@ -1,11 +1,46 @@
 @import "tailwindcss";
 
+/* Light-mode variant for one-off per-component tweaks (e.g. light:shadow-sm).
+   Most theming flows through the semantic tokens below — reach for `light:`
+   only when a token flip can't express the difference. */
+@custom-variant light (&:where([data-theme="light"], [data-theme="light"] *));
+
 /* Per-app accent palettes. Each app's UI references its own family
    (bg-influencers-500, text-voice-300, …) so changing an app's accent is a
    one-line edit here (plus the hex in utils/constants.ts for sidebar/bank
    chrome). Shades are derived from the base with color-mix so the ramp
    stays consistent. */
 @theme {
+  /* ---- Semantic theme tokens (dark values are the defaults; light-mode
+     overrides live in the [data-theme="light"] block below). ----
+     ink    — the foreground "chrome" color: borders, hover fills, hairlines,
+              and high-emphasis text. White on dark, near-black on light.
+              Use with opacity (border-ink/10, hover:bg-ink/5) where the old
+              code used white/10 etc.
+     paper  — ink's inverse, for text sitting ON an ink-filled element
+              (bg-ink text-paper buttons).
+     surface-0/1/2 — page → panel → popover elevation. Dark mode darkens the
+              base; light mode brightens toward white as elevation rises.
+     ink-50…900 — the text hierarchy. In dark mode these alias zinc (ink-100
+              = zinc-100 bright text … ink-700 = zinc-700 dim); in light mode
+              the ramp is mirrored so relative emphasis is preserved. */
+  --color-ink: #ffffff;
+  --color-paper: #000000;
+  --color-surface-0: #050505;
+  --color-surface-1: #0a0a0a;
+  --color-surface-2: #0b0b0d;
+  --color-ink-50: #fafafa;
+  --color-ink-100: #f4f4f5;
+  --color-ink-200: #e4e4e7;
+  --color-ink-300: #d4d4d8;
+  --color-ink-400: #a1a1aa;
+  --color-ink-500: #71717a;
+  --color-ink-600: #52525b;
+  --color-ink-700: #3f3f46;
+  --color-ink-800: #27272a;
+  --color-ink-900: #18181b;
+  --color-ink-950: #09090b;
+
   /* Influencers — pink #F74F9E */
   --color-influencers-100: color-mix(in oklab, #F74F9E 25%, white);
   --color-influencers-200: color-mix(in oklab, #F74F9E 40%, white);
@@ -50,6 +85,67 @@
   --color-analyzer-500: #FF5257;
 }
 
+/* ---- Light mode ----
+   Set via data-theme on <html> (see index.html bootstrap script +
+   stores/themeStore.ts). This block is unlayered so it wins over the
+   @layer theme defaults above. Accent ramps mirror: tints that mixed
+   toward white (readable on dark) mix toward black instead, keeping the
+   same relative emphasis on light surfaces. */
+:root {
+  color-scheme: dark;
+  background: var(--color-surface-0);
+}
+[data-theme="light"] {
+  color-scheme: light;
+
+  --color-ink: #09090b;
+  --color-paper: #ffffff;
+  --color-surface-0: #f4f4f5;
+  --color-surface-1: #fafafa;
+  --color-surface-2: #ffffff;
+  --color-ink-50: #09090b;
+  --color-ink-100: #18181b;
+  --color-ink-200: #27272a;
+  --color-ink-300: #3f3f46;
+  --color-ink-400: #52525b;
+  --color-ink-500: #71717a;
+  --color-ink-600: #a1a1aa;
+  --color-ink-700: #d4d4d8;
+  --color-ink-800: #e4e4e7;
+  --color-ink-900: #f4f4f5;
+  --color-ink-950: #fafafa;
+
+  --color-influencers-100: color-mix(in oklab, #F74F9E 35%, black);
+  --color-influencers-200: color-mix(in oklab, #F74F9E 50%, black);
+  --color-influencers-300: color-mix(in oklab, #F74F9E 70%, black);
+  --color-influencers-400: color-mix(in oklab, #F74F9E 95%, black);
+  --color-influencers-600: color-mix(in oklab, #F74F9E 85%, black);
+
+  --color-scripts-100: color-mix(in oklab, #F7821B 35%, black);
+  --color-scripts-200: color-mix(in oklab, #F7821B 50%, black);
+  --color-scripts-300: color-mix(in oklab, #F7821B 70%, black);
+  --color-scripts-400: color-mix(in oklab, #F7821B 95%, black);
+  --color-scripts-600: color-mix(in oklab, #F7821B 85%, black);
+
+  --color-voice-100: color-mix(in oklab, #007AFF 35%, black);
+  --color-voice-200: color-mix(in oklab, #007AFF 50%, black);
+  --color-voice-300: color-mix(in oklab, #007AFF 70%, black);
+  --color-voice-400: color-mix(in oklab, #007AFF 95%, black);
+  --color-voice-600: color-mix(in oklab, #007AFF 85%, black);
+
+  --color-broll-100: color-mix(in oklab, #7165FF 35%, black);
+  --color-broll-200: color-mix(in oklab, #7165FF 50%, black);
+  --color-broll-300: color-mix(in oklab, #7165FF 70%, black);
+  --color-broll-400: color-mix(in oklab, #7165FF 95%, black);
+  --color-broll-600: color-mix(in oklab, #7165FF 85%, black);
+
+  --color-playground-100: color-mix(in oklab, #62BA46 35%, black);
+  --color-playground-200: color-mix(in oklab, #62BA46 50%, black);
+  --color-playground-300: color-mix(in oklab, #62BA46 70%, black);
+  --color-playground-400: color-mix(in oklab, #62BA46 95%, black);
+  --color-playground-600: color-mix(in oklab, #62BA46 85%, black);
+}
+
 html,
 body,
 #root {
@@ -87,11 +183,11 @@ select {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: color-mix(in srgb, var(--color-ink) 10%, transparent);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: color-mix(in srgb, var(--color-ink) 20%, transparent);
 }
 
 /* Hide scrollbars but preserve scroll behavior — used for tab strips and
@@ -113,9 +209,9 @@ select {
 .skeleton {
   background: linear-gradient(
     90deg,
-    rgba(255, 255, 255, 0.03) 0%,
-    rgba(255, 255, 255, 0.06) 50%,
-    rgba(255, 255, 255, 0.03) 100%
+    color-mix(in srgb, var(--color-ink) 3%, transparent) 0%,
+    color-mix(in srgb, var(--color-ink) 6%, transparent) 50%,
+    color-mix(in srgb, var(--color-ink) 3%, transparent) 100%
   );
   background-size: 200% 100%;
   animation: shimmer 1.8s ease-in-out infinite;
@@ -176,10 +272,10 @@ select {
   border-radius: 9999px;
   background: linear-gradient(
     to right,
-    rgba(255, 255, 255, 0.85) 0%,
-    rgba(255, 255, 255, 0.85) var(--slider-pct, 50%),
-    rgba(255, 255, 255, 0.12) var(--slider-pct, 50%),
-    rgba(255, 255, 255, 0.12) 100%
+    color-mix(in srgb, var(--color-ink) 85%, transparent) 0%,
+    color-mix(in srgb, var(--color-ink) 85%, transparent) var(--slider-pct, 50%),
+    color-mix(in srgb, var(--color-ink) 12%, transparent) var(--slider-pct, 50%),
+    color-mix(in srgb, var(--color-ink) 12%, transparent) 100%
   );
 }
 .slider-thin::-webkit-slider-thumb {
@@ -188,7 +284,7 @@ select {
   width: 12px;
   height: 12px;
   border-radius: 9999px;
-  background: white;
+  background: var(--color-ink);
   cursor: pointer;
   border: none;
   margin-top: -5px; /* center on the 2px track */
@@ -201,18 +297,18 @@ select {
 .slider-thin::-moz-range-track {
   height: 2px;
   border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.12);
+  background: color-mix(in srgb, var(--color-ink) 12%, transparent);
 }
 .slider-thin::-moz-range-progress {
   height: 2px;
   border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.85);
+  background: color-mix(in srgb, var(--color-ink) 85%, transparent);
 }
 .slider-thin::-moz-range-thumb {
   width: 12px;
   height: 12px;
   border-radius: 9999px;
-  background: white;
+  background: var(--color-ink);
   cursor: pointer;
   border: none;
   transition: transform 120ms ease-out;

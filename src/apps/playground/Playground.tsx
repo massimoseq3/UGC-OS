@@ -389,7 +389,7 @@ export default function Playground() {
       <div className="flex flex-1 flex-col md:min-h-0 md:flex-row">
         {/* Left — prompt panel. On mobile we still want controls above the
             grid, so the panel comes first in source order regardless. */}
-        <div className="flex w-full md:w-[400px] shrink-0 flex-col border-b md:border-b-0 md:border-r border-white/5">
+        <div className="flex w-full md:w-[400px] shrink-0 flex-col border-b md:border-b-0 md:border-r border-ink/5">
           <PromptPanel
             state={state}
             onChange={setState}

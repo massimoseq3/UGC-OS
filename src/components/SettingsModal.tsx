@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { X, Eye, EyeOff, Key, Check, ExternalLink, Loader2, AlertCircle, HardDrive, Trash2, LogOut, User } from 'lucide-react'
+import { X, Eye, EyeOff, Key, Check, ExternalLink, Loader2, AlertCircle, HardDrive, Trash2, LogOut, User, Sun, Moon, Monitor, Palette } from 'lucide-react'
 import { useSettingsStore } from '../stores/settingsStore'
+import { useThemeStore, type ThemePref } from '../stores/themeStore'
 import { useAuthStore } from '../stores/authStore'
 import { isCloudEnabled } from '../lib/supabase'
 import { kieTestConnection } from '../utils/kie'
@@ -147,17 +148,17 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md mx-4 lg:mx-0 max-h-[90vh] overflow-y-auto rounded-xl border border-white/10 bg-[#0A0A0A] p-5 lg:p-6 shadow-2xl"
+        className="w-full max-w-md mx-4 lg:mx-0 max-h-[90vh] overflow-y-auto rounded-xl border border-ink/10 bg-surface-1 p-5 lg:p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold tracking-tight text-zinc-100">Settings</h2>
+            <h2 className="text-lg font-semibold tracking-tight text-ink-100">Settings</h2>
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-300"
+            className="rounded-lg p-1.5 text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-300"
           >
             <X className="h-4 w-4" />
           </button>
@@ -166,15 +167,15 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
         {/* kie.ai key */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <label className="flex items-center gap-2 text-sm font-medium text-zinc-300">
-              <Key className="h-3.5 w-3.5 text-zinc-500" />
+            <label className="flex items-center gap-2 text-sm font-medium text-ink-300">
+              <Key className="h-3.5 w-3.5 text-ink-500" />
               kie.ai API Key
             </label>
             <a
               href="https://kie.ai/api-key"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1 text-[11px] text-zinc-500 transition-colors hover:text-zinc-300"
+              className="flex items-center gap-1 text-[11px] text-ink-500 transition-colors hover:text-ink-300"
             >
               Get key
               <ExternalLink className="h-3 w-3" />
@@ -189,18 +190,18 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                 setTestResult(null)
               }}
               placeholder="sk-..."
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 pr-10 text-sm text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-white/20 focus:bg-white/[0.07]"
+              className="w-full rounded-lg border border-ink/10 bg-ink/5 px-3 py-2.5 pr-10 text-sm text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-ink/20 focus:bg-ink/[0.07]"
             />
             <button
               type="button"
               onClick={() => setShowKie(!showKie)}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 transition-colors hover:text-zinc-300"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-500 transition-colors hover:text-ink-300"
             >
               {showKie ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
 
-          <p className="text-[11px] leading-relaxed text-zinc-500">
+          <p className="text-[11px] leading-relaxed text-ink-500">
             Stored only in this browser. Do not share with anyone.
           </p>
 
@@ -208,9 +209,9 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
             type="button"
             onClick={handleTest}
             disabled={!kieDraft.trim() || testing}
-            className="flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-[12px] font-medium text-zinc-200 transition-colors hover:border-white/20 hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white/[0.03]"
+            className="flex items-center justify-center gap-2 rounded-lg border border-ink/10 bg-ink/[0.03] px-3 py-2 text-[12px] font-medium text-ink-200 transition-colors hover:border-ink/20 hover:bg-ink/[0.06] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-ink/[0.03]"
           >
-            {testing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 text-zinc-400" />}
+            {testing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 text-ink-400" />}
             {testing ? 'Testing connection…' : 'Test connection'}
           </button>
 
@@ -245,8 +246,8 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                 saved
                   ? 'bg-emerald-500/15 text-emerald-300'
                   : primary
-                    ? 'bg-white text-zinc-900 hover:bg-zinc-200'
-                    : 'bg-white/10 text-zinc-400 disabled:cursor-not-allowed disabled:opacity-60'
+                    ? 'bg-ink text-ink-900 hover:bg-ink-200'
+                    : 'bg-ink/10 text-ink-400 disabled:cursor-not-allowed disabled:opacity-60'
               }`}
             >
               {saving ? (
@@ -266,18 +267,27 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
           )
         })()}
 
+        {/* Appearance — Dark / Light / System */}
+        <div className="mt-6 border-t border-ink/5 pt-5">
+          <div className="flex items-center gap-2">
+            <Palette className="h-3.5 w-3.5 text-ink-500" />
+            <span className="text-sm font-medium text-ink-300">Appearance</span>
+          </div>
+          <ThemeToggle className="mt-3" />
+        </div>
+
         {/* Storage card — only when cloud is active */}
         {cloudOn && (
-          <div className="mt-6 border-t border-white/5 pt-5">
+          <div className="mt-6 border-t border-ink/5 pt-5">
             <div className="flex items-center gap-2">
-              <HardDrive className="h-3.5 w-3.5 text-zinc-500" />
-              <span className="text-sm font-medium text-zinc-300">Storage</span>
+              <HardDrive className="h-3.5 w-3.5 text-ink-500" />
+              <span className="text-sm font-medium text-ink-300">Storage</span>
             </div>
 
             {/* Usage bar */}
             <div className="mt-3 space-y-1.5">
               {usageLoading ? (
-                <div className="flex items-center gap-2 text-[11px] text-zinc-500">
+                <div className="flex items-center gap-2 text-[11px] text-ink-500">
                   <Loader2 className="h-3 w-3 animate-spin" />
                   Checking usage…
                 </div>
@@ -289,15 +299,15 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
               ) : (
                 <>
                   <div className="flex items-baseline justify-between text-[12px]">
-                    <span className="text-zinc-200 font-medium">
+                    <span className="text-ink-200 font-medium">
                       {formatBytes(usedBytes)}
-                      <span className="text-zinc-500"> of {formatBytes(STORAGE_CAP_BYTES)}</span>
+                      <span className="text-ink-500"> of {formatBytes(STORAGE_CAP_BYTES)}</span>
                     </span>
-                    <span className="text-[10px] text-zinc-500">
+                    <span className="text-[10px] text-ink-500">
                       {usage?.assetCount ?? 0} {usage?.assetCount === 1 ? 'asset' : 'assets'}
                     </span>
                   </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.05]">
+                  <div className="h-1.5 overflow-hidden rounded-full bg-ink/[0.05]">
                     <div className={`h-full ${barColor} transition-all`} style={{ width: `${pct}%` }} />
                   </div>
                   {pct >= 90 && (
@@ -310,8 +320,8 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
             </div>
 
             {/* Manual orphan cleanup (auto-cleanup runs on sign-in; this is a power-user fallback) */}
-            <div className="mt-4 rounded-lg border border-white/5 bg-white/[0.02] p-3">
-              <div className="text-[11px] text-zinc-500">
+            <div className="mt-4 rounded-lg border border-ink/5 bg-ink/[0.02] p-3">
+              <div className="text-[11px] text-ink-500">
                 Removes files in your cloud storage that no item in your banks references. Cleanup runs automatically when you sign in — this button is for on-demand sweeps.
               </div>
 
@@ -319,7 +329,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                 <button
                   type="button"
                   onClick={() => setStorage({ phase: 'confirming' })}
-                  className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 py-1.5 text-[12px] font-medium text-zinc-300 transition-colors hover:bg-white/[0.05]"
+                  className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-ink/10 py-1.5 text-[12px] font-medium text-ink-300 transition-colors hover:bg-ink/[0.05]"
                 >
                   Clean up storage
                 </button>
@@ -351,7 +361,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     <button
                       type="button"
                       onClick={() => setStorage({ phase: 'idle' })}
-                      className="rounded-md border border-white/10 px-2 py-1.5 text-[11px] text-zinc-300 transition-colors hover:bg-white/[0.05]"
+                      className="rounded-md border border-ink/10 px-2 py-1.5 text-[11px] text-ink-300 transition-colors hover:bg-ink/[0.05]"
                     >
                       Cancel
                     </button>
@@ -363,7 +373,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                 <button
                   type="button"
                   disabled
-                  className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 py-1.5 text-[12px] font-medium text-zinc-400"
+                  className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-ink/10 py-1.5 text-[12px] font-medium text-ink-400"
                 >
                   <Loader2 className="h-3 w-3 animate-spin" />
                   Scanning…
@@ -372,7 +382,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
 
               {storage.phase === 'scanned' && (
                 <div className="mt-2 space-y-2">
-                  <div className="rounded-md bg-white/[0.03] px-2.5 py-1.5 text-[11px] text-zinc-300">
+                  <div className="rounded-md bg-ink/[0.03] px-2.5 py-1.5 text-[11px] text-ink-300">
                     {storage.orphans.length === 0 ? (
                       <span className="flex items-center gap-1.5 text-emerald-400">
                         <Check className="h-3 w-3" />
@@ -380,7 +390,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                       </span>
                     ) : (
                       <>
-                        Found <span className="font-mono text-zinc-100">{storage.orphans.length}</span> orphan{storage.orphans.length === 1 ? '' : 's'} ({formatBytes(storage.totalBytes)}).
+                        Found <span className="font-mono text-ink-100">{storage.orphans.length}</span> orphan{storage.orphans.length === 1 ? '' : 's'} ({formatBytes(storage.totalBytes)}).
                       </>
                     )}
                   </div>
@@ -390,12 +400,12 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                       <button
                         type="button"
                         onClick={() => setShowOrphanList((v) => !v)}
-                        className="text-[10px] text-zinc-400 transition-colors hover:text-zinc-200"
+                        className="text-[10px] text-ink-400 transition-colors hover:text-ink-200"
                       >
                         {showOrphanList ? 'Hide' : 'Show'} details
                       </button>
                       {showOrphanList && (
-                        <div className="max-h-24 overflow-y-auto rounded-md border border-white/10 bg-white/[0.02] p-1.5 text-[9px] font-mono text-zinc-500">
+                        <div className="max-h-24 overflow-y-auto rounded-md border border-ink/10 bg-ink/[0.02] p-1.5 text-[9px] font-mono text-ink-500">
                           {storage.orphans.map((o) => (
                             <div key={o.id} className="truncate">
                               {o.id} · {formatBytes(Number(o.byte_size ?? 0))} · {o.mime_type}
@@ -415,7 +425,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                         <button
                           type="button"
                           onClick={() => setStorage({ phase: 'idle' })}
-                          className="rounded-md border border-white/10 px-2 py-1.5 text-[11px] text-zinc-300 transition-colors hover:bg-white/[0.05]"
+                          className="rounded-md border border-ink/10 px-2 py-1.5 text-[11px] text-ink-300 transition-colors hover:bg-ink/[0.05]"
                         >
                           Cancel
                         </button>
@@ -427,7 +437,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     <button
                       type="button"
                       onClick={() => setStorage({ phase: 'idle' })}
-                      className="text-[10px] text-zinc-400 transition-colors hover:text-zinc-200"
+                      className="text-[10px] text-ink-400 transition-colors hover:text-ink-200"
                     >
                       Done
                     </button>
@@ -436,12 +446,12 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
               )}
 
               {storage.phase === 'purging' && (
-                <div className="mt-2 rounded-md bg-white/[0.03] px-2.5 py-2 text-[11px] text-zinc-300">
+                <div className="mt-2 rounded-md bg-ink/[0.03] px-2.5 py-2 text-[11px] text-ink-300">
                   <div className="flex items-center gap-2">
-                    <Loader2 className="h-3 w-3 animate-spin text-zinc-400" />
+                    <Loader2 className="h-3 w-3 animate-spin text-ink-400" />
                     Cleaning… {storage.done} of {storage.total}
                   </div>
-                  <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-white/[0.04]">
+                  <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-ink/[0.04]">
                     <div
                       className="h-full bg-emerald-400/60 transition-all"
                       style={{ width: `${storage.total === 0 ? 0 : Math.round((storage.done / storage.total) * 100)}%` }}
@@ -459,7 +469,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                   <button
                     type="button"
                     onClick={() => setStorage({ phase: 'idle' })}
-                    className="text-[10px] text-zinc-400 transition-colors hover:text-zinc-200"
+                    className="text-[10px] text-ink-400 transition-colors hover:text-ink-200"
                   >
                     Done
                   </button>
@@ -475,7 +485,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                   <button
                     type="button"
                     onClick={() => setStorage({ phase: 'idle' })}
-                    className="text-[10px] text-zinc-400 transition-colors hover:text-zinc-200"
+                    className="text-[10px] text-ink-400 transition-colors hover:text-ink-200"
                   >
                     Try again
                   </button>
@@ -486,7 +496,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
         )}
 
         {/* Legal — compact inline footer, docs open in a new tab */}
-        <div className="mt-6 flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-white/5 pt-4 text-[11px] text-zinc-500">
+        <div className="mt-6 flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-ink/5 pt-4 text-[11px] text-ink-500">
           {[
             { href: '/legal/terms', label: 'Terms' },
             { href: '/legal/privacy', label: 'Privacy' },
@@ -494,12 +504,12 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
             { href: '/legal/dmca', label: 'DMCA' },
           ].map((item, i) => (
             <span key={item.href} className="flex items-center gap-2">
-              {i > 0 && <span className="text-zinc-700">·</span>}
+              {i > 0 && <span className="text-ink-700">·</span>}
               <a
                 href={item.href}
                 target="_blank"
                 rel="noreferrer"
-                className="transition-colors hover:text-zinc-300"
+                className="transition-colors hover:text-ink-300"
               >
                 {item.label}
               </a>
@@ -509,23 +519,23 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
 
         {/* Account card — email + sign out, only when signed in */}
         {cloudOn && profile && (
-          <div className="mt-6 border-t border-white/5 pt-5">
+          <div className="mt-6 border-t border-ink/5 pt-5">
             <div className="flex items-center gap-2">
-              <User className="h-3.5 w-3.5 text-zinc-500" />
-              <span className="text-sm font-medium text-zinc-300">Account</span>
+              <User className="h-3.5 w-3.5 text-ink-500" />
+              <span className="text-sm font-medium text-ink-300">Account</span>
             </div>
-            <div className="mt-3 flex items-center gap-3 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2.5">
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-500 to-orange-500 text-[12px] font-semibold text-white">
+            <div className="mt-3 flex items-center gap-3 rounded-lg border border-ink/5 bg-ink/[0.02] px-3 py-2.5">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-500 to-orange-500 text-[12px] font-semibold text-ink">
                 {(profile.email[0] || '?').toUpperCase()}
               </span>
-              <span className="min-w-0 flex-1 truncate text-[12px] text-zinc-300">
+              <span className="min-w-0 flex-1 truncate text-[12px] text-ink-300">
                 {profile.email}
               </span>
             </div>
             <button
               type="button"
               onClick={() => { onClose(); signOut() }}
-              className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 py-2 text-[12px] font-medium text-zinc-300 transition-colors hover:bg-white/[0.05]"
+              className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-ink/10 py-2 text-[12px] font-medium text-ink-300 transition-colors hover:bg-ink/[0.05]"
             >
               <LogOut className="h-3.5 w-3.5" />
               Sign out
@@ -533,6 +543,37 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+const THEME_OPTIONS: Array<{ value: ThemePref; label: string; icon: typeof Sun }> = [
+  { value: 'dark', label: 'Dark', icon: Moon },
+  { value: 'light', label: 'Light', icon: Sun },
+  { value: 'system', label: 'System', icon: Monitor },
+]
+
+function ThemeToggle({ className = '' }: { className?: string }) {
+  const pref = useThemeStore((s) => s.pref)
+  const setPref = useThemeStore((s) => s.setPref)
+
+  return (
+    <div className={`flex gap-1 rounded-lg border border-ink/10 bg-ink/[0.03] p-1 ${className}`}>
+      {THEME_OPTIONS.map(({ value, label, icon: Icon }) => (
+        <button
+          key={value}
+          type="button"
+          onClick={() => setPref(value)}
+          className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-1.5 text-[12px] font-medium transition-colors ${
+            pref === value
+              ? 'bg-ink/10 text-ink-100'
+              : 'text-ink-500 hover:bg-ink/5 hover:text-ink-300'
+          }`}
+        >
+          <Icon className="h-3.5 w-3.5" />
+          {label}
+        </button>
+      ))}
     </div>
   )
 }

@@ -346,7 +346,7 @@ export default function AllowlistEditor() {
 
   return (
     <div className="space-y-4">
-      <p className="text-[12px] text-zinc-500">
+      <p className="text-[12px] text-ink-500">
         Emails on this list can sign up. Until your Zapier zap is wired, you can bulk-import a Skool members CSV — and re-upload it later with sync mode enabled to also remove members who left. Removing an email also signs out and disables the matching account.
       </p>
 
@@ -357,19 +357,19 @@ export default function AllowlistEditor() {
           onChange={(e) => setDraftEmail(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') handleAdd() }}
           placeholder="email@example.com"
-          className="min-w-[220px] flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[12px] text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-white/20 focus:bg-white/[0.07]"
+          className="min-w-[220px] flex-1 rounded-lg border border-ink/10 bg-ink/5 px-3 py-2 text-[12px] text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-ink/20 focus:bg-ink/[0.07]"
         />
         <button
           onClick={handleAdd}
           disabled={!draftEmail.trim() || adding}
-          className="flex items-center gap-1.5 rounded-lg bg-white py-2 px-3 text-[12px] font-medium text-zinc-900 transition-colors hover:bg-zinc-100 disabled:opacity-60"
+          className="flex items-center gap-1.5 rounded-lg bg-ink py-2 px-3 text-[12px] font-medium text-ink-900 transition-colors hover:bg-ink-100 disabled:opacity-60"
         >
           {adding ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
           Add
         </button>
         <button
           onClick={pickFile}
-          className="flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/[0.04] py-2 px-3 text-[12px] font-medium text-zinc-200 transition-colors hover:bg-white/[0.08]"
+          className="flex items-center gap-1.5 rounded-lg border border-ink/15 bg-ink/[0.04] py-2 px-3 text-[12px] font-medium text-ink-200 transition-colors hover:bg-ink/[0.08]"
           title="Bulk-import emails from a CSV (e.g. Skool member export)"
         >
           <Upload className="h-3 w-3" />
@@ -382,29 +382,29 @@ export default function AllowlistEditor() {
           onChange={onFileChosen}
           className="hidden"
         />
-        <button onClick={load} className="flex items-center gap-1.5 rounded-md border border-white/10 px-2.5 py-2 text-[11px] text-zinc-300 transition-colors hover:bg-white/[0.05]">
+        <button onClick={load} className="flex items-center gap-1.5 rounded-md border border-ink/10 px-2.5 py-2 text-[11px] text-ink-300 transition-colors hover:bg-ink/[0.05]">
           <RefreshCw className="h-3 w-3" />
         </button>
       </div>
 
       {error && (
         <div className="space-y-2">
-          <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-[12px] text-red-300">{error}</div>
-          <button onClick={load} className="flex items-center gap-1.5 rounded-md border border-white/10 px-2.5 py-1 text-[11px] text-zinc-300 transition-colors hover:bg-white/[0.05]">
+          <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-[12px] text-red-300 light:text-red-700">{error}</div>
+          <button onClick={load} className="flex items-center gap-1.5 rounded-md border border-ink/10 px-2.5 py-1 text-[11px] text-ink-300 transition-colors hover:bg-ink/[0.05]">
             <RefreshCw className="h-3 w-3" /> Try again
           </button>
         </div>
       )}
 
       {loading ? (
-        <div className="flex h-32 flex-col items-center justify-center gap-2 text-zinc-500">
+        <div className="flex h-32 flex-col items-center justify-center gap-2 text-ink-500">
           <Loader2 className="h-4 w-4 animate-spin" />
           {slowHint && <span className="text-[11px]">Still loading… will time out if it stalls.</span>}
         </div>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-white/10">
+        <div className="overflow-hidden rounded-lg border border-ink/10">
           <table className="w-full text-[12px]">
-            <thead className="bg-white/[0.03] text-[11px] uppercase tracking-wider text-zinc-500">
+            <thead className="bg-ink/[0.03] text-[11px] uppercase tracking-wider text-ink-500">
               <tr>
                 <th className="px-3 py-2 text-left font-medium">Name</th>
                 <th className="px-3 py-2 text-left font-medium">Email</th>
@@ -413,24 +413,24 @@ export default function AllowlistEditor() {
                 <th className="px-3 py-2 text-right font-medium"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
+            <tbody className="divide-y divide-ink/5">
               {rows.length === 0 && (
-                <tr><td colSpan={5} className="px-3 py-6 text-center text-zinc-500">Empty — Zapier zap not yet wired, or no members yet.</td></tr>
+                <tr><td colSpan={5} className="px-3 py-6 text-center text-ink-500">Empty — Zapier zap not yet wired, or no members yet.</td></tr>
               )}
               {rows.map((r) => {
                 const fullName = [r.first_name, r.last_name].filter(Boolean).join(' ')
                 return (
                 <tr key={r.email}>
-                  <td className="px-3 py-2 text-zinc-200">
-                    {fullName || <span className="text-zinc-600">—</span>}
+                  <td className="px-3 py-2 text-ink-200">
+                    {fullName || <span className="text-ink-600">—</span>}
                   </td>
-                  <td className="px-3 py-2 text-zinc-200">{r.email}</td>
-                  <td className="px-3 py-2 text-zinc-400">{r.source}</td>
-                  <td className="px-3 py-2 text-zinc-400">{new Date(r.added_at).toLocaleDateString()}</td>
+                  <td className="px-3 py-2 text-ink-200">{r.email}</td>
+                  <td className="px-3 py-2 text-ink-400">{r.source}</td>
+                  <td className="px-3 py-2 text-ink-400">{new Date(r.added_at).toLocaleDateString()}</td>
                   <td className="px-3 py-2 text-right">
                     <button
                       onClick={() => handleDelete(r.email)}
-                      className="rounded-md p-1.5 text-zinc-500 transition-colors hover:bg-red-500/10 hover:text-red-300"
+                      className="rounded-md p-1.5 text-ink-500 transition-colors hover:bg-red-500/10 hover:text-red-300 light:hover:text-red-700"
                       title="Remove"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -484,13 +484,13 @@ function ImportPreviewModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0B0B0D] p-5 shadow-2xl">
+      <div className="w-full max-w-md rounded-2xl border border-ink/10 bg-surface-2 p-5 shadow-2xl">
         <div className="flex items-start justify-between">
           <div>
-            <h3 className="text-sm font-semibold text-zinc-100">Import preview</h3>
-            <p className="mt-0.5 text-[11px] text-zinc-500">From <span className="text-zinc-300">{preview.fileName}</span></p>
+            <h3 className="text-sm font-semibold text-ink-100">Import preview</h3>
+            <p className="mt-0.5 text-[11px] text-ink-500">From <span className="text-ink-300">{preview.fileName}</span></p>
           </div>
-          <button onClick={onCancel} className="rounded-md p-1 text-zinc-500 transition-colors hover:bg-white/[0.05] hover:text-zinc-200">
+          <button onClick={onCancel} className="rounded-md p-1 text-ink-500 transition-colors hover:bg-ink/[0.05] hover:text-ink-200">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -511,16 +511,16 @@ function ImportPreviewModal({
 
         {preview.newEntries.length > 0 && (
           <details className="mt-3" open>
-            <summary className="cursor-pointer text-[11px] text-zinc-400 hover:text-zinc-200">
+            <summary className="cursor-pointer text-[11px] text-ink-400 hover:text-ink-200">
               New emails ({preview.newEntries.length})
             </summary>
-            <div className="mt-1 max-h-32 overflow-y-auto rounded-lg border border-white/10 bg-white/[0.02] p-2 text-[11px] text-zinc-400">
+            <div className="mt-1 max-h-32 overflow-y-auto rounded-lg border border-ink/10 bg-ink/[0.02] p-2 text-[11px] text-ink-400">
               {preview.newEntries.map((e) => {
                 const name = [e.firstName, e.lastName].filter(Boolean).join(' ')
                 return (
                   <div key={e.email} className="flex items-baseline justify-between gap-2 truncate">
                     <span className="truncate">{e.email}</span>
-                    {name && <span className="shrink-0 text-zinc-600">{name}</span>}
+                    {name && <span className="shrink-0 text-ink-600">{name}</span>}
                   </div>
                 )
               })}
@@ -529,9 +529,9 @@ function ImportPreviewModal({
         )}
 
         {preview.invalid.length > 0 && (
-          <details className="mt-2 text-[11px] text-zinc-500">
-            <summary className="cursor-pointer hover:text-zinc-300">Show invalid rows ({preview.invalid.length})</summary>
-            <div className="mt-1 max-h-24 overflow-y-auto rounded-lg border border-amber-500/20 bg-amber-500/5 p-2 font-mono text-[10px] text-amber-200/90">
+          <details className="mt-2 text-[11px] text-ink-500">
+            <summary className="cursor-pointer hover:text-ink-300">Show invalid rows ({preview.invalid.length})</summary>
+            <div className="mt-1 max-h-24 overflow-y-auto rounded-lg border border-amber-500/20 bg-amber-500/5 p-2 font-mono text-[10px] text-amber-200/90 light:text-amber-800/90">
               {preview.invalid.map((e, i) => <div key={i} className="truncate">{e || '<empty>'}</div>)}
             </div>
           </details>
@@ -547,20 +547,20 @@ function ImportPreviewModal({
                 className="mt-0.5 h-3.5 w-3.5 accent-red-400"
               />
               <div className="flex-1">
-                <div className="text-[12px] font-medium text-red-200">
+                <div className="text-[12px] font-medium text-red-200 light:text-red-800">
                   Sync mode — also remove {preview.removable.length} {preview.removable.length === 1 ? 'email' : 'emails'} not in this CSV
                 </div>
-                <div className="mt-0.5 text-[11px] text-red-300/70">
+                <div className="mt-0.5 text-[11px] text-red-300/70 light:text-red-700/70">
                   Removed members are signed out and disabled. Admin-seeded entries are protected.
                 </div>
               </div>
             </label>
             {syncMode && (
               <details>
-                <summary className="cursor-pointer text-[11px] text-red-300/80 hover:text-red-200">
+                <summary className="cursor-pointer text-[11px] text-red-300/80 light:text-red-700/80 hover:text-red-200 light:hover:text-red-800">
                   Show {preview.removable.length} that would be removed
                 </summary>
-                <div className="mt-1 max-h-32 overflow-y-auto rounded-lg border border-red-500/20 bg-red-500/[0.04] p-2 text-[11px] text-red-200/80">
+                <div className="mt-1 max-h-32 overflow-y-auto rounded-lg border border-red-500/20 bg-red-500/[0.04] p-2 text-[11px] text-red-200/80 light:text-red-800/80">
                   {preview.removable.map((e) => <div key={e} className="truncate">{e}</div>)}
                 </div>
               </details>
@@ -572,7 +572,7 @@ function ImportPreviewModal({
           <button
             onClick={onCancel}
             disabled={importing}
-            className="rounded-lg border border-white/10 px-3 py-1.5 text-[12px] text-zinc-300 transition-colors hover:bg-white/[0.05] disabled:opacity-50"
+            className="rounded-lg border border-ink/10 px-3 py-1.5 text-[12px] text-ink-300 transition-colors hover:bg-ink/[0.05] disabled:opacity-50"
           >
             Cancel
           </button>
@@ -582,7 +582,7 @@ function ImportPreviewModal({
             className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors disabled:opacity-60 ${
               willRemove > 0
                 ? 'bg-red-500 text-white hover:bg-red-400'
-                : 'bg-white text-zinc-900 hover:bg-zinc-100'
+                : 'bg-ink text-ink-900 hover:bg-ink-100'
             }`}
           >
             {importing && <Loader2 className="h-3 w-3 animate-spin" />}
@@ -600,14 +600,14 @@ function Stat({ color, label, value, dim }: { color: 'emerald' | 'zinc' | 'amber
       : color === 'amber' ? 'bg-amber-400'
       : color === 'red' ? 'bg-red-400'
       : color === 'sky' ? 'bg-sky-400'
-      : 'bg-zinc-500'
+      : 'bg-ink-500'
   return (
-    <div className={`flex items-center justify-between rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2 text-[12px] ${dim ? 'opacity-60' : ''}`}>
-      <div className="flex items-center gap-2 text-zinc-300">
+    <div className={`flex items-center justify-between rounded-lg border border-ink/5 bg-ink/[0.02] px-3 py-2 text-[12px] ${dim ? 'opacity-60' : ''}`}>
+      <div className="flex items-center gap-2 text-ink-300">
         <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
         {label}
       </div>
-      <div className="font-mono tabular-nums text-zinc-200">{value}</div>
+      <div className="font-mono tabular-nums text-ink-200">{value}</div>
     </div>
   )
 }

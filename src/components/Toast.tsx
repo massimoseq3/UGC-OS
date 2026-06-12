@@ -10,9 +10,9 @@ const ICON_MAP = {
 }
 
 const ICON_STYLE_MAP = {
-  success: 'text-emerald-400',
-  info: 'text-blue-400',
-  error: 'text-red-400',
+  success: 'text-emerald-400 light:text-emerald-600',
+  info: 'text-blue-400 light:text-blue-600',
+  error: 'text-red-400 light:text-red-600',
 }
 
 function ToastItem({ toast }: { toast: ToastType }) {
@@ -43,19 +43,19 @@ function ToastItem({ toast }: { toast: ToastType }) {
   // a quiet status blip rather than a colored banner.
   return (
     <div
-      className={`flex items-center gap-2 self-end rounded-full border border-white/10 bg-[#0B0B0D]/90 py-1.5 pl-3 pr-1.5 shadow-lg backdrop-blur-xl transition-all duration-200 ease-out ${
+      className={`flex items-center gap-2 self-end rounded-full border border-ink/10 bg-surface-2/90 py-1.5 pl-3 pr-1.5 shadow-lg backdrop-blur-xl transition-all duration-200 ease-out ${
         visible
           ? 'translate-y-0 opacity-100'
           : '-translate-y-2 opacity-0'
       }`}
     >
       <Icon className={`h-3.5 w-3.5 shrink-0 ${ICON_STYLE_MAP[type]}`} strokeWidth={2} />
-      <span className="max-w-[260px] truncate text-[12px] font-medium text-zinc-300" title={toast.message}>
+      <span className="max-w-[260px] truncate text-[12px] font-medium text-ink-300" title={toast.message}>
         {toast.message}
       </span>
       <button
         onClick={handleDismiss}
-        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-zinc-600 transition-colors hover:bg-white/[0.06] hover:text-zinc-300"
+        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-ink-600 transition-colors hover:bg-ink/[0.06] hover:text-ink-300"
         aria-label="Dismiss"
       >
         <X className="h-3 w-3" />

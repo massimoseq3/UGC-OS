@@ -76,9 +76,9 @@ export default function GalleryPanel({
       <div className="min-w-0 flex-1 overflow-y-auto">
         {isEmpty ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
-            <ImageIcon className="h-9 w-9 text-zinc-800" strokeWidth={1.5} />
-            <p className="text-sm text-zinc-500">No generations yet</p>
-            <p className="max-w-[300px] text-xs leading-relaxed text-zinc-600">
+            <ImageIcon className="h-9 w-9 text-ink-800" strokeWidth={1.5} />
+            <p className="text-sm text-ink-500">No generations yet</p>
+            <p className="max-w-[300px] text-xs leading-relaxed text-ink-600">
               Configure parameters on the left and hit Generate.
               Every influencer you make lands here, sorted by day.
             </p>
@@ -131,7 +131,7 @@ export default function GalleryPanel({
 function DayPill({ label }: { label: string }) {
   return (
     <div className="my-2 flex items-center justify-center">
-      <span className="rounded-full bg-white/[0.06] px-3 py-1 text-[11px] font-medium text-zinc-300">{label}</span>
+      <span className="rounded-full bg-ink/[0.06] px-3 py-1 text-[11px] font-medium text-ink-300">{label}</span>
     </div>
   )
 }
@@ -229,7 +229,7 @@ function HistoryTile({
   return (
     <div
       onClick={onClick}
-      className="group relative cursor-pointer overflow-hidden rounded-lg border border-white/10 bg-black transition-colors hover:border-white/20"
+      className="group relative cursor-pointer overflow-hidden rounded-lg border border-ink/10 bg-black transition-colors hover:border-ink/20"
     >
       {status === 'ready' && url ? (
         <img src={url} alt="" className="block h-auto w-full" />
@@ -393,7 +393,7 @@ function InFlightTile({ gen, onCancel }: { gen: InFlightCharacterGen; onCancel: 
   const modelLabel = getModel(gen.modelId)?.displayName ?? gen.modelId
   return (
     <div
-      className="group relative overflow-hidden rounded-lg border border-influencers-500/30 bg-gradient-to-br from-influencers-500/[0.08] to-zinc-950"
+      className="group relative overflow-hidden rounded-lg border border-influencers-500/30 bg-gradient-to-br from-influencers-500/[0.08] to-ink-950"
       style={aspectStyle(gen.aspectRatio)}
     >
       <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-influencers-500/10 via-transparent to-influencers-500/5" />

@@ -44,7 +44,7 @@ export default function Slider({
       {/* Title row — label (with hover tooltip) and current value */}
       <div className="flex items-baseline justify-between">
         <span
-          className="relative cursor-help text-sm font-medium text-zinc-200"
+          className="relative cursor-help text-sm font-medium text-ink-200"
           onMouseEnter={() => setLabelHover(true)}
           onMouseLeave={() => setLabelHover(false)}
           onFocus={() => setLabelHover(true)}
@@ -52,24 +52,24 @@ export default function Slider({
           tabIndex={tooltip ? 0 : -1}
         >
           {/* Underlined label so users notice it's interactive */}
-          <span className={tooltip ? 'underline decoration-dotted decoration-zinc-600 underline-offset-4' : ''}>
+          <span className={tooltip ? 'underline decoration-dotted decoration-ink-600 underline-offset-4' : ''}>
             {label}
           </span>
 
           {tooltip && labelHover && (
             <span
               role="tooltip"
-              className="pointer-events-none absolute bottom-full left-0 z-20 mb-2 w-72 rounded-xl bg-black px-3.5 py-2.5 text-[12px] font-normal leading-snug text-zinc-100 shadow-xl ring-1 ring-white/10"
+              className="pointer-events-none absolute bottom-full left-0 z-20 mb-2 w-72 rounded-xl bg-surface-2 px-3.5 py-2.5 text-[12px] font-normal leading-snug text-ink-100 shadow-xl ring-1 ring-ink/10"
             >
               {tooltip}
             </span>
           )}
         </span>
-        <span className="text-xs tabular-nums text-zinc-500">{format(value)}</span>
+        <span className="text-xs tabular-nums text-ink-500">{format(value)}</span>
       </div>
 
       {/* Hint row — sits tight above the slider track */}
-      <div className="mt-2.5 flex items-center justify-between text-xs text-zinc-400">
+      <div className="mt-2.5 flex items-center justify-between text-xs text-ink-400">
         <span>{leftHint}</span>
         <span>{rightHint}</span>
       </div>
@@ -78,7 +78,7 @@ export default function Slider({
       <div className="relative">
         {active && (
           <div
-            className="pointer-events-none absolute -top-7 -translate-x-1/2 rounded-md bg-white px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-zinc-900 shadow-lg"
+            className="pointer-events-none absolute -top-7 -translate-x-1/2 rounded-md bg-ink px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-ink-900 shadow-lg"
             style={{ left: `calc(${pct}% + ${(0.5 - pct / 100) * 12}px)` }}
           >
             {format(value)}

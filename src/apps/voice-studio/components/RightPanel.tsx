@@ -106,7 +106,7 @@ export default function RightPanel({
         )}
 
         {voicePickerOpen && (
-          <div className="absolute inset-0 bg-[#0A0A0A]">
+          <div className="absolute inset-0 bg-surface-1">
             <VoicePickerView
               selectedId={settings.voiceId}
               onSelect={handleSelectVoice}
@@ -115,7 +115,7 @@ export default function RightPanel({
           </div>
         )}
         {detailsItem && (
-          <div className="absolute inset-0 bg-[#0A0A0A]">
+          <div className="absolute inset-0 bg-surface-1">
             <HistoryDetailsView
               item={detailsItem}
               onClose={handleCloseDetails}

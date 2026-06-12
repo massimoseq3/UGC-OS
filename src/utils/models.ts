@@ -778,8 +778,8 @@ export function buildMusicInput(modelId: string, opts: MusicGenOptions): Record<
 // ── Tag styling helper ─────────────────────────────────────────
 
 export const TAG_STYLES: Record<Tag, { label: string; className: string }> = {
-  recommended: { label: 'Recommended', className: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/20' },
-  new: { label: 'New', className: 'bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-500/20' },
-  fast: { label: 'Fast', className: 'bg-sky-500/15 text-sky-300 border-sky-500/20' },
-  cheap: { label: 'Cheap', className: 'bg-zinc-500/15 text-zinc-300 border-zinc-500/20' },
+  recommended: { label: 'Recommended', className: 'bg-emerald-500/15 text-emerald-300 light:text-emerald-700 border-emerald-500/20' },
+  new: { label: 'New', className: 'bg-fuchsia-500/15 text-fuchsia-300 light:text-fuchsia-700 border-fuchsia-500/20' },
+  fast: { label: 'Fast', className: 'bg-sky-500/15 text-sky-300 light:text-sky-700 border-sky-500/20' },
+  cheap: { label: 'Cheap', className: 'bg-ink-500/15 text-ink-300 border-ink-500/20' },
 }

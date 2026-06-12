@@ -78,8 +78,8 @@ export default function BankItemCard({ bankType, item, onClick, selected }: Bank
       onClick={onClick}
       className={`flex w-full items-center gap-3 rounded-full border p-3 text-left transition-colors ${
         selected
-          ? ROW_SELECTED[bankType] ?? 'border-white/20 bg-white/[0.06]'
-          : 'border-white/5 bg-white/[0.03] hover:border-white/10 hover:bg-white/[0.06]'
+          ? ROW_SELECTED[bankType] ?? 'border-ink/20 bg-ink/[0.06]'
+          : 'border-ink/5 bg-ink/[0.03] hover:border-ink/10 hover:bg-ink/[0.06]'
       }`}
     >
       {bankType === 'scripts' && <ScriptContent item={item as Script} />}
@@ -112,14 +112,14 @@ function ImageCard({
     <button
       onClick={onClick}
       className={`group relative block w-full overflow-hidden rounded-2xl border text-left transition-all ${
-        selectedClass ?? 'border-white/5 bg-white/[0.03] hover:border-white/15 hover:-translate-y-0.5'
+        selectedClass ?? 'border-ink/5 bg-ink/[0.03] hover:border-ink/15 hover:-translate-y-0.5'
       }`}
     >
       {resolvedUrl ? (
         <img src={resolvedUrl} alt="" className="block w-full" />
       ) : (
-        <div className={`flex ${fallbackAspect} w-full items-center justify-center bg-white/[0.04]`}>
-          <Icon className="h-10 w-10 text-zinc-800" strokeWidth={1} />
+        <div className={`flex ${fallbackAspect} w-full items-center justify-center bg-ink/[0.04]`}>
+          <Icon className="h-10 w-10 text-ink-800" strokeWidth={1} />
         </div>
       )}
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/55 to-transparent p-2.5 pt-10">
@@ -136,10 +136,10 @@ function ScriptContent({ item }: { item: Script }) {
     <>
       <RowThumbnail fallback={FileText} />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="truncate text-sm font-semibold tracking-tight text-zinc-200">
+        <span className="truncate text-sm font-semibold tracking-tight text-ink-200">
           {item.title || 'Untitled Script'}
         </span>
-        <span className="truncate text-xs text-zinc-500">
+        <span className="truncate text-xs text-ink-500">
           {preview || 'Empty script'}
         </span>
       </div>
@@ -152,10 +152,10 @@ function VoiceContent({ item }: { item: VoicePreset }) {
     <>
       <RowThumbnail fallback={Mic} />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="truncate text-sm font-semibold tracking-tight text-zinc-200">
+        <span className="truncate text-sm font-semibold tracking-tight text-ink-200">
           {item.label || 'Untitled Preset'}
         </span>
-        <span className="truncate text-xs text-zinc-500">
+        <span className="truncate text-xs text-ink-500">
           {item.voiceName}{item.gender ? ` · ${item.gender}` : ''}
         </span>
       </div>
@@ -165,8 +165,8 @@ function VoiceContent({ item }: { item: VoicePreset }) {
 
 function RowThumbnail({ fallback: Icon }: { fallback: React.ElementType }) {
   return (
-    <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/5">
-      <Icon className="h-4 w-4 text-zinc-600" />
+    <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-ink/5">
+      <Icon className="h-4 w-4 text-ink-600" />
     </div>
   )
 }

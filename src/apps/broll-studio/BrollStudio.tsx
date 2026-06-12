@@ -370,7 +370,7 @@ export default function BrollStudio() {
   return (
     <div className="flex flex-col pb-28 md:flex-row md:h-full md:pb-0">
       {/* Left panel — inputs */}
-      <div className="flex w-full md:w-1/4 shrink-0 flex-col border-b md:border-b-0 md:border-r border-white/5">
+      <div className="flex w-full md:w-1/4 shrink-0 flex-col border-b md:border-b-0 md:border-r border-ink/5">
         <InputPanel
           selectedProduct={selectedProduct}
           selectedModel={selectedModel}

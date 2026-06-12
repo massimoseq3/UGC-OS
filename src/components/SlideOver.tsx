@@ -37,25 +37,25 @@ export default function SlideOver({ open, onClose, title, subtitle, children, fo
         onClick={onClose}
       />
       <div
-        className={`fixed bottom-0 right-0 top-0 z-[80] flex w-[380px] max-w-full flex-col border-l border-white/5 bg-[#0a0a0a]/95 backdrop-blur-2xl transition-transform duration-300 ease-out ${
+        className={`fixed bottom-0 right-0 top-0 z-[80] flex w-[380px] max-w-full flex-col border-l border-ink/5 bg-surface-1/95 backdrop-blur-2xl transition-transform duration-300 ease-out ${
           open ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
-        <div className="flex items-center justify-between gap-3 border-b border-white/5 px-5 py-3.5">
+        <div className="flex items-center justify-between gap-3 border-b border-ink/5 px-5 py-3.5">
           <div className="min-w-0">
-            <h3 className="truncate text-sm font-semibold tracking-tight text-zinc-200">{title}</h3>
-            {subtitle && <p className="truncate text-[11px] text-zinc-500">{subtitle}</p>}
+            <h3 className="truncate text-sm font-semibold tracking-tight text-ink-200">{title}</h3>
+            {subtitle && <p className="truncate text-[11px] text-ink-500">{subtitle}</p>}
           </div>
           <button
             onClick={onClose}
-            className="shrink-0 rounded-full p-2 text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-300 lg:p-1"
+            className="shrink-0 rounded-full p-2 text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-300 lg:p-1"
             aria-label="Close"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
-        {footer && <div className="shrink-0 border-t border-white/5 p-4">{footer}</div>}
+        {footer && <div className="shrink-0 border-t border-ink/5 p-4">{footer}</div>}
       </div>
     </>,
     portalTarget,

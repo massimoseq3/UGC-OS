@@ -48,23 +48,23 @@ export default function BrollHistoryView({ items, activeId, onSelect, onDelete }
   if (items.length === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-6">
-        <Film className="h-10 w-10 text-zinc-800" strokeWidth={1.5} />
-        <p className="text-sm text-zinc-300">No sessions yet</p>
-        <p className="text-center text-xs text-zinc-500">Generated B-Roll sessions will land here.</p>
+        <Film className="h-10 w-10 text-ink-800" strokeWidth={1.5} />
+        <p className="text-sm text-ink-300">No sessions yet</p>
+        <p className="text-center text-xs text-ink-500">Generated B-Roll sessions will land here.</p>
       </div>
     )
   }
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <div className="border-b border-white/5 px-5 py-4">
+      <div className="border-b border-ink/5 px-5 py-4">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-500" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search history..."
-            className="w-full rounded-full border border-white/10 bg-transparent py-2 pl-10 pr-3 text-sm text-zinc-100 placeholder-zinc-500 outline-none transition-colors focus:border-broll-500/40"
+            className="w-full rounded-full border border-ink/10 bg-transparent py-2 pl-10 pr-3 text-sm text-ink-100 placeholder-ink-500 outline-none transition-colors focus:border-broll-500/40"
           />
         </div>
       </div>
@@ -72,14 +72,14 @@ export default function BrollHistoryView({ items, activeId, onSelect, onDelete }
       <div className="flex-1 overflow-y-auto">
         {groups.length === 0 ? (
           <div className="flex h-full items-center justify-center px-6 text-center">
-            <span className="text-sm text-zinc-500">No matches.</span>
+            <span className="text-sm text-ink-500">No matches.</span>
           </div>
         ) : (
           <div className="flex flex-col gap-1 p-2">
             {groups.map(([dayTs, dayItems]) => (
               <div key={dayTs} className="flex flex-col gap-0.5">
                 <div className="my-2 flex items-center justify-center">
-                  <span className="rounded-full bg-white/[0.06] px-3 py-1 text-[11px] font-medium text-zinc-300">
+                  <span className="rounded-full bg-ink/[0.06] px-3 py-1 text-[11px] font-medium text-ink-300">
                     {sectionLabel(dayTs)}
                   </span>
                 </div>
@@ -138,23 +138,23 @@ function HistoryRow({
     <div
       onClick={onSelect}
       className={`group flex cursor-pointer items-center gap-3 rounded-full px-3 py-2.5 transition-colors ${
-        isActive ? 'bg-broll-500/15 ring-1 ring-broll-500/20' : 'hover:bg-white/[0.04]'
+        isActive ? 'bg-broll-500/15 ring-1 ring-broll-500/20' : 'hover:bg-ink/[0.04]'
       }`}
     >
       {thumbUrl ? (
         <img
           src={thumbUrl}
           alt=""
-          className="h-10 w-10 shrink-0 rounded-full border border-white/10 object-cover"
+          className="h-10 w-10 shrink-0 rounded-full border border-ink/10 object-cover"
         />
       ) : (
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/[0.04] text-broll-300/70">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ink/[0.04] text-broll-300/70">
           <Film className="h-5 w-5" />
         </span>
       )}
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium leading-snug text-zinc-100">{title}</p>
-        <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-zinc-500">
+        <p className="truncate text-sm font-medium leading-snug text-ink-100">{title}</p>
+        <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-ink-500">
           <span>{count} scene{count === 1 ? '' : 's'}</span>
           <span>·</span>
           <span className="shrink-0">{formatRelative(item.createdAt)}</span>
@@ -173,8 +173,8 @@ function HistoryRow({
         }}
         className={`flex h-7 shrink-0 items-center justify-center gap-1 rounded-full px-2 transition-all ${
           confirming
-            ? 'bg-red-500/30 text-red-100 opacity-100 ring-1 ring-red-400/60'
-            : `text-zinc-500 hover:bg-red-500/10 hover:text-red-400 ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`
+            ? 'bg-red-500/30 text-red-100 light:text-red-900 opacity-100 ring-1 ring-red-400/60'
+            : `text-ink-500 hover:bg-red-500/10 hover:text-red-400 light:hover:text-red-600 ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`
         }`}
         title={confirming ? 'Click again to delete' : 'Delete'}
       >

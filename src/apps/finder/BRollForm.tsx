@@ -84,10 +84,10 @@ export default function BRollForm({ item, onSave, onCancel }: BRollFormProps) {
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-sm font-semibold tracking-tight text-zinc-200">
+        <h3 className="text-sm font-semibold tracking-tight text-ink-200">
           {item ? 'B-Roll Details' : 'New B-Roll'}
         </h3>
-        <button type="button" onClick={onCancel} className="text-zinc-500 hover:text-zinc-300 transition-colors">
+        <button type="button" onClick={onCancel} className="text-ink-500 hover:text-ink-300 transition-colors">
           <X className="h-4 w-4" />
         </button>
       </div>
@@ -101,7 +101,7 @@ export default function BRollForm({ item, onSave, onCancel }: BRollFormProps) {
               <img
                 src={displayImage}
                 alt=""
-                className="w-full rounded-xl border border-white/[0.06] object-contain bg-black/30"
+                className="w-full rounded-xl border border-ink/[0.06] object-contain bg-black/30"
               />
               <button
                 type="button"
@@ -122,11 +122,11 @@ export default function BRollForm({ item, onSave, onCancel }: BRollFormProps) {
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              className="group flex aspect-[9/16] w-full items-center justify-center rounded-xl border border-dashed border-white/10 bg-white/[0.02] transition-colors hover:border-white/20"
+              className="group flex aspect-[9/16] w-full items-center justify-center rounded-xl border border-dashed border-ink/10 bg-ink/[0.02] transition-colors hover:border-ink/20"
             >
               <div className="flex flex-col items-center gap-2">
-                <ImagePlus className="h-6 w-6 text-zinc-600 transition-colors group-hover:text-zinc-400" />
-                <span className="text-[11px] text-zinc-600">Upload image</span>
+                <ImagePlus className="h-6 w-6 text-ink-600 transition-colors group-hover:text-ink-400" />
+                <span className="text-[11px] text-ink-600">Upload image</span>
               </div>
             </button>
           )}
@@ -136,13 +136,13 @@ export default function BRollForm({ item, onSave, onCancel }: BRollFormProps) {
         {/* Right — prompt + save */}
         <div className="flex flex-1 flex-col gap-3 min-w-0">
           <label className="flex flex-1 flex-col gap-1">
-            <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-500">Prompt *</span>
+            <span className="text-[11px] font-medium uppercase tracking-widest text-ink-500">Prompt *</span>
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               rows={12}
               placeholder="Describe the image generation prompt..."
-              className="flex-1 rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-[12px] leading-relaxed text-zinc-400 placeholder-zinc-700 outline-none transition-colors focus:border-white/15 resize-none"
+              className="flex-1 rounded-lg border border-ink/[0.06] bg-ink/[0.02] px-3 py-2 text-[12px] leading-relaxed text-ink-400 placeholder-ink-700 outline-none transition-colors focus:border-ink/15 resize-none"
             />
           </label>
 
@@ -151,7 +151,7 @@ export default function BRollForm({ item, onSave, onCancel }: BRollFormProps) {
               <button
                 type="button"
                 onClick={handleSendToVideos}
-                className="flex items-center justify-center gap-2 rounded-full border border-green-500/30 bg-green-500/10 px-4 py-2 text-sm font-medium text-green-300 transition-colors hover:bg-green-500/20"
+                className="flex items-center justify-center gap-2 rounded-full border border-green-500/30 bg-green-500/10 px-4 py-2 text-sm font-medium text-green-300 light:text-green-700 transition-colors hover:bg-green-500/20"
                 title="Open Playground in video mode with this image as the start frame"
               >
                 <Film className="h-3.5 w-3.5" />
@@ -161,7 +161,7 @@ export default function BRollForm({ item, onSave, onCancel }: BRollFormProps) {
             <button
               type="submit"
               disabled={saving}
-              className="flex items-center justify-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-zinc-900 transition-colors hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
+              className="flex items-center justify-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-ink-900 transition-colors hover:bg-ink-100 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {saving && <Loader2 className="h-4 w-4 animate-spin" />}
               {saving ? 'Saving…' : (item ? 'Save Changes' : 'Add B-Roll')}

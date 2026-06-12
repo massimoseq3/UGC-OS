@@ -89,13 +89,13 @@ export default function VideoInputSlot({ label, helper, value, onChange, bankTyp
   if (compact) {
     return (
       <div>
-        <label className="mb-2 block text-[10px] font-medium uppercase tracking-wider text-zinc-500">
+        <label className="mb-2 block text-[10px] font-medium uppercase tracking-wider text-ink-500">
           {label}
-          {helper && <span className="text-zinc-700 normal-case"> {helper}</span>}
+          {helper && <span className="text-ink-700 normal-case"> {helper}</span>}
         </label>
 
         {value ? (
-          <div className="relative flex h-20 w-20 items-center justify-center overflow-hidden rounded-lg border border-white/10 bg-black/40">
+          <div className="relative flex h-20 w-20 items-center justify-center overflow-hidden rounded-lg border border-ink/10 bg-black/40">
             <img src={value.dataUri} alt="" className="max-h-full max-w-full object-contain" />
             <button
               onClick={() => onChange(null)}
@@ -114,7 +114,7 @@ export default function VideoInputSlot({ label, helper, value, onChange, bankTyp
             <button
               ref={triggerRef}
               onClick={() => setActionMenu((v) => !v)}
-              className="flex h-20 w-20 items-center justify-center rounded-lg border border-dashed border-white/15 bg-white/[0.02] text-zinc-500 transition-colors hover:border-white/25 hover:text-zinc-300"
+              className="flex h-20 w-20 items-center justify-center rounded-lg border border-dashed border-ink/15 bg-ink/[0.02] text-ink-500 transition-colors hover:border-ink/25 hover:text-ink-300"
             >
               <Upload className="h-4 w-4" />
             </button>
@@ -150,14 +150,14 @@ export default function VideoInputSlot({ label, helper, value, onChange, bankTyp
 
   return (
     <div>
-      <label className="mb-2 block text-[10px] font-medium uppercase tracking-wider text-zinc-500">
+      <label className="mb-2 block text-[10px] font-medium uppercase tracking-wider text-ink-500">
         {label}
-        {helper && <span className="text-zinc-700 normal-case"> {helper}</span>}
+        {helper && <span className="text-ink-700 normal-case"> {helper}</span>}
       </label>
 
       {value ? (
         <div className="flex h-40 items-center justify-center">
-          <div className="relative inline-block overflow-hidden rounded-lg border border-white/10 bg-black/40">
+          <div className="relative inline-block overflow-hidden rounded-lg border border-ink/10 bg-black/40">
             <img
               src={value.dataUri}
               alt=""
@@ -180,14 +180,14 @@ export default function VideoInputSlot({ label, helper, value, onChange, bankTyp
         <div className="grid h-40 grid-cols-2 gap-1.5">
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="flex flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-white/15 bg-white/[0.02] text-zinc-500 transition-colors hover:border-white/25 hover:text-zinc-300"
+            className="flex flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-ink/15 bg-ink/[0.02] text-ink-500 transition-colors hover:border-ink/25 hover:text-ink-300"
           >
             <Upload className="h-3.5 w-3.5" />
             <span className="text-[10px]">Upload image</span>
           </button>
           <button
             onClick={() => setPickerOpen(true)}
-            className="flex flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-white/15 bg-white/[0.02] text-zinc-500 transition-colors hover:border-white/25 hover:text-zinc-300"
+            className="flex flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-ink/15 bg-ink/[0.02] text-ink-500 transition-colors hover:border-ink/25 hover:text-ink-300"
           >
             <Library className="h-3.5 w-3.5" />
             <span className="text-[10px]">Pick from Bank</span>

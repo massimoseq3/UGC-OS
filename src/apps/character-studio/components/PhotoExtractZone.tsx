@@ -84,14 +84,14 @@ export default function PhotoExtractZone({
           className="h-8 w-8 shrink-0 rounded-lg object-cover"
         />
         <div className="flex min-w-0 flex-1 items-center gap-2">
-          <Check className="h-3.5 w-3.5 shrink-0 text-green-400" />
-          <span className="truncate text-xs font-medium text-green-300">
+          <Check className="h-3.5 w-3.5 shrink-0 text-green-400 light:text-green-600" />
+          <span className="truncate text-xs font-medium text-green-300 light:text-green-700">
             Auto-filled from reference image
           </span>
         </div>
         <button
           onClick={onReset}
-          className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-zinc-400 transition-colors hover:bg-white/5 hover:text-zinc-200"
+          className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-ink-400 transition-colors hover:bg-ink/5 hover:text-ink-200"
         >
           <X className="h-3 w-3" />
           Reset
@@ -110,25 +110,25 @@ export default function PhotoExtractZone({
         onClick={() => inputRef.current?.click()}
         className={`flex h-12 cursor-pointer items-center gap-3 rounded-full border border-dashed px-4 transition-all ${dragOver
             ? 'border-green-400/40 bg-green-400/5'
-            : 'border-white/10 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.05]'
+            : 'border-ink/10 bg-ink/[0.02] hover:border-ink/20 hover:bg-ink/[0.05]'
           }`}
       >
-        <div className={`shrink-0 rounded-full p-1.5 ${dragOver ? 'bg-green-400/10' : 'bg-white/5'}`}>
+        <div className={`shrink-0 rounded-full p-1.5 ${dragOver ? 'bg-green-400/10' : 'bg-ink/5'}`}>
           {dragOver ? (
-            <Dna className="h-4 w-4 text-green-400" strokeWidth={1.5} />
+            <Dna className="h-4 w-4 text-green-400 light:text-green-600" strokeWidth={1.5} />
           ) : (
-            <Upload className="h-4 w-4 text-zinc-500" strokeWidth={1.5} />
+            <Upload className="h-4 w-4 text-ink-500" strokeWidth={1.5} />
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[14px] font-medium text-zinc-100">
+          <p className="truncate text-[14px] font-medium text-ink-100">
             {dragOver ? 'Drop to extract DNA' : 'Drop an image to autofill'}
           </p>
         </div>
       </div>
 
       {(validationError || extractError) && (
-        <p className="mt-1.5 text-[11px] text-red-400">
+        <p className="mt-1.5 text-[11px] text-red-400 light:text-red-600">
           {validationError ?? extractError}
         </p>
       )}

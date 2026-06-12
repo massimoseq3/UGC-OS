@@ -12,7 +12,7 @@ export default function AdminPanel() {
 
   if (!isAdmin) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 text-zinc-500">
+      <div className="flex h-full flex-col items-center justify-center gap-3 text-ink-500">
         <Shield className="h-8 w-8" />
         <span className="text-sm">Admin only.</span>
       </div>
@@ -21,12 +21,12 @@ export default function AdminPanel() {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center justify-between border-b border-white/5 px-6 py-4">
+      <header className="flex items-center justify-between border-b border-ink/5 px-6 py-4">
         <div className="flex items-center gap-2">
-          <Shield className="h-5 w-5 text-zinc-300" />
-          <h1 className="text-lg font-semibold tracking-tight text-zinc-100">Admin</h1>
+          <Shield className="h-5 w-5 text-ink-300" />
+          <h1 className="text-lg font-semibold tracking-tight text-ink-100">Admin</h1>
         </div>
-        <div className="flex gap-1 rounded-lg border border-white/10 bg-white/[0.03] p-0.5">
+        <div className="flex gap-1 rounded-lg border border-ink/10 bg-ink/[0.03] p-0.5">
           <TabButton active={tab === 'members'} onClick={() => setTab('members')}>Members</TabButton>
           <TabButton active={tab === 'allowlist'} onClick={() => setTab('allowlist')}>Allowlist</TabButton>
         </div>
@@ -44,7 +44,7 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
     <button
       onClick={onClick}
       className={`rounded-md px-3 py-1 text-[12px] font-medium transition-colors ${
-        active ? 'bg-white/10 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200'
+        active ? 'bg-ink/10 text-ink-100' : 'text-ink-400 hover:text-ink-200'
       }`}
     >
       {children}

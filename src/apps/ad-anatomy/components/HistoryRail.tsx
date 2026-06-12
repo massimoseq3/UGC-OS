@@ -60,26 +60,26 @@ export default function HistoryRail({ items, selectedId, onSelect, onDelete, onN
   }, [items, query])
 
   return (
-    <div className="flex h-full w-[280px] shrink-0 flex-col border-r border-white/5">
-      <div className="flex flex-col gap-3 border-b border-white/5 p-3">
+    <div className="flex h-full w-[280px] shrink-0 flex-col border-r border-ink/5">
+      <div className="flex flex-col gap-3 border-b border-ink/5 p-3">
         <button
           onClick={onNew}
           className={`flex items-center justify-center gap-2 rounded-full border px-3 py-2 text-[12px] font-medium tracking-tight transition-colors ${
             selectedId === null
               ? 'border-[#FF5257]/30 bg-[#FF5257]/15 text-[#FF5257]'
-              : 'border-white/10 bg-white/[0.04] text-zinc-300 hover:bg-white/[0.08] hover:text-zinc-100'
+              : 'border-ink/10 bg-ink/[0.04] text-ink-300 hover:bg-ink/[0.08] hover:text-ink-100'
           }`}
         >
           <Plus className="h-3.5 w-3.5" />
           New analysis
         </button>
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
+          <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-500" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search analyses..."
-            className="w-full rounded-full border border-white/10 bg-transparent py-1.5 pl-9 pr-3 text-[12px] text-zinc-100 placeholder-zinc-500 outline-none transition-colors focus:border-[#FF5257]/40"
+            className="w-full rounded-full border border-ink/10 bg-transparent py-1.5 pl-9 pr-3 text-[12px] text-ink-100 placeholder-ink-500 outline-none transition-colors focus:border-[#FF5257]/40"
           />
         </div>
       </div>
@@ -87,19 +87,19 @@ export default function HistoryRail({ items, selectedId, onSelect, onDelete, onN
       <div className="flex-1 overflow-y-auto">
         {items.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center">
-            <Eye className="h-8 w-8 text-zinc-800" strokeWidth={1.5} />
-            <p className="text-xs text-zinc-500">No analyses yet</p>
+            <Eye className="h-8 w-8 text-ink-800" strokeWidth={1.5} />
+            <p className="text-xs text-ink-500">No analyses yet</p>
           </div>
         ) : groups.length === 0 ? (
           <div className="flex h-full items-center justify-center px-6 text-center">
-            <span className="text-xs text-zinc-500">No matches.</span>
+            <span className="text-xs text-ink-500">No matches.</span>
           </div>
         ) : (
           <div className="flex flex-col gap-0.5 p-2">
             {groups.map(([dayTs, dayItems]) => (
               <div key={dayTs} className="flex flex-col gap-0.5">
                 <div className="my-1.5 flex items-center justify-center">
-                  <span className="rounded-full bg-white/[0.06] px-2.5 py-0.5 text-[10px] font-medium tracking-tight text-zinc-300">
+                  <span className="rounded-full bg-ink/[0.06] px-2.5 py-0.5 text-[10px] font-medium tracking-tight text-ink-300">
                     {sectionLabel(dayTs)}
                   </span>
                 </div>
@@ -143,7 +143,7 @@ function HistoryRow({
       className={`group cursor-pointer rounded-2xl px-2 py-2 transition-colors ${
         isActive
           ? 'bg-[#FF5257]/15 ring-1 ring-[#FF5257]/20'
-          : 'hover:bg-white/[0.04]'
+          : 'hover:bg-ink/[0.04]'
       }`}
     >
       <div className="flex items-start gap-2.5">
@@ -152,21 +152,21 @@ function HistoryRow({
             <img
               src={thumbUrl}
               alt=""
-              className="h-full w-full rounded-xl border border-white/10 object-cover"
+              className="h-full w-full rounded-xl border border-ink/10 object-cover"
             />
             {item.status === 'analyzing' && <PulseOverlay />}
           </div>
         ) : (
-          <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/[0.04] text-[#FF5257]/70">
+          <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-ink/[0.04] text-[#FF5257]/70">
             <Eye className="h-4 w-4" />
             {item.status === 'analyzing' && <PulseOverlay />}
           </span>
         )}
         <div className="min-w-0 flex-1">
-          <p className="line-clamp-1 text-[12.5px] font-medium leading-snug text-zinc-100">
+          <p className="line-clamp-1 text-[12.5px] font-medium leading-snug text-ink-100">
             {titleText}
           </p>
-          <div className="mt-0.5 flex items-center gap-1 text-[10.5px] text-zinc-500">
+          <div className="mt-0.5 flex items-center gap-1 text-[10.5px] text-ink-500">
             <StatusChip item={item} />
             {item.status === 'complete' && <span>{formatRelative(item.createdAt)}</span>}
           </div>
@@ -184,8 +184,8 @@ function HistoryRow({
           }}
           className={`flex h-6 shrink-0 items-center justify-center gap-1 rounded-full px-1.5 transition-all ${
             confirming
-              ? 'bg-red-500/30 text-red-100 opacity-100 ring-1 ring-red-400/60'
-              : `text-zinc-500 hover:bg-red-500/10 hover:text-red-400 ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`
+              ? 'bg-red-500/30 text-red-100 light:text-red-900 opacity-100 ring-1 ring-red-400/60'
+              : `text-ink-500 hover:bg-red-500/10 hover:text-red-400 light:hover:text-red-600 ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`
           }`}
           title={confirming ? 'Click again to delete' : 'Delete'}
         >
@@ -211,7 +211,7 @@ function StatusChip({ item }: { item: AdAnatomyHistoryItem }) {
   }
   if (item.status === 'error') {
     return (
-      <span className="flex min-w-0 items-center gap-1 text-red-400">
+      <span className="flex min-w-0 items-center gap-1 text-red-400 light:text-red-600">
         <AlertCircle className="h-2.5 w-2.5 shrink-0" />
         <span className="truncate">{item.errorMessage || 'Failed'}</span>
       </span>

@@ -86,29 +86,29 @@ export default function VoicePickerView({ selectedId, onSelect, onClose }: Voice
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center gap-2 border-b border-white/5 px-5 py-4">
+      <div className="flex items-center gap-2 border-b border-ink/5 px-5 py-4">
         <button
           onClick={onClose}
-          className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-300 transition-colors hover:bg-white/5 hover:text-zinc-100"
+          className="flex h-8 w-8 items-center justify-center rounded-full text-ink-300 transition-colors hover:bg-ink/5 hover:text-ink-100"
           aria-label="Back to settings"
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
         <div className="min-w-0 flex-1">
-          <div className="text-base font-semibold tracking-tight text-zinc-100">Select a voice</div>
-          <div className="text-xs text-zinc-400">Voices tuned for AI UGC ads</div>
+          <div className="text-base font-semibold tracking-tight text-ink-100">Select a voice</div>
+          <div className="text-xs text-ink-400">Voices tuned for AI UGC ads</div>
         </div>
       </div>
 
       {/* Search */}
-      <div className="border-b border-white/5 px-5 py-4">
+      <div className="border-b border-ink/5 px-5 py-4">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-500" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search voices..."
-            className="w-full rounded-full border border-white/10 bg-transparent py-2 pl-10 pr-3 text-sm text-zinc-100 placeholder-zinc-500 outline-none transition-colors focus:border-voice-500/40"
+            className="w-full rounded-full border border-ink/10 bg-transparent py-2 pl-10 pr-3 text-sm text-ink-100 placeholder-ink-500 outline-none transition-colors focus:border-voice-500/40"
           />
         </div>
 
@@ -123,7 +123,7 @@ export default function VoicePickerView({ selectedId, onSelect, onClose }: Voice
                 className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
                   active
                     ? 'bg-voice-500/25 text-voice-200'
-                    : 'bg-white/[0.05] text-zinc-300 hover:bg-white/[0.08] hover:text-zinc-100'
+                    : 'bg-ink/[0.05] text-ink-300 hover:bg-ink/[0.08] hover:text-ink-100'
                 }`}
               >
                 {c}
@@ -137,7 +137,7 @@ export default function VoicePickerView({ selectedId, onSelect, onClose }: Voice
       <div className="min-h-0 flex-1 overflow-y-auto">
         {filtered.length === 0 ? (
           <div className="flex h-full items-center justify-center px-6 text-center">
-            <span className="text-sm text-zinc-500">No voices match these filters.</span>
+            <span className="text-sm text-ink-500">No voices match these filters.</span>
           </div>
         ) : (
           <div className="flex flex-col gap-0.5 p-2">
@@ -151,7 +151,7 @@ export default function VoicePickerView({ selectedId, onSelect, onClose }: Voice
                   key={voice.id}
                   onClick={() => onSelect(voice)}
                   className={`group flex cursor-pointer items-center gap-3 rounded-xl px-3 py-3 transition-colors ${
-                    isSelected ? 'bg-voice-500/15' : 'hover:bg-white/[0.04]'
+                    isSelected ? 'bg-voice-500/15' : 'hover:bg-ink/[0.04]'
                   }`}
                 >
                   {/* Avatar with loading ring */}
@@ -168,7 +168,7 @@ export default function VoicePickerView({ selectedId, onSelect, onClose }: Voice
                     />
                     {/* Loading ring (spinner) */}
                     {isLoading && (
-                      <span className="absolute -inset-[3px] rounded-full border-2 border-white/10 border-t-white animate-spin" />
+                      <span className="absolute -inset-[3px] rounded-full border-2 border-ink/10 border-t-ink animate-spin" />
                     )}
                     {/* Static playing ring */}
                     {isPlaying && (
@@ -187,14 +187,14 @@ export default function VoicePickerView({ selectedId, onSelect, onClose }: Voice
                   {/* Text */}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-baseline gap-2">
-                      <span className={`truncate text-sm font-medium ${isSelected ? 'text-zinc-50' : 'text-zinc-100'}`}>
+                      <span className={`truncate text-sm font-medium ${isSelected ? 'text-ink-50' : 'text-ink-100'}`}>
                         {voice.name}
                       </span>
-                      <span className="shrink-0 text-[10px] uppercase tracking-wider text-zinc-500">
+                      <span className="shrink-0 text-[10px] uppercase tracking-wider text-ink-500">
                         {voice.category}
                       </span>
                     </div>
-                    <div className="truncate text-xs text-zinc-400">
+                    <div className="truncate text-xs text-ink-400">
                       {voice.description}
                     </div>
                   </div>

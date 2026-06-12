@@ -166,7 +166,7 @@ export default function ModelForm({ item, onSave, onCancel }: ModelFormProps) {
     <form onSubmit={handleSubmit} className="flex flex-col gap-6">
       {/* Header — close */}
       <div className="flex items-center justify-end gap-2">
-        <button type="button" onClick={onCancel} className="text-zinc-500 hover:text-zinc-300 transition-colors">
+        <button type="button" onClick={onCancel} className="text-ink-500 hover:text-ink-300 transition-colors">
           <X className="h-4 w-4" />
         </button>
       </div>
@@ -177,12 +177,12 @@ export default function ModelForm({ item, onSave, onCancel }: ModelFormProps) {
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
-            className="flex aspect-[9/16] w-full items-center justify-center rounded-2xl border border-white/5 bg-white/[0.02] transition-colors hover:border-white/15 overflow-hidden"
+            className="flex aspect-[9/16] w-full items-center justify-center rounded-2xl border border-ink/5 bg-ink/[0.02] transition-colors hover:border-ink/15 overflow-hidden"
           >
             {displayImage ? (
               <img src={displayImage} alt="" className="h-full w-full object-cover" />
             ) : (
-              <ImagePlus className="h-7 w-7 text-zinc-600 transition-colors group-hover/img:text-zinc-400" />
+              <ImagePlus className="h-7 w-7 text-ink-600 transition-colors group-hover/img:text-ink-400" />
             )}
           </button>
           {displayImage && (
@@ -202,9 +202,9 @@ export default function ModelForm({ item, onSave, onCancel }: ModelFormProps) {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Unnamed influencer"
-            className="w-full bg-transparent text-3xl font-semibold tracking-tight text-zinc-100 placeholder-zinc-700 outline-none border-b border-transparent transition-colors focus:border-white/15 -mx-1 px-1 py-1"
+            className="w-full bg-transparent text-3xl font-semibold tracking-tight text-ink-100 placeholder-ink-700 outline-none border-b border-transparent transition-colors focus:border-ink/15 -mx-1 px-1 py-1"
           />
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-ink-500">
             {metaParts.join(' · ')}
           </p>
         </div>
@@ -213,7 +213,7 @@ export default function ModelForm({ item, onSave, onCancel }: ModelFormProps) {
       {/* Spec sheet */}
       <div>
         {sections.length === 0 ? (
-          <p className="py-8 text-center text-xs text-zinc-500">
+          <p className="py-8 text-center text-xs text-ink-500">
             {item ? 'No DNA on file for this influencer.' : 'DNA will appear here after generating from Influencers.'}
           </p>
         ) : (
@@ -221,15 +221,15 @@ export default function ModelForm({ item, onSave, onCancel }: ModelFormProps) {
             {sections.map((section) => (
               <section key={section.name}>
                 <div className="mb-3 flex items-center gap-2.5">
-                  <span className={`block h-3 w-[3px] rounded-full ${CATEGORY_ACCENT[section.name] ?? 'bg-white/30'}`} />
-                  <h4 className="text-[11px] font-medium uppercase tracking-widest text-zinc-400">{section.name}</h4>
-                  <span className="ml-1 h-px flex-1 bg-white/5" />
+                  <span className={`block h-3 w-[3px] rounded-full ${CATEGORY_ACCENT[section.name] ?? 'bg-ink/30'}`} />
+                  <h4 className="text-[11px] font-medium uppercase tracking-widest text-ink-400">{section.name}</h4>
+                  <span className="ml-1 h-px flex-1 bg-ink/5" />
                 </div>
                 <dl className="grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-2">
                   {section.rows.map((row) => (
-                    <div key={row.label} className="flex flex-col gap-0.5 py-1.5 border-b border-white/5 last:border-b-0 sm:[&:nth-last-child(-n+2)]:border-b-0">
-                      <dt className="text-[10px] font-medium uppercase tracking-widest text-zinc-500">{row.label}</dt>
-                      <dd className="text-sm text-zinc-200 leading-snug">{row.value}</dd>
+                    <div key={row.label} className="flex flex-col gap-0.5 py-1.5 border-b border-ink/5 last:border-b-0 sm:[&:nth-last-child(-n+2)]:border-b-0">
+                      <dt className="text-[10px] font-medium uppercase tracking-widest text-ink-500">{row.label}</dt>
+                      <dd className="text-sm text-ink-200 leading-snug">{row.value}</dd>
                     </div>
                   ))}
                 </dl>
@@ -242,7 +242,7 @@ export default function ModelForm({ item, onSave, onCancel }: ModelFormProps) {
       <button
         type="submit"
         disabled={saving}
-        className="flex items-center justify-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-zinc-900 transition-colors hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
+        className="flex items-center justify-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-ink-900 transition-colors hover:bg-ink-100 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {saving && <Loader2 className="h-4 w-4 animate-spin" />}
         {saving ? 'Saving…' : (item ? 'Save Changes' : 'Add Influencer')}

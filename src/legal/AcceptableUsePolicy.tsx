@@ -56,7 +56,7 @@ export default function AcceptableUsePolicy() {
       <H2>Reporting</H2>
       <P>
         To report a violation of this AUP, email{' '}
-        <a className="text-zinc-100 underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
+        <a className="text-ink-100 underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
         Include a description, URL or asset id, and any supporting evidence.
       </P>
     </LegalLayout>

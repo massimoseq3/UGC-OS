@@ -16,7 +16,7 @@ export default function DMCAPolicy() {
       <UL>
         <li><strong>Name:</strong> {DMCA_AGENT_NAME}</li>
         <li><strong>Address:</strong> {DMCA_AGENT_ADDRESS}</li>
-        <li><strong>Email:</strong> <a className="text-zinc-100 underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a></li>
+        <li><strong>Email:</strong> <a className="text-ink-100 underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a></li>
       </UL>
 
       <H2>What to include in a notice</H2>

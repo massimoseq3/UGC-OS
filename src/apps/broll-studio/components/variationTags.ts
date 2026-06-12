@@ -11,11 +11,13 @@ const TAG_LABELS: Record<PromptVariation['tag'], string> = {
   EMOTIONAL: 'Emotional',
   PRODUCT: 'Product shot',
 }
+// light: text variants because the chip also renders on light panel surfaces
+// (modal header, empty card face) where the -100 tints are unreadable.
 const TAG_CHIP_STYLES: Record<PromptVariation['tag'], string> = {
-  DIALOGUE: 'bg-cyan-500/25 text-cyan-100 border-cyan-400/40',
-  ACTION: 'bg-lime-500/25 text-lime-100 border-lime-400/40',
-  EMOTIONAL: 'bg-pink-500/25 text-pink-100 border-pink-400/40',
-  PRODUCT: 'bg-amber-500/25 text-amber-100 border-amber-400/40',
+  DIALOGUE: 'bg-cyan-500/25 text-cyan-100 light:text-cyan-900 border-cyan-400/40',
+  ACTION: 'bg-lime-500/25 text-lime-100 light:text-lime-900 border-lime-400/40',
+  EMOTIONAL: 'bg-pink-500/25 text-pink-100 light:text-pink-900 border-pink-400/40',
+  PRODUCT: 'bg-amber-500/25 text-amber-100 light:text-amber-900 border-amber-400/40',
 }
 export function rollTypeForTag(tag: PromptVariation['tag']): 'A-Roll' | 'B-Roll' {
   return tag === 'DIALOGUE' ? 'A-Roll' : 'B-Roll'

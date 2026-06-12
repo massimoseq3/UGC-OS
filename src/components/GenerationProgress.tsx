@@ -49,7 +49,7 @@ export default function GenerationProgress({
 
   return (
     <div className={`w-full ${className}`}>
-      <div className="relative h-1 w-full overflow-hidden rounded-full bg-white/10">
+      <div className="relative h-1 w-full overflow-hidden rounded-full bg-ink/10">
         <div className={`shimmer-band absolute inset-y-0 left-0 w-1/2 ${color} animate-shimmer-sweep`} />
       </div>
       <div className={`${showHelper ? 'mt-2' : 'mt-1.5'} space-y-0.5`}>
@@ -57,9 +57,9 @@ export default function GenerationProgress({
             message so the layout doesn't jump on long-message wraps. When
             it's hidden (Scripts / B-Roll prompt-gen), tighten to 1 line so
             there's no awkward gap between the bar and the content below. */}
-        <p className={`${showHelper ? 'min-h-[2.25rem]' : ''} text-xs leading-snug text-zinc-500`}>{msgs[index]}</p>
+        <p className={`${showHelper ? 'min-h-[2.25rem]' : ''} text-xs leading-snug text-ink-500`}>{msgs[index]}</p>
         {showHelper && (
-          <p className="text-[11px] text-zinc-600">This can take a couple of minutes. Keep this tab open.</p>
+          <p className="text-[11px] text-ink-600">This can take a couple of minutes. Keep this tab open.</p>
         )}
       </div>
     </div>

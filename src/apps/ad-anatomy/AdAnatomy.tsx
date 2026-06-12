@@ -220,11 +220,11 @@ function AnalyzingPane({ item }: { item: AdAnatomyHistoryItem }) {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-6 px-6 py-8">
       <div className="flex flex-col items-center gap-1 text-center">
-        <h2 className="text-xl font-semibold tracking-tight text-zinc-100">
+        <h2 className="text-xl font-semibold tracking-tight text-ink-100">
           Analysing your ad
         </h2>
         {item.fileName && (
-          <p className="max-w-md truncate text-xs text-zinc-500">{item.fileName}</p>
+          <p className="max-w-md truncate text-xs text-ink-500">{item.fileName}</p>
         )}
       </div>
 
@@ -257,15 +257,15 @@ function AnalyzingPane({ item }: { item: AdAnatomyHistoryItem }) {
           showHelper={false}
           className="w-full"
         />
-        <div className="flex min-h-[60px] w-full items-start gap-2 rounded-xl border border-white/5 bg-white/[0.02] px-3.5 py-3">
+        <div className="flex min-h-[60px] w-full items-start gap-2 rounded-xl border border-ink/5 bg-ink/[0.02] px-3.5 py-3">
           <span className="mt-0.5 shrink-0 rounded-full bg-[#FF5257]/15 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest text-[#FF5257]/80">
             Did you know
           </span>
-          <p key={factIndex} className="animate-fade-in text-[12px] leading-relaxed text-zinc-400">
+          <p key={factIndex} className="animate-fade-in text-[12px] leading-relaxed text-ink-400">
             {AD_FACTS[factIndex]}
           </p>
         </div>
-        <p className="text-[11px] text-zinc-600">Feel free to upload more ads or jump to another tool — this keeps running in the background.</p>
+        <p className="text-[11px] text-ink-600">Feel free to upload more ads or jump to another tool — this keeps running in the background.</p>
       </div>
 
       <style>{`
@@ -292,11 +292,11 @@ function ErrorPane({ item, onRetry }: { item: AdAnatomyHistoryItem; onRetry: () 
     <div className="flex h-full flex-col items-center justify-center gap-5 px-6">
       <AlertCircle className="h-10 w-10 text-[#FF5257]/70" strokeWidth={1.5} />
       <div className="flex flex-col items-center gap-2 text-center">
-        <h2 className="text-lg font-semibold tracking-tight text-zinc-100">Analysis failed</h2>
-        <p className="max-w-md text-xs text-zinc-500">{item.fileName}</p>
+        <h2 className="text-lg font-semibold tracking-tight text-ink-100">Analysis failed</h2>
+        <p className="max-w-md text-xs text-ink-500">{item.fileName}</p>
       </div>
       <div className="max-w-md rounded-xl border border-[#FF5257]/20 bg-[#FF5257]/[0.06] px-4 py-3 text-center">
-        <p className="text-sm text-zinc-300">{item.errorMessage || 'Something went wrong.'}</p>
+        <p className="text-sm text-ink-300">{item.errorMessage || 'Something went wrong.'}</p>
       </div>
       <button
         onClick={onRetry}

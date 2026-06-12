@@ -75,14 +75,14 @@ export default function VideoRefStrip({ label, helper, values, onChange, max, ba
 
   return (
     <div>
-      <label className="mb-2 block text-[10px] font-medium uppercase tracking-wider text-zinc-500">
+      <label className="mb-2 block text-[10px] font-medium uppercase tracking-wider text-ink-500">
         {label}
-        <span className="text-zinc-700 normal-case"> ({values.length}/{max}){helper ? ` — ${helper}` : ''}</span>
+        <span className="text-ink-700 normal-case"> ({values.length}/{max}){helper ? ` — ${helper}` : ''}</span>
       </label>
 
       <div className="flex flex-wrap gap-2">
         {values.map((v, i) => (
-          <div key={i} className="relative h-20 w-20 overflow-hidden rounded-lg border border-white/10">
+          <div key={i} className="relative h-20 w-20 overflow-hidden rounded-lg border border-ink/10">
             <img src={v.dataUri} alt="" className="h-full w-full object-cover" />
             <button
               onClick={() => removeAt(i)}
@@ -102,7 +102,7 @@ export default function VideoRefStrip({ label, helper, values, onChange, max, ba
             <button
               ref={triggerRef}
               onClick={() => setActionMenu((v) => !v)}
-              className="flex h-20 w-20 items-center justify-center rounded-lg border border-dashed border-white/15 bg-white/[0.02] text-zinc-500 transition-colors hover:border-white/25 hover:text-zinc-300"
+              className="flex h-20 w-20 items-center justify-center rounded-lg border border-dashed border-ink/15 bg-ink/[0.02] text-ink-500 transition-colors hover:border-ink/25 hover:text-ink-300"
             >
               <Plus className="h-4 w-4" />
             </button>
