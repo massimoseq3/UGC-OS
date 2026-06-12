@@ -40,6 +40,7 @@ export default function VoiceStudio() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [scriptPickerOpen, setScriptPickerOpen] = useState(false)
+  const [selectedScript, setSelectedScript] = useState<Script | null>(null)
   const [highlightField, setHighlightField] = useState<string | null>(null)
   const [detailsItem, setDetailsItem] = useState<VoiceHistoryItem | null>(null)
 
@@ -75,6 +76,7 @@ export default function VoiceStudio() {
   const handleLoadScript = (item: unknown) => {
     const script = item as Script
     setScriptText(script.scriptText)
+    setSelectedScript(script)
     setScriptPickerOpen(false)
   }
 
@@ -158,6 +160,7 @@ export default function VoiceStudio() {
 
   const handleRestoreText = (text: string) => {
     setScriptText(text)
+    setSelectedScript(null)
     setHighlightField('script')
     setTimeout(() => setHighlightField(null), 800)
     setDetailsItem(null)
@@ -171,6 +174,7 @@ export default function VoiceStudio() {
   // Blank slate: wipe the script input. Generated voiceovers live in History.
   const handleClear = () => {
     setScriptText('')
+    setSelectedScript(null)
     setError(null)
   }
 
@@ -192,8 +196,10 @@ export default function VoiceStudio() {
         <div className="flex flex-1 flex-col md:min-h-0 md:overflow-hidden">
           <EditorArea
             scriptText={scriptText}
-            onScriptChange={setScriptText}
+            onScriptChange={(v) => { setScriptText(v); setSelectedScript(null) }}
             onSelectScript={() => setScriptPickerOpen(true)}
+            selectedScript={selectedScript}
+            onClearScript={() => setSelectedScript(null)}
             onClear={handleClear}
             onGenerate={handleGenerate}
             isGenerating={isGenerating}

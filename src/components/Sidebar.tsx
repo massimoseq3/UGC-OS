@@ -183,7 +183,7 @@ function CreditsChip({ collapsed }: { collapsed: boolean }) {
 
   return (
     <div
-      className="flex w-full items-center gap-3 rounded-full px-3 py-2"
+      className="flex w-full items-center gap-3 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2"
       title="kie.ai credits remaining"
     >
       <Coins className="h-5 w-5 shrink-0 text-zinc-300" strokeWidth={1.75} />
