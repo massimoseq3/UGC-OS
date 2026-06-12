@@ -37,12 +37,7 @@ export default function EditorArea({
   return (
     <div className="flex flex-col md:h-full md:overflow-hidden">
       {/* Body */}
-      <div className="flex flex-1 flex-col px-8 pt-3 md:overflow-hidden">
-        {/* "Clear All" link in the top-right corner. */}
-        <div className="flex justify-end pb-2">
-          <ClearAllButton onClear={onClear} />
-        </div>
-
+      <div className="flex flex-1 flex-col px-8 pt-8 md:overflow-hidden">
         {/* Pull from Script bank — subtle dashed-border affordance */}
         <button
           type="button"
@@ -74,6 +69,11 @@ export default function EditorArea({
             highlightField === 'script' ? 'animate-field-flash' : ''
           }`}
         />
+
+        {/* "Clear All" link — bottom-left of the editor, above the footer bar. */}
+        <div className="pt-2">
+          <ClearAllButton onClear={onClear} />
+        </div>
       </div>
 
       {/* Error */}
