@@ -37,7 +37,7 @@ export default function EditorArea({
   return (
     <div className="flex flex-col md:h-full md:overflow-hidden">
       {/* Body */}
-      <div className="flex flex-1 flex-col px-8 pt-6 md:overflow-hidden">
+      <div className="flex flex-1 flex-col px-8 pt-3 md:overflow-hidden">
         {/* "Clear All" link in the top-right corner. */}
         <div className="flex justify-end pb-2">
           <ClearAllButton onClear={onClear} />

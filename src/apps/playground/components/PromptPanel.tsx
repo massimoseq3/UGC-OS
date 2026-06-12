@@ -371,7 +371,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
       {/* Middle: scrollable body — model picker, preset, refs, prompt. */}
       <div className="relative min-h-0 flex-1 overflow-hidden">
         <div className="flex h-full flex-col overflow-y-auto">
-          <div className="flex grow flex-col gap-6 px-5 py-6">
+          <div className="flex grow flex-col gap-6 px-5 pb-6 pt-3">
             {/* Model */}
             <div>
               <span className="text-sm font-medium text-zinc-200">{modelHeading}</span>
