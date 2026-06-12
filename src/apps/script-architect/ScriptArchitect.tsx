@@ -200,6 +200,7 @@ export default function ScriptArchitect() {
           onGenerate={handleGenerate}
           isGenerating={isGenerating}
           highlightField={highlightField}
+          onClear={handleClearOutput}
         />
       </div>
 
@@ -216,7 +217,6 @@ export default function ScriptArchitect() {
           activeHistoryId={activeHistoryId}
           onSelectHistory={handleSelectHistory}
           onDeleteHistory={handleDeleteHistory}
-          onClearOutput={handleClearOutput}
         />
       </div>
     </div>

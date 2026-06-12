@@ -389,7 +389,6 @@ export default function BrollStudio() {
           isGenerating={isGenerating}
           highlightField={highlightField}
           onClearOutput={handleClearOutput}
-          hasResult={!!result}
         />
       </div>
 

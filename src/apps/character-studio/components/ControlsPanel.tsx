@@ -1,11 +1,10 @@
-import { useState } from 'react'
-import { XCircle } from 'lucide-react'
 import type { TabId, CharacterProfile } from '../types'
 import { TABS, getTabFields, createEmptyProfile } from '../types'
 import ChipField from './ChipField'
 import PhotoExtractZone from './PhotoExtractZone'
 import LoadPresetDropdown from './LoadPresetDropdown'
 import SegmentedToggle from '../../../components/SegmentedToggle'
+import ClearAllButton from '../../../components/ClearAllButton'
 
 interface ControlsPanelProps {
   profile: CharacterProfile
@@ -30,7 +29,6 @@ export default function ControlsPanel({
   onPhotoDrop,
   onResetExtract,
 }: ControlsPanelProps) {
-  const [confirmClear, setConfirmClear] = useState(false)
   const currentTab = TABS.find((t) => t.id === activeTab)!
 
   const setField = (key: string, value: string) => {
@@ -39,9 +37,13 @@ export default function ControlsPanel({
 
   return (
     <div className="flex min-w-0 flex-col md:h-full">
-      {/* Preset picker + reference-image drop zone sit at the top, with a
-          subtle "Clear All" link tucked directly beneath them. */}
-      <div className="flex items-stretch gap-2 px-3 pt-2">
+      {/* "Clear All" link in the top-right corner, above the presets. */}
+      <div className="flex justify-end px-3 pb-1.5 pt-3">
+        <ClearAllButton onClear={() => onProfileChange(createEmptyProfile())} />
+      </div>
+
+      {/* Preset picker + reference-image drop zone. */}
+      <div className="flex items-stretch gap-2 px-3 pb-2 pt-0">
         <div className="min-w-0 flex-1">
           <LoadPresetDropdown onLoadProfile={onProfileChange} />
         </div>
@@ -54,15 +56,6 @@ export default function ControlsPanel({
             onReset={onResetExtract}
           />
         </div>
-      </div>
-      <div className="px-3 pb-2 pt-1">
-        <button
-          type="button"
-          onClick={() => setConfirmClear(true)}
-          className="text-[11px] text-zinc-500 underline decoration-zinc-600 underline-offset-2 transition-colors hover:text-zinc-300 hover:decoration-zinc-400"
-        >
-          Clear All
-        </button>
       </div>
 
       {/* Rounded segmented toggle — filled so all 4 tabs share the column
@@ -105,45 +98,6 @@ export default function ControlsPanel({
           ))}
         </div>
       </div>
-
-      {/* Clear-all confirmation popup */}
-      {confirmClear && (
-        <div
-          className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
-          onClick={() => setConfirmClear(false)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-xs rounded-2xl border border-white/10 bg-[#0c0c0e] p-5 shadow-2xl"
-          >
-            <div className="flex flex-col items-center gap-1.5 text-center">
-              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-red-500/10 text-red-400">
-                <XCircle className="h-6 w-6" strokeWidth={1.75} />
-              </div>
-              <p className="mt-1 text-sm font-semibold tracking-tight text-zinc-100">Clear all fields?</p>
-              <p className="text-xs leading-relaxed text-zinc-400">
-                Are you sure you want to clear all the input fields?
-              </p>
-            </div>
-            <div className="mt-4 flex gap-2">
-              <button
-                type="button"
-                onClick={() => setConfirmClear(false)}
-                className="flex-1 rounded-full border border-white/10 py-2 text-xs font-medium text-zinc-300 transition-colors hover:bg-white/5"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => { onProfileChange(createEmptyProfile()); setConfirmClear(false) }}
-                className="flex-1 rounded-full bg-red-500/90 py-2 text-xs font-semibold text-white transition-colors hover:bg-red-500"
-              >
-                Clear all
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

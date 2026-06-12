@@ -1,5 +1,6 @@
 import { FileText, Loader2, Mic, AlertCircle, Download } from 'lucide-react'
 import GenerationProgress from '../../../components/GenerationProgress'
+import ClearAllButton from '../../../components/ClearAllButton'
 
 const MAX_CHARACTERS = 5000
 
@@ -7,6 +8,7 @@ interface EditorAreaProps {
   scriptText: string
   onScriptChange: (value: string) => void
   onSelectScript: () => void
+  onClear: () => void
   onGenerate: () => void
   isGenerating: boolean
   canGenerate: boolean
@@ -20,6 +22,7 @@ export default function EditorArea({
   scriptText,
   onScriptChange,
   onSelectScript,
+  onClear,
   onGenerate,
   isGenerating,
   canGenerate,
@@ -34,7 +37,12 @@ export default function EditorArea({
   return (
     <div className="flex flex-col md:h-full md:overflow-hidden">
       {/* Body */}
-      <div className="flex flex-1 flex-col px-8 pt-8 md:overflow-hidden">
+      <div className="flex flex-1 flex-col px-8 pt-3 md:overflow-hidden">
+        {/* "Clear All" link in the top-right corner. */}
+        <div className="flex justify-end pb-2">
+          <ClearAllButton onClear={onClear} />
+        </div>
+
         {/* Pull from Script bank — subtle dashed-border affordance */}
         <button
           type="button"

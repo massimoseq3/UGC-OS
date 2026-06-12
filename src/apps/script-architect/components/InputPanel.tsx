@@ -5,6 +5,7 @@ import { WRITE_LENGTHS, WRITE_STYLE_META, type EditableProductContext, type Scri
 import { useBankStore } from '../../../stores/bankStore'
 import BankPicker from '../../../components/BankPicker'
 import SegmentedToggle from '../../../components/SegmentedToggle'
+import ClearAllButton from '../../../components/ClearAllButton'
 import { useAppStore } from '../../../stores/appStore'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
 
@@ -42,6 +43,7 @@ interface InputPanelProps {
   onGenerate: (context: EditableProductContext | null) => void
   isGenerating: boolean
   highlightField?: string | null
+  onClear: () => void
 }
 
 export default function InputPanel({
@@ -66,6 +68,7 @@ export default function InputPanel({
   onGenerate,
   isGenerating,
   highlightField,
+  onClear,
 }: InputPanelProps) {
   const [productPickerOpen, setProductPickerOpen] = useState(false)
   const [scriptPickerOpen, setScriptPickerOpen] = useState(false)
@@ -218,9 +221,14 @@ export default function InputPanel({
 
   return (
     <div className="flex flex-col md:h-full">
+      {/* "Clear All" link in the top-right corner. */}
+      <div className="flex justify-end px-5 pb-1 pt-3">
+        <ClearAllButton onClear={onClear} />
+      </div>
+
       {/* Mode toggle — rounded segmented pill, mirrored by the Output/History
           toggle in the right panel so both strips share the same baseline. */}
-      <div className="flex shrink-0 items-center px-5 pb-2 pt-4">
+      <div className="flex shrink-0 items-center px-5 pb-2 pt-1">
         <SegmentedToggle<ScriptMode>
           value={mode}
           onChange={onModeChange}

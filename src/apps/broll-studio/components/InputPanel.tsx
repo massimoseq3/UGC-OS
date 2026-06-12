@@ -1,6 +1,7 @@
 import { Package, UserRound, FileText, RefreshCw, Loader2, Film, X } from 'lucide-react'
 import type { Product, Model, Script } from '../../../stores/types'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
+import ClearAllButton from '../../../components/ClearAllButton'
 
 interface InputPanelProps {
   selectedProduct: Product | null
@@ -19,10 +20,9 @@ interface InputPanelProps {
   onGenerate: () => void
   isGenerating: boolean
   highlightField?: string | null
-  // Clear-output control — lives up here next to the References heading so
-  // the right panel's toggle strip stays clean. Hidden until there's a result.
+  // Clear-all control — wipes the inputs/references and the generated scenes.
+  // The session is preserved as its own History row.
   onClearOutput?: () => void
-  hasResult?: boolean
 }
 
 function BankCard({
@@ -173,7 +173,6 @@ export default function InputPanel({
   isGenerating,
   highlightField,
   onClearOutput,
-  hasResult,
 }: InputPanelProps) {
   const hasScript = scriptText.trim().length > 0
   const canGenerate = hasScript
@@ -183,19 +182,10 @@ export default function InputPanel({
       {/* Bank selections */}
       <div className="flex-1 p-5 md:overflow-y-auto">
         <div className="flex flex-col gap-3">
-          {/* References section */}
+          {/* References section — "Clear All" in the top-right corner. */}
           <div className="flex items-center justify-between gap-2">
             <span className="text-sm font-medium text-zinc-200">References</span>
-            {onClearOutput && hasResult && (
-              <button
-                onClick={onClearOutput}
-                title="Clear inputs and scenes. This session stays in the History tab."
-                className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-zinc-400 transition-colors hover:bg-white/5 hover:text-zinc-200"
-              >
-                <X className="h-3.5 w-3.5" strokeWidth={2} />
-                Clear
-              </button>
-            )}
+            {onClearOutput && <ClearAllButton onClear={onClearOutput} />}
           </div>
 
           {/* Product */}
