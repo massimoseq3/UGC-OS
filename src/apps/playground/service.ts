@@ -20,6 +20,7 @@ import {
   kieVeoPoll,
   kieMusicGenerate,
   pollMusicTask,
+  kieOmniCharacterCreate,
   ensureHostedUrl,
   downloadAsBase64,
   IMAGE_POLL_ATTEMPTS,
@@ -114,6 +115,44 @@ export async function finishPlaygroundImageTask(
 // Gallery view can filter Playground gens out — see types.ts BRoll/VideoHistoryItem.
 const PLAYGROUND_SOURCE = 'playground' as const
 
+// ── Gemini Omni characters ─────────────────────────────────────────
+
+// Returns the bank model's persistent Omni character id, minting one via
+// kie's /omni/character/create on first use and stamping it back onto the
+// bank row. Idempotent — subsequent generations reuse the stored id.
+export async function ensureOmniCharacterId(bankModelId: string): Promise<string> {
+  const bank = useBankStore.getState()
+  const model = bank.models.find((m) => m.id === bankModelId)
+  if (!model) throw new Error('Influencer not found in bank — it may have been deleted.')
+  if (model.omniCharacterId) return model.omniCharacterId
+
+  const apiKey = useSettingsStore.getState().getKieApiKey()
+
+  let source = model.characterImage
+  if (isAssetRef(source)) {
+    const asset = await getAsBase64(source)
+    if (!asset) throw new Error(`Couldn't load the image for "${model.name}" — its asset is missing.`)
+    source = `data:${asset.mimeType};base64,${asset.base64}`
+  }
+  const imageUrl = await ensureHostedUrl(apiKey, source)
+
+  // Character description: name + notes + the DNA profile JSON, clamped to
+  // kie's 20k-char limit. The profile is the richest signal we have.
+  const parts = [model.name, model.notes, model.jsonProfile ? JSON.stringify(model.jsonProfile) : '']
+  const descriptions = parts.filter(Boolean).join('\n\n').slice(0, 20_000) || model.name
+
+  const created = await kieOmniCharacterCreate(apiKey, {
+    imageUrl,
+    descriptions,
+    characterName: model.name.slice(0, 100) || undefined,
+  })
+  if (!created.characterId) {
+    throw new Error(`Omni character creation returned no characterId for "${model.name}".`)
+  }
+  await bank.updateModel(bankModelId, { omniCharacterId: created.characterId })
+  return created.characterId
+}
+
 // ── Video ──────────────────────────────────────────────────────────
 
 export interface PlaygroundVideoStartInput {
@@ -128,6 +167,16 @@ export interface PlaygroundVideoStartInput {
   firstFrameUrl?: string
   lastFrameUrl?: string
   referenceImageUrls?: string[]
+  // Seedance 2 family — reference audio (≤15s total) and video (≤15s total)
+  // clips. Sent regardless of the image mode; they're orthogonal inputs.
+  referenceAudioUrls?: string[]
+  referenceVideoUrls?: string[]
+  // Gemini Omni — bank model ids to attach as persistent characters (the
+  // omni id is minted lazily via ensureOmniCharacterId), designed voice ids,
+  // and an optional trimmed source clip.
+  omniCharacterBankIds?: string[]
+  omniAudioIds?: string[]
+  videoClip?: { url: string; start: number; ends: number }
 }
 
 export async function startPlaygroundVideoTask(
@@ -166,6 +215,37 @@ export async function startPlaygroundVideoTask(
     }
   }
 
+  // Media references are orthogonal to the image mode — host them whenever
+  // present (data URIs from uploads get pushed to kie's file host).
+  async function hostedList(refs: string[] | undefined): Promise<string[] | undefined> {
+    if (!refs?.length) return undefined
+    const out: string[] = []
+    for (const r of refs) {
+      const h = await hosted(r)
+      if (h) out.push(h)
+    }
+    return out.length > 0 ? out : undefined
+  }
+  const referenceAudioUrls = await hostedList(input.referenceAudioUrls)
+  const referenceVideoUrls = await hostedList(input.referenceVideoUrls)
+
+  let videoClip: { url: string; start: number; ends: number } | undefined
+  if (input.videoClip) {
+    const url = await hosted(input.videoClip.url)
+    if (!url) throw new Error('The source video clip could not be loaded. Re-attach it and try again.')
+    videoClip = { url, start: input.videoClip.start, ends: input.videoClip.ends }
+  }
+
+  // Omni characters: resolve each attached bank influencer to its persistent
+  // character id, minting on first use.
+  let omniCharacterIds: string[] | undefined
+  if (input.omniCharacterBankIds?.length) {
+    omniCharacterIds = []
+    for (const bankId of input.omniCharacterBankIds) {
+      omniCharacterIds.push(await ensureOmniCharacterId(bankId))
+    }
+  }
+
   const buildOpts = {
     prompt: input.prompt,
     mode: input.mode,
@@ -177,6 +257,11 @@ export async function startPlaygroundVideoTask(
     firstFrameUrl,
     lastFrameUrl,
     referenceImageUrls,
+    referenceAudioUrls,
+    referenceVideoUrls,
+    omniCharacterIds,
+    omniAudioIds: input.omniAudioIds?.length ? input.omniAudioIds : undefined,
+    videoClip,
   }
   const body = buildVideoInput(input.modelId, buildOpts)
 

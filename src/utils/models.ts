@@ -46,6 +46,10 @@ export interface PriceParams {
   charCount?: number
   resolution?: string
   audio?: boolean
+  // True when the request includes a source video clip (Gemini Omni's
+  // video_list) — kie bills those generations at a flat per-call tier
+  // regardless of duration.
+  videoInput?: boolean
 }
 
 export interface VideoConstraints {
@@ -80,6 +84,15 @@ export interface ModelEntry {
   modes?: Mode[]
   tags: Tag[]
   supportsReferenceImages?: boolean
+  // Video-only: model accepts reference audio clips (Seedance 2 family's
+  // `reference_audio_urls` — voice/lip-sync/sound guidance, ≤15s total).
+  supportsReferenceAudio?: boolean
+  // Video-only: model accepts reference video clips (Seedance 2 family's
+  // `reference_video_urls`, ≤15s total).
+  supportsReferenceVideos?: boolean
+  // Gemini Omni only: model accepts persistent character ids, designed voice
+  // ids, and a trimmed source video clip, under a shared 7-slot input quota.
+  omniInputs?: boolean
   voices?: Voice[]
   fetchVoicesAtRuntime?: boolean
   pricing?: Pricing
@@ -206,6 +219,8 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     modes: ['text-to-video', 'image-to-video', 'frames-to-video', 'reference-to-video'],
     tags: ['recommended', 'new'],
     supportsReferenceImages: true,
+    supportsReferenceAudio: true,
+    supportsReferenceVideos: true,
     // Per-second × resolution. Source: https://kie.ai/seedance-2-0 (the
     // marketing page lists a "with video input" tier we don't expose — none
     // of our flows pass a video URL, only image inputs, so the higher
@@ -235,6 +250,8 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     modes: ['text-to-video', 'image-to-video', 'frames-to-video', 'reference-to-video'],
     tags: ['fast', 'cheap'],
     supportsReferenceImages: true,
+    supportsReferenceAudio: true,
+    supportsReferenceVideos: true,
     pricing: {
       unit: 'per-second',
       credits: 33,
@@ -356,6 +373,47 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     videoConstraints: {
       durations: [],
       resolutions: ['720p', '1080p', '4k'],
+      aspectRatios: ['16:9', '9:16'],
+    },
+  },
+  // Gemini Omni Video — Google's multimodal AV generator. Standard
+  // createTask transport, but its inputs are unique: alongside up to 7
+  // reference images it accepts persistent character ids (from
+  // /omni/character/create), designed voice ids (from /omni/audio/create),
+  // and 1 trimmed source video clip — all sharing a 7-slot quota
+  // (images×1 + video×2 + characters×1 ≤ 7). Audio is always baked into the
+  // output (no generate_audio toggle). Docs: https://docs.kie.ai/market/gemini-omni-video
+  // Pricing (user-verified from kie playground, 2026-06-12): per-call,
+  // duration-tiered — 720p/1080p: 4s=90 / 6s=120 / 8s=150 / 10s=180; 4k adds
+  // +120. With a video input, duration is model-decided and billing is flat:
+  // 240 (720p/1080p) or 360 (4k).
+  {
+    id: 'gemini-omni-video',
+    displayName: 'Gemini Omni',
+    provider: 'Google',
+    task: 'video',
+    modes: ['text-to-video', 'reference-to-video'],
+    tags: ['new'],
+    supportsReferenceImages: true,
+    omniInputs: true,
+    pricing: {
+      unit: 'per-call',
+      credits: 150,
+      priceFor: ({ durationSeconds = 8, resolution = '720p', videoInput = false }) => {
+        const is4k = resolution === '4k'
+        if (videoInput) return is4k ? 360 : 240
+        const base =
+          durationSeconds >= 10 ? 180 :
+          durationSeconds >= 8 ? 150 :
+          durationSeconds >= 6 ? 120 : 90
+        return is4k ? base + 120 : base
+      },
+    },
+    videoEndpoint: 'createTask',
+    videoConstraints: {
+      durations: [4, 6, 8, 10],
+      resolutions: ['720p', '1080p', '4k'],
+      default: '720p',
       aspectRatios: ['16:9', '9:16'],
     },
   },
@@ -523,6 +581,7 @@ export interface CostEstimateParams {
   charCount?: number
   resolution?: string
   audio?: boolean
+  videoInput?: boolean
 }
 
 
@@ -623,6 +682,17 @@ export interface VideoGenOptions {
   lastFrameUrl?: string
   referenceImageUrls?: string[]
   imageUrl?: string  // single first-frame for image-to-video mode
+  // Seedance 2 family: reference audio clips (≤15s total) for voice /
+  // lip-sync / sound guidance, and reference video clips (≤15s total) for
+  // motion / style guidance. Orthogonal to the image mode — sent whenever
+  // present.
+  referenceAudioUrls?: string[]
+  referenceVideoUrls?: string[]
+  // Gemini Omni only: persistent ids from the omni create endpoints, plus an
+  // optional trimmed source video clip (start/ends in seconds, ≤10s window).
+  omniCharacterIds?: string[]
+  omniAudioIds?: string[]
+  videoClip?: { url: string; start: number; ends: number }
 }
 
 // Resolves a registry model id to the actual kie.ai slug to send in the
@@ -692,6 +762,29 @@ export function buildVideoInput(modelId: string, opts: VideoGenOptions): Record<
     }
   }
 
+  // ── Gemini Omni Video ──
+  // Every image input is a generic reference (no first/last-frame semantics);
+  // characters / voices / the source clip ride alongside. `duration` is a
+  // required string enum and is ignored by kie when a video clip is present.
+  if (modelId === 'gemini-omni-video') {
+    const imageUrls: string[] = []
+    if (opts.imageUrl) imageUrls.push(opts.imageUrl)
+    if (opts.firstFrameUrl) imageUrls.push(opts.firstFrameUrl)
+    if (opts.lastFrameUrl) imageUrls.push(opts.lastFrameUrl)
+    if (opts.referenceImageUrls?.length) imageUrls.push(...opts.referenceImageUrls)
+    const allowedDurations = [4, 6, 8, 10]
+    return {
+      prompt: opts.prompt,
+      ...(imageUrls.length > 0 ? { image_urls: imageUrls } : {}),
+      ...(opts.omniAudioIds?.length ? { audio_ids: opts.omniAudioIds } : {}),
+      ...(opts.omniCharacterIds?.length ? { character_ids: opts.omniCharacterIds } : {}),
+      ...(opts.videoClip ? { video_list: [opts.videoClip] } : {}),
+      duration: String(allowedDurations.includes(duration) ? duration : 8),
+      aspect_ratio: ar === '9:16' ? '9:16' : '16:9',
+      resolution,
+    }
+  }
+
   // ── Wan 2.7 ──
   // T2V uses `ratio` (not `aspect_ratio`); I2V infers aspect from the input
   // image and accepts both first_frame_url and last_frame_url.
@@ -740,6 +833,8 @@ export function buildVideoInput(modelId: string, opts: VideoGenOptions): Record<
     ...(opts.lastFrameUrl ? { last_frame_url: opts.lastFrameUrl } : {}),
     ...(opts.imageUrl && opts.mode === 'image-to-video' ? { first_frame_url: opts.imageUrl } : {}),
     ...(opts.referenceImageUrls?.length ? { reference_image_urls: opts.referenceImageUrls } : {}),
+    ...(opts.referenceAudioUrls?.length ? { reference_audio_urls: opts.referenceAudioUrls } : {}),
+    ...(opts.referenceVideoUrls?.length ? { reference_video_urls: opts.referenceVideoUrls } : {}),
     aspect_ratio: ar,
     duration,
     resolution,

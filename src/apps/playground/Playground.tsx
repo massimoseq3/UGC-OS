@@ -20,7 +20,9 @@ import { humanizeError } from '../../utils/friendlyError'
 // would just timeout. Surface the error and clear the tile.
 const STALE_TASK_MS = 30 * 60 * 1000 // 30 minutes
 
-// Infer the video mode from which ref slots the user filled.
+// Infer the video mode from which ref slots the user filled. Only image
+// slots participate — audio/video reference clips and the Omni inputs are
+// orthogonal extras that don't change the kie request family.
 function inferVideoMode(refs: PromptRef[]): VideoMode {
   const startCount = refs.filter((r) => r.slot === 'start').length
   const endCount = refs.filter((r) => r.slot === 'end').length
@@ -30,6 +32,16 @@ function inferVideoMode(refs: PromptRef[]): VideoMode {
   if (startCount > 0) return 'image-to-video'
   if (refCount > 0) return 'reference-to-video'
   return 'text-to-video'
+}
+
+// Uploaded audio/video clips are data URIs far beyond the localStorage quota
+// (a 15MB clip is ~20MB of JSON), so they're kept in memory only — the
+// persisted draft drops them. Bank-picked media (`asset://` refs) and image
+// refs keep their existing persistence behaviour.
+function pruneHeavyRefs(refs: PromptRef[]): PromptRef[] {
+  return refs.filter(
+    (r) => !((r.slot === 'audio' || r.slot === 'video' || r.slot === 'omni-clip') && r.url.startsWith('data:')),
+  )
 }
 
 // When the user picks a text-to-image model but attaches reference images,
@@ -105,6 +117,7 @@ export default function Playground() {
       }
       return next
     },
+    prune: (v) => ({ ...v, refs: pruneHeavyRefs(v.refs) }),
   })
   // Persisted across reload so a tab refresh / app switch can resume polling
   // an in-flight kie task. Tasks without a `taskId` (still in the createTask
@@ -118,6 +131,13 @@ export default function Playground() {
   const [promptStash, setPromptStash] = usePersistedState<Record<PlaygroundMode, { prompt: string; refs: PromptRef[] }>>(
     `${baseKey}:promptstash`,
     { image: { prompt: '', refs: [] }, video: { prompt: '', refs: [] }, music: { prompt: '', refs: [] } },
+    {
+      prune: (v) => ({
+        image: { ...v.image, refs: pruneHeavyRefs(v.image.refs) },
+        video: { ...v.video, refs: pruneHeavyRefs(v.video.refs) },
+        music: { ...v.music, refs: pruneHeavyRefs(v.music.refs) },
+      }),
+    },
   )
   const interAppPayload = useAppStore((s) => s.interAppPayload)
   const consumePayload = useAppStore((s) => s.consumePayload)
@@ -295,6 +315,15 @@ export default function Playground() {
           ?? (inferredVideoMode === 'reference-to-video' ? undefined : refsSnapshot.find((r) => r.slot === 'ref')?.url)
         const last = refsSnapshot.find((r) => r.slot === 'end')?.url
         const references = refsSnapshot.filter((r) => r.slot === 'ref').map((r) => r.url)
+        const referenceAudioUrls = refsSnapshot.filter((r) => r.slot === 'audio').map((r) => r.url)
+        const referenceVideoUrls = refsSnapshot.filter((r) => r.slot === 'video').map((r) => r.url)
+        const omniCharacterBankIds = refsSnapshot
+          .filter((r) => r.slot === 'omni-character' && r.bankModelId)
+          .map((r) => r.bankModelId!)
+        const omniAudioIds = refsSnapshot
+          .filter((r) => r.slot === 'omni-voice' && r.omniId)
+          .map((r) => r.omniId!)
+        const clip = refsSnapshot.find((r) => r.slot === 'omni-clip')
         const started = await startPlaygroundVideoTask({
           prompt: promptText,
           modelId,
@@ -306,6 +335,13 @@ export default function Playground() {
           firstFrameUrl: inferredVideoMode === 'image-to-video' || inferredVideoMode === 'frames-to-video' ? first : undefined,
           lastFrameUrl: last,
           referenceImageUrls: inferredVideoMode === 'reference-to-video' ? references : undefined,
+          referenceAudioUrls: referenceAudioUrls.length > 0 ? referenceAudioUrls : undefined,
+          referenceVideoUrls: referenceVideoUrls.length > 0 ? referenceVideoUrls : undefined,
+          omniCharacterBankIds: omniCharacterBankIds.length > 0 ? omniCharacterBankIds : undefined,
+          omniAudioIds: omniAudioIds.length > 0 ? omniAudioIds : undefined,
+          videoClip: clip
+            ? { url: clip.url, start: clip.clipStart ?? 0, ends: clip.clipEnds ?? Math.min(10, clip.durationSeconds ?? 10) }
+            : undefined,
         })
         taskId = started.taskId
         videoEndpoint = started.videoEndpoint

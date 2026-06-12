@@ -25,6 +25,10 @@ import { useSettingsStore } from '../../../stores/settingsStore'
 import { fileToDataUri } from '../../../utils/kie'
 import VideoInputSlot, { type VideoInputValue } from '../../../components/video/VideoInputSlot'
 import VideoRefStrip from '../../../components/video/VideoRefStrip'
+import MediaRefStrip, { type MediaRefValue } from '../../../components/video/MediaRefStrip'
+import { readMediaDuration } from '../../../utils/media'
+import OmniInputsSection from './OmniInputsSection'
+import { useAppStore } from '../../../stores/appStore'
 import type { BankType } from '../../../utils/constants'
 import type { BRoll } from '../../../stores/types'
 import PresetCard from './PresetCard'
@@ -55,12 +59,25 @@ const PLAYGROUND_FRAME_TABS: Array<{ type: BankType; filter?: (item: BRoll | unk
 // resolved from an @-mention. `source` distinguishes so the UI can render
 // the right chip text.
 export interface PromptRef {
-  // Renderable URL: data: URI, http(s) URL, or asset:// ref.
+  // Renderable URL: data: URI, http(s) URL, or asset:// ref. Empty for
+  // omni-voice refs (they're ids, not media).
   url: string
   label: string
   source: 'upload' | 'product' | 'character' | 'broll'
-  // Where to slot the ref. 'start' → start frame, 'end' → end frame, 'ref' → reference image array.
-  slot: 'start' | 'end' | 'ref'
+  // Where to slot the ref. 'start' → start frame, 'end' → end frame,
+  // 'ref' → reference image array. 'audio'/'video' → Seedance reference
+  // clips. 'omni-*' → Gemini Omni characters / designed voices / source clip.
+  slot: 'start' | 'end' | 'ref' | 'audio' | 'video' | 'omni-character' | 'omni-voice' | 'omni-clip'
+  // audio / video / omni-clip: clip length read from file metadata.
+  durationSeconds?: number
+  // omni-character: the Influencers bank row id. The kie characterId is
+  // resolved (and minted on first use) at generate time.
+  bankModelId?: string
+  // omni-voice: the kieAudioId from /omni/audio/create.
+  omniId?: string
+  // omni-clip: trim window in seconds (ends − start ≤ 10).
+  clipStart?: number
+  clipEnds?: number
 }
 
 export interface PromptPanelState {
@@ -106,6 +123,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
 
   const model = getModel(state.modelId)
   const taskForMode: Task = state.mode === 'image' ? 'image' : state.mode === 'video' ? 'video' : 'music'
+  const addToast = useAppStore((s) => s.addToast)
 
   // Video ref slots derived from the refs[] array — start/end frames live as
   // single-value slots, ref strip as a list. Mutating these calls back through
@@ -140,12 +158,37 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
     onChange({ ...state, refs: [...nonRefs, ...refs] })
   }
 
+  // Audio / video reference clips (Seedance 2 family) live in refs[] under
+  // their own slots, surfaced as MediaRefStrip chip values.
+  function mediaStripValues(slot: 'audio' | 'video'): MediaRefValue[] {
+    return state.refs
+      .filter((r) => r.slot === slot)
+      .map((r) => ({ dataUri: r.url, name: r.label, durationSeconds: r.durationSeconds }))
+  }
+
+  function setMediaStrip(slot: 'audio' | 'video', values: MediaRefValue[]) {
+    const others = state.refs.filter((r) => r.slot !== slot)
+    const refs = values.map((v) => ({
+      url: v.dataUri, label: v.name, source: 'upload' as const, slot, durationSeconds: v.durationSeconds,
+    }))
+    onChange({ ...state, refs: [...others, ...refs] })
+  }
+
   // Veo 3.1 Fast caps reference inputs at 3; Seedance family allows up to 9.
-  // Match B-Roll Videos' rule.
-  const maxRefs = state.modelId === 'veo3_fast' ? 3 : 9
+  // Match B-Roll Videos' rule. Gemini Omni's image cap is whatever its 7-slot
+  // quota leaves after characters (×1 each) and the source clip (×2).
+  const omniImageCap = 7
+    - state.refs.filter((r) => r.slot === 'omni-character').length
+    - (state.refs.some((r) => r.slot === 'omni-clip') ? 2 : 0)
+  const maxRefs = model?.omniInputs
+    ? Math.max(0, omniImageCap)
+    : state.modelId === 'veo3_fast' ? 3 : 9
   const refsAllowed = model?.supportsReferenceImages ?? false
   const supportsFrames = !!model?.modes?.includes('image-to-video') || !!model?.modes?.includes('frames-to-video')
   const supportsEndFrame = !!model?.modes?.includes('frames-to-video')
+  const supportsRefAudio = state.mode === 'video' && !!model?.supportsReferenceAudio
+  const supportsRefVideos = state.mode === 'video' && !!model?.supportsReferenceVideos
+  const isOmni = state.mode === 'video' && !!model?.omniInputs
 
   // For Image we register text-to-image by default; pickers filter on task
   // alone so models can advertise multiple modes and the picker shows them.
@@ -189,6 +232,29 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
         patch.resolution = c.default ?? c.resolutions[0] ?? '1K'
       }
     }
+
+    // Keep refs[] consistent with what the new model's UI can show — a slot
+    // the panel doesn't render would otherwise hold invisible, undeletable
+    // state that still alters the generation.
+    if (state.mode === 'video') {
+      let nextRefs = state.refs
+      if (model?.omniInputs) {
+        // Omni has no frame slots; a start/end frame is just another image ref.
+        nextRefs = nextRefs.map((r) =>
+          r.slot === 'start' || r.slot === 'end' ? { ...r, slot: 'ref' as const } : r,
+        )
+      } else {
+        nextRefs = nextRefs.filter(
+          (r) => r.slot !== 'omni-character' && r.slot !== 'omni-voice' && r.slot !== 'omni-clip',
+        )
+      }
+      if (!model?.supportsReferenceAudio) nextRefs = nextRefs.filter((r) => r.slot !== 'audio')
+      if (!model?.supportsReferenceVideos) nextRefs = nextRefs.filter((r) => r.slot !== 'video')
+      const changed = nextRefs.length !== state.refs.length
+        || nextRefs.some((r, i) => r !== state.refs[i])
+      if (changed) patch.refs = nextRefs
+    }
+
     if (Object.keys(patch).length > 0) onChange({ ...state, ...patch })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.modelId, state.mode])
@@ -290,16 +356,47 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
     textareaRef.current?.focus()
   }
 
-  // Drag-and-drop image onto the prompt panel. Routes to the appropriate slot:
-  // - Video mode → start frame if empty, otherwise the reference strip.
-  // - Image mode → reference strip.
+  // Adds a dropped audio/video file to the matching media strip, enforcing
+  // the same 15s-total cap as the strip's own upload button.
+  async function addDroppedMedia(slot: 'audio' | 'video', file: File) {
+    const existing = mediaStripValues(slot)
+    if (existing.length >= 3) return
+    const dataUri = await fileToDataUri(file)
+    let durationSeconds: number | undefined
+    try {
+      durationSeconds = await readMediaDuration(dataUri, slot)
+    } catch { /* let kie validate */ }
+    if (durationSeconds) {
+      const total = existing.reduce((s, v) => s + (v.durationSeconds ?? 0), 0) + durationSeconds
+      if (total > 15) {
+        addToast(`Combined ${slot} length can't exceed 15s — this clip would make it ${Math.ceil(total)}s.`, 'error')
+        return
+      }
+    }
+    setMediaStrip(slot, [...existing, { dataUri, name: file.name, durationSeconds }])
+  }
+
+  // Drag-and-drop a file onto the prompt panel. Routes by file type:
+  // - Images: video mode → start frame if empty, else the reference strip;
+  //   image mode → reference strip.
+  // - Audio / video files: the matching reference strip when the active
+  //   model accepts them (Seedance 2 family).
   // - Music mode → ignored.
   async function handleDrop(e: React.DragEvent) {
     e.preventDefault()
     setDragOver(false)
     if (state.mode === 'music') return
     const file = e.dataTransfer.files?.[0]
-    if (!file || !file.type.startsWith('image/')) return
+    if (!file) return
+    if (file.type.startsWith('audio/')) {
+      if (supportsRefAudio) await addDroppedMedia('audio', file)
+      return
+    }
+    if (file.type.startsWith('video/')) {
+      if (supportsRefVideos) await addDroppedMedia('video', file)
+      return
+    }
+    if (!file.type.startsWith('image/')) return
     const dataUri = await fileToDataUri(file)
     if (state.mode === 'video' && supportsFrames && !startFrameValue()) {
       setSlot('start', { dataUri })
@@ -342,6 +439,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
       imageCount: state.mode === 'image' ? 1 : undefined,
       resolution: state.mode !== 'music' ? state.resolution : undefined,
       audio: state.mode === 'video' ? state.audio : undefined,
+      videoInput: state.mode === 'video' ? state.refs.some((r) => r.slot === 'omni-clip') : undefined,
     }),
   )
 
@@ -369,7 +467,10 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
           <div className="flex grow flex-col gap-6 px-5 pb-6 pt-3">
             {/* Model */}
             <div>
-              <span className="text-sm font-medium text-ink-200">{modelHeading}</span>
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-ink-200">{modelHeading}</span>
+                <ClearAllButton onClear={onClear} />
+              </div>
               <div className="mt-2">
                 <ModelPicker
                   appId="playground"
@@ -496,7 +597,9 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
               <>
                 {state.mode === 'video' && (
                   <div>
-                    <span className="text-sm font-medium text-ink-200">Reference frames</span>
+                    <span className="text-sm font-medium text-ink-200">
+                      {supportsFrames ? 'Reference frames' : 'Reference images'}
+                    </span>
                     {supportsFrames && (
                       <div className="mt-2 grid grid-cols-2 gap-3">
                         <VideoInputSlot
@@ -520,9 +623,9 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
                       </div>
                     )}
                     {refsAllowed && (
-                      <div className="mt-4">
+                      <div className={supportsFrames ? 'mt-4' : 'mt-2'}>
                         <VideoRefStrip
-                          label="Reference images"
+                          label={supportsFrames ? 'Reference images' : ''}
                           helper="optional"
                           values={refStripValues()}
                           onChange={setRefStrip}
@@ -530,6 +633,39 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
                           bankType="models"
                           tabs={PLAYGROUND_REF_TABS}
                         />
+                      </div>
+                    )}
+                    {supportsRefAudio && (
+                      <div className="mt-4">
+                        <MediaRefStrip
+                          label="Reference audio"
+                          helper="voice / lip-sync guidance, ≤15s total"
+                          kind="audio"
+                          values={mediaStripValues('audio')}
+                          onChange={(v) => setMediaStrip('audio', v)}
+                          max={3}
+                          maxTotalSeconds={15}
+                          onLimitError={(m) => addToast(m, 'error')}
+                        />
+                      </div>
+                    )}
+                    {supportsRefVideos && (
+                      <div className="mt-4">
+                        <MediaRefStrip
+                          label="Reference videos"
+                          helper="motion / style guidance, ≤15s total"
+                          kind="video"
+                          values={mediaStripValues('video')}
+                          onChange={(v) => setMediaStrip('video', v)}
+                          max={3}
+                          maxTotalSeconds={15}
+                          onLimitError={(m) => addToast(m, 'error')}
+                        />
+                      </div>
+                    )}
+                    {isOmni && (
+                      <div className="mt-4">
+                        <OmniInputsSection refs={state.refs} onChangeRefs={(refs) => onChange({ ...state, refs })} />
                       </div>
                     )}
                   </div>
@@ -624,11 +760,6 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
             ))}
           </div>
         </SlideOver>
-      </div>
-
-      {/* "Clear All" link — bottom-left, just above the Generate bar. */}
-      <div className="shrink-0 px-5 pb-2.5">
-        <ClearAllButton onClear={onClear} />
       </div>
 
       {/* Bottom: pinned footer — big Generate button. */}

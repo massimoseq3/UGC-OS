@@ -795,6 +795,77 @@ export async function runMusicTask(
   return pollMusicTask(apiKey, taskId, opts)
 }
 
+// ── Gemini Omni create endpoints (synchronous) ─────────────────
+//
+// The Omni ecosystem has two non-task endpoints that mint persistent ids,
+// returned immediately (no polling):
+//   POST /omni/audio/create     -> { kieAudioId }   designed voice
+//   POST /omni/character/create -> { characterId }  reusable character
+// The ids are scoped to the member's kie.ai account and are later passed to
+// gemini-omni-video createTask bodies as audio_ids / character_ids.
+// kie's docs show success as code 0 in one example and 200 in another, so
+// accept both.
+
+export interface OmniAudioCreateInput {
+  // Preset base voice id (see OMNI_BASE_VOICES in the Playground app).
+  audioId: string
+  name: string
+  voiceDescription?: string
+  exampleDialogue?: string
+}
+
+export interface OmniCharacterCreateInput {
+  // Public URL (host data URIs via ensureHostedUrl first). Exactly 1 image.
+  imageUrl: string
+  descriptions: string
+  characterName?: string
+  audioIds?: string[]
+}
+
+async function omniFetch<T>(apiKey: string, path: string, body: Record<string, unknown>): Promise<T> {
+  const res = await fetchWithRetry(
+    `${BASE_URL}${path}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(body),
+    },
+    {},
+  )
+  const json = (await res.json()) as KieEnvelope<T>
+  if (json.code !== 200 && json.code !== 0) {
+    throw new KieHttpError(json.code, friendlyHttpError(json.code, json.msg, `POST ${path}`))
+  }
+  return json.data
+}
+
+export async function kieOmniAudioCreate(
+  apiKey: string,
+  input: OmniAudioCreateInput,
+): Promise<{ kieAudioId: string; name?: string }> {
+  return omniFetch(apiKey, '/omni/audio/create', {
+    audio_id: input.audioId,
+    name: input.name,
+    ...(input.voiceDescription ? { voice_description: input.voiceDescription } : {}),
+    ...(input.exampleDialogue ? { example_dialogue: input.exampleDialogue } : {}),
+  })
+}
+
+export async function kieOmniCharacterCreate(
+  apiKey: string,
+  input: OmniCharacterCreateInput,
+): Promise<{ characterId: string; characterName?: string; imageUrl?: string }> {
+  return omniFetch(apiKey, '/omni/character/create', {
+    image_urls: [input.imageUrl],
+    descriptions: input.descriptions,
+    ...(input.characterName ? { character_name: input.characterName } : {}),
+    ...(input.audioIds?.length ? { audio_ids: input.audioIds } : {}),
+  })
+}
+
 // ── File upload (kie.ai-hosted, 3 day retention) ───────────────
 //
 // Image and video models on kie.ai expect publicly accessible URLs in their
