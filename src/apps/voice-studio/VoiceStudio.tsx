@@ -168,6 +168,12 @@ export default function VoiceStudio() {
     setDetailsItem(null)
   }
 
+  // Blank slate: wipe the script input. Generated voiceovers live in History.
+  const handleClear = () => {
+    setScriptText('')
+    setError(null)
+  }
+
   const handleDownloadLatest = async () => {
     if (!activePlayerItem) return
     const ref = activePlayerItem.audioUrl
@@ -188,6 +194,7 @@ export default function VoiceStudio() {
             scriptText={scriptText}
             onScriptChange={setScriptText}
             onSelectScript={() => setScriptPickerOpen(true)}
+            onClear={handleClear}
             onGenerate={handleGenerate}
             isGenerating={isGenerating}
             canGenerate={scriptText.trim().length > 0}

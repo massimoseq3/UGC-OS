@@ -371,6 +371,10 @@ export default function Playground() {
     setState((s) => ({ ...s, mode: nextMode, prompt: restored.prompt, refs: restored.refs }))
   }
 
+  // Blank slate: wipe the prompt and reference slots for the active mode.
+  // The model/aspect/duration picks stay (they're config, not input).
+  const handleClear = () => setState((s) => ({ ...s, prompt: '', refs: [] }))
+
   // Filter the history grid to the active mode. Users frequently bounce
   // between modes and want to see what they just made, not noise from the
   // other tabs.
@@ -390,6 +394,7 @@ export default function Playground() {
             state={state}
             onChange={setState}
             onModeChange={handleModeChange}
+            onClear={handleClear}
             onSubmit={handleSubmit}
             isGenerating={isGenerating}
           />

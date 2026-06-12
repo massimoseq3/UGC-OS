@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import ModelPicker from '../../../components/ModelPicker'
 import SegmentedToggle from '../../../components/SegmentedToggle'
+import ClearAllButton from '../../../components/ClearAllButton'
 import AspectIcon from '../../../components/AspectIcon'
 import ConstraintChip from '../../../components/ConstraintChip'
 import {
@@ -80,6 +81,7 @@ interface PromptPanelProps {
   // Mode switch is special-cased so the parent can stash/restore each tab's
   // own prompt + refs instead of carrying them across tabs.
   onModeChange: (mode: PlaygroundMode) => void
+  onClear: () => void
   onSubmit: () => void
   isGenerating: boolean
 }
@@ -90,7 +92,7 @@ const MODE_TABS: Array<{ id: PlaygroundMode; label: string; icon: React.Componen
   { id: 'music', label: 'Music', icon: MusicIcon },
 ]
 
-export default function PromptPanel({ state, onChange, onModeChange, onSubmit, isGenerating }: PromptPanelProps) {
+export default function PromptPanel({ state, onChange, onModeChange, onClear, onSubmit, isGenerating }: PromptPanelProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Mention popover state — open when the user just typed an @ that isn't
@@ -352,8 +354,13 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
         dragOver ? 'bg-playground-500/[0.04]' : ''
       }`}
     >
-      {/* Top: mode toggle — mirrors Voiceovers' Settings/History pattern. */}
-      <div className="flex items-center px-5 pb-2 pt-4">
+      {/* Top-left "Clear All" link. */}
+      <div className="px-5 pb-1 pt-3">
+        <ClearAllButton onClear={onClear} />
+      </div>
+
+      {/* Mode toggle — mirrors Voiceovers' Settings/History pattern. */}
+      <div className="flex items-center px-5 pb-2 pt-1">
         <SegmentedToggle<PlaygroundMode>
           value={state.mode}
           onChange={onModeChange}

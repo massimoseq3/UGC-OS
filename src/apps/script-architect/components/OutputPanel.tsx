@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Copy, Check, Bookmark, ArrowUpRight, Mic, Film, PenLine, AlertCircle, Sparkles, X } from 'lucide-react'
+import { Copy, Check, Bookmark, ArrowUpRight, Mic, Film, PenLine, AlertCircle, Sparkles } from 'lucide-react'
 import GenerationProgress from '../../../components/GenerationProgress'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAppStore } from '../../../stores/appStore'
@@ -13,7 +13,6 @@ interface OutputPanelProps {
   linkedProductId: string | null
   isGenerating?: boolean
   error?: string | null
-  onClear?: () => void
 }
 
 const SCENE_REGEX = /(^|\n)--- Scene \d+.*?---/
@@ -259,7 +258,7 @@ function SceneChunkCard({ chunk }: { chunk: SceneChunk }) {
   )
 }
 
-export default function OutputPanel({ variations, mode, writeFormat, writeStyleLabel, linkedProductId, isGenerating, error, onClear }: OutputPanelProps) {
+export default function OutputPanel({ variations, mode, writeFormat, writeStyleLabel, linkedProductId, isGenerating, error }: OutputPanelProps) {
   // Resolve the linked product's name so saved scripts get a meaningful
   // default title ("<Product> — Hook-Led Script") instead of a content slice.
   const products = useBankStore((s) => s.products)
@@ -312,29 +311,15 @@ export default function OutputPanel({ variations, mode, writeFormat, writeStyleL
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <div className="flex items-center justify-between border-b border-white/5 px-5 py-3">
-        {mode === 'reverse-engineer' ? (
-          // No header in scene-remix mode — the empty span keeps the Clear
-          // button pinned right by justify-between.
-          <span />
-        ) : (
+      {mode !== 'reverse-engineer' && (
+        <div className="flex items-center border-b border-white/5 px-5 py-3">
           <h3 className="text-sm font-semibold tracking-tight text-zinc-200">
             {mode === 'write'
               ? `Generated ${writeFormat === 'scenes' ? 'Scene Drafts' : 'Scripts'} (${variations.length} take${variations.length === 1 ? '' : 's'})`
               : `Generated Scripts (${variations.length} variation${variations.length === 1 ? '' : 's'})`}
           </h3>
-        )}
-        {onClear && (
-          <button
-            onClick={onClear}
-            title="Clear inputs and output. Past runs stay in the History tab."
-            className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-200"
-          >
-            <X className="h-3.5 w-3.5" strokeWidth={2} />
-            Clear
-          </button>
-        )}
-      </div>
+        </div>
+      )}
       <div className="flex flex-1 min-h-0 flex-col gap-4 overflow-y-auto p-5">
         {variations.map((text, i) => {
           const isRemix = mode === 'remix'
