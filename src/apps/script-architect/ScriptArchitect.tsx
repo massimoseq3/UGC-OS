@@ -26,6 +26,12 @@ export default function ScriptArchitect() {
   const [selectedProductId, setSelectedProductId] = usePersistedState<string | null>(`${baseKey}:productId`, null)
   const [additionalContext, setAdditionalContext] = usePersistedState(`${baseKey}:context`, '')
   const [variations, setVariations] = usePersistedState<string[]>(`${baseKey}:variations`, [])
+  // Snapshot of the mode + style that produced the *currently shown*
+  // variations. The output panel labels off these (not the live left-panel
+  // selectors) so flipping the Style/mode after a generation doesn't
+  // retroactively relabel the cards or their save-to-bank titles.
+  const [outputMode, setOutputMode] = usePersistedState<ScriptMode>(`${baseKey}:outputMode`, 'remix')
+  const [outputStyle, setOutputStyle] = usePersistedState<WriteStyle>(`${baseKey}:outputStyle`, 'pas')
   const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -84,6 +90,10 @@ export default function ScriptArchitect() {
     setIsGenerating(true)
     setError(null)
     setActiveHistoryId(null)
+    // Lock the output's labelling context to this run up front, so the
+    // loading copy and the resulting cards reflect what was generated.
+    setOutputMode(mode)
+    setOutputStyle(writeStyle)
     try {
       const result = await generateScript({
         mode,
@@ -139,6 +149,9 @@ export default function ScriptArchitect() {
     setVariations(item.variations)
     setActiveHistoryId(item.id)
     setError(null)
+    // Pin the output labels to the run we're restoring.
+    setOutputMode(item.mode)
+    setOutputStyle(item.writeStyle && item.writeStyle in WRITE_STYLE_META ? (item.writeStyle as WriteStyle) : 'pas')
     // Restore the left-panel inputs too. Older rows (saved before these
     // fields existed) fall back to the inputSummary slice for the source so
     // something sensible reappears.
@@ -208,8 +221,9 @@ export default function ScriptArchitect() {
         <RightPanel
           variations={variations}
           mode={mode}
+          outputMode={outputMode}
           writeFormat={writeFormat}
-          writeStyleLabel={WRITE_STYLE_META[writeStyle].label}
+          writeStyleLabel={WRITE_STYLE_META[outputStyle].label}
           linkedProductId={selectedProduct?.id ?? null}
           isGenerating={isGenerating}
           error={error}

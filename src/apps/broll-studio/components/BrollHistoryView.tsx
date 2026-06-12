@@ -3,6 +3,7 @@ import { Search, Film, Trash2 } from 'lucide-react'
 import type { BrollHistoryItem } from '../../../stores/types'
 import type { BrollResult, CardState } from '../types'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
+import { useBankStore } from '../../../stores/bankStore'
 import { formatRelative, sectionLabel, groupByDay } from '../../../utils/history'
 
 interface BrollHistoryViewProps {
@@ -119,57 +120,67 @@ function HistoryRow({
   const count = sceneCount(result)
   const [confirming, setConfirming] = useState(false)
 
+  // A clean title built from the linked references: "Product · Influencer ·
+  // Script" (only the ones that were set). Falls back to the saved summary's
+  // product slice if the references were since deleted from the banks.
+  const products = useBankStore((s) => s.products)
+  const models = useBankStore((s) => s.models)
+  const scripts = useBankStore((s) => s.scripts)
+  const productName = item.productId ? products.find((p) => p.id === item.productId)?.productName : undefined
+  const influencerName = item.modelId ? models.find((m) => m.id === item.modelId)?.name : undefined
+  const scriptName = item.scriptId ? scripts.find((s) => s.id === item.scriptId)?.title : undefined
+  const parts = [productName, influencerName, scriptName].map((s) => s?.trim()).filter(Boolean)
+  const title = parts.length > 0
+    ? parts.join(' · ')
+    : (item.inputSummary?.split(' — ')[0]?.trim() || 'B-Roll session')
+
   return (
     <div
       onClick={onSelect}
-      className={`group cursor-pointer rounded-2xl px-3 py-3 transition-colors ${
+      className={`group flex cursor-pointer items-center gap-3 rounded-full px-3 py-2.5 transition-colors ${
         isActive ? 'bg-broll-500/15 ring-1 ring-broll-500/20' : 'hover:bg-white/[0.04]'
       }`}
     >
-      <div className="flex items-start gap-3">
-        {thumbUrl ? (
-          <img
-            src={thumbUrl}
-            alt=""
-            className="h-12 w-12 shrink-0 rounded-xl border border-white/10 object-cover"
-          />
-        ) : (
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/[0.04] text-broll-300/70">
-            <Film className="h-5 w-5" />
-          </span>
-        )}
-        <div className="min-w-0 flex-1">
-          <p className="line-clamp-2 text-sm leading-snug text-zinc-100">
-            {item.inputSummary || '(no preview)'}
-          </p>
-          <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-zinc-500">
-            <span className="text-zinc-300">{count} scene{count === 1 ? '' : 's'}</span>
-            <span>·</span>
-            <span>{formatRelative(item.createdAt)}</span>
-          </div>
+      {thumbUrl ? (
+        <img
+          src={thumbUrl}
+          alt=""
+          className="h-10 w-10 shrink-0 rounded-full border border-white/10 object-cover"
+        />
+      ) : (
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/[0.04] text-broll-300/70">
+          <Film className="h-5 w-5" />
+        </span>
+      )}
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium leading-snug text-zinc-100">{title}</p>
+        <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-zinc-500">
+          <span>{count} scene{count === 1 ? '' : 's'}</span>
+          <span>·</span>
+          <span className="shrink-0">{formatRelative(item.createdAt)}</span>
         </div>
-
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            if (!confirming) {
-              setConfirming(true)
-              setTimeout(() => setConfirming(false), 3000)
-              return
-            }
-            onDelete()
-          }}
-          className={`flex h-7 shrink-0 items-center justify-center gap-1 rounded-full px-2 transition-all ${
-            confirming
-              ? 'bg-red-500/30 text-red-100 opacity-100 ring-1 ring-red-400/60'
-              : `text-zinc-500 hover:bg-red-500/10 hover:text-red-400 ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`
-          }`}
-          title={confirming ? 'Click again to delete' : 'Delete'}
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-          {confirming && <span className="text-[10px] font-medium">Confirm</span>}
-        </button>
       </div>
+
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          if (!confirming) {
+            setConfirming(true)
+            setTimeout(() => setConfirming(false), 3000)
+            return
+          }
+          onDelete()
+        }}
+        className={`flex h-7 shrink-0 items-center justify-center gap-1 rounded-full px-2 transition-all ${
+          confirming
+            ? 'bg-red-500/30 text-red-100 opacity-100 ring-1 ring-red-400/60'
+            : `text-zinc-500 hover:bg-red-500/10 hover:text-red-400 ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`
+        }`}
+        title={confirming ? 'Click again to delete' : 'Delete'}
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+        {confirming && <span className="text-[10px] font-medium">Confirm</span>}
+      </button>
     </div>
   )
 }

@@ -7,7 +7,11 @@ import { REMIX_ANGLE_LABEL, type RemixAngle, type ScriptMode, type WriteFormat }
 
 interface OutputPanelProps {
   variations: string[]
+  // Mode that produced the shown variations — drives the card titles, the
+  // "spoken vs scenes" send buttons, and the angle labels.
   mode: ScriptMode
+  // Live left-panel mode — drives the empty-state + loading copy only.
+  liveMode?: ScriptMode
   writeFormat?: WriteFormat
   writeStyleLabel?: string
   linkedProductId: string | null
@@ -145,10 +149,21 @@ function VariationCard({ text, cardTitle, defaultSaveTitle, linkedProductId, mod
       <div className="flex flex-col gap-3 p-4">
         {scenes ? (
           scenes.map((scene, i) => <SceneChunkCard key={i} chunk={scene} />)
-        ) : (
-          <pre className={`whitespace-pre-wrap font-sans font-light tracking-tight text-sm leading-relaxed text-zinc-400 ${mode === 'reverse-engineer' ? 'font-mono text-xs' : ''}`}>
+        ) : mode === 'reverse-engineer' ? (
+          <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed tracking-tight text-zinc-100">
             {text}
           </pre>
+        ) : (
+          // Each source line is its own paragraph: normal line-height within a
+          // (wrapped) sentence, a slight gap between sentences. No `font-sans`
+          // — that falls back to system-ui; we want the inherited Geist.
+          <div className="flex flex-col gap-2 text-sm leading-normal tracking-tight text-zinc-100">
+            {text.split('\n').map((line, i) =>
+              line.trim() === ''
+                ? <div key={i} aria-hidden className="h-1.5" />
+                : <p key={i}>{line}</p>
+            )}
+          </div>
         )}
       </div>
 
@@ -258,7 +273,7 @@ function SceneChunkCard({ chunk }: { chunk: SceneChunk }) {
   )
 }
 
-export default function OutputPanel({ variations, mode, writeStyleLabel, linkedProductId, isGenerating, error }: OutputPanelProps) {
+export default function OutputPanel({ variations, mode, liveMode, writeStyleLabel, linkedProductId, isGenerating, error }: OutputPanelProps) {
   // Resolve the linked product's name so saved scripts get a meaningful
   // default title ("<Product> — Hook-Led Script") instead of a content slice.
   const products = useBankStore((s) => s.products)
@@ -266,10 +281,14 @@ export default function OutputPanel({ variations, mode, writeStyleLabel, linkedP
     ? products.find((p) => p.id === linkedProductId)?.productName
     : undefined
 
+  // Empty + loading copy follows the live selector (what you're about to make);
+  // the cards themselves follow `mode` (what actually produced them).
+  const copyMode = liveMode ?? mode
+
   if (isGenerating) {
-    const message = mode === 'write'
+    const message = copyMode === 'write'
       ? ['Reading your brief...', 'Writing 3 takes...', 'Making it sound human...', 'Tightening the hooks...']
-      : mode === 'remix'
+      : copyMode === 'remix'
         ? ['Building 3 angles...', 'Sending parallel requests...', 'Writing variations...', 'Polishing final drafts...']
         : ['Reading scene blueprint...', 'Mapping product into structure...', 'Rewriting scenes...', 'Preserving structure...']
     return (
@@ -293,9 +312,9 @@ export default function OutputPanel({ variations, mode, writeStyleLabel, linkedP
       <div className="flex h-full flex-col items-center justify-center gap-3 p-8">
         <PenLine className="h-8 w-8 text-zinc-800" strokeWidth={1.5} />
         <p className="text-sm text-zinc-700">
-          {mode === 'write'
+          {copyMode === 'write'
             ? 'Your 3 takes will appear here'
-            : mode === 'remix' ? 'Your 3 script variations will appear here' : 'Your scene prompts will appear here'}
+            : copyMode === 'remix' ? 'Your 3 script variations will appear here' : 'Your scene prompts will appear here'}
         </p>
         {error && (
           <div className="mt-2 flex max-w-sm items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2">

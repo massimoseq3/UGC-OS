@@ -102,10 +102,10 @@ function ProductCard({ product }: { product: Product }) {
         <img
           src={resolvedImage}
           alt={product.productName}
-          className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-amber-400/80"
+          className="h-10 w-10 shrink-0 rounded-full object-cover"
         />
       ) : (
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-amber-400 ring-2 ring-amber-400/80">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-amber-400">
           <Package className="h-5 w-5" strokeWidth={1.5} />
         </div>
       )}
@@ -125,10 +125,10 @@ function ModelCard({ model }: { model: Model }) {
         <img
           src={resolvedImage}
           alt={model.name}
-          className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-influencers-500/80"
+          className="h-10 w-10 shrink-0 rounded-full object-cover"
         />
       ) : (
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-influencers-500/15 text-influencers-400 ring-2 ring-influencers-500/80">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-influencers-500/15 text-influencers-400">
           <UserRound className="h-5 w-5" strokeWidth={1.5} />
         </div>
       )}
@@ -228,7 +228,7 @@ export default function InputPanel({
           {/* "or paste script manually" divider */}
           <div className="flex items-center gap-3">
             <div className="h-px flex-1 bg-white/5" />
-            <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-400">or paste script manually</span>
+            <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">or paste script manually</span>
             <div className="h-px flex-1 bg-white/5" />
           </div>
 

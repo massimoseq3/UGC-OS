@@ -9,7 +9,10 @@ type Tab = 'output' | 'history'
 
 interface RightPanelProps {
   variations: string[]
+  // Live left-panel mode — drives the empty/loading copy.
   mode: ScriptMode
+  // Mode that produced the shown variations — drives the cards' labels.
+  outputMode: ScriptMode
   writeFormat: WriteFormat
   writeStyleLabel: string
   linkedProductId: string | null
@@ -25,6 +28,7 @@ interface RightPanelProps {
 export default function RightPanel({
   variations,
   mode,
+  outputMode,
   writeFormat,
   writeStyleLabel,
   linkedProductId,
@@ -59,7 +63,8 @@ export default function RightPanel({
         {tab === 'output' ? (
           <OutputPanel
             variations={variations}
-            mode={mode}
+            mode={outputMode}
+            liveMode={mode}
             writeFormat={writeFormat}
             writeStyleLabel={writeStyleLabel}
             linkedProductId={linkedProductId}

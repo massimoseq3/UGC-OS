@@ -1,6 +1,19 @@
 import { useMemo, useState } from 'react'
-import { Search, FileText, Trash2, Wand2, PenLine, Sparkles } from 'lucide-react'
+import { Search, FileText, Trash2, PenLine, Clapperboard } from 'lucide-react'
 import type { ScriptHistoryItem } from '../../../stores/types'
+import { WRITE_STYLE_META } from '../types'
+
+// A clean, recognisable title for a history row — "<Product> · <descriptor>"
+// — so the list reads as titles you click to restore, not raw script dumps.
+function historyTitle(item: ScriptHistoryItem): string {
+  const product = item.productName?.trim()
+  const descriptor = item.mode === 'write'
+    ? (item.writeStyle && item.writeStyle in WRITE_STYLE_META
+        ? WRITE_STYLE_META[item.writeStyle as keyof typeof WRITE_STYLE_META].label
+        : 'Written script')
+    : item.mode === 'remix' ? 'Remix' : 'Scenes'
+  return product ? `${product} · ${descriptor}` : descriptor
+}
 
 interface HistoryViewProps {
   items: ScriptHistoryItem[]
@@ -125,46 +138,35 @@ export default function HistoryView({ items, activeId, onSelect, onDelete }: His
 
                 {dayItems.map((item) => {
                   const isActive = activeId === item.id
-                  const ModeIcon = item.mode === 'write' ? Sparkles : item.mode === 'remix' ? PenLine : Wand2
+                  const ModeIcon = item.mode === 'write' ? PenLine : item.mode === 'remix' ? FileText : Clapperboard
                   const modeColor = item.mode === 'write' ? 'text-emerald-300' : item.mode === 'remix' ? 'text-scripts-300' : 'text-fuchsia-300'
-                  // Meta stays short and neutral — the colored icon already
-                  // says which mode it was; extra labels were just clutter.
-                  const metaLead = item.mode === 'write'
-                    ? `${item.variations.length} take${item.variations.length === 1 ? '' : 's'}${item.writeLength ? ` · ${item.writeLength}s` : ''}`
-                    : item.mode === 'remix'
-                      ? `${item.variations.length} variation${item.variations.length === 1 ? '' : 's'}`
-                      : 'Reverse engineered'
+                  const count = item.variations.length
+                  const countLabel = item.mode === 'write'
+                    ? `${count} take${count === 1 ? '' : 's'}`
+                    : `${count} variation${count === 1 ? '' : 's'}`
                   return (
                     <div
                       key={item.id}
                       onClick={() => onSelect(item)}
-                      className={`group cursor-pointer rounded-2xl px-3 py-3 transition-colors ${
+                      className={`group flex cursor-pointer items-center gap-3 rounded-full px-3.5 py-3 transition-colors ${
                         isActive ? 'bg-scripts-500/15 ring-1 ring-scripts-500/20' : 'hover:bg-white/[0.04]'
                       }`}
                     >
-                      <div className="flex items-start gap-3">
-                        <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.04] ${modeColor}`}>
-                          <ModeIcon className="h-4 w-4" />
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="line-clamp-2 text-sm leading-snug text-zinc-100">
-                            {item.inputSummary || '(no preview)'}
-                          </p>
-                          <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-zinc-500">
-                            <span className="text-zinc-300">{metaLead}</span>
-                            {item.productName && (
-                              <>
-                                <span>·</span>
-                                <span className="truncate">{item.productName}</span>
-                              </>
-                            )}
-                            <span>·</span>
-                            <span className="shrink-0">{formatRelative(item.createdAt)}</span>
-                          </div>
+                      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.04] ${modeColor}`}>
+                        <ModeIcon className="h-4 w-4" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium leading-snug text-zinc-100">
+                          {historyTitle(item)}
+                        </p>
+                        <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-zinc-500">
+                          <span>{countLabel}</span>
+                          <span>·</span>
+                          <span className="shrink-0">{formatRelative(item.createdAt)}</span>
                         </div>
-
-                        <DeleteRowButton onDelete={() => onDelete(item.id)} alwaysVisible={isActive} />
                       </div>
+
+                      <DeleteRowButton onDelete={() => onDelete(item.id)} alwaysVisible={isActive} />
                     </div>
                   )
                 })}

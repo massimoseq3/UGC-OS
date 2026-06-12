@@ -8,12 +8,14 @@ interface SlideOverProps {
   title: string
   subtitle?: string
   children: React.ReactNode
+  // Optional pinned footer (e.g. action buttons) below the scroll area.
+  footer?: React.ReactNode
 }
 
 // Right-edge slide-over panel — the same chrome as BankPicker (portal at
 // document root, backdrop, 380px panel) so pickers and preset browsers read
 // as one pattern across the app.
-export default function SlideOver({ open, onClose, title, subtitle, children }: SlideOverProps) {
+export default function SlideOver({ open, onClose, title, subtitle, children, footer }: SlideOverProps) {
   useEffect(() => {
     if (!open) return
     const handleKey = (e: KeyboardEvent) => {
@@ -53,6 +55,7 @@ export default function SlideOver({ open, onClose, title, subtitle, children }: 
           </button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
+        {footer && <div className="shrink-0 border-t border-white/5 p-4">{footer}</div>}
       </div>
     </>,
     portalTarget,
