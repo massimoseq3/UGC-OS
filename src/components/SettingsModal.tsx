@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { X, Eye, EyeOff, Key, Check, ExternalLink, Loader2, AlertCircle, HardDrive, Trash2, LogOut, User, Sun, Moon, Monitor, Palette } from 'lucide-react'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useThemeStore, type ThemePref } from '../stores/themeStore'
+import SegmentedToggle from './SegmentedToggle'
 import { useAuthStore } from '../stores/authStore'
 import { isCloudEnabled } from '../lib/supabase'
 import { kieTestConnection } from '../utils/kie'
@@ -558,22 +559,11 @@ function ThemeToggle({ className = '' }: { className?: string }) {
   const setPref = useThemeStore((s) => s.setPref)
 
   return (
-    <div className={`flex gap-1 rounded-lg border border-ink/10 bg-ink/[0.03] p-1 ${className}`}>
-      {THEME_OPTIONS.map(({ value, label, icon: Icon }) => (
-        <button
-          key={value}
-          type="button"
-          onClick={() => setPref(value)}
-          className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-1.5 text-[12px] font-medium transition-colors ${
-            pref === value
-              ? 'bg-ink/10 text-ink-100'
-              : 'text-ink-500 hover:bg-ink/5 hover:text-ink-300'
-          }`}
-        >
-          <Icon className="h-3.5 w-3.5" />
-          {label}
-        </button>
-      ))}
-    </div>
+    <SegmentedToggle<ThemePref>
+      className={className}
+      value={pref}
+      onChange={setPref}
+      options={THEME_OPTIONS.map(({ value, label, icon }) => ({ value, label, icon }))}
+    />
   )
 }

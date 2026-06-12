@@ -242,18 +242,18 @@ export default function Finder() {
               />
               <button
                 onClick={() => bulkInputRef.current?.click()}
-                className="flex h-11 items-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.04] px-4 text-xs font-semibold text-ink-300 transition-colors hover:bg-ink/[0.08]"
+                className="flex h-[53px] items-center gap-2 rounded-full border border-ink/10 bg-ink/[0.04] px-5 text-[13px] font-medium tracking-tight text-ink-300 transition-colors hover:bg-ink/[0.08]"
               >
-                <Upload className="h-3.5 w-3.5" />
+                <Upload className="h-4 w-4" />
                 Bulk add
               </button>
             </>
           )}
           <button
             onClick={handleAdd}
-            className="flex h-11 items-center gap-1.5 rounded-full bg-ink px-4 text-xs font-semibold text-ink-900 transition-colors hover:bg-ink-100"
+            className="flex h-[53px] items-center gap-2 rounded-full bg-ink px-5 text-[13px] font-medium tracking-tight text-ink-900 transition-colors hover:bg-ink-100"
           >
-            <Plus className="h-3.5 w-3.5" />
+            <Plus className="h-4 w-4" />
             Add
           </button>
         </div>

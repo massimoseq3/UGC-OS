@@ -1,5 +1,5 @@
-import { useState, useMemo, useRef } from 'react'
-import { Trash2, Package, UserRound, FileText, Mic, Film, Plus, Video, Download, Loader2, ChevronDown, Sparkles } from 'lucide-react'
+import { useState, useMemo, useRef, useEffect } from 'react'
+import { Trash2, Package, UserRound, FileText, Mic, Film, Plus, Video, Download, Loader2, ChevronDown, Sparkles, Check } from 'lucide-react'
 import type { Product, Model, Script, VoicePreset, BRoll } from '../../stores/types'
 import type { BankType } from '../../utils/constants'
 import { useBankStore } from '../../stores/bankStore'
@@ -9,21 +9,57 @@ import { getAsBase64, isAssetRef } from '../../utils/assetStore'
 import { downloadImage } from '../../utils/downloadImage'
 import { sortByOrder, type SortOrder } from './bankSort'
 
+// Custom sort dropdown — replaces the native <select> so the menu is themed
+// (not the stock OS popup) and the trigger font matches the bank toggle.
 export function SortControl({ value, onChange, options }: { value: SortOrder; onChange: (v: SortOrder) => void; options: { value: SortOrder; label: string }[] }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const current = options.find((o) => o.value === value)
+
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
   return (
-    <div className="flex items-center gap-2">
-      <div className="relative">
-        <select
-          value={value}
-          onChange={(e) => onChange(e.target.value as SortOrder)}
-          className="h-11 appearance-none rounded-full border border-ink/10 bg-surface-1 pl-4 pr-8 text-xs text-ink-200 outline-none transition-colors hover:border-ink/20 focus:border-ink/20"
-        >
-          {options.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
-        <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-500" />
-      </div>
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex h-[53px] items-center gap-2 rounded-full border border-ink/10 bg-ink/[0.04] pl-5 pr-4 text-[13px] font-medium tracking-tight text-ink-300 transition-colors hover:bg-ink/[0.08]"
+      >
+        <span className="truncate">{current?.label ?? 'Sort'}</span>
+        <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-ink-500 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="absolute right-0 z-30 mt-2 min-w-[184px] rounded-2xl border border-ink/10 bg-surface-2 p-1.5 shadow-xl shadow-black/30">
+          {options.map((o) => {
+            const active = o.value === value
+            return (
+              <button
+                key={o.value}
+                type="button"
+                onClick={() => { onChange(o.value); setOpen(false) }}
+                className={`flex w-full items-center justify-between gap-3 rounded-full px-3.5 py-2 text-[13px] font-medium tracking-tight transition-colors ${
+                  active ? 'bg-ink/[0.06] text-ink-100' : 'text-ink-400 hover:bg-ink/[0.04] hover:text-ink-200'
+                }`}
+              >
+                <span className="truncate">{o.label}</span>
+                {active && <Check className="h-3.5 w-3.5 shrink-0 text-ink-200" />}
+              </button>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

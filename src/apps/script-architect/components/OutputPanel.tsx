@@ -266,9 +266,11 @@ function SceneChunkCard({ chunk }: { chunk: SceneChunk }) {
           {copied ? 'Copied' : 'Copy'}
         </button>
       </div>
-      <pre className="whitespace-pre-wrap rounded-xl bg-surface-0 p-2.5 font-sans text-xs leading-relaxed text-ink-400">
+      {/* Body matches the Write/Remix script output: inherited Geist + white
+          (a div, not <pre>, so it doesn't fall back to UA monospace). */}
+      <div className="whitespace-pre-wrap rounded-xl bg-surface-0 p-2.5 text-[13px] leading-relaxed tracking-tight text-ink-100">
         {chunk.body}
-      </pre>
+      </div>
     </div>
   )
 }
