@@ -38,7 +38,7 @@ interface InputPanelProps {
   writeLength: WriteLength
   onWriteLengthChange: (value: WriteLength) => void
   selectedProduct: Product | null
-  onProductSelect: (product: Product) => void
+  onProductSelect: (product: Product | null) => void
   additionalContext: string
   onAdditionalContextChange: (value: string) => void
   onGenerate: (context: EditableProductContext | null) => void
@@ -157,38 +157,54 @@ export default function InputPanel({
   // source text).
   const productSection = (
     <div className="mb-6">
-      <StepLabel label="Product Context" />
+      {/* In Write New the product is the first section, so the page-level
+          "Clear All" rides in its heading row (top-right). */}
+      <div className="flex items-center justify-between gap-2">
+        <StepLabel label="Product Context" />
+        {mode === 'write' && <ClearAllButton onClear={onClear} />}
+      </div>
 
       {selectedProduct ? (
         <div className="mt-2">
           {/* Whole-card-clickable — hitting any part of the populated
               product card opens the picker. The Change label is a hover
               affordance only. Sized to match the B-Roll reference pills. */}
-          <button
-            type="button"
+          <div
+            role="button"
+            tabIndex={0}
             onClick={() => setProductPickerOpen(true)}
-            className="group w-full rounded-full border border-white/10 bg-white/[0.02] px-4 py-3.5 text-left transition-colors hover:border-white/20 hover:bg-white/[0.04]"
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setProductPickerOpen(true) } }}
+            className="group flex w-full cursor-pointer items-center gap-3 rounded-full border border-white/10 bg-white/[0.02] px-4 py-3.5 text-left transition-colors hover:border-white/20 hover:bg-white/[0.04]"
           >
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/5">
-                {resolvedProductImage ? (
-                  <img src={resolvedProductImage} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  <Package className="h-5 w-5 text-zinc-600" />
-                )}
-              </div>
-              <div className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate text-sm font-medium tracking-tight text-zinc-200">
-                  {selectedProduct.productName}
-                </span>
-                <span className="truncate text-[11px] text-zinc-500">Product</span>
-              </div>
-              <span className="shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-medium text-scripts-400 opacity-0 transition-opacity group-hover:opacity-100">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/5">
+              {resolvedProductImage ? (
+                <img src={resolvedProductImage} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <Package className="h-5 w-5 text-zinc-600" />
+              )}
+            </div>
+            <div className="flex min-w-0 flex-1 flex-col">
+              <span className="truncate text-sm font-medium tracking-tight text-zinc-200">
+                {selectedProduct.productName}
+              </span>
+              <span className="truncate text-[11px] text-zinc-500">Product</span>
+            </div>
+            <div className="flex shrink-0 items-center gap-1">
+              <span className="hidden items-center gap-1 rounded-md px-2 py-0.5 text-[10px] text-zinc-500 group-hover:flex">
+                <RefreshCw className="h-2.5 w-2.5" />
                 Change
               </span>
-              <ChevronRight className="h-4 w-4 shrink-0 text-zinc-500" strokeWidth={2} />
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onProductSelect(null) }}
+                title="Remove product"
+                aria-label="Remove product"
+                className="flex h-6 w-6 items-center justify-center rounded-full text-zinc-500 transition-colors hover:bg-white/5 hover:text-red-400"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
             </div>
-          </button>
+          </div>
 
           {editableContext && (
             <button
@@ -257,8 +273,9 @@ export default function InputPanel({
       </div>
 
       {/* Scrollable inputs — a flex column so step 1's textarea can absorb
-          leftover height (same expand-don't-scroll pattern as Playground). */}
-      <div className="flex flex-1 flex-col overflow-y-auto p-5">
+          leftover height (same expand-don't-scroll pattern as Playground).
+          Tight top padding so the first section sits close to the toggle. */}
+      <div className="flex flex-1 flex-col overflow-y-auto px-5 pb-5 pt-2">
         {mode === 'write' ? (
           <>
             {/* Step 01 — Product */}
@@ -268,12 +285,14 @@ export default function InputPanel({
                 brief. Tapping the button opens the style picker slide-over. */}
             <div className="mb-6">
               <StepLabel label="Script Style" />
-              <button
-                type="button"
+              <div
+                role="button"
+                tabIndex={0}
                 onClick={() => setStyleSlideOpen(true)}
-                className={`mt-2 flex w-full items-center gap-3 rounded-full border px-4 py-3.5 text-left transition-colors ${
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setStyleSlideOpen(true) } }}
+                className={`group mt-2 flex w-full cursor-pointer items-center gap-3 rounded-full border px-4 py-3.5 text-left transition-colors ${
                   styleChosen
-                    ? 'border-scripts-500/40 bg-scripts-500/[0.06] hover:border-scripts-500/50'
+                    ? 'border-white/10 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04]'
                     : 'border-dashed border-white/10 bg-white/[0.02] hover:border-scripts-500/30 hover:bg-scripts-500/5'
                 }`}
               >
@@ -293,8 +312,26 @@ export default function InputPanel({
                     </>
                   )}
                 </div>
-                <ChevronRight className="h-4 w-4 shrink-0 text-zinc-500" strokeWidth={2} />
-              </button>
+                {styleChosen ? (
+                  <div className="flex shrink-0 items-center gap-1">
+                    <span className="hidden items-center gap-1 rounded-md px-2 py-0.5 text-[10px] text-zinc-500 group-hover:flex">
+                      <RefreshCw className="h-2.5 w-2.5" />
+                      Change
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setStyleChosen(false) }}
+                      title="Clear style"
+                      aria-label="Clear style"
+                      className="flex h-6 w-6 items-center justify-center rounded-full text-zinc-500 transition-colors hover:bg-white/5 hover:text-red-400"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <ChevronRight className="h-4 w-4 shrink-0 text-zinc-500" strokeWidth={2} />
+                )}
+              </div>
             </div>
 
             {/* The brief + length + output */}
@@ -338,7 +375,10 @@ export default function InputPanel({
           </>
         ) : mode === 'remix' ? (
           <div className="mb-6 flex grow flex-col">
-            <StepLabel label="Proven Script Transcript" />
+            <div className="flex items-center justify-between gap-2">
+              <StepLabel label="Proven Script Transcript" />
+              <ClearAllButton onClear={onClear} />
+            </div>
 
             <div className="mt-2">
               <ScriptBankCard
@@ -368,7 +408,10 @@ export default function InputPanel({
           </div>
         ) : (
           <div className="mb-6 flex flex-col">
-            <StepLabel label="Reverse-Engineered Scene" />
+            <div className="flex items-center justify-between gap-2">
+              <StepLabel label="Reverse-Engineered Scene" />
+              <ClearAllButton onClear={onClear} />
+            </div>
 
             <div className="mt-2">
               <ScriptBankCard
@@ -440,11 +483,6 @@ export default function InputPanel({
             </>
           )}
         </button>
-
-        {/* "Clear All" — centered directly under the Generate button. */}
-        <div className="mt-2.5 flex justify-center">
-          <ClearAllButton onClear={onClear} />
-        </div>
       </div>
 
       {/* Bank Pickers */}
@@ -675,7 +713,6 @@ function OutputToggle({ value, onChange }: { value: WriteFormat; onChange: (v: W
     return () => observer.disconnect()
   })
 
-  const activeFuchsia = value === 'scenes'
   return (
     <div
       ref={containerRef}
@@ -684,9 +721,7 @@ function OutputToggle({ value, onChange }: { value: WriteFormat; onChange: (v: W
       {indicator && (
         <div
           aria-hidden
-          className={`absolute bottom-1 top-1 rounded-full transition-[left,width,background-color] duration-200 ease-out ${
-            activeFuchsia ? 'bg-fuchsia-500/10' : 'bg-scripts-500/10'
-          }`}
+          className="absolute bottom-1 top-1 rounded-full bg-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition-[left,width] duration-200 ease-out"
           style={{ left: indicator.left, width: indicator.width }}
         />
       )}
