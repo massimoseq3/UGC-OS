@@ -23,6 +23,11 @@ interface UsePersistedStateOptions<T> {
   // transient flags inside the persisted payload (e.g. clearing
   // `isGenerating` so a refresh mid-job doesn't leave a stuck spinner).
   sanitize?: (value: T) => T
+  // Runs on every write, transforming what hits localStorage without
+  // touching the in-memory value. Use to drop payloads too large for the
+  // quota (e.g. uploaded audio/video data URIs) — they survive the session
+  // but not a refresh.
+  prune?: (value: T) => T
 }
 
 // Drop-in replacement for useState that persists to localStorage under `key`.
@@ -34,6 +39,7 @@ export function usePersistedState<T>(
   options?: UsePersistedStateOptions<T>,
 ): [T, Dispatch<SetStateAction<T>>] {
   const sanitize = options?.sanitize
+  const prune = options?.prune
   const [value, setValue] = useState<T>(() => {
     const raw = readKey(key, initial)
     return sanitize ? sanitize(raw) : raw
@@ -57,11 +63,14 @@ export function usePersistedState<T>(
   useEffect(() => {
     if (hydratedKey.current !== key) return
     try {
-      localStorage.setItem(key, JSON.stringify(value))
+      localStorage.setItem(key, JSON.stringify(prune ? prune(value) : value))
     } catch {
       // Quota exceeded or serialization failure — drop silently; the in-memory
       // value is still correct for this session.
     }
+    // `prune` is intentionally excluded — callers pass fresh closures on
+    // every render and we only want to react to value/key changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, value])
 
   return [value, setValue]

@@ -22,6 +22,10 @@ export interface Model {
   name: string
   notes: string
   source: 'character-studio' | 'image-dna-extractor' | 'manual-import'
+  // Persistent character id minted by kie's /omni/character/create the first
+  // time this influencer is attached to a Gemini Omni generation. Scoped to
+  // the member's kie.ai account (same key on any browser → same id works).
+  omniCharacterId?: string
   createdAt: number
 }
 
