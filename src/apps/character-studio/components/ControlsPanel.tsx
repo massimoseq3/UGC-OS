@@ -37,8 +37,8 @@ export default function ControlsPanel({
 
   return (
     <div className="flex min-w-0 flex-col md:h-full">
-      {/* Top-left "Clear All" link, above the presets. */}
-      <div className="px-3 pb-1.5 pt-3">
+      {/* "Clear All" link in the top-right corner, above the presets. */}
+      <div className="flex justify-end px-3 pb-1.5 pt-3">
         <ClearAllButton onClear={() => onProfileChange(createEmptyProfile())} />
       </div>
 

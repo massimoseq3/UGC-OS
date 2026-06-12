@@ -221,8 +221,8 @@ export default function InputPanel({
 
   return (
     <div className="flex flex-col md:h-full">
-      {/* Top-left "Clear All" link. */}
-      <div className="px-5 pb-1 pt-3">
+      {/* "Clear All" link in the top-right corner. */}
+      <div className="flex justify-end px-5 pb-1 pt-3">
         <ClearAllButton onClear={onClear} />
       </div>
 

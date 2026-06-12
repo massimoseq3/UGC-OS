@@ -354,8 +354,8 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
         dragOver ? 'bg-playground-500/[0.04]' : ''
       }`}
     >
-      {/* Top-left "Clear All" link. */}
-      <div className="px-5 pb-1 pt-3">
+      {/* "Clear All" link in the top-right corner. */}
+      <div className="flex justify-end px-5 pb-1 pt-3">
         <ClearAllButton onClear={onClear} />
       </div>
 
