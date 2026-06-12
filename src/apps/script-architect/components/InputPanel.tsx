@@ -221,14 +221,9 @@ export default function InputPanel({
 
   return (
     <div className="flex flex-col md:h-full">
-      {/* "Clear All" link in the top-right corner. */}
-      <div className="flex justify-end px-5 pb-1 pt-3">
-        <ClearAllButton onClear={onClear} />
-      </div>
-
       {/* Mode toggle — rounded segmented pill, mirrored by the Output/History
           toggle in the right panel so both strips share the same baseline. */}
-      <div className="flex shrink-0 items-center px-5 pb-2 pt-1">
+      <div className="flex shrink-0 items-center px-5 pb-2 pt-4">
         <SegmentedToggle<ScriptMode>
           value={mode}
           onChange={onModeChange}
@@ -401,6 +396,11 @@ export default function InputPanel({
             className="mt-2 w-full rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-scripts-500/30 resize-none"
           />
         </div>
+      </div>
+
+      {/* "Clear All" link — bottom-left, just above the Generate bar. */}
+      <div className="shrink-0 px-5 pb-2.5">
+        <ClearAllButton onClear={onClear} />
       </div>
 
       {/* Generate button */}

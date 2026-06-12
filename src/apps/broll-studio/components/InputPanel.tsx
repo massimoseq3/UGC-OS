@@ -182,7 +182,7 @@ export default function InputPanel({
       {/* Bank selections */}
       <div className="flex-1 p-5 md:overflow-y-auto">
         <div className="flex flex-col gap-3">
-          {/* References section — "Clear All" in the top-right corner. */}
+          {/* References section — "Clear All" sits top-right, in line with it. */}
           <div className="flex items-center justify-between gap-2">
             <span className="text-sm font-medium text-zinc-200">References</span>
             {onClearOutput && <ClearAllButton onClear={onClearOutput} />}
