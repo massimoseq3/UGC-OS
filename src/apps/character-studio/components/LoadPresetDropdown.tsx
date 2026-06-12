@@ -73,15 +73,12 @@ export default function LoadPresetDropdown({ onLoadProfile }: LoadPresetDropdown
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex h-full w-full items-center gap-2.5 rounded-full border border-white/10 bg-white/[0.02] px-3 py-2 text-left transition-colors hover:bg-white/[0.05]"
+        className="flex h-12 w-full items-center gap-3 rounded-full border border-white/10 bg-white/[0.02] px-4 text-left transition-colors hover:bg-white/[0.05]"
       >
         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-influencers-500/10 text-influencers-400">
           <UserRound className="h-3.5 w-3.5" />
         </span>
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-[13px] font-medium text-zinc-100">Influencer Presets</div>
-          <div className="truncate text-[10px] text-zinc-500">Load saved influencer parameters</div>
-        </div>
+        <div className="min-w-0 flex-1 truncate text-[14px] font-medium text-zinc-100">Influencer Presets</div>
         <ChevronRight className="h-4 w-4 shrink-0 text-zinc-500" strokeWidth={2} />
       </button>
 

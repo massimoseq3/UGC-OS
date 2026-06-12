@@ -1,17 +1,13 @@
 import { useMemo, useRef, useState, useEffect } from 'react'
 import { Loader2, Trash2, Image as ImageIcon, UserRound, Bookmark, X, Download, Check } from 'lucide-react'
 import { useBankStore } from '../../../stores/bankStore'
-import { useSettingsStore } from '../../../stores/settingsStore'
 import { useAssetUrlState } from '../../../hooks/useAssetUrl'
 import { getUrl } from '../../../utils/assetStore'
 import { useAppStore } from '../../../stores/appStore'
 import { humanizeError } from '../../../utils/friendlyError'
 import type { CharacterHistoryItem } from '../../../stores/types'
-import ModelPicker from '../../../components/ModelPicker'
-import ConstraintChip from '../../../components/ConstraintChip'
-import AspectIcon from '../../../components/AspectIcon'
 import GenerationProgress from '../../../components/GenerationProgress'
-import { estimateCredits, formatCredits, getDefaultModel, getModel, type ImageResolution } from '../../../utils/models'
+import { getModel, type ImageResolution } from '../../../utils/models'
 import HistoryPreviewModal from './HistoryPreviewModal'
 import { buildJsonPrompt } from '../services/generateCharacter'
 import { downloadImage } from '../../../utils/downloadImage'
@@ -36,23 +32,6 @@ export interface InFlightCharacterGen {
 interface GalleryPanelProps {
   inFlight: InFlightCharacterGen[]
   onCancelGen: (id: string) => void
-  error: string | null
-  onGenerate: () => void
-  canGenerate: boolean
-  aspectRatio: string
-  onAspectRatioChange: (value: string) => void
-  resolution: ImageResolution
-  onResolutionChange: (value: ImageResolution) => void
-}
-
-// Aspect options offered by the dropdown. Stored values may be legacy verbose
-// strings ('Portrait (9:16)') or raw ratios — normalizeAspect() collapses both
-// to a raw ratio so the chip highlights the right option.
-const ASPECT_OPTIONS = ['9:16', '16:9', '1:1']
-function normalizeAspect(ar: string): string {
-  if (ar.includes('16:9')) return '16:9'
-  if (ar.includes('1:1')) return '1:1'
-  return '9:16'
 }
 
 function startOfDay(ts: number): number {
@@ -72,22 +51,11 @@ function dayLabel(dayTs: number): string {
 export default function GalleryPanel({
   inFlight,
   onCancelGen,
-  error,
-  onGenerate,
-  canGenerate,
-  aspectRatio,
-  onAspectRatioChange,
-  resolution,
-  onResolutionChange,
 }: GalleryPanelProps) {
   const [previewItem, setPreviewItem] = useState<CharacterHistoryItem | null>(null)
 
   const characterHistory = useBankStore((s) => s.characterHistory)
   const deleteCharacterHistory = useBankStore((s) => s.deleteCharacterHistory)
-
-  const persistedModel = useSettingsStore((s) => s.getAppModel('character-studio:image:text-to-image'))
-  const selectedModelId = persistedModel ?? getDefaultModel('character-studio', 'image', 'text-to-image')?.id
-  const creditsLabel = formatCredits(estimateCredits(selectedModelId ?? '', { imageCount: 1, resolution }))
 
   const dayGroups = useMemo(() => {
     const map = new Map<number, CharacterHistoryItem[]>()
@@ -148,68 +116,6 @@ export default function GalleryPanel({
             ))}
           </div>
         )}
-      </div>
-
-      {/* Sticky bottom generate-bar */}
-      <div className="sticky bottom-0 z-10 min-w-0 space-y-2 border-t border-white/5 bg-[#050505]/95 p-3 backdrop-blur-xl md:static md:bg-transparent md:backdrop-blur-none">
-        {error && (
-          <div className="flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2">
-            <p className="text-xs leading-relaxed text-red-300">{error}</p>
-          </div>
-        )}
-        {/* Model picker + aspect/resolution chips share one row so the
-            controls stay compact. Resolution options show their credit cost. */}
-        <div className="flex items-center gap-2">
-          <div className="min-w-0 flex-1">
-            <ModelPicker
-              appId="character-studio"
-              task="image"
-              mode="text-to-image"
-              costParams={{ imageCount: 1, resolution }}
-              large
-            />
-          </div>
-          <ConstraintChip
-            align="right"
-            size="lg"
-            options={getModel(selectedModelId ?? '')?.imageConstraints?.resolutions ?? ['1K', '2K', '4K']}
-            value={resolution}
-            onChange={(v) => onResolutionChange(v as ImageResolution)}
-            renderOption={(v) => {
-              const credits = formatCredits(estimateCredits(selectedModelId ?? '', { imageCount: 1, resolution: v as ImageResolution }))
-              return (
-                <span className="flex w-full items-center justify-between gap-6">
-                  <span>{v}</span>
-                  {credits && <span className="text-zinc-500">{credits}</span>}
-                </span>
-              )
-            }}
-          />
-          <ConstraintChip
-            align="right"
-            size="lg"
-            options={ASPECT_OPTIONS}
-            value={normalizeAspect(aspectRatio)}
-            onChange={onAspectRatioChange}
-            render={(v) => (
-              <span className="flex items-center gap-1.5">
-                <AspectIcon ratio={v} />
-                <span>{v}</span>
-              </span>
-            )}
-          />
-        </div>
-        <button
-          onClick={onGenerate}
-          disabled={!canGenerate}
-          className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-influencers-500 px-6 py-3.5 text-[13px] font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-influencers-400 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          <UserRound className="h-4 w-4" strokeWidth={2.5} />
-          <span>
-            Generate Influencer{creditsLabel ? ` (${creditsLabel})` : ''}
-            {inFlight.length > 0 && ` · ${inFlight.length} running`}
-          </span>
-        </button>
       </div>
 
       {previewItem && (
