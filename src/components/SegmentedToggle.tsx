@@ -18,6 +18,9 @@ interface SegmentedToggleProps<T extends string> {
   // control shrinks to its content (segments sized to their labels) so it
   // doesn't stretch across the full width.
   fitContent?: boolean
+  // Slimmer padding + smaller icons, sized to sit inline with compact rows
+  // (e.g. the sidebar). Keeps the same sliding-indicator animation.
+  dense?: boolean
 }
 
 // Rounded pill segmented control — the house replacement for the old
@@ -29,6 +32,7 @@ export default function SegmentedToggle<T extends string>({
   onChange,
   className = '',
   fitContent = false,
+  dense = false,
 }: SegmentedToggleProps<T>) {
   const containerRef = useRef<HTMLDivElement>(null)
   const buttonRefs = useRef<Map<T, HTMLButtonElement | null>>(new Map())
@@ -55,7 +59,7 @@ export default function SegmentedToggle<T extends string>({
   return (
     <div
       ref={containerRef}
-      className={`relative ${fitContent ? 'inline-flex w-auto' : 'flex w-full'} items-center gap-0.5 rounded-full border border-ink/10 bg-ink/[0.03] p-1 ${className}`}
+      className={`relative ${fitContent ? 'inline-flex w-auto' : 'flex w-full'} items-center gap-0.5 rounded-full border border-ink/10 bg-ink/[0.03] ${dense ? 'p-1' : 'p-1.5'} ${className}`}
     >
       {indicator && (
         <div
@@ -73,11 +77,13 @@ export default function SegmentedToggle<T extends string>({
             ref={(el) => { buttonRefs.current.set(opt.value, el) }}
             type="button"
             onClick={() => onChange(opt.value)}
-            className={`relative z-[1] flex min-w-0 ${fitContent ? '' : 'flex-1'} items-center justify-center gap-1.5 rounded-full px-3.5 py-2 text-[12px] font-medium tracking-tight transition-colors duration-200 ${
+            className={`relative z-[1] flex min-w-0 ${fitContent ? '' : 'flex-1'} items-center justify-center rounded-full font-medium tracking-tight transition-colors duration-200 ${
+              dense ? 'gap-1.5 px-3 py-1 text-[12px]' : 'gap-2 px-4 py-2.5 text-[13px]'
+            } ${
               active ? 'text-ink-100' : 'text-ink-400 hover:text-ink-200'
             }`}
           >
-            {Icon && <Icon className="h-3.5 w-3.5 shrink-0" />}
+            {Icon && <Icon className={`${dense ? 'h-3.5 w-3.5' : 'h-4 w-4'} shrink-0`} />}
             <span className="truncate">{opt.label}</span>
             {opt.badge != null && (
               <span

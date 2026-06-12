@@ -7,6 +7,7 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { useCreditsStore } from '../stores/creditsStore'
 import { APP_REGISTRY, CATEGORY_LABELS, type AppCategory, type AppConfig } from '../utils/constants'
 import AppLogo from './AppLogo'
+import SegmentedToggle from './SegmentedToggle'
 import SettingsModal from './SettingsModal'
 import UserMenu from './auth/UserMenu'
 import { useIsDesktop } from '../hooks/useBreakpoint'
@@ -67,7 +68,7 @@ export default function Sidebar() {
         />
       )}
       <aside
-        className={`fixed bottom-0 left-0 top-0 z-40 flex flex-col border-r border-ink/5 bg-surface-1 transition-[width,transform] duration-200 ease-out ${widthClass} ${translateClass}`}
+        className={`fixed bottom-0 left-0 top-0 z-40 flex flex-col border-r border-ink/5 bg-surface-1 light:border-ink/10 light:bg-[#F1F1F2] transition-[width,transform] duration-200 ease-out ${widthClass} ${translateClass}`}
       >
         {/* Header — burger + logo on a plain row, separated from the nav by an
             inset hairline divider (same side gaps as the section dividers
@@ -136,37 +137,40 @@ export default function Sidebar() {
   )
 }
 
-// One-click dark/light flip. Sets an explicit preference (overriding
-// "system"); the three-way control lives in Settings → Appearance.
+// Dark/Light segmented toggle — the same house control as everywhere else,
+// trimmed to two options (the three-way Dark/Light/System lives in Settings).
+// Picks an explicit preference, overriding "system".
 function ThemeQuickToggle({ collapsed }: { collapsed: boolean }) {
   const resolved = useThemeStore((s) => s.resolved)
   const setPref = useThemeStore((s) => s.setPref)
-  const next = resolved === 'dark' ? 'light' : 'dark'
-  const Icon = resolved === 'dark' ? Sun : Moon
-  const label = resolved === 'dark' ? 'Light mode' : 'Dark mode'
 
+  // Collapsed rail is too narrow for labels — show a stacked icon-only toggle.
   if (collapsed) {
+    const next = resolved === 'dark' ? 'light' : 'dark'
+    const Icon = resolved === 'dark' ? Sun : Moon
     return (
       <button
         onClick={() => setPref(next)}
-        className="flex w-full flex-col items-center gap-1 rounded-full px-1 py-2 transition-colors hover:bg-ink/[0.04]"
+        className="flex w-full items-center justify-center rounded-full border border-ink/10 bg-ink/[0.03] p-2 transition-colors hover:bg-ink/[0.06]"
         title={`Switch to ${next} mode`}
       >
-        <Icon className="h-5 w-5 shrink-0 text-ink-300" strokeWidth={1.75} />
-        <span className="text-center text-[10px] leading-tight font-normal text-ink-300">{label}</span>
+        <Icon className="h-4 w-4 text-ink-300" strokeWidth={1.75} />
       </button>
     )
   }
 
+  // Compact house toggle — sized to match the sidebar rows, keeps the
+  // sliding-indicator animation.
   return (
-    <button
-      onClick={() => setPref(next)}
-      className="flex w-full items-center gap-3 rounded-full px-3 py-2 transition-colors hover:bg-ink/[0.04]"
-      title={`Switch to ${next} mode`}
-    >
-      <Icon className="h-5 w-5 shrink-0 text-ink-300" strokeWidth={1.75} />
-      <span className="truncate text-sm font-normal text-ink-300">{label}</span>
-    </button>
+    <SegmentedToggle<'dark' | 'light'>
+      dense
+      value={resolved}
+      onChange={setPref}
+      options={[
+        { value: 'dark', label: 'Dark', icon: Moon },
+        { value: 'light', label: 'Light', icon: Sun },
+      ]}
+    />
   )
 }
 

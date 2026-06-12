@@ -768,7 +768,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
           type="button"
           onClick={onSubmit}
           disabled={!canSubmit}
-          className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-playground-500 px-6 py-3.5 text-[13px] font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-playground-400 disabled:cursor-not-allowed disabled:opacity-40"
+          className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-playground-500 px-7 py-4 text-sm font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-playground-400 disabled:cursor-not-allowed disabled:opacity-40"
         >
           <GenerateIcon className="h-4 w-4" strokeWidth={2.5} />
           <span>
