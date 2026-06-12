@@ -37,13 +37,8 @@ export default function ControlsPanel({
 
   return (
     <div className="flex min-w-0 flex-col md:h-full">
-      {/* "Clear All" link in the top-right corner, above the presets. */}
-      <div className="flex justify-end px-3 pb-1.5 pt-3">
-        <ClearAllButton onClear={() => onProfileChange(createEmptyProfile())} />
-      </div>
-
       {/* Preset picker + reference-image drop zone. */}
-      <div className="flex items-stretch gap-2 px-3 pb-2 pt-0">
+      <div className="flex items-stretch gap-2 px-3 pb-2.5 pt-3">
         <div className="min-w-0 flex-1">
           <LoadPresetDropdown onLoadProfile={onProfileChange} />
         </div>
@@ -58,9 +53,12 @@ export default function ControlsPanel({
         </div>
       </div>
 
+      {/* Divider between the presets and the toggle. */}
+      <div className="mx-3 border-t border-white/5" />
+
       {/* Rounded segmented toggle — filled so all 4 tabs share the column
           with no horizontal scroll. */}
-      <div className="px-2 pb-1 pt-0.5">
+      <div className="px-2 pb-1 pt-2.5">
         <SegmentedToggle<TabId>
           value={activeTab}
           onChange={onActiveTabChange}
@@ -97,6 +95,11 @@ export default function ControlsPanel({
             </div>
           ))}
         </div>
+      </div>
+
+      {/* "Clear All" link in the bottom-left corner. */}
+      <div className="border-t border-white/5 px-4 py-2.5">
+        <ClearAllButton onClear={() => onProfileChange(createEmptyProfile())} />
       </div>
     </div>
   )

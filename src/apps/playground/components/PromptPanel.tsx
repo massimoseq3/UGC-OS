@@ -354,13 +354,8 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
         dragOver ? 'bg-playground-500/[0.04]' : ''
       }`}
     >
-      {/* "Clear All" link in the top-right corner. */}
-      <div className="flex justify-end px-5 pb-1 pt-3">
-        <ClearAllButton onClear={onClear} />
-      </div>
-
       {/* Mode toggle — mirrors Voiceovers' Settings/History pattern. */}
-      <div className="flex items-center px-5 pb-2 pt-1">
+      <div className="flex items-center px-5 pb-2 pt-4">
         <SegmentedToggle<PlaygroundMode>
           value={state.mode}
           onChange={onModeChange}
@@ -629,6 +624,11 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
             ))}
           </div>
         </SlideOver>
+      </div>
+
+      {/* "Clear All" link — bottom-left, just above the Generate bar. */}
+      <div className="shrink-0 px-5 pb-2.5">
+        <ClearAllButton onClear={onClear} />
       </div>
 
       {/* Bottom: pinned footer — big Generate button. */}
