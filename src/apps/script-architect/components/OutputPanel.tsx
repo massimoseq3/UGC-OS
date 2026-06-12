@@ -258,7 +258,7 @@ function SceneChunkCard({ chunk }: { chunk: SceneChunk }) {
   )
 }
 
-export default function OutputPanel({ variations, mode, writeFormat, writeStyleLabel, linkedProductId, isGenerating, error }: OutputPanelProps) {
+export default function OutputPanel({ variations, mode, writeStyleLabel, linkedProductId, isGenerating, error }: OutputPanelProps) {
   // Resolve the linked product's name so saved scripts get a meaningful
   // default title ("<Product> — Hook-Led Script") instead of a content slice.
   const products = useBankStore((s) => s.products)
@@ -311,15 +311,6 @@ export default function OutputPanel({ variations, mode, writeFormat, writeStyleL
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      {mode !== 'reverse-engineer' && (
-        <div className="flex items-center border-b border-white/5 px-5 py-3">
-          <h3 className="text-sm font-semibold tracking-tight text-zinc-200">
-            {mode === 'write'
-              ? `Generated ${writeFormat === 'scenes' ? 'Scene Drafts' : 'Scripts'} (${variations.length} take${variations.length === 1 ? '' : 's'})`
-              : `Generated Scripts (${variations.length} variation${variations.length === 1 ? '' : 's'})`}
-          </h3>
-        </div>
-      )}
       <div className="flex flex-1 min-h-0 flex-col gap-4 overflow-y-auto p-5">
         {variations.map((text, i) => {
           const isRemix = mode === 'remix'
