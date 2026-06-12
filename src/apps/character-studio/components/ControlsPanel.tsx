@@ -1,10 +1,11 @@
 import type { TabId, CharacterProfile } from '../types'
 import { TABS, getTabFields, createEmptyProfile } from '../types'
+import type { ImageResolution } from '../../../utils/models'
 import ChipField from './ChipField'
-import PhotoExtractZone from './PhotoExtractZone'
+import GenerateBar from './GenerateBar'
 import LoadPresetDropdown from './LoadPresetDropdown'
+import PhotoExtractZone from './PhotoExtractZone'
 import SegmentedToggle from '../../../components/SegmentedToggle'
-import ClearAllButton from '../../../components/ClearAllButton'
 
 interface ControlsPanelProps {
   profile: CharacterProfile
@@ -16,6 +17,13 @@ interface ControlsPanelProps {
   extractedThumb: string | null
   onPhotoDrop: (file: File) => void
   onResetExtract: () => void
+  // Generate bar (lives at the foot of this column).
+  error: string | null
+  onGenerate: () => void
+  canGenerate: boolean
+  resolution: ImageResolution
+  onResolutionChange: (value: ImageResolution) => void
+  inFlightCount: number
 }
 
 export default function ControlsPanel({
@@ -28,6 +36,12 @@ export default function ControlsPanel({
   extractedThumb,
   onPhotoDrop,
   onResetExtract,
+  error,
+  onGenerate,
+  canGenerate,
+  resolution,
+  onResolutionChange,
+  inFlightCount,
 }: ControlsPanelProps) {
   const currentTab = TABS.find((t) => t.id === activeTab)!
 
@@ -37,8 +51,9 @@ export default function ControlsPanel({
 
   return (
     <div className="flex min-w-0 flex-col md:h-full">
-      {/* Preset picker + reference-image drop zone. */}
-      <div className="flex items-stretch gap-2 px-3 pb-2.5 pt-3">
+      {/* Preset picker + reference-image drop zone — same pill styling as the
+          model picker, sitting at the top of the column. */}
+      <div className="flex items-center gap-2 px-3 pb-2.5 pt-3">
         <div className="min-w-0 flex-1">
           <LoadPresetDropdown onLoadProfile={onProfileChange} />
         </div>
@@ -97,10 +112,20 @@ export default function ControlsPanel({
         </div>
       </div>
 
-      {/* "Clear All" link in the bottom-left corner. */}
-      <div className="border-t border-white/5 px-4 py-2.5">
-        <ClearAllButton onClear={() => onProfileChange(createEmptyProfile())} />
-      </div>
+      {/* Action footer — model picker, chips, Generate, and a tight Clear All
+          sit at the foot of the controls column, directly under all the inputs
+          that feed them. */}
+      <GenerateBar
+        error={error}
+        onGenerate={onGenerate}
+        canGenerate={canGenerate}
+        aspectRatio={profile.aspectRatio || '9:16'}
+        onAspectRatioChange={(value) => onProfileChange({ ...profile, aspectRatio: value })}
+        resolution={resolution}
+        onResolutionChange={onResolutionChange}
+        inFlightCount={inFlightCount}
+        onClear={() => onProfileChange(createEmptyProfile())}
+      />
     </div>
   )
 }

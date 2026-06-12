@@ -53,7 +53,7 @@ export default function PhotoExtractZone({
   // Analyzing state
   if (isExtracting) {
     return (
-      <div className="rounded-xl border border-green-500/20 bg-green-500/[0.04] px-3 py-3">
+      <div className="rounded-full border border-green-500/20 bg-green-500/[0.04] px-4 py-2.5">
         <div className="flex items-center gap-3">
           {thumbnail && (
             <img
@@ -77,11 +77,11 @@ export default function PhotoExtractZone({
   // Success state — collapsed confirmation
   if (thumbnail && !extractError) {
     return (
-      <div className="flex items-center gap-3 rounded-xl border border-green-500/20 bg-green-500/[0.06] px-3 py-2">
+      <div className="flex h-12 items-center gap-3 rounded-full border border-green-500/20 bg-green-500/[0.06] px-4">
         <img
           src={thumbnail}
           alt="Source"
-          className="h-9 w-9 shrink-0 rounded-lg object-cover"
+          className="h-8 w-8 shrink-0 rounded-lg object-cover"
         />
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <Check className="h-3.5 w-3.5 shrink-0 text-green-400" />
@@ -102,15 +102,15 @@ export default function PhotoExtractZone({
 
   // Empty / drop zone state
   return (
-    <div className="h-full">
+    <div>
       <div
         onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
         onClick={() => inputRef.current?.click()}
-        className={`flex h-full cursor-pointer items-center gap-3 rounded-full border-2 border-dashed px-3.5 py-2 transition-all ${dragOver
+        className={`flex h-12 cursor-pointer items-center gap-3 rounded-full border border-dashed px-4 transition-all ${dragOver
             ? 'border-green-400/40 bg-green-400/5'
-            : 'border-white/10 hover:border-white/20 hover:bg-white/[0.02]'
+            : 'border-white/10 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.05]'
           }`}
       >
         <div className={`shrink-0 rounded-full p-1.5 ${dragOver ? 'bg-green-400/10' : 'bg-white/5'}`}>
@@ -121,11 +121,8 @@ export default function PhotoExtractZone({
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-xs font-medium text-zinc-100">
-            {dragOver ? 'Drop to extract DNA' : 'Drop a reference image to auto-fill'}
-          </p>
-          <p className="truncate text-[10px] text-zinc-400">
-            JPG, PNG, WebP — Max 10 MB · or click to browse
+          <p className="truncate text-[14px] font-medium text-zinc-100">
+            {dragOver ? 'Drop to extract DNA' : 'Drop an image to autofill'}
           </p>
         </div>
       </div>

@@ -280,6 +280,12 @@ export default function CharacterStudio() {
           extractedThumb={extractedThumb}
           onPhotoDrop={handlePhotoDrop}
           onResetExtract={handleResetExtract}
+          error={error}
+          onGenerate={handleGenerate}
+          canGenerate={Object.values(profile).some((v) => v.trim() !== '')}
+          resolution={resolution}
+          onResolutionChange={setResolution}
+          inFlightCount={inFlight.length}
         />
       </div>
 
@@ -288,13 +294,6 @@ export default function CharacterStudio() {
         <GalleryPanel
           inFlight={inFlight}
           onCancelGen={handleCancelGen}
-          error={error}
-          onGenerate={handleGenerate}
-          canGenerate={Object.values(profile).some((v) => v.trim() !== '')}
-          aspectRatio={profile.aspectRatio || '9:16'}
-          onAspectRatioChange={(value) => setProfile({ ...profile, aspectRatio: value })}
-          resolution={resolution}
-          onResolutionChange={setResolution}
         />
       </div>
 
