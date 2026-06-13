@@ -200,7 +200,6 @@ function CompletePane({ item, onReset }: { item: AdAnatomyHistoryItem; onReset: 
       videoSrc={sourceUrl}
       restoredThumbUrl={thumbUrl}
       fileName={item.fileName}
-      onReset={onReset}
     />
   )
 }

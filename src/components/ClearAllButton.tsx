@@ -23,9 +23,10 @@ export default function ClearAllButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className={`text-[11px] text-ink-500 underline decoration-ink-600 underline-offset-2 transition-colors hover:text-ink-300 hover:decoration-ink-400 ${className}`}
+        className={`flex items-center gap-1 text-[11px] text-ink-500 transition-colors hover:text-ink-300 ${className}`}
       >
-        Clear all inputs
+        <X className="h-3 w-3" strokeWidth={2.5} />
+        Clear Inputs
       </button>
 
       {open && (
@@ -38,10 +39,10 @@ export default function ClearAllButton({
             className="w-full max-w-xs rounded-2xl border border-ink/10 bg-surface-2 p-5 shadow-2xl"
           >
             <div className="flex flex-col items-center gap-1.5 text-center">
-              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-red-500/10 text-red-400 light:text-red-600">
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-ink/10 text-ink-200">
                 <X className="h-6 w-6" strokeWidth={2} />
               </div>
-              <p className="mt-1 text-sm font-semibold tracking-tight text-ink-100">Clear All?</p>
+              <p className="mt-1 text-sm font-semibold tracking-tight text-ink-100">Clear Inputs?</p>
               <p className="text-xs leading-relaxed text-ink-400">{confirmBody}</p>
             </div>
             <div className="mt-4 flex gap-2">
@@ -55,9 +56,10 @@ export default function ClearAllButton({
               <button
                 type="button"
                 onClick={() => { onClear(); setOpen(false) }}
-                className="flex-1 rounded-full bg-red-500/15 py-2 text-xs font-semibold text-red-300 light:text-red-700 transition-colors hover:bg-red-500/25"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-ink/15 py-2 text-xs font-semibold text-ink-100 transition-colors hover:bg-ink/25"
               >
-                Clear All
+                <X className="h-3.5 w-3.5" strokeWidth={2.5} />
+                Clear Inputs
               </button>
             </div>
           </div>

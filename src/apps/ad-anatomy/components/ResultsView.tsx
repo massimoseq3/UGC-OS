@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import {
-  RotateCcw,
   Copy,
   Check,
   Send,
@@ -22,7 +21,6 @@ interface ResultsViewProps {
   // only the saved first-frame still.
   restoredThumbUrl?: string | null
   fileName: string
-  onReset: () => void
 }
 
 // Pull a 3-6 word descriptor out of the file name if the LLM didn't return
@@ -213,7 +211,7 @@ function SceneCard({ scene }: { scene: Scene }) {
     <div className="rounded-lg border border-ink/5 bg-ink/[0.02] p-4">
       <div className="mb-2.5 flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="shrink-0 rounded-full bg-fuchsia-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-fuchsia-300 light:text-fuchsia-700">
+          <span className="inline-flex shrink-0 items-center rounded-full bg-fuchsia-500/10 px-3 py-0.5 font-instrument text-[15px] leading-none text-fuchsia-300 light:text-fuchsia-700">
             Scene {scene.index}
           </span>
           <span className="truncate text-xs font-medium text-ink-300">{scene.label}</span>
@@ -327,7 +325,7 @@ function ReverseEngineeredSection({ result, fileName }: { result: AnalysisResult
 }
 
 /* ─── Main ResultsView ─── */
-export default function ResultsView({ result, videoSrc, restoredThumbUrl, fileName, onReset }: ResultsViewProps) {
+export default function ResultsView({ result, videoSrc, restoredThumbUrl, fileName }: ResultsViewProps) {
   // Hide the left media column entirely when neither a video nor a saved
   // still is available (e.g. restored from a history row whose thumbnail
   // capture had failed). Results panels then take the full width.
@@ -367,13 +365,6 @@ export default function ResultsView({ result, videoSrc, restoredThumbUrl, fileNa
             <Film className="h-3.5 w-3.5 shrink-0 text-ink-600" />
             <span className="truncate text-xs text-ink-500">{fileName}</span>
           </div>
-          <button
-            onClick={onReset}
-            className="flex shrink-0 items-center justify-center gap-2 rounded-full border border-[#FF5257]/20 bg-[#FF5257]/10 px-4 py-2.5 text-sm font-medium text-[#FF5257] transition-colors hover:bg-[#FF5257]/20"
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            Analyze Another
-          </button>
         </div>
       )}
 
@@ -382,18 +373,11 @@ export default function ResultsView({ result, videoSrc, restoredThumbUrl, fileNa
         {/* When the left column is hidden, surface the Reset action above the
             results so the user can always get back to a fresh upload. */}
         {!hasMedia && (
-          <div className="mb-5 flex items-center justify-between gap-3 rounded-xl border border-ink/5 bg-ink/[0.02] px-4 py-3">
+          <div className="mb-5 flex items-center gap-3 rounded-xl border border-ink/5 bg-ink/[0.02] px-4 py-3">
             <div className="flex min-w-0 items-center gap-2">
               <Film className="h-3.5 w-3.5 shrink-0 text-ink-600" />
               <span className="truncate text-xs text-ink-500">{fileName || 'Untitled analysis'}</span>
             </div>
-            <button
-              onClick={onReset}
-              className="flex shrink-0 items-center justify-center gap-2 rounded-full border border-[#FF5257]/20 bg-[#FF5257]/10 px-3.5 py-1.5 text-xs font-medium text-[#FF5257] transition-colors hover:bg-[#FF5257]/20"
-            >
-              <RotateCcw className="h-3 w-3" />
-              Analyze Another
-            </button>
           </div>
         )}
         <div className="flex flex-col gap-5">

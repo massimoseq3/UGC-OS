@@ -18,6 +18,11 @@
      font while the rest of the app uses Geist. */
   --font-sans: 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif;
 
+  /* Instrument Serif — the display serif used for scene pills/labels (and the
+     B-Roll scene headers). Exposed as the `font-instrument` utility. Only the
+     400 weight is loaded, so never pair it with font-bold/semibold. */
+  --font-instrument: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+
   /* ---- Semantic theme tokens (dark values are the defaults; light-mode
      overrides live in the [data-theme="light"] block below). ----
      ink    — the foreground "chrome" color: borders, hover fills, hairlines,
