@@ -128,7 +128,7 @@ function VariationCard({ text, cardTitle, defaultSaveTitle, linkedProductId, mod
     <div className="flex shrink-0 flex-col rounded-3xl border border-ink/5 bg-surface-1 overflow-hidden">
       <div className="flex items-center justify-between border-b border-ink/5 px-4 py-2.5">
         <div className="flex items-center gap-2">
-          <span className="inline-flex items-center rounded-full bg-scripts-500/10 px-3 py-0.5 font-instrument text-[15px] leading-none text-scripts-300">
+          <span className="inline-flex items-center rounded-full bg-scripts-500/10 px-3 py-0.5 font-instrument text-[13px] leading-none text-scripts-300">
             {cardTitle}
           </span>
           {scenes && (
@@ -255,7 +255,7 @@ function SceneChunkCard({ chunk }: { chunk: SceneChunk }) {
   return (
     <div className="rounded-2xl border border-ink/5 bg-ink/[0.02] p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="truncate font-instrument text-[15px] leading-none text-scripts-300/80">
+        <span className="truncate font-instrument text-[13px] leading-none text-scripts-300/80">
           {chunk.header.replace(/^---\s*|\s*---$/g, '')}
         </span>
         <button

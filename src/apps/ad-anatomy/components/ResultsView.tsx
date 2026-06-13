@@ -211,7 +211,7 @@ function SceneCard({ scene }: { scene: Scene }) {
     <div className="rounded-lg border border-ink/5 bg-ink/[0.02] p-4">
       <div className="mb-2.5 flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="inline-flex shrink-0 items-center rounded-full bg-fuchsia-500/10 px-3 py-0.5 font-instrument text-[15px] leading-none text-fuchsia-300 light:text-fuchsia-700">
+          <span className="inline-flex shrink-0 items-center rounded-full bg-fuchsia-500/10 px-3 py-0.5 font-instrument text-[13px] leading-none text-fuchsia-300 light:text-fuchsia-700">
             Scene {scene.index}
           </span>
           <span className="truncate text-xs font-medium text-ink-300">{scene.label}</span>
