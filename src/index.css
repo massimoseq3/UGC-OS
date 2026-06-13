@@ -11,6 +11,13 @@
    chrome). Shades are derived from the base with color-mix so the ramp
    stays consistent. */
 @theme {
+  /* Geist is the app typeface. Define --font-sans so the Tailwind `font-sans`
+     utility (and the framework default) resolves to Geist instead of falling
+     back to the system sans stack — otherwise elements that opt into
+     `font-sans` (e.g. the Ad Analyzer scene-prompt <pre>) render in the system
+     font while the rest of the app uses Geist. */
+  --font-sans: 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif;
+
   /* ---- Semantic theme tokens (dark values are the defaults; light-mode
      overrides live in the [data-theme="light"] block below). ----
      ink    — the foreground "chrome" color: borders, hover fills, hairlines,

@@ -257,7 +257,7 @@ function ImageTile({
   return (
     <div
       onClick={onClick}
-      className={`group relative cursor-pointer overflow-hidden rounded-lg border bg-black transition-colors ${
+      className={`group relative cursor-pointer overflow-hidden rounded-lg border bg-black light:bg-zinc-200 transition-colors ${
         selected
           ? 'border-broll-500/70 ring-2 ring-broll-500/40'
           : 'border-ink/10 hover:border-ink/30'
@@ -384,7 +384,7 @@ function VideoTile({
       onMouseEnter={() => setHovering(true)}
       onMouseLeave={() => setHovering(false)}
       onClick={onClick}
-      className={`group relative cursor-pointer overflow-hidden rounded-lg border bg-black transition-colors ${
+      className={`group relative cursor-pointer overflow-hidden rounded-lg border bg-black light:bg-zinc-200 transition-colors ${
         selected
           ? 'border-broll-500/70 ring-2 ring-broll-500/40'
           : 'border-ink/10 hover:border-ink/30'

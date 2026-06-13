@@ -229,7 +229,7 @@ function ImageTile({
   return (
     <div
       onClick={onClick}
-      className="group relative cursor-pointer overflow-hidden rounded-lg border border-ink/10 bg-black transition-colors hover:border-ink/20"
+      className="group relative cursor-pointer overflow-hidden rounded-lg border border-ink/10 bg-black light:bg-zinc-200 transition-colors hover:border-ink/20"
     >
       {status === 'ready' && url ? (
         <img src={url} alt="" className="block h-auto w-full" />
@@ -240,13 +240,18 @@ function ImageTile({
             : <ImageIcon className="h-6 w-6 text-ink-700" />}
         </div>
       )}
+      {/* Hover actions mirror the Influencers gallery: delete sits top-right,
+          save + download bottom-right, all as round icon buttons. */}
       <div className="absolute right-1.5 top-1.5 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+        <DeleteConfirmButton onDelete={onDelete} />
+      </div>
+      <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
         <TileButton
           title={isSaved ? 'Saved to B-Rolls' : isSaving ? 'Saving…' : 'Save to B-Rolls Bank'}
           tone={isSaved ? 'saved' : 'default'}
           onClick={(e) => { e.stopPropagation(); if (!isSaved && !isSaving) onSave() }}
         >
-          {isSaved ? <Check className="h-3 w-3" /> : isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Bookmark className="h-3 w-3" />}
+          {isSaved ? <Check className="h-4 w-4" /> : isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bookmark className="h-4 w-4" />}
         </TileButton>
         <TileButton
           title="Download"
@@ -256,9 +261,8 @@ function ImageTile({
             if (u) downloadImage(u, `playground-${item.id}`)
           }}
         >
-          <Download className="h-3 w-3" />
+          <Download className="h-4 w-4" />
         </TileButton>
-        <DeleteConfirmButton onDelete={onDelete} />
       </div>
     </div>
   )
@@ -289,7 +293,7 @@ function VideoTile({
       onMouseEnter={() => setHovering(true)}
       onMouseLeave={() => setHovering(false)}
       onClick={onClick}
-      className="group relative cursor-pointer overflow-hidden rounded-lg border border-ink/10 bg-black transition-colors hover:border-ink/20"
+      className="group relative cursor-pointer overflow-hidden rounded-lg border border-ink/10 bg-black light:bg-zinc-200 transition-colors hover:border-ink/20"
       style={ratio}
     >
       {status === 'ready' && url ? (
@@ -309,19 +313,26 @@ function VideoTile({
         </div>
       )}
 
-      {!hovering && url && (
-        <div className="pointer-events-none absolute left-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/60">
-          <Play className="h-3 w-3 fill-white text-white" />
+      {/* Play badge stays put even while hovering (the clip auto-plays muted),
+          so the card always reads as a video. */}
+      {url && (
+        <div className="pointer-events-none absolute left-1.5 top-1.5 flex h-8 w-8 items-center justify-center rounded-full bg-black/60">
+          <Play className="h-3.5 w-3.5 fill-white text-white" />
         </div>
       )}
 
+      {/* Hover actions mirror the Influencers gallery: delete top-right,
+          save + download bottom-right, all round icon buttons. */}
       <div className="absolute right-1.5 top-1.5 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+        <DeleteConfirmButton onDelete={onDelete} />
+      </div>
+      <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
         <TileButton
           title={isSaved ? 'Saved to B-Rolls' : isSaving ? 'Saving…' : 'Save to B-Rolls Bank'}
           tone={isSaved ? 'saved' : 'default'}
           onClick={(e) => { e.stopPropagation(); if (!isSaved && !isSaving) onSave() }}
         >
-          {isSaved ? <Check className="h-3 w-3" /> : isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Bookmark className="h-3 w-3" />}
+          {isSaved ? <Check className="h-4 w-4" /> : isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bookmark className="h-4 w-4" />}
         </TileButton>
         <TileButton
           title="Download"
@@ -331,9 +342,8 @@ function VideoTile({
             if (u) downloadImage(u, `playground-${item.id}`, 'mp4')
           }}
         >
-          <Download className="h-3 w-3" />
+          <Download className="h-4 w-4" />
         </TileButton>
-        <DeleteConfirmButton onDelete={onDelete} />
       </div>
     </div>
   )
@@ -460,18 +470,12 @@ function PreviewModal({
       className="fixed inset-0 z-[60] flex flex-col bg-black/80 backdrop-blur-sm"
       onClick={onClose}
     >
-      {/* Top-right action cluster — Save, Download, Close. Delete lives on
-          the grid tile only; one wrong click in here would nuke the item. */}
+      {/* Top-right holds only Close now — Save + Download moved down to
+          labeled buttons beside Copy prompt. Delete lives on the grid tile. */}
       <div
         className="absolute right-4 top-4 z-10 flex items-center gap-2"
         onClick={(e) => e.stopPropagation()}
       >
-        <ModalActionButton title={linked ? 'Saved to B-Roll bank' : 'Save to B-Roll bank'} onClick={onSave} disabled={linked || isSaving} tone={linked ? 'saved' : 'default'}>
-          {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : linked ? <Check className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
-        </ModalActionButton>
-        <ModalActionButton title="Download" onClick={handleDownload}>
-          <Download className="h-4 w-4" />
-        </ModalActionButton>
         <ModalActionButton title="Close" onClick={onClose}>
           <X className="h-4 w-4" />
         </ModalActionButton>
@@ -508,24 +512,38 @@ function PreviewModal({
           </div>
         )}
 
-        {prompt && (
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="flex w-full max-w-2xl shrink-0 flex-col items-center gap-2"
-          >
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="flex w-full max-w-2xl shrink-0 flex-col items-center gap-3"
+        >
+          {prompt && (
             <div className="max-h-[18vh] w-full overflow-y-auto rounded-lg bg-white/[0.02] px-4 py-3 text-center text-[12px] leading-relaxed text-zinc-400">
               {prompt}
             </div>
-            <button
-              type="button"
-              onClick={handleCopy}
-              className="flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.04] px-3.5 py-1.5 text-[12px] font-medium text-zinc-300 transition-colors hover:bg-white/[0.08] hover:text-zinc-100"
+          )}
+          {/* Primary actions — labeled, thicker pills sitting under the media
+              with Copy prompt, instead of icon-only buttons in the corner. */}
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <ModalBarButton
+              onClick={onSave}
+              disabled={linked || isSaving}
+              tone={linked ? 'saved' : 'default'}
             >
-              {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
-              <span>{copied ? 'Copied' : 'Copy prompt'}</span>
-            </button>
+              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : linked ? <Check className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
+              <span>{linked ? 'Saved to Bank' : 'Save to Bank'}</span>
+            </ModalBarButton>
+            <ModalBarButton onClick={handleDownload}>
+              <Download className="h-4 w-4" />
+              <span>{entry.kind === 'video' ? 'Download Video' : 'Download Image'}</span>
+            </ModalBarButton>
+            {prompt && (
+              <ModalBarButton onClick={handleCopy}>
+                {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
+                <span>{copied ? 'Copied' : 'Copy prompt'}</span>
+              </ModalBarButton>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   )
@@ -562,6 +580,34 @@ function ModalActionButton({
   )
 }
 
+// Labeled action pill for the preview modal's bottom bar — thicker/bigger
+// than the corner icon buttons so Save / Download / Copy read clearly.
+function ModalBarButton({
+  children,
+  onClick,
+  disabled,
+  tone = 'default',
+}: {
+  children: React.ReactNode
+  onClick: () => void
+  disabled?: boolean
+  tone?: 'default' | 'saved'
+}) {
+  const toneClass = tone === 'saved'
+    ? 'border-emerald-500/40 bg-emerald-500/20 text-emerald-200 hover:bg-emerald-500/30'
+    : 'border-white/15 bg-white/[0.06] text-zinc-100 hover:bg-white/[0.12]'
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`flex items-center gap-2 rounded-full border px-5 py-3 text-[13px] font-semibold tracking-tight transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${toneClass}`}
+    >
+      {children}
+    </button>
+  )
+}
+
 // ── Shared bits ─────────────────────────────────────────────────
 
 // Two-click delete confirm. First click flips to a red "Confirm?" state for
@@ -582,13 +628,13 @@ export function DeleteConfirmButton({ onDelete }: { onDelete: () => void }) {
         }
         onDelete()
       }}
-      className={`flex h-6 items-center justify-center gap-1 rounded-md px-1.5 backdrop-blur transition-colors ${
+      className={`flex h-8 items-center justify-center gap-1 rounded-full px-2 backdrop-blur transition-colors ${
         confirming
-          ? 'bg-red-500/40 text-red-100 ring-1 ring-red-400/60'
+          ? 'bg-red-500/45 text-red-50 ring-1 ring-red-400/70'
           : 'bg-black/60 text-zinc-300 hover:bg-red-500/30 hover:text-red-200'
       }`}
     >
-      <Trash2 className="h-3 w-3" />
+      <Trash2 className="h-4 w-4" />
       {confirming && <span className="text-[9px] font-medium uppercase tracking-wider">Confirm</span>}
     </button>
   )
@@ -606,7 +652,7 @@ function TileButton({
   tone?: 'default' | 'saved' | 'danger'
 }) {
   const toneClass = tone === 'saved'
-    ? 'bg-emerald-500/30 text-emerald-200 hover:bg-emerald-500/40'
+    ? 'bg-emerald-500/40 text-emerald-100 hover:bg-emerald-500/50'
     : tone === 'danger'
     ? 'bg-black/60 text-zinc-300 hover:bg-red-500/30 hover:text-red-200'
     : 'bg-black/60 text-zinc-200 hover:bg-black/80'
@@ -615,7 +661,7 @@ function TileButton({
       type="button"
       title={title}
       onClick={onClick}
-      className={`flex h-6 w-6 items-center justify-center rounded-md backdrop-blur transition-colors ${toneClass}`}
+      className={`flex h-8 w-8 items-center justify-center rounded-full backdrop-blur transition-colors ${toneClass}`}
     >
       {children}
     </button>
