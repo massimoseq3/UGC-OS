@@ -45,14 +45,13 @@ export function buildJsonPrompt(profile: CharacterProfile): Record<string, Recor
   return result
 }
 
-// Builds a structured, labeled prompt grouped by category. Values are
-// preserved verbatim — never paraphrased — so chip presets and free-text
-// entries land in the model unchanged. Labels + section headers help the
-// image model parse the request without wading through comma soup.
-export function buildImagePrompt(profile: CharacterProfile): string {
-  const SKIP_VALUES = new Set(['None', 'No makeup', 'Indoor (N/A)'])
-  const has = (v: string | undefined): v is string => !!v && !SKIP_VALUES.has(v)
+const SKIP_VALUES = new Set(['None', 'No makeup', 'Indoor (N/A)'])
+const has = (v: string | undefined): v is string => !!v && !SKIP_VALUES.has(v)
 
+// Identity + physical + wardrobe sections — who the person *is*, independent
+// of any scene. Shared by the portrait prompt and the character-sheet prompt
+// (a sheet describes the same person but ignores scene/pose/camera fields).
+function buildIdentitySections(profile: CharacterProfile): string[] {
   const sections: string[] = []
 
   // Identity sentence — flows as natural prose since these read as one phrase.
@@ -94,6 +93,16 @@ export function buildImagePrompt(profile: CharacterProfile): string {
   if (has(profile.makeup)) wardrobeLines.push(`Makeup: ${profile.makeup}.`)
   if (wardrobeLines.length) sections.push(wardrobeLines.join(' '))
 
+  return sections
+}
+
+// Builds a structured, labeled prompt grouped by category. Values are
+// preserved verbatim — never paraphrased — so chip presets and free-text
+// entries land in the model unchanged. Labels + section headers help the
+// image model parse the request without wading through comma soup.
+export function buildImagePrompt(profile: CharacterProfile): string {
+  const sections: string[] = buildIdentitySections(profile)
+
   // Scene / environment.
   const sceneLines: string[] = []
   if (has(profile.location)) sceneLines.push(`Location: ${profile.location}.`)
@@ -122,6 +131,27 @@ export function buildImagePrompt(profile: CharacterProfile): string {
   return sections.join('\n\n')
 }
 
+// Sheet layout directive — leads the prompt so the model commits to the
+// panel composition before reading identity details. Scene/pose/camera form
+// fields are deliberately ignored: a reference sheet lives on a neutral
+// studio background, and its job is identity consistency, not a vibe.
+const SHEET_LAYOUT = `Character reference sheet: one single 16:9 image divided into clean panels on a flat, seamless light-gray studio background with even, shadowless softbox lighting. The exact same person appears in every panel — identical face, hair, skin, and wardrobe throughout.
+
+Layout — left third of the frame: one tall panel with a full-body standing shot, head to toe, arms relaxed at the sides, facing forward. Right two-thirds: a grid of six panels in two rows. Top row: head-and-shoulders front view facing the camera directly; head-and-shoulders three-quarter view (45 degrees); head-and-shoulders true side profile. Bottom row, three expression close-ups: neutral and relaxed; warm genuine smile; mid-laugh.
+
+No text, no labels, no logos, no watermarks. Panels separated only by the plain background.`
+
+// Character-sheet prompt: layout directive + identity/physical/wardrobe
+// sections from the form. The photorealism style string still applies so the
+// sheet matches the look of the portraits it will be used alongside.
+export function buildSheetPrompt(profile: CharacterProfile): string {
+  const sections = [SHEET_LAYOUT, ...buildIdentitySections(profile)]
+  if (has(profile.cameraDevice)) sections.push(`Style: ${profile.cameraDevice}`)
+  return sections.join('\n\n')
+}
+
+export type GenerationKind = 'portrait' | 'sheet'
+
 // Phase 1: build the prompt, POST createTask, return the taskId so the caller
 // can persist it before awaiting completion. A mid-flight refresh can resume
 // polling by calling finishCharacterTask with the stored taskId.
@@ -130,6 +160,7 @@ export async function startCharacterTask(
   modelIdOverride?: string,
   resolution?: ImageResolution,
   signal?: AbortSignal,
+  kind: GenerationKind = 'portrait',
 ): Promise<{ taskId: string; modelId: string }> {
   const apiKey = useSettingsStore.getState().getKieApiKey()
 
@@ -138,10 +169,12 @@ export async function startCharacterTask(
     ?? getDefaultModel('character-studio', 'image', 'text-to-image')?.id
   if (!modelId) throw new Error('No image model configured for Characters.')
 
-  const prompt = buildImagePrompt(profile)
-  // Tolerate both legacy verbose values ('Landscape (16:9)') and raw ratios.
+  const prompt = kind === 'sheet' ? buildSheetPrompt(profile) : buildImagePrompt(profile)
+  // Sheets are always widescreen — the panel layout is designed for 16:9.
+  // Portraits tolerate both legacy verbose values ('Landscape (16:9)') and raw ratios.
   const ar = profile.aspectRatio ?? ''
-  const aspectRatio: AspectRatio = ar.includes('16:9') ? '16:9' : ar.includes('1:1') ? '1:1' : '9:16'
+  const aspectRatio: AspectRatio = kind === 'sheet' ? '16:9'
+    : ar.includes('16:9') ? '16:9' : ar.includes('1:1') ? '1:1' : '9:16'
 
   const body = buildImageInput(modelId, { prompt, aspectRatio, resolution })
   const taskId = await createTask(apiKey, modelId, body, signal)

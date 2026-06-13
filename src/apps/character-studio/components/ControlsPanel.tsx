@@ -23,6 +23,8 @@ interface ControlsPanelProps {
   canGenerate: boolean
   resolution: ImageResolution
   onResolutionChange: (value: ImageResolution) => void
+  sheetMode: boolean
+  onSheetModeChange: (value: boolean) => void
   inFlightCount: number
 }
 
@@ -41,9 +43,13 @@ export default function ControlsPanel({
   canGenerate,
   resolution,
   onResolutionChange,
+  sheetMode,
+  onSheetModeChange,
   inFlightCount,
 }: ControlsPanelProps) {
-  const currentTab = TABS.find((t) => t.id === activeTab)!
+  // Fall back to the first tab when a persisted tab id no longer exists
+  // (e.g. the old standalone 'pose' tab, now merged into Scene & Pose).
+  const currentTab = TABS.find((t) => t.id === activeTab) ?? TABS[0]
 
   const setField = (key: string, value: string) => {
     onProfileChange({ ...profile, [key]: value })
@@ -123,6 +129,8 @@ export default function ControlsPanel({
         onAspectRatioChange={(value) => onProfileChange({ ...profile, aspectRatio: value })}
         resolution={resolution}
         onResolutionChange={onResolutionChange}
+        sheetMode={sheetMode}
+        onSheetModeChange={onSheetModeChange}
         inFlightCount={inFlightCount}
         onClear={() => onProfileChange(createEmptyProfile())}
       />

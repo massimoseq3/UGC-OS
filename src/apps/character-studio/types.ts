@@ -1,7 +1,7 @@
 import type { ElementType } from 'react'
 import { IdCard, Sparkles, Eye, Scissors, Smile, Shirt, MapPin, Sun } from 'lucide-react'
 
-export type TabId = 'physical' | 'scene' | 'pose' | 'camera'
+export type TabId = 'physical' | 'scene' | 'camera'
 
 // The single style string used for Camera Device — keeps every generated
 // character locked to the same UGC photorealism look.
@@ -215,7 +215,7 @@ export const TABS: TabConfig[] = [
   },
   {
     id: 'scene',
-    label: 'Scene',
+    label: 'Scene & Pose',
     groups: [
       {
         id: 'setting',
@@ -232,6 +232,28 @@ export const TABS: TabConfig[] = [
             label: 'Background Details',
             chips: ['Neutral wall', 'Bookshelf', 'Plants', 'Bed with pillows', 'Kitchen counter', 'Car Interior', 'Blurred background', 'Window with natural light', 'Minimalist'],
             placeholder: 'e.g. "Clean white wall, small monstera plant"',
+          },
+        ],
+      },
+      {
+        id: 'pose',
+        label: 'Pose & Action',
+        fields: [
+          {
+            key: 'pose',
+            label: 'Pose',
+            chips: ['Sitting', 'Standing', 'Leaning', 'Walking', 'Lying down', 'Cross-legged', 'Kneeling', 'Crouching', 'Front-on facing camera'],
+          },
+          {
+            key: 'action',
+            label: 'Action',
+            chips: ['Speaking to camera', 'Holding product', 'Applying product', 'Unboxing', 'Pointing', 'Typing on phone', 'Drinking', 'Showing before/after', 'Looking at camera'],
+            placeholder: 'e.g. "Holding product up next to face, showing label"',
+          },
+          {
+            key: 'expression',
+            label: 'Expression',
+            chips: ['Natural smile', 'Genuine smile', 'Excited', 'Skeptical', 'Surprised', 'Thinking', 'Laughing', 'Serious/focused', 'Mid-sentence'],
           },
         ],
       },
@@ -263,35 +285,6 @@ export const TABS: TabConfig[] = [
             key: 'timeOfDay',
             label: 'Time of Day',
             chips: ['Morning', 'Midday', 'Afternoon', 'Golden hour', 'Evening', 'Night'],
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'pose',
-    label: 'Pose & Action',
-    shortLabel: 'Pose',
-    groups: [
-      {
-        id: 'pose',
-        label: 'Pose & Action',
-        fields: [
-          {
-            key: 'pose',
-            label: 'Pose',
-            chips: ['Sitting', 'Standing', 'Leaning', 'Walking', 'Lying down', 'Cross-legged', 'Kneeling', 'Crouching', 'Front-on facing camera'],
-          },
-          {
-            key: 'action',
-            label: 'Action',
-            chips: ['Speaking to camera', 'Holding product', 'Applying product', 'Unboxing', 'Pointing', 'Typing on phone', 'Drinking', 'Showing before/after', 'Looking at camera'],
-            placeholder: 'e.g. "Holding product up next to face, showing label"',
-          },
-          {
-            key: 'expression',
-            label: 'Expression',
-            chips: ['Natural smile', 'Genuine smile', 'Excited', 'Skeptical', 'Surprised', 'Thinking', 'Laughing', 'Serious/focused', 'Mid-sentence'],
           },
         ],
       },

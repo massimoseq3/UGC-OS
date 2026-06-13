@@ -105,10 +105,12 @@ function buildSections(profile: Record<string, unknown> | null): Array<{ name: s
 export default function ModelForm({ item, onSave, onCancel }: ModelFormProps) {
   const [name, setName] = useState(item?.name ?? '')
   const [characterImage, setCharacterImage] = useState(item?.characterImage ?? '')
+  const [sheetImage, setSheetImage] = useState(item?.sheetImage ?? '')
   const [source] = useState<Model['source']>(item?.source ?? 'manual-import')
   const [localPreview, setLocalPreview] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const resolvedAssetUrl = useAssetUrl(characterImage)
+  const resolvedSheetUrl = useAssetUrl(sheetImage)
   const displayImage = localPreview ?? resolvedAssetUrl
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -116,6 +118,7 @@ export default function ModelForm({ item, onSave, onCancel }: ModelFormProps) {
     if (item) {
       setName(item.name)
       setCharacterImage(item.characterImage)
+      setSheetImage(item.sheetImage ?? '')
     }
   }, [item])
 
@@ -147,6 +150,7 @@ export default function ModelForm({ item, onSave, onCancel }: ModelFormProps) {
         name,
         notes: item?.notes ?? '',
         characterImage,
+        sheetImage,
         jsonProfile: item?.jsonProfile ?? null,
         source,
       })
@@ -209,6 +213,39 @@ export default function ModelForm({ item, onSave, onCancel }: ModelFormProps) {
           </p>
         </div>
       </div>
+
+      {/* Character sheet — attached from a sheet generation in Influencers.
+          Read-only here apart from removal; regenerate from the studio. */}
+      {sheetImage && resolvedSheetUrl && (
+        <div>
+          <div className="mb-3 flex items-center gap-2.5">
+            <span className="block h-3 w-[3px] rounded-full bg-influencers-400/40" />
+            <h4 className="text-[11px] font-medium uppercase tracking-widest text-ink-400">Character Sheet</h4>
+            <span className="ml-1 h-px flex-1 bg-ink/5" />
+          </div>
+          <div className="relative group/sheet overflow-hidden rounded-2xl border border-ink/5 bg-ink/[0.02]">
+            <img src={resolvedSheetUrl} alt="" className="block aspect-video w-full object-cover" />
+            <div className="absolute right-2 top-2 flex gap-1.5 opacity-0 transition-opacity group-hover/sheet:opacity-100">
+              <button
+                type="button"
+                title="Download sheet"
+                onClick={() => downloadImage(resolvedSheetUrl, `character-sheet-${name || item?.id.slice(0, 8) || 'image'}`)}
+                className="rounded-lg bg-black/60 p-1.5 text-zinc-400 backdrop-blur-sm transition-colors hover:text-zinc-200"
+              >
+                <Download className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                title="Detach sheet"
+                onClick={() => setSheetImage('')}
+                className="rounded-lg bg-black/60 p-1.5 text-zinc-400 backdrop-blur-sm transition-colors hover:text-red-300"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Spec sheet */}
       <div>

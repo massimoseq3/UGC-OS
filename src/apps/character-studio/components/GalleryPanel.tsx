@@ -1,15 +1,17 @@
 import { useMemo, useRef, useState, useEffect } from 'react'
-import { Loader2, Trash2, Image as ImageIcon, UserRound, Bookmark, X, Download, Check } from 'lucide-react'
+import { Loader2, Trash2, Image as ImageIcon, UserRound, Bookmark, X, Download, Check, LayoutGrid } from 'lucide-react'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAssetUrlState } from '../../../hooks/useAssetUrl'
 import { getUrl } from '../../../utils/assetStore'
 import { useAppStore } from '../../../stores/appStore'
 import { humanizeError } from '../../../utils/friendlyError'
-import type { CharacterHistoryItem } from '../../../stores/types'
+import type { CharacterHistoryItem, Model } from '../../../stores/types'
 import GenerationProgress from '../../../components/GenerationProgress'
 import { getModel, type ImageResolution } from '../../../utils/models'
 import HistoryPreviewModal from './HistoryPreviewModal'
+import InfluencerPickList from './InfluencerPickList'
 import { buildJsonPrompt } from '../services/generateCharacter'
+import { attachSheetToModel } from '../services/attachSheet'
 import { downloadImage } from '../../../utils/downloadImage'
 
 // One running generation. Persisted to localStorage so a mid-flight refresh
@@ -24,6 +26,8 @@ export interface InFlightCharacterGen {
   startedAt: number
   taskId?: string
   resolution?: ImageResolution
+  // Portrait vs character-sheet generation (undefined → portrait, pre-sheet entries).
+  kind?: 'portrait' | 'sheet'
   // The CharacterProfile snapshot to write into characterHistory on success.
   // Typed as Record<string, string> to avoid an import cycle through types.
   profile?: Record<string, string>
@@ -158,12 +162,18 @@ function HistoryTile({
   const addToast = useAppStore((s) => s.addToast)
   const [savingToBank, setSavingToBank] = useState(false)
   const [nameDraft, setNameDraft] = useState<string | null>(null)
+  const [pickingModel, setPickingModel] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const nameInputRef = useRef<HTMLInputElement | null>(null)
 
+  const isSheet = item.kind === 'sheet'
   const linkedModel = item.linkedModelId ? models.find((m) => m.id === item.linkedModelId) : undefined
-  const savedAsModel = !!linkedModel
+  // A sheet counts as saved only while it's still the model's current sheet —
+  // attaching a newer sheet to the same influencer frees this one up again.
+  const savedAsModel = isSheet
+    ? models.some((m) => m.sheetImage === item.imageRef)
+    : !!linkedModel
 
   useEffect(() => {
     if (nameDraft !== null) {
@@ -174,8 +184,28 @@ function HistoryTile({
 
   function openNameInput(e: React.MouseEvent) {
     e.stopPropagation()
-    if (savedAsModel || savingToBank) return
+    if (savingToBank) return
+    // Sheets attach to an existing influencer instead of creating a new one.
+    // Re-opening while attached is allowed — the user may move the sheet.
+    if (isSheet) {
+      setPickingModel((v) => !v)
+      return
+    }
+    if (savedAsModel) return
     setNameDraft(autoName(item))
+  }
+
+  async function commitAttach(model: Model) {
+    if (savingToBank) return
+    setSavingToBank(true)
+    try {
+      await attachSheetToModel(item, model)
+      setPickingModel(false)
+    } catch (err) {
+      addToast(humanizeError(err, 'Attach failed'), 'error')
+    } finally {
+      setSavingToBank(false)
+    }
   }
 
   async function commitSave() {
@@ -223,7 +253,7 @@ function HistoryTile({
     e.stopPropagation()
     const resolved = await getUrl(item.imageRef)
     if (!resolved) return
-    await downloadImage(resolved, `influencer-${item.id}`)
+    await downloadImage(resolved, `${isSheet ? 'character-sheet' : 'influencer'}-${item.id}`)
   }
 
   return (
@@ -241,7 +271,18 @@ function HistoryTile({
         </div>
       )}
 
-      {savedAsModel && (
+      {isSheet ? (
+        <div
+          title={savedAsModel ? 'Sheet attached to a saved influencer' : 'Character sheet'}
+          className={`absolute left-1.5 top-1.5 flex h-6 items-center gap-1 rounded-full px-2 text-[9px] font-medium backdrop-blur ${
+            savedAsModel ? 'bg-emerald-500/30 text-emerald-100' : 'bg-black/60 text-zinc-200'
+          }`}
+        >
+          <LayoutGrid className="h-3 w-3" strokeWidth={2} />
+          Sheet
+          {savedAsModel && <Check className="h-3 w-3" strokeWidth={2.5} />}
+        </div>
+      ) : savedAsModel && (
         <div
           title="Saved to Influencers bank"
           className="absolute left-1.5 top-1.5 flex h-6 items-center gap-1 rounded-full bg-emerald-500/30 px-2 text-[9px] font-medium text-emerald-100 backdrop-blur"
@@ -270,8 +311,28 @@ function HistoryTile({
 
       {/* Bottom hover actions — round icon buttons bottom-right, matching the
           B-Roll tile cluster. The inline name input still takes over the
-          bottom edge while a save is being named. */}
-      {nameDraft !== null ? (
+          bottom edge while a save is being named; sheets swap it for an
+          influencer pick list (sheets attach instead of creating an entry). */}
+      {pickingModel ? (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="absolute inset-x-2 bottom-2 overflow-hidden rounded-2xl border border-white/15 bg-black/80 backdrop-blur"
+        >
+          <div className="flex items-center justify-between gap-2 px-3 pt-2">
+            <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-400">Attach to influencer</span>
+            <button
+              type="button"
+              title="Cancel"
+              onClick={() => setPickingModel(false)}
+              disabled={savingToBank}
+              className="flex h-5 w-5 items-center justify-center rounded-full text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+          <InfluencerPickList item={item} busy={savingToBank} onPick={commitAttach} />
+        </div>
+      ) : nameDraft !== null ? (
         <div
           onClick={(e) => e.stopPropagation()}
           className="absolute inset-x-2 bottom-2 flex items-center gap-1 rounded-full border border-white/15 bg-black/70 py-1 pl-2.5 pr-1 backdrop-blur"
@@ -311,7 +372,9 @@ function HistoryTile({
       ) : (
         <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
           <TileIconButton
-            title={savedAsModel ? 'Saved to Bank' : savingToBank ? 'Saving…' : 'Save to Bank'}
+            title={isSheet
+              ? (savedAsModel ? 'Attached — click to move to another influencer' : savingToBank ? 'Attaching…' : 'Attach to influencer')
+              : (savedAsModel ? 'Saved to Bank' : savingToBank ? 'Saving…' : 'Save to Bank')}
             tone={savedAsModel ? 'saved' : 'default'}
             onClick={openNameInput}
           >
@@ -391,6 +454,7 @@ function autoName(item: CharacterHistoryItem): string {
 
 function InFlightTile({ gen, onCancel }: { gen: InFlightCharacterGen; onCancel: () => void }) {
   const modelLabel = getModel(gen.modelId)?.displayName ?? gen.modelId
+  const isSheet = gen.kind === 'sheet'
   return (
     <div
       className="group relative overflow-hidden rounded-lg border border-influencers-500/30 bg-gradient-to-br from-influencers-500/[0.08] to-ink-950"
@@ -409,13 +473,18 @@ function InFlightTile({ gen, onCancel }: { gen: InFlightCharacterGen; onCancel: 
         <X className="h-3 w-3" />
       </button>
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center">
-        <UserRound className="h-5 w-5 text-influencers-300" />
+        {isSheet ? <LayoutGrid className="h-5 w-5 text-influencers-300" /> : <UserRound className="h-5 w-5 text-influencers-300" />}
         <p className="text-[10px] font-medium text-influencers-100">{modelLabel}</p>
         <GenerationProgress
           isActive
           color="bg-influencers-500"
           showHelper={false}
-          messages={[
+          messages={isSheet ? [
+            'Sending request...',
+            'Laying out the panels...',
+            'Matching the face across views...',
+            'Finalizing the sheet...',
+          ] : [
             'Sending request...',
             'Composing the influencer...',
             'Rendering details...',

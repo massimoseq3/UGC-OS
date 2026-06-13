@@ -383,6 +383,12 @@ export const useBankStore = create<BankState>((set, get) => ({
     if (updates.characterImage && old.characterImage && old.characterImage !== updates.characterImage) {
       cleanupAssets(old.characterImage)
     }
+    // Replacing an attached sheet: only purge the old blob when no history row
+    // still shows it — the gallery tile would otherwise break.
+    if (updates.sheetImage && old.sheetImage && old.sheetImage !== updates.sheetImage) {
+      const stillInHistory = get().characterHistory.some((h) => h.imageRef === old.sheetImage)
+      if (!stillInHistory) cleanupAssets(old.sheetImage)
+    }
     set((state) => {
       const next = { models: state.models.map((m) => m.id === id ? updated : m) }
       saveToStorage({ ...state, ...next })
@@ -397,6 +403,9 @@ export const useBankStore = create<BankState>((set, get) => ({
     if (!item) return
     try { await dropRow('models', id) } catch (e) { reportError('Delete influencer', e) }
     if (item.characterImage) await cleanupAssets(item.characterImage)
+    if (item.sheetImage && !get().characterHistory.some((h) => h.imageRef === item.sheetImage)) {
+      await cleanupAssets(item.sheetImage)
+    }
     set((state) => {
       const next = { models: state.models.filter((m) => m.id !== id) }
       saveToStorage({ ...state, ...next })

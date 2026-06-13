@@ -26,6 +26,10 @@ export interface Model {
   // time this influencer is attached to a Gemini Omni generation. Scoped to
   // the member's kie.ai account (same key on any browser → same id works).
   omniCharacterId?: string
+  // 16:9 character-sheet asset (face turnaround + expressions + full body)
+  // attached from a sheet generation in Influencers. Kept alongside the
+  // portrait so downstream apps can prefer it as a consistency reference.
+  sheetImage?: string
   createdAt: number
 }
 
@@ -195,6 +199,9 @@ export interface CharacterHistoryItem {
   modelId: string
   aspectRatio: string
   resolution?: string
+  // undefined → portrait (legacy rows predate sheets). 'sheet' rows attach to
+  // an existing Model's sheetImage instead of creating a new bank entry.
+  kind?: 'portrait' | 'sheet'
   linkedModelId?: string
   createdAt: number
 }

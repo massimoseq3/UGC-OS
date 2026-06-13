@@ -29,6 +29,23 @@ export default function CharacterStudio() {
   // here. The user can pick 2K / 4K from the resolution toggle when they
   // want it.
   const [resolution, setResolution] = usePersistedState<ImageResolution>(`${baseKey}:resolution`, '1K')
+  // Portrait vs character-sheet output. Flipping to sheet bumps resolution to
+  // 2K (each panel is a fraction of the frame, so 1K faces go mushy when the
+  // sheet is reused as a reference); flipping back restores what was set
+  // before. Both are persisted so a refresh mid-session keeps the pairing.
+  const [sheetMode, setSheetMode] = usePersistedState<boolean>(`${baseKey}:sheet-mode`, false)
+  const [preSheetResolution, setPreSheetResolution] = usePersistedState<ImageResolution>(`${baseKey}:pre-sheet-resolution`, '1K')
+
+  const handleSheetModeChange = (on: boolean) => {
+    if (on === sheetMode) return
+    if (on) {
+      setPreSheetResolution(resolution)
+      setResolution('2K')
+    } else {
+      setResolution(preSheetResolution)
+    }
+    setSheetMode(on)
+  }
   const [extractedThumb, setExtractedThumb] = usePersistedState<string | null>(`${baseKey}:thumb`, null)
 
   // Parallel generations: persisted to localStorage so a mid-flight refresh
@@ -154,9 +171,10 @@ export default function CharacterStudio() {
         modelId: gen.modelId,
         aspectRatio: gen.aspectRatio,
         resolution: gen.resolution,
+        kind: gen.kind ?? 'portrait',
         createdAt: Date.now(),
       })
-      useAppStore.getState().addToast('Character generated', 'success')
+      useAppStore.getState().addToast(gen.kind === 'sheet' ? 'Character sheet generated' : 'Character generated', 'success')
     } catch (err) {
       if (!controller.signal.aborted) {
         const msg = humanizeError(err, 'Image generation failed. Check your API key and try again.')
@@ -174,7 +192,8 @@ export default function CharacterStudio() {
     // freely mutate the form while this job runs in parallel.
     const snapshotProfile: CharacterProfile = { ...profile }
     const snapshotResolution = resolution
-    const snapshotAspect = profile.aspectRatio || '9:16'
+    const snapshotKind = sheetMode ? 'sheet' as const : 'portrait' as const
+    const snapshotAspect = sheetMode ? '16:9' : (profile.aspectRatio || '9:16')
     const modelId = useSettingsStore.getState().getAppModel('character-studio:image:text-to-image')
       ?? getDefaultModel('character-studio', 'image', 'text-to-image')?.id
       ?? 'unknown'
@@ -190,6 +209,7 @@ export default function CharacterStudio() {
       aspectRatio: snapshotAspect,
       startedAt: Date.now(),
       resolution: snapshotResolution,
+      kind: snapshotKind,
       profile: snapshotProfile,
     }
     setInFlight((prev) => [...prev, placeholder])
@@ -197,7 +217,7 @@ export default function CharacterStudio() {
 
     let taskId: string
     try {
-      const start = await startCharacterTask(snapshotProfile, undefined, snapshotResolution, controller.signal)
+      const start = await startCharacterTask(snapshotProfile, undefined, snapshotResolution, controller.signal, snapshotKind)
       taskId = start.taskId
     } catch (err) {
       abortersRef.current.delete(id)
@@ -285,6 +305,8 @@ export default function CharacterStudio() {
           canGenerate={Object.values(profile).some((v) => v.trim() !== '')}
           resolution={resolution}
           onResolutionChange={setResolution}
+          sheetMode={sheetMode}
+          onSheetModeChange={handleSheetModeChange}
           inFlightCount={inFlight.length}
         />
       </div>
