@@ -64,13 +64,9 @@ export default function HistoryRail({ items, selectedId, onSelect, onDelete, onN
       <div className="flex flex-col gap-3 border-b border-ink/5 p-3">
         <button
           onClick={onNew}
-          className={`flex items-center justify-center gap-2 rounded-full border px-3 py-2 text-[12px] font-medium tracking-tight transition-colors ${
-            selectedId === null
-              ? 'border-[#FF5257]/30 bg-[#FF5257]/15 text-[#FF5257]'
-              : 'border-ink/10 bg-ink/[0.04] text-ink-300 hover:bg-ink/[0.08] hover:text-ink-100'
-          }`}
+          className="flex items-center justify-center gap-2 rounded-full border border-white/15 bg-[#FF5257] px-4 py-3 text-sm font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors hover:bg-[#FF5257]/90"
         >
-          <Plus className="h-3.5 w-3.5" />
+          <Plus className="h-4 w-4" strokeWidth={2.5} />
           New analysis
         </button>
         <div className="relative">
@@ -140,24 +136,24 @@ function HistoryRow({
   return (
     <div
       onClick={onSelect}
-      className={`group cursor-pointer rounded-2xl px-2 py-2 transition-colors ${
+      className={`group cursor-pointer rounded-full px-3 py-2 transition-colors ${
         isActive
           ? 'bg-[#FF5257]/15 ring-1 ring-[#FF5257]/20'
           : 'hover:bg-ink/[0.04]'
       }`}
     >
-      <div className="flex items-start gap-2.5">
+      <div className="flex items-center gap-2.5">
         {thumbUrl ? (
           <div className="relative h-11 w-11 shrink-0">
             <img
               src={thumbUrl}
               alt=""
-              className="h-full w-full rounded-xl border border-ink/10 object-cover"
+              className="h-full w-full rounded-full border border-ink/10 object-cover"
             />
             {item.status === 'analyzing' && <PulseOverlay />}
           </div>
         ) : (
-          <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-ink/[0.04] text-[#FF5257]/70">
+          <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-ink/[0.04] text-[#FF5257]/70">
             <Eye className="h-4 w-4" />
             {item.status === 'analyzing' && <PulseOverlay />}
           </span>
@@ -222,8 +218,8 @@ function StatusChip({ item }: { item: AdAnatomyHistoryItem }) {
 
 function PulseOverlay() {
   return (
-    <span className="pointer-events-none absolute inset-0 rounded-xl ring-2 ring-[#FF5257]/40">
-      <span className="absolute inset-0 animate-pulse rounded-xl bg-[#FF5257]/10" />
+    <span className="pointer-events-none absolute inset-0 rounded-full ring-2 ring-[#FF5257]/40">
+      <span className="absolute inset-0 animate-pulse rounded-full bg-[#FF5257]/10" />
     </span>
   )
 }

@@ -149,7 +149,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md mx-4 lg:mx-0 max-h-[90vh] overflow-y-auto rounded-xl border border-ink/10 bg-surface-1 p-5 lg:p-6 shadow-2xl"
+        className="w-full max-w-md mx-4 lg:mx-0 max-h-[90vh] overflow-y-auto rounded-3xl border border-ink/10 bg-surface-1 p-5 lg:p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -191,7 +191,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                 setTestResult(null)
               }}
               placeholder="sk-..."
-              className="w-full rounded-lg border border-ink/10 bg-ink/5 px-3 py-2.5 pr-10 text-sm text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-ink/20 focus:bg-ink/[0.07]"
+              className="w-full rounded-full border border-ink/10 bg-ink/5 px-4 py-2.5 pr-10 text-sm text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-ink/20 focus:bg-ink/[0.07]"
             />
             <button
               type="button"
@@ -210,7 +210,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
             type="button"
             onClick={handleTest}
             disabled={!kieDraft.trim() || testing}
-            className="flex items-center justify-center gap-2 rounded-lg border border-ink/10 bg-ink/[0.03] px-3 py-2 text-[12px] font-medium text-ink-200 transition-colors hover:border-ink/20 hover:bg-ink/[0.06] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-ink/[0.03]"
+            className="flex items-center justify-center gap-2 rounded-full border border-ink/10 bg-ink/[0.03] px-4 py-2 text-[12px] font-medium text-ink-200 transition-colors hover:border-ink/20 hover:bg-ink/[0.06] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-ink/[0.03]"
           >
             {testing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 text-ink-400" />}
             {testing ? 'Testing connection…' : 'Test connection'}
@@ -243,7 +243,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
             <button
               onClick={handleSave}
               disabled={disabled}
-              className={`mt-4 flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium transition-colors ${
+              className={`mt-4 flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-sm font-medium transition-colors ${
                 saved
                   ? 'bg-emerald-500/15 text-emerald-300'
                   : primary

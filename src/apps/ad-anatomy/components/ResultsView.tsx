@@ -6,7 +6,7 @@ import {
   Send,
   BarChart3,
   FileText,
-  Bot,
+  Clapperboard,
   Film,
   Bookmark,
 } from 'lucide-react'
@@ -64,10 +64,10 @@ function useCopy() {
   return { copied, copy }
 }
 
-function SectionHeader({ icon: Icon, title }: { icon: React.ElementType; title: string }) {
+function SectionHeader({ icon: Icon, title, iconClass = 'text-[#FF5257]/80' }: { icon: React.ElementType; title: string; iconClass?: string }) {
   return (
     <div className="mb-3 flex items-center gap-2">
-      <Icon className="h-4 w-4 text-[#FF5257]/80" strokeWidth={1.5} />
+      <Icon className={`h-4 w-4 ${iconClass}`} strokeWidth={1.5} />
       <h3 className="text-sm font-semibold tracking-tight text-ink-200">{title}</h3>
     </div>
   )
@@ -102,8 +102,8 @@ function ScorecardSection({ result }: { result: AnalysisResult }) {
             return (
               <div key={s.label}>
                 {isOverall && <div className="mb-2 mt-1 h-px w-full bg-ink/10" />}
-                <div className="flex items-center gap-3">
-                  <span className={`w-10 shrink-0 rounded-md py-1 text-center text-sm font-semibold tabular-nums tracking-tight ${color.bg} ${color.text}`}>
+                <div className="flex items-center gap-3 rounded-full px-1.5 py-1 transition-colors hover:bg-ink/[0.04]">
+                  <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold tabular-nums tracking-tight ${color.bg} ${color.text}`}>
                     {s.score}
                   </span>
                   <span className={`text-sm ${isOverall ? 'font-bold text-ink-200' : 'text-ink-400'}`}>{s.label}</span>
@@ -188,7 +188,7 @@ function TranscriptSection({ result, fileName }: { result: AnalysisResult; fileN
 
       <div className="flex flex-col gap-0.5">
         {result.transcript.map((line, i) => (
-          <div key={i} className="flex gap-3 rounded-lg px-3 py-1.5 transition-colors hover:bg-ink/[0.03]">
+          <div key={i} className="flex gap-3 rounded-full px-3 py-1.5 transition-colors hover:bg-ink/[0.03]">
             <span className="shrink-0 tabular-nums text-[11px] text-ink-700">{line.timestamp}</span>
             <span className="text-sm text-ink-400">{line.text}</span>
           </div>
@@ -213,7 +213,7 @@ function SceneCard({ scene }: { scene: Scene }) {
     <div className="rounded-lg border border-ink/5 bg-ink/[0.02] p-4">
       <div className="mb-2.5 flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="shrink-0 rounded-md bg-[#FF5257]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-[#FF5257]">
+          <span className="shrink-0 rounded-full bg-fuchsia-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-fuchsia-300 light:text-fuchsia-700">
             Scene {scene.index}
           </span>
           <span className="truncate text-xs font-medium text-ink-300">{scene.label}</span>
@@ -282,7 +282,7 @@ function ReverseEngineeredSection({ result, fileName }: { result: AnalysisResult
   return (
     <Section>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <SectionHeader icon={Bot} title="Reverse-Engineered Prompt" />
+        <SectionHeader icon={Clapperboard} title="Reverse-Engineered Scenes" iconClass="text-fuchsia-400/90 light:text-fuchsia-700" />
         <div className="flex items-center gap-1.5">
           <button
             onClick={() => copy(fullPrompt)}
@@ -300,7 +300,7 @@ function ReverseEngineeredSection({ result, fileName }: { result: AnalysisResult
           </button>
           <button
             onClick={handleSendToScripts}
-            className="flex items-center gap-1 rounded-full bg-[#FF5257]/10 px-2.5 py-1 text-[11px] font-medium text-[#FF5257] transition-colors hover:bg-[#FF5257]/20"
+            className="flex items-center gap-1 rounded-full bg-fuchsia-500/10 px-2.5 py-1 text-[11px] font-medium text-fuchsia-300 light:text-fuchsia-700 transition-colors hover:bg-fuchsia-500/20"
           >
             <Send className="h-3 w-3" />
             Send to Scripts

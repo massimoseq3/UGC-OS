@@ -193,7 +193,7 @@ function ModelCard({ item, onEdit, onDelete }: { item: Model; onEdit: () => void
       )}
       {/* Bottom info overlay — same gradient pattern as ProductCard */}
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/55 to-transparent p-3 pt-10">
-        <span className="block truncate text-sm font-semibold tracking-tight text-zinc-100">{item.name}</span>
+        <span className="block truncate text-center text-sm font-semibold tracking-tight text-zinc-100">{item.name}</span>
       </div>
       {/* Action buttons top-right */}
       <div className="absolute right-2 top-2 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>

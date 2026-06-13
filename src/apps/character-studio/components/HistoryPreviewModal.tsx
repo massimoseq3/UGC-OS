@@ -94,22 +94,12 @@ export default function HistoryPreviewModal({ item, onClose }: HistoryPreviewMod
       className="fixed inset-0 z-[60] flex flex-col bg-black/80 backdrop-blur-sm"
       onClick={onClose}
     >
-      {/* Top-right action cluster */}
+      {/* Top-right holds only Close — Save + Download moved down to labeled
+          buttons beside Copy prompt (mirrors the Playground preview modal). */}
       <div
         className="absolute right-4 top-4 z-10 flex items-center gap-2"
         onClick={(e) => e.stopPropagation()}
       >
-        <ModalActionButton
-          title={savedAsModel ? 'Saved to Influencers bank' : 'Save to Influencers bank'}
-          onClick={() => setShowSaveForm(true)}
-          disabled={savedAsModel}
-          tone={savedAsModel ? 'saved' : 'default'}
-        >
-          {savedAsModel ? <Check className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
-        </ModalActionButton>
-        <ModalActionButton title="Download" onClick={handleDownload}>
-          <Download className="h-4 w-4" />
-        </ModalActionButton>
         <ModalActionButton title="Close" onClick={onClose}>
           <X className="h-4 w-4" />
         </ModalActionButton>
@@ -170,23 +160,63 @@ export default function HistoryPreviewModal({ item, onClose }: HistoryPreviewMod
         ) : (
           <div
             onClick={(e) => e.stopPropagation()}
-            className="flex w-full max-w-2xl shrink-0 flex-col items-center gap-2"
+            className="flex w-full max-w-2xl shrink-0 flex-col items-center gap-3"
           >
             <div className="max-h-[18vh] w-full overflow-y-auto rounded-lg bg-white/[0.02] px-4 py-3 text-center text-[12px] leading-relaxed text-zinc-400 whitespace-pre-wrap">
               {prompt}
             </div>
-            <button
-              type="button"
-              onClick={handleCopyPrompt}
-              className="flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.04] px-3.5 py-1.5 text-[12px] font-medium text-zinc-300 transition-colors hover:bg-white/[0.08] hover:text-zinc-100"
-            >
-              {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
-              <span>{copied ? 'Copied' : 'Copy prompt'}</span>
-            </button>
+            {/* Primary actions — labeled pills beside Copy prompt, matching the
+                Playground preview modal. */}
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <ModalBarButton
+                onClick={() => setShowSaveForm(true)}
+                disabled={savedAsModel}
+                tone={savedAsModel ? 'saved' : 'default'}
+              >
+                {savedAsModel ? <Check className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
+                <span>{savedAsModel ? 'Saved to Bank' : 'Save to Bank'}</span>
+              </ModalBarButton>
+              <ModalBarButton onClick={handleDownload}>
+                <Download className="h-4 w-4" />
+                <span>{isSheet ? 'Download Sheet' : 'Download Image'}</span>
+              </ModalBarButton>
+              <ModalBarButton onClick={handleCopyPrompt}>
+                {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
+                <span>{copied ? 'Copied' : 'Copy prompt'}</span>
+              </ModalBarButton>
+            </div>
           </div>
         )}
       </div>
     </div>
+  )
+}
+
+// Labeled action pill for the modal's bottom bar — Save / Download / Copy,
+// matching the Playground preview modal.
+function ModalBarButton({
+  children,
+  onClick,
+  disabled,
+  tone = 'default',
+}: {
+  children: React.ReactNode
+  onClick: () => void
+  disabled?: boolean
+  tone?: 'default' | 'saved'
+}) {
+  const toneClass = tone === 'saved'
+    ? 'border-emerald-500/40 bg-emerald-500/20 text-emerald-200 hover:bg-emerald-500/30'
+    : 'border-white/15 bg-white/[0.06] text-zinc-100 hover:bg-white/[0.12]'
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`flex items-center gap-2 rounded-full border px-5 py-3 text-[13px] font-semibold tracking-tight transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${toneClass}`}
+    >
+      {children}
+    </button>
   )
 }
 
