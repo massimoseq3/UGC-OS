@@ -223,11 +223,13 @@ function CreditsChip({ collapsed }: { collapsed: boolean }) {
 
   return (
     <div
-      className="flex w-full items-center gap-3 rounded-full border border-ink/10 bg-ink/[0.04] px-3 py-2"
+      // h-9 matches the dense theme toggle below so the sidebar footer reads
+      // as one stack of equal-height pills.
+      className="flex h-9 w-full items-center gap-2.5 rounded-full border border-ink/10 bg-ink/[0.04] px-3"
       title="kie.ai credits remaining"
     >
-      <Coins className="h-5 w-5 shrink-0 text-ink-300" strokeWidth={1.75} />
-      <span className="min-w-0 flex-1 truncate text-sm text-ink-300">
+      <Coins className="h-4 w-4 shrink-0 text-ink-300" strokeWidth={1.75} />
+      <span className="min-w-0 flex-1 truncate text-[13px] text-ink-300">
         <span className="tabular-nums">{label}</span>
         <span className="text-ink-500"> credits</span>
       </span>

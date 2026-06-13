@@ -6,8 +6,10 @@ import { humanizeError } from '../../../utils/friendlyError'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
 import { getUrl } from '../../../utils/assetStore'
 import { downloadImage } from '../../../utils/downloadImage'
-import type { CharacterHistoryItem } from '../../../stores/types'
-import { buildImagePrompt, buildJsonPrompt } from '../services/generateCharacter'
+import type { CharacterHistoryItem, Model } from '../../../stores/types'
+import { buildImagePrompt, buildSheetPrompt, buildJsonPrompt } from '../services/generateCharacter'
+import { attachSheetToModel } from '../services/attachSheet'
+import InfluencerPickList from './InfluencerPickList'
 
 interface HistoryPreviewModalProps {
   item: CharacterHistoryItem
@@ -26,10 +28,18 @@ export default function HistoryPreviewModal({ item, onClose }: HistoryPreviewMod
   const [saving, setSaving] = useState(false)
   const [copied, setCopied] = useState(false)
 
+  const isSheet = item.kind === 'sheet'
   const linkedModel = item.linkedModelId ? models.find((m) => m.id === item.linkedModelId) : undefined
-  const savedAsModel = !!linkedModel
+  // Sheets count as saved only while still the model's current sheet — they
+  // attach to an existing influencer instead of creating a bank entry.
+  const savedAsModel = isSheet
+    ? models.some((m) => m.sheetImage === item.imageRef)
+    : !!linkedModel
 
-  const prompt = useMemo(() => buildImagePrompt(item.profile), [item.profile])
+  const prompt = useMemo(
+    () => (isSheet ? buildSheetPrompt(item.profile) : buildImagePrompt(item.profile)),
+    [item.profile, isSheet],
+  )
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
@@ -61,11 +71,24 @@ export default function HistoryPreviewModal({ item, onClose }: HistoryPreviewMod
     }
   }
 
+  async function commitAttach(model: Model) {
+    if (saving) return
+    setSaving(true)
+    try {
+      await attachSheetToModel(item, model)
+      setShowSaveForm(false)
+    } catch (e) {
+      addToast(humanizeError(e, 'Attach failed'), 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   async function handleDownload() {
     if (!imageUrl) return
     const url = await getUrl(item.imageRef)
     if (!url) return
-    await downloadImage(url, `influencer-${item.id}`)
+    await downloadImage(url, `${isSheet ? 'character-sheet' : 'influencer'}-${item.id}`)
   }
 
   async function handleCopyPrompt() {
@@ -89,9 +112,11 @@ export default function HistoryPreviewModal({ item, onClose }: HistoryPreviewMod
         onClick={(e) => e.stopPropagation()}
       >
         <ModalActionButton
-          title={savedAsModel ? 'Saved to Influencers bank' : 'Save to Influencers bank'}
+          title={isSheet
+            ? (savedAsModel ? 'Attached — click to move to another influencer' : 'Attach to influencer')
+            : (savedAsModel ? 'Saved to Influencers bank' : 'Save to Influencers bank')}
           onClick={() => setShowSaveForm(true)}
-          disabled={savedAsModel}
+          disabled={savedAsModel && !isSheet}
           tone={savedAsModel ? 'saved' : 'default'}
         >
           {savedAsModel ? <Check className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
@@ -107,7 +132,9 @@ export default function HistoryPreviewModal({ item, onClose }: HistoryPreviewMod
       {/* Centered content — the media element shrinks to the image's real
           rendered size so the border hugs the picture (no letterbox bars),
           and clicks anywhere outside it close the modal. */}
-      <div className="mx-auto flex h-full w-full max-w-5xl flex-col items-center justify-center gap-4 overflow-hidden px-6 py-16">
+      {/* Sheets are 16:9 and width-bound — give them a much wider column so
+          the panels stay readable; portraits keep the tighter 5xl frame. */}
+      <div className={`mx-auto flex h-full w-full flex-col items-center justify-center gap-4 overflow-hidden px-6 py-16 ${isSheet ? 'max-w-[1700px]' : 'max-w-5xl'}`}>
         {imageUrl && (
           <div className="flex min-h-0 w-full flex-1 items-center justify-center">
             <img
@@ -119,7 +146,26 @@ export default function HistoryPreviewModal({ item, onClose }: HistoryPreviewMod
           </div>
         )}
 
-        {showSaveForm ? (
+        {showSaveForm && isSheet ? (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md shrink-0 overflow-hidden rounded-2xl border border-ink/10 bg-surface-2/95 backdrop-blur"
+          >
+            <div className="flex items-center justify-between gap-2 px-3 pt-2.5">
+              <span className="text-[10px] font-medium uppercase tracking-wider text-ink-500">Attach to influencer</span>
+              <button
+                type="button"
+                onClick={() => setShowSaveForm(false)}
+                disabled={saving}
+                className="flex h-5 w-5 items-center justify-center rounded-full text-ink-500 transition-colors hover:text-ink-300"
+                aria-label="Cancel"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+            <InfluencerPickList item={item} busy={saving} onPick={commitAttach} />
+          </div>
+        ) : showSaveForm ? (
           <div
             onClick={(e) => e.stopPropagation()}
             className="flex w-full max-w-md shrink-0 items-center gap-2 rounded-full border border-ink/10 bg-surface-2/95 p-1.5 backdrop-blur"
