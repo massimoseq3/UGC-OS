@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Loader2, AlertTriangle } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
 import { isCloudEnabled } from '../../lib/supabase'
 import { startCloudSync, stopCloudSync } from '../../lib/cloudSync'
@@ -46,18 +46,10 @@ export default function AuthGate({ children }: AuthGateProps) {
   }, [userId])
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  // No Supabase env configured — fall back to local-only mode so devs can
-  // run the app without a backend. Print a banner so it's obvious.
+  // No Supabase env configured — fall back to local-only mode so the app runs
+  // fully client-side without a backend.
   if (!isCloudEnabled()) {
-    return (
-      <>
-        <div className="fixed bottom-3 left-1/2 z-[200] -translate-x-1/2 flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-[11px] text-amber-300 light:text-amber-700 backdrop-blur">
-          <AlertTriangle className="h-3 w-3" />
-          Local-only mode — set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY for cloud sync.
-        </div>
-        {children}
-      </>
-    )
+    return <>{children}</>
   }
 
   if (bootstrapping) {
