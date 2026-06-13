@@ -3,6 +3,7 @@ import {
   Copy,
   Check,
   Send,
+  ArrowUpRight,
   BarChart3,
   FileText,
   Clapperboard,
@@ -159,29 +160,13 @@ function TranscriptSection({ result, fileName }: { result: AnalysisResult; fileN
     <Section>
       <div className="mb-3 flex items-center justify-between flex-wrap gap-2">
         <SectionHeader icon={FileText} title="Transcript" />
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={() => copy(withoutTimestamps)}
-            className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-300"
-          >
-            {copied ? <Check className="h-3 w-3 text-green-400 light:text-green-600" /> : <Copy className="h-3 w-3" />}
-            {copied ? 'Copied' : 'Copy'}
-          </button>
-          <button
-            onClick={handleSaveToBank}
-            className="flex items-center gap-1 rounded-full bg-ink/[0.05] px-2.5 py-1 text-[11px] font-medium text-ink-400 transition-colors hover:bg-ink/10 hover:text-ink-200"
-          >
-            <Bookmark className="h-3 w-3" />
-            Save to Script Bank
-          </button>
-          <button
-            onClick={handleSendToScripts}
-            className="flex items-center gap-1 rounded-full bg-[#FF5257]/10 px-2.5 py-1 text-[11px] font-medium text-[#FF5257] transition-colors hover:bg-[#FF5257]/20"
-          >
-            <Send className="h-3 w-3" />
-            Send to Scripts
-          </button>
-        </div>
+        <button
+          onClick={() => copy(withoutTimestamps)}
+          className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-300"
+        >
+          {copied ? <Check className="h-3 w-3 text-green-400 light:text-green-600" /> : <Copy className="h-3 w-3" />}
+          {copied ? 'Copied' : 'Copy'}
+        </button>
       </div>
 
       <div className="flex flex-col gap-0.5">
@@ -192,6 +177,8 @@ function TranscriptSection({ result, fileName }: { result: AnalysisResult; fileN
           </div>
         ))}
       </div>
+
+      <ScriptActionRow onSave={handleSaveToBank} onSend={handleSendToScripts} />
     </Section>
   )
 }
@@ -211,7 +198,7 @@ function SceneCard({ scene }: { scene: Scene }) {
     <div className="rounded-lg border border-ink/5 bg-ink/[0.02] p-4">
       <div className="mb-2.5 flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="inline-flex shrink-0 items-center rounded-full bg-fuchsia-500/10 px-3 py-0.5 font-instrument text-[13px] leading-none text-fuchsia-300 light:text-fuchsia-700">
+          <span className="shrink-0 rounded-full bg-fuchsia-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-fuchsia-300 light:text-fuchsia-700">
             Scene {scene.index}
           </span>
           <span className="truncate text-xs font-medium text-ink-300">{scene.label}</span>
@@ -281,29 +268,13 @@ function ReverseEngineeredSection({ result, fileName }: { result: AnalysisResult
     <Section>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <SectionHeader icon={Clapperboard} title="Reverse-Engineered Scenes" iconClass="text-fuchsia-400/90 light:text-fuchsia-700" />
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={() => copy(fullPrompt)}
-            className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-300"
-          >
-            {copied ? <Check className="h-3 w-3 text-green-400 light:text-green-600" /> : <Copy className="h-3 w-3" />}
-            {copied ? 'Copied' : scenes.length > 1 ? 'Copy All' : 'Copy Prompt'}
-          </button>
-          <button
-            onClick={handleSaveToBank}
-            className="flex items-center gap-1 rounded-full bg-ink/[0.05] px-2.5 py-1 text-[11px] font-medium text-ink-400 transition-colors hover:bg-ink/10 hover:text-ink-200"
-          >
-            <Bookmark className="h-3 w-3" />
-            Save to Script Bank
-          </button>
-          <button
-            onClick={handleSendToScripts}
-            className="flex items-center gap-1 rounded-full bg-fuchsia-500/10 px-2.5 py-1 text-[11px] font-medium text-fuchsia-300 light:text-fuchsia-700 transition-colors hover:bg-fuchsia-500/20"
-          >
-            <Send className="h-3 w-3" />
-            Send to Scripts
-          </button>
-        </div>
+        <button
+          onClick={() => copy(fullPrompt)}
+          className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-300"
+        >
+          {copied ? <Check className="h-3 w-3 text-green-400 light:text-green-600" /> : <Copy className="h-3 w-3" />}
+          {copied ? 'Copied' : scenes.length > 1 ? 'Copy All' : 'Copy Prompt'}
+        </button>
       </div>
 
       <div className="mb-3 flex flex-wrap gap-2 text-[11px] text-ink-500">
@@ -320,7 +291,34 @@ function ReverseEngineeredSection({ result, fileName }: { result: AnalysisResult
           <SceneCard key={scene.index} scene={scene} />
         ))}
       </div>
+
+      <ScriptActionRow onSave={handleSaveToBank} onSend={handleSendToScripts} />
     </Section>
+  )
+}
+
+// Shared bottom action row for the Transcript + Scenes sections — the larger,
+// Scripts-styled "Save to Script Bank" (neutral) + "Send to Scripts" (orange
+// scripts accent, with a trailing arrow) buttons, matching the Scripts app.
+function ScriptActionRow({ onSave, onSend }: { onSave: () => void; onSend: () => void }) {
+  return (
+    <div className="mt-4 flex flex-wrap gap-2">
+      <button
+        onClick={onSave}
+        className="flex flex-1 min-w-0 items-center justify-center gap-2 rounded-full border border-ink/15 px-4 py-2.5 text-[12px] font-medium tracking-tight text-ink-300 transition-colors hover:bg-ink/[0.06] hover:text-ink-100"
+      >
+        <Bookmark className="h-4 w-4" strokeWidth={1.75} />
+        Save to Script Bank
+      </button>
+      <button
+        onClick={onSend}
+        className="flex flex-1 min-w-0 items-center justify-center gap-2 rounded-full border border-scripts-500/20 bg-scripts-500/10 px-4 py-2.5 text-[12px] font-medium tracking-tight text-scripts-400 transition-colors hover:bg-scripts-500/20"
+      >
+        <Send className="h-4 w-4" strokeWidth={1.75} />
+        Send to Scripts
+        <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.75} />
+      </button>
+    </div>
   )
 }
 
