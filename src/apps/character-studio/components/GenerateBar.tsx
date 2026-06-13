@@ -1,4 +1,4 @@
-import { UserRound, LayoutGrid, Lock } from 'lucide-react'
+import { UserRound, LayoutGrid } from 'lucide-react'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import ModelPicker from '../../../components/ModelPicker'
 import ConstraintChip from '../../../components/ConstraintChip'
@@ -15,10 +15,13 @@ interface GenerateBarProps {
   onAspectRatioChange: (value: string) => void
   resolution: ImageResolution
   onResolutionChange: (value: ImageResolution) => void
-  // Portrait vs character-sheet output. Sheets lock the aspect chip to 16:9 —
-  // the panel layout in the sheet prompt is designed for widescreen.
+  // Portrait vs character-sheet output. Sheets offer their own aspect picker
+  // (16:9 horizontal turnaround or 9:16 vertical) kept separate from the
+  // portrait aspect so switching modes preserves each.
   sheetMode: boolean
   onSheetModeChange: (value: boolean) => void
+  sheetAspect: string
+  onSheetAspectChange: (value: string) => void
   inFlightCount: number
   // Clear All — tucked tight under the Generate button.
   onClear: () => void
@@ -28,6 +31,9 @@ interface GenerateBarProps {
 // strings ('Portrait (9:16)') or raw ratios — normalizeAspect() collapses both
 // to a raw ratio so the chip highlights the right option.
 const ASPECT_OPTIONS = ['9:16', '16:9', '1:1']
+// Character sheets only orient horizontally (turnaround strip) or vertically
+// (stacked panels) — no square option, the panel layout needs the long axis.
+const SHEET_ASPECT_OPTIONS = ['16:9', '9:16']
 function normalizeAspect(ar: string): string {
   if (ar.includes('16:9')) return '16:9'
   if (ar.includes('1:1')) return '1:1'
@@ -47,6 +53,8 @@ export default function GenerateBar({
   onResolutionChange,
   sheetMode,
   onSheetModeChange,
+  sheetAspect,
+  onSheetAspectChange,
   inFlightCount,
   onClear,
 }: GenerateBarProps) {
@@ -101,16 +109,21 @@ export default function GenerateBar({
           }}
         />
         {sheetMode ? (
-          // Sheets are always widescreen — show the locked ratio instead of
-          // a picker so the constraint is visible but not editable.
-          <div
-            title="Character sheets are always 16:9"
-            className="flex h-12 cursor-default items-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.02] px-4 text-[13px] text-ink-500"
-          >
-            <AspectIcon ratio="16:9" />
-            <span>16:9</span>
-            <Lock className="h-3 w-3" strokeWidth={2} />
-          </div>
+          // Sheets pick between a 16:9 horizontal turnaround and a 9:16
+          // vertical layout — the sheet prompt swaps panel composition to suit.
+          <ConstraintChip
+            align="right"
+            size="lg"
+            options={SHEET_ASPECT_OPTIONS}
+            value={sheetAspect.includes('9:16') ? '9:16' : '16:9'}
+            onChange={onSheetAspectChange}
+            render={(v) => (
+              <span className="flex items-center gap-1.5">
+                <AspectIcon ratio={v} />
+                <span>{v}</span>
+              </span>
+            )}
+          />
         ) : (
           <ConstraintChip
             align="right"

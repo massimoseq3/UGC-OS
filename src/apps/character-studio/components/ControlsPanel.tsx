@@ -25,6 +25,8 @@ interface ControlsPanelProps {
   onResolutionChange: (value: ImageResolution) => void
   sheetMode: boolean
   onSheetModeChange: (value: boolean) => void
+  sheetAspect: string
+  onSheetAspectChange: (value: string) => void
   inFlightCount: number
 }
 
@@ -45,6 +47,8 @@ export default function ControlsPanel({
   onResolutionChange,
   sheetMode,
   onSheetModeChange,
+  sheetAspect,
+  onSheetAspectChange,
   inFlightCount,
 }: ControlsPanelProps) {
   // Fall back to the first tab when a persisted tab id no longer exists
@@ -57,29 +61,9 @@ export default function ControlsPanel({
 
   return (
     <div className="flex min-w-0 flex-col md:h-full">
-      {/* Preset picker + reference-image drop zone — same pill styling as the
-          model picker, sitting at the top of the column. */}
-      <div className="flex items-center gap-2 px-3 pb-2.5 pt-3">
-        <div className="min-w-0 flex-1">
-          <LoadPresetDropdown onLoadProfile={onProfileChange} />
-        </div>
-        <div className="min-w-0 flex-1">
-          <PhotoExtractZone
-            isExtracting={isExtracting}
-            extractError={extractError}
-            thumbnail={extractedThumb}
-            onPhotoDrop={onPhotoDrop}
-            onReset={onResetExtract}
-          />
-        </div>
-      </div>
-
-      {/* Divider between the presets and the toggle. */}
-      <div className="mx-3 border-t border-ink/5" />
-
-      {/* Rounded segmented toggle — filled so all 4 tabs share the column
-          with no horizontal scroll. */}
-      <div className="px-2 pb-1 pt-2.5">
+      {/* Rounded segmented toggle — filled so all tabs share the column
+          with no horizontal scroll. Sits at the top of the column. */}
+      <div className="px-2 pb-2.5 pt-3">
         <SegmentedToggle<TabId>
           value={activeTab}
           onChange={onActiveTabChange}
@@ -94,6 +78,29 @@ export default function ControlsPanel({
           })}
         />
       </div>
+
+      {/* Divider between the toggle and the presets/dropzone row. */}
+      <div className="mx-3 border-t border-ink/5" />
+
+      {/* Preset picker + reference-image drop zone — same pill styling as the
+          model picker, sitting just under the toggle. */}
+      <div className="flex items-center gap-2 px-3 py-2.5">
+        <div className="min-w-0 flex-1">
+          <LoadPresetDropdown onLoadProfile={onProfileChange} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <PhotoExtractZone
+            isExtracting={isExtracting}
+            extractError={extractError}
+            thumbnail={extractedThumb}
+            onPhotoDrop={onPhotoDrop}
+            onReset={onResetExtract}
+          />
+        </div>
+      </div>
+
+      {/* Divider between the toggle/presets block and the parameter inputs. */}
+      <div className="mx-3 border-t border-ink/5" />
 
       {/* Scrollable parameter fields (only scrolls internally on desktop) —
           fields flow without dividers; a hairline separator only marks the
@@ -131,6 +138,8 @@ export default function ControlsPanel({
         onResolutionChange={onResolutionChange}
         sheetMode={sheetMode}
         onSheetModeChange={onSheetModeChange}
+        sheetAspect={sheetAspect}
+        onSheetAspectChange={onSheetAspectChange}
         inFlightCount={inFlightCount}
         onClear={() => onProfileChange(createEmptyProfile())}
       />

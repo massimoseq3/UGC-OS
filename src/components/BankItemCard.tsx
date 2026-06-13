@@ -37,6 +37,7 @@ export default function BankItemCard({ bankType, item, onClick, selected }: Bank
         fallback={UserRound}
         fallbackAspect="aspect-[9/16]"
         name={m.name || 'Untitled Influencer'}
+        centerName
         onClick={onClick}
         selectedClass={selected ? IMAGE_SELECTED.models : undefined}
       />
@@ -96,6 +97,7 @@ function ImageCard({
   fallbackAspect,
   name,
   sublabel,
+  centerName,
   onClick,
   selectedClass,
 }: {
@@ -104,6 +106,7 @@ function ImageCard({
   fallbackAspect: string
   name: string
   sublabel?: string
+  centerName?: boolean
   onClick: () => void
   selectedClass?: string
 }) {
@@ -123,7 +126,7 @@ function ImageCard({
         </div>
       )}
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/55 to-transparent p-2.5 pt-10">
-        <span className="block truncate text-[11px] font-semibold leading-tight tracking-tight text-zinc-100">{name}</span>
+        <span className={`block truncate text-[11px] font-semibold leading-tight tracking-tight text-zinc-100 ${centerName ? 'text-center' : ''}`}>{name}</span>
         {sublabel && <span className="block truncate text-[10px] text-zinc-400">{sublabel}</span>}
       </div>
     </button>
