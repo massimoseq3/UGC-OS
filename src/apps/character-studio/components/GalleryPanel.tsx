@@ -5,13 +5,11 @@ import { useAssetUrlState } from '../../../hooks/useAssetUrl'
 import { getUrl } from '../../../utils/assetStore'
 import { useAppStore } from '../../../stores/appStore'
 import { humanizeError } from '../../../utils/friendlyError'
-import type { CharacterHistoryItem, Model } from '../../../stores/types'
+import type { CharacterHistoryItem } from '../../../stores/types'
 import GenerationProgress from '../../../components/GenerationProgress'
 import { getModel, type ImageResolution } from '../../../utils/models'
 import HistoryPreviewModal from './HistoryPreviewModal'
-import InfluencerPickList from './InfluencerPickList'
 import { buildJsonPrompt } from '../services/generateCharacter'
-import { attachSheetToModel } from '../services/attachSheet'
 import { downloadImage } from '../../../utils/downloadImage'
 
 // One running generation. Persisted to localStorage so a mid-flight refresh
@@ -92,9 +90,9 @@ export default function GalleryPanel({
             {inFlight.length > 0 && (
               <>
                 <DayPill label={inFlight.length === 1 ? 'In progress' : `In progress · ${inFlight.length}`} />
-                <div className="columns-2 gap-2 lg:columns-3 [column-fill:_balance]">
+                <div className="grid grid-cols-2 gap-2 [grid-auto-flow:dense] lg:grid-cols-3">
                   {inFlight.map((gen) => (
-                    <div key={gen.id} className="mb-2 break-inside-avoid">
+                    <div key={gen.id} className={isWide(gen.aspectRatio) ? 'col-span-2 lg:col-span-3' : ''}>
                       <InFlightTile gen={gen} onCancel={() => onCancelGen(gen.id)} />
                     </div>
                   ))}
@@ -105,9 +103,9 @@ export default function GalleryPanel({
             {dayGroups.map(([dayTs, items]) => (
               <div key={dayTs}>
                 <DayPill label={dayLabel(dayTs)} />
-                <div className="columns-2 gap-2 lg:columns-3 [column-fill:_balance]">
+                <div className="grid grid-cols-2 gap-2 [grid-auto-flow:dense] lg:grid-cols-3">
                   {items.map((item) => (
-                    <div key={item.id} className="mb-2 break-inside-avoid">
+                    <div key={item.id} className={isWide(item.aspectRatio) ? 'col-span-2 lg:col-span-3' : ''}>
                       <HistoryTile
                         item={item}
                         onClick={() => setPreviewItem(item)}
@@ -140,6 +138,12 @@ function DayPill({ label }: { label: string }) {
   )
 }
 
+// Horizontal (16:9) outputs — character sheets or landscape portraits — claim
+// a full grid row instead of a single column so the wide frame stays readable.
+function isWide(ar: string): boolean {
+  return ar.includes('16:9')
+}
+
 function aspectStyle(ar: string): React.CSSProperties {
   if (ar.includes('16:9')) return { aspectRatio: '16 / 9' }
   if (ar.includes('1:1')) return { aspectRatio: '1 / 1' }
@@ -162,18 +166,15 @@ function HistoryTile({
   const addToast = useAppStore((s) => s.addToast)
   const [savingToBank, setSavingToBank] = useState(false)
   const [nameDraft, setNameDraft] = useState<string | null>(null)
-  const [pickingModel, setPickingModel] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const nameInputRef = useRef<HTMLInputElement | null>(null)
 
   const isSheet = item.kind === 'sheet'
   const linkedModel = item.linkedModelId ? models.find((m) => m.id === item.linkedModelId) : undefined
-  // A sheet counts as saved only while it's still the model's current sheet —
-  // attaching a newer sheet to the same influencer frees this one up again.
-  const savedAsModel = isSheet
-    ? models.some((m) => m.sheetImage === item.imageRef)
-    : !!linkedModel
+  // Portraits and sheets alike save as their own Bank entry, tracked by
+  // linkedModelId — once saved the tile shows the Saved/attached state.
+  const savedAsModel = !!linkedModel
 
   useEffect(() => {
     if (nameDraft !== null) {
@@ -184,28 +185,8 @@ function HistoryTile({
 
   function openNameInput(e: React.MouseEvent) {
     e.stopPropagation()
-    if (savingToBank) return
-    // Sheets attach to an existing influencer instead of creating a new one.
-    // Re-opening while attached is allowed — the user may move the sheet.
-    if (isSheet) {
-      setPickingModel((v) => !v)
-      return
-    }
-    if (savedAsModel) return
+    if (savingToBank || savedAsModel) return
     setNameDraft(autoName(item))
-  }
-
-  async function commitAttach(model: Model) {
-    if (savingToBank) return
-    setSavingToBank(true)
-    try {
-      await attachSheetToModel(item, model)
-      setPickingModel(false)
-    } catch (err) {
-      addToast(humanizeError(err, 'Attach failed'), 'error')
-    } finally {
-      setSavingToBank(false)
-    }
   }
 
   async function commitSave() {
@@ -216,6 +197,9 @@ function HistoryTile({
       await addModel({
         name,
         characterImage: item.imageRef,
+        // A saved sheet doubles as its own reference, so stamp it as the
+        // entry's sheetImage too — downstream apps prefer it for consistency.
+        ...(isSheet ? { sheetImage: item.imageRef } : {}),
         notes: '',
         source: 'character-studio',
         jsonProfile: buildJsonPrompt(item.profile) as Record<string, unknown>,
@@ -273,7 +257,7 @@ function HistoryTile({
 
       {isSheet ? (
         <div
-          title={savedAsModel ? 'Sheet attached to a saved influencer' : 'Character sheet'}
+          title={savedAsModel ? 'Sheet saved to Influencers bank' : 'Character sheet'}
           className={`absolute left-1.5 top-1.5 flex h-6 items-center gap-1 rounded-full px-2 text-[9px] font-medium backdrop-blur ${
             savedAsModel ? 'bg-emerald-500/30 text-emerald-100' : 'bg-black/60 text-zinc-200'
           }`}
@@ -310,29 +294,9 @@ function HistoryTile({
       </div>
 
       {/* Bottom hover actions — round icon buttons bottom-right, matching the
-          B-Roll tile cluster. The inline name input still takes over the
-          bottom edge while a save is being named; sheets swap it for an
-          influencer pick list (sheets attach instead of creating an entry). */}
-      {pickingModel ? (
-        <div
-          onClick={(e) => e.stopPropagation()}
-          className="absolute inset-x-2 bottom-2 overflow-hidden rounded-2xl border border-white/15 bg-black/80 backdrop-blur"
-        >
-          <div className="flex items-center justify-between gap-2 px-3 pt-2">
-            <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-400">Attach to influencer</span>
-            <button
-              type="button"
-              title="Cancel"
-              onClick={() => setPickingModel(false)}
-              disabled={savingToBank}
-              className="flex h-5 w-5 items-center justify-center rounded-full text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          </div>
-          <InfluencerPickList item={item} busy={savingToBank} onPick={commitAttach} />
-        </div>
-      ) : nameDraft !== null ? (
+          B-Roll tile cluster. The inline name input takes over the bottom edge
+          while a save is being named (portraits and sheets alike). */}
+      {nameDraft !== null ? (
         <div
           onClick={(e) => e.stopPropagation()}
           className="absolute inset-x-2 bottom-2 flex items-center gap-1 rounded-full border border-white/15 bg-black/70 py-1 pl-2.5 pr-1 backdrop-blur"
@@ -372,9 +336,7 @@ function HistoryTile({
       ) : (
         <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
           <TileIconButton
-            title={isSheet
-              ? (savedAsModel ? 'Attached — click to move to another influencer' : savingToBank ? 'Attaching…' : 'Attach to influencer')
-              : (savedAsModel ? 'Saved to Bank' : savingToBank ? 'Saving…' : 'Save to Bank')}
+            title={savedAsModel ? 'Saved to Bank' : savingToBank ? 'Saving…' : 'Save to Bank'}
             tone={savedAsModel ? 'saved' : 'default'}
             onClick={openNameInput}
           >

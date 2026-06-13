@@ -30,17 +30,22 @@ export default function CharacterStudio() {
   // want it.
   const [resolution, setResolution] = usePersistedState<ImageResolution>(`${baseKey}:resolution`, '1K')
   // Portrait vs character-sheet output. Flipping to sheet bumps resolution to
-  // 2K (each panel is a fraction of the frame, so 1K faces go mushy when the
-  // sheet is reused as a reference); flipping back restores what was set
-  // before. Both are persisted so a refresh mid-session keeps the pairing.
+  // 4K and orients horizontal (each panel is a fraction of the frame, so a
+  // crisp full-res sheet holds up when reused as a reference); flipping back
+  // restores what was set before. Both are persisted so a refresh mid-session
+  // keeps the pairing.
   const [sheetMode, setSheetMode] = usePersistedState<boolean>(`${baseKey}:sheet-mode`, false)
   const [preSheetResolution, setPreSheetResolution] = usePersistedState<ImageResolution>(`${baseKey}:pre-sheet-resolution`, '1K')
+  // Sheet orientation — kept separate from the portrait aspect so flipping
+  // modes preserves each. Defaults to the horizontal turnaround layout.
+  const [sheetAspect, setSheetAspect] = usePersistedState<string>(`${baseKey}:sheet-aspect`, '16:9')
 
   const handleSheetModeChange = (on: boolean) => {
     if (on === sheetMode) return
     if (on) {
       setPreSheetResolution(resolution)
-      setResolution('2K')
+      setResolution('4K')
+      setSheetAspect('16:9')
     } else {
       setResolution(preSheetResolution)
     }
@@ -193,7 +198,7 @@ export default function CharacterStudio() {
     const snapshotProfile: CharacterProfile = { ...profile }
     const snapshotResolution = resolution
     const snapshotKind = sheetMode ? 'sheet' as const : 'portrait' as const
-    const snapshotAspect = sheetMode ? '16:9' : (profile.aspectRatio || '9:16')
+    const snapshotAspect = sheetMode ? (sheetAspect.includes('9:16') ? '9:16' : '16:9') : (profile.aspectRatio || '9:16')
     const modelId = useSettingsStore.getState().getAppModel('character-studio:image:text-to-image')
       ?? getDefaultModel('character-studio', 'image', 'text-to-image')?.id
       ?? 'unknown'
@@ -217,7 +222,7 @@ export default function CharacterStudio() {
 
     let taskId: string
     try {
-      const start = await startCharacterTask(snapshotProfile, undefined, snapshotResolution, controller.signal, snapshotKind)
+      const start = await startCharacterTask(snapshotProfile, undefined, snapshotResolution, controller.signal, snapshotKind, snapshotAspect)
       taskId = start.taskId
     } catch (err) {
       abortersRef.current.delete(id)
@@ -307,6 +312,8 @@ export default function CharacterStudio() {
           onResolutionChange={setResolution}
           sheetMode={sheetMode}
           onSheetModeChange={handleSheetModeChange}
+          sheetAspect={sheetAspect}
+          onSheetAspectChange={setSheetAspect}
           inFlightCount={inFlight.length}
         />
       </div>

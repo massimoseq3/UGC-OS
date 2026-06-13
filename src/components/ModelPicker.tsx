@@ -11,6 +11,7 @@ import {
   type CostEstimateParams,
 } from '../utils/models'
 import { useSettingsStore } from '../stores/settingsStore'
+import { APP_REGISTRY } from '../utils/constants'
 import ProviderLogo from './ProviderLogo'
 
 interface ModelPickerProps {
@@ -46,6 +47,10 @@ export default function ModelPicker({ appId, task, mode, value, onChange, costPa
   const [openUpward, setOpenUpward] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
+
+  // The selected-row check uses the owning app's accent (pink for Influencers,
+  // orange for Scripts, …) so the picker feels native to whatever app it sits in.
+  const accent = APP_REGISTRY.find((a) => a.id === appId)?.accent ?? '#38bdf8'
 
   const models = listModels({ task, mode })
   const fallback = getDefaultModel(appId, task, mode)
@@ -134,7 +139,7 @@ export default function ModelPicker({ appId, task, mode, value, onChange, costPa
 
       {open && (
         <div
-          className={`absolute left-0 right-0 z-50 overflow-hidden rounded-2xl border border-ink/10 bg-surface-2/95 shadow-2xl backdrop-blur-xl ${
+          className={`absolute left-0 right-0 z-50 overflow-hidden rounded-3xl border border-ink/10 bg-surface-2/95 shadow-2xl backdrop-blur-xl ${
             openUpward ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
           }`}
         >
@@ -148,6 +153,7 @@ export default function ModelPicker({ appId, task, mode, value, onChange, costPa
                   active={m.id === resolved}
                   costParams={costParams}
                   muted={muted}
+                  accent={accent}
                   onClick={() => pick(m.id)}
                 />
               )
@@ -169,10 +175,11 @@ interface ModelRowProps {
   active: boolean
   costParams?: CostEstimateParams
   muted?: boolean
+  accent: string
   onClick: () => void
 }
 
-function ModelRow({ model, active, costParams, muted, onClick }: ModelRowProps) {
+function ModelRow({ model, active, costParams, muted, accent, onClick }: ModelRowProps) {
   const credits = estimateCredits(model.id, costParams)
   const creditsLabel = formatCredits(credits)
   const isRecommended = model.tags.includes('recommended')
@@ -199,7 +206,7 @@ function ModelRow({ model, active, costParams, muted, onClick }: ModelRowProps) 
           <span className="text-[11px] tabular-nums text-ink-400">{creditsLabel}</span>
         )}
         {active ? (
-          <Check className="h-4 w-4 text-sky-400 light:text-sky-600" />
+          <Check className="h-4 w-4" style={{ color: accent }} />
         ) : (
           <span className="h-4 w-4" />
         )}

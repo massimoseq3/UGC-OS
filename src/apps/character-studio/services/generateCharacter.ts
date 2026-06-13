@@ -135,17 +135,25 @@ export function buildImagePrompt(profile: CharacterProfile): string {
 // panel composition before reading identity details. Scene/pose/camera form
 // fields are deliberately ignored: a reference sheet lives on a neutral
 // studio background, and its job is identity consistency, not a vibe.
-const SHEET_LAYOUT = `Character reference sheet: one single 16:9 image divided into clean panels on a flat, seamless light-gray studio background with even, shadowless softbox lighting. The exact same person appears in every panel — identical face, hair, skin, and wardrobe throughout.
+const SHEET_LAYOUT_HORIZONTAL = `Character reference sheet: one single 16:9 image divided into clean panels on a flat, seamless light-gray studio background with even, shadowless softbox lighting. The exact same person appears in every panel — identical face, hair, skin, and wardrobe throughout.
 
 Layout — left third of the frame: one tall panel with a full-body standing shot, head to toe, arms relaxed at the sides, facing forward. Right two-thirds: a grid of six panels in two rows. Top row: head-and-shoulders front view facing the camera directly; head-and-shoulders three-quarter view (45 degrees); head-and-shoulders true side profile. Bottom row, three expression close-ups: neutral and relaxed; warm genuine smile; mid-laugh.
 
 No text, no labels, no logos, no watermarks. Panels separated only by the plain background.`
 
+const SHEET_LAYOUT_VERTICAL = `Character reference sheet: one single 9:16 vertical image divided into clean panels on a flat, seamless light-gray studio background with even, shadowless softbox lighting. The exact same person appears in every panel — identical face, hair, skin, and wardrobe throughout.
+
+Layout — top section: one wide panel with a full-body standing shot, head to toe, arms relaxed at the sides, facing forward. Middle section, a row of three head-and-shoulders panels: front view facing the camera directly; three-quarter view (45 degrees); true side profile. Bottom section, a row of three expression close-ups: neutral and relaxed; warm genuine smile; mid-laugh.
+
+No text, no labels, no logos, no watermarks. Panels separated only by the plain background.`
+
 // Character-sheet prompt: layout directive + identity/physical/wardrobe
 // sections from the form. The photorealism style string still applies so the
-// sheet matches the look of the portraits it will be used alongside.
-export function buildSheetPrompt(profile: CharacterProfile): string {
-  const sections = [SHEET_LAYOUT, ...buildIdentitySections(profile)]
+// sheet matches the look of the portraits it will be used alongside. The
+// layout swaps with orientation — horizontal turnaround strip vs stacked rows.
+export function buildSheetPrompt(profile: CharacterProfile, aspect = '16:9'): string {
+  const layout = aspect.includes('9:16') ? SHEET_LAYOUT_VERTICAL : SHEET_LAYOUT_HORIZONTAL
+  const sections = [layout, ...buildIdentitySections(profile)]
   if (has(profile.cameraDevice)) sections.push(`Style: ${profile.cameraDevice}`)
   return sections.join('\n\n')
 }
@@ -161,6 +169,7 @@ export async function startCharacterTask(
   resolution?: ImageResolution,
   signal?: AbortSignal,
   kind: GenerationKind = 'portrait',
+  sheetAspect = '16:9',
 ): Promise<{ taskId: string; modelId: string }> {
   const apiKey = useSettingsStore.getState().getKieApiKey()
 
@@ -169,11 +178,13 @@ export async function startCharacterTask(
     ?? getDefaultModel('character-studio', 'image', 'text-to-image')?.id
   if (!modelId) throw new Error('No image model configured for Characters.')
 
-  const prompt = kind === 'sheet' ? buildSheetPrompt(profile) : buildImagePrompt(profile)
-  // Sheets are always widescreen — the panel layout is designed for 16:9.
-  // Portraits tolerate both legacy verbose values ('Landscape (16:9)') and raw ratios.
+  // Sheets render in their own orientation (16:9 turnaround or 9:16 stacked);
+  // the prompt layout follows the same axis. Portraits tolerate both legacy
+  // verbose values ('Landscape (16:9)') and raw ratios.
+  const sheetIsVertical = sheetAspect.includes('9:16')
+  const prompt = kind === 'sheet' ? buildSheetPrompt(profile, sheetAspect) : buildImagePrompt(profile)
   const ar = profile.aspectRatio ?? ''
-  const aspectRatio: AspectRatio = kind === 'sheet' ? '16:9'
+  const aspectRatio: AspectRatio = kind === 'sheet' ? (sheetIsVertical ? '9:16' : '16:9')
     : ar.includes('16:9') ? '16:9' : ar.includes('1:1') ? '1:1' : '9:16'
 
   const body = buildImageInput(modelId, { prompt, aspectRatio, resolution })

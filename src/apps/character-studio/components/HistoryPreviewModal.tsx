@@ -6,10 +6,8 @@ import { humanizeError } from '../../../utils/friendlyError'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
 import { getUrl } from '../../../utils/assetStore'
 import { downloadImage } from '../../../utils/downloadImage'
-import type { CharacterHistoryItem, Model } from '../../../stores/types'
+import type { CharacterHistoryItem } from '../../../stores/types'
 import { buildImagePrompt, buildSheetPrompt, buildJsonPrompt } from '../services/generateCharacter'
-import { attachSheetToModel } from '../services/attachSheet'
-import InfluencerPickList from './InfluencerPickList'
 
 interface HistoryPreviewModalProps {
   item: CharacterHistoryItem
@@ -29,16 +27,16 @@ export default function HistoryPreviewModal({ item, onClose }: HistoryPreviewMod
   const [copied, setCopied] = useState(false)
 
   const isSheet = item.kind === 'sheet'
+  // Horizontal output (16:9 sheet or landscape portrait) gets a much wider
+  // column so the panels stay readable; everything else keeps the tighter frame.
+  const isWide = item.aspectRatio.includes('16:9')
   const linkedModel = item.linkedModelId ? models.find((m) => m.id === item.linkedModelId) : undefined
-  // Sheets count as saved only while still the model's current sheet — they
-  // attach to an existing influencer instead of creating a bank entry.
-  const savedAsModel = isSheet
-    ? models.some((m) => m.sheetImage === item.imageRef)
-    : !!linkedModel
+  // Portraits and sheets alike save as their own Bank entry, tracked by linkedModelId.
+  const savedAsModel = !!linkedModel
 
   const prompt = useMemo(
-    () => (isSheet ? buildSheetPrompt(item.profile) : buildImagePrompt(item.profile)),
-    [item.profile, isSheet],
+    () => (isSheet ? buildSheetPrompt(item.profile, item.aspectRatio) : buildImagePrompt(item.profile)),
+    [item.profile, item.aspectRatio, isSheet],
   )
 
   useEffect(() => {
@@ -54,6 +52,9 @@ export default function HistoryPreviewModal({ item, onClose }: HistoryPreviewMod
       await addModel({
         name: name.trim(),
         characterImage: item.imageRef,
+        // A saved sheet doubles as its own reference, so stamp it as the
+        // entry's sheetImage too — downstream apps prefer it for consistency.
+        ...(isSheet ? { sheetImage: item.imageRef } : {}),
         notes: '',
         source: 'character-studio',
         jsonProfile: buildJsonPrompt(item.profile) as Record<string, unknown>,
@@ -66,19 +67,6 @@ export default function HistoryPreviewModal({ item, onClose }: HistoryPreviewMod
       setName('')
     } catch (e) {
       addToast(humanizeError(e, 'Save failed'), 'error')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  async function commitAttach(model: Model) {
-    if (saving) return
-    setSaving(true)
-    try {
-      await attachSheetToModel(item, model)
-      setShowSaveForm(false)
-    } catch (e) {
-      addToast(humanizeError(e, 'Attach failed'), 'error')
     } finally {
       setSaving(false)
     }
@@ -112,11 +100,9 @@ export default function HistoryPreviewModal({ item, onClose }: HistoryPreviewMod
         onClick={(e) => e.stopPropagation()}
       >
         <ModalActionButton
-          title={isSheet
-            ? (savedAsModel ? 'Attached — click to move to another influencer' : 'Attach to influencer')
-            : (savedAsModel ? 'Saved to Influencers bank' : 'Save to Influencers bank')}
+          title={savedAsModel ? 'Saved to Influencers bank' : 'Save to Influencers bank'}
           onClick={() => setShowSaveForm(true)}
-          disabled={savedAsModel && !isSheet}
+          disabled={savedAsModel}
           tone={savedAsModel ? 'saved' : 'default'}
         >
           {savedAsModel ? <Check className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
@@ -132,9 +118,9 @@ export default function HistoryPreviewModal({ item, onClose }: HistoryPreviewMod
       {/* Centered content — the media element shrinks to the image's real
           rendered size so the border hugs the picture (no letterbox bars),
           and clicks anywhere outside it close the modal. */}
-      {/* Sheets are 16:9 and width-bound — give them a much wider column so
-          the panels stay readable; portraits keep the tighter 5xl frame. */}
-      <div className={`mx-auto flex h-full w-full flex-col items-center justify-center gap-4 overflow-hidden px-6 py-16 ${isSheet ? 'max-w-[1700px]' : 'max-w-5xl'}`}>
+      {/* Horizontal output is width-bound — give it a much wider column so the
+          panels stay readable; portraits keep the tighter 5xl frame. */}
+      <div className={`mx-auto flex h-full w-full flex-col items-center justify-center gap-4 overflow-hidden px-6 py-16 ${isWide ? 'max-w-[1700px]' : 'max-w-5xl'}`}>
         {imageUrl && (
           <div className="flex min-h-0 w-full flex-1 items-center justify-center">
             <img
@@ -146,26 +132,7 @@ export default function HistoryPreviewModal({ item, onClose }: HistoryPreviewMod
           </div>
         )}
 
-        {showSaveForm && isSheet ? (
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md shrink-0 overflow-hidden rounded-2xl border border-ink/10 bg-surface-2/95 backdrop-blur"
-          >
-            <div className="flex items-center justify-between gap-2 px-3 pt-2.5">
-              <span className="text-[10px] font-medium uppercase tracking-wider text-ink-500">Attach to influencer</span>
-              <button
-                type="button"
-                onClick={() => setShowSaveForm(false)}
-                disabled={saving}
-                className="flex h-5 w-5 items-center justify-center rounded-full text-ink-500 transition-colors hover:text-ink-300"
-                aria-label="Cancel"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </div>
-            <InfluencerPickList item={item} busy={saving} onPick={commitAttach} />
-          </div>
-        ) : showSaveForm ? (
+        {showSaveForm ? (
           <div
             onClick={(e) => e.stopPropagation()}
             className="flex w-full max-w-md shrink-0 items-center gap-2 rounded-full border border-ink/10 bg-surface-2/95 p-1.5 backdrop-blur"
