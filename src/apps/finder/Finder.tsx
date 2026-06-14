@@ -204,6 +204,10 @@ export default function Finder() {
   const editingVoice = editingId ? voices.find((v) => v.id === editingId) : null
   const editingBRoll = editingId ? brolls.find((b) => b.id === editingId) : null
 
+  // Products & Influencers pin the left column and scroll only the right side
+  // on desktop, instead of scrolling the whole page.
+  const fixedFormLayout = showForm && (activeBank === 'products' || activeBank === 'models')
+
   return (
     <div className="flex h-full flex-col">
       {/* Header — bank toggle on the left, actions on the right. Replaces
@@ -260,10 +264,12 @@ export default function Finder() {
       </div>
 
       {/* Content area — list or form. Forms render unboxed so they get the
-          full width of the section. */}
-      <div className="flex-1 overflow-y-auto p-5">
+          full width of the section. Products/Influencers use a fixed-left /
+          scroll-right layout on desktop so the image stays put while the
+          details scroll (no whole-page scroll). */}
+      <div className={`flex-1 overflow-y-auto p-5 ${fixedFormLayout ? 'lg:flex lg:min-h-0 lg:flex-col lg:overflow-hidden' : ''}`}>
         {showForm ? (
-          <div className={`mx-auto ${['products', 'models', 'brolls', 'scripts'].includes(activeBank) ? 'max-w-4xl' : 'max-w-md'}`}>
+          <div className={`mx-auto ${['products', 'models', 'brolls', 'scripts'].includes(activeBank) ? 'max-w-5xl' : 'max-w-md'} ${fixedFormLayout ? 'w-full lg:flex lg:min-h-0 lg:flex-1 lg:flex-col' : ''}`}>
             {activeBank === 'products' && (
               <ProductForm
                 item={editingProduct}

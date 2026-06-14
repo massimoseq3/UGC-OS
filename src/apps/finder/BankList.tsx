@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { Trash2, Package, UserRound, FileText, Mic, Film, Plus, Video, Download, Loader2, ChevronDown, Sparkles, Check } from 'lucide-react'
+import { Trash2, Package, UserRound, FileText, Mic, Film, Plus, Video, Download, Loader2, ChevronDown, Sparkles, Check, LayoutGrid } from 'lucide-react'
 import type { Product, Model, Script, VoicePreset, BRoll } from '../../stores/types'
 import type { BankType } from '../../utils/constants'
 import { useBankStore } from '../../stores/bankStore'
@@ -125,7 +125,7 @@ function ProductCard({ item, onEdit, onDelete, inFlight }: { item: Product; onEd
   return (
     <div
       onClick={onEdit}
-      className="group relative aspect-square cursor-pointer overflow-hidden rounded-2xl border border-ink/5 bg-ink/[0.03] transition-all hover:border-ink/15 hover:-translate-y-0.5"
+      className="group relative aspect-square cursor-pointer overflow-hidden rounded-2xl border border-ink/5 bg-ink/[0.03] transition-all hover:border-ink/15 hover:-translate-y-0.5 card-soft-shadow"
     >
       {resolvedImage ? (
         <img src={resolvedImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
@@ -151,9 +151,9 @@ function ProductCard({ item, onEdit, onDelete, inFlight }: { item: Product; onEd
         />
       ) : null}
       {/* Bottom info overlay */}
-      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/55 to-transparent p-3 pt-10">
-        <span className="block truncate text-sm font-semibold tracking-tight text-zinc-100">{item.productName}</span>
-        <span className="text-[10px] text-zinc-400">{productCompleteness(item)}</span>
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/55 to-transparent px-3 pb-2.5 pt-10 text-center">
+        <span className="block truncate text-[13px] font-semibold leading-tight tracking-tight text-zinc-100">{item.productName}</span>
+        <span className="block text-[9px] leading-tight text-zinc-400">{productCompleteness(item)}</span>
       </div>
       {/* Delete button overlay */}
       <div className="absolute right-2 top-2" onClick={(e) => e.stopPropagation()}>
@@ -172,6 +172,11 @@ function ProductCard({ item, onEdit, onDelete, inFlight }: { item: Product; onEd
 function ModelCard({ item, onEdit, onDelete }: { item: Model; onEdit: () => void; onDelete: () => void }) {
   const [confirm, setConfirm] = useState(false)
   const resolvedImage = useAssetUrl(item.characterImage)
+  // A saved character sheet stamps `sheetImage`; surface it with a badge.
+  const isSheet = !!item.sheetImage
+  // Detected from the image's natural dimensions on load. Landscape (16:9)
+  // entries — typically character sheets — span three portrait columns.
+  const [landscape, setLandscape] = useState(false)
 
   const handleDownload = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -182,17 +187,31 @@ function ModelCard({ item, onEdit, onDelete }: { item: Model; onEdit: () => void
   return (
     <div
       onClick={onEdit}
-      className="group relative aspect-[9/16] cursor-pointer overflow-hidden rounded-2xl border border-ink/5 bg-ink/[0.03] transition-all hover:border-ink/15 hover:-translate-y-0.5"
+      className={`group relative cursor-pointer overflow-hidden rounded-2xl border border-ink/5 bg-ink/[0.03] transition-all hover:border-ink/15 hover:-translate-y-0.5 card-soft-shadow ${landscape ? 'col-span-2 sm:col-span-3' : ''}`}
     >
-      {resolvedImage ? (
-        <img src={resolvedImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
-      ) : (
-        <div className="absolute inset-0 flex items-center justify-center bg-ink/[0.04]">
-          <UserRound className="h-12 w-12 text-ink-800" strokeWidth={1} />
-        </div>
+      <div className={`relative w-full ${landscape ? 'aspect-video' : 'aspect-[9/16]'}`}>
+        {resolvedImage ? (
+          <img
+            src={resolvedImage}
+            alt=""
+            onLoad={(e) => setLandscape(e.currentTarget.naturalWidth > e.currentTarget.naturalHeight)}
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center bg-ink/[0.04]">
+            <UserRound className="h-12 w-12 text-ink-800" strokeWidth={1} />
+          </div>
+        )}
+      </div>
+      {/* Sheet badge — top-left, mirrors the studio gallery */}
+      {isSheet && (
+        <span className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-medium text-zinc-100 backdrop-blur-sm">
+          <LayoutGrid className="h-2.5 w-2.5" strokeWidth={2} />
+          Sheet
+        </span>
       )}
       {/* Bottom info overlay — same gradient pattern as ProductCard */}
-      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/55 to-transparent p-3 pt-10">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/55 to-transparent p-3 pt-10">
         <span className="block truncate text-center text-sm font-semibold tracking-tight text-zinc-100">{item.name}</span>
       </div>
       {/* Action buttons top-right */}
@@ -220,35 +239,39 @@ function ScriptCard({ item, onEdit, onDelete }: { item: Script; onEdit: () => vo
   const [confirm, setConfirm] = useState(false)
   const getProductById = useBankStore((s) => s.getProductById)
   const linked = item.linkedProductId ? getProductById(item.linkedProductId) : null
-  const preview = item.scriptText.split('\n').slice(0, 2).join(' ').slice(0, 80)
   // Legacy items predate `kind` — treat them as scripts.
   const isPrompt = item.kind === 'reverse-engineer'
   const badge = isPrompt
-    ? { label: 'SCENES', className: 'bg-fuchsia-500/15 text-fuchsia-300 light:text-fuchsia-700 border-fuchsia-500/20', icon: 'text-fuchsia-300 light:text-fuchsia-700', iconBg: 'bg-fuchsia-500/10' }
-    : { label: 'SCRIPT', className: 'bg-scripts-500/15 text-scripts-300 border-scripts-500/20', icon: 'text-scripts-300', iconBg: 'bg-scripts-500/10' }
+    ? { label: 'SCENES', className: 'bg-fuchsia-500/15 text-fuchsia-300 light:text-fuchsia-700 border-fuchsia-500/20' }
+    : { label: 'SCRIPT', className: 'bg-scripts-500/15 text-scripts-300 border-scripts-500/20' }
   return (
-    <div onClick={onEdit} className="group flex cursor-pointer items-center gap-3 rounded-full border border-ink/5 bg-ink/[0.03] p-3 transition-colors hover:border-ink/10 hover:bg-ink/[0.05]">
-      <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${badge.iconBg}`}>
-        <FileText className={`h-5 w-5 ${badge.icon}`} />
+    <div
+      onClick={onEdit}
+      className="group relative flex aspect-[9/16] cursor-pointer flex-col overflow-hidden rounded-2xl border border-ink/5 bg-ink/[0.03] p-4 transition-all hover:border-ink/15 hover:-translate-y-0.5 card-soft-shadow"
+    >
+      {/* Header: badge + title */}
+      <div className="flex flex-col gap-2">
+        <span className={`w-fit shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-semibold tracking-widest ${badge.className}`}>
+          {badge.label}
+        </span>
+        <span className="line-clamp-2 text-sm font-semibold leading-snug tracking-tight text-ink-100">{item.title}</span>
       </div>
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <div className="flex items-center gap-2">
-          <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-semibold tracking-widest ${badge.className}`}>
-            {badge.label}
-          </span>
-          <span className="truncate text-sm font-semibold tracking-tight text-ink-200">{item.title}</span>
-        </div>
-        <span className="truncate text-xs text-ink-500">{preview || 'Empty script'}</span>
-        <div className="flex items-center gap-2">
-          {linked && <span className="text-[10px] text-ink-600">{linked.productName}</span>}
-          <span className="text-[10px] text-ink-700">{new Date(item.createdAt).toLocaleDateString()}</span>
-        </div>
+      {/* Full script preview — fills the card, fades out at the bottom */}
+      <div className="relative mt-3 flex-1 overflow-hidden">
+        <p className="whitespace-pre-wrap text-[11px] leading-relaxed text-ink-400">{item.scriptText || 'Empty script'}</p>
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-surface-1 to-transparent" />
       </div>
-      <div className="shrink-0 self-start" onClick={(e) => e.stopPropagation()}>
+      {/* Footer: linked product + date */}
+      <div className="mt-2 flex items-center gap-2">
+        {linked && <span className="truncate text-[10px] text-ink-600">{linked.productName}</span>}
+        <span className="shrink-0 text-[10px] text-ink-700">{new Date(item.createdAt).toLocaleDateString()}</span>
+      </div>
+      {/* Delete button overlay */}
+      <div className="absolute right-2 top-2" onClick={(e) => e.stopPropagation()}>
         {confirm ? (
           <ConfirmDelete onConfirm={onDelete} onCancel={() => setConfirm(false)} />
         ) : (
-          <button onClick={() => setConfirm(true)} className="rounded p-1 text-ink-700 opacity-0 transition-all hover:text-red-400 group-hover:opacity-100">
+          <button onClick={() => setConfirm(true)} className="rounded-full bg-ink/5 p-1.5 text-ink-700 opacity-0 backdrop-blur-sm transition-all hover:text-red-400 group-hover:opacity-100">
             <Trash2 className="h-3.5 w-3.5" />
           </button>
         )}
@@ -294,7 +317,7 @@ function BRollCard({ item, onEdit, onDelete }: { item: BRoll; onEdit: () => void
   }
 
   return (
-    <div onClick={onEdit} className="group relative cursor-pointer overflow-hidden rounded-2xl border border-ink/5 bg-ink/[0.03] transition-all hover:border-ink/15 hover:bg-ink/[0.05] hover:-translate-y-0.5">
+    <div onClick={onEdit} className="group relative cursor-pointer overflow-hidden rounded-2xl border border-ink/5 bg-ink/[0.03] transition-all hover:border-ink/15 hover:bg-ink/[0.05] hover:-translate-y-0.5 card-soft-shadow">
       {/* Thumbnail — adapts to image's natural aspect ratio */}
       <div className="relative w-full overflow-hidden">
         {resolvedImage ? (
@@ -334,23 +357,25 @@ function BRollCard({ item, onEdit, onDelete }: { item: BRoll; onEdit: () => void
             </>
           )}
         </div>
-        {/* Animate in Playground — full-width bar across the card bottom on
-            hover, image cards only. Bigger hit target than the old pill. */}
+        {/* Animate in Playground — rounded pill (matching the Send-to buttons),
+            floats over the card bottom on hover, image cards only. */}
         {hasImage && (
-          <button
-            onClick={handleAnimate}
-            title="Open Playground in video mode with this image as the start frame"
-            className="absolute inset-x-0 bottom-0 z-20 flex items-center justify-center gap-1.5 whitespace-nowrap bg-playground-500/90 py-2.5 text-[11px] font-semibold text-white opacity-0 backdrop-blur-sm transition-all hover:bg-playground-500 group-hover:opacity-100"
-          >
-            <Film className="h-3.5 w-3.5" />
-            Animate in playground
-          </button>
+          <div className="absolute inset-x-0 bottom-0 z-20 flex justify-center p-2.5 opacity-0 transition-all group-hover:opacity-100">
+            <button
+              onClick={handleAnimate}
+              title="Open Playground in video mode with this image as the start frame"
+              className="flex items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-playground-500/40 bg-playground-500/90 px-3.5 py-1.5 text-[11px] font-semibold text-white backdrop-blur-sm transition-colors hover:bg-playground-500"
+            >
+              <Film className="h-3.5 w-3.5" />
+              Animate in Playground
+            </button>
+          </div>
         )}
       </div>
       {/* Info — gradient overlay, same pattern as the Influencer cards */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/55 to-transparent p-3 pt-10">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/55 to-transparent p-3 pt-10 text-center">
         <p className="text-[12px] font-medium leading-snug text-zinc-100 line-clamp-2">{promptPreview}</p>
-        <span className="text-[10px] text-zinc-400">{new Date(item.createdAt).toLocaleDateString()}</span>
+        <span className="block text-[10px] text-zinc-400">{new Date(item.createdAt).toLocaleDateString()}</span>
       </div>
     </div>
   )
@@ -359,7 +384,7 @@ function BRollCard({ item, onEdit, onDelete }: { item: BRoll; onEdit: () => void
 function VoiceCard({ item, onEdit, onDelete }: { item: VoicePreset; onEdit: () => void; onDelete: () => void }) {
   const [confirm, setConfirm] = useState(false)
   return (
-    <div onClick={onEdit} className="group flex cursor-pointer items-center gap-3 rounded-full border border-ink/5 bg-ink/[0.03] p-3 transition-colors hover:border-ink/10 hover:bg-ink/[0.05]">
+    <div onClick={onEdit} className="group flex cursor-pointer items-center gap-3 rounded-full border border-ink/5 bg-ink/[0.03] p-3 transition-colors hover:border-ink/10 hover:bg-ink/[0.05] card-soft-shadow">
       <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-ink/5">
         <Mic className="h-5 w-5 text-ink-600" />
       </div>
@@ -474,7 +499,7 @@ function ProductsBankZone({ children, onBulkFiles }: { children: React.ReactNode
 function ProductsList({ items, onEdit, onDelete, sort, inFlightIds }: { items: Product[]; onEdit: (id: string) => void; onDelete: (id: string) => void; sort: SortOrder; inFlightIds?: Set<string> }) {
   const sorted = useMemo(() => sortByOrder(items, sort, (p) => p.productName), [items, sort])
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
       {sorted.map((p) => (
         <ProductCard
           key={p.id}
@@ -490,8 +515,10 @@ function ProductsList({ items, onEdit, onDelete, sort, inFlightIds }: { items: P
 
 function ModelsList({ items, onEdit, onDelete, sort }: { items: Model[]; onEdit: (id: string) => void; onDelete: (id: string) => void; sort: SortOrder }) {
   const sorted = useMemo(() => sortByOrder(items, sort, (m) => m.name), [items, sort])
+  // Grid (not masonry) so landscape sheets can span three portrait columns via
+  // col-span. `grid-flow-row-dense` packs the gaps a wide card would leave.
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+    <div className="grid grid-flow-row-dense grid-cols-2 items-start gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
       {sorted.map((m) => (
         <ModelCard key={m.id} item={m} onEdit={() => onEdit(m.id)} onDelete={() => onDelete(m.id)} />
       ))}
@@ -502,7 +529,7 @@ function ModelsList({ items, onEdit, onDelete, sort }: { items: Model[]; onEdit:
 function ScriptsList({ items, onEdit, onDelete, sort }: { items: Script[]; onEdit: (id: string) => void; onDelete: (id: string) => void; sort: SortOrder }) {
   const sorted = useMemo(() => sortByOrder(items, sort, (s) => s.title), [items, sort])
   return (
-    <div className="flex flex-col gap-2">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
       {sorted.map((s) => (
         <ScriptCard key={s.id} item={s} onEdit={() => onEdit(s.id)} onDelete={() => onDelete(s.id)} />
       ))}
@@ -513,9 +540,9 @@ function ScriptsList({ items, onEdit, onDelete, sort }: { items: Script[]; onEdi
 function BRollsList({ items, onEdit, onDelete, sort }: { items: BRoll[]; onEdit: (id: string) => void; onDelete: (id: string) => void; sort: SortOrder }) {
   const sorted = useMemo(() => sortByOrder(items, sort), [items, sort])
   return (
-    <div className="columns-2 sm:columns-3 lg:columns-4 gap-4">
+    <div className="columns-2 sm:columns-3 lg:columns-4 xl:columns-6 gap-3">
       {sorted.map((b) => (
-        <div key={b.id} className="mb-4 break-inside-avoid">
+        <div key={b.id} className="mb-3 break-inside-avoid">
           <BRollCard item={b} onEdit={() => onEdit(b.id)} onDelete={() => onDelete(b.id)} />
         </div>
       ))}

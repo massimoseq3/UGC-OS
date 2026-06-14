@@ -619,7 +619,7 @@ export default function VariationCard(props: VariationCardProps) {
       <div className="group flex flex-col gap-1.5">
         <div
           onClick={() => setDetailOpen(true)}
-          className="relative aspect-[9/16] cursor-pointer overflow-hidden rounded-xl border border-ink/[0.08] bg-ink/[0.02] transition-colors hover:border-ink/15"
+          className="relative aspect-[9/16] cursor-pointer overflow-hidden rounded-xl border border-ink/[0.08] bg-ink/[0.02] transition-colors hover:border-ink/15 card-soft-shadow"
         >
           {cardState.isGeneratingImage ? (
             <div className="flex h-full w-full flex-col items-center justify-center gap-2 px-4">

@@ -402,7 +402,11 @@ export const useBankStore = create<BankState>((set, get) => ({
     const item = get().models.find((m) => m.id === id)
     if (!item) return
     try { await dropRow('models', id) } catch (e) { reportError('Delete influencer', e) }
-    if (item.characterImage) await cleanupAssets(item.characterImage)
+    // Keep the blob if a character-history row still references it (e.g. when
+    // un-saving a studio influencer — the gallery tile shares this image).
+    if (item.characterImage && !get().characterHistory.some((h) => h.imageRef === item.characterImage)) {
+      await cleanupAssets(item.characterImage)
+    }
     if (item.sheetImage && !get().characterHistory.some((h) => h.imageRef === item.sheetImage)) {
       await cleanupAssets(item.sheetImage)
     }

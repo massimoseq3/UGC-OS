@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Copy, Check, Bookmark, ArrowUpRight, Mic, Film, PenLine, AlertCircle, Sparkles } from 'lucide-react'
+import { Copy, Check, Bookmark, ArrowUpRight, Mic, Film, PenLine, AlertCircle, ImagePlay } from 'lucide-react'
 import GenerationProgress from '../../../components/GenerationProgress'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAppStore } from '../../../stores/appStore'
@@ -227,7 +227,7 @@ function VariationCard({ text, cardTitle, defaultSaveTitle, linkedProductId, mod
                 onClick={handleSendToPlayground}
                 className="flex flex-1 min-w-0 items-center justify-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5 text-[12px] font-medium tracking-tight text-emerald-400 light:text-emerald-600 transition-colors hover:bg-emerald-500/20"
               >
-                <Sparkles className="h-4 w-4" strokeWidth={1.75} />
+                <ImagePlay className="h-4 w-4" strokeWidth={1.75} />
                 Send to Playground
                 <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.75} />
               </button>
@@ -253,7 +253,7 @@ function SceneChunkCard({ chunk }: { chunk: SceneChunk }) {
     }
   }
   return (
-    <div className="rounded-2xl border border-ink/5 bg-ink/[0.02] p-3">
+    <div className="rounded-2xl border border-ink/5 bg-ink/[0.02] p-3 card-soft-shadow">
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className="truncate text-[10px] font-semibold uppercase tracking-widest text-scripts-300/80">
           {chunk.header.replace(/^---\s*|\s*---$/g, '')}
