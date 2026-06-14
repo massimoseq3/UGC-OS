@@ -130,12 +130,15 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode }: Playgrou
         {visibleInFlight.length > 0 && (
           <>
             <DayPill label="In progress" />
-            <div className="columns-2 gap-2.5 lg:columns-3 xl:columns-4 [column-fill:_balance]">
-              {visibleInFlight.map((gen) => (
-                <div key={gen.id} className="mb-2 break-inside-avoid">
-                  <InFlightTile gen={gen} />
-                </div>
-              ))}
+            <div className="grid grid-cols-2 items-start gap-2.5 [grid-auto-flow:dense] lg:grid-cols-3 xl:grid-cols-4">
+              {visibleInFlight.map((gen) => {
+                const ar = gen.imageParams?.aspectRatio ?? gen.videoParams?.aspectRatio
+                return (
+                  <div key={gen.id} className={ar && isLandscape(ar) ? 'col-span-2' : ''}>
+                    <InFlightTile gen={gen} />
+                  </div>
+                )
+              })}
             </div>
           </>
         )}
@@ -143,9 +146,11 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode }: Playgrou
         {dayGroups.map(([dayTs, dayItems]) => (
           <div key={dayTs}>
             <DayPill label={sectionLabel(dayTs)} />
-            <div className="columns-2 gap-2.5 lg:columns-3 xl:columns-4 [column-fill:_balance]">
-              {dayItems.map((entry) => (
-                <div key={`${entry.kind}-${entry.data.id}`} className="mb-2 break-inside-avoid">
+            <div className="grid grid-cols-2 items-start gap-2.5 [grid-auto-flow:dense] lg:grid-cols-3 xl:grid-cols-4">
+              {dayItems.map((entry) => {
+                const ar = entry.kind === 'music' ? null : entry.data.aspectRatio
+                return (
+                <div key={`${entry.kind}-${entry.data.id}`} className={ar && isLandscape(ar) ? 'col-span-2' : ''}>
                   {entry.kind === 'image' && (
                     <ImageTile
                       item={entry.data}
@@ -175,7 +180,8 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode }: Playgrou
                     />
                   )}
                 </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         ))}
@@ -672,6 +678,13 @@ function aspectStyle(ar: string): React.CSSProperties {
   const [w, h] = ar.split(':').map(Number)
   if (!w || !h) return { aspectRatio: '9 / 16' }
   return { aspectRatio: `${w} / ${h}` }
+}
+
+// Landscape (wider-than-tall) outputs claim two grid columns so the wide frame
+// is readable instead of squeezed into a single square-width column.
+function isLandscape(ar: string): boolean {
+  const [w, h] = ar.split(':').map(Number)
+  return !!w && !!h && w > h
 }
 
 async function copyToClipboard(text: string): Promise<boolean> {
