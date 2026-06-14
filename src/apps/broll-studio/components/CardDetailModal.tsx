@@ -19,6 +19,7 @@ import {
 import ModelPicker from '../../../components/ModelPicker'
 import AspectIcon from '../../../components/AspectIcon'
 import ConstraintChip from '../../../components/ConstraintChip'
+import SegmentedToggle from '../../../components/SegmentedToggle'
 import type { PromptVariation, CardState, ReferenceImage } from '../types'
 import type { BRoll, Product, Model } from '../../../stores/types'
 import { useSettingsStore } from '../../../stores/settingsStore'
@@ -30,7 +31,6 @@ import { tagChipStyle, tagLabel, rollTypeForTag } from './variationTags'
 import { humanizeError } from '../../../utils/friendlyError'
 import {
   ModalGallery,
-  ModalTabButton,
   IconChipButton,
   ReferenceSlotCard,
 } from './cardDetailParts'
@@ -418,27 +418,26 @@ export default function CardDetailModal(props: CardDetailModalProps) {
           </div>
         </div>
 
-        {/* Tab strip — Image first (default), Video second. */}
-        <div className="flex items-center gap-1 border-b border-ink/5 px-5">
-          <ModalTabButton active={tab === 'image'} onClick={() => setTab('image')}>
-            <ImageIcon className="h-3.5 w-3.5" />
-            Image
-          </ModalTabButton>
-          <ModalTabButton active={tab === 'video'} onClick={() => setTab('video')}>
-            <VideoIcon className="h-3.5 w-3.5" />
-            Video
-          </ModalTabButton>
-          <ModalTabButton active={tab === 'animate'} onClick={() => setTab('animate')}>
-            <Film className="h-3.5 w-3.5" />
-            Animate
-          </ModalTabButton>
-        </div>
-
         {/* Body — fixed 50/50 grid; content scrolls inside each column. */}
         <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden md:grid-cols-2">
           {/* LEFT 50% — model + refs + prompt + generate */}
           <div className="col-span-1 flex min-h-0 flex-col overflow-y-auto border-b border-ink/5 md:border-b-0 md:border-r">
-            <div className="flex grow flex-col gap-6 px-5 py-6">
+            <div className="flex grow flex-col gap-6 px-5 pb-6 pt-3">
+              {/* Image / Video / Animate — full-width segmented toggle that
+                  spans the left column (replaces the old top tab strip). */}
+              <SegmentedToggle<Tab>
+                value={tab}
+                onChange={setTab}
+                options={[
+                  { value: 'image', label: 'Image', icon: ImageIcon },
+                  { value: 'video', label: 'Video', icon: VideoIcon },
+                  { value: 'animate', label: 'Animate', icon: Film },
+                ]}
+              />
+
+              {/* Separator between the tab toggle and the controls below. */}
+              <div className="-mt-2 -mb-4 border-b border-ink/5" />
+
               {/* 1) Model picker + its constraint chips (resolution first). */}
               {tab === 'image' ? (
                 <div>
@@ -578,8 +577,8 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                 <span className="text-sm font-medium text-ink-200">Reference Images</span>
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   <ReferenceSlotCard
-                    icon={<User className="h-4 w-4 text-sky-400 light:text-sky-600" />}
-                    accentClass="bg-sky-500/15 text-sky-400 light:text-sky-600"
+                    icon={<User className="h-4 w-4 text-influencers-400 light:text-influencers-600" />}
+                    accentClass="bg-influencers-500/15 text-influencers-400 light:text-influencers-600"
                     kind="Influencer"
                     name={selectedModel?.name}
                     imageRef={selectedModel?.characterImage}
@@ -667,7 +666,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                 <button
                   onClick={handleGenerateImage}
                   disabled={!cardState.editablePrompt.trim()}
-                  className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-broll-500 px-6 py-3.5 text-[13px] font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-broll-500 px-7 py-4 text-sm font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <ImageIcon className="h-4 w-4" />
                   Generate Image{imageCreditsLabel ? ` (${imageCreditsLabel})` : ''}
@@ -676,7 +675,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                 <button
                   onClick={() => handleGenerateVideo(videoModelId)}
                   disabled={!cardState.editablePrompt.trim()}
-                  className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-broll-500 px-6 py-3.5 text-[13px] font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-broll-500 px-7 py-4 text-sm font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <VideoIcon className="h-4 w-4" />
                   Generate Video{videoCreditsLabel ? ` (${videoCreditsLabel})` : ''}
@@ -686,7 +685,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                   onClick={() => handleAnimate(effectiveAnimateFrame, videoModelId)}
                   disabled={!cardState.editablePrompt.trim() || !effectiveAnimateFrame}
                   title={!effectiveAnimateFrame ? 'Generate an image first, then animate it' : undefined}
-                  className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-broll-500 px-6 py-3.5 text-[13px] font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-broll-500 px-7 py-4 text-sm font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <Film className="h-4 w-4" />
                   Animate{videoCreditsLabel ? ` (${videoCreditsLabel})` : ''}
