@@ -262,7 +262,7 @@ export default function ProductForm({ item, onSave, onCancel, onCancelDuringExtr
               <button
                 type="button"
                 onClick={handleDownload}
-                className="absolute right-2 top-2 z-10 rounded-full bg-black/60 p-2 text-zinc-400 opacity-0 backdrop-blur-sm transition-all hover:text-zinc-200 group-hover/img:opacity-100"
+                className="absolute right-2 top-2 z-10 rounded-full border border-white/20 bg-black/35 p-2 text-white opacity-0 backdrop-blur transition-all hover:bg-black/50 group-hover/img:opacity-100"
               >
                 <Download className="h-3.5 w-3.5" />
               </button>

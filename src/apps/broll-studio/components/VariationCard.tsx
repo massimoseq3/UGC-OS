@@ -619,7 +619,7 @@ export default function VariationCard(props: VariationCardProps) {
       <div className="group flex flex-col gap-1.5">
         <div
           onClick={() => setDetailOpen(true)}
-          className="relative aspect-[9/16] cursor-pointer overflow-hidden rounded-xl border border-ink/[0.08] bg-ink/[0.02] transition-colors hover:border-ink/15 card-soft-shadow"
+          className="relative aspect-[9/16] cursor-pointer overflow-hidden rounded-xl border border-ink/[0.08] bg-ink/[0.02] transition-all hover:border-ink/15 hover:-translate-y-0.5 card-soft-shadow"
         >
           {cardState.isGeneratingImage ? (
             <div className="flex h-full w-full flex-col items-center justify-center gap-2 px-4">
@@ -751,7 +751,7 @@ export default function VariationCard(props: VariationCardProps) {
               className={`flex h-7 w-7 items-center justify-center rounded-full border backdrop-blur transition-colors ${
                 confirmingDelete
                   ? 'border-red-400/60 bg-red-500/40 text-red-50 hover:bg-red-500/55'
-                  : 'border-white/20 bg-white/15 text-white hover:bg-red-500/30 hover:text-red-100 hover:border-red-400/40'
+                  : 'border-white/20 bg-black/35 text-white hover:bg-red-500/30 hover:text-red-100 hover:border-red-400/40'
               }`}
             >
               <Trash2 className="h-3.5 w-3.5" />
@@ -769,7 +769,7 @@ export default function VariationCard(props: VariationCardProps) {
                 className={`flex h-7 w-7 items-center justify-center rounded-full border backdrop-blur transition-colors ${
                   savedCover
                     ? 'border-emerald-400/50 bg-emerald-500/30 text-emerald-100'
-                    : 'border-white/20 bg-white/15 text-white hover:bg-white/25'
+                    : 'border-white/20 bg-black/35 text-white hover:bg-black/50'
                 }`}
               >
                 {savedCover ? <Check className="h-3.5 w-3.5" /> : savingCover ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Bookmark className="h-3.5 w-3.5" />}
@@ -778,7 +778,7 @@ export default function VariationCard(props: VariationCardProps) {
                 type="button"
                 title={coverKind === 'image' ? 'Download image' : 'Download video'}
                 onClick={(e) => { e.stopPropagation(); void handleDownloadCover() }}
-                className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25"
+                className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white backdrop-blur transition-colors hover:bg-black/50"
               >
                 <Download className="h-3.5 w-3.5" />
               </button>

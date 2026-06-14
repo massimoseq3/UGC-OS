@@ -261,7 +261,7 @@ function HistoryTile({
   return (
     <div
       onClick={onClick}
-      className="group relative cursor-pointer overflow-hidden rounded-lg border border-ink/10 bg-black light:bg-zinc-200 transition-colors hover:border-ink/20 card-soft-shadow"
+      className="group relative cursor-pointer overflow-hidden rounded-lg border border-ink/10 bg-black light:bg-zinc-200 transition-all hover:border-ink/20 hover:-translate-y-0.5 card-soft-shadow"
     >
       {status === 'ready' && url ? (
         <img src={url} alt="" className="block h-auto w-full" />
@@ -300,10 +300,10 @@ function HistoryTile({
           title={deleting ? 'Deleting…' : confirmingDelete ? 'Click again to delete' : 'Delete'}
           onClick={handleDelete}
           disabled={deleting}
-          className={`flex h-8 items-center justify-center gap-1 rounded-full px-2 backdrop-blur transition-colors disabled:cursor-wait ${
+          className={`flex h-8 items-center justify-center gap-1 rounded-full border px-2 backdrop-blur transition-colors disabled:cursor-wait ${
             confirmingDelete
-              ? 'bg-red-500/45 text-red-50 ring-1 ring-red-400/70'
-              : 'bg-black/60 text-zinc-300 hover:bg-red-500/30 hover:text-red-200 disabled:hover:bg-black/60 disabled:hover:text-zinc-300'
+              ? 'border-red-400/60 bg-red-500/45 text-red-50'
+              : 'border-white/20 bg-black/35 text-white hover:bg-red-500/30 hover:text-red-100 hover:border-red-400/40 disabled:hover:bg-black/35 disabled:hover:text-white'
           }`}
         >
           {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
@@ -383,14 +383,14 @@ function TileIconButton({
   tone?: 'default' | 'saved'
 }) {
   const toneClass = tone === 'saved'
-    ? 'bg-emerald-500/40 text-emerald-100 hover:bg-emerald-500/50'
-    : 'bg-black/60 text-zinc-200 hover:bg-black/80'
+    ? 'border-emerald-400/50 bg-emerald-500/30 text-emerald-100'
+    : 'border-white/20 bg-black/35 text-white hover:bg-black/50'
   return (
     <button
       type="button"
       title={title}
       onClick={onClick}
-      className={`flex h-8 w-8 items-center justify-center rounded-full backdrop-blur transition-colors ${toneClass}`}
+      className={`flex h-8 w-8 items-center justify-center rounded-full border backdrop-blur transition-colors ${toneClass}`}
     >
       {children}
     </button>
@@ -448,7 +448,7 @@ function InFlightTile({ gen, onCancel }: { gen: InFlightCharacterGen; onCancel: 
         type="button"
         title="Cancel"
         onClick={onCancel}
-        className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-zinc-300 opacity-0 backdrop-blur transition-opacity hover:bg-red-500/30 hover:text-red-200 group-hover:opacity-100"
+        className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white opacity-0 backdrop-blur transition-opacity hover:bg-red-500/30 hover:text-red-100 hover:border-red-400/40 group-hover:opacity-100"
       >
         <X className="h-3 w-3" />
       </button>

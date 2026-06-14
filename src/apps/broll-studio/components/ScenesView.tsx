@@ -662,7 +662,11 @@ function SceneSection({
   onGenerateScene: () => void
 }) {
   return (
-    <div style={{ contentVisibility: 'auto', containIntrinsicSize: '700px' }}>
+    // `content-visibility: auto` brings paint containment, which clips the
+    // cards' soft drop shadow at this box's edges. The `-m-4 p-4` bleed gives
+    // the shadow 16px of room inside the contained box; the negative margin
+    // cancels against the parent's flex `gap-10`, so layout is unchanged.
+    <div className="-m-4 p-4" style={{ contentVisibility: 'auto', containIntrinsicSize: '700px' }}>
       {/* Scene header — number + tiny line chip + the line itself. The
           spoken-duration chip was removed (its estimate was unreliable). */}
       <div className="mb-5 flex items-center justify-between gap-4">

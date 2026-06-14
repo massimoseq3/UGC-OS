@@ -64,7 +64,7 @@ export default function HistoryRail({ items, selectedId, onSelect, onDelete, onN
       <div className="flex flex-col gap-3 border-b border-ink/5 p-3">
         <button
           onClick={onNew}
-          className="flex items-center justify-center gap-2 rounded-full border border-white/15 bg-[#FF5257] px-4 py-3 text-sm font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors hover:bg-[#FF5257]/90"
+          className="flex items-center justify-center gap-2 rounded-full border border-white/15 bg-[#FF5257] px-4 py-3 text-sm font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] btn-soft-shadow transition-colors hover:bg-[#FF5257]/90"
         >
           <Plus className="h-4 w-4" strokeWidth={2.5} />
           New analysis
