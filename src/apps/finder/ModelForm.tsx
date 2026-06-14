@@ -268,9 +268,9 @@ export default function ModelForm({ item, onSave, onCancel }: ModelFormProps) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Unnamed influencer"
-              className="w-full bg-transparent text-center text-3xl font-semibold tracking-tight text-ink-100 placeholder-ink-700 outline-none border-b border-transparent transition-colors focus:border-ink/15 py-1"
+              className="w-full bg-transparent text-3xl font-semibold tracking-tight text-ink-100 placeholder-ink-700 outline-none border-b border-transparent transition-colors focus:border-ink/15 py-1"
             />
-            <p className="text-center text-xs text-ink-500">{metaParts.join(' · ')}</p>
+            <p className="text-xs text-ink-500">{metaParts.join(' · ')}</p>
           </div>
 
           <button
