@@ -633,32 +633,6 @@ function TileDeleteButton({ onDelete }: { onDelete: () => void }) {
   )
 }
 
-export function ModalTabButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean
-  onClick: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`relative flex items-center gap-1.5 px-3 pb-2 pt-3 text-[13px] font-medium tracking-tight transition-colors ${
-        active ? 'text-ink-100' : 'text-ink-400 hover:text-ink-200'
-      }`}
-    >
-      {children}
-      <span
-        className={`absolute inset-x-3 -bottom-px h-0.5 rounded-full transition-colors ${
-          active ? 'bg-ink-100' : 'bg-transparent'
-        }`}
-      />
-    </button>
-  )
-}
-
 export function IconChipButton({
   children,
   onClick,
@@ -726,7 +700,7 @@ export function ReferenceSlotCard({
   return (
     <div
       title={dimmed ? dimmedReason : undefined}
-      className={`relative flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors ${
+      className={`relative flex w-full items-center gap-3 rounded-full border p-3 text-left transition-colors ${
         highlight
           ? 'border-broll-500/40 bg-broll-500/10'
           : 'border-ink/10 bg-ink/[0.02] hover:border-ink/20 hover:bg-ink/[0.04]'
@@ -738,17 +712,17 @@ export function ReferenceSlotCard({
         className="flex min-w-0 flex-1 items-center gap-3 text-left"
       >
         {url ? (
-          <img src={url} alt="" className="h-9 w-9 shrink-0 rounded-lg object-cover" />
+          <img src={url} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" />
         ) : (
-          <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${accentClass}`}>
+          <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${accentClass}`}>
             {icon}
           </div>
         )}
         <div className="flex min-w-0 flex-1 flex-col pr-6">
-          <span className="text-[10px] font-medium uppercase tracking-widest text-ink-400">{kind}</span>
           <span className={`truncate text-[13px] font-medium ${name ? 'text-ink-100' : 'text-ink-600'}`}>
             {name || `Select ${kind.toLowerCase()}`}
           </span>
+          <span className="text-[11px] font-medium tracking-tight text-ink-400">{kind}</span>
         </div>
       </button>
       {hasRef && (
@@ -756,7 +730,7 @@ export function ReferenceSlotCard({
           type="button"
           onClick={(e) => { e.stopPropagation(); onToggleActive() }}
           title={active ? 'Active — click to disable' : 'Inactive — click to enable'}
-          className={`absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full border transition-colors ${
+          className={`absolute right-3 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full border transition-colors ${
             active
               ? 'border-broll-500/60 bg-broll-500/20 text-broll-300 hover:bg-broll-500/30'
               : 'border-ink/15 bg-ink/[0.04] text-ink-500 hover:border-ink/30 hover:text-ink-300'
