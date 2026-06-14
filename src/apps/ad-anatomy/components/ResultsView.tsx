@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import {
   Copy,
   Check,
-  Send,
+  PenLine,
   ArrowUpRight,
   BarChart3,
   FileText,
@@ -314,7 +314,7 @@ function ScriptActionRow({ onSave, onSend }: { onSave: () => void; onSend: () =>
         onClick={onSend}
         className="flex flex-1 min-w-0 items-center justify-center gap-2 rounded-full border border-scripts-500/20 bg-scripts-500/10 px-4 py-2.5 text-[12px] font-medium tracking-tight text-scripts-400 transition-colors hover:bg-scripts-500/20"
       >
-        <Send className="h-4 w-4" strokeWidth={1.75} />
+        <PenLine className="h-4 w-4" strokeWidth={1.75} />
         Send to Scripts
         <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.75} />
       </button>

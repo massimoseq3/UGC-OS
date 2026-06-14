@@ -17,6 +17,7 @@ interface HistoryPreviewModalProps {
 export default function HistoryPreviewModal({ item, onClose }: HistoryPreviewModalProps) {
   const imageUrl = useAssetUrl(item.imageRef)
   const addModel = useBankStore((s) => s.addModel)
+  const deleteModel = useBankStore((s) => s.deleteModel)
   const updateCharacterHistory = useBankStore((s) => s.updateCharacterHistory)
   const models = useBankStore((s) => s.models)
   const addToast = useAppStore((s) => s.addToast)
@@ -67,6 +68,21 @@ export default function HistoryPreviewModal({ item, onClose }: HistoryPreviewMod
       setName('')
     } catch (e) {
       addToast(humanizeError(e, 'Save failed'), 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Remove the linked Bank entry (keeping this history image) so it can be
+  // re-saved. Mirrors the gallery tile's save/un-save toggle.
+  async function handleUnsave() {
+    if (saving) return
+    setSaving(true)
+    try {
+      if (linkedModel) await deleteModel(linkedModel.id)
+      await updateCharacterHistory(item.id, { linkedModelId: undefined })
+    } catch (e) {
+      addToast(humanizeError(e, 'Failed to remove from Bank'), 'error')
     } finally {
       setSaving(false)
     }
@@ -169,11 +185,12 @@ export default function HistoryPreviewModal({ item, onClose }: HistoryPreviewMod
                 Playground preview modal. */}
             <div className="flex flex-wrap items-center justify-center gap-2">
               <ModalBarButton
-                onClick={() => setShowSaveForm(true)}
-                disabled={savedAsModel}
+                onClick={savedAsModel ? handleUnsave : () => setShowSaveForm(true)}
+                disabled={saving}
                 tone={savedAsModel ? 'saved' : 'default'}
+                title={savedAsModel ? 'Saved — click to remove from Bank' : 'Save to Bank'}
               >
-                {savedAsModel ? <Check className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : savedAsModel ? <Check className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
                 <span>{savedAsModel ? 'Saved to Bank' : 'Save to Bank'}</span>
               </ModalBarButton>
               <ModalBarButton onClick={handleDownload}>
@@ -198,11 +215,13 @@ function ModalBarButton({
   children,
   onClick,
   disabled,
+  title,
   tone = 'default',
 }: {
   children: React.ReactNode
   onClick: () => void
   disabled?: boolean
+  title?: string
   tone?: 'default' | 'saved'
 }) {
   const toneClass = tone === 'saved'
@@ -213,6 +232,7 @@ function ModalBarButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
+      title={title}
       className={`flex items-center gap-2 rounded-full border px-5 py-3 text-[13px] font-semibold tracking-tight transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${toneClass}`}
     >
       {children}

@@ -92,28 +92,28 @@ export default function BRollForm({ item, onSave, onCancel }: BRollFormProps) {
         </button>
       </div>
 
-      {/* Side-by-side: image left, prompt right */}
-      <div className="flex flex-col md:flex-row gap-5">
+      {/* Side-by-side: large image left, prompt right */}
+      <div className="flex flex-col md:flex-row gap-6">
         {/* Left — b-roll image */}
-        <div className="relative group/img w-full md:w-56 shrink-0">
+        <div className="relative group/img w-full shrink-0 md:w-[340px]">
           {displayImage ? (
             <>
               <img
                 src={displayImage}
                 alt=""
-                className="w-full rounded-xl border border-ink/[0.06] object-contain bg-black/30"
+                className="w-full rounded-3xl border border-ink/[0.06] object-contain bg-black/30"
               />
               <button
                 type="button"
                 onClick={handleDownloadImage}
-                className="absolute right-2 top-2 rounded-lg bg-black/50 p-1.5 text-zinc-400 opacity-0 backdrop-blur-sm transition-all hover:text-zinc-200 group-hover/img:opacity-100"
+                className="absolute right-2.5 top-2.5 rounded-full bg-black/50 p-2 text-zinc-400 opacity-0 backdrop-blur-sm transition-all hover:text-zinc-200 group-hover/img:opacity-100"
               >
                 <Download className="h-3.5 w-3.5" />
               </button>
               <button
                 type="button"
                 onClick={() => fileRef.current?.click()}
-                className="absolute bottom-2 right-2 rounded-lg bg-black/60 px-2 py-1 text-[10px] font-medium text-zinc-300 opacity-0 backdrop-blur-sm transition-all hover:bg-black/80 group-hover/img:opacity-100"
+                className="absolute bottom-2.5 right-2.5 rounded-full bg-black/60 px-3 py-1.5 text-[10px] font-medium text-zinc-300 opacity-0 backdrop-blur-sm transition-all hover:bg-black/80 group-hover/img:opacity-100"
               >
                 Replace
               </button>
@@ -122,7 +122,7 @@ export default function BRollForm({ item, onSave, onCancel }: BRollFormProps) {
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              className="group flex aspect-[9/16] w-full items-center justify-center rounded-xl border border-dashed border-ink/10 bg-ink/[0.02] transition-colors hover:border-ink/20"
+              className="group flex aspect-[9/16] w-full items-center justify-center rounded-3xl border border-dashed border-ink/10 bg-ink/[0.02] transition-colors hover:border-ink/20"
             >
               <div className="flex flex-col items-center gap-2">
                 <ImagePlus className="h-6 w-6 text-ink-600 transition-colors group-hover:text-ink-400" />
@@ -135,14 +135,14 @@ export default function BRollForm({ item, onSave, onCancel }: BRollFormProps) {
 
         {/* Right — prompt + save */}
         <div className="flex flex-1 flex-col gap-3 min-w-0">
-          <label className="flex flex-1 flex-col gap-1">
+          <label className="flex flex-1 flex-col gap-1.5">
             <span className="text-[11px] font-medium uppercase tracking-widest text-ink-500">Prompt *</span>
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               rows={12}
               placeholder="Describe the image generation prompt..."
-              className="flex-1 rounded-lg border border-ink/[0.06] bg-ink/[0.02] px-3 py-2 text-[12px] leading-relaxed text-ink-400 placeholder-ink-700 outline-none transition-colors focus:border-ink/15 resize-none"
+              className="min-h-[280px] flex-1 rounded-3xl border border-ink/[0.06] bg-ink/[0.02] px-5 py-4 text-[13px] leading-relaxed text-ink-300 placeholder-ink-700 outline-none transition-colors focus:border-ink/15 resize-none"
             />
           </label>
 

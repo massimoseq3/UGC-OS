@@ -161,6 +161,7 @@ function HistoryTile({
 }) {
   const { url, status } = useAssetUrlState(item.imageRef)
   const addModel = useBankStore((s) => s.addModel)
+  const deleteModel = useBankStore((s) => s.deleteModel)
   const updateCharacterHistory = useBankStore((s) => s.updateCharacterHistory)
   const models = useBankStore((s) => s.models)
   const addToast = useAppStore((s) => s.addToast)
@@ -185,8 +186,25 @@ function HistoryTile({
 
   function openNameInput(e: React.MouseEvent) {
     e.stopPropagation()
-    if (savingToBank || savedAsModel) return
+    if (savingToBank) return
     setNameDraft(autoName(item))
+  }
+
+  // Toggle: clicking the Save button when already saved removes the linked Bank
+  // entry (keeping this gallery image) so it can be re-saved afterwards.
+  async function toggleSave(e: React.MouseEvent) {
+    e.stopPropagation()
+    if (savingToBank) return
+    if (!savedAsModel) { openNameInput(e); return }
+    setSavingToBank(true)
+    try {
+      if (linkedModel) await deleteModel(linkedModel.id)
+      await updateCharacterHistory(item.id, { linkedModelId: undefined })
+    } catch (err) {
+      addToast(humanizeError(err, 'Failed to remove from Bank'), 'error')
+    } finally {
+      setSavingToBank(false)
+    }
   }
 
   async function commitSave() {
@@ -243,7 +261,7 @@ function HistoryTile({
   return (
     <div
       onClick={onClick}
-      className="group relative cursor-pointer overflow-hidden rounded-lg border border-ink/10 bg-black light:bg-zinc-200 transition-colors hover:border-ink/20"
+      className="group relative cursor-pointer overflow-hidden rounded-lg border border-ink/10 bg-black light:bg-zinc-200 transition-colors hover:border-ink/20 card-soft-shadow"
     >
       {status === 'ready' && url ? (
         <img src={url} alt="" className="block h-auto w-full" />
@@ -336,11 +354,11 @@ function HistoryTile({
       ) : (
         <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
           <TileIconButton
-            title={savedAsModel ? 'Saved to Bank' : savingToBank ? 'Saving…' : 'Save to Bank'}
+            title={savedAsModel ? 'Saved — click to remove from Bank' : savingToBank ? 'Saving…' : 'Save to Bank'}
             tone={savedAsModel ? 'saved' : 'default'}
-            onClick={openNameInput}
+            onClick={toggleSave}
           >
-            {savedAsModel ? <Check className="h-4 w-4" /> : savingToBank ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bookmark className="h-4 w-4" />}
+            {savingToBank ? <Loader2 className="h-4 w-4 animate-spin" /> : savedAsModel ? <Check className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
           </TileIconButton>
           <TileIconButton title="Download image" onClick={handleDownload}>
             <Download className="h-4 w-4" />

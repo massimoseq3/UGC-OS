@@ -265,7 +265,7 @@ function SidebarRow({ app, active, collapsed, onClick }: SidebarRowProps) {
         }`}
       >
         <Icon
-          className={`h-5 w-5 shrink-0 ${active ? 'text-ink-50' : ''}`}
+          className={`h-[18px] w-[18px] shrink-0 ${active ? 'text-ink-50' : ''}`}
           strokeWidth={active ? 2 : 1.75}
         />
         <span
@@ -287,7 +287,7 @@ function SidebarRow({ app, active, collapsed, onClick }: SidebarRowProps) {
       }`}
     >
       <Icon
-        className={`h-5 w-5 shrink-0 ${active ? 'text-ink-50' : ''}`}
+        className={`h-[18px] w-[18px] shrink-0 ${active ? 'text-ink-50' : ''}`}
         strokeWidth={active ? 2 : 1.75}
       />
       <span

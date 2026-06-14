@@ -1,4 +1,4 @@
-import { Package, UserRound, FileText, Mic, Film } from 'lucide-react'
+import { Package, UserRound, Mic, Film } from 'lucide-react'
 import type { Product, Model, Script, VoicePreset, BRoll } from '../stores/types'
 import type { BankType } from '../utils/constants'
 import { useAssetUrl } from '../hooks/useAssetUrl'
@@ -74,6 +74,10 @@ export default function BankItemCard({ bankType, item, onClick, selected }: Bank
     )
   }
 
+  if (bankType === 'scripts') {
+    return <ScriptCard item={item as Script} onClick={onClick} selected={selected} />
+  }
+
   return (
     <button
       onClick={onClick}
@@ -83,8 +87,39 @@ export default function BankItemCard({ bankType, item, onClick, selected }: Bank
           : 'border-ink/5 bg-ink/[0.03] hover:border-ink/10 hover:bg-ink/[0.06]'
       }`}
     >
-      {bankType === 'scripts' && <ScriptContent item={item as Script} />}
       {bankType === 'voices' && <VoiceContent item={item as VoicePreset} />}
+    </button>
+  )
+}
+
+// 9:16 script card — mirrors the Bank browser's ScriptCard so the picker shows
+// the same view: SCRIPT/SCENES pill, title, and a full preview that fades out.
+function ScriptCard({ item, onClick, selected }: { item: Script; onClick: () => void; selected?: boolean }) {
+  const isPrompt = item.kind === 'reverse-engineer'
+  const badge = isPrompt
+    ? { label: 'SCENES', className: 'bg-fuchsia-500/15 text-fuchsia-300 light:text-fuchsia-700 border-fuchsia-500/20' }
+    : { label: 'SCRIPT', className: 'bg-scripts-500/15 text-scripts-300 border-scripts-500/20' }
+  return (
+    <button
+      onClick={onClick}
+      className={`group relative flex aspect-[9/16] w-full flex-col overflow-hidden rounded-2xl border p-3 text-left transition-all ${
+        selected
+          ? 'border-scripts-500/50 bg-scripts-500/[0.06] ring-1 ring-scripts-500/40'
+          : 'border-ink/5 bg-ink/[0.03] hover:border-ink/15 hover:-translate-y-0.5'
+      }`}
+    >
+      <div className="flex flex-col gap-1.5">
+        <span className={`w-fit rounded-full border px-2 py-0.5 text-[8px] font-semibold tracking-widest ${badge.className}`}>
+          {badge.label}
+        </span>
+        <span className="line-clamp-2 text-[12px] font-semibold leading-snug tracking-tight text-ink-100">
+          {item.title || 'Untitled Script'}
+        </span>
+      </div>
+      <div className="relative mt-2 flex-1 overflow-hidden">
+        <p className="whitespace-pre-wrap text-[10px] leading-relaxed text-ink-400">{item.scriptText || 'Empty script'}</p>
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-surface-1 to-transparent" />
+      </div>
     </button>
   )
 }
@@ -130,23 +165,6 @@ function ImageCard({
         {sublabel && <span className="block truncate text-[10px] text-zinc-400">{sublabel}</span>}
       </div>
     </button>
-  )
-}
-
-function ScriptContent({ item }: { item: Script }) {
-  const preview = item.scriptText.split('\n').slice(0, 2).join(' ').slice(0, 60)
-  return (
-    <>
-      <RowThumbnail fallback={FileText} />
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="truncate text-sm font-semibold tracking-tight text-ink-200">
-          {item.title || 'Untitled Script'}
-        </span>
-        <span className="truncate text-xs text-ink-500">
-          {preview || 'Empty script'}
-        </span>
-      </div>
-    </>
   )
 }
 

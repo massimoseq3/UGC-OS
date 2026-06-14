@@ -290,11 +290,11 @@ export default function BankPicker({
             <div
               className={
                 // Influencers and products pack tighter into a 3-column grid;
-                // b-rolls (wide 16:9 stills) stay 2-up; scripts / voices stay
-                // single-column rows.
+                // b-rolls (wide 16:9 stills) and scripts (9:16 cards) stay 2-up;
+                // voices stay single-column rows.
                 currentBankType === 'models' || currentBankType === 'products'
                   ? 'grid grid-cols-3 gap-2'
-                  : currentBankType === 'brolls'
+                  : currentBankType === 'brolls' || currentBankType === 'scripts'
                   ? 'grid grid-cols-2 gap-2'
                   : 'flex flex-col gap-2'
               }

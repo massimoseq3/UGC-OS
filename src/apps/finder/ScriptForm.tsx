@@ -52,48 +52,56 @@ export default function ScriptForm({ item, onSave, onCancel }: ScriptFormProps) 
         </button>
       </div>
 
-      <label className="flex flex-col gap-1">
-        <span className="text-[11px] font-medium uppercase tracking-widest text-ink-500">Title *</span>
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder='e.g. "LARQ - Lazy Girl Hook"'
-          className="rounded-lg border border-ink/10 bg-transparent px-3 py-2 text-sm text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-ink/20"
-        />
-      </label>
+      {/* Two-column: tall script editor on the left, controls on the right. */}
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+        {/* Left — script editor fills the space */}
+        <label className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <span className="text-[11px] font-medium uppercase tracking-widest text-ink-500">Script Text *</span>
+          <textarea
+            value={scriptText}
+            onChange={(e) => setScriptText(e.target.value)}
+            rows={22}
+            placeholder="Paste or write your script here…"
+            className="min-h-[460px] rounded-3xl border border-ink/10 bg-ink/[0.02] px-5 py-4 text-sm leading-relaxed text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-ink/20 resize-y"
+          />
+        </label>
 
-      <label className="flex flex-col gap-1">
-        <span className="text-[11px] font-medium uppercase tracking-widest text-ink-500">Script Text *</span>
-        <textarea
-          value={scriptText}
-          onChange={(e) => setScriptText(e.target.value)}
-          rows={20}
-          className="min-h-[420px] rounded-lg border border-ink/10 bg-transparent px-3 py-2 text-sm leading-relaxed text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-ink/20 resize-y"
-        />
-      </label>
+        {/* Right — title, linked product, save (sticky on desktop) */}
+        <div className="flex w-full shrink-0 flex-col gap-4 lg:sticky lg:top-1 lg:w-72">
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[11px] font-medium uppercase tracking-widest text-ink-500">Title *</span>
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder='e.g. "LARQ - Lazy Girl Hook"'
+              className="rounded-full border border-ink/10 bg-ink/[0.02] px-4 py-2.5 text-sm text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-ink/20"
+            />
+          </label>
 
-      <label className="flex flex-col gap-1">
-        <span className="text-[11px] font-medium uppercase tracking-widest text-ink-500">Linked Product</span>
-        <select
-          value={linkedProductId}
-          onChange={(e) => setLinkedProductId(e.target.value)}
-          className="rounded-lg border border-ink/10 bg-surface-1 px-3 py-2 text-sm text-ink-200 outline-none transition-colors focus:border-ink/20"
-        >
-          <option value="">None</option>
-          {products.map((p) => (
-            <option key={p.id} value={p.id}>{p.productName}</option>
-          ))}
-        </select>
-      </label>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[11px] font-medium uppercase tracking-widest text-ink-500">Linked Product</span>
+            <select
+              value={linkedProductId}
+              onChange={(e) => setLinkedProductId(e.target.value)}
+              className="rounded-full border border-ink/10 bg-surface-1 px-4 py-2.5 text-sm text-ink-200 outline-none transition-colors focus:border-ink/20"
+            >
+              <option value="">None</option>
+              {products.map((p) => (
+                <option key={p.id} value={p.id}>{p.productName}</option>
+              ))}
+            </select>
+          </label>
 
-      <button
-        type="submit"
-        disabled={saving}
-        className="mt-1 flex items-center justify-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-ink-900 transition-colors hover:bg-ink-100 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-        {saving ? 'Saving…' : (item ? 'Save Changes' : 'Add Script')}
-      </button>
+          <button
+            type="submit"
+            disabled={saving}
+            className="mt-1 flex items-center justify-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-ink-900 transition-colors hover:bg-ink-100 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+            {saving ? 'Saving…' : (item ? 'Save Changes' : 'Add Script')}
+          </button>
+        </div>
+      </div>
     </form>
   )
 }

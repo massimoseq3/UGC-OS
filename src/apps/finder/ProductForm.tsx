@@ -29,9 +29,11 @@ const FIELD_META: Record<string, { label: string; type: 'text' | 'textarea'; req
   cta: { label: 'CTA', type: 'text' },
 }
 
-// One stacked column — fields read top-to-bottom and the page scrolls,
-// instead of the old two-column grid that crammed textareas side by side.
-const FIELD_ORDER = ['productName', 'productDescription', 'targetMarket', 'painPoints', 'usps', 'benefits', 'offer', 'cta'] as const
+// Name + description + target market live under the image on the left; the
+// rest of the parameters stack down the right column (which keeps both sides
+// balanced enough that neither needs a scrollbar).
+const LEFT_FIELDS = ['productName', 'productDescription', 'targetMarket'] as const
+const RIGHT_FIELDS = ['painPoints', 'usps', 'benefits', 'offer', 'cta'] as const
 
 const REQUIRED_KEYS = ['productName', 'productDescription'] as const
 
@@ -223,7 +225,7 @@ export default function ProductForm({ item, onSave, onCancel, onCancelDuringExtr
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
-      className="relative flex flex-col gap-4"
+      className="relative flex flex-col gap-4 lg:min-h-0 lg:flex-1"
     >
       {overlayActive && (
         <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center rounded-xl border-2 border-dashed border-emerald-400/60 bg-emerald-500/10 backdrop-blur-sm">
@@ -233,8 +235,8 @@ export default function ProductForm({ item, onSave, onCancel, onCancelDuringExtr
           </div>
         </div>
       )}
-      {/* Header */}
-      <div className="flex items-center justify-between gap-3">
+      {/* Header — stays fixed above the scrolling fields */}
+      <div className="flex shrink-0 items-center justify-between gap-3">
         <h3 className="text-sm font-semibold tracking-tight text-ink-200">
           {item ? 'Edit Product' : 'New Product'}
         </h3>
@@ -243,12 +245,13 @@ export default function ProductForm({ item, onSave, onCancel, onCancelDuringExtr
         </button>
       </div>
 
-      {/* Side-by-side: image left, fields right (single stacked column) */}
-      <div className="flex flex-col gap-5 md:flex-row">
-        {/* Left — square product image */}
-        <div className="w-full md:w-56 shrink-0">
+      {/* Side-by-side: image + name + description fixed on the left, the rest of
+          the parameters scroll down the right. */}
+      <div className="flex flex-col gap-6 md:flex-row lg:min-h-0 lg:flex-1">
+        {/* Left — image, then Product Name + Description underneath it */}
+        <div className="flex w-full shrink-0 flex-col gap-4 md:w-[300px]">
           {displayImage ? (
-            <div className="group/img relative aspect-square w-full overflow-hidden rounded-xl border border-ink/10 bg-ink/[0.02]">
+            <div className="group/img relative aspect-square w-full overflow-hidden rounded-3xl border border-ink/10 bg-ink/[0.02]">
               <img src={displayImage} alt="" className="h-full w-full object-cover" />
               {isExtracting && (
                 <div className="absolute left-2 top-2 z-10 flex items-center gap-1.5 rounded-lg bg-black/70 px-2.5 py-1 text-[10px] font-medium text-emerald-200 backdrop-blur-sm">
@@ -259,23 +262,23 @@ export default function ProductForm({ item, onSave, onCancel, onCancelDuringExtr
               <button
                 type="button"
                 onClick={handleDownload}
-                className="absolute right-2 top-2 z-10 rounded-lg bg-black/60 p-1.5 text-zinc-400 opacity-0 backdrop-blur-sm transition-all hover:text-zinc-200 group-hover/img:opacity-100"
+                className="absolute right-2 top-2 z-10 rounded-full bg-black/60 p-2 text-zinc-400 opacity-0 backdrop-blur-sm transition-all hover:text-zinc-200 group-hover/img:opacity-100"
               >
                 <Download className="h-3.5 w-3.5" />
               </button>
               <button
                 type="button"
                 onClick={() => fileRef.current?.click()}
-                className="absolute bottom-2 right-2 z-10 rounded-lg bg-black/60 px-2.5 py-1 text-[10px] font-medium text-zinc-300 opacity-0 backdrop-blur-sm transition-all hover:bg-black/80 group-hover/img:opacity-100"
+                className="absolute left-2 top-2 z-10 rounded-full bg-black/60 px-3 py-1.5 text-[10px] font-medium text-zinc-300 opacity-0 backdrop-blur-sm transition-all hover:bg-black/80 group-hover/img:opacity-100"
               >
-                Replace
+                Change image
               </button>
             </div>
           ) : (
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              className="group flex aspect-square w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-ink/10 bg-ink/[0.02] px-3 text-center transition-colors hover:border-ink/20"
+              className="group flex aspect-square w-full flex-col items-center justify-center gap-2 rounded-3xl border border-dashed border-ink/10 bg-ink/[0.02] px-3 text-center transition-colors hover:border-ink/20"
             >
               <ImagePlus className="h-6 w-6 text-ink-600 transition-colors group-hover:text-ink-400" />
               <span className="text-[10px] font-medium uppercase tracking-widest text-ink-600 transition-colors group-hover:text-ink-500">
@@ -283,13 +286,18 @@ export default function ProductForm({ item, onSave, onCancel, onCancelDuringExtr
               </span>
             </button>
           )}
+
+          {/* Name + Description, directly under the image */}
+          <div className={`flex flex-col gap-4 transition-opacity ${isExtracting ? 'pointer-events-none opacity-60' : ''}`}>
+            {LEFT_FIELDS.map(renderField)}
+          </div>
         </div>
         <input ref={fileRef} type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" className="hidden" onChange={handleImage} />
 
-        {/* Right — all fields + save */}
-        <div className={`flex min-w-0 flex-1 flex-col gap-3 transition-opacity ${isExtracting ? 'pointer-events-none opacity-60' : ''}`}>
+        {/* Right — the remaining parameters + save (the only part that scrolls) */}
+        <div className={`flex min-w-0 flex-1 flex-col gap-3 transition-opacity lg:min-h-0 lg:overflow-y-auto lg:pr-1 ${isExtracting ? 'pointer-events-none opacity-60' : ''}`}>
           <div className="flex flex-col gap-4">
-            {FIELD_ORDER.map(renderField)}
+            {RIGHT_FIELDS.map(renderField)}
           </div>
 
           {showError && (
