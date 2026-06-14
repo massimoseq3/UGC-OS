@@ -588,16 +588,16 @@ function TileIconButton({
   tone?: 'default' | 'danger' | 'saved'
 }) {
   const toneClass = tone === 'danger'
-    ? 'bg-black/60 text-zinc-300 hover:bg-red-500/30 hover:text-red-200'
+    ? 'border-white/20 bg-black/35 text-white hover:bg-red-500/30 hover:text-red-100 hover:border-red-400/40'
     : tone === 'saved'
-    ? 'bg-emerald-500/40 text-emerald-100 hover:bg-emerald-500/50'
-    : 'bg-black/60 text-zinc-200 hover:bg-black/80'
+    ? 'border-emerald-400/50 bg-emerald-500/30 text-emerald-100'
+    : 'border-white/20 bg-black/35 text-white hover:bg-black/50'
   return (
     <button
       type="button"
       title={title}
       onClick={onClick}
-      className={`flex h-8 w-8 items-center justify-center rounded-full backdrop-blur transition-colors ${toneClass}`}
+      className={`flex h-8 w-8 items-center justify-center rounded-full border backdrop-blur transition-colors ${toneClass}`}
     >
       {children}
     </button>
@@ -621,10 +621,10 @@ function TileDeleteButton({ onDelete }: { onDelete: () => void }) {
         }
         onDelete()
       }}
-      className={`flex h-8 items-center justify-center gap-1 rounded-full px-2 backdrop-blur transition-colors ${
+      className={`flex h-8 items-center justify-center gap-1 rounded-full border px-2 backdrop-blur transition-colors ${
         confirming
-          ? 'bg-red-500/45 text-red-50 ring-1 ring-red-400/70'
-          : 'bg-black/60 text-zinc-300 hover:bg-red-500/30 hover:text-red-200'
+          ? 'border-red-400/60 bg-red-500/45 text-red-50'
+          : 'border-white/20 bg-black/35 text-white hover:bg-red-500/30 hover:text-red-100 hover:border-red-400/40'
       }`}
     >
       <Trash2 className="h-4 w-4" />

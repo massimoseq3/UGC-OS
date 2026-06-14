@@ -1,5 +1,15 @@
+import type { ElementType } from 'react'
+import { ScanFace, PersonStanding, Camera } from 'lucide-react'
 import type { TabId, CharacterProfile } from '../types'
 import { TABS, getTabFields, createEmptyProfile } from '../types'
+
+// Per-tab glyphs — specific to each tab's job (appearance / pose / lens),
+// not a generic decoration. Keyed by the stable tab id.
+const TAB_ICONS: Record<TabId, ElementType> = {
+  physical: ScanFace,
+  scene: PersonStanding,
+  camera: Camera,
+}
 import type { ImageResolution } from '../../../utils/models'
 import ChipField from './ChipField'
 import GenerateBar from './GenerateBar'
@@ -73,6 +83,7 @@ export default function ControlsPanel({
             return {
               value: tab.id,
               label: tab.shortLabel ?? tab.label,
+              icon: TAB_ICONS[tab.id],
               badge: `${filled}/${fields.length}`,
             }
           })}

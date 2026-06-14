@@ -106,14 +106,14 @@ export default function BRollForm({ item, onSave, onCancel }: BRollFormProps) {
               <button
                 type="button"
                 onClick={handleDownloadImage}
-                className="absolute right-2.5 top-2.5 rounded-full bg-black/50 p-2 text-zinc-400 opacity-0 backdrop-blur-sm transition-all hover:text-zinc-200 group-hover/img:opacity-100"
+                className="absolute right-2.5 top-2.5 rounded-full border border-white/20 bg-black/35 p-2 text-white opacity-0 backdrop-blur transition-all hover:bg-black/50 group-hover/img:opacity-100"
               >
                 <Download className="h-3.5 w-3.5" />
               </button>
               <button
                 type="button"
                 onClick={() => fileRef.current?.click()}
-                className="absolute bottom-2.5 right-2.5 rounded-full bg-black/60 px-3 py-1.5 text-[10px] font-medium text-zinc-300 opacity-0 backdrop-blur-sm transition-all hover:bg-black/80 group-hover/img:opacity-100"
+                className="absolute bottom-2.5 right-2.5 rounded-full border border-white/20 bg-black/35 px-3 py-1.5 text-[10px] font-medium text-white opacity-0 backdrop-blur transition-all hover:bg-black/50 group-hover/img:opacity-100"
               >
                 Replace
               </button>

@@ -160,7 +160,7 @@ function ProductCard({ item, onEdit, onDelete, inFlight }: { item: Product; onEd
         {confirm ? (
           <ConfirmDelete onConfirm={onDelete} onCancel={() => setConfirm(false)} />
         ) : (
-          <button onClick={() => setConfirm(true)} className="rounded-full bg-black/50 p-1.5 text-zinc-400 opacity-0 backdrop-blur-sm transition-all hover:text-red-400 group-hover:opacity-100">
+          <button onClick={() => setConfirm(true)} className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white opacity-0 backdrop-blur transition-all hover:bg-red-500/30 hover:text-red-100 hover:border-red-400/40 group-hover:opacity-100">
             <Trash2 className="h-3.5 w-3.5" />
           </button>
         )}
@@ -221,11 +221,11 @@ function ModelCard({ item, onEdit, onDelete }: { item: Model; onEdit: () => void
         ) : (
           <>
             {resolvedImage && (
-              <button onClick={handleDownload} className="rounded-full bg-black/50 p-1.5 text-zinc-400 opacity-0 backdrop-blur-sm transition-all hover:text-zinc-200 group-hover:opacity-100">
+              <button onClick={handleDownload} className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white opacity-0 backdrop-blur transition-all hover:bg-black/50 group-hover:opacity-100">
                 <Download className="h-3.5 w-3.5" />
               </button>
             )}
-            <button onClick={() => setConfirm(true)} className="rounded-full bg-black/50 p-1.5 text-zinc-400 opacity-0 backdrop-blur-sm transition-all hover:text-red-400 group-hover:opacity-100">
+            <button onClick={() => setConfirm(true)} className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white opacity-0 backdrop-blur transition-all hover:bg-red-500/30 hover:text-red-100 hover:border-red-400/40 group-hover:opacity-100">
               <Trash2 className="h-3.5 w-3.5" />
             </button>
           </>
@@ -348,10 +348,10 @@ function BRollCard({ item, onEdit, onDelete }: { item: BRoll; onEdit: () => void
             <ConfirmDelete onConfirm={onDelete} onCancel={() => setConfirm(false)} />
           ) : (
             <>
-              <button onClick={handleDownload} className="rounded-full bg-black/50 p-1.5 text-zinc-400 opacity-0 backdrop-blur-sm transition-all hover:text-zinc-200 group-hover:opacity-100">
+              <button onClick={handleDownload} className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white opacity-0 backdrop-blur transition-all hover:bg-black/50 group-hover:opacity-100">
                 <Download className="h-3.5 w-3.5" />
               </button>
-              <button onClick={() => setConfirm(true)} className="rounded-full bg-black/50 p-1.5 text-zinc-400 opacity-0 backdrop-blur-sm transition-all hover:text-red-400 group-hover:opacity-100">
+              <button onClick={() => setConfirm(true)} className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white opacity-0 backdrop-blur transition-all hover:bg-red-500/30 hover:text-red-100 hover:border-red-400/40 group-hover:opacity-100">
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
             </>
