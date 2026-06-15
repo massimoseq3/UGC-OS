@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Loader2, Trash2, Plus, RefreshCw, Upload, X } from 'lucide-react'
+import { Loader2, Trash2, Plus, RefreshCw, Upload, X, AlertTriangle } from 'lucide-react'
 import { getSupabase } from '../../lib/supabase'
 
 interface AllowlistRow {
@@ -112,6 +112,49 @@ export default function AllowlistEditor() {
   const [importing, setImporting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
+  // Global allowlist-enforcement toggle (public.app_config). null = unknown
+  // (still loading or query failed).
+  const [enforced, setEnforced] = useState<boolean | null>(null)
+  const [enforceBusy, setEnforceBusy] = useState(false)
+
+  async function loadConfig() {
+    try {
+      const sb = getSupabase()
+      const { data, error } = await withTimeout(
+        sb.from('app_config').select('enforce_allowlist').eq('id', true).maybeSingle(),
+        QUERY_TIMEOUT_MS,
+        'app_config query',
+      ) as { data: { enforce_allowlist: boolean } | null; error: { message: string } | null }
+      if (error) throw error
+      setEnforced(data?.enforce_allowlist ?? true)
+    } catch {
+      // Leave as null — the toggle card shows a "couldn't load" hint and the
+      // allowlist table below still works.
+      setEnforced(null)
+    }
+  }
+
+  async function toggleEnforce() {
+    if (enforced === null) return
+    const next = !enforced
+    if (!next && !confirm('Turn the allowlist OFF? Anyone with the link will be able to create an account until you turn it back on.')) return
+    setEnforceBusy(true)
+    try {
+      const sb = getSupabase()
+      const { error } = await withTimeout(
+        sb.from('app_config').update({ enforce_allowlist: next, updated_at: new Date().toISOString() }).eq('id', true),
+        QUERY_TIMEOUT_MS,
+        'app_config update',
+      ) as { error: { message: string } | null }
+      if (error) throw error
+      setEnforced(next)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : String(e))
+    } finally {
+      setEnforceBusy(false)
+    }
+  }
+
   async function load() {
     setLoading(true)
     setError(null)
@@ -134,7 +177,7 @@ export default function AllowlistEditor() {
     }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load(); loadConfig() }, [])
 
   async function handleAdd() {
     const email = draftEmail.trim().toLowerCase()
@@ -346,6 +389,45 @@ export default function AllowlistEditor() {
 
   return (
     <div className="space-y-4">
+      {/* Global enforcement toggle */}
+      <div className="rounded-xl border border-ink/10 bg-ink/[0.02] p-4">
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <div className="text-[13px] font-medium text-ink-100">Allowlist enforcement</div>
+            <p className="mt-0.5 text-[12px] text-ink-500">
+              {enforced === false
+                ? 'OFF — anyone with the link can create an account.'
+                : 'ON — only emails on the list below can sign up.'}
+            </p>
+          </div>
+          <button
+            onClick={toggleEnforce}
+            disabled={enforced === null || enforceBusy}
+            role="switch"
+            aria-checked={enforced === true}
+            title={enforced === null ? "Couldn't load enforcement state" : undefined}
+            className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${
+              enforced ? 'bg-emerald-500' : 'bg-ink/20'
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                enforced ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </button>
+        </div>
+        {enforced === false && (
+          <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5 text-[11px] text-amber-200 light:text-amber-800">
+            <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+            <span>Signups are open. Review new members below and disable anyone who isn't in your Skool community. Turn this back on once Zapier sync is wired.</span>
+          </div>
+        )}
+        {enforced === null && (
+          <p className="mt-2 text-[11px] text-ink-600">Couldn't load enforcement state — run migration 0013, then refresh.</p>
+        )}
+      </div>
+
       <p className="text-[12px] text-ink-500">
         Emails on this list can sign up. Until your Zapier zap is wired, you can bulk-import a Skool members CSV — and re-upload it later with sync mode enabled to also remove members who left. Removing an email also signs out and disables the matching account.
       </p>

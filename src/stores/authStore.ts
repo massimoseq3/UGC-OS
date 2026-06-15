@@ -62,10 +62,16 @@ interface AuthState {
   user: User | null
   profile: ProfileRow | null
 
+  // True when the last sign-in attempt (or a stale session on load) belonged to
+  // a disabled account. AuthScreen reads this to show the "members only" Skool
+  // popup instead of a generic error. Cleared by clearAccessRevoked().
+  accessRevoked: boolean
+
   bootstrap: () => Promise<void>
-  signIn: (email: string, password: string) => Promise<{ ok: true } | { ok: false; error: string }>
+  signIn: (email: string, password: string) => Promise<{ ok: true } | { ok: false; error: string; revoked?: boolean }>
   signUp: (email: string, password: string) => Promise<{ ok: true; needsConfirm: boolean } | { ok: false; error: string }>
   signOut: () => Promise<void>
+  clearAccessRevoked: () => void
   refreshProfile: () => Promise<void>
   // Stamps tos/privacy/aup acceptance + policy version. Used on signup and
   // when an existing user re-accepts after a POLICY_VERSION bump.
@@ -103,6 +109,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   session: null,
   user: null,
   profile: null,
+  accessRevoked: false,
 
   bootstrap: async () => {
     if (!isCloudEnabled()) {
@@ -116,11 +123,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     let profile: ProfileRow | null = null
     if (user) {
       profile = await fetchProfile(user.id)
-      // If admin removed the user from allowlist, sign them out immediately.
+      // If admin removed the user from allowlist, sign them out immediately
+      // and flag it so AuthScreen shows the "members only" popup.
       if (profile?.disabled_at) {
         await sb.auth.signOut()
         await wipeLocalUserData()
-        set({ session: null, user: null, profile: null, bootstrapping: false })
+        set({ session: null, user: null, profile: null, accessRevoked: true, bootstrapping: false })
         return
       }
     }
@@ -136,7 +144,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         if (nextProfile?.disabled_at) {
           await sb.auth.signOut()
           await wipeLocalUserData()
-          set({ session: null, user: null, profile: null })
+          set({ session: null, user: null, profile: null, accessRevoked: true })
           return
         }
       }
@@ -159,12 +167,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const profile = await fetchProfile(data.user.id)
       if (profile?.disabled_at) {
         await sb.auth.signOut()
-        return { ok: false, error: 'Your access has been revoked. Contact your community admin.' }
+        set({ accessRevoked: true })
+        return { ok: false, error: 'Your access has been revoked.', revoked: true }
       }
-      set({ session: data.session, user: data.user, profile })
+      set({ session: data.session, user: data.user, profile, accessRevoked: false })
     }
     return { ok: true }
   },
+
+  clearAccessRevoked: () => set({ accessRevoked: false }),
 
   signUp: async (email, password) => {
     if (!isCloudEnabled()) return { ok: false, error: 'Cloud not configured.' }
