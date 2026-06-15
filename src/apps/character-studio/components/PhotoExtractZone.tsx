@@ -59,13 +59,14 @@ export default function PhotoExtractZone({
             <img
               src={thumbnail}
               alt="Analyzing"
-              className="h-10 w-10 shrink-0 rounded-lg object-cover opacity-70"
+              className="h-10 w-10 shrink-0 rounded-full object-cover opacity-70"
             />
           )}
           <div className="min-w-0 flex-1">
             <GenerationProgress
               isActive={true}
               color="bg-green-500"
+              showHelper={false}
               messages={['Preparing image...', 'Sending request...', 'Extracting visual DNA...', 'Finalizing analysis...']}
             />
           </div>
@@ -81,7 +82,7 @@ export default function PhotoExtractZone({
         <img
           src={thumbnail}
           alt="Source"
-          className="h-8 w-8 shrink-0 rounded-lg object-cover"
+          className="h-8 w-8 shrink-0 rounded-full object-cover"
         />
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <Check className="h-3.5 w-3.5 shrink-0 text-green-400 light:text-green-600" />
