@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { Loader2, AlertCircle, CheckCircle2, Lock, ExternalLink, X } from 'lucide-react'
 import AppLogo from '../AppLogo'
 import AppBackground from '../AppBackground'
 import { useAuthStore } from '../../stores/authStore'
 import { POLICY_VERSION } from '../../legal/version'
+import { SKOOL_COMMUNITY_URL } from '../../utils/constants'
 
 type Mode = 'login' | 'signup'
 
@@ -11,6 +12,8 @@ export default function AuthScreen() {
   const signIn = useAuthStore((s) => s.signIn)
   const signUp = useAuthStore((s) => s.signUp)
   const acceptPolicies = useAuthStore((s) => s.acceptPolicies)
+  const accessRevoked = useAuthStore((s) => s.accessRevoked)
+  const clearAccessRevoked = useAuthStore((s) => s.clearAccessRevoked)
 
   const [mode, setMode] = useState<Mode>('login')
   const [email, setEmail] = useState('')
@@ -28,7 +31,9 @@ export default function AuthScreen() {
     try {
       if (mode === 'login') {
         const res = await signIn(email, password)
-        if (!res.ok) setError(res.error)
+        // A revoked account surfaces via the "members only" popup (driven by
+        // accessRevoked in the store), not the inline error row.
+        if (!res.ok && !res.revoked) setError(res.error)
       } else {
         const res = await signUp(email, password)
         if (!res.ok) setError(res.error)
@@ -168,6 +173,52 @@ export default function AuthScreen() {
             <a href="/legal/aup" className="transition-colors hover:text-ink-300">AUP</a>
           </div>
         </div>
+      </div>
+
+      {accessRevoked && <MembersOnlyModal onClose={clearAccessRevoked} />}
+    </div>
+  )
+}
+
+// Shown when a disabled account tries to sign in (or loads with a stale
+// session). Points them back to the Skool community to (re)join.
+function MembersOnlyModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+      <div className="relative w-full max-w-sm rounded-2xl border border-ink/10 bg-surface-2 p-6 text-center shadow-2xl">
+        <button
+          onClick={onClose}
+          className="absolute right-3 top-3 rounded-md p-1 text-ink-500 transition-colors hover:bg-ink/[0.05] hover:text-ink-200"
+          aria-label="Close"
+        >
+          <X className="h-4 w-4" />
+        </button>
+
+        <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-ink/5 text-ink-300">
+          <Lock className="h-5 w-5" />
+        </div>
+
+        <h2 className="mt-4 text-base font-semibold tracking-tight text-ink-100">Members only</h2>
+        <p className="mt-2 text-[13px] leading-relaxed text-ink-400">
+          Access is only for members of the AI UGC Lab Skool community. Join (or rejoin) on Skool to get back in.
+        </p>
+
+        <a
+          href={SKOOL_COMMUNITY_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-ink py-2.5 text-sm font-medium text-ink-900 transition-colors hover:bg-ink-100"
+        >
+          Go to the Skool community
+          <ExternalLink className="h-3.5 w-3.5" />
+        </a>
+
+        <button
+          onClick={onClose}
+          className="mt-2 w-full rounded-full py-2 text-[12px] text-ink-500 transition-colors hover:text-ink-300"
+        >
+          Back to sign in
+        </button>
       </div>
     </div>
   )

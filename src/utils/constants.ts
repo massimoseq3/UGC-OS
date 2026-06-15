@@ -12,6 +12,10 @@ import {
 } from 'lucide-react'
 import type { ElementType } from 'react'
 
+// The community this workspace gates access to. Shown to disabled/non-member
+// accounts as a link back to join.
+export const SKOOL_COMMUNITY_URL = 'https://www.skool.com/ai-ugc-lab-6995'
+
 export type AppCategory = 'library' | 'create' | 'tools' | 'admin'
 
 export interface AppConfig {
