@@ -1,5 +1,5 @@
 import type { ElementType } from 'react'
-import { IdCard, Sparkles, Eye, Scissors, Smile, Shirt, MapPin, Sun } from 'lucide-react'
+import { IdCard, Eye, Scissors, Smile, Shirt, MapPin, PersonStanding, Camera } from 'lucide-react'
 
 export type TabId = 'physical' | 'scene' | 'camera'
 
@@ -18,6 +18,10 @@ export interface FieldConfig {
   // Optional larger typeahead list; overrides `chips` as the dropdown source
   // when present (e.g. the full ethnicity list).
   suggestions?: string[]
+  // Layout hint: short fields pack two-per-row; `wide` fields (long free-text
+  // or sentence-length preset values) span the full row so they don't look
+  // cramped next to a one-word neighbour. See ControlsPanel's grid.
+  wide?: boolean
 }
 
 // Searchable ethnicity/nationality list for the Ethnicity typeahead. Broad
@@ -89,39 +93,12 @@ export const TABS: TabConfig[] = [
             label: 'Ethnicity',
             chips: ['Caucasian', 'Black', 'Asian', 'Hispanic/Latino', 'Middle Eastern', 'South Asian', 'Mixed'],
             suggestions: ETHNICITY_SUGGESTIONS,
-            placeholder: 'Search nationalities or type your own...',
+            placeholder: 'Search or type...',
           },
           {
             key: 'bodyType',
             label: 'Body Type',
             chips: ['Slim', 'Athletic', 'Average', 'Curvy', 'Plus-size', 'Muscular'],
-          },
-        ],
-      },
-      {
-        id: 'skin',
-        label: 'Skin',
-        icon: Sparkles,
-        fields: [
-          {
-            key: 'skinTone',
-            label: 'Skin Tone',
-            chips: ['Porcelain', 'Fair', 'Light', 'Beige', 'Olive', 'Golden', 'Tan', 'Caramel', 'Bronze', 'Brown', 'Espresso', 'Deep ebony'],
-          },
-          {
-            key: 'skinTexture',
-            label: 'Skin Texture',
-            chips: [
-              'Glass skin finish with ultra-detailed texture, including visible skin pores, fine peach fuzz, and a scattering of light freckles across the bridge of her nose',
-              'Glass skin',
-              'Natural pores',
-              'Acne scarring',
-              'Freckled',
-              'Textured',
-              'Mature lines',
-              'Natural pores with slight imperfections',
-            ],
-            placeholder: 'e.g. "Glass skin with visible pores"',
           },
         ],
       },
@@ -153,27 +130,45 @@ export const TABS: TabConfig[] = [
             chips: ['Blonde', 'Brunette', 'Black', 'Red', 'Auburn', 'Gray', 'Platinum'],
           },
           {
-            key: 'hairStyle',
-            label: 'Hair Style',
-            chips: ['Long straight', 'Long wavy', 'Shoulder-length', 'Bob', 'Pixie cut', 'Ponytail', 'Messy bun', 'Braids', 'Curtain Bangs + Layers', 'Short textured', 'Buzz cut'],
-          },
-          {
             key: 'hairTexture',
             label: 'Hair Texture',
             chips: ['Straight', 'Wavy', 'Curly', 'Coily', 'Kinky', 'Fine', 'Thick'],
           },
+          {
+            key: 'hairStyle',
+            label: 'Hair Style',
+            chips: ['Long straight', 'Long wavy', 'Shoulder-length', 'Bob', 'Pixie cut', 'Ponytail', 'Messy bun', 'Braids', 'Curtain Bangs + Layers', 'Short textured', 'Buzz cut'],
+            wide: true,
+          },
         ],
       },
       {
-        id: 'facial-features',
-        label: 'Facial Features',
+        // Skin tone/texture live here with the facial-feature fields — one
+        // "face" group rather than a separate Skin section higher up, so the
+        // top of the form stays light and the descriptive fields cluster.
+        id: 'face-skin',
+        label: 'Face & Skin',
         icon: Smile,
         fields: [
           {
-            key: 'facialFeatures',
-            label: 'Facial Features',
-            chips: ['Freckles', 'Sharp jawline', 'Soft features', 'High cheekbones', 'Full lips', 'Glasses'],
-            placeholder: 'e.g. "Light freckles, soft smile"',
+            key: 'skinTone',
+            label: 'Skin Tone',
+            chips: ['Porcelain', 'Fair', 'Light', 'Beige', 'Olive', 'Golden', 'Tan', 'Caramel', 'Bronze', 'Brown', 'Espresso', 'Deep ebony'],
+          },
+          {
+            key: 'skinTexture',
+            label: 'Skin Texture',
+            chips: [
+              'Glass skin finish with ultra-detailed texture, including visible skin pores, fine peach fuzz, and a scattering of light freckles across the bridge of her nose',
+              'Glass skin',
+              'Natural pores',
+              'Acne scarring',
+              'Freckled',
+              'Textured',
+              'Mature lines',
+              'Natural pores with slight imperfections',
+            ],
+            placeholder: 'e.g. "Glass skin with visible pores"',
           },
           {
             key: 'facialHair',
@@ -181,15 +176,21 @@ export const TABS: TabConfig[] = [
             chips: ['None', 'Clean-shaven', 'Stubble', 'Short beard', 'Full beard', 'Goatee', 'Mustache'],
           },
           {
+            key: 'makeup',
+            label: 'Makeup',
+            chips: ['No makeup', 'Natural/minimal', 'Light glam', 'Full glam', 'Dewy skin', 'Bold lip', 'E-girl makeup', 'Soft glam'],
+          },
+          {
+            key: 'facialFeatures',
+            label: 'Facial Features',
+            chips: ['Freckles', 'Sharp jawline', 'Soft features', 'High cheekbones', 'Full lips', 'Glasses'],
+            placeholder: 'e.g. "Light freckles, soft smile"',
+          },
+          {
             key: 'distinguishingMarks',
             label: 'Distinguishing Marks',
             chips: ['None', 'Beauty mark', 'Dimples', 'Scar', 'Birthmark', 'Tattoo', 'Piercing'],
             placeholder: 'e.g. "Beauty mark on left cheek"',
-          },
-          {
-            key: 'makeup',
-            label: 'Makeup',
-            chips: ['No makeup', 'Natural/minimal', 'Light glam', 'Full glam', 'Dewy skin', 'Bold lip', 'E-girl makeup', 'Soft glam'],
           },
         ],
       },
@@ -207,7 +208,7 @@ export const TABS: TabConfig[] = [
             key: 'accessories',
             label: 'Accessories',
             chips: ['Watch', 'Necklace', 'Earrings', 'Gold hoops', 'Baseball cap', 'Sunglasses', 'Headband', 'Rings', 'None'],
-            placeholder: 'e.g. "Dainty gold necklace, small hoop earrings"',
+            placeholder: 'e.g. "Gold necklace, hoops"',
           },
         ],
       },
@@ -217,6 +218,56 @@ export const TABS: TabConfig[] = [
     id: 'scene',
     label: 'Scene & Pose',
     groups: [
+      {
+        id: 'pose',
+        label: 'Pose & Action',
+        icon: PersonStanding,
+        fields: [
+          {
+            key: 'pose',
+            label: 'Pose',
+            chips: ['Sitting', 'Standing', 'Leaning', 'Walking', 'Lying down', 'Cross-legged', 'Kneeling', 'Crouching', 'Front-on facing camera'],
+          },
+          {
+            key: 'expression',
+            label: 'Expression',
+            chips: ['Natural smile', 'Genuine smile', 'Excited', 'Skeptical', 'Surprised', 'Thinking', 'Laughing', 'Serious/focused', 'Mid-sentence'],
+          },
+          {
+            key: 'action',
+            label: 'Action',
+            chips: ['Speaking to camera', 'Holding product', 'Applying product', 'Unboxing', 'Pointing', 'Typing on phone', 'Drinking', 'Showing before/after', 'Looking at camera'],
+            placeholder: 'e.g. "Holding product up next to face, showing label"',
+            wide: true,
+          },
+        ],
+      },
+      {
+        // Camera lives in the Scene & Pose tab right after Pose & Action —
+        // framing the shot is the same mental step as setting the pose, so it
+        // no longer sits off on a disconnected tab of its own.
+        id: 'camera',
+        label: 'Camera',
+        icon: Camera,
+        fields: [
+          {
+            key: 'shotType',
+            label: 'Shot Type',
+            chips: ['Close-up face', 'Medium shot (waist up)', 'Third-Person Shot', 'Full body', 'Over-the-shoulder', 'Eye level', 'Low angle', 'High angle', 'Dutch angle'],
+          },
+          {
+            key: 'cameraAngle',
+            label: 'Camera Angle',
+            chips: ['Eye Level', 'Low angle', 'High angle', 'Bird\'s eye', 'Worm\'s eye', 'Dutch tilt', 'Over-the-shoulder'],
+          },
+          {
+            key: 'cameraDevice',
+            label: 'Camera Device',
+            chips: [PHOTOREALISM_STYLE],
+            wide: true,
+          },
+        ],
+      },
       {
         id: 'setting',
         label: 'Setting',
@@ -233,35 +284,6 @@ export const TABS: TabConfig[] = [
             chips: ['Neutral wall', 'Bookshelf', 'Plants', 'Bed with pillows', 'Kitchen counter', 'Car Interior', 'Blurred background', 'Window with natural light', 'Minimalist'],
             placeholder: 'e.g. "Clean white wall, small monstera plant"',
           },
-        ],
-      },
-      {
-        id: 'pose',
-        label: 'Pose & Action',
-        fields: [
-          {
-            key: 'pose',
-            label: 'Pose',
-            chips: ['Sitting', 'Standing', 'Leaning', 'Walking', 'Lying down', 'Cross-legged', 'Kneeling', 'Crouching', 'Front-on facing camera'],
-          },
-          {
-            key: 'action',
-            label: 'Action',
-            chips: ['Speaking to camera', 'Holding product', 'Applying product', 'Unboxing', 'Pointing', 'Typing on phone', 'Drinking', 'Showing before/after', 'Looking at camera'],
-            placeholder: 'e.g. "Holding product up next to face, showing label"',
-          },
-          {
-            key: 'expression',
-            label: 'Expression',
-            chips: ['Natural smile', 'Genuine smile', 'Excited', 'Skeptical', 'Surprised', 'Thinking', 'Laughing', 'Serious/focused', 'Mid-sentence'],
-          },
-        ],
-      },
-      {
-        id: 'lighting',
-        label: 'Lighting & Time',
-        icon: Sun,
-        fields: [
           {
             key: 'lighting',
             label: 'Lighting',
@@ -275,6 +297,7 @@ export const TABS: TabConfig[] = [
               'Natural Window Light',
               'Fluorescent office',
             ],
+            wide: true,
           },
           {
             key: 'weather',
@@ -285,33 +308,6 @@ export const TABS: TabConfig[] = [
             key: 'timeOfDay',
             label: 'Time of Day',
             chips: ['Morning', 'Midday', 'Afternoon', 'Golden hour', 'Evening', 'Night'],
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'camera',
-    label: 'Camera',
-    groups: [
-      {
-        id: 'camera',
-        label: 'Camera',
-        fields: [
-          {
-            key: 'shotType',
-            label: 'Shot Type',
-            chips: ['Close-up face', 'Medium shot (waist up)', 'Third-Person Shot', 'Full body', 'Over-the-shoulder', 'Eye level', 'Low angle', 'High angle', 'Dutch angle'],
-          },
-          {
-            key: 'cameraAngle',
-            label: 'Camera Angle',
-            chips: ['Eye Level', 'Low angle', 'High angle', 'Bird\'s eye', 'Worm\'s eye', 'Dutch tilt', 'Over-the-shoulder'],
-          },
-          {
-            key: 'cameraDevice',
-            label: 'Camera Device',
-            chips: [PHOTOREALISM_STYLE],
           },
         ],
       },

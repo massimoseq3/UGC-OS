@@ -117,22 +117,41 @@ export default function ControlsPanel({
           fields flow without dividers; a hairline separator only marks the
           boundary between groups (identity → skin → eyes → hair, …). */}
       <div className="min-w-0 flex-1 p-4 md:overflow-y-auto">
-        <div className="flex flex-col divide-y divide-ink/5">
-          {currentTab.groups.map((group) => (
-            <div key={group.id} className="flex flex-col gap-4 py-4 first:pt-0 last:pb-0">
-              {group.fields.map((field) => (
-                <ChipField
-                  key={field.key}
-                  label={field.label}
-                  value={profile[field.key] ?? ''}
-                  onChange={(v) => setField(field.key, v)}
-                  placeholder={field.placeholder}
-                  defaultLocked={field.key === 'cameraDevice'}
-                  suggestions={field.suggestions ?? field.chips}
-                />
-              ))}
+        <div className="flex flex-col gap-7">
+          {currentTab.groups.map((group) => {
+            const GroupIcon = group.icon
+            return (
+            <div key={group.id}>
+              {/* Section subheading — a left-aligned icon + title-case label,
+                  then a hairline rule, so each tab reads as a few scannable
+                  sections above the all-caps field labels. */}
+              <div className="mb-3 flex items-center gap-1.5">
+                {GroupIcon && <GroupIcon className="h-3.5 w-3.5 text-ink-100" />}
+                <h4 className="text-sm font-semibold tracking-tight text-ink-100">{group.label}</h4>
+              </div>
+              <div className="mb-4 border-t border-ink/10" />
+              {/* Two-column grid: short one-word fields (gender, age, eye
+                  color…) pack two per row; `wide` fields (free-text /
+                  sentence-length presets) span the full row via col-span-2.
+                  Field order in types.ts keeps the wide ones grouped so no
+                  half field is left stranded next to an empty cell. */}
+              <div className="grid grid-cols-2 gap-x-3 gap-y-4">
+                {group.fields.map((field) => (
+                  <div key={field.key} className={field.wide ? 'col-span-2' : 'min-w-0'}>
+                    <ChipField
+                      label={field.label}
+                      value={profile[field.key] ?? ''}
+                      onChange={(v) => setField(field.key, v)}
+                      placeholder={field.placeholder}
+                      defaultLocked={field.key === 'cameraDevice'}
+                      suggestions={field.suggestions ?? field.chips}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
-          ))}
+            )
+          })}
         </div>
       </div>
 
