@@ -131,9 +131,12 @@ export default function GalleryPanel({
 }
 
 function DayPill({ label }: { label: string }) {
+  // Matches the date pills in the Scripts / Voiceovers history lists.
   return (
     <div className="my-2 flex items-center justify-center">
-      <span className="rounded-full bg-ink/[0.06] px-3 py-1 text-[11px] font-medium text-ink-300">{label}</span>
+      <span className="rounded-full bg-ink/[0.06] px-3 py-1 text-[11px] font-medium text-ink-300">
+        {label}
+      </span>
     </div>
   )
 }
