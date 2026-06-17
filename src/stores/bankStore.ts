@@ -749,16 +749,20 @@ export const useBankStore = create<BankState>((set, get) => ({
     reportSuccess('Music history cleared')
   },
 
-  // ── Script History (Scripts tab) — local-only ────────────────────
+  // ── Script History (Scripts tab) ─────────────────────────────────
+  // Cloud-synced like every other history bank so it survives browser
+  // storage eviction (Safari ITP's 7-day sweep, "clear site data", etc.).
   addScriptHistory: async (item) => {
     set((state) => {
       const next = { scriptHistory: [item, ...state.scriptHistory] }
       saveToStorage({ ...state, ...next })
       return next
     })
+    try { await pushRow('scriptHistory', item) } catch (e) { reportErrorSoft('Save script history', e) }
   },
 
   deleteScriptHistory: async (id) => {
+    try { await dropRow('scriptHistory', id) } catch (e) { reportErrorSoft('Delete script history', e) }
     set((state) => {
       const next = { scriptHistory: state.scriptHistory.filter((h) => h.id !== id) }
       saveToStorage({ ...state, ...next })
@@ -768,6 +772,12 @@ export const useBankStore = create<BankState>((set, get) => ({
   },
 
   clearScriptHistory: async () => {
+    const items = get().scriptHistory
+    if (cloudActive()) {
+      for (const item of items) {
+        try { await dropRow('scriptHistory', item.id) } catch (e) { console.warn('clear script history', e) }
+      }
+    }
     set((state) => {
       const next = { scriptHistory: [] as ScriptHistoryItem[] }
       saveToStorage({ ...state, ...next })
@@ -776,21 +786,37 @@ export const useBankStore = create<BankState>((set, get) => ({
     reportSuccess('Script history cleared')
   },
 
-  // ── B-Roll History (Scenes sessions) — local-only ────────────────
+  // ── B-Roll History (Scenes sessions) ─────────────────────────────
+  // Cloud-synced. The row is small (asset:// refs + metadata; the card media
+  // already mirrors to R2 via video_history / image_history), so this mostly
+  // persists the session layout so it survives browser storage eviction.
   // Upsert by id. Keeps the entry at the head of the list (most-recent first)
   // so an in-flight session sits at the top even as cardStates mutate. FIFO
   // capped at BROLL_HISTORY_CAP — drops the oldest entries past the cap.
   upsertBrollHistory: async (item) => {
+    let evicted: BrollHistoryItem[] = []
     set((state) => {
       const filtered = state.brollHistory.filter((h) => h.id !== item.id)
-      const capped = [item, ...filtered].slice(0, BROLL_HISTORY_CAP)
-      const next = { brollHistory: capped }
+      const combined = [item, ...filtered]
+      evicted = combined.slice(BROLL_HISTORY_CAP)
+      const next = { brollHistory: combined.slice(0, BROLL_HISTORY_CAP) }
       saveToStorage({ ...state, ...next })
       return next
     })
+    // Driven by a ~1s-debounced autosave effect, so swallow push failures to a
+    // console warning instead of a toast — the outbox + scheduled drain (armed
+    // inside pushRow) already guarantee the row syncs on the next attempt.
+    try { await pushRow('brollHistory', item) } catch (e) { console.warn('[bankStore] save broll history', e) }
+    // Drop entries that fell off the cap from the cloud too, or hydrate (which
+    // pulls every row) would resurrect them. Their asset blobs are reclaimed by
+    // the orphan sweep once nothing else references them.
+    for (const old of evicted) {
+      try { await dropRow('brollHistory', old.id) } catch (e) { console.warn('trim broll history', e) }
+    }
   },
 
   deleteBrollHistory: async (id) => {
+    try { await dropRow('brollHistory', id) } catch (e) { reportErrorSoft('Delete B-Roll history', e) }
     set((state) => {
       const next = { brollHistory: state.brollHistory.filter((h) => h.id !== id) }
       saveToStorage({ ...state, ...next })
@@ -800,6 +826,12 @@ export const useBankStore = create<BankState>((set, get) => ({
   },
 
   clearBrollHistory: async () => {
+    const items = get().brollHistory
+    if (cloudActive()) {
+      for (const item of items) {
+        try { await dropRow('brollHistory', item.id) } catch (e) { console.warn('clear broll history', e) }
+      }
+    }
     set((state) => {
       const next = { brollHistory: [] as BrollHistoryItem[] }
       saveToStorage({ ...state, ...next })
