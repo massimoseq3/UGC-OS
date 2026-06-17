@@ -22,18 +22,8 @@ import { deleteAsset, isAssetRef } from './assetStore'
 const BANK_KEYS = Object.keys({
   products: true, models: true, scripts: true, voices: true, brolls: true,
   voiceHistory: true, videoHistory: true, imageHistory: true, musicHistory: true,
-  characterHistory: true, adAnatomyHistory: true,
+  scriptHistory: true, brollHistory: true, characterHistory: true, adAnatomyHistory: true,
 } satisfies Record<BankKey, true>) as BankKey[]
-
-// Local-only banks (NOT cloud BankKeys — see cloudSync) that still embed
-// `asset-…` refs in their on-device rows. `brollHistory` snapshots a whole
-// B-Roll session (card images + videos) that lives only in localStorage, so
-// its assets are referenced by nothing in the cloud bank set above. These MUST
-// be walked too or the sweep purges B-Roll card media that wasn't separately
-// saved to a bank — leaving a perpetual loading spinner when the session is
-// reopened from History. (scriptHistory holds text only, but is listed for
-// symmetry / future-proofing.)
-const LOCAL_BANK_KEYS = ['brollHistory', 'scriptHistory'] as const
 
 function walkAssetRefs(value: unknown, out: Set<string>) {
   if (typeof value === 'string') {
@@ -80,12 +70,6 @@ export async function findOrphanAssets(): Promise<{
   const refs = new Set<string>()
   const bankState = useBankStore.getState()
   for (const key of BANK_KEYS) {
-    const arr = bankState[key] as unknown[]
-    for (const item of arr) walkAssetRefs(item, refs)
-  }
-  // Also count local-only history banks that embed asset refs (brollHistory),
-  // otherwise the sweep deletes B-Roll session media still referenced on-device.
-  for (const key of LOCAL_BANK_KEYS) {
     const arr = bankState[key] as unknown[]
     for (const item of arr) walkAssetRefs(item, refs)
   }

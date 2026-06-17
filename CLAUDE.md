@@ -85,7 +85,7 @@ Full list in `src/utils/models.ts`. Defaults below; users can swap image and vid
 Most files are self-explanatory. These carry behaviour worth knowing before you touch them:
 
 - `stores/bankStore.ts` — all banks + history + `migrateVoiceShape`.
-- `utils/orphanCleanup.ts` — once-per-sign-in asset sweep. Its bank list **must** cover every bank (compile-time `satisfies Record<BankKey, true>` guard) or it deletes that bank's live assets from IDB + R2. Local-only banks (`brollHistory`, `scriptHistory`) are walked separately via `LOCAL_BANK_KEYS`.
+- `utils/orphanCleanup.ts` — once-per-sign-in asset sweep. Its bank list **must** cover every bank (compile-time `satisfies Record<BankKey, true>` guard) or it deletes that bank's live assets from IDB + R2.
 - `utils/assetStore.ts` — IndexedDB blobs + fire-and-forget R2 mirror; `getBlob()` falls back to R2 on miss.
 - `utils/friendlyError.ts` — `humanizeError(err, fallback)`, the ordered rule table for end-user error copy.
 - `lib/cloudSync.ts` — pull on sign-in + debounced diff-push + persistent localStorage outbox + non-destructive hydrate.
@@ -96,7 +96,7 @@ Most files are self-explanatory. These carry behaviour worth knowing before you 
 
 Persisted to `localStorage` under `ai-ugc-lab-banks`. Asset blobs live in IndexedDB (mirrored to R2 in cloud mode); rows store `asset://<id>` refs. `useAssetUrl(ref)` turns a ref into a blob URL. Types are in `stores/types.ts`.
 
-`products`, `models` (from Influencers), `scripts`, `voices`, `brolls`, plus auto-pushed history banks: `voiceHistory`, `videoHistory`, `musicHistory`, `characterHistory`. Gotchas:
+`products`, `models` (from Influencers), `scripts`, `voices`, `brolls`, plus auto-pushed history banks: `voiceHistory`, `videoHistory`, `imageHistory`, `musicHistory`, `scriptHistory`, `brollHistory`, `characterHistory`, `adAnatomyHistory` (all cloud-synced — every bank table has a Postgres mirror). Gotchas:
 
 - **`brolls`** can carry both `imageUrl` (still) and `videos[]` (animations); saving a card appends to the source's `videos[]`. Saved video-history items stamp `linkedBRollId`; deletion only purges the blob if not linked.
 - **`videoHistory`** is shared by B-Roll and Playground (for refresh-resume); Playground's grid filters out `sourceApp === 'broll-studio'`. 14-day retention.

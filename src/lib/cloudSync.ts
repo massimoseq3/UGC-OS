@@ -25,12 +25,12 @@ import { getSupabase, isCloudEnabled, ensureFreshSession } from './supabase'
 import { existingRemoteAssetIds, uploadAssetToR2 } from './r2'
 import { isAssetRef, getBlob } from '../utils/assetStore'
 import { findOrphanAssets, purgeOrphans } from '../utils/orphanCleanup'
-import type { Product, Model, Script, VoicePreset, BRoll, VoiceHistoryItem, VideoHistoryItem, ImageHistoryItem, MusicHistoryItem, CharacterHistoryItem, AdAnatomyHistoryItem } from '../stores/types'
+import type { Product, Model, Script, VoicePreset, BRoll, VoiceHistoryItem, VideoHistoryItem, ImageHistoryItem, MusicHistoryItem, ScriptHistoryItem, BrollHistoryItem, CharacterHistoryItem, AdAnatomyHistoryItem } from '../stores/types'
 
 export type BankKey =
   | 'products' | 'models' | 'scripts' | 'voices' | 'brolls'
   | 'voiceHistory' | 'videoHistory' | 'imageHistory' | 'musicHistory'
-  | 'characterHistory' | 'adAnatomyHistory'
+  | 'scriptHistory' | 'brollHistory' | 'characterHistory' | 'adAnatomyHistory'
 
 const BANK_TO_TABLE: Record<BankKey, string> = {
   products: 'products',
@@ -42,11 +42,13 @@ const BANK_TO_TABLE: Record<BankKey, string> = {
   videoHistory: 'video_history',
   imageHistory: 'image_history',
   musicHistory: 'music_history',
+  scriptHistory: 'script_history',
+  brollHistory: 'broll_history',
   characterHistory: 'character_history',
   adAnatomyHistory: 'ad_anatomy_history',
 }
 
-const BANK_KEYS: BankKey[] = ['products', 'models', 'scripts', 'voices', 'brolls', 'voiceHistory', 'videoHistory', 'imageHistory', 'musicHistory', 'characterHistory', 'adAnatomyHistory']
+const BANK_KEYS: BankKey[] = ['products', 'models', 'scripts', 'voices', 'brolls', 'voiceHistory', 'videoHistory', 'imageHistory', 'musicHistory', 'scriptHistory', 'brollHistory', 'characterHistory', 'adAnatomyHistory']
 
 function reportError(context: string, err: unknown) {
   const msg = err instanceof Error ? err.message : (typeof err === 'string' ? err : JSON.stringify(err))
@@ -374,6 +376,8 @@ async function hydrateFromCloud(userId: string): Promise<boolean> {
     videoHistory: (next.videoHistory as VideoHistoryItem[]) ?? [],
     imageHistory: (next.imageHistory as ImageHistoryItem[]) ?? [],
     musicHistory: (next.musicHistory as MusicHistoryItem[]) ?? [],
+    scriptHistory: (next.scriptHistory as ScriptHistoryItem[]) ?? [],
+    brollHistory: (next.brollHistory as BrollHistoryItem[]) ?? [],
     characterHistory: (next.characterHistory as CharacterHistoryItem[]) ?? [],
     adAnatomyHistory: (next.adAnatomyHistory as AdAnatomyHistoryItem[]) ?? [],
   })
@@ -451,6 +455,30 @@ async function uploadEntireSnapshot(userId: string) {
   try { await saveProfile() } catch (e) { reportError('initial profile upload', e) }
 
   localStorage.setItem(`ugc-lab:cloud-migrated:${userId}`, '1')
+  // The full snapshot already covered scriptHistory + brollHistory, so the
+  // targeted seed below is a no-op for first-time cloud users.
+  localStorage.setItem(`ugc-lab:history-cloud-seeded:${userId}`, '1')
+}
+
+// One-time rescue for users who migrated to cloud BEFORE scriptHistory and
+// brollHistory became cloud banks. Their Postgres tables are empty, so an
+// authoritative hydrate would wipe the on-device rows these banks still hold.
+// Enqueue those rows into the outbox: applyOutbox overlays them onto the empty
+// cloud pull (so they survive hydrate) and the post-hydrate drainOutbox pushes
+// them up — the same path that protects any unsynced row. Runs once per user.
+function seedLocalHistoryToCloud(userId: string) {
+  const flag = `ugc-lab:history-cloud-seeded:${userId}`
+  if (localStorage.getItem(flag)) return
+  const state = useBankStore.getState()
+  let seeded = 0
+  for (const key of ['scriptHistory', 'brollHistory'] as const) {
+    for (const row of state[key] as Array<{ id: string }>) {
+      recordPendingUpsert(key, row)
+      seeded++
+    }
+  }
+  if (seeded > 0) console.log(`[cloudSync] seeded ${seeded} local history row(s) for first-time cloud sync`)
+  localStorage.setItem(flag, '1')
 }
 
 // After hydrate: walk any local asset blobs that aren't yet in R2 and upload
@@ -540,6 +568,10 @@ export async function startCloudSync() {
       console.log('[cloudSync] uploading local snapshot to cloud (first login)')
       await uploadEntireSnapshot(userId)
     }
+    // Rescue scriptHistory/brollHistory rows from users who cloud-migrated
+    // before these became cloud banks, so the empty-table hydrate below can't
+    // wipe them. No-op once seeded (and after a full snapshot upload).
+    seedLocalHistoryToCloud(userId)
     const hydratedClean = await hydrateFromCloud(userId)
     console.log(`[cloudSync] hydrated from cloud${hydratedClean ? '' : ' (with per-table errors)'}`)
 
