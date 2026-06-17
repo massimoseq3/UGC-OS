@@ -1,8 +1,14 @@
-import { useState, useEffect, useLayoutEffect, useRef } from 'react'
-import { X, ImagePlus, Download, Loader2 } from 'lucide-react'
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import type { ElementType } from 'react'
+import { X, ImagePlus, Download, Loader2, Copy, Check } from 'lucide-react'
 import type { Model } from '../../stores/types'
 import { useAssetUrl } from '../../hooks/useAssetUrl'
 import { downloadImage } from '../../utils/downloadImage'
+import { copyToClipboard } from '../../utils/clipboard'
+// The influencer DNA schema (tabs → subheading groups → fields) is owned by the
+// Influencers studio. We read it here so the bank detail view groups, labels and
+// ordering stay in lockstep with the create form instead of drifting apart.
+import { TABS, ASPECT_RATIO_KEY } from '../character-studio/types'
 
 interface ModelFormProps {
   item?: Model | null
@@ -41,16 +47,6 @@ const FIELD_LABELS: Record<string, string> = {
   cameraDevice: 'Camera Device',
 }
 
-const CANONICAL_CATEGORIES = ['Physical', 'Style', 'Scene', 'Pose & Action', 'Camera'] as const
-
-const CATEGORY_ACCENT: Record<string, string> = {
-  Physical: 'bg-sky-400/40',
-  Style: 'bg-rose-400/40',
-  Scene: 'bg-emerald-400/40',
-  'Pose & Action': 'bg-amber-400/40',
-  Camera: 'bg-violet-400/40',
-}
-
 function camelToTitle(key: string): string {
   return key
     .replace(/([A-Z])/g, ' $1')
@@ -76,35 +72,60 @@ function stringifyValue(v: unknown): string {
 }
 
 // Rows carry their `path` into the (possibly nested) profile so the editable
-// inputs can write the value straight back. Built from the *original* profile
-// so the set of visible fields stays stable while editing (clearing a field to
-// empty doesn't make its row vanish mid-keystroke).
-type SpecRow = { label: string; path: string[] }
-function buildSections(profile: Record<string, unknown> | null): Array<{ name: string; rows: SpecRow[] }> {
-  if (!profile) return []
-  const keys = Object.keys(profile)
-  const looksCanonical = keys.some((k) => CANONICAL_CATEGORIES.includes(k as typeof CANONICAL_CATEGORIES[number]))
-  const ordered = looksCanonical
-    ? [...CANONICAL_CATEGORIES.filter((c) => keys.includes(c)), ...keys.filter((k) => !CANONICAL_CATEGORIES.includes(k as typeof CANONICAL_CATEGORIES[number]))]
-    : keys
+// inputs can write the value straight back. `wide` long-form fields span the
+// full row (mirrors the studio form's col-span behaviour).
+type SpecRow = { label: string; path: string[]; wide?: boolean }
+type SpecGroup = { id: string; label: string; icon?: ElementType; rows: SpecRow[] }
+type SpecTab = { id: string; label: string; groups: SpecGroup[] }
+type Leaf = { value: string; path: string[] }
 
-  const sections: Array<{ name: string; rows: SpecRow[] }> = []
-  for (const cat of ordered) {
-    const inner = profile[cat]
-    if (!isPlainRecord(inner)) {
-      const value = stringifyValue(inner)
-      if (value) sections.push({ name: camelToTitle(cat), rows: [{ label: labelFor(cat), path: [cat] }] })
-      continue
+// Flatten a stored profile (nested category → field, OR legacy flat) into a
+// lookup keyed by field key, remembering each value's path so edits write back
+// to the same place regardless of how the profile was originally grouped.
+function flattenProfile(profile: Record<string, unknown> | null, prefix: string[] = []): Map<string, Leaf> {
+  const map = new Map<string, Leaf>()
+  if (!profile) return map
+  for (const [key, value] of Object.entries(profile)) {
+    const path = [...prefix, key]
+    if (isPlainRecord(value)) {
+      for (const [k, leaf] of flattenProfile(value, path)) map.set(k, leaf)
+    } else {
+      map.set(key, { value: stringifyValue(value), path })
     }
-    const rows: SpecRow[] = []
-    for (const [k, v] of Object.entries(inner)) {
-      const value = stringifyValue(v)
-      if (!value) continue
-      rows.push({ label: labelFor(k), path: [cat, k] })
-    }
-    if (rows.length) sections.push({ name: cat, rows })
   }
-  return sections
+  return map
+}
+
+// Build the render model from the studio's TABS config, pulling in only the
+// fields that actually carry a value. The lookup is by field *key*, so a
+// profile saved under the old flat categories regroups itself into the new
+// tabs/subheadings automatically. Anything not in the schema lands in a
+// trailing "Other" group so nothing is silently dropped. Built from the
+// *original* profile so the set of visible rows stays stable while editing.
+function buildSpec(profile: Record<string, unknown> | null): { tabs: SpecTab[]; other: SpecRow[] } {
+  const flat = flattenProfile(profile)
+  const seen = new Set<string>()
+  const tabs: SpecTab[] = []
+  for (const tab of TABS) {
+    const groups: SpecGroup[] = []
+    for (const group of tab.groups) {
+      const rows: SpecRow[] = []
+      for (const field of group.fields) {
+        const leaf = flat.get(field.key)
+        if (!leaf || leaf.value.trim() === '') continue
+        seen.add(field.key)
+        rows.push({ label: field.label, path: leaf.path, wide: field.wide })
+      }
+      if (rows.length) groups.push({ id: group.id, label: group.label, icon: group.icon, rows })
+    }
+    if (groups.length) tabs.push({ id: tab.id, label: tab.label, groups })
+  }
+  const other: SpecRow[] = []
+  for (const [key, leaf] of flat) {
+    if (seen.has(key) || key === ASPECT_RATIO_KEY || leaf.value.trim() === '') continue
+    other.push({ label: labelFor(key), path: leaf.path })
+  }
+  return { tabs, other }
 }
 
 // Read the live (possibly edited) value at a profile path. Strings pass through
@@ -161,6 +182,7 @@ export default function ModelForm({ item, onSave, onCancel }: ModelFormProps) {
   const [profile, setProfile] = useState<Record<string, unknown> | null>(item?.jsonProfile ?? null)
   const [localPreview, setLocalPreview] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [copied, setCopied] = useState(false)
   const resolvedAssetUrl = useAssetUrl(characterImage)
   const resolvedSheetUrl = useAssetUrl(sheetImage)
   const displayImage = localPreview ?? resolvedAssetUrl
@@ -196,6 +218,17 @@ export default function ModelForm({ item, onSave, onCancel }: ModelFormProps) {
     downloadImage(displayImage, `model-${name || item?.id.slice(0, 8) || 'image'}`)
   }
 
+  // Copy the live (edited) DNA profile to the clipboard as formatted JSON,
+  // prefixed with the name so a pasted prompt is self-describing.
+  const handleCopy = async () => {
+    const payload = { name, ...(profile ?? {}) }
+    const ok = await copyToClipboard(JSON.stringify(payload, null, 2))
+    if (ok) {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (saving) return
@@ -216,7 +249,10 @@ export default function ModelForm({ item, onSave, onCancel }: ModelFormProps) {
     }
   }
 
-  const sections = buildSections((item?.jsonProfile as Record<string, unknown> | null) ?? null)
+  const { tabs, other } = useMemo(
+    () => buildSpec((item?.jsonProfile as Record<string, unknown> | null) ?? null),
+    [item],
+  )
   const savedDate = item?.createdAt ? new Date(item.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : null
   const metaParts = [
     'Influencer',
@@ -281,6 +317,17 @@ export default function ModelForm({ item, onSave, onCancel }: ModelFormProps) {
             {saving && <Loader2 className="h-4 w-4 animate-spin" />}
             {saving ? 'Saving…' : (item ? 'Save Changes' : 'Add Influencer')}
           </button>
+
+          {profile && (
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="flex items-center justify-center gap-2 rounded-full border border-ink/10 bg-ink/[0.04] px-5 py-2.5 text-sm font-medium text-ink-300 transition-colors hover:bg-ink/[0.08]"
+            >
+              {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
+              {copied ? 'Copied!' : 'Copy Prompt'}
+            </button>
+          )}
         </div>
 
         {/* Right — character sheet + spec sheet (the only part that scrolls) */}
@@ -320,23 +367,63 @@ export default function ModelForm({ item, onSave, onCancel }: ModelFormProps) {
             </div>
           )}
 
-          {/* Spec sheet */}
-          {sections.length === 0 ? (
+          {/* Spec sheet — two top-level tabs (Physical / Scene & Pose) each
+              broken into the same subheading groups as the studio form, laid
+              out as one continuous scroll. */}
+          {tabs.length === 0 && other.length === 0 ? (
             <p className="py-8 text-center text-xs text-ink-500">
               {item ? 'No DNA on file for this influencer.' : 'DNA will appear here after generating from Influencers.'}
             </p>
           ) : (
-            <div className="flex flex-col gap-7">
-              {sections.map((section) => (
-                <section key={section.name}>
-                  <div className="mb-3 flex items-center gap-2.5">
-                    <span className={`block h-3 w-[3px] rounded-full ${CATEGORY_ACCENT[section.name] ?? 'bg-ink/30'}`} />
-                    <h4 className="text-[11px] font-medium uppercase tracking-widest text-ink-400">{section.name}</h4>
+            <div className="flex flex-col gap-10">
+              {tabs.map((tab) => (
+                <div key={tab.id} className="flex flex-col gap-6">
+                  {/* Tab header — uppercase + accent bar, matching the Character Sheet header */}
+                  <div className="flex items-center gap-2.5">
+                    <span className="block h-3 w-[3px] rounded-full bg-influencers-400/40" />
+                    <h3 className="text-[11px] font-medium uppercase tracking-widest text-ink-400">{tab.label}</h3>
                     <span className="ml-1 h-px flex-1 bg-ink/5" />
                   </div>
-                  <dl className="grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-2">
-                    {section.rows.map((row) => (
-                      <div key={row.path.join('.')} className="flex flex-col gap-0.5 py-1.5 border-b border-ink/5 last:border-b-0 sm:[&:nth-last-child(-n+2)]:border-b-0">
+                  {tab.groups.map((group) => {
+                    const GroupIcon = group.icon
+                    return (
+                      <section key={group.id}>
+                        {/* Subheading — icon + title-case label + hairline, mirroring the studio form */}
+                        <div className="mb-3 flex items-center gap-1.5">
+                          {GroupIcon && <GroupIcon className="h-3.5 w-3.5 text-ink-100" />}
+                          <h4 className="text-sm font-semibold tracking-tight text-ink-100">{group.label}</h4>
+                        </div>
+                        <div className="mb-4 border-t border-ink/10" />
+                        <dl className="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
+                          {group.rows.map((row) => (
+                            <div key={row.path.join('.')} className={`flex flex-col gap-0.5 ${row.wide ? 'sm:col-span-2' : ''}`}>
+                              <dt className="px-3 text-[10px] font-medium uppercase tracking-widest text-ink-500">{row.label}</dt>
+                              <dd>
+                                <AutoTextarea
+                                  value={getAtPath(profile, row.path)}
+                                  onChange={(v) => setProfileField(row.path, v)}
+                                  className="w-full resize-none overflow-hidden rounded-2xl border border-transparent bg-transparent px-3 py-1.5 text-sm leading-snug text-ink-200 outline-none transition-colors hover:bg-ink/[0.04] focus:border-ink/15 focus:bg-ink/[0.04]"
+                                />
+                              </dd>
+                            </div>
+                          ))}
+                        </dl>
+                      </section>
+                    )
+                  })}
+                </div>
+              ))}
+
+              {/* Profile fields not part of the current schema — never silently dropped. */}
+              {other.length > 0 && (
+                <section>
+                  <div className="mb-3 flex items-center gap-1.5">
+                    <h4 className="text-sm font-semibold tracking-tight text-ink-100">Other</h4>
+                  </div>
+                  <div className="mb-4 border-t border-ink/10" />
+                  <dl className="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
+                    {other.map((row) => (
+                      <div key={row.path.join('.')} className="flex flex-col gap-0.5">
                         <dt className="px-3 text-[10px] font-medium uppercase tracking-widest text-ink-500">{row.label}</dt>
                         <dd>
                           <AutoTextarea
@@ -349,7 +436,7 @@ export default function ModelForm({ item, onSave, onCancel }: ModelFormProps) {
                     ))}
                   </dl>
                 </section>
-              ))}
+              )}
             </div>
           )}
         </div>
