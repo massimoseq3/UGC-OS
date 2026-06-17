@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { Trash2, Package, UserRound, FileText, Mic, Film, Plus, Video, Download, Loader2, ChevronDown, Sparkles, Check, LayoutGrid } from 'lucide-react'
+import { Trash2, Package, UserRound, FileText, Mic, Film, Plus, Video, Download, Loader2, ChevronDown, Sparkles, Check, LayoutGrid, Copy } from 'lucide-react'
 import type { Product, Model, Script, VoicePreset, BRoll } from '../../stores/types'
 import type { BankType } from '../../utils/constants'
 import { useBankStore } from '../../stores/bankStore'
@@ -7,6 +7,7 @@ import { useAppStore } from '../../stores/appStore'
 import { useAssetUrl } from '../../hooks/useAssetUrl'
 import { getAsBase64, isAssetRef } from '../../utils/assetStore'
 import { downloadImage } from '../../utils/downloadImage'
+import { copyToClipboard } from '../../utils/clipboard'
 import { sortByOrder, type SortOrder } from './bankSort'
 
 // Custom sort dropdown — replaces the native <select> so the menu is themed
@@ -171,6 +172,7 @@ function ProductCard({ item, onEdit, onDelete, inFlight }: { item: Product; onEd
 
 function ModelCard({ item, onEdit, onDelete }: { item: Model; onEdit: () => void; onDelete: () => void }) {
   const [confirm, setConfirm] = useState(false)
+  const [copied, setCopied] = useState(false)
   const resolvedImage = useAssetUrl(item.characterImage)
   // A saved character sheet stamps `sheetImage`; surface it with a badge.
   const isSheet = !!item.sheetImage
@@ -182,6 +184,19 @@ function ModelCard({ item, onEdit, onDelete }: { item: Model; onEdit: () => void
     e.stopPropagation()
     if (!resolvedImage) return
     downloadImage(resolvedImage, `model-${item.name || item.id.slice(0, 8)}`)
+  }
+
+  // Copy the influencer's DNA profile to the clipboard as formatted JSON — the
+  // same fields the detail view renders, prefixed with the name so a pasted
+  // prompt is self-describing.
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const payload = { name: item.name, ...(item.jsonProfile ?? {}) }
+    const ok = await copyToClipboard(JSON.stringify(payload, null, 2))
+    if (ok) {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    }
   }
 
   return (
@@ -220,6 +235,15 @@ function ModelCard({ item, onEdit, onDelete }: { item: Model; onEdit: () => void
           <ConfirmDelete onConfirm={onDelete} onCancel={() => setConfirm(false)} />
         ) : (
           <>
+            {item.jsonProfile && (
+              <button
+                onClick={handleCopy}
+                title={copied ? 'Copied!' : 'Copy influencer prompt (JSON)'}
+                className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white opacity-0 backdrop-blur transition-all hover:bg-black/50 group-hover:opacity-100"
+              >
+                {copied ? <Check className="h-3.5 w-3.5 text-emerald-300" /> : <Copy className="h-3.5 w-3.5" />}
+              </button>
+            )}
             {resolvedImage && (
               <button onClick={handleDownload} className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white opacity-0 backdrop-blur transition-all hover:bg-black/50 group-hover:opacity-100">
                 <Download className="h-3.5 w-3.5" />
