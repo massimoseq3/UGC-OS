@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Lock, Unlock } from 'lucide-react'
+import { useState, useRef } from 'react'
+import { Lock, Unlock, Maximize2 } from 'lucide-react'
 
 interface ChipFieldProps {
   label: string
@@ -15,10 +15,22 @@ interface ChipFieldProps {
   defaultLocked?: boolean
 }
 
+// A value this long no longer fits the single-line pill — surface the expand
+// button so the full prompt can be edited in the pop-up without scrolling.
+const LONG_VALUE = 30
+
 export default function ChipField({ label, value, onChange, suggestions, placeholder, defaultLocked = false }: ChipFieldProps) {
   const isFilled = value.trim() !== ''
   const [locked, setLocked] = useState(defaultLocked)
   const [open, setOpen] = useState(false)
+  // The full-text editor pop-up — opened from the expand button on long values.
+  const [editing, setEditing] = useState(false)
+  // Flip both pop-ups above the field when it sits near the bottom of the
+  // scrollable column. Opening downward there would extend past the content and
+  // inflate the scroll container's height, opening a phantom gap — see the
+  // flip logic in openPanel().
+  const [openUp, setOpenUp] = useState(false)
+  const wrapRef = useRef<HTMLDivElement>(null)
 
   const q = value.trim().toLowerCase()
   // Two sections: the options that match the current text float to the top,
@@ -36,7 +48,25 @@ export default function ChipField({ label, value, onChange, suggestions, placeho
     topSection = suggestions.filter((s) => s.toLowerCase() === 'none')
     restSection = suggestions.filter((s) => s.toLowerCase() !== 'none')
   }
-  const showDropdown = open && !locked && suggestions.length > 0
+  const showDropdown = open && !editing && !locked && suggestions.length > 0
+  const showExpand = !locked && value.trim().length > LONG_VALUE
+
+  // Decide flip direction from the field's distance to the viewport bottom.
+  // The scrollable column ends just above the sticky generate footer, so a
+  // field within ~280px of the bottom should pop its panel upward instead.
+  function measureDirection() {
+    const rect = wrapRef.current?.getBoundingClientRect()
+    if (rect) setOpenUp(window.innerHeight - rect.bottom < 280)
+  }
+
+  function openEditor() {
+    measureDirection()
+    setOpen(false)
+    setEditing(true)
+  }
+
+  // Shared vertical placement for the dropdown + editor pop-ups.
+  const panelPos = openUp ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -55,19 +85,34 @@ export default function ChipField({ label, value, onChange, suggestions, placeho
           </button>
         )}
       </div>
-      <div className="relative">
+      <div ref={wrapRef} className="relative">
         <input
           value={value}
           onChange={(e) => { onChange(e.target.value); setOpen(true) }}
-          onFocus={() => { if (!locked) setOpen(true) }}
+          onFocus={() => { if (!locked) { measureDirection(); setOpen(true) } }}
           onBlur={() => setTimeout(() => setOpen(false), 150)}
           onKeyDown={(e) => { if (e.key === 'Escape') setOpen(false) }}
           readOnly={locked}
           placeholder={placeholder ?? `Search or type ${label.toLowerCase()}...`}
-          className={`w-full rounded-full border border-ink/15 bg-transparent px-4 py-2 text-sm text-ink-100 placeholder-ink-500 outline-none transition-colors focus:border-influencers-500/40 ${locked ? 'cursor-not-allowed opacity-70' : ''}`}
+          className={`w-full rounded-full border border-ink/15 bg-transparent px-4 py-2 ${showExpand ? 'pr-10' : ''} text-sm text-ink-100 placeholder-ink-500 outline-none transition-colors focus:border-influencers-500/40 ${locked ? 'cursor-not-allowed opacity-70' : ''}`}
         />
+        {showExpand && (
+          // Mousedown-preventDefault keeps the input from blurring (which would
+          // race the dropdown shut) before the click opens the editor.
+          <button
+            type="button"
+            title="Edit full text"
+            aria-label="Edit full text"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={openEditor}
+            className="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-ink-400 transition-colors hover:bg-ink/10 hover:text-ink-100"
+          >
+            <Maximize2 className="h-3.5 w-3.5" />
+          </button>
+        )}
+
         {showDropdown && (
-          <div className="absolute left-0 right-0 top-full z-30 mt-1.5 overflow-hidden rounded-2xl border border-ink/10 bg-surface-2 shadow-2xl">
+          <div className={`absolute left-0 right-0 z-30 ${panelPos} overflow-hidden rounded-2xl border border-ink/10 bg-surface-2 shadow-2xl`}>
             <div className="max-h-52 overflow-y-auto p-1">
               {topSection.map((s) => (
                 <SuggestionRow key={s} text={s} selected={s === value} onPick={() => { onChange(s); setOpen(false) }} />
@@ -80,6 +125,34 @@ export default function ChipField({ label, value, onChange, suggestions, placeho
               ))}
             </div>
           </div>
+        )}
+
+        {editing && (
+          <>
+            {/* Transparent catcher so clicking anywhere outside closes the editor. */}
+            <div className="fixed inset-0 z-30" onClick={() => setEditing(false)} />
+            <div className={`absolute left-0 right-0 z-40 ${panelPos} rounded-2xl border border-ink/10 bg-surface-2 p-2 shadow-2xl`}>
+              <textarea
+                autoFocus
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Escape') setEditing(false) }}
+                rows={5}
+                placeholder={placeholder ?? `Edit ${label.toLowerCase()}...`}
+                className="w-full resize-none rounded-xl bg-transparent px-3 py-2 text-sm leading-relaxed text-ink-100 placeholder-ink-500 outline-none"
+              />
+              <div className="flex items-center justify-between gap-2 px-1 pb-0.5 pt-1">
+                <span className="text-[10px] font-medium uppercase tracking-widest text-ink-500">{label}</span>
+                <button
+                  type="button"
+                  onClick={() => setEditing(false)}
+                  className="rounded-full bg-influencers-500/15 px-3 py-1 text-[11px] font-medium text-influencers-400 transition-colors hover:bg-influencers-500/25"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          </>
         )}
       </div>
     </div>

@@ -179,6 +179,10 @@ function HistoryTile({
   // Portraits and sheets alike save as their own Bank entry, tracked by
   // linkedModelId — once saved the tile shows the Saved/attached state.
   const savedAsModel = !!linkedModel
+  // The AI model that produced this image, shown as a small caption beneath the
+  // tile (mirrors the B-Roll A-Roll/B-Roll label). Older entries may predate the
+  // stamped modelId — fall back to the raw id, or render nothing if absent.
+  const modelLabel = getModel(item.modelId)?.displayName ?? item.modelId
 
   useEffect(() => {
     if (nameDraft !== null) {
@@ -262,6 +266,7 @@ function HistoryTile({
   }
 
   return (
+    <div>
     <div
       onClick={onClick}
       className="group relative cursor-pointer overflow-hidden rounded-lg border border-ink/10 bg-black light:bg-zinc-200 transition-all hover:border-ink/20 hover:-translate-y-0.5 card-soft-shadow"
@@ -368,6 +373,12 @@ function HistoryTile({
           </TileIconButton>
         </div>
       )}
+    </div>
+    {modelLabel && (
+      <p className="mt-1 truncate text-center text-[10px] font-medium tracking-wider text-ink-500">
+        {modelLabel}
+      </p>
+    )}
     </div>
   )
 }

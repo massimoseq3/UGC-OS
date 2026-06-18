@@ -16,6 +16,22 @@ import GenerateBar from './GenerateBar'
 import LoadPresetDropdown from './LoadPresetDropdown'
 import PhotoExtractZone from './PhotoExtractZone'
 import SegmentedToggle from '../../../components/SegmentedToggle'
+import { useBankStore } from '../../../stores/bankStore'
+import { buildJsonPrompt } from '../services/generateCharacter'
+
+// Random first name for a quick preset save — gender-aware so the suggested
+// name fits the character. The user can rename it later in the Bank.
+const PRESET_FEMALE_NAMES = ['Ava', 'Mia', 'Maya', 'Nora', 'Quinn', 'Ella', 'Zoe', 'Iris', 'Luna', 'Hazel']
+const PRESET_MALE_NAMES = ['Leo', 'Noah', 'Ethan', 'Kai', 'Miles', 'Jude', 'Finn', 'Theo', 'Silas', 'Ezra']
+function presetName(profile: CharacterProfile): string {
+  const g = (profile.gender || '').toLowerCase()
+  const pool = g.startsWith('f')
+    ? PRESET_FEMALE_NAMES
+    : g.startsWith('m') && !g.startsWith('mx')
+      ? PRESET_MALE_NAMES
+      : [...PRESET_FEMALE_NAMES, ...PRESET_MALE_NAMES]
+  return pool[Math.floor(Math.random() * pool.length)]
+}
 
 interface ControlsPanelProps {
   profile: CharacterProfile
@@ -69,6 +85,20 @@ export default function ControlsPanel({
     onProfileChange({ ...profile, [key]: value })
   }
 
+  // Save the current form parameters into the Influencers bank as a reusable
+  // preset (no generated image — characterImage stays empty, so it shows under
+  // "Bank" in the preset picker). addModel surfaces its own success/error toast.
+  const addModel = useBankStore((s) => s.addModel)
+  const handleSavePreset = () => {
+    void addModel({
+      name: presetName(profile),
+      characterImage: '',
+      notes: '',
+      source: 'character-studio',
+      jsonProfile: buildJsonPrompt(profile) as Record<string, unknown>,
+    })
+  }
+
   return (
     <div className="flex min-w-0 flex-col md:h-full">
       {/* Rounded segmented toggle — filled so all tabs share the column
@@ -106,6 +136,7 @@ export default function ControlsPanel({
             thumbnail={extractedThumb}
             onPhotoDrop={onPhotoDrop}
             onReset={onResetExtract}
+            onSavePreset={handleSavePreset}
           />
         </div>
       </div>

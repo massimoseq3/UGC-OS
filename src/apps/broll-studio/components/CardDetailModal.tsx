@@ -29,6 +29,7 @@ import { useAssetUrl } from '../../../hooks/useAssetUrl'
 import { getDefaultModel, getModel, estimateCredits, formatCredits, type ImageResolution } from '../../../utils/models'
 import { tagChipStyle, tagLabel, rollTypeForTag } from './variationTags'
 import { humanizeError } from '../../../utils/friendlyError'
+import ModelWaitNotice from '../../../components/ModelWaitNotice'
 import {
   ModalGallery,
   IconChipButton,
@@ -691,6 +692,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                   Animate{videoCreditsLabel ? ` (${videoCreditsLabel})` : ''}
                 </button>
               )}
+              {tab === 'image' && <ModelWaitNotice modelId={imageModelId} className="mt-2" />}
             </div>
           </div>
 

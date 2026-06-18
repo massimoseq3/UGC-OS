@@ -5,6 +5,7 @@ import ConstraintChip from '../../../components/ConstraintChip'
 import AspectIcon from '../../../components/AspectIcon'
 import ClearAllButton from '../../../components/ClearAllButton'
 import SegmentedToggle from '../../../components/SegmentedToggle'
+import ModelWaitNotice from '../../../components/ModelWaitNotice'
 import { estimateCredits, formatCredits, getDefaultModel, getModel, type ImageResolution } from '../../../utils/models'
 
 interface GenerateBarProps {
@@ -152,9 +153,12 @@ export default function GenerateBar({
         </span>
       </button>
 
-      {/* Clear All — tucked tight under the Generate button, bottom-left. */}
-      <div className="!mt-1 px-1">
-        <ClearAllButton onClear={onClear} />
+      {/* Wait notice (when shown) sits bottom-left; Clear All is pinned
+          bottom-right via ml-auto so it never shifts when the notice toggles.
+          Both are the same size/color, so the row height stays solid. */}
+      <div className="!mt-1 flex items-center gap-3 px-1">
+        <ModelWaitNotice modelId={selectedModelId} />
+        <ClearAllButton onClear={onClear} className="ml-auto" />
       </div>
     </div>
   )
