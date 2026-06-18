@@ -28,6 +28,7 @@ import VideoRefStrip from '../../../components/video/VideoRefStrip'
 import MediaRefStrip, { type MediaRefValue } from '../../../components/video/MediaRefStrip'
 import { readMediaDuration } from '../../../utils/media'
 import OmniInputsSection from './OmniInputsSection'
+import MotionControlSection from './MotionControlSection'
 import { useAppStore } from '../../../stores/appStore'
 import type { BankType } from '../../../utils/constants'
 import type { BRoll } from '../../../stores/types'
@@ -67,7 +68,8 @@ export interface PromptRef {
   // Where to slot the ref. 'start' → start frame, 'end' → end frame,
   // 'ref' → reference image array. 'audio'/'video' → Seedance reference
   // clips. 'omni-*' → Gemini Omni characters / designed voices / source clip.
-  slot: 'start' | 'end' | 'ref' | 'audio' | 'video' | 'omni-character' | 'omni-voice' | 'omni-clip'
+  // 'motion-image'/'motion-video' → Kling Motion Control's character + driving clip.
+  slot: 'start' | 'end' | 'ref' | 'audio' | 'video' | 'omni-character' | 'omni-voice' | 'omni-clip' | 'motion-image' | 'motion-video'
   // audio / video / omni-clip: clip length read from file metadata.
   durationSeconds?: number
   // omni-character: the Influencers bank row id. The kie characterId is
@@ -90,6 +92,9 @@ export interface PromptPanelState {
   audio: boolean
   instrumental: boolean
   refs: PromptRef[]
+  // Kling Motion Control: how the output character is oriented. Defaults to
+  // 'video' (follow the driving clip). Unused by other models.
+  characterOrientation?: 'image' | 'video'
 }
 
 interface PromptPanelProps {
@@ -189,6 +194,8 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
   const supportsRefAudio = state.mode === 'video' && !!model?.supportsReferenceAudio
   const supportsRefVideos = state.mode === 'video' && !!model?.supportsReferenceVideos
   const isOmni = state.mode === 'video' && !!model?.omniInputs
+  const isMotionControl = state.mode === 'video' && !!model?.motionControl
+  const motionOrientation = state.characterOrientation ?? 'video'
 
   // For Image we register text-to-image by default; pickers filter on task
   // alone so models can advertise multiple modes and the picker shows them.
@@ -222,7 +229,9 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
     const patch: Partial<PromptPanelState> = {}
     if (state.mode === 'video' && model?.videoConstraints) {
       const c = model.videoConstraints
-      if (!c.aspectRatios.includes(state.aspectRatio)) patch.aspectRatio = c.aspectRatios[0]
+      // Motion Control declares no aspect ratios (output inherits the image),
+      // so only snap when the model actually offers a set.
+      if (c.aspectRatios.length > 0 && !c.aspectRatios.includes(state.aspectRatio)) patch.aspectRatio = c.aspectRatios[0]
       if (c.durations.length > 0 && !c.durations.includes(state.durationSeconds)) patch.durationSeconds = c.durations[0]
       if (!c.resolutions.includes(state.resolution)) patch.resolution = c.default ?? c.resolutions[0] ?? '720p'
       if (!c.supportsAudio) patch.audio = false
@@ -238,18 +247,26 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
     // state that still alters the generation.
     if (state.mode === 'video') {
       let nextRefs = state.refs
-      if (model?.omniInputs) {
-        // Omni has no frame slots; a start/end frame is just another image ref.
-        nextRefs = nextRefs.map((r) =>
-          r.slot === 'start' || r.slot === 'end' ? { ...r, slot: 'ref' as const } : r,
-        )
+      if (model?.motionControl) {
+        // Motion Control only understands its own image + driving clip; every
+        // other slot is dead state the panel won't render.
+        nextRefs = nextRefs.filter((r) => r.slot === 'motion-image' || r.slot === 'motion-video')
       } else {
-        nextRefs = nextRefs.filter(
-          (r) => r.slot !== 'omni-character' && r.slot !== 'omni-voice' && r.slot !== 'omni-clip',
-        )
+        // Leaving a motion-control model: drop its slots before the rest.
+        nextRefs = nextRefs.filter((r) => r.slot !== 'motion-image' && r.slot !== 'motion-video')
+        if (model?.omniInputs) {
+          // Omni has no frame slots; a start/end frame is just another image ref.
+          nextRefs = nextRefs.map((r) =>
+            r.slot === 'start' || r.slot === 'end' ? { ...r, slot: 'ref' as const } : r,
+          )
+        } else {
+          nextRefs = nextRefs.filter(
+            (r) => r.slot !== 'omni-character' && r.slot !== 'omni-voice' && r.slot !== 'omni-clip',
+          )
+        }
+        if (!model?.supportsReferenceAudio) nextRefs = nextRefs.filter((r) => r.slot !== 'audio')
+        if (!model?.supportsReferenceVideos) nextRefs = nextRefs.filter((r) => r.slot !== 'video')
       }
-      if (!model?.supportsReferenceAudio) nextRefs = nextRefs.filter((r) => r.slot !== 'audio')
-      if (!model?.supportsReferenceVideos) nextRefs = nextRefs.filter((r) => r.slot !== 'video')
       const changed = nextRefs.length !== state.refs.length
         || nextRefs.some((r, i) => r !== state.refs[i])
       if (changed) patch.refs = nextRefs
@@ -408,15 +425,22 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
   }
 
   // Parallel generations are allowed — the in-flight count never gates
-  // submit. The user's kie.ai credits are the natural ceiling.
-  const canSubmit = state.prompt.trim().length > 0 && !!state.modelId
+  // submit. The user's kie.ai credits are the natural ceiling. Motion Control
+  // has an optional prompt but two required inputs (character image + driving
+  // video), so it gates on those instead of the prompt.
+  const hasMotionInputs =
+    state.refs.some((r) => r.slot === 'motion-image') && state.refs.some((r) => r.slot === 'motion-video')
+  const canSubmit = !!state.modelId && (
+    isMotionControl ? hasMotionInputs : state.prompt.trim().length > 0
+  )
   void isGenerating
 
   // Position the mention popover near the textarea (lower-left).
   const popoverAnchor = { top: 8, left: 8 }
 
   const hasRefsSection = state.mode === 'video' || state.mode === 'image'
-  const presetsApplicable = state.mode === 'image' || state.mode === 'video'
+  // Presets are prompt formats; Motion Control's prompt is secondary, so skip them.
+  const presetsApplicable = state.mode === 'image' || (state.mode === 'video' && !isMotionControl)
 
   const generateLabel =
     state.mode === 'image' ? 'Generate Image'
@@ -433,9 +457,15 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
     : state.mode === 'video' ? 'Video Model'
     : 'Music Model'
 
+  // Motion Control bills per second of the *output*, which tracks the driving
+  // clip clamped to the orientation cap (≤30s video / ≤10s photo). Estimate
+  // from the attached clip's measured length so the credit readout is honest.
+  const motionDrivingSeconds = state.refs.find((r) => r.slot === 'motion-video')?.durationSeconds
+  const motionDuration = Math.min(motionDrivingSeconds ?? 5, motionOrientation === 'image' ? 10 : 30)
+
   const generateCredits = formatCredits(
     estimateCredits(state.modelId, {
-      durationSeconds: state.mode === 'video' ? state.durationSeconds : undefined,
+      durationSeconds: isMotionControl ? motionDuration : state.mode === 'video' ? state.durationSeconds : undefined,
       imageCount: state.mode === 'image' ? 1 : undefined,
       resolution: state.mode !== 'music' ? state.resolution : undefined,
       audio: state.mode === 'video' ? state.audio : undefined,
@@ -480,7 +510,11 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
                   onChange={(modelId) => onChange({ ...state, modelId })}
                   costParams={
                     state.mode === 'video'
-                      ? { durationSeconds: state.durationSeconds, resolution: state.resolution, audio: state.audio }
+                      ? {
+                          durationSeconds: isMotionControl ? motionDuration : state.durationSeconds,
+                          resolution: state.resolution,
+                          audio: state.audio,
+                        }
                       : state.mode === 'image'
                       ? { imageCount: 1, resolution: state.resolution }
                       : {}
@@ -500,6 +534,10 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
                     value={state.resolution}
                     onChange={(v) => onChange({ ...state, resolution: v })}
                   />
+                  {/* Motion Control has no aspect/duration/audio controls — clip
+                      length comes from the driving video and aspect from the
+                      character image. Only the resolution chip applies. */}
+                  {!isMotionControl && (
                   <ConstraintChip
                     openDirection="down"
                     options={model.videoConstraints.aspectRatios}
@@ -512,7 +550,8 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
                       </span>
                     )}
                   />
-                  {model.videoConstraints.durations.length > 0 && (
+                  )}
+                  {!isMotionControl && model.videoConstraints.durations.length > 0 && (
                     <ConstraintChip
                       openDirection="down"
                       options={model.videoConstraints.durations.map(String)}
@@ -521,7 +560,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
                       render={(v) => <span>{v}s</span>}
                     />
                   )}
-                  {model.videoConstraints.supportsAudio && (
+                  {!isMotionControl && model.videoConstraints.supportsAudio && (
                     <button
                       type="button"
                       onClick={() => onChange({ ...state, audio: !state.audio })}
@@ -595,7 +634,21 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
             {/* Reference inputs */}
             {hasRefsSection && (
               <>
-                {state.mode === 'video' && (
+                {state.mode === 'video' && isMotionControl && (
+                  <div>
+                    <span className="text-sm font-medium text-ink-200">Motion inputs</span>
+                    <div className="mt-2">
+                      <MotionControlSection
+                        refs={state.refs}
+                        onChangeRefs={(refs) => onChange({ ...state, refs })}
+                        orientation={motionOrientation}
+                        onChangeOrientation={(o) => onChange({ ...state, characterOrientation: o })}
+                        onError={(m) => addToast(m, 'error')}
+                      />
+                    </div>
+                  </div>
+                )}
+                {state.mode === 'video' && !isMotionControl && (
                   <div>
                     <span className="text-sm font-medium text-ink-200">
                       {supportsFrames ? 'Reference frames' : 'Reference images'}
@@ -718,22 +771,26 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
                 placeholder={
                   state.mode === 'image'
                     ? 'Describe the image you want… (type @ to reference banks)'
+                    : isMotionControl
+                    ? 'Optional — refine the motion or leave blank…'
                     : state.mode === 'video'
                     ? 'Describe the video… (type @ to reference banks)'
                     : 'Describe the music — genre, mood, instruments…'
                 }
                 className="mt-2 min-h-[120px] w-full grow resize-none rounded-2xl border border-ink/10 bg-ink/[0.03] px-3.5 py-3 text-[13px] text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-ink/20 focus:bg-ink/[0.05]"
               />
-              {mentionOpen && state.mode !== 'music' && (
+              {mentionOpen && state.mode !== 'music' && !isMotionControl && (
                 <MentionPopover
                   query={mentionQuery}
                   onSelect={handleMentionSelect}
                   anchor={popoverAnchor}
                 />
               )}
-              <p className="mt-2 text-[11px] text-ink-500">
-                Tip: type <span className="font-medium text-ink-400">@</span> to reference Products, Influencers, or B-Rolls.
-              </p>
+              {!isMotionControl && (
+                <p className="mt-2 text-[11px] text-ink-500">
+                  Tip: type <span className="font-medium text-ink-400">@</span> to reference Products, Influencers, or B-Rolls.
+                </p>
+              )}
             </div>
 
           </div>

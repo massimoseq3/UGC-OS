@@ -14,7 +14,7 @@ export type Task = 'chat' | 'vision' | 'image' | 'video' | 'tts' | 'music'
 
 export type ImageMode = 'text-to-image' | 'image-to-image' | 'image-edit'
 
-export type VideoMode = 'text-to-video' | 'image-to-video' | 'frames-to-video' | 'reference-to-video'
+export type VideoMode = 'text-to-video' | 'image-to-video' | 'frames-to-video' | 'reference-to-video' | 'motion-control'
 
 export type MusicMode = 'text-to-music'
 
@@ -93,6 +93,12 @@ export interface ModelEntry {
   // Gemini Omni only: model accepts persistent character ids, designed voice
   // ids, and a trimmed source video clip, under a shared 7-slot input quota.
   omniInputs?: boolean
+  // Kling Motion Control only: model takes a reference character image plus a
+  // driving video and animates the character with the video's motion. Its
+  // input shape (input_urls + video_urls + character_orientation) doesn't map
+  // onto the standard frame/reference modes, so Playground renders a dedicated
+  // input section when this is set. See buildVideoInput's motion-control branch.
+  motionControl?: boolean
   voices?: Voice[]
   fetchVoicesAtRuntime?: boolean
   pricing?: Pricing
@@ -294,6 +300,64 @@ export const MODEL_REGISTRY: ModelEntry[] = [
       resolutions: ['std', 'pro', '4K'],
       aspectRatios: ['16:9', '9:16', '1:1'],
       supportsAudio: true,
+    },
+  },
+  // Kling Motion Control — character animation by motion transfer. Takes a
+  // reference image (the character) + a driving video (the motion) and outputs
+  // the character performing that motion. Standard createTask/recordInfo
+  // transport; the unique part is the input shape (input_urls + video_urls +
+  // character_orientation), handled in buildVideoInput's motion-control branch.
+  // No duration/aspect params — clip length is decided by the driving video +
+  // character_orientation ('image' → ≤10s, 'video' → ≤30s), so durations: []
+  // and aspectRatios: [] (aspect inherits from the reference image).
+  // Per-second pricing keyed on resolution (720p/1080p). Source: kie.ai/pricing.
+  // Docs: kling-3.0/motion-control · kling-2.6/motion-control on docs.kie.ai.
+  {
+    id: 'kling-3.0/motion-control',
+    displayName: 'Kling 3.0 Motion Control',
+    provider: 'Kling AI',
+    task: 'video',
+    modes: ['motion-control'],
+    tags: ['new'],
+    motionControl: true,
+    pricing: {
+      unit: 'per-second',
+      credits: 20,
+      priceFor: ({ durationSeconds = 5, resolution = '720p' }) => {
+        const perSec = resolution === '1080p' ? 27 : 20
+        return perSec * durationSeconds
+      },
+    },
+    videoEndpoint: 'createTask',
+    videoConstraints: {
+      durations: [],
+      resolutions: ['720p', '1080p'],
+      default: '720p',
+      aspectRatios: [],
+    },
+  },
+  {
+    id: 'kling-2.6/motion-control',
+    displayName: 'Kling 2.6 Motion Control',
+    provider: 'Kling AI',
+    task: 'video',
+    modes: ['motion-control'],
+    tags: ['new', 'cheap'],
+    motionControl: true,
+    pricing: {
+      unit: 'per-second',
+      credits: 11,
+      priceFor: ({ durationSeconds = 5, resolution = '720p' }) => {
+        const perSec = resolution === '1080p' ? 18 : 11
+        return perSec * durationSeconds
+      },
+    },
+    videoEndpoint: 'createTask',
+    videoConstraints: {
+      durations: [],
+      resolutions: ['720p', '1080p'],
+      default: '720p',
+      aspectRatios: [],
     },
   },
   // Veo 3.1: kie bills PER VIDEO at a flat rate keyed on resolution. Duration
@@ -693,6 +757,13 @@ export interface VideoGenOptions {
   omniCharacterIds?: string[]
   omniAudioIds?: string[]
   videoClip?: { url: string; start: number; ends: number }
+  // Kling Motion Control only: the reference character image and the driving
+  // video (both already hosted), plus how the output character should be
+  // oriented ('video' follows the driving clip, ≤30s; 'image' matches the
+  // reference photo, ≤10s).
+  motionImageUrl?: string
+  motionVideoUrl?: string
+  characterOrientation?: 'image' | 'video'
 }
 
 // Resolves a registry model id to the actual kie.ai slug to send in the
@@ -715,6 +786,20 @@ export function buildVideoInput(modelId: string, opts: VideoGenOptions): Record<
   const ar = opts.aspectRatio ?? '9:16'
   const duration = opts.duration ?? 5
   const resolution = opts.resolution ?? '720p'
+
+  // ── Kling Motion Control (kling-3.0 / kling-2.6 motion-control) ──
+  // Character image + driving video + orientation. No aspect/duration params —
+  // both are decided by the inputs. `prompt` is optional (kie has its own
+  // default); we send it only when the user typed one.
+  if (m.motionControl) {
+    return {
+      ...(opts.prompt?.trim() ? { prompt: opts.prompt } : {}),
+      input_urls: opts.motionImageUrl ? [opts.motionImageUrl] : [],
+      video_urls: opts.motionVideoUrl ? [opts.motionVideoUrl] : [],
+      character_orientation: opts.characterOrientation ?? 'video',
+      mode: resolution === '1080p' ? '1080p' : '720p',
+    }
+  }
 
   // ── Veo family ──
   if (modelId.startsWith('veo3')) {
