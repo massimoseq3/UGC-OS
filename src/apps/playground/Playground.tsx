@@ -40,7 +40,10 @@ function inferVideoMode(refs: PromptRef[]): VideoMode {
 // refs keep their existing persistence behaviour.
 function pruneHeavyRefs(refs: PromptRef[]): PromptRef[] {
   return refs.filter(
-    (r) => !((r.slot === 'audio' || r.slot === 'video' || r.slot === 'omni-clip') && r.url.startsWith('data:')),
+    (r) => !(
+      (r.slot === 'audio' || r.slot === 'video' || r.slot === 'omni-clip' || r.slot === 'motion-video') &&
+      r.url.startsWith('data:')
+    ),
   )
 }
 
@@ -239,7 +242,7 @@ export default function Playground() {
 
   async function handleSubmit() {
     const promptText = state.prompt.trim()
-    if (!promptText || !state.modelId) return
+    if (!state.modelId) return
 
     const id = crypto.randomUUID()
     const mode = state.mode
@@ -248,7 +251,25 @@ export default function Playground() {
     // mutate this job's params while it runs.
     const refsSnapshot = state.refs.slice()
     const hasRefs = refsSnapshot.length > 0
-    const inferredVideoMode = inferVideoMode(refsSnapshot)
+    // Motion Control fixes the video mode (it doesn't infer from frame slots)
+    // and makes the prompt optional but the character image + driving video
+    // required. Everything else infers the mode from the attached frames.
+    const isMotionControl = mode === 'video' && !!getModel(state.modelId)?.motionControl
+    const inferredVideoMode: VideoMode = isMotionControl ? 'motion-control' : inferVideoMode(refsSnapshot)
+    if (!isMotionControl && !promptText) return
+    if (isMotionControl) {
+      const hasImg = refsSnapshot.some((r) => r.slot === 'motion-image')
+      const hasVid = refsSnapshot.some((r) => r.slot === 'motion-video')
+      if (!hasImg || !hasVid) {
+        addToast('Motion Control needs a character image and a driving video.', 'error')
+        return
+      }
+    }
+    const motionOrientation = state.characterOrientation ?? 'video'
+    const motionDuration = Math.min(
+      refsSnapshot.find((r) => r.slot === 'motion-video')?.durationSeconds ?? 5,
+      motionOrientation === 'image' ? 10 : 30,
+    )
 
     // Auto-swap the model to match what the user actually attached.
     // Image: text-to-image → image-to-image sibling when refs are present.
@@ -257,7 +278,7 @@ export default function Playground() {
     let modelId = state.modelId
     if (mode === 'image') {
       modelId = resolveImageModelForRefs(state.modelId, hasRefs)
-    } else if (mode === 'video') {
+    } else if (mode === 'video' && !isMotionControl) {
       const resolved = resolveVideoModelForMode(state.modelId, inferredVideoMode)
       if (!resolved) {
         const pickedLabel = getModel(state.modelId)?.displayName ?? state.modelId
@@ -277,9 +298,9 @@ export default function Playground() {
       ? {
           mode: inferredVideoMode,
           aspectRatio: state.aspectRatio,
-          durationSeconds: state.durationSeconds,
+          durationSeconds: isMotionControl ? motionDuration : state.durationSeconds,
           resolution: state.resolution,
-          audio: state.audio,
+          audio: isMotionControl ? false : state.audio,
           videoEndpoint: getModel(modelId)?.videoEndpoint === 'veo' ? ('veo' as const) : undefined,
         }
       : undefined
@@ -310,6 +331,21 @@ export default function Playground() {
           referenceUrls: refsSnapshot.map((r) => r.url),
         })
         taskId = started.taskId
+      } else if (mode === 'video' && isMotionControl) {
+        const started = await startPlaygroundVideoTask({
+          prompt: promptText,
+          modelId,
+          mode: 'motion-control',
+          aspectRatio: videoParams!.aspectRatio,
+          durationSeconds: videoParams!.durationSeconds,
+          resolution: videoParams!.resolution,
+          audio: false,
+          motionImageUrl: refsSnapshot.find((r) => r.slot === 'motion-image')?.url,
+          motionVideoUrl: refsSnapshot.find((r) => r.slot === 'motion-video')?.url,
+          characterOrientation: motionOrientation,
+        })
+        taskId = started.taskId
+        videoEndpoint = started.videoEndpoint
       } else if (mode === 'video') {
         const first = refsSnapshot.find((r) => r.slot === 'start')?.url
           ?? (inferredVideoMode === 'reference-to-video' ? undefined : refsSnapshot.find((r) => r.slot === 'ref')?.url)

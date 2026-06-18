@@ -92,7 +92,7 @@ export interface VideoHistoryItem {
   id: string
   modelId: string
   prompt: string
-  mode: 'text-to-video' | 'image-to-video' | 'frames-to-video' | 'reference-to-video'
+  mode: 'text-to-video' | 'image-to-video' | 'frames-to-video' | 'reference-to-video' | 'motion-control'
   aspectRatio: string
   durationSeconds?: number
   resolution?: string

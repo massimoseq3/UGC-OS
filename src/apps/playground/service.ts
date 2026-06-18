@@ -177,6 +177,11 @@ export interface PlaygroundVideoStartInput {
   omniCharacterBankIds?: string[]
   omniAudioIds?: string[]
   videoClip?: { url: string; start: number; ends: number }
+  // Kling Motion Control — the reference character image + driving video
+  // (data: / asset:// / http(s), resolved + hosted here) and the orientation.
+  motionImageUrl?: string
+  motionVideoUrl?: string
+  characterOrientation?: 'image' | 'video'
 }
 
 export async function startPlaygroundVideoTask(
@@ -246,6 +251,19 @@ export async function startPlaygroundVideoTask(
     }
   }
 
+  // Motion Control: host the reference image + driving video. The video is
+  // typically a large data: URI (an uploaded clip) that ensureHostedUrl pushes
+  // to kie's file host.
+  let motionImageUrl: string | undefined
+  let motionVideoUrl: string | undefined
+  if (input.mode === 'motion-control') {
+    motionImageUrl = await hosted(input.motionImageUrl)
+    motionVideoUrl = await hosted(input.motionVideoUrl)
+    if (!motionImageUrl || !motionVideoUrl) {
+      throw new Error('Motion Control needs both a character image and a driving video. Re-attach them and try again.')
+    }
+  }
+
   const buildOpts = {
     prompt: input.prompt,
     mode: input.mode,
@@ -262,6 +280,9 @@ export async function startPlaygroundVideoTask(
     omniCharacterIds,
     omniAudioIds: input.omniAudioIds?.length ? input.omniAudioIds : undefined,
     videoClip,
+    motionImageUrl,
+    motionVideoUrl,
+    characterOrientation: input.characterOrientation,
   }
   const body = buildVideoInput(input.modelId, buildOpts)
 
