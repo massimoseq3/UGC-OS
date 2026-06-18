@@ -1,5 +1,5 @@
-import type { ElementType } from 'react'
-import { ScanFace, PersonStanding, Camera } from 'lucide-react'
+import { useState, type ElementType } from 'react'
+import { ScanFace, PersonStanding, Camera, Copy, Check } from 'lucide-react'
 import type { TabId, CharacterProfile } from '../types'
 import { TABS, getTabFields, createEmptyProfile } from '../types'
 
@@ -17,7 +17,8 @@ import LoadPresetDropdown from './LoadPresetDropdown'
 import PhotoExtractZone from './PhotoExtractZone'
 import SegmentedToggle from '../../../components/SegmentedToggle'
 import { useBankStore } from '../../../stores/bankStore'
-import { buildJsonPrompt } from '../services/generateCharacter'
+import { buildImagePrompt, buildSheetPrompt, buildJsonPrompt } from '../services/generateCharacter'
+import { copyToClipboard } from '../../../utils/clipboard'
 
 // Random first name for a quick preset save — gender-aware so the suggested
 // name fits the character. The user can rename it later in the Bank.
@@ -31,6 +32,30 @@ function presetName(profile: CharacterProfile): string {
       ? PRESET_MALE_NAMES
       : [...PRESET_FEMALE_NAMES, ...PRESET_MALE_NAMES]
   return pool[Math.floor(Math.random() * pool.length)]
+}
+
+// Right-aligned header action: copies the full assembled prompt (exactly what
+// would be sent to the image model) to the clipboard.
+function CopyPromptButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false)
+  const handleCopy = async () => {
+    if (await copyToClipboard(text)) {
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1600)
+    }
+  }
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      disabled={!text.trim()}
+      title="Copy the full prompt"
+      className="ml-auto flex items-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.02] px-2.5 py-1 text-[11px] font-medium text-ink-400 transition-colors hover:border-ink/20 hover:bg-ink/[0.05] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-40"
+    >
+      {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+      {copied ? 'Copied' : 'Copy prompt'}
+    </button>
+  )
 }
 
 interface ControlsPanelProps {
@@ -99,6 +124,10 @@ export default function ControlsPanel({
     })
   }
 
+  // The full assembled prompt for the current mode — what the Copy prompt
+  // button in the first section header puts on the clipboard.
+  const fullPrompt = sheetMode ? buildSheetPrompt(profile, sheetAspect) : buildImagePrompt(profile)
+
   return (
     <div className="flex min-w-0 flex-col md:h-full">
       {/* Rounded segmented toggle — filled so all tabs share the column
@@ -149,16 +178,18 @@ export default function ControlsPanel({
           boundary between groups (identity → skin → eyes → hair, …). */}
       <div className="min-w-0 flex-1 p-4 md:overflow-y-auto">
         <div className="flex flex-col gap-7">
-          {currentTab.groups.map((group) => {
+          {currentTab.groups.map((group, groupIndex) => {
             const GroupIcon = group.icon
             return (
             <div key={group.id}>
               {/* Section subheading — a left-aligned icon + title-case label,
                   then a hairline rule, so each tab reads as a few scannable
-                  sections above the all-caps field labels. */}
+                  sections above the all-caps field labels. The first section's
+                  header also carries the right-aligned Copy prompt action. */}
               <div className="mb-3 flex items-center gap-1.5">
                 {GroupIcon && <GroupIcon className="h-3.5 w-3.5 text-ink-100" />}
                 <h4 className="text-sm font-semibold tracking-tight text-ink-100">{group.label}</h4>
+                {groupIndex === 0 && <CopyPromptButton text={fullPrompt} />}
               </div>
               <div className="mb-4 border-t border-ink/10" />
               {/* Two-column grid: short one-word fields (gender, age, eye
