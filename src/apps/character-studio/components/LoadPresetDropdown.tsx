@@ -1,7 +1,18 @@
 import { useState } from 'react'
 import { ChevronRight, UserRound, Sparkles } from 'lucide-react'
 import type { CharacterProfile } from '../types'
-import { createEmptyProfile, PRESET_MARIE, PRESET_ZANE } from '../types'
+import {
+  createEmptyProfile,
+  PRESET_MARIE,
+  PRESET_ZANE,
+  PRESET_YUKI,
+  PRESET_AMARA,
+  PRESET_DEV,
+  PRESET_SOFIA,
+  PRESET_HIROSHI,
+  PRESET_TENZIN,
+  PRESET_ELEANOR,
+} from '../types'
 import type { Model } from '../../../stores/types'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
@@ -11,6 +22,13 @@ import SlideOver from '../../../components/SlideOver'
 const BUILTIN_PRESETS: Array<{ id: string; name: string; profile: CharacterProfile }> = [
   { id: 'builtin-marie', name: 'Marie', profile: PRESET_MARIE },
   { id: 'builtin-zane', name: 'Zane', profile: PRESET_ZANE },
+  { id: 'builtin-yuki', name: 'Yuki', profile: PRESET_YUKI },
+  { id: 'builtin-amara', name: 'Amara', profile: PRESET_AMARA },
+  { id: 'builtin-dev', name: 'Dev', profile: PRESET_DEV },
+  { id: 'builtin-sofia', name: 'Sofia', profile: PRESET_SOFIA },
+  { id: 'builtin-hiroshi', name: 'Hiroshi', profile: PRESET_HIROSHI },
+  { id: 'builtin-tenzin', name: 'Tenzin', profile: PRESET_TENZIN },
+  { id: 'builtin-eleanor', name: 'Eleanor', profile: PRESET_ELEANOR },
 ]
 
 // Small influencer card — mirrors the Bank's portrait cards (9:16 image with

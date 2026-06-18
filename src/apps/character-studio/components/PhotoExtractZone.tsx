@@ -8,6 +8,9 @@ interface PhotoExtractZoneProps {
   thumbnail: string | null
   onPhotoDrop: (file: File) => void
   onReset: () => void
+  // Save the current (auto-filled) form parameters to the Influencers bank as a
+  // reusable preset. Optional — the tick only renders when wired.
+  onSavePreset?: () => void
 }
 
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
@@ -19,9 +22,11 @@ export default function PhotoExtractZone({
   thumbnail,
   onPhotoDrop,
   onReset,
+  onSavePreset,
 }: PhotoExtractZoneProps) {
   const [dragOver, setDragOver] = useState(false)
   const [validationError, setValidationError] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const validateAndSubmit = useCallback((file: File) => {
@@ -90,6 +95,21 @@ export default function PhotoExtractZone({
             Auto-filled from reference image
           </span>
         </div>
+        {onSavePreset && (
+          <button
+            onClick={() => { onSavePreset(); setSaved(true); window.setTimeout(() => setSaved(false), 2000) }}
+            title={saved ? 'Saved as preset' : 'Save these parameters as a preset'}
+            className={`flex shrink-0 items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-medium transition-colors ${
+              saved
+                ? 'border-green-500/50 bg-green-500/25 text-green-200 light:text-green-700'
+                : 'border-green-500/30 bg-green-500/10 text-green-300 light:text-green-700 hover:bg-green-500/20'
+            }`}
+            aria-label="Save as preset"
+          >
+            <Check className="h-3 w-3" strokeWidth={2.5} />
+            {saved ? 'Saved' : 'Save'}
+          </button>
+        )}
         <button
           onClick={onReset}
           className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-ink-400 transition-colors hover:bg-ink/5 hover:text-ink-200"

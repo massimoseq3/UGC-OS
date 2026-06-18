@@ -13,6 +13,7 @@ import SegmentedToggle from '../../../components/SegmentedToggle'
 import ClearAllButton from '../../../components/ClearAllButton'
 import AspectIcon from '../../../components/AspectIcon'
 import ConstraintChip from '../../../components/ConstraintChip'
+import ModelWaitNotice from '../../../components/ModelWaitNotice'
 import {
   getDefaultModel,
   getModel,
@@ -833,6 +834,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
             {generateCredits && <span className="text-white/70"> ({generateCredits})</span>}
           </span>
         </button>
+        {state.mode === 'image' && <ModelWaitNotice modelId={state.modelId} className="mt-2" />}
       </div>
     </div>
   )
