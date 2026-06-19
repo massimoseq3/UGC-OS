@@ -302,6 +302,36 @@ export const MODEL_REGISTRY: ModelEntry[] = [
       supportsAudio: true,
     },
   },
+  // Kling V3 Turbo (image-to-video) — fast image-conditioned animator. Takes a
+  // required image_urls[] (a single start frame in our flows) + duration +
+  // resolution. No text-to-video and no aspect_ratio param: aspect inherits
+  // from the input image, so aspectRatios is [] and the picker hides it.
+  // Per-second pricing keyed on resolution (720p/1080p). Source: kie.ai/pricing.
+  // Docs: kling/v3-turbo-image-to-video on docs.kie.ai.
+  {
+    id: 'kling/v3-turbo-image-to-video',
+    displayName: 'Kling V3 Turbo',
+    provider: 'Kling AI',
+    task: 'video',
+    modes: ['image-to-video'],
+    tags: ['new', 'fast'],
+    supportsReferenceImages: true,
+    pricing: {
+      unit: 'per-second',
+      credits: 18,
+      priceFor: ({ durationSeconds = 5, resolution = '720p' }) => {
+        const perSec = resolution === '1080p' ? 22.5 : 18
+        return perSec * durationSeconds
+      },
+    },
+    videoEndpoint: 'createTask',
+    videoConstraints: {
+      durations: [3, 5, 7, 10, 15],
+      resolutions: ['720p', '1080p'],
+      default: '720p',
+      aspectRatios: [],
+    },
+  },
   // Kling Motion Control — character animation by motion transfer. Takes a
   // reference image (the character) + a driving video (the motion) and outputs
   // the character performing that motion. Standard createTask/recordInfo
@@ -825,6 +855,23 @@ export function buildVideoInput(modelId: string, opts: VideoGenOptions): Record<
       ...(imageUrls.length > 0 ? { imageUrls } : {}),
       aspect_ratio: ar,
       resolution,
+    }
+  }
+
+  // ── Kling V3 Turbo (image-to-video) ──
+  // Required image_urls[] + duration + resolution. No aspect_ratio (aspect is
+  // inherited from the input image). We pass whatever start frame the caller
+  // resolved (imageUrl / firstFrameUrl) plus any extra reference images.
+  if (modelId === 'kling/v3-turbo-image-to-video') {
+    const imageUrls: string[] = []
+    if (opts.imageUrl) imageUrls.push(opts.imageUrl)
+    if (opts.firstFrameUrl) imageUrls.push(opts.firstFrameUrl)
+    if (opts.referenceImageUrls?.length) imageUrls.push(...opts.referenceImageUrls)
+    return {
+      prompt: opts.prompt,
+      image_urls: imageUrls,
+      duration,
+      resolution: resolution === '1080p' ? '1080p' : '720p',
     }
   }
 
