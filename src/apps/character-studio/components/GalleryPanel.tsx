@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, useEffect } from 'react'
-import { Loader2, Trash2, Image as ImageIcon, UserRound, Bookmark, X, Download, Check, LayoutGrid } from 'lucide-react'
+import { Loader2, Trash2, Image as ImageIcon, UserRound, Bookmark, X, Download, Check, Copy, LayoutGrid } from 'lucide-react'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAssetUrlState } from '../../../hooks/useAssetUrl'
 import { getUrl } from '../../../utils/assetStore'
@@ -10,8 +10,9 @@ import GenerationProgress from '../../../components/GenerationProgress'
 import GeneratingBackdrop from '../../../components/GeneratingBackdrop'
 import { getModel, type ImageResolution } from '../../../utils/models'
 import HistoryPreviewModal from './HistoryPreviewModal'
-import { buildJsonPrompt } from '../services/generateCharacter'
+import { buildJsonPrompt, buildImagePrompt, buildSheetPrompt } from '../services/generateCharacter'
 import { downloadImage } from '../../../utils/downloadImage'
+import { copyToClipboard } from '../../../utils/clipboard'
 
 // One running generation. Persisted to localStorage so a mid-flight refresh
 // resumes polling instead of losing the job. `taskId` is the kie.ai task ref
@@ -79,7 +80,7 @@ export default function GalleryPanel({
       <div className="min-w-0 flex-1 overflow-y-auto">
         {isEmpty ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
-            <ImageIcon className="h-9 w-9 text-ink-800" strokeWidth={1.5} />
+            <UserRound className="h-9 w-9 text-ink-800" strokeWidth={1.5} />
             <p className="text-sm text-ink-500">No generations yet</p>
             <p className="max-w-[300px] text-xs leading-relaxed text-ink-600">
               Configure parameters on the left and hit Generate.
@@ -173,6 +174,7 @@ function HistoryTile({
   const [nameDraft, setNameDraft] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [copiedPrompt, setCopiedPrompt] = useState(false)
   const nameInputRef = useRef<HTMLInputElement | null>(null)
 
   const isSheet = item.kind === 'sheet'
@@ -264,6 +266,17 @@ function HistoryTile({
     const resolved = await getUrl(item.imageRef)
     if (!resolved) return
     await downloadImage(resolved, `${isSheet ? 'character-sheet' : 'influencer'}-${item.id}`)
+  }
+
+  // Copies the full assembled prompt for this generation — mirrors the Copy
+  // prompt action in the Playground gallery and the Influencers preview modal.
+  async function handleCopyPrompt(e: React.MouseEvent) {
+    e.stopPropagation()
+    const prompt = isSheet ? buildSheetPrompt(item.profile, item.aspectRatio) : buildImagePrompt(item.profile)
+    if (await copyToClipboard(prompt)) {
+      setCopiedPrompt(true)
+      window.setTimeout(() => setCopiedPrompt(false), 1600)
+    }
   }
 
   return (
@@ -368,6 +381,9 @@ function HistoryTile({
             onClick={toggleSave}
           >
             {savingToBank ? <Loader2 className="h-4 w-4 animate-spin" /> : savedAsModel ? <Check className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
+          </TileIconButton>
+          <TileIconButton title={copiedPrompt ? 'Prompt copied' : 'Copy prompt'} onClick={handleCopyPrompt}>
+            {copiedPrompt ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
           </TileIconButton>
           <TileIconButton title="Download image" onClick={handleDownload}>
             <Download className="h-4 w-4" />

@@ -1,5 +1,5 @@
-import { useState, type ElementType } from 'react'
-import { ScanFace, PersonStanding, Camera, Copy, Check } from 'lucide-react'
+import { useState, useRef, type ElementType } from 'react'
+import { ScanFace, PersonStanding, Camera, Copy, Check, Bookmark, X } from 'lucide-react'
 import type { TabId, CharacterProfile } from '../types'
 import { TABS, getTabFields, createEmptyProfile } from '../types'
 
@@ -50,11 +50,96 @@ function CopyPromptButton({ text }: { text: string }) {
       onClick={handleCopy}
       disabled={!text.trim()}
       title="Copy the full prompt"
-      className="ml-auto flex items-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.02] px-2.5 py-1 text-[11px] font-medium text-ink-400 transition-colors hover:border-ink/20 hover:bg-ink/[0.05] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-40"
+      className="flex items-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.02] px-2.5 py-1 text-[11px] font-medium text-ink-400 transition-colors hover:border-ink/20 hover:bg-ink/[0.05] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-40"
     >
       {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
-      {copied ? 'Copied' : 'Copy prompt'}
+      {copied ? 'Copied' : 'Copy Prompt'}
     </button>
+  )
+}
+
+// Right-aligned header cluster: a Save-as-Preset action (with an inline naming
+// step before the preset lands in the bank) sitting to the left of Copy.
+function PresetActions({
+  suggestedName,
+  onSave,
+  promptText,
+}: {
+  suggestedName: () => string
+  onSave: (name: string) => void
+  promptText: string
+}) {
+  const [naming, setNaming] = useState(false)
+  const [name, setName] = useState('')
+  const [saved, setSaved] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const startNaming = () => {
+    setName(suggestedName())
+    setNaming(true)
+    // Select the suggested name so the user can type over it immediately.
+    window.setTimeout(() => inputRef.current?.select(), 0)
+  }
+
+  const commit = () => {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    onSave(trimmed)
+    setNaming(false)
+    setSaved(true)
+    window.setTimeout(() => setSaved(false), 2000)
+  }
+
+  if (naming) {
+    return (
+      <div className="ml-auto flex items-center gap-1.5">
+        <input
+          ref={inputRef}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') { e.preventDefault(); commit() }
+            if (e.key === 'Escape') { e.preventDefault(); setNaming(false) }
+          }}
+          placeholder="Preset name"
+          className="h-[26px] w-28 min-w-0 rounded-full border border-ink/15 bg-ink/[0.04] px-2.5 text-[11px] text-ink-100 placeholder:text-ink-500 focus:border-influencers-500/50 focus:outline-none"
+        />
+        <button
+          type="button"
+          onClick={commit}
+          disabled={!name.trim()}
+          title="Save preset"
+          aria-label="Save preset"
+          className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-influencers-500 text-white transition-colors hover:bg-influencers-400 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <Check className="h-3 w-3" strokeWidth={2.5} />
+        </button>
+        <button
+          type="button"
+          onClick={() => setNaming(false)}
+          title="Cancel"
+          aria-label="Cancel"
+          className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full text-ink-400 transition-colors hover:bg-ink/10 hover:text-ink-200"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="ml-auto flex items-center gap-1.5">
+      <button
+        type="button"
+        onClick={startNaming}
+        title="Save these parameters as a preset"
+        className="flex items-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.02] px-2.5 py-1 text-[11px] font-medium text-ink-400 transition-colors hover:border-ink/20 hover:bg-ink/[0.05] hover:text-ink-200"
+      >
+        {saved ? <Check className="h-3 w-3 text-influencers-400" /> : <Bookmark className="h-3 w-3" />}
+        {saved ? 'Saved' : 'Save as Preset'}
+      </button>
+      <CopyPromptButton text={promptText} />
+    </div>
   )
 }
 
@@ -114,9 +199,9 @@ export default function ControlsPanel({
   // preset (no generated image — characterImage stays empty, so it shows under
   // "Bank" in the preset picker). addModel surfaces its own success/error toast.
   const addModel = useBankStore((s) => s.addModel)
-  const handleSavePreset = () => {
+  const handleSavePreset = (name: string) => {
     void addModel({
-      name: presetName(profile),
+      name,
       characterImage: '',
       notes: '',
       source: 'character-studio',
@@ -165,7 +250,6 @@ export default function ControlsPanel({
             thumbnail={extractedThumb}
             onPhotoDrop={onPhotoDrop}
             onReset={onResetExtract}
-            onSavePreset={handleSavePreset}
           />
         </div>
       </div>
@@ -189,7 +273,13 @@ export default function ControlsPanel({
               <div className="mb-3 flex items-center gap-1.5">
                 {GroupIcon && <GroupIcon className="h-3.5 w-3.5 text-ink-100" />}
                 <h4 className="text-sm font-semibold tracking-tight text-ink-100">{group.label}</h4>
-                {groupIndex === 0 && <CopyPromptButton text={fullPrompt} />}
+                {groupIndex === 0 && (
+                  <PresetActions
+                    suggestedName={() => presetName(profile)}
+                    onSave={handleSavePreset}
+                    promptText={fullPrompt}
+                  />
+                )}
               </div>
               <div className="mb-4 border-t border-ink/10" />
               {/* Two-column grid: short one-word fields (gender, age, eye

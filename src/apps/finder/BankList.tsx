@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { Trash2, Package, UserRound, FileText, Mic, Film, Plus, Video, Download, Loader2, ChevronDown, Sparkles, Check, LayoutGrid, Copy } from 'lucide-react'
+import { Trash2, Package, UserRound, FileText, Mic, Film, Plus, Video, Download, Loader2, ChevronDown, Sparkles, Check, LayoutGrid, Copy, Bookmark } from 'lucide-react'
 import type { Product, Model, Script, VoicePreset, BRoll } from '../../stores/types'
 import type { BankType } from '../../utils/constants'
 import { useBankStore } from '../../stores/bankStore'
@@ -8,6 +8,7 @@ import { useAssetUrl } from '../../hooks/useAssetUrl'
 import { getAsBase64, isAssetRef } from '../../utils/assetStore'
 import { downloadImage } from '../../utils/downloadImage'
 import { copyToClipboard } from '../../utils/clipboard'
+import GeneratingBackdrop from '../../components/GeneratingBackdrop'
 import { sortByOrder, type SortOrder } from './bankSort'
 
 // Custom sort dropdown — replaces the native <select> so the menu is themed
@@ -176,6 +177,9 @@ function ModelCard({ item, onEdit, onDelete }: { item: Model; onEdit: () => void
   const resolvedImage = useAssetUrl(item.characterImage)
   // A saved character sheet stamps `sheetImage`; surface it with a badge.
   const isSheet = !!item.sheetImage
+  // A preset is a saved recipe with no generated image. Instead of a blank
+  // placeholder it gets a still of the studio "generating" tile as its cover.
+  const isPreset = !item.characterImage
   // Detected from the image's natural dimensions on load. Landscape (16:9)
   // entries — typically character sheets — span three portrait columns.
   const [landscape, setLandscape] = useState(false)
@@ -212,6 +216,16 @@ function ModelCard({ item, onEdit, onDelete }: { item: Model; onEdit: () => void
             onLoad={(e) => setLandscape(e.currentTarget.naturalWidth > e.currentTarget.naturalHeight)}
             className="absolute inset-0 h-full w-full object-cover"
           />
+        ) : isPreset ? (
+          // A preset has no generated image — reuse the studio's "generating"
+          // backdrop (drifting influencers blobs) as its cover with a centered
+          // person glyph, so it reads as a recipe rather than a blank card.
+          <>
+            <GeneratingBackdrop family="influencers" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <UserRound className="h-12 w-12 text-influencers-100" strokeWidth={1} />
+            </div>
+          </>
         ) : (
           <div className="absolute inset-0 flex items-center justify-center bg-ink/[0.04]">
             <UserRound className="h-12 w-12 text-ink-800" strokeWidth={1} />
@@ -223,6 +237,13 @@ function ModelCard({ item, onEdit, onDelete }: { item: Model; onEdit: () => void
         <span className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-medium text-zinc-100 backdrop-blur-sm">
           <LayoutGrid className="h-2.5 w-2.5" strokeWidth={2} />
           Sheet
+        </span>
+      )}
+      {/* Preset badge — top-left, marks a saved recipe (no generated image) */}
+      {isPreset && (
+        <span className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-influencers-500/25 px-2 py-0.5 text-[10px] font-medium text-influencers-100 backdrop-blur-sm">
+          <Bookmark className="h-2.5 w-2.5" strokeWidth={2} />
+          Preset
         </span>
       )}
       {/* Bottom info overlay — same gradient pattern as ProductCard */}
