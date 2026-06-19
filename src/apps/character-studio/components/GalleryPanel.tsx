@@ -7,6 +7,7 @@ import { useAppStore } from '../../../stores/appStore'
 import { humanizeError } from '../../../utils/friendlyError'
 import type { CharacterHistoryItem } from '../../../stores/types'
 import GenerationProgress from '../../../components/GenerationProgress'
+import GeneratingBackdrop from '../../../components/GeneratingBackdrop'
 import { getModel, type ImageResolution } from '../../../utils/models'
 import HistoryPreviewModal from './HistoryPreviewModal'
 import { buildJsonPrompt } from '../services/generateCharacter'
@@ -451,23 +452,22 @@ function InFlightTile({ gen, onCancel }: { gen: InFlightCharacterGen; onCancel: 
   const isSheet = gen.kind === 'sheet'
   return (
     <div
-      className="group relative overflow-hidden rounded-lg border border-influencers-500/30 bg-gradient-to-br from-influencers-500/[0.08] to-ink-950"
+      className="group relative overflow-hidden rounded-lg border border-influencers-500/20"
       style={aspectStyle(gen.aspectRatio)}
     >
-      <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-influencers-500/10 via-transparent to-influencers-500/5" />
-      <div className="absolute left-1.5 top-1.5 rounded-full bg-influencers-500/30 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-influencers-100 backdrop-blur">
-        generating
+      <GeneratingBackdrop family="influencers" />
+      <div className="absolute left-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-lg bg-black/25 text-influencers-100 backdrop-blur-sm">
+        {isSheet ? <LayoutGrid className="h-4 w-4" /> : <UserRound className="h-4 w-4" />}
       </div>
       <button
         type="button"
         title="Cancel"
         onClick={onCancel}
-        className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white opacity-0 backdrop-blur transition-opacity hover:bg-red-500/30 hover:text-red-100 hover:border-red-400/40 group-hover:opacity-100"
+        className="absolute right-1.5 top-1.5 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white opacity-0 backdrop-blur transition-opacity hover:bg-red-500/30 hover:text-red-100 hover:border-red-400/40 group-hover:opacity-100"
       >
         <X className="h-3 w-3" />
       </button>
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center">
-        {isSheet ? <LayoutGrid className="h-5 w-5 text-influencers-300" /> : <UserRound className="h-5 w-5 text-influencers-300" />}
+      <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 px-4 text-center">
         <p className="text-[10px] font-medium text-influencers-100">{modelLabel}</p>
         <GenerationProgress
           isActive

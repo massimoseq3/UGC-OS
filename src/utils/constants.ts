@@ -32,7 +32,7 @@ export const APP_REGISTRY: AppConfig[] = [
   { id: 'script-architect', name: 'Scripts', icon: PenLine, accent: '#F7821B', category: 'create' },
   { id: 'voice-studio', name: 'Voiceovers', icon: Mic, accent: '#007AFF', category: 'create' },
   { id: 'broll-studio', name: 'B-Roll', icon: Film, accent: '#7165FF', category: 'create' },
-  { id: 'playground', name: 'Playground', icon: ImagePlay, accent: '#62BA46', category: 'create' },
+  { id: 'playground', name: 'Playground', icon: ImagePlay, accent: '#015C52', category: 'create' },
   { id: 'ad-anatomy', name: 'Ad Analyzer', icon: Eye, accent: '#FF5257', category: 'tools' },
   { id: 'admin', name: 'Admin', icon: Shield, accent: '#fafafa', category: 'admin' },
 ]
