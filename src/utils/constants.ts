@@ -1,5 +1,5 @@
 import {
-  Library,
+  Bookmark,
   UserRound,
   Eye,
   PenLine,
@@ -27,7 +27,7 @@ export interface AppConfig {
 }
 
 export const APP_REGISTRY: AppConfig[] = [
-  { id: 'finder', name: 'Bank', icon: Library, accent: '#a1a1aa', category: 'library' },
+  { id: 'finder', name: 'Bank', icon: Bookmark, accent: '#a1a1aa', category: 'library' },
   { id: 'character-studio', name: 'Influencers', icon: UserRound, accent: '#F74F9E', category: 'create' },
   { id: 'script-architect', name: 'Scripts', icon: PenLine, accent: '#F7821B', category: 'create' },
   { id: 'voice-studio', name: 'Voiceovers', icon: Mic, accent: '#007AFF', category: 'create' },
