@@ -126,17 +126,40 @@ export default function Sidebar() {
           ))}
         </div>
 
-        <div className="space-y-1 border-t border-ink/5 px-2 py-3">
-          <CreditsChip collapsed={!showExpanded} />
-          <SidebarRow
-            app={{ id: 'settings', name: 'Settings', icon: Settings, accent: '#a1a1aa', category: 'tools' }}
-            active={false}
-            collapsed={!showExpanded}
-            onClick={() => handleNav(() => setSettingsOpen(true))}
-          />
-          {isSignedIn && <UserMenu collapsed={!showExpanded} />}
-          {/* Theme toggle sits at the very bottom, underneath account/settings. */}
-          <ThemeQuickToggle collapsed={!showExpanded} />
+        <div className="border-t border-ink/5 px-2 py-3">
+          {showExpanded ? (
+            <>
+              {/* Account group — Settings + My Account read as one set of rows. */}
+              <div className="space-y-0.5">
+                <SidebarRow
+                  app={{ id: 'settings', name: 'Settings', icon: Settings, accent: '#a1a1aa', category: 'tools' }}
+                  active={false}
+                  collapsed={false}
+                  onClick={() => handleNav(() => setSettingsOpen(true))}
+                />
+                {isSignedIn && <UserMenu collapsed={false} />}
+              </div>
+              {/* Utility cluster — credit balance + theme toggle grouped at the
+                  bottom as a matched pair of compact, left-aligned pills (the
+                  toggle sits bottom-left, underneath everything). */}
+              <div className="mt-2 flex flex-col items-start gap-1.5">
+                <CreditsChip collapsed={false} />
+                <ThemeQuickToggle collapsed={false} />
+              </div>
+            </>
+          ) : (
+            <div className="space-y-1">
+              <CreditsChip collapsed />
+              <SidebarRow
+                app={{ id: 'settings', name: 'Settings', icon: Settings, accent: '#a1a1aa', category: 'tools' }}
+                active={false}
+                collapsed
+                onClick={() => handleNav(() => setSettingsOpen(true))}
+              />
+              {isSignedIn && <UserMenu collapsed />}
+              <ThemeQuickToggle collapsed />
+            </div>
+          )}
         </div>
       </aside>
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
@@ -263,11 +286,12 @@ function CreditsChip({ collapsed }: { collapsed: boolean }) {
     <button
       onClick={handleRefresh}
       disabled={refreshing}
-      // h-9 matches the dense theme toggle below; w-fit keeps the pill snug
-      // around its contents instead of stretching the full sidebar width.
-      // The whole chip is the refresh control — the leading coin glyph swaps to
-      // a refresh icon on hover so the action reads without a separate button.
-      className="group flex h-9 w-fit max-w-full items-center gap-2.5 rounded-full border border-ink/10 bg-ink/[0.04] px-3 transition-colors hover:bg-ink/[0.08] disabled:opacity-60"
+      // h-8 matches the dense theme toggle it shares the control bar with;
+      // w-fit keeps the pill snug around its contents instead of stretching the
+      // full sidebar width. The whole chip is the refresh control — the leading
+      // coin glyph swaps to a refresh icon on hover so the action reads without
+      // a separate button.
+      className="group flex h-8 w-fit max-w-full items-center gap-2.5 rounded-full border border-ink/10 bg-ink/[0.04] px-3 transition-colors hover:bg-ink/[0.08] disabled:opacity-60"
       title="kie.ai credits remaining — click to refresh"
       aria-label="Refresh credits balance"
     >
