@@ -364,7 +364,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
     const allowedAspects = state.mode === 'image'
       ? model?.imageConstraints?.aspectRatios
       : vc?.aspectRatios
-    const finalAspect = allowedAspects && !allowedAspects.includes(aspectFromPreset)
+    const finalAspect = allowedAspects && allowedAspects.length > 0 && !allowedAspects.includes(aspectFromPreset)
       ? allowedAspects[0]
       : aspectFromPreset
     const finalDuration =
@@ -550,8 +550,11 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
                   />
                   {/* Motion Control has no aspect/duration/audio controls — clip
                       length comes from the driving video and aspect from the
-                      character image. Only the resolution chip applies. */}
-                  {!isMotionControl && (
+                      character image. Only the resolution chip applies.
+                      Image-conditioned models (e.g. Kling V3 Turbo) also expose
+                      no aspect param — aspect is inherited from the input image,
+                      so aspectRatios is [] and the chip stays hidden. */}
+                  {!isMotionControl && model.videoConstraints.aspectRatios.length > 0 && (
                   <ConstraintChip
                     openDirection="down"
                     options={model.videoConstraints.aspectRatios}

@@ -210,7 +210,9 @@ export default function CardDetailModal(props: CardDetailModalProps) {
     const c = videoConstraints
     if (!c) return
     const updates: Partial<CardState> = {}
-    if (!c.aspectRatios.includes(cardState.cardVideoAspectRatio)) updates.cardVideoAspectRatio = c.aspectRatios[0]
+    if (c.aspectRatios.length > 0 && !c.aspectRatios.includes(cardState.cardVideoAspectRatio)) {
+      updates.cardVideoAspectRatio = c.aspectRatios[0]
+    }
     if (c.durations.length > 0 && !c.durations.includes(cardState.cardVideoDurationSeconds)) {
       updates.cardVideoDurationSeconds = c.durations[0]
     }
@@ -476,6 +478,10 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                         value={cardState.cardVideoResolution}
                         onChange={(v) => onUpdateState({ cardVideoResolution: v })}
                       />
+                      {/* Image-conditioned models (e.g. Kling V3 Turbo) inherit
+                          aspect from the input frame and expose no aspect param,
+                          so aspectRatios is [] and the chip stays hidden. */}
+                      {videoConstraints.aspectRatios.length > 0 && (
                       <ConstraintChip
                         openDirection="down"
                         options={videoConstraints.aspectRatios}
@@ -488,6 +494,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                           </span>
                         )}
                       />
+                      )}
                       {videoConstraints.durations.length > 0 && (
                         <ConstraintChip
                           openDirection="down"
