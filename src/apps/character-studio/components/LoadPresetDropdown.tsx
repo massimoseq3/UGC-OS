@@ -17,24 +17,38 @@ import type { Model } from '../../../stores/types'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
 import SlideOver from '../../../components/SlideOver'
+// Bundled preview portraits for the built-in presets — Vite resolves each to a
+// hashed URL. Pre-optimised thumbnails (~640px JPEG) so the card grid stays light.
+import marieImg from '../assets/presets/marie.jpg'
+import zaneImg from '../assets/presets/zane.jpg'
+import yukiImg from '../assets/presets/yuki.jpg'
+import amaraImg from '../assets/presets/amara.jpg'
+import devImg from '../assets/presets/dev.jpg'
+import sofiaImg from '../assets/presets/sofia.jpg'
+import hiroshiImg from '../assets/presets/hiroshi.jpg'
+import tenzinImg from '../assets/presets/tenzin.jpg'
+import eleanorImg from '../assets/presets/eleanor.jpg'
 
 // Built-in presets shown alongside the user's saved bank entries.
-const BUILTIN_PRESETS: Array<{ id: string; name: string; profile: CharacterProfile }> = [
-  { id: 'builtin-marie', name: 'Marie', profile: PRESET_MARIE },
-  { id: 'builtin-zane', name: 'Zane', profile: PRESET_ZANE },
-  { id: 'builtin-yuki', name: 'Yuki', profile: PRESET_YUKI },
-  { id: 'builtin-amara', name: 'Amara', profile: PRESET_AMARA },
-  { id: 'builtin-dev', name: 'Dev', profile: PRESET_DEV },
-  { id: 'builtin-sofia', name: 'Sofia', profile: PRESET_SOFIA },
-  { id: 'builtin-hiroshi', name: 'Hiroshi', profile: PRESET_HIROSHI },
-  { id: 'builtin-tenzin', name: 'Tenzin', profile: PRESET_TENZIN },
-  { id: 'builtin-eleanor', name: 'Eleanor', profile: PRESET_ELEANOR },
+const BUILTIN_PRESETS: Array<{ id: string; name: string; profile: CharacterProfile; image: string }> = [
+  { id: 'builtin-marie', name: 'Marie', profile: PRESET_MARIE, image: marieImg },
+  { id: 'builtin-zane', name: 'Zane', profile: PRESET_ZANE, image: zaneImg },
+  { id: 'builtin-yuki', name: 'Yuki', profile: PRESET_YUKI, image: yukiImg },
+  { id: 'builtin-amara', name: 'Amara', profile: PRESET_AMARA, image: amaraImg },
+  { id: 'builtin-dev', name: 'Dev', profile: PRESET_DEV, image: devImg },
+  { id: 'builtin-sofia', name: 'Sofia', profile: PRESET_SOFIA, image: sofiaImg },
+  { id: 'builtin-hiroshi', name: 'Hiroshi', profile: PRESET_HIROSHI, image: hiroshiImg },
+  { id: 'builtin-tenzin', name: 'Tenzin', profile: PRESET_TENZIN, image: tenzinImg },
+  { id: 'builtin-eleanor', name: 'Eleanor', profile: PRESET_ELEANOR, image: eleanorImg },
 ]
 
 // Small influencer card — mirrors the Bank's portrait cards (9:16 image with
 // a name overlay) but at a compact size so a few fit per row in the slide-over.
-function PresetCard({ imageRef, name, onClick }: { imageRef?: string; name: string; onClick: () => void }) {
-  const url = useAssetUrl(imageRef)
+function PresetCard({ imageRef, imageUrl, name, onClick }: { imageRef?: string; imageUrl?: string; name: string; onClick: () => void }) {
+  // Built-in presets pass a bundled imageUrl directly; bank entries pass an
+  // asset:// ref resolved through IndexedDB. Prefer the direct URL when present.
+  const assetUrl = useAssetUrl(imageRef)
+  const url = imageUrl ?? assetUrl
   return (
     <button
       onClick={onClick}
@@ -112,7 +126,7 @@ export default function LoadPresetDropdown({ onLoadProfile }: LoadPresetDropdown
           </div>
           <div className="grid grid-cols-3 gap-2">
             {BUILTIN_PRESETS.map((p) => (
-              <PresetCard key={p.id} name={p.name} onClick={() => apply(p.profile)} />
+              <PresetCard key={p.id} name={p.name} imageUrl={p.image} onClick={() => apply(p.profile)} />
             ))}
           </div>
           {bankModels.filter((m) => m.jsonProfile).length > 0 && (
