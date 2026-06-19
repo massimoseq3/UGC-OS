@@ -30,6 +30,7 @@ import { getDefaultModel, getModel, estimateCredits, formatCredits, type ImageRe
 import { tagChipStyle, tagLabel, rollTypeForTag } from './variationTags'
 import { humanizeError } from '../../../utils/friendlyError'
 import ModelWaitNotice from '../../../components/ModelWaitNotice'
+import ExpandTextModal, { ExpandButton } from '../../../components/ExpandableText'
 import {
   ModalGallery,
   IconChipButton,
@@ -135,6 +136,8 @@ export default function CardDetailModal(props: CardDetailModalProps) {
   const effectiveAnimateFrame = animateFrameRef ?? selectedImageRef ?? latestImageRef
   const animateFrameUrl = useAssetUrl(effectiveAnimateFrame)
   const [draft, setDraft] = useState(cardState.editablePrompt)
+  // Expand-the-prompt-into-a-modal toggle (parity with Playground / Scripts).
+  const [promptExpanded, setPromptExpanded] = useState(false)
   // Per-tile saved/saving sets so the Bookmark button can show a check.
   const [savedImageIdxs, setSavedImageIdxs] = useState<Set<number>>(new Set())
   const [savedVideoIdxs, setSavedVideoIdxs] = useState<Set<number>>(new Set())
@@ -645,14 +648,17 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                   </div>
                 </div>
 
-                <textarea
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  onBlur={handleDraftBlur}
-                  rows={6}
-                  placeholder="Write your custom B-roll prompt here..."
-                  className="min-h-[120px] w-full grow resize-none rounded-2xl border border-ink/10 bg-ink/[0.03] px-3.5 py-3 text-[13px] leading-relaxed text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-ink/20 focus:bg-ink/[0.05]"
-                />
+                <div className="relative flex grow flex-col">
+                  <textarea
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    onBlur={handleDraftBlur}
+                    rows={8}
+                    placeholder="Write your custom B-roll prompt here..."
+                    className="min-h-[200px] w-full grow resize-none rounded-2xl border border-ink/10 bg-ink/[0.03] px-3.5 py-3 text-[13px] leading-relaxed text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-ink/20 focus:bg-ink/[0.05]"
+                  />
+                  <ExpandButton onClick={() => setPromptExpanded(true)} className="absolute bottom-2 right-2" />
+                </div>
 
                 {cardState.promptError && (
                   <div className="mt-2 flex items-start gap-1.5 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2">
@@ -662,37 +668,47 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                 )}
               </div>
 
-              {/* 5) Generate button — orange Playground-pill */}
-              {tab === 'image' ? (
-                <button
-                  onClick={handleGenerateImage}
-                  disabled={!cardState.editablePrompt.trim()}
-                  className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-broll-500 px-7 py-4 text-sm font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <ImageIcon className="h-4 w-4" />
-                  Generate Image{imageCreditsLabel ? ` (${imageCreditsLabel})` : ''}
-                </button>
-              ) : tab === 'video' ? (
-                <button
-                  onClick={() => handleGenerateVideo(videoModelId)}
-                  disabled={!cardState.editablePrompt.trim()}
-                  className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-broll-500 px-7 py-4 text-sm font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <VideoIcon className="h-4 w-4" />
-                  Generate Video{videoCreditsLabel ? ` (${videoCreditsLabel})` : ''}
-                </button>
-              ) : (
-                <button
-                  onClick={() => handleAnimate(effectiveAnimateFrame, videoModelId)}
-                  disabled={!cardState.editablePrompt.trim() || !effectiveAnimateFrame}
-                  title={!effectiveAnimateFrame ? 'Generate an image first, then animate it' : undefined}
-                  className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-broll-500 px-7 py-4 text-sm font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <Film className="h-4 w-4" />
-                  Animate{videoCreditsLabel ? ` (${videoCreditsLabel})` : ''}
-                </button>
-              )}
-              {tab === 'image' && <ModelWaitNotice modelId={imageModelId} className="mt-2" />}
+              {/* 5) Generate button — orange Playground-pill. Sits a touch
+                  below the prompt (mt-2). The wait notice is grouped tight
+                  underneath via a fixed-height slot so it reads as part of
+                  the button, and so swapping to a model without a notice
+                  (e.g. Nano Banana) can't reflow / shift the panel. */}
+              <div className="mt-2 flex flex-col gap-1.5">
+                {tab === 'image' ? (
+                  <button
+                    onClick={handleGenerateImage}
+                    disabled={!cardState.editablePrompt.trim()}
+                    className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-broll-500 px-7 py-4 text-sm font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <ImageIcon className="h-4 w-4" />
+                    Generate Image{imageCreditsLabel ? ` (${imageCreditsLabel})` : ''}
+                  </button>
+                ) : tab === 'video' ? (
+                  <button
+                    onClick={() => handleGenerateVideo(videoModelId)}
+                    disabled={!cardState.editablePrompt.trim()}
+                    className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-broll-500 px-7 py-4 text-sm font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <VideoIcon className="h-4 w-4" />
+                    Generate Video{videoCreditsLabel ? ` (${videoCreditsLabel})` : ''}
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleAnimate(effectiveAnimateFrame, videoModelId)}
+                    disabled={!cardState.editablePrompt.trim() || !effectiveAnimateFrame}
+                    title={!effectiveAnimateFrame ? 'Generate an image first, then animate it' : undefined}
+                    className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-broll-500 px-7 py-4 text-sm font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Film className="h-4 w-4" />
+                    Animate{videoCreditsLabel ? ` (${videoCreditsLabel})` : ''}
+                  </button>
+                )}
+                {tab === 'image' && (
+                  <div className="min-h-[16px]">
+                    <ModelWaitNotice modelId={imageModelId} />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -724,6 +740,16 @@ export default function CardDetailModal(props: CardDetailModalProps) {
           </div>
         </div>
       </div>
+
+      <ExpandTextModal
+        open={promptExpanded}
+        onClose={() => { setPromptExpanded(false); handleCommitDraft(draft) }}
+        value={draft}
+        onChange={setDraft}
+        title={`Scene ${sceneNumber} — Prompt`}
+        placeholder="Write your custom B-roll prompt here..."
+        accent="broll"
+      />
     </div>
   ), document.body)
 }
