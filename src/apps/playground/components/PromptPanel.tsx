@@ -35,6 +35,7 @@ import type { BankType } from '../../../utils/constants'
 import type { BRoll } from '../../../stores/types'
 import PresetCard from './PresetCard'
 import SlideOver from '../../../components/SlideOver'
+import ExpandTextModal, { ExpandButton, renderBracketHighlight } from '../../../components/ExpandableText'
 import MentionPopover from './MentionPopover'
 import type { PlaygroundMode, BankReference } from '../types'
 import { VIDEO_PRESETS, IMAGE_PRESETS, type Preset } from '../presets'
@@ -117,6 +118,8 @@ const MODE_TABS: Array<{ id: PlaygroundMode; label: string; icon: React.Componen
 
 export default function PromptPanel({ state, onChange, onModeChange, onClear, onSubmit, isGenerating }: PromptPanelProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  // Backdrop that paints the [bracketed] placeholders red behind the textarea.
+  const highlightRef = useRef<HTMLDivElement>(null)
 
   // Mention popover state — open when the user just typed an @ that isn't
   // followed by a space. `mentionQuery` is what follows the most recent @.
@@ -126,6 +129,16 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
   const [dragOver, setDragOver] = useState(false)
   // Preset slide-in overlay.
   const [presetOpen, setPresetOpen] = useState(false)
+  // Full-screen prompt editor.
+  const [promptExpanded, setPromptExpanded] = useState(false)
+
+  // Keep the highlight backdrop scrolled in lockstep with the textarea (e.g.
+  // after a preset drops in a long prompt and focuses/scrolls the field).
+  useEffect(() => {
+    if (highlightRef.current && textareaRef.current) {
+      highlightRef.current.scrollTop = textareaRef.current.scrollTop
+    }
+  }, [state.prompt])
 
   const model = getModel(state.modelId)
   const taskForMode: Task = state.mode === 'image' ? 'image' : state.mode === 'video' ? 'video' : 'music'
@@ -754,32 +767,50 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
                 <button
                   type="button"
                   onClick={() => setPresetOpen(true)}
-                  className="mt-2 flex w-full items-center gap-2 rounded-full border border-ink/10 bg-ink/[0.02] px-3 py-1.5 text-left transition-colors hover:bg-ink/[0.05]"
+                  className="mt-2 flex h-12 w-full items-center gap-2.5 rounded-full border border-ink/10 bg-ink/[0.02] px-3 text-left transition-colors hover:bg-ink/[0.05]"
                 >
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-playground-500/10 text-playground-400">
-                    <Camera className="h-3 w-3" />
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-playground-500/10 text-playground-400">
+                    <Camera className="h-3.5 w-3.5" />
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-ink-100">UGC Prompt Presets</span>
+                  <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink-100">UGC Prompt Presets</span>
                   <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" />
                 </button>
               )}
-              <textarea
-                ref={textareaRef}
-                value={state.prompt}
-                onChange={handlePromptChange}
-                onBlur={() => setTimeout(() => setMentionOpen(false), 150)}
-                rows={6}
-                placeholder={
-                  state.mode === 'image'
-                    ? 'Describe the image you want… (type @ to reference banks)'
-                    : isMotionControl
-                    ? 'Optional — refine the motion or leave blank…'
-                    : state.mode === 'video'
-                    ? 'Describe the video… (type @ to reference banks)'
-                    : 'Describe the music — genre, mood, instruments…'
-                }
-                className="mt-2 min-h-[120px] w-full grow resize-none rounded-2xl border border-ink/10 bg-ink/[0.03] px-3.5 py-3 text-[13px] text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-ink/20 focus:bg-ink/[0.05]"
-              />
+              {/* Prompt field — a transparent-text textarea over a highlight
+                  backdrop. The backdrop renders the same text but paints
+                  [bracketed placeholders] red so the user sees what to edit.
+                  Both layers share identical metrics so they line up exactly. */}
+              <div className="relative mt-2 flex grow rounded-3xl border border-ink/10 bg-ink/[0.03] transition-colors focus-within:border-ink/20 focus-within:bg-ink/[0.05]">
+                <div
+                  ref={highlightRef}
+                  aria-hidden
+                  className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words px-3.5 py-3 text-[13px] leading-[1.5] text-ink-200"
+                >
+                  {renderBracketHighlight(state.prompt)}
+                </div>
+                <textarea
+                  ref={textareaRef}
+                  value={state.prompt}
+                  onChange={handlePromptChange}
+                  onScroll={(e) => {
+                    if (highlightRef.current) highlightRef.current.scrollTop = e.currentTarget.scrollTop
+                  }}
+                  onBlur={() => setTimeout(() => setMentionOpen(false), 150)}
+                  rows={6}
+                  placeholder={
+                    state.mode === 'image'
+                      ? 'Describe the image you want… (type @ to reference banks)'
+                      : isMotionControl
+                      ? 'Optional — refine the motion or leave blank…'
+                      : state.mode === 'video'
+                      ? 'Describe the video… (type @ to reference banks)'
+                      : 'Describe the music — genre, mood, instruments…'
+                  }
+                  style={{ caretColor: 'var(--color-ink-200)' }}
+                  className="relative min-h-[120px] w-full grow resize-none border-0 bg-transparent px-3.5 py-3 text-[13px] leading-[1.5] text-transparent placeholder-ink-600 outline-none"
+                />
+                <ExpandButton onClick={() => setPromptExpanded(true)} className="absolute bottom-2 right-2 z-10" />
+              </div>
               {mentionOpen && state.mode !== 'music' && !isMotionControl && (
                 <MentionPopover
                   query={mentionQuery}
@@ -805,7 +836,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
           title="UGC Prompt Presets"
           subtitle="Pick a format to prefill the prompt + aspect ratio"
         >
-          <div className="grid grid-cols-2 gap-3 p-4">
+          <div className="grid grid-cols-3 gap-2 p-3">
             {(state.mode === 'image' ? IMAGE_PRESETS : VIDEO_PRESETS).map((preset) => (
               <PresetCard
                 key={preset.id}
@@ -818,6 +849,23 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
             ))}
           </div>
         </SlideOver>
+
+        <ExpandTextModal
+          open={promptExpanded}
+          onClose={() => setPromptExpanded(false)}
+          value={state.prompt}
+          onChange={(v) => onChange({ ...state, prompt: v })}
+          title="Prompt"
+          accent="playground"
+          highlightBrackets
+          placeholder={
+            state.mode === 'image'
+              ? 'Describe the image you want…'
+              : state.mode === 'video'
+              ? 'Describe the video…'
+              : 'Describe the music — genre, mood, instruments…'
+          }
+        />
       </div>
 
       {/* Bottom: pinned footer — big Generate button. */}

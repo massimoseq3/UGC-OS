@@ -7,9 +7,9 @@ interface PresetCardProps {
   onClick: () => void
 }
 
-// One card in the preset picker grid. Hover plays the preview video; idle
-// shows the still thumbnail or a placeholder gradient. The card itself is the
-// click target — title + 1-line description live in the metadata strip.
+// One card in the preset picker grid — mirrors the Influencer preset cards: a
+// 9:16 portrait thumbnail with the title centered over a bottom gradient, no
+// subtext. Hover plays the preview video when one is set.
 export default function PresetCard({ preset, onClick }: PresetCardProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [hovering, setHovering] = useState(false)
@@ -30,46 +30,40 @@ export default function PresetCard({ preset, onClick }: PresetCardProps) {
         const v = videoRef.current
         if (v) { v.pause(); v.currentTime = 0 }
       }}
-      className="group relative flex aspect-square flex-col overflow-hidden rounded-xl border border-ink/10 bg-ink/[0.02] text-left transition-all hover:border-ink/25 hover:bg-ink/[0.04]"
+      className="group relative block aspect-[9/16] w-full overflow-hidden rounded-xl border border-ink/5 bg-ink/[0.03] transition-all hover:border-ink/15 hover:-translate-y-0.5"
     >
-      {/* Visual layer */}
-      <div className="relative flex-1 overflow-hidden">
-        {hasVideo && (
-          <video
-            ref={videoRef}
-            src={preset.previewVideoUrl}
-            muted
-            loop
-            playsInline
-            preload="metadata"
-            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-200 ${
-              hovering ? 'opacity-100' : 'opacity-0'
-            }`}
-          />
-        )}
+      {hasVideo && (
+        <video
+          ref={videoRef}
+          src={preset.previewVideoUrl}
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-200 ${
+            hovering ? 'opacity-100' : 'opacity-0'
+          }`}
+        />
+      )}
 
-        {hasThumbnail ? (
-          <img
-            src={preset.thumbnailUrl}
-            alt=""
-            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-200 ${
-              hovering && hasVideo ? 'opacity-0' : 'opacity-100'
-            }`}
-          />
-        ) : (
-          // Placeholder: gradient block with film icon + title. Drop a real
-          // image/video into the preset entry to replace this.
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-gradient-to-br from-zinc-800/60 via-zinc-900 to-black">
-            <Film className="h-6 w-6 text-zinc-600" strokeWidth={1.5} />
-            <span className="text-[10px] uppercase tracking-wider text-zinc-600">Preview</span>
-          </div>
-        )}
-      </div>
+      {hasThumbnail ? (
+        <img
+          src={preset.thumbnailUrl}
+          alt=""
+          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-200 ${
+            hovering && hasVideo ? 'opacity-0' : 'opacity-100'
+          }`}
+        />
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center bg-ink/[0.04]">
+          <Film className="h-6 w-6 text-ink-700" strokeWidth={1.5} />
+        </div>
+      )}
 
-      {/* Metadata */}
-      <div className="border-t border-ink/5 px-3 py-2.5">
-        <p className="text-[12px] font-medium tracking-tight text-ink-100">{preset.title}</p>
-        <p className="mt-0.5 line-clamp-1 text-[11px] text-ink-500">{preset.description}</p>
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent p-2 pt-6">
+        <span className="block truncate text-center text-[11px] font-semibold tracking-tight text-zinc-100">
+          {preset.title}
+        </span>
       </div>
     </button>
   )
