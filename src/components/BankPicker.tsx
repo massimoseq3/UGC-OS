@@ -89,7 +89,13 @@ export default function BankPicker({
   // Apply the per-tab filter (when in tab-mode) ahead of the caller's
   // general filter so the caller-supplied filter stays in charge.
   const itemsAfterTabFilter = currentTabFilter ? items.filter(currentTabFilter) : items
-  const itemsAfterFilter = filter ? itemsAfterTabFilter.filter(filter) : itemsAfterTabFilter
+  // Influencers are always picked to be *used* as an image reference, so hide
+  // image-less presets (saved recipes) — they're only loadable in the studio.
+  const itemsAfterImageFilter =
+    currentBankType === 'models'
+      ? itemsAfterTabFilter.filter((it) => !!(it as Model).characterImage)
+      : itemsAfterTabFilter
+  const itemsAfterFilter = filter ? itemsAfterImageFilter.filter(filter) : itemsAfterImageFilter
 
   const filtered = search.trim()
     ? itemsAfterFilter.filter((item) =>
