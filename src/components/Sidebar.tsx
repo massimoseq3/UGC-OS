@@ -140,9 +140,9 @@ export default function Sidebar() {
                 {isSignedIn && <UserMenu collapsed={false} />}
               </div>
               {/* Utility cluster — credit balance + theme toggle grouped at the
-                  bottom as a matched pair of compact, left-aligned pills (the
-                  toggle sits bottom-left, underneath everything). */}
-              <div className="mt-2 flex flex-col items-start gap-1.5">
+                  bottom as a matched pair of full-width pills (the toggle sits
+                  bottom-left, underneath everything). */}
+              <div className="mt-2 space-y-1.5">
                 <CreditsChip collapsed={false} />
                 <ThemeQuickToggle collapsed={false} />
               </div>
@@ -189,17 +189,16 @@ function ThemeQuickToggle({ collapsed }: { collapsed: boolean }) {
     )
   }
 
-  // Compact house toggle — icon-only and shrunk to its content (fitContent) so
-  // it doesn't stretch the full sidebar width. Keeps the sliding indicator.
+  // Full-width house toggle with labels — matches the credit pill above it so
+  // the footer's two controls read as a matched pair. Keeps the sliding indicator.
   return (
     <SegmentedToggle<'dark' | 'light'>
       dense
-      fitContent
       value={resolved}
       onChange={setPref}
       options={[
-        { value: 'dark', label: '', icon: Moon },
-        { value: 'light', label: '', icon: Sun },
+        { value: 'dark', label: 'Dark', icon: Moon },
+        { value: 'light', label: 'Light', icon: Sun },
       ]}
     />
   )
@@ -286,12 +285,11 @@ function CreditsChip({ collapsed }: { collapsed: boolean }) {
     <button
       onClick={handleRefresh}
       disabled={refreshing}
-      // h-8 matches the dense theme toggle it shares the control bar with;
-      // w-fit keeps the pill snug around its contents instead of stretching the
-      // full sidebar width. The whole chip is the refresh control — the leading
-      // coin glyph swaps to a refresh icon on hover so the action reads without
-      // a separate button.
-      className="group flex h-8 w-fit max-w-full items-center gap-2.5 rounded-full border border-ink/10 bg-ink/[0.04] px-3 transition-colors hover:bg-ink/[0.08] disabled:opacity-60"
+      // Full width + h-9 to match the labelled dense theme toggle below it, so
+      // the two footer controls read as a matched pair. The whole chip is the
+      // refresh control — the leading coin glyph swaps to a refresh icon on
+      // hover so the action reads without a separate button.
+      className="group flex h-9 w-full items-center gap-2.5 rounded-full border border-ink/10 bg-ink/[0.04] px-3 transition-colors hover:bg-ink/[0.08] disabled:opacity-60"
       title="kie.ai credits remaining — click to refresh"
       aria-label="Refresh credits balance"
     >
