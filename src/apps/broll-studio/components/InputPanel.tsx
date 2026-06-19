@@ -179,6 +179,7 @@ export default function InputPanel({
   const hasScript = scriptText.trim().length > 0
   const canGenerate = hasScript
   const [scriptExpanded, setScriptExpanded] = useState(false)
+  const [instructionsExpanded, setInstructionsExpanded] = useState(false)
 
   return (
     <div className="flex flex-col md:h-full">
@@ -253,13 +254,16 @@ export default function InputPanel({
           {/* Additional instructions */}
           <div>
             <span className="text-sm font-medium text-ink-200">Additional Instructions</span>
-            <textarea
-              value={additionalContext}
-              onChange={(e) => onAdditionalContextChange(e.target.value)}
-              rows={5}
-              placeholder="Optional notes for this generation (mood, style preferences, specific angles...)"
-              className="mt-2 w-full rounded-lg border border-ink/10 bg-transparent px-3 py-2 text-sm text-ink-200 placeholder-ink-700 outline-none transition-colors focus:border-ink/20 resize-none"
-            />
+            <div className="relative mt-2">
+              <textarea
+                value={additionalContext}
+                onChange={(e) => onAdditionalContextChange(e.target.value)}
+                rows={5}
+                placeholder="Optional notes for this generation (mood, style preferences, specific angles...)"
+                className="w-full rounded-xl border border-ink/10 bg-transparent px-3 py-2 text-sm text-ink-200 placeholder-ink-700 outline-none transition-colors focus:border-ink/20 resize-none"
+              />
+              <ExpandButton onClick={() => setInstructionsExpanded(true)} className="absolute bottom-2 right-2" />
+            </div>
           </div>
 
         </div>
@@ -299,6 +303,15 @@ export default function InputPanel({
         title="Script"
         accent="broll"
         placeholder="Paste your script text here..."
+      />
+      <ExpandTextModal
+        open={instructionsExpanded}
+        onClose={() => setInstructionsExpanded(false)}
+        value={additionalContext}
+        onChange={onAdditionalContextChange}
+        title="Additional Instructions"
+        accent="broll"
+        placeholder="Optional notes for this generation (mood, style preferences, specific angles...)"
       />
     </div>
   )

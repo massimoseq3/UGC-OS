@@ -84,7 +84,7 @@ export default function SegmentedToggle<T extends string>({
             }`}
           >
             {Icon && <Icon className={`${dense ? 'h-3.5 w-3.5' : 'h-4 w-4'} shrink-0`} />}
-            <span className="truncate">{opt.label}</span>
+            {opt.label !== '' && opt.label != null && <span className="truncate">{opt.label}</span>}
             {opt.badge != null && (
               <span
                 className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold tabular-nums transition-colors duration-200 ${

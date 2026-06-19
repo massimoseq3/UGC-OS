@@ -108,13 +108,13 @@
   --color-broll-500: #7165FF;
   --color-broll-600: color-mix(in oklab, #7165FF 85%, black);
 
-  /* Playground — green #62BA46 */
-  --color-playground-100: color-mix(in oklab, #62BA46 25%, white);
-  --color-playground-200: color-mix(in oklab, #62BA46 40%, white);
-  --color-playground-300: color-mix(in oklab, #62BA46 60%, white);
-  --color-playground-400: color-mix(in oklab, #62BA46 80%, white);
-  --color-playground-500: #62BA46;
-  --color-playground-600: color-mix(in oklab, #62BA46 85%, black);
+  /* Playground — green #015C52 */
+  --color-playground-100: color-mix(in oklab, #015C52 25%, white);
+  --color-playground-200: color-mix(in oklab, #015C52 40%, white);
+  --color-playground-300: color-mix(in oklab, #015C52 60%, white);
+  --color-playground-400: color-mix(in oklab, #015C52 80%, white);
+  --color-playground-500: #015C52;
+  --color-playground-600: color-mix(in oklab, #015C52 85%, black);
 
   /* Ad Analyzer — red #FF5257 (used as literal hex in ad-anatomy) */
   --color-analyzer-500: #FF5257;
@@ -174,11 +174,11 @@
   --color-broll-400: color-mix(in oklab, #7165FF 95%, black);
   --color-broll-600: color-mix(in oklab, #7165FF 85%, black);
 
-  --color-playground-100: color-mix(in oklab, #62BA46 35%, black);
-  --color-playground-200: color-mix(in oklab, #62BA46 50%, black);
-  --color-playground-300: color-mix(in oklab, #62BA46 70%, black);
-  --color-playground-400: color-mix(in oklab, #62BA46 95%, black);
-  --color-playground-600: color-mix(in oklab, #62BA46 85%, black);
+  --color-playground-100: color-mix(in oklab, #015C52 35%, black);
+  --color-playground-200: color-mix(in oklab, #015C52 50%, black);
+  --color-playground-300: color-mix(in oklab, #015C52 70%, black);
+  --color-playground-400: color-mix(in oklab, #015C52 95%, black);
+  --color-playground-600: color-mix(in oklab, #015C52 85%, black);
 }
 
 html,
@@ -287,6 +287,29 @@ select {
 .shimmer-band {
   -webkit-mask-image: linear-gradient(to right, transparent 0%, black 35%, black 65%, transparent 100%);
   mask-image: linear-gradient(to right, transparent 0%, black 35%, black 65%, transparent 100%);
+}
+
+/* Gemini-style generating backdrop — soft, blurred accent blobs that slowly
+   drift and breathe behind a dark frosted surface, conveying "alive" without
+   a harsh pulse. Used by GeneratingBackdrop. */
+@keyframes blob-drift-1 {
+  0%, 100% { transform: translate3d(-12%, -8%, 0) scale(1); }
+  33%      { transform: translate3d(14%, 12%, 0) scale(1.25); }
+  66%      { transform: translate3d(-6%, 6%, 0) scale(0.95); }
+}
+@keyframes blob-drift-2 {
+  0%, 100% { transform: translate3d(16%, 10%, 0) scale(1.15); }
+  50%      { transform: translate3d(-12%, -14%, 0) scale(1.35); }
+}
+@keyframes blob-drift-3 {
+  0%, 100% { transform: translate3d(-4%, 14%, 0) scale(1.05); }
+  50%      { transform: translate3d(12%, -10%, 0) scale(1.3); }
+}
+.animate-blob-1 { animation: blob-drift-1 7s ease-in-out infinite; will-change: transform; }
+.animate-blob-2 { animation: blob-drift-2 9s ease-in-out infinite; will-change: transform; }
+.animate-blob-3 { animation: blob-drift-3 8s ease-in-out infinite; will-change: transform; }
+@media (prefers-reduced-motion: reduce) {
+  .animate-blob-1, .animate-blob-2, .animate-blob-3 { animation: none; }
 }
 
 /* Thin range slider — used by Voiceovers settings.

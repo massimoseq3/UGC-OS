@@ -301,8 +301,16 @@ export default function BankPicker({
             >
               {sorted.map((item) => {
                 const isSelected = multiSelect && selectedIds.includes(item.id)
+                // Character sheets (16:9 turnaround entries — stamped with the
+                // same ref as both characterImage and sheetImage) span the full
+                // row so the wide sheet is readable instead of squeezed into a
+                // single portrait-width column.
+                const isSheet =
+                  currentBankType === 'models' &&
+                  !!(item as Model).sheetImage &&
+                  (item as Model).sheetImage === (item as Model).characterImage
                 return (
-                  <div key={item.id} className="relative">
+                  <div key={item.id} className={`relative ${isSheet ? 'col-span-3' : ''}`}>
                     <BankItemCard
                       bankType={currentBankType}
                       item={item}
