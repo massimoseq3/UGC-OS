@@ -16,6 +16,8 @@ export default function AuthScreen() {
   const clearAccessRevoked = useAuthStore((s) => s.clearAccessRevoked)
 
   const [mode, setMode] = useState<Mode>('login')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -27,6 +29,7 @@ export default function AuthScreen() {
     setError(null)
     setNeedsConfirm(false)
     if (!email.trim() || !password) return
+    if (mode === 'signup' && (!firstName.trim() || !lastName.trim())) return
     setBusy(true)
     try {
       if (mode === 'login') {
@@ -35,7 +38,7 @@ export default function AuthScreen() {
         // accessRevoked in the store), not the inline error row.
         if (!res.ok && !res.revoked) setError(res.error)
       } else {
-        const res = await signUp(email, password)
+        const res = await signUp(email, password, firstName, lastName)
         if (!res.ok) setError(res.error)
         else if (res.needsConfirm) setNeedsConfirm(true)
         else {
@@ -72,6 +75,38 @@ export default function AuthScreen() {
             onSubmit={handleSubmit}
             className="space-y-3 rounded-xl border border-ink/10 bg-ink/[0.03] p-5 backdrop-blur-xl"
           >
+            {mode === 'signup' && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-ink-500">
+                    First name
+                  </label>
+                  <input
+                    type="text"
+                    autoComplete="given-name"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    required
+                    className="w-full rounded-lg border border-ink/10 bg-ink/5 px-3 py-2.5 text-sm text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-ink/20 focus:bg-ink/[0.07]"
+                    placeholder="Jane"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-ink-500">
+                    Surname
+                  </label>
+                  <input
+                    type="text"
+                    autoComplete="family-name"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    required
+                    className="w-full rounded-lg border border-ink/10 bg-ink/5 px-3 py-2.5 text-sm text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-ink/20 focus:bg-ink/[0.07]"
+                    placeholder="Doe"
+                  />
+                </div>
+              </div>
+            )}
             <div>
               <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-ink-500">
                 Email
@@ -118,7 +153,7 @@ export default function AuthScreen() {
 
             <button
               type="submit"
-              disabled={busy || !email.trim() || !password}
+              disabled={busy || !email.trim() || !password || (mode === 'signup' && (!firstName.trim() || !lastName.trim()))}
               className="flex w-full items-center justify-center gap-2 rounded-lg bg-ink py-2.5 text-sm font-medium text-ink-900 transition-colors hover:bg-ink-100 disabled:opacity-60"
             >
               {busy && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -152,7 +187,7 @@ export default function AuthScreen() {
                 Already have an account?{' '}
                 <button
                   type="button"
-                  onClick={() => { setMode('login'); setError(null); setNeedsConfirm(false) }}
+                  onClick={() => { setMode('login'); setError(null); setNeedsConfirm(false); setFirstName(''); setLastName('') }}
                   className="text-ink-300 transition-colors hover:text-ink"
                 >
                   Sign in
