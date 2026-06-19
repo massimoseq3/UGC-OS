@@ -140,9 +140,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
   const [promptExpanded, setPromptExpanded] = useState(false)
   // Per-tile saved/saving sets so the Bookmark button can show a check.
   const [savedImageIdxs, setSavedImageIdxs] = useState<Set<number>>(new Set())
-  const [savedVideoIdxs, setSavedVideoIdxs] = useState<Set<number>>(new Set())
   const [savingImageIdxs, setSavingImageIdxs] = useState<Set<number>>(new Set())
-  const [savingVideoIdxs, setSavingVideoIdxs] = useState<Set<number>>(new Set())
 
   // Pull cardState.editablePrompt back into the local draft when undo/redo/
   // enhance/regenerate fire. Local edits don't roundtrip through cardState
@@ -275,33 +273,6 @@ export default function CardDetailModal(props: CardDetailModalProps) {
     }
   }
 
-  const handleSaveVideoTile = async (index: number) => {
-    if (savedVideoIdxs.has(index) || savingVideoIdxs.has(index)) return
-    const vid = cardState.videos[index]
-    if (!vid) return
-    setSavingVideoIdxs((prev) => new Set(prev).add(index))
-    try {
-      await useBankStore.getState().addBRoll({
-        imageUrl: '',
-        prompt: vid.prompt,
-        productId: selectedProductId,
-        modelId: selectedModelId,
-        scriptId: selectedScriptId,
-        videos: [{ url: vid.url, aspectRatio: vid.aspectRatio, createdAt: vid.createdAt }],
-        sourceApp: 'broll-studio',
-      } as Omit<BRoll, 'id' | 'createdAt'>)
-      setSavedVideoIdxs((prev) => new Set(prev).add(index))
-    } catch (err) {
-      useAppStore.getState().addToast(humanizeError(err, 'Save failed'), 'error')
-    } finally {
-      setSavingVideoIdxs((prev) => {
-        const next = new Set(prev)
-        next.delete(index)
-        return next
-      })
-    }
-  }
-
   // ─── Per-tile delete (card outputs only) ───────────────────────────────
   const handleDeleteImageTile = (index: number) => {
     const newImages = cardState.images.filter((_, i) => i !== index)
@@ -341,8 +312,6 @@ export default function CardDetailModal(props: CardDetailModalProps) {
       currentVideoIndex: Math.max(0, Math.min(cardState.currentVideoIndex, newVideos.length - 1)),
       selected: nextSelected,
     })
-    setSavedVideoIdxs(rekeyAfterDelete(savedVideoIdxs, index))
-    setSavingVideoIdxs(rekeyAfterDelete(savingVideoIdxs, index))
   }
 
   // ─── Per-tile copy prompt ──────────────────────────────────────────────
@@ -720,10 +689,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
               setTab={setTab}
               savedImageIdxs={savedImageIdxs}
               savingImageIdxs={savingImageIdxs}
-              savedVideoIdxs={savedVideoIdxs}
-              savingVideoIdxs={savingVideoIdxs}
               onSaveImage={handleSaveImageTile}
-              onSaveVideo={handleSaveVideoTile}
               onDeleteImage={handleDeleteImageTile}
               onDeleteVideo={handleDeleteVideoTile}
               onCopyPrompt={handleCopyPrompt}
