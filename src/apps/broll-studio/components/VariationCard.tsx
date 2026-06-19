@@ -7,6 +7,7 @@ import {
   Trash2,
   Bookmark,
   Check,
+  Copy,
   Download,
 } from 'lucide-react'
 import GenerationProgress from '../../../components/GenerationProgress'
@@ -24,6 +25,7 @@ import CardDetailModal from './CardDetailModal'
 import { humanizeError } from '../../../utils/friendlyError'
 import { rollTypeForTag, tagLabel, tagChipStyle } from './variationTags'
 import { downloadImage } from '../../../utils/downloadImage'
+import { copyToClipboard } from '../../../utils/clipboard'
 
 interface VariationCardProps {
   sceneNumber: number
@@ -108,6 +110,7 @@ export default function VariationCard(props: VariationCardProps) {
   // Card-face quick save: bookmarks the cover output to the B-Rolls bank.
   const [savingCover, setSavingCover] = useState(false)
   const [savedCover, setSavedCover] = useState(false)
+  const [copiedPrompt, setCopiedPrompt] = useState(false)
 
   // Drive the in-flight indicator off the parallel-queue array — the legacy
   // single-slot `videoStatus` field is no longer written by runVideoTask so
@@ -377,6 +380,16 @@ export default function VariationCard(props: VariationCardProps) {
       return
     }
     await downloadImage(url, `broll-scene-${sceneNumber}`, coverKind === 'image' ? 'png' : 'mp4')
+  }
+
+  // Card-face copy — puts the card's current prompt on the clipboard.
+  const handleCopyPrompt = async () => {
+    const text = cardState.editablePrompt.trim()
+    if (!text) return
+    if (await copyToClipboard(text)) {
+      setCopiedPrompt(true)
+      window.setTimeout(() => setCopiedPrompt(false), 1600)
+    }
   }
 
   const toDataUri = async (ref: string): Promise<string | null> => {
@@ -769,6 +782,14 @@ export default function VariationCard(props: VariationCardProps) {
               the current cover. Only shown once the card has an output. */}
           {coverKind && (
             <div className="absolute bottom-2 right-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+              <button
+                type="button"
+                title={copiedPrompt ? 'Prompt copied' : 'Copy prompt'}
+                onClick={(e) => { e.stopPropagation(); void handleCopyPrompt() }}
+                className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white backdrop-blur transition-colors hover:bg-black/50"
+              >
+                {copiedPrompt ? <Check className="h-3.5 w-3.5 text-emerald-300" /> : <Copy className="h-3.5 w-3.5" />}
+              </button>
               <button
                 type="button"
                 title={savedCover ? 'Saved to B-Rolls bank' : savingCover ? 'Saving…' : 'Save to B-Rolls bank'}
