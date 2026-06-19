@@ -10,6 +10,7 @@ import {
   Download,
 } from 'lucide-react'
 import GenerationProgress from '../../../components/GenerationProgress'
+import GeneratingBackdrop from '../../../components/GeneratingBackdrop'
 import type { PromptVariation, CardState, GeneratedImage, ReferenceImage } from '../types'
 import type { VideoHistoryItem, Product, Model, BRoll } from '../../../stores/types'
 import { enhanceVariationPrompt, generateNewVariation, startImageTask, finishImageTask } from '../services/generateBroll'
@@ -622,42 +623,48 @@ export default function VariationCard(props: VariationCardProps) {
           className="relative aspect-[9/16] cursor-pointer overflow-hidden rounded-xl border border-ink/[0.08] bg-ink/[0.02] transition-all hover:border-ink/15 hover:-translate-y-0.5 card-soft-shadow"
         >
           {cardState.isGeneratingImage ? (
-            <div className="flex h-full w-full flex-col items-center justify-center gap-2 px-4">
-              <GenerationProgress
-                isActive
-                color="bg-broll-500"
-                showHelper={false}
-                messages={[
-                  'Sending request...',
-                  'Composing the scene...',
-                  'Rendering details...',
-                  'Finalizing the frame...',
-                ]}
-                className="max-w-[180px]"
-              />
-            </div>
+            <>
+              <GeneratingBackdrop family="broll" />
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 px-4 text-center">
+                <GenerationProgress
+                  isActive
+                  color="bg-broll-500"
+                  showHelper={false}
+                  messages={[
+                    'Sending request...',
+                    'Composing the scene...',
+                    'Rendering details...',
+                    'Finalizing the frame...',
+                  ]}
+                  className="max-w-[180px]"
+                />
+              </div>
+            </>
           ) : isGeneratingVideo && !coverImage && !coverVideo ? (
-            <div className="flex h-full w-full flex-col items-center justify-center gap-2 px-4">
-              <GenerationProgress
-                isActive
-                color="bg-broll-500"
-                showHelper={false}
-                messages={isAnimating
-                  ? [
-                      'Sending request...',
-                      'Animating still...',
-                      'Rendering motion...',
-                      'Finalizing the clip...',
-                    ]
-                  : [
-                      'Sending request...',
-                      'Storyboarding frames...',
-                      'Rendering motion...',
-                      'Finalizing the clip...',
-                    ]}
-                className="max-w-[180px]"
-              />
-            </div>
+            <>
+              <GeneratingBackdrop family="broll" />
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 px-4 text-center">
+                <GenerationProgress
+                  isActive
+                  color="bg-broll-500"
+                  showHelper={false}
+                  messages={isAnimating
+                    ? [
+                        'Sending request...',
+                        'Animating still...',
+                        'Rendering motion...',
+                        'Finalizing the clip...',
+                      ]
+                    : [
+                        'Sending request...',
+                        'Storyboarding frames...',
+                        'Rendering motion...',
+                        'Finalizing the clip...',
+                      ]}
+                  className="max-w-[180px]"
+                />
+              </div>
+            </>
           ) : coverKind === 'video' && resolvedVideoUrl ? (
             <>
               <video

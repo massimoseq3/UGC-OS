@@ -85,11 +85,17 @@ export default function Sidebar() {
           >
             <Menu className="h-5 w-5" strokeWidth={1.75} />
           </button>
-          <div className={`flex items-center gap-2 ${showExpanded ? 'min-w-0' : ''}`}>
+          <div className={`flex items-center gap-1.5 ${showExpanded ? 'min-w-0' : ''}`}>
             <AppLogo className="h-8 w-8 shrink-0" />
             {showExpanded && (
               <span className="truncate text-[18px] font-bold tracking-tight text-ink-100">
-                UGC OS
+                UGC{' '}
+                <span
+                  className="italic font-normal"
+                  style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
+                >
+                  OS
+                </span>
               </span>
             )}
           </div>
@@ -159,16 +165,17 @@ function ThemeQuickToggle({ collapsed }: { collapsed: boolean }) {
     )
   }
 
-  // Compact house toggle — sized to match the sidebar rows, keeps the
-  // sliding-indicator animation.
+  // Compact house toggle — icon-only and shrunk to its content (fitContent) so
+  // it doesn't stretch the full sidebar width. Keeps the sliding indicator.
   return (
     <SegmentedToggle<'dark' | 'light'>
       dense
+      fitContent
       value={resolved}
       onChange={setPref}
       options={[
-        { value: 'dark', label: 'Dark', icon: Moon },
-        { value: 'light', label: 'Light', icon: Sun },
+        { value: 'dark', label: '', icon: Moon },
+        { value: 'light', label: '', icon: Sun },
       ]}
     />
   )

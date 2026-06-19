@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from 'react'
 import {
-  Sparkles, Loader2, Download, Trash2, Bookmark, Check, Film, Image as ImageIcon,
-  Music as MusicIcon, Play, X, Copy,
+  Loader2, Download, Trash2, Bookmark, Check, Film, Image as ImageIcon,
+  Music as MusicIcon, Play, X, Copy, ImagePlay,
 } from 'lucide-react'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAssetUrlState, useAssetUrl } from '../../../hooks/useAssetUrl'
@@ -13,6 +13,7 @@ import { downloadImage } from '../../../utils/downloadImage'
 import type { ImageHistoryItem, VideoHistoryItem, MusicHistoryItem } from '../../../stores/types'
 import AudioTile from './AudioTile'
 import GenerationProgress from '../../../components/GenerationProgress'
+import GeneratingBackdrop from '../../../components/GeneratingBackdrop'
 import type { PlaygroundMode, InFlightGen } from '../types'
 import { humanizeError } from '../../../utils/friendlyError'
 export type { InFlightGen }
@@ -109,11 +110,16 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode }: Playgrou
     }
   }
 
+  async function handleCopyPrompt(text: string) {
+    const ok = await copyToClipboard(text)
+    addToast(ok ? 'Prompt copied to clipboard' : 'Copy failed', ok ? undefined : 'error')
+  }
+
   if (entries.length === 0 && visibleInFlight.length === 0) {
     return (
       <div className="flex h-full flex-col">
         <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
-          <Sparkles className="h-9 w-9 text-ink-800" strokeWidth={1.5} />
+          <ImagePlay className="h-9 w-9 text-ink-800" strokeWidth={1.5} />
           <p className="text-sm text-ink-500">No generations yet</p>
           <p className="max-w-[300px] text-xs leading-relaxed text-ink-600">
             Pick a preset or type a prompt below and hit Generate.
@@ -158,6 +164,7 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode }: Playgrou
                       onClick={() => setPreviewItem(entry)}
                       onSave={() => handleSaveImage(entry.data)}
                       onDelete={() => deleteImageHistory(entry.data.id)}
+                      onCopyPrompt={() => handleCopyPrompt(entry.data.prompt)}
                     />
                   )}
                   {entry.kind === 'video' && (
@@ -167,6 +174,7 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode }: Playgrou
                       onClick={() => setPreviewItem(entry)}
                       onSave={() => handleSaveVideo(entry.data)}
                       onDelete={() => deleteVideoHistory(entry.data.id)}
+                      onCopyPrompt={() => handleCopyPrompt(entry.data.prompt)}
                     />
                   )}
                   {entry.kind === 'music' && (
@@ -222,54 +230,69 @@ function ImageTile({
   onClick,
   onSave,
   onDelete,
+  onCopyPrompt,
 }: {
   item: ImageHistoryItem
   isSaving: boolean
   onClick: () => void
   onSave: () => void
   onDelete: () => void
+  onCopyPrompt: () => void
 }) {
   const { url, status } = useAssetUrlState(item.imageUrl)
   const isSaved = !!item.linkedBRollId
+  const modelLabel = getModel(item.modelId)?.displayName ?? item.modelId
 
   return (
-    <div
-      onClick={onClick}
-      className="group relative cursor-pointer overflow-hidden rounded-lg border border-ink/10 light:border-ink/5 bg-black light:bg-zinc-200 transition-all hover:border-ink/20 light:hover:border-ink/10 hover:-translate-y-0.5 card-soft-shadow"
-    >
-      {status === 'ready' && url ? (
-        <img src={url} alt="" className="block h-auto w-full" />
-      ) : (
-        <div className="flex aspect-square w-full items-center justify-center">
-          {status === 'loading'
-            ? <Loader2 className="h-5 w-5 animate-spin text-ink-500" />
-            : <ImageIcon className="h-6 w-6 text-ink-700" />}
+    <div>
+      <div
+        onClick={onClick}
+        className="group relative cursor-pointer overflow-hidden rounded-lg border border-ink/10 light:border-ink/5 bg-black light:bg-zinc-200 transition-all hover:border-ink/20 light:hover:border-ink/10 hover:-translate-y-0.5 card-soft-shadow"
+      >
+        {status === 'ready' && url ? (
+          <img src={url} alt="" className="block h-auto w-full" />
+        ) : (
+          <div className="flex aspect-square w-full items-center justify-center">
+            {status === 'loading'
+              ? <Loader2 className="h-5 w-5 animate-spin text-ink-500" />
+              : <ImageIcon className="h-6 w-6 text-ink-700" />}
+          </div>
+        )}
+        {/* Hover actions mirror the Influencers gallery: delete sits top-right,
+            copy + save + download bottom-right, all as round icon buttons. */}
+        <div className="absolute right-1.5 top-1.5 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          <DeleteConfirmButton onDelete={onDelete} />
         </div>
+        <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          {item.prompt && (
+            <TileButton title="Copy prompt" onClick={(e) => { e.stopPropagation(); onCopyPrompt() }}>
+              <Copy className="h-4 w-4" />
+            </TileButton>
+          )}
+          <TileButton
+            title={isSaved ? 'Saved to B-Rolls' : isSaving ? 'Saving…' : 'Save to B-Rolls Bank'}
+            tone={isSaved ? 'saved' : 'default'}
+            onClick={(e) => { e.stopPropagation(); if (!isSaved && !isSaving) onSave() }}
+          >
+            {isSaved ? <Check className="h-4 w-4" /> : isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bookmark className="h-4 w-4" />}
+          </TileButton>
+          <TileButton
+            title="Download"
+            onClick={async (e) => {
+              e.stopPropagation()
+              const u = await getUrl(item.imageUrl)
+              if (u) downloadImage(u, `playground-${item.id}`)
+            }}
+          >
+            <Download className="h-4 w-4" />
+          </TileButton>
+        </div>
+      </div>
+      {modelLabel && (
+        <p className="mt-1 truncate text-center text-[10px] font-medium tracking-wider text-ink-500">
+          {modelLabel}
+        </p>
       )}
-      {/* Hover actions mirror the Influencers gallery: delete sits top-right,
-          save + download bottom-right, all as round icon buttons. */}
-      <div className="absolute right-1.5 top-1.5 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-        <DeleteConfirmButton onDelete={onDelete} />
-      </div>
-      <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-        <TileButton
-          title={isSaved ? 'Saved to B-Rolls' : isSaving ? 'Saving…' : 'Save to B-Rolls Bank'}
-          tone={isSaved ? 'saved' : 'default'}
-          onClick={(e) => { e.stopPropagation(); if (!isSaved && !isSaving) onSave() }}
-        >
-          {isSaved ? <Check className="h-4 w-4" /> : isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bookmark className="h-4 w-4" />}
-        </TileButton>
-        <TileButton
-          title="Download"
-          onClick={async (e) => {
-            e.stopPropagation()
-            const u = await getUrl(item.imageUrl)
-            if (u) downloadImage(u, `playground-${item.id}`)
-          }}
-        >
-          <Download className="h-4 w-4" />
-        </TileButton>
-      </div>
     </div>
   )
 }
@@ -282,75 +305,90 @@ function VideoTile({
   onClick,
   onSave,
   onDelete,
+  onCopyPrompt,
 }: {
   item: VideoHistoryItem
   isSaving: boolean
   onClick: () => void
   onSave: () => void
   onDelete: () => void
+  onCopyPrompt: () => void
 }) {
   const { url, status } = useAssetUrlState(item.videoUrl)
   const [hovering, setHovering] = useState(false)
   const ratio = aspectStyle(item.aspectRatio)
   const isSaved = !!item.linkedBRollId
+  const modelLabel = getModel(item.modelId)?.displayName ?? item.modelId
 
   return (
-    <div
-      onMouseEnter={() => setHovering(true)}
-      onMouseLeave={() => setHovering(false)}
-      onClick={onClick}
-      className="group relative cursor-pointer overflow-hidden rounded-lg border border-ink/10 light:border-ink/5 bg-black light:bg-zinc-200 transition-all hover:border-ink/20 light:hover:border-ink/10 hover:-translate-y-0.5 card-soft-shadow"
-      style={ratio}
-    >
-      {status === 'ready' && url ? (
-        <video
-          src={url}
-          muted
-          loop
-          playsInline
-          autoPlay={hovering}
-          className="h-full w-full object-cover"
-        />
-      ) : (
-        <div className="flex h-full w-full items-center justify-center">
-          {status === 'loading'
-            ? <Loader2 className="h-5 w-5 animate-spin text-ink-500" />
-            : <Film className="h-6 w-6 text-ink-700" />}
-        </div>
-      )}
+    <div>
+      <div
+        onMouseEnter={() => setHovering(true)}
+        onMouseLeave={() => setHovering(false)}
+        onClick={onClick}
+        className="group relative cursor-pointer overflow-hidden rounded-lg border border-ink/10 light:border-ink/5 bg-black light:bg-zinc-200 transition-all hover:border-ink/20 light:hover:border-ink/10 hover:-translate-y-0.5 card-soft-shadow"
+        style={ratio}
+      >
+        {status === 'ready' && url ? (
+          <video
+            src={url}
+            muted
+            loop
+            playsInline
+            autoPlay={hovering}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center">
+            {status === 'loading'
+              ? <Loader2 className="h-5 w-5 animate-spin text-ink-500" />
+              : <Film className="h-6 w-6 text-ink-700" />}
+          </div>
+        )}
 
-      {/* Play badge stays put even while hovering (the clip auto-plays muted),
-          so the card always reads as a video. */}
-      {url && (
-        <div className="pointer-events-none absolute left-1.5 top-1.5 flex h-8 w-8 items-center justify-center rounded-full bg-black/60">
-          <Play className="h-3.5 w-3.5 fill-white text-white" />
-        </div>
-      )}
+        {/* Play badge stays put even while hovering (the clip auto-plays muted),
+            so the card always reads as a video. */}
+        {url && (
+          <div className="pointer-events-none absolute left-1.5 top-1.5 flex h-8 w-8 items-center justify-center rounded-full bg-black/60">
+            <Play className="h-3.5 w-3.5 fill-white text-white" />
+          </div>
+        )}
 
-      {/* Hover actions mirror the Influencers gallery: delete top-right,
-          save + download bottom-right, all round icon buttons. */}
-      <div className="absolute right-1.5 top-1.5 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-        <DeleteConfirmButton onDelete={onDelete} />
+        {/* Hover actions mirror the Influencers gallery: delete top-right,
+            copy + save + download bottom-right, all round icon buttons. */}
+        <div className="absolute right-1.5 top-1.5 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          <DeleteConfirmButton onDelete={onDelete} />
+        </div>
+        <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          {item.prompt && (
+            <TileButton title="Copy prompt" onClick={(e) => { e.stopPropagation(); onCopyPrompt() }}>
+              <Copy className="h-4 w-4" />
+            </TileButton>
+          )}
+          <TileButton
+            title={isSaved ? 'Saved to B-Rolls' : isSaving ? 'Saving…' : 'Save to B-Rolls Bank'}
+            tone={isSaved ? 'saved' : 'default'}
+            onClick={(e) => { e.stopPropagation(); if (!isSaved && !isSaving) onSave() }}
+          >
+            {isSaved ? <Check className="h-4 w-4" /> : isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bookmark className="h-4 w-4" />}
+          </TileButton>
+          <TileButton
+            title="Download"
+            onClick={async (e) => {
+              e.stopPropagation()
+              const u = await getUrl(item.videoUrl)
+              if (u) downloadImage(u, `playground-${item.id}`, 'mp4')
+            }}
+          >
+            <Download className="h-4 w-4" />
+          </TileButton>
+        </div>
       </div>
-      <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-        <TileButton
-          title={isSaved ? 'Saved to B-Rolls' : isSaving ? 'Saving…' : 'Save to B-Rolls Bank'}
-          tone={isSaved ? 'saved' : 'default'}
-          onClick={(e) => { e.stopPropagation(); if (!isSaved && !isSaving) onSave() }}
-        >
-          {isSaved ? <Check className="h-4 w-4" /> : isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bookmark className="h-4 w-4" />}
-        </TileButton>
-        <TileButton
-          title="Download"
-          onClick={async (e) => {
-            e.stopPropagation()
-            const u = await getUrl(item.videoUrl)
-            if (u) downloadImage(u, `playground-${item.id}`, 'mp4')
-          }}
-        >
-          <Download className="h-4 w-4" />
-        </TileButton>
-      </div>
+      {modelLabel && (
+        <p className="mt-1 truncate text-center text-[10px] font-medium tracking-wider text-ink-500">
+          {modelLabel}
+        </p>
+      )}
     </div>
   )
 }
@@ -371,15 +409,15 @@ function InFlightTile({ gen }: { gen: InFlightGen }) {
 
   return (
     <div
-      className="relative overflow-hidden rounded-lg border border-playground-500/30 bg-gradient-to-br from-playground-500/[0.08] to-ink-950"
+      className="relative overflow-hidden rounded-lg border border-playground-500/20"
       style={ar ? aspectStyle(ar) : { aspectRatio: '1 / 1' }}
     >
-      <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-playground-500/10 via-transparent to-playground-500/5" />
-      <div className="absolute left-1.5 top-1.5 rounded-full bg-playground-500/30 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-playground-100 backdrop-blur">
-        {gen.mode}
+      <GeneratingBackdrop family="playground" />
+      {/* Mode glyph, top-left — mirrors the reference framing. */}
+      <div className="absolute left-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-lg bg-black/25 text-playground-100 backdrop-blur-sm">
+        <Icon className="h-4 w-4" />
       </div>
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center">
-        <Icon className="h-5 w-5 text-playground-300" />
+      <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 px-4 text-center">
         <p className="text-[10px] font-medium text-playground-100">{modelLabel}</p>
         <GenerationProgress
           isActive
@@ -410,8 +448,8 @@ function InFlightTile({ gen }: { gen: InFlightGen }) {
           className="max-w-[180px]"
         />
       </div>
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 light:from-white/80 to-transparent px-2 pb-1.5 pt-6">
-        <p className="line-clamp-2 text-[10px] text-ink-300">{gen.prompt}</p>
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/70 to-transparent px-2 pb-1.5 pt-6">
+        <p className="line-clamp-2 text-[10px] text-zinc-300">{gen.prompt}</p>
       </div>
     </div>
   )
