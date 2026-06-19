@@ -7,6 +7,7 @@ import {
   ImageIcon, Video as VideoIcon, Film, Loader2, Check, Download, Trash2, Bookmark, Volume2, VolumeX, Play, Pause, Copy, Circle, AlertCircle, RefreshCw, X,
 } from 'lucide-react'
 import GenerationProgress from '../../../components/GenerationProgress'
+import GeneratingBackdrop from '../../../components/GeneratingBackdrop'
 import type { CardState } from '../types'
 import { useAssetUrlState, useAssetUrl } from '../../../hooks/useAssetUrl'
 import { getUrl } from '../../../utils/assetStore'
@@ -39,8 +40,8 @@ export interface ModalGalleryProps {
 type ModalEntry =
   | { kind: 'image'; idx: number; createdAt: number; imageUrl: string; prompt: string; modelId?: string }
   | { kind: 'video'; idx: number; createdAt: number; videoUrl: string; aspectRatio: string; prompt: string; modelId: string }
-  | { kind: 'in-flight-image'; id: string; createdAt: number; prompt: string; aspectRatio: string; error?: string | null }
-  | { kind: 'in-flight-video'; id: string; createdAt: number; prompt: string; mode: 'animating' | 'rendering'; aspectRatio: string; error?: string | null }
+  | { kind: 'in-flight-image'; id: string; createdAt: number; prompt: string; aspectRatio: string; modelId?: string | null; error?: string | null }
+  | { kind: 'in-flight-video'; id: string; createdAt: number; prompt: string; mode: 'animating' | 'rendering'; aspectRatio: string; modelId?: string | null; error?: string | null }
 
 // An in-flight entry carries an `error` once its generation failed; that's the
 // signal to render it as a Failed tile (retry/dismiss) instead of a spinner.
@@ -79,7 +80,7 @@ export function ModalGallery({
   // Unified per-card output stream, newest-first.
   const entries: ModalEntry[] = []
   for (const entry of cardState.inFlightImages) {
-    entries.push({ kind: 'in-flight-image', id: entry.id, createdAt: entry.startedAt, prompt: entry.prompt, aspectRatio: entry.aspectRatio, error: entry.error })
+    entries.push({ kind: 'in-flight-image', id: entry.id, createdAt: entry.startedAt, prompt: entry.prompt, aspectRatio: entry.aspectRatio, modelId: entry.modelId, error: entry.error })
   }
   for (const entry of cardState.inFlightVideos) {
     entries.push({
@@ -89,6 +90,7 @@ export function ModalGallery({
       prompt: entry.prompt,
       mode: entry.mode === 'image-to-video' ? 'animating' : 'rendering',
       aspectRatio: entry.aspectRatio,
+      modelId: entry.modelId,
       error: entry.error,
     })
   }
@@ -483,34 +485,36 @@ function VideoTile({
 function InFlightTile({ entry }: { entry: ModalEntry }) {
   if (entry.kind !== 'in-flight-image' && entry.kind !== 'in-flight-video') return null
   const isVideo = entry.kind === 'in-flight-video'
+  const isAnimating = entry.kind === 'in-flight-video' && entry.mode === 'animating'
   const Icon = isVideo ? VideoIcon : ImageIcon
-  const label = isVideo
-    ? (entry.kind === 'in-flight-video' && entry.mode === 'animating' ? 'animating' : 'rendering')
-    : 'image'
+  const modelLabel = entry.modelId ? getModel(entry.modelId)?.displayName ?? entry.modelId : null
   return (
     <div
-      className="relative overflow-hidden rounded-lg border border-broll-500/30 bg-gradient-to-br from-broll-500/[0.08] to-ink-950"
+      className="relative overflow-hidden rounded-lg border border-broll-500/20"
       style={aspectStyle(entry.aspectRatio)}
     >
-      <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-broll-500/10 via-transparent to-broll-500/5" />
-      <div className="absolute left-1.5 top-1.5 rounded-full bg-broll-500/30 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-broll-100 backdrop-blur">
-        {label}
+      <GeneratingBackdrop family="broll" />
+      {/* Mode glyph, top-left — mirrors the Playground / Influencers in-flight framing. */}
+      <div className="absolute left-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-lg bg-black/25 text-broll-100 backdrop-blur-sm">
+        <Icon className="h-4 w-4" />
       </div>
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center">
-        <Icon className="h-5 w-5 text-broll-300" />
+      <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 px-4 text-center">
+        {modelLabel && <p className="text-[10px] font-medium text-broll-100">{modelLabel}</p>}
         <GenerationProgress
           isActive
           color="bg-broll-500"
           showHelper={false}
           messages={
             isVideo
-              ? ['Sending request...', 'Storyboarding frames...', 'Rendering motion...', 'Finalizing the clip...']
+              ? (isAnimating
+                  ? ['Sending request...', 'Animating still...', 'Rendering motion...', 'Finalizing the clip...']
+                  : ['Sending request...', 'Storyboarding frames...', 'Rendering motion...', 'Finalizing the clip...'])
               : ['Sending request...', 'Composing the scene...', 'Rendering details...', 'Finalizing the frame...']
           }
-          className="max-w-[140px]"
+          className="max-w-[160px]"
         />
       </div>
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2 pb-1.5 pt-6">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/70 to-transparent px-2 pb-1.5 pt-6">
         <p className="line-clamp-2 text-[10px] text-zinc-300">{entry.prompt}</p>
       </div>
     </div>

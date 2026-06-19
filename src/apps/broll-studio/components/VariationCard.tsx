@@ -624,7 +624,13 @@ export default function VariationCard(props: VariationCardProps) {
   const isManual = variation.id.startsWith('manual-') || variation.label === 'Manual Option'
   // "Has any video at all" — drives the small video count badge on cards
   // whose cover is the image.
-  const showVideoBadge = hasVideos && coverKind === 'image' && !hasFailedInFlight
+  const showVideoBadge =
+    hasVideos &&
+    coverKind === 'image' &&
+    !hasFailedInFlight &&
+    !cardState.isGeneratingImage &&
+    !isGeneratingImageInFlight &&
+    !isGeneratingVideo
   const tagText = tagLabel(variation.tag)
   const rollText = rollTypeForTag(variation.tag)
 
@@ -635,7 +641,7 @@ export default function VariationCard(props: VariationCardProps) {
           onClick={() => setDetailOpen(true)}
           className="relative aspect-[9/16] cursor-pointer overflow-hidden rounded-xl border border-ink/[0.08] bg-ink/[0.02] transition-all hover:border-ink/15 hover:-translate-y-0.5 card-soft-shadow"
         >
-          {cardState.isGeneratingImage ? (
+          {cardState.isGeneratingImage || isGeneratingImageInFlight ? (
             <>
               <GeneratingBackdrop family="broll" />
               <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 px-4 text-center">
@@ -653,7 +659,7 @@ export default function VariationCard(props: VariationCardProps) {
                 />
               </div>
             </>
-          ) : isGeneratingVideo && !coverImage && !coverVideo ? (
+          ) : isGeneratingVideo ? (
             <>
               <GeneratingBackdrop family="broll" />
               <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 px-4 text-center">
@@ -725,18 +731,6 @@ export default function VariationCard(props: VariationCardProps) {
             <span className="pointer-events-none absolute right-2 top-2 flex items-center gap-1 rounded-full border border-purple-400/30 bg-purple-500/30 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-purple-100 backdrop-blur">
               <Play className="h-2.5 w-2.5 fill-current" />
               {cardState.videos.length > 1 ? `${cardState.videos.length} videos` : 'Video'}
-            </span>
-          )}
-          {isGeneratingVideo && (
-            <span className="pointer-events-none absolute right-2 top-2 flex items-center gap-1 rounded-full border border-purple-400/30 bg-purple-500/30 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-purple-100 backdrop-blur">
-              <Loader2 className="h-2.5 w-2.5 animate-spin" />
-              {isAnimating ? 'Animating' : 'Rendering'}
-            </span>
-          )}
-          {isGeneratingImageInFlight && !isGeneratingVideo && !cardState.isGeneratingImage && (
-            <span className="pointer-events-none absolute right-2 top-2 flex items-center gap-1 rounded-full border border-broll-400/30 bg-broll-500/30 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-broll-100 backdrop-blur">
-              <Loader2 className="h-2.5 w-2.5 animate-spin" />
-              Generating
             </span>
           )}
           {hasFailedInFlight && !isGeneratingVideo && !isGeneratingImageInFlight && !cardState.isGeneratingImage && (
