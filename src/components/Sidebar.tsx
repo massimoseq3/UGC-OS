@@ -128,7 +128,6 @@ export default function Sidebar() {
 
         <div className="space-y-1 border-t border-ink/5 px-2 py-3">
           <CreditsChip collapsed={!showExpanded} />
-          <ThemeQuickToggle collapsed={!showExpanded} />
           <SidebarRow
             app={{ id: 'settings', name: 'Settings', icon: Settings, accent: '#a1a1aa', category: 'tools' }}
             active={false}
@@ -136,6 +135,8 @@ export default function Sidebar() {
             onClick={() => handleNav(() => setSettingsOpen(true))}
           />
           {isSignedIn && <UserMenu collapsed={!showExpanded} />}
+          {/* Theme toggle sits at the very bottom, underneath account/settings. */}
+          <ThemeQuickToggle collapsed={!showExpanded} />
         </div>
       </aside>
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
