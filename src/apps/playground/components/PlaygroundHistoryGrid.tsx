@@ -39,10 +39,7 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode }: Playgrou
   const deleteVideoHistory = useBankStore((s) => s.deleteVideoHistory)
   const deleteMusicHistory = useBankStore((s) => s.deleteMusicHistory)
   const updateImageHistory = useBankStore((s) => s.updateImageHistory)
-  const updateVideoHistory = useBankStore((s) => s.updateVideoHistory)
   const addBRoll = useBankStore((s) => s.addBRoll)
-  const updateBRoll = useBankStore((s) => s.updateBRoll)
-  const getBRollById = useBankStore((s) => s.getBRollById)
   const addToast = useAppStore((s) => s.addToast)
 
   const [savingIds, setSavingIds] = useState<Set<string>>(() => new Set())
@@ -78,31 +75,6 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode }: Playgrou
     try {
       const id = await addBRoll({ imageUrl: item.imageUrl, prompt: item.prompt, sourceApp: 'playground' })
       await updateImageHistory(item.id, { linkedBRollId: id })
-    } catch (err) {
-      addToast(humanizeError(err, 'Save failed'), 'error')
-    } finally {
-      setSavingIds((prev) => { const next = new Set(prev); next.delete(item.id); return next })
-    }
-  }
-
-  // Save a video-history entry to the B-Rolls bank. Mirrors VideoStudio's
-  // save logic — if the generation tracked a sourceBRollId, append the
-  // video to that record; otherwise create a fresh video-only BRoll.
-  async function handleSaveVideo(item: VideoHistoryItem) {
-    if (item.linkedBRollId || savingIds.has(item.id)) return
-    setSavingIds((prev) => new Set(prev).add(item.id))
-    try {
-      const newVideo = { url: item.videoUrl, aspectRatio: item.aspectRatio, createdAt: item.createdAt }
-      if (item.sourceBRollId) {
-        const existing = getBRollById(item.sourceBRollId)
-        if (existing) {
-          await updateBRoll(item.sourceBRollId, { videos: [...(existing.videos ?? []), newVideo] })
-          await updateVideoHistory(item.id, { linkedBRollId: item.sourceBRollId })
-          return
-        }
-      }
-      const newId = await addBRoll({ imageUrl: '', prompt: item.prompt, videos: [newVideo], sourceApp: 'playground' })
-      await updateVideoHistory(item.id, { linkedBRollId: newId })
     } catch (err) {
       addToast(humanizeError(err, 'Save failed'), 'error')
     } finally {
@@ -170,9 +142,7 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode }: Playgrou
                   {entry.kind === 'video' && (
                     <VideoTile
                       item={entry.data}
-                      isSaving={savingIds.has(entry.data.id)}
                       onClick={() => setPreviewItem(entry)}
-                      onSave={() => handleSaveVideo(entry.data)}
                       onDelete={() => deleteVideoHistory(entry.data.id)}
                       onCopyPrompt={() => handleCopyPrompt(entry.data.prompt)}
                     />
@@ -202,7 +172,6 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode }: Playgrou
           isSaving={savingIds.has(previewItem.data.id)}
           onSave={() => {
             if (previewItem.kind === 'image') handleSaveImage(previewItem.data)
-            else if (previewItem.kind === 'video') handleSaveVideo(previewItem.data)
           }}
           onCopyPrompt={async (text) => {
             const ok = await copyToClipboard(text)
@@ -301,23 +270,18 @@ function ImageTile({
 
 function VideoTile({
   item,
-  isSaving,
   onClick,
-  onSave,
   onDelete,
   onCopyPrompt,
 }: {
   item: VideoHistoryItem
-  isSaving: boolean
   onClick: () => void
-  onSave: () => void
   onDelete: () => void
   onCopyPrompt: () => void
 }) {
   const { url, status } = useAssetUrlState(item.videoUrl)
   const [hovering, setHovering] = useState(false)
   const ratio = aspectStyle(item.aspectRatio)
-  const isSaved = !!item.linkedBRollId
   const modelLabel = getModel(item.modelId)?.displayName ?? item.modelId
 
   return (
@@ -365,13 +329,6 @@ function VideoTile({
               <Copy className="h-4 w-4" />
             </TileButton>
           )}
-          <TileButton
-            title={isSaved ? 'Saved to B-Rolls' : isSaving ? 'Saving…' : 'Save to B-Rolls Bank'}
-            tone={isSaved ? 'saved' : 'default'}
-            onClick={(e) => { e.stopPropagation(); if (!isSaved && !isSaving) onSave() }}
-          >
-            {isSaved ? <Check className="h-4 w-4" /> : isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bookmark className="h-4 w-4" />}
-          </TileButton>
           <TileButton
             title="Download"
             onClick={async (e) => {
@@ -568,14 +525,17 @@ function PreviewModal({
           {/* Primary actions — labeled, thicker pills sitting under the media
               with Copy prompt, instead of icon-only buttons in the corner. */}
           <div className="flex flex-wrap items-center justify-center gap-2">
-            <ModalBarButton
-              onClick={onSave}
-              disabled={linked || isSaving}
-              tone={linked ? 'saved' : 'default'}
-            >
-              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : linked ? <Check className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
-              <span>{linked ? 'Saved to Bank' : 'Save to Bank'}</span>
-            </ModalBarButton>
+            {/* Save-to-bank is stills-only — videos are download-only. */}
+            {entry.kind === 'image' && (
+              <ModalBarButton
+                onClick={onSave}
+                disabled={linked || isSaving}
+                tone={linked ? 'saved' : 'default'}
+              >
+                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : linked ? <Check className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
+                <span>{linked ? 'Saved to Bank' : 'Save to Bank'}</span>
+              </ModalBarButton>
+            )}
             <ModalBarButton onClick={handleDownload}>
               <Download className="h-4 w-4" />
               <span>{entry.kind === 'video' ? 'Download Video' : 'Download Image'}</span>

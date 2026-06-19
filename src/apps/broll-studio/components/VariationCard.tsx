@@ -333,34 +333,22 @@ export default function VariationCard(props: VariationCardProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [generateImageToken])
 
-  // Card-face quick save — bookmarks the current cover (image or video) to
-  // the B-Rolls bank, mirroring the modal's per-tile save payloads.
+  // Card-face quick save — bookmarks the current cover STILL to the B-Rolls
+  // bank. Only images are saveable (they're reusable as start frames); videos
+  // are download-only, so the save button is hidden when the cover is a video.
   const handleSaveCover = async () => {
     if (savedCover || savingCover) return
+    if (coverKind !== 'image' || !coverImage) return
     setSavingCover(true)
     try {
-      if (coverKind === 'image' && coverImage) {
-        await useBankStore.getState().addBRoll({
-          imageUrl: coverImage.imageUrl,
-          prompt: coverImage.prompt,
-          productId: selectedProductId,
-          modelId: selectedModelId,
-          scriptId: selectedScriptId,
-          sourceApp: 'broll-studio',
-        } as Omit<BRoll, 'id' | 'createdAt'>)
-      } else if (coverKind === 'video' && coverVideo) {
-        await useBankStore.getState().addBRoll({
-          imageUrl: '',
-          prompt: coverVideo.prompt,
-          productId: selectedProductId,
-          modelId: selectedModelId,
-          scriptId: selectedScriptId,
-          videos: [{ url: coverVideo.url, aspectRatio: coverVideo.aspectRatio, createdAt: coverVideo.createdAt }],
-          sourceApp: 'broll-studio',
-        } as Omit<BRoll, 'id' | 'createdAt'>)
-      } else {
-        return
-      }
+      await useBankStore.getState().addBRoll({
+        imageUrl: coverImage.imageUrl,
+        prompt: coverImage.prompt,
+        productId: selectedProductId,
+        modelId: selectedModelId,
+        scriptId: selectedScriptId,
+        sourceApp: 'broll-studio',
+      } as Omit<BRoll, 'id' | 'createdAt'>)
       setSavedCover(true)
       useAppStore.getState().addToast('Saved to B-Rolls bank', 'success')
     } catch (err) {
@@ -784,18 +772,21 @@ export default function VariationCard(props: VariationCardProps) {
               >
                 {copiedPrompt ? <Check className="h-3.5 w-3.5 text-emerald-300" /> : <Copy className="h-3.5 w-3.5" />}
               </button>
-              <button
-                type="button"
-                title={savedCover ? 'Saved to B-Rolls bank' : savingCover ? 'Saving…' : 'Save to B-Rolls bank'}
-                onClick={(e) => { e.stopPropagation(); void handleSaveCover() }}
-                className={`flex h-7 w-7 items-center justify-center rounded-full border backdrop-blur transition-colors ${
-                  savedCover
-                    ? 'border-emerald-400/50 bg-emerald-500/30 text-emerald-100'
-                    : 'border-white/20 bg-black/35 text-white hover:bg-black/50'
-                }`}
-              >
-                {savedCover ? <Check className="h-3.5 w-3.5" /> : savingCover ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Bookmark className="h-3.5 w-3.5" />}
-              </button>
+              {/* Save-to-bank is stills-only — videos are download-only. */}
+              {coverKind === 'image' && (
+                <button
+                  type="button"
+                  title={savedCover ? 'Saved to B-Rolls bank' : savingCover ? 'Saving…' : 'Save to B-Rolls bank'}
+                  onClick={(e) => { e.stopPropagation(); void handleSaveCover() }}
+                  className={`flex h-7 w-7 items-center justify-center rounded-full border backdrop-blur transition-colors ${
+                    savedCover
+                      ? 'border-emerald-400/50 bg-emerald-500/30 text-emerald-100'
+                      : 'border-white/20 bg-black/35 text-white hover:bg-black/50'
+                  }`}
+                >
+                  {savedCover ? <Check className="h-3.5 w-3.5" /> : savingCover ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Bookmark className="h-3.5 w-3.5" />}
+                </button>
+              )}
               <button
                 type="button"
                 title={coverKind === 'image' ? 'Download image' : 'Download video'}

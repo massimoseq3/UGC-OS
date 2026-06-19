@@ -23,10 +23,7 @@ export interface ModalGalleryProps {
   setTab: (t: 'image' | 'video' | 'animate') => void
   savedImageIdxs: Set<number>
   savingImageIdxs: Set<number>
-  savedVideoIdxs: Set<number>
-  savingVideoIdxs: Set<number>
   onSaveImage: (index: number) => void
-  onSaveVideo: (index: number) => void
   onDeleteImage: (index: number) => void
   onDeleteVideo: (index: number) => void
   onCopyPrompt: (text: string) => void
@@ -55,10 +52,7 @@ export function ModalGallery({
   setTab,
   savedImageIdxs,
   savingImageIdxs,
-  savedVideoIdxs,
-  savingVideoIdxs,
   onSaveImage,
-  onSaveVideo,
   onDeleteImage,
   onDeleteVideo,
   onCopyPrompt,
@@ -204,13 +198,10 @@ export function ModalGallery({
                       aspectRatio={entry.aspectRatio}
                       modelId={entry.modelId}
                       selected={isVideoSelected(entry.idx)}
-                      saved={savedVideoIdxs.has(entry.idx)}
-                      saving={savingVideoIdxs.has(entry.idx)}
                       onClick={() => {
                         onUpdateState({ selected: { kind: 'video', index: entry.idx }, currentVideoIndex: entry.idx })
                         setTab('video')
                       }}
-                      onSave={() => onSaveVideo(entry.idx)}
                       onDelete={() => onDeleteVideo(entry.idx)}
                       onCopyPrompt={() => onCopyPrompt(entry.prompt)}
                     />
@@ -329,10 +320,7 @@ function VideoTile({
   aspectRatio,
   modelId,
   selected,
-  saved,
-  saving,
   onClick,
-  onSave,
   onDelete,
   onCopyPrompt,
 }: {
@@ -340,10 +328,7 @@ function VideoTile({
   aspectRatio: string
   modelId: string
   selected: boolean
-  saved: boolean
-  saving: boolean
   onClick: () => void
-  onSave: () => void
   onDelete: () => void
   onCopyPrompt: () => void
 }) {
@@ -459,13 +444,6 @@ function VideoTile({
       <div className="absolute right-1.5 bottom-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
         <TileIconButton title="Copy prompt" onClick={(e) => { e.stopPropagation(); onCopyPrompt() }}>
           <Copy className="h-4 w-4" />
-        </TileIconButton>
-        <TileIconButton
-          title={saved ? 'Saved to bank' : saving ? 'Saving…' : 'Save to bank'}
-          tone={saved ? 'saved' : 'default'}
-          onClick={(e) => { e.stopPropagation(); if (!saved && !saving) onSave() }}
-        >
-          {saved ? <Check className="h-4 w-4" /> : saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bookmark className="h-4 w-4" />}
         </TileIconButton>
         <TileIconButton
           title="Download"
