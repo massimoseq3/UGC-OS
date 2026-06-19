@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Coins, Menu, Moon, RefreshCw, Settings, Sun } from 'lucide-react'
 import { useAppStore } from '../stores/appStore'
 import { useThemeStore } from '../stores/themeStore'
@@ -181,9 +181,39 @@ function ThemeQuickToggle({ collapsed }: { collapsed: boolean }) {
   )
 }
 
+// Eases the displayed credit count from its previous value to the new one so a
+// refresh rolls the number up/down instead of snapping. Returns the formatted
+// label ('—' until the first balance lands).
+function useAnimatedCount(value: number | null): string {
+  const [display, setDisplay] = useState<number | null>(value)
+  const fromRef = useRef<number | null>(value)
+
+  useEffect(() => {
+    if (value === null) { setDisplay(null); fromRef.current = null; return }
+    const from = fromRef.current ?? value
+    fromRef.current = value
+    if (from === value) { setDisplay(value); return }
+
+    const duration = 600
+    let raf = 0
+    let startTs = 0
+    const tick = (ts: number) => {
+      if (!startTs) startTs = ts
+      const p = Math.min((ts - startTs) / duration, 1)
+      const eased = 1 - Math.pow(1 - p, 3) // easeOutCubic
+      setDisplay(Math.round(from + (value - from) * eased))
+      if (p < 1) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [value])
+
+  return display !== null ? display.toLocaleString() : '—'
+}
+
 // kie.ai credit balance — lives above Settings now that the top bar is gone.
-// Auto-refreshes every minute and on window focus; the manual refresh button
-// stays for impatient moments right after a generation.
+// Auto-refreshes every minute and on window focus; the whole chip is also a
+// manual refresh control for impatient moments right after a generation.
 function CreditsChip({ collapsed }: { collapsed: boolean }) {
   const apiKey = useSettingsStore((s) => s.kieApiKey)
   const balance = useCreditsStore((s) => s.balance)
@@ -204,15 +234,15 @@ function CreditsChip({ collapsed }: { collapsed: boolean }) {
     }
   }, [apiKey, refresh])
 
-  if (!apiKey) return null
-
   const handleRefresh = async () => {
     if (refreshing) return
     setRefreshing(true)
     try { await refresh() } finally { setRefreshing(false) }
   }
 
-  const label = balance !== null ? balance.toLocaleString() : '—'
+  const label = useAnimatedCount(balance)
+
+  if (!apiKey) return null
 
   if (collapsed) {
     return (
@@ -229,27 +259,32 @@ function CreditsChip({ collapsed }: { collapsed: boolean }) {
   }
 
   return (
-    <div
-      // h-9 matches the dense theme toggle below so the sidebar footer reads
-      // as one stack of equal-height pills.
-      className="flex h-9 w-full items-center gap-2.5 rounded-full border border-ink/10 bg-ink/[0.04] px-3"
-      title="kie.ai credits remaining"
+    <button
+      onClick={handleRefresh}
+      disabled={refreshing}
+      // h-9 matches the dense theme toggle below; w-fit keeps the pill snug
+      // around its contents instead of stretching the full sidebar width.
+      // The whole chip is the refresh control — the leading coin glyph swaps to
+      // a refresh icon on hover so the action reads without a separate button.
+      className="group flex h-9 w-fit max-w-full items-center gap-2.5 rounded-full border border-ink/10 bg-ink/[0.04] px-3 transition-colors hover:bg-ink/[0.08] disabled:opacity-60"
+      title="kie.ai credits remaining — click to refresh"
+      aria-label="Refresh credits balance"
     >
-      <Coins className="h-4 w-4 shrink-0 text-ink-300" strokeWidth={1.75} />
-      <span className="min-w-0 flex-1 truncate text-[13px] text-ink-300">
-        <span className="tabular-nums">{label}</span>
-        <span className="text-ink-500"> credits</span>
+      <span className="relative flex h-4 w-4 shrink-0 items-center justify-center">
+        {refreshing ? (
+          <RefreshCw className="h-4 w-4 animate-spin text-ink-300" strokeWidth={1.75} />
+        ) : (
+          <>
+            <Coins className="h-4 w-4 text-ink-300 group-hover:opacity-0" strokeWidth={1.75} />
+            <RefreshCw className="absolute h-4 w-4 text-ink-200 opacity-0 group-hover:opacity-100" strokeWidth={1.75} />
+          </>
+        )}
       </span>
-      <button
-        onClick={handleRefresh}
-        disabled={refreshing}
-        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-ink-500 transition-colors hover:bg-ink/[0.08] hover:text-ink-200 disabled:opacity-50"
-        title="Refresh credits balance"
-        aria-label="Refresh credits balance"
-      >
-        <RefreshCw className={`h-3 w-3 ${refreshing ? 'animate-spin' : ''}`} />
-      </button>
-    </div>
+      <span className="min-w-0 truncate text-[13px] text-ink-300">
+        <span className="tabular-nums">{label}</span>
+        <span className="text-ink-500"> credits left</span>
+      </span>
+    </button>
   )
 }
 
