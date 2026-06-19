@@ -1,66 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Loader2, RefreshCw, Ban, CheckCircle2, AlertTriangle, ChevronUp, ChevronDown } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Loader2, RefreshCw, Ban, CheckCircle2, AlertTriangle, ChevronUp, ChevronDown, Search, Download, Clock } from 'lucide-react'
 import { getSupabase } from '../../lib/supabase'
-
-interface MemberRow {
-  id: string
-  email: string
-  display_name: string | null
-  first_name: string | null
-  last_name: string | null
-  is_admin: boolean
-  disabled_at: string | null
-  created_at: string
-  last_active_at: string | null
-  total_bytes: number
-  asset_count: number
-  // Activity counters from member_activity view
-  products: number
-  models: number
-  scripts: number
-  voices: number
-  brolls: number
-  voice_history: number
-  video_history: number
-  assets_last_7d: number
-}
-
-// Render "First Last" with whichever fields are present; falls back to
-// display_name, otherwise an em-dash placeholder.
-function memberName(r: Pick<MemberRow, 'first_name' | 'last_name' | 'display_name'>): string {
-  const joined = [r.first_name, r.last_name].filter(Boolean).join(' ').trim()
-  if (joined) return joined
-  return (r.display_name ?? '').trim()
-}
+import {
+  useMembers, memberName, formatBytes, formatDate, formatRelative,
+  daysSinceActive, isInactive, isActivated, INACTIVE_DAYS,
+  type MemberRow,
+} from './useMembers'
 
 const QUERY_TIMEOUT_MS = 15_000
-
-function formatBytes(n: number): string {
-  if (!n) return '0 B'
-  if (n < 1024) return `${n} B`
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
-  if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`
-  return `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`
-}
-
-function formatDate(s: string | null): string {
-  if (!s) return '—'
-  const d = new Date(s)
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-}
-
-// "2 days ago", "3h ago", etc. Used for last_active_at.
-function formatRelative(s: string | null): string {
-  if (!s) return 'never'
-  const d = new Date(s).getTime()
-  const diff = Date.now() - d
-  if (diff < 60_000) return 'just now'
-  if (diff < 60 * 60_000) return `${Math.round(diff / 60_000)}m ago`
-  if (diff < 24 * 60 * 60_000) return `${Math.round(diff / (60 * 60_000))}h ago`
-  const days = Math.round(diff / (24 * 60 * 60_000))
-  if (days < 30) return `${days}d ago`
-  return formatDate(s)
-}
 
 function withTimeout<T>(p: PromiseLike<T>, ms: number, label: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -74,122 +21,52 @@ function withTimeout<T>(p: PromiseLike<T>, ms: number, label: string): Promise<T
 
 type SortKey = 'name' | 'email' | 'created_at' | 'last_active_at' | 'total_bytes' | 'assets_last_7d'
 type SortDir = 'asc' | 'desc'
+type StatusFilter = 'all' | 'active' | 'inactive' | 'unactivated' | 'disabled'
+
+// One CSV field: quote-wrap and escape embedded quotes when needed.
+function csvCell(v: string | number): string {
+  const s = String(v)
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+}
+
+function downloadMembersCsv(rows: MemberRow[]) {
+  const header = [
+    'Name', 'Email', 'Status', 'Admin', 'Joined', 'Last active', 'Days inactive',
+    'Storage bytes', 'Assets', 'Products', 'Influencers', 'Scripts', 'Voices',
+    'B-rolls', 'Voiceovers', 'Videos', 'Assets last 7d',
+  ]
+  const lines = rows.map((r) => [
+    memberName(r) || '—',
+    r.email,
+    r.disabled_at ? 'Disabled' : isInactive(r) ? 'Inactive' : 'Active',
+    r.is_admin ? 'yes' : 'no',
+    formatDate(r.created_at),
+    r.last_active_at ? formatDate(r.last_active_at) : 'never',
+    Number.isFinite(daysSinceActive(r)) ? daysSinceActive(r) : '',
+    r.total_bytes,
+    r.asset_count,
+    r.products, r.models, r.scripts, r.voices, r.brolls, r.voice_history, r.video_history,
+    r.assets_last_7d,
+  ].map(csvCell).join(','))
+
+  const csv = [header.join(','), ...lines].join('\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `ugc-members-${new Date().toISOString().slice(0, 10)}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
 
 export default function MembersTable() {
-  const [rows, setRows] = useState<MemberRow[]>([])
-  const [loading, setLoading] = useState(true)
-  const [profilesError, setProfilesError] = useState<string | null>(null)
-  const [storageWarning, setStorageWarning] = useState<string | null>(null)
-  const [activityWarning, setActivityWarning] = useState<string | null>(null)
+  const { rows, loading, slowHint, profilesError, storageWarning, activityWarning, reload } = useMembers()
   const [busyId, setBusyId] = useState<string | null>(null)
-  const [slowHint, setSlowHint] = useState(false)
 
   const [sortKey, setSortKey] = useState<SortKey>('created_at')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
-
-  async function load() {
-    setLoading(true)
-    setProfilesError(null)
-    setStorageWarning(null)
-    setActivityWarning(null)
-    setSlowHint(false)
-    const slowTimer = setTimeout(() => setSlowHint(true), 3000)
-
-    try {
-      const sb = getSupabase()
-      // Three independent settled loads. profiles is the load-bearing one;
-      // member_storage and member_activity each fall back to zeros if they
-      // fail, so a single bad view doesn't blank the whole table.
-      const [profilesRes, storageRes, activityRes] = await Promise.allSettled([
-        withTimeout(
-          sb.from('profiles').select('id, email, display_name, first_name, last_name, is_admin, disabled_at, created_at, last_active_at'),
-          QUERY_TIMEOUT_MS,
-          'profiles query',
-        ),
-        withTimeout(
-          sb.from('member_storage').select('user_id, total_bytes, asset_count'),
-          QUERY_TIMEOUT_MS,
-          'storage view',
-        ),
-        withTimeout(
-          sb.from('member_activity').select('user_id, products, models, scripts, voices, brolls, voice_history, video_history, assets_last_7d'),
-          QUERY_TIMEOUT_MS,
-          'activity view',
-        ),
-      ])
-
-      if (profilesRes.status === 'rejected') {
-        setProfilesError(profilesRes.reason instanceof Error ? profilesRes.reason.message : String(profilesRes.reason))
-        return
-      }
-      if ((profilesRes.value as { error: unknown }).error) {
-        const err = (profilesRes.value as { error: { message: string } }).error
-        setProfilesError(err.message)
-        return
-      }
-
-      const storageMap = new Map<string, { total_bytes: number; asset_count: number }>()
-      if (storageRes.status === 'fulfilled' && !(storageRes.value as { error: unknown }).error) {
-        const data = (storageRes.value as { data: Array<{ user_id: string; total_bytes: number; asset_count: number }> }).data ?? []
-        for (const s of data) storageMap.set(s.user_id, { total_bytes: Number(s.total_bytes), asset_count: Number(s.asset_count) })
-      } else {
-        const reason = storageRes.status === 'rejected'
-          ? (storageRes.reason instanceof Error ? storageRes.reason.message : String(storageRes.reason))
-          : ((storageRes.value as { error?: { message: string } }).error?.message ?? 'unknown error')
-        setStorageWarning(`Storage stats unavailable (${reason}).`)
-      }
-
-      type ActivityRow = {
-        user_id: string
-        products: number; models: number; scripts: number; voices: number
-        brolls: number; voice_history: number; video_history: number; assets_last_7d: number
-      }
-      const activityMap = new Map<string, Omit<ActivityRow, 'user_id'>>()
-      if (activityRes.status === 'fulfilled' && !(activityRes.value as { error: unknown }).error) {
-        const data = (activityRes.value as { data: ActivityRow[] }).data ?? []
-        for (const a of data) {
-          activityMap.set(a.user_id, {
-            products: Number(a.products), models: Number(a.models),
-            scripts: Number(a.scripts), voices: Number(a.voices),
-            brolls: Number(a.brolls), voice_history: Number(a.voice_history),
-            video_history: Number(a.video_history), assets_last_7d: Number(a.assets_last_7d),
-          })
-        }
-      } else {
-        const reason = activityRes.status === 'rejected'
-          ? (activityRes.reason instanceof Error ? activityRes.reason.message : String(activityRes.reason))
-          : ((activityRes.value as { error?: { message: string } }).error?.message ?? 'unknown error')
-        setActivityWarning(`Activity counts unavailable (${reason}). Did you run 0002_member_activity.sql?`)
-      }
-
-      const profilesData = (profilesRes.value as { data: Array<Pick<MemberRow, 'id' | 'email' | 'display_name' | 'first_name' | 'last_name' | 'is_admin' | 'disabled_at' | 'created_at' | 'last_active_at'>> }).data ?? []
-      const merged: MemberRow[] = profilesData.map((p) => {
-        const s = storageMap.get(p.id)
-        const a = activityMap.get(p.id)
-        return {
-          ...p,
-          total_bytes: s?.total_bytes ?? 0,
-          asset_count: s?.asset_count ?? 0,
-          products: a?.products ?? 0,
-          models: a?.models ?? 0,
-          scripts: a?.scripts ?? 0,
-          voices: a?.voices ?? 0,
-          brolls: a?.brolls ?? 0,
-          voice_history: a?.voice_history ?? 0,
-          video_history: a?.video_history ?? 0,
-          assets_last_7d: a?.assets_last_7d ?? 0,
-        }
-      })
-      setRows(merged)
-    } catch (e) {
-      setProfilesError(e instanceof Error ? e.message : String(e))
-    } finally {
-      clearTimeout(slowTimer)
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => { load() }, [])
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [query, setQuery] = useState('')
 
   async function toggleDisabled(row: MemberRow) {
     setBusyId(row.id)
@@ -202,7 +79,7 @@ export default function MembersTable() {
         'profile update',
       ) as { error: { message: string } | null }
       if (error) throw error
-      await load()
+      await reload()
     } catch (e) {
       alert(e instanceof Error ? e.message : String(e))
     } finally {
@@ -220,8 +97,30 @@ export default function MembersTable() {
     }
   }
 
+  const counts = useMemo(() => {
+    let disabled = 0, inactive = 0, unactivated = 0
+    for (const r of rows) {
+      if (r.disabled_at) { disabled++; continue }
+      if (isInactive(r)) inactive++
+      if (!isActivated(r)) unactivated++
+    }
+    return { all: rows.length, active: rows.length - disabled, disabled, inactive, unactivated }
+  }, [rows])
+
+  const filteredRows = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return rows.filter((r) => {
+      if (statusFilter === 'active' && r.disabled_at) return false
+      if (statusFilter === 'disabled' && !r.disabled_at) return false
+      if (statusFilter === 'inactive' && !isInactive(r)) return false
+      if (statusFilter === 'unactivated' && (r.disabled_at || isActivated(r))) return false
+      if (q && !r.email.toLowerCase().includes(q) && !memberName(r).toLowerCase().includes(q)) return false
+      return true
+    })
+  }, [rows, statusFilter, query])
+
   const sortedRows = useMemo(() => {
-    const arr = [...rows]
+    const arr = [...filteredRows]
     arr.sort((a, b) => {
       let cmp = 0
       switch (sortKey) {
@@ -250,7 +149,7 @@ export default function MembersTable() {
       return sortDir === 'asc' ? cmp : -cmp
     })
     return arr
-  }, [rows, sortKey, sortDir])
+  }, [filteredRows, sortKey, sortDir])
 
   // Footer aggregates — rendered independent of sort
   const totals = useMemo(() => {
@@ -274,7 +173,7 @@ export default function MembersTable() {
         <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-[12px] text-red-300 light:text-red-700">
           {profilesError}
         </div>
-        <button onClick={load} className="flex items-center gap-1.5 rounded-md border border-ink/10 px-2.5 py-1 text-[11px] text-ink-300 transition-colors hover:bg-ink/[0.05]">
+        <button onClick={reload} className="flex items-center gap-1.5 rounded-md border border-ink/10 px-2.5 py-1 text-[11px] text-ink-300 transition-colors hover:bg-ink/[0.05]">
           <RefreshCw className="h-3 w-3" /> Try again
         </button>
       </div>
@@ -288,9 +187,50 @@ export default function MembersTable() {
           <span className="text-ink-200">{rows.length}</span> {rows.length === 1 ? 'member' : 'members'}
           <span className="text-ink-600"> · {formatBytes(totals.totalBytes)} total · {totals.totalAssets7d} {totals.totalAssets7d === 1 ? 'generation' : 'generations'} this week</span>
         </div>
-        <button onClick={load} className="flex items-center gap-1.5 rounded-md border border-ink/10 px-2.5 py-1 text-[11px] text-ink-300 transition-colors hover:bg-ink/[0.05]">
-          <RefreshCw className="h-3 w-3" /> Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => downloadMembersCsv(sortedRows)}
+            disabled={sortedRows.length === 0}
+            title="Export the rows currently shown"
+            className="flex items-center gap-1.5 rounded-md border border-ink/10 px-2.5 py-1 text-[11px] text-ink-300 transition-colors hover:bg-ink/[0.05] disabled:opacity-40"
+          >
+            <Download className="h-3 w-3" /> Export CSV
+          </button>
+          <button onClick={reload} className="flex items-center gap-1.5 rounded-md border border-ink/10 px-2.5 py-1 text-[11px] text-ink-300 transition-colors hover:bg-ink/[0.05]">
+            <RefreshCw className="h-3 w-3" /> Refresh
+          </button>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-[180px] flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-500" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search name or email…"
+            className="w-full rounded-full border border-ink/10 bg-ink/[0.03] py-1.5 pl-8 pr-3 text-[12px] text-ink-200 outline-none transition-colors placeholder:text-ink-600 focus:border-ink/20"
+          />
+        </div>
+        <div className="flex items-center gap-0.5 rounded-full border border-ink/10 bg-ink/[0.03] p-0.5">
+          {([
+            ['all', 'All', counts.all],
+            ['active', 'Active', counts.active],
+            ['inactive', `Inactive ${INACTIVE_DAYS}d+`, counts.inactive],
+            ['unactivated', 'Never used', counts.unactivated],
+            ['disabled', 'Disabled', counts.disabled],
+          ] as Array<[StatusFilter, string, number]>).map(([key, label, count]) => (
+            <button
+              key={key}
+              onClick={() => setStatusFilter(key)}
+              className={`rounded-full px-2.5 py-1 text-[11px] transition-colors ${
+                statusFilter === key ? 'bg-ink text-paper' : 'text-ink-400 hover:text-ink-200'
+              }`}
+            >
+              {label} <span className={statusFilter === key ? 'text-paper/60' : 'text-ink-600'}>{count}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {storageWarning && (
@@ -321,8 +261,16 @@ export default function MembersTable() {
             </tr>
           </thead>
           <tbody className="divide-y divide-ink/5">
+            {sortedRows.length === 0 && (
+              <tr>
+                <td colSpan={8} className="px-3 py-6 text-center text-[12px] text-ink-500">
+                  No members match this filter.
+                </td>
+              </tr>
+            )}
             {sortedRows.map((r) => {
               const name = memberName(r)
+              const inactive = isInactive(r)
               return (
               <tr key={r.id} className="text-ink-300">
                 <td className="px-3 py-2 align-top">
@@ -332,11 +280,13 @@ export default function MembersTable() {
                 <td className="px-3 py-2 align-top">
                   <div className="text-ink-300">{r.email}</div>
                   <div className="mt-1 text-[10px] text-ink-500">
-                    {r.products}p · {r.models}m · {r.scripts}s · {r.voices}v · {r.brolls}b · {r.video_history}vid
+                    {r.products}p · {r.models}i · {r.scripts}s · {r.voices}v · {r.brolls}b · {r.video_history}vid
                   </div>
                 </td>
                 <td className="px-3 py-2 align-top text-ink-400">{formatDate(r.created_at)}</td>
-                <td className="px-3 py-2 align-top text-ink-400">{formatRelative(r.last_active_at)}</td>
+                <td className="px-3 py-2 align-top text-ink-400">
+                  <span className={inactive ? 'text-amber-400 light:text-amber-600' : undefined}>{formatRelative(r.last_active_at)}</span>
+                </td>
                 <td className="px-3 py-2 align-top text-ink-400">
                   {formatBytes(r.total_bytes)}
                   <span className="text-ink-600"> ({r.asset_count})</span>
@@ -351,6 +301,8 @@ export default function MembersTable() {
                 <td className="px-3 py-2 align-top">
                   {r.disabled_at ? (
                     <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] text-red-300 light:text-red-700"><Ban className="h-2.5 w-2.5" /> Disabled</span>
+                  ) : inactive ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300 light:text-amber-700"><Clock className="h-2.5 w-2.5" /> Inactive</span>
                   ) : (
                     <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-300 light:text-emerald-700"><CheckCircle2 className="h-2.5 w-2.5" /> Active</span>
                   )}
@@ -372,7 +324,7 @@ export default function MembersTable() {
       </div>
 
       <p className="text-[10px] text-ink-600">
-        Bank counts: <span className="text-ink-500">p</span>roducts · <span className="text-ink-500">m</span>odels · <span className="text-ink-500">s</span>cripts · <span className="text-ink-500">v</span>oices · <span className="text-ink-500">b</span>-rolls · <span className="text-ink-500">vid</span>eos.
+        Bank counts: <span className="text-ink-500">p</span>roducts · <span className="text-ink-500">i</span>nfluencers · <span className="text-ink-500">s</span>cripts · <span className="text-ink-500">v</span>oices · <span className="text-ink-500">b</span>-rolls · <span className="text-ink-500">vid</span>eos.
       </p>
     </div>
   )

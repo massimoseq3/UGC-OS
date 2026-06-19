@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { Shield } from 'lucide-react'
 import MembersTable from './MembersTable'
 import AllowlistEditor from './AllowlistEditor'
+import Insights from './Insights'
 import { useAuthStore } from '../../stores/authStore'
 
-type Tab = 'members' | 'allowlist'
+type Tab = 'members' | 'insights' | 'allowlist'
 
 export default function AdminPanel() {
   const isAdmin = useAuthStore((s) => s.profile?.is_admin === true)
@@ -28,12 +29,13 @@ export default function AdminPanel() {
         </div>
         <div className="flex gap-1 rounded-lg border border-ink/10 bg-ink/[0.03] p-0.5">
           <TabButton active={tab === 'members'} onClick={() => setTab('members')}>Members</TabButton>
+          <TabButton active={tab === 'insights'} onClick={() => setTab('insights')}>Insights</TabButton>
           <TabButton active={tab === 'allowlist'} onClick={() => setTab('allowlist')}>Allowlist</TabButton>
         </div>
       </header>
 
       <div className="flex-1 overflow-y-auto px-6 py-5">
-        {tab === 'members' ? <MembersTable /> : <AllowlistEditor />}
+        {tab === 'members' ? <MembersTable /> : tab === 'insights' ? <Insights /> : <AllowlistEditor />}
       </div>
     </div>
   )

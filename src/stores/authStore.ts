@@ -42,6 +42,8 @@ export interface ProfileRow {
   id: string
   email: string
   display_name: string | null
+  first_name: string | null
+  last_name: string | null
   is_admin: boolean
   disabled_at: string | null
   per_app_model: Record<string, string>
@@ -69,7 +71,7 @@ interface AuthState {
 
   bootstrap: () => Promise<void>
   signIn: (email: string, password: string) => Promise<{ ok: true } | { ok: false; error: string; revoked?: boolean }>
-  signUp: (email: string, password: string) => Promise<{ ok: true; needsConfirm: boolean } | { ok: false; error: string }>
+  signUp: (email: string, password: string, firstName: string, lastName: string) => Promise<{ ok: true; needsConfirm: boolean } | { ok: false; error: string }>
   signOut: () => Promise<void>
   clearAccessRevoked: () => void
   refreshProfile: () => Promise<void>
@@ -80,7 +82,7 @@ interface AuthState {
 
 async function fetchProfile(userId: string): Promise<ProfileRow | null> {
   const sb = getSupabase()
-  const fullCols = 'id, email, display_name, is_admin, disabled_at, per_app_model, active_project_id, tos_accepted_at, privacy_accepted_at, aup_accepted_at, policy_version_accepted'
+  const fullCols = 'id, email, display_name, first_name, last_name, is_admin, disabled_at, per_app_model, active_project_id, tos_accepted_at, privacy_accepted_at, aup_accepted_at, policy_version_accepted'
   const legacyCols = 'id, email, display_name, is_admin, disabled_at, per_app_model, active_project_id'
   const first = await sb.from('profiles').select(fullCols).eq('id', userId).maybeSingle()
   let data: Record<string, unknown> | null = first.data as Record<string, unknown> | null
@@ -94,7 +96,7 @@ async function fetchProfile(userId: string): Promise<ProfileRow | null> {
     data = r.data as Record<string, unknown> | null
     error = r.error
     if (data) {
-      data = { ...data, tos_accepted_at: null, privacy_accepted_at: null, aup_accepted_at: null, policy_version_accepted: null }
+      data = { ...data, first_name: null, last_name: null, tos_accepted_at: null, privacy_accepted_at: null, aup_accepted_at: null, policy_version_accepted: null }
     }
   }
   if (error) {
@@ -177,10 +179,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   clearAccessRevoked: () => set({ accessRevoked: false }),
 
-  signUp: async (email, password) => {
+  signUp: async (email, password, firstName, lastName) => {
     if (!isCloudEnabled()) return { ok: false, error: 'Cloud not configured.' }
     const sb = getSupabase()
-    const { data, error } = await sb.auth.signUp({ email: email.trim(), password })
+    // Names ride along as user metadata; the on_auth_user_created trigger reads
+    // them into the profile when the allowlist has no name for this email (e.g.
+    // they signed up with a different email than their Skool one).
+    const { data, error } = await sb.auth.signUp({
+      email: email.trim(),
+      password,
+      options: { data: { first_name: firstName.trim(), last_name: lastName.trim() } },
+    })
     if (error) {
       // Surface our allowlist-trigger message verbatim — that's the friendly
       // "not on access list" copy.
