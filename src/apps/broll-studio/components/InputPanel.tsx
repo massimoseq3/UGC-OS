@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import { Package, UserRound, FileText, RefreshCw, Loader2, Film, X } from 'lucide-react'
 import type { Product, Model, Script } from '../../../stores/types'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
 import ClearAllButton from '../../../components/ClearAllButton'
+import ExpandTextModal, { ExpandButton } from '../../../components/ExpandableText'
 
 interface InputPanelProps {
   selectedProduct: Product | null
@@ -176,6 +178,7 @@ export default function InputPanel({
 }: InputPanelProps) {
   const hasScript = scriptText.trim().length > 0
   const canGenerate = hasScript
+  const [scriptExpanded, setScriptExpanded] = useState(false)
 
   return (
     <div className="flex flex-col md:h-full">
@@ -233,14 +236,15 @@ export default function InputPanel({
           </div>
 
           {/* Manual script textarea */}
-          <div>
+          <div className="relative">
             <textarea
               value={scriptText}
               onChange={(e) => onScriptTextChange(e.target.value)}
               rows={8}
               placeholder="Paste your script text here..."
-              className="w-full rounded-lg border border-ink/10 bg-transparent px-3 py-2 text-sm leading-relaxed text-ink-200 placeholder-ink-700 outline-none transition-colors focus:border-ink/20 resize-none"
+              className="w-full rounded-xl border border-ink/10 bg-transparent px-3 py-2 text-sm leading-relaxed text-ink-200 placeholder-ink-700 outline-none transition-colors focus:border-ink/20 resize-none"
             />
+            <ExpandButton onClick={() => setScriptExpanded(true)} className="absolute bottom-2 right-2" />
           </div>
 
           {/* Section separator */}
@@ -286,6 +290,16 @@ export default function InputPanel({
           </p>
         )}
       </div>
+
+      <ExpandTextModal
+        open={scriptExpanded}
+        onClose={() => setScriptExpanded(false)}
+        value={scriptText}
+        onChange={onScriptTextChange}
+        title="Script"
+        accent="broll"
+        placeholder="Paste your script text here..."
+      />
     </div>
   )
 }

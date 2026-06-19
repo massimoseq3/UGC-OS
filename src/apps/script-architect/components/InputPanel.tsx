@@ -7,6 +7,7 @@ import BankPicker from '../../../components/BankPicker'
 import SegmentedToggle from '../../../components/SegmentedToggle'
 import SlideOver from '../../../components/SlideOver'
 import ClearAllButton from '../../../components/ClearAllButton'
+import ExpandTextModal, { ExpandButton } from '../../../components/ExpandableText'
 import { useAppStore } from '../../../stores/appStore'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
 
@@ -73,6 +74,8 @@ export default function InputPanel({
 }: InputPanelProps) {
   const [productPickerOpen, setProductPickerOpen] = useState(false)
   const [scriptPickerOpen, setScriptPickerOpen] = useState(false)
+  // Which big text box is open in the full-screen editor (null = none).
+  const [expandedField, setExpandedField] = useState<null | 'brief' | 'transcript' | 'reverse'>(null)
   // Seed the editable context from a product that's already selected on mount
   // (persisted selection / history reload) so the "Edit product details"
   // dropdown is available immediately — not only after picking a new product.
@@ -342,13 +345,16 @@ export default function InputPanel({
               />
               {/* Fixed-height box (Playground prompt pattern): it never grows
                   with content — it scrolls internally so the page stays put. */}
-              <textarea
-                value={brief}
-                onChange={(e) => onBriefChange(e.target.value)}
-                rows={6}
-                placeholder={"e.g. A girl in her 20s talking about this serum like she's telling her best friend — focus on how fast it cleared her skin texture. Casual, a little funny, end with the discount code."}
-                className="mt-3 h-[150px] w-full resize-none overflow-y-auto rounded-2xl border border-ink/10 bg-ink/[0.02] px-4 py-3 text-sm leading-relaxed text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-scripts-500/30"
-              />
+              <div className="relative mt-3">
+                <textarea
+                  value={brief}
+                  onChange={(e) => onBriefChange(e.target.value)}
+                  rows={6}
+                  placeholder={"e.g. A girl in her 20s talking about this serum like she's telling her best friend — focus on how fast it cleared her skin texture. Casual, a little funny, end with the discount code."}
+                  className="h-[150px] w-full resize-none overflow-y-auto rounded-3xl border border-ink/10 bg-ink/[0.02] px-4 py-3 text-sm leading-relaxed text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-scripts-500/30"
+                />
+                <ExpandButton onClick={() => setExpandedField('brief')} className="absolute bottom-2 right-2" />
+              </div>
 
               {/* Length — a segmented toggle (same sliding animation as the
                   mode toggle up top). */}
@@ -398,13 +404,16 @@ export default function InputPanel({
               <div className="h-px flex-1 bg-ink/[0.07]" />
             </div>
 
-            <textarea
-              value={winningTranscript}
-              onChange={(e) => { onTranscriptChange(e.target.value); setRemixScript(null) }}
-              rows={8}
-              placeholder="Paste a proven ad transcript here, or send one from Ad Analyzer..."
-              className={`min-h-[160px] w-full grow rounded-2xl border border-ink/10 bg-ink/[0.02] px-4 py-3 text-sm leading-relaxed text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-scripts-500/30 resize-none ${highlightField === 'transcript' ? 'animate-field-flash' : ''}`}
-            />
+            <div className="relative flex grow flex-col">
+              <textarea
+                value={winningTranscript}
+                onChange={(e) => { onTranscriptChange(e.target.value); setRemixScript(null) }}
+                rows={8}
+                placeholder="Paste a proven ad transcript here, or send one from Ad Analyzer..."
+                className={`min-h-[160px] w-full grow rounded-3xl border border-ink/10 bg-ink/[0.02] px-4 py-3 text-sm leading-relaxed text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-scripts-500/30 resize-none ${highlightField === 'transcript' ? 'animate-field-flash' : ''}`}
+              />
+              <ExpandButton onClick={() => setExpandedField('transcript')} className="absolute bottom-2 right-2" />
+            </div>
           </div>
         ) : (
           <div className="mb-6 flex flex-col">
@@ -431,13 +440,16 @@ export default function InputPanel({
               <div className="h-px flex-1 bg-ink/[0.07]" />
             </div>
 
-            <textarea
-              value={reversePrompt}
-              onChange={(e) => { onReversePromptChange(e.target.value); setSceneScript(null) }}
-              rows={10}
-              placeholder={'Paste the reverse-engineered prompt from Ad Analyzer here.\n\nExample (multi-scene):\n--- Scene 1: Mirror reaction hook (00:00-00:08) ---\nA woman in her late 20s with shoulder-length auburn hair, wearing a cream cable-knit sweater, stands in a softly-lit bathroom holding a clear glass dropper bottle... She says: "I had dark spots for years and nothing worked."\n\n--- Scene 2: Product reveal (00:08-00:15) ---\n...'}
-              className={`h-[200px] w-full resize-none overflow-y-auto rounded-2xl border border-ink/10 bg-ink/[0.02] px-4 py-3 font-mono text-xs leading-relaxed text-ink-200 placeholder-ink-700 outline-none transition-colors focus:border-scripts-500/30 ${highlightField === 'reverse-prompt' ? 'animate-field-flash' : ''}`}
-            />
+            <div className="relative">
+              <textarea
+                value={reversePrompt}
+                onChange={(e) => { onReversePromptChange(e.target.value); setSceneScript(null) }}
+                rows={10}
+                placeholder={'Paste the reverse-engineered prompt from Ad Analyzer here.\n\nExample (multi-scene):\n--- Scene 1: Mirror reaction hook (00:00-00:08) ---\nA woman in her late 20s with shoulder-length auburn hair, wearing a cream cable-knit sweater, stands in a softly-lit bathroom holding a clear glass dropper bottle... She says: "I had dark spots for years and nothing worked."\n\n--- Scene 2: Product reveal (00:08-00:15) ---\n...'}
+                className={`h-[200px] w-full resize-none overflow-y-auto rounded-3xl border border-ink/10 bg-ink/[0.02] px-4 py-3 font-mono text-xs leading-relaxed text-ink-200 placeholder-ink-700 outline-none transition-colors focus:border-scripts-500/30 ${highlightField === 'reverse-prompt' ? 'animate-field-flash' : ''}`}
+              />
+              <ExpandButton onClick={() => setExpandedField('reverse')} className="absolute bottom-2 right-2" />
+            </div>
           </div>
         )}
 
@@ -573,6 +585,35 @@ export default function InputPanel({
           })}
         </div>
       </SlideOver>
+
+      <ExpandTextModal
+        open={expandedField === 'brief'}
+        onClose={() => setExpandedField(null)}
+        value={brief}
+        onChange={onBriefChange}
+        title="Describe Your Ad"
+        accent="scripts"
+        placeholder="What should this ad say or focus on? Vibe, angle, key points…"
+      />
+      <ExpandTextModal
+        open={expandedField === 'transcript'}
+        onClose={() => setExpandedField(null)}
+        value={winningTranscript}
+        onChange={(v) => { onTranscriptChange(v); setRemixScript(null) }}
+        title="Proven Script Transcript"
+        accent="scripts"
+        placeholder="Paste a proven ad transcript here…"
+      />
+      <ExpandTextModal
+        open={expandedField === 'reverse'}
+        onClose={() => setExpandedField(null)}
+        value={reversePrompt}
+        onChange={(v) => { onReversePromptChange(v); setSceneScript(null) }}
+        title="Reverse-Engineered Scene"
+        accent="scripts"
+        mono
+        placeholder="Paste the reverse-engineered prompt from Ad Analyzer here…"
+      />
     </div>
   )
 }
