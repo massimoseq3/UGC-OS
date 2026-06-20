@@ -396,11 +396,11 @@ export default function InputPanel({
                 <StepLabel label="Output" />
                 <ClearAllButton onClear={onClear} />
               </div>
-              {/* House pill at the substantial form-control size (h-12),
-                  matching the Influencer Presets button in Influencers. */}
+              {/* House pill sized to match the Influencers Portrait/Character
+                  Sheet toggle (h-12, p-1). */}
               <div className="mt-2">
                 <SegmentedToggle<WriteFormat>
-                  lg
+                  className="h-12 !p-1"
                   value={writeFormat}
                   onChange={handleFormatChange}
                   options={[
@@ -500,7 +500,7 @@ export default function InputPanel({
                 <StepLabel label="Length" />
                 <div className="mt-2">
                   <SegmentedToggle<string>
-                    lg
+                    className="h-12 !p-1"
                     value={String(writeLength)}
                     onChange={(v) => onWriteLengthChange(Number(v) as WriteLength)}
                     options={(isPromptFormat ? PROMPT_LENGTHS : WRITE_LENGTHS).map((len) => ({ value: String(len), label: `${len}s` }))}
