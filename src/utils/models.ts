@@ -275,6 +275,40 @@ export const MODEL_REGISTRY: ModelEntry[] = [
       supportsAudio: true,
     },
   },
+  // Seedance 1.5 Pro — prior-gen Seedance. Unlike 2.0 it takes its start/end
+  // frames as a single `input_urls` array (0-2 images) rather than
+  // first_frame_url/last_frame_url, and has no separate reference image/audio/
+  // video inputs — so no supportsReferenceImages and no reference-to-video mode.
+  // Per-second pricing keyed on resolution × audio. Source (user-supplied):
+  // 480p 1.75/3.5 · 720p 3.5/7 · 1080p 7.5/15 (no-audio / with-audio).
+  // Docs: bytedance/seedance-1.5-pro on docs.kie.ai.
+  {
+    id: 'bytedance/seedance-1.5-pro',
+    displayName: 'Seedance 1.5 Pro',
+    provider: 'ByteDance',
+    task: 'video',
+    modes: ['text-to-video', 'image-to-video', 'frames-to-video'],
+    tags: ['cheap'],
+    pricing: {
+      unit: 'per-second',
+      credits: 3.5,
+      priceFor: ({ durationSeconds = 8, resolution = '720p', audio = false }) => {
+        const perSec =
+          resolution === '1080p' ? (audio ? 15 : 7.5) :
+          resolution === '480p' ? (audio ? 3.5 : 1.75) :
+          /* 720p */ (audio ? 7 : 3.5)
+        return perSec * durationSeconds
+      },
+    },
+    videoEndpoint: 'createTask',
+    videoConstraints: {
+      durations: [4, 6, 8, 10, 12],
+      resolutions: ['480p', '720p', '1080p'],
+      default: '720p',
+      aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9'],
+      supportsAudio: true,
+    },
+  },
   {
     id: 'kling-3.0/video',
     displayName: 'Kling 3.0',
@@ -885,6 +919,24 @@ export function buildVideoInput(modelId: string, opts: VideoGenOptions): Record<
       resolution,
       ratio: ar,
       duration,
+    }
+  }
+
+  // ── Seedance 1.5 Pro ──
+  // Frames ride in a single `input_urls` array (start, then optional end), not
+  // the 2.0 family's first_frame_url/last_frame_url. No reference inputs.
+  if (modelId === 'bytedance/seedance-1.5-pro') {
+    const inputUrls: string[] = []
+    if (opts.firstFrameUrl) inputUrls.push(opts.firstFrameUrl)
+    else if (opts.imageUrl && opts.mode === 'image-to-video') inputUrls.push(opts.imageUrl)
+    if (opts.lastFrameUrl) inputUrls.push(opts.lastFrameUrl)
+    return {
+      prompt: opts.prompt,
+      ...(inputUrls.length ? { input_urls: inputUrls } : {}),
+      aspect_ratio: ar,
+      duration,
+      resolution,
+      generate_audio: opts.audio ?? false,
     }
   }
 
