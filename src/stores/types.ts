@@ -162,7 +162,7 @@ export interface ScriptHistoryItem {
   // app-level unions.
   brief?: string
   writeStyle?: string
-  writeFormat?: 'script' | 'scenes'
+  writeFormat?: 'script' | 'scenes' | 'prompt'
   writeLength?: number
   createdAt: number
 }
@@ -261,4 +261,24 @@ export interface InterAppPayload {
   targetApp: string
   targetField: string
   data: unknown
+}
+
+// Payload for the Scripts → Playground cinematic handoff (targetField
+// 'cinematicVideo'). Carries the resolved master prompt plus the product /
+// influencer reference images so Playground lands in video mode, refs already
+// attached, on a ref-capable native-audio model. `slot: 'ref'` keeps the
+// inferred video mode at reference-to-video. Structurally compatible with
+// Playground's PromptRef so the consumer can spread these straight in.
+export interface CinematicHandoffRef {
+  url: string
+  label: string
+  source: 'product' | 'character'
+  slot: 'ref'
+}
+
+export interface CinematicVideoPayload {
+  prompt: string
+  refs: CinematicHandoffRef[]
+  modelId: string
+  durationSeconds: number
 }

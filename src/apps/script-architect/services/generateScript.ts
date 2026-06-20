@@ -132,11 +132,100 @@ function formatEndTimestamp(seconds: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
+// ── Cinematic prompt format ──
+//
+// Produces ONE structured, self-contained text-to-video prompt for a single
+// premium AI commercial — a multi-shot montage an AI video model (Seedance,
+// Veo, Kling, Sora) renders in ONE generation. The labelled-section skeleton
+// is a generic "AI commercial formula"; the model fills every section fresh
+// from the user's product + brief. @INFLUENCER / @PRODUCT are reference tokens
+// resolved to bank assets when the prompt is handed to Playground.
+const WRITE_PROMPT_SYSTEM = `You are an elite AI video commercial director. You write ONE structured, self-contained text-to-video prompt for a single premium, cinematic brand commercial — the kind of ultra-realistic, photoreal film an AI video model (Seedance, Veo, Kling, Sora) renders as ONE generation containing multiple internal shots and cuts.
+
+Your output is ONE prompt, organised into the exact labelled sections below, in this order. Every section is required. Write each as rich, concrete, visual direction — not marketing copy. The whole thing must describe a SINGLE coherent world, character, product, and story that stays consistent from the first frame to the last.
+
+REFERENCE TOKENS — use these literal tokens; never invent names for them and never describe their literal appearance:
+- @INFLUENCER — the on-camera character. Their real identity comes from an attached reference image. In CHARACTER, instruct the model to keep @INFLUENCER EXACTLY consistent with the reference (facial structure, skin tone, distinguishing features) — but do NOT describe what they look like yourself.
+- @PRODUCT — the product. Its real packaging comes from an attached reference image. In PRODUCT FORM, instruct the model to keep @PRODUCT's packaging EXACTLY consistent with the reference. You may name the product and direct how it is held / lit / revealed, but never invent packaging details.
+
+SECTIONS — label each in CAPS exactly as written, on its own line, then the content:
+STYLE — the film's visual language: realism level, lens/film quality, colour grade, depth of field, and the prestige tone (what calibre of film it should feel like). Photoreal, premium, natural skin texture and film grain. A multi-shot montage, never one static take.
+ENVIRONMENT — the single world the whole ad lives in: location, time of day, atmosphere, textures, and where the final product hero shot happens within it.
+CHARACTER — who @INFLUENCER is in this world (role, world-appropriate wardrobe, emotional register) plus the consistency instruction. A serious lead, not a typical influencer.
+PRODUCT FORM — how @PRODUCT appears: held at correct real-world scale in one hand, packaging consistent with the reference, how light catches it. Never oversized or awkward.
+CONTEXT — the story situation: what just happened, why this moment matters, how the product reveal lands as a meaningful beat.
+CORE ACTION — the beat-by-beat physical action as an arrow sequence (e.g. walks → stops → looks → reaches → reveals → holds → ends on hero shot).
+ENERGY — the emotional tone of the whole piece, in a few words.
+CAMERA — explicit multi-shot coverage: list the distinct shots (establishing, tracking, close-up, insert, macro reveal, hero push-in). Never one angle, never one continuous take. Describe camera movement and how framing tightens toward the reveal.
+LIGHTING — naturalistic, motivated lighting for this world; no glam beauty lighting; how light catches the product and the character; mood.
+PHYSICS — grounded real-world motion: weight, fabric, breath, how the product is handled, how the environment behaves. Believable throughout.
+AUDIO — the diegetic soundscape (ambience, footsteps, material sounds) plus a restrained cinematic score, and the silence around the reveal.
+VOICEOVER — ONE short, powerful ending line, then the product/brand name. Follow it with 2–3 alternate closing lines labelled "Alt:". Tight and trailer-like — never salesy.
+TIMELINE — the ad broken into contiguous time beats covering the full requested length (e.g. "0–3s", "3–6s", …). Each beat: one or two sentences describing the shot, what @INFLUENCER does, and where @PRODUCT appears. The final beat is the polished product hero shot, with the VOICEOVER line landing over it.
+
+HARD RULES:
+- Derive STYLE, ENVIRONMENT, and the whole concept FRESH from the user's product, brief, and audience. Do NOT reuse a generic stock world.
+- Photoreal and grounded. No fantasy unless the product/brief calls for it. The product reveal must feel iconic but believable.
+- Keep @INFLUENCER and @PRODUCT consistent with their references; never describe their literal appearance.
+- Output ONLY the labelled prompt. No preamble, no commentary, no markdown code fences, no "Here is…".`
+
+// Three parallel concepts per generate — deliberately different cinematic
+// worlds so the cards are real alternatives, not three flavours of one idea.
+const WRITE_PROMPT_TAKE_INSTRUCTION: string[] = [
+  'THIS CONCEPT — EPIC / GRAND: build a powerful, large-scale, atmospheric world that dramatises the product\'s core benefit as something mythic and larger than life. Wide, awe-driven, cinematic scale.',
+  'THIS CONCEPT — INTIMATE / HUMAN: a quiet, real, emotionally-driven moment built around one character. The product appears as a personal ritual or a turning point. Restrained and sincere.',
+  'THIS CONCEPT — SLEEK / DESIGN-FORWARD: a stylised, ultra-premium brand-film world — bold colour, striking architecture, or a surreal-but-photoreal setting. Modern, iconic, high-fashion energy.',
+]
+
+// Single-clip beat budgets. The cinematic format is V1-capped at one ≤15s
+// generation, so only 10s / 15s are offered (anything longer would need a
+// multi-clip chain the video models can't do in one shot).
+const WRITE_PROMPT_BEATS: Record<number, string> = {
+  10: '3–4 contiguous beats spanning 0–10s',
+  15: '5 contiguous beats spanning 0–15s',
+}
+
+async function runCinematicPrompt(input: GenerateScriptInput, take: number, length: number, apiKey: string, endpoint: string): Promise<string> {
+  const effLen = length === 10 ? 10 : 15
+
+  let prompt = `The creator's brief for this commercial:\n\n${input.brief.trim()}\n\n`
+
+  if (input.productName) {
+    prompt += `Product / brand name (name it in the VOICEOVER sign-off): ${input.productName}\n\n`
+  }
+
+  const ctxLines = productContextLines(input.productContext)
+  if (ctxLines) {
+    prompt += `The product being advertised:\n${ctxLines}\n\n`
+  }
+
+  prompt += `${WRITE_PROMPT_TAKE_INSTRUCTION[take] ?? WRITE_PROMPT_TAKE_INSTRUCTION[0]}\n\n`
+
+  if (input.additionalContext) {
+    prompt += `Additional context and instructions:\n${input.additionalContext}\n\n`
+  }
+
+  prompt += `LENGTH: a single ${effLen}-second commercial rendered as ONE generation with multiple internal cuts. The TIMELINE must be ${WRITE_PROMPT_BEATS[effLen]}, contiguous from 0s to ${effLen}s.\n\nWrite the full structured prompt now.`
+
+  const messages: ChatMessage[] = [
+    { role: 'system', content: [{ type: 'text', text: WRITE_PROMPT_SYSTEM }] },
+    { role: 'user', content: [{ type: 'text', text: prompt }] },
+  ]
+
+  return kieChatCompletions(apiKey, endpoint, messages)
+}
+
 async function runWrite(input: GenerateScriptInput, take: number, apiKey: string, endpoint: string): Promise<string> {
   const style = input.writeStyle ?? 'pas'
   const format = input.writeFormat ?? 'script'
   const length = input.writeLength ?? 15
   const budget = WRITE_LENGTH_BUDGET[length]
+
+  // Cinematic master-prompt format takes a wholly different system prompt and
+  // section structure — branch out before the spoken-script path.
+  if (format === 'prompt') {
+    return runCinematicPrompt(input, take, length, apiKey, endpoint)
+  }
 
   let prompt = `The creator's brief for this ad:\n\n${input.brief.trim()}\n\n`
 
