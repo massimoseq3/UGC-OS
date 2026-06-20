@@ -405,7 +405,7 @@ export default function InputPanel({
                   onChange={handleFormatChange}
                   options={[
                     { value: 'script', label: 'Script', icon: FileText },
-                    { value: 'scenes', label: 'Scene', icon: Clapperboard },
+                    { value: 'scenes', label: 'Scenes', icon: Clapperboard },
                     { value: 'prompt', label: 'Cinematic', icon: Film },
                   ]}
                 />
