@@ -396,11 +396,11 @@ export default function InputPanel({
                 <StepLabel label="Output" />
                 <ClearAllButton onClear={onClear} />
               </div>
-              {/* Dense house pill — deliberately lighter than the full-size
-                  mode toggle up top, so that stays the primary control. */}
+              {/* House pill at the substantial form-control size (h-12),
+                  matching the Influencer Presets button in Influencers. */}
               <div className="mt-2">
                 <SegmentedToggle<WriteFormat>
-                  dense
+                  lg
                   value={writeFormat}
                   onChange={handleFormatChange}
                   options={[
@@ -500,6 +500,7 @@ export default function InputPanel({
                 <StepLabel label="Length" />
                 <div className="mt-2">
                   <SegmentedToggle<string>
+                    lg
                     value={String(writeLength)}
                     onChange={(v) => onWriteLengthChange(Number(v) as WriteLength)}
                     options={(isPromptFormat ? PROMPT_LENGTHS : WRITE_LENGTHS).map((len) => ({ value: String(len), label: `${len}s` }))}

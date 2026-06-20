@@ -21,6 +21,10 @@ interface SegmentedToggleProps<T extends string> {
   // Slimmer padding + smaller icons, sized to sit inline with compact rows
   // (e.g. the sidebar). Keeps the same sliding-indicator animation.
   dense?: boolean
+  // Taller pill (fixed h-12, 14px text) matching the standalone form buttons
+  // like the "Influencer Presets" trigger — for form controls that should read
+  // as substantial, not compact. Ignored if `dense` is also set.
+  lg?: boolean
 }
 
 // Rounded pill segmented control — the house replacement for the old
@@ -33,6 +37,7 @@ export default function SegmentedToggle<T extends string>({
   className = '',
   fitContent = false,
   dense = false,
+  lg = false,
 }: SegmentedToggleProps<T>) {
   const containerRef = useRef<HTMLDivElement>(null)
   const buttonRefs = useRef<Map<T, HTMLButtonElement | null>>(new Map())
@@ -59,7 +64,7 @@ export default function SegmentedToggle<T extends string>({
   return (
     <div
       ref={containerRef}
-      className={`relative ${fitContent ? 'inline-flex w-auto' : 'flex w-full'} items-center gap-0.5 rounded-full border border-ink/10 bg-ink/[0.03] ${dense ? 'p-1' : 'p-1.5'} ${className}`}
+      className={`relative ${fitContent ? 'inline-flex w-auto' : 'flex w-full'} items-center gap-0.5 rounded-full border border-ink/10 bg-ink/[0.03] ${dense || lg ? 'p-1' : 'p-1.5'} ${lg ? 'h-12' : ''} ${className}`}
     >
       {indicator && (
         <div
@@ -78,7 +83,7 @@ export default function SegmentedToggle<T extends string>({
             type="button"
             onClick={() => onChange(opt.value)}
             className={`relative z-[1] flex min-w-0 ${fitContent ? '' : 'flex-1'} items-center justify-center rounded-full font-medium tracking-tight transition-colors duration-200 ${
-              dense ? 'gap-1.5 px-3 py-1 text-[12px]' : 'gap-2 px-4 py-2.5 text-[13px]'
+              dense ? 'gap-1.5 px-3 py-1 text-[12px]' : lg ? 'h-full gap-2 px-4 text-[14px]' : 'gap-2 px-4 py-2.5 text-[13px]'
             } ${
               active ? 'text-ink-100' : 'text-ink-400 hover:text-ink-200'
             }`}
