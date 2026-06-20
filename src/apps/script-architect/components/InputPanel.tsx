@@ -1,7 +1,11 @@
-import { useState, useRef, useLayoutEffect, type ComponentType } from 'react'
-import { Package, Loader2, PenLine, ChevronRight, FileText, Clapperboard, RefreshCw, X } from 'lucide-react'
-import type { Product, Script } from '../../../stores/types'
+import { useState, type ComponentType } from 'react'
+import { Package, Loader2, PenLine, ChevronRight, FileText, Clapperboard, RefreshCw, X, Film, UserRound } from 'lucide-react'
+import type { Model, Product, Script } from '../../../stores/types'
 import { WRITE_LENGTHS, WRITE_STYLE_META, type EditableProductContext, type ScriptMode, type WriteStyle, type WriteFormat, type WriteLength } from '../types'
+
+// The cinematic 'prompt' format is single-clip-capped, so it only offers the
+// durations a video model can render in one generation.
+const PROMPT_LENGTHS: WriteLength[] = [10, 15]
 import { useBankStore } from '../../../stores/bankStore'
 import BankPicker from '../../../components/BankPicker'
 import SegmentedToggle from '../../../components/SegmentedToggle'
@@ -40,6 +44,8 @@ interface InputPanelProps {
   onWriteLengthChange: (value: WriteLength) => void
   selectedProduct: Product | null
   onProductSelect: (product: Product | null) => void
+  selectedInfluencer: Model | null
+  onInfluencerSelect: (model: Model | null) => void
   additionalContext: string
   onAdditionalContextChange: (value: string) => void
   onGenerate: (context: EditableProductContext | null) => void
@@ -65,6 +71,8 @@ export default function InputPanel({
   onWriteLengthChange,
   selectedProduct,
   onProductSelect,
+  selectedInfluencer,
+  onInfluencerSelect,
   additionalContext,
   onAdditionalContextChange,
   onGenerate,
@@ -73,6 +81,7 @@ export default function InputPanel({
   onClear,
 }: InputPanelProps) {
   const [productPickerOpen, setProductPickerOpen] = useState(false)
+  const [influencerPickerOpen, setInfluencerPickerOpen] = useState(false)
   const [scriptPickerOpen, setScriptPickerOpen] = useState(false)
   // Which big text box is open in the full-screen editor (null = none).
   const [expandedField, setExpandedField] = useState<null | 'brief' | 'transcript' | 'reverse'>(null)
@@ -93,11 +102,23 @@ export default function InputPanel({
   // from a dashed "click to choose" affordance to a solid, accented outline.
   const [styleChosen, setStyleChosen] = useState(false)
   const products = useBankStore((s) => s.products)
+  const models = useBankStore((s) => s.models)
   const updateProduct = useBankStore((s) => s.updateProduct)
   const openApp = useAppStore((s) => s.openApp)
   const sendToApp = useAppStore((s) => s.sendToApp)
   const addToast = useAppStore((s) => s.addToast)
   const resolvedProductImage = useAssetUrl(selectedProduct?.productImage)
+  const resolvedInfluencerImage = useAssetUrl(selectedInfluencer?.characterImage)
+  // Cinematic master-prompt format: swaps the Script Style picker for an
+  // Influencer picker and caps the length toggle to single-clip durations.
+  const isPromptFormat = writeFormat === 'prompt'
+
+  // Switching into the cinematic format clamps the length to a value a single
+  // video generation can actually render (10s / 15s).
+  const handleFormatChange = (f: WriteFormat) => {
+    if (f === 'prompt' && writeLength !== 10 && writeLength !== 15) onWriteLengthChange(15)
+    onWriteFormatChange(f)
+  }
 
   // Slide-over footer actions. The edits already live in `editableContext`
   // (used for this generation), so "save for this script" just dismisses;
@@ -134,6 +155,11 @@ export default function InputPanel({
     openApp('finder')
   }
 
+  const handleOpenInfluencerFinder = () => {
+    sendToApp({ targetApp: 'finder', targetField: 'activeBank', data: 'models' })
+    openApp('finder')
+  }
+
   const updateField = (field: keyof EditableProductContext, value: string) => {
     if (!editableContext) return
     setEditableContext({ ...editableContext, [field]: value })
@@ -152,7 +178,7 @@ export default function InputPanel({
   }
 
   const generateLabel = mode === 'write'
-    ? (writeFormat === 'scenes' ? 'Generate 3 Scene Drafts' : 'Generate 3 Scripts')
+    ? (writeFormat === 'prompt' ? 'Generate 3 Cinematic Concepts' : writeFormat === 'scenes' ? 'Generate 3 Scene Drafts' : 'Generate 3 Scripts')
     : mode === 'remix' ? 'Generate 3 Script Variations' : 'Generate Prompts'
 
   // Product picker — step 2 in every mode, but rendered in a different spot
@@ -160,12 +186,7 @@ export default function InputPanel({
   // source text).
   const productSection = (
     <div className="mb-6">
-      {/* In Write New the product is the first section, so the page-level
-          "Clear All" rides in its heading row (top-right). */}
-      <div className="flex items-center justify-between gap-2">
-        <StepLabel label="Product Context" />
-        {mode === 'write' && <ClearAllButton onClear={onClear} />}
-      </div>
+      <StepLabel label="Product Context" />
 
       {selectedProduct ? (
         <div className="mt-2">
@@ -259,6 +280,91 @@ export default function InputPanel({
     </div>
   )
 
+  // Influencer picker — cinematic format only. Optional: its portrait rides
+  // the Playground handoff as the @INFLUENCER reference so the face stays
+  // consistent across the commercial. Mirrors the product card styling.
+  const influencerSection = (
+    <div className="mb-6">
+      <StepLabel
+        label="Influencer"
+        tooltip="Optional. The character whose face stays consistent across the commercial — their portrait is sent to Playground as the @INFLUENCER reference."
+      />
+
+      {selectedInfluencer ? (
+        <div className="mt-2">
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => setInfluencerPickerOpen(true)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setInfluencerPickerOpen(true) } }}
+            className="group flex w-full cursor-pointer items-center gap-3 rounded-full border border-ink/10 bg-ink/[0.02] px-4 py-3.5 text-left transition-colors hover:border-ink/20 hover:bg-ink/[0.04]"
+          >
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-ink/5">
+              {resolvedInfluencerImage ? (
+                <img src={resolvedInfluencerImage} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <UserRound className="h-5 w-5 text-ink-600" />
+              )}
+            </div>
+            <div className="flex min-w-0 flex-1 flex-col">
+              <span className="truncate text-sm font-medium tracking-tight text-ink-200">
+                {selectedInfluencer.name}
+              </span>
+              <span className="truncate text-[11px] text-ink-500">Influencer</span>
+            </div>
+            <div className="flex shrink-0 items-center gap-1">
+              <span className="hidden items-center gap-1 rounded-md px-2 py-0.5 text-[10px] text-ink-500 group-hover:flex">
+                <RefreshCw className="h-2.5 w-2.5" />
+                Change
+              </span>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onInfluencerSelect(null) }}
+                title="Remove influencer"
+                aria-label="Remove influencer"
+                className="flex h-6 w-6 items-center justify-center rounded-full text-ink-500 transition-colors hover:bg-ink/5 hover:text-red-400 light:hover:text-red-600"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-2">
+          {models.length > 0 ? (
+            <button
+              onClick={() => setInfluencerPickerOpen(true)}
+              className="flex w-full items-center gap-3 rounded-full border border-dashed border-ink/10 bg-ink/[0.02] px-4 py-3.5 text-left transition-colors hover:border-scripts-500/30 hover:bg-scripts-500/5"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-scripts-500/10">
+                <UserRound className="h-5 w-5 text-scripts-400" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-sm font-medium text-ink-300">Select Influencer</span>
+                <span className="text-xs text-ink-600">Optional · adds a consistent face</span>
+              </div>
+            </button>
+          ) : (
+            <div className="flex items-center gap-3 rounded-full border border-dashed border-ink/10 bg-ink/[0.02] px-4 py-3.5">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-ink/5">
+                <UserRound className="h-5 w-5 text-ink-700" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-sm text-ink-500">No influencers yet</span>
+                <button
+                  onClick={handleOpenInfluencerFinder}
+                  className="text-left text-xs text-scripts-400 transition-colors hover:text-scripts-300"
+                >
+                  Add one in Bank
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+
   return (
     <div className="flex flex-col md:h-full">
       {/* Mode toggle — rounded segmented pill, mirrored by the Output/History
@@ -281,11 +387,42 @@ export default function InputPanel({
       <div className="flex flex-1 flex-col overflow-y-auto px-5 pb-5 pt-2">
         {mode === 'write' ? (
           <>
-            {/* Step 01 — Product */}
+            {/* Output — the sub-mode. It governs the form below (Style vs
+                Influencer picker, the length options, the artifact), so it
+                leads, right under the mode toggle. The page-level Clear All
+                rides this row. */}
+            <div className="mb-6">
+              <div className="flex items-center justify-between gap-2">
+                <StepLabel label="Output" />
+                <ClearAllButton onClear={onClear} />
+              </div>
+              {/* House pill sized to match the Influencers Portrait/Character
+                  Sheet toggle (h-12, p-1). */}
+              <div className="mt-2">
+                <SegmentedToggle<WriteFormat>
+                  className="h-12 !p-1"
+                  value={writeFormat}
+                  onChange={handleFormatChange}
+                  options={[
+                    { value: 'script', label: 'Script', icon: FileText },
+                    { value: 'scenes', label: 'Scenes', icon: Clapperboard },
+                    { value: 'prompt', label: 'Cinematic', icon: Film },
+                  ]}
+                />
+              </div>
+            </div>
+
+            {/* Product */}
             {productSection}
 
+            {/* Cinematic format swaps the Script Style picker for an Influencer
+                picker — an optional consistent face for the @INFLUENCER ref. */}
+            {isPromptFormat && influencerSection}
+
             {/* Script Style — heading + the full-size pill button, above the
-                brief. Tapping the button opens the style picker slide-over. */}
+                brief. Tapping the button opens the style picker slide-over.
+                Hidden in the cinematic format (no spoken-script structure). */}
+            {!isPromptFormat && (
             <div className="mb-6">
               <StepLabel label="Script Style" />
               <div
@@ -336,6 +473,7 @@ export default function InputPanel({
                 )}
               </div>
             </div>
+            )}
 
             {/* The brief + length + output */}
             <div className="mb-6 flex flex-col">
@@ -362,21 +500,14 @@ export default function InputPanel({
                 <StepLabel label="Length" />
                 <div className="mt-2">
                   <SegmentedToggle<string>
+                    className="h-12 !p-1"
                     value={String(writeLength)}
                     onChange={(v) => onWriteLengthChange(Number(v) as WriteLength)}
-                    options={WRITE_LENGTHS.map((len) => ({ value: String(len), label: `${len}s` }))}
+                    options={(isPromptFormat ? PROMPT_LENGTHS : WRITE_LENGTHS).map((len) => ({ value: String(len), label: `${len}s` }))}
                   />
                 </div>
               </div>
 
-              {/* Output format — a two-segment toggle (Script vs Scene) with a
-                  sliding indicator that morphs orange → magenta as it moves. */}
-              <div className="mt-5">
-                <StepLabel label="Output" />
-                <div className="mt-2">
-                  <OutputToggle value={writeFormat} onChange={onWriteFormatChange} />
-                </div>
-              </div>
             </div>
           </>
         ) : mode === 'remix' ? (
@@ -486,7 +617,7 @@ export default function InputPanel({
           {isGenerating ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              <span>{mode === 'write' ? 'Writing 3 Takes...' : mode === 'remix' ? 'Generating 3 Script Variations...' : 'Generating Prompts...'}</span>
+              <span>{mode === 'write' ? (writeFormat === 'prompt' ? 'Directing 3 Concepts...' : 'Writing 3 Takes...') : mode === 'remix' ? 'Generating 3 Script Variations...' : 'Generating Prompts...'}</span>
             </>
           ) : (
             <>
@@ -503,6 +634,12 @@ export default function InputPanel({
         isOpen={productPickerOpen}
         onSelect={(item) => onProductSelect(item as Product)}
         onClose={() => setProductPickerOpen(false)}
+      />
+      <BankPicker
+        bankType="models"
+        isOpen={influencerPickerOpen}
+        onSelect={(item) => onInfluencerSelect(item as Model)}
+        onClose={() => setInfluencerPickerOpen(false)}
       />
       <BankPicker
         bankType="scripts"
@@ -715,81 +852,6 @@ function ScriptBankCard({
           <X className="h-3.5 w-3.5" />
         </button>
       </div>
-    </div>
-  )
-}
-
-// Output-format toggle — two roomy segments (icon + title + subtext) with a
-// measured indicator that slides between them (same 200 ms feel as the mode
-// SegmentedToggle) and morphs orange → magenta as it moves.
-const OUTPUT_OPTIONS: Array<{
-  value: WriteFormat
-  icon: ComponentType<{ className?: string; strokeWidth?: number }>
-  title: string
-  desc: string
-  accent: 'scripts' | 'fuchsia'
-}> = [
-  { value: 'script', icon: FileText, title: 'Script', desc: 'Just the spoken words', accent: 'scripts' },
-  { value: 'scenes', icon: Clapperboard, title: 'Scene', desc: 'Visuals + script per scene', accent: 'fuchsia' },
-]
-
-function OutputToggle({ value, onChange }: { value: WriteFormat; onChange: (v: WriteFormat) => void }) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const buttonRefs = useRef<Map<WriteFormat, HTMLButtonElement | null>>(new Map())
-  const [indicator, setIndicator] = useState<{ left: number; width: number } | null>(null)
-
-  useLayoutEffect(() => {
-    const measure = () => {
-      const btn = buttonRefs.current.get(value)
-      if (!btn) return
-      setIndicator((prev) =>
-        prev && prev.left === btn.offsetLeft && prev.width === btn.offsetWidth
-          ? prev
-          : { left: btn.offsetLeft, width: btn.offsetWidth },
-      )
-    }
-    measure()
-    const observer = new ResizeObserver(measure)
-    if (containerRef.current) observer.observe(containerRef.current)
-    return () => observer.disconnect()
-  })
-
-  return (
-    <div
-      ref={containerRef}
-      className="relative grid grid-cols-2 gap-1 rounded-full border border-ink/10 bg-ink/[0.02] p-1"
-    >
-      {indicator && (
-        <div
-          aria-hidden
-          className="absolute bottom-1 top-1 rounded-full bg-ink/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition-[left,width] duration-200 ease-out"
-          style={{ left: indicator.left, width: indicator.width }}
-        />
-      )}
-      {OUTPUT_OPTIONS.map((opt) => {
-        const active = opt.value === value
-        const Icon = opt.icon
-        const tone = opt.accent === 'fuchsia'
-          ? { iconBg: 'bg-fuchsia-500/15 text-fuchsia-300 light:text-fuchsia-700', text: 'text-fuchsia-300 light:text-fuchsia-700' }
-          : { iconBg: 'bg-scripts-500/15 text-scripts-300', text: 'text-scripts-300' }
-        return (
-          <button
-            key={opt.value}
-            ref={(el) => { buttonRefs.current.set(opt.value, el) }}
-            type="button"
-            onClick={() => onChange(opt.value)}
-            className="relative z-[1] flex w-full items-center gap-3 rounded-full px-3.5 py-2.5 text-left"
-          >
-            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors ${active ? tone.iconBg : 'bg-ink/5 text-ink-500'}`}>
-              <Icon className="h-4 w-4" strokeWidth={1.75} />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className={`truncate text-[12px] font-medium tracking-tight transition-colors ${active ? tone.text : 'text-ink-300'}`}>{opt.title}</div>
-              <div className="truncate text-[10px] leading-snug text-ink-600">{opt.desc}</div>
-            </div>
-          </button>
-        )
-      })}
     </div>
   )
 }

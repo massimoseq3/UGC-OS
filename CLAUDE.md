@@ -12,7 +12,7 @@ Sidebar is grouped into three sections (LIBRARY / CREATE / TOOLS). Display names
 |---|---|---|---|
 | Library | Bank | `finder/` | Banks browser |
 | Create | Influencers | `character-studio/` | Form → portrait image, or (Portrait / Character Sheet toggle) a multi-panel reference sheet (turnaround + expressions + full body; scene/pose/camera fields ignored; own 16:9 / 9:16 aspect picker, prompt layout swaps with orientation, resolution bumps to 2K). Sheets save as their own bank Model entry (named like a portrait; stamped as both `characterImage` and `sheetImage`). Horizontal (16:9) gallery outputs span a full row. Drop a reference photo anywhere to auto-fill every field via vision-based DNA extraction. Display name rebranded from "Characters" — folder, ids, types, and LLM prompts keep the character naming. |
-| Create | Scripts | `script-architect/` | Three modes: Write New (brief + style + 10/15/30/60s → 3 human-sounding takes, as plain script or scene blueprint), Remix Script (winning transcript → 3 variations), Remix Scenes (Ad Analyzer blueprint → rewritten scene prompts) |
+| Create | Scripts | `script-architect/` | Three modes: Write New (brief + style + 10/15/30/60s → 3 human-sounding takes, as plain script or scene blueprint), Remix Script (winning transcript → 3 variations), Remix Scenes (Ad Analyzer blueprint → rewritten scene prompts). Write New has a third **Output** = **Cinematic** (`writeFormat: 'prompt'`): generates 3 distinct ≤15s single-clip AI-commercial master prompts (generic STYLE→TIMELINE formula, `@INFLUENCER`/`@PRODUCT` tokens) — swaps the Script Style picker for an optional Influencer (models bank) picker, caps length to 10s/15s, and ships each via **Send to Playground** (`cinematicVideo` payload → video mode, refs attached, Seedance 2.0). |
 | Create | Voiceovers | `voice-studio/` | Script → audio (ElevenLabs v2) |
 | Create | B-Roll | `broll-studio/` | Script → scenes → 4 variations/scene (Speaking / Literal / Emotional / Product). Each card has Generate Image **and** Generate Video; video gens are fire-and-forget with refresh-safe resume. |
 | Tools | Ad Analyzer | `ad-anatomy/` | Ad image or video frame → scorecard + transcript + visual playbook |
@@ -116,7 +116,7 @@ Persisted to `localStorage` under `ai-ugc-lab-banks`. Asset blobs live in Indexe
 
 ## Inter-app payloads
 
-One-shot handoffs. Sender calls `sendToApp({ targetApp, targetField, data })`. Consumer reads `interAppPayload` in a `useEffect` keyed on `activeApp`, dispatches on `targetField`, then calls `consumePayload()`. Wired: Ad Analyzer → Scripts (transcript) / Bank (productId); Scripts → Voiceovers (script text); B-Roll Bank → Playground (`videoStartFrame` opens video mode with the still as start frame + prompt prefilled); Anywhere → Playground (`prompt`, `imageRef`, `videoStartFrame`).
+One-shot handoffs. Sender calls `sendToApp({ targetApp, targetField, data })`. Consumer reads `interAppPayload` in a `useEffect` keyed on `activeApp`, dispatches on `targetField`, then calls `consumePayload()`. Wired: Ad Analyzer → Scripts (transcript) / Bank (productId); Scripts → Voiceovers (script text); Scripts → Playground (`cinematicVideo`: a `CinematicVideoPayload` of resolved prompt + product/influencer refs + modelId + duration → opens video mode, refs attached, Seedance default); B-Roll Bank → Playground (`videoStartFrame` opens video mode with the still as start frame + prompt prefilled); Anywhere → Playground (`prompt`, `imageRef`, `videoStartFrame`).
 
 ## Recent changes
 

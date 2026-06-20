@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from 'react'
 import { useAppStore } from '../../stores/appStore'
 import { useBankStore } from '../../stores/bankStore'
-import type { Product, ScriptHistoryItem } from '../../stores/types'
+import type { Model, Product, ScriptHistoryItem } from '../../stores/types'
 import InputPanel from './components/InputPanel'
 import RightPanel from './components/RightPanel'
 import { generateScript } from './services/generateScript'
@@ -24,6 +24,10 @@ export default function ScriptArchitect() {
   const [writeFormat, setWriteFormat] = usePersistedState<WriteFormat>(`${baseKey}:writeFormat`, 'script')
   const [writeLength, setWriteLength] = usePersistedState<WriteLength>(`${baseKey}:writeLength`, 15)
   const [selectedProductId, setSelectedProductId] = usePersistedState<string | null>(`${baseKey}:productId`, null)
+  // Influencer (Bank → Influencers / models) for the cinematic 'prompt' format.
+  // Optional, only used by that format: its portrait rides the Playground
+  // handoff as the @INFLUENCER reference image.
+  const [selectedInfluencerId, setSelectedInfluencerId] = usePersistedState<string | null>(`${baseKey}:influencerId`, null)
   const [additionalContext, setAdditionalContext] = usePersistedState(`${baseKey}:context`, '')
   const [variations, setVariations] = usePersistedState<string[]>(`${baseKey}:variations`, [])
   // Snapshot of the mode + style that produced the *currently shown*
@@ -32,6 +36,11 @@ export default function ScriptArchitect() {
   // retroactively relabel the cards or their save-to-bank titles.
   const [outputMode, setOutputMode] = usePersistedState<ScriptMode>(`${baseKey}:outputMode`, 'remix')
   const [outputStyle, setOutputStyle] = usePersistedState<WriteStyle>(`${baseKey}:outputStyle`, 'pas')
+  // Format + length pinned to the *currently shown* output, so the cinematic
+  // "Send to Playground" handoff uses the duration that actually produced the
+  // prompt — not whatever the live left-panel toggles read now.
+  const [outputFormat, setOutputFormat] = usePersistedState<WriteFormat>(`${baseKey}:outputFormat`, 'script')
+  const [outputLength, setOutputLength] = usePersistedState<WriteLength>(`${baseKey}:outputLength`, 15)
   const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -42,6 +51,7 @@ export default function ScriptArchitect() {
   const activeApp = useAppStore((s) => s.activeApp)
   const getProductById = useBankStore((s) => s.getProductById)
   const products = useBankStore((s) => s.products)
+  const models = useBankStore((s) => s.models)
   const scriptHistory = useBankStore((s) => s.scriptHistory)
   const addScriptHistory = useBankStore((s) => s.addScriptHistory)
   const deleteScriptHistory = useBankStore((s) => s.deleteScriptHistory)
@@ -51,6 +61,12 @@ export default function ScriptArchitect() {
     [selectedProductId, products],
   )
   const handleProductSelect = (p: Product | null) => setSelectedProductId(p?.id ?? null)
+
+  const selectedInfluencer = useMemo<Model | null>(
+    () => (selectedInfluencerId ? models.find((m) => m.id === selectedInfluencerId) ?? null : null),
+    [selectedInfluencerId, models],
+  )
+  const handleInfluencerSelect = (m: Model | null) => setSelectedInfluencerId(m?.id ?? null)
 
   // Consume inter-app payloads
   useEffect(() => {
@@ -94,6 +110,8 @@ export default function ScriptArchitect() {
     // loading copy and the resulting cards reflect what was generated.
     setOutputMode(mode)
     setOutputStyle(writeStyle)
+    setOutputFormat(writeFormat)
+    setOutputLength(writeLength)
     try {
       const result = await generateScript({
         mode,
@@ -104,6 +122,7 @@ export default function ScriptArchitect() {
         writeFormat,
         writeLength,
         productId: selectedProduct.id,
+        productName: selectedProduct.productName,
         productContext,
         additionalContext,
       })
@@ -131,7 +150,7 @@ export default function ScriptArchitect() {
 
       useAppStore.getState().addToast(
         mode === 'write'
-          ? (writeFormat === 'scenes' ? '3 scene drafts generated' : '3 scripts generated')
+          ? (writeFormat === 'prompt' ? '3 cinematic concepts generated' : writeFormat === 'scenes' ? '3 scene drafts generated' : '3 scripts generated')
           : mode === 'remix' ? '3 script variations generated' : 'Script rewritten',
         'success',
       )
@@ -152,6 +171,8 @@ export default function ScriptArchitect() {
     // Pin the output labels to the run we're restoring.
     setOutputMode(item.mode)
     setOutputStyle(item.writeStyle && item.writeStyle in WRITE_STYLE_META ? (item.writeStyle as WriteStyle) : 'pas')
+    setOutputFormat(item.writeFormat ?? 'script')
+    setOutputLength(item.writeLength === 10 || item.writeLength === 15 || item.writeLength === 30 || item.writeLength === 60 ? item.writeLength : 15)
     // Restore the left-panel inputs too. Older rows (saved before these
     // fields existed) fall back to the inputSummary slice for the source so
     // something sensible reappears.
@@ -185,6 +206,7 @@ export default function ScriptArchitect() {
     setReversePrompt('')
     setBrief('')
     setSelectedProductId(null)
+    setSelectedInfluencerId(null)
     setAdditionalContext('')
   }
 
@@ -208,6 +230,8 @@ export default function ScriptArchitect() {
           onWriteLengthChange={setWriteLength}
           selectedProduct={selectedProduct}
           onProductSelect={handleProductSelect}
+          selectedInfluencer={selectedInfluencer}
+          onInfluencerSelect={handleInfluencerSelect}
           additionalContext={additionalContext}
           onAdditionalContextChange={setAdditionalContext}
           onGenerate={handleGenerate}
@@ -222,9 +246,11 @@ export default function ScriptArchitect() {
           variations={variations}
           mode={mode}
           outputMode={outputMode}
-          writeFormat={writeFormat}
+          writeFormat={outputFormat}
           writeStyleLabel={WRITE_STYLE_META[outputStyle].label}
           linkedProductId={selectedProduct?.id ?? null}
+          influencer={selectedInfluencer}
+          cinematicDuration={outputLength}
           isGenerating={isGenerating}
           error={error}
           history={scriptHistory}

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useAppStore } from '../../stores/appStore'
+import type { CinematicVideoPayload } from '../../stores/types'
 import { useSettingsStore } from '../../stores/settingsStore'
 import {
   startPlaygroundImageTask,
@@ -183,6 +184,28 @@ export default function Playground() {
           refs: [...s.refs.filter((r) => r.slot !== 'start'), { url: imageUrl!, label: 'start', source: 'upload', slot: 'start' }],
         }))
       }
+    } else if (targetField === 'cinematicVideo' && data && typeof data === 'object') {
+      // Scripts cinematic concept → land in video mode on the Seedance default
+      // with the @INFLUENCER / @PRODUCT references already attached (slot 'ref'
+      // → reference-to-video) and audio on, so the VO bakes in.
+      const p = data as CinematicVideoPayload
+      const model = getModel(p.modelId)
+      const refs: PromptRef[] = (p.refs ?? []).map((r) => ({
+        url: r.url,
+        label: r.label,
+        source: r.source,
+        slot: r.slot,
+      }))
+      setState((s) => ({
+        ...s,
+        mode: 'video',
+        prompt: p.prompt,
+        modelId: p.modelId,
+        durationSeconds: p.durationSeconds,
+        resolution: model?.videoConstraints?.default ?? s.resolution,
+        audio: true,
+        refs,
+      }))
     }
     consumePayload()
   }, [interAppPayload, activeApp, consumePayload])

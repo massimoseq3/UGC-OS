@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import type { ScriptHistoryItem } from '../../../stores/types'
-import type { ScriptMode, WriteFormat } from '../types'
+import type { Model, ScriptHistoryItem } from '../../../stores/types'
+import type { ScriptMode, WriteFormat, WriteLength } from '../types'
 import OutputPanel from './OutputPanel'
 import HistoryView from './HistoryView'
 import SegmentedToggle from '../../../components/SegmentedToggle'
@@ -16,6 +16,10 @@ interface RightPanelProps {
   writeFormat: WriteFormat
   writeStyleLabel: string
   linkedProductId: string | null
+  // Influencer + clip length for the cinematic 'prompt' format's Playground
+  // handoff (ignored by the other formats).
+  influencer: Model | null
+  cinematicDuration: WriteLength
   isGenerating: boolean
   error: string | null
 
@@ -32,6 +36,8 @@ export default function RightPanel({
   writeFormat,
   writeStyleLabel,
   linkedProductId,
+  influencer,
+  cinematicDuration,
   isGenerating,
   error,
   history,
@@ -68,6 +74,8 @@ export default function RightPanel({
             writeFormat={writeFormat}
             writeStyleLabel={writeStyleLabel}
             linkedProductId={linkedProductId}
+            influencer={influencer}
+            cinematicDuration={cinematicDuration}
             isGenerating={isGenerating}
             error={error}
           />

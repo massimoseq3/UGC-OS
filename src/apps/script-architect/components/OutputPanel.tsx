@@ -3,7 +3,14 @@ import { Copy, Check, Bookmark, ArrowUpRight, Mic, Film, PenLine, AlertCircle, I
 import GenerationProgress from '../../../components/GenerationProgress'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAppStore } from '../../../stores/appStore'
-import { REMIX_ANGLE_LABEL, type RemixAngle, type ScriptMode, type WriteFormat } from '../types'
+import type { CinematicHandoffRef, CinematicVideoPayload, Model } from '../../../stores/types'
+import { REMIX_ANGLE_LABEL, type RemixAngle, type ScriptMode, type WriteFormat, type WriteLength } from '../types'
+
+// The cinematic handoff lands in Playground on a ref-capable, native-audio
+// model so the @INFLUENCER + @PRODUCT references actually lock and the VO bakes
+// in. Seedance 2.0 is the only registry model that does 15s multi-cut montage
+// with audio AND takes both refs (reference-to-video) — so it's the default.
+const CINEMATIC_MODEL_ID = 'bytedance/seedance-2'
 
 interface OutputPanelProps {
   variations: string[]
@@ -15,6 +22,10 @@ interface OutputPanelProps {
   writeFormat?: WriteFormat
   writeStyleLabel?: string
   linkedProductId: string | null
+  // Cinematic 'prompt' format only: the influencer + clip length that ride the
+  // Playground handoff. Ignored by the script / scene formats.
+  influencer?: Model | null
+  cinematicDuration?: WriteLength
   isGenerating?: boolean
   error?: string | null
 }
@@ -51,9 +62,28 @@ interface VariationCardProps {
   defaultSaveTitle: string
   linkedProductId: string | null
   mode: ScriptMode
+  // Cinematic 'prompt' format extras — drive the refs-aware Playground handoff.
+  isCinematic?: boolean
+  productImage?: string
+  productName?: string
+  influencerImage?: string
+  influencerName?: string
+  cinematicDuration?: WriteLength
 }
 
-function VariationCard({ text, cardTitle, defaultSaveTitle, linkedProductId, mode }: VariationCardProps) {
+function VariationCard({
+  text,
+  cardTitle,
+  defaultSaveTitle,
+  linkedProductId,
+  mode,
+  isCinematic = false,
+  productImage,
+  productName,
+  influencerImage,
+  influencerName,
+  cinematicDuration = 15,
+}: VariationCardProps) {
   const [copied, setCopied] = useState(false)
   const [showSaveForm, setShowSaveForm] = useState(false)
   const [saveTitle, setSaveTitle] = useState(defaultSaveTitle)
@@ -66,12 +96,13 @@ function VariationCard({ text, cardTitle, defaultSaveTitle, linkedProductId, mod
   const sendToApp = useAppStore((s) => s.sendToApp)
   const addToast = useAppStore((s) => s.addToast)
 
-  const scenes = useMemo(() => splitScenes(text), [text])
+  const scenes = useMemo(() => isCinematic ? null : splitScenes(text), [text, isCinematic])
 
   // A plain spoken script (remix variation, or a write-mode 'script' output)
   // can be read aloud → Voiceovers. A scene blueprint (reverse-engineer, or a
-  // write-mode 'scenes' output) is a prompt asset → Playground.
-  const isSpokenScript = mode === 'remix' || (mode === 'write' && !scenes)
+  // write-mode 'scenes' output) is a prompt asset → Playground. A cinematic
+  // master prompt is its own thing — never spoken, only the Playground handoff.
+  const isSpokenScript = !isCinematic && (mode === 'remix' || (mode === 'write' && !scenes))
 
   const handleCopyAll = async () => {
     const ok = await copyToClipboard(text)
@@ -124,6 +155,32 @@ function VariationCard({ text, cardTitle, defaultSaveTitle, linkedProductId, mod
     addToast('Prompt sent to Playground')
   }
 
+  // Cinematic handoff: resolve the @INFLUENCER / @PRODUCT tokens to readable
+  // names, attach both reference images, and open Playground in video mode on
+  // the Seedance default with the clip length prefilled. Auto-saves to the
+  // bank on first send (same pattern as the other send buttons).
+  const handleSendCinematic = () => {
+    const refs: CinematicHandoffRef[] = []
+    if (productImage) refs.push({ url: productImage, label: productName ?? 'product', source: 'product', slot: 'ref' })
+    if (influencerImage) refs.push({ url: influencerImage, label: influencerName ?? 'influencer', source: 'character', slot: 'ref' })
+
+    const resolved = text
+      .replace(/@INFLUENCER(?:_IMAGE)?\d*/gi, influencerName || 'the reference character')
+      .replace(/@PRODUCT(?:_IMAGE)?\d*/gi, productName || 'the reference product')
+
+    const payload: CinematicVideoPayload = {
+      prompt: resolved,
+      refs,
+      modelId: CINEMATIC_MODEL_ID,
+      durationSeconds: cinematicDuration,
+    }
+
+    const autoSaved = !savedOnce
+    if (autoSaved) saveToBank(defaultSaveTitle)
+    sendToApp({ targetApp: 'playground', targetField: 'cinematicVideo', data: payload })
+    addToast(autoSaved ? 'Saved to bank · sent to Playground' : 'Sent to Playground')
+  }
+
   return (
     <div className="flex shrink-0 flex-col rounded-3xl border border-ink/5 bg-surface-1 overflow-hidden">
       <div className="flex items-center justify-between border-b border-ink/5 px-4 py-2.5">
@@ -147,7 +204,12 @@ function VariationCard({ text, cardTitle, defaultSaveTitle, linkedProductId, mod
       </div>
 
       <div className="flex flex-col gap-3 p-4">
-        {scenes ? (
+        {isCinematic ? (
+          // One structured master prompt — preserve the section layout as-is.
+          <div className="whitespace-pre-wrap text-[13px] leading-relaxed tracking-tight text-ink-100">
+            {text}
+          </div>
+        ) : scenes ? (
           scenes.map((scene, i) => <SceneChunkCard key={i} chunk={scene} />)
         ) : mode === 'reverse-engineer' ? (
           <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed tracking-tight text-ink-100">
@@ -204,33 +266,48 @@ function VariationCard({ text, cardTitle, defaultSaveTitle, linkedProductId, mod
             >
               {saved ? (<><Check className="h-3.5 w-3.5" /> Saved</>) : (<><Bookmark className="h-3.5 w-3.5" /> Save to Bank</>)}
             </button>
-            {isSpokenScript && (
+            {isCinematic ? (
+              // Cinematic master prompt → straight to Playground video mode,
+              // refs attached, on the Seedance default. The only send target.
               <button
-                onClick={handleSendToVoiceStudio}
-                className="flex flex-1 min-w-0 items-center justify-center gap-2 rounded-full border border-voice-500/20 bg-voice-500/10 px-4 py-2.5 text-[12px] font-medium tracking-tight text-voice-400 transition-colors hover:bg-voice-500/20"
+                onClick={handleSendCinematic}
+                className="flex flex-1 min-w-0 items-center justify-center gap-2 rounded-full border border-broll-500/20 bg-broll-500/10 px-4 py-2.5 text-[12px] font-medium tracking-tight text-broll-400 transition-colors hover:bg-broll-500/20"
               >
-                <Mic className="h-4 w-4" strokeWidth={1.75} />
-                Send to Voiceovers
-                <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.75} />
-              </button>
-            )}
-            <button
-              onClick={handleSendToBrollStudio}
-              className="flex flex-1 min-w-0 items-center justify-center gap-2 rounded-full border border-broll-500/20 bg-broll-500/10 px-4 py-2.5 text-[12px] font-medium tracking-tight text-broll-400 transition-colors hover:bg-broll-500/20"
-            >
-              <Film className="h-4 w-4" strokeWidth={1.75} />
-              Send to B-Roll
-              <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.75} />
-            </button>
-            {!isSpokenScript && (
-              <button
-                onClick={handleSendToPlayground}
-                className="flex flex-1 min-w-0 items-center justify-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5 text-[12px] font-medium tracking-tight text-emerald-400 light:text-emerald-600 transition-colors hover:bg-emerald-500/20"
-              >
-                <ImagePlay className="h-4 w-4" strokeWidth={1.75} />
+                <Film className="h-4 w-4" strokeWidth={1.75} />
                 Send to Playground
                 <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.75} />
               </button>
+            ) : (
+              <>
+                {isSpokenScript && (
+                  <button
+                    onClick={handleSendToVoiceStudio}
+                    className="flex flex-1 min-w-0 items-center justify-center gap-2 rounded-full border border-voice-500/20 bg-voice-500/10 px-4 py-2.5 text-[12px] font-medium tracking-tight text-voice-400 transition-colors hover:bg-voice-500/20"
+                  >
+                    <Mic className="h-4 w-4" strokeWidth={1.75} />
+                    Send to Voiceovers
+                    <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  </button>
+                )}
+                <button
+                  onClick={handleSendToBrollStudio}
+                  className="flex flex-1 min-w-0 items-center justify-center gap-2 rounded-full border border-broll-500/20 bg-broll-500/10 px-4 py-2.5 text-[12px] font-medium tracking-tight text-broll-400 transition-colors hover:bg-broll-500/20"
+                >
+                  <Film className="h-4 w-4" strokeWidth={1.75} />
+                  Send to B-Roll
+                  <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.75} />
+                </button>
+                {!isSpokenScript && (
+                  <button
+                    onClick={handleSendToPlayground}
+                    className="flex flex-1 min-w-0 items-center justify-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5 text-[12px] font-medium tracking-tight text-emerald-400 light:text-emerald-600 transition-colors hover:bg-emerald-500/20"
+                  >
+                    <ImagePlay className="h-4 w-4" strokeWidth={1.75} />
+                    Send to Playground
+                    <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  </button>
+                )}
+              </>
             )}
           </div>
         )}
@@ -275,13 +352,16 @@ function SceneChunkCard({ chunk }: { chunk: SceneChunk }) {
   )
 }
 
-export default function OutputPanel({ variations, mode, liveMode, writeStyleLabel, linkedProductId, isGenerating, error }: OutputPanelProps) {
-  // Resolve the linked product's name so saved scripts get a meaningful
-  // default title ("<Product> — Hook-Led Script") instead of a content slice.
+export default function OutputPanel({ variations, mode, liveMode, writeFormat, writeStyleLabel, linkedProductId, influencer, cinematicDuration, isGenerating, error }: OutputPanelProps) {
+  // Resolve the linked product so saved scripts get a meaningful default title
+  // ("<Product> — Hook-Led Script") and the cinematic handoff has its image.
   const products = useBankStore((s) => s.products)
-  const productName = linkedProductId
-    ? products.find((p) => p.id === linkedProductId)?.productName
-    : undefined
+  const product = linkedProductId ? products.find((p) => p.id === linkedProductId) : undefined
+  const productName = product?.productName
+
+  // Cinematic master-prompt cards (write mode + 'prompt' format) get their own
+  // labels, body, and Playground-only handoff.
+  const isCinematic = mode === 'write' && writeFormat === 'prompt'
 
   // Empty + loading copy follows the live selector (what you're about to make);
   // the cards themselves follow `mode` (what actually produced them).
@@ -289,7 +369,9 @@ export default function OutputPanel({ variations, mode, liveMode, writeStyleLabe
 
   if (isGenerating) {
     const message = copyMode === 'write'
-      ? ['Reading your brief...', 'Writing 3 takes...', 'Making it sound human...', 'Tightening the hooks...']
+      ? (writeFormat === 'prompt'
+          ? ['Reading your brief...', 'Directing 3 cinematic concepts...', 'Building the world bible...', 'Laying out the timeline...']
+          : ['Reading your brief...', 'Writing 3 takes...', 'Making it sound human...', 'Tightening the hooks...'])
       : copyMode === 'remix'
         ? ['Building 3 angles...', 'Sending parallel requests...', 'Writing variations...', 'Polishing final drafts...']
         : ['Reading scene blueprint...', 'Mapping product into structure...', 'Rewriting scenes...', 'Preserving structure...']
@@ -315,7 +397,7 @@ export default function OutputPanel({ variations, mode, liveMode, writeStyleLabe
         <PenLine className="h-8 w-8 text-ink-800" strokeWidth={1.5} />
         <p className="text-sm text-ink-700">
           {copyMode === 'write'
-            ? 'Your 3 takes will appear here'
+            ? (writeFormat === 'prompt' ? 'Your 3 cinematic concepts will appear here' : 'Your 3 takes will appear here')
             : copyMode === 'remix' ? 'Your 3 script variations will appear here' : 'Your scene prompts will appear here'}
         </p>
         {error && (
@@ -337,21 +419,25 @@ export default function OutputPanel({ variations, mode, liveMode, writeStyleLabe
           const isRemix = mode === 'remix'
           const isWrite = mode === 'write'
           const angleLabel = isRemix && variations.length === 3 ? REMIX_ANGLE_LABEL[angles[i]] : null
-          const cardTitle = isWrite
-            ? `Take ${i + 1}${writeStyleLabel ? ` · ${writeStyleLabel}` : ''}`
-            : angleLabel
-              ? `Variation ${i + 1}: ${angleLabel}`
-              : isRemix
-                ? `Variation ${i + 1}`
-                : 'Scene prompts'
-          const defaultSaveTitle = isWrite && productName
-            ? `${productName} — ${writeStyleLabel ?? 'New'} Take ${i + 1}`
-            : isRemix && productName
-              ? `${productName} — ${angleLabel ?? `Variation ${i + 1}`} Script`
-              : deriveTitleFromContent(
-                  text,
-                  mode === 'reverse-engineer' ? 'Reverse-engineered prompts' : 'Untitled script',
-                )
+          const cardTitle = isCinematic
+            ? `Concept ${i + 1} · Cinematic`
+            : isWrite
+              ? `Take ${i + 1}${writeStyleLabel ? ` · ${writeStyleLabel}` : ''}`
+              : angleLabel
+                ? `Variation ${i + 1}: ${angleLabel}`
+                : isRemix
+                  ? `Variation ${i + 1}`
+                  : 'Scene prompts'
+          const defaultSaveTitle = isCinematic
+            ? (productName ? `${productName} — Cinematic Concept ${i + 1}` : `Cinematic Concept ${i + 1}`)
+            : isWrite && productName
+              ? `${productName} — ${writeStyleLabel ?? 'New'} Take ${i + 1}`
+              : isRemix && productName
+                ? `${productName} — ${angleLabel ?? `Variation ${i + 1}`} Script`
+                : deriveTitleFromContent(
+                    text,
+                    mode === 'reverse-engineer' ? 'Reverse-engineered prompts' : 'Untitled script',
+                  )
           return (
             <VariationCard
               key={i}
@@ -360,6 +446,12 @@ export default function OutputPanel({ variations, mode, liveMode, writeStyleLabe
               defaultSaveTitle={defaultSaveTitle}
               linkedProductId={linkedProductId}
               mode={mode}
+              isCinematic={isCinematic}
+              productImage={product?.productImage}
+              productName={productName}
+              influencerImage={influencer?.characterImage}
+              influencerName={influencer?.name}
+              cinematicDuration={cinematicDuration}
             />
           )
         })}

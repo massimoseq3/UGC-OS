@@ -16,7 +16,10 @@ export type WriteStyle =
 // 'script' → spoken words only (→ Voiceovers). 'scenes' → scene-by-scene
 // visual blueprint with the dialogue embedded ([CHARACTER]/[PRODUCT] tokens,
 // same format the Remix Scenes pipeline emits → B-Roll / Playground).
-export type WriteFormat = 'script' | 'scenes'
+// 'prompt' → ONE structured cinematic master prompt for a single premium AI
+// commercial (STYLE/ENVIRONMENT/CHARACTER/.../TIMELINE), with @INFLUENCER /
+// @PRODUCT reference tokens → Playground video mode (Seedance-led).
+export type WriteFormat = 'script' | 'scenes' | 'prompt'
 
 export type WriteLength = 10 | 15 | 30 | 60
 export const WRITE_LENGTHS: WriteLength[] = [10, 15, 30, 60]
@@ -52,6 +55,10 @@ export interface GenerateScriptInput {
   writeFormat?: WriteFormat
   writeLength?: WriteLength
   productId: string | null
+  // The product's display name — fed into the cinematic 'prompt' format so the
+  // VOICEOVER sign-off can name the brand. Other formats keep the brand name
+  // out of the spoken copy, so they ignore this.
+  productName?: string
   productContext?: EditableProductContext | null
   additionalContext: string
 }
