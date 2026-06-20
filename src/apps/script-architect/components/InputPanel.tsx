@@ -1,4 +1,4 @@
-import { useState, useRef, useLayoutEffect, type ComponentType } from 'react'
+import { useState, type ComponentType } from 'react'
 import { Package, Loader2, PenLine, ChevronRight, FileText, Clapperboard, RefreshCw, X, Film, UserRound } from 'lucide-react'
 import type { Model, Product, Script } from '../../../stores/types'
 import { WRITE_LENGTHS, WRITE_STYLE_META, type EditableProductContext, type ScriptMode, type WriteStyle, type WriteFormat, type WriteLength } from '../types'
@@ -396,8 +396,19 @@ export default function InputPanel({
                 <StepLabel label="Output" />
                 <ClearAllButton onClear={onClear} />
               </div>
+              {/* Dense house pill — deliberately lighter than the full-size
+                  mode toggle up top, so that stays the primary control. */}
               <div className="mt-2">
-                <OutputToggle value={writeFormat} onChange={handleFormatChange} />
+                <SegmentedToggle<WriteFormat>
+                  dense
+                  value={writeFormat}
+                  onChange={handleFormatChange}
+                  options={[
+                    { value: 'script', label: 'Script', icon: FileText },
+                    { value: 'scenes', label: 'Scene', icon: Clapperboard },
+                    { value: 'prompt', label: 'Cinematic', icon: Film },
+                  ]}
+                />
               </div>
             </div>
 
@@ -840,81 +851,6 @@ function ScriptBankCard({
           <X className="h-3.5 w-3.5" />
         </button>
       </div>
-    </div>
-  )
-}
-
-// Output-format toggle — three compact segments (icon + title) with a measured
-// indicator that slides between them (same 200 ms feel as the mode
-// SegmentedToggle) and morphs accent colour as it moves: orange (Script) →
-// magenta (Scene) → blue (Cinematic).
-const OUTPUT_OPTIONS: Array<{
-  value: WriteFormat
-  icon: ComponentType<{ className?: string; strokeWidth?: number }>
-  title: string
-  accent: 'scripts' | 'fuchsia' | 'broll'
-}> = [
-  { value: 'script', icon: FileText, title: 'Script', accent: 'scripts' },
-  { value: 'scenes', icon: Clapperboard, title: 'Scene', accent: 'fuchsia' },
-  { value: 'prompt', icon: Film, title: 'Cinematic', accent: 'broll' },
-]
-
-function OutputToggle({ value, onChange }: { value: WriteFormat; onChange: (v: WriteFormat) => void }) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const buttonRefs = useRef<Map<WriteFormat, HTMLButtonElement | null>>(new Map())
-  const [indicator, setIndicator] = useState<{ left: number; width: number } | null>(null)
-
-  useLayoutEffect(() => {
-    const measure = () => {
-      const btn = buttonRefs.current.get(value)
-      if (!btn) return
-      setIndicator((prev) =>
-        prev && prev.left === btn.offsetLeft && prev.width === btn.offsetWidth
-          ? prev
-          : { left: btn.offsetLeft, width: btn.offsetWidth },
-      )
-    }
-    measure()
-    const observer = new ResizeObserver(measure)
-    if (containerRef.current) observer.observe(containerRef.current)
-    return () => observer.disconnect()
-  })
-
-  return (
-    <div
-      ref={containerRef}
-      className="relative grid grid-cols-3 gap-1 rounded-full border border-ink/10 bg-ink/[0.02] p-1"
-    >
-      {indicator && (
-        <div
-          aria-hidden
-          className="absolute bottom-1 top-1 rounded-full bg-ink/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition-[left,width] duration-200 ease-out"
-          style={{ left: indicator.left, width: indicator.width }}
-        />
-      )}
-      {OUTPUT_OPTIONS.map((opt) => {
-        const active = opt.value === value
-        const Icon = opt.icon
-        const tone = opt.accent === 'fuchsia'
-          ? { iconBg: 'bg-fuchsia-500/15 text-fuchsia-300 light:text-fuchsia-700', text: 'text-fuchsia-300 light:text-fuchsia-700' }
-          : opt.accent === 'broll'
-            ? { iconBg: 'bg-broll-500/15 text-broll-300', text: 'text-broll-300' }
-            : { iconBg: 'bg-scripts-500/15 text-scripts-300', text: 'text-scripts-300' }
-        return (
-          <button
-            key={opt.value}
-            ref={(el) => { buttonRefs.current.set(opt.value, el) }}
-            type="button"
-            onClick={() => onChange(opt.value)}
-            className="relative z-[1] flex w-full items-center justify-center gap-2 rounded-full px-2 py-2.5"
-          >
-            <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors ${active ? tone.iconBg : 'bg-ink/5 text-ink-500'}`}>
-              <Icon className="h-3.5 w-3.5" strokeWidth={1.75} />
-            </div>
-            <span className={`truncate text-[12px] font-medium tracking-tight transition-colors ${active ? tone.text : 'text-ink-300'}`}>{opt.title}</span>
-          </button>
-        )
-      })}
     </div>
   )
 }
