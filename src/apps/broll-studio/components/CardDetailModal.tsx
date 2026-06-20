@@ -545,7 +545,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                         <img src={animateFrameUrl} alt="" className="h-full w-full object-cover" />
                       </div>
                     ) : (
-                      <div className="flex aspect-video w-full flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-ink/10 bg-ink/[0.02] px-4 text-center">
+                      <div className="flex h-40 w-full flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-ink/10 bg-ink/[0.02] px-4 text-center">
                         <ImageIcon className="h-6 w-6 text-ink-700" strokeWidth={1.5} />
                         <p className="text-[11px] leading-relaxed text-ink-500">
                           Generate an image in the Image tab first, then click Animate on it.
