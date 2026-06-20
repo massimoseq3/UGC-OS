@@ -9,6 +9,9 @@ interface GenerationProgressProps {
   // helper line. Defaults to true (matches B-Roll Images' framing). Tight
   // surfaces like the Playground in-flight tile pass false to reduce clutter.
   showHelper?: boolean
+  // Override the rotating status line's type size (defaults to text-xs). The
+  // Playground in-flight tile passes a size that matches its model label.
+  messageClassName?: string
 }
 
 const DEFAULT_MESSAGES = ['Preparing...', 'Sending request...', 'Processing...', 'Almost done...']
@@ -24,6 +27,7 @@ export default function GenerationProgress({
   messages,
   className = '',
   showHelper = true,
+  messageClassName = 'text-xs',
 }: GenerationProgressProps) {
   const msgs = messages && messages.length > 0 ? messages : DEFAULT_MESSAGES
   const [index, setIndex] = useState(0)
@@ -57,7 +61,7 @@ export default function GenerationProgress({
             message so the layout doesn't jump on long-message wraps. When
             it's hidden (Scripts / B-Roll prompt-gen), tighten to 1 line so
             there's no awkward gap between the bar and the content below. */}
-        <p className={`${showHelper ? 'min-h-[2.25rem]' : ''} text-xs leading-snug text-ink-500`}>{msgs[index]}</p>
+        <p className={`${showHelper ? 'min-h-[2.25rem]' : ''} ${messageClassName} leading-snug text-ink-500`}>{msgs[index]}</p>
         {showHelper && (
           <p className="text-[11px] text-ink-600">This can take a couple of minutes. Keep this tab open.</p>
         )}

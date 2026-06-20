@@ -16,7 +16,7 @@ const POLL_INTERVAL_MS = 5_000
 const POLL_TIMEOUT_MS = 30_000
 const MAX_POLL_ATTEMPTS = 60 // 5 minutes — default for short tasks
 export const IMAGE_POLL_ATTEMPTS = 120 // 10 minutes — GPT Image 2 can run long on complex prompts
-export const VIDEO_POLL_ATTEMPTS = 120 // 10 minutes — Veo Quality / Sora 2 Pro can exceed 5 min
+export const VIDEO_POLL_ATTEMPTS = 120 // 10 minutes — Veo Quality can exceed 5 min
 export const MUSIC_POLL_ATTEMPTS = 120 // 10 minutes — Suno can stall on busy days
 
 // ── Types ───────────────────────────────────────────────────────

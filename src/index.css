@@ -210,19 +210,38 @@ select {
   }
 }
 
-/* Custom scrollbar */
+/* Native scrollbars are kept INVISIBLE but still reserve their 11px track, so
+   layout stays stable (and the prompt editors' reserved scrollbar gutter is
+   preserved). The visible, smoothly-fading thumb is drawn as an overlay element
+   by utils/autoHideScrollbars — Chromium won't animate transitions on the
+   scrollbar pseudo-elements themselves, but it WILL animate opacity on a real
+   element, which is how we get the fade in / fade out. */
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 11px;
+  height: 11px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--color-ink) 10%, transparent);
-  border-radius: 3px;
+  background: transparent;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in srgb, var(--color-ink) 20%, transparent);
+
+/* The overlay thumb: a single fixed element repositioned over whichever
+   scroller is active. Fades in quickly on scroll, then fades out gently. */
+.auto-scrollbar-thumb {
+  position: fixed;
+  width: 6px;
+  border-radius: 9999px;
+  background-color: color-mix(in srgb, var(--color-ink) 26%, transparent);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.55s ease;
+  z-index: 100;
+}
+.auto-scrollbar-thumb.is-visible {
+  opacity: 1;
+  transition-duration: 0.1s;
 }
 
 /* Hide scrollbars but preserve scroll behavior — used for tab strips and

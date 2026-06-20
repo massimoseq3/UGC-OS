@@ -1,6 +1,6 @@
 import { useLayoutEffect, useState, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
-import { Upload, Library } from 'lucide-react'
+import { Upload, Bookmark } from 'lucide-react'
 
 interface SlotActionMenuProps {
   // Anchor element — usually the "+" / upload tile that triggers the menu.
@@ -67,7 +67,7 @@ export default function SlotActionMenu({ anchorRef, open, onClose, onUpload, onP
           onClick={() => { onClose(); onPickFromBank() }}
           className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-[12px] text-ink-300 transition-colors hover:bg-ink/[0.06]"
         >
-          <Library className="h-3.5 w-3.5 shrink-0" />
+          <Bookmark className="h-3.5 w-3.5 shrink-0" />
           Pick from Bank
         </button>
       </div>

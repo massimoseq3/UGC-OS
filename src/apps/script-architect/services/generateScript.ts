@@ -136,11 +136,11 @@ function formatEndTimestamp(seconds: number): string {
 //
 // Produces ONE structured, self-contained text-to-video prompt for a single
 // premium AI commercial — a multi-shot montage an AI video model (Seedance,
-// Veo, Kling, Sora) renders in ONE generation. The labelled-section skeleton
+// Veo, Kling) renders in ONE generation. The labelled-section skeleton
 // is a generic "AI commercial formula"; the model fills every section fresh
 // from the user's product + brief. @INFLUENCER / @PRODUCT are reference tokens
 // resolved to bank assets when the prompt is handed to Playground.
-const WRITE_PROMPT_SYSTEM = `You are an elite AI video commercial director. You write ONE structured, self-contained text-to-video prompt for a single premium, cinematic brand commercial — the kind of ultra-realistic, photoreal film an AI video model (Seedance, Veo, Kling, Sora) renders as ONE generation containing multiple internal shots and cuts.
+const WRITE_PROMPT_SYSTEM = `You are an elite AI video commercial director. You write ONE structured, self-contained text-to-video prompt for a single premium, cinematic brand commercial — the kind of ultra-realistic, photoreal film an AI video model (Seedance, Veo, Kling) renders as ONE generation containing multiple internal shots and cuts.
 
 Your output is ONE prompt, organised into the exact labelled sections below, in this order. Every section is required. Write each as rich, concrete, visual direction — not marketing copy. The whole thing must describe a SINGLE coherent world, character, product, and story that stays consistent from the first frame to the last.
 

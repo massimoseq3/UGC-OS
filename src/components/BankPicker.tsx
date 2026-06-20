@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { X, Search, Plus, FolderOpen, Check, ChevronDown } from 'lucide-react'
 import type { BankType } from '../utils/constants'
-import { BANK_CONFIG } from '../utils/constants'
+import { BANK_CONFIG, getAppConfig } from '../utils/constants'
 import { useBankStore } from '../stores/bankStore'
 import { useAppStore } from '../stores/appStore'
 import type { Product, Model, Script, VoicePreset, BRoll } from '../stores/types'
@@ -78,6 +78,11 @@ export default function BankPicker({
   const brolls = useBankStore((s) => s.brolls)
   const openApp = useAppStore((s) => s.openApp)
   const sendToApp = useAppStore((s) => s.sendToApp)
+  const activeApp = useAppStore((s) => s.activeApp)
+
+  // Selection highlight follows the app the picker was opened from (green in
+  // Playground, etc.), falling back to the bank's own accent.
+  const accentColor = getAppConfig(activeApp ?? '')?.accent ?? BANK_CONFIG[currentBankType].accent
 
   const items: BankItem[] =
     currentBankType === 'products' ? products :
@@ -226,7 +231,7 @@ export default function BankPicker({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-ink/5 px-5 py-3.5">
           <h3 className="text-sm font-semibold tracking-tight text-ink-200">
-            Select {normalizedTabs ? 'from bank' : label.replace(/s$/, '')}
+            Select {normalizedTabs ? 'from Bank' : label.replace(/s$/, '')}
           </h3>
           <button
             onClick={onClose}
@@ -248,9 +253,11 @@ export default function BankPicker({
           </div>
         )}
 
-        {/* Search — full width on mobile */}
-        <div className="border-b border-ink/5 px-4 py-3">
-          <div className="flex items-center gap-2 rounded-full border border-ink/10 bg-ink/[0.03] px-3.5 py-2">
+        {/* Search + sort share one row. The sort dropdown sits beside the
+            search box at a matching height (hidden for banks the Bank doesn't
+            sort, e.g. voices). */}
+        <div className="flex items-center gap-2 border-b border-ink/5 px-4 py-3">
+          <div className="flex h-10 flex-1 items-center gap-2 rounded-full border border-ink/10 bg-ink/[0.03] px-3.5">
             <Search className="h-3.5 w-3.5 shrink-0 text-ink-600" />
             <input
               ref={searchRef}
@@ -260,17 +267,12 @@ export default function BankPicker({
               className="w-full bg-transparent text-sm text-ink-200 placeholder-ink-600 outline-none"
             />
           </div>
-        </div>
-
-        {/* Sort — mirrors the Bank browser's options (shared persisted state).
-            Hidden for banks the Bank doesn't sort (voices). */}
-        {sortOptions && (
-          <div className="flex items-center justify-end gap-2 border-b border-ink/5 px-4 py-2">
-            <div className="relative">
+          {sortOptions && (
+            <div className="relative shrink-0">
               <select
                 value={sort}
                 onChange={(e) => setSort(e.target.value as SortOrder)}
-                className="appearance-none rounded-full border border-ink/10 bg-surface-1 py-1.5 pl-3.5 pr-8 text-xs text-ink-200 outline-none transition-colors hover:border-ink/20 focus:border-ink/20"
+                className="h-10 appearance-none rounded-full border border-ink/10 bg-surface-1 pl-3.5 pr-8 text-xs text-ink-200 outline-none transition-colors hover:border-ink/20 focus:border-ink/20"
               >
                 {sortOptions.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>
@@ -278,8 +280,8 @@ export default function BankPicker({
               </select>
               <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-500" />
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Item list */}
         <div className="flex-1 overflow-y-auto px-4 py-3">
@@ -296,11 +298,14 @@ export default function BankPicker({
             <div
               className={
                 // Influencers and products pack tighter into a 3-column grid;
-                // b-rolls (wide 16:9 stills) and scripts (9:16 cards) stay 2-up;
-                // voices stay single-column rows.
+                // b-rolls flow through a masonry column layout (mixed 16:9 / 9:16
+                // stills pack with no left-aligned gaps — matches the main Bank);
+                // scripts (9:16 cards) stay a 2-up grid; voices single-column rows.
                 currentBankType === 'models' || currentBankType === 'products'
                   ? 'grid grid-cols-3 gap-2'
-                  : currentBankType === 'brolls' || currentBankType === 'scripts'
+                  : currentBankType === 'brolls'
+                  ? 'columns-2 gap-2'
+                  : currentBankType === 'scripts'
                   ? 'grid grid-cols-2 gap-2'
                   : 'flex flex-col gap-2'
               }
@@ -315,18 +320,23 @@ export default function BankPicker({
                   currentBankType === 'models' &&
                   !!(item as Model).sheetImage &&
                   (item as Model).sheetImage === (item as Model).characterImage
+                const wrapperClass =
+                  currentBankType === 'brolls'
+                    ? 'relative mb-2 break-inside-avoid'
+                    : `relative ${isSheet ? 'col-span-3' : ''}`
                 return (
-                  <div key={item.id} className={`relative ${isSheet ? 'col-span-3' : ''}`}>
+                  <div key={item.id} className={wrapperClass}>
                     <BankItemCard
                       bankType={currentBankType}
                       item={item}
                       onClick={() => handleSelect(item)}
                       selected={isSelected}
+                      accentColor={accentColor}
                     />
                     {isSelected && (
                       <div
                         className="pointer-events-none absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full text-white"
-                        style={{ backgroundColor: BANK_CONFIG[currentBankType].accent }}
+                        style={{ backgroundColor: accentColor }}
                       >
                         <Check className="h-3 w-3" strokeWidth={3} />
                       </div>

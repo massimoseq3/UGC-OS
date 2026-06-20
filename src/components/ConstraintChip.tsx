@@ -12,6 +12,7 @@ export default function ConstraintChip({
   openDirection = 'up',
   align = 'left',
   size = 'md',
+  grow = false,
 }: {
   options: string[]
   value: string
@@ -27,6 +28,9 @@ export default function ConstraintChip({
   align?: 'left' | 'right'
   // 'lg' matches the large ModelPicker trigger height in footer rows.
   size?: 'md' | 'lg'
+  // When true, the chip flexes to fill its share of the row (used to spread the
+  // constraint chips across the full width under the model picker).
+  grow?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
@@ -39,13 +43,13 @@ export default function ConstraintChip({
     return () => document.removeEventListener('mousedown', onClick)
   }, [open])
   return (
-    <div ref={wrapperRef} className="relative">
+    <div ref={wrapperRef} className={`relative ${grow ? 'flex-1' : ''}`}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={`flex items-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.02] text-ink-300 transition-colors hover:bg-ink/[0.05] ${
-          size === 'lg' ? 'h-12 px-4 text-[13px]' : 'h-9 px-3.5 text-[12px]'
-        }`}
+          grow ? 'w-full justify-center' : ''
+        } ${size === 'lg' ? 'h-12 px-4 text-[13px]' : 'h-9 px-3.5 text-[12px]'}`}
       >
         {render ? render(value) : <span>{value}</span>}
       </button>

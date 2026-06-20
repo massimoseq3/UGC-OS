@@ -248,7 +248,9 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
       if (c.aspectRatios.length > 0 && !c.aspectRatios.includes(state.aspectRatio)) patch.aspectRatio = c.aspectRatios[0]
       if (c.durations.length > 0 && !c.durations.includes(state.durationSeconds)) patch.durationSeconds = c.durations[0]
       if (!c.resolutions.includes(state.resolution)) patch.resolution = c.default ?? c.resolutions[0] ?? '720p'
-      if (!c.supportsAudio) patch.audio = false
+      // Audio defaults ON for every audio-capable model (matches B-Roll); OFF
+      // when the model can't do audio. User can still mute via the toggle.
+      if (state.audio !== (c.supportsAudio === true)) patch.audio = c.supportsAudio === true
     } else if (state.mode === 'image' && model?.imageConstraints) {
       const c = model.imageConstraints
       if (!c.resolutions.includes(state.resolution)) {
@@ -543,6 +545,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
               {state.mode === 'video' && model?.videoConstraints && (
                 <>
                   <ConstraintChip
+                    grow
                     openDirection="down"
                     options={model.videoConstraints.resolutions}
                     value={state.resolution}
@@ -551,11 +554,12 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
                   {/* Motion Control has no aspect/duration/audio controls — clip
                       length comes from the driving video and aspect from the
                       character image. Only the resolution chip applies.
-                      Image-conditioned models (e.g. Kling V3 Turbo) also expose
+                      Image-conditioned models (e.g. Kling 3.0 Turbo) also expose
                       no aspect param — aspect is inherited from the input image,
                       so aspectRatios is [] and the chip stays hidden. */}
                   {!isMotionControl && model.videoConstraints.aspectRatios.length > 0 && (
                   <ConstraintChip
+                    grow
                     openDirection="down"
                     options={model.videoConstraints.aspectRatios}
                     value={state.aspectRatio}
@@ -570,6 +574,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
                   )}
                   {!isMotionControl && model.videoConstraints.durations.length > 0 && (
                     <ConstraintChip
+                      grow
                       openDirection="down"
                       options={model.videoConstraints.durations.map(String)}
                       value={String(state.durationSeconds)}
@@ -581,7 +586,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
                     <button
                       type="button"
                       onClick={() => onChange({ ...state, audio: !state.audio })}
-                      className={`flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[12px] transition-colors ${
+                      className={`flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full border px-3.5 text-[12px] transition-colors ${
                         state.audio
                           ? 'border-playground-500/30 bg-playground-500/10 text-playground-200'
                           : 'border-ink/10 bg-ink/[0.02] text-ink-400 hover:bg-ink/[0.05]'
@@ -597,6 +602,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
               {state.mode === 'image' && model?.imageConstraints && (
                 <>
                   <ConstraintChip
+                    grow
                     openDirection="down"
                     options={model.imageConstraints.resolutions}
                     value={state.resolution}
@@ -604,6 +610,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
                   />
                   {model.imageConstraints.aspectRatios && (
                     <ConstraintChip
+                      grow
                       openDirection="down"
                       options={model.imageConstraints.aspectRatios}
                       value={state.aspectRatio}
@@ -705,32 +712,32 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
                         />
                       </div>
                     )}
-                    {supportsRefAudio && (
-                      <div className="mt-4">
-                        <MediaRefStrip
-                          label="Reference audio"
-                          helper="voice / lip-sync guidance, ≤15s total"
-                          kind="audio"
-                          values={mediaStripValues('audio')}
-                          onChange={(v) => setMediaStrip('audio', v)}
-                          max={3}
-                          maxTotalSeconds={15}
-                          onLimitError={(m) => addToast(m, 'error')}
-                        />
-                      </div>
-                    )}
-                    {supportsRefVideos && (
-                      <div className="mt-4">
-                        <MediaRefStrip
-                          label="Reference videos"
-                          helper="motion / style guidance, ≤15s total"
-                          kind="video"
-                          values={mediaStripValues('video')}
-                          onChange={(v) => setMediaStrip('video', v)}
-                          max={3}
-                          maxTotalSeconds={15}
-                          onLimitError={(m) => addToast(m, 'error')}
-                        />
+                    {(supportsRefAudio || supportsRefVideos) && (
+                      <div className={`mt-4 grid gap-3 ${supportsRefAudio && supportsRefVideos ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                        {supportsRefAudio && (
+                          <MediaRefStrip
+                            label="Reference audio"
+                            helper="voice / lip-sync, ≤15s"
+                            kind="audio"
+                            values={mediaStripValues('audio')}
+                            onChange={(v) => setMediaStrip('audio', v)}
+                            max={3}
+                            maxTotalSeconds={15}
+                            onLimitError={(m) => addToast(m, 'error')}
+                          />
+                        )}
+                        {supportsRefVideos && (
+                          <MediaRefStrip
+                            label="Reference videos"
+                            helper="motion / style, ≤15s"
+                            kind="video"
+                            values={mediaStripValues('video')}
+                            onChange={(v) => setMediaStrip('video', v)}
+                            max={3}
+                            maxTotalSeconds={15}
+                            onLimitError={(m) => addToast(m, 'error')}
+                          />
+                        )}
                       </div>
                     )}
                     {isOmni && (
@@ -779,15 +786,18 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
                   <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" />
                 </button>
               )}
-              {/* Prompt field — a transparent-text textarea over a highlight
-                  backdrop. The backdrop renders the same text but paints
-                  [bracketed placeholders] red so the user sees what to edit.
-                  Both layers share identical metrics so they line up exactly. */}
-              <div className="relative mt-2 flex grow rounded-3xl border border-ink/10 bg-ink/[0.03] transition-colors focus-within:border-ink/20 focus-within:bg-ink/[0.05]">
+              {/* Prompt field — a normal, visible textarea on top of a
+                  transparent backdrop that only paints the [bracket] highlights.
+                  The textarea owns every glyph, so the caret, selection and
+                  click targets are always exactly where the text appears. The
+                  backdrop matches the textarea's metrics (font-light, tracking)
+                  and reserves the same scrollbar gutter via its right padding,
+                  so the bracket boxes line up with the words. */}
+              <div className="relative mt-2 flex grow overflow-hidden rounded-3xl border border-ink/10 bg-ink/[0.03] transition-colors focus-within:border-ink/20 focus-within:bg-ink/[0.05]">
                 <div
                   ref={highlightRef}
                   aria-hidden
-                  className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words px-3.5 py-3 text-[13px] leading-[1.5] text-ink-200"
+                  className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words pb-6 pl-3.5 pr-[calc(0.875rem+11px)] pt-3 text-[13px] font-light leading-[1.5] tracking-[-0.025em] text-transparent"
                 >
                   {renderBracketHighlight(state.prompt)}
                 </div>
@@ -809,8 +819,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
                       ? 'Describe the video… (type @ to reference banks)'
                       : 'Describe the music — genre, mood, instruments…'
                   }
-                  style={{ caretColor: 'var(--color-ink-200)' }}
-                  className="relative min-h-[120px] w-full grow resize-none border-0 bg-transparent px-3.5 py-3 text-[13px] leading-[1.5] text-transparent placeholder-ink-600 outline-none"
+                  className="relative min-h-[120px] w-full grow resize-none border-0 bg-transparent px-3.5 pb-6 pt-3 text-[13px] leading-[1.5] text-ink-200 placeholder-ink-600 outline-none [scrollbar-gutter:stable]"
                 />
                 <ExpandButton onClick={() => setPromptExpanded(true)} className="absolute bottom-2 right-2 z-10" />
               </div>

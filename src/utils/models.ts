@@ -6,7 +6,7 @@
 //
 // Pricing is hard-coded from kie.ai's marketing pages (kie.ai/{model-slug}) and
 // kie.ai/pricing — verify and update when prices drift. Last verified: 2026-05-09
-// against kie.ai/pricing scrape. Veo / Sora bill per-video (NOT per-second) —
+// against kie.ai/pricing scrape. Veo bills per-video (NOT per-second) —
 // the unit name 'per-call' is used to encode that the duration multiplier
 // shouldn't be applied to the credit count.
 
@@ -302,7 +302,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
       supportsAudio: true,
     },
   },
-  // Kling V3 Turbo (image-to-video) — fast image-conditioned animator. Takes a
+  // Kling 3.0 Turbo (image-to-video) — fast image-conditioned animator. Takes a
   // required image_urls[] (a single start frame in our flows) + duration +
   // resolution. No text-to-video and no aspect_ratio param: aspect inherits
   // from the input image, so aspectRatios is [] and the picker hides it.
@@ -310,7 +310,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
   // Docs: kling/v3-turbo-image-to-video on docs.kie.ai.
   {
     id: 'kling/v3-turbo-image-to-video',
-    displayName: 'Kling V3 Turbo',
+    displayName: 'Kling 3.0 Turbo',
     provider: 'Kling AI',
     task: 'video',
     modes: ['image-to-video'],
@@ -539,56 +539,6 @@ export const MODEL_REGISTRY: ModelEntry[] = [
       supportsAudio: false,
     },
   },
-  // Sora 2 — OpenAI. Bills per-video; only n_frames (10 or 15) is exposed.
-  // Audio is baked into the output and not user-controllable.
-  // Docs: https://docs.kie.ai/market/sora2/sora-2-text-to-video
-  //       https://docs.kie.ai/market/sora2/sora-2-image-to-video
-  // Pricing (per video, resolution NOT a parameter): 10s = 30 cr, 15s = 35 cr.
-  {
-    id: 'sora-2',
-    displayName: 'Sora 2',
-    provider: 'OpenAI',
-    task: 'video',
-    modes: ['text-to-video', 'image-to-video'],
-    tags: ['new'],
-    pricing: {
-      unit: 'per-call',
-      credits: 30,
-      priceFor: ({ durationSeconds = 10 }) => (durationSeconds >= 15 ? 35 : 30),
-    },
-    videoEndpoint: 'createTask',
-    videoConstraints: {
-      durations: [10, 15],
-      resolutions: ['standard'],
-      aspectRatios: ['16:9', '9:16'],
-    },
-  },
-  // Sora 2 Pro — OpenAI Pro tier with a Standard/HD size dimension.
-  // Docs: https://docs.kie.ai/market/sora2/sora-2-pro-image-to-video
-  // Pricing per video — Standard: 10s=150, 15s=270; High: 10s=330, 15s=630.
-  {
-    id: 'sora-2-pro',
-    displayName: 'Sora 2 Pro',
-    provider: 'OpenAI',
-    task: 'video',
-    modes: ['text-to-video', 'image-to-video'],
-    tags: [],
-    pricing: {
-      unit: 'per-call',
-      credits: 150,
-      priceFor: ({ durationSeconds = 10, resolution = 'standard' }) => {
-        const long = durationSeconds >= 15
-        if (resolution === 'high') return long ? 630 : 330
-        return long ? 270 : 150  // standard
-      },
-    },
-    videoEndpoint: 'createTask',
-    videoConstraints: {
-      durations: [10, 15],
-      resolutions: ['standard', 'high'],
-      aspectRatios: ['16:9', '9:16'],
-    },
-  },
 
   // ── Music generation (Suno via kie.ai) ────────────────────────
   // Suno is reached through kie.ai's custom endpoint
@@ -797,15 +747,13 @@ export interface VideoGenOptions {
 }
 
 // Resolves a registry model id to the actual kie.ai slug to send in the
-// createTask body. Some families (Wan 2.7, Sora 2, Sora 2 Pro) ship as
+// createTask body. Some families (Wan 2.7) ship as
 // multiple kie slugs that differ only by mode (T2V vs I2V); we expose one
 // virtual id in the picker and pick the real slug here based on inputs.
 // For every other model the registry id IS the kie slug — passes through.
 export function resolveVideoModelSlug(modelId: string, opts: VideoGenOptions): string {
   const hasFrame = !!(opts.firstFrameUrl || opts.lastFrameUrl || opts.imageUrl)
   if (modelId === 'wan/2-7') return hasFrame ? 'wan/2-7-image-to-video' : 'wan/2-7-text-to-video'
-  if (modelId === 'sora-2') return hasFrame ? 'sora-2-image-to-video' : 'sora-2-text-to-video'
-  if (modelId === 'sora-2-pro') return hasFrame ? 'sora-2-pro-image-to-video' : 'sora-2-pro-text-to-video'
   return modelId
 }
 
@@ -858,7 +806,7 @@ export function buildVideoInput(modelId: string, opts: VideoGenOptions): Record<
     }
   }
 
-  // ── Kling V3 Turbo (image-to-video) ──
+  // ── Kling 3.0 Turbo (image-to-video) ──
   // Required image_urls[] + duration + resolution. No aspect_ratio (aspect is
   // inherited from the input image). We pass whatever start frame the caller
   // resolved (imageUrl / firstFrameUrl) plus any extra reference images.
@@ -937,24 +885,6 @@ export function buildVideoInput(modelId: string, opts: VideoGenOptions): Record<
       resolution,
       ratio: ar,
       duration,
-    }
-  }
-
-  // ── Sora 2 / Sora 2 Pro ──
-  // Aspect is `landscape` | `portrait`; duration is `n_frames` as a string
-  // ("10" or "15"); audio is baked into output (no toggle); Pro adds a
-  // `size: 'standard' | 'high'` field that maps to 720p / 1080p.
-  if (modelId === 'sora-2' || modelId === 'sora-2-pro') {
-    const aspect_ratio = ar === '9:16' ? 'portrait' : 'landscape'
-    const startFrame = opts.imageUrl ?? opts.firstFrameUrl
-    return {
-      prompt: opts.prompt,
-      ...(startFrame ? { image_urls: [startFrame] } : {}),
-      aspect_ratio,
-      n_frames: String(duration >= 15 ? 15 : 10),
-      remove_watermark: true,
-      upload_method: 's3',
-      ...(modelId === 'sora-2-pro' ? { size: resolution === 'high' ? 'high' : 'standard' } : {}),
     }
   }
 

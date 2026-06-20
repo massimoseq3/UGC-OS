@@ -469,6 +469,7 @@ export default function ScenesView({
                 <div className="flex flex-wrap items-center gap-2">
                   {batchAspectOptions.length > 0 && (
                     <ConstraintChip
+                      grow
                       openDirection="up"
                       options={batchAspectOptions}
                       value={effectiveBatchAspect ?? batchAspectOptions[0]}
@@ -483,6 +484,7 @@ export default function ScenesView({
                   )}
                   {batchResOptions.length > 0 && (
                     <ConstraintChip
+                      grow
                       openDirection="up"
                       options={batchResOptions as string[]}
                       value={(effectiveBatchRes ?? batchResOptions[0]) as string}

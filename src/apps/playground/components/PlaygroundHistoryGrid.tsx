@@ -380,6 +380,7 @@ function InFlightTile({ gen }: { gen: InFlightGen }) {
           isActive
           color="bg-playground-500"
           showHelper={false}
+          messageClassName="text-[10px]"
           messages={
             gen.mode === 'image'
               ? [
