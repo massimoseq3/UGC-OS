@@ -3,6 +3,7 @@ import { saveProfile } from '../lib/cloudSync'
 import { isCloudEnabled } from '../lib/supabase'
 import { useAuthStore } from './authStore'
 import { useAppStore } from './appStore'
+import { getModel } from '../utils/models'
 
 const STORAGE_KEY = 'ai-ugc-lab-settings'
 
@@ -215,5 +216,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     pushProfile().catch(() => { /* toast already raised */ })
   },
 
-  getAppModel: (appId) => get().perAppModel[appId],
+  // Drop a persisted pick that no longer resolves (e.g. a retired model) so
+  // the picker falls back to its default instead of showing "Select model".
+  getAppModel: (appId) => {
+    const id = get().perAppModel[appId]
+    return id && getModel(id) ? id : undefined
+  },
 }))

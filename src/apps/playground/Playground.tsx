@@ -115,7 +115,15 @@ export default function Playground() {
   const [state, setState] = usePersistedState<PromptPanelState>(`${baseKey}:state`, initialState(), {
     sanitize: (v) => {
       const next = { ...v, audio: true, instrumental: true }
-      const m = getModel(v.modelId)
+      // A persisted draft can point at a model that has since been removed
+      // from the registry (e.g. a retired video model). Snap back to the
+      // mode's default so generate doesn't throw "Unknown model".
+      let m = getModel(v.modelId)
+      if (!m) {
+        const task = v.mode === 'image' ? 'image' : v.mode === 'music' ? 'music' : 'video'
+        next.modelId = getDefaultModel('playground', task)?.id ?? next.modelId
+        m = getModel(next.modelId)
+      }
       if (v.mode === 'video' && m?.videoConstraints?.default) {
         next.resolution = m.videoConstraints.default
       }
@@ -484,7 +492,7 @@ export default function Playground() {
       <div className="flex flex-1 flex-col md:min-h-0 md:flex-row">
         {/* Left — prompt panel. On mobile we still want controls above the
             grid, so the panel comes first in source order regardless. */}
-        <div className="flex w-full md:w-[400px] shrink-0 flex-col border-b md:border-b-0 md:border-r border-ink/5">
+        <div className="flex w-full md:w-1/3 md:min-w-[380px] shrink-0 flex-col border-b md:border-b-0 md:border-r border-ink/5">
           <PromptPanel
             state={state}
             onChange={setState}

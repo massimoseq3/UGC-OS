@@ -14,6 +14,10 @@ interface ReverseEngineerPayload {
   scenes?: Array<{ prompt: string; index: number; label: string; startTime: string; endTime: string }>
 }
 
+// Substituted for an empty Write New brief so the model takes creative license
+// instead of the user hitting a hard "brief required" wall.
+const OPEN_BRIEF = "I'm open to seeing what you can come up with."
+
 export default function ScriptArchitect() {
   const baseKey = useProjectScopedKey('script-architect')
   const [mode, setMode] = usePersistedState<ScriptMode>(`${baseKey}:mode`, 'remix')
@@ -100,7 +104,11 @@ export default function ScriptArchitect() {
   }, [interAppPayload, activeApp, consumePayload, getProductById, setMode, setReversePrompt, setWinningTranscript, setSelectedProductId])
 
   const handleGenerate = async (productContext: EditableProductContext | null) => {
-    const sourceFilled = mode === 'write' ? brief.trim() : mode === 'remix' ? winningTranscript.trim() : reversePrompt.trim()
+    // Write New's brief is optional: an empty brief hands the model creative
+    // license rather than blocking generation (avoids decision paralysis for
+    // users who don't know what to write).
+    const effectiveBrief = mode === 'write' && !brief.trim() ? OPEN_BRIEF : brief
+    const sourceFilled = mode === 'write' ? true : mode === 'remix' ? winningTranscript.trim() : reversePrompt.trim()
     if (!sourceFilled || !selectedProduct) return
 
     setIsGenerating(true)
@@ -117,7 +125,7 @@ export default function ScriptArchitect() {
         mode,
         winningTranscript,
         reversePrompt,
-        brief,
+        brief: effectiveBrief,
         writeStyle,
         writeFormat,
         writeLength,

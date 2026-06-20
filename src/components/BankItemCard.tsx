@@ -10,21 +10,28 @@ interface BankItemCardProps {
   item: BankItem
   onClick: () => void
   selected?: boolean
+  // The owning app's accent (hex). When set, the selected highlight uses it
+  // instead of the per-bank colour — so the picker feels native to whatever
+  // app opened it (green in Playground, etc.).
+  accentColor?: string
 }
 
-// Selected-state classes per bank so the highlight follows each bank's
-// accent (see the @theme palettes in index.css / BANK_CONFIG hexes).
-const IMAGE_SELECTED: Record<string, string> = {
-  models: 'border-influencers-500/50 ring-1 ring-influencers-500/40',
-  products: 'border-amber-500/50 ring-1 ring-amber-500/40',
-  brolls: 'border-broll-500/50 ring-1 ring-broll-500/40',
-}
-const ROW_SELECTED: Record<string, string> = {
-  scripts: 'border-scripts-500/40 bg-scripts-500/[0.08]',
-  voices: 'border-voice-500/40 bg-voice-500/[0.08]',
+// hex → rgba so an arbitrary app accent can drive the selected border/ring/bg
+// without a matching Tailwind palette.
+function hexAlpha(hex: string, alpha: number): string {
+  const h = hex.replace('#', '')
+  const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h
+  const n = parseInt(full, 16)
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`
 }
 
-export default function BankItemCard({ bankType, item, onClick, selected }: BankItemCardProps) {
+export default function BankItemCard({ bankType, item, onClick, selected, accentColor }: BankItemCardProps) {
+  // Inline selected styling driven by the app accent: a tinted border + 1px
+  // ring (and a faint fill for the text-only cards).
+  const accentSelected: React.CSSProperties | undefined =
+    selected && accentColor
+      ? { borderColor: hexAlpha(accentColor, 0.5), boxShadow: `0 0 0 1px ${hexAlpha(accentColor, 0.4)}` }
+      : undefined
   // Image-backed banks (influencers / products / b-rolls) render as full image
   // cards that adapt to the image's natural aspect ratio — 16:9 / 9:16 / square
   // — matching how the Bank browser shows them. Scripts / voices have no image,
@@ -39,7 +46,8 @@ export default function BankItemCard({ bankType, item, onClick, selected }: Bank
         name={m.name || 'Untitled Influencer'}
         centerName
         onClick={onClick}
-        selectedClass={selected ? IMAGE_SELECTED.models : undefined}
+        selected={selected}
+        selectedStyle={accentSelected}
       />
     )
   }
@@ -53,7 +61,8 @@ export default function BankItemCard({ bankType, item, onClick, selected }: Bank
         fallbackAspect="aspect-square"
         name={p.productName || 'Untitled Product'}
         onClick={onClick}
-        selectedClass={selected ? IMAGE_SELECTED.products : undefined}
+        selected={selected}
+        selectedStyle={accentSelected}
       />
     )
   }
@@ -69,21 +78,23 @@ export default function BankItemCard({ bankType, item, onClick, selected }: Bank
         name={b.prompt || 'Untitled B-Roll'}
         sublabel={`${b.imageUrl ? 'Still' : 'Video only'}${videoCount > 0 ? ` · ${videoCount} clip${videoCount === 1 ? '' : 's'}` : ''}`}
         onClick={onClick}
-        selectedClass={selected ? IMAGE_SELECTED.brolls : undefined}
+        selected={selected}
+        selectedStyle={accentSelected}
       />
     )
   }
 
   if (bankType === 'scripts') {
-    return <ScriptCard item={item as Script} onClick={onClick} selected={selected} />
+    return <ScriptCard item={item as Script} onClick={onClick} selected={selected} accentColor={accentColor} />
   }
 
   return (
     <button
       onClick={onClick}
+      style={selected && accentColor ? { borderColor: hexAlpha(accentColor, 0.4), backgroundColor: hexAlpha(accentColor, 0.08) } : undefined}
       className={`flex w-full items-center gap-3 rounded-full border p-3 text-left transition-colors ${
         selected
-          ? ROW_SELECTED[bankType] ?? 'border-ink/20 bg-ink/[0.06]'
+          ? accentColor ? '' : 'border-ink/20 bg-ink/[0.06]'
           : 'border-ink/5 bg-ink/[0.03] hover:border-ink/10 hover:bg-ink/[0.06]'
       }`}
     >
@@ -94,7 +105,7 @@ export default function BankItemCard({ bankType, item, onClick, selected }: Bank
 
 // 9:16 script card — mirrors the Bank browser's ScriptCard so the picker shows
 // the same view: SCRIPT/SCENES pill, title, and a full preview that fades out.
-function ScriptCard({ item, onClick, selected }: { item: Script; onClick: () => void; selected?: boolean }) {
+function ScriptCard({ item, onClick, selected, accentColor }: { item: Script; onClick: () => void; selected?: boolean; accentColor?: string }) {
   const isPrompt = item.kind === 'reverse-engineer'
   const badge = isPrompt
     ? { label: 'SCENES', className: 'bg-fuchsia-500/15 text-fuchsia-300 light:text-fuchsia-700 border-fuchsia-500/20' }
@@ -102,9 +113,14 @@ function ScriptCard({ item, onClick, selected }: { item: Script; onClick: () => 
   return (
     <button
       onClick={onClick}
+      style={
+        selected && accentColor
+          ? { borderColor: hexAlpha(accentColor, 0.5), boxShadow: `0 0 0 1px ${hexAlpha(accentColor, 0.4)}`, backgroundColor: hexAlpha(accentColor, 0.06) }
+          : undefined
+      }
       className={`group relative flex aspect-[9/16] w-full flex-col overflow-hidden rounded-2xl border p-3 text-left transition-all ${
         selected
-          ? 'border-scripts-500/50 bg-scripts-500/[0.06] ring-1 ring-scripts-500/40'
+          ? accentColor ? '' : 'border-scripts-500/50 bg-scripts-500/[0.06] ring-1 ring-scripts-500/40'
           : 'border-ink/5 bg-ink/[0.03] hover:border-ink/15 hover:-translate-y-0.5'
       }`}
     >
@@ -134,7 +150,8 @@ function ImageCard({
   sublabel,
   centerName,
   onClick,
-  selectedClass,
+  selected,
+  selectedStyle,
 }: {
   src?: string
   fallback: React.ElementType
@@ -143,14 +160,16 @@ function ImageCard({
   sublabel?: string
   centerName?: boolean
   onClick: () => void
-  selectedClass?: string
+  selected?: boolean
+  selectedStyle?: React.CSSProperties
 }) {
   const resolvedUrl = useAssetUrl(src)
   return (
     <button
       onClick={onClick}
+      style={selectedStyle}
       className={`group relative block w-full overflow-hidden rounded-2xl border text-left transition-all ${
-        selectedClass ?? 'border-ink/5 bg-ink/[0.03] hover:border-ink/15 hover:-translate-y-0.5'
+        selected ? '' : 'border-ink/5 bg-ink/[0.03] hover:border-ink/15 hover:-translate-y-0.5'
       }`}
     >
       {resolvedUrl ? (

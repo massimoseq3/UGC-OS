@@ -429,6 +429,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
                       {imageConstraints.resolutions && imageConstraints.resolutions.length > 0 && (
                         <ConstraintChip
+                          grow
                           openDirection="down"
                           options={imageConstraints.resolutions as string[]}
                           value={cardState.cardImageResolution}
@@ -437,6 +438,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                       )}
                       {imageConstraints.aspectRatios && imageConstraints.aspectRatios.length > 0 && (
                         <ConstraintChip
+                          grow
                           openDirection="down"
                           options={imageConstraints.aspectRatios}
                           value={cardState.cardImageAspectRatio}
@@ -473,16 +475,18 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                   {videoConstraints && (
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
                       <ConstraintChip
+                        grow
                         openDirection="down"
                         options={videoConstraints.resolutions}
                         value={cardState.cardVideoResolution}
                         onChange={(v) => onUpdateState({ cardVideoResolution: v })}
                       />
-                      {/* Image-conditioned models (e.g. Kling V3 Turbo) inherit
+                      {/* Image-conditioned models (e.g. Kling 3.0 Turbo) inherit
                           aspect from the input frame and expose no aspect param,
                           so aspectRatios is [] and the chip stays hidden. */}
                       {videoConstraints.aspectRatios.length > 0 && (
                       <ConstraintChip
+                        grow
                         openDirection="down"
                         options={videoConstraints.aspectRatios}
                         value={cardState.cardVideoAspectRatio}
@@ -497,6 +501,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                       )}
                       {videoConstraints.durations.length > 0 && (
                         <ConstraintChip
+                          grow
                           openDirection="down"
                           options={videoConstraints.durations.map(String)}
                           value={String(cardState.cardVideoDurationSeconds)}
@@ -508,7 +513,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                         <button
                           type="button"
                           onClick={() => onUpdateState({ cardVideoAudio: !cardState.cardVideoAudio })}
-                          className={`flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[12px] transition-colors ${
+                          className={`flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full border px-3.5 text-[12px] transition-colors ${
                             cardState.cardVideoAudio
                               ? 'border-broll-500/40 bg-broll-500/15 text-broll-200'
                               : 'border-ink/10 bg-ink/[0.02] text-ink-400 hover:bg-ink/[0.05]'

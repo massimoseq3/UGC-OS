@@ -145,8 +145,10 @@ export default function InputPanel({
     }
   }
 
+  // Write New's brief is optional (an empty brief lets the model invent the
+  // angle), so that mode only needs a selected product to generate.
   const sourceFilled = mode === 'write'
-    ? brief.trim().length > 0
+    ? true
     : mode === 'remix' ? winningTranscript.trim().length > 0 : reversePrompt.trim().length > 0
   const canGenerate = sourceFilled && selectedProduct !== null
 
@@ -479,7 +481,8 @@ export default function InputPanel({
             <div className="mb-6 flex flex-col">
               <StepLabel
                 label="Describe Your Ad"
-                tooltip="What should this ad say or focus on? Vibe, angle, key points — anything goes."
+                optional
+                tooltip="What should this ad say or focus on? Vibe, angle, key points — anything goes. Leave it blank and the model will come up with the angle for you."
               />
               {/* Fixed-height box (Playground prompt pattern): it never grows
                   with content — it scrolls internally so the page stays put. */}
@@ -488,7 +491,7 @@ export default function InputPanel({
                   value={brief}
                   onChange={(e) => onBriefChange(e.target.value)}
                   rows={6}
-                  placeholder={"e.g. A girl in her 20s talking about this serum like she's telling her best friend — focus on how fast it cleared her skin texture. Casual, a little funny, end with the discount code."}
+                  placeholder={"Leave blank and I'll come up with the angle — or steer it: e.g. A girl in her 20s talking about this serum like she's telling her best friend, focus on how fast it cleared her skin. Casual, a little funny, end with the discount code."}
                   className="h-[150px] w-full resize-none overflow-y-auto rounded-3xl border border-ink/10 bg-ink/[0.02] px-4 py-3 text-sm leading-relaxed text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-scripts-500/30"
                 />
                 <ExpandButton onClick={() => setExpandedField('brief')} className="absolute bottom-2 right-2" />
@@ -759,7 +762,7 @@ export default function InputPanel({
 // number. An optional `tooltip` turns the label into a dotted-underline hint
 // that reveals guidance on hover (same pattern as the Voiceovers sliders),
 // keeping the form clean of always-on helper text.
-function StepLabel({ label, tooltip }: { label: string; tooltip?: string }) {
+function StepLabel({ label, tooltip, optional }: { label: string; tooltip?: string; optional?: boolean }) {
   const [hover, setHover] = useState(false)
   return (
     <span
@@ -773,6 +776,7 @@ function StepLabel({ label, tooltip }: { label: string; tooltip?: string }) {
       <span className={tooltip ? 'underline decoration-dotted decoration-ink-600 underline-offset-4' : ''}>
         {label}
       </span>
+      {optional && <span className="ml-1.5 font-normal text-ink-500">— optional</span>}
       {tooltip && hover && (
         <span
           role="tooltip"

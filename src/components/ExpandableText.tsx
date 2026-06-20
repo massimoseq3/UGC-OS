@@ -17,9 +17,12 @@ const ACCENT_DONE: Record<ExpandAccent, string> = {
   broll: 'bg-broll-500/15 text-broll-400 hover:bg-broll-500/25',
 }
 
-// Wrap [bracketed placeholders] in a red span so users can see exactly what to
-// fill in (e.g. after applying a UGC prompt preset). Shared by the Playground
-// prompt's inline overlay and the expand modal below.
+// Paint a red background behind [bracketed placeholders] so users can see what
+// to fill in (e.g. after applying a UGC prompt preset). This renders in a
+// transparent-text backdrop layer that sits BEHIND a normal, visible textarea —
+// so the textarea owns all the real (selectable, click-accurate) text and only
+// the bracket highlight comes from here. The span text stays transparent
+// (inherited from the backdrop); only its background shows through.
 const BRACKET_RE = /\[[^\]]*\]/g
 export function renderBracketHighlight(text: string): ReactNode[] {
   const nodes: ReactNode[] = []
@@ -28,7 +31,7 @@ export function renderBracketHighlight(text: string): ReactNode[] {
   text.replace(BRACKET_RE, (match: string, offset: number) => {
     if (offset > last) nodes.push(text.slice(last, offset))
     nodes.push(
-      <span key={key++} className="rounded-[3px] bg-red-500/10 text-red-400 light:text-red-600">
+      <span key={key++} className="rounded-[3px] bg-red-500/25">
         {match}
       </span>,
     )
@@ -132,12 +135,18 @@ export default function ExpandTextModal({
         <div className="min-h-0 flex-1 p-4">
           {highlightBrackets ? (
             <div
-              className={`relative flex h-[60vh] rounded-3xl border border-ink/10 bg-ink/[0.03] transition-colors ${ACCENT_FOCUS[accent]}`}
+              className={`relative flex h-[60vh] overflow-hidden rounded-3xl border border-ink/10 bg-ink/[0.03] transition-colors ${ACCENT_FOCUS[accent]}`}
             >
+              {/* Transparent backdrop that only paints the bracket highlights.
+                  It sits BEHIND the real textarea, so all selectable/clickable
+                  text belongs to the textarea (no cursor/selection drift).
+                  font-light + tracking match the textarea's global form metrics,
+                  and the extra right padding matches the textarea's reserved
+                  scrollbar gutter, so both layers wrap identically. */}
               <div
                 ref={highlightRef}
                 aria-hidden
-                className={`pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words px-4 py-3 text-ink-200 ${textClass}`}
+                className={`pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words pb-6 pl-4 pr-[calc(1rem+11px)] pt-3 font-light tracking-[-0.025em] text-transparent ${textClass}`}
               >
                 {renderBracketHighlight(value)}
               </div>
@@ -149,8 +158,7 @@ export default function ExpandTextModal({
                   if (highlightRef.current) highlightRef.current.scrollTop = e.currentTarget.scrollTop
                 }}
                 placeholder={placeholder}
-                style={{ caretColor: 'var(--color-ink-200)' }}
-                className={`relative h-full w-full resize-none border-0 bg-transparent px-4 py-3 text-transparent placeholder-ink-600 outline-none ${textClass}`}
+                className={`relative h-full w-full resize-none border-0 bg-transparent px-4 pb-6 pt-3 text-ink-200 placeholder-ink-600 outline-none [scrollbar-gutter:stable] ${textClass}`}
               />
             </div>
           ) : (
@@ -159,7 +167,7 @@ export default function ExpandTextModal({
               value={value}
               onChange={(e) => onChange(e.target.value)}
               placeholder={placeholder}
-              className={`h-[60vh] w-full resize-none rounded-3xl border border-ink/10 bg-ink/[0.03] px-4 py-3 text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-ink/20 ${textClass}`}
+              className={`h-[60vh] w-full resize-none rounded-3xl border border-ink/10 bg-ink/[0.03] px-4 pb-6 pt-3 text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-ink/20 ${textClass}`}
             />
           )}
         </div>
