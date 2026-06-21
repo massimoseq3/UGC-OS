@@ -139,12 +139,12 @@ export default function Sidebar() {
                 />
                 {isSignedIn && <UserMenu collapsed={false} />}
               </div>
-              {/* Utility cluster — credit balance + theme toggle grouped at the
+              {/* Utility cluster — theme toggle + credit balance grouped at the
                   bottom as a matched pair of full-width pills (the toggle sits
-                  bottom-left, underneath everything). */}
+                  on top, with the credit balance underneath). */}
               <div className="mt-2 space-y-1.5">
-                <CreditsChip collapsed={false} />
                 <ThemeQuickToggle collapsed={false} />
+                <CreditsChip collapsed={false} />
               </div>
             </>
           ) : (
