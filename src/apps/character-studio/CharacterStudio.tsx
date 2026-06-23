@@ -179,12 +179,12 @@ export default function CharacterStudio() {
         kind: gen.kind ?? 'portrait',
         createdAt: Date.now(),
       })
-      useAppStore.getState().addToast(gen.kind === 'sheet' ? 'Character sheet generated' : 'Character generated', 'success')
+      useAppStore.getState().addToast(gen.kind === 'sheet' ? 'Influencer sheet generated' : 'Influencer generated', 'success')
     } catch (err) {
       if (!controller.signal.aborted) {
         const msg = humanizeError(err, 'Image generation failed. Check your API key and try again.')
         setError(msg)
-        useAppStore.getState().addToast(`Character generation failed: ${msg}`, 'error')
+        useAppStore.getState().addToast(`Influencer generation failed: ${msg}`, 'error')
       }
     } finally {
       abortersRef.current.delete(gen.id)
@@ -230,7 +230,7 @@ export default function CharacterStudio() {
       if (!controller.signal.aborted) {
         const msg = humanizeError(err, 'Image generation failed. Check your API key and try again.')
         setError(msg)
-        useAppStore.getState().addToast(`Character generation failed: ${msg}`, 'error')
+        useAppStore.getState().addToast(`Influencer generation failed: ${msg}`, 'error')
       }
       return
     }
@@ -271,7 +271,7 @@ export default function CharacterStudio() {
     if (toEvict.length > 0) {
       setInFlight((prev) => prev.filter((g) => !toEvict.includes(g.id)))
       useAppStore.getState().addToast(
-        `${toEvict.length} stalled character gen${toEvict.length === 1 ? '' : 's'} cleared.`,
+        `${toEvict.length} stalled influencer gen${toEvict.length === 1 ? '' : 's'} cleared.`,
         'info',
       )
     }

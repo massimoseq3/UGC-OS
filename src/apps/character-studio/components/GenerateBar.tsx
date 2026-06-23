@@ -78,7 +78,7 @@ export default function GenerateBar({
         className="h-12 !p-1"
         options={[
           { value: 'portrait', label: 'Portrait', icon: UserRound },
-          { value: 'sheet', label: 'Character Sheet', icon: LayoutGrid },
+          { value: 'sheet', label: 'Influencer Sheet', icon: LayoutGrid },
         ]}
       />
       {/* Model picker + aspect/resolution chips share one row so the
@@ -148,7 +148,7 @@ export default function GenerateBar({
       >
         {sheetMode ? <LayoutGrid className="h-4 w-4" strokeWidth={2.5} /> : <UserRound className="h-4 w-4" strokeWidth={2.5} />}
         <span>
-          {sheetMode ? 'Generate Character Sheet' : 'Generate Influencer'}{creditsLabel ? ` (${creditsLabel})` : ''}
+          {sheetMode ? 'Generate Influencer Sheet' : 'Generate Influencer'}{creditsLabel ? ` (${creditsLabel})` : ''}
           {inFlightCount > 0 && ` · ${inFlightCount} running`}
         </span>
       </button>

@@ -77,7 +77,7 @@ export default function MotionControlSection({
       {/* Character image */}
       <div>
         <VideoInputSlot
-          label="Character image"
+          label="Influencer image"
           helper="— the look to animate"
           value={imageRef ? { dataUri: imageRef.url } : null}
           onChange={setImage}
@@ -158,8 +158,8 @@ export default function MotionControlSection({
         </div>
         <p className="mt-2 text-[11px] text-ink-600">
           {orientation === 'video'
-            ? 'Character faces the same way as the driving video (clip up to 30s).'
-            : 'Character keeps the orientation of the reference photo (clip up to 10s).'}
+            ? 'Influencer faces the same way as the driving video (clip up to 30s).'
+            : 'Influencer keeps the orientation of the reference photo (clip up to 10s).'}
         </p>
       </div>
     </div>

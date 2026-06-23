@@ -235,7 +235,7 @@ function MembersOnlyModal({ onClose }: { onClose: () => void }) {
 
         <h2 className="mt-4 text-base font-semibold tracking-tight text-ink-100">Members only</h2>
         <p className="mt-2 text-[13px] leading-relaxed text-ink-400">
-          Access is only for members of the AI UGC Lab Skool community. Join (or rejoin) on Skool to get back in.
+          Access is only for members of the UGC OS Skool community. Join (or rejoin) on Skool to get back in.
         </p>
 
         <a
