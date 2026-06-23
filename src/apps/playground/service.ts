@@ -260,7 +260,7 @@ export async function startPlaygroundVideoTask(
     motionImageUrl = await hosted(input.motionImageUrl)
     motionVideoUrl = await hosted(input.motionVideoUrl)
     if (!motionImageUrl || !motionVideoUrl) {
-      throw new Error('Motion Control needs both a character image and a driving video. Re-attach them and try again.')
+      throw new Error('Motion Control needs both an influencer image and a driving video. Re-attach them and try again.')
     }
   }
 

@@ -289,7 +289,7 @@ export default function InputPanel({
     <div className="mb-6">
       <StepLabel
         label="Influencer"
-        tooltip="Optional. The character whose face stays consistent across the commercial — their portrait is sent to Playground as the @INFLUENCER reference."
+        tooltip="Optional. The influencer whose face stays consistent across the commercial — their portrait is sent to Playground as the @INFLUENCER reference."
       />
 
       {selectedInfluencer ? (

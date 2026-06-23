@@ -81,7 +81,7 @@ export default function OmniInputsSection({ refs, onChangeRefs }: OmniInputsSect
   async function handleClipFile(file: File | null) {
     if (!file) return
     if (quotaUsed + 2 > 7) {
-      addToast('The source clip needs 2 free slots — remove images or characters first.', 'error')
+      addToast('The source clip needs 2 free slots — remove images or influencers first.', 'error')
       return
     }
     const dataUri = await fileToDataUri(file)
@@ -285,7 +285,7 @@ export default function OmniInputsSection({ refs, onChangeRefs }: OmniInputsSect
       {/* Quota readout */}
       <p className="text-[11px] text-ink-600">
         Input quota: <span className={quotaUsed > 7 ? 'font-medium text-red-300 light:text-red-700' : 'text-ink-400'}>{quotaUsed}/7</span>
-        {' '}— images ×1, clip ×2, characters ×1
+        {' '}— images ×1, clip ×2, influencers ×1
       </p>
 
       <BankPicker

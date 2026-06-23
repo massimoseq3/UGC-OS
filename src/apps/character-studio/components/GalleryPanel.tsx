@@ -297,7 +297,7 @@ function HistoryTile({
 
       {isSheet ? (
         <div
-          title={savedAsModel ? 'Sheet saved to Influencers bank' : 'Character sheet'}
+          title={savedAsModel ? 'Sheet saved to Influencers bank' : 'Influencer sheet'}
           className={`absolute left-1.5 top-1.5 flex h-6 items-center gap-1 rounded-full px-2 text-[9px] font-medium backdrop-blur ${
             savedAsModel ? 'bg-emerald-500/30 text-emerald-100' : 'bg-black/60 text-zinc-200'
           }`}

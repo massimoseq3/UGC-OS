@@ -22,7 +22,7 @@ export default function PrivacyPolicy() {
           new browser or device you sign in from. To remove the key, clear it in Settings or
           clear your browser storage.
         </li>
-        <li><strong>Inputs</strong> — prompts, scripts, products, character profiles, reference images, audio.</li>
+        <li><strong>Inputs</strong> — prompts, scripts, products, influencer profiles, reference images, audio.</li>
         <li><strong>Outputs</strong> — generated images, videos, voiceovers, and music produced by the Service on your behalf.</li>
       </UL>
 
