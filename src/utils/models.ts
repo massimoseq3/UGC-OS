@@ -346,7 +346,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     provider: 'Kling AI',
     task: 'video',
     modes: ['text-to-video', 'image-to-video', 'frames-to-video'],
-    tags: ['new'],
+    tags: ['recommended', 'new'],
     pricing: {
       unit: 'per-second',
       credits: 14,
@@ -552,7 +552,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     provider: 'Google',
     task: 'video',
     modes: ['text-to-video', 'reference-to-video'],
-    tags: ['new'],
+    tags: ['recommended', 'new'],
     supportsReferenceImages: true,
     omniInputs: true,
     pricing: {
@@ -656,6 +656,20 @@ export const MODEL_REGISTRY: ModelEntry[] = [
 
 export function getModel(id: string): ModelEntry | undefined {
   return MODEL_REGISTRY.find((m) => m.id === id)
+}
+
+// Display label for a video resolution tier. Some providers name their tiers
+// by quality ('std' / 'pro' / '4K' for Kling 3.0) rather than the pixel
+// resolution they actually output. This maps those aliases to the real
+// resolution so the picker reads consistently with the rest of the catalog —
+// display-only; the underlying tier value sent to kie.ai is unchanged.
+const VIDEO_RESOLUTION_LABELS: Record<string, string> = {
+  std: '720p',
+  pro: '1080p',
+}
+
+export function videoResolutionLabel(tier: string): string {
+  return VIDEO_RESOLUTION_LABELS[tier] ?? tier
 }
 
 export function listModels(filter: { task?: Task; mode?: Mode } = {}): ModelEntry[] {

@@ -1,9 +1,9 @@
 import { useMemo } from 'react'
-import { Package, UserRound, Film } from 'lucide-react'
+import { Package, UserRound, Film, FileText } from 'lucide-react'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
 import type { BankReference } from '../types'
-import type { Product, Model as Character, BRoll } from '../../../stores/types'
+import type { Product, Model as Character, BRoll, Script } from '../../../stores/types'
 
 interface MentionPopoverProps {
   query: string  // text after the @ that should narrow results
@@ -21,6 +21,7 @@ export default function MentionPopover({ query, onSelect, anchor }: MentionPopov
   const products = useBankStore((s) => s.products)
   const characters = useBankStore((s) => s.models)
   const brolls = useBankStore((s) => s.brolls)
+  const scripts = useBankStore((s) => s.scripts)
 
   const q = query.toLowerCase().trim()
 
@@ -42,7 +43,14 @@ export default function MentionPopover({ query, onSelect, anchor }: MentionPopov
       .slice(0, 6)
   }, [brolls, q])
 
-  const total = matchedProducts.length + matchedCharacters.length + matchedBrolls.length
+  const matchedScripts = useMemo(() => {
+    return scripts
+      .filter((s) => !q || s.title.toLowerCase().includes(q) || s.scriptText.toLowerCase().includes(q))
+      .slice(0, 6)
+  }, [scripts, q])
+
+  const total =
+    matchedProducts.length + matchedCharacters.length + matchedBrolls.length + matchedScripts.length
 
   return (
     <div
@@ -94,6 +102,19 @@ export default function MentionPopover({ query, onSelect, anchor }: MentionPopov
               ))}
             </Section>
           )}
+          {matchedScripts.length > 0 && (
+            <Section label="Scripts" icon={FileText}>
+              {matchedScripts.map((s) => (
+                <MentionRow
+                  key={s.id}
+                  fallbackIcon={FileText}
+                  title={s.title || s.scriptText.slice(0, 40) || 'Untitled script'}
+                  subtitle="Inserts script text"
+                  onClick={() => onSelect({ kind: 'script', item: s as Script })}
+                />
+              ))}
+            </Section>
+          )}
         </div>
       )}
     </div>
@@ -125,11 +146,14 @@ function MentionRow({
   title,
   subtitle,
   onClick,
+  fallbackIcon: FallbackIcon,
 }: {
   imageRef?: string
   title: string
   subtitle: string
   onClick: () => void
+  // Shown in the thumbnail slot when there's no image (e.g. scripts).
+  fallbackIcon?: React.ComponentType<{ className?: string }>
 }) {
   const url = useAssetUrl(imageRef)
   return (
@@ -140,8 +164,10 @@ function MentionRow({
       onMouseDown={(e) => { e.preventDefault(); onClick() }}
       className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-ink/[0.05]"
     >
-      <div className="h-7 w-7 shrink-0 overflow-hidden rounded-md border border-ink/10 bg-ink/[0.04]">
-        {url && <img src={url} alt="" className="h-full w-full object-cover" />}
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-md border border-ink/10 bg-ink/[0.04]">
+        {url
+          ? <img src={url} alt="" className="h-full w-full object-cover" />
+          : FallbackIcon && <FallbackIcon className="h-3.5 w-3.5 text-ink-500" />}
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-[12px] font-medium text-ink-200">{title}</p>

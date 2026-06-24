@@ -1,13 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { Coins, Menu, Moon, RefreshCw, Settings, Sun } from 'lucide-react'
+import { Coins, Menu, RefreshCw, Settings } from 'lucide-react'
 import { useAppStore } from '../stores/appStore'
-import { useThemeStore } from '../stores/themeStore'
 import { useAuthStore } from '../stores/authStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useCreditsStore } from '../stores/creditsStore'
 import { APP_REGISTRY, CATEGORY_LABELS, type AppCategory, type AppConfig } from '../utils/constants'
 import AppLogo from './AppLogo'
-import SegmentedToggle from './SegmentedToggle'
 import SettingsModal from './SettingsModal'
 import UserMenu from './auth/UserMenu'
 import { useIsDesktop } from '../hooks/useBreakpoint'
@@ -129,8 +127,10 @@ export default function Sidebar() {
         <div className="border-t border-ink/5 px-2 py-3">
           {showExpanded ? (
             <>
+              {/* Credit balance sits on top, above the account group. */}
+              <CreditsChip collapsed={false} />
               {/* Account group — Settings + My Account read as one set of rows. */}
-              <div className="space-y-0.5">
+              <div className="mt-2 space-y-0.5">
                 <SidebarRow
                   app={{ id: 'settings', name: 'Settings', icon: Settings, accent: '#a1a1aa', category: 'tools' }}
                   active={false}
@@ -138,13 +138,6 @@ export default function Sidebar() {
                   onClick={() => handleNav(() => setSettingsOpen(true))}
                 />
                 {isSignedIn && <UserMenu collapsed={false} />}
-              </div>
-              {/* Utility cluster — theme toggle + credit balance grouped at the
-                  bottom as a matched pair of full-width pills (the toggle sits
-                  on top, with the credit balance underneath). */}
-              <div className="mt-2 space-y-1.5">
-                <ThemeQuickToggle collapsed={false} />
-                <CreditsChip collapsed={false} />
               </div>
             </>
           ) : (
@@ -157,50 +150,12 @@ export default function Sidebar() {
                 onClick={() => handleNav(() => setSettingsOpen(true))}
               />
               {isSignedIn && <UserMenu collapsed />}
-              <ThemeQuickToggle collapsed />
             </div>
           )}
         </div>
       </aside>
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </>
-  )
-}
-
-// Dark/Light segmented toggle — the same house control as everywhere else,
-// trimmed to two options (the three-way Dark/Light/System lives in Settings).
-// Picks an explicit preference, overriding "system".
-function ThemeQuickToggle({ collapsed }: { collapsed: boolean }) {
-  const resolved = useThemeStore((s) => s.resolved)
-  const setPref = useThemeStore((s) => s.setPref)
-
-  // Collapsed rail is too narrow for labels — show a stacked icon-only toggle.
-  if (collapsed) {
-    const next = resolved === 'dark' ? 'light' : 'dark'
-    const Icon = resolved === 'dark' ? Sun : Moon
-    return (
-      <button
-        onClick={() => setPref(next)}
-        className="flex w-full items-center justify-center rounded-full border border-ink/10 bg-ink/[0.03] p-2 transition-colors hover:bg-ink/[0.06]"
-        title={`Switch to ${next} mode`}
-      >
-        <Icon className="h-4 w-4 text-ink-300" strokeWidth={1.75} />
-      </button>
-    )
-  }
-
-  // Full-width house toggle with labels — matches the credit pill above it so
-  // the footer's two controls read as a matched pair. Keeps the sliding indicator.
-  return (
-    <SegmentedToggle<'dark' | 'light'>
-      dense
-      value={resolved}
-      onChange={setPref}
-      options={[
-        { value: 'dark', label: 'Dark', icon: Moon },
-        { value: 'light', label: 'Light', icon: Sun },
-      ]}
-    />
   )
 }
 

@@ -19,6 +19,7 @@ import {
   getModel,
   estimateCredits,
   formatCredits,
+  videoResolutionLabel,
   type Task,
   type Mode,
 } from '../../../utils/models'
@@ -320,6 +321,24 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
     const at = left.lastIndexOf('@')
     if (at < 0) return
 
+    // Scripts are different: instead of a chip token + attached asset, we drop
+    // the script's full text into the prompt (replacing the @query).
+    if (ref.kind === 'script') {
+      const insertion = `${ref.item.scriptText.trim()} `
+      const before = value.slice(0, at)
+      const after = value.slice(caret)
+      onChange({ ...state, prompt: before + insertion + after })
+      setMentionOpen(false)
+      requestAnimationFrame(() => {
+        const t = textareaRef.current
+        if (!t) return
+        t.focus()
+        const pos = (before + insertion).length
+        t.setSelectionRange(pos, pos)
+      })
+      return
+    }
+
     const label =
       ref.kind === 'product' ? ref.item.productName
       : ref.kind === 'character' ? ref.item.name
@@ -550,6 +569,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
                     options={model.videoConstraints.resolutions}
                     value={state.resolution}
                     onChange={(v) => onChange({ ...state, resolution: v })}
+                    render={videoResolutionLabel}
                   />
                   {/* Motion Control has no aspect/duration/audio controls — clip
                       length comes from the driving video and aspect from the
@@ -832,7 +852,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
               )}
               {!isMotionControl && (
                 <p className="mt-2 text-[11px] text-ink-500">
-                  Tip: type <span className="font-medium text-ink-400">@</span> to reference Products, Influencers, or B-Rolls.
+                  Tip: type <span className="font-medium text-ink-400">@</span> to reference Products, Influencers, B-Rolls, or a Script.
                 </p>
               )}
             </div>

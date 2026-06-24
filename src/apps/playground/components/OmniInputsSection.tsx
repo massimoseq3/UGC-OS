@@ -110,11 +110,12 @@ export default function OmniInputsSection({ refs, onChangeRefs }: OmniInputsSect
 
   return (
     <div className="space-y-4">
-      {/* Characters */}
-      <div>
+      {/* Characters + Voices share one row so both stay above the fold */}
+      <div className="grid grid-cols-2 gap-4">
+      <div className="min-w-0">
         <label className="mb-2 block text-[10px] font-medium uppercase tracking-wider text-ink-500">
           Characters
-          <span className="text-ink-700 normal-case"> ({characterRefs.length}/{MAX_CHARACTERS}) — consistent across videos</span>
+          <span className="text-ink-700 normal-case"> ({characterRefs.length}/{MAX_CHARACTERS})</span>
         </label>
         <div className="flex flex-wrap items-center gap-2">
           {characterRefs.map((r) => (
@@ -142,7 +143,7 @@ export default function OmniInputsSection({ refs, onChangeRefs }: OmniInputsSect
       </div>
 
       {/* Voices */}
-      <div>
+      <div className="min-w-0">
         <label className="mb-2 block text-[10px] font-medium uppercase tracking-wider text-ink-500">
           Voices
           <span className="text-ink-700 normal-case"> ({voiceRefs.length}/{MAX_VOICES}) — optional</span>
@@ -171,7 +172,7 @@ export default function OmniInputsSection({ refs, onChangeRefs }: OmniInputsSect
                 <ChevronDown className="h-3 w-3" />
               </button>
               {voiceMenuOpen && (
-                <div className="absolute left-0 top-10 z-20 w-60 rounded-xl border border-ink/10 bg-surface-2 p-1.5 shadow-xl">
+                <div className="absolute right-0 top-10 z-20 w-60 rounded-2xl border border-ink/10 bg-surface-2 p-1.5 shadow-xl">
                   {voices.length > 0 && (
                     <div className="max-h-44 overflow-y-auto">
                       {voices.map((v) => (
@@ -196,7 +197,7 @@ export default function OmniInputsSection({ refs, onChangeRefs }: OmniInputsSect
                   )}
                   <button
                     onClick={() => { setDesignerOpen(true); setVoiceMenuOpen(false) }}
-                    className="mt-0.5 flex w-full items-center gap-2 rounded-lg border-t border-ink/5 px-2.5 py-2 text-left text-[12px] font-medium text-playground-300 transition-colors hover:bg-ink/5"
+                    className="mt-0.5 flex w-full items-center gap-2 rounded-full border-t border-ink/5 px-2.5 py-2 text-left text-[12px] font-medium text-playground-300 transition-colors hover:bg-ink/5"
                   >
                     <Plus className="h-3.5 w-3.5" />
                     <span>Design new voice…</span>
@@ -206,6 +207,7 @@ export default function OmniInputsSection({ refs, onChangeRefs }: OmniInputsSect
             </div>
           )}
         </div>
+      </div>
       </div>
 
       {/* Source clip */}
