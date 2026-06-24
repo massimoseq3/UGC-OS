@@ -275,6 +275,37 @@ export const MODEL_REGISTRY: ModelEntry[] = [
       supportsAudio: true,
     },
   },
+  {
+    id: 'bytedance/seedance-2-mini',
+    displayName: 'Seedance 2.0 Mini',
+    provider: 'ByteDance',
+    task: 'video',
+    modes: ['text-to-video', 'image-to-video', 'frames-to-video', 'reference-to-video'],
+    tags: ['new', 'cheap'],
+    supportsReferenceImages: true,
+    supportsReferenceAudio: true,
+    supportsReferenceVideos: true,
+    // Per-second × resolution. 480p/720p only (no 1080p). As with the rest of
+    // the 2.0 family we expose the higher "no video input" rate across the
+    // board — our flows pass image/audio refs, never a video URL that would
+    // unlock the cheaper tier. Source (user-supplied): 480p 9.5 · 720p 20.5.
+    pricing: {
+      unit: 'per-second',
+      credits: 20.5,
+      priceFor: ({ durationSeconds = 5, resolution = '720p' }) => {
+        const perSec = resolution === '720p' ? 20.5 : 9.5  // 480p
+        return perSec * durationSeconds
+      },
+    },
+    videoEndpoint: 'createTask',
+    videoConstraints: {
+      durations: [4, 5, 6, 8, 10, 12, 15],
+      resolutions: ['480p', '720p'],
+      default: '720p',
+      aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9'],
+      supportsAudio: true,
+    },
+  },
   // Seedance 1.5 Pro — prior-gen Seedance. Unlike 2.0 it takes its start/end
   // frames as a single `input_urls` array (0-2 images) rather than
   // first_frame_url/last_frame_url, and has no separate reference image/audio/
