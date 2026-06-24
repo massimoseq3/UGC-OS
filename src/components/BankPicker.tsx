@@ -60,6 +60,9 @@ export default function BankPicker({
   // When `tabs` is provided, the active bank is local state initialised to
   // the caller's `bankType`. Otherwise the active bank is just `bankType`.
   const [activeTab, setActiveTab] = useState<BankType>(bankType)
+  // Ids of landscape (16:9) b-roll stills, detected on image load — they span
+  // the full masonry width instead of being squeezed into one narrow column.
+  const [landscapeIds, setLandscapeIds] = useState<Set<string>>(new Set())
   const panelRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
   const isDesktop = useIsDesktop()
@@ -320,18 +323,38 @@ export default function BankPicker({
                   currentBankType === 'models' &&
                   !!(item as Model).sheetImage &&
                   (item as Model).sheetImage === (item as Model).characterImage
+                const isLandscapeBroll = currentBankType === 'brolls' && landscapeIds.has(item.id)
                 const wrapperClass =
                   currentBankType === 'brolls'
                     ? 'relative mb-2 break-inside-avoid'
                     : `relative ${isSheet ? 'col-span-3' : ''}`
                 return (
-                  <div key={item.id} className={wrapperClass}>
+                  <div
+                    key={item.id}
+                    className={wrapperClass}
+                    // Landscape (16:9) b-rolls span the full masonry width instead
+                    // of squeezing into one narrow column. Inline style (not a
+                    // Tailwind class) because `column-span` is set dynamically.
+                    style={isLandscapeBroll ? { columnSpan: 'all' } : undefined}
+                  >
                     <BankItemCard
                       bankType={currentBankType}
                       item={item}
                       onClick={() => handleSelect(item)}
                       selected={isSelected}
                       accentColor={accentColor}
+                      onLandscape={
+                        currentBankType === 'brolls'
+                          ? (landscape) =>
+                              setLandscapeIds((prev) => {
+                                if (prev.has(item.id) === landscape) return prev
+                                const next = new Set(prev)
+                                if (landscape) next.add(item.id)
+                                else next.delete(item.id)
+                                return next
+                              })
+                          : undefined
+                      }
                     />
                     {isSelected && (
                       <div
