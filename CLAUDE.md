@@ -70,7 +70,7 @@ Full list in `src/utils/models.ts`. Defaults below; users can swap image and vid
 | Text + vision | Gemini 3 Flash (`gemini-3-flash`) | Hard-coded everywhere — no picker |
 | Image (text→image) | Nano Banana 2 (`nano-banana-2`) | App-wide default (leads the registry). Picker also: GPT Image 2, Seedream 5 Lite |
 | Image (image→image) | Nano Banana 2 (`nano-banana-2`) | Used when reference images are present. Picker also: GPT Image 2 Edit |
-| Video | Seedance 2.0 (`bytedance/seedance-2`); B-Roll defaults to Veo 3.1 Fast (`veo3_fast`) | Ref-capable. Picker also: Seedance 2.0 Fast, Seedance 1.5 Pro (`bytedance/seedance-1.5-pro`, `input_urls` frames, no reference inputs), Veo 3.1 Fast/Lite/Quality, Gemini Omni (`gemini-omni-video`), Kling 3.0, Kling 3.0 Turbo (`kling/v3-turbo-image-to-video`, image-to-video only), Kling 3.0 / 2.6 Motion Control (`kling-3.0/motion-control`, `kling-2.6/motion-control` — Playground only), Wan 2.7 |
+| Video | Seedance 2.0 (`bytedance/seedance-2`); B-Roll defaults to Veo 3.1 Fast (`veo3_fast`) | Ref-capable. Picker also: Seedance 2.0 Fast, Seedance 2.0 Mini (`bytedance/seedance-2-mini`, ref-capable, 480p/720p only), Seedance 1.5 Pro (`bytedance/seedance-1.5-pro`, `input_urls` frames, no reference inputs), Veo 3.1 Fast/Lite/Quality, Gemini Omni (`gemini-omni-video`), Kling 3.0, Kling 3.0 Turbo (`kling/v3-turbo-image-to-video`, image-to-video only), Kling 3.0 / 2.6 Motion Control (`kling-3.0/motion-control`, `kling-2.6/motion-control` — Playground only), Wan 2.7 |
 | TTS | ElevenLabs Multilingual v2 (`elevenlabs/text-to-speech-multilingual-v2`) | Hard-coded; ~64-voice catalog, slide-in picker |
 | Music | Suno V5 (`suno-v5`) | Playground only. Picker also: Suno V5.5 |
 
