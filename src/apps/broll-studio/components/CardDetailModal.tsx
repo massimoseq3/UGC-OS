@@ -26,7 +26,7 @@ import { useSettingsStore } from '../../../stores/settingsStore'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAppStore } from '../../../stores/appStore'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
-import { getDefaultModel, getModel, estimateCredits, formatCredits, type ImageResolution } from '../../../utils/models'
+import { getDefaultModel, getModel, estimateCredits, formatCredits, videoResolutionLabel, type ImageResolution } from '../../../utils/models'
 import { tagChipStyle, tagLabel, rollTypeForTag } from './variationTags'
 import { humanizeError } from '../../../utils/friendlyError'
 import ModelWaitNotice from '../../../components/ModelWaitNotice'
@@ -480,6 +480,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                         options={videoConstraints.resolutions}
                         value={cardState.cardVideoResolution}
                         onChange={(v) => onUpdateState({ cardVideoResolution: v })}
+                        render={videoResolutionLabel}
                       />
                       {/* Image-conditioned models (e.g. Kling 3.0 Turbo) inherit
                           aspect from the input frame and expose no aspect param,

@@ -23,10 +23,10 @@ export default function ClearAllButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className={`flex items-center gap-1 text-[11px] text-ink-500 transition-colors hover:text-ink-300 ${className}`}
+        className={`flex items-center gap-1 rounded-full bg-ink/[0.03] px-2 py-0.5 text-[10px] text-ink-500 transition-colors hover:bg-ink/[0.06] hover:text-ink-300 ${className}`}
       >
-        <X className="h-3 w-3" strokeWidth={2.5} />
-        Clear Inputs
+        <X className="h-2.5 w-2.5" strokeWidth={2.5} />
+        Clear
       </button>
 
       {open && (

@@ -1,4 +1,4 @@
-import type { Product, Model as Character, BRoll } from '../../stores/types'
+import type { Product, Model as Character, BRoll, Script } from '../../stores/types'
 import type { AspectRatio, ImageResolution, VideoMode } from '../../utils/models'
 
 // One in-flight Playground generation. Persisted via usePersistedState so
@@ -55,3 +55,5 @@ export type BankReference =
   | { kind: 'product'; item: Product }
   | { kind: 'character'; item: Character }
   | { kind: 'broll'; item: BRoll }
+  // Scripts insert their text into the prompt rather than attaching an asset.
+  | { kind: 'script'; item: Script }
