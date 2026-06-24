@@ -14,6 +14,9 @@ interface BankItemCardProps {
   // instead of the per-bank colour — so the picker feels native to whatever
   // app opened it (green in Playground, etc.).
   accentColor?: string
+  // Fires once the image loads with whether it's landscape (16:9). The picker
+  // uses it to let landscape b-rolls span the full masonry width.
+  onLandscape?: (landscape: boolean) => void
 }
 
 // hex → rgba so an arbitrary app accent can drive the selected border/ring/bg
@@ -25,7 +28,7 @@ function hexAlpha(hex: string, alpha: number): string {
   return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`
 }
 
-export default function BankItemCard({ bankType, item, onClick, selected, accentColor }: BankItemCardProps) {
+export default function BankItemCard({ bankType, item, onClick, selected, accentColor, onLandscape }: BankItemCardProps) {
   // Inline selected styling driven by the app accent: a tinted border + 1px
   // ring (and a faint fill for the text-only cards).
   const accentSelected: React.CSSProperties | undefined =
@@ -80,6 +83,7 @@ export default function BankItemCard({ bankType, item, onClick, selected, accent
         onClick={onClick}
         selected={selected}
         selectedStyle={accentSelected}
+        onLandscape={onLandscape}
       />
     )
   }
@@ -152,6 +156,7 @@ function ImageCard({
   onClick,
   selected,
   selectedStyle,
+  onLandscape,
 }: {
   src?: string
   fallback: React.ElementType
@@ -162,6 +167,7 @@ function ImageCard({
   onClick: () => void
   selected?: boolean
   selectedStyle?: React.CSSProperties
+  onLandscape?: (landscape: boolean) => void
 }) {
   const resolvedUrl = useAssetUrl(src)
   return (
@@ -173,7 +179,12 @@ function ImageCard({
       }`}
     >
       {resolvedUrl ? (
-        <img src={resolvedUrl} alt="" className="block w-full" />
+        <img
+          src={resolvedUrl}
+          alt=""
+          className="block w-full"
+          onLoad={(e) => onLandscape?.(e.currentTarget.naturalWidth > e.currentTarget.naturalHeight)}
+        />
       ) : (
         <div className={`flex ${fallbackAspect} w-full items-center justify-center bg-ink/[0.04]`}>
           <Icon className="h-10 w-10 text-ink-800" strokeWidth={1} />
