@@ -63,15 +63,7 @@ export default function AuthScreen() {
           <div className="flex flex-col items-center gap-2">
             <AppLogo className="h-12 w-12" />
             <div className="space-y-1 text-center">
-              <h1 className="text-2xl font-extrabold tracking-tight text-ink-100">
-                UGC{' '}
-                <span
-                  className="font-normal italic"
-                  style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
-                >
-                  OS
-                </span>
-              </h1>
+              <h1 className="text-2xl font-semibold tracking-tight text-ink-100">UGC OS</h1>
               <p className="text-sm text-ink-500">
                 {mode === 'login' ? 'Sign in to your workspace' : 'Create your account'}
               </p>
@@ -95,7 +87,7 @@ export default function AuthScreen() {
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
                     required
-                    className="w-full rounded-full border border-ink/10 bg-ink/5 px-3 py-2.5 text-sm text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-ink/20 focus:bg-ink/[0.07]"
+                    className="w-full rounded-lg border border-ink/10 bg-ink/5 px-3 py-2.5 text-sm text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-ink/20 focus:bg-ink/[0.07]"
                     placeholder="Jane"
                   />
                 </div>
@@ -109,7 +101,7 @@ export default function AuthScreen() {
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
                     required
-                    className="w-full rounded-full border border-ink/10 bg-ink/5 px-3 py-2.5 text-sm text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-ink/20 focus:bg-ink/[0.07]"
+                    className="w-full rounded-lg border border-ink/10 bg-ink/5 px-3 py-2.5 text-sm text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-ink/20 focus:bg-ink/[0.07]"
                     placeholder="Doe"
                   />
                 </div>
@@ -125,7 +117,7 @@ export default function AuthScreen() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full rounded-full border border-ink/10 bg-ink/5 px-3 py-2.5 text-sm text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-ink/20 focus:bg-ink/[0.07]"
+                className="w-full rounded-lg border border-ink/10 bg-ink/5 px-3 py-2.5 text-sm text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-ink/20 focus:bg-ink/[0.07]"
                 placeholder="you@example.com"
               />
             </div>
@@ -140,7 +132,7 @@ export default function AuthScreen() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={8}
-                className="w-full rounded-full border border-ink/10 bg-ink/5 px-3 py-2.5 text-sm text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-ink/20 focus:bg-ink/[0.07]"
+                className="w-full rounded-lg border border-ink/10 bg-ink/5 px-3 py-2.5 text-sm text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-ink/20 focus:bg-ink/[0.07]"
                 placeholder={mode === 'login' ? '••••••••' : 'Min 8 characters'}
               />
             </div>
@@ -162,7 +154,7 @@ export default function AuthScreen() {
             <button
               type="submit"
               disabled={busy || !email.trim() || !password || (mode === 'signup' && (!firstName.trim() || !lastName.trim()))}
-              className="flex w-full items-center justify-center gap-2 rounded-full bg-ink py-2.5 text-sm font-medium text-ink-900 transition-colors hover:bg-ink-100 disabled:opacity-60"
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-ink py-2.5 text-sm font-medium text-ink-900 transition-colors hover:bg-ink-100 disabled:opacity-60"
             >
               {busy && <Loader2 className="h-4 w-4 animate-spin" />}
               {mode === 'login' ? 'Sign in' : 'Create account'}
