@@ -15,9 +15,17 @@ import type {
   CharacterHistoryItem,
   ScriptHistoryItem,
   ImageHistoryItem,
+  BrollHistoryItem,
 } from '../stores/types'
 
 const MANIFEST_KEY = 'ugc-os:mock-data-manifest'
+
+// The B-Roll workspace persists its live session to these localStorage draft
+// slots (see usePersistedState / useProjectScopedKey). Seeding them makes the
+// B-Roll tab open straight onto populated scenes; the matching brollHistory row
+// lets the user restore it from the History tab too.
+const BROLL_DRAFT_PREFIX = 'ai-ugc-lab:draft:broll-studio'
+const BROLL_SESSION_ID = 'demo-broll-session'
 
 interface Manifest {
   products: string[]
@@ -28,11 +36,12 @@ interface Manifest {
   characterHistory: string[]
   scriptHistory: string[]
   imageHistory: string[]
+  brollHistory: string[]
 }
 
 const EMPTY_MANIFEST: Manifest = {
   products: [], models: [], scripts: [], voices: [], brolls: [],
-  characterHistory: [], scriptHistory: [], imageHistory: [],
+  characterHistory: [], scriptHistory: [], imageHistory: [], brollHistory: [],
 }
 
 export function hasMockData(): boolean {
@@ -140,6 +149,42 @@ const BROLLS = [
   { from: '#fb7185', to: '#9f1239', prompt: 'Influencer holding product up to camera, bright kitchen, UGC selfie style.' },
 ]
 
+// A full B-Roll Studio session for the Glow Lab serum — scenes with variations,
+// each carrying a placeholder generation so the scene grid looks worked-on.
+// @INFLUENCER / @PRODUCT tokens mirror what the real scene-generation LLM emits.
+const BROLL_SESSION_SCENES = [
+  {
+    type: 'A-ROLL CHARACTER' as const,
+    scriptLine: "Okay so I almost returned this serum… and now I'm on my third bottle.",
+    position: 'hook' as const,
+    productVisible: false,
+    variations: [
+      { tag: 'DIALOGUE' as const, label: 'Talking to camera', refs: 'character' as const, from: '#fb7185', to: '#e11d48', prompt: "@INFLUENCER sits on the edge of her bed, phone held at arm's length, talking candidly into the front camera in a sunlit apartment. Natural handheld micro-jitter, UGC selfie framing, no on-screen text." },
+      { tag: 'EMOTIONAL' as const, label: 'Skeptical glance', refs: 'character' as const, from: '#f472b6', to: '#be123c', prompt: '@INFLUENCER raises an eyebrow at the camera, half-smiling in disbelief, soft window light across her face, tight close-up UGC selfie.' },
+    ],
+  },
+  {
+    type: 'B-ROLL DETAIL' as const,
+    scriptLine: "It's 15% vitamin C, no sticky finish, zero fragrance.",
+    position: 'mechanism' as const,
+    productVisible: true,
+    variations: [
+      { tag: 'PRODUCT' as const, label: 'Product detail', refs: 'product' as const, from: '#f59e0b', to: '#b45309', prompt: 'Extreme close-up of @PRODUCT glass bottle on a marble vanity, a single drop sliding down the dropper, soft morning light, photorealistic.' },
+      { tag: 'ACTION' as const, label: 'Applying serum', refs: 'both' as const, from: '#fbbf24', to: '#d97706', prompt: '@INFLUENCER dispenses @PRODUCT onto her fingertips and pats it across her cheek in front of the bathroom mirror, bright daylight, UGC handheld.' },
+    ],
+  },
+  {
+    type: 'A-ROLL PRODUCT' as const,
+    scriptLine: "They're doing 20% off right now. Don't sleep on it.",
+    position: 'CTA' as const,
+    productVisible: true,
+    variations: [
+      { tag: 'DIALOGUE' as const, label: 'Direct CTA', refs: 'both' as const, from: '#fb7185', to: '#9f1239', prompt: '@INFLUENCER holds @PRODUCT up beside her face, grinning at the camera as she delivers the call to action, warm natural light, UGC selfie.' },
+      { tag: 'PRODUCT' as const, label: 'Hero shot', refs: 'product' as const, from: '#f59e0b', to: '#c2410c', prompt: '@PRODUCT standing centered on a clean countertop with soft shadows and a subtle glow, lifestyle hero shot, photorealistic.' },
+    ],
+  },
+]
+
 // ── Seed ─────────────────────────────────────────────────────────────────
 
 function idSnapshot() {
@@ -153,6 +198,7 @@ function idSnapshot() {
     characterHistory: s.characterHistory.map((x) => x.id),
     scriptHistory: s.scriptHistory.map((x) => x.id),
     imageHistory: s.imageHistory.map((x) => x.id),
+    brollHistory: s.brollHistory.map((x) => x.id),
   }
 }
 
@@ -324,6 +370,68 @@ export async function seedMockData(): Promise<void> {
       }
       await store.addImageHistory(item)
     }
+
+    // B-Roll Studio — a full worked session: scenes with variations, each
+    // carrying a placeholder generation. Saved to brollHistory (History tab)
+    // and mirrored into the live workspace draft so the B-Roll tab opens onto
+    // populated scenes.
+    const fresh = useBankStore.getState()
+    const sessionProductId = fresh.products.find((p) => p.productName === PRODUCTS[0].name)?.id
+    const sessionModelId = fresh.models.find((m) => m.name === INFLUENCERS[0].name)?.id
+    const toToggles = (refs: string) => ({
+      refsCharacter: refs === 'character' || refs === 'both',
+      refsProduct: refs === 'product' || refs === 'both',
+    })
+
+    const scenes: Array<Record<string, unknown>> = []
+    const cardStates: Record<string, unknown> = {}
+    let brollTick = 0
+    for (let si = 0; si < BROLL_SESSION_SCENES.length; si++) {
+      const sc = BROLL_SESSION_SCENES[si]
+      const sceneNumber = si + 1
+      const variations: Array<Record<string, unknown>> = []
+      for (let vi = 0; vi < sc.variations.length; vi++) {
+        const v = sc.variations[vi]
+        variations.push({ id: `demo-broll-s${sceneNumber}-v${vi}`, tag: v.tag, label: v.label, refs: v.refs, prompt: v.prompt })
+        const img = await makeImageAsset({ w: 768, h: 1365, from: v.from, to: v.to, label: `Scene ${sceneNumber}`, sub: v.label })
+        cardStates[`${sceneNumber}-${vi}`] = {
+          editablePrompt: v.prompt,
+          promptHistory: [v.prompt],
+          promptHistoryIndex: 0,
+          images: [{ imageUrl: img, prompt: v.prompt, modelId: 'nano-banana-2', createdAt: ago(brollTick++) }],
+          currentImageIndex: 0,
+          selected: { kind: 'image', index: 0 },
+          ...toToggles(v.refs),
+        }
+      }
+      scenes.push({ number: sceneNumber, type: sc.type, scriptLine: sc.scriptLine, position: sc.position, productVisible: sc.productVisible, variations })
+    }
+    const brollResult = { scenes }
+
+    await store.upsertBrollHistory({
+      id: BROLL_SESSION_ID,
+      createdAt: ago(0),
+      inputSummary: 'Glow Lab Vitamin C Serum — almost returned it, now on my third bottle',
+      productId: sessionProductId,
+      modelId: sessionModelId,
+      scriptText: SCRIPT_TEXT_1,
+      result: brollResult,
+      cardStates,
+    } satisfies BrollHistoryItem)
+
+    // Seed the live workspace draft — but never clobber a real in-progress
+    // session the user already has open.
+    try {
+      const existing = localStorage.getItem(`${BROLL_DRAFT_PREFIX}:result`)
+      if (!existing || existing === 'null') {
+        localStorage.setItem(`${BROLL_DRAFT_PREFIX}:result`, JSON.stringify(brollResult))
+        localStorage.setItem(`${BROLL_DRAFT_PREFIX}:cardStates`, JSON.stringify(cardStates))
+        localStorage.setItem(`${BROLL_DRAFT_PREFIX}:sessionId`, JSON.stringify(BROLL_SESSION_ID))
+        if (sessionProductId) localStorage.setItem(`${BROLL_DRAFT_PREFIX}:productId`, JSON.stringify(sessionProductId))
+        if (sessionModelId) localStorage.setItem(`${BROLL_DRAFT_PREFIX}:modelId`, JSON.stringify(sessionModelId))
+        localStorage.setItem(`${BROLL_DRAFT_PREFIX}:scriptText`, JSON.stringify(SCRIPT_TEXT_1))
+      }
+    } catch { /* ignore quota */ }
   } finally {
     useAppStore.setState({ addToast: realAddToast })
   }
@@ -351,9 +459,20 @@ export async function removeMockData(): Promise<void> {
     for (const id of manifest.characterHistory) await store.deleteCharacterHistory(id)
     for (const id of manifest.scriptHistory) await store.deleteScriptHistory(id)
     for (const id of manifest.imageHistory) await store.deleteImageHistory(id)
+    for (const id of manifest.brollHistory) await store.deleteBrollHistory(id)
   } finally {
     useAppStore.setState({ addToast: realAddToast })
   }
+
+  // Clear the seeded B-Roll workspace draft — but only if it's still our demo
+  // session (the user may have started a real one over the top since).
+  try {
+    if (localStorage.getItem(`${BROLL_DRAFT_PREFIX}:sessionId`) === JSON.stringify(BROLL_SESSION_ID)) {
+      for (const suffix of ['result', 'cardStates', 'sessionId', 'productId', 'modelId', 'scriptText']) {
+        localStorage.removeItem(`${BROLL_DRAFT_PREFIX}:${suffix}`)
+      }
+    }
+  } catch { /* ignore */ }
 
   try { localStorage.removeItem(MANIFEST_KEY) } catch { /* ignore */ }
 }

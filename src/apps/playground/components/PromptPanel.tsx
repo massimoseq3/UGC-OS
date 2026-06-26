@@ -907,7 +907,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
                   <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-playground-500/10 text-playground-400">
                     <Camera className="h-3.5 w-3.5" />
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink-100">UGC Prompt Presets</span>
+                  <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink-100">Select UGC Preset</span>
                   <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" />
                 </button>
               )}

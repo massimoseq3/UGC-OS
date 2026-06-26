@@ -127,10 +127,11 @@ export default function CharacterStudio() {
     }
   }, [])
 
+  // Clear just the source-image thumbnail so the user can drop another image.
+  // Deliberately does NOT wipe the form — that's the Clear button's job.
   const handleResetExtract = useCallback(() => {
     setExtractedThumb(null)
     setExtractError(null)
-    setProfile(createEmptyProfile())
   }, [])
 
   // Full-area drag overlay handlers
@@ -254,22 +255,6 @@ export default function CharacterStudio() {
     void launchGen({ profile: { ...profile }, resolution, kind: snapshotKind, aspect: snapshotAspect })
   }
 
-  // Generate a character sheet that keeps the EXACT person from an existing
-  // portrait — passes the portrait image as an image-to-image reference so the
-  // face/hair/skin carry over instead of re-rolling a similar-but-different
-  // person. Sheets render 4K / 16:9 turnaround by default (the form path still
-  // offers 9:16). Only portraits expose this — a sheet is already a sheet.
-  const handleMakeSheetFromPortrait = useCallback((imageRef: string, profile: Record<string, string>) => {
-    useAppStore.getState().addToast('Generating a sheet from this portrait…', 'info')
-    void launchGen({
-      profile: { ...(profile as CharacterProfile) },
-      resolution: '4K',
-      kind: 'sheet',
-      aspect: '16:9',
-      referenceUrl: imageRef,
-    })
-  }, [launchGen])
-
   // Load a past generation's profile + output settings back into the form so
   // the user can tweak a field and regenerate (the "edit this influencer"
   // path). Mirrors the reinsert-to-inputs action used across the apps.
@@ -369,7 +354,6 @@ export default function CharacterStudio() {
         <GalleryPanel
           inFlight={inFlight}
           onCancelGen={handleCancelGen}
-          onMakeSheet={handleMakeSheetFromPortrait}
           onReuse={handleReuseProfile}
         />
       </div>

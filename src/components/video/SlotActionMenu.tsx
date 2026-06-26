@@ -9,6 +9,12 @@ interface SlotActionMenuProps {
   onClose: () => void
   onUpload: () => void
   onPickFromBank: () => void
+  // Hover mode: the menu opens on hover of the trigger. The click-catching
+  // backdrop is dropped (it would sit over the trigger and break hover), and
+  // the parent keeps it open by passing mouse handlers that the menu forwards.
+  hover?: boolean
+  onMouseEnter?: () => void
+  onMouseLeave?: () => void
 }
 
 // Action menu that pops out of the slot's upload/+ button. Rendered via
@@ -18,7 +24,7 @@ interface SlotActionMenuProps {
 // Auto-flips above the button when there's not enough room below, which
 // matters in the Playground because the prompt bar floats near the
 // viewport's bottom edge.
-export default function SlotActionMenu({ anchorRef, open, onClose, onUpload, onPickFromBank }: SlotActionMenuProps) {
+export default function SlotActionMenu({ anchorRef, open, onClose, onUpload, onPickFromBank, hover, onMouseEnter, onMouseLeave }: SlotActionMenuProps) {
   const [pos, setPos] = useState<{ top: number; left: number; placement: 'below' | 'above' } | null>(null)
 
   useLayoutEffect(() => {
@@ -51,10 +57,12 @@ export default function SlotActionMenu({ anchorRef, open, onClose, onUpload, onP
 
   return createPortal(
     <>
-      <div className="fixed inset-0 z-[55]" onClick={onClose} />
+      {!hover && <div className="fixed inset-0 z-[55]" onClick={onClose} />}
       <div
         className="fixed z-[60] w-40 overflow-hidden rounded-lg border border-ink/10 bg-surface-2/95 shadow-xl backdrop-blur-xl"
         style={{ top: pos.top, left: pos.left }}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
       >
         <button
           onClick={() => { onClose(); onUpload() }}

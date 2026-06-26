@@ -112,15 +112,16 @@ ${HUMAN_VOICE_RULES}
 
 ${BANNED_AI_PATTERNS}
 
-VOICE PROFILE — at the very top of your output, before "--- Scene 1 ---", emit one labeled block:
+VOICE PROFILE — at the very END of your output, AFTER the last scene, emit one labeled block:
 === VOICE PROFILE (same voice in every scene) ===
 ${VOICE_PROFILE_SPEC}
 Anchor it to how [CHARACTER] is acting across the scenes so the read feels native to this ad.
 
 OUTPUT FORMAT — CRITICAL:
-- Lead with the "=== VOICE PROFILE ... ===" block described above, then a blank line, then the scenes.
+- Start directly with the scenes. After the last scene, add a blank line, then the "=== VOICE PROFILE ... ===" block described above (it comes LAST, not first).
 - Reproduce each "--- Scene N: <label> (MM:SS-MM:SS) ---" header EXACTLY as given.
 - Below each header, write the rewritten scene prompt as one self-contained block — visual direction first, then the rewritten dialogue line(s) embedded inline using the same "She says: '[PRODUCT]…'" pattern as the input.
+- In every scene, include an explicit audio direction: NO background music, NO soundtrack, NO score — only the spoken dialogue and natural ambient/diegetic sound (music is added later in editing).
 - Separate scenes with a blank line.
 - Do NOT include any introduction, conclusion, commentary, or markdown code fences. Plain text only.
 - Do NOT use the user's brand name anywhere. Always use [PRODUCT].
@@ -164,7 +165,7 @@ ${HUMAN_VOICE_RULES}
 
 ${BANNED_AI_PATTERNS}
 
-VOICE PROFILE — at the very top of your output, before "--- Scene 1 ---", emit one labelled block describing the on-camera voice so every scene's clip is read by the same person:
+VOICE PROFILE — at the very END of your output, AFTER the last scene, emit one labelled block describing the on-camera voice so every scene's clip is read by the same person:
 === VOICE PROFILE (same voice in every scene) ===
 ${VOICE_PROFILE_SPEC}
 
@@ -178,11 +179,12 @@ SCENE RULES:
   LIGHTING: the light source and mood (naturalistic, never glam).
   ACTION: what [CHARACTER] physically does and their emotional beat.
   DIALOGUE: [CHARACTER] says: "..." (the spoken line, in the VOICE PROFILE above).
+  AUDIO: the spoken dialogue and natural diegetic/ambient sound only — explicitly NO background music, NO soundtrack, NO score (music is added later in editing).
 
 OUTPUT FORMAT — CRITICAL:
-- Lead with the "=== VOICE PROFILE ... ===" block, then a blank line, then the scenes.
+- Start directly with the scenes. After the last scene, add a blank line, then the "=== VOICE PROFILE ... ===" block (it comes LAST, not first).
 - Every scene starts with a header EXACTLY in this form: --- Scene N: <short label> (MM:SS-MM:SS) ---
-- Below each header, the labelled SETTING / CAMERA / LIGHTING / ACTION / DIALOGUE lines.
+- Below each header, the labelled SETTING / CAMERA / LIGHTING / ACTION / DIALOGUE / AUDIO lines.
 - Blank line between scenes. No introduction, conclusion, commentary, or markdown code fences. Plain text only.`
 
 const WRITE_STYLE_INSTRUCTION: Record<WriteStyle, string> = {

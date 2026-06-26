@@ -319,12 +319,12 @@ export default function BankPicker({
           ) : (
             <div
               className={
-                // Influencers and products pack tighter into a 3-column grid;
+                // Influencers and products pack into a 2-column grid;
                 // b-rolls flow through a masonry column layout (mixed 16:9 / 9:16
                 // stills pack with no left-aligned gaps — matches the main Bank);
                 // scripts (9:16 cards) stay a 2-up grid; voices single-column rows.
                 currentBankType === 'models' || currentBankType === 'products'
-                  ? 'grid grid-cols-3 gap-2'
+                  ? 'grid grid-cols-2 gap-2'
                   : currentBankType === 'brolls'
                   ? 'columns-2 gap-2'
                   : currentBankType === 'scripts'
@@ -346,7 +346,7 @@ export default function BankPicker({
                 const wrapperClass =
                   currentBankType === 'brolls'
                     ? 'relative mb-3.5 break-inside-avoid'
-                    : `relative ${isSheet ? 'col-span-3' : ''}`
+                    : `relative ${isSheet ? 'col-span-2' : ''}`
                 return (
                   <div
                     key={item.id}

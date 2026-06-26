@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { X, Plus } from 'lucide-react'
+import { X, ImagePlus } from 'lucide-react'
 import { fileToDataUri } from '../../utils/kie'
 import { isAssetRef, getAsBase64 } from '../../utils/assetStore'
 import type { BRoll, Product, Model, Script, VoicePreset } from '../../stores/types'
@@ -46,6 +46,11 @@ export default function VideoRefStrip({ label, helper, values, onChange, max, ba
   const triggerRef = useRef<HTMLButtonElement>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [actionMenu, setActionMenu] = useState(false)
+  // The Upload / Pick-from-bank menu opens on hover; a short close delay bridges
+  // the gap between the tile and the menu so moving onto it doesn't dismiss it.
+  const menuTimer = useRef<number | null>(null)
+  const openMenu = () => { if (menuTimer.current) window.clearTimeout(menuTimer.current); setActionMenu(true) }
+  const closeMenuSoon = () => { menuTimer.current = window.setTimeout(() => setActionMenu(false), 120) }
 
   const remaining = max - values.length
 
@@ -102,9 +107,11 @@ export default function VideoRefStrip({ label, helper, values, onChange, max, ba
             <button
               ref={triggerRef}
               onClick={() => setActionMenu((v) => !v)}
+              onMouseEnter={openMenu}
+              onMouseLeave={closeMenuSoon}
               className="flex h-20 w-20 items-center justify-center rounded-lg border border-dashed border-ink/15 bg-ink/[0.02] text-ink-500 transition-colors hover:border-ink/25 hover:text-ink-300"
             >
-              <Plus className="h-4 w-4" />
+              <ImagePlus className="h-4 w-4" />
             </button>
             <SlotActionMenu
               anchorRef={triggerRef}
@@ -112,6 +119,9 @@ export default function VideoRefStrip({ label, helper, values, onChange, max, ba
               onClose={() => setActionMenu(false)}
               onUpload={() => fileInputRef.current?.click()}
               onPickFromBank={() => setPickerOpen(true)}
+              hover
+              onMouseEnter={openMenu}
+              onMouseLeave={closeMenuSoon}
             />
           </>
         )}

@@ -36,9 +36,6 @@ export interface InFlightCharacterGen {
 interface GalleryPanelProps {
   inFlight: InFlightCharacterGen[]
   onCancelGen: (id: string) => void
-  // Generate a character sheet from an image (image-to-image, same person).
-  // Takes a ref + profile so it works for an edited output, not just the row.
-  onMakeSheet: (imageRef: string, profile: Record<string, string>) => void
   // Load a generation's profile + settings back into the form for editing.
   onReuse: (item: CharacterHistoryItem) => void
 }
@@ -60,10 +57,12 @@ function dayLabel(dayTs: number): string {
 export default function GalleryPanel({
   inFlight,
   onCancelGen,
-  onMakeSheet,
   onReuse,
 }: GalleryPanelProps) {
   const [previewItem, setPreviewItem] = useState<CharacterHistoryItem | null>(null)
+  // Which mode the edit pop-up opens in. "Make Sheet" on a tile opens straight
+  // into sheet mode so the user just hits Generate; a normal click is edit.
+  const [previewMode, setPreviewMode] = useState<'edit' | 'sheet'>('edit')
 
   const characterHistory = useBankStore((s) => s.characterHistory)
   const deleteCharacterHistory = useBankStore((s) => s.deleteCharacterHistory)
@@ -117,9 +116,9 @@ export default function GalleryPanel({
                     <div key={item.id} className={isWide(item.aspectRatio) ? 'col-span-2 lg:col-span-3' : ''}>
                       <HistoryTile
                         item={item}
-                        onClick={() => setPreviewItem(item)}
+                        onClick={() => { setPreviewMode('edit'); setPreviewItem(item) }}
                         onDelete={() => deleteCharacterHistory(item.id)}
-                        onMakeSheet={() => onMakeSheet(item.imageRef, item.profile)}
+                        onMakeSheet={() => { setPreviewMode('sheet'); setPreviewItem(item) }}
                         onReuse={() => onReuse(item)}
                       />
                     </div>
@@ -134,9 +133,8 @@ export default function GalleryPanel({
       {previewItem && (
         <InfluencerEditModal
           item={previewItem}
+          initialMode={previewMode}
           onClose={() => setPreviewItem(null)}
-          onMakeSheet={(imageRef) => { onMakeSheet(imageRef, previewItem.profile); setPreviewItem(null) }}
-          onReuse={() => { onReuse(previewItem); setPreviewItem(null) }}
         />
       )}
     </div>

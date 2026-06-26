@@ -544,8 +544,8 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                     dimmedReason={`${videoModelName} doesn't accept reference images. Switch to Veo 3.1 Fast or Seedance 2.0 to use them.`}
                   />
                   <ReferenceSlotCard
-                    icon={<Package className="h-4 w-4 text-amber-400 light:text-amber-600" />}
-                    accentClass="bg-amber-500/15 text-amber-400 light:text-amber-600"
+                    icon={<Package className="h-4 w-4 text-gold-400 light:text-gold-600" />}
+                    accentClass="bg-gold-500/15 text-gold-400 light:text-gold-600"
                     kind="Product"
                     name={selectedProduct?.productName}
                     imageRef={selectedProduct?.productImage}
@@ -557,7 +557,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                   />
                 </div>
                 {hasActiveRef && refsUnsupportedForVideo && (
-                  <p className="mt-2 text-[11px] leading-relaxed text-amber-400/80 light:text-amber-600/80">
+                  <p className="mt-2 text-[11px] leading-relaxed text-gold-400/80 light:text-gold-600/80">
                     {videoModelName} doesn't support reference images — this will generate text-to-video only. Pick Veo 3.1 Fast or Seedance 2.0 to use your influencer/product.
                   </p>
                 )}

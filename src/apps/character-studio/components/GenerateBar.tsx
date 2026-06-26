@@ -3,7 +3,6 @@ import { useSettingsStore } from '../../../stores/settingsStore'
 import ModelPicker from '../../../components/ModelPicker'
 import ConstraintChip from '../../../components/ConstraintChip'
 import AspectIcon from '../../../components/AspectIcon'
-import ClearAllButton from '../../../components/ClearAllButton'
 import SegmentedToggle from '../../../components/SegmentedToggle'
 import ModelWaitNotice from '../../../components/ModelWaitNotice'
 import { estimateCredits, formatCredits, getDefaultModel, getModel, type ImageResolution } from '../../../utils/models'
@@ -24,8 +23,6 @@ interface GenerateBarProps {
   sheetAspect: string
   onSheetAspectChange: (value: string) => void
   inFlightCount: number
-  // Clear All — tucked tight under the Generate button.
-  onClear: () => void
 }
 
 // Aspect options offered by the dropdown. Stored values may be legacy verbose
@@ -57,7 +54,6 @@ export default function GenerateBar({
   sheetAspect,
   onSheetAspectChange,
   inFlightCount,
-  onClear,
 }: GenerateBarProps) {
   const persistedModel = useSettingsStore((s) => s.getAppModel('character-studio:image:text-to-image'))
   const selectedModelId = persistedModel ?? getDefaultModel('character-studio', 'image', 'text-to-image')?.id
@@ -154,12 +150,9 @@ export default function GenerateBar({
         </span>
       </button>
 
-      {/* Wait notice (when shown) sits bottom-left; Clear All is pinned
-          bottom-right via ml-auto so it never shifts when the notice toggles.
-          Both are the same size/color, so the row height stays solid. */}
-      <div className="!mt-1 flex items-center gap-3 px-1">
+      {/* Wait notice (when shown) sits centered under the Generate button. */}
+      <div className="!mt-1 flex items-center justify-center px-1">
         <ModelWaitNotice modelId={selectedModelId} />
-        <ClearAllButton onClear={onClear} className="ml-auto" />
       </div>
     </div>
   )

@@ -200,13 +200,13 @@ export default function InputPanel({
             tabIndex={0}
             onClick={() => setProductPickerOpen(true)}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setProductPickerOpen(true) } }}
-            className="group flex w-full cursor-pointer items-center gap-3 rounded-full border border-ink/10 bg-ink/[0.02] px-4 py-3.5 text-left transition-colors hover:border-ink/20 hover:bg-ink/[0.04]"
+            className="group flex w-full cursor-pointer items-center gap-3 rounded-full border border-gold-500/40 bg-gold-500/10 px-4 py-3.5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] ring-1 ring-inset ring-gold-500/15 transition-colors hover:bg-gold-500/[0.14]"
           >
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-ink/5">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gold-500/15">
               {resolvedProductImage ? (
                 <img src={resolvedProductImage} alt="" className="h-full w-full object-cover" />
               ) : (
-                <Package className="h-5 w-5 text-ink-600" />
+                <Package className="h-5 w-5 text-gold-400 light:text-gold-600" />
               )}
             </div>
             <div className="flex min-w-0 flex-1 flex-col">
@@ -253,8 +253,8 @@ export default function InputPanel({
               onClick={() => setProductPickerOpen(true)}
               className="flex w-full items-center gap-3 rounded-full border border-dashed border-ink/10 bg-ink/[0.02] px-4 py-3.5 text-left transition-colors hover:border-scripts-500/30 hover:bg-scripts-500/5"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/10">
-                <Package className="h-5 w-5 text-amber-400 light:text-amber-600" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gold-500/10">
+                <Package className="h-5 w-5 text-gold-400 light:text-gold-600" />
               </div>
               <div className="flex flex-col">
                 <span className="text-sm font-medium text-ink-300">Select Product</span>
@@ -484,9 +484,9 @@ export default function InputPanel({
             {/* The brief + length + output */}
             <div className="mb-6 flex flex-col">
               <StepLabel
-                label="Describe Your Ad"
+                label="Describe Your Video"
                 optional
-                tooltip="What should this ad say or focus on? Vibe, angle, key points — anything goes. Leave it blank and the model will come up with the angle for you."
+                tooltip="What should this video say or focus on? Vibe, angle, key points — anything goes. Leave it blank and the model will come up with the angle for you."
               />
               {/* Fixed-height box (Playground prompt pattern): it never grows
                   with content — it scrolls internally so the page stays put. */}
@@ -736,9 +736,9 @@ export default function InputPanel({
         onClose={() => setExpandedField(null)}
         value={brief}
         onChange={onBriefChange}
-        title="Describe Your Ad"
+        title="Describe Your Video"
         accent="scripts"
-        placeholder="What should this ad say or focus on? Vibe, angle, key points…"
+        placeholder="What should this video say or focus on? Vibe, angle, key points…"
       />
       <ExpandTextModal
         open={expandedField === 'transcript'}
