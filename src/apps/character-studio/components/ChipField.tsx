@@ -19,16 +19,23 @@ interface ChipFieldProps {
 // button so the full prompt can be edited in the pop-up without scrolling.
 const LONG_VALUE = 30
 
+// Tallest the dropdown/editor pop-up can grow (max-h-52 list ≈ 208px + padding
+// + the mt offset). Used to decide flip direction: if there's less than this
+// much room below the field, open upward instead. Padded a touch so the panel
+// flips before it kisses the boundary.
+const PANEL_MAX_HEIGHT = 240
+
 export default function ChipField({ label, value, onChange, suggestions, placeholder, defaultLocked = false }: ChipFieldProps) {
   const isFilled = value.trim() !== ''
   const [locked, setLocked] = useState(defaultLocked)
   const [open, setOpen] = useState(false)
   // The full-text editor pop-up — opened from the expand button on long values.
   const [editing, setEditing] = useState(false)
-  // Flip both pop-ups above the field when it sits near the bottom of the
-  // scrollable column. Opening downward there would extend past the content and
-  // inflate the scroll container's height, opening a phantom gap — see the
-  // flip logic in openPanel().
+  // Flip both pop-ups above the field when there isn't room to open downward.
+  // On desktop the parameters column scrolls internally, so a downward panel
+  // near the bottom inflates that container's scrollHeight and opens a phantom
+  // gap; on mobile it grows the page. Direction is decided in measureDirection()
+  // against the real clipping edges, not the viewport.
   const [openUp, setOpenUp] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
 
@@ -51,12 +58,35 @@ export default function ChipField({ label, value, onChange, suggestions, placeho
   const showDropdown = open && !editing && !locked && suggestions.length > 0
   const showExpand = !locked && value.trim().length > LONG_VALUE
 
-  // Decide flip direction from the field's distance to the viewport bottom.
-  // The scrollable column ends just above the sticky generate footer, so a
-  // field within ~280px of the bottom should pop its panel upward instead.
+  // The edges that actually clip a pop-up: the most restrictive of every
+  // scrollable/clipping ancestor and the viewport. Opening a panel past these
+  // is what grows the scroll container (desktop) or the page (mobile), so they
+  // — not the raw viewport — are what the flip decision must measure against.
+  function clipEdges(el: HTMLElement): { top: number; bottom: number } {
+    let top = 0
+    let bottom = window.innerHeight
+    for (let node = el.parentElement; node; node = node.parentElement) {
+      const oy = getComputedStyle(node).overflowY
+      if (oy === 'auto' || oy === 'scroll' || oy === 'hidden') {
+        const r = node.getBoundingClientRect()
+        top = Math.max(top, r.top)
+        bottom = Math.min(bottom, r.bottom)
+      }
+    }
+    return { top, bottom }
+  }
+
+  // Flip up only when there isn't room below for the panel AND there's more room
+  // above — so a field at the foot of the column opens upward instead of
+  // inflating the scroll area, but one with space below still opens downward.
   function measureDirection() {
-    const rect = wrapRef.current?.getBoundingClientRect()
-    if (rect) setOpenUp(window.innerHeight - rect.bottom < 280)
+    const el = wrapRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const { top, bottom } = clipEdges(el)
+    const spaceBelow = bottom - rect.bottom
+    const spaceAbove = rect.top - top
+    setOpenUp(spaceBelow < PANEL_MAX_HEIGHT && spaceAbove > spaceBelow)
   }
 
   function openEditor() {
