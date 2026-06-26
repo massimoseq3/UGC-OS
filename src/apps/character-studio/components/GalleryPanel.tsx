@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, useEffect } from 'react'
-import { Loader2, Trash2, Image as ImageIcon, UserRound, Bookmark, X, Download, Check, Copy, LayoutGrid } from 'lucide-react'
+import { Loader2, Trash2, Image as ImageIcon, UserRound, Bookmark, X, Download, Check, CornerDownLeft, LayoutGrid } from 'lucide-react'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAssetUrlState } from '../../../hooks/useAssetUrl'
 import { getUrl } from '../../../utils/assetStore'
@@ -9,10 +9,10 @@ import type { CharacterHistoryItem } from '../../../stores/types'
 import GenerationProgress from '../../../components/GenerationProgress'
 import GeneratingBackdrop from '../../../components/GeneratingBackdrop'
 import { getModel, type ImageResolution } from '../../../utils/models'
-import HistoryPreviewModal from './HistoryPreviewModal'
-import { buildJsonPrompt, buildImagePrompt, buildSheetPrompt } from '../services/generateCharacter'
+import InfluencerEditModal from './InfluencerEditModal'
+import { buildJsonPrompt } from '../services/generateCharacter'
+import { pickInfluencerName } from './nameGenerator'
 import { downloadImage } from '../../../utils/downloadImage'
-import { copyToClipboard } from '../../../utils/clipboard'
 
 // One running generation. Persisted to localStorage so a mid-flight refresh
 // resumes polling instead of losing the job. `taskId` is the kie.ai task ref
@@ -36,6 +36,11 @@ export interface InFlightCharacterGen {
 interface GalleryPanelProps {
   inFlight: InFlightCharacterGen[]
   onCancelGen: (id: string) => void
+  // Generate a character sheet from an image (image-to-image, same person).
+  // Takes a ref + profile so it works for an edited output, not just the row.
+  onMakeSheet: (imageRef: string, profile: Record<string, string>) => void
+  // Load a generation's profile + settings back into the form for editing.
+  onReuse: (item: CharacterHistoryItem) => void
 }
 
 function startOfDay(ts: number): number {
@@ -55,6 +60,8 @@ function dayLabel(dayTs: number): string {
 export default function GalleryPanel({
   inFlight,
   onCancelGen,
+  onMakeSheet,
+  onReuse,
 }: GalleryPanelProps) {
   const [previewItem, setPreviewItem] = useState<CharacterHistoryItem | null>(null)
 
@@ -112,6 +119,8 @@ export default function GalleryPanel({
                         item={item}
                         onClick={() => setPreviewItem(item)}
                         onDelete={() => deleteCharacterHistory(item.id)}
+                        onMakeSheet={() => onMakeSheet(item.imageRef, item.profile)}
+                        onReuse={() => onReuse(item)}
                       />
                     </div>
                   ))}
@@ -123,9 +132,11 @@ export default function GalleryPanel({
       </div>
 
       {previewItem && (
-        <HistoryPreviewModal
+        <InfluencerEditModal
           item={previewItem}
           onClose={() => setPreviewItem(null)}
+          onMakeSheet={(imageRef) => { onMakeSheet(imageRef, previewItem.profile); setPreviewItem(null) }}
+          onReuse={() => { onReuse(previewItem); setPreviewItem(null) }}
         />
       )}
     </div>
@@ -159,10 +170,14 @@ function HistoryTile({
   item,
   onClick,
   onDelete,
+  onMakeSheet,
+  onReuse,
 }: {
   item: CharacterHistoryItem
   onClick: () => void
   onDelete: () => void | Promise<unknown>
+  onMakeSheet: () => void
+  onReuse: () => void
 }) {
   const { url, status } = useAssetUrlState(item.imageRef)
   const addModel = useBankStore((s) => s.addModel)
@@ -174,7 +189,6 @@ function HistoryTile({
   const [nameDraft, setNameDraft] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
-  const [copiedPrompt, setCopiedPrompt] = useState(false)
   const nameInputRef = useRef<HTMLInputElement | null>(null)
 
   const isSheet = item.kind === 'sheet'
@@ -197,7 +211,7 @@ function HistoryTile({
   function openNameInput(e: React.MouseEvent) {
     e.stopPropagation()
     if (savingToBank) return
-    setNameDraft(autoName(item))
+    setNameDraft(pickInfluencerName(item.profile.gender))
   }
 
   // Toggle: clicking the Save button when already saved removes the linked Bank
@@ -266,17 +280,6 @@ function HistoryTile({
     const resolved = await getUrl(item.imageRef)
     if (!resolved) return
     await downloadImage(resolved, `${isSheet ? 'character-sheet' : 'influencer'}-${item.id}`)
-  }
-
-  // Copies the full assembled prompt for this generation — mirrors the Copy
-  // prompt action in the Playground gallery and the Influencers preview modal.
-  async function handleCopyPrompt(e: React.MouseEvent) {
-    e.stopPropagation()
-    const prompt = isSheet ? buildSheetPrompt(item.profile, item.aspectRatio) : buildImagePrompt(item.profile)
-    if (await copyToClipboard(prompt)) {
-      setCopiedPrompt(true)
-      window.setTimeout(() => setCopiedPrompt(false), 1600)
-    }
   }
 
   return (
@@ -374,23 +377,41 @@ function HistoryTile({
           </button>
         </div>
       ) : (
-        <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-          {/* Order mirrors the Playground gallery: Copy prompt · Save · Download,
-              with Download anchored at the bottom-right corner. */}
-          <TileIconButton title={copiedPrompt ? 'Prompt copied' : 'Copy prompt'} onClick={handleCopyPrompt}>
-            {copiedPrompt ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
-          </TileIconButton>
-          <TileIconButton
-            title={savedAsModel ? 'Saved — click to remove from Bank' : savingToBank ? 'Saving…' : 'Save to Bank'}
-            tone={savedAsModel ? 'saved' : 'default'}
-            onClick={toggleSave}
-          >
-            {savingToBank ? <Loader2 className="h-4 w-4 animate-spin" /> : savedAsModel ? <Check className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
-          </TileIconButton>
-          <TileIconButton title="Download image" onClick={handleDownload}>
-            <Download className="h-4 w-4" />
-          </TileIconButton>
-        </div>
+        <>
+          {/* Bottom-left: edit-in-form (reinsert) + Make Sheet from a portrait.
+              "Make Sheet" runs image-to-image off this image so the sheet keeps
+              the exact same person — only shown on portraits (a sheet already is
+              one). */}
+          <div className="absolute bottom-1.5 left-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+            <TileIconButton
+              title="Edit in form — load this influencer's settings back in"
+              onClick={(e) => { e.stopPropagation(); onReuse() }}
+            >
+              <CornerDownLeft className="h-4 w-4" />
+            </TileIconButton>
+            {!isSheet && (
+              <TileIconButton
+                title="Make a character sheet from this portrait"
+                onClick={(e) => { e.stopPropagation(); onMakeSheet() }}
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </TileIconButton>
+            )}
+          </div>
+          {/* Bottom-right: Save · Download (Download anchored at the corner). */}
+          <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+            <TileIconButton
+              title={savedAsModel ? 'Saved — click to remove from Bank' : savingToBank ? 'Saving…' : 'Save to Bank'}
+              tone={savedAsModel ? 'saved' : 'default'}
+              onClick={toggleSave}
+            >
+              {savingToBank ? <Loader2 className="h-4 w-4 animate-spin" /> : savedAsModel ? <Check className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
+            </TileIconButton>
+            <TileIconButton title="Download image" onClick={handleDownload}>
+              <Download className="h-4 w-4" />
+            </TileIconButton>
+          </div>
+        </>
       )}
     </div>
     {modelLabel && (
@@ -433,40 +454,6 @@ function TileIconButton({
   )
 }
 
-// Auto-generate a real first name when the user opens the inline save
-// input. Pool is keyed off the profile's gender field and chosen at
-// random so two consecutive saves rarely collide; the user can still
-// edit the draft before committing. Falls back to a unisex pool when
-// gender is empty or unrecognised.
-const FEMALE_NAMES = [
-  'Ava', 'Olivia', 'Mia', 'Sophia', 'Isabella', 'Emma', 'Amelia', 'Harper',
-  'Evelyn', 'Charlotte', 'Lily', 'Chloe', 'Zoe', 'Ella', 'Maya', 'Aria',
-  'Nora', 'Luna', 'Hazel', 'Ivy', 'Stella', 'Aurora', 'Violet', 'Penelope',
-  'Ruby', 'Sadie', 'Camila', 'Layla', 'Naomi', 'Sienna', 'Willow', 'Riley',
-  'Quinn', 'Eloise', 'Iris', 'Juniper', 'Maeve', 'Nova', 'Sage', 'Wren',
-]
-const MALE_NAMES = [
-  'Liam', 'Noah', 'Oliver', 'Elijah', 'Lucas', 'Mason', 'Logan', 'Ethan',
-  'James', 'Aiden', 'Jack', 'Levi', 'Benjamin', 'Henry', 'Sebastian', 'Owen',
-  'Daniel', 'Caleb', 'Wyatt', 'Julian', 'Leo', 'Hudson', 'Theo', 'Nathan',
-  'Isaac', 'Asher', 'Eli', 'Carter', 'Miles', 'Felix', 'Silas', 'Atlas',
-  'Kai', 'Jude', 'Ezra', 'August', 'Beckett', 'Rowan', 'Finn', 'Arlo',
-]
-const UNISEX_NAMES = [
-  'Riley', 'Quinn', 'Avery', 'Rowan', 'Sage', 'River', 'Sky', 'Reese',
-  'Phoenix', 'Wren', 'Blake', 'Cameron', 'Drew', 'Ellis', 'Finley', 'Hayden',
-  'Jordan', 'Kai', 'Lennon', 'Morgan', 'Nico', 'Parker', 'Remy', 'Sasha',
-  'Tatum', 'Wesley', 'Charlie', 'Emerson', 'Frankie', 'Indigo',
-]
-
-function autoName(item: CharacterHistoryItem): string {
-  const g = (item.profile.gender || '').toLowerCase()
-  const pool =
-    g.startsWith('f') || g.includes('woman') ? FEMALE_NAMES :
-    g.startsWith('m') && !g.startsWith('mx') ? MALE_NAMES :
-    UNISEX_NAMES
-  return pool[Math.floor(Math.random() * pool.length)]
-}
 
 function InFlightTile({ gen, onCancel }: { gen: InFlightCharacterGen; onCancel: () => void }) {
   const modelLabel = getModel(gen.modelId)?.displayName ?? gen.modelId

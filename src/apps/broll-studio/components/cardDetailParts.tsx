@@ -4,7 +4,7 @@
 // modal's orchestration (state + handlers). These all communicate via props.
 import { useState, useEffect, useRef } from 'react'
 import {
-  ImageIcon, Video as VideoIcon, Film, Loader2, Check, Download, Trash2, Bookmark, Volume2, VolumeX, Play, Pause, Copy, Circle, AlertCircle, RefreshCw, X,
+  ImageIcon, Video as VideoIcon, Film, Loader2, Check, Download, Trash2, Bookmark, Volume2, VolumeX, Play, Pause, CornerDownLeft, Circle, AlertCircle, RefreshCw, X,
 } from 'lucide-react'
 import GenerationProgress from '../../../components/GenerationProgress'
 import GeneratingBackdrop from '../../../components/GeneratingBackdrop'
@@ -26,7 +26,9 @@ export interface ModalGalleryProps {
   onSaveImage: (index: number) => void
   onDeleteImage: (index: number) => void
   onDeleteVideo: (index: number) => void
-  onCopyPrompt: (text: string) => void
+  // Load a tile's prompt back into this card's prompt editor (replaces the old
+  // copy-to-clipboard action — reinserts the prompt as an input to tweak).
+  onReusePrompt: (text: string) => void
   // Open the Animate tab with this image set as the start frame.
   onAnimateImage: (index: number) => void
   // Re-fire / drop a failed in-flight entry (one whose `error` is set).
@@ -55,7 +57,7 @@ export function ModalGallery({
   onSaveImage,
   onDeleteImage,
   onDeleteVideo,
-  onCopyPrompt,
+  onReusePrompt,
   onAnimateImage,
   onRetryInFlight,
   onDismissInFlight,
@@ -184,7 +186,7 @@ export function ModalGallery({
                       }}
                       onSave={() => onSaveImage(entry.idx)}
                       onDelete={() => onDeleteImage(entry.idx)}
-                      onCopyPrompt={() => onCopyPrompt(entry.prompt)}
+                      onReusePrompt={() => onReusePrompt(entry.prompt)}
                       onAnimate={() => onAnimateImage(entry.idx)}
                     />
                   </div>
@@ -203,7 +205,7 @@ export function ModalGallery({
                         setTab('video')
                       }}
                       onDelete={() => onDeleteVideo(entry.idx)}
-                      onCopyPrompt={() => onCopyPrompt(entry.prompt)}
+                      onReusePrompt={() => onReusePrompt(entry.prompt)}
                     />
                   </div>
                 )
@@ -231,7 +233,7 @@ function ImageTile({
   onClick,
   onSave,
   onDelete,
-  onCopyPrompt,
+  onReusePrompt,
   onAnimate,
 }: {
   imageRef: string
@@ -242,7 +244,7 @@ function ImageTile({
   onClick: () => void
   onSave: () => void
   onDelete: () => void
-  onCopyPrompt: () => void
+  onReusePrompt: () => void
   onAnimate?: () => void
 }) {
   const { url, status } = useAssetUrlState(imageRef)
@@ -288,10 +290,12 @@ function ImageTile({
       <div className="absolute right-1.5 top-1.5 opacity-0 transition-opacity group-hover:opacity-100">
         <TileDeleteButton onDelete={onDelete} />
       </div>
-      {/* Bottom-right: Copy prompt · Save · Download — all square */}
+      {/* Bottom-right: Reinsert prompt · Save · Download — all square. (The
+          bottom-left corner is taken by the Animate pill on B-Roll image tiles,
+          so the reinsert button stays in this cluster.) */}
       <div className="absolute right-1.5 bottom-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-        <TileIconButton title="Copy prompt" onClick={(e) => { e.stopPropagation(); onCopyPrompt() }}>
-          <Copy className="h-4 w-4" />
+        <TileIconButton title="Reuse prompt — load it into this card's editor" onClick={(e) => { e.stopPropagation(); onReusePrompt() }}>
+          <CornerDownLeft className="h-4 w-4" />
         </TileIconButton>
         <TileIconButton
           title={saved ? 'Saved to bank' : saving ? 'Saving…' : 'Save to bank'}
@@ -322,7 +326,7 @@ function VideoTile({
   selected,
   onClick,
   onDelete,
-  onCopyPrompt,
+  onReusePrompt,
 }: {
   videoRef: string
   aspectRatio: string
@@ -330,7 +334,7 @@ function VideoTile({
   selected: boolean
   onClick: () => void
   onDelete: () => void
-  onCopyPrompt: () => void
+  onReusePrompt: () => void
 }) {
   const url = useAssetUrl(videoRef)
   const videoElRef = useRef<HTMLVideoElement>(null)
@@ -442,8 +446,8 @@ function VideoTile({
       </div>
       {/* Bottom-right hover actions */}
       <div className="absolute right-1.5 bottom-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-        <TileIconButton title="Copy prompt" onClick={(e) => { e.stopPropagation(); onCopyPrompt() }}>
-          <Copy className="h-4 w-4" />
+        <TileIconButton title="Reuse prompt — load it into this card's editor" onClick={(e) => { e.stopPropagation(); onReusePrompt() }}>
+          <CornerDownLeft className="h-4 w-4" />
         </TileIconButton>
         <TileIconButton
           title="Download"

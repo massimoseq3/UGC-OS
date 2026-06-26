@@ -1,8 +1,8 @@
 import type { CharacterProfile } from '../types'
 import { useSettingsStore } from '../../../stores/settingsStore'
-import { createTask, pollTask, parseResult, downloadAsBase64, IMAGE_POLL_ATTEMPTS } from '../../../utils/kie'
-import { getDefaultModel, buildImageInput, type AspectRatio, type ImageResolution } from '../../../utils/models'
-import { saveBase64Asset } from '../../../utils/assetStore'
+import { createTask, pollTask, parseResult, downloadAsBase64, ensureHostedUrl, IMAGE_POLL_ATTEMPTS } from '../../../utils/kie'
+import { getDefaultModel, getModel, buildImageInput, type AspectRatio, type ImageResolution } from '../../../utils/models'
+import { saveBase64Asset, isAssetRef, getAsBase64 } from '../../../utils/assetStore'
 
 export interface GenerationResult {
   imageUrl: string
@@ -160,9 +160,42 @@ export function buildSheetPrompt(profile: CharacterProfile, aspect = '16:9'): st
 
 export type GenerationKind = 'portrait' | 'sheet'
 
+// Resolve a bank asset / data / http(s) ref to a kie-hosted public URL that
+// image-to-image models can read (asset:// refs and data: URIs aren't fetchable
+// by kie — they must be uploaded first).
+async function hostReference(apiKey: string, ref: string): Promise<string> {
+  let source = ref
+  if (isAssetRef(ref)) {
+    const asset = await getAsBase64(ref)
+    if (!asset) throw new Error('Reference image could not be loaded.')
+    source = `data:${asset.mimeType};base64,${asset.base64}`
+  }
+  return ensureHostedUrl(apiKey, source)
+}
+
+// When a reference image is supplied the model MUST run image-to-image, or kie
+// silently drops the ref and burns credits on a text-only gen. Prefer the
+// configured model's own i2i mode, then a same-family `-image-to-image`
+// sibling, then the registry's default i2i model. Mirrors the Playground/B-Roll
+// swap so the house behaviour stays uniform.
+function resolveImageToImageModel(pickedId: string): string {
+  const picked = getModel(pickedId)
+  if (picked?.modes?.includes('image-to-image')) return picked.id
+  if (picked) {
+    const family = picked.id.replace(/-(text-to-image|image-to-image|image-edit).*$/, '')
+    const sibling = getModel(`${family}-image-to-image`)
+    if (sibling?.modes?.includes('image-to-image')) return sibling.id
+  }
+  return getDefaultModel('playground', 'image', 'image-to-image')?.id ?? 'nano-banana-2'
+}
+
 // Phase 1: build the prompt, POST createTask, return the taskId so the caller
 // can persist it before awaiting completion. A mid-flight refresh can resume
 // polling by calling finishCharacterTask with the stored taskId.
+//
+// `referenceUrl` (a portrait asset/data/http ref) flips the gen to
+// image-to-image: the result keeps that exact person's identity. This is how a
+// character sheet stays the same face as the portrait it was made from.
 export async function startCharacterTask(
   profile: CharacterProfile,
   modelIdOverride?: string,
@@ -170,10 +203,11 @@ export async function startCharacterTask(
   signal?: AbortSignal,
   kind: GenerationKind = 'portrait',
   sheetAspect = '16:9',
+  referenceUrl?: string,
 ): Promise<{ taskId: string; modelId: string }> {
   const apiKey = useSettingsStore.getState().getKieApiKey()
 
-  const modelId = modelIdOverride
+  let modelId = modelIdOverride
     ?? useSettingsStore.getState().getAppModel('character-studio:image:text-to-image')
     ?? getDefaultModel('character-studio', 'image', 'text-to-image')?.id
   if (!modelId) throw new Error('No image model configured for Characters.')
@@ -182,13 +216,60 @@ export async function startCharacterTask(
   // the prompt layout follows the same axis. Portraits tolerate both legacy
   // verbose values ('Landscape (16:9)') and raw ratios.
   const sheetIsVertical = sheetAspect.includes('9:16')
-  const prompt = kind === 'sheet' ? buildSheetPrompt(profile, sheetAspect) : buildImagePrompt(profile)
+  let prompt = kind === 'sheet' ? buildSheetPrompt(profile, sheetAspect) : buildImagePrompt(profile)
   const ar = profile.aspectRatio ?? ''
   const aspectRatio: AspectRatio = kind === 'sheet' ? (sheetIsVertical ? '9:16' : '16:9')
     : ar.includes('16:9') ? '16:9' : ar.includes('1:1') ? '1:1' : '9:16'
 
-  const body = buildImageInput(modelId, { prompt, aspectRatio, resolution })
+  // Image-to-image off a reference portrait: swap to an i2i-capable model,
+  // host the reference, and lead the prompt with an identity-lock directive.
+  let inputUrls: string[] | undefined
+  if (referenceUrl) {
+    modelId = resolveImageToImageModel(modelId)
+    inputUrls = [await hostReference(apiKey, referenceUrl)]
+    prompt = `Use the person in the provided reference image as the exact subject — preserve their facial identity, bone structure, hair, and skin precisely across every panel.\n\n${prompt}`
+  }
+
+  const body = buildImageInput(modelId, { prompt, aspectRatio, resolution, inputUrls })
   const taskId = await createTask(apiKey, modelId, body, signal)
+  return { taskId, modelId }
+}
+
+// Image-to-image EDIT: take a base image (+ optional extra references) and a
+// free-text edit instruction, and produce a new variation. Unlike
+// startCharacterTask the prompt is the user's edit instruction verbatim (not
+// built from the profile form), and multiple input images ride along —
+// base first, then references — so editing models (Nano Banana 2 / GPT Image 2
+// Edit) preserve the subject while applying the change.
+export async function startCharacterEditTask(opts: {
+  prompt: string
+  baseImageRef: string
+  referenceRefs?: string[]
+  aspectRatio?: AspectRatio
+  resolution?: ImageResolution
+  modelIdOverride?: string
+  signal?: AbortSignal
+}): Promise<{ taskId: string; modelId: string }> {
+  const apiKey = useSettingsStore.getState().getKieApiKey()
+
+  let modelId = opts.modelIdOverride
+    ?? useSettingsStore.getState().getAppModel('character-studio:image:text-to-image')
+    ?? getDefaultModel('character-studio', 'image', 'text-to-image')?.id
+  if (!modelId) throw new Error('No image model configured for Influencers.')
+  modelId = resolveImageToImageModel(modelId)
+
+  const inputUrls: string[] = []
+  for (const ref of [opts.baseImageRef, ...(opts.referenceRefs ?? [])]) {
+    inputUrls.push(await hostReference(apiKey, ref))
+  }
+
+  const body = buildImageInput(modelId, {
+    prompt: opts.prompt,
+    aspectRatio: opts.aspectRatio,
+    resolution: opts.resolution,
+    inputUrls,
+  })
+  const taskId = await createTask(apiKey, modelId, body, opts.signal)
   return { taskId, modelId }
 }
 

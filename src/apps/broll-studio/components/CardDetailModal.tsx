@@ -316,49 +316,18 @@ export default function CardDetailModal(props: CardDetailModalProps) {
     })
   }
 
-  // ─── Per-tile copy prompt ──────────────────────────────────────────────
-  // Tries the async Clipboard API first, then falls back to the legacy
-  // execCommand path. The fallback must also run when navigator.clipboard
-  // EXISTS but writeText() rejects — which is exactly what happens inside
-  // embedded webviews (e.g. the Claude desktop browser) where the document
-  // lacks clipboard-write permission or focus. Guards against an empty prompt
-  // so the toast doesn't lie about copying nothing.
-  const legacyCopy = (text: string): boolean => {
-    try {
-      const ta = document.createElement('textarea')
-      ta.value = text
-      ta.style.position = 'fixed'
-      ta.style.opacity = '0'
-      document.body.appendChild(ta)
-      ta.select()
-      const ok = document.execCommand('copy')
-      document.body.removeChild(ta)
-      return ok
-    } catch {
-      return false
-    }
-  }
-
-  const handleCopyPrompt = async (text: string) => {
+  // Load a tile's prompt back into this card's prompt editor (and undo/redo
+  // history), so the user can tweak a past generation's prompt and re-run it —
+  // replaces the old copy-to-clipboard action.
+  const handleReusePrompt = (text: string) => {
     const trimmed = (text ?? '').trim()
     if (!trimmed) {
-      useAppStore.getState().addToast('No prompt to copy', 'error')
+      useAppStore.getState().addToast('No prompt to reuse', 'error')
       return
     }
-    if (navigator.clipboard && window.isSecureContext) {
-      try {
-        await navigator.clipboard.writeText(text)
-        useAppStore.getState().addToast('Prompt copied', 'success')
-        return
-      } catch {
-        // Fall through to the legacy path below.
-      }
-    }
-    if (legacyCopy(text)) {
-      useAppStore.getState().addToast('Prompt copied', 'success')
-    } else {
-      useAppStore.getState().addToast('Copy failed', 'error')
-    }
+    setDraft(trimmed)
+    handleCommitDraft(trimmed)
+    useAppStore.getState().addToast('Prompt loaded into the editor', 'success')
   }
 
   return createPortal((
@@ -705,7 +674,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
               onSaveImage={handleSaveImageTile}
               onDeleteImage={handleDeleteImageTile}
               onDeleteVideo={handleDeleteVideoTile}
-              onCopyPrompt={handleCopyPrompt}
+              onReusePrompt={handleReusePrompt}
               onAnimateImage={(index) => {
                 const ref = cardState.images[index]?.imageUrl
                 if (ref) {

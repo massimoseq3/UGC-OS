@@ -8,55 +8,56 @@ import type { Product, Model as Character, BRoll, Script } from '../../../stores
 interface MentionPopoverProps {
   query: string  // text after the @ that should narrow results
   onSelect: (ref: BankReference) => void
-  // Pixel offset of the @ in the textarea, used to position the popover.
-  anchor: { top: number; left: number }
-  // If true, popover is dismissed by clicking outside; here it's always open
-  // while present in the tree (parent controls mount).
+  // Positioning is owned by the parent (it wraps this in a positioned box so
+  // the list floats ABOVE the prompt field and never covers what's typed).
 }
 
-// Lightweight @-mention popover. Shows up to ~6 matches per bank, sectioned
-// by kind. Uses the BankPicker filter semantics: case-insensitive substring
-// against the primary name field.
-export default function MentionPopover({ query, onSelect, anchor }: MentionPopoverProps) {
+// Lightweight @-mention popover, sectioned by kind. Uses the BankPicker filter
+// semantics: case-insensitive substring against the primary name field. The
+// list shows every matching bank item (the popover scrolls); typing after the
+// @ narrows it. We only cap per-section when the query is empty, so a huge bank
+// doesn't render hundreds of rows on the bare "@" — start typing to reach the
+// rest.
+const EMPTY_QUERY_CAP = 50
+
+export default function MentionPopover({ query, onSelect }: MentionPopoverProps) {
   const products = useBankStore((s) => s.products)
   const characters = useBankStore((s) => s.models)
   const brolls = useBankStore((s) => s.brolls)
   const scripts = useBankStore((s) => s.scripts)
 
   const q = query.toLowerCase().trim()
+  const cap = q ? Infinity : EMPTY_QUERY_CAP
 
   const matchedProducts = useMemo(() => {
     return products
       .filter((p) => !q || p.productName.toLowerCase().includes(q))
-      .slice(0, 6)
-  }, [products, q])
+      .slice(0, cap)
+  }, [products, q, cap])
 
   const matchedCharacters = useMemo(() => {
     return characters
       .filter((c) => !q || c.name.toLowerCase().includes(q))
-      .slice(0, 6)
-  }, [characters, q])
+      .slice(0, cap)
+  }, [characters, q, cap])
 
   const matchedBrolls = useMemo(() => {
     return brolls
       .filter((b) => !q || b.prompt.toLowerCase().includes(q))
-      .slice(0, 6)
-  }, [brolls, q])
+      .slice(0, cap)
+  }, [brolls, q, cap])
 
   const matchedScripts = useMemo(() => {
     return scripts
       .filter((s) => !q || s.title.toLowerCase().includes(q) || s.scriptText.toLowerCase().includes(q))
-      .slice(0, 6)
-  }, [scripts, q])
+      .slice(0, cap)
+  }, [scripts, q, cap])
 
   const total =
     matchedProducts.length + matchedCharacters.length + matchedBrolls.length + matchedScripts.length
 
   return (
-    <div
-      className="absolute z-50 w-[300px] overflow-hidden rounded-2xl border border-ink/10 bg-surface-2/95 shadow-2xl backdrop-blur-xl"
-      style={{ top: anchor.top, left: anchor.left }}
-    >
+    <div className="w-full overflow-hidden rounded-2xl border border-ink/10 bg-surface-2/95 shadow-2xl backdrop-blur-xl">
       {total === 0 ? (
         <div className="px-3 py-4 text-center text-[12px] text-ink-500">
           {q ? `No matches for "${query}"` : 'No bank items yet.'}

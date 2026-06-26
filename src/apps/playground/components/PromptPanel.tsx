@@ -544,9 +544,6 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
   )
   void isGenerating
 
-  // Position the mention popover near the textarea (lower-left).
-  const popoverAnchor = { top: 8, left: 8 }
-
   const hasRefsSection = state.mode === 'video' || state.mode === 'image'
   // Presets are prompt formats; Motion Control's prompt is secondary, so skip them.
   const presetsApplicable = state.mode === 'image' || (state.mode === 'video' && !isMotionControl)
@@ -921,43 +918,50 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
                   backdrop matches the textarea's metrics (font-light, tracking)
                   and reserves the same scrollbar gutter via its right padding,
                   so the bracket boxes line up with the words. */}
-              <div className="relative mt-2 flex grow overflow-hidden rounded-3xl border border-ink/10 bg-ink/[0.03] transition-colors focus-within:border-ink/20 focus-within:bg-ink/[0.05]">
-                <div
-                  ref={highlightRef}
-                  aria-hidden
-                  className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words pb-6 pl-3.5 pr-[calc(0.875rem+11px)] pt-3 text-[13px] font-light leading-[1.5] tracking-[-0.025em] text-transparent"
-                >
-                  {renderBracketHighlight(state.prompt)}
+              {/* Relative wrapper so the @-mention popover can float ABOVE the
+                  textarea (bottom-full) instead of overlaying the text being
+                  typed. The popover sits outside the overflow-hidden box below
+                  so it isn't clipped. */}
+              <div className="relative mt-2 flex grow flex-col">
+                <div className="relative flex grow overflow-hidden rounded-3xl border border-ink/10 bg-ink/[0.03] transition-colors focus-within:border-ink/20 focus-within:bg-ink/[0.05]">
+                  <div
+                    ref={highlightRef}
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words pb-6 pl-3.5 pr-[calc(0.875rem+11px)] pt-3 text-[13px] font-light leading-[1.5] tracking-[-0.025em] text-transparent"
+                  >
+                    {renderBracketHighlight(state.prompt)}
+                  </div>
+                  <textarea
+                    ref={textareaRef}
+                    value={state.prompt}
+                    onChange={handlePromptChange}
+                    onScroll={(e) => {
+                      if (highlightRef.current) highlightRef.current.scrollTop = e.currentTarget.scrollTop
+                    }}
+                    onBlur={() => { commitPromptDraft(); setTimeout(() => setMentionOpen(false), 150) }}
+                    rows={6}
+                    placeholder={
+                      state.mode === 'image'
+                        ? 'Describe the image you want… (type @ to reference banks)'
+                        : isMotionControl
+                        ? 'Optional — refine the motion or leave blank…'
+                        : state.mode === 'video'
+                        ? 'Describe the video… (type @ to reference banks)'
+                        : 'Describe the music — genre, mood, instruments…'
+                    }
+                    className="relative min-h-[120px] w-full grow resize-none border-0 bg-transparent px-3.5 pb-6 pt-3 text-[13px] leading-[1.5] text-ink-200 placeholder-ink-600 outline-none [scrollbar-gutter:stable]"
+                  />
+                  <ExpandButton onClick={() => setPromptExpanded(true)} className="absolute bottom-2 right-2 z-10" />
                 </div>
-                <textarea
-                  ref={textareaRef}
-                  value={state.prompt}
-                  onChange={handlePromptChange}
-                  onScroll={(e) => {
-                    if (highlightRef.current) highlightRef.current.scrollTop = e.currentTarget.scrollTop
-                  }}
-                  onBlur={() => { commitPromptDraft(); setTimeout(() => setMentionOpen(false), 150) }}
-                  rows={6}
-                  placeholder={
-                    state.mode === 'image'
-                      ? 'Describe the image you want… (type @ to reference banks)'
-                      : isMotionControl
-                      ? 'Optional — refine the motion or leave blank…'
-                      : state.mode === 'video'
-                      ? 'Describe the video… (type @ to reference banks)'
-                      : 'Describe the music — genre, mood, instruments…'
-                  }
-                  className="relative min-h-[120px] w-full grow resize-none border-0 bg-transparent px-3.5 pb-6 pt-3 text-[13px] leading-[1.5] text-ink-200 placeholder-ink-600 outline-none [scrollbar-gutter:stable]"
-                />
-                <ExpandButton onClick={() => setPromptExpanded(true)} className="absolute bottom-2 right-2 z-10" />
+                {mentionOpen && state.mode !== 'music' && !isMotionControl && (
+                  <div className="absolute bottom-full left-0 z-50 mb-2 w-[300px] max-w-full">
+                    <MentionPopover
+                      query={mentionQuery}
+                      onSelect={handleMentionSelect}
+                    />
+                  </div>
+                )}
               </div>
-              {mentionOpen && state.mode !== 'music' && !isMotionControl && (
-                <MentionPopover
-                  query={mentionQuery}
-                  onSelect={handleMentionSelect}
-                  anchor={popoverAnchor}
-                />
-              )}
               {!isMotionControl && (
                 <p className="mt-2 text-[11px] text-ink-500">
                   Tip: type <span className="font-medium text-ink-400">@</span> to reference Products, Influencers, B-Rolls, or a Script.

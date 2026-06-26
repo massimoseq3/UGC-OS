@@ -7,9 +7,10 @@ import type { CharacterProfile, TabId } from './types'
 import { createEmptyProfile, flattenDna, PHOTOREALISM_STYLE } from './types'
 import type { ImageResolution } from '../../utils/models'
 import { getDefaultModel } from '../../utils/models'
+import type { CharacterHistoryItem } from '../../stores/types'
 import ControlsPanel from './components/ControlsPanel'
 import GalleryPanel, { type InFlightCharacterGen } from './components/GalleryPanel'
-import { startCharacterTask, finishCharacterTask } from './services/generateCharacter'
+import { startCharacterTask, finishCharacterTask, type GenerationKind } from './services/generateCharacter'
 import { humanizeError } from '../../utils/friendlyError'
 import { analyzeImage } from './services/analyzeImage'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
@@ -192,14 +193,19 @@ export default function CharacterStudio() {
     }
   }, [addCharacterHistory, setInFlight])
 
-  const handleGenerate = async () => {
-    // Snapshot every input the gen depends on at click time — the user can
-    // freely mutate the form while this job runs in parallel.
-    const snapshotProfile: CharacterProfile = { ...profile }
-    const snapshotResolution = resolution
-    const snapshotKind = sheetMode ? 'sheet' as const : 'portrait' as const
-    const snapshotAspect = sheetMode ? (sheetAspect.includes('9:16') ? '9:16' : '16:9') : (profile.aspectRatio || '9:16')
-    const modelId = useSettingsStore.getState().getAppModel('character-studio:image:text-to-image')
+  // Core launcher shared by the form's Generate button, the "Make Sheet from
+  // portrait" gallery action, and any future trigger. Stamps an in-flight tile,
+  // starts the task, persists the taskId, then polls to completion. The model
+  // recorded is the one actually used — startCharacterTask swaps to an
+  // image-to-image sibling when a reference portrait is supplied.
+  const launchGen = useCallback(async (opts: {
+    profile: CharacterProfile
+    resolution: ImageResolution
+    kind: GenerationKind
+    aspect: string
+    referenceUrl?: string
+  }) => {
+    const configuredModel = useSettingsStore.getState().getAppModel('character-studio:image:text-to-image')
       ?? getDefaultModel('character-studio', 'image', 'text-to-image')?.id
       ?? 'unknown'
 
@@ -210,20 +216,19 @@ export default function CharacterStudio() {
     // while createTask is on the wire. We fill in taskId as soon as it lands.
     const placeholder: InFlightCharacterGen = {
       id,
-      modelId,
-      aspectRatio: snapshotAspect,
+      modelId: configuredModel,
+      aspectRatio: opts.aspect,
       startedAt: Date.now(),
-      resolution: snapshotResolution,
-      kind: snapshotKind,
-      profile: snapshotProfile,
+      resolution: opts.resolution,
+      kind: opts.kind,
+      profile: opts.profile,
     }
     setInFlight((prev) => [...prev, placeholder])
     setError(null)
 
-    let taskId: string
+    let started: { taskId: string; modelId: string }
     try {
-      const start = await startCharacterTask(snapshotProfile, undefined, snapshotResolution, controller.signal, snapshotKind, snapshotAspect)
-      taskId = start.taskId
+      started = await startCharacterTask(opts.profile, undefined, opts.resolution, controller.signal, opts.kind, opts.aspect, opts.referenceUrl)
     } catch (err) {
       abortersRef.current.delete(id)
       setInFlight((prev) => prev.filter((g) => g.id !== id))
@@ -235,11 +240,52 @@ export default function CharacterStudio() {
       return
     }
 
-    // Persist taskId so a refresh between createTask and poll completion can
-    // still resume the gen via the mount-time effect.
-    setInFlight((prev) => prev.map((g) => g.id === id ? { ...g, taskId } : g))
-    await finishGen({ ...placeholder, taskId }, controller)
+    // Persist taskId (resume-safe) and the actual model used so the history row
+    // and tile caption reflect any image-to-image swap.
+    setInFlight((prev) => prev.map((g) => g.id === id ? { ...g, taskId: started.taskId, modelId: started.modelId } : g))
+    await finishGen({ ...placeholder, taskId: started.taskId, modelId: started.modelId }, controller)
+  }, [finishGen, setInFlight])
+
+  const handleGenerate = () => {
+    // Snapshot every input the gen depends on at click time — the user can
+    // freely mutate the form while this job runs in parallel.
+    const snapshotKind: GenerationKind = sheetMode ? 'sheet' : 'portrait'
+    const snapshotAspect = sheetMode ? (sheetAspect.includes('9:16') ? '9:16' : '16:9') : (profile.aspectRatio || '9:16')
+    void launchGen({ profile: { ...profile }, resolution, kind: snapshotKind, aspect: snapshotAspect })
   }
+
+  // Generate a character sheet that keeps the EXACT person from an existing
+  // portrait — passes the portrait image as an image-to-image reference so the
+  // face/hair/skin carry over instead of re-rolling a similar-but-different
+  // person. Sheets render 4K / 16:9 turnaround by default (the form path still
+  // offers 9:16). Only portraits expose this — a sheet is already a sheet.
+  const handleMakeSheetFromPortrait = useCallback((imageRef: string, profile: Record<string, string>) => {
+    useAppStore.getState().addToast('Generating a sheet from this portrait…', 'info')
+    void launchGen({
+      profile: { ...(profile as CharacterProfile) },
+      resolution: '4K',
+      kind: 'sheet',
+      aspect: '16:9',
+      referenceUrl: imageRef,
+    })
+  }, [launchGen])
+
+  // Load a past generation's profile + output settings back into the form so
+  // the user can tweak a field and regenerate (the "edit this influencer"
+  // path). Mirrors the reinsert-to-inputs action used across the apps.
+  const handleReuseProfile = useCallback((item: CharacterHistoryItem) => {
+    const incoming = item.profile as Record<string, string>
+    const next = createEmptyProfile()
+    for (const [key, value] of Object.entries(incoming)) {
+      if (key in next && typeof value === 'string') next[key] = value
+    }
+    setProfile(next)
+    if (item.resolution) setResolution(item.resolution as ImageResolution)
+    const wasSheet = item.kind === 'sheet'
+    setSheetMode(wasSheet)
+    if (wasSheet) setSheetAspect(item.aspectRatio.includes('9:16') ? '9:16' : '16:9')
+    useAppStore.getState().addToast('Loaded into the form — tweak and regenerate', 'info')
+  }, [setProfile, setResolution, setSheetMode, setSheetAspect])
 
   const handleCancelGen = (id: string) => {
     const controller = abortersRef.current.get(id)
@@ -323,6 +369,8 @@ export default function CharacterStudio() {
         <GalleryPanel
           inFlight={inFlight}
           onCancelGen={handleCancelGen}
+          onMakeSheet={handleMakeSheetFromPortrait}
+          onReuse={handleReuseProfile}
         />
       </div>
 
