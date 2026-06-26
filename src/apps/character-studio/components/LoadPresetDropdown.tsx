@@ -131,7 +131,8 @@ export default function LoadPresetDropdown({ onLoadProfile }: LoadPresetDropdown
           </div>
           {bankModels.filter((m) => m.jsonProfile).length > 0 && (
             <>
-              <div className="px-1 pb-2 pt-4 text-[9px] font-semibold uppercase tracking-widest text-ink-500">
+              <div className="mx-1 mt-4 border-t border-ink/10" />
+              <div className="px-1 pb-2 pt-3 text-[9px] font-semibold uppercase tracking-widest text-ink-500">
                 Bank
               </div>
               <div className="grid grid-cols-3 gap-2">

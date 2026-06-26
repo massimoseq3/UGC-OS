@@ -21,6 +21,22 @@ interface SegmentedToggleProps<T extends string> {
   // Slimmer padding + smaller icons, sized to sit inline with compact rows
   // (e.g. the sidebar). Keeps the same sliding-indicator animation.
   dense?: boolean
+  // Accent for the active pill. Default 'ink' is the neutral house fill; pass an
+  // app family (e.g. 'scripts') for a solid accent-colored selection.
+  accent?: SegmentedAccent
+}
+
+export type SegmentedAccent = 'ink' | 'scripts'
+
+// Active-pill fill + the active label color that reads on top of it. Literal
+// class strings (Tailwind can't build names from props at runtime).
+const ACCENT_INDICATOR: Record<SegmentedAccent, string> = {
+  ink: 'bg-ink/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] light:shadow-none',
+  scripts: 'bg-scripts-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]',
+}
+const ACCENT_ACTIVE_TEXT: Record<SegmentedAccent, string> = {
+  ink: 'text-ink-100',
+  scripts: 'text-white',
 }
 
 // Rounded pill segmented control — the house replacement for the old
@@ -33,6 +49,7 @@ export default function SegmentedToggle<T extends string>({
   className = '',
   fitContent = false,
   dense = false,
+  accent = 'ink',
 }: SegmentedToggleProps<T>) {
   const containerRef = useRef<HTMLDivElement>(null)
   const buttonRefs = useRef<Map<T, HTMLButtonElement | null>>(new Map())
@@ -64,7 +81,7 @@ export default function SegmentedToggle<T extends string>({
       {indicator && (
         <div
           aria-hidden
-          className="absolute bottom-1 top-1 rounded-full bg-ink/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] light:shadow-none transition-[left,width] duration-200 ease-out"
+          className={`absolute bottom-1 top-1 rounded-full ${ACCENT_INDICATOR[accent]} transition-[left,width] duration-200 ease-out`}
           style={{ left: indicator.left, width: indicator.width }}
         />
       )}
@@ -80,7 +97,7 @@ export default function SegmentedToggle<T extends string>({
             className={`relative z-[1] flex min-w-0 ${fitContent ? '' : 'flex-1'} items-center justify-center rounded-full font-medium tracking-tight transition-colors duration-200 ${
               dense ? 'gap-1.5 px-3 py-1 text-[12px]' : 'gap-2 px-4 py-2.5 text-[13px]'
             } ${
-              active ? 'text-ink-100' : 'text-ink-400 hover:text-ink-200'
+              active ? ACCENT_ACTIVE_TEXT[accent] : 'text-ink-400 hover:text-ink-200'
             }`}
           >
             {Icon && <Icon className={`${dense ? 'h-3.5 w-3.5' : 'h-4 w-4'} shrink-0`} />}

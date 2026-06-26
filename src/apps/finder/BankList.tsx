@@ -10,6 +10,7 @@ import { downloadImage } from '../../utils/downloadImage'
 import { copyToClipboard } from '../../utils/clipboard'
 import GeneratingBackdrop from '../../components/GeneratingBackdrop'
 import { sortByOrder, type SortOrder } from './bankSort'
+import { groupByDay, sectionLabel } from '../../utils/history'
 
 // Custom sort dropdown — replaces the native <select> so the menu is themed
 // (not the stock OS popup) and the trigger font matches the bank toggle.
@@ -327,6 +328,9 @@ function ScriptCard({ item, onEdit, onDelete }: { item: Script; onEdit: () => vo
 
 function BRollCard({ item, onEdit, onDelete }: { item: BRoll; onEdit: () => void; onDelete: () => void }) {
   const [confirm, setConfirm] = useState(false)
+  // Landscape (16:9) stills span three portrait columns, mirroring the
+  // Influencers tab's character sheets. Detected from natural media dimensions.
+  const [landscape, setLandscape] = useState(false)
   const promptPreview = item.prompt.length > 80 ? item.prompt.slice(0, 80) + '…' : item.prompt
   const videoCount = item.videos?.length ?? (item.videoUrl ? 1 : 0)
   // Video-only brolls (text-to-video saves) have no still — fall back to the
@@ -362,21 +366,28 @@ function BRollCard({ item, onEdit, onDelete }: { item: BRoll; onEdit: () => void
   }
 
   return (
-    <div onClick={onEdit} className="group relative cursor-pointer overflow-hidden rounded-2xl border border-ink/5 bg-ink/[0.03] transition-all hover:border-ink/15 hover:bg-ink/[0.05] hover:-translate-y-px card-soft-shadow">
-      {/* Thumbnail — adapts to image's natural aspect ratio */}
-      <div className="relative w-full overflow-hidden">
+    <div onClick={onEdit} className={`group relative cursor-pointer overflow-hidden rounded-2xl border border-ink/5 bg-ink/[0.03] transition-all hover:border-ink/15 hover:bg-ink/[0.05] hover:-translate-y-px card-soft-shadow ${landscape ? 'col-span-2 sm:col-span-3' : ''}`}>
+      {/* Thumbnail — portrait by default; landscape stills go wide (aspect-video)
+          and span three columns, matching the Influencers sheet behaviour. */}
+      <div className={`relative w-full overflow-hidden ${landscape ? 'aspect-video' : 'aspect-[9/16]'}`}>
         {resolvedImage ? (
-          <img src={resolvedImage} alt="" className="block w-full" />
+          <img
+            src={resolvedImage}
+            alt=""
+            onLoad={(e) => setLandscape(e.currentTarget.naturalWidth > e.currentTarget.naturalHeight)}
+            className="absolute inset-0 h-full w-full object-cover"
+          />
         ) : isVideoOnly ? (
           <video
             src={resolvedVideo}
             preload="metadata"
             muted
             playsInline
-            className="block w-full"
+            onLoadedMetadata={(e) => setLandscape(e.currentTarget.videoWidth > e.currentTarget.videoHeight)}
+            className="absolute inset-0 h-full w-full object-cover"
           />
         ) : (
-          <div className="flex aspect-video w-full items-center justify-center bg-ink/[0.04]">
+          <div className="absolute inset-0 flex items-center justify-center bg-ink/[0.04]">
             <Film className="h-10 w-10 text-ink-800" strokeWidth={1} />
           </div>
         )}
@@ -420,7 +431,6 @@ function BRollCard({ item, onEdit, onDelete }: { item: BRoll; onEdit: () => void
       {/* Info — gradient overlay, same pattern as the Influencer cards */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/55 to-transparent p-3 pt-10 text-center">
         <p className="text-[12px] font-medium leading-snug text-zinc-100 line-clamp-2">{promptPreview}</p>
-        <span className="block text-[10px] text-zinc-400">{new Date(item.createdAt).toLocaleDateString()}</span>
       </div>
     </div>
   )
@@ -582,13 +592,36 @@ function ScriptsList({ items, onEdit, onDelete, sort }: { items: Script[]; onEdi
   )
 }
 
-function BRollsList({ items, onEdit, onDelete, sort }: { items: BRoll[]; onEdit: (id: string) => void; onDelete: (id: string) => void; sort: SortOrder }) {
-  const sorted = useMemo(() => sortByOrder(items, sort), [items, sort])
+// Centered date-pill divider — same chrome as the history views, reused here so
+// the B-Roll bank reads as day-grouped generations rather than dated cards.
+function DayPill({ label }: { label: string }) {
   return (
-    <div className="columns-2 sm:columns-3 lg:columns-4 xl:columns-6 gap-3">
-      {sorted.map((b) => (
-        <div key={b.id} className="mb-3 break-inside-avoid">
-          <BRollCard item={b} onEdit={() => onEdit(b.id)} onDelete={() => onDelete(b.id)} />
+    <div className="my-2 flex items-center justify-center">
+      <span className="rounded-full bg-ink/[0.06] px-3 py-1 text-[11px] font-medium text-ink-300">{label}</span>
+    </div>
+  )
+}
+
+function BRollsList({ items, onEdit, onDelete, sort }: { items: BRoll[]; onEdit: (id: string) => void; onDelete: (id: string) => void; sort: SortOrder }) {
+  // Group into day buckets under a date pill (like the history views), so cards
+  // no longer carry their own date. `groupByDay` is newest-day-first; flip it
+  // when the user sorts oldest-first. A grid (not masonry) lets landscape stills
+  // span three portrait columns, matching the Influencers tab.
+  const sorted = useMemo(() => sortByOrder(items, sort), [items, sort])
+  const dayGroups = useMemo(() => {
+    const groups = groupByDay(sorted, (b) => b.createdAt)
+    return sort === 'oldest' ? groups.reverse() : groups
+  }, [sorted, sort])
+  return (
+    <div className="flex flex-col">
+      {dayGroups.map(([dayTs, dayItems]) => (
+        <div key={dayTs}>
+          <DayPill label={sectionLabel(dayTs)} />
+          <div className="grid grid-flow-row-dense grid-cols-2 items-start gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+            {dayItems.map((b) => (
+              <BRollCard key={b.id} item={b} onEdit={() => onEdit(b.id)} onDelete={() => onDelete(b.id)} />
+            ))}
+          </div>
         </div>
       ))}
     </div>

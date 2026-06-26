@@ -175,9 +175,25 @@ export default function BankPicker({
     onClose()
   }
 
+  // Resolve a bank type to its full (unfiltered) item array.
+  const poolFor = (t: BankType): BankItem[] =>
+    t === 'products' ? products :
+    t === 'models' ? models :
+    t === 'scripts' ? scripts :
+    t === 'voices' ? voices :
+    brolls
+
   const handleConfirmMulti = () => {
     if (!onSelectMany || selectedIds.length === 0) return
-    const picked = sorted.filter((it) => selectedIds.includes(it.id))
+    // Resolve selected ids across *every* bank the picker can switch between
+    // (not just the current tab) so a selection spanning multiple tabs is added
+    // in one go. Ids are global UUIDs, so a flat id→item map is unambiguous;
+    // selection order is preserved by walking selectedIds.
+    const tabTypes: BankType[] = normalizedTabs ? normalizedTabs.map((t) => t.type) : [bankType]
+    const byId = new Map<string, BankItem>()
+    for (const t of tabTypes) for (const it of poolFor(t)) byId.set(it.id, it)
+    const picked = selectedIds.map((id) => byId.get(id)).filter((x): x is BankItem => !!x)
+    if (picked.length === 0) return
     onSelectMany(picked)
     onClose()
   }
@@ -250,7 +266,10 @@ export default function BankPicker({
           <div className="flex items-center border-b border-ink/5 px-4 py-3">
             <SegmentedToggle<BankType>
               value={currentBankType}
-              onChange={(t) => { setActiveTab(t); setSearch(''); setSelectedIds([]); setSort('newest') }}
+              // Keep the running multi-select across tabs — only the per-tab
+              // view state (search, sort) resets — so the user can gather refs
+              // from several banks and add them all at once.
+              onChange={(t) => { setActiveTab(t); setSearch(''); setSort('newest') }}
               options={normalizedTabs.map((t) => ({ value: t.type, label: BANK_CONFIG[t.type].label }))}
             />
           </div>
@@ -326,7 +345,7 @@ export default function BankPicker({
                 const isLandscapeBroll = currentBankType === 'brolls' && landscapeIds.has(item.id)
                 const wrapperClass =
                   currentBankType === 'brolls'
-                    ? 'relative mb-2 break-inside-avoid'
+                    ? 'relative mb-3.5 break-inside-avoid'
                     : `relative ${isSheet ? 'col-span-3' : ''}`
                 return (
                   <div
