@@ -233,11 +233,12 @@ function cloudActive(): boolean {
 }
 
 // Backstop timeout for any single cloud round-trip. saveRow/deleteRow are
-// internally self-bounding now (two attempts hard-aborted at 6s each, plus
-// two 3s-capped session checks ≈ 18s worst case), so in practice they settle
-// on their own; this outer guard only exists so a future code path that
-// forgets to bound itself can't freeze a save spinner forever. Must stay
-// ABOVE the inner worst case or it fires mid-retry.
+// internally self-bounding (two attempts hard-aborted at 6s each, plus two
+// 3s-capped session checks ≈ 18s worst case), so in practice they settle on
+// their own; this outer guard only exists so a hung request can't keep a
+// background push pending forever (which would pile up retries). The push runs
+// in the background now — the user never waits on it — so this is invisible to
+// the UI. Must stay ABOVE the inner worst case or it fires mid-retry.
 const CLOUD_SYNC_TIMEOUT_MS = 20_000
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
@@ -252,51 +253,40 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   })
 }
 
-// Cloud-aware single-row save. Awaited; throws on failure or timeout. The row
-// is recorded in the persistent outbox first, so a failed/timed-out push is
-// replayed on the next drain (startup / tab focus / in-session backoff timer —
-// the scheduleOutboxDrain call below is what makes the toast's "will retry
-// syncing automatically" true without a refresh).
-async function pushRow(table: BankKey, row: { id: string }): Promise<void> {
+// Fire-and-forget cloud push for one bank row. The caller has ALREADY written
+// local Zustand state + localStorage synchronously, so the UI must never wait
+// on this network round-trip — awaiting it was the 15-20s "save stuck loading,
+// then times out" hang. Durability survives without the wait: recordPendingUpsert
+// persists the full row to the localStorage outbox synchronously (before the
+// first await below), so even if this push fails or the tab closes mid-flight,
+// the row is overlaid back onto the next cloud hydrate (applyOutbox) and replayed
+// by the scheduled drain. A failure is logged, never toasted — the data is safe
+// on this device and syncs on its own. Returns void: there is nothing for a
+// caller to await.
+function pushRow(table: BankKey, row: { id: string }): void {
   if (!cloudActive()) return
   recordPendingUpsert(table, row)
-  try {
-    await withTimeout(saveRow(table, row), CLOUD_SYNC_TIMEOUT_MS, `Cloud save (${table})`)
-  } catch (e) {
-    scheduleOutboxDrain()
-    throw e
-  }
-  clearPending(table, row.id)
+  void withTimeout(saveRow(table, row), CLOUD_SYNC_TIMEOUT_MS, `Cloud save (${table})`)
+    .then(() => clearPending(table, row.id))
+    .catch((e) => {
+      scheduleOutboxDrain()
+      console.warn(`[bankStore] cloud sync deferred — ${table}/${row.id} saved locally, will retry`, e)
+    })
 }
 
-async function dropRow(table: BankKey, id: string): Promise<void> {
+// Fire-and-forget cloud delete. Same contract as pushRow: the local removal has
+// already happened, and recordPendingDelete persists the intent to the outbox
+// synchronously so a failed/slow delete can't resurrect the row on the next
+// hydrate (applyOutbox replays the deletion).
+function dropRow(table: BankKey, id: string): void {
   if (!cloudActive()) return
   recordPendingDelete(table, id)
-  try {
-    await withTimeout(deleteRow(table, id), CLOUD_SYNC_TIMEOUT_MS, `Cloud delete (${table})`)
-  } catch (e) {
-    scheduleOutboxDrain()
-    throw e
-  }
-  clearPending(table, id)
-}
-
-function reportError(prefix: string, e: unknown) {
-  const msg = e instanceof Error ? e.message : String(e)
-  try { useAppStore.getState().addToast(`${prefix}: ${msg}`, 'error') } catch { /* ignore */ }
-  throw e
-}
-
-// Like reportError but doesn't re-throw — used by auto-history writes that
-// must keep local state in sync even when the cloud upsert fails (e.g. a
-// missing table migration, a transient RLS hiccup, network drop). The
-// toast still surfaces the failure so the user knows cloud sync didn't
-// land, but the local row is preserved so the gallery doesn't silently
-// drop the generation.
-function reportErrorSoft(prefix: string, e: unknown) {
-  const msg = e instanceof Error ? e.message : String(e)
-  console.warn(`[bankStore] ${prefix}:`, e)
-  try { useAppStore.getState().addToast(`${prefix}: ${msg}`, 'error') } catch { /* ignore */ }
+  void withTimeout(deleteRow(table, id), CLOUD_SYNC_TIMEOUT_MS, `Cloud delete (${table})`)
+    .then(() => clearPending(table, id))
+    .catch((e) => {
+      scheduleOutboxDrain()
+      console.warn(`[bankStore] cloud delete deferred — ${table}/${id} removed locally, will retry`, e)
+    })
 }
 
 // Tiny helper so each action can fire one consistent confirmation toast.
@@ -316,11 +306,12 @@ export const useBankStore = create<BankState>((set, get) => ({
   ...loadFromStorage(),
 
   // ── Products ─────────────────────────────────────────────────────
-  // Every CRUD add/update writes local state BEFORE awaiting the cloud
-  // round-trip. If the cloud push hangs or times out, the bank still
-  // reflects the user's action — `reportError` then surfaces the failure
-  // as a toast and rethrows so callers can react. This is what unblocks
-  // the Characters "Save to Bank" spinner when Supabase is unresponsive.
+  // Every add/update/delete writes local Zustand state + localStorage FIRST
+  // (synchronously), then kicks the cloud sync in the background via
+  // pushRow/dropRow. The UI never waits on the network — the action resolves as
+  // soon as the local write lands, and the outbox guarantees the row reaches the
+  // cloud eventually. This is what keeps the "Save to Bank" / "Add Product"
+  // buttons from hanging when Supabase is slow or unreachable.
   addProduct: async (product) => {
     const newProduct: Product = { ...product, id: generateId(), createdAt: Date.now() }
     set((state) => {
@@ -328,7 +319,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
-    try { await pushRow('products', newProduct) } catch (e) { reportError('Save product', e) }
+    pushRow('products', newProduct)
     reportSuccess('Product saved')
     return newProduct.id
   },
@@ -345,20 +336,20 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
-    try { await pushRow('products', updated) } catch (e) { reportError('Update product', e) }
+    pushRow('products', updated)
     reportSuccess('Product updated')
   },
 
   deleteProduct: async (id) => {
     const item = get().products.find((p) => p.id === id)
     if (!item) return
-    try { await dropRow('products', id) } catch (e) { reportError('Delete product', e) }
-    if (item.productImage) await cleanupAssets(item.productImage)
     set((state) => {
       const next = { products: state.products.filter((p) => p.id !== id) }
       saveToStorage({ ...state, ...next })
       return next
     })
+    dropRow('products', id)
+    if (item.productImage) void cleanupAssets(item.productImage)
     reportSuccess('Product deleted')
   },
 
@@ -372,7 +363,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
-    try { await pushRow('models', newModel) } catch (e) { reportError('Save influencer', e) }
+    pushRow('models', newModel)
     reportSuccess('Influencer saved')
   },
 
@@ -394,27 +385,27 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
-    try { await pushRow('models', updated) } catch (e) { reportError('Update influencer', e) }
+    pushRow('models', updated)
     reportSuccess('Influencer updated')
   },
 
   deleteModel: async (id) => {
     const item = get().models.find((m) => m.id === id)
     if (!item) return
-    try { await dropRow('models', id) } catch (e) { reportError('Delete influencer', e) }
-    // Keep the blob if a character-history row still references it (e.g. when
-    // un-saving a studio influencer — the gallery tile shares this image).
-    if (item.characterImage && !get().characterHistory.some((h) => h.imageRef === item.characterImage)) {
-      await cleanupAssets(item.characterImage)
-    }
-    if (item.sheetImage && !get().characterHistory.some((h) => h.imageRef === item.sheetImage)) {
-      await cleanupAssets(item.sheetImage)
-    }
     set((state) => {
       const next = { models: state.models.filter((m) => m.id !== id) }
       saveToStorage({ ...state, ...next })
       return next
     })
+    dropRow('models', id)
+    // Keep the blob if a character-history row still references it (e.g. when
+    // un-saving a studio influencer — the gallery tile shares this image).
+    if (item.characterImage && !get().characterHistory.some((h) => h.imageRef === item.characterImage)) {
+      void cleanupAssets(item.characterImage)
+    }
+    if (item.sheetImage && !get().characterHistory.some((h) => h.imageRef === item.sheetImage)) {
+      void cleanupAssets(item.sheetImage)
+    }
     reportSuccess('Influencer deleted')
   },
 
@@ -428,7 +419,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
-    try { await pushRow('scripts', newScript) } catch (e) { reportError('Save script', e) }
+    pushRow('scripts', newScript)
     reportSuccess('Script saved')
   },
 
@@ -441,19 +432,19 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
-    try { await pushRow('scripts', updated) } catch (e) { reportError('Update script', e) }
+    pushRow('scripts', updated)
     reportSuccess('Script updated')
   },
 
   deleteScript: async (id) => {
     const item = get().scripts.find((s) => s.id === id)
     if (!item) return
-    try { await dropRow('scripts', id) } catch (e) { reportError('Delete script', e) }
     set((state) => {
       const next = { scripts: state.scripts.filter((s) => s.id !== id) }
       saveToStorage({ ...state, ...next })
       return next
     })
+    dropRow('scripts', id)
     reportSuccess('Script deleted')
   },
 
@@ -467,7 +458,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
-    try { await pushRow('voices', newVoice) } catch (e) { reportError('Save voice', e) }
+    pushRow('voices', newVoice)
     reportSuccess('Voice saved')
   },
 
@@ -480,19 +471,19 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
-    try { await pushRow('voices', updated) } catch (e) { reportError('Update voice', e) }
+    pushRow('voices', updated)
     reportSuccess('Voice updated')
   },
 
   deleteVoice: async (id) => {
     const item = get().voices.find((v) => v.id === id)
     if (!item) return
-    try { await dropRow('voices', id) } catch (e) { reportError('Delete voice', e) }
     set((state) => {
       const next = { voices: state.voices.filter((v) => v.id !== id) }
       saveToStorage({ ...state, ...next })
       return next
     })
+    dropRow('voices', id)
     reportSuccess('Voice deleted')
   },
 
@@ -506,7 +497,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
-    try { await pushRow('brolls', newBRoll) } catch (e) { reportError('Save B-roll', e) }
+    pushRow('brolls', newBRoll)
     reportSuccess('Saved to B-Rolls bank')
     return newBRoll.id
   },
@@ -523,25 +514,23 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
-    try { await pushRow('brolls', updated) } catch (e) { reportError('Update B-roll', e) }
+    pushRow('brolls', updated)
     reportSuccess('B-roll updated')
   },
 
   deleteBRoll: async (id) => {
     const item = get().brolls.find((b) => b.id === id)
     if (!item) return
-    try { await dropRow('brolls', id) } catch (e) { reportError('Delete B-roll', e) }
-    if (item) {
-      await cleanupAssets(item.imageUrl, item.videoUrl)
-      if (item.videos) {
-        for (const v of item.videos) await cleanupAssets(v.url)
-      }
-    }
     set((state) => {
       const next = { brolls: state.brolls.filter((b) => b.id !== id) }
       saveToStorage({ ...state, ...next })
       return next
     })
+    dropRow('brolls', id)
+    void cleanupAssets(item.imageUrl, item.videoUrl)
+    if (item.videos) {
+      for (const v of item.videos) void cleanupAssets(v.url)
+    }
     reportSuccess('B-roll deleted')
   },
 
@@ -558,35 +547,33 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
-    try { await pushRow('voiceHistory', item) } catch (e) { reportErrorSoft('Save voice history', e) }
+    pushRow('voiceHistory', item)
   },
 
   deleteVoiceHistory: async (id) => {
     const item = get().voiceHistory.find((h) => h.id === id)
     if (!item) return
-    try { await dropRow('voiceHistory', id) } catch (e) { reportErrorSoft('Delete voice history', e) }
-    if (item.audioUrl) await cleanupAssets(item.audioUrl)
     set((state) => {
       const next = { voiceHistory: state.voiceHistory.filter((h) => h.id !== id) }
       saveToStorage({ ...state, ...next })
       return next
     })
+    dropRow('voiceHistory', id)
+    if (item.audioUrl) void cleanupAssets(item.audioUrl)
     reportSuccess('Voiceover removed from history')
   },
 
   clearVoiceHistory: async () => {
     const items = get().voiceHistory
-    if (cloudActive()) {
-      for (const item of items) {
-        try { await dropRow('voiceHistory', item.id) } catch (e) { console.warn('clear voice history', e) }
-      }
-    }
-    for (const item of items) await cleanupAssets(item.audioUrl)
     set((state) => {
       const next = { voiceHistory: [] as VoiceHistoryItem[] }
       saveToStorage({ ...state, ...next })
       return next
     })
+    for (const item of items) {
+      dropRow('voiceHistory', item.id)
+      void cleanupAssets(item.audioUrl)
+    }
     reportSuccess('Voice history cleared')
   },
 
@@ -597,7 +584,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
-    try { await pushRow('videoHistory', item) } catch (e) { reportErrorSoft('Save video history', e) }
+    pushRow('videoHistory', item)
   },
 
   updateVideoHistory: async (id, updates) => {
@@ -609,37 +596,33 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
-    try { await pushRow('videoHistory', updated) } catch (e) { reportErrorSoft('Update video history', e) }
+    pushRow('videoHistory', updated)
   },
 
   deleteVideoHistory: async (id) => {
     const item = get().videoHistory.find((h) => h.id === id)
     if (!item) return
-    try { await dropRow('videoHistory', id) } catch (e) { reportErrorSoft('Delete video history', e) }
-    if (!item.linkedBRollId) await cleanupAssets(item.videoUrl, item.thumbnailUrl)
     set((state) => {
       const next = { videoHistory: state.videoHistory.filter((h) => h.id !== id) }
       saveToStorage({ ...state, ...next })
       return next
     })
+    dropRow('videoHistory', id)
+    if (!item.linkedBRollId) void cleanupAssets(item.videoUrl, item.thumbnailUrl)
     reportSuccess('Video removed from history')
   },
 
   clearVideoHistory: async () => {
     const items = get().videoHistory
-    if (cloudActive()) {
-      for (const item of items) {
-        try { await dropRow('videoHistory', item.id) } catch (e) { console.warn('clear video history', e) }
-      }
-    }
-    for (const item of items) {
-      if (!item.linkedBRollId) await cleanupAssets(item.videoUrl, item.thumbnailUrl)
-    }
     set((state) => {
       const next = { videoHistory: [] as VideoHistoryItem[] }
       saveToStorage({ ...state, ...next })
       return next
     })
+    for (const item of items) {
+      dropRow('videoHistory', item.id)
+      if (!item.linkedBRollId) void cleanupAssets(item.videoUrl, item.thumbnailUrl)
+    }
     reportSuccess('Video history cleared')
   },
 
@@ -650,7 +633,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
-    try { await pushRow('imageHistory', item) } catch (e) { reportErrorSoft('Save image history', e) }
+    pushRow('imageHistory', item)
   },
 
   updateImageHistory: async (id, updates) => {
@@ -662,39 +645,35 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
-    try { await pushRow('imageHistory', updated) } catch (e) { reportErrorSoft('Update image history', e) }
+    pushRow('imageHistory', updated)
   },
 
   deleteImageHistory: async (id) => {
     const item = get().imageHistory.find((h) => h.id === id)
     if (!item) return
-    try { await dropRow('imageHistory', id) } catch (e) { reportErrorSoft('Delete image history', e) }
-    // Only purge the asset blob if the image isn't saved to a BRoll record
-    // — saved entries reference the same `imageUrl`, and the BRoll owns it.
-    if (!item.linkedBRollId) await cleanupAssets(item.imageUrl)
     set((state) => {
       const next = { imageHistory: state.imageHistory.filter((h) => h.id !== id) }
       saveToStorage({ ...state, ...next })
       return next
     })
+    dropRow('imageHistory', id)
+    // Only purge the asset blob if the image isn't saved to a BRoll record
+    // — saved entries reference the same `imageUrl`, and the BRoll owns it.
+    if (!item.linkedBRollId) void cleanupAssets(item.imageUrl)
     reportSuccess('Image removed from history')
   },
 
   clearImageHistory: async () => {
     const items = get().imageHistory
-    if (cloudActive()) {
-      for (const item of items) {
-        try { await dropRow('imageHistory', item.id) } catch (e) { console.warn('clear image history', e) }
-      }
-    }
-    for (const item of items) {
-      if (!item.linkedBRollId) await cleanupAssets(item.imageUrl)
-    }
     set((state) => {
       const next = { imageHistory: [] as ImageHistoryItem[] }
       saveToStorage({ ...state, ...next })
       return next
     })
+    for (const item of items) {
+      dropRow('imageHistory', item.id)
+      if (!item.linkedBRollId) void cleanupAssets(item.imageUrl)
+    }
     reportSuccess('Image history cleared')
   },
 
@@ -705,7 +684,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
-    try { await pushRow('musicHistory', item) } catch (e) { reportErrorSoft('Save music history', e) }
+    pushRow('musicHistory', item)
   },
 
   updateMusicHistory: async (id, updates) => {
@@ -717,35 +696,33 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
-    try { await pushRow('musicHistory', updated) } catch (e) { reportErrorSoft('Update music history', e) }
+    pushRow('musicHistory', updated)
   },
 
   deleteMusicHistory: async (id) => {
     const item = get().musicHistory.find((h) => h.id === id)
     if (!item) return
-    try { await dropRow('musicHistory', id) } catch (e) { reportErrorSoft('Delete music history', e) }
-    await cleanupAssets(item.audioRef, item.coverImageRef)
     set((state) => {
       const next = { musicHistory: state.musicHistory.filter((h) => h.id !== id) }
       saveToStorage({ ...state, ...next })
       return next
     })
+    dropRow('musicHistory', id)
+    void cleanupAssets(item.audioRef, item.coverImageRef)
     reportSuccess('Track removed from history')
   },
 
   clearMusicHistory: async () => {
     const items = get().musicHistory
-    if (cloudActive()) {
-      for (const item of items) {
-        try { await dropRow('musicHistory', item.id) } catch (e) { console.warn('clear music history', e) }
-      }
-    }
-    for (const item of items) await cleanupAssets(item.audioRef, item.coverImageRef)
     set((state) => {
       const next = { musicHistory: [] as MusicHistoryItem[] }
       saveToStorage({ ...state, ...next })
       return next
     })
+    for (const item of items) {
+      dropRow('musicHistory', item.id)
+      void cleanupAssets(item.audioRef, item.coverImageRef)
+    }
     reportSuccess('Music history cleared')
   },
 
@@ -758,31 +735,27 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
-    try { await pushRow('scriptHistory', item) } catch (e) { reportErrorSoft('Save script history', e) }
+    pushRow('scriptHistory', item)
   },
 
   deleteScriptHistory: async (id) => {
-    try { await dropRow('scriptHistory', id) } catch (e) { reportErrorSoft('Delete script history', e) }
     set((state) => {
       const next = { scriptHistory: state.scriptHistory.filter((h) => h.id !== id) }
       saveToStorage({ ...state, ...next })
       return next
     })
+    dropRow('scriptHistory', id)
     reportSuccess('Script removed from history')
   },
 
   clearScriptHistory: async () => {
     const items = get().scriptHistory
-    if (cloudActive()) {
-      for (const item of items) {
-        try { await dropRow('scriptHistory', item.id) } catch (e) { console.warn('clear script history', e) }
-      }
-    }
     set((state) => {
       const next = { scriptHistory: [] as ScriptHistoryItem[] }
       saveToStorage({ ...state, ...next })
       return next
     })
+    for (const item of items) dropRow('scriptHistory', item.id)
     reportSuccess('Script history cleared')
   },
 
@@ -803,40 +776,31 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
-    // Driven by a ~1s-debounced autosave effect, so swallow push failures to a
-    // console warning instead of a toast — the outbox + scheduled drain (armed
-    // inside pushRow) already guarantee the row syncs on the next attempt.
-    try { await pushRow('brollHistory', item) } catch (e) { console.warn('[bankStore] save broll history', e) }
+    pushRow('brollHistory', item)
     // Drop entries that fell off the cap from the cloud too, or hydrate (which
     // pulls every row) would resurrect them. Their asset blobs are reclaimed by
     // the orphan sweep once nothing else references them.
-    for (const old of evicted) {
-      try { await dropRow('brollHistory', old.id) } catch (e) { console.warn('trim broll history', e) }
-    }
+    for (const old of evicted) dropRow('brollHistory', old.id)
   },
 
   deleteBrollHistory: async (id) => {
-    try { await dropRow('brollHistory', id) } catch (e) { reportErrorSoft('Delete B-Roll history', e) }
     set((state) => {
       const next = { brollHistory: state.brollHistory.filter((h) => h.id !== id) }
       saveToStorage({ ...state, ...next })
       return next
     })
+    dropRow('brollHistory', id)
     reportSuccess('Session removed from history')
   },
 
   clearBrollHistory: async () => {
     const items = get().brollHistory
-    if (cloudActive()) {
-      for (const item of items) {
-        try { await dropRow('brollHistory', item.id) } catch (e) { console.warn('clear broll history', e) }
-      }
-    }
     set((state) => {
       const next = { brollHistory: [] as BrollHistoryItem[] }
       saveToStorage({ ...state, ...next })
       return next
     })
+    for (const item of items) dropRow('brollHistory', item.id)
     reportSuccess('B-Roll history cleared')
   },
 
@@ -849,7 +813,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
-    try { await pushRow('characterHistory', item) } catch (e) { reportErrorSoft('Save influencer history', e) }
+    pushRow('characterHistory', item)
   },
 
   updateCharacterHistory: async (id, updates) => {
@@ -861,39 +825,35 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
-    try { await pushRow('characterHistory', updated) } catch (e) { reportErrorSoft('Update influencer history', e) }
+    pushRow('characterHistory', updated)
   },
 
   deleteCharacterHistory: async (id) => {
     const item = get().characterHistory.find((h) => h.id === id)
     if (!item) return
-    try { await dropRow('characterHistory', id) } catch (e) { reportErrorSoft('Delete influencer history', e) }
-    // Only purge the asset blob if it isn't referenced by a saved Model.
-    // The Model owns the image once saved; the history row is just an index.
-    if (!item.linkedModelId) await cleanupAssets(item.imageRef)
     set((state) => {
       const next = { characterHistory: state.characterHistory.filter((h) => h.id !== id) }
       saveToStorage({ ...state, ...next })
       return next
     })
+    dropRow('characterHistory', id)
+    // Only purge the asset blob if it isn't referenced by a saved Model.
+    // The Model owns the image once saved; the history row is just an index.
+    if (!item.linkedModelId) void cleanupAssets(item.imageRef)
     reportSuccess('Influencer removed from history')
   },
 
   clearCharacterHistory: async () => {
     const items = get().characterHistory
-    if (cloudActive()) {
-      for (const item of items) {
-        try { await dropRow('characterHistory', item.id) } catch (e) { console.warn('clear character history', e) }
-      }
-    }
-    for (const item of items) {
-      if (!item.linkedModelId) await cleanupAssets(item.imageRef)
-    }
     set((state) => {
       const next = { characterHistory: [] as CharacterHistoryItem[] }
       saveToStorage({ ...state, ...next })
       return next
     })
+    for (const item of items) {
+      dropRow('characterHistory', item.id)
+      if (!item.linkedModelId) void cleanupAssets(item.imageRef)
+    }
     reportSuccess('Influencer history cleared')
   },
 
@@ -904,7 +864,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
-    try { await pushRow('adAnatomyHistory', item) } catch (e) { reportErrorSoft('Save ad analysis', e) }
+    pushRow('adAnatomyHistory', item)
   },
 
   updateAdAnatomyHistory: async (id, updates) => {
@@ -916,35 +876,33 @@ export const useBankStore = create<BankState>((set, get) => ({
       saveToStorage({ ...state, ...next })
       return next
     })
-    try { await pushRow('adAnatomyHistory', updated) } catch (e) { reportErrorSoft('Update ad analysis', e) }
+    pushRow('adAnatomyHistory', updated)
   },
 
   deleteAdAnatomyHistory: async (id) => {
     const item = get().adAnatomyHistory.find((h) => h.id === id)
     if (!item) return
-    try { await dropRow('adAnatomyHistory', id) } catch (e) { reportErrorSoft('Delete ad analysis', e) }
-    await cleanupAssets(item.thumbnailRef, item.uploadedRef)
     set((state) => {
       const next = { adAnatomyHistory: state.adAnatomyHistory.filter((h) => h.id !== id) }
       saveToStorage({ ...state, ...next })
       return next
     })
+    dropRow('adAnatomyHistory', id)
+    void cleanupAssets(item.thumbnailRef, item.uploadedRef)
     reportSuccess('Analysis removed from history')
   },
 
   clearAdAnatomyHistory: async () => {
     const items = get().adAnatomyHistory
-    if (cloudActive()) {
-      for (const item of items) {
-        try { await dropRow('adAnatomyHistory', item.id) } catch (e) { console.warn('clear ad analysis history', e) }
-      }
-    }
-    for (const item of items) await cleanupAssets(item.thumbnailRef, item.uploadedRef)
     set((state) => {
       const next = { adAnatomyHistory: [] as AdAnatomyHistoryItem[] }
       saveToStorage({ ...state, ...next })
       return next
     })
+    for (const item of items) {
+      dropRow('adAnatomyHistory', item.id)
+      void cleanupAssets(item.thumbnailRef, item.uploadedRef)
+    }
     reportSuccess('Ad Analyzer history cleared')
   },
 
