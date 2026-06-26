@@ -480,18 +480,22 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                         />
                       )}
                       {videoConstraints.supportsAudio && (
-                        <button
-                          type="button"
-                          onClick={() => onUpdateState({ cardVideoAudio: !cardState.cardVideoAudio })}
-                          className={`flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full border px-3.5 text-[12px] transition-colors ${
-                            cardState.cardVideoAudio
-                              ? 'border-broll-500/40 bg-broll-500/15 text-broll-200'
-                              : 'border-ink/10 bg-ink/[0.02] text-ink-400 hover:bg-ink/[0.05]'
-                          }`}
-                        >
-                          {cardState.cardVideoAudio ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
-                          <span>{cardState.cardVideoAudio ? 'Audio' : 'Mute'}</span>
-                        </button>
+                        <ConstraintChip
+                          grow
+                          openDirection="down"
+                          options={['Audio', 'Mute']}
+                          value={cardState.cardVideoAudio ? 'Audio' : 'Mute'}
+                          onChange={(v) => onUpdateState({ cardVideoAudio: v === 'Audio' })}
+                          triggerClassName={cardState.cardVideoAudio
+                            ? 'border-broll-500/40 bg-broll-500/15 text-broll-200'
+                            : 'border-ink/10 bg-ink/[0.02] text-ink-400 group-hover:bg-ink/[0.05]'}
+                          render={(v) => (
+                            <span className="flex items-center gap-1.5">
+                              {v === 'Audio' ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
+                              <span>{v}</span>
+                            </span>
+                          )}
+                        />
                       )}
                     </div>
                   )}

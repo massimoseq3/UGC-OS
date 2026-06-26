@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
-
-// Compact chip-styled dropdown used for video/image constraint pickers
-// (aspect ratio, duration, resolution). Shared by Playground's PromptPanel
-// and B-Roll's InputPanel so the two surfaces feel like one app.
+// Compact chip-styled picker used for video/image constraint pickers
+// (aspect ratio, duration, resolution, audio). The options reveal on HOVER —
+// and on keyboard focus — matching the reference-image hover overlays used
+// elsewhere in the app, so there's no extra click just to open the menu.
+// Shared by Playground, B-Roll and Influencers so the surfaces feel like one
+// app.
 export default function ConstraintChip({
   options,
   value,
@@ -13,6 +14,7 @@ export default function ConstraintChip({
   align = 'left',
   size = 'md',
   grow = false,
+  triggerClassName,
 }: {
   options: string[]
   value: string
@@ -31,39 +33,36 @@ export default function ConstraintChip({
   // When true, the chip flexes to fill its share of the row (used to spread the
   // constraint chips across the full width under the model picker).
   grow?: boolean
+  // Overrides the trigger's border/background/text classes (the default is a
+  // neutral chip). Used by the audio pill to keep its tinted accent when on.
+  triggerClassName?: string
 }) {
-  const [open, setOpen] = useState(false)
-  const wrapperRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!open) return
-    function onClick(e: MouseEvent) {
-      if (!wrapperRef.current?.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', onClick)
-    return () => document.removeEventListener('mousedown', onClick)
-  }, [open])
   return (
-    <div ref={wrapperRef} className={`relative ${grow ? 'flex-1' : ''}`}>
+    <div className={`group relative ${grow ? 'flex-1' : ''}`}>
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
-        className={`flex items-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.02] text-ink-300 transition-colors hover:bg-ink/[0.05] ${
-          grow ? 'w-full justify-center' : ''
-        } ${size === 'lg' ? 'h-12 px-4 text-[13px]' : 'h-9 px-3.5 text-[12px]'}`}
+        className={`flex items-center gap-1.5 rounded-full border transition-colors ${
+          triggerClassName ?? 'border-ink/10 bg-ink/[0.02] text-ink-300 group-hover:bg-ink/[0.05]'
+        } ${grow ? 'w-full justify-center' : ''} ${
+          size === 'lg' ? 'h-12 px-4 text-[13px]' : 'h-9 px-3.5 text-[12px]'
+        }`}
       >
         {render ? render(value) : <span>{value}</span>}
       </button>
-      {open && (
-        <div
-          className={`absolute z-40 min-w-[140px] overflow-hidden rounded-2xl border border-ink/10 bg-surface-2/95 p-1 shadow-xl backdrop-blur-xl ${
-            openDirection === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'
-          } ${align === 'right' ? 'right-0' : 'left-0'}`}
-        >
+      {/* Hover/focus reveal. The outer wrapper has no margin (it uses padding
+          instead) so there's no dead gap between the trigger and the menu —
+          the cursor can travel onto the options without the menu closing. */}
+      <div
+        className={`pointer-events-none absolute z-40 opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 ${
+          openDirection === 'up' ? 'bottom-full pb-1' : 'top-full pt-1'
+        } ${align === 'right' ? 'right-0' : 'left-0'}`}
+      >
+        <div className="min-w-[140px] overflow-hidden rounded-2xl border border-ink/10 bg-surface-2/95 p-1 shadow-xl backdrop-blur-xl">
           {options.map((opt) => (
             <button
               key={opt}
               type="button"
-              onClick={() => { onChange(opt); setOpen(false) }}
+              onClick={() => onChange(opt)}
               className={`flex w-full items-center whitespace-nowrap rounded-full px-3 py-1.5 text-left text-[11px] transition-colors ${
                 opt === value ? 'bg-ink/[0.08] text-ink-100' : 'text-ink-300 hover:bg-ink/[0.05]'
               }`}
@@ -72,7 +71,7 @@ export default function ConstraintChip({
             </button>
           ))}
         </div>
-      )}
+      </div>
     </div>
   )
 }
