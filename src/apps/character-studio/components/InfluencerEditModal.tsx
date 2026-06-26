@@ -135,7 +135,7 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
   const resolutionOptions = (imageConstraints?.resolutions ?? []) as string[]
   const aspectOptions = imageConstraints?.aspectRatios ?? []
   // A sheet only makes sense in a turnaround (16:9) or stacked (9:16) layout.
-  const sheetAspectOptions = aspectOptions.filter((a) => a === '16:9' || a === '9:16')
+  const sheetAspectOptions: string[] = aspectOptions.filter((a) => a === '16:9' || a === '9:16')
 
   // Resolution is shared across modes; flipping to Sheet bumps to a crisp tier
   // (sheets pack many panels into one frame) and flipping back restores it.
