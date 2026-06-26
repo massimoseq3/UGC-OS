@@ -322,10 +322,10 @@ function HistoryTile({
           title={deleting ? 'Deleting…' : confirmingDelete ? 'Click again to delete' : 'Delete'}
           onClick={handleDelete}
           disabled={deleting}
-          className={`flex h-8 items-center justify-center gap-1 rounded-full border px-2 backdrop-blur transition-colors disabled:cursor-wait ${
+          className={`flex h-8 items-center justify-center gap-1 rounded-full border px-2 transition-colors disabled:cursor-wait ${
             confirmingDelete
-              ? 'border-red-400/60 bg-red-500/45 text-red-50'
-              : 'border-white/20 bg-black/35 text-white hover:bg-red-500/30 hover:text-red-100 hover:border-red-400/40 disabled:hover:bg-black/35 disabled:hover:text-white'
+              ? 'border-red-400/60 bg-red-500/55 text-red-50'
+              : 'border-white/20 bg-black/55 text-white hover:bg-red-500/45 hover:text-red-100 hover:border-red-400/40 disabled:hover:bg-black/55 disabled:hover:text-white'
           }`}
         >
           {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
@@ -375,6 +375,11 @@ function HistoryTile({
         </div>
       ) : (
         <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          {/* Order mirrors the Playground gallery: Copy prompt · Save · Download,
+              with Download anchored at the bottom-right corner. */}
+          <TileIconButton title={copiedPrompt ? 'Prompt copied' : 'Copy prompt'} onClick={handleCopyPrompt}>
+            {copiedPrompt ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
+          </TileIconButton>
           <TileIconButton
             title={savedAsModel ? 'Saved — click to remove from Bank' : savingToBank ? 'Saving…' : 'Save to Bank'}
             tone={savedAsModel ? 'saved' : 'default'}
@@ -384,9 +389,6 @@ function HistoryTile({
           </TileIconButton>
           <TileIconButton title="Download image" onClick={handleDownload}>
             <Download className="h-4 w-4" />
-          </TileIconButton>
-          <TileIconButton title={copiedPrompt ? 'Prompt copied' : 'Copy prompt'} onClick={handleCopyPrompt}>
-            {copiedPrompt ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
           </TileIconButton>
         </div>
       )}
@@ -413,15 +415,18 @@ function TileIconButton({
   title: string
   tone?: 'default' | 'saved'
 }) {
+  // Solid (no backdrop-blur): the cluster fades its opacity in on hover, and
+  // animating opacity over a backdrop-filter makes Chrome recompute the blur
+  // every frame — visibly choppy. A more opaque scrim reads cleanly instead.
   const toneClass = tone === 'saved'
-    ? 'border-emerald-400/50 bg-emerald-500/30 text-emerald-100'
-    : 'border-white/20 bg-black/35 text-white hover:bg-black/50'
+    ? 'border-emerald-400/50 bg-emerald-500/45 text-emerald-100'
+    : 'border-white/20 bg-black/55 text-white hover:bg-black/70'
   return (
     <button
       type="button"
       title={title}
       onClick={onClick}
-      className={`flex h-8 w-8 items-center justify-center rounded-full border backdrop-blur transition-colors ${toneClass}`}
+      className={`flex h-8 w-8 items-center justify-center rounded-full border transition-colors ${toneClass}`}
     >
       {children}
     </button>
