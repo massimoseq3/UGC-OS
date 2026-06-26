@@ -371,7 +371,10 @@ export default function InputPanel({
     <div className="flex flex-col md:h-full">
       {/* Mode toggle — rounded segmented pill, mirrored by the Output/History
           toggle in the right panel so both strips share the same baseline. */}
-      <div className="flex shrink-0 items-center border-b border-ink/10 px-5 pb-3 pt-4">
+      {/* Full-width divider in the subtle vertical-divider tone (border-ink/5).
+          Mirrored under the right column's Output/History toggle (same pt-4/pb-3
+          + pill height) so the line runs cleanly across both columns. */}
+      <div className="flex shrink-0 items-center border-b border-ink/5 px-5 pb-3 pt-4">
         <SegmentedToggle<ScriptMode>
           value={mode}
           onChange={onModeChange}
@@ -386,7 +389,7 @@ export default function InputPanel({
       {/* Scrollable inputs — a flex column so step 1's textarea can absorb
           leftover height (same expand-don't-scroll pattern as Playground).
           Tight top padding so the first section sits close to the toggle. */}
-      <div className="flex flex-1 flex-col overflow-y-auto px-5 pb-5 pt-2">
+      <div className="flex flex-1 flex-col overflow-y-auto px-5 pb-5 pt-4">
         {mode === 'write' ? (
           <>
             {/* Output — the sub-mode. It governs the form below (Style vs
@@ -403,7 +406,6 @@ export default function InputPanel({
               <div className="mt-2">
                 <SegmentedToggle<WriteFormat>
                   className="h-12 !p-1"
-                  accent="scripts"
                   value={writeFormat}
                   onChange={handleFormatChange}
                   options={[
@@ -505,7 +507,6 @@ export default function InputPanel({
                 <div className="mt-2">
                   <SegmentedToggle<string>
                     className="h-12 !p-1"
-                    accent="scripts"
                     value={String(writeLength)}
                     onChange={(v) => onWriteLengthChange(Number(v) as WriteLength)}
                     options={(isPromptFormat ? PROMPT_LENGTHS : WRITE_LENGTHS).map((len) => ({ value: String(len), label: `${len}s` }))}

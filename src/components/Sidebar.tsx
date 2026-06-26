@@ -1,14 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
-import { Coins, Menu, RefreshCw, Settings } from 'lucide-react'
+import { Coins, Menu, RefreshCw, Settings, Moon, Sun, Monitor } from 'lucide-react'
 import { useAppStore } from '../stores/appStore'
 import { useAuthStore } from '../stores/authStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useCreditsStore } from '../stores/creditsStore'
+import { useThemeStore, type ThemePref } from '../stores/themeStore'
 import { APP_REGISTRY, CATEGORY_LABELS, type AppCategory, type AppConfig } from '../utils/constants'
 import AppLogo from './AppLogo'
+import SegmentedToggle from './SegmentedToggle'
 import SettingsModal from './SettingsModal'
 import UserMenu from './auth/UserMenu'
 import { useIsDesktop } from '../hooks/useBreakpoint'
+
+// Labels feed the aria/title intent; the sidebar renders icons only.
+const THEME_OPTIONS: Array<{ value: ThemePref; label: string; icon: typeof Sun }> = [
+  { value: 'dark', label: 'Dark', icon: Moon },
+  { value: 'light', label: 'Light', icon: Sun },
+  { value: 'system', label: 'System', icon: Monitor },
+]
 
 const SECTION_ORDER: AppCategory[] = ['library', 'create', 'tools', 'admin']
 
@@ -129,6 +138,8 @@ export default function Sidebar() {
             <>
               {/* Credit balance sits on top, above the account group. */}
               <CreditsChip collapsed={false} />
+              {/* Appearance — sits directly under credits, sized to match it. */}
+              <SidebarThemeToggle collapsed={false} />
               {/* Account group — Settings + My Account read as one set of rows. */}
               <div className="mt-2 space-y-0.5">
                 <SidebarRow
@@ -143,6 +154,7 @@ export default function Sidebar() {
           ) : (
             <div className="space-y-1">
               <CreditsChip collapsed />
+              <SidebarThemeToggle collapsed />
               <SidebarRow
                 app={{ id: 'settings', name: 'Settings', icon: Settings, accent: '#a1a1aa', category: 'tools' }}
                 active={false}
@@ -263,6 +275,25 @@ function CreditsChip({ collapsed }: { collapsed: boolean }) {
         <span className="text-ink-500"> credits left</span>
       </span>
     </button>
+  )
+}
+
+// Dark / Light / System switcher in the footer, right under the credits chip.
+// Expanded: a labelled dense pill sized h-9 to match the credits chip so the
+// two read as a matched pair. Collapsed: icon-only segments in the narrow rail.
+function SidebarThemeToggle({ collapsed }: { collapsed: boolean }) {
+  const pref = useThemeStore((s) => s.pref)
+  const setPref = useThemeStore((s) => s.setPref)
+
+  return (
+    <SegmentedToggle<ThemePref>
+      dense
+      className={collapsed ? '' : 'mt-2 h-9'}
+      value={pref}
+      onChange={setPref}
+      // Icon only in both states — Moon (dark) / Sun (light) / Monitor (system).
+      options={THEME_OPTIONS.map(({ value, icon }) => ({ value, label: '', icon }))}
+    />
   )
 }
 

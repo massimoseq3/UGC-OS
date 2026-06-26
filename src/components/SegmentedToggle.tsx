@@ -21,22 +21,20 @@ interface SegmentedToggleProps<T extends string> {
   // Slimmer padding + smaller icons, sized to sit inline with compact rows
   // (e.g. the sidebar). Keeps the same sliding-indicator animation.
   dense?: boolean
-  // Accent for the active pill. Default 'ink' is the neutral house fill; pass an
-  // app family (e.g. 'scripts') for a solid accent-colored selection.
+  // Accent for the active pill. The neutral house fill is the only style —
+  // every toggle reads the same whether it sits in an app accent area or not.
   accent?: SegmentedAccent
 }
 
-export type SegmentedAccent = 'ink' | 'scripts'
+export type SegmentedAccent = 'ink'
 
 // Active-pill fill + the active label color that reads on top of it. Literal
 // class strings (Tailwind can't build names from props at runtime).
 const ACCENT_INDICATOR: Record<SegmentedAccent, string> = {
   ink: 'bg-ink/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] light:shadow-none',
-  scripts: 'bg-scripts-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]',
 }
 const ACCENT_ACTIVE_TEXT: Record<SegmentedAccent, string> = {
   ink: 'text-ink-100',
-  scripts: 'text-white',
 }
 
 // Rounded pill segmented control — the house replacement for the old
