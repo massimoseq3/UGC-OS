@@ -7,6 +7,7 @@ import { extractProductInfo } from './services/extractProductInfo'
 import { downloadImage } from '../../utils/downloadImage'
 import { ACCEPTED_IMAGE_TYPES, MAX_IMAGE_SIZE } from './services/imageValidation'
 import { humanizeError } from '../../utils/friendlyError'
+import ExpandTextModal, { ExpandButton } from '../../components/ExpandableText'
 
 interface ProductFormProps {
   item?: Product | null
@@ -29,11 +30,9 @@ const FIELD_META: Record<string, { label: string; type: 'text' | 'textarea'; req
   cta: { label: 'CTA', type: 'text' },
 }
 
-// Name + description + target market live under the image on the left; the
-// rest of the parameters stack down the right column (which keeps both sides
-// balanced enough that neither needs a scrollbar).
-const LEFT_FIELDS = ['productName', 'productDescription', 'targetMarket'] as const
-const RIGHT_FIELDS = ['painPoints', 'usps', 'benefits', 'offer', 'cta'] as const
+// The image sits alone on the left; every text field stacks down the right
+// column (which scrolls).
+const FIELDS = ['productName', 'productDescription', 'targetMarket', 'painPoints', 'usps', 'benefits', 'offer', 'cta'] as const
 
 const REQUIRED_KEYS = ['productName', 'productDescription'] as const
 
@@ -58,6 +57,7 @@ export default function ProductForm({ item, onSave, onCancel, onCancelDuringExtr
   const [isExtracting, setIsExtracting] = useState(false)
   const [extractError, setExtractError] = useState<string | null>(null)
   const [overlayActive, setOverlayActive] = useState(false)
+  const [expandedField, setExpandedField] = useState<string | null>(null)
   const resolvedAssetUrl = useAssetUrl(form.productImage)
   const displayImage = localPreview ?? resolvedAssetUrl
   const addToast = useAppStore((s) => s.addToast)
@@ -185,12 +185,15 @@ export default function ProductForm({ item, onSave, onCancel, onCancelDuringExtr
           {label}{required && ' *'}
         </span>
         {type === 'textarea' ? (
-          <textarea
-            value={value}
-            onChange={(e) => set(key, e.target.value)}
-            rows={3}
-            className={`${baseCls} ${borderCls} min-h-[84px] resize-none leading-relaxed`}
-          />
+          <div className="relative">
+            <textarea
+              value={value}
+              onChange={(e) => set(key, e.target.value)}
+              rows={3}
+              className={`${baseCls} ${borderCls} min-h-[84px] resize-none leading-relaxed`}
+            />
+            <ExpandButton onClick={() => setExpandedField(key)} className="absolute bottom-2 right-2" />
+          </div>
         ) : (
           <input
             value={value}
@@ -245,10 +248,9 @@ export default function ProductForm({ item, onSave, onCancel, onCancelDuringExtr
         </button>
       </div>
 
-      {/* Side-by-side: image + name + description fixed on the left, the rest of
-          the parameters scroll down the right. */}
+      {/* Side-by-side: image alone on the left, every field scrolls down the right. */}
       <div className="flex flex-col gap-6 md:flex-row lg:min-h-0 lg:flex-1">
-        {/* Left — image, then Product Name + Description underneath it */}
+        {/* Left — just the product image */}
         <div className="flex w-full shrink-0 flex-col gap-4 md:w-[300px]">
           {displayImage ? (
             <div className="group/img relative aspect-square w-full overflow-hidden rounded-3xl border border-ink/10 bg-ink/[0.02]">
@@ -286,18 +288,13 @@ export default function ProductForm({ item, onSave, onCancel, onCancelDuringExtr
               </span>
             </button>
           )}
-
-          {/* Name + Description, directly under the image */}
-          <div className={`flex flex-col gap-4 transition-opacity ${isExtracting ? 'pointer-events-none opacity-60' : ''}`}>
-            {LEFT_FIELDS.map(renderField)}
-          </div>
         </div>
         <input ref={fileRef} type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" className="hidden" onChange={handleImage} />
 
-        {/* Right — the remaining parameters + save (the only part that scrolls) */}
+        {/* Right — every field + save (the only part that scrolls) */}
         <div className={`flex min-w-0 flex-1 flex-col gap-3 transition-opacity lg:min-h-0 lg:overflow-y-auto lg:pr-1 ${isExtracting ? 'pointer-events-none opacity-60' : ''}`}>
           <div className="flex flex-col gap-4">
-            {RIGHT_FIELDS.map(renderField)}
+            {FIELDS.map(renderField)}
           </div>
 
           {showError && (
@@ -324,6 +321,17 @@ export default function ProductForm({ item, onSave, onCancel, onCancelDuringExtr
           </button>
         </div>
       </div>
+
+      {expandedField && (
+        <ExpandTextModal
+          open
+          onClose={() => setExpandedField(null)}
+          value={form[expandedField as keyof typeof form] as string}
+          onChange={(v) => set(expandedField, v)}
+          title={FIELD_META[expandedField].label}
+          accent="ink"
+        />
+      )}
     </form>
   )
 }

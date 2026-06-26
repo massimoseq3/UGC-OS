@@ -371,7 +371,7 @@ export default function InputPanel({
     <div className="flex flex-col md:h-full">
       {/* Mode toggle — rounded segmented pill, mirrored by the Output/History
           toggle in the right panel so both strips share the same baseline. */}
-      <div className="flex shrink-0 items-center px-5 pb-2 pt-4">
+      <div className="flex shrink-0 items-center border-b border-ink/10 px-5 pb-3 pt-4">
         <SegmentedToggle<ScriptMode>
           value={mode}
           onChange={onModeChange}
@@ -403,6 +403,7 @@ export default function InputPanel({
               <div className="mt-2">
                 <SegmentedToggle<WriteFormat>
                   className="h-12 !p-1"
+                  accent="scripts"
                   value={writeFormat}
                   onChange={handleFormatChange}
                   options={[
@@ -504,6 +505,7 @@ export default function InputPanel({
                 <div className="mt-2">
                   <SegmentedToggle<string>
                     className="h-12 !p-1"
+                    accent="scripts"
                     value={String(writeLength)}
                     onChange={(v) => onWriteLengthChange(Number(v) as WriteLength)}
                     options={(isPromptFormat ? PROMPT_LENGTHS : WRITE_LENGTHS).map((len) => ({ value: String(len), label: `${len}s` }))}

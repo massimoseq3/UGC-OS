@@ -4,17 +4,19 @@ import { Maximize2, X } from 'lucide-react'
 
 // Per-app accent for the modal's focus ring + Done button. Literal class
 // strings (Tailwind can't build class names from props at runtime).
-export type ExpandAccent = 'playground' | 'scripts' | 'broll'
+export type ExpandAccent = 'playground' | 'scripts' | 'broll' | 'ink'
 
 const ACCENT_FOCUS: Record<ExpandAccent, string> = {
   playground: 'focus-within:border-playground-500/30',
   scripts: 'focus-within:border-scripts-500/30',
   broll: 'focus-within:border-broll-500/30',
+  ink: 'focus-within:border-ink/20',
 }
 const ACCENT_DONE: Record<ExpandAccent, string> = {
   playground: 'bg-playground-500/15 text-playground-400 hover:bg-playground-500/25',
   scripts: 'bg-scripts-500/15 text-scripts-400 hover:bg-scripts-500/25',
   broll: 'bg-broll-500/15 text-broll-400 hover:bg-broll-500/25',
+  ink: 'bg-ink/10 text-ink-100 hover:bg-ink/15',
 }
 
 // Paint a red background behind [bracketed placeholders] so users can see what
