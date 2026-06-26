@@ -297,28 +297,32 @@ export default function ProductForm({ item, onSave, onCancel, onCancelDuringExtr
             {FIELDS.map(renderField)}
           </div>
 
-          {showError && (
-            <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-[12px] text-red-300 light:text-red-700">
-              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-              <span>Please fill in the required fields first.</span>
-            </div>
-          )}
+          {/* Sticky save footer — pinned to the bottom of the scrolling field
+              column so Save is always visible without scrolling to find it. */}
+          <div className="sticky bottom-0 z-10 -mx-1 mt-2 flex flex-col gap-2 border-t border-ink/10 bg-surface-0/90 px-1 pb-1 pt-3 backdrop-blur-sm">
+            {showError && (
+              <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-[12px] text-red-300 light:text-red-700">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                <span>Please fill in the required fields first.</span>
+              </div>
+            )}
 
-          {extractError && (
-            <div className="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-[12px] text-red-300 light:text-red-700">
-              <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-              <span className="break-words">{extractError}</span>
-            </div>
-          )}
+            {extractError && (
+              <div className="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-[12px] text-red-300 light:text-red-700">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                <span className="break-words">{extractError}</span>
+              </div>
+            )}
 
-          <button
-            type="submit"
-            disabled={saving || isExtracting}
-            className="mt-1 flex items-center justify-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-ink-900 transition-colors hover:bg-ink-100 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-            {saving ? 'Saving…' : (item ? 'Save Changes' : 'Add Product')}
-          </button>
+            <button
+              type="submit"
+              disabled={saving || isExtracting}
+              className="flex items-center justify-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-ink-900 transition-colors hover:bg-ink-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+              {saving ? 'Saving…' : (item ? 'Save Changes' : 'Add Product')}
+            </button>
+          </div>
         </div>
       </div>
 

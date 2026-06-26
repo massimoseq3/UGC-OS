@@ -52,7 +52,7 @@ export default function EditorArea({
             tabIndex={0}
             onClick={onSelectScript}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectScript() } }}
-            className="group flex w-full cursor-pointer items-center gap-3 rounded-full border border-ink/10 bg-ink/[0.02] px-4 py-3 transition-colors hover:border-ink/20 hover:bg-ink/[0.04]"
+            className="group flex w-full cursor-pointer items-center gap-3 rounded-full border border-voice-500/40 bg-voice-500/10 px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] ring-1 ring-inset ring-voice-500/15 transition-colors hover:bg-voice-500/[0.14]"
           >
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-voice-500/15 text-voice-300">
               <FileText className="h-4 w-4" />

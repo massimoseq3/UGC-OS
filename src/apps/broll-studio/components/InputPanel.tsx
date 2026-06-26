@@ -31,6 +31,7 @@ function BankCard({
   icon: Icon,
   label,
   accentClass,
+  selectedClass,
   isEmpty,
   children,
   onSelect,
@@ -40,6 +41,10 @@ function BankCard({
   icon: React.ElementType
   label: string
   accentClass: string
+  // Glassy accent fill applied once a reference is selected — keyed to the
+  // bank's own colour (amber products, pink influencers, orange scripts) so the
+  // populated card "lights up" the way a selected Script Style card does.
+  selectedClass: string
   isEmpty: boolean
   children?: React.ReactNode
   onSelect: () => void
@@ -73,7 +78,7 @@ function BankCard({
       tabIndex={0}
       onClick={onSelect}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect() } }}
-      className={`group flex cursor-pointer items-center gap-3 rounded-full border border-ink/10 bg-ink/[0.02] px-4 py-3.5 transition-colors hover:border-ink/20 hover:bg-ink/[0.04] ${className ?? ''}`}
+      className={`group flex cursor-pointer items-center gap-3 rounded-full border px-4 py-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-colors ${selectedClass} ${className ?? ''}`}
     >
       <div className="min-w-0 flex-1">{children}</div>
       <div className="flex shrink-0 items-center gap-1">
@@ -107,7 +112,7 @@ function ProductCard({ product }: { product: Product }) {
           className="h-10 w-10 shrink-0 rounded-full object-cover"
         />
       ) : (
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-amber-400 light:text-amber-600">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold-500/15 text-gold-400 light:text-gold-600">
           <Package className="h-5 w-5" strokeWidth={1.5} />
         </div>
       )}
@@ -196,7 +201,8 @@ export default function InputPanel({
           <BankCard
             icon={Package}
             label="Product"
-            accentClass="bg-amber-500/15 text-amber-400 light:text-amber-600"
+            accentClass="bg-gold-500/15 text-gold-400 light:text-gold-600"
+            selectedClass="border-gold-500/40 bg-gold-500/10 ring-1 ring-inset ring-gold-500/15 hover:bg-gold-500/[0.14]"
             isEmpty={!selectedProduct}
             onSelect={onSelectProduct}
             onClear={selectedProduct ? onClearProduct : undefined}
@@ -209,6 +215,7 @@ export default function InputPanel({
             icon={UserRound}
             label="Influencer"
             accentClass="bg-influencers-500/15 text-influencers-400"
+            selectedClass="border-influencers-500/40 bg-influencers-500/10 ring-1 ring-inset ring-influencers-500/15 hover:bg-influencers-500/[0.14]"
             isEmpty={!selectedModel}
             onSelect={onSelectModel}
             onClear={selectedModel ? onClearModel : undefined}
@@ -221,6 +228,7 @@ export default function InputPanel({
             icon={FileText}
             label="Script"
             accentClass="bg-scripts-500/15 text-scripts-400"
+            selectedClass="border-scripts-500/40 bg-scripts-500/10 ring-1 ring-inset ring-scripts-500/15 hover:bg-scripts-500/[0.14]"
             isEmpty={!selectedScript}
             onSelect={onSelectScript}
             onClear={selectedScript ? onClearScript : undefined}

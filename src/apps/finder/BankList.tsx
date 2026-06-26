@@ -437,7 +437,7 @@ function BRollCard({ item, onEdit, onDelete }: { item: BRoll; onEdit: () => void
       </div>
       {/* Info — gradient overlay, same pattern as the Influencer cards */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/55 to-transparent p-3 pt-10 text-center">
-        <p className="text-[12px] font-medium leading-snug text-zinc-100 line-clamp-2">{promptPreview}</p>
+        <p className="text-[10px] font-medium leading-snug text-zinc-100 line-clamp-2">{promptPreview}</p>
       </div>
     </div>
   )
@@ -457,7 +457,7 @@ function VoiceCard({ item, onEdit, onDelete }: { item: VoicePreset; onEdit: () =
           Stability {item.stability.toFixed(2)}
         </span>
       </div>
-      <div className="shrink-0 self-start" onClick={(e) => e.stopPropagation()}>
+      <div className="shrink-0 self-center" onClick={(e) => e.stopPropagation()}>
         {confirm ? (
           <ConfirmDelete onConfirm={onDelete} onCancel={() => setConfirm(false)} />
         ) : (

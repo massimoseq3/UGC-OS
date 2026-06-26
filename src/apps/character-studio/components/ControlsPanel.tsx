@@ -16,6 +16,7 @@ import GenerateBar from './GenerateBar'
 import LoadPresetDropdown from './LoadPresetDropdown'
 import PhotoExtractZone from './PhotoExtractZone'
 import SegmentedToggle from '../../../components/SegmentedToggle'
+import ClearAllButton from '../../../components/ClearAllButton'
 import { useBankStore } from '../../../stores/bankStore'
 import { buildImagePrompt, buildSheetPrompt, buildJsonPrompt } from '../services/generateCharacter'
 import { copyToClipboard } from '../../../utils/clipboard'
@@ -64,10 +65,12 @@ function PresetActions({
   suggestedName,
   onSave,
   promptText,
+  onClear,
 }: {
   suggestedName: () => string
   onSave: (name: string) => void
   promptText: string
+  onClear: () => void
 }) {
   const [naming, setNaming] = useState(false)
   const [name, setName] = useState('')
@@ -129,6 +132,7 @@ function PresetActions({
 
   return (
     <div className="ml-auto flex items-center gap-1.5">
+      <ClearAllButton onClear={onClear} className="!py-1 !text-[11px]" />
       <button
         type="button"
         onClick={startNaming}
@@ -278,6 +282,7 @@ export default function ControlsPanel({
                     suggestedName={() => presetName(profile)}
                     onSave={handleSavePreset}
                     promptText={fullPrompt}
+                    onClear={() => onProfileChange(createEmptyProfile())}
                   />
                 )}
               </div>
@@ -323,7 +328,6 @@ export default function ControlsPanel({
         sheetAspect={sheetAspect}
         onSheetAspectChange={onSheetAspectChange}
         inFlightCount={inFlightCount}
-        onClear={() => onProfileChange(createEmptyProfile())}
       />
     </div>
   )

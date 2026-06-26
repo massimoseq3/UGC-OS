@@ -680,15 +680,26 @@ export function ReferenceSlotCard({
 }) {
   const url = useAssetUrl(imageRef)
   const hasRef = !!name
-  // Only the active+populated state earns the orange highlight — and not
-  // when the chosen model can't use refs.
+  // Only the active+populated state earns the highlight — and not when the
+  // chosen model can't use refs.
   const highlight = active && hasRef && !dimmed
+  // Keyed to the bank's own colour so the lit-up card matches the thing it
+  // holds: amber for products, pink for influencers.
+  const accent = kind === 'Product'
+    ? {
+        box: 'border-gold-500/40 bg-gold-500/10 ring-1 ring-inset ring-gold-500/15',
+        toggle: 'border-gold-500/60 bg-gold-500/20 text-gold-300 hover:bg-gold-500/30',
+      }
+    : {
+        box: 'border-influencers-500/40 bg-influencers-500/10 ring-1 ring-inset ring-influencers-500/15',
+        toggle: 'border-influencers-500/60 bg-influencers-500/20 text-influencers-300 hover:bg-influencers-500/30',
+      }
   return (
     <div
       title={dimmed ? dimmedReason : undefined}
       className={`relative flex w-full items-center gap-3 rounded-full border p-3 text-left transition-colors ${
         highlight
-          ? 'border-broll-500/40 bg-broll-500/10'
+          ? accent.box
           : 'border-ink/10 bg-ink/[0.02] hover:border-ink/20 hover:bg-ink/[0.04]'
       } ${dimmed ? 'opacity-50' : ''}`}
     >
@@ -718,7 +729,7 @@ export function ReferenceSlotCard({
           title={active ? 'Active — click to disable' : 'Inactive — click to enable'}
           className={`absolute right-3 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full border transition-colors ${
             active
-              ? 'border-broll-500/60 bg-broll-500/20 text-broll-300 hover:bg-broll-500/30'
+              ? accent.toggle
               : 'border-ink/15 bg-ink/[0.04] text-ink-500 hover:border-ink/30 hover:text-ink-300'
           }`}
         >

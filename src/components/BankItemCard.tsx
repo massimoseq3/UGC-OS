@@ -63,6 +63,7 @@ export default function BankItemCard({ bankType, item, onClick, selected, accent
         fallback={Package}
         fallbackAspect="aspect-square"
         name={p.productName || 'Untitled Product'}
+        centerName
         onClick={onClick}
         selected={selected}
         selectedStyle={accentSelected}

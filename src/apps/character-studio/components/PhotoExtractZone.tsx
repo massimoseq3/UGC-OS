@@ -50,26 +50,26 @@ export default function PhotoExtractZone({
     e.target.value = ''
   }
 
-  // Analyzing state
+  // Analyzing state — fixed h-12 so it stays the exact size of the preset pill
+  // beside it (the bar + message centre within the row rather than growing it).
   if (isExtracting) {
     return (
-      <div className="rounded-full border border-green-500/20 bg-green-500/[0.04] px-4 py-2.5">
-        <div className="flex items-center gap-3">
-          {thumbnail && (
-            <img
-              src={thumbnail}
-              alt="Analyzing"
-              className="h-10 w-10 shrink-0 rounded-full object-cover opacity-70"
-            />
-          )}
-          <div className="min-w-0 flex-1">
-            <GenerationProgress
-              isActive={true}
-              color="bg-green-500"
-              showHelper={false}
-              messages={['Preparing image...', 'Sending request...', 'Extracting visual DNA...', 'Finalizing analysis...']}
-            />
-          </div>
+      <div className="flex h-12 items-center gap-3 rounded-full border border-green-500/20 bg-green-500/[0.04] px-4">
+        {thumbnail && (
+          <img
+            src={thumbnail}
+            alt="Analyzing"
+            className="h-8 w-8 shrink-0 rounded-full object-cover opacity-70"
+          />
+        )}
+        <div className="min-w-0 flex-1">
+          <GenerationProgress
+            isActive={true}
+            color="bg-green-500"
+            showHelper={false}
+            messageClassName="text-xs truncate"
+            messages={['Preparing image...', 'Sending request...', 'Extracting visual DNA...', 'Finalizing analysis...']}
+          />
         </div>
       </div>
     )
@@ -92,10 +92,11 @@ export default function PhotoExtractZone({
         </div>
         <button
           onClick={onReset}
-          className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-ink-400 transition-colors hover:bg-ink/5 hover:text-ink-200"
+          title="Clear image"
+          aria-label="Clear image"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-ink-400 transition-colors hover:bg-ink/5 hover:text-ink-200"
         >
-          <X className="h-3 w-3" />
-          Reset
+          <X className="h-3.5 w-3.5" />
         </button>
       </div>
     )
