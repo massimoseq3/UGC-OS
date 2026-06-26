@@ -7,6 +7,10 @@ import {
   ChevronRight,
   Volume2,
   VolumeX,
+  Sparkles,
+  Undo2,
+  Redo2,
+  Loader2,
 } from 'lucide-react'
 import ModelPicker from '../../../components/ModelPicker'
 import SegmentedToggle from '../../../components/SegmentedToggle'
@@ -40,6 +44,8 @@ import ExpandTextModal, { ExpandButton, renderBracketHighlight } from '../../../
 import MentionPopover from './MentionPopover'
 import type { PlaygroundMode, BankReference } from '../types'
 import { VIDEO_PRESETS, IMAGE_PRESETS, type Preset } from '../presets'
+import { enhancePlaygroundPrompt } from '../service'
+import { humanizeError } from '../../../utils/friendlyError'
 
 // Tabs passed to BankPicker when used from Playground refs. Characters comes
 // first so opening the picker lands the user there by default; B-Rolls are
@@ -132,6 +138,74 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
   const [presetOpen, setPresetOpen] = useState(false)
   // Full-screen prompt editor.
   const [promptExpanded, setPromptExpanded] = useState(false)
+
+  // Prompt enhance + undo/redo. History is session-local (not persisted) and
+  // resets when the mode flips (each tab keeps its own prompt). The textarea
+  // commits its typed draft into history on blur, so Undo steps back through
+  // both manual edits and enhancements — same model as B-Roll's card prompt.
+  const [isEnhancing, setIsEnhancing] = useState(false)
+  const [promptHistory, setPromptHistory] = useState<string[]>([state.prompt])
+  const [promptHistoryIndex, setPromptHistoryIndex] = useState(0)
+  // Reset the undo stack when the active mode changes (prompt swaps with it).
+  const [prevMode, setPrevMode] = useState(state.mode)
+  if (state.mode !== prevMode) {
+    setPrevMode(state.mode)
+    setPromptHistory([state.prompt])
+    setPromptHistoryIndex(0)
+  }
+
+  const canUndo = promptHistoryIndex > 0
+  const canRedo = promptHistoryIndex < promptHistory.length - 1
+
+  // Push a new prompt onto the undo stack, dropping any forward redo branch.
+  // `base`/`baseIndex` let callers fold an uncommitted draft into the same
+  // update (avoids stale-state races from two setState calls in a row).
+  function pushPromptHistory(next: string, base = promptHistory, baseIndex = promptHistoryIndex) {
+    const truncated = base.slice(0, baseIndex + 1)
+    const nextHistory = [...truncated, next]
+    setPromptHistory(nextHistory)
+    setPromptHistoryIndex(nextHistory.length - 1)
+    onChange({ ...state, prompt: next })
+  }
+
+  // Commit the current textarea draft into history (fired on blur). No-op when
+  // unchanged from the latest entry.
+  function commitPromptDraft() {
+    if (state.prompt !== promptHistory[promptHistoryIndex]) pushPromptHistory(state.prompt)
+  }
+
+  function handlePromptUndo() {
+    if (promptHistoryIndex <= 0) return
+    const i = promptHistoryIndex - 1
+    setPromptHistoryIndex(i)
+    onChange({ ...state, prompt: promptHistory[i] })
+  }
+  function handlePromptRedo() {
+    if (promptHistoryIndex >= promptHistory.length - 1) return
+    const i = promptHistoryIndex + 1
+    setPromptHistoryIndex(i)
+    onChange({ ...state, prompt: promptHistory[i] })
+  }
+
+  async function handleEnhancePrompt() {
+    if (isEnhancing) return
+    const draft = state.prompt.trim()
+    if (!draft) return
+    // Fold any uncommitted typed draft into history first, then enhance from it,
+    // so Undo returns to exactly what the user had before enhancing.
+    const committed = state.prompt !== promptHistory[promptHistoryIndex]
+      ? [...promptHistory.slice(0, promptHistoryIndex + 1), state.prompt]
+      : promptHistory.slice(0, promptHistoryIndex + 1)
+    setIsEnhancing(true)
+    try {
+      const rewritten = await enhancePlaygroundPrompt(state.prompt, state.mode)
+      pushPromptHistory(rewritten, committed, committed.length - 1)
+    } catch (err) {
+      useAppStore.getState().addToast(humanizeError(err, 'Enhance failed.'), 'error')
+    } finally {
+      setIsEnhancing(false)
+    }
+  }
 
   // Keep the highlight backdrop scrolled in lockstep with the textarea (e.g.
   // after a preset drops in a long prompt and focuses/scrolls the field).
@@ -518,7 +592,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
       }`}
     >
       {/* Mode toggle — mirrors Voiceovers' Settings/History pattern. */}
-      <div className="flex items-center px-5 pb-2 pt-4">
+      <div className="flex items-center border-b border-ink/5 px-5 pb-3 pt-4">
         <SegmentedToggle<PlaygroundMode>
           value={state.mode}
           onChange={onModeChange}
@@ -790,7 +864,41 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
                 fills the page without making the panel itself scroll; once at
                 max size, overflow scrolls inside the textarea. */}
             <div className="relative flex grow flex-col">
-              <span className="text-sm font-medium text-ink-200">Prompt</span>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-medium text-ink-200">Prompt</span>
+                {/* Enhance + Undo/Redo — rewrites the draft into a stronger
+                    prompt for the active mode, with full undo history. */}
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    title="Enhance prompt"
+                    onClick={handleEnhancePrompt}
+                    disabled={isEnhancing || !state.prompt.trim()}
+                    className="flex items-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.02] px-2.5 py-1 text-[11px] font-medium text-ink-300 transition-colors hover:border-playground-500/30 hover:bg-playground-500/10 hover:text-playground-300 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {isEnhancing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                    Enhance Prompt
+                  </button>
+                  <button
+                    type="button"
+                    title="Undo"
+                    onClick={handlePromptUndo}
+                    disabled={!canUndo || isEnhancing}
+                    className="flex h-6 w-6 items-center justify-center rounded-full border border-ink/10 bg-ink/[0.02] text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    <Undo2 className="h-3 w-3" />
+                  </button>
+                  <button
+                    type="button"
+                    title="Redo"
+                    onClick={handlePromptRedo}
+                    disabled={!canRedo || isEnhancing}
+                    className="flex h-6 w-6 items-center justify-center rounded-full border border-ink/10 bg-ink/[0.02] text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    <Redo2 className="h-3 w-3" />
+                  </button>
+                </div>
+              </div>
               {/* UGC Prompt Presets — slim row between the heading and the
                   textarea. Opens the slide-in picker. */}
               {presetsApplicable && (
@@ -828,7 +936,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
                   onScroll={(e) => {
                     if (highlightRef.current) highlightRef.current.scrollTop = e.currentTarget.scrollTop
                   }}
-                  onBlur={() => setTimeout(() => setMentionOpen(false), 150)}
+                  onBlur={() => { commitPromptDraft(); setTimeout(() => setMentionOpen(false), 150) }}
                   rows={6}
                   placeholder={
                     state.mode === 'image'
@@ -884,7 +992,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
 
         <ExpandTextModal
           open={promptExpanded}
-          onClose={() => setPromptExpanded(false)}
+          onClose={() => { commitPromptDraft(); setPromptExpanded(false) }}
           value={state.prompt}
           onChange={(v) => onChange({ ...state, prompt: v })}
           title="Prompt"

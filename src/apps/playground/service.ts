@@ -37,7 +37,57 @@ import {
   type VideoMode,
 } from '../../utils/models'
 import { saveAsset, saveBase64Asset, isAssetRef, getAsBase64 } from '../../utils/assetStore'
+import { kieChatCompletions, type ChatMessage } from '../../utils/kie'
+import { getChatEndpointPath } from '../../utils/models'
 import type { ImageHistoryItem, MusicHistoryItem, VideoHistoryItem } from '../../stores/types'
+import type { PlaygroundMode } from './types'
+
+// ── Prompt enhance ─────────────────────────────────────────────────
+//
+// Rewrites the user's freeform draft into a stronger, more specific prompt for
+// the active modality, keeping their intent. Mirrors the B-Roll "Enhance
+// Prompt" affordance but generic (no scene/variation framework). Returns the
+// rewritten prompt text only — the caller owns undo/redo history.
+
+const ENHANCE_SYSTEM = `You are a senior prompt engineer for AI image, video and music models. You rewrite a user's rough prompt into a single, vivid, production-ready prompt that the model can render well. You KEEP the user's intent and subject — you never invent a different concept. You make it concrete and specific, not longer for its own sake.`
+
+// Per-modality guidance — what "good" looks like for each generator.
+const ENHANCE_MODE_GUIDE: Record<PlaygroundMode, string> = {
+  image: 'Target: a text-to-image model. Add concrete visual specifics — subject, composition/shot size, lighting, lens/mood, setting, materials, color. Photoreal and grounded unless the draft asks otherwise. One flowing paragraph, no lists, no "Style:" headers.',
+  video: 'Target: a text-to-video model. Describe the subject, the action/motion over the shot, camera movement and shot size, setting, lighting and mood as one flowing paragraph. Keep it to a single coherent shot unless the draft implies cuts. No lists, no timestamps.',
+  music: 'Target: a music model. Specify genre, mood, tempo feel, key instruments, and energy arc in one tight sentence or two. No lyrics unless the draft asks for them.',
+}
+
+// Preserve any @mention tokens (e.g. @Product, @Influencer) and [bracketed]
+// placeholders verbatim — they resolve to bank refs downstream.
+export async function enhancePlaygroundPrompt(draft: string, mode: PlaygroundMode): Promise<string> {
+  const apiKey = useSettingsStore.getState().getKieApiKey()
+  const endpoint = getChatEndpointPath()
+
+  const userMessage = `Rewrite the draft prompt below so it produces a much better result. Keep the user's intent and subject; make it concrete and specific.
+
+${ENHANCE_MODE_GUIDE[mode]}
+
+Rules:
+- Preserve any @mention tokens (like @Product or @Influencer) and any [bracketed] placeholders EXACTLY as written, in place.
+- Return ONLY the rewritten prompt as plain text. No preamble, no quotes, no markdown, no "Here is".
+
+Draft:
+"""
+${draft}
+"""`
+
+  const messages: ChatMessage[] = [
+    { role: 'system', content: [{ type: 'text', text: ENHANCE_SYSTEM }] },
+    { role: 'user', content: [{ type: 'text', text: userMessage }] },
+  ]
+  const responseText = await kieChatCompletions(apiKey, endpoint, messages)
+  return responseText
+    .replace(/```[a-z]*\n?/gi, '')
+    .replace(/```/g, '')
+    .replace(/^\s*["']|["']\s*$/g, '')
+    .trim()
+}
 
 // ── Image ──────────────────────────────────────────────────────────
 

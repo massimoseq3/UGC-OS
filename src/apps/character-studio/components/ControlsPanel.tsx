@@ -234,8 +234,8 @@ export default function ControlsPanel({
         />
       </div>
 
-      {/* Divider between the toggle and the presets/dropzone row. */}
-      <div className="mx-3 border-t border-ink/5" />
+      {/* Divider between the toggle and the presets/dropzone row — full width. */}
+      <div className="border-t border-ink/5" />
 
       {/* Preset picker + reference-image drop zone — same pill styling as the
           model picker, sitting just under the toggle. */}
@@ -254,8 +254,8 @@ export default function ControlsPanel({
         </div>
       </div>
 
-      {/* Divider between the toggle/presets block and the parameter inputs. */}
-      <div className="mx-3 border-t border-ink/5" />
+      {/* Divider between the toggle/presets block and the parameter inputs — full width. */}
+      <div className="border-t border-ink/5" />
 
       {/* Scrollable parameter fields (only scrolls internally on desktop) —
           fields flow without dividers; a hairline separator only marks the

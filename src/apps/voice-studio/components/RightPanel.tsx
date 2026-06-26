@@ -74,7 +74,7 @@ export default function RightPanel({
   return (
     <div className="flex h-full flex-col">
       {showTabs && (
-        <div className="flex items-center px-5 pb-2 pt-4">
+        <div className="flex items-center border-b border-ink/5 px-5 pb-3 pt-4">
           <SegmentedToggle<Tab>
             value={tab}
             onChange={setTab}

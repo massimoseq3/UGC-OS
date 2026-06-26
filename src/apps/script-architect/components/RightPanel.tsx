@@ -54,7 +54,9 @@ export default function RightPanel({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center px-5 pb-2 pt-4">
+      {/* Mirrors the left column's mode-toggle divider (same pt-4/pb-3 + pill
+          height + border-ink/5) so the separator runs cleanly across both. */}
+      <div className="flex items-center border-b border-ink/5 px-5 pb-3 pt-4">
         <SegmentedToggle<Tab>
           value={tab}
           onChange={setTab}

@@ -56,6 +56,19 @@ function splitScenes(text: string): SceneChunk[] | null {
     .filter((c) => c.body.length > 0)
 }
 
+// Content that precedes the first "--- Scene N ---" header — used by the scene
+// formats to carry a leading "=== VOICE PROFILE ... ===" block. Stripped of its
+// own divider markers so it renders as a clean voice card above the scenes.
+function extractIntro(text: string): string {
+  const idx = text.search(SCENE_REGEX)
+  if (idx <= 0) return ''
+  return text
+    .slice(0, idx)
+    .replace(/^[=\s]*VOICE PROFILE[^\n]*\n/i, '')
+    .replace(/^[=\s]+|[=\s]+$/g, '')
+    .trim()
+}
+
 interface VariationCardProps {
   text: string
   cardTitle: string
@@ -97,6 +110,7 @@ function VariationCard({
   const addToast = useAppStore((s) => s.addToast)
 
   const scenes = useMemo(() => isCinematic ? null : splitScenes(text), [text, isCinematic])
+  const voiceProfile = useMemo(() => (isCinematic || !scenes ? '' : extractIntro(text)), [text, isCinematic, scenes])
 
   // A plain spoken script (remix variation, or a write-mode 'script' output)
   // can be read aloud → Voiceovers. A scene blueprint (reverse-engineer, or a
@@ -210,7 +224,10 @@ function VariationCard({
             {text}
           </div>
         ) : scenes ? (
-          scenes.map((scene, i) => <SceneChunkCard key={i} chunk={scene} />)
+          <>
+            {voiceProfile && <VoiceProfileCard body={voiceProfile} />}
+            {scenes.map((scene, i) => <SceneChunkCard key={i} chunk={scene} />)}
+          </>
         ) : mode === 'reverse-engineer' ? (
           <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed tracking-tight text-ink-100">
             {text}
@@ -311,6 +328,24 @@ function VariationCard({
             )}
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+// The shared voice spec that leads a scene blueprint — the same on-camera
+// voice every scene's clip should be read in. Rendered once, above the scenes.
+function VoiceProfileCard({ body }: { body: string }) {
+  return (
+    <div className="rounded-2xl border border-scripts-500/15 bg-scripts-500/[0.04] p-3 card-soft-shadow">
+      <div className="mb-2 flex items-center gap-1.5">
+        <Mic className="h-3 w-3 text-scripts-300" strokeWidth={2} />
+        <span className="text-[10px] font-semibold uppercase tracking-widest text-scripts-300/80">
+          Voice Profile · same in every scene
+        </span>
+      </div>
+      <div className="whitespace-pre-wrap rounded-xl bg-surface-0 p-2.5 text-[13px] leading-relaxed tracking-tight text-ink-100">
+        {body}
       </div>
     </div>
   )
