@@ -155,7 +155,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     modes: ['text-to-image', 'image-to-image', 'image-edit'],
     tags: ['recommended', 'new'],
     supportsReferenceImages: true,
-    defaultFor: ['broll-studio', 'character-studio'],
+    defaultFor: ['broll-studio'],
     pricing: {
       unit: 'per-image',
       credits: 8,
@@ -173,6 +173,9 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     task: 'image',
     modes: ['text-to-image'],
     tags: ['recommended'],
+    // Influencers default to GPT Image 2 for portrait/sheet generation
+    // (text-to-image); other apps fall back to Nano Banana 2 (first in the list).
+    defaultFor: ['character-studio'],
     // kie.ai defaults to GPT Image 2's higher-quality tier on the
     // /text-to-image endpoint — verified by real billing (2K = 10 credits).
     // Source: https://kie.ai/gpt-image-2.

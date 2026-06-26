@@ -341,14 +341,14 @@ export default function ResultsView({ result, videoSrc, restoredThumbUrl, fileNa
             {videoSrc ? (
               <video
                 src={videoSrc}
-                className="block max-h-full max-w-full rounded-xl border border-ink/10 transition-all card-soft-shadow"
+                className="block max-h-full max-w-full rounded-xl border border-ink/10 transition-all hover:-translate-y-px card-soft-shadow"
                 controls
               />
             ) : restoredThumbUrl ? (
               <img
                 src={restoredThumbUrl}
                 alt="First frame of the analyzed ad"
-                className="block max-h-full max-w-full rounded-xl border border-ink/10 transition-all card-soft-shadow"
+                className="block max-h-full max-w-full rounded-xl border border-ink/10 transition-all hover:-translate-y-px card-soft-shadow"
               />
             ) : null}
           </div>
