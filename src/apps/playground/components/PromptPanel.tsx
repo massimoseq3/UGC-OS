@@ -674,18 +674,22 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
                     />
                   )}
                   {!isMotionControl && model.videoConstraints.supportsAudio && (
-                    <button
-                      type="button"
-                      onClick={() => onChange({ ...state, audio: !state.audio })}
-                      className={`flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full border px-3.5 text-[12px] transition-colors ${
-                        state.audio
-                          ? 'border-playground-500/30 bg-playground-500/10 text-playground-200'
-                          : 'border-ink/10 bg-ink/[0.02] text-ink-400 hover:bg-ink/[0.05]'
-                      }`}
-                    >
-                      {state.audio ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
-                      <span>{state.audio ? 'Audio' : 'Mute'}</span>
-                    </button>
+                    <ConstraintChip
+                      grow
+                      openDirection="down"
+                      options={['Audio', 'Mute']}
+                      value={state.audio ? 'Audio' : 'Mute'}
+                      onChange={(v) => onChange({ ...state, audio: v === 'Audio' })}
+                      triggerClassName={state.audio
+                        ? 'border-playground-500/30 bg-playground-500/10 text-playground-200'
+                        : 'border-ink/10 bg-ink/[0.02] text-ink-400 group-hover:bg-ink/[0.05]'}
+                      render={(v) => (
+                        <span className="flex items-center gap-1.5">
+                          {v === 'Audio' ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
+                          <span>{v}</span>
+                        </span>
+                      )}
+                    />
                   )}
                 </>
               )}
