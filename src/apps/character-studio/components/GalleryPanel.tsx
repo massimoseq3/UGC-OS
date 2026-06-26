@@ -283,7 +283,7 @@ function HistoryTile({
     <div>
     <div
       onClick={onClick}
-      className="group relative cursor-pointer overflow-hidden rounded-lg border border-ink/10 bg-black light:bg-zinc-200 transition-all hover:border-ink/20 hover:-translate-y-0.5 card-soft-shadow"
+      className="group relative cursor-pointer overflow-hidden rounded-lg border border-ink/10 bg-black light:bg-zinc-200 transition-all hover:border-ink/20 card-soft-shadow"
     >
       {status === 'ready' && url ? (
         <img src={url} alt="" className="block h-auto w-full" />
@@ -382,11 +382,11 @@ function HistoryTile({
           >
             {savingToBank ? <Loader2 className="h-4 w-4 animate-spin" /> : savedAsModel ? <Check className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
           </TileIconButton>
-          <TileIconButton title={copiedPrompt ? 'Prompt copied' : 'Copy prompt'} onClick={handleCopyPrompt}>
-            {copiedPrompt ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
-          </TileIconButton>
           <TileIconButton title="Download image" onClick={handleDownload}>
             <Download className="h-4 w-4" />
+          </TileIconButton>
+          <TileIconButton title={copiedPrompt ? 'Prompt copied' : 'Copy prompt'} onClick={handleCopyPrompt}>
+            {copiedPrompt ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
           </TileIconButton>
         </div>
       )}

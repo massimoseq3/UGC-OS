@@ -125,7 +125,7 @@ function ScriptCard({ item, onClick, selected, accentColor }: { item: Script; on
       className={`group relative flex aspect-[9/16] w-full flex-col overflow-hidden rounded-2xl border p-3 text-left transition-all ${
         selected
           ? accentColor ? '' : 'border-scripts-500/50 bg-scripts-500/[0.06] ring-1 ring-scripts-500/40'
-          : 'border-ink/5 bg-ink/[0.03] hover:border-ink/15 hover:-translate-y-0.5'
+          : 'border-ink/5 bg-ink/[0.03] hover:border-ink/15'
       }`}
     >
       <div className="flex flex-col gap-1.5">
@@ -175,7 +175,7 @@ function ImageCard({
       onClick={onClick}
       style={selectedStyle}
       className={`group relative block w-full overflow-hidden rounded-2xl border text-left transition-all ${
-        selected ? '' : 'border-ink/5 bg-ink/[0.03] hover:border-ink/15 hover:-translate-y-0.5'
+        selected ? '' : 'border-ink/5 bg-ink/[0.03] hover:border-ink/15'
       }`}
     >
       {resolvedUrl ? (
