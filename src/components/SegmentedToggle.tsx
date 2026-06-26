@@ -21,20 +21,29 @@ interface SegmentedToggleProps<T extends string> {
   // Slimmer padding + smaller icons, sized to sit inline with compact rows
   // (e.g. the sidebar). Keeps the same sliding-indicator animation.
   dense?: boolean
-  // Accent for the active pill. The neutral house fill is the only style —
-  // every toggle reads the same whether it sits in an app accent area or not.
+  // Accent for the active pill. Default 'ink' is the neutral house fill; the app
+  // families ('scripts', 'influencers') are glassy accent tints — a translucent
+  // fill + soft accent edge + faint sheen — keyed to the app's own colour.
   accent?: SegmentedAccent
 }
 
-export type SegmentedAccent = 'ink'
+export type SegmentedAccent = 'ink' | 'scripts' | 'influencers'
 
 // Active-pill fill + the active label color that reads on top of it. Literal
 // class strings (Tailwind can't build names from props at runtime).
 const ACCENT_INDICATOR: Record<SegmentedAccent, string> = {
   ink: 'bg-ink/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] light:shadow-none',
+  // Translucent accent fill + a soft (not harsh) accent edge + a faint top
+  // sheen, so the pill reads glassy rather than as a solid block or hard outline.
+  scripts: 'bg-scripts-500/10 ring-1 ring-inset ring-scripts-500/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]',
+  influencers: 'bg-influencers-500/10 ring-1 ring-inset ring-influencers-500/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]',
 }
 const ACCENT_ACTIVE_TEXT: Record<SegmentedAccent, string> = {
   ink: 'text-ink-100',
+  // Accent-toned label matching the active Script Style card: light orange/pink
+  // in dark, and the same token auto-flips to a readable dark accent in light.
+  scripts: 'text-scripts-300',
+  influencers: 'text-influencers-300',
 }
 
 // Rounded pill segmented control — the house replacement for the old

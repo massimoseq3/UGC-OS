@@ -75,6 +75,7 @@ export default function GenerateBar({
       <SegmentedToggle<'portrait' | 'sheet'>
         value={sheetMode ? 'sheet' : 'portrait'}
         onChange={(v) => onSheetModeChange(v === 'sheet')}
+        accent="influencers"
         className="h-12 !p-1"
         options={[
           { value: 'portrait', label: 'Portrait', icon: UserRound },
