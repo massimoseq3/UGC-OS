@@ -283,7 +283,7 @@ function HistoryTile({
     <div>
     <div
       onClick={onClick}
-      className="group relative cursor-pointer overflow-hidden rounded-lg border border-ink/10 bg-black light:bg-zinc-200 transition-all hover:border-ink/20 card-soft-shadow"
+      className="group relative cursor-pointer overflow-hidden rounded-lg border border-ink/10 bg-black light:bg-zinc-200 transition-all hover:border-ink/20 hover:-translate-y-px card-soft-shadow"
     >
       {status === 'ready' && url ? (
         <img src={url} alt="" className="block h-auto w-full" />

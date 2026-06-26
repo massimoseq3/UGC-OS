@@ -127,7 +127,7 @@ function ProductCard({ item, onEdit, onDelete, inFlight }: { item: Product; onEd
   return (
     <div
       onClick={onEdit}
-      className="group relative aspect-square cursor-pointer overflow-hidden rounded-2xl border border-ink/5 bg-ink/[0.03] transition-all hover:border-ink/15 card-soft-shadow"
+      className="group relative aspect-square cursor-pointer overflow-hidden rounded-2xl border border-ink/5 bg-ink/[0.03] transition-all hover:border-ink/15 hover:-translate-y-px card-soft-shadow"
     >
       {resolvedImage ? (
         <img src={resolvedImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
@@ -206,7 +206,7 @@ function ModelCard({ item, onEdit, onDelete }: { item: Model; onEdit: () => void
   return (
     <div
       onClick={onEdit}
-      className={`group relative cursor-pointer overflow-hidden rounded-2xl border border-ink/5 bg-ink/[0.03] transition-all hover:border-ink/15 card-soft-shadow ${landscape ? 'col-span-2 sm:col-span-3' : ''}`}
+      className={`group relative cursor-pointer overflow-hidden rounded-2xl border border-ink/5 bg-ink/[0.03] transition-all hover:border-ink/15 hover:-translate-y-px card-soft-shadow ${landscape ? 'col-span-2 sm:col-span-3' : ''}`}
     >
       <div className={`relative w-full ${landscape ? 'aspect-video' : 'aspect-[9/16]'}`}>
         {resolvedImage ? (
@@ -292,7 +292,7 @@ function ScriptCard({ item, onEdit, onDelete }: { item: Script; onEdit: () => vo
   return (
     <div
       onClick={onEdit}
-      className="group relative flex aspect-[9/16] cursor-pointer flex-col overflow-hidden rounded-2xl border border-ink/5 bg-ink/[0.03] p-4 transition-all hover:border-ink/15 card-soft-shadow"
+      className="group relative flex aspect-[9/16] cursor-pointer flex-col overflow-hidden rounded-2xl border border-ink/5 bg-ink/[0.03] p-4 transition-all hover:border-ink/15 hover:-translate-y-px card-soft-shadow"
     >
       {/* Header: badge + title */}
       <div className="flex flex-col gap-2">
@@ -362,7 +362,7 @@ function BRollCard({ item, onEdit, onDelete }: { item: BRoll; onEdit: () => void
   }
 
   return (
-    <div onClick={onEdit} className="group relative cursor-pointer overflow-hidden rounded-2xl border border-ink/5 bg-ink/[0.03] transition-all hover:border-ink/15 hover:bg-ink/[0.05] card-soft-shadow">
+    <div onClick={onEdit} className="group relative cursor-pointer overflow-hidden rounded-2xl border border-ink/5 bg-ink/[0.03] transition-all hover:border-ink/15 hover:bg-ink/[0.05] hover:-translate-y-px card-soft-shadow">
       {/* Thumbnail — adapts to image's natural aspect ratio */}
       <div className="relative w-full overflow-hidden">
         {resolvedImage ? (
