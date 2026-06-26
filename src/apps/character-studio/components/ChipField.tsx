@@ -120,7 +120,7 @@ export default function ChipField({ label, value, onChange, suggestions, placeho
           value={value}
           onChange={(e) => { onChange(e.target.value); setOpen(true) }}
           onFocus={() => { if (!locked) { measureDirection(); setOpen(true) } }}
-          onBlur={() => setTimeout(() => setOpen(false), 150)}
+          onBlur={() => setOpen(false)}
           onKeyDown={(e) => { if (e.key === 'Escape') setOpen(false) }}
           readOnly={locked}
           placeholder={placeholder ?? `Search or type ${label.toLowerCase()}...`}
@@ -142,8 +142,14 @@ export default function ChipField({ label, value, onChange, suggestions, placeho
         )}
 
         {showDropdown && (
-          <div className={`absolute left-0 right-0 z-30 ${panelPos} overflow-hidden rounded-2xl border border-ink/10 bg-surface-2 shadow-2xl`}>
-            <div className="max-h-52 overflow-y-auto p-1">
+          <div
+            // Keep the input focused while interacting with the panel — clicking
+            // a row or dragging the scrollbar must not blur the input (which would
+            // race the menu shut mid-scroll). The pick handlers close it explicitly.
+            onMouseDown={(e) => e.preventDefault()}
+            className={`absolute left-0 right-0 z-30 ${panelPos} overflow-hidden rounded-2xl border border-ink/10 bg-surface-2 shadow-2xl`}
+          >
+            <div className="max-h-52 overflow-y-auto overscroll-contain p-1">
               {topSection.map((s) => (
                 <SuggestionRow key={s} text={s} selected={s === value} onPick={() => { onChange(s); setOpen(false) }} />
               ))}

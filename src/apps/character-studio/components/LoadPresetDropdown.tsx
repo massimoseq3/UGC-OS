@@ -52,7 +52,7 @@ function PresetCard({ imageRef, imageUrl, name, onClick }: { imageRef?: string; 
   return (
     <button
       onClick={onClick}
-      className="group relative block aspect-[9/16] w-full overflow-hidden rounded-xl border border-ink/5 bg-ink/[0.03] transition-all hover:border-ink/15 hover:-translate-y-0.5"
+      className="group relative block aspect-[9/16] w-full overflow-hidden rounded-xl border border-ink/5 bg-ink/[0.03] transition-all hover:border-ink/15"
     >
       {url ? (
         <img src={url} alt="" className="absolute inset-0 h-full w-full object-cover" />
