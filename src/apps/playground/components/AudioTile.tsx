@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Download, Trash2, Music as MusicIcon } from 'lucide-react'
+import { Download, Trash2, CornerDownLeft, Music as MusicIcon } from 'lucide-react'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
 import type { MusicHistoryItem } from '../../../stores/types'
 import { getModel } from '../../../utils/models'
@@ -8,11 +8,13 @@ interface AudioTileProps {
   item: MusicHistoryItem
   onDownload: () => void
   onDelete: () => void
+  // Load this track's prompt + settings back into the prompt panel.
+  onReuse: () => void
 }
 
 // Audio history tile. Cover thumbnail (or gradient placeholder) + native
-// audio player + download/delete. Sits inside the day-bucketed history grid.
-export default function AudioTile({ item, onDownload, onDelete }: AudioTileProps) {
+// audio player + reuse/download/delete. Sits inside the day-bucketed history grid.
+export default function AudioTile({ item, onDownload, onDelete, onReuse }: AudioTileProps) {
   const audioUrl = useAssetUrl(item.audioRef)
   const coverUrl = useAssetUrl(item.coverImageRef)
   const modelLabel = getModel(item.modelId)?.displayName ?? item.modelId
@@ -47,6 +49,14 @@ export default function AudioTile({ item, onDownload, onDelete }: AudioTileProps
         )}
 
         <div className="mt-1.5 flex items-center justify-end gap-1">
+          <button
+            type="button"
+            title="Reuse — load prompt + settings into the inputs"
+            onClick={onReuse}
+            className="flex h-6 w-6 items-center justify-center rounded-md text-ink-400 transition-colors hover:bg-ink/[0.05] hover:text-ink-200"
+          >
+            <CornerDownLeft className="h-3 w-3" />
+          </button>
           <button
             type="button"
             title="Download"

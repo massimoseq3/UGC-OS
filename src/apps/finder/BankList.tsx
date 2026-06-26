@@ -107,12 +107,6 @@ function ConfirmDelete({ onConfirm, onCancel }: { onConfirm: () => Promise<void>
   )
 }
 
-function productCompleteness(p: Product): string {
-  const fields = [p.productImage, p.productName, p.productDescription, p.targetMarket, p.painPoints, p.usps, p.benefits, p.offer, p.cta]
-  const filled = fields.filter((f) => f && f.trim() !== '').length
-  return `${filled}/9 fields`
-}
-
 // undefined → legacy product (predates the draft system, no dot).
 // false → draft awaiting user review (orange dot).
 // true → confirmed via Save in the form (green dot).
@@ -125,6 +119,13 @@ function ProductCard({ item, onEdit, onDelete, inFlight }: { item: Product; onEd
   const [confirm, setConfirm] = useState(false)
   const resolvedImage = useAssetUrl(item.productImage)
   const state = productState(item)
+
+  const handleDownload = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!resolvedImage) return
+    downloadImage(resolvedImage, `product-${item.productName || item.id.slice(0, 8)}`)
+  }
+
   return (
     <div
       onClick={onEdit}
@@ -153,19 +154,25 @@ function ProductCard({ item, onEdit, onDelete, inFlight }: { item: Product; onEd
           }`}
         />
       ) : null}
-      {/* Bottom info overlay */}
+      {/* Bottom info overlay — product name wraps to two centered lines. */}
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/55 to-transparent px-3 pb-2.5 pt-10 text-center">
-        <span className="block truncate text-[13px] font-semibold leading-tight tracking-tight text-zinc-100">{item.productName}</span>
-        <span className="block text-[9px] leading-tight text-zinc-400">{productCompleteness(item)}</span>
+        <span className="block line-clamp-2 text-[13px] font-semibold leading-tight tracking-tight text-zinc-100">{item.productName}</span>
       </div>
-      {/* Delete button overlay */}
-      <div className="absolute right-2 top-2" onClick={(e) => e.stopPropagation()}>
+      {/* Action buttons top-right: Download · Delete */}
+      <div className="absolute right-2 top-2 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
         {confirm ? (
           <ConfirmDelete onConfirm={onDelete} onCancel={() => setConfirm(false)} />
         ) : (
-          <button onClick={() => setConfirm(true)} className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white opacity-0 backdrop-blur transition-all hover:bg-red-500/30 hover:text-red-100 hover:border-red-400/40 group-hover:opacity-100">
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
+          <>
+            {resolvedImage && (
+              <button onClick={handleDownload} title="Download image" className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white opacity-0 backdrop-blur transition-all hover:bg-black/50 group-hover:opacity-100">
+                <Download className="h-3.5 w-3.5" />
+              </button>
+            )}
+            <button onClick={() => setConfirm(true)} title="Delete" className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white opacity-0 backdrop-blur transition-all hover:bg-red-500/30 hover:text-red-100 hover:border-red-400/40 group-hover:opacity-100">
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </>
         )}
       </div>
     </div>

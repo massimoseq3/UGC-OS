@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
-import { X, Eye, EyeOff, Key, Check, ExternalLink, Loader2, AlertCircle, HardDrive, Trash2, LogOut, User, Sun, Moon, Monitor, Palette } from 'lucide-react'
+import { X, Eye, EyeOff, Key, Check, ExternalLink, Loader2, AlertCircle, HardDrive, Trash2, LogOut, User, Sun, Moon, Monitor, Palette, FlaskConical } from 'lucide-react'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useThemeStore, type ThemePref } from '../stores/themeStore'
 import SegmentedToggle from './SegmentedToggle'
 import { useAuthStore } from '../stores/authStore'
 import { isCloudEnabled } from '../lib/supabase'
 import { kieTestConnection } from '../utils/kie'
+import { seedMockData, removeMockData, hasMockData } from '../utils/mockData'
 import {
   findOrphanAssets,
   purgeOrphans,
@@ -53,6 +54,18 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [storage, setStorage] = useState<StorageState>({ phase: 'idle' })
   const [showOrphanList, setShowOrphanList] = useState(false)
 
+  // Demo-data tool — populates every bank + the generation histories with
+  // placeholder content to review the UI without spending credits, then wipes
+  // it again. Visible to me only: in local-only mode, on any localhost dev
+  // build (cloud env set or not), or to an admin on the live domain. Regular
+  // members on the production domain never see it.
+  const isLocalhost =
+    typeof window !== 'undefined' &&
+    /^(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])$/.test(window.location.hostname)
+  const showDemoTool = !isCloudEnabled() || isLocalhost || !!profile?.is_admin
+  const [demoLoaded, setDemoLoaded] = useState(false)
+  const [demoBusy, setDemoBusy] = useState(false)
+
   useEffect(() => {
     if (open) {
       setKieDraft(storedKieKey)
@@ -62,6 +75,8 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
       setTestResult(null)
       setStorage({ phase: 'idle' })
       setShowOrphanList(false)
+      setDemoLoaded(hasMockData())
+      setDemoBusy(false)
       if (cloudOn) loadUsage()
     }
     // Intentionally depend only on `open` — re-running this when storedKieKey
@@ -136,6 +151,25 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
     })
     // Refresh the bar
     loadUsage()
+  }
+
+  async function handleToggleDemo() {
+    if (demoBusy) return
+    setDemoBusy(true)
+    try {
+      if (demoLoaded) {
+        await removeMockData()
+        setDemoLoaded(false)
+      } else {
+        await seedMockData()
+        setDemoLoaded(true)
+      }
+    } catch {
+      // Best-effort dev tool — re-sync the button to the actual manifest state.
+      setDemoLoaded(hasMockData())
+    } finally {
+      setDemoBusy(false)
+    }
   }
 
   // Storage usage bar tier colors
@@ -540,6 +574,23 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
             >
               <LogOut className="h-3.5 w-3.5" />
               Sign out
+            </button>
+          </div>
+        )}
+
+        {/* Demo-data tool — deliberately tiny + low-contrast. Admin-only (or
+            local-only mode). Populates / wipes placeholder content for review. */}
+        {showDemoTool && (
+          <div className="mt-5 flex justify-center">
+            <button
+              type="button"
+              onClick={handleToggleDemo}
+              disabled={demoBusy}
+              title={demoLoaded ? 'Remove the placeholder demo content from every bank' : 'Fill every bank + generation history with placeholder demo content'}
+              className="flex items-center gap-1.5 text-[10px] text-ink-700 transition-colors hover:text-ink-400 disabled:opacity-60"
+            >
+              {demoBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <FlaskConical className="h-3 w-3" />}
+              {demoBusy ? (demoLoaded ? 'Removing…' : 'Loading…') : demoLoaded ? 'Remove demo data' : 'Load demo data'}
             </button>
           </div>
         )}

@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from 'react'
 import {
   Loader2, Download, Trash2, Bookmark, Check, Film, Image as ImageIcon,
-  Music as MusicIcon, Play, X, Copy, ImagePlay,
+  Music as MusicIcon, Play, X, CornerDownLeft, ImagePlay,
 } from 'lucide-react'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAssetUrlState, useAssetUrl } from '../../../hooks/useAssetUrl'
@@ -26,13 +26,42 @@ type HistoryEntry =
   | { kind: 'video'; createdAt: number; data: VideoHistoryItem }
   | { kind: 'music'; createdAt: number; data: MusicHistoryItem }
 
+// The inputs a past generation can hand back to the prompt panel (the
+// "reinsert into inputs" action). Reference images aren't persisted on history
+// rows, so only the prompt + settings come back — the user re-attaches refs.
+export interface PlaygroundReuse {
+  mode: PlaygroundMode
+  prompt: string
+  modelId: string
+  aspectRatio?: string
+  resolution?: string
+  durationSeconds?: number
+  audio?: boolean
+  instrumental?: boolean
+}
+
+function reuseFromEntry(entry: HistoryEntry): PlaygroundReuse {
+  if (entry.kind === 'image') {
+    const d = entry.data
+    return { mode: 'image', prompt: d.prompt, modelId: d.modelId, aspectRatio: d.aspectRatio, resolution: d.resolution }
+  }
+  if (entry.kind === 'video') {
+    const d = entry.data
+    return { mode: 'video', prompt: d.prompt, modelId: d.modelId, aspectRatio: d.aspectRatio, resolution: d.resolution, durationSeconds: d.durationSeconds, audio: d.audio }
+  }
+  const d = entry.data
+  return { mode: 'music', prompt: d.prompt, modelId: d.modelId, instrumental: d.instrumental }
+}
+
 interface PlaygroundHistoryGridProps {
   inFlight: InFlightGen[]
   // Active mode filter — null shows everything.
   filterMode: PlaygroundMode | null
+  // Load a past generation's prompt + settings back into the prompt panel.
+  onReuse: (input: PlaygroundReuse) => void
 }
 
-export default function PlaygroundHistoryGrid({ inFlight, filterMode }: PlaygroundHistoryGridProps) {
+export default function PlaygroundHistoryGrid({ inFlight, filterMode, onReuse }: PlaygroundHistoryGridProps) {
   const imageHistory = useBankStore((s) => s.imageHistory)
   const videoHistory = useBankStore((s) => s.videoHistory)
   const musicHistory = useBankStore((s) => s.musicHistory)
@@ -81,11 +110,6 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode }: Playgrou
     } finally {
       setSavingIds((prev) => { const next = new Set(prev); next.delete(item.id); return next })
     }
-  }
-
-  async function handleCopyPrompt(text: string) {
-    const ok = await copyToClipboard(text)
-    addToast(ok ? 'Prompt copied to clipboard' : 'Copy failed', ok ? undefined : 'error')
   }
 
   if (entries.length === 0 && visibleInFlight.length === 0) {
@@ -137,7 +161,7 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode }: Playgrou
                       onClick={() => setPreviewItem(entry)}
                       onSave={() => handleSaveImage(entry.data)}
                       onDelete={() => deleteImageHistory(entry.data.id)}
-                      onCopyPrompt={() => handleCopyPrompt(entry.data.prompt)}
+                      onReuse={() => onReuse(reuseFromEntry(entry))}
                     />
                   )}
                   {entry.kind === 'video' && (
@@ -145,7 +169,7 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode }: Playgrou
                       item={entry.data}
                       onClick={() => setPreviewItem(entry)}
                       onDelete={() => deleteVideoHistory(entry.data.id)}
-                      onCopyPrompt={() => handleCopyPrompt(entry.data.prompt)}
+                      onReuse={() => onReuse(reuseFromEntry(entry))}
                     />
                   )}
                   {entry.kind === 'music' && (
@@ -156,6 +180,7 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode }: Playgrou
                         if (url) downloadImage(url, `playground-${entry.data.id}`, 'mp3')
                       }}
                       onDelete={() => deleteMusicHistory(entry.data.id)}
+                      onReuse={() => onReuse(reuseFromEntry(entry))}
                     />
                   )}
                 </div>
@@ -174,10 +199,7 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode }: Playgrou
           onSave={() => {
             if (previewItem.kind === 'image') handleSaveImage(previewItem.data)
           }}
-          onCopyPrompt={async (text) => {
-            const ok = await copyToClipboard(text)
-            addToast(ok ? 'Prompt copied to clipboard' : 'Copy failed', ok ? undefined : 'error')
-          }}
+          onReuse={() => { onReuse(reuseFromEntry(previewItem)); setPreviewItem(null) }}
         />
       )}
     </div>
@@ -200,14 +222,14 @@ function ImageTile({
   onClick,
   onSave,
   onDelete,
-  onCopyPrompt,
+  onReuse,
 }: {
   item: ImageHistoryItem
   isSaving: boolean
   onClick: () => void
   onSave: () => void
   onDelete: () => void
-  onCopyPrompt: () => void
+  onReuse: () => void
 }) {
   const { url, status } = useAssetUrlState(item.imageUrl)
   const isSaved = !!item.linkedBRollId
@@ -228,17 +250,19 @@ function ImageTile({
               : <ImageIcon className="h-6 w-6 text-ink-700" />}
           </div>
         )}
-        {/* Hover actions mirror the Influencers gallery: delete sits top-right,
-            copy + save + download bottom-right, all as round icon buttons. */}
+        {/* Hover actions: delete top-right, reinsert-to-inputs bottom-LEFT,
+            save + download bottom-right — all round icon buttons. */}
         <div className="absolute right-1.5 top-1.5 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
           <DeleteConfirmButton onDelete={onDelete} />
         </div>
-        <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-          {item.prompt && (
-            <TileButton title="Copy prompt" onClick={(e) => { e.stopPropagation(); onCopyPrompt() }}>
-              <Copy className="h-4 w-4" />
+        {item.prompt && (
+          <div className="absolute bottom-1.5 left-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+            <TileButton title="Reuse — load prompt + settings into the inputs" onClick={(e) => { e.stopPropagation(); onReuse() }}>
+              <CornerDownLeft className="h-4 w-4" />
             </TileButton>
-          )}
+          </div>
+        )}
+        <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
           <TileButton
             title={isSaved ? 'Saved to B-Rolls' : isSaving ? 'Saving…' : 'Save to B-Rolls Bank'}
             tone={isSaved ? 'saved' : 'default'}
@@ -273,12 +297,12 @@ function VideoTile({
   item,
   onClick,
   onDelete,
-  onCopyPrompt,
+  onReuse,
 }: {
   item: VideoHistoryItem
   onClick: () => void
   onDelete: () => void
-  onCopyPrompt: () => void
+  onReuse: () => void
 }) {
   const { url, status } = useAssetUrlState(item.videoUrl)
   const [hovering, setHovering] = useState(false)
@@ -319,17 +343,19 @@ function VideoTile({
           </div>
         )}
 
-        {/* Hover actions mirror the Influencers gallery: delete top-right,
-            copy + save + download bottom-right, all round icon buttons. */}
+        {/* Hover actions: delete top-right, reinsert-to-inputs bottom-LEFT,
+            download bottom-right, all round icon buttons. */}
         <div className="absolute right-1.5 top-1.5 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
           <DeleteConfirmButton onDelete={onDelete} />
         </div>
-        <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-          {item.prompt && (
-            <TileButton title="Copy prompt" onClick={(e) => { e.stopPropagation(); onCopyPrompt() }}>
-              <Copy className="h-4 w-4" />
+        {item.prompt && (
+          <div className="absolute bottom-1.5 left-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+            <TileButton title="Reuse — load prompt + settings into the inputs" onClick={(e) => { e.stopPropagation(); onReuse() }}>
+              <CornerDownLeft className="h-4 w-4" />
             </TileButton>
-          )}
+          </div>
+        )}
+        <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
           <TileButton
             title="Download"
             onClick={async (e) => {
@@ -424,17 +450,16 @@ function PreviewModal({
   onClose,
   onSave,
   isSaving,
-  onCopyPrompt,
+  onReuse,
 }: {
   entry: HistoryEntry
   onClose: () => void
   onSave: () => void
   isSaving: boolean
-  onCopyPrompt: (text: string) => void
+  onReuse: () => void
 }) {
   const imageUrl = useAssetUrl(entry.kind === 'image' ? entry.data.imageUrl : null)
   const videoUrl = useAssetUrl(entry.kind === 'video' ? entry.data.videoUrl : null)
-  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
@@ -455,12 +480,6 @@ function PreviewModal({
     const url = entry.kind === 'image' ? imageUrl : videoUrl
     if (!url) return
     await downloadImage(url, `playground-${entry.data.id}`, entry.kind === 'image' ? 'png' : 'mp4')
-  }
-
-  async function handleCopy() {
-    onCopyPrompt(prompt)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1800)
   }
 
   // The bar is glassmorphic + lives in the playground tree, but the modal
@@ -524,9 +543,15 @@ function PreviewModal({
               {prompt}
             </div>
           )}
-          {/* Primary actions — labeled, thicker pills sitting under the media
-              with Copy prompt, instead of icon-only buttons in the corner. */}
+          {/* Primary actions — labeled pills under the media. "Send to inputs"
+              reloads the prompt + settings into the prompt panel to tweak. */}
           <div className="flex flex-wrap items-center justify-center gap-2">
+            {prompt && (
+              <ModalBarButton onClick={onReuse} tone="accent">
+                <CornerDownLeft className="h-4 w-4" />
+                <span>Send to inputs</span>
+              </ModalBarButton>
+            )}
             {/* Save-to-bank is stills-only — videos are download-only. */}
             {entry.kind === 'image' && (
               <ModalBarButton
@@ -542,12 +567,6 @@ function PreviewModal({
               <Download className="h-4 w-4" />
               <span>{entry.kind === 'video' ? 'Download Video' : 'Download Image'}</span>
             </ModalBarButton>
-            {prompt && (
-              <ModalBarButton onClick={handleCopy}>
-                {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
-                <span>{copied ? 'Copied' : 'Copy prompt'}</span>
-              </ModalBarButton>
-            )}
           </div>
           {/* Frame grabs — pull the first/last still out of the clip to reuse as
               a start frame / reference (save to bank) or keep (download). */}
@@ -735,10 +754,12 @@ function ModalBarButton({
   children: React.ReactNode
   onClick: () => void
   disabled?: boolean
-  tone?: 'default' | 'saved'
+  tone?: 'default' | 'saved' | 'accent'
 }) {
   const toneClass = tone === 'saved'
     ? 'border-emerald-500/40 bg-emerald-500/20 text-emerald-200 hover:bg-emerald-500/30'
+    : tone === 'accent'
+    ? 'border-playground-500/40 bg-playground-500/20 text-playground-100 hover:bg-playground-500/30'
     : 'border-white/15 bg-white/[0.06] text-zinc-100 hover:bg-white/[0.12]'
   return (
     <button
@@ -823,25 +844,4 @@ function aspectStyle(ar: string): React.CSSProperties {
 function isLandscape(ar: string): boolean {
   const [w, h] = ar.split(':').map(Number)
   return !!w && !!h && w > h
-}
-
-async function copyToClipboard(text: string): Promise<boolean> {
-  if (!text) return false
-  try {
-    if (navigator.clipboard && window.isSecureContext) {
-      await navigator.clipboard.writeText(text)
-      return true
-    }
-    const ta = document.createElement('textarea')
-    ta.value = text
-    ta.style.position = 'fixed'
-    ta.style.opacity = '0'
-    document.body.appendChild(ta)
-    ta.select()
-    const ok = document.execCommand('copy')
-    document.body.removeChild(ta)
-    return ok
-  } catch {
-    return false
-  }
 }

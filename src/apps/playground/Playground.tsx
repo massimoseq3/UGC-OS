@@ -11,7 +11,7 @@ import {
   finishPlaygroundMusicTask,
 } from './service'
 import PromptPanel, { type PromptPanelState, type PromptRef } from './components/PromptPanel'
-import PlaygroundHistoryGrid from './components/PlaygroundHistoryGrid'
+import PlaygroundHistoryGrid, { type PlaygroundReuse } from './components/PlaygroundHistoryGrid'
 import { getDefaultModel, getModel, type AspectRatio, type ImageResolution, type VideoMode } from '../../utils/models'
 import type { PlaygroundMode, InFlightGen } from './types'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
@@ -286,7 +286,17 @@ export default function Playground() {
     // and makes the prompt optional but the character image + driving video
     // required. Everything else infers the mode from the attached frames.
     const isMotionControl = mode === 'video' && !!getModel(state.modelId)?.motionControl
-    const inferredVideoMode: VideoMode = isMotionControl ? 'motion-control' : inferVideoMode(refsSnapshot)
+    let inferredVideoMode: VideoMode = isMotionControl ? 'motion-control' : inferVideoMode(refsSnapshot)
+    // Image-to-video-only models (e.g. Kling 3.0 Turbo) can't take a reference
+    // image, but they CAN animate it as a start frame. Downgrade
+    // reference-to-video → image-to-video so the attached image drives the clip
+    // instead of bouncing the user with an "unsupported mode" toast.
+    if (!isMotionControl && inferredVideoMode === 'reference-to-video') {
+      const picked = getModel(state.modelId)
+      if (picked && !picked.modes?.includes('reference-to-video') && picked.modes?.includes('image-to-video')) {
+        inferredVideoMode = 'image-to-video'
+      }
+    }
     if (!isMotionControl && !promptText) return
     if (isMotionControl) {
       const hasImg = refsSnapshot.some((r) => r.slot === 'motion-image')
@@ -478,6 +488,29 @@ export default function Playground() {
   // The model/aspect/duration picks stay (they're config, not input).
   const handleClear = () => setState((s) => ({ ...s, prompt: '', refs: [] }))
 
+  // Reinsert a past generation's prompt + settings into the prompt panel so the
+  // user can tweak and re-run it. Reference images aren't persisted on history
+  // rows, so refs are cleared — the user re-attaches any they want. Switching
+  // modes stashes the current tab's draft first (mirrors handleModeChange).
+  const handleReuse = (input: PlaygroundReuse) => {
+    if (input.mode !== state.mode) {
+      setPromptStash((prev) => ({ ...prev, [state.mode]: { prompt: state.prompt, refs: state.refs } }))
+    }
+    setState((s) => ({
+      ...s,
+      mode: input.mode,
+      prompt: input.prompt,
+      modelId: getModel(input.modelId) ? input.modelId : s.modelId,
+      aspectRatio: input.aspectRatio ?? s.aspectRatio,
+      resolution: input.resolution ?? s.resolution,
+      durationSeconds: input.durationSeconds ?? s.durationSeconds,
+      audio: input.audio ?? s.audio,
+      instrumental: input.instrumental ?? s.instrumental,
+      refs: [],
+    }))
+    addToast('Loaded into the inputs', 'info')
+  }
+
   // Filter the history grid to the active mode. Users frequently bounce
   // between modes and want to see what they just made, not noise from the
   // other tabs.
@@ -505,7 +538,7 @@ export default function Playground() {
 
         {/* Right — history grid */}
         <div className="flex flex-1 flex-col md:min-h-0 md:overflow-hidden">
-          <PlaygroundHistoryGrid inFlight={inFlight} filterMode={filterMode} />
+          <PlaygroundHistoryGrid inFlight={inFlight} filterMode={filterMode} onReuse={handleReuse} />
         </div>
       </div>
     </div>
