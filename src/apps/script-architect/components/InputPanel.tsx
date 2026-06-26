@@ -406,6 +406,7 @@ export default function InputPanel({
               <div className="mt-2">
                 <SegmentedToggle<WriteFormat>
                   className="h-12 !p-1"
+                  accent="scripts"
                   value={writeFormat}
                   onChange={handleFormatChange}
                   options={[
@@ -437,7 +438,7 @@ export default function InputPanel({
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setStyleSlideOpen(true) } }}
                 className={`group mt-2 flex w-full cursor-pointer items-center gap-3 rounded-full border px-4 py-3.5 text-left transition-colors ${
                   styleChosen
-                    ? 'border-ink/10 bg-ink/[0.02] hover:border-ink/20 hover:bg-ink/[0.04]'
+                    ? 'border-scripts-500/30 bg-scripts-500/10 hover:border-scripts-500/40 hover:bg-scripts-500/[0.14]'
                     : 'border-dashed border-ink/10 bg-ink/[0.02] hover:border-scripts-500/30 hover:bg-scripts-500/5'
                 }`}
               >
@@ -447,7 +448,7 @@ export default function InputPanel({
                 <div className="min-w-0 flex-1">
                   {styleChosen ? (
                     <>
-                      <div className="truncate text-[13px] font-medium tracking-tight text-ink-200">{WRITE_STYLE_META[writeStyle].label}</div>
+                      <div className="truncate text-[13px] font-medium tracking-tight text-scripts-300">{WRITE_STYLE_META[writeStyle].label}</div>
                       <div className="truncate text-[11px] leading-snug text-ink-500">{WRITE_STYLE_META[writeStyle].hint}</div>
                     </>
                   ) : (
@@ -507,6 +508,7 @@ export default function InputPanel({
                 <div className="mt-2">
                   <SegmentedToggle<string>
                     className="h-12 !p-1"
+                    accent="scripts"
                     value={String(writeLength)}
                     onChange={(v) => onWriteLengthChange(Number(v) as WriteLength)}
                     options={(isPromptFormat ? PROMPT_LENGTHS : WRITE_LENGTHS).map((len) => ({ value: String(len), label: `${len}s` }))}
