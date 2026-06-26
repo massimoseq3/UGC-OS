@@ -27,6 +27,13 @@ export function initAutoHideScrollbars(): void {
   }
 
   function paint(el: HTMLElement): void {
+    // Opt-out: popover menus (`.scrollbar-hide`) don't want the floating
+    // overlay. The overlay is a single fixed element that fades out over ~1.6s
+    // (IDLE_MS + transition); if the scroller unmounts first — as a dropdown
+    // does on click-off — the thumb is left floating over the page beneath it.
+    // These short menus scroll fine with no indicator at all.
+    if (el.classList.contains('scrollbar-hide')) return
+
     const scrollH = el.scrollHeight
     const clientH = el.clientHeight
     if (scrollH <= clientH + 1) return // nothing to scroll

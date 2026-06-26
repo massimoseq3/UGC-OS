@@ -149,7 +149,7 @@ export default function ChipField({ label, value, onChange, suggestions, placeho
             onMouseDown={(e) => e.preventDefault()}
             className={`absolute left-0 right-0 z-30 ${panelPos} overflow-hidden rounded-2xl border border-ink/10 bg-surface-2 shadow-2xl`}
           >
-            <div className="max-h-52 overflow-y-auto overscroll-contain p-1">
+            <div className="max-h-52 overflow-y-auto overscroll-contain scrollbar-hide p-1">
               {topSection.map((s) => (
                 <SuggestionRow key={s} text={s} selected={s === value} onPick={() => { onChange(s); setOpen(false) }} />
               ))}
