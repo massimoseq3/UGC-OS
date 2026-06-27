@@ -283,16 +283,24 @@ function CreditsChip({ collapsed }: { collapsed: boolean }) {
 // two read as a matched pair. Collapsed: icon-only segments in the narrow rail.
 function SidebarThemeToggle({ collapsed }: { collapsed: boolean }) {
   const pref = useThemeStore((s) => s.pref)
+  const resolved = useThemeStore((s) => s.resolved)
   const setPref = useThemeStore((s) => s.setPref)
+
+  // Collapsed rail: drop System and show just the Dark/Light pair — there's no
+  // room for a third icon. System returns when the sidebar expands. When the
+  // preference is System, highlight whichever theme it currently resolves to so
+  // a segment still reads as active.
+  const options = collapsed ? THEME_OPTIONS.filter((o) => o.value !== 'system') : THEME_OPTIONS
+  const activeValue: ThemePref = collapsed && pref === 'system' ? resolved : pref
 
   return (
     <SegmentedToggle<ThemePref>
       dense
       className={collapsed ? '' : 'mt-2 h-9'}
-      value={pref}
+      value={activeValue}
       onChange={setPref}
       // Icon only in both states — Moon (dark) / Sun (light) / Monitor (system).
-      options={THEME_OPTIONS.map(({ value, icon }) => ({ value, label: '', icon }))}
+      options={options.map(({ value, icon }) => ({ value, label: '', icon }))}
     />
   )
 }

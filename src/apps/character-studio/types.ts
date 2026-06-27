@@ -160,11 +160,6 @@ export const TABS: TabConfig[] = [
         icon: Smile,
         fields: [
           {
-            key: 'skinTone',
-            label: 'Skin Tone',
-            chips: ['Porcelain', 'Fair', 'Light', 'Beige', 'Olive', 'Golden', 'Tan', 'Caramel', 'Bronze', 'Brown', 'Espresso', 'Deep ebony'],
-          },
-          {
             // The realism dial. The first three are one-click tiers — full,
             // self-contained skin descriptors graded by intensity. They lead
             // with a keyword ("Subtle/Natural/Gritty realism —") so they're
@@ -189,6 +184,16 @@ export const TABS: TabConfig[] = [
               'Textured',
             ],
             placeholder: 'e.g. "Natural realism — visible pores, light freckles"',
+            // Full-width like Hair Style — the realism presets are long
+            // sentences, so the field (and its dropdown) spans the row to show
+            // far more of each option without truncating. Skin Tone follows so
+            // no half field is left stranded next to an empty cell.
+            wide: true,
+          },
+          {
+            key: 'skinTone',
+            label: 'Skin Tone',
+            chips: ['Porcelain', 'Fair', 'Light', 'Beige', 'Olive', 'Golden', 'Tan', 'Caramel', 'Bronze', 'Brown', 'Espresso', 'Deep ebony'],
           },
           {
             key: 'facialHair',

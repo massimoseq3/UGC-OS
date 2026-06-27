@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react'
-import { Lock, Unlock, Maximize2 } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { Lock, Unlock, Maximize2, Star } from 'lucide-react'
 
 interface ChipFieldProps {
   label: string
@@ -19,6 +19,18 @@ interface ChipFieldProps {
 // button so the full prompt can be edited in the pop-up without scrolling.
 const LONG_VALUE = 30
 
+// A suggestion longer than this is one of the hand-authored "detailed" presets
+// (full descriptive sentences — realism cues, lighting setups, expressions)
+// rather than a one-word quick pick. These get a star and float to the top of
+// the dropdown so they're reachable without scrolling.
+const DETAILED_LEN = 30
+const isDetailed = (s: string) => s.trim().length > DETAILED_LEN
+// Stable reorder: detailed (starred) options first, everything else after.
+const detailedFirst = (arr: string[]) => [
+  ...arr.filter(isDetailed),
+  ...arr.filter((s) => !isDetailed(s)),
+]
+
 // Tallest the dropdown/editor pop-up can grow (max-h-52 list ≈ 208px + padding
 // + the mt offset). Used to decide flip direction: if there's less than this
 // much room below the field, open upward instead. Padded a touch so the panel
@@ -29,6 +41,19 @@ export default function ChipField({ label, value, onChange, suggestions, placeho
   const isFilled = value.trim() !== ''
   const [locked, setLocked] = useState(defaultLocked)
   const [open, setOpen] = useState(false)
+  // Track focus so a hover-opened dropdown only auto-closes when the field
+  // isn't actively being edited.
+  const [focused, setFocused] = useState(false)
+  // Hover-open closes on a short delay so moving the cursor across the small
+  // gap from the input down onto the panel doesn't flicker it shut.
+  const closeTimer = useRef<number | null>(null)
+  const cancelClose = () => {
+    if (closeTimer.current) { window.clearTimeout(closeTimer.current); closeTimer.current = null }
+  }
+  const scheduleClose = () => {
+    cancelClose()
+    closeTimer.current = window.setTimeout(() => { if (!focused) setOpen(false) }, 120)
+  }
   // The full-text editor pop-up — opened from the expand button on long values.
   const [editing, setEditing] = useState(false)
   // Flip both pop-ups above the field when there isn't room to open downward.
@@ -38,22 +63,35 @@ export default function ChipField({ label, value, onChange, suggestions, placeho
   // against the real clipping edges, not the viewport.
   const [openUp, setOpenUp] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
+  // A bottom fade hints "there's more below" when the list overflows and isn't
+  // scrolled to the end — the macOS overlay scrollbar stays hidden at rest, so
+  // without this cue the user can't tell the menu scrolls.
+  const listRef = useRef<HTMLDivElement>(null)
+  const [showMoreFade, setShowMoreFade] = useState(false)
+  const updateFade = () => {
+    const el = listRef.current
+    if (!el) { setShowMoreFade(false); return }
+    setShowMoreFade(el.scrollTop + el.clientHeight < el.scrollHeight - 1)
+  }
 
   const q = value.trim().toLowerCase()
   // Two sections: the options that match the current text float to the top,
-  // a hairline separator, then every other option. With no text yet, a
-  // "None" option (when the field has one) takes the top slot instead, so
-  // the most common "skip this field" pick is always one click away. The
-  // dropdown opens on every focus — even when the field already holds a
-  // value — so clicking into a filled field still shows the full menu.
+  // a hairline separator, then every other option. With no text yet, the
+  // starred "detailed" presets (plus a "None" option, when the field has one)
+  // take the top slot, so the richest picks are always reachable without
+  // scrolling. Within every section the detailed presets sort first. The
+  // dropdown opens on every focus or hover — even when the field already holds
+  // a value — so landing on a filled field still shows the full menu.
   let topSection: string[]
   let restSection: string[]
   if (q) {
-    topSection = suggestions.filter((s) => s.toLowerCase().includes(q))
-    restSection = suggestions.filter((s) => !s.toLowerCase().includes(q))
+    topSection = detailedFirst(suggestions.filter((s) => s.toLowerCase().includes(q)))
+    restSection = detailedFirst(suggestions.filter((s) => !s.toLowerCase().includes(q)))
   } else {
-    topSection = suggestions.filter((s) => s.toLowerCase() === 'none')
-    restSection = suggestions.filter((s) => s.toLowerCase() !== 'none')
+    const none = suggestions.filter((s) => s.toLowerCase() === 'none')
+    const rest = suggestions.filter((s) => s.toLowerCase() !== 'none')
+    topSection = [...none, ...rest.filter(isDetailed)]
+    restSection = rest.filter((s) => !isDetailed(s))
   }
   const showDropdown = open && !editing && !locked && suggestions.length > 0
   const showExpand = !locked && value.trim().length > LONG_VALUE
@@ -98,6 +136,15 @@ export default function ChipField({ label, value, onChange, suggestions, placeho
   // Shared vertical placement for the dropdown + editor pop-ups.
   const panelPos = openUp ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
 
+  // Recompute the "more below" fade whenever the menu opens or its rows change.
+  useEffect(() => {
+    if (showDropdown) updateFade()
+    else setShowMoreFade(false)
+    // updateFade reads a ref; the deps below cover every state that changes the
+    // list height (open/close, typed query, section sizes).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showDropdown, value, topSection.length, restSection.length])
+
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center gap-1.5">
@@ -115,12 +162,24 @@ export default function ChipField({ label, value, onChange, suggestions, placeho
           </button>
         )}
       </div>
-      <div ref={wrapRef} className="relative">
+      <div
+        ref={wrapRef}
+        className="relative"
+        // Hovering the field opens the menu so a quick browse costs no click;
+        // it closes shortly after the cursor leaves (unless the field is
+        // focused). The panel lives inside this wrapper, so moving onto it
+        // cancels the pending close.
+        onMouseEnter={() => {
+          cancelClose()
+          if (!locked && !editing && suggestions.length > 0) { measureDirection(); setOpen(true) }
+        }}
+        onMouseLeave={() => { if (!focused) scheduleClose() }}
+      >
         <input
           value={value}
           onChange={(e) => { onChange(e.target.value); setOpen(true) }}
-          onFocus={() => { if (!locked) { measureDirection(); setOpen(true) } }}
-          onBlur={() => setOpen(false)}
+          onFocus={() => { setFocused(true); if (!locked) { measureDirection(); setOpen(true) } }}
+          onBlur={() => { setFocused(false); setOpen(false) }}
           onKeyDown={(e) => { if (e.key === 'Escape') setOpen(false) }}
           readOnly={locked}
           placeholder={placeholder ?? `Search or type ${label.toLowerCase()}...`}
@@ -149,17 +208,26 @@ export default function ChipField({ label, value, onChange, suggestions, placeho
             onMouseDown={(e) => e.preventDefault()}
             className={`absolute left-0 right-0 z-30 ${panelPos} overflow-hidden rounded-2xl border border-ink/10 bg-surface-2 shadow-2xl`}
           >
-            <div className="max-h-52 overflow-y-auto overscroll-contain scrollbar-hide p-1">
+            <div ref={listRef} onScroll={updateFade} className="max-h-52 overflow-y-auto overscroll-contain menu-scroll p-1">
               {topSection.map((s) => (
-                <SuggestionRow key={s} text={s} selected={s === value} onPick={() => { onChange(s); setOpen(false) }} />
+                <SuggestionRow key={s} text={s} selected={s === value} starred={isDetailed(s)} onPick={() => { onChange(s); setOpen(false) }} />
               ))}
               {topSection.length > 0 && restSection.length > 0 && (
                 <div className="mx-2 my-1 h-px bg-ink/[0.08]" />
               )}
               {restSection.map((s) => (
-                <SuggestionRow key={s} text={s} selected={s === value} onPick={() => { onChange(s); setOpen(false) }} />
+                <SuggestionRow key={s} text={s} selected={s === value} starred={isDetailed(s)} onPick={() => { onChange(s); setOpen(false) }} />
               ))}
             </div>
+            {/* "More below" cue — fades out the last row when the list overflows
+                and isn't scrolled to the end. Pointer-events-none so the row
+                underneath stays clickable. */}
+            {showMoreFade && (
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-x-0 bottom-0 h-9 rounded-b-2xl bg-gradient-to-t from-[var(--color-surface-2)] to-transparent"
+              />
+            )}
           </div>
         )}
 
@@ -195,16 +263,17 @@ export default function ChipField({ label, value, onChange, suggestions, placeho
   )
 }
 
-function SuggestionRow({ text, selected, onPick }: { text: string; selected: boolean; onPick: () => void }) {
+function SuggestionRow({ text, selected, starred, onPick }: { text: string; selected: boolean; starred: boolean; onPick: () => void }) {
   return (
     <button
       type="button"
       onClick={onPick}
-      className={`block w-full truncate rounded-full px-3 py-1.5 text-left text-[12px] transition-colors ${
+      className={`flex w-full items-center gap-1.5 rounded-full px-3 py-1.5 text-left text-[12px] transition-colors ${
         selected ? 'bg-ink/[0.08] text-ink-100' : 'text-ink-300 hover:bg-ink/[0.06]'
       }`}
     >
-      {text}
+      {starred && <Star className="h-3 w-3 shrink-0 fill-influencers-400 text-influencers-400" />}
+      <span className="truncate">{text}</span>
     </button>
   )
 }

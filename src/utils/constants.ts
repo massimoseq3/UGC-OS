@@ -47,7 +47,7 @@ export const CATEGORY_LABELS: Record<AppCategory, string> = {
 export type BankType = 'products' | 'models' | 'scripts' | 'voices' | 'brolls'
 
 export const BANK_CONFIG: Record<BankType, { label: string; icon: ElementType; accent: string }> = {
-  products: { label: 'Products', icon: Package, accent: '#D4AF37' },
+  products: { label: 'Products', icon: Package, accent: '#900C3F' },
   models: { label: 'Influencers', icon: UserRound, accent: '#F74F9E' },
   scripts: { label: 'Scripts', icon: FileText, accent: '#F7821B' },
   voices: { label: 'Voices', icon: Mic, accent: '#007AFF' },
