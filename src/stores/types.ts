@@ -202,6 +202,11 @@ export interface CharacterHistoryItem {
   // undefined → portrait (legacy rows predate sheets). 'sheet' rows attach to
   // an existing Model's sheetImage instead of creating a new bank entry.
   kind?: 'portrait' | 'sheet'
+  // Groups a portrait with every edit / sheet derived from it inside the edit
+  // modal. Form-generated rows leave this unset (each is its own lineage, keyed
+  // by its own id); a derived gen inherits its source's lineage so reopening the
+  // editor re-shows the whole strip. See InfluencerEditModal.
+  lineageId?: string
   linkedModelId?: string
   createdAt: number
 }

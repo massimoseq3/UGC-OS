@@ -54,12 +54,15 @@ type Mode = 'edit' | 'sheet'
 const MAX_REFS = 4
 
 interface SessionOutput {
-  // For the base image this is the source history id; for new gens it's the new
-  // characterHistory id we stamp on generation.
+  // The characterHistory id this tile renders — the base image's id, or the new
+  // row we stamp on each generation.
   id: string
   imageRef: string
   aspectRatio: string
   kind: 'portrait' | 'sheet'
+  // Set once the row has been saved to the Influencers bank — drives the tile's
+  // Saved badge straight from the store so it survives a reopen.
+  linkedModelId?: string
 }
 
 interface UploadedRef {
@@ -94,7 +97,15 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
   const addModel = useBankStore((s) => s.addModel)
   const updateCharacterHistory = useBankStore((s) => s.updateCharacterHistory)
   const models = useBankStore((s) => s.models)
+  const characterHistory = useBankStore((s) => s.characterHistory)
   const addToast = useAppStore((s) => s.addToast)
+
+  // Every generation in this influencer's lineage — the source portrait plus
+  // every edit / sheet derived from it. Form rows leave lineageId unset, so the
+  // key is the row's own id; derived gens inherit the source's lineageId. This
+  // is what makes the strip survive a close + reopen of the editor (the same
+  // rows that show in the main gallery).
+  const lineageKey = item.lineageId ?? item.id
 
   const [mode, setMode] = useState<Mode>(initialMode)
   const [promptExpanded, setPromptExpanded] = useState(false)
@@ -106,9 +117,24 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
   const refMenuTimer = useRef<number | null>(null)
   const openRefMenu = () => { if (refMenuTimer.current) window.clearTimeout(refMenuTimer.current); setRefMenuOpen(true) }
   const closeRefMenuSoon = () => { refMenuTimer.current = window.setTimeout(() => setRefMenuOpen(false), 120) }
-  const [outputs, setOutputs] = useState<SessionOutput[]>([
-    { id: item.id, imageRef: item.imageRef, aspectRatio: item.aspectRatio, kind: item.kind ?? 'portrait' },
-  ])
+  // Newest-first so fresh gens land at the top of the strip (mirrors the old
+  // prepend behaviour). Falls back to the clicked item if the row isn't in
+  // history yet (shouldn't happen — the editor only opens on persisted rows).
+  const outputs = useMemo<SessionOutput[]>(() => {
+    const rows = characterHistory
+      .filter((h) => (h.lineageId ?? h.id) === lineageKey)
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .map((h) => ({
+        id: h.id,
+        imageRef: h.imageRef,
+        aspectRatio: h.aspectRatio,
+        kind: h.kind ?? 'portrait',
+        linkedModelId: h.linkedModelId,
+      }))
+    return rows.length > 0
+      ? rows
+      : [{ id: item.id, imageRef: item.imageRef, aspectRatio: item.aspectRatio, kind: item.kind ?? 'portrait' }]
+  }, [characterHistory, lineageKey, item])
   const [selectedId, setSelectedId] = useState(item.id)
   const [prompt, setPrompt] = useState('')
   const [refs, setRefs] = useState<UploadedRef[]>([])
@@ -138,9 +164,14 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
   const sheetAspectOptions: string[] = aspectOptions.filter((a) => a === '16:9' || a === '9:16')
 
   // Resolution is shared across modes; flipping to Sheet bumps to a crisp tier
-  // (sheets pack many panels into one frame) and flipping back restores it.
+  // (sheets pack many panels into one frame) and flipping back restores it. The
+  // sheet tier mirrors the main form — 4K when the model offers it, else its
+  // highest available resolution.
   const itemResolution = (item.resolution as ImageResolution) ?? '1K'
-  const [resolution, setResolution] = useState<ImageResolution>(initialMode === 'sheet' ? '2K' : itemResolution)
+  const sheetResolution = (resolutionOptions.includes('4K')
+    ? '4K'
+    : resolutionOptions[resolutionOptions.length - 1] ?? '4K') as ImageResolution
+  const [resolution, setResolution] = useState<ImageResolution>(initialMode === 'sheet' ? sheetResolution : itemResolution)
   const [preSheetResolution, setPreSheetResolution] = useState<ImageResolution>(itemResolution)
   // Aspect is per-mode: edits keep the source framing; sheets pick an orientation.
   const [editAspect, setEditAspect] = useState<string>(coerceAspect(item.aspectRatio))
@@ -166,8 +197,7 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
     if (next === mode) return
     if (next === 'sheet') {
       setPreSheetResolution(resolution)
-      const sheetRes = (resolutionOptions.includes('2K') ? '2K' : resolutionOptions[resolutionOptions.length - 1] ?? '2K') as ImageResolution
-      setResolution(sheetRes)
+      setResolution(sheetResolution)
     } else {
       setResolution(preSheetResolution)
     }
@@ -207,9 +237,10 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
     if (url) setRefs((prev) => (prev.length >= MAX_REFS ? prev : [...prev, { url: url as string, name }]))
   }
 
-  // Stamp a finished generation: persist to characterHistory (so it survives the
-  // modal close and shows in the main gallery), prepend to the outputs strip,
-  // and select it as the new cover.
+  // Stamp a finished generation: persist to characterHistory (so it shows in the
+  // main gallery AND re-appears in this strip on reopen via the shared lineage),
+  // then select it as the new cover. The strip itself is derived from the store,
+  // so the new row flows in on the next render — no local list to keep in sync.
   function recordOutput(assetId: string, kind: 'portrait' | 'sheet', aspect: string) {
     const newId = crypto.randomUUID()
     addCharacterHistory({
@@ -220,9 +251,9 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
       aspectRatio: aspect,
       resolution,
       kind,
+      lineageId: lineageKey,
       createdAt: Date.now(),
     })
-    setOutputs((prev) => [{ id: newId, imageRef: assetId, aspectRatio: aspect, kind }, ...prev])
     setSelectedId(newId)
   }
 
@@ -524,7 +555,7 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
                     className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-influencers-500 px-7 py-4 text-sm font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-influencers-400 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <LayoutGrid className="h-4 w-4" />}
-                    {generating ? 'Generating sheet…' : `Generate Sheet${creditsLabel ? ` (${creditsLabel})` : ''}`}
+                    {generating ? 'Generating influencer sheet…' : `Generate Influencer Sheet${creditsLabel ? ` (${creditsLabel})` : ''}`}
                   </button>
                 )}
                 <div className="min-h-[16px]">
@@ -553,7 +584,7 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
                     key={o.id}
                     output={o}
                     selected={o.id === selectedId}
-                    saved={savedIds.has(o.id)}
+                    saved={savedIds.has(o.id) || !!o.linkedModelId}
                     saving={savingId === o.id}
                     promptText={o.kind === 'sheet' ? buildSheetPrompt(item.profile, o.aspectRatio) : buildImagePrompt(item.profile)}
                     onSelect={() => setSelectedId(o.id)}
