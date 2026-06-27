@@ -1,9 +1,11 @@
 // Dev-only demo-data seeder. Behind a subtle, admin-only control in Settings.
-// Populates every bank + the history streams (Influencers, Scripts, B-Roll
-// Gallery, Playground) with realistic-looking placeholder content so the UI can
-// be reviewed without burning kie.ai credits. All generated images are local
-// canvas placeholders (gradients + labels) saved as normal assets, so they
-// render exactly like real generations.
+// Populates every bank + every generation-history stream (Influencers, Scripts,
+// B-Roll Gallery, Playground images/videos/music, Voiceovers, Ad Analyzer) with
+// realistic-looking placeholder content so the UI can be reviewed without
+// burning kie.ai credits. Images are local canvas placeholders (gradients +
+// labels); videos are short canvas animations captured via MediaRecorder; audio
+// is a synthesized WAV tone. All are saved as normal assets, so they render and
+// play exactly like real generations.
 //
 // Every created row's id is recorded in a localStorage manifest so the same
 // control can cleanly remove the demo data afterwards.
@@ -16,6 +18,10 @@ import type {
   ScriptHistoryItem,
   ImageHistoryItem,
   BrollHistoryItem,
+  VideoHistoryItem,
+  VoiceHistoryItem,
+  MusicHistoryItem,
+  AdAnatomyHistoryItem,
 } from '../stores/types'
 
 const MANIFEST_KEY = 'ugc-os:mock-data-manifest'
@@ -37,11 +43,16 @@ interface Manifest {
   scriptHistory: string[]
   imageHistory: string[]
   brollHistory: string[]
+  videoHistory: string[]
+  voiceHistory: string[]
+  musicHistory: string[]
+  adAnatomyHistory: string[]
 }
 
 const EMPTY_MANIFEST: Manifest = {
   products: [], models: [], scripts: [], voices: [], brolls: [],
   characterHistory: [], scriptHistory: [], imageHistory: [], brollHistory: [],
+  videoHistory: [], voiceHistory: [], musicHistory: [], adAnatomyHistory: [],
 }
 
 export function hasMockData(): boolean {
@@ -118,6 +129,109 @@ function wrapText(ctx: CanvasRenderingContext2D, text: string, x: number, y: num
   lines.forEach((l, i) => ctx.fillText(l, x, startY + i * lineHeight))
 }
 
+// ── Placeholder video generation ───────────────────────────────────────────
+
+// Draw the same gradient+label card as makeImageAsset, but animate a sliding
+// highlight across it and capture ~1.6s via MediaRecorder so the result is a
+// real, playable clip (not a still). Returns the asset:// ref. Throws if the
+// browser can't record (older Safari) — callers guard so the rest of the seed
+// still completes.
+async function makeVideoAsset(opts: {
+  w: number; h: number; from: string; to: string; label: string; sub?: string
+}): Promise<string> {
+  if (typeof MediaRecorder === 'undefined') throw new Error('MediaRecorder unavailable')
+
+  const canvas = document.createElement('canvas')
+  canvas.width = opts.w
+  canvas.height = opts.h
+  const ctx = canvas.getContext('2d')!
+  const base = Math.min(opts.w, opts.h)
+
+  const draw = (t: number) => {
+    const grad = ctx.createLinearGradient(0, 0, opts.w, opts.h)
+    grad.addColorStop(0, opts.from)
+    grad.addColorStop(1, opts.to)
+    ctx.fillStyle = grad
+    ctx.fillRect(0, 0, opts.w, opts.h)
+
+    // Sliding soft highlight so the clip visibly moves.
+    const cx = opts.w * (0.25 + 0.5 * (0.5 + 0.5 * Math.sin(t * 1.8)))
+    const glow = ctx.createRadialGradient(cx, opts.h * 0.45, 0, cx, opts.h * 0.45, base * 0.45)
+    glow.addColorStop(0, 'rgba(255,255,255,0.28)')
+    glow.addColorStop(1, 'rgba(255,255,255,0)')
+    ctx.fillStyle = glow
+    ctx.fillRect(0, 0, opts.w, opts.h)
+
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillStyle = 'rgba(255,255,255,0.95)'
+    ctx.font = `600 ${Math.round(base * 0.08)}px system-ui, -apple-system, sans-serif`
+    wrapText(ctx, opts.label, opts.w / 2, opts.h / 2, opts.w * 0.82, base * 0.1)
+    if (opts.sub) {
+      ctx.fillStyle = 'rgba(255,255,255,0.6)'
+      ctx.font = `400 ${Math.round(base * 0.045)}px system-ui, sans-serif`
+      ctx.fillText(opts.sub, opts.w / 2, opts.h / 2 + base * 0.12)
+    }
+  }
+
+  draw(0)
+  const stream = canvas.captureStream(30)
+  const mimeType =
+    ['video/mp4;codecs=avc1', 'video/webm;codecs=vp9', 'video/webm'].find((m) =>
+      MediaRecorder.isTypeSupported(m),
+    ) ?? 'video/webm'
+  const recorder = new MediaRecorder(stream, { mimeType })
+  const chunks: BlobPart[] = []
+  recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data) }
+
+  const start = performance.now()
+  let raf = 0
+  const loop = () => { draw((performance.now() - start) / 1000); raf = requestAnimationFrame(loop) }
+
+  const blob: Blob = await new Promise<Blob>((resolve) => {
+    recorder.onstop = () => {
+      cancelAnimationFrame(raf)
+      stream.getTracks().forEach((tr) => tr.stop())
+      resolve(new Blob(chunks, { type: mimeType }))
+    }
+    recorder.start()
+    loop()
+    setTimeout(() => recorder.stop(), 1600)
+  })
+
+  return saveAsset(blob, mimeType)
+}
+
+// ── Placeholder audio generation ────────────────────────────────────────────
+
+// Synthesize a short mono WAV tone (gentle attack/release envelope) so voiceover
+// and music tiles have something that actually plays. Returns the asset:// ref.
+async function makeAudioAsset(opts: { seconds: number; freq: number }): Promise<string> {
+  const sampleRate = 44100
+  const length = Math.floor(sampleRate * opts.seconds)
+  const buffer = new ArrayBuffer(44 + length * 2)
+  const view = new DataView(buffer)
+  const writeStr = (off: number, s: string) => {
+    for (let i = 0; i < s.length; i++) view.setUint8(off + i, s.charCodeAt(i))
+  }
+  // WAV header (PCM, 16-bit, mono).
+  writeStr(0, 'RIFF'); view.setUint32(4, 36 + length * 2, true); writeStr(8, 'WAVE')
+  writeStr(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true)
+  view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate * 2, true)
+  view.setUint16(32, 2, true); view.setUint16(34, 16, true)
+  writeStr(36, 'data'); view.setUint32(40, length * 2, true)
+
+  for (let i = 0; i < length; i++) {
+    const t = i / sampleRate
+    const env = Math.min(1, t * 4) * Math.min(1, (opts.seconds - t) * 4)
+    // Slight vibrato so it doesn't read as a flat test tone.
+    const sample = Math.sin(2 * Math.PI * opts.freq * t + Math.sin(t * 5) * 0.5) * 0.22 * env
+    view.setInt16(44 + i * 2, Math.max(-1, Math.min(1, sample)) * 0x7fff, true)
+  }
+
+  return saveAsset(new Blob([buffer], { type: 'audio/wav' }), 'audio/wav')
+}
+
 // ── Demo content ────────────────────────────────────────────────────────────
 
 const PRODUCTS = [
@@ -185,6 +299,95 @@ const BROLL_SESSION_SCENES = [
   },
 ]
 
+// Playground video generations. Portrait UGC clips + one landscape hero shot,
+// each a short captured canvas animation. sourceApp 'playground' so they land in
+// the Playground video tab (B-Roll-sourced videos are filtered out there).
+const VIDEO_GENS = [
+  { w: 540, h: 960, from: '#fb7185', to: '#9f1239', modelId: 'bytedance/seedance-2', mode: 'reference-to-video' as const, aspectRatio: '9:16', label: 'UGC Selfie', sub: 'talking to camera', prompt: 'A young woman in a sunlit apartment holds the serum up to the front camera and talks candidly, natural handheld micro-jitter, UGC selfie framing.' },
+  { w: 540, h: 960, from: '#f59e0b', to: '#b45309', modelId: 'veo3_fast', mode: 'image-to-video' as const, aspectRatio: '9:16', label: 'Product Detail', sub: 'dropper close-up', prompt: 'Extreme close-up of a glass serum bottle on a marble vanity, a single drop sliding down the dropper, soft morning light, slow push-in.' },
+  { w: 960, h: 540, from: '#6366f1', to: '#1e3a8a', modelId: 'bytedance/seedance-2', mode: 'text-to-video' as const, aspectRatio: '16:9', label: 'Sleep Tracker Hero', sub: 'nightstand pan', prompt: 'Smart ring resting on a nightstand beside a phone showing a sleep graph, moody blue light, slow camera pan, cinematic.' },
+]
+
+// Playground music generations.
+const MUSIC_GENS = [
+  { from: '#7c3aed', to: '#4c1d95', freq: 220, title: 'Sunrise Glow', instrumental: true, durationSeconds: 32, prompt: 'Warm uplifting lo-fi beat with soft piano and mellow drums, optimistic and clean, perfect for a skincare ad.' },
+  { from: '#0ea5e9', to: '#1e3a8a', freq: 330, title: 'Night Routine', instrumental: false, durationSeconds: 28, prompt: 'Chill downtempo electronic track with a dreamy vocal hook about winding down, relaxed nighttime vibe.' },
+]
+
+// Ad Analyzer history — two completed analyses (one video, one image) with a
+// full scorecard / transcript / reverse-engineered scene blueprint so the
+// Ad Analyzer history + detail views are populated. `result` mirrors
+// ad-anatomy's AnalysisResult shape (stored opaquely on the bank row).
+const AD_ANALYSES = [
+  {
+    id: 'demo-ad-0',
+    from: '#22d3ee', to: '#0e7490',
+    adTitle: 'Vitamin C Serum Testimonial',
+    fileName: 'glow-serum-ugc.mp4',
+    mediaKind: 'video' as const,
+    result: {
+      adTitle: 'Vitamin C Serum Testimonial',
+      scorecard: {
+        scores: [
+          { label: 'Hook Strength', score: 9 },
+          { label: 'Clarity', score: 8 },
+          { label: 'Emotional Pull', score: 7 },
+          { label: 'CTA Strength', score: 8 },
+          { label: 'Production Quality', score: 6 },
+        ],
+        analystNote: 'Strong pattern-interrupt hook ("almost returned this") earns the watch. The skeptic-to-believer arc is textbook UGC. CTA is clear but could land harder with on-screen urgency. Production is intentionally raw, which suits the format.',
+      },
+      transcript: [
+        { timestamp: '00:00', text: "Okay so I almost returned this serum… and now I'm on my third bottle." },
+        { timestamp: '00:04', text: 'My skin was so dull I’d cake on foundation just to look awake.' },
+        { timestamp: '00:09', text: 'Then I tried this for a week and people asked if I’d been on holiday.' },
+        { timestamp: '00:15', text: 'It’s 15% vitamin C, no sticky finish, zero fragrance.' },
+        { timestamp: '00:21', text: 'They’re doing 20% off right now. Don’t sleep on it.' },
+      ],
+      reverseEngineeredPrompt: {
+        totalDurationSeconds: 25,
+        isSingleClip: false,
+        scenes: [
+          { index: 1, startTime: '00:00', endTime: '00:09', durationSeconds: 9, label: 'Hook — Skeptic', prompt: 'Young woman talking candidly to the front camera in a sunlit apartment, raw UGC selfie, handheld.' },
+          { index: 2, startTime: '00:09', endTime: '00:15', durationSeconds: 6, label: 'Mechanism', prompt: 'Close-up of the serum bottle, dropper detail, soft morning light.' },
+          { index: 3, startTime: '00:15', endTime: '00:25', durationSeconds: 10, label: 'CTA', prompt: 'Woman holds the product beside her face, smiling, delivering the call to action.' },
+        ],
+      },
+    },
+  },
+  {
+    id: 'demo-ad-1',
+    from: '#f472b6', to: '#be185d',
+    adTitle: 'Sleep Ring Static Ad',
+    fileName: 'sleep-ring-static.jpg',
+    mediaKind: 'image' as const,
+    result: {
+      adTitle: 'Sleep Ring Static Ad',
+      scorecard: {
+        scores: [
+          { label: 'Hook Strength', score: 6 },
+          { label: 'Clarity', score: 9 },
+          { label: 'Emotional Pull', score: 5 },
+          { label: 'CTA Strength', score: 7 },
+          { label: 'Production Quality', score: 9 },
+        ],
+        analystNote: 'Clean, premium static that communicates the value prop instantly. Loses points on emotional pull — it’s feature-forward rather than story-forward. The headline does the heavy lifting; a benefit-led variant could test well.',
+      },
+      transcript: [
+        { timestamp: '00:00', text: 'Headline: "Know why you wake up tired."' },
+        { timestamp: '00:00', text: 'Subhead: 7-day battery. No subscription.' },
+      ],
+      reverseEngineeredPrompt: {
+        totalDurationSeconds: 0,
+        isSingleClip: true,
+        scenes: [
+          { index: 1, startTime: '00:00', endTime: '00:00', durationSeconds: 0, label: 'Static Hero', prompt: 'Smart ring on a dark nightstand beside a glowing sleep-graph phone, premium product photography, moody blue light.' },
+        ],
+      },
+    },
+  },
+]
+
 // ── Seed ─────────────────────────────────────────────────────────────────
 
 function idSnapshot() {
@@ -199,6 +402,10 @@ function idSnapshot() {
     scriptHistory: s.scriptHistory.map((x) => x.id),
     imageHistory: s.imageHistory.map((x) => x.id),
     brollHistory: s.brollHistory.map((x) => x.id),
+    videoHistory: s.videoHistory.map((x) => x.id),
+    voiceHistory: s.voiceHistory.map((x) => x.id),
+    musicHistory: s.musicHistory.map((x) => x.id),
+    adAnatomyHistory: s.adAnatomyHistory.map((x) => x.id),
   }
 }
 
@@ -371,6 +578,101 @@ export async function seedMockData(): Promise<void> {
       await store.addImageHistory(item)
     }
 
+    // Playground — video generation history. Each clip is a short captured
+    // canvas animation, so the Playground video tab + preview modal have real
+    // playable content. Guarded per-item: a browser that can't record (older
+    // Safari) just skips videos rather than aborting the whole seed.
+    for (let i = 0; i < VIDEO_GENS.length; i++) {
+      const v = VIDEO_GENS[i]
+      try {
+        const videoUrl = await makeVideoAsset({ w: v.w, h: v.h, from: v.from, to: v.to, label: v.label, sub: v.sub })
+        const thumb = await makeImageAsset({ w: v.w, h: v.h, from: v.from, to: v.to, label: v.label, sub: v.sub })
+        const item: VideoHistoryItem = {
+          id: `demo-video-${i}`,
+          modelId: v.modelId,
+          prompt: v.prompt,
+          mode: v.mode,
+          aspectRatio: v.aspectRatio,
+          durationSeconds: 5,
+          resolution: '1080p',
+          audio: true,
+          videoUrl,
+          thumbnailUrl: thumb,
+          sourceApp: 'playground',
+          createdAt: ago(i),
+        }
+        await store.addVideoHistory(item)
+      } catch (e) {
+        console.warn('[mockData] video seed skipped', e)
+      }
+    }
+
+    // Voiceovers — generation history. Synthesized WAV tone per row so the
+    // player actually plays. Pairs the demo voices with the demo script copy.
+    const voiceScripts = [SCRIPT_TEXT_1, SCRIPT_TEXT_2, SCRIPT_TEXT_1]
+    for (let i = 0; i < VOICES.length; i++) {
+      const v = VOICES[i]
+      const seconds = 6 + i * 2
+      const audioUrl = await makeAudioAsset({ seconds, freq: 196 + i * 55 })
+      const scriptText = voiceScripts[i] ?? SCRIPT_TEXT_1
+      const item: VoiceHistoryItem = {
+        id: `demo-voice-hist-${i}`,
+        voiceId: `demo-voice-${v.voiceName.toLowerCase()}`,
+        voiceName: v.voiceName,
+        gender: v.gender,
+        stability: 0.75,
+        similarityBoost: 0.75,
+        style: 0,
+        speed: 1,
+        scriptText,
+        scriptPreview: scriptText.replace(/\n+/g, ' ').slice(0, 120),
+        audioUrl,
+        duration: seconds,
+        createdAt: ago(i + 1),
+      }
+      await store.addVoiceHistory(item)
+    }
+
+    // Playground — music generation history. WAV tone + square cover art.
+    for (let i = 0; i < MUSIC_GENS.length; i++) {
+      const m = MUSIC_GENS[i]
+      const audioRef = await makeAudioAsset({ seconds: 10, freq: m.freq })
+      const cover = await makeImageAsset({ w: 1024, h: 1024, from: m.from, to: m.to, label: m.title, sub: 'TRACK' })
+      const item: MusicHistoryItem = {
+        id: `demo-music-${i}`,
+        modelId: 'suno-v5',
+        prompt: m.prompt,
+        instrumental: m.instrumental,
+        audioRef,
+        coverImageRef: cover,
+        title: m.title,
+        durationSeconds: m.durationSeconds,
+        createdAt: ago(i),
+      }
+      await store.addMusicHistory(item)
+    }
+
+    // Ad Analyzer — completed analyses with scorecard + transcript + blueprint.
+    for (let i = 0; i < AD_ANALYSES.length; i++) {
+      const a = AD_ANALYSES[i]
+      const thumb = await makeImageAsset({
+        w: a.mediaKind === 'image' ? 1024 : 768,
+        h: a.mediaKind === 'image' ? 1024 : 1365,
+        from: a.from, to: a.to, label: a.adTitle, sub: a.mediaKind.toUpperCase(),
+      })
+      const item: AdAnatomyHistoryItem = {
+        id: a.id,
+        createdAt: ago(i + 2),
+        status: 'complete',
+        adTitle: a.adTitle,
+        fileName: a.fileName,
+        mediaKind: a.mediaKind,
+        thumbnailRef: thumb,
+        result: a.result,
+      }
+      await store.addAdAnatomyHistory(item)
+    }
+
     // B-Roll Studio — a full worked session: scenes with variations, each
     // carrying a placeholder generation. Saved to brollHistory (History tab)
     // and mirrored into the live workspace draft so the B-Roll tab opens onto
@@ -460,6 +762,10 @@ export async function removeMockData(): Promise<void> {
     for (const id of manifest.scriptHistory) await store.deleteScriptHistory(id)
     for (const id of manifest.imageHistory) await store.deleteImageHistory(id)
     for (const id of manifest.brollHistory) await store.deleteBrollHistory(id)
+    for (const id of manifest.videoHistory) await store.deleteVideoHistory(id)
+    for (const id of manifest.voiceHistory) await store.deleteVoiceHistory(id)
+    for (const id of manifest.musicHistory) await store.deleteMusicHistory(id)
+    for (const id of manifest.adAnatomyHistory) await store.deleteAdAnatomyHistory(id)
   } finally {
     useAppStore.setState({ addToast: realAddToast })
   }
