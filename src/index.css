@@ -116,13 +116,13 @@
   --color-playground-500: #015C52;
   --color-playground-600: color-mix(in oklab, #015C52 85%, black);
 
-  /* Products — burgundy #900C3F (bank accent + product reference cards) */
-  --color-gold-100: color-mix(in oklab, #900C3F 25%, white);
-  --color-gold-200: color-mix(in oklab, #900C3F 40%, white);
-  --color-gold-300: color-mix(in oklab, #900C3F 60%, white);
-  --color-gold-400: color-mix(in oklab, #900C3F 80%, white);
-  --color-gold-500: #900C3F;
-  --color-gold-600: color-mix(in oklab, #900C3F 85%, black);
+  /* Products — deep purple #4C1D95 (bank accent + product reference cards) */
+  --color-gold-100: color-mix(in oklab, #4C1D95 25%, white);
+  --color-gold-200: color-mix(in oklab, #4C1D95 40%, white);
+  --color-gold-300: color-mix(in oklab, #4C1D95 60%, white);
+  --color-gold-400: color-mix(in oklab, #4C1D95 80%, white);
+  --color-gold-500: #4C1D95;
+  --color-gold-600: color-mix(in oklab, #4C1D95 85%, black);
 
   /* Ad Analyzer — red #FF5257 (used as literal hex in ad-anatomy) */
   --color-analyzer-500: #FF5257;
@@ -188,11 +188,11 @@
   --color-playground-400: color-mix(in oklab, #015C52 95%, black);
   --color-playground-600: color-mix(in oklab, #015C52 85%, black);
 
-  --color-gold-100: color-mix(in oklab, #900C3F 35%, black);
-  --color-gold-200: color-mix(in oklab, #900C3F 50%, black);
-  --color-gold-300: color-mix(in oklab, #900C3F 70%, black);
-  --color-gold-400: color-mix(in oklab, #900C3F 95%, black);
-  --color-gold-600: color-mix(in oklab, #900C3F 85%, black);
+  --color-gold-100: color-mix(in oklab, #4C1D95 35%, black);
+  --color-gold-200: color-mix(in oklab, #4C1D95 50%, black);
+  --color-gold-300: color-mix(in oklab, #4C1D95 70%, black);
+  --color-gold-400: color-mix(in oklab, #4C1D95 95%, black);
+  --color-gold-600: color-mix(in oklab, #4C1D95 85%, black);
 }
 
 html,
