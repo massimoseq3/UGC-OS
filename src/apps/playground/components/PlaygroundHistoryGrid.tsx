@@ -565,7 +565,7 @@ function PreviewModal({
               still out of the clip to reuse as a start frame / reference (save to
               bank) or keep (download). */}
           {entry.kind === 'video' && videoUrl && (
-            <VideoFrameActions videoUrl={videoUrl} prompt={prompt} videoId={entry.data.id} />
+            <VideoFrameActions videoUrl={videoUrl} prompt={prompt} videoId={entry.data.id} aspectRatio={entry.data.aspectRatio} />
           )}
           {prompt && (
             <div className="max-h-[18vh] w-full overflow-y-auto rounded-lg bg-white/[0.02] px-4 py-3 text-center text-[12px] leading-relaxed text-zinc-400">
@@ -605,13 +605,13 @@ function PreviewModal({
 
 // ── Video frame grabs ───────────────────────────────────────────
 
-function VideoFrameActions({ videoUrl, prompt, videoId }: { videoUrl: string; prompt: string; videoId: string }) {
+function VideoFrameActions({ videoUrl, prompt, videoId, aspectRatio }: { videoUrl: string; prompt: string; videoId: string; aspectRatio?: string }) {
   return (
     <div className="flex w-full flex-col items-center gap-2">
       <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">Frames</span>
-      <div className="grid w-full grid-cols-2 items-stretch gap-2.5">
-        <FrameCard label="First frame" position="first" videoUrl={videoUrl} prompt={prompt} videoId={videoId} />
-        <FrameCard label="Last frame" position="last" videoUrl={videoUrl} prompt={prompt} videoId={videoId} />
+      <div className="grid w-full grid-cols-2 items-start gap-2.5">
+        <FrameCard label="First frame" position="first" videoUrl={videoUrl} prompt={prompt} videoId={videoId} aspectRatio={aspectRatio} />
+        <FrameCard label="Last frame" position="last" videoUrl={videoUrl} prompt={prompt} videoId={videoId} aspectRatio={aspectRatio} />
       </div>
     </div>
   )
@@ -623,12 +623,14 @@ function FrameCard({
   videoUrl,
   prompt,
   videoId,
+  aspectRatio,
 }: {
   label: string
   position: 'first' | 'last'
   videoUrl: string
   prompt: string
   videoId: string
+  aspectRatio?: string
 }) {
   const addBRoll = useBankStore((s) => s.addBRoll)
   const addToast = useAppStore((s) => s.addToast)
@@ -637,6 +639,12 @@ function FrameCard({
   const [blob, setBlob] = useState<Blob | null>(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  // The thumbnail box matches the frame's real aspect ratio. Seed it from the
+  // video's declared ratio (so there's no layout shift while the frame loads),
+  // then refine from the decoded image's actual dimensions on load.
+  const [ratio, setRatio] = useState<React.CSSProperties>(
+    aspectRatio ? aspectStyle(aspectRatio) : { aspectRatio: '9 / 16' },
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -678,9 +686,20 @@ function FrameCard({
 
   return (
     <div className="flex w-full flex-col items-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-2.5">
-      <div className="flex aspect-video w-full items-center justify-center overflow-hidden rounded-lg border border-white/10 bg-black/40">
+      <div
+        style={ratio}
+        className="flex w-full items-center justify-center overflow-hidden rounded-lg border border-white/10 bg-black/40"
+      >
         {status === 'ready' && thumbUrl ? (
-          <img src={thumbUrl} alt={`${label} preview`} className="h-full w-full object-cover" />
+          <img
+            src={thumbUrl}
+            alt={`${label} preview`}
+            onLoad={(e) => {
+              const { naturalWidth: w, naturalHeight: h } = e.currentTarget
+              if (w && h) setRatio({ aspectRatio: `${w} / ${h}` })
+            }}
+            className="h-full w-full object-cover"
+          />
         ) : status === 'loading' ? (
           <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />
         ) : (

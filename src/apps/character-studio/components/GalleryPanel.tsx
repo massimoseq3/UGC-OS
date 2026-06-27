@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, useEffect } from 'react'
-import { Loader2, Trash2, Image as ImageIcon, UserRound, Bookmark, X, Download, Check, CornerDownLeft, LayoutGrid, Maximize2 } from 'lucide-react'
+import { Loader2, Trash2, Image as ImageIcon, UserRound, Bookmark, X, Download, Check, CornerDownLeft, LayoutGrid } from 'lucide-react'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAssetUrlState } from '../../../hooks/useAssetUrl'
 import { getUrl } from '../../../utils/assetStore'
@@ -9,8 +9,7 @@ import type { CharacterHistoryItem } from '../../../stores/types'
 import { getModel, type ImageResolution } from '../../../utils/models'
 import InfluencerEditModal from './InfluencerEditModal'
 import GeneratingTile from './GeneratingTile'
-import InfluencerLightbox from './InfluencerLightbox'
-import { buildJsonPrompt, buildImagePrompt, buildSheetPrompt } from '../services/generateCharacter'
+import { buildJsonPrompt } from '../services/generateCharacter'
 import { pickInfluencerName, sheetNameFrom } from './nameGenerator'
 import { downloadImage } from '../../../utils/downloadImage'
 
@@ -188,12 +187,9 @@ function HistoryTile({
   const [nameDraft, setNameDraft] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
-  const [lightboxOpen, setLightboxOpen] = useState(false)
   const nameInputRef = useRef<HTMLInputElement | null>(null)
 
   const isSheet = item.kind === 'sheet'
-  // The prompt this image was built from — shown in the full-screen viewer.
-  const promptText = isSheet ? buildSheetPrompt(item.profile, item.aspectRatio) : buildImagePrompt(item.profile)
   const linkedModel = item.linkedModelId ? models.find((m) => m.id === item.linkedModelId) : undefined
   // Portraits and sheets alike save as their own Bank entry, tracked by
   // linkedModelId — once saved the tile shows the Saved/attached state.
@@ -394,44 +390,41 @@ function HistoryTile({
         </div>
       ) : (
         <>
-          {/* Bottom-left: edit-in-form (reinsert) + Make Sheet from a portrait.
-              "Make Sheet" runs image-to-image off this image so the sheet keeps
-              the exact same person — only shown on portraits (a sheet already is
-              one). */}
-          <div className="absolute bottom-1.5 left-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-            <TileIconButton
-              title="View full screen"
-              onClick={(e) => { e.stopPropagation(); setLightboxOpen(true) }}
-            >
-              <Maximize2 className="h-4 w-4" />
-            </TileIconButton>
-            <TileIconButton
-              title="Edit in form — load this influencer's settings back in"
-              onClick={(e) => { e.stopPropagation(); onReuse() }}
-            >
-              <CornerDownLeft className="h-4 w-4" />
-            </TileIconButton>
-            {!isSheet && (
+          {/* Bottom toolbar — one full-width bar so the two groups can never
+              overlap on a narrow tile. Left group: view · edit-in-form · Make
+              Sheet ("Make Sheet" runs image-to-image off this image so the sheet
+              keeps the exact same person — only shown on portraits). Right group:
+              Save · Download. flex-wrap drops the right group to a second row when
+              the tile is too narrow to fit both side by side. */}
+          <div className="absolute inset-x-1.5 bottom-1.5 flex flex-wrap items-center justify-between gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+            <div className="flex items-center gap-1">
               <TileIconButton
-                title="Make a character sheet from this portrait"
-                onClick={(e) => { e.stopPropagation(); onMakeSheet() }}
+                title="Edit in form — load this influencer's settings back in"
+                onClick={(e) => { e.stopPropagation(); onReuse() }}
               >
-                <LayoutGrid className="h-4 w-4" />
+                <CornerDownLeft className="h-4 w-4" />
               </TileIconButton>
-            )}
-          </div>
-          {/* Bottom-right: Save · Download (Download anchored at the corner). */}
-          <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-            <TileIconButton
-              title={savedAsModel ? 'Saved — click to remove from Bank' : savingToBank ? 'Saving…' : 'Save to Bank'}
-              tone={savedAsModel ? 'saved' : 'default'}
-              onClick={toggleSave}
-            >
-              {savingToBank ? <Loader2 className="h-4 w-4 animate-spin" /> : savedAsModel ? <Check className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
-            </TileIconButton>
-            <TileIconButton title="Download image" onClick={handleDownload}>
-              <Download className="h-4 w-4" />
-            </TileIconButton>
+              {!isSheet && (
+                <TileIconButton
+                  title="Make a character sheet from this portrait"
+                  onClick={(e) => { e.stopPropagation(); onMakeSheet() }}
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </TileIconButton>
+              )}
+            </div>
+            <div className="flex items-center gap-1">
+              <TileIconButton
+                title={savedAsModel ? 'Saved — click to remove from Bank' : savingToBank ? 'Saving…' : 'Save to Bank'}
+                tone={savedAsModel ? 'saved' : 'default'}
+                onClick={toggleSave}
+              >
+                {savingToBank ? <Loader2 className="h-4 w-4 animate-spin" /> : savedAsModel ? <Check className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
+              </TileIconButton>
+              <TileIconButton title="Download image" onClick={handleDownload}>
+                <Download className="h-4 w-4" />
+              </TileIconButton>
+            </div>
           </div>
         </>
       )}
@@ -440,14 +433,6 @@ function HistoryTile({
       <p className="mt-1 truncate text-center text-[10px] font-medium tracking-wider text-ink-500">
         {modelLabel}
       </p>
-    )}
-    {lightboxOpen && (
-      <InfluencerLightbox
-        imageRef={item.imageRef}
-        prompt={promptText}
-        isSheet={isSheet}
-        onClose={() => setLightboxOpen(false)}
-      />
     )}
     </div>
   )
