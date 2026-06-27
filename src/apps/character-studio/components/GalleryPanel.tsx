@@ -1,16 +1,16 @@
 import { useMemo, useRef, useState, useEffect } from 'react'
-import { Loader2, Trash2, Image as ImageIcon, UserRound, Bookmark, X, Download, Check, CornerDownLeft, LayoutGrid } from 'lucide-react'
+import { Loader2, Trash2, Image as ImageIcon, UserRound, Bookmark, X, Download, Check, CornerDownLeft, LayoutGrid, Maximize2 } from 'lucide-react'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAssetUrlState } from '../../../hooks/useAssetUrl'
 import { getUrl } from '../../../utils/assetStore'
 import { useAppStore } from '../../../stores/appStore'
 import { humanizeError } from '../../../utils/friendlyError'
 import type { CharacterHistoryItem } from '../../../stores/types'
-import GenerationProgress from '../../../components/GenerationProgress'
-import GeneratingBackdrop from '../../../components/GeneratingBackdrop'
 import { getModel, type ImageResolution } from '../../../utils/models'
 import InfluencerEditModal from './InfluencerEditModal'
-import { buildJsonPrompt } from '../services/generateCharacter'
+import GeneratingTile from './GeneratingTile'
+import InfluencerLightbox from './InfluencerLightbox'
+import { buildJsonPrompt, buildImagePrompt, buildSheetPrompt } from '../services/generateCharacter'
 import { pickInfluencerName, sheetNameFrom } from './nameGenerator'
 import { downloadImage } from '../../../utils/downloadImage'
 
@@ -188,9 +188,12 @@ function HistoryTile({
   const [nameDraft, setNameDraft] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [lightboxOpen, setLightboxOpen] = useState(false)
   const nameInputRef = useRef<HTMLInputElement | null>(null)
 
   const isSheet = item.kind === 'sheet'
+  // The prompt this image was built from — shown in the full-screen viewer.
+  const promptText = isSheet ? buildSheetPrompt(item.profile, item.aspectRatio) : buildImagePrompt(item.profile)
   const linkedModel = item.linkedModelId ? models.find((m) => m.id === item.linkedModelId) : undefined
   // Portraits and sheets alike save as their own Bank entry, tracked by
   // linkedModelId — once saved the tile shows the Saved/attached state.
@@ -397,6 +400,12 @@ function HistoryTile({
               one). */}
           <div className="absolute bottom-1.5 left-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
             <TileIconButton
+              title="View full screen"
+              onClick={(e) => { e.stopPropagation(); setLightboxOpen(true) }}
+            >
+              <Maximize2 className="h-4 w-4" />
+            </TileIconButton>
+            <TileIconButton
               title="Edit in form — load this influencer's settings back in"
               onClick={(e) => { e.stopPropagation(); onReuse() }}
             >
@@ -431,6 +440,14 @@ function HistoryTile({
       <p className="mt-1 truncate text-center text-[10px] font-medium tracking-wider text-ink-500">
         {modelLabel}
       </p>
+    )}
+    {lightboxOpen && (
+      <InfluencerLightbox
+        imageRef={item.imageRef}
+        prompt={promptText}
+        isSheet={isSheet}
+        onClose={() => setLightboxOpen(false)}
+      />
     )}
     </div>
   )
@@ -469,46 +486,6 @@ function TileIconButton({
 
 
 function InFlightTile({ gen, onCancel }: { gen: InFlightCharacterGen; onCancel: () => void }) {
-  const modelLabel = getModel(gen.modelId)?.displayName ?? gen.modelId
-  const isSheet = gen.kind === 'sheet'
-  return (
-    <div
-      className="group relative overflow-hidden rounded-lg border border-influencers-500/20"
-      style={aspectStyle(gen.aspectRatio)}
-    >
-      <GeneratingBackdrop family="influencers" />
-      <div className="absolute left-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-lg bg-black/25 text-influencers-100 backdrop-blur-sm">
-        {isSheet ? <LayoutGrid className="h-4 w-4" /> : <UserRound className="h-4 w-4" />}
-      </div>
-      <button
-        type="button"
-        title="Cancel"
-        onClick={onCancel}
-        className="absolute right-1.5 top-1.5 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white opacity-0 backdrop-blur transition-opacity hover:bg-red-500/30 hover:text-red-100 hover:border-red-400/40 group-hover:opacity-100"
-      >
-        <X className="h-3 w-3" />
-      </button>
-      <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 px-4 text-center">
-        <p className="text-[10px] font-medium text-influencers-100">{modelLabel}</p>
-        <GenerationProgress
-          isActive
-          color="bg-influencers-500"
-          showHelper={false}
-          messages={isSheet ? [
-            'Sending request...',
-            'Laying out the panels...',
-            'Matching the face across views...',
-            'Finalizing the sheet...',
-          ] : [
-            'Sending request...',
-            'Composing the influencer...',
-            'Rendering details...',
-            'Finalizing the frame...',
-          ]}
-          className="max-w-[180px]"
-        />
-      </div>
-    </div>
-  )
+  return <GeneratingTile modelId={gen.modelId} kind={gen.kind} aspectRatio={gen.aspectRatio} onCancel={onCancel} />
 }
 

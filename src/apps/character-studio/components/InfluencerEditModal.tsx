@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { X, Loader2, Download, Bookmark, Check, ImagePlus, Wand2, LayoutGrid, Pencil, Upload, FolderOpen, Copy } from 'lucide-react'
+import { X, Loader2, Download, Bookmark, Check, ImagePlus, Wand2, LayoutGrid, Pencil, Upload, FolderOpen, Copy, Maximize2 } from 'lucide-react'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAppStore } from '../../../stores/appStore'
 import { useSettingsStore } from '../../../stores/settingsStore'
@@ -34,6 +34,8 @@ import {
   buildSheetPrompt,
 } from '../services/generateCharacter'
 import { pickInfluencerName, sheetNameFrom } from './nameGenerator'
+import GeneratingTile from './GeneratingTile'
+import InfluencerLightbox from './InfluencerLightbox'
 
 // A B-Roll-style editor for an influencer image. Clicking a portrait opens this:
 // the left column mirrors the B-Roll card editor — a segmented mode toggle,
@@ -581,13 +583,12 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
             <div className="px-4 py-4">
               <div className="grid grid-cols-2 gap-2 [grid-auto-flow:dense]">
                 {generating && (
-                  <div
-                    className={`flex items-center justify-center rounded-lg border border-influencers-500/30 bg-influencers-500/[0.06] ${
-                      (mode === 'sheet' ? sheetAspect : selected?.aspectRatio ?? '9:16').includes('16:9') ? 'col-span-2' : ''
-                    }`}
-                    style={aspectStyle(mode === 'sheet' ? sheetAspect : selected?.aspectRatio ?? '9:16')}
-                  >
-                    <Loader2 className="h-5 w-5 animate-spin text-influencers-300" />
+                  <div className={(mode === 'sheet' ? sheetAspect : selected?.aspectRatio ?? '9:16').includes('16:9') ? 'col-span-2' : ''}>
+                    <GeneratingTile
+                      modelId={imageModelId ?? item.modelId}
+                      kind={mode === 'sheet' ? 'sheet' : 'portrait'}
+                      aspectRatio={mode === 'sheet' ? sheetAspect : selected?.aspectRatio ?? '9:16'}
+                    />
                   </div>
                 )}
                 {outputs.map((o) => (
@@ -659,6 +660,7 @@ function OutputTile({
 }) {
   const url = useAssetUrl(output.imageRef)
   const [copied, setCopied] = useState(false)
+  const [lightboxOpen, setLightboxOpen] = useState(false)
   const handleCopyPrompt = async () => {
     if (await copyToClipboard(promptText)) {
       setCopied(true)
@@ -694,6 +696,13 @@ function OutputTile({
         </span>
       )}
 
+      {/* Bottom-left: view full screen. */}
+      <div className="absolute bottom-1.5 left-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+        <TileButton title="View full screen" onClick={(e) => { e.stopPropagation(); setLightboxOpen(true) }}>
+          <Maximize2 className="h-4 w-4" />
+        </TileButton>
+      </div>
+
       {/* Hover actions: Copy Prompt · Save to Bank · Download */}
       <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
         <TileButton
@@ -714,6 +723,15 @@ function OutputTile({
           <Download className="h-4 w-4" />
         </TileButton>
       </div>
+
+      {lightboxOpen && (
+        <InfluencerLightbox
+          imageRef={output.imageRef}
+          prompt={promptText}
+          isSheet={output.kind === 'sheet'}
+          onClose={() => setLightboxOpen(false)}
+        />
+      )}
     </div>
   )
 }
