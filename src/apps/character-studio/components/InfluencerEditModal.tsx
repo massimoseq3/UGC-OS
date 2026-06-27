@@ -33,7 +33,7 @@ import {
   buildImagePrompt,
   buildSheetPrompt,
 } from '../services/generateCharacter'
-import { pickInfluencerName } from './nameGenerator'
+import { pickInfluencerName, sheetNameFrom } from './nameGenerator'
 
 // A B-Roll-style editor for an influencer image. Clicking a portrait opens this:
 // the left column mirrors the B-Roll card editor — a segmented mode toggle,
@@ -151,7 +151,13 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
   // (matches how the gallery names an influencer at save time).
   const linkedModelName = item.linkedModelId ? models.find((m) => m.id === item.linkedModelId)?.name : undefined
   const fallbackName = useMemo(() => pickInfluencerName(item.profile.gender), [item.id])
-  const influencerName = linkedModelName ?? fallbackName
+  // Prefer the lineage's source-portrait name so a sheet saved off it inherits
+  // that influencer's name (not this row's, which may itself be a sheet).
+  const lineagePortrait = characterHistory.find((h) => h.id === lineageKey && h.kind !== 'sheet')
+  const lineageModelName = lineagePortrait?.linkedModelId
+    ? models.find((m) => m.id === lineagePortrait.linkedModelId)?.name
+    : undefined
+  const influencerName = lineageModelName ?? linkedModelName ?? fallbackName
 
   // The Image Model the picker resolves to (same persisted key the form uses),
   // so its constraint chips and credit estimate stay in sync with the picker.
@@ -309,7 +315,11 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
     if (savingId || savedIds.has(output.id)) return
     setSavingId(output.id)
     try {
-      const name = pickInfluencerName(item.profile.gender)
+      // Sheets file next to their source portrait — "<influencer> - Influencer
+      // Sheet"; a fresh portrait gets a fresh name.
+      const name = output.kind === 'sheet'
+        ? sheetNameFrom(influencerName)
+        : pickInfluencerName(item.profile.gender)
       await addModel({
         name,
         characterImage: output.imageRef,
@@ -565,14 +575,15 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
             </div>
           </div>
 
-          {/* RIGHT — outputs gallery: portraits pack 3-up; landscapes span the row. */}
+          {/* RIGHT — outputs gallery: portraits pack 2-up (bigger source preview);
+              landscapes span the row. */}
           <div className="col-span-1 flex min-h-0 flex-col overflow-y-auto">
             <div className="px-4 py-4">
-              <div className="grid grid-cols-3 gap-2 [grid-auto-flow:dense]">
+              <div className="grid grid-cols-2 gap-2 [grid-auto-flow:dense]">
                 {generating && (
                   <div
                     className={`flex items-center justify-center rounded-lg border border-influencers-500/30 bg-influencers-500/[0.06] ${
-                      (mode === 'sheet' ? sheetAspect : selected?.aspectRatio ?? '9:16').includes('16:9') ? 'col-span-3' : ''
+                      (mode === 'sheet' ? sheetAspect : selected?.aspectRatio ?? '9:16').includes('16:9') ? 'col-span-2' : ''
                     }`}
                     style={aspectStyle(mode === 'sheet' ? sheetAspect : selected?.aspectRatio ?? '9:16')}
                   >
@@ -655,13 +666,13 @@ function OutputTile({
     }
   }
   // Landscape outputs (sheets / 16:9 portraits) span the full row; portraits
-  // pack three to a row.
+  // pack two to a row.
   const isWide = output.aspectRatio.includes('16:9')
   return (
     <div
       onClick={onSelect}
       className={`group relative cursor-pointer overflow-hidden rounded-lg border bg-black transition-all ${
-        isWide ? 'col-span-3' : ''
+        isWide ? 'col-span-2' : ''
       } ${
         selected ? 'border-influencers-500/70 ring-2 ring-influencers-500/40' : 'border-ink/10 hover:border-ink/25'
       }`}

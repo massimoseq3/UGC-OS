@@ -11,7 +11,7 @@ import GeneratingBackdrop from '../../../components/GeneratingBackdrop'
 import { getModel, type ImageResolution } from '../../../utils/models'
 import InfluencerEditModal from './InfluencerEditModal'
 import { buildJsonPrompt } from '../services/generateCharacter'
-import { pickInfluencerName } from './nameGenerator'
+import { pickInfluencerName, sheetNameFrom } from './nameGenerator'
 import { downloadImage } from '../../../utils/downloadImage'
 
 // One running generation. Persisted to localStorage so a mid-flight refresh
@@ -182,6 +182,7 @@ function HistoryTile({
   const deleteModel = useBankStore((s) => s.deleteModel)
   const updateCharacterHistory = useBankStore((s) => s.updateCharacterHistory)
   const models = useBankStore((s) => s.models)
+  const characterHistory = useBankStore((s) => s.characterHistory)
   const addToast = useAppStore((s) => s.addToast)
   const [savingToBank, setSavingToBank] = useState(false)
   const [nameDraft, setNameDraft] = useState<string | null>(null)
@@ -199,6 +200,20 @@ function HistoryTile({
   // stamped modelId — fall back to the raw id, or render nothing if absent.
   const modelLabel = getModel(item.modelId)?.displayName ?? item.modelId
 
+  // A sheet derived from a portrait suggests the source influencer's saved name
+  // + " - Influencer Sheet" so it files alongside its portrait. Falls back to a
+  // fresh name when the source isn't (or no longer) saved to the bank.
+  const sourcePortrait = isSheet
+    ? characterHistory.find((h) => h.id === (item.lineageId ?? item.id) && h.kind !== 'sheet')
+    : undefined
+  const sourceModelName = sourcePortrait?.linkedModelId
+    ? models.find((m) => m.id === sourcePortrait.linkedModelId)?.name
+    : undefined
+  function suggestSaveName(): string {
+    const base = sourceModelName ?? pickInfluencerName(item.profile.gender)
+    return isSheet ? sheetNameFrom(base) : base
+  }
+
   useEffect(() => {
     if (nameDraft !== null) {
       const id = window.setTimeout(() => nameInputRef.current?.focus(), 0)
@@ -209,7 +224,7 @@ function HistoryTile({
   function openNameInput(e: React.MouseEvent) {
     e.stopPropagation()
     if (savingToBank) return
-    setNameDraft(pickInfluencerName(item.profile.gender))
+    setNameDraft(suggestSaveName())
   }
 
   // Toggle: clicking the Save button when already saved removes the linked Bank
