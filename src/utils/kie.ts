@@ -16,7 +16,7 @@ const POLL_INTERVAL_MS = 5_000
 const POLL_TIMEOUT_MS = 30_000
 const MAX_POLL_ATTEMPTS = 60 // 5 minutes — default for short tasks
 export const IMAGE_POLL_ATTEMPTS = 120 // 10 minutes — GPT Image 2 can run long on complex prompts
-export const VIDEO_POLL_ATTEMPTS = 120 // 10 minutes — Veo Quality can exceed 5 min
+export const VIDEO_POLL_ATTEMPTS = 240 // 20 minutes — Seedance 2 / Veo Quality routinely run 10–15+ min
 export const MUSIC_POLL_ATTEMPTS = 120 // 10 minutes — Suno can stall on busy days
 
 // ── Types ───────────────────────────────────────────────────────
@@ -93,6 +93,24 @@ const TERMINAL_POLL_STATUS = new Set([401, 402, 403, 422, 433])
 
 function isTerminalPollError(err: unknown): boolean {
   return err instanceof KieHttpError && TERMINAL_POLL_STATUS.has(err.status)
+}
+
+// Thrown when a poll loop exhausts its attempt budget. Distinct from a genuine
+// `fail` so callers can tell "we stopped watching" (the kie task may STILL be
+// rendering — resume it later) apart from "the generation actually failed"
+// (drop it). The message keeps the old "...timed out after N minutes." wording
+// so humanizeError's timeout rule still matches.
+export class PollTimeoutError extends Error {
+  readonly minutes: number
+  constructor(minutes: number, label = 'Generation') {
+    super(`${label} timed out after ${minutes} minute${minutes === 1 ? '' : 's'}.`)
+    this.name = 'PollTimeoutError'
+    this.minutes = minutes
+  }
+}
+
+export function isPollTimeout(err: unknown): err is PollTimeoutError {
+  return err instanceof PollTimeoutError
 }
 
 function endpointTag(method: string | undefined, url: string): string {
@@ -293,7 +311,7 @@ export async function pollTask(
   }
 
   const minutes = Math.round((maxPollAttempts * pollIntervalMs) / 60_000)
-  throw new Error(`Generation timed out after ${minutes} minute${minutes === 1 ? '' : 's'}.`)
+  throw new PollTimeoutError(minutes)
 }
 
 export async function runTask(
@@ -649,7 +667,7 @@ export async function kieVeoPoll(
   }
 
   const minutes = Math.round((maxPollAttempts * pollIntervalMs) / 60_000)
-  throw new Error(`Veo generation timed out after ${minutes} minute${minutes === 1 ? '' : 's'}.`)
+  throw new PollTimeoutError(minutes, 'Veo generation')
 }
 
 // Thin wrapper for callers that don't need refresh-resume (kept for
@@ -782,7 +800,7 @@ export async function pollMusicTask(
   }
 
   const minutes = Math.round((maxPollAttempts * pollIntervalMs) / 60_000)
-  throw new Error(`Music generation timed out after ${minutes} minute${minutes === 1 ? '' : 's'}.`)
+  throw new PollTimeoutError(minutes, 'Music generation')
 }
 
 // Thin wrapper for callers that don't need refresh-resume.

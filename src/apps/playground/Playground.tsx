@@ -16,10 +16,15 @@ import { getDefaultModel, getModel, type AspectRatio, type ImageResolution, type
 import type { PlaygroundMode, InFlightGen } from './types'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
 import { humanizeError } from '../../utils/friendlyError'
+import { isPollTimeout } from '../../utils/kie'
 
-// Tasks older than this are almost always dead on kie's side too — resume
-// would just timeout. Surface the error and clear the tile.
-const STALE_TASK_MS = 30 * 60 * 1000 // 30 minutes
+// How long an in-flight task stays resumable. A poll timeout no longer drops
+// the tile (the kie task may still be rendering — Seedance 2 can run 15+ min),
+// so the entry survives until either it finishes on a later poll/refresh or it
+// crosses this age, at which point we give up and clear the tile. Must be
+// comfortably larger than the poll budget (VIDEO_POLL_ATTEMPTS ≈ 20 min) so a
+// refresh after kie finishes still has a window to download the result.
+const STALE_TASK_MS = 60 * 60 * 1000 // 60 minutes
 
 // Infer the video mode from which ref slots the user filled. Only image
 // slots participate — audio/video reference clips and the Omni inputs are
@@ -84,17 +89,21 @@ function resolveVideoModelForMode(pickedId: string, inferred: VideoMode): string
 }
 
 function initialState(): PromptPanelState {
-  const defaultImage = getDefaultModel('playground', 'image', 'text-to-image')?.id
-    ?? getDefaultModel('broll-studio', 'image', 'text-to-image')?.id
-    ?? 'nano-banana-2'
-  const persistedImage = useSettingsStore.getState().getAppModel('playground:image:text-to-image')
+  // Playground opens on the Video tab — this is a video-first workspace, so a
+  // fresh visit should land on video, not image. Seed the model from the
+  // user's last video pick (or the registry's video default) so the picker
+  // isn't briefly out of sync with the mode on first paint.
+  const defaultVideo = getDefaultModel('playground', 'video')?.id
+    ?? getDefaultModel('broll-studio', 'video')?.id
+    ?? 'bytedance/seedance-2'
+  const persistedVideo = useSettingsStore.getState().getAppModel('playground:video')
   return {
-    mode: 'image',
+    mode: 'video',
     prompt: '',
-    modelId: persistedImage ?? defaultImage,
+    modelId: persistedVideo ?? defaultVideo,
     aspectRatio: '9:16',
     durationSeconds: 5,
-    resolution: '1K',
+    resolution: '1K', // snapped to the model's video default by sanitize / the constraint effect
     audio: true,
     instrumental: true,
     refs: [],
@@ -232,7 +241,7 @@ export default function Playground() {
       }
       if (Date.now() - gen.startedAt > STALE_TASK_MS) {
         setInFlight((prev) => prev.filter((g) => g.id !== gen.id))
-        addToast(`${gen.mode} generation expired (>30 min)`, 'error')
+        addToast(`${gen.mode} generation expired — it ran too long to recover`, 'error')
         continue
       }
       resuming.current.add(gen.id)
@@ -260,10 +269,17 @@ export default function Playground() {
             })
           }
           addToast(`${gen.mode} resumed and ready`, 'success')
-        } catch (err) {
-          addToast(humanizeError(err, `Resume failed (${gen.mode})`), 'error')
-        } finally {
           setInFlight((prev) => prev.filter((g) => g.id !== gen.id))
+        } catch (err) {
+          if (isPollTimeout(err)) {
+            // The poll budget ran out but kie may still be rendering. Leave the
+            // entry persisted so a later refresh resumes it again; the staleness
+            // guard above evicts it once it crosses STALE_TASK_MS.
+          } else {
+            addToast(humanizeError(err, `Resume failed (${gen.mode})`), 'error')
+            setInFlight((prev) => prev.filter((g) => g.id !== gen.id))
+          }
+        } finally {
           resuming.current.delete(gen.id)
         }
       })()
@@ -468,10 +484,21 @@ export default function Playground() {
         })
         addToast('Track ready', 'success')
       }
-    } catch (err) {
-      addToast(humanizeError(err, 'Generation failed.'), 'error')
-    } finally {
+      // Success — the result is now a history row, so drop the in-flight tile.
       setInFlight((prev) => prev.filter((g) => g.id !== id))
+    } catch (err) {
+      if (isPollTimeout(err)) {
+        // We stopped polling, but the kie task is very likely still rendering
+        // (Seedance 2 can run 15+ min). Keep the in-flight entry persisted so
+        // the resume-on-mount effect finishes the download on the next refresh.
+        // Deleting it here was the "video succeeds on kie but never shows up"
+        // bug — it's now evicted only once it crosses STALE_TASK_MS.
+        const noun = mode === 'image' ? 'Image' : mode === 'music' ? 'Track' : 'Video'
+        addToast(`${noun} is still rendering on kie — refresh in a bit and it'll appear here once it's ready.`, 'info')
+      } else {
+        addToast(humanizeError(err, 'Generation failed.'), 'error')
+        setInFlight((prev) => prev.filter((g) => g.id !== id))
+      }
     }
   }
 
