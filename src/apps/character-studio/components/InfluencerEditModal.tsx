@@ -97,6 +97,7 @@ function aspectStyle(ar: string): React.CSSProperties {
 export default function InfluencerEditModal({ item, onClose, initialMode = 'edit' }: InfluencerEditModalProps) {
   const addCharacterHistory = useBankStore((s) => s.addCharacterHistory)
   const addModel = useBankStore((s) => s.addModel)
+  const deleteModel = useBankStore((s) => s.deleteModel)
   const updateCharacterHistory = useBankStore((s) => s.updateCharacterHistory)
   const models = useBankStore((s) => s.models)
   const characterHistory = useBankStore((s) => s.characterHistory)
@@ -313,15 +314,20 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
     }
   }
 
-  async function handleSave(output: SessionOutput) {
-    if (savingId || savedIds.has(output.id)) return
+  // Suggested name when opening the inline save input — sheets file next to
+  // their source portrait ("<influencer> - Influencer Sheet"); a fresh portrait
+  // gets a fresh generated name. Mirrors the main gallery's save flow.
+  function suggestSaveName(output: SessionOutput): string {
+    return output.kind === 'sheet'
+      ? sheetNameFrom(influencerName)
+      : pickInfluencerName(item.profile.gender)
+  }
+
+  async function handleSave(output: SessionOutput, rawName: string) {
+    const name = rawName.trim()
+    if (!name || savingId || savedIds.has(output.id) || output.linkedModelId) return
     setSavingId(output.id)
     try {
-      // Sheets file next to their source portrait — "<influencer> - Influencer
-      // Sheet"; a fresh portrait gets a fresh name.
-      const name = output.kind === 'sheet'
-        ? sheetNameFrom(influencerName)
-        : pickInfluencerName(item.profile.gender)
       await addModel({
         name,
         characterImage: output.imageRef,
@@ -342,6 +348,23 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
       addToast(`Saved to bank as ${name}`, 'success')
     } catch (err) {
       addToast(humanizeError(err, 'Save failed'), 'error')
+    } finally {
+      setSavingId(null)
+    }
+  }
+
+  // Toggle off: remove the linked Bank entry (keeping this output) so it can be
+  // re-saved + renamed afterwards. Mirrors the gallery tile's unsave.
+  async function handleUnsave(output: SessionOutput) {
+    if (savingId) return
+    setSavingId(output.id)
+    try {
+      if (output.linkedModelId) await deleteModel(output.linkedModelId)
+      await updateCharacterHistory(output.id, { linkedModelId: undefined })
+      setSavedIds((prev) => { const next = new Set(prev); next.delete(output.id); return next })
+      addToast('Removed from bank', 'success')
+    } catch (err) {
+      addToast(humanizeError(err, 'Failed to remove from Bank'), 'error')
     } finally {
       setSavingId(null)
     }
@@ -599,8 +622,10 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
                     saved={savedIds.has(o.id) || !!o.linkedModelId}
                     saving={savingId === o.id}
                     promptText={o.kind === 'sheet' ? buildSheetPrompt(item.profile, o.aspectRatio) : buildImagePrompt(item.profile)}
+                    suggestName={() => suggestSaveName(o)}
                     onSelect={() => setSelectedId(o.id)}
-                    onSave={() => handleSave(o)}
+                    onSave={(name) => handleSave(o, name)}
+                    onUnsave={() => handleUnsave(o)}
                     onDownload={() => handleDownload(o)}
                   />
                 ))}
@@ -645,8 +670,10 @@ function OutputTile({
   saved,
   saving,
   promptText,
+  suggestName,
   onSelect,
   onSave,
+  onUnsave,
   onDownload,
 }: {
   output: SessionOutput
@@ -654,13 +681,42 @@ function OutputTile({
   saved: boolean
   saving: boolean
   promptText: string
+  suggestName: () => string
   onSelect: () => void
-  onSave: () => void
+  onSave: (name: string) => void
+  onUnsave: () => void
   onDownload: () => void
 }) {
   const url = useAssetUrl(output.imageRef)
   const [copied, setCopied] = useState(false)
   const [lightboxOpen, setLightboxOpen] = useState(false)
+  // Inline naming: clicking Save on an unsaved tile opens a name input over the
+  // bottom edge (mirrors the main gallery tile) so the user names it before it
+  // lands in the bank. null = closed.
+  const [nameDraft, setNameDraft] = useState<string | null>(null)
+  const nameInputRef = useRef<HTMLInputElement | null>(null)
+  useEffect(() => {
+    if (nameDraft !== null) {
+      const id = window.setTimeout(() => nameInputRef.current?.focus(), 0)
+      return () => window.clearTimeout(id)
+    }
+  }, [nameDraft])
+
+  // Save button is a toggle: saved → remove from bank; unsaved → open the name
+  // input. Matches the gallery tile's behaviour.
+  function handleSaveClick(e: React.MouseEvent) {
+    e.stopPropagation()
+    if (saving) return
+    if (saved) { onUnsave(); return }
+    setNameDraft(suggestName())
+  }
+  function commitSave() {
+    const name = (nameDraft ?? '').trim()
+    if (!name || saving) return
+    onSave(name)
+    setNameDraft(null)
+  }
+
   const handleCopyPrompt = async () => {
     if (await copyToClipboard(promptText)) {
       setCopied(true)
@@ -696,15 +752,17 @@ function OutputTile({
         </span>
       )}
 
-      {/* Bottom-left: view full screen. */}
-      <div className="absolute bottom-1.5 left-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+      {/* Bottom-left: view full screen. Hidden while naming so the input owns
+          the bottom edge. */}
+      <div className={`absolute bottom-1.5 left-1.5 flex items-center gap-1 transition-opacity ${nameDraft !== null ? 'pointer-events-none opacity-0' : 'opacity-0 group-hover:opacity-100'}`}>
         <TileButton title="View full screen" onClick={(e) => { e.stopPropagation(); setLightboxOpen(true) }}>
           <Maximize2 className="h-4 w-4" />
         </TileButton>
       </div>
 
-      {/* Hover actions: Copy Prompt · Save to Bank · Download */}
-      <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+      {/* Hover actions: Copy Prompt · Save to Bank · Download. Hidden while
+          naming so the input owns the bottom edge. */}
+      <div className={`absolute bottom-1.5 right-1.5 flex items-center gap-1 transition-opacity ${nameDraft !== null ? 'pointer-events-none opacity-0' : 'opacity-0 group-hover:opacity-100'}`}>
         <TileButton
           title={copied ? 'Prompt copied' : 'Copy Prompt'}
           tone={copied ? 'saved' : 'default'}
@@ -713,9 +771,9 @@ function OutputTile({
           {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
         </TileButton>
         <TileButton
-          title={saved ? 'Saved to bank' : saving ? 'Saving…' : 'Save to Bank'}
+          title={saved ? 'Saved — click to remove from Bank' : saving ? 'Saving…' : 'Save to Bank'}
           tone={saved ? 'saved' : 'default'}
-          onClick={(e) => { e.stopPropagation(); if (!saved && !saving) onSave() }}
+          onClick={handleSaveClick}
         >
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : saved ? <Check className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
         </TileButton>
@@ -723,6 +781,47 @@ function OutputTile({
           <Download className="h-4 w-4" />
         </TileButton>
       </div>
+
+      {/* Inline name input — takes over the bottom edge while naming a save
+          (mirrors the main gallery tile). */}
+      {nameDraft !== null && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="absolute inset-x-2 bottom-2 flex items-center gap-1 rounded-full border border-white/15 bg-black/70 py-1 pl-2.5 pr-1 backdrop-blur"
+        >
+          <input
+            ref={nameInputRef}
+            type="text"
+            value={nameDraft}
+            onChange={(e) => setNameDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); commitSave() }
+              if (e.key === 'Escape') { e.preventDefault(); setNameDraft(null) }
+            }}
+            placeholder="Name this influencer"
+            disabled={saving}
+            className="min-w-0 flex-1 bg-transparent text-[11px] font-medium text-zinc-100 placeholder:text-zinc-500 focus:outline-none"
+          />
+          <button
+            type="button"
+            title="Cancel"
+            onClick={() => setNameDraft(null)}
+            disabled={saving}
+            className="flex h-5 w-5 items-center justify-center rounded-full text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
+          >
+            <X className="h-3 w-3" />
+          </button>
+          <button
+            type="button"
+            title="Save"
+            onClick={commitSave}
+            disabled={saving || !nameDraft.trim()}
+            className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/80 text-white hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+          </button>
+        </div>
+      )}
 
       {lightboxOpen && (
         <InfluencerLightbox

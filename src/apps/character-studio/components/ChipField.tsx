@@ -44,16 +44,33 @@ export default function ChipField({ label, value, onChange, suggestions, placeho
   // Track focus so a hover-opened dropdown only auto-closes when the field
   // isn't actively being edited.
   const [focused, setFocused] = useState(false)
-  // Hover-open closes on a short delay so moving the cursor across the small
-  // gap from the input down onto the panel doesn't flicker it shut.
+  // Hover-open is intentionally lazy: the menu only opens once the cursor has
+  // rested on the field for a beat, so sweeping the mouse across the parameters
+  // column doesn't pop a dropdown under every field it crosses. Focus (a real
+  // click into the field) still opens it instantly.
+  const HOVER_OPEN_DELAY = 400
+  const openTimer = useRef<number | null>(null)
   const closeTimer = useRef<number | null>(null)
+  const cancelOpen = () => {
+    if (openTimer.current) { window.clearTimeout(openTimer.current); openTimer.current = null }
+  }
   const cancelClose = () => {
     if (closeTimer.current) { window.clearTimeout(closeTimer.current); closeTimer.current = null }
   }
+  const scheduleOpen = () => {
+    cancelOpen()
+    openTimer.current = window.setTimeout(() => {
+      if (!locked && !editing && suggestions.length > 0) { measureDirection(); setOpen(true) }
+    }, HOVER_OPEN_DELAY)
+  }
+  // Close on a short delay so moving the cursor across the small gap from the
+  // input down onto the panel doesn't flicker it shut.
   const scheduleClose = () => {
     cancelClose()
     closeTimer.current = window.setTimeout(() => { if (!focused) setOpen(false) }, 120)
   }
+  // Never leave a pending timer running past unmount.
+  useEffect(() => () => { cancelOpen(); cancelClose() }, [])
   // The full-text editor pop-up — opened from the expand button on long values.
   const [editing, setEditing] = useState(false)
   // Flip both pop-ups above the field when there isn't room to open downward.
@@ -165,20 +182,18 @@ export default function ChipField({ label, value, onChange, suggestions, placeho
       <div
         ref={wrapRef}
         className="relative"
-        // Hovering the field opens the menu so a quick browse costs no click;
-        // it closes shortly after the cursor leaves (unless the field is
-        // focused). The panel lives inside this wrapper, so moving onto it
-        // cancels the pending close.
-        onMouseEnter={() => {
-          cancelClose()
-          if (!locked && !editing && suggestions.length > 0) { measureDirection(); setOpen(true) }
-        }}
-        onMouseLeave={() => { if (!focused) scheduleClose() }}
+        // Hovering the field opens the menu after a short rest delay so a quick
+        // browse costs no click, but sweeping the cursor across the column
+        // doesn't pop a dropdown under every field. It closes shortly after the
+        // cursor leaves (unless focused). The panel lives inside this wrapper,
+        // so moving onto it cancels both the pending close and a stale open.
+        onMouseEnter={() => { cancelClose(); if (!open) scheduleOpen() }}
+        onMouseLeave={() => { cancelOpen(); if (!focused) scheduleClose() }}
       >
         <input
           value={value}
           onChange={(e) => { onChange(e.target.value); setOpen(true) }}
-          onFocus={() => { setFocused(true); if (!locked) { measureDirection(); setOpen(true) } }}
+          onFocus={() => { cancelOpen(); setFocused(true); if (!locked) { measureDirection(); setOpen(true) } }}
           onBlur={() => { setFocused(false); setOpen(false) }}
           onKeyDown={(e) => { if (e.key === 'Escape') setOpen(false) }}
           readOnly={locked}
