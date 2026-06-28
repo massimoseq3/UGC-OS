@@ -40,37 +40,11 @@ const PANEL_MAX_HEIGHT = 240
 export default function ChipField({ label, value, onChange, suggestions, placeholder, defaultLocked = false }: ChipFieldProps) {
   const isFilled = value.trim() !== ''
   const [locked, setLocked] = useState(defaultLocked)
+  // The dropdown opens on click (focus) and closes on blur — no hover-open, so
+  // the cursor can move freely across the parameters column without popping
+  // menus. The panel keeps the input focused (mousedown-preventDefault below),
+  // so interacting with it never blurs the field shut.
   const [open, setOpen] = useState(false)
-  // Track focus so a hover-opened dropdown only auto-closes when the field
-  // isn't actively being edited.
-  const [focused, setFocused] = useState(false)
-  // Hover-open is intentionally lazy: the menu only opens once the cursor has
-  // rested on the field for a beat, so sweeping the mouse across the parameters
-  // column doesn't pop a dropdown under every field it crosses. Focus (a real
-  // click into the field) still opens it instantly.
-  const HOVER_OPEN_DELAY = 400
-  const openTimer = useRef<number | null>(null)
-  const closeTimer = useRef<number | null>(null)
-  const cancelOpen = () => {
-    if (openTimer.current) { window.clearTimeout(openTimer.current); openTimer.current = null }
-  }
-  const cancelClose = () => {
-    if (closeTimer.current) { window.clearTimeout(closeTimer.current); closeTimer.current = null }
-  }
-  const scheduleOpen = () => {
-    cancelOpen()
-    openTimer.current = window.setTimeout(() => {
-      if (!locked && !editing && suggestions.length > 0) { measureDirection(); setOpen(true) }
-    }, HOVER_OPEN_DELAY)
-  }
-  // Close on a short delay so moving the cursor across the small gap from the
-  // input down onto the panel doesn't flicker it shut.
-  const scheduleClose = () => {
-    cancelClose()
-    closeTimer.current = window.setTimeout(() => { if (!focused) setOpen(false) }, 120)
-  }
-  // Never leave a pending timer running past unmount.
-  useEffect(() => () => { cancelOpen(); cancelClose() }, [])
   // The full-text editor pop-up — opened from the expand button on long values.
   const [editing, setEditing] = useState(false)
   // Flip both pop-ups above the field when there isn't room to open downward.
@@ -97,8 +71,8 @@ export default function ChipField({ label, value, onChange, suggestions, placeho
   // starred "detailed" presets (plus a "None" option, when the field has one)
   // take the top slot, so the richest picks are always reachable without
   // scrolling. Within every section the detailed presets sort first. The
-  // dropdown opens on every focus or hover — even when the field already holds
-  // a value — so landing on a filled field still shows the full menu.
+  // dropdown opens on every focus — even when the field already holds a value —
+  // so clicking into a filled field still shows the full menu.
   let topSection: string[]
   let restSection: string[]
   if (q) {
@@ -179,22 +153,12 @@ export default function ChipField({ label, value, onChange, suggestions, placeho
           </button>
         )}
       </div>
-      <div
-        ref={wrapRef}
-        className="relative"
-        // Hovering the field opens the menu after a short rest delay so a quick
-        // browse costs no click, but sweeping the cursor across the column
-        // doesn't pop a dropdown under every field. It closes shortly after the
-        // cursor leaves (unless focused). The panel lives inside this wrapper,
-        // so moving onto it cancels both the pending close and a stale open.
-        onMouseEnter={() => { cancelClose(); if (!open) scheduleOpen() }}
-        onMouseLeave={() => { cancelOpen(); if (!focused) scheduleClose() }}
-      >
+      <div ref={wrapRef} className="relative">
         <input
           value={value}
           onChange={(e) => { onChange(e.target.value); setOpen(true) }}
-          onFocus={() => { cancelOpen(); setFocused(true); if (!locked) { measureDirection(); setOpen(true) } }}
-          onBlur={() => { setFocused(false); setOpen(false) }}
+          onFocus={() => { if (!locked) { measureDirection(); setOpen(true) } }}
+          onBlur={() => setOpen(false)}
           onKeyDown={(e) => { if (e.key === 'Escape') setOpen(false) }}
           readOnly={locked}
           placeholder={placeholder ?? `Search or type ${label.toLowerCase()}...`}
