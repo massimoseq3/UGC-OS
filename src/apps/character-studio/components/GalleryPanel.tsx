@@ -1,17 +1,25 @@
 import { useMemo, useRef, useState, useEffect } from 'react'
-import { Loader2, Trash2, Image as ImageIcon, UserRound, Bookmark, X, Download, Check, Copy, LayoutGrid } from 'lucide-react'
+import { Loader2, Trash2, Image as ImageIcon, UserRound, Bookmark, X, Download, Check, Copy, LayoutGrid, List, Maximize2 } from 'lucide-react'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAssetUrlState } from '../../../hooks/useAssetUrl'
 import { getUrl } from '../../../utils/assetStore'
 import { useAppStore } from '../../../stores/appStore'
+import { usePersistedState } from '../../../hooks/usePersistedState'
 import { humanizeError } from '../../../utils/friendlyError'
 import type { CharacterHistoryItem } from '../../../stores/types'
 import { getModel, type ImageResolution } from '../../../utils/models'
+import SegmentedToggle from '../../../components/SegmentedToggle'
 import InfluencerEditModal from './InfluencerEditModal'
 import GeneratingTile from './GeneratingTile'
 import { buildJsonPrompt, buildImagePrompt } from '../services/generateCharacter'
 import { pickInfluencerName, sheetNameFrom } from './nameGenerator'
 import { downloadImage } from '../../../utils/downloadImage'
+
+// List-view media-height bounds (px) for the header size slider. Mirrors the
+// Playground list view — max ≈ two of the smallest cards stacked, so one big
+// card ≈ two compact ones.
+const LIST_CARD_MIN = 200
+const LIST_CARD_MAX = 560
 
 // One running generation. Persisted to localStorage so a mid-flight refresh
 // resumes polling instead of losing the job. `taskId` is the kie.ai task ref
@@ -56,6 +64,16 @@ export default function GalleryPanel({
   onCancelGen,
 }: GalleryPanelProps) {
   const [previewItem, setPreviewItem] = useState<CharacterHistoryItem | null>(null)
+  // Which mode the edit pop-up opens in. "Make Sheet" on a tile opens straight
+  // into sheet mode so the user just hits Generate; a normal click is edit.
+  const [previewMode, setPreviewMode] = useState<'edit' | 'sheet'>('edit')
+
+  // Grid (masonry) vs List (stacked rows). Persisted globally so the choice
+  // sticks across reloads — mirrors the Playground's List/Grid switch.
+  const [viewMode, setViewMode] = usePersistedState<'grid' | 'list'>('ai-ugc-lab:influencers:history-view', 'grid')
+  // List-view card size — the media frame height (px), set by the header slider.
+  const [listCardHeight, setListCardHeight] = usePersistedState<number>('ai-ugc-lab:influencers:list-card-height', 300)
+  const cardPct = ((listCardHeight - LIST_CARD_MIN) / (LIST_CARD_MAX - LIST_CARD_MIN)) * 100
 
   // Copy an influencer's generation prompt (built from its saved profile) to
   // the clipboard. Replaces the old "Edit in form" tile action.
@@ -72,9 +90,6 @@ export default function GalleryPanel({
       useAppStore.getState().addToast('Could not copy the prompt', 'error')
     }
   }
-  // Which mode the edit pop-up opens in. "Make Sheet" on a tile opens straight
-  // into sheet mode so the user just hits Generate; a normal click is edit.
-  const [previewMode, setPreviewMode] = useState<'edit' | 'sheet'>('edit')
 
   const characterHistory = useBankStore((s) => s.characterHistory)
   const deleteCharacterHistory = useBankStore((s) => s.deleteCharacterHistory)
@@ -94,53 +109,101 @@ export default function GalleryPanel({
 
   return (
     <div className="flex h-full min-w-0 flex-col">
-      {/* Scrollable gallery */}
-      <div className="min-w-0 flex-1 overflow-y-auto">
-        {isEmpty ? (
-          <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
-            <UserRound className="h-9 w-9 text-ink-800" strokeWidth={1.5} />
-            <p className="text-sm text-ink-500">No generations yet</p>
-            <p className="max-w-[300px] text-xs leading-relaxed text-ink-600">
-              Configure parameters on the left and hit Generate.
-              Every influencer you make lands here, sorted by day.
-            </p>
+      {isEmpty ? (
+        <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
+          <UserRound className="h-9 w-9 text-ink-800" strokeWidth={1.5} />
+          <p className="text-sm text-ink-500">No generations yet</p>
+          <p className="max-w-[300px] text-xs leading-relaxed text-ink-600">
+            Configure parameters on the left and hit Generate.
+            Every influencer you make lands here, sorted by day.
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* Header — card-size slider (list view only) + view switch (Grid / List). */}
+          <div className="flex h-[57px] shrink-0 items-center justify-end gap-3 border-b border-ink/5 px-4">
+            {viewMode === 'list' && (
+              <div className="flex items-center gap-2.5" title="Card size">
+                <Maximize2 className="h-3.5 w-3.5 text-ink-500" />
+                <input
+                  type="range"
+                  min={LIST_CARD_MIN}
+                  max={LIST_CARD_MAX}
+                  step={10}
+                  value={listCardHeight}
+                  onChange={(e) => setListCardHeight(Number(e.target.value))}
+                  className="slider-thin w-28"
+                  style={{
+                    ['--slider-pct' as string]: `${cardPct}%`,
+                    ['--slider-fill' as string]: 'var(--color-influencers-500)',
+                  }}
+                  aria-label="List card size"
+                />
+              </div>
+            )}
+            <ViewToggle value={viewMode} onChange={setViewMode} />
           </div>
-        ) : (
-          <div className="px-4 py-3">
+
+          {/* Scrollable gallery */}
+          <div className="min-w-0 flex-1 overflow-y-auto px-4 py-3">
             {inFlight.length > 0 && (
               <>
                 <DayPill label={inFlight.length === 1 ? 'In progress' : `In progress · ${inFlight.length}`} />
-                <div className="grid grid-cols-2 gap-2 [grid-auto-flow:dense] lg:grid-cols-3">
-                  {inFlight.map((gen) => (
-                    <div key={gen.id} className={isWide(gen.aspectRatio) ? 'col-span-2 lg:col-span-3' : ''}>
-                      <InFlightTile gen={gen} onCancel={() => onCancelGen(gen.id)} />
-                    </div>
-                  ))}
-                </div>
+                {viewMode === 'grid' ? (
+                  <div className="grid grid-cols-2 gap-2 [grid-auto-flow:dense] lg:grid-cols-3">
+                    {inFlight.map((gen) => (
+                      <div key={gen.id} className={isWide(gen.aspectRatio) ? 'col-span-2 lg:col-span-3' : ''}>
+                        <InFlightTile gen={gen} onCancel={() => onCancelGen(gen.id)} />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    {inFlight.map((gen) => (
+                      <InFlightRow key={gen.id} gen={gen} cardHeight={listCardHeight} onCancel={() => onCancelGen(gen.id)} />
+                    ))}
+                  </div>
+                )}
               </>
             )}
 
             {dayGroups.map(([dayTs, items]) => (
               <div key={dayTs}>
                 <DayPill label={dayLabel(dayTs)} />
-                <div className="grid grid-cols-2 gap-2 [grid-auto-flow:dense] lg:grid-cols-3">
-                  {items.map((item) => (
-                    <div key={item.id} className={isWide(item.aspectRatio) ? 'col-span-2 lg:col-span-3' : ''}>
-                      <HistoryTile
+                {viewMode === 'grid' ? (
+                  <div className="grid grid-cols-2 gap-2 [grid-auto-flow:dense] lg:grid-cols-3">
+                    {items.map((item) => (
+                      <div key={item.id} className={isWide(item.aspectRatio) ? 'col-span-2 lg:col-span-3' : ''}>
+                        <HistoryTile
+                          item={item}
+                          onClick={() => { setPreviewMode('edit'); setPreviewItem(item) }}
+                          onDelete={() => deleteCharacterHistory(item.id)}
+                          onMakeSheet={() => { setPreviewMode('sheet'); setPreviewItem(item) }}
+                          onCopyPrompt={() => handleCopyPrompt(item)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    {items.map((item) => (
+                      <HistoryListRow
+                        key={item.id}
                         item={item}
+                        cardHeight={listCardHeight}
                         onClick={() => { setPreviewMode('edit'); setPreviewItem(item) }}
                         onDelete={() => deleteCharacterHistory(item.id)}
                         onMakeSheet={() => { setPreviewMode('sheet'); setPreviewItem(item) }}
                         onCopyPrompt={() => handleCopyPrompt(item)}
                       />
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>
-        )}
-      </div>
+        </>
+      )}
 
       {previewItem && (
         <InfluencerEditModal
@@ -164,6 +227,25 @@ function DayPill({ label }: { label: string }) {
   )
 }
 
+// ── View toggle ─────────────────────────────────────────────────
+
+// Grid / List switch in the gallery header. Same shape as the Playground's so
+// the two tabs read as a matched pair across the app.
+function ViewToggle({ value, onChange }: { value: 'grid' | 'list'; onChange: (v: 'grid' | 'list') => void }) {
+  return (
+    <SegmentedToggle<'grid' | 'list'>
+      fitContent
+      className="h-10 !p-1"
+      value={value}
+      onChange={onChange}
+      options={[
+        { value: 'list', label: 'List', icon: List },
+        { value: 'grid', label: 'Grid', icon: LayoutGrid },
+      ]}
+    />
+  )
+}
+
 // Horizontal (16:9) outputs — character sheets or landscape portraits — claim
 // a full grid row instead of a single column so the wide frame stays readable.
 function isWide(ar: string): boolean {
@@ -176,19 +258,12 @@ function aspectStyle(ar: string): React.CSSProperties {
   return { aspectRatio: '9 / 16' }
 }
 
-function HistoryTile({
-  item,
-  onClick,
-  onDelete,
-  onMakeSheet,
-  onCopyPrompt,
-}: {
-  item: CharacterHistoryItem
-  onClick: () => void
-  onDelete: () => void | Promise<unknown>
-  onMakeSheet: () => void
-  onCopyPrompt: () => void
-}) {
+// ── Shared per-item logic ───────────────────────────────────────
+
+// Save / delete / download + name-draft state for one history entry. Shared by
+// the grid tile and the list row so both views stay in lockstep. Copy-prompt and
+// make-sheet stay as parent callbacks (they reach into modal/clipboard concerns).
+function useHistoryTileActions(item: CharacterHistoryItem, onDelete: () => void | Promise<unknown>) {
   const { url, status } = useAssetUrlState(item.imageRef)
   const addModel = useBankStore((s) => s.addModel)
   const deleteModel = useBankStore((s) => s.deleteModel)
@@ -200,16 +275,13 @@ function HistoryTile({
   const [nameDraft, setNameDraft] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
-  const nameInputRef = useRef<HTMLInputElement | null>(null)
 
   const isSheet = item.kind === 'sheet'
   const linkedModel = item.linkedModelId ? models.find((m) => m.id === item.linkedModelId) : undefined
   // Portraits and sheets alike save as their own Bank entry, tracked by
   // linkedModelId — once saved the tile shows the Saved/attached state.
   const savedAsModel = !!linkedModel
-  // The AI model that produced this image, shown as a small caption beneath the
-  // tile (mirrors the B-Roll A-Roll/B-Roll label). Older entries may predate the
-  // stamped modelId — fall back to the raw id, or render nothing if absent.
+  // The AI model that produced this image, shown as a small caption.
   const modelLabel = getModel(item.modelId)?.displayName ?? item.modelId
 
   // A sheet derived from a portrait suggests the source influencer's saved name
@@ -226,25 +298,16 @@ function HistoryTile({
     return isSheet ? sheetNameFrom(base) : base
   }
 
-  useEffect(() => {
-    if (nameDraft !== null) {
-      const id = window.setTimeout(() => nameInputRef.current?.focus(), 0)
-      return () => window.clearTimeout(id)
-    }
-  }, [nameDraft])
-
-  function openNameInput(e: React.MouseEvent) {
-    e.stopPropagation()
+  function openNameInput() {
     if (savingToBank) return
     setNameDraft(suggestSaveName())
   }
 
-  // Toggle: clicking the Save button when already saved removes the linked Bank
-  // entry (keeping this gallery image) so it can be re-saved afterwards.
-  async function toggleSave(e: React.MouseEvent) {
-    e.stopPropagation()
+  // Toggle: clicking Save when already saved removes the linked Bank entry
+  // (keeping this gallery image) so it can be re-saved afterwards.
+  async function toggleSave() {
     if (savingToBank) return
-    if (!savedAsModel) { openNameInput(e); return }
+    if (!savedAsModel) { openNameInput(); return }
     setSavingToBank(true)
     try {
       if (linkedModel) await deleteModel(linkedModel.id)
@@ -283,8 +346,7 @@ function HistoryTile({
     }
   }
 
-  async function handleDelete(e: React.MouseEvent) {
-    e.stopPropagation()
+  async function handleDelete() {
     if (deleting) return
     if (!confirmingDelete) {
       setConfirmingDelete(true)
@@ -300,12 +362,105 @@ function HistoryTile({
     }
   }
 
-  async function handleDownload(e: React.MouseEvent) {
-    e.stopPropagation()
+  async function handleDownload() {
     const resolved = await getUrl(item.imageRef)
     if (!resolved) return
     await downloadImage(resolved, `${isSheet ? 'character-sheet' : 'influencer'}-${item.id}`)
   }
+
+  return {
+    url, status,
+    isSheet, savedAsModel, modelLabel,
+    savingToBank, nameDraft, setNameDraft, commitSave, openNameInput, toggleSave,
+    deleting, confirmingDelete, handleDelete,
+    handleDownload,
+  }
+}
+
+// Inline name input shown while a save is being named — same controls in both
+// views, wrapped by each with its own container positioning.
+function NameEditor({
+  nameDraft,
+  setNameDraft,
+  onCommit,
+  onCancel,
+  saving,
+  dark,
+}: {
+  nameDraft: string
+  setNameDraft: (v: string) => void
+  onCommit: () => void
+  onCancel: () => void
+  saving: boolean
+  dark?: boolean
+}) {
+  const nameInputRef = useRef<HTMLInputElement | null>(null)
+  useEffect(() => {
+    const id = window.setTimeout(() => nameInputRef.current?.focus(), 0)
+    return () => window.clearTimeout(id)
+  }, [])
+  return (
+    <div
+      onClick={(e) => e.stopPropagation()}
+      className={`flex w-full items-center gap-1 rounded-full border py-1 pl-2.5 pr-1 ${
+        dark ? 'border-white/15 bg-black/70 backdrop-blur' : 'border-ink/10 bg-ink/[0.04]'
+      }`}
+    >
+      <input
+        ref={nameInputRef}
+        type="text"
+        value={nameDraft}
+        onChange={(e) => setNameDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') { e.preventDefault(); onCommit() }
+          if (e.key === 'Escape') { e.preventDefault(); onCancel() }
+        }}
+        placeholder="Name this influencer"
+        disabled={saving}
+        className={`min-w-0 flex-1 bg-transparent text-[11px] font-medium focus:outline-none ${
+          dark ? 'text-zinc-100 placeholder:text-zinc-500' : 'text-ink-100 placeholder:text-ink-500'
+        }`}
+      />
+      <button
+        type="button"
+        title="Cancel"
+        onClick={onCancel}
+        disabled={saving}
+        className={`flex h-5 w-5 items-center justify-center rounded-full ${
+          dark ? 'text-zinc-400 hover:bg-white/10 hover:text-zinc-200' : 'text-ink-400 hover:bg-ink/10 hover:text-ink-200'
+        }`}
+      >
+        <X className="h-3 w-3" />
+      </button>
+      <button
+        type="button"
+        title="Save"
+        onClick={onCommit}
+        disabled={saving || !nameDraft.trim()}
+        className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/80 text-white hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+      </button>
+    </div>
+  )
+}
+
+// ── Grid tile ───────────────────────────────────────────────────
+
+function HistoryTile({
+  item,
+  onClick,
+  onDelete,
+  onMakeSheet,
+  onCopyPrompt,
+}: {
+  item: CharacterHistoryItem
+  onClick: () => void
+  onDelete: () => void | Promise<unknown>
+  onMakeSheet: () => void
+  onCopyPrompt: () => void
+}) {
+  const a = useHistoryTileActions(item, onDelete)
 
   return (
     <div>
@@ -313,137 +468,233 @@ function HistoryTile({
       onClick={onClick}
       className="group relative cursor-pointer overflow-hidden rounded-lg border border-ink/10 bg-black light:bg-zinc-200 transition-all hover:border-ink/20 hover:-translate-y-px card-soft-shadow"
     >
-      {status === 'ready' && url ? (
-        <img src={url} alt="" className="block h-auto w-full" />
+      {a.status === 'ready' && a.url ? (
+        <img src={a.url} alt="" className="block h-auto w-full" />
       ) : (
         <div className="flex w-full items-center justify-center" style={aspectStyle(item.aspectRatio)}>
-          {status === 'loading'
+          {a.status === 'loading'
             ? <Loader2 className="h-5 w-5 animate-spin text-zinc-500" />
             : <ImageIcon className="h-6 w-6 text-zinc-700" />}
         </div>
       )}
 
-      {isSheet ? (
-        <div
-          title={savedAsModel ? 'Sheet saved to Influencers bank' : 'Influencer sheet'}
-          className={`absolute left-1.5 top-1.5 flex h-6 items-center gap-1 rounded-full px-2 text-[9px] font-medium backdrop-blur ${
-            savedAsModel ? 'bg-emerald-500/30 text-emerald-100' : 'bg-black/60 text-zinc-200'
-          }`}
-        >
-          <LayoutGrid className="h-3 w-3" strokeWidth={2} />
-          Sheet
-          {savedAsModel && <Check className="h-3 w-3" strokeWidth={2.5} />}
-        </div>
-      ) : savedAsModel && (
-        <div
-          title="Saved to Influencers bank"
-          className="absolute left-1.5 top-1.5 flex h-6 items-center gap-1 rounded-full bg-emerald-500/30 px-2 text-[9px] font-medium text-emerald-100 backdrop-blur"
-        >
-          <Bookmark className="h-3 w-3" strokeWidth={2} />
-          Saved
+      <SourceBadge isSheet={a.isSheet} savedAsModel={a.savedAsModel} />
+
+      {/* Hover actions — a single vertical column in the top-right, top to
+          bottom: Save · Download · Copy · Make Sheet (portraits only) · Delete.
+          The column stays visible while a delete is being confirmed. The inline
+          name input takes over the bottom edge while a save is being named. */}
+      {a.nameDraft === null && (
+        <div className={`absolute right-1.5 top-1.5 flex flex-col items-end gap-1 transition-opacity ${a.deleting || a.confirmingDelete ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+          <TileIconButton
+            title={a.savedAsModel ? 'Saved — click to remove from Bank' : a.savingToBank ? 'Saving…' : 'Save to Bank'}
+            tone={a.savedAsModel ? 'saved' : 'default'}
+            onClick={(e) => { e.stopPropagation(); a.toggleSave() }}
+          >
+            {a.savingToBank ? <Loader2 className="h-4 w-4 animate-spin" /> : a.savedAsModel ? <Check className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
+          </TileIconButton>
+          <TileIconButton title="Download image" onClick={(e) => { e.stopPropagation(); a.handleDownload() }}>
+            <Download className="h-4 w-4" />
+          </TileIconButton>
+          <TileIconButton title="Copy prompt" onClick={(e) => { e.stopPropagation(); onCopyPrompt() }}>
+            <Copy className="h-4 w-4" />
+          </TileIconButton>
+          {!a.isSheet && (
+            <TileIconButton
+              title="Make a character sheet from this portrait"
+              onClick={(e) => { e.stopPropagation(); onMakeSheet() }}
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </TileIconButton>
+          )}
+          <button
+            type="button"
+            title={a.deleting ? 'Deleting…' : a.confirmingDelete ? 'Click again to delete' : 'Delete'}
+            onClick={(e) => { e.stopPropagation(); a.handleDelete() }}
+            disabled={a.deleting}
+            className={`flex h-8 items-center justify-center gap-1 rounded-full border px-2 transition-colors disabled:cursor-wait ${
+              a.confirmingDelete
+                ? 'border-red-400/60 bg-red-500/55 text-red-50'
+                : 'border-white/20 bg-black/55 text-white hover:bg-red-500/45 hover:text-red-100 hover:border-red-400/40 disabled:hover:bg-black/55 disabled:hover:text-white'
+            }`}
+          >
+            {a.deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            {a.confirmingDelete && !a.deleting && <span className="text-[9px] font-medium uppercase tracking-wider">Confirm</span>}
+          </button>
         </div>
       )}
 
-      <div className={`absolute right-1.5 top-1.5 flex gap-1 transition-opacity ${deleting || confirmingDelete ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-        <button
-          type="button"
-          title={deleting ? 'Deleting…' : confirmingDelete ? 'Click again to delete' : 'Delete'}
-          onClick={handleDelete}
-          disabled={deleting}
-          className={`flex h-8 items-center justify-center gap-1 rounded-full border px-2 transition-colors disabled:cursor-wait ${
-            confirmingDelete
-              ? 'border-red-400/60 bg-red-500/55 text-red-50'
-              : 'border-white/20 bg-black/55 text-white hover:bg-red-500/45 hover:text-red-100 hover:border-red-400/40 disabled:hover:bg-black/55 disabled:hover:text-white'
-          }`}
-        >
-          {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-          {confirmingDelete && !deleting && <span className="text-[9px] font-medium uppercase tracking-wider">Confirm</span>}
-        </button>
-      </div>
-
-      {/* Bottom hover actions — round icon buttons bottom-right, matching the
-          B-Roll tile cluster. The inline name input takes over the bottom edge
-          while a save is being named (portraits and sheets alike). */}
-      {nameDraft !== null ? (
-        <div
-          onClick={(e) => e.stopPropagation()}
-          className="absolute inset-x-2 bottom-2 flex items-center gap-1 rounded-full border border-white/15 bg-black/70 py-1 pl-2.5 pr-1 backdrop-blur"
-        >
-          <input
-            ref={nameInputRef}
-            type="text"
-            value={nameDraft}
-            onChange={(e) => setNameDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') { e.preventDefault(); commitSave() }
-              if (e.key === 'Escape') { e.preventDefault(); setNameDraft(null) }
-            }}
-            placeholder="Name this influencer"
-            disabled={savingToBank}
-            className="min-w-0 flex-1 bg-transparent text-[11px] font-medium text-zinc-100 placeholder:text-zinc-500 focus:outline-none"
+      {/* Inline name input — takes over the bottom edge while a save is being
+          named (portraits and sheets alike). */}
+      {a.nameDraft !== null && (
+        <div className="absolute inset-x-2 bottom-2">
+          <NameEditor
+            dark
+            nameDraft={a.nameDraft}
+            setNameDraft={a.setNameDraft}
+            onCommit={a.commitSave}
+            onCancel={() => a.setNameDraft(null)}
+            saving={a.savingToBank}
           />
-          <button
-            type="button"
-            title="Cancel"
-            onClick={() => setNameDraft(null)}
-            disabled={savingToBank}
-            className="flex h-5 w-5 items-center justify-center rounded-full text-zinc-400 hover:bg-white/10 hover:text-zinc-200"
-          >
-            <X className="h-3 w-3" />
-          </button>
-          <button
-            type="button"
-            title="Save"
-            onClick={commitSave}
-            disabled={savingToBank || !nameDraft.trim()}
-            className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/80 text-white hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {savingToBank ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-          </button>
         </div>
-      ) : (
-        <>
-          {/* Bottom toolbar — one full-width bar so the two groups can never
-              overlap on a narrow tile. Left group: Make Sheet ("Make Sheet" runs
-              image-to-image off this image so the sheet keeps the exact same
-              person — only shown on portraits). Right group: Copy prompt · Save ·
-              Download. flex-wrap drops the right group to a second row when the
-              tile is too narrow to fit both side by side. */}
-          <div className="absolute inset-x-1.5 bottom-1.5 flex flex-wrap items-center justify-between gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-            <div className="flex items-center gap-1">
-              {!isSheet && (
-                <TileIconButton
-                  title="Make a character sheet from this portrait"
-                  onClick={(e) => { e.stopPropagation(); onMakeSheet() }}
-                >
-                  <LayoutGrid className="h-4 w-4" />
-                </TileIconButton>
-              )}
-            </div>
-            <div className="flex items-center gap-1">
-              <TileIconButton title="Copy prompt" onClick={(e) => { e.stopPropagation(); onCopyPrompt() }}>
-                <Copy className="h-4 w-4" />
-              </TileIconButton>
-              <TileIconButton
-                title={savedAsModel ? 'Saved — click to remove from Bank' : savingToBank ? 'Saving…' : 'Save to Bank'}
-                tone={savedAsModel ? 'saved' : 'default'}
-                onClick={toggleSave}
-              >
-                {savingToBank ? <Loader2 className="h-4 w-4 animate-spin" /> : savedAsModel ? <Check className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
-              </TileIconButton>
-              <TileIconButton title="Download image" onClick={handleDownload}>
-                <Download className="h-4 w-4" />
-              </TileIconButton>
-            </div>
-          </div>
-        </>
       )}
     </div>
-    {modelLabel && (
+    {a.modelLabel && (
       <p className="mt-1 truncate text-center text-[10px] font-medium tracking-wider text-ink-500">
-        {modelLabel}
+        {a.modelLabel}
       </p>
     )}
+    </div>
+  )
+}
+
+// Sheet / Saved badge overlaid on the media top-left. Shared by the grid tile
+// and the list row.
+function SourceBadge({ isSheet, savedAsModel }: { isSheet: boolean; savedAsModel: boolean }) {
+  if (isSheet) {
+    return (
+      <div
+        title={savedAsModel ? 'Sheet saved to Influencers bank' : 'Influencer sheet'}
+        className={`absolute left-1.5 top-1.5 flex h-6 items-center gap-1 rounded-full px-2 text-[9px] font-medium backdrop-blur ${
+          savedAsModel ? 'bg-emerald-500/30 text-emerald-100' : 'bg-black/60 text-zinc-200'
+        }`}
+      >
+        <LayoutGrid className="h-3 w-3" strokeWidth={2} />
+        Sheet
+        {savedAsModel && <Check className="h-3 w-3" strokeWidth={2.5} />}
+      </div>
+    )
+  }
+  if (savedAsModel) {
+    return (
+      <div
+        title="Saved to Influencers bank"
+        className="absolute left-1.5 top-1.5 flex h-6 items-center gap-1 rounded-full bg-emerald-500/30 px-2 text-[9px] font-medium text-emerald-100 backdrop-blur"
+      >
+        <Bookmark className="h-3 w-3" strokeWidth={2} />
+        Saved
+      </div>
+    )
+  }
+  return null
+}
+
+// ── List row ────────────────────────────────────────────────────
+
+// One generation as a full-width row: a large image taking two-thirds of the
+// width (letterboxed on black, click to edit) and a side panel (the remaining
+// third) with the model, prompt, metadata, and actions. The header slider drives
+// `cardHeight`. Mirrors the Playground's List view.
+function HistoryListRow({
+  item,
+  cardHeight,
+  onClick,
+  onDelete,
+  onMakeSheet,
+  onCopyPrompt,
+}: {
+  item: CharacterHistoryItem
+  cardHeight: number
+  onClick: () => void
+  onDelete: () => void | Promise<unknown>
+  onMakeSheet: () => void
+  onCopyPrompt: () => void
+}) {
+  const a = useHistoryTileActions(item, onDelete)
+  const prompt = buildImagePrompt(item.profile).trim()
+
+  const meta: string[] = []
+  if (item.resolution) meta.push(item.resolution)
+  if (item.aspectRatio) meta.push(item.aspectRatio)
+
+  return (
+    <div className="flex w-full items-stretch gap-3 overflow-hidden rounded-2xl border border-ink/10 bg-ink/[0.02]">
+      {/* Media — two-thirds of the row, height driven by the size slider.
+          Letterboxed on black so a wide sheet / vertical portrait shows with
+          bars instead of cropping. */}
+      <div className="relative min-w-0 flex-[2] bg-black" style={{ height: cardHeight }}>
+        {a.status === 'ready' && a.url ? (
+          <img
+            src={a.url}
+            alt=""
+            onClick={onClick}
+            className="absolute inset-0 h-full w-full cursor-pointer object-contain"
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            {a.status === 'loading'
+              ? <Loader2 className="h-6 w-6 animate-spin text-ink-600" />
+              : <ImageIcon className="h-7 w-7 text-ink-700" />}
+          </div>
+        )}
+        <SourceBadge isSheet={a.isSheet} savedAsModel={a.savedAsModel} />
+      </div>
+
+      {/* Side panel — the remaining third: model, prompt, meta, actions.
+          Height is pinned to the media so the prompt scrolls inside the box
+          instead of stretching the row. */}
+      <div className="flex min-w-0 flex-[1] flex-col gap-2 py-3 pr-3" style={{ height: cardHeight }}>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="rounded-full bg-influencers-500/15 px-2 py-0.5 text-[10px] font-semibold text-influencers-200">{a.modelLabel}</span>
+          {meta.map((m) => (
+            <span key={m} className="rounded-full bg-ink/[0.06] px-1.5 py-0.5 text-[9px] font-medium text-ink-400">{m}</span>
+          ))}
+        </div>
+        {prompt && (
+          <div className="min-h-0 flex-1 overflow-y-auto rounded-lg bg-ink/[0.03] px-3 py-2 text-[12px] leading-relaxed text-ink-300">
+            {prompt}
+          </div>
+        )}
+        {a.nameDraft !== null ? (
+          <NameEditor
+            nameDraft={a.nameDraft}
+            setNameDraft={a.setNameDraft}
+            onCommit={a.commitSave}
+            onCancel={() => a.setNameDraft(null)}
+            saving={a.savingToBank}
+          />
+        ) : (
+          <div className="flex flex-wrap items-center gap-1">
+            {!a.isSheet && (
+              <ListRowButton title="Make a character sheet from this portrait" onClick={onMakeSheet}>
+                <LayoutGrid className="h-4 w-4" />
+              </ListRowButton>
+            )}
+            <ListRowButton title="Copy prompt" onClick={onCopyPrompt}>
+              <Copy className="h-4 w-4" />
+            </ListRowButton>
+            <ListRowButton
+              title={a.savedAsModel ? 'Saved — click to remove from Bank' : a.savingToBank ? 'Saving…' : 'Save to Bank'}
+              tone={a.savedAsModel ? 'saved' : 'default'}
+              onClick={a.toggleSave}
+            >
+              {a.savingToBank ? <Loader2 className="h-4 w-4 animate-spin" /> : a.savedAsModel ? <Check className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
+            </ListRowButton>
+            <ListRowButton title="Download image" onClick={a.handleDownload}>
+              <Download className="h-4 w-4" />
+            </ListRowButton>
+            <ListRowDeleteButton confirming={a.confirmingDelete} deleting={a.deleting} onClick={a.handleDelete} />
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// In-flight generation as a list row — placeholder + progress, matching the
+// finished-row layout (2/3 media · 1/3 info) so the feed doesn't jump.
+function InFlightRow({ gen, cardHeight, onCancel }: { gen: InFlightCharacterGen; cardHeight: number; onCancel: () => void }) {
+  return (
+    <div className="flex w-full items-stretch gap-3 overflow-hidden rounded-2xl border border-influencers-500/20 bg-influencers-500/[0.04]">
+      <div className="relative min-w-0 flex-[2]" style={{ height: cardHeight }}>
+        <GeneratingTile modelId={gen.modelId} kind={gen.kind} aspectRatio={gen.aspectRatio} onCancel={onCancel} fill />
+      </div>
+      <div className="flex min-w-0 flex-[1] flex-col justify-center gap-2 py-3 pr-3">
+        <span className="text-[12px] font-semibold tracking-wide text-influencers-200">
+          {getModel(gen.modelId)?.displayName ?? gen.modelId}
+        </span>
+        <span className="text-[11px] text-ink-500">{gen.kind === 'sheet' ? 'Influencer sheet' : 'Influencer'}</span>
+      </div>
     </div>
   )
 }
@@ -479,8 +730,63 @@ function TileIconButton({
   )
 }
 
+// Round icon button for list rows — tuned for the lighter list surface (no media
+// backdrop to sit over). Mirrors the Playground list row buttons.
+function ListRowButton({
+  children,
+  onClick,
+  title,
+  tone = 'default',
+}: {
+  children: React.ReactNode
+  onClick: () => void
+  title: string
+  tone?: 'default' | 'saved'
+}) {
+  const toneClass = tone === 'saved'
+    ? 'border-emerald-400/40 bg-emerald-500/15 text-emerald-300'
+    : 'border-ink/10 bg-ink/[0.03] text-ink-300 hover:bg-ink/[0.08] hover:text-ink-100'
+  return (
+    <button
+      type="button"
+      title={title}
+      onClick={(e) => { e.stopPropagation(); onClick() }}
+      className={`flex h-8 w-8 items-center justify-center rounded-full border transition-colors ${toneClass}`}
+    >
+      {children}
+    </button>
+  )
+}
+
+// Two-click delete for list rows — styled for the list surface. Confirm state is
+// owned by the shared hook so it matches the grid tile's behaviour.
+function ListRowDeleteButton({
+  confirming,
+  deleting,
+  onClick,
+}: {
+  confirming: boolean
+  deleting: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      title={deleting ? 'Deleting…' : confirming ? 'Click again to delete' : 'Delete'}
+      onClick={(e) => { e.stopPropagation(); onClick() }}
+      disabled={deleting}
+      className={`flex h-8 items-center justify-center gap-1 rounded-full border px-2 transition-colors disabled:cursor-wait ${
+        confirming
+          ? 'border-red-400/50 bg-red-500/20 text-red-300 light:text-red-700'
+          : 'border-ink/10 bg-ink/[0.03] text-ink-300 hover:border-red-400/40 hover:bg-red-500/15 hover:text-red-300'
+      }`}
+    >
+      {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+      {confirming && !deleting && <span className="text-[9px] font-medium uppercase tracking-wider">Confirm</span>}
+    </button>
+  )
+}
 
 function InFlightTile({ gen, onCancel }: { gen: InFlightCharacterGen; onCancel: () => void }) {
   return <GeneratingTile modelId={gen.modelId} kind={gen.kind} aspectRatio={gen.aspectRatio} onCancel={onCancel} />
 }
-

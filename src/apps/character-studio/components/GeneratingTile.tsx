@@ -33,18 +33,22 @@ export default function GeneratingTile({
   kind,
   aspectRatio,
   onCancel,
+  fill = false,
 }: {
   modelId: string
   kind?: 'portrait' | 'sheet'
   aspectRatio: string
   onCancel?: () => void
+  // Stretch to fill the parent (list view's fixed-height media frame) instead
+  // of sizing to the output's aspect ratio (grid view).
+  fill?: boolean
 }) {
   const modelLabel = getModel(modelId)?.displayName ?? modelId
   const isSheet = kind === 'sheet'
   return (
     <div
-      className="group relative overflow-hidden rounded-lg border border-influencers-500/20"
-      style={aspectStyle(aspectRatio)}
+      className={`group relative overflow-hidden border-influencers-500/20 ${fill ? 'h-full w-full border-0' : 'rounded-lg border'}`}
+      style={fill ? undefined : aspectStyle(aspectRatio)}
     >
       <GeneratingBackdrop family="influencers" />
       <div className="absolute left-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-lg bg-black/25 text-influencers-100 backdrop-blur-sm">
