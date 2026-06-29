@@ -110,17 +110,17 @@ export default function OmniInputsSection({ refs, onChangeRefs }: OmniInputsSect
 
   return (
     <div className="space-y-4">
-      {/* Characters + Voices share one row so both stay above the fold.
-          Boxed dashed cards mirror the Reference Images / Audio / Video slots
-          — the "going forward" input aesthetic. Selected items list as chips
-          beneath each card. */}
-      <div className="grid grid-cols-2 gap-4">
+      {/* Characters · Voices · Source clip share one row — boxed dashed cards
+          mirror the Reference Images / Audio / Video slots. Selected items list
+          as chips beneath each card. */}
+      <div className="grid grid-cols-3 items-start gap-3">
       <div className="min-w-0">
         <OmniAddCard
           icon={UserRound}
           label="Characters"
           count={characterRefs.length}
           max={MAX_CHARACTERS}
+          optional
           full={characterRefs.length >= MAX_CHARACTERS}
           onClick={() => setCharacterPickerOpen(true)}
         />
@@ -205,10 +205,9 @@ export default function OmniInputsSection({ refs, onChangeRefs }: OmniInputsSect
           </div>
         )}
       </div>
-      </div>
 
       {/* Source clip — boxed card when empty, chip + trim controls when set. */}
-      <div>
+      <div className="min-w-0">
         {clipRef ? (
           <div className="space-y-2">
             <div className="flex h-9 items-center gap-2 rounded-full border border-ink/10 bg-ink/[0.03] pl-3 pr-1.5 text-[12px] text-ink-300">
@@ -276,12 +275,7 @@ export default function OmniInputsSection({ refs, onChangeRefs }: OmniInputsSect
           }}
         />
       </div>
-
-      {/* Quota readout */}
-      <p className="text-[11px] text-ink-600">
-        Input quota: <span className={quotaUsed > 7 ? 'font-medium text-red-300 light:text-red-700' : 'text-ink-400'}>{quotaUsed}/7</span>
-        {' '}— images ×1, clip ×2, influencers ×1
-      </p>
+      </div>
 
       <BankPicker
         bankType="models"
@@ -328,15 +322,10 @@ function OmniAddCard({
       type="button"
       onClick={() => { if (!full) onClick() }}
       disabled={full}
-      className={`group relative flex h-24 w-full flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-ink/15 bg-ink/[0.02] transition-colors ${
+      className={`group relative flex min-h-24 w-full flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-ink/15 bg-ink/[0.02] px-2 py-3 transition-colors ${
         full ? 'cursor-not-allowed opacity-50' : 'hover:border-ink/25 hover:bg-ink/[0.04]'
       }`}
     >
-      {optional && (
-        <span className="absolute left-2 top-2 rounded-full bg-ink/[0.06] px-2 py-0.5 text-[9px] font-medium capitalize tracking-wide text-ink-500">
-          Optional
-        </span>
-      )}
       {count != null && max != null && (
         <span className="absolute right-2 top-2 rounded-full bg-ink/[0.06] px-2 py-0.5 text-[9px] font-medium tabular-nums tracking-wide text-ink-500">
           {count}/{max}
@@ -347,6 +336,12 @@ function OmniAddCard({
       </span>
       <span className="text-[12px] font-normal text-ink-500">{label}</span>
       {helper && <span className="px-3 text-center text-[10px] leading-tight text-ink-600">{helper}</span>}
+      {/* Optional pill below the subheading, centered. */}
+      {optional && (
+        <span className="mt-0.5 rounded-full bg-ink/[0.06] px-2 py-0.5 text-[9px] font-medium capitalize tracking-wide text-ink-500">
+          Optional
+        </span>
+      )}
     </button>
   )
 }
