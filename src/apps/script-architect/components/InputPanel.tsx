@@ -597,7 +597,7 @@ export default function InputPanel({
         {mode !== 'write' && productSection}
 
         {/* Final step — Additional Context. Write New folds this into the
-            "Describe Your Ad" brief (step 3), so it's only shown for the
+            "Describe Your Video" brief (step 3), so it's only shown for the
             remix / scene-rewrite modes. */}
         {mode !== 'write' && (
           <div className="mb-6">

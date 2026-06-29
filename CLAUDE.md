@@ -11,7 +11,7 @@ Sidebar is grouped into three sections (LIBRARY / CREATE / TOOLS). Display names
 | Section | Sidebar entry | Folder | Job |
 |---|---|---|---|
 | Library | Bank | `finder/` | Banks browser |
-| Create | Influencers | `character-studio/` | Form → portrait image, or (Portrait / Character Sheet toggle) a multi-panel reference sheet (turnaround + expressions + full body; scene/pose/camera fields ignored; own 16:9 / 9:16 aspect picker, prompt layout swaps with orientation, resolution bumps to 2K). Sheets save as their own bank Model entry (named like a portrait; stamped as both `characterImage` and `sheetImage`). Horizontal (16:9) gallery outputs span a full row. Drop a reference photo anywhere to auto-fill every field via vision-based DNA extraction. Display name rebranded from "Characters" — folder, ids, types, and LLM prompts keep the character naming. |
+| Create | Influencers | `character-studio/` | Form → portrait image, or (Portrait / Influencer Sheet toggle) a multi-panel reference sheet (turnaround + expressions + full body; scene/pose/camera fields ignored; own 16:9 / 9:16 aspect picker, prompt layout swaps with orientation, resolution bumps to 2K). Sheets save as their own bank Model entry (named like a portrait; stamped as both `characterImage` and `sheetImage`). Horizontal (16:9) gallery outputs span a full row. Drop a reference photo anywhere to auto-fill every field via vision-based DNA extraction. Display name rebranded from "Characters" — folder, ids, types, and LLM prompts keep the character naming. |
 | Create | Scripts | `script-architect/` | Three modes: Write New (brief + style + 10/15/30/60s → 3 human-sounding takes, as plain script or scene blueprint), Remix Script (winning transcript → 3 variations), Remix Scenes (Ad Analyzer blueprint → rewritten scene prompts). Write New has a third **Output** = **Cinematic** (`writeFormat: 'prompt'`): generates 3 distinct ≤15s single-clip AI-commercial master prompts (generic STYLE→TIMELINE formula, `@INFLUENCER`/`@PRODUCT` tokens) — swaps the Script Style picker for an optional Influencer (models bank) picker, caps length to 10s/15s, and ships each via **Send to Playground** (`cinematicVideo` payload → video mode, refs attached, Seedance 2.0). |
 | Create | Voiceovers | `voice-studio/` | Script → audio (ElevenLabs v2) |
 | Create | B-Roll | `broll-studio/` | Script → scenes → 4 variations/scene (Speaking / Literal / Emotional / Product). Each card has Generate Image **and** Generate Video; video gens are fire-and-forget with refresh-safe resume. |
@@ -92,6 +92,7 @@ Most files are self-explanatory. These carry behaviour worth knowing before you 
 - `lib/cloudSync.ts` — pull on sign-in + debounced diff-push + persistent localStorage outbox + non-destructive hydrate.
 - `lib/supabase.ts` — `ensureFreshSession()` (3s race + cached-token fallback) and a custom non-blocking `auth.lock`.
 - `hooks/useAssetUrl.ts` — resolves `asset://` refs to blob URLs.
+- `UI_LAYOUT.md` (repo root) — spatial map of the rendered interface (pane splits, tab orders, button positions, modals) for every screen. Read it before any UI-driven / tutorial automation so you don't guess where a control sits.
 
 ## Banks
 
