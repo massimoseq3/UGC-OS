@@ -15,7 +15,6 @@ export interface MediaRefValue {
 
 interface MediaRefStripProps {
   label: string
-  helper?: string
   kind: 'audio' | 'video'
   values: MediaRefValue[]
   onChange: (next: MediaRefValue[]) => void
@@ -28,7 +27,6 @@ interface MediaRefStripProps {
 
 export default function MediaRefStrip({
   label,
-  helper,
   kind,
   values,
   onChange,
@@ -70,18 +68,20 @@ export default function MediaRefStrip({
       <button
         onClick={() => fileInputRef.current?.click()}
         disabled={full}
-        className={`group relative flex h-24 w-full flex-col items-center justify-center gap-1.5 rounded-2xl border border-ink/10 bg-ink/[0.02] transition-colors ${
-          full ? 'cursor-not-allowed opacity-50' : 'hover:border-ink/20 hover:bg-ink/[0.04]'
+        className={`group relative flex h-20 w-full flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-ink/15 bg-ink/[0.02] transition-colors ${
+          full ? 'cursor-not-allowed opacity-50' : 'hover:border-ink/25 hover:bg-ink/[0.04]'
         }`}
       >
-        <span className="absolute left-2 top-2 rounded-full bg-ink/[0.06] px-2 py-0.5 text-[9px] font-medium tabular-nums tracking-wide text-ink-500">
+        <span className="absolute left-2 top-2 rounded-full bg-ink/[0.06] px-2 py-0.5 text-[9px] font-medium capitalize tracking-wide text-ink-500">
+          Optional
+        </span>
+        <span className="absolute right-2 top-2 rounded-full bg-ink/[0.06] px-2 py-0.5 text-[9px] font-medium tabular-nums tracking-wide text-ink-500">
           {values.length}/{max}
         </span>
         <span className="flex h-8 w-8 items-center justify-center rounded-full border border-ink/15 bg-ink/[0.03] text-ink-400 transition-colors group-hover:text-ink-200">
           <Icon className="h-3.5 w-3.5" />
         </span>
-        <span className="text-[12px] font-medium text-ink-300">{label}</span>
-        {helper && <span className="px-3 text-center text-[10px] leading-tight text-ink-600">{helper}</span>}
+        <span className="text-[12px] font-normal text-ink-500">{label}</span>
       </button>
 
       {values.length > 0 && (
