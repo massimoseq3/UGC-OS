@@ -463,7 +463,6 @@ export default function ScenesView({
                 appId="broll-studio"
                 task="image"
                 mode="text-to-image"
-                costParams={{ imageCount: 1, resolution: effectiveBatchRes }}
               />
               {(batchAspectOptions.length > 0 || batchResOptions.length > 0) && (
                 <div className="flex flex-wrap items-center gap-2">

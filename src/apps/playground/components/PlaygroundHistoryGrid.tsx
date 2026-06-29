@@ -1,7 +1,8 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import {
   Loader2, Download, Trash2, Bookmark, Check, Film, Image as ImageIcon,
-  Music as MusicIcon, Play, X, CornerDownLeft, ImagePlay, Copy,
+  Music as MusicIcon, Play, Pause, Volume2, VolumeX, X, ImagePlay, Copy,
+  LayoutGrid, List, Maximize2,
 } from 'lucide-react'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAssetUrlState, useAssetUrl } from '../../../hooks/useAssetUrl'
@@ -9,6 +10,7 @@ import { useAppStore } from '../../../stores/appStore'
 import { getUrl, saveAsset } from '../../../utils/assetStore'
 import { extractVideoFrame } from '../../../utils/videoFrames'
 import { getModel } from '../../../utils/models'
+import { usePersistedState } from '../../../hooks/usePersistedState'
 import { sectionLabel, groupByDay } from '../../../utils/history'
 import { downloadImage } from '../../../utils/downloadImage'
 import type { ImageHistoryItem, VideoHistoryItem, MusicHistoryItem } from '../../../stores/types'
@@ -19,6 +21,11 @@ import type { PlaygroundMode, InFlightGen } from '../types'
 import { humanizeError } from '../../../utils/friendlyError'
 export type { InFlightGen }
 
+// List-view media-height bounds (px) for the header size slider. Max is ≈ two
+// of the smallest cards stacked, so one big card ≈ two compact ones.
+const LIST_CARD_MIN = 200
+const LIST_CARD_MAX = 560
+
 // A single unified history entry. Image/Video/Music streams flow into this
 // shape so day-bucketing + masonry can stay one code path.
 type HistoryEntry =
@@ -26,42 +33,13 @@ type HistoryEntry =
   | { kind: 'video'; createdAt: number; data: VideoHistoryItem }
   | { kind: 'music'; createdAt: number; data: MusicHistoryItem }
 
-// The inputs a past generation can hand back to the prompt panel (the
-// "reinsert into inputs" action). Reference images aren't persisted on history
-// rows, so only the prompt + settings come back — the user re-attaches refs.
-export interface PlaygroundReuse {
-  mode: PlaygroundMode
-  prompt: string
-  modelId: string
-  aspectRatio?: string
-  resolution?: string
-  durationSeconds?: number
-  audio?: boolean
-  instrumental?: boolean
-}
-
-function reuseFromEntry(entry: HistoryEntry): PlaygroundReuse {
-  if (entry.kind === 'image') {
-    const d = entry.data
-    return { mode: 'image', prompt: d.prompt, modelId: d.modelId, aspectRatio: d.aspectRatio, resolution: d.resolution }
-  }
-  if (entry.kind === 'video') {
-    const d = entry.data
-    return { mode: 'video', prompt: d.prompt, modelId: d.modelId, aspectRatio: d.aspectRatio, resolution: d.resolution, durationSeconds: d.durationSeconds, audio: d.audio }
-  }
-  const d = entry.data
-  return { mode: 'music', prompt: d.prompt, modelId: d.modelId, instrumental: d.instrumental }
-}
-
 interface PlaygroundHistoryGridProps {
   inFlight: InFlightGen[]
   // Active mode filter — null shows everything.
   filterMode: PlaygroundMode | null
-  // Load a past generation's prompt + settings back into the prompt panel.
-  onReuse: (input: PlaygroundReuse) => void
 }
 
-export default function PlaygroundHistoryGrid({ inFlight, filterMode, onReuse }: PlaygroundHistoryGridProps) {
+export default function PlaygroundHistoryGrid({ inFlight, filterMode }: PlaygroundHistoryGridProps) {
   const imageHistory = useBankStore((s) => s.imageHistory)
   const videoHistory = useBankStore((s) => s.videoHistory)
   const musicHistory = useBankStore((s) => s.musicHistory)
@@ -74,6 +52,14 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode, onReuse }:
 
   const [savingIds, setSavingIds] = useState<Set<string>>(() => new Set())
   const [previewItem, setPreviewItem] = useState<HistoryEntry | null>(null)
+  // Grid (masonry) vs List (stacked rows). Persisted globally so the choice
+  // sticks across reloads and modes — mirrors the competitor's List/Grid switch.
+  const [viewMode, setViewMode] = usePersistedState<'grid' | 'list'>('ai-ugc-lab:playground:history-view', 'grid')
+  // List-view card size — the media frame height (px), set by the header slider.
+  // Cards are full-width (2/3 media · 1/3 info); the slider grows the media taller
+  // so the clip is more watchable. Max ≈ two of the smallest cards stacked.
+  const [listCardHeight, setListCardHeight] = usePersistedState<number>('ai-ugc-lab:playground:list-card-height', 300)
+  const cardPct = ((listCardHeight - LIST_CARD_MIN) / (LIST_CARD_MAX - LIST_CARD_MIN)) * 100
 
   const entries = useMemo<HistoryEntry[]>(() => {
     const out: HistoryEntry[] = []
@@ -112,6 +98,18 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode, onReuse }:
     }
   }
 
+  // Copy a generation's prompt to the clipboard. Replaces the old "reuse into
+  // inputs" tile action — a plain copy is what users actually reach for.
+  async function handleCopyPrompt(prompt: string) {
+    if (!prompt) return
+    try {
+      await navigator.clipboard.writeText(prompt)
+      addToast('Prompt copied', 'success')
+    } catch {
+      addToast('Could not copy the prompt', 'error')
+    }
+  }
+
   if (entries.length === 0 && visibleInFlight.length === 0) {
     return (
       <div className="flex h-full flex-col">
@@ -129,64 +127,127 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode, onReuse }:
 
   return (
     <div className="flex h-full flex-col">
+      {/* Header — card-size slider (list view only) + view switch (Grid / List). */}
+      <div className="flex shrink-0 items-center justify-end gap-3 border-b border-ink/5 px-4 py-2">
+        {viewMode === 'list' && (
+          <div className="flex items-center gap-2.5" title="Card size">
+            <Maximize2 className="h-3.5 w-3.5 text-ink-500" />
+            <input
+              type="range"
+              min={LIST_CARD_MIN}
+              max={LIST_CARD_MAX}
+              step={10}
+              value={listCardHeight}
+              onChange={(e) => setListCardHeight(Number(e.target.value))}
+              className="slider-thin w-28"
+              style={{
+                ['--slider-pct' as string]: `${cardPct}%`,
+                ['--slider-fill' as string]: 'var(--color-playground-500)',
+              }}
+              aria-label="List card size"
+            />
+          </div>
+        )}
+        <ViewToggle value={viewMode} onChange={setViewMode} />
+      </div>
+
       <div className="flex-1 overflow-y-auto px-4 py-3">
         {visibleInFlight.length > 0 && (
           <>
             <DayPill label="In progress" />
-            <div className="grid grid-cols-2 items-start gap-2.5 [grid-auto-flow:dense] lg:grid-cols-3 xl:grid-cols-4">
-              {visibleInFlight.map((gen) => {
-                const ar = gen.imageParams?.aspectRatio ?? gen.videoParams?.aspectRatio
-                return (
-                  <div key={gen.id} className={ar && isLandscape(ar) ? 'col-span-2' : ''}>
-                    <InFlightTile gen={gen} />
-                  </div>
-                )
-              })}
-            </div>
+            {viewMode === 'grid' ? (
+              <div className="grid grid-cols-2 items-start gap-2.5 [grid-auto-flow:dense] lg:grid-cols-3 xl:grid-cols-4">
+                {visibleInFlight.map((gen) => {
+                  const ar = gen.imageParams?.aspectRatio ?? gen.videoParams?.aspectRatio
+                  return (
+                    <div key={gen.id} className={ar && isLandscape(ar) ? 'col-span-2' : ''}>
+                      <InFlightTile gen={gen} />
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {visibleInFlight.map((gen) => <InFlightRow key={gen.id} gen={gen} cardHeight={listCardHeight} />)}
+              </div>
+            )}
           </>
         )}
 
         {dayGroups.map(([dayTs, dayItems]) => (
           <div key={dayTs}>
             <DayPill label={sectionLabel(dayTs)} />
-            <div className="grid grid-cols-2 items-start gap-2.5 [grid-auto-flow:dense] lg:grid-cols-3 xl:grid-cols-4">
-              {dayItems.map((entry) => {
-                const ar = entry.kind === 'music' ? null : entry.data.aspectRatio
-                return (
-                <div key={`${entry.kind}-${entry.data.id}`} className={ar && isLandscape(ar) ? 'col-span-2' : ''}>
-                  {entry.kind === 'image' && (
-                    <ImageTile
-                      item={entry.data}
-                      isSaving={savingIds.has(entry.data.id)}
-                      onClick={() => setPreviewItem(entry)}
-                      onSave={() => handleSaveImage(entry.data)}
-                      onDelete={() => deleteImageHistory(entry.data.id)}
-                      onReuse={() => onReuse(reuseFromEntry(entry))}
-                    />
-                  )}
-                  {entry.kind === 'video' && (
-                    <VideoTile
-                      item={entry.data}
-                      onClick={() => setPreviewItem(entry)}
-                      onDelete={() => deleteVideoHistory(entry.data.id)}
-                      onReuse={() => onReuse(reuseFromEntry(entry))}
-                    />
-                  )}
-                  {entry.kind === 'music' && (
-                    <AudioTile
-                      item={entry.data}
-                      onDownload={async () => {
-                        const url = await getUrl(entry.data.audioRef)
-                        if (url) downloadImage(url, `playground-${entry.data.id}`, 'mp3')
-                      }}
-                      onDelete={() => deleteMusicHistory(entry.data.id)}
-                      onReuse={() => onReuse(reuseFromEntry(entry))}
-                    />
-                  )}
-                </div>
-                )
-              })}
-            </div>
+            {viewMode === 'grid' ? (
+              <div className="grid grid-cols-2 items-start gap-2.5 [grid-auto-flow:dense] lg:grid-cols-3 xl:grid-cols-4">
+                {dayItems.map((entry) => {
+                  const ar = entry.kind === 'music' ? null : entry.data.aspectRatio
+                  return (
+                  <div key={`${entry.kind}-${entry.data.id}`} className={ar && isLandscape(ar) ? 'col-span-2' : ''}>
+                    {entry.kind === 'image' && (
+                      <ImageTile
+                        item={entry.data}
+                        isSaving={savingIds.has(entry.data.id)}
+                        onClick={() => setPreviewItem(entry)}
+                        onSave={() => handleSaveImage(entry.data)}
+                        onDelete={() => deleteImageHistory(entry.data.id)}
+                        onCopyPrompt={() => handleCopyPrompt(entry.data.prompt)}
+                      />
+                    )}
+                    {entry.kind === 'video' && (
+                      <VideoTile
+                        item={entry.data}
+                        onClick={() => setPreviewItem(entry)}
+                        onDelete={() => deleteVideoHistory(entry.data.id)}
+                        onCopyPrompt={() => handleCopyPrompt(entry.data.prompt)}
+                      />
+                    )}
+                    {entry.kind === 'music' && (
+                      <AudioTile
+                        item={entry.data}
+                        onDownload={async () => {
+                          const url = await getUrl(entry.data.audioRef)
+                          if (url) downloadImage(url, `playground-${entry.data.id}`, 'mp3')
+                        }}
+                        onDelete={() => deleteMusicHistory(entry.data.id)}
+                        onCopyPrompt={() => handleCopyPrompt(entry.data.prompt)}
+                      />
+                    )}
+                  </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {dayItems.map((entry) => (
+                  <HistoryListRow
+                    key={`${entry.kind}-${entry.data.id}`}
+                    entry={entry}
+                    cardHeight={listCardHeight}
+                    isSaving={savingIds.has(entry.data.id)}
+                    onClickImage={entry.kind === 'image' ? () => setPreviewItem(entry) : undefined}
+                    onCopyPrompt={() => handleCopyPrompt(entry.data.prompt)}
+                    onSave={entry.kind === 'image' ? () => handleSaveImage(entry.data) : undefined}
+                    onDownload={async () => {
+                      if (entry.kind === 'image') {
+                        const u = await getUrl(entry.data.imageUrl)
+                        if (u) downloadImage(u, `playground-${entry.data.id}`)
+                      } else if (entry.kind === 'video') {
+                        const u = await getUrl(entry.data.videoUrl)
+                        if (u) downloadImage(u, `playground-${entry.data.id}`, 'mp4')
+                      } else {
+                        const u = await getUrl(entry.data.audioRef)
+                        if (u) downloadImage(u, `playground-${entry.data.id}`, 'mp3')
+                      }
+                    }}
+                    onDelete={() => {
+                      if (entry.kind === 'image') deleteImageHistory(entry.data.id)
+                      else if (entry.kind === 'video') deleteVideoHistory(entry.data.id)
+                      else deleteMusicHistory(entry.data.id)
+                    }}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -213,6 +274,244 @@ function DayPill({ label }: { label: string }) {
   )
 }
 
+// ── View toggle ─────────────────────────────────────────────────
+
+// Grid / List switch in the history header. Segmented pill, accent tint on the
+// active side — same family as the prompt panel's constraint chips.
+function ViewToggle({ value, onChange }: { value: 'grid' | 'list'; onChange: (v: 'grid' | 'list') => void }) {
+  const options: Array<{ id: 'grid' | 'list'; label: string; icon: typeof LayoutGrid }> = [
+    { id: 'list', label: 'List', icon: List },
+    { id: 'grid', label: 'Grid', icon: LayoutGrid },
+  ]
+  return (
+    <div className="inline-flex rounded-full border border-ink/10 bg-ink/[0.02] p-0.5">
+      {options.map((opt) => {
+        const Icon = opt.icon
+        const active = value === opt.id
+        return (
+          <button
+            key={opt.id}
+            type="button"
+            onClick={() => onChange(opt.id)}
+            title={`${opt.label} view`}
+            className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-medium transition-colors ${
+              active ? 'bg-playground-500/15 text-playground-200' : 'text-ink-400 hover:text-ink-200'
+            }`}
+          >
+            <Icon className="h-3.5 w-3.5" />
+            <span>{opt.label}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// ── List row ────────────────────────────────────────────────────
+
+// One generation as a full-width row: a large media frame taking two-thirds of
+// the width (clips/images letterbox on black) you can play inline, and a side
+// panel (the remaining third) with the model, prompt, metadata, and actions.
+// The header slider drives `cardHeight`, growing the media taller. Mirrors the
+// competitor's List view — scroll the feed, hit play, copy from the side box.
+function HistoryListRow({
+  entry,
+  cardHeight,
+  isSaving,
+  onClickImage,
+  onCopyPrompt,
+  onSave,
+  onDownload,
+  onDelete,
+}: {
+  entry: HistoryEntry
+  cardHeight: number
+  isSaving: boolean
+  onClickImage?: () => void
+  onCopyPrompt: () => void
+  onSave?: () => void
+  onDownload: () => void
+  onDelete: () => void
+}) {
+  const { url, status } = useAssetUrlState(
+    entry.kind === 'image' ? entry.data.imageUrl : entry.kind === 'video' ? entry.data.videoUrl : null,
+  )
+  const audioUrl = useAssetUrl(entry.kind === 'music' ? entry.data.audioRef : null)
+  const modelLabel = getModel(entry.data.modelId)?.displayName ?? entry.data.modelId
+  const prompt = entry.data.prompt
+  const isSaved = entry.kind === 'image' ? !!entry.data.linkedBRollId : false
+
+  const meta: string[] = []
+  if (entry.kind === 'image') {
+    if (entry.data.resolution) meta.push(entry.data.resolution)
+    if (entry.data.aspectRatio) meta.push(entry.data.aspectRatio)
+  } else if (entry.kind === 'video') {
+    if (entry.data.resolution) meta.push(entry.data.resolution)
+    if (entry.data.durationSeconds) meta.push(`${entry.data.durationSeconds}s`)
+    if (entry.data.aspectRatio) meta.push(entry.data.aspectRatio)
+  } else {
+    if (entry.data.durationSeconds) meta.push(`${Math.round(entry.data.durationSeconds)}s`)
+    meta.push(entry.data.instrumental ? 'Instrumental' : 'With lyrics')
+  }
+
+  return (
+    <div className="flex w-full items-stretch gap-3 overflow-hidden rounded-2xl border border-ink/10 bg-ink/[0.02]">
+      {/* Media — two-thirds of the row, height driven by the size slider.
+          Content is letterboxed on black so a vertical clip shows with bars
+          instead of cropping. */}
+      <div className="relative min-w-0 flex-[2] bg-black" style={{ height: cardHeight }}>
+        {entry.kind === 'music' ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-ink/[0.04]">
+            <MusicIcon className="h-8 w-8 text-ink-600" />
+            {entry.data.title && <span className="px-4 text-center text-[12px] text-ink-400">{entry.data.title}</span>}
+          </div>
+        ) : status === 'ready' && url ? (
+          entry.kind === 'video' ? (
+            <video src={url} controls playsInline preload="metadata" className="absolute inset-0 h-full w-full object-contain" />
+          ) : (
+            <img
+              src={url}
+              alt=""
+              onClick={onClickImage}
+              className={`absolute inset-0 h-full w-full object-contain ${onClickImage ? 'cursor-zoom-in' : ''}`}
+            />
+          )
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            {status === 'loading'
+              ? <Loader2 className="h-6 w-6 animate-spin text-ink-600" />
+              : entry.kind === 'video' ? <Film className="h-7 w-7 text-ink-700" /> : <ImageIcon className="h-7 w-7 text-ink-700" />}
+          </div>
+        )}
+      </div>
+
+      {/* Side panel — the remaining third: model, prompt, meta, actions. */}
+      <div className="flex min-w-0 flex-[1] flex-col gap-2 py-3 pr-3">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="rounded-full bg-playground-500/15 px-2 py-0.5 text-[10px] font-semibold text-playground-200">{modelLabel}</span>
+          {meta.map((m) => (
+            <span key={m} className="rounded-full bg-ink/[0.06] px-1.5 py-0.5 text-[9px] font-medium text-ink-400">{m}</span>
+          ))}
+        </div>
+        {prompt && (
+          <div className="min-h-0 flex-1 overflow-y-auto rounded-lg bg-ink/[0.03] px-3 py-2 text-[12px] leading-relaxed text-ink-300">
+            {prompt}
+          </div>
+        )}
+        {entry.kind === 'music' && audioUrl && (
+          <audio src={audioUrl} controls className="h-8 w-full" />
+        )}
+        <div className="flex items-center gap-1">
+          {prompt && (
+            <ListRowButton title="Copy prompt" onClick={onCopyPrompt}>
+              <Copy className="h-4 w-4" />
+            </ListRowButton>
+          )}
+          {onSave && (
+            <ListRowButton
+              title={isSaved ? 'Saved to B-Rolls' : isSaving ? 'Saving…' : 'Save to B-Rolls Bank'}
+              tone={isSaved ? 'saved' : 'default'}
+              onClick={() => { if (!isSaved && !isSaving) onSave() }}
+            >
+              {isSaved ? <Check className="h-4 w-4" /> : isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bookmark className="h-4 w-4" />}
+            </ListRowButton>
+          )}
+          <ListRowButton title="Download" onClick={onDownload}>
+            <Download className="h-4 w-4" />
+          </ListRowButton>
+          <ListRowDeleteButton onDelete={onDelete} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// In-flight generation as a list row — placeholder + progress, matching the
+// finished-row layout (2/3 media · 1/3 info) so the feed doesn't jump.
+function InFlightRow({ gen, cardHeight }: { gen: InFlightGen; cardHeight: number }) {
+  const modelLabel = getModel(gen.modelId)?.displayName ?? gen.modelId
+  const Icon = gen.mode === 'image' ? ImageIcon : gen.mode === 'video' ? Film : MusicIcon
+  return (
+    <div className="flex w-full items-stretch gap-3 overflow-hidden rounded-2xl border border-playground-500/20 bg-playground-500/[0.04]">
+      <div className="relative min-w-0 flex-[2]" style={{ height: cardHeight }}>
+        <GeneratingBackdrop family="playground" />
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+          <Icon className="h-7 w-7 text-playground-100" />
+          <GenerationProgress
+            isActive
+            color="bg-playground-500"
+            showHelper={false}
+            messageClassName="text-[11px]"
+            messages={['Sending request...', 'Working on it...', 'Almost there...']}
+            className="max-w-[220px]"
+          />
+        </div>
+      </div>
+      <div className="flex min-w-0 flex-[1] flex-col justify-center gap-2 py-3 pr-3">
+        <span className="text-[12px] font-semibold tracking-wide text-playground-200">{modelLabel}</span>
+        {gen.prompt && <p className="line-clamp-4 text-[12px] leading-relaxed text-ink-400">{gen.prompt}</p>}
+      </div>
+    </div>
+  )
+}
+
+// Round icon button for list rows — matches the grid tiles' TileButton but
+// tuned for the lighter list surface.
+function ListRowButton({
+  children,
+  onClick,
+  title,
+  tone = 'default',
+}: {
+  children: React.ReactNode
+  onClick: () => void
+  title: string
+  tone?: 'default' | 'saved'
+}) {
+  const toneClass = tone === 'saved'
+    ? 'border-emerald-400/40 bg-emerald-500/15 text-emerald-300'
+    : 'border-ink/10 bg-ink/[0.03] text-ink-300 hover:bg-ink/[0.08] hover:text-ink-100'
+  return (
+    <button
+      type="button"
+      title={title}
+      onClick={(e) => { e.stopPropagation(); onClick() }}
+      className={`flex h-8 w-8 items-center justify-center rounded-full border transition-colors ${toneClass}`}
+    >
+      {children}
+    </button>
+  )
+}
+
+// Two-click delete for list rows — same model as DeleteConfirmButton but styled
+// for the list surface (no media backdrop to sit over).
+function ListRowDeleteButton({ onDelete }: { onDelete: () => void }) {
+  const [confirming, setConfirming] = useState(false)
+  return (
+    <button
+      type="button"
+      title={confirming ? 'Click again to delete' : 'Delete'}
+      onClick={(e) => {
+        e.stopPropagation()
+        if (!confirming) {
+          setConfirming(true)
+          setTimeout(() => setConfirming(false), 3000)
+          return
+        }
+        onDelete()
+      }}
+      className={`flex h-8 items-center justify-center gap-1 rounded-full border px-2 transition-colors ${
+        confirming
+          ? 'border-red-400/50 bg-red-500/20 text-red-300 light:text-red-700'
+          : 'border-ink/10 bg-ink/[0.03] text-ink-300 hover:border-red-400/40 hover:bg-red-500/15 hover:text-red-300'
+      }`}
+    >
+      <Trash2 className="h-4 w-4" />
+      {confirming && <span className="text-[9px] font-medium uppercase tracking-wider">Confirm</span>}
+    </button>
+  )
+}
+
 // ── Image tile ──────────────────────────────────────────────────
 
 function ImageTile({
@@ -221,14 +520,14 @@ function ImageTile({
   onClick,
   onSave,
   onDelete,
-  onReuse,
+  onCopyPrompt,
 }: {
   item: ImageHistoryItem
   isSaving: boolean
   onClick: () => void
   onSave: () => void
   onDelete: () => void
-  onReuse: () => void
+  onCopyPrompt: () => void
 }) {
   const { url, status } = useAssetUrlState(item.imageUrl)
   const isSaved = !!item.linkedBRollId
@@ -249,19 +548,17 @@ function ImageTile({
               : <ImageIcon className="h-6 w-6 text-ink-700" />}
           </div>
         )}
-        {/* Hover actions: delete top-right, reinsert-to-inputs bottom-LEFT,
-            save + download bottom-right — all round icon buttons. */}
+        {/* Hover actions: delete top-right; copy prompt + save + download all
+            grouped bottom-right — round icon buttons. */}
         <div className="absolute right-1.5 top-1.5 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
           <DeleteConfirmButton onDelete={onDelete} />
         </div>
-        {item.prompt && (
-          <div className="absolute bottom-1.5 left-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-            <TileButton title="Reuse — load prompt + settings into the inputs" onClick={(e) => { e.stopPropagation(); onReuse() }}>
-              <CornerDownLeft className="h-4 w-4" />
-            </TileButton>
-          </div>
-        )}
         <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          {item.prompt && (
+            <TileButton title="Copy prompt" onClick={(e) => { e.stopPropagation(); onCopyPrompt() }}>
+              <Copy className="h-4 w-4" />
+            </TileButton>
+          )}
           <TileButton
             title={isSaved ? 'Saved to B-Rolls' : isSaving ? 'Saving…' : 'Save to B-Rolls Bank'}
             tone={isSaved ? 'saved' : 'default'}
@@ -296,17 +593,46 @@ function VideoTile({
   item,
   onClick,
   onDelete,
-  onReuse,
+  onCopyPrompt,
 }: {
   item: VideoHistoryItem
   onClick: () => void
   onDelete: () => void
-  onReuse: () => void
+  onCopyPrompt: () => void
 }) {
   const { url, status } = useAssetUrlState(item.videoUrl)
+  const videoElRef = useRef<HTMLVideoElement>(null)
   const [hovering, setHovering] = useState(false)
+  const [playing, setPlaying] = useState(false)
+  // Hover-autoplay must stay muted (browsers block unmuted autoplay), but an
+  // explicit Play click is a user gesture and should play in place with sound.
+  const [unmuted, setUnmuted] = useState(false)
   const ratio = aspectStyle(item.aspectRatio)
   const modelLabel = getModel(item.modelId)?.displayName ?? item.modelId
+
+  const togglePlay = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const v = videoElRef.current
+    if (!v) return
+    if (v.paused) {
+      // Explicit play → unmute so the clip is watchable right here in the grid.
+      setUnmuted(true)
+      v.muted = false
+      v.play().catch(() => {})
+    } else {
+      v.pause()
+    }
+  }
+
+  const toggleMute = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const v = videoElRef.current
+    setUnmuted((prev) => {
+      const next = !prev
+      if (v) v.muted = !next
+      return next
+    })
+  }
 
   return (
     <div>
@@ -319,11 +645,14 @@ function VideoTile({
       >
         {status === 'ready' && url ? (
           <video
+            ref={videoElRef}
             src={url}
-            muted
+            muted={!unmuted}
             loop
             playsInline
             autoPlay={hovering}
+            onPlay={() => setPlaying(true)}
+            onPause={() => setPlaying(false)}
             className="h-full w-full object-cover"
           />
         ) : (
@@ -334,27 +663,51 @@ function VideoTile({
           </div>
         )}
 
-        {/* Play badge stays put even while hovering (the clip auto-plays muted),
-            so the card always reads as a video. */}
-        {url && (
-          <div className="pointer-events-none absolute left-1.5 top-1.5 flex h-8 w-8 items-center justify-center rounded-full bg-black/60">
+        {/* Click-to-play overlay (top-left). Play shows when paused; Pause shows
+            while playing + hovering. stopPropagation lets the user watch the clip
+            in place without opening the lightbox. */}
+        {url && !playing && (
+          <button
+            type="button"
+            title="Play"
+            onClick={togglePlay}
+            className="absolute left-1.5 top-1.5 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur transition-colors hover:bg-black/80"
+          >
             <Play className="h-3.5 w-3.5 fill-white text-white" />
-          </div>
+          </button>
+        )}
+        {url && playing && hovering && (
+          <button
+            type="button"
+            title="Pause"
+            onClick={togglePlay}
+            className="absolute left-1.5 top-1.5 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur transition-colors hover:bg-black/80"
+          >
+            <Pause className="h-3.5 w-3.5 fill-white text-white" />
+          </button>
+        )}
+        {url && (hovering || unmuted) && (
+          <button
+            type="button"
+            title={unmuted ? 'Mute' : 'Unmute'}
+            onClick={toggleMute}
+            className="absolute left-11 top-1.5 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur transition-colors hover:bg-black/80"
+          >
+            {unmuted ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
+          </button>
         )}
 
-        {/* Hover actions: delete top-right, reinsert-to-inputs bottom-LEFT,
-            download bottom-right, all round icon buttons. */}
+        {/* Hover actions: delete top-right; copy prompt + download grouped
+            bottom-right, all round icon buttons. */}
         <div className="absolute right-1.5 top-1.5 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
           <DeleteConfirmButton onDelete={onDelete} />
         </div>
-        {item.prompt && (
-          <div className="absolute bottom-1.5 left-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-            <TileButton title="Reuse — load prompt + settings into the inputs" onClick={(e) => { e.stopPropagation(); onReuse() }}>
-              <CornerDownLeft className="h-4 w-4" />
-            </TileButton>
-          </div>
-        )}
         <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          {item.prompt && (
+            <TileButton title="Copy prompt" onClick={(e) => { e.stopPropagation(); onCopyPrompt() }}>
+              <Copy className="h-4 w-4" />
+            </TileButton>
+          )}
           <TileButton
             title="Download"
             onClick={async (e) => {

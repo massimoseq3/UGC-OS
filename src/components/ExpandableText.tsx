@@ -47,8 +47,9 @@ export function renderBracketHighlight(text: string): ReactNode[] {
   return nodes
 }
 
-// Small Maximize button to drop into a textarea's top-right corner. Mousedown is
-// swallowed so focusing/blurring the field doesn't race the click.
+// Small Maximize button to drop into a textarea's corner. Kept subtle — no
+// backing fill, sized to match the inline Enhance / Undo / Redo controls.
+// Mousedown is swallowed so focusing/blurring the field doesn't race the click.
 export function ExpandButton({
   onClick,
   className = '',
@@ -65,9 +66,9 @@ export function ExpandButton({
       aria-label={title}
       onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}
-      className={`flex h-7 w-7 items-center justify-center rounded-full bg-surface-1/70 text-ink-400 backdrop-blur-sm transition-colors hover:bg-ink/10 hover:text-ink-100 ${className}`}
+      className={`flex h-6 w-6 items-center justify-center rounded-full text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200 ${className}`}
     >
-      <Maximize2 className="h-3.5 w-3.5" />
+      <Maximize2 className="h-3 w-3" />
     </button>
   )
 }

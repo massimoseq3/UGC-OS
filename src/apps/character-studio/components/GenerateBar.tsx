@@ -119,7 +119,6 @@ export default function GenerateBar({
             appId="character-studio"
             task="image"
             mode="text-to-image"
-            costParams={{ imageCount: 1, resolution }}
             large
           />
         </div>

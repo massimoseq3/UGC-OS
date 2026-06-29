@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Coins, Menu, RefreshCw, Settings, Moon, Sun, Monitor } from 'lucide-react'
+import { Coins, Menu, RefreshCw, Settings, Moon, Sun, Monitor, ArrowUpRight } from 'lucide-react'
 import { useAppStore } from '../stores/appStore'
 import { useAuthStore } from '../stores/authStore'
 import { useSettingsStore } from '../stores/settingsStore'
@@ -136,8 +136,13 @@ export default function Sidebar() {
         <div className="border-t border-ink/5 px-2 py-3">
           {showExpanded ? (
             <>
-              {/* Credit balance sits on top, above the account group. */}
-              <CreditsChip collapsed={false} />
+              {/* Live balance + buy-credits CTA, side by side, above the account group. */}
+              <div className="flex items-center gap-1.5">
+                <div className="min-w-0 flex-1">
+                  <CreditsChip collapsed={false} />
+                </div>
+                <GetMoreCreditsChip collapsed={false} />
+              </div>
               {/* Appearance — sits directly under credits, sized to match it. */}
               <SidebarThemeToggle collapsed={false} />
               {/* Account group — Settings + My Account read as one set of rows. */}
@@ -153,6 +158,7 @@ export default function Sidebar() {
             </>
           ) : (
             <div className="space-y-1">
+              <GetMoreCreditsChip collapsed />
               <CreditsChip collapsed />
               <SidebarThemeToggle collapsed />
               <SidebarRow
@@ -201,6 +207,41 @@ function useAnimatedCount(value: number | null): string {
   return display !== null ? display.toLocaleString() : '—'
 }
 
+// "Get more credits" CTA — opens kie.ai's billing page in a new tab. Sits
+// directly above the live balance chip so topping up is one click from the
+// number that prompts it. The up-right arrow signals it leaves the app.
+function GetMoreCreditsChip({ collapsed }: { collapsed: boolean }) {
+  if (collapsed) {
+    return (
+      <a
+        href="https://kie.ai/billing"
+        target="_blank"
+        rel="noopener noreferrer"
+        title="Get more credits — opens kie.ai billing"
+        className="group flex w-full flex-col items-center gap-1 rounded-full px-1 py-2 text-ink-300 transition-colors hover:bg-ink/[0.04] hover:text-ink-100"
+      >
+        <ArrowUpRight className="h-5 w-5 shrink-0" strokeWidth={1.75} />
+        <span className="text-center text-[10px] leading-tight">Credits</span>
+      </a>
+    )
+  }
+  return (
+    <a
+      href="https://kie.ai/billing"
+      target="_blank"
+      rel="noopener noreferrer"
+      title="Get credits — opens kie.ai billing"
+      className="group flex h-9 shrink-0 items-center gap-0.5 rounded-full border border-ink/15 bg-ink/[0.06] pl-3 pr-2.5 transition-colors hover:bg-ink/[0.1]"
+    >
+      <span className="whitespace-nowrap text-[12px] font-medium text-ink-200">Get Credits</span>
+      <ArrowUpRight
+        className="h-3.5 w-3.5 shrink-0 text-ink-400 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-ink-200"
+        strokeWidth={2}
+      />
+    </a>
+  )
+}
+
 // kie.ai credit balance — lives above Settings now that the top bar is gone.
 // Auto-refreshes every minute and on window focus; the whole chip is also a
 // manual refresh control for impatient moments right after a generation.
@@ -232,8 +273,6 @@ function CreditsChip({ collapsed }: { collapsed: boolean }) {
 
   const label = useAnimatedCount(balance)
 
-  if (!apiKey) return null
-
   if (collapsed) {
     return (
       <button
@@ -252,27 +291,17 @@ function CreditsChip({ collapsed }: { collapsed: boolean }) {
     <button
       onClick={handleRefresh}
       disabled={refreshing}
-      // Full width + h-9 to match the labelled dense theme toggle below it, so
-      // the two footer controls read as a matched pair. The whole chip is the
-      // refresh control — the leading coin glyph swaps to a refresh icon on
-      // hover so the action reads without a separate button.
-      className="group flex h-9 w-full items-center gap-2.5 rounded-full border border-ink/10 bg-ink/[0.04] px-3 transition-colors hover:bg-ink/[0.08] disabled:opacity-60"
+      // h-9 to match the controls beside/below it. No leading coin glyph so the
+      // number has room next to the "Get Credits" CTA; the whole chip is still
+      // the refresh control (a spinner shows while refreshing).
+      className="group flex h-9 w-full items-center justify-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.04] px-2.5 transition-colors hover:bg-ink/[0.08] disabled:opacity-60"
       title="kie.ai credits remaining — click to refresh"
       aria-label="Refresh credits balance"
     >
-      <span className="relative flex h-4 w-4 shrink-0 items-center justify-center">
-        {refreshing ? (
-          <RefreshCw className="h-4 w-4 animate-spin text-ink-300" strokeWidth={1.75} />
-        ) : (
-          <>
-            <Coins className="h-4 w-4 text-ink-300 group-hover:opacity-0" strokeWidth={1.75} />
-            <RefreshCw className="absolute h-4 w-4 text-ink-200 opacity-0 group-hover:opacity-100" strokeWidth={1.75} />
-          </>
-        )}
-      </span>
+      {refreshing && <RefreshCw className="h-3.5 w-3.5 shrink-0 animate-spin text-ink-300" strokeWidth={1.75} />}
       <span className="min-w-0 truncate text-[13px] text-ink-300">
         <span className="tabular-nums">{label}</span>
-        <span className="text-ink-500"> credits left</span>
+        <span className="text-ink-500"> credits</span>
       </span>
     </button>
   )

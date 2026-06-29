@@ -388,10 +388,12 @@ select {
 .slider-thin::-webkit-slider-runnable-track {
   height: 2px;
   border-radius: 9999px;
+  /* `--slider-fill` lets a single instance tint its filled track + thumb
+     (e.g. an app accent); defaults to the neutral ink fill otherwise. */
   background: linear-gradient(
     to right,
-    color-mix(in srgb, var(--color-ink) 85%, transparent) 0%,
-    color-mix(in srgb, var(--color-ink) 85%, transparent) var(--slider-pct, 50%),
+    var(--slider-fill, color-mix(in srgb, var(--color-ink) 85%, transparent)) 0%,
+    var(--slider-fill, color-mix(in srgb, var(--color-ink) 85%, transparent)) var(--slider-pct, 50%),
     color-mix(in srgb, var(--color-ink) 12%, transparent) var(--slider-pct, 50%),
     color-mix(in srgb, var(--color-ink) 12%, transparent) 100%
   );
@@ -402,7 +404,7 @@ select {
   width: 12px;
   height: 12px;
   border-radius: 9999px;
-  background: var(--color-ink);
+  background: var(--slider-fill, var(--color-ink));
   cursor: pointer;
   border: none;
   margin-top: -5px; /* center on the 2px track */
@@ -420,13 +422,13 @@ select {
 .slider-thin::-moz-range-progress {
   height: 2px;
   border-radius: 9999px;
-  background: color-mix(in srgb, var(--color-ink) 85%, transparent);
+  background: var(--slider-fill, color-mix(in srgb, var(--color-ink) 85%, transparent));
 }
 .slider-thin::-moz-range-thumb {
   width: 12px;
   height: 12px;
   border-radius: 9999px;
-  background: var(--color-ink);
+  background: var(--slider-fill, var(--color-ink));
   cursor: pointer;
   border: none;
   transition: transform 120ms ease-out;

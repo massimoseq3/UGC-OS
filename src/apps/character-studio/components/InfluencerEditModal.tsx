@@ -426,7 +426,6 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
                     appId="character-studio"
                     task="image"
                     mode="text-to-image"
-                    costParams={{ imageCount: 1, resolution }}
                   />
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
