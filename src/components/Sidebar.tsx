@@ -77,9 +77,8 @@ export default function Sidebar() {
       <aside
         className={`fixed bottom-0 left-0 top-0 z-40 flex flex-col border-r border-ink/5 bg-surface-1 light:border-ink/10 light:bg-[#F1F1F2] transition-[width,transform] duration-200 ease-out ${widthClass} ${translateClass}`}
       >
-        {/* Header — burger + logo on a plain row, separated from the nav by an
-            inset hairline divider (same side gaps as the section dividers
-            below; replaces the old rounded "island" pill). */}
+        {/* Header — burger + logo on a plain row, separated from the nav by a
+            full-width hairline divider (the section dividers below stay inset). */}
         <div
           className={`flex shrink-0 select-none items-center ${
             showExpanded ? 'gap-2 px-3 py-3' : 'flex-col gap-1 px-2 py-3'
@@ -107,7 +106,7 @@ export default function Sidebar() {
             )}
           </div>
         </div>
-        <div className="mx-3 border-t border-ink/5" />
+        <div className="border-t border-ink/5" />
 
         <div className="flex-1 overflow-y-auto px-2 py-3">
           {sections.map((section, i) => (
