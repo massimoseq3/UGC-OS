@@ -11,7 +11,7 @@ import {
   finishPlaygroundMusicTask,
 } from './service'
 import PromptPanel, { type PromptPanelState, type PromptRef } from './components/PromptPanel'
-import PlaygroundHistoryGrid, { type PlaygroundReuse } from './components/PlaygroundHistoryGrid'
+import PlaygroundHistoryGrid from './components/PlaygroundHistoryGrid'
 import { getDefaultModel, getModel, type AspectRatio, type ImageResolution, type VideoMode } from '../../utils/models'
 import type { PlaygroundMode, InFlightGen } from './types'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
@@ -511,33 +511,6 @@ export default function Playground() {
     setState((s) => ({ ...s, mode: nextMode, prompt: restored.prompt, refs: restored.refs }))
   }
 
-  // Blank slate: wipe the prompt and reference slots for the active mode.
-  // The model/aspect/duration picks stay (they're config, not input).
-  const handleClear = () => setState((s) => ({ ...s, prompt: '', refs: [] }))
-
-  // Reinsert a past generation's prompt + settings into the prompt panel so the
-  // user can tweak and re-run it. Reference images aren't persisted on history
-  // rows, so refs are cleared — the user re-attaches any they want. Switching
-  // modes stashes the current tab's draft first (mirrors handleModeChange).
-  const handleReuse = (input: PlaygroundReuse) => {
-    if (input.mode !== state.mode) {
-      setPromptStash((prev) => ({ ...prev, [state.mode]: { prompt: state.prompt, refs: state.refs } }))
-    }
-    setState((s) => ({
-      ...s,
-      mode: input.mode,
-      prompt: input.prompt,
-      modelId: getModel(input.modelId) ? input.modelId : s.modelId,
-      aspectRatio: input.aspectRatio ?? s.aspectRatio,
-      resolution: input.resolution ?? s.resolution,
-      durationSeconds: input.durationSeconds ?? s.durationSeconds,
-      audio: input.audio ?? s.audio,
-      instrumental: input.instrumental ?? s.instrumental,
-      refs: [],
-    }))
-    addToast('Loaded into the inputs', 'info')
-  }
-
   // Filter the history grid to the active mode. Users frequently bounce
   // between modes and want to see what they just made, not noise from the
   // other tabs.
@@ -557,7 +530,6 @@ export default function Playground() {
             state={state}
             onChange={setState}
             onModeChange={handleModeChange}
-            onClear={handleClear}
             onSubmit={handleSubmit}
             isGenerating={isGenerating}
           />
@@ -565,7 +537,7 @@ export default function Playground() {
 
         {/* Right — history grid */}
         <div className="flex flex-1 flex-col md:min-h-0 md:overflow-hidden">
-          <PlaygroundHistoryGrid inFlight={inFlight} filterMode={filterMode} onReuse={handleReuse} />
+          <PlaygroundHistoryGrid inFlight={inFlight} filterMode={filterMode} />
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, useEffect } from 'react'
-import { Loader2, Trash2, Image as ImageIcon, UserRound, Bookmark, X, Download, Check, CornerDownLeft, LayoutGrid } from 'lucide-react'
+import { Loader2, Trash2, Image as ImageIcon, UserRound, Bookmark, X, Download, Check, Copy, LayoutGrid } from 'lucide-react'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAssetUrlState } from '../../../hooks/useAssetUrl'
 import { getUrl } from '../../../utils/assetStore'
@@ -9,7 +9,7 @@ import type { CharacterHistoryItem } from '../../../stores/types'
 import { getModel, type ImageResolution } from '../../../utils/models'
 import InfluencerEditModal from './InfluencerEditModal'
 import GeneratingTile from './GeneratingTile'
-import { buildJsonPrompt } from '../services/generateCharacter'
+import { buildJsonPrompt, buildImagePrompt } from '../services/generateCharacter'
 import { pickInfluencerName, sheetNameFrom } from './nameGenerator'
 import { downloadImage } from '../../../utils/downloadImage'
 
@@ -35,8 +35,6 @@ export interface InFlightCharacterGen {
 interface GalleryPanelProps {
   inFlight: InFlightCharacterGen[]
   onCancelGen: (id: string) => void
-  // Load a generation's profile + settings back into the form for editing.
-  onReuse: (item: CharacterHistoryItem) => void
 }
 
 function startOfDay(ts: number): number {
@@ -56,9 +54,24 @@ function dayLabel(dayTs: number): string {
 export default function GalleryPanel({
   inFlight,
   onCancelGen,
-  onReuse,
 }: GalleryPanelProps) {
   const [previewItem, setPreviewItem] = useState<CharacterHistoryItem | null>(null)
+
+  // Copy an influencer's generation prompt (built from its saved profile) to
+  // the clipboard. Replaces the old "Edit in form" tile action.
+  async function handleCopyPrompt(item: CharacterHistoryItem) {
+    const text = buildImagePrompt(item.profile).trim()
+    if (!text) {
+      useAppStore.getState().addToast('No prompt to copy', 'error')
+      return
+    }
+    try {
+      await navigator.clipboard.writeText(text)
+      useAppStore.getState().addToast('Prompt copied', 'success')
+    } catch {
+      useAppStore.getState().addToast('Could not copy the prompt', 'error')
+    }
+  }
   // Which mode the edit pop-up opens in. "Make Sheet" on a tile opens straight
   // into sheet mode so the user just hits Generate; a normal click is edit.
   const [previewMode, setPreviewMode] = useState<'edit' | 'sheet'>('edit')
@@ -118,7 +131,7 @@ export default function GalleryPanel({
                         onClick={() => { setPreviewMode('edit'); setPreviewItem(item) }}
                         onDelete={() => deleteCharacterHistory(item.id)}
                         onMakeSheet={() => { setPreviewMode('sheet'); setPreviewItem(item) }}
-                        onReuse={() => onReuse(item)}
+                        onCopyPrompt={() => handleCopyPrompt(item)}
                       />
                     </div>
                   ))}
@@ -168,13 +181,13 @@ function HistoryTile({
   onClick,
   onDelete,
   onMakeSheet,
-  onReuse,
+  onCopyPrompt,
 }: {
   item: CharacterHistoryItem
   onClick: () => void
   onDelete: () => void | Promise<unknown>
   onMakeSheet: () => void
-  onReuse: () => void
+  onCopyPrompt: () => void
 }) {
   const { url, status } = useAssetUrlState(item.imageRef)
   const addModel = useBankStore((s) => s.addModel)
@@ -391,19 +404,13 @@ function HistoryTile({
       ) : (
         <>
           {/* Bottom toolbar — one full-width bar so the two groups can never
-              overlap on a narrow tile. Left group: view · edit-in-form · Make
-              Sheet ("Make Sheet" runs image-to-image off this image so the sheet
-              keeps the exact same person — only shown on portraits). Right group:
-              Save · Download. flex-wrap drops the right group to a second row when
-              the tile is too narrow to fit both side by side. */}
+              overlap on a narrow tile. Left group: Make Sheet ("Make Sheet" runs
+              image-to-image off this image so the sheet keeps the exact same
+              person — only shown on portraits). Right group: Copy prompt · Save ·
+              Download. flex-wrap drops the right group to a second row when the
+              tile is too narrow to fit both side by side. */}
           <div className="absolute inset-x-1.5 bottom-1.5 flex flex-wrap items-center justify-between gap-1 opacity-0 transition-opacity group-hover:opacity-100">
             <div className="flex items-center gap-1">
-              <TileIconButton
-                title="Edit in form — load this influencer's settings back in"
-                onClick={(e) => { e.stopPropagation(); onReuse() }}
-              >
-                <CornerDownLeft className="h-4 w-4" />
-              </TileIconButton>
               {!isSheet && (
                 <TileIconButton
                   title="Make a character sheet from this portrait"
@@ -414,6 +421,9 @@ function HistoryTile({
               )}
             </div>
             <div className="flex items-center gap-1">
+              <TileIconButton title="Copy prompt" onClick={(e) => { e.stopPropagation(); onCopyPrompt() }}>
+                <Copy className="h-4 w-4" />
+              </TileIconButton>
               <TileIconButton
                 title={savedAsModel ? 'Saved — click to remove from Bank' : savingToBank ? 'Saving…' : 'Save to Bank'}
                 tone={savedAsModel ? 'saved' : 'default'}

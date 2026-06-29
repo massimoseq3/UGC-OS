@@ -316,18 +316,19 @@ export default function CardDetailModal(props: CardDetailModalProps) {
     })
   }
 
-  // Load a tile's prompt back into this card's prompt editor (and undo/redo
-  // history), so the user can tweak a past generation's prompt and re-run it —
-  // replaces the old copy-to-clipboard action.
-  const handleReusePrompt = (text: string) => {
+  // Copy a tile's prompt to the clipboard.
+  const handleCopyPrompt = async (text: string) => {
     const trimmed = (text ?? '').trim()
     if (!trimmed) {
-      useAppStore.getState().addToast('No prompt to reuse', 'error')
+      useAppStore.getState().addToast('No prompt to copy', 'error')
       return
     }
-    setDraft(trimmed)
-    handleCommitDraft(trimmed)
-    useAppStore.getState().addToast('Prompt loaded into the editor', 'success')
+    try {
+      await navigator.clipboard.writeText(trimmed)
+      useAppStore.getState().addToast('Prompt copied', 'success')
+    } catch {
+      useAppStore.getState().addToast('Could not copy the prompt', 'error')
+    }
   }
 
   return createPortal((
@@ -391,7 +392,6 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                       appId="broll-studio"
                       task="image"
                       mode="text-to-image"
-                      costParams={{ imageCount: 1, resolution: cardState.cardImageResolution }}
                     />
                   </div>
                   {imageConstraints && (
@@ -434,11 +434,6 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                       requireModeNote={tab === 'animate'
                         ? "Greyed-out models can't animate a still — they have no image-to-video mode. Pick Veo 3.1 Fast, Seedance 2.0, or another image-to-video model."
                         : "Greyed-out models don't support reference image-to-video. To use these, generate still frames in the Image tab, then send them to Playground for start/end frames."}
-                      costParams={{
-                        durationSeconds: cardState.cardVideoDurationSeconds,
-                        resolution: cardState.cardVideoResolution,
-                        audio: cardState.cardVideoAudio,
-                      }}
                     />
                   </div>
                   {videoConstraints && (
@@ -678,7 +673,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
               onSaveImage={handleSaveImageTile}
               onDeleteImage={handleDeleteImageTile}
               onDeleteVideo={handleDeleteVideoTile}
-              onReusePrompt={handleReusePrompt}
+              onCopyPrompt={handleCopyPrompt}
               onAnimateImage={(index) => {
                 const ref = cardState.images[index]?.imageUrl
                 if (ref) {

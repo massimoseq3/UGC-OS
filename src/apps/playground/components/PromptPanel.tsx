@@ -14,7 +14,6 @@ import {
 } from 'lucide-react'
 import ModelPicker from '../../../components/ModelPicker'
 import SegmentedToggle from '../../../components/SegmentedToggle'
-import ClearAllButton from '../../../components/ClearAllButton'
 import AspectIcon from '../../../components/AspectIcon'
 import ConstraintChip from '../../../components/ConstraintChip'
 import ModelWaitNotice from '../../../components/ModelWaitNotice'
@@ -112,7 +111,6 @@ interface PromptPanelProps {
   // Mode switch is special-cased so the parent can stash/restore each tab's
   // own prompt + refs instead of carrying them across tabs.
   onModeChange: (mode: PlaygroundMode) => void
-  onClear: () => void
   onSubmit: () => void
   isGenerating: boolean
 }
@@ -123,7 +121,7 @@ const MODE_TABS: Array<{ id: PlaygroundMode; label: string; icon: React.Componen
   { id: 'music', label: 'Music', icon: MusicIcon },
 ]
 
-export default function PromptPanel({ state, onChange, onModeChange, onClear, onSubmit, isGenerating }: PromptPanelProps) {
+export default function PromptPanel({ state, onChange, onModeChange, onSubmit, isGenerating }: PromptPanelProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   // Backdrop that paints the [bracketed] placeholders red behind the textarea.
   const highlightRef = useRef<HTMLDivElement>(null)
@@ -558,11 +556,6 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
     : state.mode === 'video' ? Film
     : MusicIcon
 
-  const modelHeading =
-    state.mode === 'image' ? 'Image Model'
-    : state.mode === 'video' ? 'Video Model'
-    : 'Music Model'
-
   // Motion Control bills per second of the *output*, which tracks the driving
   // clip clamped to the orientation cap (≤30s video / ≤10s photo). Estimate
   // from the attached clip's measured length so the credit readout is honest.
@@ -601,31 +594,16 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
       {/* Middle: scrollable body — model picker, preset, refs, prompt. */}
       <div className="relative min-h-0 flex-1 overflow-hidden">
         <div className="flex h-full flex-col overflow-y-auto">
-          <div className="flex grow flex-col gap-6 px-5 pb-6 pt-3">
+          <div className="flex grow flex-col gap-3 px-5 pb-6 pt-3">
             {/* Model */}
             <div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-ink-200">{modelHeading}</span>
-                <ClearAllButton onClear={onClear} />
-              </div>
-              <div className="mt-2">
+              <div>
                 <ModelPicker
                   appId="playground"
                   task={taskForMode}
                   mode={pickerMode}
                   value={state.modelId}
                   onChange={(modelId) => onChange({ ...state, modelId })}
-                  costParams={
-                    state.mode === 'video'
-                      ? {
-                          durationSeconds: isMotionControl ? motionDuration : state.durationSeconds,
-                          resolution: state.resolution,
-                          audio: state.audio,
-                        }
-                      : state.mode === 'image'
-                      ? { imageCount: 1, resolution: state.resolution }
-                      : {}
-                  }
                 />
               </div>
 
@@ -756,8 +734,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
               <>
                 {state.mode === 'video' && isMotionControl && (
                   <div>
-                    <span className="text-sm font-medium text-ink-200">Motion inputs</span>
-                    <div className="mt-2">
+                    <div>
                       <MotionControlSection
                         refs={state.refs}
                         onChangeRefs={(refs) => onChange({ ...state, refs })}
@@ -769,15 +746,12 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
                   </div>
                 )}
                 {state.mode === 'video' && !isMotionControl && (
-                  <div>
-                    <span className="text-sm font-medium text-ink-200">
-                      {supportsFrames ? 'Reference frames' : 'Reference images'}
-                    </span>
+                  <div className="flex flex-col gap-3">
                     {supportsFrames && (
-                      <div className="mt-2 grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-2 gap-3">
                         <VideoInputSlot
-                          label="Start frame"
-                          helper="— optional"
+                          label="Start Frame"
+                          helper="— Optional"
                           value={startFrameValue()}
                           onChange={(v) => setSlot('start', v)}
                           bankType="brolls"
@@ -785,35 +759,34 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
                           compact
                         />
                         <VideoInputSlot
-                          label="End frame"
-                          helper={supportsEndFrame ? '— optional' : '— not supported'}
+                          label="End Frame"
+                          helper={supportsEndFrame ? '— Optional' : '— Not Supported'}
                           value={supportsEndFrame ? endFrameValue() : null}
                           onChange={(v) => supportsEndFrame && setSlot('end', v)}
                           bankType="brolls"
                           tabs={PLAYGROUND_FRAME_TABS}
                           compact
+                          disabled={!supportsEndFrame}
                         />
                       </div>
                     )}
                     {refsAllowed && (
-                      <div className={supportsFrames ? 'mt-4' : 'mt-2'}>
-                        <VideoRefStrip
-                          label={supportsFrames ? 'Reference images' : ''}
-                          helper="optional"
-                          values={refStripValues()}
-                          onChange={setRefStrip}
-                          max={maxRefs}
-                          bankType="models"
-                          tabs={PLAYGROUND_REF_TABS}
-                        />
-                      </div>
+                      <VideoRefStrip
+                        label="Reference Images"
+                        helper="Optional"
+                        values={refStripValues()}
+                        onChange={setRefStrip}
+                        max={maxRefs}
+                        bankType="models"
+                        tabs={PLAYGROUND_REF_TABS}
+                      />
                     )}
                     {(supportsRefAudio || supportsRefVideos) && (
-                      <div className={`mt-4 grid gap-3 ${supportsRefAudio && supportsRefVideos ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                      <div className={`grid gap-3 ${supportsRefAudio && supportsRefVideos ? 'grid-cols-2' : 'grid-cols-1'}`}>
                         {supportsRefAudio && (
                           <MediaRefStrip
-                            label="Reference audio"
-                            helper="voice / lip-sync, ≤15s"
+                            label="Reference Audio"
+                            helper="Voice / Lip-Sync, ≤15s"
                             kind="audio"
                             values={mediaStripValues('audio')}
                             onChange={(v) => setMediaStrip('audio', v)}
@@ -824,8 +797,8 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
                         )}
                         {supportsRefVideos && (
                           <MediaRefStrip
-                            label="Reference videos"
-                            helper="motion / style, ≤15s"
+                            label="Reference Videos"
+                            helper="Motion / Style, ≤15s"
                             kind="video"
                             values={mediaStripValues('video')}
                             onChange={(v) => setMediaStrip('video', v)}
@@ -837,27 +810,20 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
                       </div>
                     )}
                     {isOmni && (
-                      <div className="mt-4">
-                        <OmniInputsSection refs={state.refs} onChangeRefs={(refs) => onChange({ ...state, refs })} />
-                      </div>
+                      <OmniInputsSection refs={state.refs} onChangeRefs={(refs) => onChange({ ...state, refs })} />
                     )}
                   </div>
                 )}
                 {state.mode === 'image' && (
-                  <div>
-                    <span className="text-sm font-medium text-ink-200">Reference images</span>
-                    <div className="mt-2">
-                      <VideoRefStrip
-                        label=""
-                        helper="optional"
-                        values={refStripValues()}
-                        onChange={setRefStrip}
-                        max={4}
-                        bankType="models"
-                        tabs={PLAYGROUND_REF_TABS}
-                      />
-                    </div>
-                  </div>
+                  <VideoRefStrip
+                    label="Reference Images"
+                    helper="Optional"
+                    values={refStripValues()}
+                    onChange={setRefStrip}
+                    max={4}
+                    bankType="models"
+                    tabs={PLAYGROUND_REF_TABS}
+                  />
                 )}
               </>
             )}
@@ -866,97 +832,97 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
                 fills the page without making the panel itself scroll; once at
                 max size, overflow scrolls inside the textarea. */}
             <div className="relative flex grow flex-col">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-medium text-ink-200">Prompt</span>
-                {/* Enhance + Undo/Redo — rewrites the draft into a stronger
-                    prompt for the active mode, with full undo history. */}
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    title="Enhance prompt"
-                    onClick={handleEnhancePrompt}
-                    disabled={isEnhancing || !state.prompt.trim()}
-                    className="flex items-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.02] px-2.5 py-1 text-[11px] font-medium text-ink-300 transition-colors hover:border-playground-500/30 hover:bg-playground-500/10 hover:text-playground-300 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    {isEnhancing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-                    Enhance Prompt
-                  </button>
-                  <button
-                    type="button"
-                    title="Undo"
-                    onClick={handlePromptUndo}
-                    disabled={!canUndo || isEnhancing}
-                    className="flex h-6 w-6 items-center justify-center rounded-full border border-ink/10 bg-ink/[0.02] text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-30"
-                  >
-                    <Undo2 className="h-3 w-3" />
-                  </button>
-                  <button
-                    type="button"
-                    title="Redo"
-                    onClick={handlePromptRedo}
-                    disabled={!canRedo || isEnhancing}
-                    className="flex h-6 w-6 items-center justify-center rounded-full border border-ink/10 bg-ink/[0.02] text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-30"
-                  >
-                    <Redo2 className="h-3 w-3" />
-                  </button>
-                </div>
-              </div>
-              {/* UGC Prompt Presets — slim row between the heading and the
-                  textarea. Opens the slide-in picker. */}
+              {/* UGC Prompt Presets — slim row above the textarea. Opens the
+                  slide-in picker. */}
               {presetsApplicable && (
                 <button
                   type="button"
                   onClick={() => setPresetOpen(true)}
-                  className="mt-2 flex h-12 w-full items-center gap-2.5 rounded-full border border-ink/10 bg-ink/[0.02] px-3 text-left transition-colors hover:bg-ink/[0.05]"
+                  className="flex h-12 w-full items-center gap-2.5 rounded-full border border-ink/10 bg-ink/[0.02] px-3 text-left transition-colors hover:bg-ink/[0.05]"
                 >
                   <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-playground-500/10 text-playground-400">
                     <Camera className="h-3.5 w-3.5" />
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink-100">Select UGC Preset</span>
+                  <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink-100">Select UGC Prompt Preset</span>
                   <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" />
                 </button>
               )}
               {/* Prompt field — a normal, visible textarea on top of a
                   transparent backdrop that only paints the [bracket] highlights.
                   The textarea owns every glyph, so the caret, selection and
-                  click targets are always exactly where the text appears. The
-                  backdrop matches the textarea's metrics (font-light, tracking)
-                  and reserves the same scrollbar gutter via its right padding,
-                  so the bracket boxes line up with the words. */}
+                  click targets are always exactly where the text appears. A
+                  footer toolbar (Enhance / Undo / Redo + Expand) sits below the
+                  text, separated by a hairline, inside the same rounded box. */}
               {/* Relative wrapper so the @-mention popover can float ABOVE the
                   textarea (bottom-full) instead of overlaying the text being
                   typed. The popover sits outside the overflow-hidden box below
                   so it isn't clipped. */}
               <div className="relative mt-2 flex grow flex-col">
-                <div className="relative flex grow overflow-hidden rounded-3xl border border-ink/10 bg-ink/[0.03] transition-colors focus-within:border-ink/20 focus-within:bg-ink/[0.05]">
-                  <div
-                    ref={highlightRef}
-                    aria-hidden
-                    className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words pb-6 pl-3.5 pr-[calc(0.875rem+11px)] pt-3 text-[13px] font-light leading-[1.5] tracking-[-0.025em] text-transparent"
-                  >
-                    {renderBracketHighlight(state.prompt)}
+                <div className="relative flex grow flex-col overflow-hidden rounded-3xl border border-ink/10 bg-ink/[0.03] transition-colors focus-within:border-ink/20 focus-within:bg-ink/[0.05]">
+                  <div className="relative flex grow">
+                    <div
+                      ref={highlightRef}
+                      aria-hidden
+                      className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words pb-3 pl-3.5 pr-[calc(0.875rem+11px)] pt-3 text-[13px] font-light leading-[1.5] tracking-[-0.025em] text-transparent"
+                    >
+                      {renderBracketHighlight(state.prompt)}
+                    </div>
+                    <textarea
+                      ref={textareaRef}
+                      value={state.prompt}
+                      onChange={handlePromptChange}
+                      onScroll={(e) => {
+                        if (highlightRef.current) highlightRef.current.scrollTop = e.currentTarget.scrollTop
+                      }}
+                      onBlur={() => { commitPromptDraft(); setTimeout(() => setMentionOpen(false), 150) }}
+                      rows={6}
+                      placeholder={
+                        state.mode === 'image'
+                          ? 'Describe the image you want… (type @ to reference banks)'
+                          : isMotionControl
+                          ? 'Optional — refine the motion or leave blank…'
+                          : state.mode === 'video'
+                          ? 'Describe the video… (type @ to reference banks)'
+                          : 'Describe the music — genre, mood, instruments…'
+                      }
+                      className="relative min-h-[120px] w-full grow resize-none border-0 bg-transparent px-3.5 pb-3 pt-3 text-[13px] leading-[1.5] text-ink-200 placeholder-ink-600 outline-none [scrollbar-gutter:stable]"
+                    />
                   </div>
-                  <textarea
-                    ref={textareaRef}
-                    value={state.prompt}
-                    onChange={handlePromptChange}
-                    onScroll={(e) => {
-                      if (highlightRef.current) highlightRef.current.scrollTop = e.currentTarget.scrollTop
-                    }}
-                    onBlur={() => { commitPromptDraft(); setTimeout(() => setMentionOpen(false), 150) }}
-                    rows={6}
-                    placeholder={
-                      state.mode === 'image'
-                        ? 'Describe the image you want… (type @ to reference banks)'
-                        : isMotionControl
-                        ? 'Optional — refine the motion or leave blank…'
-                        : state.mode === 'video'
-                        ? 'Describe the video… (type @ to reference banks)'
-                        : 'Describe the music — genre, mood, instruments…'
-                    }
-                    className="relative min-h-[120px] w-full grow resize-none border-0 bg-transparent px-3.5 pb-6 pt-3 text-[13px] leading-[1.5] text-ink-200 placeholder-ink-600 outline-none [scrollbar-gutter:stable]"
-                  />
-                  <ExpandButton onClick={() => setPromptExpanded(true)} className="absolute bottom-2 right-2 z-10" />
+                  {/* Footer toolbar — its own section under a hairline. Enhance +
+                      Undo/Redo bottom-left; Expand bottom-right. */}
+                  <div className="flex items-center justify-between gap-2 border-t border-ink/10 px-2 py-1.5">
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        title="Enhance prompt"
+                        onClick={handleEnhancePrompt}
+                        disabled={isEnhancing || !state.prompt.trim()}
+                        className="flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium text-ink-400 transition-colors hover:bg-playground-500/10 hover:text-playground-300 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        {isEnhancing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                        Enhance Prompt
+                      </button>
+                      <button
+                        type="button"
+                        title="Undo"
+                        onClick={handlePromptUndo}
+                        disabled={!canUndo || isEnhancing}
+                        className="flex h-6 w-6 items-center justify-center rounded-full text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-30"
+                      >
+                        <Undo2 className="h-3 w-3" />
+                      </button>
+                      <button
+                        type="button"
+                        title="Redo"
+                        onClick={handlePromptRedo}
+                        disabled={!canRedo || isEnhancing}
+                        className="flex h-6 w-6 items-center justify-center rounded-full text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-30"
+                      >
+                        <Redo2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                    <ExpandButton onClick={() => setPromptExpanded(true)} />
+                  </div>
                 </div>
                 {mentionOpen && state.mode !== 'music' && !isMotionControl && (
                   <div className="absolute bottom-full left-0 z-50 mb-2 w-[300px] max-w-full">

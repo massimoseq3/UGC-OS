@@ -78,52 +78,70 @@ export default function VideoRefStrip({ label, helper, values, onChange, max, ba
     onChange(values.filter((_, i) => i !== index))
   }
 
+  const title = label || 'Reference Images'
+
   return (
     <div>
-      <label className="mb-2 block text-[10px] font-medium uppercase tracking-wider text-ink-500">
-        {label}
-        <span className="text-ink-700 normal-case"> ({values.length}/{max}){helper ? ` — ${helper}` : ''}</span>
-      </label>
+      {/* Added references render as thumbnails above the labelled card. */}
+      {values.length > 0 && (
+        <div className="mb-2 flex flex-wrap gap-2">
+          {values.map((v, i) => (
+            <div key={i} className="relative h-20 w-20 overflow-hidden rounded-xl border border-ink/10">
+              <img src={v.dataUri} alt="" className="h-full w-full object-cover" />
+              <button
+                onClick={() => removeAt(i)}
+                className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/70 text-white/80 hover:bg-black/90"
+              >
+                <X className="h-2.5 w-2.5" />
+              </button>
+              {v.sourceBRollId && (
+                <span className="absolute left-1 top-1 rounded-full bg-black/70 px-1 py-0.5 text-[9px] font-medium text-zinc-300">
+                  Bank
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
-      <div className="flex flex-wrap gap-2">
-        {values.map((v, i) => (
-          <div key={i} className="relative h-20 w-20 overflow-hidden rounded-lg border border-ink/10">
-            <img src={v.dataUri} alt="" className="h-full w-full object-cover" />
-            <button
-              onClick={() => removeAt(i)}
-              className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/70 text-white/80 hover:bg-black/90"
-            >
-              <X className="h-2.5 w-2.5" />
-            </button>
-            {v.sourceBRollId && (
-              <span className="absolute left-1 top-1 rounded-full bg-black/70 px-1 py-0.5 text-[9px] font-medium text-zinc-300">
-                Bank
-              </span>
-            )}
-          </div>
-        ))}
+      {/* Labelled add card — key info lives here (title · count · helper),
+          mirrors the Start/End frame slots. Hover opens Upload / Pick-from-Bank. */}
+      <div className="relative">
+        <button
+          ref={triggerRef}
+          type="button"
+          disabled={remaining <= 0}
+          onClick={() => { if (remaining > 0) setActionMenu((v) => !v) }}
+          onMouseEnter={remaining > 0 ? openMenu : undefined}
+          onMouseLeave={remaining > 0 ? closeMenuSoon : undefined}
+          className={`group relative flex h-24 w-full flex-col items-center justify-center gap-1.5 rounded-2xl border border-ink/10 bg-ink/[0.02] transition-colors ${
+            remaining <= 0 ? 'cursor-not-allowed opacity-50' : 'hover:border-ink/20 hover:bg-ink/[0.04]'
+          }`}
+        >
+          <span className="absolute left-2 top-2 rounded-full bg-ink/[0.06] px-2 py-0.5 text-[9px] font-medium tabular-nums tracking-wide text-ink-500">
+            {values.length}/{max}
+          </span>
+          {helper && (
+            <span className="absolute right-2 top-2 rounded-full bg-ink/[0.06] px-2 py-0.5 text-[9px] font-medium capitalize tracking-wide text-ink-500">
+              {helper}
+            </span>
+          )}
+          <span className="flex h-8 w-8 items-center justify-center rounded-full border border-ink/15 bg-ink/[0.03] text-ink-400 transition-colors group-hover:text-ink-200">
+            <ImagePlus className="h-3.5 w-3.5" />
+          </span>
+          <span className="text-[12px] font-medium text-ink-300">{title}</span>
+        </button>
         {remaining > 0 && (
-          <>
-            <button
-              ref={triggerRef}
-              onClick={() => setActionMenu((v) => !v)}
-              onMouseEnter={openMenu}
-              onMouseLeave={closeMenuSoon}
-              className="flex h-20 w-20 items-center justify-center rounded-lg border border-dashed border-ink/15 bg-ink/[0.02] text-ink-500 transition-colors hover:border-ink/25 hover:text-ink-300"
-            >
-              <ImagePlus className="h-4 w-4" />
-            </button>
-            <SlotActionMenu
-              anchorRef={triggerRef}
-              open={actionMenu}
-              onClose={() => setActionMenu(false)}
-              onUpload={() => fileInputRef.current?.click()}
-              onPickFromBank={() => setPickerOpen(true)}
-              hover
-              onMouseEnter={openMenu}
-              onMouseLeave={closeMenuSoon}
-            />
-          </>
+          <SlotActionMenu
+            anchorRef={triggerRef}
+            open={actionMenu}
+            onClose={() => setActionMenu(false)}
+            onUpload={() => fileInputRef.current?.click()}
+            onPickFromBank={() => setPickerOpen(true)}
+            hover
+            onMouseEnter={openMenu}
+            onMouseLeave={closeMenuSoon}
+          />
         )}
       </div>
 

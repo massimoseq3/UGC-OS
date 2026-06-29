@@ -7,7 +7,6 @@ import type { CharacterProfile, TabId } from './types'
 import { createEmptyProfile, flattenDna, PHOTOREALISM_STYLE } from './types'
 import type { ImageResolution } from '../../utils/models'
 import { getDefaultModel } from '../../utils/models'
-import type { CharacterHistoryItem } from '../../stores/types'
 import ControlsPanel from './components/ControlsPanel'
 import GalleryPanel, { type InFlightCharacterGen } from './components/GalleryPanel'
 import { startCharacterTask, finishCharacterTask, type GenerationKind } from './services/generateCharacter'
@@ -265,23 +264,6 @@ export default function CharacterStudio() {
     void launchGen({ profile: { ...profile }, resolution, kind: snapshotKind, aspect: snapshotAspect })
   }
 
-  // Load a past generation's profile + output settings back into the form so
-  // the user can tweak a field and regenerate (the "edit this influencer"
-  // path). Mirrors the reinsert-to-inputs action used across the apps.
-  const handleReuseProfile = useCallback((item: CharacterHistoryItem) => {
-    const incoming = item.profile as Record<string, string>
-    const next = createEmptyProfile()
-    for (const [key, value] of Object.entries(incoming)) {
-      if (key in next && typeof value === 'string') next[key] = value
-    }
-    setProfile(next)
-    if (item.resolution) setResolution(item.resolution as ImageResolution)
-    const wasSheet = item.kind === 'sheet'
-    setSheetMode(wasSheet)
-    if (wasSheet) setSheetAspect(item.aspectRatio.includes('9:16') ? '9:16' : '16:9')
-    useAppStore.getState().addToast('Loaded into the form — tweak and regenerate', 'info')
-  }, [setProfile, setResolution, setSheetMode, setSheetAspect])
-
   const handleCancelGen = (id: string) => {
     const controller = abortersRef.current.get(id)
     controller?.abort()
@@ -365,7 +347,6 @@ export default function CharacterStudio() {
         <GalleryPanel
           inFlight={inFlight}
           onCancelGen={handleCancelGen}
-          onReuse={handleReuseProfile}
         />
       </div>
 

@@ -1,10 +1,11 @@
 import { useRef, useState } from 'react'
-import { Upload, X, Bookmark } from 'lucide-react'
+import { Upload, X, Bookmark, Image as ImageIcon } from 'lucide-react'
 import { fileToDataUri } from '../../utils/kie'
 import { isAssetRef, getAsBase64 } from '../../utils/assetStore'
 import type { BRoll, Product, Model, Script, VoicePreset } from '../../stores/types'
 import type { BankType } from '../../utils/constants'
 import BankPicker from '../BankPicker'
+import SlotActionMenu from './SlotActionMenu'
 
 type BankItem = Product | Model | Script | VoicePreset | BRoll
 
@@ -28,6 +29,9 @@ interface VideoInputSlotProps {
   // adjacent reference-image strip. Default is the full-size B-Roll Videos
   // layout (h-40 with two side-by-side buttons).
   compact?: boolean
+  // Dimmed, non-interactive (e.g. an End frame on a model that has no
+  // frames-to-video mode). Compact mode only.
+  disabled?: boolean
 }
 
 // Each bank type stores its image in a different field. Extract whichever
@@ -59,9 +63,16 @@ async function bankItemToDataUri(item: BankItem): Promise<string | null> {
 //
 // When `tabs` is supplied (e.g. from Playground) the picker is multi-bank;
 // picking a Character or Product carries no `sourceBRollId`.
-export default function VideoInputSlot({ label, helper, value, onChange, bankType, tabs, compact = false }: VideoInputSlotProps) {
+export default function VideoInputSlot({ label, helper, value, onChange, bankType, tabs, compact = false, disabled = false }: VideoInputSlotProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [actionMenu, setActionMenu] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  // The Upload / Pick-from-bank menu opens on hover; a short close delay bridges
+  // the gap between the tile and the menu so moving onto it doesn't dismiss it.
+  const menuTimer = useRef<number | null>(null)
+  const openMenu = () => { if (menuTimer.current) window.clearTimeout(menuTimer.current); setActionMenu(true) }
+  const closeMenuSoon = () => { menuTimer.current = window.setTimeout(() => setActionMenu(false), 120) }
 
   async function handleFile(file: File | null) {
     if (!file) return
@@ -79,21 +90,17 @@ export default function VideoInputSlot({ label, helper, value, onChange, bankTyp
     onChange({ dataUri, sourceBRollId })
   }
 
-  // Compact mode (Playground start/end frames): a full-width box split into
-  // two halves — Upload on the left, Pick from bank on the right — divided by a
-  // dotted line, all inside one dashed rectangle. Once filled it collapses to
-  // the chosen still.
+  // Compact mode (Playground start/end frames): a single rounded card with an
+  // "Optional" pill, a circular image glyph and the label inside. Hovering the
+  // empty card pops the Upload / Pick-from-Bank menu (same as the reference
+  // strip). Once filled it shows the chosen still.
   if (compact) {
+    const badge = (helper ?? '').replace(/^—\s*/, '').trim()
     return (
-      <div>
-        <label className="mb-2 block text-[10px] font-medium uppercase tracking-wider text-ink-500">
-          {label}
-          {helper && <span className="text-ink-700 normal-case"> {helper}</span>}
-        </label>
-
+      <div className="relative">
         {value ? (
-          <div className="relative w-full overflow-hidden rounded-xl border border-ink/10 bg-black/40">
-            <img src={value.dataUri} alt="" className="mx-auto block max-h-32 w-auto max-w-full object-contain" />
+          <div className="relative h-24 w-full overflow-hidden rounded-2xl border border-ink/10 bg-black/40">
+            <img src={value.dataUri} alt="" className="mx-auto block h-full w-auto max-w-full object-contain" />
             <button
               onClick={() => onChange(null)}
               className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/70 text-white/80 hover:bg-black/90"
@@ -107,23 +114,41 @@ export default function VideoInputSlot({ label, helper, value, onChange, bankTyp
             )}
           </div>
         ) : (
-          <div className="flex h-20 w-full overflow-hidden rounded-xl border border-dashed border-ink/15 bg-ink/[0.02]">
+          <>
             <button
-              onClick={() => fileInputRef.current?.click()}
-              className="flex flex-1 flex-col items-center justify-center gap-1 px-1 text-ink-500 transition-colors hover:bg-ink/[0.04] hover:text-ink-300"
+              ref={triggerRef}
+              type="button"
+              disabled={disabled}
+              onClick={() => { if (!disabled) setActionMenu((v) => !v) }}
+              onMouseEnter={disabled ? undefined : openMenu}
+              onMouseLeave={disabled ? undefined : closeMenuSoon}
+              className={`group relative flex h-24 w-full flex-col items-center justify-center gap-1.5 rounded-2xl border border-ink/10 bg-ink/[0.02] transition-colors ${
+                disabled ? 'cursor-not-allowed opacity-50' : 'hover:border-ink/20 hover:bg-ink/[0.04]'
+              }`}
             >
-              <Upload className="h-3.5 w-3.5" />
-              <span className="text-[10px] leading-tight">Upload</span>
+              {badge && (
+                <span className="absolute right-2 top-2 rounded-full bg-ink/[0.06] px-2 py-0.5 text-[9px] font-medium capitalize tracking-wide text-ink-500">
+                  {badge}
+                </span>
+              )}
+              <span className="flex h-8 w-8 items-center justify-center rounded-full border border-ink/15 bg-ink/[0.03] text-ink-400 transition-colors group-hover:text-ink-200">
+                <ImageIcon className="h-3.5 w-3.5" />
+              </span>
+              <span className="text-[12px] font-medium text-ink-300">{label}</span>
             </button>
-            <div className="my-2 border-l border-dashed border-ink/15" />
-            <button
-              onClick={() => setPickerOpen(true)}
-              className="flex flex-1 flex-col items-center justify-center gap-1 px-1 text-center text-ink-500 transition-colors hover:bg-ink/[0.04] hover:text-ink-300"
-            >
-              <Bookmark className="h-3.5 w-3.5" />
-              <span className="text-[10px] leading-tight">Pick from Bank</span>
-            </button>
-          </div>
+            {!disabled && (
+              <SlotActionMenu
+                anchorRef={triggerRef}
+                open={actionMenu}
+                onClose={() => setActionMenu(false)}
+                onUpload={() => fileInputRef.current?.click()}
+                onPickFromBank={() => setPickerOpen(true)}
+                hover
+                onMouseEnter={openMenu}
+                onMouseLeave={closeMenuSoon}
+              />
+            )}
+          </>
         )}
 
         <input

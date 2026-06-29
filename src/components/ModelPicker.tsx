@@ -3,12 +3,9 @@ import { ChevronDown, Check, Star } from 'lucide-react'
 import {
   listModels,
   getDefaultModel,
-  estimateCredits,
-  formatCredits,
   type Task,
   type Mode,
   type ModelEntry,
-  type CostEstimateParams,
 } from '../utils/models'
 import { useSettingsStore } from '../stores/settingsStore'
 import { APP_REGISTRY } from '../utils/constants'
@@ -20,8 +17,6 @@ interface ModelPickerProps {
   mode?: Mode
   value?: string
   onChange?: (modelId: string) => void
-  // Used to compute credits-per-generation estimate shown inline.
-  costParams?: CostEstimateParams
   // When set, models whose `modes` don't include this are greyed out (muted)
   // but still selectable — a hint, not a hard block (e.g. B-Roll passes
   // 'reference-to-video' so non-reference-capable video models dim while a
@@ -38,7 +33,7 @@ interface ModelPickerProps {
   large?: boolean
 }
 
-export default function ModelPicker({ appId, task, mode, value, onChange, costParams, requireMode, requireModeNote, compact, large }: ModelPickerProps) {
+export default function ModelPicker({ appId, task, mode, value, onChange, requireMode, requireModeNote, compact, large }: ModelPickerProps) {
   const setAppModel = useSettingsStore((s) => s.setAppModel)
   const getAppModel = useSettingsStore((s) => s.getAppModel)
   const persistedKey = `${appId}:${task}${mode ? `:${mode}` : ''}`
@@ -53,6 +48,7 @@ export default function ModelPicker({ appId, task, mode, value, onChange, costPa
   const accent = APP_REGISTRY.find((a) => a.id === appId)?.accent ?? '#38bdf8'
 
   const models = listModels({ task, mode })
+  const recommended = models.filter((m) => m.tags.includes('recommended'))
   const fallback = getDefaultModel(appId, task, mode)
   const persisted = getAppModel(persistedKey)
   const resolved = value ?? persisted ?? fallback?.id
@@ -79,8 +75,6 @@ export default function ModelPicker({ appId, task, mode, value, onChange, costPa
       </div>
     )
   }
-
-  const selectedCredits = selected ? estimateCredits(selected.id, costParams) : null
 
   return (
     <div ref={wrapperRef} className="relative">
@@ -113,9 +107,6 @@ export default function ModelPicker({ appId, task, mode, value, onChange, costPa
               {selected.tags.includes('recommended') && (
                 <Star className="h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400 light:fill-yellow-600 light:text-yellow-600" strokeWidth={1.5} />
               )}
-              {selectedCredits != null && (
-                <span className="shrink-0 text-[11px] tabular-nums text-ink-500">{formatCredits(selectedCredits)}</span>
-              )}
             </>
           ) : (
             <>
@@ -126,9 +117,6 @@ export default function ModelPicker({ appId, task, mode, value, onChange, costPa
                   <Star className="h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400 light:fill-yellow-600 light:text-yellow-600" strokeWidth={1.5} />
                 )}
               </div>
-              {selectedCredits != null && (
-                <span className={`shrink-0 tabular-nums text-ink-500 ${large ? 'text-[12px]' : 'text-[11px]'}`}>{formatCredits(selectedCredits)}</span>
-              )}
             </>
           )
         ) : (
@@ -144,6 +132,23 @@ export default function ModelPicker({ appId, task, mode, value, onChange, costPa
           }`}
         >
           <div className="max-h-[min(360px,60vh)] overflow-y-auto p-1">
+            {/* Recommended (starred) models pinned to the top for quick access,
+                then a hairline, then the full list below (the starred ones
+                appear in both places). */}
+            {recommended.map((m) => {
+              const muted = requireMode ? !m.modes?.includes(requireMode) : false
+              return (
+                <ModelRow
+                  key={`rec-${m.id}`}
+                  model={m}
+                  active={m.id === resolved}
+                  muted={muted}
+                  accent={accent}
+                  onClick={() => pick(m.id)}
+                />
+              )
+            })}
+            {recommended.length > 0 && <div className="my-1 border-t border-ink/10" />}
             {models.map((m) => {
               const muted = requireMode ? !m.modes?.includes(requireMode) : false
               return (
@@ -151,7 +156,6 @@ export default function ModelPicker({ appId, task, mode, value, onChange, costPa
                   key={m.id}
                   model={m}
                   active={m.id === resolved}
-                  costParams={costParams}
                   muted={muted}
                   accent={accent}
                   onClick={() => pick(m.id)}
@@ -173,15 +177,12 @@ export default function ModelPicker({ appId, task, mode, value, onChange, costPa
 interface ModelRowProps {
   model: ModelEntry
   active: boolean
-  costParams?: CostEstimateParams
   muted?: boolean
   accent: string
   onClick: () => void
 }
 
-function ModelRow({ model, active, costParams, muted, accent, onClick }: ModelRowProps) {
-  const credits = estimateCredits(model.id, costParams)
-  const creditsLabel = formatCredits(credits)
+function ModelRow({ model, active, muted, accent, onClick }: ModelRowProps) {
   const isRecommended = model.tags.includes('recommended')
 
   return (
@@ -201,10 +202,7 @@ function ModelRow({ model, active, costParams, muted, accent, onClick }: ModelRo
         )}
       </div>
 
-      <div className="flex shrink-0 items-center gap-1.5">
-        {creditsLabel && (
-          <span className="text-[11px] tabular-nums text-ink-400">{creditsLabel}</span>
-        )}
+      <div className="flex shrink-0 items-center">
         {active ? (
           <Check className="h-4 w-4" style={{ color: accent }} />
         ) : (
