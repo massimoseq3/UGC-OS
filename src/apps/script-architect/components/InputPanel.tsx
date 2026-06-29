@@ -1,11 +1,11 @@
 import { useState, type ComponentType } from 'react'
-import { Package, Loader2, PenLine, ChevronRight, FileText, Clapperboard, RefreshCw, X, Film, UserRound } from 'lucide-react'
+import { Package, Loader2, PenLine, ChevronRight, FileText, Clapperboard, RefreshCw, X, Film, UserRound, Sparkles, Undo2, Redo2 } from 'lucide-react'
 import type { Model, Product, Script } from '../../../stores/types'
 import { WRITE_LENGTHS, WRITE_STYLE_META, type EditableProductContext, type ScriptMode, type WriteStyle, type WriteFormat, type WriteLength } from '../types'
 
 // The cinematic 'prompt' format is single-clip-capped, so it only offers the
-// durations a video model can render in one generation.
-const PROMPT_LENGTHS: WriteLength[] = [10, 15]
+// shorter durations a video model can render in one generation.
+const PROMPT_LENGTHS: WriteLength[] = [10, 15, 30]
 import { useBankStore } from '../../../stores/bankStore'
 import BankPicker from '../../../components/BankPicker'
 import SegmentedToggle from '../../../components/SegmentedToggle'
@@ -14,6 +14,8 @@ import ClearAllButton from '../../../components/ClearAllButton'
 import ExpandTextModal, { ExpandButton } from '../../../components/ExpandableText'
 import { useAppStore } from '../../../stores/appStore'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
+import { enhanceBrief } from '../services/generateScript'
+import { humanizeError } from '../../../utils/friendlyError'
 
 function createEditableContext(product: Product): EditableProductContext {
   return {
@@ -101,6 +103,21 @@ export default function InputPanel({
   // True once the user has actively picked a Script Style — flips the trigger
   // from a dashed "click to choose" affordance to a solid, accented outline.
   const [styleChosen, setStyleChosen] = useState(false)
+  // Brief enhance + undo/redo (mirrors Playground's prompt controls). History
+  // is local; `briefSync` tracks the value we last set so a render-time check
+  // can tell an external change (Create-new clears it, a history item loads)
+  // from the user's own typing and reset the stack only on external changes.
+  const [isEnhancing, setIsEnhancing] = useState(false)
+  const [briefHistory, setBriefHistory] = useState<string[]>([brief])
+  const [briefIndex, setBriefIndex] = useState(0)
+  const [briefSync, setBriefSync] = useState(brief)
+  if (brief !== briefSync) {
+    setBriefSync(brief)
+    setBriefHistory([brief])
+    setBriefIndex(0)
+  }
+  const canUndoBrief = briefIndex > 0
+  const canRedoBrief = briefIndex < briefHistory.length - 1
   const products = useBankStore((s) => s.products)
   const models = useBankStore((s) => s.models)
   const updateProduct = useBankStore((s) => s.updateProduct)
@@ -113,10 +130,10 @@ export default function InputPanel({
   // Influencer picker and caps the length toggle to single-clip durations.
   const isPromptFormat = writeFormat === 'prompt'
 
-  // Switching into the cinematic format clamps the length to a value a single
-  // video generation can actually render (10s / 15s).
+  // Switching into the cinematic format clamps the length to one the single-clip
+  // format offers (10s / 15s / 30s).
   const handleFormatChange = (f: WriteFormat) => {
-    if (f === 'prompt' && writeLength !== 10 && writeLength !== 15) onWriteLengthChange(15)
+    if (f === 'prompt' && !PROMPT_LENGTHS.includes(writeLength)) onWriteLengthChange(15)
     onWriteFormatChange(f)
   }
 
@@ -142,6 +159,59 @@ export default function InputPanel({
     if (selectedProduct) {
       setEditableContext(createEditableContext(selectedProduct))
       setDetailsOpen(false)
+    }
+  }
+
+  // Set the brief from one of our own actions (typing / undo / redo / enhance):
+  // keep `briefSync` in step so the render-time check above doesn't mistake it
+  // for an external reset.
+  const setBrief = (next: string) => {
+    setBriefSync(next)
+    onBriefChange(next)
+  }
+  // Type handler — updates the brief live but doesn't push a history entry until
+  // blur, so undo steps through coherent chunks instead of single keystrokes.
+  const handleBriefType = (next: string) => setBrief(next)
+
+  const pushBriefHistory = (next: string, base = briefHistory, baseIndex = briefIndex) => {
+    const nextHistory = [...base.slice(0, baseIndex + 1), next]
+    setBriefHistory(nextHistory)
+    setBriefIndex(nextHistory.length - 1)
+    setBrief(next)
+  }
+  // Commit the current typed draft into history (fired on blur). No-op when it
+  // matches the latest entry.
+  const commitBriefDraft = () => {
+    if (brief !== briefHistory[briefIndex]) pushBriefHistory(brief)
+  }
+  const handleBriefUndo = () => {
+    if (briefIndex <= 0) return
+    const i = briefIndex - 1
+    setBriefIndex(i)
+    setBrief(briefHistory[i])
+  }
+  const handleBriefRedo = () => {
+    if (briefIndex >= briefHistory.length - 1) return
+    const i = briefIndex + 1
+    setBriefIndex(i)
+    setBrief(briefHistory[i])
+  }
+  const handleEnhanceBrief = async () => {
+    if (isEnhancing) return
+    if (!brief.trim()) return
+    // Fold any uncommitted typed draft into history first so Undo returns to
+    // exactly what the user had before enhancing.
+    const committed = brief !== briefHistory[briefIndex]
+      ? [...briefHistory.slice(0, briefIndex + 1), brief]
+      : briefHistory.slice(0, briefIndex + 1)
+    setIsEnhancing(true)
+    try {
+      const rewritten = await enhanceBrief(brief)
+      pushBriefHistory(rewritten, committed, committed.length - 1)
+    } catch (err) {
+      addToast(humanizeError(err, 'Enhance failed.'), 'error')
+    } finally {
+      setIsEnhancing(false)
     }
   }
 
@@ -187,11 +257,9 @@ export default function InputPanel({
   // for Write New (before the brief) than for the remix modes (after the
   // source text).
   const productSection = (
-    <div className="mb-6">
-      <StepLabel label="Product Context" />
-
+    <div className="mb-3">
       {selectedProduct ? (
-        <div className="mt-2">
+        <div>
           {/* Whole-card-clickable — hitting any part of the populated
               product card opens the picker. The Change label is a hover
               affordance only. Sized to match the B-Roll reference pills. */}
@@ -247,7 +315,7 @@ export default function InputPanel({
           )}
         </div>
       ) : (
-        <div className="mt-2">
+        <div>
           {products.length > 0 ? (
             <button
               onClick={() => setProductPickerOpen(true)}
@@ -286,14 +354,9 @@ export default function InputPanel({
   // the Playground handoff as the @INFLUENCER reference so the face stays
   // consistent across the commercial. Mirrors the product card styling.
   const influencerSection = (
-    <div className="mb-6">
-      <StepLabel
-        label="Influencer"
-        tooltip="Optional. The influencer whose face stays consistent across the commercial — their portrait is sent to Playground as the @INFLUENCER reference."
-      />
-
+    <div className="mb-3">
       {selectedInfluencer ? (
-        <div className="mt-2">
+        <div>
           <div
             role="button"
             tabIndex={0}
@@ -332,7 +395,7 @@ export default function InputPanel({
           </div>
         </div>
       ) : (
-        <div className="mt-2">
+        <div>
           {models.length > 0 ? (
             <button
               onClick={() => setInfluencerPickerOpen(true)}
@@ -394,51 +457,51 @@ export default function InputPanel({
       <div className="flex flex-1 flex-col overflow-y-auto px-5 pb-5 pt-4">
         {mode === 'write' ? (
           <>
-            {/* Output — the sub-mode. It governs the form below (Style vs
+            {/* Output sub-mode toggle — governs the form below (Style vs
                 Influencer picker, the length options, the artifact), so it
-                leads, right under the mode toggle. The page-level Clear All
-                rides this row. */}
-            <div className="mb-6">
-              <div className="flex items-center justify-between gap-2">
-                <StepLabel label="Output" />
-                <ClearAllButton onClear={onClear} />
-              </div>
-              {/* House pill sized to match the Influencers Portrait/Character
-                  Sheet toggle (h-12, p-1). */}
-              <div className="mt-2">
-                <SegmentedToggle<WriteFormat>
-                  className="h-12 !p-1"
-                  accent="scripts"
-                  value={writeFormat}
-                  onChange={handleFormatChange}
-                  options={[
-                    { value: 'script', label: 'Script', icon: FileText },
-                    { value: 'scenes', label: 'Scenes', icon: Clapperboard },
-                    { value: 'prompt', label: 'Cinematic', icon: Film },
-                  ]}
-                />
-              </div>
+                leads, right under the mode toggle. Sized to match the
+                Influencers Portrait/Character Sheet toggle (h-12, p-1). */}
+            <div className="mb-3">
+              <SegmentedToggle<WriteFormat>
+                className="h-12 !p-1"
+                accent="scripts"
+                value={writeFormat}
+                onChange={handleFormatChange}
+                options={[
+                  { value: 'script', label: 'Script', icon: FileText },
+                  { value: 'scenes', label: 'Scenes', icon: Clapperboard },
+                  { value: 'prompt', label: 'Cinematic', icon: Film },
+                ]}
+              />
             </div>
 
-            {/* Product */}
-            {productSection}
+            {/* Length — sits directly under the format toggle, tight with the
+                product + style cluster below it. */}
+            <div className="mb-3">
+              <SegmentedToggle<string>
+                className="h-12 !p-1"
+                accent="scripts"
+                value={String(writeLength)}
+                onChange={(v) => onWriteLengthChange(Number(v) as WriteLength)}
+                options={(isPromptFormat ? PROMPT_LENGTHS : WRITE_LENGTHS).map((len) => ({ value: String(len), label: `${len}s` }))}
+              />
+            </div>
 
             {/* Cinematic format swaps the Script Style picker for an Influencer
                 picker — an optional consistent face for the @INFLUENCER ref. */}
             {isPromptFormat && influencerSection}
 
-            {/* Script Style — heading + the full-size pill button, above the
-                brief. Tapping the button opens the style picker slide-over.
-                Hidden in the cinematic format (no spoken-script structure). */}
+            {/* Script Style — sits above the product picker. Tapping the button
+                opens the style picker slide-over. Hidden in the cinematic format
+                (no spoken-script structure). */}
             {!isPromptFormat && (
-            <div className="mb-6">
-              <StepLabel label="Script Style" />
+            <div className="mb-3">
               <div
                 role="button"
                 tabIndex={0}
                 onClick={() => setStyleSlideOpen(true)}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setStyleSlideOpen(true) } }}
-                className={`group mt-2 flex w-full cursor-pointer items-center gap-3 rounded-full border px-4 py-3.5 text-left transition-colors ${
+                className={`group flex w-full cursor-pointer items-center gap-3 rounded-full border px-4 py-3.5 text-left transition-colors ${
                   styleChosen
                     ? 'border-scripts-500/30 bg-scripts-500/10 hover:border-scripts-500/40 hover:bg-scripts-500/[0.14]'
                     : 'border-dashed border-ink/10 bg-ink/[0.02] hover:border-scripts-500/30 hover:bg-scripts-500/5'
@@ -455,7 +518,7 @@ export default function InputPanel({
                     </>
                   ) : (
                     <>
-                      <div className="text-sm font-medium text-ink-300">Select a style</div>
+                      <div className="text-sm font-medium text-ink-300">Select Script Style</div>
                       <div className="text-xs text-ink-600">Choose how the script is structured</div>
                     </>
                   )}
@@ -483,51 +546,68 @@ export default function InputPanel({
             </div>
             )}
 
-            {/* The brief + length + output */}
-            <div className="mb-6 flex flex-col">
-              <StepLabel
-                label="Describe Your Video"
-                optional
-                tooltip="What should this video say or focus on? Vibe, angle, key points — anything goes. Leave it blank and the model will come up with the angle for you."
-              />
+            {/* Product — sits below the style / influencer picker. */}
+            {productSection}
+
+            {/* The brief */}
+            <div className="mt-3 mb-6 flex flex-col">
+              <div className="flex items-center justify-between gap-2">
+                <StepLabel
+                  label="Describe Your Video"
+                  optional
+                  tooltip="What should this video say or focus on? Vibe, angle, key points — anything goes. Leave it blank and the model will come up with the angle for you."
+                />
+                {/* Enhance + Undo/Redo — rewrites the brief into a sharper one,
+                    with full undo history (mirrors Playground's prompt bar). */}
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <button
+                    type="button"
+                    title="Enhance brief"
+                    onClick={handleEnhanceBrief}
+                    disabled={isEnhancing || !brief.trim()}
+                    className="flex items-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.02] px-2.5 py-1 text-[11px] font-medium text-ink-300 transition-colors hover:border-scripts-500/30 hover:bg-scripts-500/10 hover:text-scripts-300 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {isEnhancing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                    Enhance
+                  </button>
+                  <button
+                    type="button"
+                    title="Undo"
+                    onClick={handleBriefUndo}
+                    disabled={!canUndoBrief || isEnhancing}
+                    className="flex h-6 w-6 items-center justify-center rounded-full border border-ink/10 bg-ink/[0.02] text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    <Undo2 className="h-3 w-3" />
+                  </button>
+                  <button
+                    type="button"
+                    title="Redo"
+                    onClick={handleBriefRedo}
+                    disabled={!canRedoBrief || isEnhancing}
+                    className="flex h-6 w-6 items-center justify-center rounded-full border border-ink/10 bg-ink/[0.02] text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    <Redo2 className="h-3 w-3" />
+                  </button>
+                </div>
+              </div>
               {/* Fixed-height box (Playground prompt pattern): it never grows
                   with content — it scrolls internally so the page stays put. */}
               <div className="relative mt-3">
                 <textarea
                   value={brief}
-                  onChange={(e) => onBriefChange(e.target.value)}
+                  onChange={(e) => handleBriefType(e.target.value)}
+                  onBlur={commitBriefDraft}
                   rows={6}
                   placeholder={"Leave blank and I'll come up with the angle — or steer it: e.g. A girl in her 20s talking about this serum like she's telling her best friend, focus on how fast it cleared her skin. Casual, a little funny, end with the discount code."}
                   className="h-[150px] w-full resize-none overflow-y-auto rounded-3xl border border-ink/10 bg-ink/[0.02] px-4 py-3 text-sm leading-relaxed text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-scripts-500/30"
                 />
                 <ExpandButton onClick={() => setExpandedField('brief')} className="absolute bottom-2 right-2" />
               </div>
-
-              {/* Length — a segmented toggle (same sliding animation as the
-                  mode toggle up top). */}
-              <div className="mt-5">
-                <StepLabel label="Length" />
-                <div className="mt-2">
-                  <SegmentedToggle<string>
-                    className="h-12 !p-1"
-                    accent="scripts"
-                    value={String(writeLength)}
-                    onChange={(v) => onWriteLengthChange(Number(v) as WriteLength)}
-                    options={(isPromptFormat ? PROMPT_LENGTHS : WRITE_LENGTHS).map((len) => ({ value: String(len), label: `${len}s` }))}
-                  />
-                </div>
-              </div>
-
             </div>
           </>
         ) : mode === 'remix' ? (
           <div className="mb-6 flex grow flex-col">
-            <div className="flex items-center justify-between gap-2">
-              <StepLabel label="Proven Script Transcript" />
-              <ClearAllButton onClear={onClear} />
-            </div>
-
-            <div className="mt-2">
+            <div>
               <ScriptBankCard
                 selected={remixScript}
                 label="Script"
@@ -558,12 +638,7 @@ export default function InputPanel({
           </div>
         ) : (
           <div className="mb-6 flex flex-col">
-            <div className="flex items-center justify-between gap-2">
-              <StepLabel label="Reverse-Engineered Scene" />
-              <ClearAllButton onClear={onClear} />
-            </div>
-
-            <div className="mt-2">
+            <div>
               <ScriptBankCard
                 selected={sceneScript}
                 label="Scene"
@@ -617,8 +692,12 @@ export default function InputPanel({
         )}
       </div>
 
-      {/* Generate button */}
+      {/* Generate button — with the "Create new" reset parked in the
+          bottom-left, above it (one shared reset for every mode). */}
       <div className="fixed bottom-0 left-0 right-0 z-30 shrink-0 border-t border-ink/5 bg-surface-0/95 px-5 py-4 backdrop-blur-xl md:static md:left-auto md:right-auto md:z-auto md:bg-transparent md:backdrop-blur-none">
+        <div className="mb-3 flex">
+          <ClearAllButton onClear={onClear} />
+        </div>
         <button
           onClick={() => onGenerate(editableContext)}
           disabled={!canGenerate || isGenerating}
@@ -735,9 +814,9 @@ export default function InputPanel({
 
       <ExpandTextModal
         open={expandedField === 'brief'}
-        onClose={() => setExpandedField(null)}
+        onClose={() => { commitBriefDraft(); setExpandedField(null) }}
         value={brief}
-        onChange={onBriefChange}
+        onChange={handleBriefType}
         title="Describe Your Video"
         accent="scripts"
         placeholder="What should this video say or focus on? Vibe, angle, key points…"

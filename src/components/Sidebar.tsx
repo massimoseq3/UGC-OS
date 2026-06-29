@@ -136,12 +136,10 @@ export default function Sidebar() {
         <div className="border-t border-ink/5 px-2 py-3">
           {showExpanded ? (
             <>
-              {/* Live balance + buy-credits CTA, side by side, above the account group. */}
-              <div className="flex items-center gap-1.5">
-                <div className="min-w-0 flex-1">
-                  <CreditsChip collapsed={false} />
-                </div>
+              {/* Buy-credits CTA on top, live balance stacked directly below it. */}
+              <div className="flex flex-col gap-1.5">
                 <GetMoreCreditsChip collapsed={false} />
+                <CreditsChip collapsed={false} />
               </div>
               {/* Appearance — sits directly under credits, sized to match it. */}
               <SidebarThemeToggle collapsed={false} />
@@ -231,13 +229,15 @@ function GetMoreCreditsChip({ collapsed }: { collapsed: boolean }) {
       target="_blank"
       rel="noopener noreferrer"
       title="Get credits — opens kie.ai billing"
-      className="group flex h-9 shrink-0 items-center gap-0.5 rounded-full border border-ink/15 bg-ink/[0.06] pl-3 pr-2.5 transition-colors hover:bg-ink/[0.1]"
+      className="group flex h-9 w-full items-center gap-2.5 rounded-full border border-ink/15 bg-ink/[0.06] px-3 transition-colors hover:bg-ink/[0.1]"
     >
+      <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+        <ArrowUpRight
+          className="h-3.5 w-3.5 text-ink-400 transition-colors group-hover:text-ink-200"
+          strokeWidth={2}
+        />
+      </span>
       <span className="whitespace-nowrap text-[12px] font-medium text-ink-200">Get Credits</span>
-      <ArrowUpRight
-        className="h-3.5 w-3.5 shrink-0 text-ink-400 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-ink-200"
-        strokeWidth={2}
-      />
     </a>
   )
 }
@@ -291,17 +291,26 @@ function CreditsChip({ collapsed }: { collapsed: boolean }) {
     <button
       onClick={handleRefresh}
       disabled={refreshing}
-      // h-9 to match the controls beside/below it. No leading coin glyph so the
-      // number has room next to the "Get Credits" CTA; the whole chip is still
-      // the refresh control (a spinner shows while refreshing).
-      className="group flex h-9 w-full items-center justify-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.04] px-2.5 transition-colors hover:bg-ink/[0.08] disabled:opacity-60"
+      // Full width + h-9 to match the controls stacked below it. The leading
+      // coin glyph swaps to a refresh icon on hover, so the whole chip reads as
+      // the refresh control without a separate button.
+      className="group flex h-9 w-full items-center gap-2.5 rounded-full border border-ink/10 bg-ink/[0.04] px-3 transition-colors hover:bg-ink/[0.08] disabled:opacity-60"
       title="kie.ai credits remaining — click to refresh"
       aria-label="Refresh credits balance"
     >
-      {refreshing && <RefreshCw className="h-3.5 w-3.5 shrink-0 animate-spin text-ink-300" strokeWidth={1.75} />}
+      <span className="relative flex h-4 w-4 shrink-0 items-center justify-center">
+        {refreshing ? (
+          <RefreshCw className="h-4 w-4 animate-spin text-ink-300" strokeWidth={1.75} />
+        ) : (
+          <>
+            <Coins className="h-4 w-4 text-ink-300 group-hover:opacity-0" strokeWidth={1.75} />
+            <RefreshCw className="absolute h-4 w-4 text-ink-200 opacity-0 group-hover:opacity-100" strokeWidth={1.75} />
+          </>
+        )}
+      </span>
       <span className="min-w-0 truncate text-[13px] text-ink-300">
         <span className="tabular-nums">{label}</span>
-        <span className="text-ink-500"> credits</span>
+        <span className="text-ink-500"> credits left</span>
       </span>
     </button>
   )

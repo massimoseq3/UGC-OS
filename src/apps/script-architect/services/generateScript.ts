@@ -273,16 +273,19 @@ const WRITE_PROMPT_TAKE_INSTRUCTION: string[] = [
   'THIS CONCEPT — SLEEK / DESIGN-FORWARD: a stylised, ultra-premium brand-film world — bold colour, striking architecture, or a surreal-but-photoreal setting. Modern, iconic, high-fashion energy.',
 ]
 
-// Single-clip beat budgets. The cinematic format is V1-capped at one ≤15s
-// generation, so only 10s / 15s are offered (anything longer would need a
-// multi-clip chain the video models can't do in one shot).
+// Single-clip beat budgets. The cinematic format renders as one generation, so
+// it offers the durations a video model can do in a single shot (10s / 15s /
+// 30s); anything longer would need a multi-clip chain the models can't do.
 const WRITE_PROMPT_BEATS: Record<number, string> = {
   10: '3–4 contiguous beats spanning 0–10s',
   15: '5 contiguous beats spanning 0–15s',
+  30: '7–9 contiguous beats spanning 0–30s',
 }
 
 async function runCinematicPrompt(input: GenerateScriptInput, take: number, length: number, apiKey: string, endpoint: string): Promise<string> {
-  const effLen = length === 10 ? 10 : 15
+  // Use the requested length when the single-clip format supports it, else fall
+  // back to 15s.
+  const effLen = WRITE_PROMPT_BEATS[length] ? length : 15
 
   let prompt = `The creator's brief for this commercial:\n\n${input.brief.trim()}\n\n`
 
@@ -440,4 +443,37 @@ export async function generateScript(input: GenerateScriptInput): Promise<Genera
   const angles: RemixAngle[] = ['hook-led', 'pain-point-led', 'curiosity-led']
   const variations = await Promise.all(angles.map((angle) => runRemix(input, angle, apiKey, endpoint)))
   return { variations }
+}
+
+// ── Brief enhancement ──
+// Rewrites the creator's rough "Describe Your Video" brief into a sharper
+// creative brief for the script writer. Mirrors Playground's prompt-enhance,
+// but tuned for a brief (direction) rather than a finished prompt.
+const ENHANCE_BRIEF_SYSTEM = `You are a senior UGC ad strategist. You rewrite a creator's rough video brief into a clear, specific creative brief that an AI script writer can turn into a great short-form ad. You KEEP the creator's intent, angle and any product details — you never invent a different concept. You make it concrete (audience, angle, tone, key talking points, call-to-action) without padding it out.`
+
+export async function enhanceBrief(draft: string): Promise<string> {
+  const apiKey = useSettingsStore.getState().getKieApiKey()
+  const endpoint = getChatEndpointPath()
+
+  const userMessage = `Rewrite the rough video brief below into a sharper brief for writing a short-form UGC ad script. Keep the creator's intent and angle; make the target audience, tone, key talking points and call-to-action concrete.
+
+Rules:
+- Keep it a BRIEF (direction for the writer), not a finished script. A few tight sentences.
+- Return ONLY the rewritten brief as plain text. No preamble, no quotes, no markdown, no "Here is".
+
+Draft:
+"""
+${draft}
+"""`
+
+  const messages: ChatMessage[] = [
+    { role: 'system', content: [{ type: 'text', text: ENHANCE_BRIEF_SYSTEM }] },
+    { role: 'user', content: [{ type: 'text', text: userMessage }] },
+  ]
+  const responseText = await kieChatCompletions(apiKey, endpoint, messages)
+  return responseText
+    .replace(/```[a-z]*\n?/gi, '')
+    .replace(/```/g, '')
+    .replace(/^\s*["']|["']\s*$/g, '')
+    .trim()
 }
