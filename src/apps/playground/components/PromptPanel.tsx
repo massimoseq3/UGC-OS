@@ -324,7 +324,11 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
       // so only snap when the model actually offers a set.
       if (c.aspectRatios.length > 0 && !c.aspectRatios.includes(state.aspectRatio)) patch.aspectRatio = c.aspectRatios[0]
       if (c.durations.length > 0 && !c.durations.includes(state.durationSeconds)) patch.durationSeconds = c.durations[0]
-      if (!c.resolutions.includes(state.resolution)) patch.resolution = c.default ?? c.resolutions[0] ?? '720p'
+      // Snap to the model's preferred default on switch (e.g. Omni prefers
+      // 1080p — same credits as 720p). Models without a declared default keep
+      // a still-valid resolution, only clamping when the current tier is gone.
+      const nextRes = c.default ?? (c.resolutions.includes(state.resolution) ? state.resolution : c.resolutions[0] ?? '720p')
+      if (nextRes !== state.resolution) patch.resolution = nextRes
       // Audio defaults ON for every audio-capable model (matches B-Roll); OFF
       // when the model can't do audio. User can still mute via the toggle.
       if (state.audio !== (c.supportsAudio === true)) patch.audio = c.supportsAudio === true
@@ -611,126 +615,8 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
                 />
               </div>
 
-              {/* Output settings — resolution / aspect (+ duration, audio,
-                  lyrics per mode). Lives inside the Model section so the
-                  chips hug the picker instead of floating a section away. */}
-              <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              {state.mode === 'video' && model?.videoConstraints && (
-                <>
-                  <ConstraintChip
-                    grow
-                    openDirection="down"
-                    options={model.videoConstraints.resolutions}
-                    value={state.resolution}
-                    onChange={(v) => onChange({ ...state, resolution: v })}
-                    render={videoResolutionLabel}
-                  />
-                  {/* Motion Control has no aspect/duration/audio controls — clip
-                      length comes from the driving video and aspect from the
-                      character image. Only the resolution chip applies.
-                      Image-conditioned models (e.g. Kling 3.0 Turbo) also expose
-                      no aspect param — aspect is inherited from the input image,
-                      so aspectRatios is [] and the chip stays hidden. */}
-                  {!isMotionControl && model.videoConstraints.aspectRatios.length > 0 && (
-                  <ConstraintChip
-                    grow
-                    openDirection="down"
-                    options={model.videoConstraints.aspectRatios}
-                    value={state.aspectRatio}
-                    onChange={(v) => onChange({ ...state, aspectRatio: v })}
-                    render={(v) => (
-                      <span className="flex items-center gap-1.5">
-                        <AspectIcon ratio={v} />
-                        <span>{v}</span>
-                      </span>
-                    )}
-                  />
-                  )}
-                  {!isMotionControl && model.videoConstraints.durations.length > 0 && (
-                    <ConstraintChip
-                      grow
-                      openDirection="down"
-                      options={model.videoConstraints.durations.map(String)}
-                      value={String(state.durationSeconds)}
-                      onChange={(v) => onChange({ ...state, durationSeconds: Number(v) })}
-                      render={(v) => <span>{v}s</span>}
-                    />
-                  )}
-                  {!isMotionControl && model.videoConstraints.supportsAudio && (
-                    <ConstraintChip
-                      grow
-                      openDirection="down"
-                      options={['Audio', 'Mute']}
-                      value={state.audio ? 'Audio' : 'Mute'}
-                      onChange={(v) => onChange({ ...state, audio: v === 'Audio' })}
-                      triggerClassName={state.audio
-                        ? 'border-playground-500/30 bg-playground-500/10 text-playground-200'
-                        : 'border-ink/10 bg-ink/[0.02] text-ink-400 group-hover:bg-ink/[0.05]'}
-                      render={(v) => (
-                        <span className="flex items-center gap-1.5">
-                          {v === 'Audio' ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
-                          <span>{v}</span>
-                        </span>
-                      )}
-                    />
-                  )}
-                </>
-              )}
-
-              {state.mode === 'image' && model?.imageConstraints && (
-                <>
-                  <ConstraintChip
-                    grow
-                    openDirection="down"
-                    options={model.imageConstraints.resolutions}
-                    value={state.resolution}
-                    onChange={(v) => onChange({ ...state, resolution: v })}
-                  />
-                  {model.imageConstraints.aspectRatios && (
-                    <ConstraintChip
-                      grow
-                      openDirection="down"
-                      options={model.imageConstraints.aspectRatios}
-                      value={state.aspectRatio}
-                      onChange={(v) => onChange({ ...state, aspectRatio: v })}
-                      render={(v) => (
-                        <span className="flex items-center gap-1.5">
-                          <AspectIcon ratio={v} />
-                          <span>{v}</span>
-                        </span>
-                      )}
-                    />
-                  )}
-                </>
-              )}
-
-              {state.mode === 'music' && (
-                <div className="inline-flex rounded-full border border-ink/10 bg-ink/[0.02] p-0.5">
-                  <button
-                    type="button"
-                    onClick={() => onChange({ ...state, instrumental: true })}
-                    className={`rounded-full px-4 py-1.5 text-[12px] transition-colors ${
-                      state.instrumental
-                        ? 'bg-playground-500/15 text-playground-200'
-                        : 'text-ink-400 hover:text-ink-200'
-                    }`}
-                  >
-                    Instrumental
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onChange({ ...state, instrumental: false })}
-                    className={`rounded-full px-4 py-1.5 text-[12px] transition-colors ${
-                      !state.instrumental
-                        ? 'bg-playground-500/15 text-playground-200'
-                        : 'text-ink-400 hover:text-ink-200'
-                    }`}
-                  >
-                    With lyrics
-                  </button>
-                </div>
-              )}
-              </div>
+              {/* Output settings (resolution / aspect / duration / audio,
+                  per mode) now live in the footer, just above Generate. */}
             </div>
 
             {/* Reference inputs */}
@@ -991,8 +877,133 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
         />
       </div>
 
-      {/* Bottom: pinned footer — big Generate button. */}
+      {/* Bottom: pinned footer — output settings + big Generate button. */}
       <div className="shrink-0 border-t border-ink/5 px-5 py-4">
+        {/* Output settings — resolution / aspect (+ duration, audio, lyrics
+            per mode). Sits just above Generate; dropdowns open upward. */}
+        <div className="mb-3 flex flex-wrap items-center gap-1.5">
+        {state.mode === 'video' && model?.videoConstraints && (
+          <>
+            <ConstraintChip
+              grow
+              hover
+              openDirection="up"
+              options={model.videoConstraints.resolutions}
+              value={state.resolution}
+              onChange={(v) => onChange({ ...state, resolution: v })}
+              render={videoResolutionLabel}
+            />
+            {/* Motion Control has no aspect/duration/audio controls — clip
+                length comes from the driving video and aspect from the
+                character image. Only the resolution chip applies.
+                Image-conditioned models (e.g. Kling 3.0 Turbo) also expose
+                no aspect param — aspect is inherited from the input image,
+                so aspectRatios is [] and the chip stays hidden. */}
+            {!isMotionControl && model.videoConstraints.aspectRatios.length > 0 && (
+            <ConstraintChip
+              grow
+              hover
+              openDirection="up"
+              options={model.videoConstraints.aspectRatios}
+              value={state.aspectRatio}
+              onChange={(v) => onChange({ ...state, aspectRatio: v })}
+              render={(v) => (
+                <span className="flex items-center gap-1.5">
+                  <AspectIcon ratio={v} />
+                  <span>{v}</span>
+                </span>
+              )}
+            />
+            )}
+            {!isMotionControl && model.videoConstraints.durations.length > 0 && (
+              <ConstraintChip
+                grow
+                hover
+                openDirection="up"
+                options={model.videoConstraints.durations.map(String)}
+                value={String(state.durationSeconds)}
+                onChange={(v) => onChange({ ...state, durationSeconds: Number(v) })}
+                render={(v) => <span>{v}s</span>}
+              />
+            )}
+            {!isMotionControl && model.videoConstraints.supportsAudio && (
+              <ConstraintChip
+                grow
+                hover
+                openDirection="up"
+                options={['Audio', 'Mute']}
+                value={state.audio ? 'Audio' : 'Mute'}
+                onChange={(v) => onChange({ ...state, audio: v === 'Audio' })}
+                triggerClassName={state.audio
+                  ? 'border-playground-500/30 bg-playground-500/10 text-playground-200'
+                  : 'border-ink/10 bg-ink/[0.02] text-ink-400 group-hover:bg-ink/[0.05]'}
+                render={(v) => (
+                  <span className="flex items-center gap-1.5">
+                    {v === 'Audio' ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
+                    <span>{v}</span>
+                  </span>
+                )}
+              />
+            )}
+          </>
+        )}
+
+        {state.mode === 'image' && model?.imageConstraints && (
+          <>
+            <ConstraintChip
+              grow
+              hover
+              openDirection="up"
+              options={model.imageConstraints.resolutions}
+              value={state.resolution}
+              onChange={(v) => onChange({ ...state, resolution: v })}
+            />
+            {model.imageConstraints.aspectRatios && (
+              <ConstraintChip
+                grow
+                hover
+                openDirection="up"
+                options={model.imageConstraints.aspectRatios}
+                value={state.aspectRatio}
+                onChange={(v) => onChange({ ...state, aspectRatio: v })}
+                render={(v) => (
+                  <span className="flex items-center gap-1.5">
+                    <AspectIcon ratio={v} />
+                    <span>{v}</span>
+                  </span>
+                )}
+              />
+            )}
+          </>
+        )}
+
+        {state.mode === 'music' && (
+          <div className="inline-flex rounded-full border border-ink/10 bg-ink/[0.02] p-0.5">
+            <button
+              type="button"
+              onClick={() => onChange({ ...state, instrumental: true })}
+              className={`rounded-full px-4 py-1.5 text-[12px] transition-colors ${
+                state.instrumental
+                  ? 'bg-playground-500/15 text-playground-200'
+                  : 'text-ink-400 hover:text-ink-200'
+              }`}
+            >
+              Instrumental
+            </button>
+            <button
+              type="button"
+              onClick={() => onChange({ ...state, instrumental: false })}
+              className={`rounded-full px-4 py-1.5 text-[12px] transition-colors ${
+                !state.instrumental
+                  ? 'bg-playground-500/15 text-playground-200'
+                  : 'text-ink-400 hover:text-ink-200'
+              }`}
+            >
+              With lyrics
+            </button>
+          </div>
+        )}
+        </div>
         <button
           type="button"
           onClick={onSubmit}

@@ -17,6 +17,7 @@ import type { ImageHistoryItem, VideoHistoryItem, MusicHistoryItem } from '../..
 import AudioTile from './AudioTile'
 import GenerationProgress from '../../../components/GenerationProgress'
 import GeneratingBackdrop from '../../../components/GeneratingBackdrop'
+import SegmentedToggle from '../../../components/SegmentedToggle'
 import type { PlaygroundMode, InFlightGen } from '../types'
 import { humanizeError } from '../../../utils/friendlyError'
 export type { InFlightGen }
@@ -127,8 +128,10 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode }: Playgrou
 
   return (
     <div className="flex h-full flex-col">
-      {/* Header — card-size slider (list view only) + view switch (Grid / List). */}
-      <div className="flex shrink-0 items-center justify-end gap-3 border-b border-ink/5 px-4 py-2">
+      {/* Header — card-size slider (list view only) + view switch (Grid / List).
+          Matches the prompt panel's h-[57px] mode-toggle bar so the left/right
+          tabs sit on the same line. */}
+      <div className="flex h-[57px] shrink-0 items-center justify-end gap-3 border-b border-ink/5 px-4">
         {viewMode === 'list' && (
           <div className="flex items-center gap-2.5" title="Card size">
             <Maximize2 className="h-3.5 w-3.5 text-ink-500" />
@@ -276,34 +279,21 @@ function DayPill({ label }: { label: string }) {
 
 // ── View toggle ─────────────────────────────────────────────────
 
-// Grid / List switch in the history header. Segmented pill, accent tint on the
-// active side — same family as the prompt panel's constraint chips.
+// Grid / List switch in the history header. Built on SegmentedToggle with the
+// same `h-10 !p-1` sizing as the Video/Image/Music mode toggle so the two tabs
+// read as a matched pair across the panel split.
 function ViewToggle({ value, onChange }: { value: 'grid' | 'list'; onChange: (v: 'grid' | 'list') => void }) {
-  const options: Array<{ id: 'grid' | 'list'; label: string; icon: typeof LayoutGrid }> = [
-    { id: 'list', label: 'List', icon: List },
-    { id: 'grid', label: 'Grid', icon: LayoutGrid },
-  ]
   return (
-    <div className="inline-flex rounded-full border border-ink/10 bg-ink/[0.02] p-0.5">
-      {options.map((opt) => {
-        const Icon = opt.icon
-        const active = value === opt.id
-        return (
-          <button
-            key={opt.id}
-            type="button"
-            onClick={() => onChange(opt.id)}
-            title={`${opt.label} view`}
-            className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-medium transition-colors ${
-              active ? 'bg-playground-500/15 text-playground-200' : 'text-ink-400 hover:text-ink-200'
-            }`}
-          >
-            <Icon className="h-3.5 w-3.5" />
-            <span>{opt.label}</span>
-          </button>
-        )
-      })}
-    </div>
+    <SegmentedToggle<'grid' | 'list'>
+      fitContent
+      className="h-10 !p-1"
+      value={value}
+      onChange={onChange}
+      options={[
+        { value: 'list', label: 'List', icon: List },
+        { value: 'grid', label: 'Grid', icon: LayoutGrid },
+      ]}
+    />
   )
 }
 

@@ -203,6 +203,23 @@ export async function ensureOmniCharacterId(bankModelId: string): Promise<string
   return created.characterId
 }
 
+// Mints a one-off Omni character id from an uploaded image (no bank row). The
+// image is hosted, then /omni/character/create returns a reusable id we attach
+// straight to the ref — mirrors ensureOmniCharacterId minus the bank stamping.
+export async function createOmniCharacterFromImage(dataUri: string, name?: string): Promise<string> {
+  const apiKey = useSettingsStore.getState().getKieApiKey()
+  const imageUrl = await ensureHostedUrl(apiKey, dataUri)
+  const created = await kieOmniCharacterCreate(apiKey, {
+    imageUrl,
+    descriptions: name || 'Uploaded character',
+    characterName: (name || 'Character').slice(0, 100),
+  })
+  if (!created.characterId) {
+    throw new Error('Omni character creation returned no characterId.')
+  }
+  return created.characterId
+}
+
 // ── Video ──────────────────────────────────────────────────────────
 
 export interface PlaygroundVideoStartInput {
@@ -225,6 +242,9 @@ export interface PlaygroundVideoStartInput {
   // omni id is minted lazily via ensureOmniCharacterId), designed voice ids,
   // and an optional trimmed source clip.
   omniCharacterBankIds?: string[]
+  // Pre-minted Omni character ids from uploaded images (no bank row) — merged
+  // with the bank-resolved ids above.
+  omniCharacterIds?: string[]
   omniAudioIds?: string[]
   videoClip?: { url: string; start: number; ends: number }
   // Kling Motion Control — the reference character image + driving video
@@ -294,11 +314,13 @@ export async function startPlaygroundVideoTask(
   // Omni characters: resolve each attached bank influencer to its persistent
   // character id, minting on first use.
   let omniCharacterIds: string[] | undefined
-  if (input.omniCharacterBankIds?.length) {
+  if (input.omniCharacterBankIds?.length || input.omniCharacterIds?.length) {
     omniCharacterIds = []
-    for (const bankId of input.omniCharacterBankIds) {
+    for (const bankId of input.omniCharacterBankIds ?? []) {
       omniCharacterIds.push(await ensureOmniCharacterId(bankId))
     }
+    // Uploaded characters were already minted at attach time.
+    if (input.omniCharacterIds?.length) omniCharacterIds.push(...input.omniCharacterIds)
   }
 
   // Motion Control: host the reference image + driving video. The video is
