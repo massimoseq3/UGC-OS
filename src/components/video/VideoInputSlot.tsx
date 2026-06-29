@@ -68,11 +68,6 @@ export default function VideoInputSlot({ label, helper, value, onChange, bankTyp
   const [pickerOpen, setPickerOpen] = useState(false)
   const [actionMenu, setActionMenu] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
-  // The Upload / Pick-from-bank menu opens on hover; a short close delay bridges
-  // the gap between the tile and the menu so moving onto it doesn't dismiss it.
-  const menuTimer = useRef<number | null>(null)
-  const openMenu = () => { if (menuTimer.current) window.clearTimeout(menuTimer.current); setActionMenu(true) }
-  const closeMenuSoon = () => { menuTimer.current = window.setTimeout(() => setActionMenu(false), 120) }
 
   async function handleFile(file: File | null) {
     if (!file) return
@@ -91,7 +86,7 @@ export default function VideoInputSlot({ label, helper, value, onChange, bankTyp
   }
 
   // Compact mode (Playground start/end frames): a single rounded card with an
-  // "Optional" pill, a circular image glyph and the label inside. Hovering the
+  // "Optional" pill, a circular image glyph and the label inside. Clicking the
   // empty card pops the Upload / Pick-from-Bank menu (same as the reference
   // strip). Once filled it shows the chosen still.
   if (compact) {
@@ -99,7 +94,7 @@ export default function VideoInputSlot({ label, helper, value, onChange, bankTyp
     return (
       <div className="relative">
         {value ? (
-          <div className="relative h-24 w-full overflow-hidden rounded-2xl border border-ink/10 bg-black/40">
+          <div className="relative h-20 w-full overflow-hidden rounded-2xl border border-ink/10 bg-black/40">
             <img src={value.dataUri} alt="" className="mx-auto block h-full w-auto max-w-full object-contain" />
             <button
               onClick={() => onChange(null)}
@@ -120,21 +115,19 @@ export default function VideoInputSlot({ label, helper, value, onChange, bankTyp
               type="button"
               disabled={disabled}
               onClick={() => { if (!disabled) setActionMenu((v) => !v) }}
-              onMouseEnter={disabled ? undefined : openMenu}
-              onMouseLeave={disabled ? undefined : closeMenuSoon}
-              className={`group relative flex h-24 w-full flex-col items-center justify-center gap-1.5 rounded-2xl border border-ink/10 bg-ink/[0.02] transition-colors ${
-                disabled ? 'cursor-not-allowed opacity-50' : 'hover:border-ink/20 hover:bg-ink/[0.04]'
+              className={`group relative flex h-20 w-full flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-ink/15 bg-ink/[0.02] transition-colors ${
+                disabled ? 'cursor-not-allowed opacity-50' : 'hover:border-ink/25 hover:bg-ink/[0.04]'
               }`}
             >
               {badge && (
-                <span className="absolute right-2 top-2 rounded-full bg-ink/[0.06] px-2 py-0.5 text-[9px] font-medium capitalize tracking-wide text-ink-500">
+                <span className="absolute left-2 top-2 rounded-full bg-ink/[0.06] px-2 py-0.5 text-[9px] font-medium capitalize tracking-wide text-ink-500">
                   {badge}
                 </span>
               )}
               <span className="flex h-8 w-8 items-center justify-center rounded-full border border-ink/15 bg-ink/[0.03] text-ink-400 transition-colors group-hover:text-ink-200">
                 <ImageIcon className="h-3.5 w-3.5" />
               </span>
-              <span className="text-[12px] font-medium text-ink-300">{label}</span>
+              <span className="text-[12px] font-normal text-ink-500">{label}</span>
             </button>
             {!disabled && (
               <SlotActionMenu
@@ -143,9 +136,6 @@ export default function VideoInputSlot({ label, helper, value, onChange, bankTyp
                 onClose={() => setActionMenu(false)}
                 onUpload={() => fileInputRef.current?.click()}
                 onPickFromBank={() => setPickerOpen(true)}
-                hover
-                onMouseEnter={openMenu}
-                onMouseLeave={closeMenuSoon}
               />
             )}
           </>

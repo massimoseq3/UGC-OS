@@ -29,7 +29,7 @@ import {
 import { useSettingsStore } from '../../../stores/settingsStore'
 import { fileToDataUri } from '../../../utils/kie'
 import VideoInputSlot, { type VideoInputValue } from '../../../components/video/VideoInputSlot'
-import VideoRefStrip from '../../../components/video/VideoRefStrip'
+import VideoRefStrip, { RefThumbnailStrip } from '../../../components/video/VideoRefStrip'
 import MediaRefStrip, { type MediaRefValue } from '../../../components/video/MediaRefStrip'
 import { readMediaDuration } from '../../../utils/media'
 import OmniInputsSection from './OmniInputsSection'
@@ -280,6 +280,9 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
   const supportsEndFrame = !!model?.modes?.includes('frames-to-video')
   const supportsRefAudio = state.mode === 'video' && !!model?.supportsReferenceAudio
   const supportsRefVideos = state.mode === 'video' && !!model?.supportsReferenceVideos
+  // Reference Images + Audio + Video share one row, one column each.
+  const refRowCount = [refsAllowed, supportsRefAudio, supportsRefVideos].filter(Boolean).length
+  const refRowCols = refRowCount >= 3 ? 'grid-cols-3' : refRowCount === 2 ? 'grid-cols-2' : 'grid-cols-1'
   const isOmni = state.mode === 'video' && !!model?.omniInputs
   const isMotionControl = state.mode === 'video' && !!model?.motionControl
   const motionOrientation = state.characterOrientation ?? 'video'
@@ -770,23 +773,28 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
                         />
                       </div>
                     )}
-                    {refsAllowed && (
-                      <VideoRefStrip
-                        label="Reference Images"
-                        helper="Optional"
-                        values={refStripValues()}
-                        onChange={setRefStrip}
-                        max={maxRefs}
-                        bankType="models"
-                        tabs={PLAYGROUND_REF_TABS}
-                      />
+                    {/* Picked reference images sit full-width above the row as a
+                        four-up strip, not crammed into the Images column. */}
+                    {refsAllowed && refStripValues().length > 0 && (
+                      <RefThumbnailStrip values={refStripValues()} onChange={setRefStrip} />
                     )}
-                    {(supportsRefAudio || supportsRefVideos) && (
-                      <div className={`grid gap-3 ${supportsRefAudio && supportsRefVideos ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                    {(refsAllowed || supportsRefAudio || supportsRefVideos) && (
+                      <div className={`grid items-start gap-3 ${refRowCols}`}>
+                        {refsAllowed && (
+                          <VideoRefStrip
+                            label="Reference Images"
+                            helper="Optional"
+                            values={refStripValues()}
+                            onChange={setRefStrip}
+                            max={maxRefs}
+                            bankType="models"
+                            tabs={PLAYGROUND_REF_TABS}
+                            showThumbnails={false}
+                          />
+                        )}
                         {supportsRefAudio && (
                           <MediaRefStrip
                             label="Reference Audio"
-                            helper="Voice / Lip-Sync, ≤15s"
                             kind="audio"
                             values={mediaStripValues('audio')}
                             onChange={(v) => setMediaStrip('audio', v)}
@@ -798,7 +806,6 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
                         {supportsRefVideos && (
                           <MediaRefStrip
                             label="Reference Videos"
-                            helper="Motion / Style, ≤15s"
                             kind="video"
                             values={mediaStripValues('video')}
                             onChange={(v) => setMediaStrip('video', v)}

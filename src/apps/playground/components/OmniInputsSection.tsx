@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { X, Plus, Mic, Film, ChevronDown } from 'lucide-react'
+import { X, Plus, Mic, Film, UserRound } from 'lucide-react'
 import BankPicker from '../../../components/BankPicker'
 import { readMediaDuration } from '../../../utils/media'
 import { fileToDataUri } from '../../../utils/kie'
@@ -110,69 +110,52 @@ export default function OmniInputsSection({ refs, onChangeRefs }: OmniInputsSect
 
   return (
     <div className="space-y-4">
-      {/* Characters + Voices share one row so both stay above the fold */}
+      {/* Characters + Voices share one row so both stay above the fold.
+          Boxed dashed cards mirror the Reference Images / Audio / Video slots
+          — the "going forward" input aesthetic. Selected items list as chips
+          beneath each card. */}
       <div className="grid grid-cols-2 gap-4">
       <div className="min-w-0">
-        <label className="mb-2 block text-[10px] font-medium uppercase tracking-wider text-ink-500">
-          Characters
-          <span className="text-ink-700 normal-case"> ({characterRefs.length}/{MAX_CHARACTERS})</span>
-        </label>
-        <div className="flex flex-wrap items-center gap-2">
-          {characterRefs.map((r) => (
-            <div key={r.bankModelId} className="flex h-9 items-center gap-2 rounded-full border border-playground-500/25 bg-playground-500/10 pl-1.5 pr-1.5 text-[12px] text-playground-200">
-              <img src={r.url} alt="" className="h-6 w-6 rounded-full object-cover" />
-              <span className="max-w-[120px] truncate">{r.label}</span>
-              <button
-                onClick={() => removeRef(r)}
-                className="flex h-5 w-5 items-center justify-center rounded-full text-playground-300 transition-colors hover:bg-ink/10"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </div>
-          ))}
-          {characterRefs.length < MAX_CHARACTERS && (
-            <button
-              onClick={() => setCharacterPickerOpen(true)}
-              className="flex h-9 items-center gap-1.5 rounded-full border border-dashed border-ink/15 bg-ink/[0.02] px-3.5 text-[12px] text-ink-500 transition-colors hover:border-ink/25 hover:text-ink-300"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              <span>Add influencer</span>
-            </button>
-          )}
-        </div>
+        <OmniAddCard
+          icon={UserRound}
+          label="Characters"
+          count={characterRefs.length}
+          max={MAX_CHARACTERS}
+          full={characterRefs.length >= MAX_CHARACTERS}
+          onClick={() => setCharacterPickerOpen(true)}
+        />
+        {characterRefs.length > 0 && (
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            {characterRefs.map((r) => (
+              <div key={r.bankModelId} className="flex h-9 items-center gap-2 rounded-full border border-playground-500/25 bg-playground-500/10 pl-1.5 pr-1.5 text-[12px] text-playground-200">
+                <img src={r.url} alt="" className="h-6 w-6 rounded-full object-cover" />
+                <span className="max-w-[120px] truncate">{r.label}</span>
+                <button
+                  onClick={() => removeRef(r)}
+                  className="flex h-5 w-5 items-center justify-center rounded-full text-playground-300 transition-colors hover:bg-ink/10"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Voices */}
       <div className="min-w-0">
-        <label className="mb-2 block text-[10px] font-medium uppercase tracking-wider text-ink-500">
-          Voices
-          <span className="text-ink-700 normal-case"> ({voiceRefs.length}/{MAX_VOICES}) — optional</span>
-        </label>
-        <div className="flex flex-wrap items-center gap-2">
-          {voiceRefs.map((r) => (
-            <div key={r.omniId} className="flex h-9 items-center gap-2 rounded-full border border-ink/10 bg-ink/[0.03] pl-3 pr-1.5 text-[12px] text-ink-300">
-              <Mic className="h-3.5 w-3.5 shrink-0 text-ink-500" />
-              <span className="max-w-[120px] truncate">{r.label}</span>
-              <button
-                onClick={() => removeRef(r)}
-                className="flex h-5 w-5 items-center justify-center rounded-full text-ink-500 transition-colors hover:bg-ink/10 hover:text-ink-200"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </div>
-          ))}
-          {voiceRefs.length < MAX_VOICES && (
-            <div className="relative">
-              <button
-                onClick={() => setVoiceMenuOpen((v) => !v)}
-                className="flex h-9 items-center gap-1.5 rounded-full border border-dashed border-ink/15 bg-ink/[0.02] px-3.5 text-[12px] text-ink-500 transition-colors hover:border-ink/25 hover:text-ink-300"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                <span>Add voice</span>
-                <ChevronDown className="h-3 w-3" />
-              </button>
-              {voiceMenuOpen && (
-                <div className="absolute right-0 top-10 z-20 w-60 rounded-2xl border border-ink/10 bg-surface-2 p-1.5 shadow-xl">
+        <div className="relative">
+          <OmniAddCard
+            icon={Mic}
+            label="Voices"
+            count={voiceRefs.length}
+            max={MAX_VOICES}
+            optional
+            full={voiceRefs.length >= MAX_VOICES}
+            onClick={() => setVoiceMenuOpen((v) => !v)}
+          />
+          {voiceMenuOpen && voiceRefs.length < MAX_VOICES && (
+            <div className="absolute right-0 top-[6.5rem] z-20 w-60 rounded-2xl border border-ink/10 bg-surface-2 p-1.5 shadow-xl">
                   {voices.length > 0 && (
                     <div className="max-h-44 overflow-y-auto">
                       {voices.map((v) => (
@@ -204,18 +187,28 @@ export default function OmniInputsSection({ refs, onChangeRefs }: OmniInputsSect
                   </button>
                 </div>
               )}
-            </div>
-          )}
         </div>
+        {voiceRefs.length > 0 && (
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            {voiceRefs.map((r) => (
+              <div key={r.omniId} className="flex h-9 items-center gap-2 rounded-full border border-ink/10 bg-ink/[0.03] pl-3 pr-1.5 text-[12px] text-ink-300">
+                <Mic className="h-3.5 w-3.5 shrink-0 text-ink-500" />
+                <span className="max-w-[120px] truncate">{r.label}</span>
+                <button
+                  onClick={() => removeRef(r)}
+                  className="flex h-5 w-5 items-center justify-center rounded-full text-ink-500 transition-colors hover:bg-ink/10 hover:text-ink-200"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
       </div>
 
-      {/* Source clip */}
+      {/* Source clip — boxed card when empty, chip + trim controls when set. */}
       <div>
-        <label className="mb-2 block text-[10px] font-medium uppercase tracking-wider text-ink-500">
-          Source clip
-          <span className="text-ink-700 normal-case"> — optional, uses 2 slots, trim ≤ {MAX_CLIP_WINDOW_S}s</span>
-        </label>
         {clipRef ? (
           <div className="space-y-2">
             <div className="flex h-9 items-center gap-2 rounded-full border border-ink/10 bg-ink/[0.03] pl-3 pr-1.5 text-[12px] text-ink-300">
@@ -264,13 +257,13 @@ export default function OmniInputsSection({ refs, onChangeRefs }: OmniInputsSect
             </div>
           </div>
         ) : (
-          <button
+          <OmniAddCard
+            icon={Film}
+            label="Source clip"
+            optional
+            helper={`Uses 2 slots · trim ≤ ${MAX_CLIP_WINDOW_S}s`}
             onClick={() => clipInputRef.current?.click()}
-            className="flex h-9 items-center gap-1.5 rounded-full border border-dashed border-ink/15 bg-ink/[0.02] px-3.5 text-[12px] text-ink-500 transition-colors hover:border-ink/25 hover:text-ink-300"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            <span>Upload clip</span>
-          </button>
+          />
         )}
         <input
           ref={clipInputRef}
@@ -305,5 +298,55 @@ export default function OmniInputsSection({ refs, onChangeRefs }: OmniInputsSect
         onCreated={attachVoice}
       />
     </div>
+  )
+}
+
+// Boxed dashed add-card — matches the Reference Images / Audio / Video slots so
+// every Playground input reads the same. Optional chip top-left, count chip
+// top-right, centered icon + label, optional helper subtitle.
+function OmniAddCard({
+  icon: Icon,
+  label,
+  count,
+  max,
+  optional = false,
+  helper,
+  full = false,
+  onClick,
+}: {
+  icon: typeof UserRound
+  label: string
+  count?: number
+  max?: number
+  optional?: boolean
+  helper?: string
+  full?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => { if (!full) onClick() }}
+      disabled={full}
+      className={`group relative flex h-24 w-full flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-ink/15 bg-ink/[0.02] transition-colors ${
+        full ? 'cursor-not-allowed opacity-50' : 'hover:border-ink/25 hover:bg-ink/[0.04]'
+      }`}
+    >
+      {optional && (
+        <span className="absolute left-2 top-2 rounded-full bg-ink/[0.06] px-2 py-0.5 text-[9px] font-medium capitalize tracking-wide text-ink-500">
+          Optional
+        </span>
+      )}
+      {count != null && max != null && (
+        <span className="absolute right-2 top-2 rounded-full bg-ink/[0.06] px-2 py-0.5 text-[9px] font-medium tabular-nums tracking-wide text-ink-500">
+          {count}/{max}
+        </span>
+      )}
+      <span className="flex h-8 w-8 items-center justify-center rounded-full border border-ink/15 bg-ink/[0.03] text-ink-400 transition-colors group-hover:text-ink-200">
+        <Icon className="h-3.5 w-3.5" />
+      </span>
+      <span className="text-[12px] font-normal text-ink-500">{label}</span>
+      {helper && <span className="px-3 text-center text-[10px] leading-tight text-ink-600">{helper}</span>}
+    </button>
   )
 }
