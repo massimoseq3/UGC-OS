@@ -11,6 +11,7 @@ import {
   Undo2,
   Redo2,
   Loader2,
+  Coins,
 } from 'lucide-react'
 import ModelPicker from '../../../components/ModelPicker'
 import SegmentedToggle from '../../../components/SegmentedToggle'
@@ -1001,7 +1002,10 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
           <GenerateIcon className="h-4 w-4" strokeWidth={2.5} />
           <span>{generateLabel}</span>
           {generateCredits && (
-            <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight">{generateCredits}</span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight">
+              <Coins className="h-3 w-3" strokeWidth={2} />
+              {generateCredits}
+            </span>
           )}
         </button>
         {state.mode === 'image' && <ModelWaitNotice modelId={state.modelId} className="mt-2" />}

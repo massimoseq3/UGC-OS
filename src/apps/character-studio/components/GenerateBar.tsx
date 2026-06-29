@@ -1,4 +1,4 @@
-import { UserRound, LayoutGrid } from 'lucide-react'
+import { UserRound, LayoutGrid, Coins } from 'lucide-react'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import ModelPicker from '../../../components/ModelPicker'
 import ConstraintChip from '../../../components/ConstraintChip'
@@ -181,7 +181,10 @@ export default function GenerateBar({
           {inFlightCount > 0 && ` · ${inFlightCount} running`}
         </span>
         {creditsLabel && (
-          <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight">{creditsLabel}</span>
+          <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight">
+            <Coins className="h-3 w-3" strokeWidth={2} />
+            {creditsLabel}
+          </span>
         )}
       </button>
 

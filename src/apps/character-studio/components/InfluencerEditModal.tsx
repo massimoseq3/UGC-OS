@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { X, Loader2, Download, Bookmark, Check, ImagePlus, Wand2, LayoutGrid, Pencil, Upload, FolderOpen, Copy, Maximize2 } from 'lucide-react'
+import { X, Loader2, Download, Bookmark, Check, ImagePlus, Wand2, LayoutGrid, Pencil, Upload, FolderOpen, Copy, Maximize2, Coins } from 'lucide-react'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAppStore } from '../../../stores/appStore'
 import { useSettingsStore } from '../../../stores/settingsStore'
@@ -581,7 +581,10 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
                     {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
                     {generating ? 'Generating edit…' : 'Generate Edit'}
                     {!generating && creditsLabel && (
-                      <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight">{creditsLabel}</span>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight">
+                        <Coins className="h-3 w-3" strokeWidth={2} />
+                        {creditsLabel}
+                      </span>
                     )}
                   </button>
                 ) : (
@@ -594,7 +597,10 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
                     {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <LayoutGrid className="h-4 w-4" />}
                     {generating ? 'Generating influencer sheet…' : 'Generate Influencer Sheet'}
                     {!generating && creditsLabel && (
-                      <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight">{creditsLabel}</span>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight">
+                        <Coins className="h-3 w-3" strokeWidth={2} />
+                        {creditsLabel}
+                      </span>
                     )}
                   </button>
                 )}

@@ -15,6 +15,7 @@ import {
   VolumeX,
   User,
   Package,
+  Coins,
 } from 'lucide-react'
 import ModelPicker from '../../../components/ModelPicker'
 import AspectIcon from '../../../components/AspectIcon'
@@ -633,7 +634,10 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                     <ImageIcon className="h-4 w-4" />
                     Generate Image
                     {imageCreditsLabel && (
-                      <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight">{imageCreditsLabel}</span>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight">
+                        <Coins className="h-3 w-3" strokeWidth={2} />
+                        {imageCreditsLabel}
+                      </span>
                     )}
                   </button>
                 ) : tab === 'video' ? (
@@ -645,7 +649,10 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                     <VideoIcon className="h-4 w-4" />
                     Generate Video
                     {videoCreditsLabel && (
-                      <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight">{videoCreditsLabel}</span>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight">
+                        <Coins className="h-3 w-3" strokeWidth={2} />
+                        {videoCreditsLabel}
+                      </span>
                     )}
                   </button>
                 ) : (
@@ -658,7 +665,10 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                     <Film className="h-4 w-4" />
                     Animate
                     {videoCreditsLabel && (
-                      <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight">{videoCreditsLabel}</span>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight">
+                        <Coins className="h-3 w-3" strokeWidth={2} />
+                        {videoCreditsLabel}
+                      </span>
                     )}
                   </button>
                 )}
