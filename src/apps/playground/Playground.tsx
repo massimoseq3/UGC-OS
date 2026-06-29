@@ -413,6 +413,10 @@ export default function Playground() {
         const omniCharacterBankIds = refsSnapshot
           .filter((r) => r.slot === 'omni-character' && r.bankModelId)
           .map((r) => r.bankModelId!)
+        // Uploaded characters carry a pre-minted kie character id in `omniId`.
+        const omniCharacterIds = refsSnapshot
+          .filter((r) => r.slot === 'omni-character' && !r.bankModelId && r.omniId)
+          .map((r) => r.omniId!)
         const omniAudioIds = refsSnapshot
           .filter((r) => r.slot === 'omni-voice' && r.omniId)
           .map((r) => r.omniId!)
@@ -431,6 +435,7 @@ export default function Playground() {
           referenceAudioUrls: referenceAudioUrls.length > 0 ? referenceAudioUrls : undefined,
           referenceVideoUrls: referenceVideoUrls.length > 0 ? referenceVideoUrls : undefined,
           omniCharacterBankIds: omniCharacterBankIds.length > 0 ? omniCharacterBankIds : undefined,
+          omniCharacterIds: omniCharacterIds.length > 0 ? omniCharacterIds : undefined,
           omniAudioIds: omniAudioIds.length > 0 ? omniAudioIds : undefined,
           videoClip: clip
             ? { url: clip.url, start: clip.clipStart ?? 0, ends: clip.clipEnds ?? Math.min(10, clip.durationSeconds ?? 10) }

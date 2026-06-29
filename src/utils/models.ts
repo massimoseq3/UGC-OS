@@ -575,7 +575,8 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     videoConstraints: {
       durations: [4, 6, 8, 10],
       resolutions: ['720p', '1080p', '4k'],
-      default: '720p',
+      // 1080p costs the same as 720p for Omni (see priceFor), so default to it.
+      default: '1080p',
       aspectRatios: ['16:9', '9:16'],
     },
   },
