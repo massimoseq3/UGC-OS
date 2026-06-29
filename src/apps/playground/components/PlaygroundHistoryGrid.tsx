@@ -385,8 +385,10 @@ function HistoryListRow({
         )}
       </div>
 
-      {/* Side panel — the remaining third: model, prompt, meta, actions. */}
-      <div className="flex min-w-0 flex-[1] flex-col gap-2 py-3 pr-3">
+      {/* Side panel — the remaining third: model, prompt, meta, actions.
+          Height is pinned to the media card so the prompt scrolls inside the
+          box (auto-hiding overlay scrollbar) instead of stretching the row. */}
+      <div className="flex min-w-0 flex-[1] flex-col gap-2 py-3 pr-3" style={{ height: cardHeight }}>
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="rounded-full bg-playground-500/15 px-2 py-0.5 text-[10px] font-semibold text-playground-200">{modelLabel}</span>
           {meta.map((m) => (
