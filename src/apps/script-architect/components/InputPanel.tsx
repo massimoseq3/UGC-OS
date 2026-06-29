@@ -321,7 +321,7 @@ export default function InputPanel({
                 <Package className="h-5 w-5 text-gold-400 light:text-gold-600" />
               </div>
               <div className="flex flex-col">
-                <span className="text-sm font-medium text-ink-300">Select Product</span>
+                <span className="text-sm font-medium text-ink-300">Product</span>
                 <span className="text-xs text-ink-600">Choose from your Product Bank</span>
               </div>
             </button>
@@ -400,7 +400,7 @@ export default function InputPanel({
                 <UserRound className="h-5 w-5 text-scripts-400" />
               </div>
               <div className="flex flex-col">
-                <span className="text-sm font-medium text-ink-300">Select Influencer</span>
+                <span className="text-sm font-medium text-ink-300">Influencer</span>
                 <span className="text-xs text-ink-600">Optional · adds a consistent face</span>
               </div>
             </button>
@@ -513,7 +513,7 @@ export default function InputPanel({
                     </>
                   ) : (
                     <>
-                      <div className="text-sm font-medium text-ink-300">Select Script Style</div>
+                      <div className="text-sm font-medium text-ink-300">Script Style</div>
                       <div className="text-xs text-ink-600">Choose how the script is structured</div>
                     </>
                   )}
@@ -601,7 +601,9 @@ export default function InputPanel({
           </>
         ) : mode === 'remix' ? (
           <div className="mb-6 flex grow flex-col">
-            <div>
+            {/* Select from bank (header) + paste manually (textarea) merged into
+                one rounded box so the two sources read as a single input. */}
+            <div className={`flex grow flex-col overflow-hidden rounded-3xl border border-dashed border-ink/10 bg-ink/[0.02] transition-colors focus-within:border-scripts-500/30 ${highlightField === 'transcript' ? 'animate-field-flash' : ''}`}>
               <ScriptBankCard
                 selected={remixScript}
                 label="Script"
@@ -609,30 +611,25 @@ export default function InputPanel({
                 accentClass="bg-scripts-500/10 text-scripts-300/80"
                 onSelect={() => setScriptPickerOpen(true)}
                 onClear={() => setRemixScript(null)}
-                className={highlightField === 'transcript' ? 'animate-field-flash' : ''}
+                flat
               />
-            </div>
-
-            <div className="my-3 flex items-center gap-3">
-              <div className="h-px flex-1 bg-ink/[0.07]" />
-              <span className="text-[10px] font-medium uppercase tracking-wider text-ink-600">or paste transcript manually</span>
-              <div className="h-px flex-1 bg-ink/[0.07]" />
-            </div>
-
-            <div className="relative flex grow flex-col">
-              <textarea
-                value={winningTranscript}
-                onChange={(e) => { onTranscriptChange(e.target.value); setRemixScript(null) }}
-                rows={8}
-                placeholder="Paste a proven ad transcript here, or send one from Ad Analyzer..."
-                className={`min-h-[160px] w-full grow rounded-3xl border border-ink/10 bg-ink/[0.02] px-4 py-3 text-sm leading-relaxed text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-scripts-500/30 resize-none ${highlightField === 'transcript' ? 'animate-field-flash' : ''}`}
-              />
-              <ExpandButton onClick={() => setExpandedField('transcript')} className="absolute bottom-2 right-2" />
+              <div className="relative flex grow flex-col">
+                <textarea
+                  value={winningTranscript}
+                  onChange={(e) => { onTranscriptChange(e.target.value); setRemixScript(null) }}
+                  rows={8}
+                  placeholder="…or paste a proven ad transcript here, or send one from Ad Analyzer"
+                  className="min-h-[160px] w-full grow resize-none border-0 bg-transparent px-4 py-3 text-sm leading-relaxed text-ink-200 placeholder-ink-600 outline-none"
+                />
+                <ExpandButton onClick={() => setExpandedField('transcript')} className="absolute bottom-2 right-2" />
+              </div>
             </div>
           </div>
         ) : (
-          <div className="mb-6 flex flex-col">
-            <div>
+          <div className="mb-6 flex grow flex-col">
+            {/* Select from bank (header) + paste manually (textarea) merged into
+                one rounded box so the two sources read as a single input. */}
+            <div className={`flex grow flex-col overflow-hidden rounded-3xl border border-dashed border-ink/10 bg-ink/[0.02] transition-colors focus-within:border-scripts-500/30 ${highlightField === 'reverse-prompt' ? 'animate-field-flash' : ''}`}>
               <ScriptBankCard
                 selected={sceneScript}
                 label="Scene"
@@ -640,25 +637,18 @@ export default function InputPanel({
                 accentClass="bg-fuchsia-500/10 text-fuchsia-300/80 light:text-fuchsia-700/80"
                 onSelect={() => setScriptPickerOpen(true)}
                 onClear={() => setSceneScript(null)}
-                className={highlightField === 'reverse-prompt' ? 'animate-field-flash' : ''}
+                flat
               />
-            </div>
-
-            <div className="my-3 flex items-center gap-3">
-              <div className="h-px flex-1 bg-ink/[0.07]" />
-              <span className="text-[10px] font-medium uppercase tracking-wider text-ink-600">or paste scene transcript manually</span>
-              <div className="h-px flex-1 bg-ink/[0.07]" />
-            </div>
-
-            <div className="relative">
-              <textarea
-                value={reversePrompt}
-                onChange={(e) => { onReversePromptChange(e.target.value); setSceneScript(null) }}
-                rows={10}
-                placeholder={'Paste the reverse-engineered prompt from Ad Analyzer here.\n\nExample (multi-scene):\n--- Scene 1: Mirror reaction hook (00:00-00:08) ---\nA woman in her late 20s with shoulder-length auburn hair, wearing a cream cable-knit sweater, stands in a softly-lit bathroom holding a clear glass dropper bottle... She says: "I had dark spots for years and nothing worked."\n\n--- Scene 2: Product reveal (00:08-00:15) ---\n...'}
-                className={`h-[200px] w-full resize-none overflow-y-auto rounded-3xl border border-ink/10 bg-ink/[0.02] px-4 py-3 font-mono text-xs leading-relaxed text-ink-200 placeholder-ink-700 outline-none transition-colors focus:border-scripts-500/30 ${highlightField === 'reverse-prompt' ? 'animate-field-flash' : ''}`}
-              />
-              <ExpandButton onClick={() => setExpandedField('reverse')} className="absolute bottom-2 right-2" />
+              <div className="relative flex min-h-0 flex-1 flex-col">
+                <textarea
+                  value={reversePrompt}
+                  onChange={(e) => { onReversePromptChange(e.target.value); setSceneScript(null) }}
+                  rows={10}
+                  placeholder={'…or paste the reverse-engineered prompt from Ad Analyzer here.\n\nExample (multi-scene):\n--- Scene 1: Mirror reaction hook (00:00-00:08) ---\nA woman in her late 20s with shoulder-length auburn hair, wearing a cream cable-knit sweater, stands in a softly-lit bathroom holding a clear glass dropper bottle... She says: "I had dark spots for years and nothing worked."\n\n--- Scene 2: Product reveal (00:08-00:15) ---\n...'}
+                  className="min-h-[200px] w-full grow resize-none overflow-y-auto border-0 bg-transparent px-4 py-3 font-mono text-xs leading-relaxed text-ink-200 placeholder-ink-700 outline-none"
+                />
+                <ExpandButton onClick={() => setExpandedField('reverse')} className="absolute bottom-2 right-2" />
+              </div>
             </div>
           </div>
         )}
@@ -876,6 +866,7 @@ function ScriptBankCard({
   onSelect,
   onClear,
   className,
+  flat,
 }: {
   selected: Script | null
   label: string
@@ -884,13 +875,20 @@ function ScriptBankCard({
   onSelect: () => void
   onClear: () => void
   className?: string
+  // Header variant — drops the rounded-full pill so the card sits as a flat
+  // top row (border-b) inside the merged input box above the paste textarea.
+  flat?: boolean
 }) {
   if (!selected) {
     return (
       <button
         type="button"
         onClick={onSelect}
-        className={`group flex w-full items-center gap-3 rounded-full border border-dashed border-ink/10 bg-ink/[0.015] px-4 py-3 text-left transition-colors hover:border-ink/20 hover:bg-ink/[0.03] ${className ?? ''}`}
+        className={`group flex w-full items-center gap-3 px-4 py-3 text-left transition-colors ${
+          flat
+            ? 'border-b border-ink/10 hover:bg-ink/[0.04]'
+            : 'rounded-full border border-dashed border-ink/10 bg-ink/[0.015] hover:border-ink/20 hover:bg-ink/[0.03]'
+        } ${className ?? ''}`}
       >
         <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors ${accentClass}`}>
           <Icon className="h-4 w-4" />
@@ -908,7 +906,11 @@ function ScriptBankCard({
       tabIndex={0}
       onClick={onSelect}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect() } }}
-      className={`group flex w-full cursor-pointer items-center gap-3 rounded-full border border-ink/10 bg-ink/[0.02] px-4 py-3 transition-colors hover:border-ink/20 hover:bg-ink/[0.04] ${className ?? ''}`}
+      className={`group flex w-full cursor-pointer items-center gap-3 px-4 py-3 transition-colors ${
+        flat
+          ? 'border-b border-ink/10 hover:bg-ink/[0.04]'
+          : 'rounded-full border border-ink/10 bg-ink/[0.02] hover:border-ink/20 hover:bg-ink/[0.04]'
+      } ${className ?? ''}`}
     >
       <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${accentClass}`}>
         <Icon className="h-4 w-4" />

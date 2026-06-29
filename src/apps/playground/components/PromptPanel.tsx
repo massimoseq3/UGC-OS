@@ -726,33 +726,37 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
                 fills the page without making the panel itself scroll; once at
                 max size, overflow scrolls inside the textarea. */}
             <div className="relative flex grow flex-col">
-              {/* UGC Prompt Presets — slim row above the textarea. Opens the
-                  slide-in picker. */}
-              {presetsApplicable && (
-                <button
-                  type="button"
-                  onClick={() => setPresetOpen(true)}
-                  className="flex h-12 w-full items-center gap-2.5 rounded-full border border-ink/10 bg-ink/[0.02] px-3 text-left transition-colors hover:bg-ink/[0.05]"
-                >
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-playground-500/10 text-playground-400">
-                    <Camera className="h-3.5 w-3.5" />
-                  </span>
-                  <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink-100">Select UGC Prompt Preset</span>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" />
-                </button>
-              )}
               {/* Prompt field — a normal, visible textarea on top of a
                   transparent backdrop that only paints the [bracket] highlights.
                   The textarea owns every glyph, so the caret, selection and
-                  click targets are always exactly where the text appears. A
-                  footer toolbar (Enhance / Undo / Redo + Expand) sits below the
-                  text, separated by a hairline, inside the same rounded box. */}
+                  click targets are always exactly where the text appears. The
+                  UGC Preset trigger sits as a header row, and the Enhance /
+                  Undo / Redo + Expand toolbar as a footer — both separated from
+                  the text by hairlines, all inside the same rounded box. */}
               {/* Relative wrapper so the @-mention popover can float ABOVE the
                   textarea (bottom-full) instead of overlaying the text being
                   typed. The popover sits outside the overflow-hidden box below
                   so it isn't clipped. */}
-              <div className="relative mt-2 flex grow flex-col">
+              <div className="relative flex grow flex-col">
                 <div className="relative flex grow flex-col overflow-hidden rounded-3xl border border-ink/10 bg-ink/[0.03] transition-colors focus-within:border-ink/20 focus-within:bg-ink/[0.05]">
+                  {/* UGC Prompt Presets — header row inside the box. Opens the
+                      slide-in picker. */}
+                  {presetsApplicable && (
+                    <button
+                      type="button"
+                      onClick={() => setPresetOpen(true)}
+                      className="flex w-full shrink-0 items-center gap-3 border-b border-ink/10 px-3.5 py-3 text-left transition-colors hover:bg-ink/[0.04]"
+                    >
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-playground-500/10 text-playground-400">
+                        <Camera className="h-4 w-4" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[13px] font-medium text-ink-100">UGC Prompt Preset</p>
+                        <p className="truncate text-[11px] text-ink-500">Pick a format to prefill the prompt + aspect ratio</p>
+                      </div>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" />
+                    </button>
+                  )}
                   <div className="relative flex grow">
                     <div
                       ref={highlightRef}
@@ -978,11 +982,11 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
         )}
 
         {state.mode === 'music' && (
-          <div className="inline-flex rounded-full border border-ink/10 bg-ink/[0.02] p-0.5">
+          <div className="flex w-full rounded-full border border-ink/10 bg-ink/[0.02] p-0.5">
             <button
               type="button"
               onClick={() => onChange({ ...state, instrumental: true })}
-              className={`rounded-full px-4 py-1.5 text-[12px] transition-colors ${
+              className={`flex-1 rounded-full px-4 py-1.5 text-[12px] transition-colors ${
                 state.instrumental
                   ? 'bg-playground-500/15 text-playground-200'
                   : 'text-ink-400 hover:text-ink-200'
@@ -993,7 +997,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
             <button
               type="button"
               onClick={() => onChange({ ...state, instrumental: false })}
-              className={`rounded-full px-4 py-1.5 text-[12px] transition-colors ${
+              className={`flex-1 rounded-full px-4 py-1.5 text-[12px] transition-colors ${
                 !state.instrumental
                   ? 'bg-playground-500/15 text-playground-200'
                   : 'text-ink-400 hover:text-ink-200'

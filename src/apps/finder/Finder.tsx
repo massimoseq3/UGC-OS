@@ -216,6 +216,7 @@ export default function Finder() {
         <div className="min-w-0 overflow-x-auto">
           <SegmentedToggle<BankType>
             fitContent
+            className="h-10 !p-1"
             value={activeBank}
             onChange={(bank) => { setActiveBank(bank); closeForm() }}
             options={BANK_TYPES.map((bank) => ({
@@ -246,7 +247,7 @@ export default function Finder() {
               />
               <button
                 onClick={() => bulkInputRef.current?.click()}
-                className="flex h-[53px] items-center gap-2 rounded-full border border-ink/10 bg-ink/[0.04] px-5 text-[13px] font-medium tracking-tight text-ink-300 transition-colors hover:bg-ink/[0.08]"
+                className="flex h-10 items-center gap-2 rounded-full border border-ink/10 bg-ink/[0.04] px-5 text-[13px] font-medium tracking-tight text-ink-300 transition-colors hover:bg-ink/[0.08]"
               >
                 <Upload className="h-4 w-4" />
                 Bulk add
@@ -255,7 +256,7 @@ export default function Finder() {
           )}
           <button
             onClick={handleAdd}
-            className="flex h-[53px] items-center gap-2 rounded-full bg-ink px-5 text-[13px] font-medium tracking-tight text-ink-900 transition-colors hover:bg-ink-100"
+            className="flex h-10 items-center gap-2 rounded-full bg-ink px-5 text-[13px] font-medium tracking-tight text-ink-900 transition-colors hover:bg-ink-100"
           >
             <Plus className="h-4 w-4" />
             Add
