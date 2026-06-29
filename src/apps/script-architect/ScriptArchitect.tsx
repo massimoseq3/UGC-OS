@@ -203,12 +203,12 @@ export default function ScriptArchitect() {
     if (activeHistoryId === id) setActiveHistoryId(null)
   }
 
-  // Full blank slate: wipe the visible output AND the inputs (source text +
-  // selected product + context). Generated runs already live in the History
-  // tab (auto-pushed on generate), so nothing is lost.
-  const handleClearOutput = () => {
-    setVariations([])
-    setActiveHistoryId(null)
+  // "New": clear the inputs only (source text + selected product/influencer +
+  // context). The generated variations stay on screen — they're the user's
+  // working output / history, never wiped by starting a new draft. (Output
+  // labels are pinned to outputMode/outputStyle snapshots, so leaving the
+  // shown cards untouched is safe even as the live left-panel toggles reset.)
+  const handleNewDraft = () => {
     setError(null)
     setWinningTranscript('')
     setReversePrompt('')
@@ -245,7 +245,7 @@ export default function ScriptArchitect() {
           onGenerate={handleGenerate}
           isGenerating={isGenerating}
           highlightField={highlightField}
-          onClear={handleClearOutput}
+          onClear={handleNewDraft}
         />
       </div>
 

@@ -128,11 +128,21 @@ export default function CharacterStudio() {
   }, [])
 
   // Clear just the source-image thumbnail so the user can drop another image.
-  // Deliberately does NOT wipe the form — that's the Clear button's job.
+  // Deliberately does NOT wipe the form — that's the "New" button's job.
   const handleResetExtract = useCallback(() => {
     setExtractedThumb(null)
     setExtractError(null)
   }, [])
+
+  // "New": reset the form to empty AND drop the extracted reference photo +
+  // any errors, so the controls are a true blank slate. The gallery stays —
+  // generated influencers live in the characterHistory bank, untouched.
+  const handleClear = useCallback(() => {
+    setProfile(createEmptyProfile())
+    setExtractedThumb(null)
+    setExtractError(null)
+    setError(null)
+  }, [setProfile, setExtractedThumb])
 
   // Full-area drag overlay handlers
   const handleDragEnter = (e: React.DragEvent) => {
@@ -336,6 +346,7 @@ export default function CharacterStudio() {
           extractedThumb={extractedThumb}
           onPhotoDrop={handlePhotoDrop}
           onResetExtract={handleResetExtract}
+          onClear={handleClear}
           error={error}
           onGenerate={handleGenerate}
           canGenerate={Object.values(profile).some((v) => v.trim() !== '')}
