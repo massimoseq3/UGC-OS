@@ -222,18 +222,16 @@ export default function BrollStudio() {
     return () => clearTimeout(handle)
   }, [result, cardStates, selectedProductId, selectedModelId, selectedScriptId, scriptText, additionalContext, selectedProduct, upsertBrollHistory])
 
-  // Wipe the visible scenes for a blank slate. The prior session is already
-  // saved as its own brollHistory row (keyed by the old sessionId); clearing
-  // the sessionId here means the next generation forks a fresh row and the
-  // History upsert effect skips (it early-returns when result/sessionId is
-  // empty), so nothing is overwritten.
-  const handleClearOutput = () => {
-    setResult(null)
-    setCardStates({})
+  // "New": clear the inputs / references only. The generated scene cards stay
+  // on screen — they're the user's output, never wiped by starting a new
+  // session. Blanking the sessionId *detaches* the kept cards: the debounced
+  // History upsert early-returns while it's empty, so clearing the inputs
+  // can't overwrite the saved session's metadata. The prior session is already
+  // preserved as its own brollHistory row, and the next generation stamps a
+  // fresh sessionId + replaces the cards cleanly.
+  const handleNewSession = () => {
     setSessionId('')
     setError(null)
-    // Also clear the inputs / references so the workspace is a true blank
-    // slate (the prior session is preserved as its own brollHistory row).
     setSelectedProductId(null)
     setSelectedModelId(null)
     setSelectedScriptId(null)
@@ -388,7 +386,7 @@ export default function BrollStudio() {
           onGenerate={handleGenerate}
           isGenerating={isGenerating}
           highlightField={highlightField}
-          onClearOutput={handleClearOutput}
+          onClearOutput={handleNewSession}
         />
       </div>
 

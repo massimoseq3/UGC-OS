@@ -1,7 +1,7 @@
 import { useState, useRef, type ElementType } from 'react'
 import { ScanFace, PersonStanding, Camera, Copy, Check, Bookmark, X } from 'lucide-react'
 import type { TabId, CharacterProfile } from '../types'
-import { TABS, getTabFields, createEmptyProfile } from '../types'
+import { TABS, getTabFields } from '../types'
 
 // Per-tab glyphs — specific to each tab's job (appearance / pose / lens),
 // not a generic decoration. Keyed by the stable tab id.
@@ -157,6 +157,8 @@ interface ControlsPanelProps {
   extractedThumb: string | null
   onPhotoDrop: (file: File) => void
   onResetExtract: () => void
+  // "New" — resets the form + extracted reference photo to a blank slate.
+  onClear: () => void
   // Generate bar (lives at the foot of this column).
   error: string | null
   onGenerate: () => void
@@ -180,6 +182,7 @@ export default function ControlsPanel({
   extractedThumb,
   onPhotoDrop,
   onResetExtract,
+  onClear,
   error,
   onGenerate,
   canGenerate,
@@ -282,7 +285,7 @@ export default function ControlsPanel({
                     suggestedName={() => presetName(profile)}
                     onSave={handleSavePreset}
                     promptText={fullPrompt}
-                    onClear={() => onProfileChange(createEmptyProfile())}
+                    onClear={onClear}
                   />
                 )}
               </div>
