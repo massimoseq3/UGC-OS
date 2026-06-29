@@ -4,6 +4,9 @@ import { Check, Plus } from 'lucide-react'
 interface ClearAllButtonProps {
   onClear: () => void
   className?: string
+  // Idle-state label. Defaults to "Create new"; callers can shorten it (e.g.
+  // "New") where horizontal space is tight.
+  label?: string
 }
 
 // Shared "New" affordance: a subtle gray pill in the top-left of every
@@ -13,7 +16,7 @@ interface ClearAllButtonProps {
 // or when the pointer leaves, so a stray first click is harmless. Framed as
 // "New" (not "Clear") because it clears *inputs only* — generated outputs
 // stay on screen and in the history banks.
-export default function ClearAllButton({ onClear, className = '' }: ClearAllButtonProps) {
+export default function ClearAllButton({ onClear, className = '', label = 'Create new' }: ClearAllButtonProps) {
   const [armed, setArmed] = useState(false)
   const timer = useRef<number | null>(null)
 
@@ -51,7 +54,7 @@ export default function ClearAllButton({ onClear, className = '' }: ClearAllButt
       {armed
         ? <Check className="h-2.5 w-2.5" strokeWidth={2.5} />
         : <Plus className="h-2.5 w-2.5" strokeWidth={2.5} />}
-      {armed ? 'Confirm' : 'Create new'}
+      {armed ? 'Confirm' : label}
     </button>
   )
 }
