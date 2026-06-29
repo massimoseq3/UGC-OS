@@ -229,16 +229,6 @@ export default function BrollStudio() {
   // can't overwrite the saved session's metadata. The prior session is already
   // preserved as its own brollHistory row, and the next generation stamps a
   // fresh sessionId + replaces the cards cleanly.
-  const handleNewSession = () => {
-    setSessionId('')
-    setError(null)
-    setSelectedProductId(null)
-    setSelectedModelId(null)
-    setSelectedScriptId(null)
-    setScriptText('')
-    setAdditionalContext('')
-  }
-
   const handleSelectProduct = (item: unknown) => {
     setSelectedProductId((item as Product).id)
     setPickerMode(null)
@@ -386,7 +376,6 @@ export default function BrollStudio() {
           onGenerate={handleGenerate}
           isGenerating={isGenerating}
           highlightField={highlightField}
-          onClearOutput={handleNewSession}
         />
       </div>
 

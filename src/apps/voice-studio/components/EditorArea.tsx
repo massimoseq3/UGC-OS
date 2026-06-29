@@ -1,7 +1,6 @@
 import { FileText, Loader2, Mic, AlertCircle, Download, RefreshCw, X } from 'lucide-react'
 import type { Script } from '../../../stores/types'
 import GenerationProgress from '../../../components/GenerationProgress'
-import ClearAllButton from '../../../components/ClearAllButton'
 
 const MAX_CHARACTERS = 5000
 
@@ -11,7 +10,6 @@ interface EditorAreaProps {
   onSelectScript: () => void
   selectedScript: Script | null
   onClearScript: () => void
-  onClear: () => void
   onGenerate: () => void
   isGenerating: boolean
   canGenerate: boolean
@@ -27,7 +25,6 @@ export default function EditorArea({
   onSelectScript,
   selectedScript,
   onClearScript,
-  onClear,
   onGenerate,
   isGenerating,
   canGenerate,
@@ -44,8 +41,8 @@ export default function EditorArea({
       {/* Body */}
       <div className="flex flex-1 flex-col px-8 pt-8 md:overflow-hidden">
         {/* Pull from Script bank — dashed "click to select" when empty; a
-            filled pill with Change / X-clear once a bank script is loaded.
-            Editing the textarea below reverts it to the empty state. */}
+            filled pill with a hover refresh icon / X-clear once a bank script
+            is loaded. Editing the textarea below reverts it to the empty state. */}
         {selectedScript ? (
           <div
             role="button"
@@ -62,9 +59,8 @@ export default function EditorArea({
               <div className="truncate text-[11px] text-ink-500">Script</div>
             </div>
             <div className="flex shrink-0 items-center gap-1">
-              <span className="hidden items-center gap-1 rounded-md px-2 py-0.5 text-[10px] text-ink-500 group-hover:flex">
+              <span className="hidden items-center rounded-md px-2 py-0.5 text-ink-500 group-hover:flex">
                 <RefreshCw className="h-2.5 w-2.5" />
-                Change
               </span>
               <button
                 type="button"
@@ -110,10 +106,6 @@ export default function EditorArea({
           }`}
         />
 
-        {/* "Clear All" link — bottom-left of the editor, above the footer bar. */}
-        <div className="pt-2">
-          <ClearAllButton onClear={onClear} />
-        </div>
       </div>
 
       {/* Error */}

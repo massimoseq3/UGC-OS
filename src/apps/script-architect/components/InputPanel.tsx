@@ -10,7 +10,6 @@ import { useBankStore } from '../../../stores/bankStore'
 import BankPicker from '../../../components/BankPicker'
 import SegmentedToggle from '../../../components/SegmentedToggle'
 import SlideOver from '../../../components/SlideOver'
-import ClearAllButton from '../../../components/ClearAllButton'
 import ExpandTextModal, { ExpandButton } from '../../../components/ExpandableText'
 import { useAppStore } from '../../../stores/appStore'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
@@ -53,7 +52,6 @@ interface InputPanelProps {
   onGenerate: (context: EditableProductContext | null) => void
   isGenerating: boolean
   highlightField?: string | null
-  onClear: () => void
 }
 
 export default function InputPanel({
@@ -80,7 +78,6 @@ export default function InputPanel({
   onGenerate,
   isGenerating,
   highlightField,
-  onClear,
 }: InputPanelProps) {
   const [productPickerOpen, setProductPickerOpen] = useState(false)
   const [influencerPickerOpen, setInfluencerPickerOpen] = useState(false)
@@ -261,7 +258,7 @@ export default function InputPanel({
       {selectedProduct ? (
         <div>
           {/* Whole-card-clickable — hitting any part of the populated
-              product card opens the picker. The Change label is a hover
+              product card opens the picker. The refresh icon is a hover
               affordance only. Sized to match the B-Roll reference pills. */}
           <div
             role="button"
@@ -284,9 +281,8 @@ export default function InputPanel({
               <span className="truncate text-[11px] text-ink-500">Product</span>
             </div>
             <div className="flex shrink-0 items-center gap-1">
-              <span className="hidden items-center gap-1 rounded-md px-2 py-0.5 text-[10px] text-ink-500 group-hover:flex">
+              <span className="hidden items-center rounded-md px-2 py-0.5 text-ink-500 group-hover:flex">
                 <RefreshCw className="h-2.5 w-2.5" />
-                Change
               </span>
               <button
                 type="button"
@@ -378,9 +374,8 @@ export default function InputPanel({
               <span className="truncate text-[11px] text-ink-500">Influencer</span>
             </div>
             <div className="flex shrink-0 items-center gap-1">
-              <span className="hidden items-center gap-1 rounded-md px-2 py-0.5 text-[10px] text-ink-500 group-hover:flex">
+              <span className="hidden items-center rounded-md px-2 py-0.5 text-ink-500 group-hover:flex">
                 <RefreshCw className="h-2.5 w-2.5" />
-                Change
               </span>
               <button
                 type="button"
@@ -525,9 +520,8 @@ export default function InputPanel({
                 </div>
                 {styleChosen ? (
                   <div className="flex shrink-0 items-center gap-1">
-                    <span className="hidden items-center gap-1 rounded-md px-2 py-0.5 text-[10px] text-ink-500 group-hover:flex">
+                    <span className="hidden items-center rounded-md px-2 py-0.5 text-ink-500 group-hover:flex">
                       <RefreshCw className="h-2.5 w-2.5" />
-                      Change
                     </span>
                     <button
                       type="button"
@@ -692,12 +686,8 @@ export default function InputPanel({
         )}
       </div>
 
-      {/* Generate button — with the "Create new" reset parked in the
-          bottom-left, above it (one shared reset for every mode). */}
+      {/* Generate button. */}
       <div className="fixed bottom-0 left-0 right-0 z-30 shrink-0 border-t border-ink/5 bg-surface-0/95 px-5 py-4 backdrop-blur-xl md:static md:left-auto md:right-auto md:z-auto md:bg-transparent md:backdrop-blur-none">
-        <div className="mb-3 flex">
-          <ClearAllButton onClear={onClear} />
-        </div>
         <button
           onClick={() => onGenerate(editableContext)}
           disabled={!canGenerate || isGenerating}
@@ -876,7 +866,7 @@ function StepLabel({ label, tooltip, optional }: { label: string; tooltip?: stri
 }
 
 // A bank-pick card for the remix / scene source. Dashed "Click to select"
-// when empty; a solid filled pill with a hover "Change" + an X-clear when a
+// when empty; a solid filled pill with a hover refresh icon + an X-clear when a
 // bank item is selected — mirrors the B-Roll reference cards.
 function ScriptBankCard({
   selected,
@@ -928,9 +918,8 @@ function ScriptBankCard({
         <div className="truncate text-[11px] text-ink-500">{label}</div>
       </div>
       <div className="flex shrink-0 items-center gap-1">
-        <span className="hidden items-center gap-1 rounded-md px-2 py-0.5 text-[10px] text-ink-500 group-hover:flex">
+        <span className="hidden items-center rounded-md px-2 py-0.5 text-ink-500 group-hover:flex">
           <RefreshCw className="h-2.5 w-2.5" />
-          Change
         </span>
         <button
           type="button"

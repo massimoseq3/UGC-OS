@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Package, UserRound, FileText, RefreshCw, Loader2, Film, X } from 'lucide-react'
 import type { Product, Model, Script } from '../../../stores/types'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
-import ClearAllButton from '../../../components/ClearAllButton'
 import ExpandTextModal, { ExpandButton } from '../../../components/ExpandableText'
 
 interface InputPanelProps {
@@ -22,9 +21,6 @@ interface InputPanelProps {
   onGenerate: () => void
   isGenerating: boolean
   highlightField?: string | null
-  // Clear-all control — wipes the inputs/references and the generated scenes.
-  // The session is preserved as its own History row.
-  onClearOutput?: () => void
 }
 
 function BankCard({
@@ -82,9 +78,8 @@ function BankCard({
     >
       <div className="min-w-0 flex-1">{children}</div>
       <div className="flex shrink-0 items-center gap-1">
-        <span className="hidden items-center gap-1 rounded-md px-2 py-0.5 text-[10px] text-ink-500 group-hover:flex">
+        <span className="hidden items-center rounded-md px-2 py-0.5 text-ink-500 group-hover:flex">
           <RefreshCw className="h-2.5 w-2.5" />
-          Change
         </span>
         {onClear && (
           <button
@@ -179,7 +174,6 @@ export default function InputPanel({
   onGenerate,
   isGenerating,
   highlightField,
-  onClearOutput,
 }: InputPanelProps) {
   const hasScript = scriptText.trim().length > 0
   const canGenerate = hasScript
@@ -191,10 +185,9 @@ export default function InputPanel({
       {/* Bank selections */}
       <div className="flex-1 p-5 md:overflow-y-auto">
         <div className="flex flex-col gap-3">
-          {/* References section — "Clear All" sits top-right, in line with it. */}
+          {/* References section. */}
           <div className="flex items-center justify-between gap-2">
             <span className="text-sm font-medium text-ink-200">References</span>
-            {onClearOutput && <ClearAllButton onClear={onClearOutput} />}
           </div>
 
           {/* Product */}
