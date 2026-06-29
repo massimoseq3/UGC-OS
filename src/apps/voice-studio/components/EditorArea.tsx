@@ -1,4 +1,4 @@
-import { FileText, Loader2, Mic, AlertCircle, Download, RefreshCw, X } from 'lucide-react'
+import { FileText, Loader2, Mic, AlertCircle, Download, RefreshCw, X, ChevronRight } from 'lucide-react'
 import type { Script } from '../../../stores/types'
 import GenerationProgress from '../../../components/GenerationProgress'
 
@@ -49,7 +49,7 @@ export default function EditorArea({
             tabIndex={0}
             onClick={onSelectScript}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectScript() } }}
-            className="group flex w-full cursor-pointer items-center gap-3 rounded-full border border-voice-500/40 bg-voice-500/10 px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] ring-1 ring-inset ring-voice-500/15 transition-colors hover:bg-voice-500/[0.14]"
+            className="group flex w-full cursor-pointer items-center gap-3 rounded-full border border-voice-500/25 bg-voice-500/[0.06] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] ring-1 ring-inset ring-voice-500/10 transition-colors hover:bg-voice-500/10"
           >
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-voice-500/15 text-voice-300">
               <FileText className="h-4 w-4" />
@@ -77,7 +77,7 @@ export default function EditorArea({
           <button
             type="button"
             onClick={onSelectScript}
-            className="group flex items-center gap-3 rounded-full border border-dashed border-ink/10 bg-ink/[0.015] px-4 py-3 text-left transition-colors hover:border-ink/20 hover:bg-ink/[0.03]"
+            className="group flex w-full items-center gap-3 rounded-full border border-dashed border-ink/10 bg-ink/[0.015] px-4 py-3 text-left transition-colors hover:border-ink/20 hover:bg-ink/[0.03]"
           >
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-voice-500/10 text-voice-300/80 transition-colors group-hover:bg-voice-500/15 group-hover:text-voice-300">
               <FileText className="h-4 w-4" />
@@ -86,6 +86,7 @@ export default function EditorArea({
               <div className="text-sm font-medium text-ink-200">Script</div>
               <div className="text-xs text-ink-400">Click to select from bank</div>
             </div>
+            <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" />
           </button>
         )}
 

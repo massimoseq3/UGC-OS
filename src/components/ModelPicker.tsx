@@ -48,7 +48,11 @@ export default function ModelPicker({ appId, task, mode, value, onChange, requir
   const accent = APP_REGISTRY.find((a) => a.id === appId)?.accent ?? '#38bdf8'
 
   const models = listModels({ task, mode })
-  const recommended = models.filter((m) => m.tags.includes('recommended'))
+  // Image has only a handful of models — show them as one flat list (no pinned
+  // "recommended" group and no divider) so the dropdown reads cleanly. The
+  // recommended star still shows inline on the models that earn it.
+  const flatList = task === 'image'
+  const recommended = flatList ? [] : models.filter((m) => m.tags.includes('recommended'))
   const fallback = getDefaultModel(appId, task, mode)
   const persisted = getAppModel(persistedKey)
   const resolved = value ?? persisted ?? fallback?.id

@@ -38,7 +38,7 @@ export function SortControl({ value, onChange, options }: { value: SortOrder; on
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex h-[53px] items-center gap-2 rounded-full border border-ink/10 bg-ink/[0.04] pl-5 pr-4 text-[13px] font-medium tracking-tight text-ink-300 transition-colors hover:bg-ink/[0.08]"
+        className="flex h-10 items-center gap-2 rounded-full border border-ink/10 bg-ink/[0.04] pl-5 pr-4 text-[13px] font-medium tracking-tight text-ink-300 transition-colors hover:bg-ink/[0.08]"
       >
         <span className="truncate">{current?.label ?? 'Sort'}</span>
         <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-ink-500 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />

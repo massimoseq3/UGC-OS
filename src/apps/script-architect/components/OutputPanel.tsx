@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Copy, Check, Bookmark, ArrowUpRight, Mic, Film, PenLine, AlertCircle, ImagePlay } from 'lucide-react'
 import GenerationProgress from '../../../components/GenerationProgress'
 import { useBankStore } from '../../../stores/bankStore'
@@ -82,6 +82,9 @@ interface VariationCardProps {
   influencerImage?: string
   influencerName?: string
   cinematicDuration?: WriteLength
+  // Callback ref to the card's root — lets the OutputPanel scroll a given take
+  // into view when its number is clicked in the take switcher.
+  cardRef?: (el: HTMLDivElement | null) => void
 }
 
 function VariationCard({
@@ -96,6 +99,7 @@ function VariationCard({
   influencerImage,
   influencerName,
   cinematicDuration = 15,
+  cardRef,
 }: VariationCardProps) {
   const [copied, setCopied] = useState(false)
   const [showSaveForm, setShowSaveForm] = useState(false)
@@ -196,7 +200,7 @@ function VariationCard({
   }
 
   return (
-    <div className="flex shrink-0 flex-col rounded-3xl border border-ink/5 bg-surface-1 overflow-hidden">
+    <div ref={cardRef} className="flex shrink-0 flex-col rounded-3xl border border-ink/10 bg-ink/[0.06] overflow-hidden">
       <div className="flex items-center justify-between border-b border-ink/5 px-4 py-2.5">
         <div className="flex items-center gap-2">
           <span className="rounded-full bg-scripts-500/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-scripts-300">
@@ -398,6 +402,53 @@ export default function OutputPanel({ variations, mode, liveMode, writeFormat, w
   // labels, body, and Playground-only handoff.
   const isCinematic = mode === 'write' && writeFormat === 'prompt'
 
+  // Take switcher — a 1/2/3 row above the cards that scrolls the matching take
+  // into view. `activeTake` tracks which card is currently nearest the top so
+  // the row highlights as you scroll, not just on click.
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const cardRefs = useRef<(HTMLDivElement | null)[]>([])
+  const [activeTake, setActiveTake] = useState(0)
+
+  // New generation → reset to the first take and the top of the list. Keyed on
+  // the takes' *content*, not the array identity — the parent hands down a fresh
+  // array every render, so depending on the reference would reset the scroll on
+  // every unrelated re-render (including our own click handler's setState).
+  const variationsKey = variations.join('')
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    setActiveTake(0)
+    scrollRef.current?.scrollTo({ top: 0 })
+  }, [variationsKey])
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  const scrollToTake = (i: number) => {
+    setActiveTake(i)
+    const card = cardRefs.current[i]
+    const container = scrollRef.current
+    if (!card || !container) return
+    const top = card.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop
+    container.scrollTo({ top: Math.max(0, top - 20), behavior: 'smooth' })
+  }
+
+  const handleScroll = () => {
+    const container = scrollRef.current
+    if (!container) return
+    // At the bottom the trailing cards can't reach the top, so anchor the
+    // last take as active; otherwise pick the last card whose top has scrolled
+    // past the container's upper edge.
+    const atBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 4
+    let idx = variations.length - 1
+    if (!atBottom) {
+      const cTop = container.getBoundingClientRect().top
+      idx = 0
+      for (let i = 0; i < variations.length; i++) {
+        const card = cardRefs.current[i]
+        if (card && card.getBoundingClientRect().top - cTop <= 40) idx = i
+      }
+    }
+    setActiveTake((prev) => (prev === idx ? prev : idx))
+  }
+
   // Empty + loading copy follows the live selector (what you're about to make);
   // the cards themselves follow `mode` (what actually produced them).
   const copyMode = liveMode ?? mode
@@ -446,10 +497,32 @@ export default function OutputPanel({ variations, mode, liveMode, writeFormat, w
   }
 
   const angles: RemixAngle[] = ['hook-led', 'pain-point-led', 'curiosity-led']
+  const takeUnit = isCinematic ? 'Concept' : mode === 'remix' ? 'Variation' : 'Take'
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <div className="flex flex-1 min-h-0 flex-col gap-4 overflow-y-auto p-5">
+      {variations.length > 1 && (
+        <div className="flex items-center justify-center border-b border-ink/5 px-5 py-2.5">
+          <div className="flex items-center gap-1 rounded-full border border-ink/10 bg-ink/[0.02] p-0.5">
+            {variations.map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => scrollToTake(i)}
+                aria-label={`Jump to ${takeUnit} ${i + 1}`}
+                className={`flex h-7 w-7 items-center justify-center rounded-full text-[12px] font-semibold tabular-nums transition-colors ${
+                  activeTake === i
+                    ? 'bg-scripts-500/15 text-scripts-300'
+                    : 'text-ink-500 hover:bg-ink/5 hover:text-ink-200'
+                }`}
+              >
+                {i + 1}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      <div ref={scrollRef} onScroll={handleScroll} className="flex flex-1 min-h-0 flex-col gap-4 overflow-y-auto p-5">
         {variations.map((text, i) => {
           const isRemix = mode === 'remix'
           const isWrite = mode === 'write'
@@ -476,6 +549,7 @@ export default function OutputPanel({ variations, mode, liveMode, writeFormat, w
           return (
             <VariationCard
               key={i}
+              cardRef={(el) => { cardRefs.current[i] = el }}
               text={text}
               cardTitle={cardTitle}
               defaultSaveTitle={defaultSaveTitle}
