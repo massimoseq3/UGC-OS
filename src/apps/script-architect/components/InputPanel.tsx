@@ -265,7 +265,7 @@ export default function InputPanel({
             tabIndex={0}
             onClick={() => setProductPickerOpen(true)}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setProductPickerOpen(true) } }}
-            className="group flex w-full cursor-pointer items-center gap-3 rounded-full border border-gold-500/40 bg-gold-500/10 px-4 py-3.5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] ring-1 ring-inset ring-gold-500/15 transition-colors hover:bg-gold-500/[0.14]"
+            className="group flex w-full cursor-pointer items-center gap-3 rounded-full border border-gold-500/25 bg-gold-500/[0.06] px-4 py-3.5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] ring-1 ring-inset ring-gold-500/10 transition-colors hover:bg-gold-500/10"
           >
             <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gold-500/15">
               {resolvedProductImage ? (
@@ -317,13 +317,14 @@ export default function InputPanel({
               onClick={() => setProductPickerOpen(true)}
               className="flex w-full items-center gap-3 rounded-full border border-dashed border-ink/10 bg-ink/[0.02] px-4 py-3.5 text-left transition-colors hover:border-scripts-500/30 hover:bg-scripts-500/5"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gold-500/10">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold-500/10">
                 <Package className="h-5 w-5 text-gold-400 light:text-gold-600" />
               </div>
-              <div className="flex flex-col">
+              <div className="flex min-w-0 flex-1 flex-col">
                 <span className="text-sm font-medium text-ink-300">Product</span>
                 <span className="text-xs text-ink-600">Choose from your Product Bank</span>
               </div>
+              <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" />
             </button>
           ) : (
             <div className="flex items-center gap-3 rounded-full border border-dashed border-ink/10 bg-ink/[0.02] px-4 py-3.5">
@@ -396,13 +397,14 @@ export default function InputPanel({
               onClick={() => setInfluencerPickerOpen(true)}
               className="flex w-full items-center gap-3 rounded-full border border-dashed border-ink/10 bg-ink/[0.02] px-4 py-3.5 text-left transition-colors hover:border-scripts-500/30 hover:bg-scripts-500/5"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-scripts-500/10">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-scripts-500/10">
                 <UserRound className="h-5 w-5 text-scripts-400" />
               </div>
-              <div className="flex flex-col">
+              <div className="flex min-w-0 flex-1 flex-col">
                 <span className="text-sm font-medium text-ink-300">Influencer</span>
                 <span className="text-xs text-ink-600">Optional · adds a consistent face</span>
               </div>
+              <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" />
             </button>
           ) : (
             <div className="flex items-center gap-3 rounded-full border border-dashed border-ink/10 bg-ink/[0.02] px-4 py-3.5">
@@ -498,7 +500,7 @@ export default function InputPanel({
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setStyleSlideOpen(true) } }}
                 className={`group flex w-full cursor-pointer items-center gap-3 rounded-full border px-4 py-3.5 text-left transition-colors ${
                   styleChosen
-                    ? 'border-scripts-500/30 bg-scripts-500/10 hover:border-scripts-500/40 hover:bg-scripts-500/[0.14]'
+                    ? 'border-scripts-500/20 bg-scripts-500/[0.06] hover:border-scripts-500/30 hover:bg-scripts-500/10'
                     : 'border-dashed border-ink/10 bg-ink/[0.02] hover:border-scripts-500/30 hover:bg-scripts-500/5'
                 }`}
               >
@@ -886,7 +888,7 @@ function ScriptBankCard({
         onClick={onSelect}
         className={`group flex w-full items-center gap-3 px-4 py-3 text-left transition-colors ${
           flat
-            ? 'border-b border-ink/10 hover:bg-ink/[0.04]'
+            ? 'border-b border-dashed border-ink/10 hover:bg-ink/[0.04]'
             : 'rounded-full border border-dashed border-ink/10 bg-ink/[0.015] hover:border-ink/20 hover:bg-ink/[0.03]'
         } ${className ?? ''}`}
       >
@@ -897,6 +899,7 @@ function ScriptBankCard({
           <div className="text-sm font-medium text-ink-200">{label}</div>
           <div className="text-xs text-ink-400">Click to select from bank</div>
         </div>
+        <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" />
       </button>
     )
   }
@@ -908,7 +911,7 @@ function ScriptBankCard({
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect() } }}
       className={`group flex w-full cursor-pointer items-center gap-3 px-4 py-3 transition-colors ${
         flat
-          ? 'border-b border-ink/10 hover:bg-ink/[0.04]'
+          ? 'border-b border-dashed border-ink/10 hover:bg-ink/[0.04]'
           : 'rounded-full border border-ink/10 bg-ink/[0.02] hover:border-ink/20 hover:bg-ink/[0.04]'
       } ${className ?? ''}`}
     >

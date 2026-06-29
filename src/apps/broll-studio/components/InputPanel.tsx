@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Package, UserRound, FileText, RefreshCw, Loader2, Film, X } from 'lucide-react'
+import { Package, UserRound, FileText, RefreshCw, Loader2, Film, X, ChevronRight } from 'lucide-react'
 import type { Product, Model, Script } from '../../../stores/types'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
 import ExpandTextModal, { ExpandButton } from '../../../components/ExpandableText'
@@ -59,17 +59,18 @@ function BankCard({
         onClick={onSelect}
         className={`flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors ${
           flat
-            ? 'border-b border-ink/10 hover:bg-ink/[0.04]'
+            ? 'border-b border-dashed border-ink/10 hover:bg-ink/[0.04]'
             : 'rounded-full border border-dashed border-ink/10 hover:border-ink/20 hover:bg-ink/[0.02]'
         } ${className ?? ''}`}
       >
         <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${accentClass}`}>
           <Icon className="h-5 w-5" strokeWidth={1.5} />
         </div>
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-ink-300">{label}</p>
           <p className="text-[11px] text-ink-600">Click to select from bank</p>
         </div>
+        <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" />
       </button>
     )
   }
@@ -209,7 +210,7 @@ export default function InputPanel({
             icon={Package}
             label="Product"
             accentClass="bg-gold-500/15 text-gold-400 light:text-gold-600"
-            selectedClass="border-gold-500/40 bg-gold-500/10 ring-1 ring-inset ring-gold-500/15 hover:bg-gold-500/[0.14]"
+            selectedClass="border-gold-500/40 bg-gold-500/10 hover:bg-gold-500/[0.14]"
             isEmpty={!selectedProduct}
             onSelect={onSelectProduct}
             onClear={selectedProduct ? onClearProduct : undefined}
@@ -222,7 +223,7 @@ export default function InputPanel({
             icon={UserRound}
             label="Influencer"
             accentClass="bg-influencers-500/15 text-influencers-400"
-            selectedClass="border-influencers-500/40 bg-influencers-500/10 ring-1 ring-inset ring-influencers-500/15 hover:bg-influencers-500/[0.14]"
+            selectedClass="border-influencers-500/40 bg-influencers-500/10 hover:bg-influencers-500/[0.14]"
             isEmpty={!selectedModel}
             onSelect={onSelectModel}
             onClear={selectedModel ? onClearModel : undefined}
@@ -232,7 +233,7 @@ export default function InputPanel({
 
           {/* Script — select from bank (header) or paste manually (textarea),
               merged into one rounded box so the two sources read as one input. */}
-          <div className={`flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-dashed border-ink/10 bg-ink/[0.02] transition-colors focus-within:border-ink/20 ${highlightField === 'script' ? 'animate-field-flash' : ''}`}>
+          <div className={`flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border bg-ink/[0.02] transition-colors ${selectedScript ? 'border-scripts-500/40 focus-within:border-scripts-500/50' : 'border-dashed border-ink/10 focus-within:border-ink/20'} ${highlightField === 'script' ? 'animate-field-flash' : ''}`}>
             <BankCard
               icon={FileText}
               label="Script"
