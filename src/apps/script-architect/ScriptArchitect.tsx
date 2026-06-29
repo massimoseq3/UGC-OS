@@ -208,16 +208,6 @@ export default function ScriptArchitect() {
   // working output / history, never wiped by starting a new draft. (Output
   // labels are pinned to outputMode/outputStyle snapshots, so leaving the
   // shown cards untouched is safe even as the live left-panel toggles reset.)
-  const handleNewDraft = () => {
-    setError(null)
-    setWinningTranscript('')
-    setReversePrompt('')
-    setBrief('')
-    setSelectedProductId(null)
-    setSelectedInfluencerId(null)
-    setAdditionalContext('')
-  }
-
   return (
     <div className="relative flex flex-col pb-32 md:flex-row md:h-full md:pb-0">
       <div className="flex w-full md:w-1/2 shrink-0 flex-col border-b md:border-b-0 md:border-r border-ink/5">
@@ -245,7 +235,6 @@ export default function ScriptArchitect() {
           onGenerate={handleGenerate}
           isGenerating={isGenerating}
           highlightField={highlightField}
-          onClear={handleNewDraft}
         />
       </div>
 
