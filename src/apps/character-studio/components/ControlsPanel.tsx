@@ -13,8 +13,6 @@ const TAB_ICONS: Record<TabId, ElementType> = {
 import type { ImageResolution } from '../../../utils/models'
 import ChipField from './ChipField'
 import GenerateBar from './GenerateBar'
-import LoadPresetDropdown from './LoadPresetDropdown'
-import PhotoExtractZone from './PhotoExtractZone'
 import SegmentedToggle from '../../../components/SegmentedToggle'
 import ClearAllButton from '../../../components/ClearAllButton'
 import { useBankStore } from '../../../stores/bankStore'
@@ -54,7 +52,7 @@ function CopyPromptButton({ text }: { text: string }) {
       className="flex items-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.02] px-2.5 py-1 text-[11px] font-medium text-ink-400 transition-colors hover:border-ink/20 hover:bg-ink/[0.05] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-40"
     >
       {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
-      {copied ? 'Copied' : 'Copy Prompt'}
+      {copied ? 'Copied' : 'Copy'}
     </button>
   )
 }
@@ -132,7 +130,7 @@ function PresetActions({
 
   return (
     <div className="ml-auto flex items-center gap-1.5">
-      <ClearAllButton onClear={onClear} className="!py-1 !text-[11px]" />
+      <ClearAllButton onClear={onClear} label="New" className="!py-1 !text-[11px]" />
       <button
         type="button"
         onClick={startNaming}
@@ -140,7 +138,7 @@ function PresetActions({
         className="flex items-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.02] px-2.5 py-1 text-[11px] font-medium text-ink-400 transition-colors hover:border-ink/20 hover:bg-ink/[0.05] hover:text-ink-200"
       >
         {saved ? <Check className="h-3 w-3 text-influencers-400" /> : <Bookmark className="h-3 w-3" />}
-        {saved ? 'Saved' : 'Save as Preset'}
+        {saved ? 'Saved' : 'Save Preset'}
       </button>
       <CopyPromptButton text={promptText} />
     </div>
@@ -223,9 +221,11 @@ export default function ControlsPanel({
   return (
     <div className="flex min-w-0 flex-col md:h-full">
       {/* Rounded segmented toggle — filled so all tabs share the column
-          with no horizontal scroll. Sits at the top of the column. */}
-      <div className="px-2 pb-2.5 pt-3">
+          with no horizontal scroll. Sits at the top of the column in a fixed
+          h-14 band so its divider lines up with the sidebar header divider. */}
+      <div className="flex h-14 items-center px-2">
         <SegmentedToggle<TabId>
+          className="h-10 !p-1"
           value={activeTab}
           onChange={onActiveTabChange}
           options={TABS.map((tab) => {
@@ -241,27 +241,9 @@ export default function ControlsPanel({
         />
       </div>
 
-      {/* Divider between the toggle and the presets/dropzone row — full width. */}
-      <div className="border-t border-ink/5" />
-
-      {/* Preset picker + reference-image drop zone — same pill styling as the
-          model picker, sitting just under the toggle. */}
-      <div className="flex items-center gap-2 px-3 py-2.5">
-        <div className="min-w-0 flex-1">
-          <LoadPresetDropdown onLoadProfile={onProfileChange} />
-        </div>
-        <div className="min-w-0 flex-1">
-          <PhotoExtractZone
-            isExtracting={isExtracting}
-            extractError={extractError}
-            thumbnail={extractedThumb}
-            onPhotoDrop={onPhotoDrop}
-            onReset={onResetExtract}
-          />
-        </div>
-      </div>
-
-      {/* Divider between the toggle/presets block and the parameter inputs — full width. */}
+      {/* Divider between the toggle and the parameter inputs — full width. The
+          preset picker + autofill drop zone now live in the action footer,
+          directly above the Portrait / Influencer Sheet toggle. */}
       <div className="border-t border-ink/5" />
 
       {/* Scrollable parameter fields (only scrolls internally on desktop) —
@@ -322,6 +304,12 @@ export default function ControlsPanel({
         error={error}
         onGenerate={onGenerate}
         canGenerate={canGenerate}
+        onLoadProfile={onProfileChange}
+        isExtracting={isExtracting}
+        extractError={extractError}
+        extractedThumb={extractedThumb}
+        onPhotoDrop={onPhotoDrop}
+        onResetExtract={onResetExtract}
         aspectRatio={profile.aspectRatio || '9:16'}
         onAspectRatioChange={(value) => onProfileChange({ ...profile, aspectRatio: value })}
         resolution={resolution}

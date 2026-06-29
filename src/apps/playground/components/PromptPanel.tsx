@@ -589,8 +589,9 @@ export default function PromptPanel({ state, onChange, onModeChange, onClear, on
       }`}
     >
       {/* Mode toggle — mirrors Voiceovers' Settings/History pattern. */}
-      <div className="flex items-center border-b border-ink/5 px-5 pb-3 pt-4">
+      <div className="flex h-[57px] items-center border-b border-ink/5 px-5">
         <SegmentedToggle<PlaygroundMode>
+          className="h-10 !p-1"
           value={state.mode}
           onChange={onModeChange}
           options={MODE_TABS.map((tab) => ({ value: tab.id, label: tab.label, icon: tab.icon }))}

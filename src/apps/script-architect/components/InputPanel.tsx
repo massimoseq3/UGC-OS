@@ -372,10 +372,12 @@ export default function InputPanel({
       {/* Mode toggle — rounded segmented pill, mirrored by the Output/History
           toggle in the right panel so both strips share the same baseline. */}
       {/* Full-width divider in the subtle vertical-divider tone (border-ink/5).
-          Mirrored under the right column's Output/History toggle (same pt-4/pb-3
-          + pill height) so the line runs cleanly across both columns. */}
-      <div className="flex shrink-0 items-center border-b border-ink/5 px-5 pb-3 pt-4">
+          Mirrored under the right column's Output/History toggle (same h-14 band
+          + dense pill) so the line runs cleanly across both columns and lines up
+          with the sidebar header divider. */}
+      <div className="flex h-[57px] shrink-0 items-center border-b border-ink/5 px-5">
         <SegmentedToggle<ScriptMode>
+          className="h-10 !p-1"
           value={mode}
           onChange={onModeChange}
           options={[

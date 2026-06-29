@@ -26,17 +26,17 @@ export default function CharacterStudio() {
   const baseKey = useProjectScopedKey('character-studio')
   const [profile, setProfile] = usePersistedState<CharacterProfile>(`${baseKey}:profile`, createEmptyProfile())
   const [activeTab, setActiveTab] = usePersistedState<TabId>(`${baseKey}:tab`, 'physical')
-  // Characters always opens at 1K — high-res image generation is opt-in
-  // here. The user can pick 2K / 4K from the resolution toggle when they
-  // want it.
-  const [resolution, setResolution] = usePersistedState<ImageResolution>(`${baseKey}:resolution`, '1K')
+  // Characters open at 2K by default — portraits hold up better reused as
+  // references. The user can drop to 1K or bump to 4K from the resolution
+  // toggle. Key bumped to :v2 so the new default lands over a stored 1K.
+  const [resolution, setResolution] = usePersistedState<ImageResolution>(`${baseKey}:resolution:v2`, '2K')
   // Portrait vs character-sheet output. Flipping to sheet bumps resolution to
   // 4K and orients horizontal (each panel is a fraction of the frame, so a
   // crisp full-res sheet holds up when reused as a reference); flipping back
   // restores what was set before. Both are persisted so a refresh mid-session
   // keeps the pairing.
   const [sheetMode, setSheetMode] = usePersistedState<boolean>(`${baseKey}:sheet-mode`, false)
-  const [preSheetResolution, setPreSheetResolution] = usePersistedState<ImageResolution>(`${baseKey}:pre-sheet-resolution`, '1K')
+  const [preSheetResolution, setPreSheetResolution] = usePersistedState<ImageResolution>(`${baseKey}:pre-sheet-resolution:v2`, '2K')
   // Sheet orientation — kept separate from the portrait aspect so flipping
   // modes preserves each. Defaults to the horizontal turnaround layout.
   const [sheetAspect, setSheetAspect] = usePersistedState<string>(`${baseKey}:sheet-aspect`, '16:9')

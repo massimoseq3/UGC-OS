@@ -71,9 +71,9 @@ export default function RightPanel(props: RightPanelProps) {
     <div className="flex h-full flex-col">
       {/* Toggle strip — no global Settings popover anymore: each card owns its
           own settings inside its detail modal. */}
-      <div className="flex items-center border-b border-ink/5 px-5 pb-3 pt-4">
+      <div className="flex h-[57px] items-center border-b border-ink/5 px-5">
         <SegmentedToggle<Tab>
-          className="min-w-0"
+          className="h-10 !p-1 min-w-0"
           value={tab}
           onChange={setTab}
           options={[
