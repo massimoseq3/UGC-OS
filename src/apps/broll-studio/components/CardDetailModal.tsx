@@ -631,7 +631,10 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                     className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-broll-500 px-7 py-4 text-sm font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <ImageIcon className="h-4 w-4" />
-                    Generate Image{imageCreditsLabel ? ` (${imageCreditsLabel})` : ''}
+                    Generate Image
+                    {imageCreditsLabel && (
+                      <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight">{imageCreditsLabel}</span>
+                    )}
                   </button>
                 ) : tab === 'video' ? (
                   <button
@@ -640,7 +643,10 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                     className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-broll-500 px-7 py-4 text-sm font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <VideoIcon className="h-4 w-4" />
-                    Generate Video{videoCreditsLabel ? ` (${videoCreditsLabel})` : ''}
+                    Generate Video
+                    {videoCreditsLabel && (
+                      <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight">{videoCreditsLabel}</span>
+                    )}
                   </button>
                 ) : (
                   <button
@@ -650,7 +656,10 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                     className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-broll-500 px-7 py-4 text-sm font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <Film className="h-4 w-4" />
-                    Animate{videoCreditsLabel ? ` (${videoCreditsLabel})` : ''}
+                    Animate
+                    {videoCreditsLabel && (
+                      <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight">{videoCreditsLabel}</span>
+                    )}
                   </button>
                 )}
                 {tab === 'image' && (

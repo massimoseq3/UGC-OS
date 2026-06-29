@@ -579,7 +579,10 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
                     className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-influencers-500 px-7 py-4 text-sm font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-influencers-400 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-                    {generating ? 'Generating edit…' : `Generate Edit${creditsLabel ? ` (${creditsLabel})` : ''}`}
+                    {generating ? 'Generating edit…' : 'Generate Edit'}
+                    {!generating && creditsLabel && (
+                      <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight">{creditsLabel}</span>
+                    )}
                   </button>
                 ) : (
                   <button
@@ -589,7 +592,10 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
                     className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-influencers-500 px-7 py-4 text-sm font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-influencers-400 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <LayoutGrid className="h-4 w-4" />}
-                    {generating ? 'Generating influencer sheet…' : `Generate Influencer Sheet${creditsLabel ? ` (${creditsLabel})` : ''}`}
+                    {generating ? 'Generating influencer sheet…' : 'Generate Influencer Sheet'}
+                    {!generating && creditsLabel && (
+                      <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight">{creditsLabel}</span>
+                    )}
                   </button>
                 )}
                 <div className="min-h-[16px]">

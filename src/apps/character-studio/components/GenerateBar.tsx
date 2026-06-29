@@ -177,9 +177,12 @@ export default function GenerateBar({
       >
         {sheetMode ? <LayoutGrid className="h-4 w-4" strokeWidth={2.5} /> : <UserRound className="h-4 w-4" strokeWidth={2.5} />}
         <span>
-          {sheetMode ? 'Generate Influencer Sheet' : 'Generate Influencer'}{creditsLabel ? ` (${creditsLabel})` : ''}
+          {sheetMode ? 'Generate Influencer Sheet' : 'Generate Influencer'}
           {inFlightCount > 0 && ` · ${inFlightCount} running`}
         </span>
+        {creditsLabel && (
+          <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight">{creditsLabel}</span>
+        )}
       </button>
 
       {/* Wait notice (when shown) sits centered under the Generate button. */}

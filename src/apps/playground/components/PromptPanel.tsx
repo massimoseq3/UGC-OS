@@ -999,10 +999,10 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
           className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-playground-500 px-7 py-4 text-sm font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] btn-soft-shadow transition-all hover:bg-playground-400 disabled:cursor-not-allowed disabled:opacity-40"
         >
           <GenerateIcon className="h-4 w-4" strokeWidth={2.5} />
-          <span>
-            {generateLabel}
-            {generateCredits && <span className="text-white/70"> ({generateCredits})</span>}
-          </span>
+          <span>{generateLabel}</span>
+          {generateCredits && (
+            <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight">{generateCredits}</span>
+          )}
         </button>
         {state.mode === 'image' && <ModelWaitNotice modelId={state.modelId} className="mt-2" />}
       </div>
