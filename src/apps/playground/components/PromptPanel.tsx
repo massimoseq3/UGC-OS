@@ -886,6 +886,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
           <>
             <ConstraintChip
               grow
+              hover
               openDirection="up"
               options={model.videoConstraints.resolutions}
               value={state.resolution}
@@ -901,6 +902,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
             {!isMotionControl && model.videoConstraints.aspectRatios.length > 0 && (
             <ConstraintChip
               grow
+              hover
               openDirection="up"
               options={model.videoConstraints.aspectRatios}
               value={state.aspectRatio}
@@ -916,6 +918,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
             {!isMotionControl && model.videoConstraints.durations.length > 0 && (
               <ConstraintChip
                 grow
+                hover
                 openDirection="up"
                 options={model.videoConstraints.durations.map(String)}
                 value={String(state.durationSeconds)}
@@ -926,6 +929,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
             {!isMotionControl && model.videoConstraints.supportsAudio && (
               <ConstraintChip
                 grow
+                hover
                 openDirection="up"
                 options={['Audio', 'Mute']}
                 value={state.audio ? 'Audio' : 'Mute'}
@@ -948,6 +952,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
           <>
             <ConstraintChip
               grow
+              hover
               openDirection="up"
               options={model.imageConstraints.resolutions}
               value={state.resolution}
@@ -956,6 +961,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
             {model.imageConstraints.aspectRatios && (
               <ConstraintChip
                 grow
+                hover
                 openDirection="up"
                 options={model.imageConstraints.aspectRatios}
                 value={state.aspectRatio}

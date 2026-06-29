@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { X, Plus, Mic, Film, UserRound } from 'lucide-react'
+import { X, Plus, Mic, Film, UserRound, Upload, Bookmark, Loader2 } from 'lucide-react'
 import BankPicker from '../../../components/BankPicker'
 import { readMediaDuration } from '../../../utils/media'
 import { fileToDataUri } from '../../../utils/kie'
@@ -9,6 +9,8 @@ import { useAppStore } from '../../../stores/appStore'
 import type { Model } from '../../../stores/types'
 import type { PromptRef } from './PromptPanel'
 import OmniVoiceDesigner from './OmniVoiceDesigner'
+import { createOmniCharacterFromImage } from '../service'
+import { humanizeError } from '../../../utils/friendlyError'
 
 // Gemini Omni's extra inputs: persistent characters (from the Influencers
 // bank), designed voices, and one trimmed source video clip. All Omni inputs
@@ -39,9 +41,12 @@ export default function OmniInputsSection({ refs, onChangeRefs }: OmniInputsSect
   const addToast = useAppStore((s) => s.addToast)
 
   const [characterPickerOpen, setCharacterPickerOpen] = useState(false)
+  const [characterMenuOpen, setCharacterMenuOpen] = useState(false)
+  const [uploadingCharacter, setUploadingCharacter] = useState(false)
   const [voiceMenuOpen, setVoiceMenuOpen] = useState(false)
   const [designerOpen, setDesignerOpen] = useState(false)
   const clipInputRef = useRef<HTMLInputElement>(null)
+  const characterFileRef = useRef<HTMLInputElement>(null)
 
   const characterRefs = refs.filter((r) => r.slot === 'omni-character')
   const voiceRefs = refs.filter((r) => r.slot === 'omni-voice')
@@ -70,6 +75,35 @@ export default function OmniInputsSection({ refs, onChangeRefs }: OmniInputsSect
       }
       if (additions.length > 0) onChangeRefs([...refs, ...additions])
     })()
+  }
+
+  // Upload an arbitrary image and mint a one-off Omni character from it (no
+  // bank row). The minted id rides on the ref's `omniId`, so generate uses it
+  // directly without a bank lookup.
+  async function handleCharacterUpload(file: File | null) {
+    if (!file || uploadingCharacter) return
+    if (characterRefs.length >= MAX_CHARACTERS) {
+      addToast(`Up to ${MAX_CHARACTERS} characters.`, 'error')
+      return
+    }
+    if (quotaUsed >= 7) {
+      addToast('Omni input quota reached (7 slots) — remove an image or the clip first.', 'error')
+      return
+    }
+    setUploadingCharacter(true)
+    try {
+      const dataUri = await fileToDataUri(file)
+      const name = file.name.replace(/\.[^.]+$/, '') || 'Uploaded character'
+      const characterId = await createOmniCharacterFromImage(dataUri, name)
+      onChangeRefs([
+        ...refs,
+        { url: dataUri, label: name, source: 'upload', slot: 'omni-character', omniId: characterId },
+      ])
+    } catch (err) {
+      addToast(humanizeError(err, 'Could not create the character'), 'error')
+    } finally {
+      setUploadingCharacter(false)
+    }
   }
 
   function attachVoice(voice: OmniVoice) {
@@ -115,19 +149,46 @@ export default function OmniInputsSection({ refs, onChangeRefs }: OmniInputsSect
           as chips beneath each card. */}
       <div className="grid grid-cols-3 items-start gap-3">
       <div className="min-w-0">
-        <OmniAddCard
-          icon={UserRound}
-          label="Characters"
-          count={characterRefs.length}
-          max={MAX_CHARACTERS}
-          optional
-          full={characterRefs.length >= MAX_CHARACTERS}
-          onClick={() => setCharacterPickerOpen(true)}
-        />
+        <div className="relative">
+          <OmniAddCard
+            icon={UserRound}
+            label="Characters"
+            count={characterRefs.length}
+            max={MAX_CHARACTERS}
+            optional
+            full={characterRefs.length >= MAX_CHARACTERS}
+            onClick={() => setCharacterMenuOpen((v) => !v)}
+          />
+          {/* Upload / Pick-from-Bank menu — mirrors the reference slots. */}
+          {characterMenuOpen && characterRefs.length < MAX_CHARACTERS && (
+            <div className="absolute left-0 top-full z-20 mt-1 w-44 overflow-hidden rounded-2xl border border-ink/10 bg-surface-2 p-1 shadow-xl">
+              <button
+                onClick={() => { setCharacterMenuOpen(false); characterFileRef.current?.click() }}
+                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[12px] text-ink-300 transition-colors hover:bg-ink/5 hover:text-ink-100"
+              >
+                <Upload className="h-3.5 w-3.5 shrink-0" />
+                Upload image
+              </button>
+              <button
+                onClick={() => { setCharacterMenuOpen(false); setCharacterPickerOpen(true) }}
+                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[12px] text-ink-300 transition-colors hover:bg-ink/5 hover:text-ink-100"
+              >
+                <Bookmark className="h-3.5 w-3.5 shrink-0" />
+                Pick from Bank
+              </button>
+            </div>
+          )}
+        </div>
+        {uploadingCharacter && (
+          <div className="mt-2 flex h-9 items-center gap-2 rounded-full border border-ink/10 bg-ink/[0.03] px-3 text-[12px] text-ink-400">
+            <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
+            Creating character…
+          </div>
+        )}
         {characterRefs.length > 0 && (
           <div className="mt-2 flex flex-wrap items-center gap-2">
             {characterRefs.map((r) => (
-              <div key={r.bankModelId} className="flex h-9 items-center gap-2 rounded-full border border-playground-500/25 bg-playground-500/10 pl-1.5 pr-1.5 text-[12px] text-playground-200">
+              <div key={r.bankModelId ?? r.omniId} className="flex h-9 items-center gap-2 rounded-full border border-playground-500/25 bg-playground-500/10 pl-1.5 pr-1.5 text-[12px] text-playground-200">
                 <img src={r.url} alt="" className="h-6 w-6 rounded-full object-cover" />
                 <span className="max-w-[120px] truncate">{r.label}</span>
                 <button
@@ -140,6 +201,13 @@ export default function OmniInputsSection({ refs, onChangeRefs }: OmniInputsSect
             ))}
           </div>
         )}
+        <input
+          ref={characterFileRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => { void handleCharacterUpload(e.target.files?.[0] ?? null); e.target.value = '' }}
+        />
       </div>
 
       {/* Voices */}
@@ -155,7 +223,7 @@ export default function OmniInputsSection({ refs, onChangeRefs }: OmniInputsSect
             onClick={() => setVoiceMenuOpen((v) => !v)}
           />
           {voiceMenuOpen && voiceRefs.length < MAX_VOICES && (
-            <div className="absolute right-0 top-[6.5rem] z-20 w-60 rounded-2xl border border-ink/10 bg-surface-2 p-1.5 shadow-xl">
+            <div className="absolute right-0 top-full z-20 mt-1 w-60 rounded-2xl border border-ink/10 bg-surface-2 p-1.5 shadow-xl">
                   {voices.length > 0 && (
                     <div className="max-h-44 overflow-y-auto">
                       {voices.map((v) => (
@@ -258,9 +326,9 @@ export default function OmniInputsSection({ refs, onChangeRefs }: OmniInputsSect
         ) : (
           <OmniAddCard
             icon={Film}
-            label="Source clip"
+            label="Source Clip"
             optional
-            helper={`Uses 2 slots · trim ≤ ${MAX_CLIP_WINDOW_S}s`}
+            helper={`Trim ≤ ${MAX_CLIP_WINDOW_S}s`}
             onClick={() => clipInputRef.current?.click()}
           />
         )}
@@ -322,7 +390,7 @@ function OmniAddCard({
       type="button"
       onClick={() => { if (!full) onClick() }}
       disabled={full}
-      className={`group relative flex min-h-24 w-full flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-ink/15 bg-ink/[0.02] px-2 py-3 transition-colors ${
+      className={`group relative flex h-32 w-full flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-ink/15 bg-ink/[0.02] px-2 py-3 transition-colors ${
         full ? 'cursor-not-allowed opacity-50' : 'hover:border-ink/25 hover:bg-ink/[0.04]'
       }`}
     >
