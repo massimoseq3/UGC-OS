@@ -337,6 +337,9 @@ function HistoryListRow({
   const prompt = entry.data.prompt
   const isSaved = entry.kind === 'image' ? !!entry.data.linkedBRollId : false
 
+  const ratioStr = entry.kind === 'music' ? null : entry.data.aspectRatio
+  const frameAspect = frameAspectFor(ratioStr, mediaAspect)
+
   const meta: string[] = []
   if (entry.kind === 'image') {
     if (entry.data.resolution) meta.push(entry.data.resolution)
@@ -352,11 +355,11 @@ function HistoryListRow({
 
   return (
     <div className="flex w-full items-stretch gap-3 overflow-hidden rounded-2xl border border-ink/10 bg-ink/[0.02] card-soft-shadow">
-      {/* Media — fixed-width column (the larger share of the row) whose height is
-          the slider-driven aspect ratio. At the slider minimum it's 16:9 so
-          landscape fills with no bars; taller frames letterbox landscape on black
-          and grow portraits. */}
-      <div className="relative min-w-0 flex-[3] bg-black" style={{ aspectRatio: mediaAspect }}>
+      {/* Media — fixed-width column (the larger share of the row). Landscape
+          outputs keep their own 16:9-style frame (no letterbox bars) at any slider
+          position; portraits follow the slider-driven aspect, growing taller as it
+          moves right. */}
+      <div className="relative min-w-0 flex-[3] bg-black" style={{ aspectRatio: frameAspect }}>
         {entry.kind === 'music' ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-ink/[0.04]">
             <MusicIcon className="h-8 w-8 text-ink-600" />
@@ -434,9 +437,12 @@ function HistoryListRow({
 function InFlightRow({ gen, mediaAspect }: { gen: InFlightGen; mediaAspect: number }) {
   const modelLabel = getModel(gen.modelId)?.displayName ?? gen.modelId
   const Icon = gen.mode === 'image' ? ImageIcon : gen.mode === 'video' ? Film : MusicIcon
+  // Match HistoryListRow: landscape gens keep a wide frame; portraits follow the
+  // slider so the placeholder doesn't jump when the result lands.
+  const frameAspect = frameAspectFor(gen.imageParams?.aspectRatio ?? gen.videoParams?.aspectRatio, mediaAspect)
   return (
     <div className="flex w-full items-stretch gap-3 overflow-hidden rounded-2xl border border-playground-500/20 bg-playground-500/[0.04] card-soft-shadow">
-      <div className="relative min-w-0 flex-[3]" style={{ aspectRatio: mediaAspect }}>
+      <div className="relative min-w-0 flex-[3]" style={{ aspectRatio: frameAspect }}>
         <GeneratingBackdrop family="playground" />
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
           <Icon className="h-7 w-7 text-playground-100" />
@@ -1242,4 +1248,15 @@ function aspectStyle(ar: string): React.CSSProperties {
 function isLandscape(ar: string): boolean {
   const [w, h] = ar.split(':').map(Number)
   return !!w && !!h && w > h
+}
+
+// List-view media frame aspect. Landscape outputs always render in their own
+// (wider) aspect ratio so they fill edge-to-edge with no letterbox bars, whatever
+// the slider is set to. Portrait/square (and music, which has no ratio) follow the
+// slider-driven `mediaAspect` — taller as it moves right.
+function frameAspectFor(ar: string | null | undefined, mediaAspect: number): number {
+  if (!ar) return mediaAspect
+  const [w, h] = ar.split(':').map(Number)
+  if (w && h && w > h) return w / h
+  return mediaAspect
 }
