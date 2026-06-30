@@ -77,7 +77,7 @@ export default function GenerateBar({
   const creditsLabel = formatCredits(estimateCredits(selectedModelId ?? '', { imageCount: 1, resolution }))
 
   return (
-    <div className="sticky bottom-0 z-10 min-w-0 space-y-2 border-t border-ink/5 bg-surface-0/95 p-3 backdrop-blur-xl md:static md:bg-transparent md:backdrop-blur-none">
+    <div className="sticky bottom-0 z-10 min-w-0 space-y-2 border-t border-ink/5 bg-surface-0/95 p-3 backdrop-blur-xl md:static md:rounded-t-2xl md:border md:border-b-0 md:border-ink/5 md:bg-ink/[0.03] md:backdrop-blur-none">
       {error && (
         <div className="flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2">
           <p className="text-xs leading-relaxed text-red-300 light:text-red-700">{error}</p>

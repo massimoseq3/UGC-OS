@@ -401,11 +401,16 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
       >
         {/* Body — 50/50 grid; each column scrolls. */}
         <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden md:grid-cols-2">
-          {/* LEFT — mode toggle + model + refs/prompt + generate */}
-          <div className="col-span-1 flex min-h-0 flex-col overflow-y-auto border-b border-ink/5 md:border-b-0 md:border-r">
-            <div className="flex grow flex-col gap-6 px-5 pb-6 pt-5">
-              {/* Edit Influencer / Influencer Sheet — full-width segmented toggle. */}
+          {/* LEFT — scrollable body (model + refs/prompt) over a pinned footer
+              (output settings + Generate), mirroring the Playground panel. */}
+          <div className="col-span-1 flex min-h-0 flex-col border-b border-ink/5 md:border-b-0 md:border-r">
+            {/* Scrollable body */}
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+            <div className="flex grow flex-col gap-3 px-5 pb-6 pt-5">
+              {/* Edit Influencer / Influencer Sheet — full-width segmented
+                  toggle. Slim (h-10 !p-1) to match the Playground mode toggle. */}
               <SegmentedToggle<Mode>
+                className="h-10 !p-1"
                 value={mode}
                 onChange={handleModeChange}
                 accent="influencers"
@@ -416,135 +421,103 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
               />
 
               {/* Separator between the toggle and the controls below. */}
-              <div className="-mt-2 -mb-4 border-b border-ink/5" />
+              <div className="-mt-1 border-b border-ink/5" />
 
-              {/* Image Model picker + constraint chips (resolution + aspect). */}
-              <div>
-                <span className="text-sm font-medium text-ink-200">Image Model</span>
-                <div className="mt-2">
-                  <ModelPicker
-                    appId="character-studio"
-                    task="image"
-                    mode="text-to-image"
-                  />
-                </div>
-                <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                  {resolutionOptions.length > 0 && (
-                    <ConstraintChip
-                      grow
-                      openDirection="down"
-                      options={resolutionOptions}
-                      value={resolution}
-                      onChange={(v) => setResolution(v as ImageResolution)}
-                    />
-                  )}
-                  {mode === 'edit'
-                    ? aspectOptions.length > 0 && (
-                        <ConstraintChip
-                          grow
-                          openDirection="down"
-                          options={aspectOptions}
-                          value={editAspect}
-                          onChange={setEditAspect}
-                          render={(v) => (
-                            <span className="flex items-center gap-1.5">
-                              <AspectIcon ratio={v} />
-                              <span>{v}</span>
-                            </span>
-                          )}
-                        />
-                      )
-                    : sheetAspectOptions.length > 0 && (
-                        <ConstraintChip
-                          grow
-                          openDirection="down"
-                          options={sheetAspectOptions}
-                          value={sheetAspect}
-                          onChange={setSheetAspect}
-                          render={(v) => (
-                            <span className="flex items-center gap-1.5">
-                              <AspectIcon ratio={v} />
-                              <span>{v}</span>
-                            </span>
-                          )}
-                        />
-                      )}
-                </div>
-              </div>
+              {/* Image Model picker — no heading (Playground style); constraint
+                  chips live in the pinned footer above Generate. */}
+              <ModelPicker
+                appId="character-studio"
+                task="image"
+                mode="text-to-image"
+              />
 
               {mode === 'edit' ? (
                 <>
-                  {/* Reference images — square Playground-style slots, capped at 4. */}
+                  {/* Reference images — Playground-style: picked thumbnails in a
+                      four-up strip above a full-width dashed add card (Optional
+                      badge left, count right, centered icon + label). */}
                   <div>
-                    <span className="text-sm font-medium text-ink-200">Reference images</span>
-                    <p className="mt-1 text-[11px] leading-relaxed text-ink-500">
-                      ({refs.length}/{MAX_REFS}) — optional. Add a product, outfit, or pose to guide the edit.
-                    </p>
-                    <div className="mt-2 grid grid-cols-4 gap-2">
-                      {refs.map((r, i) => (
-                        <div key={i} className="group/ref relative aspect-square overflow-hidden rounded-xl border border-ink/10">
-                          <img src={r.url} alt="" className="h-full w-full object-cover" />
-                          <button
-                            type="button"
-                            title="Remove"
-                            onClick={() => setRefs((prev) => prev.filter((_, idx) => idx !== i))}
-                            className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity hover:bg-red-500/60 group-hover/ref:opacity-100"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </div>
-                      ))}
-                      {refs.length < MAX_REFS && (
-                      <div className="relative" onMouseEnter={openRefMenu} onMouseLeave={closeRefMenuSoon}>
-                        <button
-                          type="button"
-                          onClick={() => setRefMenuOpen((v) => !v)}
-                          className="flex aspect-square w-full items-center justify-center rounded-xl border border-dashed border-ink/15 bg-ink/[0.02] text-ink-500 transition-colors hover:border-ink/30 hover:text-ink-300"
-                        >
-                          <ImagePlus className="h-5 w-5" />
-                        </button>
-                        {refMenuOpen && (
-                          <div
-                            className="absolute left-0 top-full z-[62] mt-1 w-40 overflow-hidden rounded-xl border border-ink/10 bg-surface-2/95 p-1 shadow-xl backdrop-blur-xl"
-                            onMouseEnter={openRefMenu}
-                            onMouseLeave={closeRefMenuSoon}
-                          >
+                    {refs.length > 0 && (
+                      <div className="mb-2 grid grid-cols-4 gap-2">
+                        {refs.map((r, i) => (
+                          <div key={i} className="relative aspect-square w-full overflow-hidden rounded-xl border border-ink/10 bg-ink/[0.02]">
+                            <img src={r.url} alt="" className="h-full w-full object-cover" />
                             <button
                               type="button"
-                              onClick={() => { setRefMenuOpen(false); fileInputRef.current?.click() }}
-                              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[12px] text-ink-300 transition-colors hover:bg-ink/[0.06]"
+                              title="Remove"
+                              onClick={() => setRefs((prev) => prev.filter((_, idx) => idx !== i))}
+                              className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/70 text-white/80 transition-colors hover:bg-black/90"
                             >
-                              <Upload className="h-3.5 w-3.5" />
-                              Upload Image
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => { setRefMenuOpen(false); setBankPickerOpen(true) }}
-                              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[12px] text-ink-300 transition-colors hover:bg-ink/[0.06]"
-                            >
-                              <FolderOpen className="h-3.5 w-3.5" />
-                              Pick from Bank
+                              <X className="h-2.5 w-2.5" />
                             </button>
                           </div>
-                        )}
+                        ))}
                       </div>
+                    )}
+                    <div className="relative" onMouseEnter={openRefMenu} onMouseLeave={closeRefMenuSoon}>
+                      <button
+                        type="button"
+                        disabled={refs.length >= MAX_REFS}
+                        onClick={() => { if (refs.length < MAX_REFS) setRefMenuOpen((v) => !v) }}
+                        className={`group relative flex h-20 w-full flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-ink/15 bg-ink/[0.02] transition-colors ${
+                          refs.length >= MAX_REFS ? 'cursor-not-allowed opacity-50' : 'hover:border-ink/25 hover:bg-ink/[0.04]'
+                        }`}
+                      >
+                        <span className="absolute left-2 top-2 rounded-full bg-ink/[0.06] px-2 py-0.5 text-[9px] font-medium capitalize tracking-wide text-ink-500">
+                          Optional
+                        </span>
+                        <span className="absolute right-2 top-2 rounded-full bg-ink/[0.06] px-2 py-0.5 text-[9px] font-medium tabular-nums tracking-wide text-ink-500">
+                          {refs.length}/{MAX_REFS}
+                        </span>
+                        <span className="flex h-8 w-8 items-center justify-center rounded-full border border-ink/15 bg-ink/[0.03] text-ink-400 transition-colors group-hover:text-ink-200">
+                          <ImagePlus className="h-3.5 w-3.5" />
+                        </span>
+                        <span className="text-[12px] font-normal text-ink-500">Reference images</span>
+                      </button>
+                      {refMenuOpen && refs.length < MAX_REFS && (
+                        <div
+                          className="absolute left-0 top-full z-[62] mt-1 w-40 overflow-hidden rounded-xl border border-ink/10 bg-surface-2/95 p-1 shadow-xl backdrop-blur-xl"
+                          onMouseEnter={openRefMenu}
+                          onMouseLeave={closeRefMenuSoon}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => { setRefMenuOpen(false); fileInputRef.current?.click() }}
+                            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[12px] text-ink-300 transition-colors hover:bg-ink/[0.06]"
+                          >
+                            <Upload className="h-3.5 w-3.5" />
+                            Upload Image
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setRefMenuOpen(false); setBankPickerOpen(true) }}
+                            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[12px] text-ink-300 transition-colors hover:bg-ink/[0.06]"
+                          >
+                            <FolderOpen className="h-3.5 w-3.5" />
+                            Pick from Bank
+                          </button>
+                        </div>
                       )}
                     </div>
                     <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handlePickFiles} />
                   </div>
 
-                  {/* Edit prompt — grows to absorb the column's leftover height. */}
+                  {/* Edit instruction — grows to absorb leftover height.
+                      Textarea + a footer toolbar (Expand) inside one rounded
+                      box, matching the Playground prompt field. */}
                   <div className="flex grow flex-col">
-                    <span className="text-sm font-medium text-ink-200">Edit instruction</span>
-                    <div className="relative mt-2 flex grow flex-col">
+                    <div className="relative flex grow flex-col overflow-hidden rounded-2xl border border-ink/10 bg-ink/[0.03] transition-colors focus-within:border-ink/20 focus-within:bg-ink/[0.05]">
                       <textarea
                         value={prompt}
                         onChange={(e) => setPrompt(e.target.value)}
                         rows={4}
                         placeholder="Describe the change — e.g. 'change the top to a red hoodie', 'add round glasses', 'softer warm lighting'…"
-                        className="min-h-[96px] w-full grow resize-none rounded-2xl border border-ink/10 bg-ink/[0.03] px-3.5 py-3 text-[13px] leading-[1.5] text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-ink/20 focus:bg-ink/[0.05]"
+                        className="relative min-h-[120px] w-full grow resize-none border-0 bg-transparent px-3.5 pb-3 pt-3 text-[13px] leading-[1.5] text-ink-200 placeholder-ink-600 outline-none"
                       />
-                      <ExpandButton onClick={() => setPromptExpanded(true)} className="absolute bottom-2 right-2" />
+                      {/* Footer toolbar — Expand bottom-right, under a hairline. */}
+                      <div className="flex items-center justify-end gap-2 border-t border-ink/10 px-2 py-1.5">
+                        <ExpandButton onClick={() => setPromptExpanded(true)} />
+                      </div>
                     </div>
                   </div>
                 </>
@@ -569,45 +542,91 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
                 </div>
               )}
 
-              {/* Generate — single accent pill (B-Roll style). */}
-              <div className="mt-2 flex flex-col gap-1.5">
-                {mode === 'edit' ? (
-                  <button
-                    type="button"
-                    onClick={handleEdit}
-                    disabled={!prompt.trim() || generating || !selected}
-                    className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-influencers-500 px-7 py-4 text-sm font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-influencers-400 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-                    {generating ? 'Generating edit…' : 'Generate Edit'}
-                    {!generating && creditsLabel && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight">
-                        <Coins className="h-3 w-3" strokeWidth={2} />
-                        {creditsLabel}
-                      </span>
-                    )}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleSheet}
-                    disabled={generating || !selected}
-                    className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-influencers-500 px-7 py-4 text-sm font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-influencers-400 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <LayoutGrid className="h-4 w-4" />}
-                    {generating ? 'Generating influencer sheet…' : 'Generate Influencer Sheet'}
-                    {!generating && creditsLabel && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight">
-                        <Coins className="h-3 w-3" strokeWidth={2} />
-                        {creditsLabel}
-                      </span>
-                    )}
-                  </button>
+            </div>
+            </div>
+
+            {/* Pinned footer — output settings (resolution / aspect) just above
+                the Generate button, separated by a hairline. Matches the
+                Playground panel's sticky footer; chips open upward. */}
+            <div className="shrink-0 border-t border-ink/5 px-5 py-4">
+              <div className="mb-3 flex flex-wrap items-center gap-1.5">
+                {resolutionOptions.length > 0 && (
+                  <ConstraintChip
+                    grow
+                    openDirection="up"
+                    options={resolutionOptions}
+                    value={resolution}
+                    onChange={(v) => setResolution(v as ImageResolution)}
+                  />
                 )}
-                <div className="min-h-[16px]">
-                  <ModelWaitNotice modelId={imageModelId} />
-                </div>
+                {mode === 'edit'
+                  ? aspectOptions.length > 0 && (
+                      <ConstraintChip
+                        grow
+                        openDirection="up"
+                        options={aspectOptions}
+                        value={editAspect}
+                        onChange={setEditAspect}
+                        render={(v) => (
+                          <span className="flex items-center gap-1.5">
+                            <AspectIcon ratio={v} />
+                            <span>{v}</span>
+                          </span>
+                        )}
+                      />
+                    )
+                  : sheetAspectOptions.length > 0 && (
+                      <ConstraintChip
+                        grow
+                        openDirection="up"
+                        options={sheetAspectOptions}
+                        value={sheetAspect}
+                        onChange={setSheetAspect}
+                        render={(v) => (
+                          <span className="flex items-center gap-1.5">
+                            <AspectIcon ratio={v} />
+                            <span>{v}</span>
+                          </span>
+                        )}
+                      />
+                    )}
               </div>
+
+              {/* Generate — single accent pill (edit / sheet). */}
+              {mode === 'edit' ? (
+                <button
+                  type="button"
+                  onClick={handleEdit}
+                  disabled={!prompt.trim() || generating || !selected}
+                  className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-influencers-500 px-7 py-4 text-sm font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-influencers-400 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+                  {generating ? 'Generating edit…' : 'Generate Edit'}
+                  {!generating && creditsLabel && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight">
+                      <Coins className="h-3 w-3" strokeWidth={2} />
+                      {creditsLabel}
+                    </span>
+                  )}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSheet}
+                  disabled={generating || !selected}
+                  className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-influencers-500 px-7 py-4 text-sm font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-influencers-400 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <LayoutGrid className="h-4 w-4" />}
+                  {generating ? 'Generating influencer sheet…' : 'Generate Influencer Sheet'}
+                  {!generating && creditsLabel && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight">
+                      <Coins className="h-3 w-3" strokeWidth={2} />
+                      {creditsLabel}
+                    </span>
+                  )}
+                </button>
+              )}
+              <ModelWaitNotice modelId={imageModelId} className="mt-2" />
             </div>
           </div>
 

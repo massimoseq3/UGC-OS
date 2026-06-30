@@ -38,8 +38,8 @@ import ModelWaitNotice from '../../../components/ModelWaitNotice'
 import ExpandTextModal, { ExpandButton } from '../../../components/ExpandableText'
 import {
   ModalGallery,
-  IconChipButton,
   ReferenceSlotCard,
+  ExtraRefsRow,
 } from './cardDetailParts'
 
 // After deleting tile #removed, shift the saved/saving index sets so they
@@ -74,6 +74,11 @@ interface CardDetailModalProps {
   // Open the script-level BankPicker (slide-in) when the user clicks a slot.
   onOpenCharacterPicker?: () => void
   onOpenProductPicker?: () => void
+  // Additional user-attached reference images (beyond the bank-keyed Influencer
+  // / Product pills). Memory-only — owned by VariationCard, fed into gen refs.
+  extraRefs?: ReferenceImage[]
+  onAddExtraRef?: (ref: ReferenceImage) => void
+  onRemoveExtraRef?: (index: number) => void
   handleUndo: () => void
   handleRedo: () => void
   handleCommitDraft: (draft: string) => void
@@ -116,6 +121,9 @@ export default function CardDetailModal(props: CardDetailModalProps) {
     productRef,
     onOpenCharacterPicker,
     onOpenProductPicker,
+    extraRefs = [],
+    onAddExtraRef,
+    onRemoveExtraRef,
     handleUndo,
     handleRedo,
     handleCommitDraft,
@@ -373,348 +381,368 @@ export default function CardDetailModal(props: CardDetailModalProps) {
 
         {/* Body — fixed 50/50 grid; content scrolls inside each column. */}
         <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden md:grid-cols-2">
-          {/* LEFT 50% — model + refs + prompt + generate */}
-          <div className="col-span-1 flex min-h-0 flex-col overflow-y-auto border-b border-ink/5 md:border-b-0 md:border-r">
-            <div className="flex grow flex-col gap-6 px-5 pb-6 pt-3">
-              {/* Image / Video / Animate — full-width segmented toggle that
-                  spans the left column (replaces the old top tab strip). */}
-              <SegmentedToggle<Tab>
-                value={tab}
-                onChange={setTab}
-                options={[
-                  { value: 'image', label: 'Image', icon: ImageIcon },
-                  { value: 'video', label: 'Video', icon: VideoIcon },
-                  { value: 'animate', label: 'Animate', icon: Film },
-                ]}
-              />
+          {/* LEFT 50% — scrollable body (model + refs + prompt) over a pinned
+              footer (output settings + Generate), mirroring the Playground panel. */}
+          <div className="col-span-1 flex min-h-0 flex-col border-b border-ink/5 md:border-b-0 md:border-r">
+            {/* Scrollable body */}
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+              <div className="flex grow flex-col gap-3 px-5 pb-6 pt-3">
+                {/* Image / Video / Animate — slim segmented toggle (h-10 !p-1)
+                    to match the Playground mode toggle. */}
+                <SegmentedToggle<Tab>
+                  className="h-10 !p-1"
+                  value={tab}
+                  onChange={setTab}
+                  options={[
+                    { value: 'image', label: 'Image', icon: ImageIcon },
+                    { value: 'video', label: 'Video', icon: VideoIcon },
+                    { value: 'animate', label: 'Animate', icon: Film },
+                  ]}
+                />
 
-              {/* Separator between the tab toggle and the controls below. */}
-              <div className="-mt-2 -mb-4 border-b border-ink/5" />
+                {/* Separator between the toggle and the controls below. */}
+                <div className="-mt-1 border-b border-ink/5" />
 
-              {/* 1) Model picker + its constraint chips (resolution first). */}
-              {tab === 'image' ? (
-                <div>
-                  <span className="text-sm font-medium text-ink-200">Image Model</span>
-                  <div className="mt-2">
-                    <ModelPicker
-                      appId="broll-studio"
-                      task="image"
-                      mode="text-to-image"
-                    />
-                  </div>
-                  {imageConstraints && (
-                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                      {imageConstraints.resolutions && imageConstraints.resolutions.length > 0 && (
-                        <ConstraintChip
-                          grow
-                          openDirection="down"
-                          options={imageConstraints.resolutions as string[]}
-                          value={cardState.cardImageResolution}
-                          onChange={(v) => onUpdateState({ cardImageResolution: v as ImageResolution })}
-                        />
-                      )}
-                      {imageConstraints.aspectRatios && imageConstraints.aspectRatios.length > 0 && (
-                        <ConstraintChip
-                          grow
-                          openDirection="down"
-                          options={imageConstraints.aspectRatios}
-                          value={cardState.cardImageAspectRatio}
-                          onChange={(v) => onUpdateState({ cardImageAspectRatio: v })}
-                          render={(v) => (
-                            <span className="flex items-center gap-1.5">
-                              <AspectIcon ratio={v} />
-                              <span>{v}</span>
-                            </span>
+                {/* Model picker — no heading (Playground style); constraint
+                    chips live in the pinned footer above Generate. */}
+                {tab === 'image' ? (
+                  <ModelPicker appId="broll-studio" task="image" mode="text-to-image" />
+                ) : (
+                  <>
+                    {/* Trigger button — opens the slide-in ModelSidePanel.
+                        Mirrors ModelPicker's trigger look (provider logo + name
+                        + star), no heading (Playground style). */}
+                    <button
+                      type="button"
+                      onClick={() => setModelPanelOpen(true)}
+                      className="flex h-12 w-full items-center gap-2.5 rounded-full border border-ink/10 bg-ink/[0.02] px-3 text-left transition-colors hover:bg-ink/[0.05]"
+                    >
+                      {videoModelId ? (
+                        <>
+                          <ProviderLogo provider={getModel(videoModelId)?.provider ?? ''} />
+                          <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                            <span className="truncate text-[13px] font-medium text-ink-100">{videoModelName}</span>
+                            {getModel(videoModelId)?.tags.includes('recommended') && (
+                              <Star className="h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400 light:fill-yellow-600 light:text-yellow-600" strokeWidth={1.5} />
+                            )}
+                          </div>
+                          {videoCreditsLabel && (
+                            <span className="shrink-0 text-[11px] text-ink-500">{videoCreditsLabel}</span>
                           )}
-                        />
+                        </>
+                      ) : (
+                        <span className="flex-1 truncate text-sm text-ink-400">Select model</span>
                       )}
+                      <ChevronDown className="h-4 w-4 shrink-0 text-ink-500" />
+                    </button>
+                    <ModelSidePanel
+                      appId="broll-studio"
+                      task="video"
+                      isOpen={modelPanelOpen}
+                      onClose={() => setModelPanelOpen(false)}
+                      requireMode={tab === 'animate' ? 'image-to-video' : (hasActiveRef ? 'reference-to-video' : undefined)}
+                      requireModeNote={tab === 'animate'
+                        ? "Greyed-out models can't animate a still — they have no image-to-video mode. Pick Veo 3.1 Fast, Seedance 2.0, or another image-to-video model."
+                        : "Greyed-out models don't support reference image-to-video. To use these, generate still frames in the Image tab, then send them to Playground for start/end frames."}
+                      costParams={{
+                        durationSeconds: cardState.cardVideoDurationSeconds,
+                        resolution: cardState.cardVideoResolution,
+                        audio: cardState.cardVideoAudio,
+                      }}
+                    />
+                  </>
+                )}
+
+                {/* Animate tab → Start frame preview. Image/Video tabs →
+                    the Influencer / Product reference slot cards + extra refs. */}
+                {tab === 'animate' ? (
+                  <div>
+                    <span className="text-sm font-medium text-ink-200">Start frame</span>
+                    <p className="mt-1 text-[11px] leading-relaxed text-ink-500">
+                      The still that gets animated. Click <span className="font-medium text-ink-400">Animate</span> on any image in the gallery to swap it.
+                    </p>
+                    <div className="mt-2">
+                      {effectiveAnimateFrame && animateFrameUrl ? (
+                        <div
+                          className="relative max-w-[140px] overflow-hidden rounded-xl border border-ink/10 bg-ink/[0.02]"
+                          style={aspectStyle(cardState.cardVideoAspectRatio)}
+                        >
+                          <img src={animateFrameUrl} alt="" className="h-full w-full object-cover" />
+                        </div>
+                      ) : (
+                        <div className="flex h-40 w-full flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-ink/10 bg-ink/[0.02] px-4 text-center">
+                          <ImageIcon className="h-6 w-6 text-ink-700" strokeWidth={1.5} />
+                          <p className="text-[11px] leading-relaxed text-ink-500">
+                            Generate an image in the Image tab first, then click Animate on it.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    {/* Reference images — bank-keyed Influencer / Product slot
+                        cards (no heading, Playground style). Click the body to
+                        pick from the bank; the tick-circle toggles whether the
+                        ref is sent. */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <ReferenceSlotCard
+                        icon={<User className="h-4 w-4 text-influencers-400 light:text-influencers-600" />}
+                        accentClass="bg-influencers-500/15 text-influencers-400 light:text-influencers-600"
+                        kind="Influencer"
+                        name={selectedModel?.name}
+                        imageRef={selectedModel?.characterImage}
+                        onClick={() => onOpenCharacterPicker?.()}
+                        active={cardState.refsCharacter !== false}
+                        onToggleActive={() => onUpdateState({ refsCharacter: cardState.refsCharacter === false })}
+                        dimmed={refsUnsupportedForVideo}
+                        dimmedReason={`${videoModelName} doesn't accept reference images. Switch to Veo 3.1 Fast or Seedance 2.0 to use them.`}
+                      />
+                      <ReferenceSlotCard
+                        icon={<Package className="h-4 w-4 text-gold-400 light:text-gold-600" />}
+                        accentClass="bg-gold-500/15 text-gold-400 light:text-gold-600"
+                        kind="Product"
+                        name={selectedProduct?.productName}
+                        imageRef={selectedProduct?.productImage}
+                        onClick={() => onOpenProductPicker?.()}
+                        active={cardState.refsProduct !== false}
+                        onToggleActive={() => onUpdateState({ refsProduct: cardState.refsProduct === false })}
+                        dimmed={refsUnsupportedForVideo}
+                        dimmedReason={`${videoModelName} doesn't accept reference images. Switch to Veo 3.1 Fast or Seedance 2.0 to use them.`}
+                      />
+                    </div>
+                    {/* Extra references — keep the bank-keyed pills above, but
+                        let the user attach more (a second product, an outfit,
+                        a pose) via upload or the bank. */}
+                    {onAddExtraRef && onRemoveExtraRef && (
+                      <ExtraRefsRow
+                        refs={extraRefs}
+                        onAdd={onAddExtraRef}
+                        onRemove={onRemoveExtraRef}
+                        dimmed={refsUnsupportedForVideo}
+                      />
+                    )}
+                    {hasActiveRef && refsUnsupportedForVideo && (
+                      <p className="mt-2 text-[11px] leading-relaxed text-gold-400/80 light:text-gold-600/80">
+                        {videoModelName} doesn't support reference images — this will generate text-to-video only. Pick Veo 3.1 Fast or Seedance 2.0 to use your influencer/product.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Prompt — grows to absorb leftover height. Textarea + footer
+                    toolbar (Enhance / Regenerate / Undo / Redo + Expand) inside
+                    one rounded box, matching the Playground prompt field. */}
+                <div className="flex grow flex-col">
+                  <div className="relative flex grow flex-col overflow-hidden rounded-2xl border border-ink/10 bg-ink/[0.03] transition-colors focus-within:border-ink/20 focus-within:bg-ink/[0.05]">
+                    <textarea
+                      value={draft}
+                      onChange={(e) => setDraft(e.target.value)}
+                      onBlur={handleDraftBlur}
+                      rows={8}
+                      placeholder="Write your custom B-roll prompt here..."
+                      className="relative min-h-[180px] w-full grow resize-none border-0 bg-transparent px-3.5 pb-3 pt-3 text-[13px] leading-relaxed text-ink-200 placeholder-ink-600 outline-none"
+                    />
+                    {/* Footer toolbar — Enhance + Regenerate + Undo/Redo
+                        bottom-left; Expand bottom-right; under a hairline. */}
+                    <div className="flex items-center justify-between gap-2 border-t border-ink/10 px-2 py-1.5">
+                      <div className="flex flex-wrap items-center gap-1">
+                        <button
+                          type="button"
+                          title="Enhance with framework"
+                          onClick={handleEnhance}
+                          disabled={cardState.isPromptWorking || !draft.trim()}
+                          className="flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium text-ink-400 transition-colors hover:bg-broll-500/10 hover:text-broll-300 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          {cardState.isPromptWorking ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                          Enhance Prompt
+                        </button>
+                        <button
+                          type="button"
+                          title={`Regenerate prompt — produces a fresh ${tagLabel(variation.tag)} prompt`}
+                          onClick={handleRegeneratePrompt}
+                          disabled={cardState.isPromptWorking}
+                          className="flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <RefreshCw className="h-3 w-3" />
+                          Regenerate Prompt
+                        </button>
+                        <button
+                          type="button"
+                          title="Undo"
+                          onClick={handleUndo}
+                          disabled={!canUndo || cardState.isPromptWorking}
+                          className="flex h-6 w-6 items-center justify-center rounded-full text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-30"
+                        >
+                          <Undo2 className="h-3 w-3" />
+                        </button>
+                        <button
+                          type="button"
+                          title="Redo"
+                          onClick={handleRedo}
+                          disabled={!canRedo || cardState.isPromptWorking}
+                          className="flex h-6 w-6 items-center justify-center rounded-full text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-30"
+                        >
+                          <Redo2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                      <ExpandButton onClick={() => setPromptExpanded(true)} />
+                    </div>
+                  </div>
+
+                  {cardState.promptError && (
+                    <div className="mt-2 flex items-start gap-1.5 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2">
+                      <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-400 light:text-red-600" />
+                      <p className="text-[11px] leading-relaxed text-red-300 light:text-red-700">{cardState.promptError}</p>
                     </div>
                   )}
                 </div>
-              ) : (
-                <div>
-                  <span className="text-sm font-medium text-ink-200">Video Model</span>
-                  {/* Trigger button — opens the slide-in ModelSidePanel. Mirrors
-                      ModelPicker's trigger look (provider logo + name + star). */}
-                  <button
-                    type="button"
-                    onClick={() => setModelPanelOpen(true)}
-                    className="mt-2 flex h-12 w-full items-center gap-2.5 rounded-full border border-ink/10 bg-ink/[0.02] px-3 text-left transition-colors hover:bg-ink/[0.05]"
-                  >
-                    {videoModelId ? (
+              </div>
+            </div>
+
+            {/* Pinned footer — output settings (resolution / aspect / duration
+                / audio) just above the Generate button, separated by a hairline.
+                Matches the Playground panel's sticky footer; chips open upward. */}
+            <div className="shrink-0 border-t border-ink/5 px-5 py-4">
+              <div className="mb-3 flex flex-wrap items-center gap-1.5">
+                {tab === 'image'
+                  ? imageConstraints && (
                       <>
-                        <ProviderLogo provider={getModel(videoModelId)?.provider ?? ''} />
-                        <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                          <span className="truncate text-[13px] font-medium text-ink-100">{videoModelName}</span>
-                          {getModel(videoModelId)?.tags.includes('recommended') && (
-                            <Star className="h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400 light:fill-yellow-600 light:text-yellow-600" strokeWidth={1.5} />
-                          )}
-                        </div>
-                        {videoCreditsLabel && (
-                          <span className="shrink-0 text-[11px] text-ink-500">{videoCreditsLabel}</span>
+                        {imageConstraints.resolutions && imageConstraints.resolutions.length > 0 && (
+                          <ConstraintChip
+                            grow
+                            openDirection="up"
+                            options={imageConstraints.resolutions as string[]}
+                            value={cardState.cardImageResolution}
+                            onChange={(v) => onUpdateState({ cardImageResolution: v as ImageResolution })}
+                          />
+                        )}
+                        {imageConstraints.aspectRatios && imageConstraints.aspectRatios.length > 0 && (
+                          <ConstraintChip
+                            grow
+                            openDirection="up"
+                            options={imageConstraints.aspectRatios}
+                            value={cardState.cardImageAspectRatio}
+                            onChange={(v) => onUpdateState({ cardImageAspectRatio: v })}
+                            render={(v) => (
+                              <span className="flex items-center gap-1.5">
+                                <AspectIcon ratio={v} />
+                                <span>{v}</span>
+                              </span>
+                            )}
+                          />
                         )}
                       </>
-                    ) : (
-                      <span className="flex-1 truncate text-sm text-ink-400">Select model</span>
-                    )}
-                    <ChevronDown className="h-4 w-4 shrink-0 text-ink-500" />
-                  </button>
-                  <ModelSidePanel
-                    appId="broll-studio"
-                    task="video"
-                    isOpen={modelPanelOpen}
-                    onClose={() => setModelPanelOpen(false)}
-                    requireMode={tab === 'animate' ? 'image-to-video' : (hasActiveRef ? 'reference-to-video' : undefined)}
-                    requireModeNote={tab === 'animate'
-                      ? "Greyed-out models can't animate a still — they have no image-to-video mode. Pick Veo 3.1 Fast, Seedance 2.0, or another image-to-video model."
-                      : "Greyed-out models don't support reference image-to-video. To use these, generate still frames in the Image tab, then send them to Playground for start/end frames."}
-                    costParams={{
-                      durationSeconds: cardState.cardVideoDurationSeconds,
-                      resolution: cardState.cardVideoResolution,
-                      audio: cardState.cardVideoAudio,
-                    }}
-                  />
-                  {videoConstraints && (
-                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                      <ConstraintChip
-                        grow
-                        openDirection="down"
-                        options={videoConstraints.resolutions}
-                        value={cardState.cardVideoResolution}
-                        onChange={(v) => onUpdateState({ cardVideoResolution: v })}
-                        render={videoResolutionLabel}
-                      />
-                      {/* Image-conditioned models (e.g. Kling 3.0 Turbo) inherit
-                          aspect from the input frame and expose no aspect param,
-                          so aspectRatios is [] and the chip stays hidden. */}
-                      {videoConstraints.aspectRatios.length > 0 && (
-                      <ConstraintChip
-                        grow
-                        openDirection="down"
-                        options={videoConstraints.aspectRatios}
-                        value={cardState.cardVideoAspectRatio}
-                        onChange={(v) => onUpdateState({ cardVideoAspectRatio: v })}
-                        render={(v) => (
-                          <span className="flex items-center gap-1.5">
-                            <AspectIcon ratio={v} />
-                            <span>{v}</span>
-                          </span>
+                    )
+                  : videoConstraints && (
+                      <>
+                        <ConstraintChip
+                          grow
+                          openDirection="up"
+                          options={videoConstraints.resolutions}
+                          value={cardState.cardVideoResolution}
+                          onChange={(v) => onUpdateState({ cardVideoResolution: v })}
+                          render={videoResolutionLabel}
+                        />
+                        {/* Image-conditioned models (e.g. Kling 3.0 Turbo) inherit
+                            aspect from the input frame and expose no aspect param,
+                            so aspectRatios is [] and the chip stays hidden. */}
+                        {videoConstraints.aspectRatios.length > 0 && (
+                          <ConstraintChip
+                            grow
+                            openDirection="up"
+                            options={videoConstraints.aspectRatios}
+                            value={cardState.cardVideoAspectRatio}
+                            onChange={(v) => onUpdateState({ cardVideoAspectRatio: v })}
+                            render={(v) => (
+                              <span className="flex items-center gap-1.5">
+                                <AspectIcon ratio={v} />
+                                <span>{v}</span>
+                              </span>
+                            )}
+                          />
                         )}
-                      />
-                      )}
-                      {videoConstraints.durations.length > 0 && (
-                        <ConstraintChip
-                          grow
-                          openDirection="down"
-                          options={videoConstraints.durations.map(String)}
-                          value={String(cardState.cardVideoDurationSeconds)}
-                          onChange={(v) => onUpdateState({ cardVideoDurationSeconds: Number(v) })}
-                          render={(v) => <span>{v}s</span>}
-                        />
-                      )}
-                      {videoConstraints.supportsAudio && (
-                        <ConstraintChip
-                          grow
-                          openDirection="down"
-                          options={['Audio', 'Mute']}
-                          value={cardState.cardVideoAudio ? 'Audio' : 'Mute'}
-                          onChange={(v) => onUpdateState({ cardVideoAudio: v === 'Audio' })}
-                          triggerClassName={cardState.cardVideoAudio
-                            ? 'border-broll-500/40 bg-broll-500/15 text-broll-200'
-                            : 'border-ink/10 bg-ink/[0.02] text-ink-400 group-hover:bg-ink/[0.05]'}
-                          render={(v) => (
-                            <span className="flex items-center gap-1.5">
-                              {v === 'Audio' ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
-                              <span>{v}</span>
-                            </span>
-                          )}
-                        />
-                      )}
-                    </div>
+                        {videoConstraints.durations.length > 0 && (
+                          <ConstraintChip
+                            grow
+                            openDirection="up"
+                            options={videoConstraints.durations.map(String)}
+                            value={String(cardState.cardVideoDurationSeconds)}
+                            onChange={(v) => onUpdateState({ cardVideoDurationSeconds: Number(v) })}
+                            render={(v) => <span>{v}s</span>}
+                          />
+                        )}
+                        {videoConstraints.supportsAudio && (
+                          <ConstraintChip
+                            grow
+                            openDirection="up"
+                            options={['Audio', 'Mute']}
+                            value={cardState.cardVideoAudio ? 'Audio' : 'Mute'}
+                            onChange={(v) => onUpdateState({ cardVideoAudio: v === 'Audio' })}
+                            triggerClassName={cardState.cardVideoAudio
+                              ? 'border-broll-500/40 bg-broll-500/15 text-broll-200'
+                              : 'border-ink/10 bg-ink/[0.02] text-ink-400 group-hover:bg-ink/[0.05]'}
+                            render={(v) => (
+                              <span className="flex items-center gap-1.5">
+                                {v === 'Audio' ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
+                                <span>{v}</span>
+                              </span>
+                            )}
+                          />
+                        )}
+                      </>
+                    )}
+              </div>
+
+              {/* Generate — accent pill (image / video / animate). */}
+              {tab === 'image' ? (
+                <button
+                  onClick={handleGenerateImage}
+                  disabled={!cardState.editablePrompt.trim()}
+                  className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-broll-500 px-7 py-4 text-sm font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <ImageIcon className="h-4 w-4" />
+                  Generate Image
+                  {imageCreditsLabel && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight">
+                      <Coins className="h-3 w-3" strokeWidth={2} />
+                      {imageCreditsLabel}
+                    </span>
                   )}
-                </div>
-              )}
-
-              {/* 3) Animate tab → Start frame preview. Image/Video tabs →
-                  the Character / Product reference slot cards. */}
-              {tab === 'animate' ? (
-                <div>
-                  <span className="text-sm font-medium text-ink-200">Start frame</span>
-                  <p className="mt-1 text-[11px] leading-relaxed text-ink-500">
-                    The still that gets animated. Click <span className="font-medium text-ink-400">Animate</span> on any image in the gallery to swap it.
-                  </p>
-                  <div className="mt-2">
-                    {effectiveAnimateFrame && animateFrameUrl ? (
-                      <div
-                        className="relative max-w-[140px] overflow-hidden rounded-xl border border-ink/10 bg-ink/[0.02]"
-                        style={aspectStyle(cardState.cardVideoAspectRatio)}
-                      >
-                        <img src={animateFrameUrl} alt="" className="h-full w-full object-cover" />
-                      </div>
-                    ) : (
-                      <div className="flex h-40 w-full flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-ink/10 bg-ink/[0.02] px-4 text-center">
-                        <ImageIcon className="h-6 w-6 text-ink-700" strokeWidth={1.5} />
-                        <p className="text-[11px] leading-relaxed text-ink-500">
-                          Generate an image in the Image tab first, then click Animate on it.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                </button>
+              ) : tab === 'video' ? (
+                <button
+                  onClick={() => handleGenerateVideo(videoModelId)}
+                  disabled={!cardState.editablePrompt.trim()}
+                  className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-broll-500 px-7 py-4 text-sm font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <VideoIcon className="h-4 w-4" />
+                  Generate Video
+                  {videoCreditsLabel && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight">
+                      <Coins className="h-3 w-3" strokeWidth={2} />
+                      {videoCreditsLabel}
+                    </span>
+                  )}
+                </button>
               ) : (
-                <div>
-                  {/* Reference Images — side-by-side BankPicker-style slot
-                      cards. Click the body to pick from the bank; the
-                      tick-circle toggles whether the ref is sent. */}
-                <span className="text-sm font-medium text-ink-200">Reference Images</span>
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  <ReferenceSlotCard
-                    icon={<User className="h-4 w-4 text-influencers-400 light:text-influencers-600" />}
-                    accentClass="bg-influencers-500/15 text-influencers-400 light:text-influencers-600"
-                    kind="Influencer"
-                    name={selectedModel?.name}
-                    imageRef={selectedModel?.characterImage}
-                    onClick={() => onOpenCharacterPicker?.()}
-                    active={cardState.refsCharacter !== false}
-                    onToggleActive={() => onUpdateState({ refsCharacter: cardState.refsCharacter === false })}
-                    dimmed={refsUnsupportedForVideo}
-                    dimmedReason={`${videoModelName} doesn't accept reference images. Switch to Veo 3.1 Fast or Seedance 2.0 to use them.`}
-                  />
-                  <ReferenceSlotCard
-                    icon={<Package className="h-4 w-4 text-gold-400 light:text-gold-600" />}
-                    accentClass="bg-gold-500/15 text-gold-400 light:text-gold-600"
-                    kind="Product"
-                    name={selectedProduct?.productName}
-                    imageRef={selectedProduct?.productImage}
-                    onClick={() => onOpenProductPicker?.()}
-                    active={cardState.refsProduct !== false}
-                    onToggleActive={() => onUpdateState({ refsProduct: cardState.refsProduct === false })}
-                    dimmed={refsUnsupportedForVideo}
-                    dimmedReason={`${videoModelName} doesn't accept reference images. Switch to Veo 3.1 Fast or Seedance 2.0 to use them.`}
-                  />
-                </div>
-                {hasActiveRef && refsUnsupportedForVideo && (
-                  <p className="mt-2 text-[11px] leading-relaxed text-gold-400/80 light:text-gold-600/80">
-                    {videoModelName} doesn't support reference images — this will generate text-to-video only. Pick Veo 3.1 Fast or Seedance 2.0 to use your influencer/product.
-                  </p>
-                )}
-                </div>
+                <button
+                  onClick={() => handleAnimate(effectiveAnimateFrame, videoModelId)}
+                  disabled={!cardState.editablePrompt.trim() || !effectiveAnimateFrame}
+                  title={!effectiveAnimateFrame ? 'Generate an image first, then animate it' : undefined}
+                  className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-broll-500 px-7 py-4 text-sm font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <Film className="h-4 w-4" />
+                  Animate
+                  {videoCreditsLabel && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight">
+                      <Coins className="h-3 w-3" strokeWidth={2} />
+                      {videoCreditsLabel}
+                    </span>
+                  )}
+                </button>
               )}
-
-              {/* 4) Prompt — always-editable textarea. Grows to absorb the
-                  column's leftover height (Playground's expand-don't-scroll
-                  pattern); overflow scrolls inside the textarea. */}
-              <div className="flex grow flex-col">
-                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-sm font-medium text-ink-200">Prompt</span>
-                  <div className="flex flex-wrap items-center gap-1">
-                    {/* Enhance + Regenerate sit next to each other on the
-                        right, then Undo/Redo. Both use the default grey
-                        tone — the emerald accent felt out of place. */}
-                    <IconChipButton
-                      title="Enhance with framework"
-                      onClick={handleEnhance}
-                      disabled={cardState.isPromptWorking || !draft.trim()}
-                    >
-                      {cardState.isPromptWorking ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-                      Enhance Prompt
-                    </IconChipButton>
-                    <IconChipButton
-                      title={`Regenerate prompt — produces a fresh ${tagLabel(variation.tag)} prompt`}
-                      onClick={handleRegeneratePrompt}
-                      disabled={cardState.isPromptWorking}
-                    >
-                      <RefreshCw className="h-3 w-3" />
-                      Regenerate Prompt
-                    </IconChipButton>
-                    <IconChipButton title="Undo" onClick={handleUndo} disabled={!canUndo || cardState.isPromptWorking}>
-                      <Undo2 className="h-3 w-3" />
-                    </IconChipButton>
-                    <IconChipButton title="Redo" onClick={handleRedo} disabled={!canRedo || cardState.isPromptWorking}>
-                      <Redo2 className="h-3 w-3" />
-                    </IconChipButton>
-                  </div>
-                </div>
-
-                <div className="relative flex grow flex-col">
-                  <textarea
-                    value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
-                    onBlur={handleDraftBlur}
-                    rows={8}
-                    placeholder="Write your custom B-roll prompt here..."
-                    className="min-h-[200px] w-full grow resize-none rounded-2xl border border-ink/10 bg-ink/[0.03] px-3.5 py-3 text-[13px] leading-relaxed text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-ink/20 focus:bg-ink/[0.05]"
-                  />
-                  <ExpandButton onClick={() => setPromptExpanded(true)} className="absolute bottom-2 right-2" />
-                </div>
-
-                {cardState.promptError && (
-                  <div className="mt-2 flex items-start gap-1.5 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2">
-                    <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-400 light:text-red-600" />
-                    <p className="text-[11px] leading-relaxed text-red-300 light:text-red-700">{cardState.promptError}</p>
-                  </div>
-                )}
-              </div>
-
-              {/* 5) Generate button — orange Playground-pill. Sits a touch
-                  below the prompt (mt-2). The wait notice is grouped tight
-                  underneath via a fixed-height slot so it reads as part of
-                  the button, and so swapping to a model without a notice
-                  (e.g. Nano Banana) can't reflow / shift the panel. */}
-              <div className="mt-2 flex flex-col gap-1.5">
-                {tab === 'image' ? (
-                  <button
-                    onClick={handleGenerateImage}
-                    disabled={!cardState.editablePrompt.trim()}
-                    className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-broll-500 px-7 py-4 text-sm font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    <ImageIcon className="h-4 w-4" />
-                    Generate Image
-                    {imageCreditsLabel && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight">
-                        <Coins className="h-3 w-3" strokeWidth={2} />
-                        {imageCreditsLabel}
-                      </span>
-                    )}
-                  </button>
-                ) : tab === 'video' ? (
-                  <button
-                    onClick={() => handleGenerateVideo(videoModelId)}
-                    disabled={!cardState.editablePrompt.trim()}
-                    className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-broll-500 px-7 py-4 text-sm font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    <VideoIcon className="h-4 w-4" />
-                    Generate Video
-                    {videoCreditsLabel && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight">
-                        <Coins className="h-3 w-3" strokeWidth={2} />
-                        {videoCreditsLabel}
-                      </span>
-                    )}
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => handleAnimate(effectiveAnimateFrame, videoModelId)}
-                    disabled={!cardState.editablePrompt.trim() || !effectiveAnimateFrame}
-                    title={!effectiveAnimateFrame ? 'Generate an image first, then animate it' : undefined}
-                    className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-broll-500 px-7 py-4 text-sm font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    <Film className="h-4 w-4" />
-                    Animate
-                    {videoCreditsLabel && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight">
-                        <Coins className="h-3 w-3" strokeWidth={2} />
-                        {videoCreditsLabel}
-                      </span>
-                    )}
-                  </button>
-                )}
-                {tab === 'image' && (
-                  <div className="min-h-[16px]">
-                    <ModelWaitNotice modelId={imageModelId} />
-                  </div>
-                )}
-              </div>
+              {tab === 'image' && <ModelWaitNotice modelId={imageModelId} className="mt-2" />}
             </div>
           </div>
 

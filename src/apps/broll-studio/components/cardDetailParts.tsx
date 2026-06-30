@@ -4,11 +4,14 @@
 // modal's orchestration (state + handlers). These all communicate via props.
 import { useState, useEffect, useRef } from 'react'
 import {
-  ImageIcon, Video as VideoIcon, Film, Loader2, Check, Download, Trash2, Bookmark, Volume2, VolumeX, Play, Pause, Copy, Circle, AlertCircle, RefreshCw, X,
+  ImageIcon, Video as VideoIcon, Film, Loader2, Check, Download, Trash2, Bookmark, Volume2, VolumeX, Play, Pause, Copy, Circle, AlertCircle, RefreshCw, X, ImagePlus,
 } from 'lucide-react'
 import GenerationProgress from '../../../components/GenerationProgress'
 import GeneratingBackdrop from '../../../components/GeneratingBackdrop'
-import type { CardState } from '../types'
+import BankPicker from '../../../components/BankPicker'
+import SlotActionMenu from '../../../components/video/SlotActionMenu'
+import type { CardState, ReferenceImage } from '../types'
+import type { Product, Model, Script, VoicePreset, BRoll } from '../../../stores/types'
 import { useAssetUrlState, useAssetUrl } from '../../../hooks/useAssetUrl'
 import { getUrl } from '../../../utils/assetStore'
 import { getModel } from '../../../utils/models'
@@ -735,6 +738,134 @@ export function ReferenceSlotCard({
           {active ? <Check className="h-3 w-3" strokeWidth={2.5} /> : <Circle className="h-3 w-3" />}
         </button>
       )}
+    </div>
+  )
+}
+
+// Extra reference images — sits beneath the fixed Influencer / Product slot
+// cards so the user can attach additional refs (a second product, an outfit,
+// a pose) without losing the bank-keyed pills. Square Playground-style tiles
+// with a "+" add tile whose hover menu offers Upload / Pick from Bank. These
+// refs are memory-only (data: URIs are too big for the persisted card draft),
+// so they reset on a full refresh — same trade-off as the Influencers editor.
+export function ExtraRefsRow({
+  refs,
+  onAdd,
+  onRemove,
+  max = 4,
+  dimmed,
+}: {
+  refs: ReferenceImage[]
+  onAdd: (ref: ReferenceImage) => void
+  onRemove: (index: number) => void
+  max?: number
+  dimmed?: boolean
+}) {
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const remaining = max - refs.length
+
+  function handleFiles(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? [])
+    e.target.value = ''
+    for (const file of files) {
+      if (!file.type.startsWith('image/')) continue
+      const reader = new FileReader()
+      reader.onload = () => {
+        if (typeof reader.result === 'string') onAdd({ dataUrl: reader.result, label: 'reference' })
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  // Pull the image ref off whichever bank item the user picked. Stored as-is —
+  // startImageTask / the video path resolve asset:// refs at generation time.
+  function handleBankPick(item: Product | Model | Script | VoicePreset | BRoll) {
+    let url: string | undefined
+    if ('productImage' in item) url = item.productImage
+    else if ('characterImage' in item) url = item.sheetImage || item.characterImage
+    else if ('imageUrl' in item) url = (item as BRoll).imageUrl
+    if (url) onAdd({ dataUrl: url, label: 'reference' })
+  }
+
+  return (
+    <div className={`mt-2 ${dimmed ? 'opacity-50' : ''}`}>
+      {/* Picked references render as a four-up thumbnail strip above the add
+          card — same layout as the Playground reference strip. */}
+      {refs.length > 0 && (
+        <div className="mb-2 grid grid-cols-4 gap-2">
+          {refs.map((r, i) => (
+            <RefThumb key={i} refStr={r.dataUrl} onRemove={() => onRemove(i)} />
+          ))}
+        </div>
+      )}
+
+      {/* Full-width dashed add card — mirrors the Playground "Reference Images"
+          box (Optional badge left, count right, centered icon + label). Click
+          opens Upload / Pick-from-Bank. */}
+      <div className="relative">
+        <button
+          ref={triggerRef}
+          type="button"
+          disabled={remaining <= 0}
+          onClick={() => { if (remaining > 0) setMenuOpen((v) => !v) }}
+          className={`group relative flex h-20 w-full flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-ink/15 bg-ink/[0.02] transition-colors ${
+            remaining <= 0 ? 'cursor-not-allowed opacity-50' : 'hover:border-ink/25 hover:bg-ink/[0.04]'
+          }`}
+        >
+          <span className="absolute left-2 top-2 rounded-full bg-ink/[0.06] px-2 py-0.5 text-[9px] font-medium capitalize tracking-wide text-ink-500">
+            Optional
+          </span>
+          <span className="absolute right-2 top-2 rounded-full bg-ink/[0.06] px-2 py-0.5 text-[9px] font-medium tabular-nums tracking-wide text-ink-500">
+            {refs.length}/{max}
+          </span>
+          <span className="flex h-8 w-8 items-center justify-center rounded-full border border-ink/15 bg-ink/[0.03] text-ink-400 transition-colors group-hover:text-ink-200">
+            <ImagePlus className="h-3.5 w-3.5" />
+          </span>
+          <span className="text-[12px] font-normal text-ink-500">Reference Images</span>
+        </button>
+        {remaining > 0 && (
+          <SlotActionMenu
+            anchorRef={triggerRef}
+            open={menuOpen}
+            onClose={() => setMenuOpen(false)}
+            onUpload={() => fileInputRef.current?.click()}
+            onPickFromBank={() => setPickerOpen(true)}
+          />
+        )}
+      </div>
+
+      <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFiles} />
+      <BankPicker
+        bankType="products"
+        isOpen={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onSelect={handleBankPick}
+        tabs={['products', 'models', { type: 'brolls', filter: (it) => !!(it as BRoll).imageUrl }]}
+      />
+    </div>
+  )
+}
+
+// A single extra-reference thumbnail. Resolves asset:// refs through the asset
+// store; data: / http refs pass through. Mirrors the Playground thumbnail tile.
+function RefThumb({ refStr, onRemove }: { refStr: string; onRemove: () => void }) {
+  const url = useAssetUrl(refStr)
+  return (
+    <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-ink/10 bg-ink/[0.02]">
+      {url
+        ? <img src={url} alt="" className="h-full w-full object-cover" />
+        : <div className="flex h-full w-full items-center justify-center"><Loader2 className="h-4 w-4 animate-spin text-ink-500" /></div>}
+      <button
+        type="button"
+        title="Remove"
+        onClick={onRemove}
+        className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/70 text-white/80 transition-colors hover:bg-black/90"
+      >
+        <X className="h-2.5 w-2.5" />
+      </button>
     </div>
   )
 }
