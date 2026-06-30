@@ -7,7 +7,7 @@ import { BANK_CONFIG } from '../../utils/constants'
 import type { Product, Model, Script, VoicePreset, BRoll } from '../../stores/types'
 import { saveFromDataUrl } from '../../utils/assetStore'
 import BankList, { SortControl } from './BankList'
-import SegmentedToggle from '../../components/SegmentedToggle'
+import SegmentedToggle, { type SegmentedAccent } from '../../components/SegmentedToggle'
 import { useBankSort } from './bankSort'
 import ProductForm from './ProductForm'
 import ModelForm from './ModelForm'
@@ -26,6 +26,17 @@ const SIDEBAR_ICONS: Record<BankType, React.ElementType> = {
 }
 
 const BANK_TYPES: BankType[] = ['products', 'models', 'scripts', 'voices', 'brolls']
+
+// Per-bank accent for the active toggle pill — each bank wears its own app
+// colour (products purple, Influencers pink, etc.) so the toggle reads as a
+// small attention-to-detail cue for which bank you're in.
+const BANK_ACCENT: Record<BankType, SegmentedAccent> = {
+  products: 'products',
+  models: 'influencers',
+  scripts: 'scripts',
+  voices: 'voice',
+  brolls: 'broll',
+}
 
 // Influencers bank sub-filter. An entry is a "sheet" when `sheetImage` is set,
 // otherwise a portrait. Local-only UI state — not persisted.
@@ -231,6 +242,7 @@ export default function Finder() {
         <div className="min-w-0 flex-1 overflow-x-auto scrollbar-hide scroll-fade-r">
           <SegmentedToggle<BankType>
             fitContent
+            accent={BANK_ACCENT[activeBank]}
             className="h-10 !p-1"
             value={activeBank}
             onChange={(bank) => { setActiveBank(bank); closeForm() }}
