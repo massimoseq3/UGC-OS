@@ -624,7 +624,7 @@ function HistoryListRow({
           ratio. At the slider minimum it's 16:9 so landscape fills with no bars;
           taller frames letterbox landscape on black and grow portraits. The
           side panel keeps enough width for the action row to stay on one line. */}
-      <div className="relative min-w-0 flex-[5] bg-black" style={{ aspectRatio: frameAspect }}>
+      <div className="relative min-w-0 flex-[5] bg-black light:bg-[#EAEAEC]" style={{ aspectRatio: frameAspect }}>
         {a.status === 'ready' && a.url ? (
           <img
             src={a.url}

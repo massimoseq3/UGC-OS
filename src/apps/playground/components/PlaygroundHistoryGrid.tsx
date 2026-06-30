@@ -359,7 +359,7 @@ function HistoryListRow({
           outputs keep their own 16:9-style frame (no letterbox bars) at any slider
           position; portraits follow the slider-driven aspect, growing taller as it
           moves right. */}
-      <div className="relative min-w-0 flex-[3] bg-black" style={{ aspectRatio: frameAspect }}>
+      <div className="relative min-w-0 flex-[3] bg-black light:bg-[#EAEAEC]" style={{ aspectRatio: frameAspect }}>
         {entry.kind === 'music' ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-ink/[0.04]">
             <MusicIcon className="h-8 w-8 text-ink-600" />
