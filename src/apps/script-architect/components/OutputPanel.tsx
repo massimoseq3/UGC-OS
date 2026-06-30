@@ -306,7 +306,7 @@ function VariationCard({
   }
 
   return (
-    <div ref={cardRef} className="flex shrink-0 flex-col rounded-3xl border border-ink/10 bg-ink/[0.06] light:bg-[#E8E8E9] overflow-hidden card-soft-shadow">
+    <div ref={cardRef} className="flex shrink-0 flex-col rounded-3xl border border-ink/10 bg-ink/[0.06] light:bg-[#F1F1F2] overflow-hidden card-soft-shadow">
       <div className="relative flex items-center justify-center border-b border-ink/5 px-12 py-2.5">
         <div className="flex items-center gap-2">
           <span className="rounded-full bg-scripts-500/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-tight text-scripts-300">
