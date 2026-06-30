@@ -111,9 +111,10 @@ export default function GenerateBar({
           { value: 'sheet', label: 'Influencer Sheet', icon: LayoutGrid },
         ]}
       />
-      {/* Model picker + resolution / aspect chips share one row — the picker
-          flexes to fill, the two chips sit compact beside it at the same h-12
-          height. The footer chips open upward; resolution shows its credit cost. */}
+      {/* Model picker + resolution / aspect chips split the row into two equal
+          halves: the picker fills the left half (matching the preset pill above),
+          the two chips share the right half. The footer chips open upward;
+          resolution shows its credit cost. */}
       <div className="flex items-center gap-2">
         <div className="min-w-0 flex-1">
           <ModelPicker
@@ -123,53 +124,58 @@ export default function GenerateBar({
             large
           />
         </div>
-        <ConstraintChip
-          size="lg"
-          openDirection="up"
-          options={getModel(selectedModelId ?? '')?.imageConstraints?.resolutions ?? ['1K', '2K', '4K']}
-          value={resolution}
-          onChange={(v) => onResolutionChange(v as ImageResolution)}
-          renderOption={(v) => {
-            const credits = formatCredits(estimateCredits(selectedModelId ?? '', { imageCount: 1, resolution: v as ImageResolution }))
-            return (
-              <span className="flex w-full items-center justify-between gap-6">
-                <span>{v}</span>
-                {credits && <span className="text-ink-500">{credits}</span>}
-              </span>
-            )
-          }}
-        />
-        {sheetMode ? (
-          // Sheets pick between a 16:9 horizontal turnaround and a 9:16
-          // vertical layout — the sheet prompt swaps panel composition to suit.
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           <ConstraintChip
+            grow
             size="lg"
             openDirection="up"
-            options={SHEET_ASPECT_OPTIONS}
-            value={sheetAspect.includes('9:16') ? '9:16' : '16:9'}
-            onChange={onSheetAspectChange}
-            render={(v) => (
-              <span className="flex items-center gap-1.5">
-                <AspectIcon ratio={v} />
-                <span>{v}</span>
-              </span>
-            )}
+            options={getModel(selectedModelId ?? '')?.imageConstraints?.resolutions ?? ['1K', '2K', '4K']}
+            value={resolution}
+            onChange={(v) => onResolutionChange(v as ImageResolution)}
+            renderOption={(v) => {
+              const credits = formatCredits(estimateCredits(selectedModelId ?? '', { imageCount: 1, resolution: v as ImageResolution }))
+              return (
+                <span className="flex w-full items-center justify-between gap-6">
+                  <span>{v}</span>
+                  {credits && <span className="text-ink-500">{credits}</span>}
+                </span>
+              )
+            }}
           />
-        ) : (
-          <ConstraintChip
-            size="lg"
-            openDirection="up"
-            options={ASPECT_OPTIONS}
-            value={normalizeAspect(aspectRatio)}
-            onChange={onAspectRatioChange}
-            render={(v) => (
-              <span className="flex items-center gap-1.5">
-                <AspectIcon ratio={v} />
-                <span>{v}</span>
-              </span>
-            )}
-          />
-        )}
+          {sheetMode ? (
+            // Sheets pick between a 16:9 horizontal turnaround and a 9:16
+            // vertical layout — the sheet prompt swaps panel composition to suit.
+            <ConstraintChip
+              grow
+              size="lg"
+              openDirection="up"
+              options={SHEET_ASPECT_OPTIONS}
+              value={sheetAspect.includes('9:16') ? '9:16' : '16:9'}
+              onChange={onSheetAspectChange}
+              render={(v) => (
+                <span className="flex items-center gap-1.5">
+                  <AspectIcon ratio={v} />
+                  <span>{v}</span>
+                </span>
+              )}
+            />
+          ) : (
+            <ConstraintChip
+              grow
+              size="lg"
+              openDirection="up"
+              options={ASPECT_OPTIONS}
+              value={normalizeAspect(aspectRatio)}
+              onChange={onAspectRatioChange}
+              render={(v) => (
+                <span className="flex items-center gap-1.5">
+                  <AspectIcon ratio={v} />
+                  <span>{v}</span>
+                </span>
+              )}
+            />
+          )}
+        </div>
       </div>
       <button
         onClick={onGenerate}
