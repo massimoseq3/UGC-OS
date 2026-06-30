@@ -609,10 +609,10 @@ function HistoryListRow({
 
   return (
     <div className="flex w-full items-stretch gap-3 overflow-hidden rounded-2xl border border-ink/10 bg-ink/[0.02]">
-      {/* Media — two-thirds of the row, height driven by the size slider.
+      {/* Media — the bulk of the row, height driven by the size slider.
           Letterboxed on black so a wide sheet / vertical portrait shows with
           bars instead of cropping. */}
-      <div className="relative min-w-0 flex-[2] bg-black" style={{ height: cardHeight }}>
+      <div className="relative min-w-0 flex-[3] bg-black" style={{ height: cardHeight }}>
         {a.status === 'ready' && a.url ? (
           <img
             src={a.url}
@@ -630,9 +630,8 @@ function HistoryListRow({
         <SourceBadge isSheet={a.isSheet} savedAsModel={a.savedAsModel} />
       </div>
 
-      {/* Side panel — the remaining third: model, prompt, meta, actions.
-          Height is pinned to the media so the prompt scrolls inside the box
-          instead of stretching the row. */}
+      {/* Side panel — slimmer (the remaining quarter): model, prompt, meta,
+          actions. Height is pinned to the media so the prompt scrolls inside. */}
       <div className="flex min-w-0 flex-[1] flex-col gap-2 py-3 pr-3" style={{ height: cardHeight }}>
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="rounded-full bg-influencers-500/15 px-2 py-0.5 text-[10px] font-semibold text-influencers-200">{a.modelLabel}</span>
@@ -686,7 +685,7 @@ function HistoryListRow({
 function InFlightRow({ gen, cardHeight, onCancel }: { gen: InFlightCharacterGen; cardHeight: number; onCancel: () => void }) {
   return (
     <div className="flex w-full items-stretch gap-3 overflow-hidden rounded-2xl border border-influencers-500/20 bg-influencers-500/[0.04]">
-      <div className="relative min-w-0 flex-[2]" style={{ height: cardHeight }}>
+      <div className="relative min-w-0 flex-[3]" style={{ height: cardHeight }}>
         <GeneratingTile modelId={gen.modelId} kind={gen.kind} aspectRatio={gen.aspectRatio} onCancel={onCancel} fill />
       </div>
       <div className="flex min-w-0 flex-[1] flex-col justify-center gap-2 py-3 pr-3">

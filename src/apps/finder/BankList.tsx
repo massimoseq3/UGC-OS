@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import { Trash2, Package, UserRound, FileText, Mic, Film, Plus, Video, Download, Loader2, ChevronDown, Sparkles, Check, LayoutGrid, Copy, Bookmark } from 'lucide-react'
 import type { Product, Model, Script, VoicePreset, BRoll } from '../../stores/types'
 import type { BankType } from '../../utils/constants'
+import type { ModelFilter } from './Finder'
 import { useBankStore } from '../../stores/bankStore'
 import { useAppStore } from '../../stores/appStore'
 import { useAssetUrl } from '../../hooks/useAssetUrl'
@@ -72,6 +73,8 @@ interface BankListProps {
   onEdit: (id: string) => void
   onAdd: () => void
   sort: SortOrder
+  // Influencers bank sub-filter (All / Portraits / Influencer Sheets).
+  modelFilter?: ModelFilter
   inFlightProductIds?: Set<string>
   onBulkProductFiles?: (files: File[]) => void
 }
@@ -470,7 +473,7 @@ function VoiceCard({ item, onEdit, onDelete }: { item: VoicePreset; onEdit: () =
   )
 }
 
-export default function BankList({ bankType, onEdit, onAdd, sort, inFlightProductIds, onBulkProductFiles }: BankListProps) {
+export default function BankList({ bankType, onEdit, onAdd, sort, modelFilter = 'all', inFlightProductIds, onBulkProductFiles }: BankListProps) {
   const products = useBankStore((s) => s.products)
   const models = useBankStore((s) => s.models)
   const scripts = useBankStore((s) => s.scripts)
@@ -496,7 +499,23 @@ export default function BankList({ bankType, onEdit, onAdd, sort, inFlightProduc
 
   if (bankType === 'models') {
     if (models.length === 0) return <EmptyState icon={UserRound} label="influencers" singular="influencer" onAdd={onAdd} />
-    return <ModelsList items={models} onEdit={onEdit} onDelete={deleteModel} sort={sort} />
+    // Sub-filter: portraits have no sheetImage, sheets do.
+    const filtered =
+      modelFilter === 'portraits' ? models.filter((m) => !m.sheetImage)
+      : modelFilter === 'sheets' ? models.filter((m) => !!m.sheetImage)
+      : models
+    if (filtered.length === 0) {
+      const label = modelFilter === 'sheets' ? 'influencer sheets' : 'portraits'
+      return (
+        <div className="flex flex-col items-center justify-center gap-2 py-20 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-ink/[0.04]">
+            <UserRound className="h-7 w-7 text-ink-700" strokeWidth={1.5} />
+          </div>
+          <p className="text-sm font-medium text-ink-500">No {label} yet</p>
+        </div>
+      )
+    }
+    return <ModelsList items={filtered} onEdit={onEdit} onDelete={deleteModel} sort={sort} />
   }
 
   if (bankType === 'scripts') {

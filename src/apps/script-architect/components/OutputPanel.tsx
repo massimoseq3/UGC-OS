@@ -69,6 +69,37 @@ function extractIntro(text: string): string {
     .trim()
 }
 
+// Matches the voice-profile header line wherever it appears — the model is told
+// to emit it AFTER the last scene, so it gets appended to (and merged into) the
+// final scene's body unless we pull it out. Case-insensitive; tolerates the
+// "(same voice in every scene)" parenthetical and trailing "===" markers.
+const VOICE_HEADER_REGEX = /(^|\n)[=\s]*VOICE PROFILE\b[^\n]*\n?/i
+
+// Pulls the voice-profile block out of a scenes script. It can sit BEFORE the
+// first scene (legacy `extractIntro` shape) or be appended AFTER/within the last
+// scene (what the prompt actually produces). Returns the voice-profile body
+// (with its "=== ... ===" markers stripped) and the rest of the text with the
+// block removed, ready for scene-splitting.
+function splitVoiceProfile(text: string): { body: string; rest: string } {
+  const match = VOICE_HEADER_REGEX.exec(text)
+  if (!match) {
+    // No appended header — fall back to the intro-based shape.
+    return { body: extractIntro(text), rest: text }
+  }
+  const headerStart = match.index + match[1].length
+  // Everything from the header to the end is the voice-profile block; strip the
+  // header line and any standalone "===" divider lines from the body.
+  const body = text
+    .slice(headerStart)
+    .replace(VOICE_HEADER_REGEX, '')
+    .replace(/^[=\s]+|[=\s]+$/g, '')
+    .trim()
+  const rest = text.slice(0, headerStart).replace(/\s+$/, '')
+  // The intro shape and the appended shape are mutually exclusive in practice,
+  // but prefer whichever yielded a body so both shapes work.
+  return { body: body || extractIntro(rest), rest }
+}
+
 interface VariationCardProps {
   text: string
   cardTitle: string
@@ -113,8 +144,15 @@ function VariationCard({
   const sendToApp = useAppStore((s) => s.sendToApp)
   const addToast = useAppStore((s) => s.addToast)
 
-  const scenes = useMemo(() => isCinematic ? null : splitScenes(text), [text, isCinematic])
-  const voiceProfile = useMemo(() => (isCinematic || !scenes ? '' : extractIntro(text)), [text, isCinematic, scenes])
+  // Pull the voice-profile block (wherever it sits) out FIRST, then split the
+  // remaining text into scenes — otherwise the appended profile gets merged into
+  // the last scene's body.
+  const { scenes, voiceProfile } = useMemo(() => {
+    if (isCinematic) return { scenes: null, voiceProfile: '' }
+    const { body, rest } = splitVoiceProfile(text)
+    const parsed = splitScenes(rest)
+    return { scenes: parsed, voiceProfile: parsed ? body : '' }
+  }, [text, isCinematic])
 
   // A plain spoken script (remix variation, or a write-mode 'script' output)
   // can be read aloud → Voiceovers. A scene blueprint (reverse-engineer, or a
@@ -340,13 +378,32 @@ function VariationCard({
 // The shared voice spec that leads a scene blueprint — the same on-camera
 // voice every scene's clip should be read in. Rendered once, above the scenes.
 function VoiceProfileCard({ body }: { body: string }) {
+  const [copied, setCopied] = useState(false)
+  const addToast = useAppStore((s) => s.addToast)
+  const handleCopy = async () => {
+    const ok = await copyToClipboard(body)
+    if (ok) {
+      setCopied(true)
+      addToast('Voice profile copied to clipboard')
+      setTimeout(() => setCopied(false), 2000)
+    } else {
+      addToast('Copy failed', 'error')
+    }
+  }
   return (
     <div className="rounded-2xl border border-scripts-500/15 bg-scripts-500/[0.04] p-3 card-soft-shadow">
-      <div className="mb-2 flex items-center gap-1.5">
-        <Mic className="h-3 w-3 text-scripts-300" strokeWidth={2} />
-        <span className="text-[10px] font-semibold uppercase tracking-widest text-scripts-300/80">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-scripts-300/80">
+          <Mic className="h-3 w-3 text-scripts-300" strokeWidth={2} />
           Voice Profile · same in every scene
         </span>
+        <button
+          onClick={handleCopy}
+          className="flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium text-ink-600 transition-colors hover:bg-ink/5 hover:text-ink-300"
+        >
+          {copied ? <Check className="h-3 w-3 text-green-400 light:text-green-600" /> : <Copy className="h-3 w-3" />}
+          {copied ? 'Copied' : 'Copy'}
+        </button>
       </div>
       <div className="whitespace-pre-wrap rounded-xl bg-surface-0 p-2.5 text-[13px] leading-relaxed tracking-tight text-ink-100">
         {body}

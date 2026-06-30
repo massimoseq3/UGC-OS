@@ -40,9 +40,9 @@ const ACCENT_INDICATOR: Record<SegmentedAccent, string> = {
 }
 const ACCENT_ACTIVE_TEXT: Record<SegmentedAccent, string> = {
   ink: 'text-ink-100',
-  // Accent-toned label matching the active Script Style card: light orange/pink
-  // in dark, and the same token auto-flips to a readable dark accent in light.
-  scripts: 'text-scripts-300',
+  // Active label + icon use the dedicated scripts-text token: a softer salmon
+  // (#F77F5A) on dark, a deeper red-orange (#E05321) in light.
+  scripts: 'text-scripts-text',
   influencers: 'text-influencers-300',
 }
 

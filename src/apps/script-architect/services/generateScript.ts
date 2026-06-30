@@ -170,7 +170,7 @@ VOICE PROFILE — at the very END of your output, AFTER the last scene, emit one
 ${VOICE_PROFILE_SPEC}
 
 SCENE RULES:
-- Scenes run 4-8 seconds each. Timestamps start at 00:00, are contiguous, and end exactly at the ad's total length.
+- Let the creative concept decide how many scenes/shots there are, not a fixed split of the duration. If the idea is a single uninterrupted take with no cuts, that is ONE scene. A cut-heavy concept uses several. Each scene/shot can run anywhere from ~2 seconds up to the full ad length. Timestamps start at 00:00, are contiguous, and end exactly at the ad's total length.
 - NEVER describe the character's identity or appearance (gender, age, ethnicity, hair, body, clothing) — always the literal token [CHARACTER]. Emotional state, gaze, gesture, and body language ARE allowed: that's scene direction, not identity.
 - NEVER describe the product's physical appearance, container, label, or brand — always the literal token [PRODUCT].
 - Each scene block uses these labelled lines, each on its own line, in this order:
@@ -215,10 +215,10 @@ const WRITE_TAKE_INSTRUCTION: string[] = [
 // Word budgets assume ~2.4 words/sec on-camera pace, so the read time
 // actually matches the length the user picked.
 const WRITE_LENGTH_BUDGET: Record<WriteLength, { words: string; scenes: string }> = {
-  10: { words: '20–28 words', scenes: '2 scenes' },
-  15: { words: '30–42 words', scenes: '2–3 scenes' },
-  30: { words: '62–82 words', scenes: '4–5 scenes' },
-  60: { words: '125–160 words', scenes: '7–9 scenes' },
+  10: { words: '20–28 words', scenes: 'usually 1-2 scenes (a single continuous shot is fine)' },
+  15: { words: '30–42 words', scenes: 'usually 1-3 scenes' },
+  30: { words: '62–82 words', scenes: 'usually 3-5 scenes' },
+  60: { words: '125–160 words', scenes: 'usually 6-9 scenes' },
 }
 
 function formatEndTimestamp(seconds: number): string {
@@ -344,7 +344,7 @@ async function runWrite(input: GenerateScriptInput, take: number, apiKey: string
   prompt += `${lengthDiscipline(length)}\n\n`
 
   if (format === 'scenes') {
-    prompt += `LENGTH: the ad is exactly ${length} seconds. Break it into ${budget.scenes} with contiguous timestamps from 00:00 to ${formatEndTimestamp(length)}. Total spoken dialogue across all scenes: ${budget.words} (so it reads aloud in ${length} seconds).\n\nWrite the scene blueprint now.`
+    prompt += `LENGTH: the ad is exactly ${length} seconds. Use as many scenes as the concept needs (${budget.scenes}); a single continuous shot with no cuts should be ONE scene. Keep timestamps contiguous from 00:00 to ${formatEndTimestamp(length)}. Total spoken dialogue across all scenes: ${budget.words} (so it reads aloud in ${length} seconds).\n\nWrite the scene blueprint now.`
   } else {
     prompt += `LENGTH: the script must read aloud in about ${length} seconds — write ${budget.words}. Count the words before you answer and trim until you're inside the range.\n\nWrite the script now.`
   }
