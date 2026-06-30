@@ -120,7 +120,7 @@ export default function VideoInputSlot({ label, helper, value, onChange, bankTyp
               }`}
             >
               {badge && (
-                <span className="absolute left-2 top-2 rounded-full bg-ink/[0.06] px-2 py-0.5 text-[9px] font-medium capitalize tracking-wide text-ink-500">
+                <span className="absolute left-2 top-2 rounded-full bg-ink/[0.06] px-2 py-0.5 text-[9px] font-medium capitalize tracking-tight text-ink-500">
                   {badge}
                 </span>
               )}

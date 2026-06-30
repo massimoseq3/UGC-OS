@@ -395,7 +395,7 @@ function OmniAddCard({
       }`}
     >
       {count != null && max != null && (
-        <span className="absolute right-2 top-2 rounded-full bg-ink/[0.06] px-2 py-0.5 text-[9px] font-medium tabular-nums tracking-wide text-ink-500">
+        <span className="absolute right-2 top-2 rounded-full bg-ink/[0.06] px-2 py-0.5 text-[9px] font-medium tabular-nums tracking-tight text-ink-500">
           {count}/{max}
         </span>
       )}
@@ -406,7 +406,7 @@ function OmniAddCard({
       {helper && <span className="px-3 text-center text-[10px] leading-tight text-ink-600">{helper}</span>}
       {/* Optional pill below the subheading, centered. */}
       {optional && (
-        <span className="mt-0.5 rounded-full bg-ink/[0.06] px-2 py-0.5 text-[9px] font-medium capitalize tracking-wide text-ink-500">
+        <span className="mt-0.5 rounded-full bg-ink/[0.06] px-2 py-0.5 text-[9px] font-medium capitalize tracking-tight text-ink-500">
           Optional
         </span>
       )}

@@ -572,30 +572,10 @@ export default function InputPanel({
                   placeholder={"Leave blank and I'll come up with the angle — or steer it: e.g. A girl in her 20s talking about this serum like she's telling her best friend, focus on how fast it cleared her skin. Casual, a little funny, end with the discount code."}
                   className="min-h-[120px] w-full flex-1 resize-none border-0 bg-transparent px-4 py-3 text-sm leading-relaxed text-ink-200 placeholder-ink-600 outline-none"
                 />
-                {/* Footer toolbar — Undo/Redo bottom-left; Enhance Prompt +
-                    Clear Prompt + Expand bottom-right, attached under a hairline. */}
+                {/* Footer toolbar — Enhance + Clear + Undo/Redo bottom-left;
+                    Expand bottom-right (mirrors the Playground prompt field). */}
                 <div className="flex items-center justify-between gap-2 border-t border-ink/10 px-2 py-1.5">
                   <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      title="Undo"
-                      onClick={handleBriefUndo}
-                      disabled={!canUndoBrief || isEnhancing}
-                      className="flex h-6 w-6 items-center justify-center rounded-full text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-30"
-                    >
-                      <Undo2 className="h-3 w-3" />
-                    </button>
-                    <button
-                      type="button"
-                      title="Redo"
-                      onClick={handleBriefRedo}
-                      disabled={!canRedoBrief || isEnhancing}
-                      className="flex h-6 w-6 items-center justify-center rounded-full text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-30"
-                    >
-                      <Redo2 className="h-3 w-3" />
-                    </button>
-                  </div>
-                  <div className="flex items-center gap-1.5">
                     <button
                       type="button"
                       title="Enhance prompt"
@@ -616,8 +596,26 @@ export default function InputPanel({
                       <Eraser className="h-3 w-3" />
                       Clear Prompt
                     </button>
-                    <ExpandButton onClick={() => setExpandedField('brief')} />
+                    <button
+                      type="button"
+                      title="Undo"
+                      onClick={handleBriefUndo}
+                      disabled={!canUndoBrief || isEnhancing}
+                      className="flex h-6 w-6 items-center justify-center rounded-full text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-30"
+                    >
+                      <Undo2 className="h-3 w-3" />
+                    </button>
+                    <button
+                      type="button"
+                      title="Redo"
+                      onClick={handleBriefRedo}
+                      disabled={!canRedoBrief || isEnhancing}
+                      className="flex h-6 w-6 items-center justify-center rounded-full text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-30"
+                    >
+                      <Redo2 className="h-3 w-3" />
+                    </button>
                   </div>
+                  <ExpandButton onClick={() => setExpandedField('brief')} />
                 </div>
               </div>
             </div>
@@ -626,7 +624,7 @@ export default function InputPanel({
           <div className="mb-6 flex grow flex-col">
             {/* Select from bank (header) + paste manually (textarea) merged into
                 one rounded box so the two sources read as a single input. */}
-            <div className={`flex grow flex-col overflow-hidden rounded-3xl border border-dashed border-ink/10 bg-ink/[0.02] transition-colors focus-within:border-scripts-500/30 ${highlightField === 'transcript' ? 'animate-field-flash' : ''}`}>
+            <div className={`flex grow flex-col overflow-hidden rounded-3xl border bg-ink/[0.02] transition-colors focus-within:border-scripts-500/30 ${remixScript ? 'border-scripts-500/40' : 'border-dashed border-ink/10'} ${highlightField === 'transcript' ? 'animate-field-flash' : ''}`}>
               <ScriptBankCard
                 selected={remixScript}
                 label="Script"
@@ -652,7 +650,7 @@ export default function InputPanel({
           <div className="mb-6 flex grow flex-col">
             {/* Select from bank (header) + paste manually (textarea) merged into
                 one rounded box so the two sources read as a single input. */}
-            <div className={`flex grow flex-col overflow-hidden rounded-3xl border border-dashed border-ink/10 bg-ink/[0.02] transition-colors focus-within:border-scripts-500/30 ${highlightField === 'reverse-prompt' ? 'animate-field-flash' : ''}`}>
+            <div className={`flex grow flex-col overflow-hidden rounded-3xl border bg-ink/[0.02] transition-colors focus-within:border-scripts-500/30 ${sceneScript ? 'border-fuchsia-500/40' : 'border-dashed border-ink/10'} ${highlightField === 'reverse-prompt' ? 'animate-field-flash' : ''}`}>
               <ScriptBankCard
                 selected={sceneScript}
                 label="Scene"
@@ -944,7 +942,7 @@ function ScriptBankCard({
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect() } }}
       className={`group flex w-full cursor-pointer items-center gap-3 px-4 py-3 transition-colors ${
         flat
-          ? 'border-b border-dashed border-ink/10 hover:bg-ink/[0.04]'
+          ? 'border-b border-ink/10 hover:bg-ink/[0.04]'
           : 'rounded-full border border-ink/10 bg-ink/[0.02] hover:border-ink/20 hover:bg-ink/[0.04]'
       } ${className ?? ''}`}
     >

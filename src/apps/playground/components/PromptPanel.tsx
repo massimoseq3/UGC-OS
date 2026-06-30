@@ -1044,11 +1044,13 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
         )}
 
         {state.mode === 'music' && (
-          <div className="flex w-full rounded-full border border-ink/10 bg-ink/[0.02] p-0.5">
+          // Sized h-10 to match the video/image constraint chips so the row
+          // doesn't jump when switching modes.
+          <div className="flex h-10 w-full items-center rounded-full border border-ink/10 bg-ink/[0.02] p-1">
             <button
               type="button"
               onClick={() => onChange({ ...state, instrumental: true })}
-              className={`flex-1 rounded-full px-4 py-1.5 text-[12px] transition-colors ${
+              className={`flex h-full flex-1 items-center justify-center rounded-full px-4 text-[12px] transition-colors ${
                 state.instrumental
                   ? 'bg-playground-500/15 text-playground-200'
                   : 'text-ink-400 hover:text-ink-200'
@@ -1059,7 +1061,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
             <button
               type="button"
               onClick={() => onChange({ ...state, instrumental: false })}
-              className={`flex-1 rounded-full px-4 py-1.5 text-[12px] transition-colors ${
+              className={`flex h-full flex-1 items-center justify-center rounded-full px-4 text-[12px] transition-colors ${
                 !state.instrumental
                   ? 'bg-playground-500/15 text-playground-200'
                   : 'text-ink-400 hover:text-ink-200'

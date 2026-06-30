@@ -369,16 +369,16 @@ function CreditsBar() {
       </button>
       {/* Dotted divider down the middle. */}
       <div className="h-5 shrink-0 border-l border-dashed border-ink/15" />
-      {/* Right — buy-credits CTA (leaves the app). Subtle, like the balance. */}
+      {/* Right — buy-credits CTA (leaves the app). Text matches the balance's
+          weight + size; no arrow, so the balance never gets clipped. */}
       <a
         href="https://kie.ai/billing"
         target="_blank"
         rel="noopener noreferrer"
         title="Get credits — opens kie.ai billing"
-        className="group flex h-full shrink-0 items-center gap-1 px-2.5 text-ink-500 transition-colors hover:bg-ink/[0.06] hover:text-ink-300"
+        className="group flex h-full shrink-0 items-center px-2.5 text-ink-500 transition-colors hover:bg-ink/[0.06] hover:text-ink-300"
       >
-        <ArrowUpRight className="h-3 w-3 shrink-0 transition-colors" strokeWidth={2} />
-        <span className="whitespace-nowrap text-[11px] font-medium">Get credits</span>
+        <span className="whitespace-nowrap text-[12px]">Get credits</span>
       </a>
     </div>
   )

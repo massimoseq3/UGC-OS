@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { X, Loader2, Download, Bookmark, Check, ImagePlus, Wand2, LayoutGrid, Pencil, Upload, FolderOpen, Copy, Maximize2, Coins } from 'lucide-react'
+import { X, Loader2, Download, Bookmark, Check, ImagePlus, Wand2, LayoutGrid, Pencil, Upload, FolderOpen, Copy, Maximize2, Coins, Sparkles, Undo2, Redo2 } from 'lucide-react'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAppStore } from '../../../stores/appStore'
 import { useSettingsStore } from '../../../stores/settingsStore'
@@ -32,6 +32,7 @@ import {
   buildJsonPrompt,
   buildImagePrompt,
   buildSheetPrompt,
+  enhanceEditInstruction,
 } from '../services/generateCharacter'
 import { pickInfluencerName, sheetNameFrom } from './nameGenerator'
 import GeneratingTile from './GeneratingTile'
@@ -140,6 +141,14 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
   }, [characterHistory, lineageKey, item])
   const [selectedId, setSelectedId] = useState(item.id)
   const [prompt, setPrompt] = useState('')
+  // Edit-instruction enhance + undo/redo (mirrors the Scripts / Playground
+  // prompt controls). History is local to the open modal; a committed entry is
+  // pushed on blur so undo steps through coherent chunks, not keystrokes.
+  const [isEnhancing, setIsEnhancing] = useState(false)
+  const [promptHistory, setPromptHistory] = useState<string[]>([''])
+  const [promptIndex, setPromptIndex] = useState(0)
+  const canUndoPrompt = promptIndex > 0
+  const canRedoPrompt = promptIndex < promptHistory.length - 1
   const [refs, setRefs] = useState<UploadedRef[]>([])
   const [generating, setGenerating] = useState(false)
   const [savedIds, setSavedIds] = useState<Set<string>>(() => new Set())
@@ -266,6 +275,48 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
     setSelectedId(newId)
   }
 
+  // Push a committed value onto the prompt history (truncating any redo tail).
+  function pushPromptHistory(next: string, base = promptHistory, baseIndex = promptIndex) {
+    const nextHistory = [...base.slice(0, baseIndex + 1), next]
+    setPromptHistory(nextHistory)
+    setPromptIndex(nextHistory.length - 1)
+    setPrompt(next)
+  }
+  // Commit the current typed draft into history (fired on blur). No-op when it
+  // already matches the latest entry.
+  function commitPromptDraft() {
+    if (prompt !== promptHistory[promptIndex]) pushPromptHistory(prompt)
+  }
+  function handlePromptUndo() {
+    if (promptIndex <= 0) return
+    const i = promptIndex - 1
+    setPromptIndex(i)
+    setPrompt(promptHistory[i])
+  }
+  function handlePromptRedo() {
+    if (promptIndex >= promptHistory.length - 1) return
+    const i = promptIndex + 1
+    setPromptIndex(i)
+    setPrompt(promptHistory[i])
+  }
+  async function handleEnhancePrompt() {
+    if (isEnhancing || !prompt.trim()) return
+    // Fold any uncommitted typed draft into history first so Undo returns to
+    // exactly what the user had before enhancing.
+    const committed = prompt !== promptHistory[promptIndex]
+      ? [...promptHistory.slice(0, promptIndex + 1), prompt]
+      : promptHistory.slice(0, promptIndex + 1)
+    setIsEnhancing(true)
+    try {
+      const rewritten = await enhanceEditInstruction(prompt)
+      pushPromptHistory(rewritten, committed, committed.length - 1)
+    } catch (err) {
+      addToast(humanizeError(err, 'Enhance failed.'), 'error')
+    } finally {
+      setIsEnhancing(false)
+    }
+  }
+
   async function handleEdit() {
     const instruction = prompt.trim()
     if (!instruction || generating || !selected) return
@@ -281,6 +332,8 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
       const assetId = await finishCharacterTask(taskId, modelId)
       recordOutput(assetId, 'portrait', editAspect)
       setPrompt('')
+      setPromptHistory([''])
+      setPromptIndex(0)
       addToast('Edit generated', 'success')
     } catch (err) {
       addToast(humanizeError(err, 'Edit failed. Check your API key and try again.'), 'error')
@@ -455,10 +508,10 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
                           refs.length >= MAX_REFS ? 'cursor-not-allowed opacity-50' : 'hover:border-ink/25 hover:bg-ink/[0.04]'
                         }`}
                       >
-                        <span className="absolute left-2 top-2 rounded-full bg-ink/[0.06] px-2 py-0.5 text-[9px] font-medium capitalize tracking-wide text-ink-500">
+                        <span className="absolute left-2 top-2 rounded-full bg-ink/[0.06] px-2 py-0.5 text-[9px] font-medium capitalize tracking-tight text-ink-500">
                           Optional
                         </span>
-                        <span className="absolute right-2 top-2 rounded-full bg-ink/[0.06] px-2 py-0.5 text-[9px] font-medium tabular-nums tracking-wide text-ink-500">
+                        <span className="absolute right-2 top-2 rounded-full bg-ink/[0.06] px-2 py-0.5 text-[9px] font-medium tabular-nums tracking-tight text-ink-500">
                           {refs.length}/{MAX_REFS}
                         </span>
                         <span className="flex h-8 w-8 items-center justify-center rounded-full border border-ink/15 bg-ink/[0.03] text-ink-400 transition-colors group-hover:text-ink-200">
@@ -502,12 +555,45 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
                       <textarea
                         value={prompt}
                         onChange={(e) => setPrompt(e.target.value)}
+                        onBlur={commitPromptDraft}
                         rows={4}
                         placeholder="Describe the change — e.g. 'change the top to a red hoodie', 'add round glasses', 'softer warm lighting'…"
                         className="relative min-h-[120px] w-full grow resize-none border-0 bg-transparent px-3.5 pb-3 pt-3 text-[13px] leading-[1.5] text-ink-200 placeholder-ink-600 outline-none"
                       />
-                      {/* Footer toolbar — Expand bottom-right, under a hairline. */}
-                      <div className="flex items-center justify-end gap-2 border-t border-ink/10 px-2 py-1.5">
+                      {/* Footer toolbar — Enhance + Undo/Redo bottom-left;
+                          Expand bottom-right, under a hairline (mirrors the
+                          Playground prompt field). */}
+                      <div className="flex items-center justify-between gap-2 border-t border-ink/10 px-2 py-1.5">
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            title="Enhance prompt"
+                            onClick={handleEnhancePrompt}
+                            disabled={isEnhancing || !prompt.trim()}
+                            className="flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium text-ink-400 transition-colors hover:bg-influencers-500/10 hover:text-influencers-300 disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            {isEnhancing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                            Enhance Prompt
+                          </button>
+                          <button
+                            type="button"
+                            title="Undo"
+                            onClick={handlePromptUndo}
+                            disabled={!canUndoPrompt || isEnhancing}
+                            className="flex h-6 w-6 items-center justify-center rounded-full text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-30"
+                          >
+                            <Undo2 className="h-3 w-3" />
+                          </button>
+                          <button
+                            type="button"
+                            title="Redo"
+                            onClick={handlePromptRedo}
+                            disabled={!canRedoPrompt || isEnhancing}
+                            className="flex h-6 w-6 items-center justify-center rounded-full text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-30"
+                          >
+                            <Redo2 className="h-3 w-3" />
+                          </button>
+                        </div>
                         <ExpandButton onClick={() => setPromptExpanded(true)} />
                       </div>
                     </div>
@@ -688,7 +774,7 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
       />
       <ExpandTextModal
         open={promptExpanded}
-        onClose={() => setPromptExpanded(false)}
+        onClose={() => { commitPromptDraft(); setPromptExpanded(false) }}
         value={prompt}
         onChange={setPrompt}
         title="Edit instruction"
@@ -765,10 +851,10 @@ function OutputTile({
   return (
     <div
       onClick={onSelect}
-      className={`group relative cursor-pointer overflow-hidden rounded-lg border bg-black transition-all ${
+      className={`group relative cursor-pointer overflow-hidden rounded-lg bg-black light:bg-zinc-200 transition-all card-soft-shadow ${
         isWide ? 'col-span-2' : ''
       } ${
-        selected ? 'border-influencers-500/70 ring-2 ring-influencers-500/40' : 'border-ink/10 hover:border-ink/25'
+        selected ? 'ring-2 ring-influencers-500/60' : 'hover:-translate-y-px'
       }`}
     >
       {url

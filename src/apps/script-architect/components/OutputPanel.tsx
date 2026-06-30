@@ -239,9 +239,9 @@ function VariationCard({
 
   return (
     <div ref={cardRef} className="flex shrink-0 flex-col rounded-3xl border border-ink/10 bg-ink/[0.06] overflow-hidden">
-      <div className="flex items-center justify-between border-b border-ink/5 px-4 py-2.5">
+      <div className="relative flex items-center justify-center border-b border-ink/5 px-12 py-2.5">
         <div className="flex items-center gap-2">
-          <span className="rounded-full bg-scripts-500/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-scripts-300">
+          <span className="rounded-full bg-scripts-500/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-tight text-scripts-300">
             {cardTitle}
           </span>
           {scenes && (
@@ -252,7 +252,7 @@ function VariationCard({
         </div>
         <button
           onClick={handleCopyAll}
-          className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-300"
+          className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-300"
         >
           {copied ? <Check className="h-3 w-3 text-green-400 light:text-green-600" /> : <Copy className="h-3 w-3" />}
           {copied ? 'Copied' : scenes ? 'Copy Full Script' : 'Copy'}
@@ -262,7 +262,7 @@ function VariationCard({
       <div className="flex flex-col gap-3 p-4">
         {isCinematic ? (
           // One structured master prompt — preserve the section layout as-is.
-          <div className="whitespace-pre-wrap text-[13px] leading-relaxed tracking-tight text-ink-100">
+          <div className="whitespace-pre-wrap text-[13px] font-light leading-relaxed tracking-tight text-ink-100">
             {text}
           </div>
         ) : scenes ? (
@@ -278,7 +278,7 @@ function VariationCard({
           // Each source line is its own paragraph: normal line-height within a
           // (wrapped) sentence, a slight gap between sentences. No `font-sans`
           // — that falls back to system-ui; we want the inherited Geist.
-          <div className="flex flex-col gap-2 text-sm leading-normal tracking-tight text-ink-100">
+          <div className="flex flex-col gap-2 text-sm font-light leading-normal tracking-tight text-ink-100">
             {text.split('\n').map((line, i) =>
               line.trim() === ''
                 ? <div key={i} aria-hidden className="h-1.5" />
@@ -392,20 +392,20 @@ function VoiceProfileCard({ body }: { body: string }) {
   }
   return (
     <div className="rounded-2xl border border-scripts-500/15 bg-scripts-500/[0.04] p-3 card-soft-shadow">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-scripts-300">
+      <div className="relative mb-2 flex items-center justify-center gap-2 px-8">
+        <span className="flex items-center gap-1.5 text-center text-[10px] font-semibold uppercase tracking-tight text-scripts-300">
           <Mic className="h-3 w-3 text-scripts-300" strokeWidth={2} />
           Voice Profile · same in every scene
         </span>
         <button
           onClick={handleCopy}
-          className="flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium text-ink-600 transition-colors hover:bg-ink/5 hover:text-ink-300"
+          className="absolute right-0 top-1/2 flex -translate-y-1/2 shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium text-ink-600 transition-colors hover:bg-ink/5 hover:text-ink-300"
         >
           {copied ? <Check className="h-3 w-3 text-green-400 light:text-green-600" /> : <Copy className="h-3 w-3" />}
           {copied ? 'Copied' : 'Copy'}
         </button>
       </div>
-      <div className="whitespace-pre-wrap rounded-xl bg-surface-0 p-2.5 text-[13px] leading-relaxed tracking-tight text-ink-100">
+      <div className="whitespace-pre-wrap rounded-xl bg-surface-0 p-2.5 text-[13px] font-light leading-relaxed tracking-tight text-ink-100">
         {body}
       </div>
     </div>
@@ -427,13 +427,13 @@ function SceneChunkCard({ chunk }: { chunk: SceneChunk }) {
   }
   return (
     <div className="rounded-2xl border border-ink/5 bg-ink/[0.02] p-3 card-soft-shadow">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="truncate text-[10px] font-semibold uppercase tracking-widest text-scripts-300">
+      <div className="relative mb-2 flex items-center justify-center gap-2 px-8">
+        <span className="text-center text-[10px] font-semibold uppercase tracking-tight text-scripts-300">
           {chunk.header.replace(/^---\s*|\s*---$/g, '')}
         </span>
         <button
           onClick={handleCopy}
-          className="flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium text-ink-600 transition-colors hover:bg-ink/5 hover:text-ink-300"
+          className="absolute right-0 top-1/2 flex -translate-y-1/2 shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium text-ink-600 transition-colors hover:bg-ink/5 hover:text-ink-300"
         >
           {copied ? <Check className="h-3 w-3 text-green-400 light:text-green-600" /> : <Copy className="h-3 w-3" />}
           {copied ? 'Copied' : 'Copy'}
@@ -441,7 +441,7 @@ function SceneChunkCard({ chunk }: { chunk: SceneChunk }) {
       </div>
       {/* Body matches the Write/Remix script output: inherited Geist + white
           (a div, not <pre>, so it doesn't fall back to UA monospace). */}
-      <div className="whitespace-pre-wrap rounded-xl bg-surface-0 p-2.5 text-[13px] leading-relaxed tracking-tight text-ink-100">
+      <div className="whitespace-pre-wrap rounded-xl bg-surface-0 p-2.5 text-[13px] font-light leading-relaxed tracking-tight text-ink-100">
         {chunk.body}
       </div>
     </div>
