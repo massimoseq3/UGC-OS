@@ -63,9 +63,9 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode }: Playgrou
   const [listCardHeight, setListCardHeight] = usePersistedState<number>('ai-ugc-lab:playground:list-card-height', 300)
   const cardPct = ((listCardHeight - LIST_CARD_MIN) / (LIST_CARD_MAX - LIST_CARD_MIN)) * 100
   // The list media frame keeps a constant width (its column) and grows taller as
-  // the slider moves right. At the minimum it's a perfect 16:9 (landscape fills,
-  // no bars); sliding right lowers the ratio toward 9:16, letterboxing landscape
-  // while portraits get bigger. Mirrors the Influencers gallery.
+  // the slider moves right (16:9 → 9:16). Portraits and music take this frame;
+  // landscape items keep their own ratio (no letterbox bars) at any slider
+  // position — see `frameAspect` in the rows. Mirrors the Influencers gallery.
   const mediaAspect = 16 / 9 + (cardPct / 100) * (9 / 16 - 16 / 9)
 
   const entries = useMemo<HistoryEntry[]>(() => {
@@ -337,6 +337,13 @@ function HistoryListRow({
   const prompt = entry.data.prompt
   const isSaved = entry.kind === 'image' ? !!entry.data.linkedBRollId : false
 
+  // Landscape items keep their own aspect ratio so they fill edge-to-edge with no
+  // letterbox bars at any slider position. Portraits (and music) follow the
+  // slider-driven `mediaAspect`, growing taller as it moves right. Mirrors the
+  // Influencers list view.
+  const ar = entry.kind === 'music' ? null : entry.data.aspectRatio
+  const frameAspect = ar && isLandscape(ar) ? aspectToNumber(ar) : mediaAspect
+
   const meta: string[] = []
   if (entry.kind === 'image') {
     if (entry.data.resolution) meta.push(entry.data.resolution)
@@ -352,11 +359,11 @@ function HistoryListRow({
 
   return (
     <div className="flex w-full items-stretch gap-3 overflow-hidden rounded-2xl border border-ink/10 bg-ink/[0.02] card-soft-shadow">
-      {/* Media — fixed-width column (the larger share of the row) whose height is
-          the slider-driven aspect ratio. At the slider minimum it's 16:9 so
-          landscape fills with no bars; taller frames letterbox landscape on black
-          and grow portraits. */}
-      <div className="relative min-w-0 flex-[3] bg-black" style={{ aspectRatio: mediaAspect }}>
+      {/* Media — fixed-width column (the larger share of the row). Landscape
+          items hold their own ratio so they always fill with no bars; portraits
+          (and music) take the slider-driven frame, growing taller as it moves
+          right. */}
+      <div className="relative min-w-0 flex-[3] bg-black" style={{ aspectRatio: frameAspect }}>
         {entry.kind === 'music' ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-ink/[0.04]">
             <MusicIcon className="h-8 w-8 text-ink-600" />
@@ -434,9 +441,13 @@ function HistoryListRow({
 function InFlightRow({ gen, mediaAspect }: { gen: InFlightGen; mediaAspect: number }) {
   const modelLabel = getModel(gen.modelId)?.displayName ?? gen.modelId
   const Icon = gen.mode === 'image' ? ImageIcon : gen.mode === 'video' ? Film : MusicIcon
+  // Match HistoryListRow: landscape gens hold their ratio; everything else takes
+  // the slider frame, so the placeholder doesn't jump when the result lands.
+  const ar = gen.imageParams?.aspectRatio ?? gen.videoParams?.aspectRatio
+  const frameAspect = ar && isLandscape(ar) ? aspectToNumber(ar) : mediaAspect
   return (
     <div className="flex w-full items-stretch gap-3 overflow-hidden rounded-2xl border border-playground-500/20 bg-playground-500/[0.04] card-soft-shadow">
-      <div className="relative min-w-0 flex-[3]" style={{ aspectRatio: mediaAspect }}>
+      <div className="relative min-w-0 flex-[3]" style={{ aspectRatio: frameAspect }}>
         <GeneratingBackdrop family="playground" />
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
           <Icon className="h-7 w-7 text-playground-100" />
@@ -1235,6 +1246,13 @@ function aspectStyle(ar: string): React.CSSProperties {
   const [w, h] = ar.split(':').map(Number)
   if (!w || !h) return { aspectRatio: '9 / 16' }
   return { aspectRatio: `${w} / ${h}` }
+}
+
+// Numeric aspect ratio ("16:9" → 1.777) for the list-view media frame. Used so a
+// landscape item can hold its own ratio (no letterbox bars) whatever the slider.
+function aspectToNumber(ar: string): number {
+  const [w, h] = ar.split(':').map(Number)
+  return w && h ? w / h : 16 / 9
 }
 
 // Landscape (wider-than-tall) outputs claim two grid columns so the wide frame
