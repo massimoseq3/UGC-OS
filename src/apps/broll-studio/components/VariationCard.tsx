@@ -103,6 +103,10 @@ export default function VariationCard(props: VariationCardProps) {
   const resolvedImageUrl = useAssetUrl(coverImage?.imageUrl)
   const resolvedVideoUrl = useAssetUrl(coverVideo?.url)
   const [detailOpen, setDetailOpen] = useState(false)
+  // Extra user-attached reference images (beyond the bank-keyed character /
+  // product refs). Memory-only — data: URIs are too big for the persisted card,
+  // and they reset on a full refresh (same trade-off as the Influencers editor).
+  const [extraRefs, setExtraRefs] = useState<ReferenceImage[]>([])
   // Two-click confirm for the card-face trash icon. First click flips this
   // flag (icon styling switches to red); second click within ~3s actually
   // calls onDelete. Matches the old modal-footer Delete behaviour.
@@ -138,6 +142,8 @@ export default function VariationCard(props: VariationCardProps) {
     const out: ReferenceImage[] = []
     if (characterRef && cardState.refsCharacter !== false) out.push(characterRef)
     if (productRef && cardState.refsProduct !== false) out.push(productRef)
+    // Any extra references the user attached in the modal ride along too.
+    out.push(...extraRefs)
     return out
   }
 
@@ -831,6 +837,9 @@ export default function VariationCard(props: VariationCardProps) {
           selectedScriptId={selectedScriptId}
           onOpenCharacterPicker={onOpenCharacterPicker}
           onOpenProductPicker={onOpenProductPicker}
+          extraRefs={extraRefs}
+          onAddExtraRef={(r) => setExtraRefs((prev) => (prev.length >= 4 ? prev : [...prev, r]))}
+          onRemoveExtraRef={(i) => setExtraRefs((prev) => prev.filter((_, idx) => idx !== i))}
           handleUndo={handleUndo}
           handleRedo={handleRedo}
           handleCommitDraft={handleCommitDraft}
