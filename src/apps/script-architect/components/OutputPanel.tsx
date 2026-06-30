@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Copy, Check, Bookmark, ArrowUpRight, Mic, Film, PenLine, AlertCircle, ImagePlay } from 'lucide-react'
+import { Copy, Check, Bookmark, ArrowUpRight, Mic, Film, PenLine, AlertCircle, ImagePlay, Pencil, X, Undo2, Redo2 } from 'lucide-react'
 import GenerationProgress from '../../../components/GenerationProgress'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAppStore } from '../../../stores/appStore'
@@ -28,6 +28,8 @@ interface OutputPanelProps {
   cinematicDuration?: WriteLength
   isGenerating?: boolean
   error?: string | null
+  // Commits an inline edit of take `index` back to the persisted output state.
+  onEditVariation?: (index: number, text: string) => void
 }
 
 const SCENE_REGEX = /(^|\n)--- Scene \d+.*?---/
@@ -113,6 +115,9 @@ interface VariationCardProps {
   influencerImage?: string
   influencerName?: string
   cinematicDuration?: WriteLength
+  // Commits an inline edit of this take's text back to the persisted output
+  // state. Omitted → the edit affordance is hidden.
+  onEdit?: (text: string) => void
   // Callback ref to the card's root — lets the OutputPanel scroll a given take
   // into view when its number is clicked in the take switcher.
   cardRef?: (el: HTMLDivElement | null) => void
@@ -130,12 +135,31 @@ function VariationCard({
   influencerImage,
   influencerName,
   cinematicDuration = 15,
+  onEdit,
   cardRef,
 }: VariationCardProps) {
   const [copied, setCopied] = useState(false)
   const [showSaveForm, setShowSaveForm] = useState(false)
   const [saveTitle, setSaveTitle] = useState(defaultSaveTitle)
   const [saved, setSaved] = useState(false)
+  // Inline edit of the take's raw text. `draft` is the live textarea value;
+  // committing on Done flows it up via onEdit (persisted in the parent) and the
+  // refreshed `text` prop re-renders the parsed view.
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(text)
+  // Undo/redo stack for committed edits to this take. `textSync` lets the
+  // render-time check tell our own commits (keep the stack) from an external
+  // change — a new generation or a loaded history item (reset the stack).
+  const [history, setHistory] = useState<string[]>([text])
+  const [histIndex, setHistIndex] = useState(0)
+  const [textSync, setTextSync] = useState(text)
+  if (text !== textSync) {
+    setTextSync(text)
+    setHistory([text])
+    setHistIndex(0)
+  }
+  const canUndo = histIndex > 0
+  const canRedo = histIndex < history.length - 1
   // Sticky "already in the bank" flag — `saved` is only the 3s visual flash.
   // Send-to-app auto-saves use this to avoid writing duplicate bank rows.
   const [savedOnce, setSavedOnce] = useState(false)
@@ -159,6 +183,50 @@ function VariationCard({
   // write-mode 'scenes' output) is a prompt asset → Playground. A cinematic
   // master prompt is its own thing — never spoken, only the Playground handoff.
   const isSpokenScript = !isCinematic && (mode === 'remix' || (mode === 'write' && !scenes))
+
+  const startEdit = () => {
+    setDraft(text)
+    setShowSaveForm(false)
+    setEditing(true)
+  }
+
+  // Push `next` as a new committed state and flow it to the parent. Setting
+  // `textSync` in step keeps the render-time check from mistaking our own
+  // commit for an external reset (which would wipe the undo stack).
+  const applyText = (next: string) => {
+    setTextSync(next)
+    onEdit?.(next)
+  }
+
+  const commitEdit = () => {
+    if (draft !== history[histIndex]) {
+      const nextHistory = [...history.slice(0, histIndex + 1), draft]
+      setHistory(nextHistory)
+      setHistIndex(nextHistory.length - 1)
+      applyText(draft)
+      addToast('Edit saved')
+    }
+    setEditing(false)
+  }
+
+  const cancelEdit = () => {
+    setDraft(text)
+    setEditing(false)
+  }
+
+  const handleUndo = () => {
+    if (!canUndo) return
+    const i = histIndex - 1
+    setHistIndex(i)
+    applyText(history[i])
+  }
+
+  const handleRedo = () => {
+    if (!canRedo) return
+    const i = histIndex + 1
+    setHistIndex(i)
+    applyText(history[i])
+  }
 
   const handleCopyAll = async () => {
     const ok = await copyToClipboard(text)
@@ -238,29 +306,73 @@ function VariationCard({
   }
 
   return (
-    <div ref={cardRef} className="flex shrink-0 flex-col rounded-3xl border border-ink/10 bg-ink/[0.06] overflow-hidden">
+    <div ref={cardRef} className="flex shrink-0 flex-col rounded-3xl border border-ink/10 bg-ink/[0.06] light:bg-[#E8E8E9] overflow-hidden card-soft-shadow">
       <div className="relative flex items-center justify-center border-b border-ink/5 px-12 py-2.5">
         <div className="flex items-center gap-2">
           <span className="rounded-full bg-scripts-500/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-tight text-scripts-300">
             {cardTitle}
           </span>
-          {scenes && (
+          {scenes && !editing && (
             <span className="rounded-full bg-ink/5 px-2.5 py-0.5 text-[10px] text-ink-500">
               {scenes.length} scene{scenes.length === 1 ? '' : 's'}
             </span>
           )}
         </div>
-        <button
-          onClick={handleCopyAll}
-          className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-300"
-        >
-          {copied ? <Check className="h-3 w-3 text-green-400 light:text-green-600" /> : <Copy className="h-3 w-3" />}
-          {copied ? 'Copied' : scenes ? 'Copy Full Script' : 'Copy'}
-        </button>
+        {onEdit && !editing && (
+          <div className="absolute left-2 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
+            <button
+              onClick={startEdit}
+              className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-300"
+            >
+              <Pencil className="h-3 w-3" />
+              Edit
+            </button>
+            <button
+              onClick={handleUndo}
+              disabled={!canUndo}
+              title="Undo"
+              className="flex h-6 w-6 items-center justify-center rounded-full text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-300 disabled:cursor-not-allowed disabled:opacity-30"
+            >
+              <Undo2 className="h-3 w-3" />
+            </button>
+            <button
+              onClick={handleRedo}
+              disabled={!canRedo}
+              title="Redo"
+              className="flex h-6 w-6 items-center justify-center rounded-full text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-300 disabled:cursor-not-allowed disabled:opacity-30"
+            >
+              <Redo2 className="h-3 w-3" />
+            </button>
+          </div>
+        )}
+        {!editing && (
+          <button
+            onClick={handleCopyAll}
+            className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-300"
+          >
+            {copied ? <Check className="h-3 w-3 text-green-400 light:text-green-600" /> : <Copy className="h-3 w-3" />}
+            {copied ? 'Copied' : scenes ? 'Copy Full Script' : 'Copy'}
+          </button>
+        )}
+        {editing && (
+          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold uppercase tracking-tight text-scripts-300">
+            Editing
+          </span>
+        )}
       </div>
 
       <div className="flex flex-col gap-3 p-4">
-        {isCinematic ? (
+        {editing ? (
+          // One textarea over the raw take text — works for every output shape
+          // (cinematic / scenes / plain script). Committing re-parses on render.
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            autoFocus
+            spellCheck={false}
+            className="min-h-[320px] w-full resize-y rounded-2xl border border-ink/10 bg-surface-0 p-3 text-[13px] font-light leading-relaxed tracking-tight text-ink-100 outline-none transition-colors focus:border-scripts-500/30"
+          />
+        ) : isCinematic ? (
           // One structured master prompt — preserve the section layout as-is.
           <div className="whitespace-pre-wrap text-[13px] font-light leading-relaxed tracking-tight text-ink-100">
             {text}
@@ -289,7 +401,22 @@ function VariationCard({
       </div>
 
       <div className="flex flex-col gap-2 border-t border-ink/5 p-3">
-        {showSaveForm ? (
+        {editing ? (
+          <div className="flex gap-2">
+            <button
+              onClick={commitEdit}
+              className="flex flex-1 items-center justify-center gap-2 rounded-full bg-scripts-500/15 px-4 py-2.5 text-[12px] font-medium tracking-tight text-scripts-400 transition-colors hover:bg-scripts-500/25"
+            >
+              <Check className="h-3.5 w-3.5" /> Done
+            </button>
+            <button
+              onClick={cancelEdit}
+              className="flex items-center justify-center gap-2 rounded-full border border-ink/15 px-4 py-2.5 text-[12px] font-medium tracking-tight text-ink-500 transition-colors hover:bg-ink/[0.06] hover:text-ink-200"
+            >
+              <X className="h-3.5 w-3.5" /> Cancel
+            </button>
+          </div>
+        ) : showSaveForm ? (
           <div className="flex gap-2">
             <input
               value={saveTitle}
@@ -448,7 +575,7 @@ function SceneChunkCard({ chunk }: { chunk: SceneChunk }) {
   )
 }
 
-export default function OutputPanel({ variations, mode, liveMode, writeFormat, writeStyleLabel, linkedProductId, influencer, cinematicDuration, isGenerating, error }: OutputPanelProps) {
+export default function OutputPanel({ variations, mode, liveMode, writeFormat, writeStyleLabel, linkedProductId, influencer, cinematicDuration, isGenerating, error, onEditVariation }: OutputPanelProps) {
   // Resolve the linked product so saved scripts get a meaningful default title
   // ("<Product> — Hook-Led Script") and the cinematic handoff has its image.
   const products = useBankStore((s) => s.products)
@@ -618,6 +745,7 @@ export default function OutputPanel({ variations, mode, liveMode, writeFormat, w
               influencerImage={influencer?.characterImage}
               influencerName={influencer?.name}
               cinematicDuration={cinematicDuration}
+              onEdit={onEditVariation ? (newText) => onEditVariation(i, newText) : undefined}
             />
           )
         })}
