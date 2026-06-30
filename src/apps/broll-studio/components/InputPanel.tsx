@@ -210,7 +210,7 @@ export default function InputPanel({
             icon={Package}
             label="Product"
             accentClass="bg-gold-500/15 text-gold-400 light:text-gold-600"
-            selectedClass="border-gold-500/40 bg-gold-500/10 hover:bg-gold-500/[0.14]"
+            selectedClass="border-gold-500/30 bg-gold-500/[0.06] hover:bg-gold-500/10"
             isEmpty={!selectedProduct}
             onSelect={onSelectProduct}
             onClear={selectedProduct ? onClearProduct : undefined}
@@ -223,7 +223,7 @@ export default function InputPanel({
             icon={UserRound}
             label="Influencer"
             accentClass="bg-influencers-500/15 text-influencers-400"
-            selectedClass="border-influencers-500/40 bg-influencers-500/10 hover:bg-influencers-500/[0.14]"
+            selectedClass="border-influencers-500/30 bg-influencers-500/[0.06] hover:bg-influencers-500/10"
             isEmpty={!selectedModel}
             onSelect={onSelectModel}
             onClear={selectedModel ? onClearModel : undefined}
@@ -233,12 +233,12 @@ export default function InputPanel({
 
           {/* Script — select from bank (header) or paste manually (textarea),
               merged into one rounded box so the two sources read as one input. */}
-          <div className={`flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border bg-ink/[0.02] transition-colors ${selectedScript ? 'border-scripts-500/40 focus-within:border-scripts-500/50' : 'border-dashed border-ink/10 focus-within:border-ink/20'} ${highlightField === 'script' ? 'animate-field-flash' : ''}`}>
+          <div className={`flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border transition-colors ${selectedScript ? 'border-scripts-500/30 bg-scripts-500/[0.06] focus-within:border-scripts-500/50' : 'border-dashed border-ink/10 bg-ink/[0.02] focus-within:border-ink/20'} ${highlightField === 'script' ? 'animate-field-flash' : ''}`}>
             <BankCard
               icon={FileText}
               label="Script"
               accentClass="bg-scripts-500/15 text-scripts-400"
-              selectedClass=""
+              selectedClass="border-scripts-500/30 bg-scripts-500/[0.06] hover:bg-scripts-500/10"
               isEmpty={!selectedScript}
               onSelect={onSelectScript}
               onClear={selectedScript ? onClearScript : undefined}

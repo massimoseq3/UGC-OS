@@ -16,8 +16,12 @@ import {
   User,
   Package,
   Coins,
+  ChevronDown,
+  Star,
 } from 'lucide-react'
 import ModelPicker from '../../../components/ModelPicker'
+import ModelSidePanel from '../../../components/ModelSidePanel'
+import ProviderLogo from '../../../components/ProviderLogo'
 import AspectIcon from '../../../components/AspectIcon'
 import ConstraintChip from '../../../components/ConstraintChip'
 import SegmentedToggle from '../../../components/SegmentedToggle'
@@ -125,6 +129,9 @@ export default function CardDetailModal(props: CardDetailModalProps) {
   } = props
 
   const [tab, setTab] = useState<Tab>('image')
+  // Video-model picker is a slide-in side panel (like the ref-image bank
+  // picker) rather than an inline dropdown.
+  const [modelPanelOpen, setModelPanelOpen] = useState(false)
   // Animate tab: which still gets animated. Null → fall back to the cover /
   // latest image. Set explicitly when the user clicks "Animate" on a tile.
   const [animateFrameRef, setAnimateFrameRef] = useState<string | null>(null)
@@ -427,16 +434,46 @@ export default function CardDetailModal(props: CardDetailModalProps) {
               ) : (
                 <div>
                   <span className="text-sm font-medium text-ink-200">Video Model</span>
-                  <div className="mt-2">
-                    <ModelPicker
-                      appId="broll-studio"
-                      task="video"
-                      requireMode={tab === 'animate' ? 'image-to-video' : (hasActiveRef ? 'reference-to-video' : undefined)}
-                      requireModeNote={tab === 'animate'
-                        ? "Greyed-out models can't animate a still — they have no image-to-video mode. Pick Veo 3.1 Fast, Seedance 2.0, or another image-to-video model."
-                        : "Greyed-out models don't support reference image-to-video. To use these, generate still frames in the Image tab, then send them to Playground for start/end frames."}
-                    />
-                  </div>
+                  {/* Trigger button — opens the slide-in ModelSidePanel. Mirrors
+                      ModelPicker's trigger look (provider logo + name + star). */}
+                  <button
+                    type="button"
+                    onClick={() => setModelPanelOpen(true)}
+                    className="mt-2 flex h-12 w-full items-center gap-2.5 rounded-full border border-ink/10 bg-ink/[0.02] px-3 text-left transition-colors hover:bg-ink/[0.05]"
+                  >
+                    {videoModelId ? (
+                      <>
+                        <ProviderLogo provider={getModel(videoModelId)?.provider ?? ''} />
+                        <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                          <span className="truncate text-[13px] font-medium text-ink-100">{videoModelName}</span>
+                          {getModel(videoModelId)?.tags.includes('recommended') && (
+                            <Star className="h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400 light:fill-yellow-600 light:text-yellow-600" strokeWidth={1.5} />
+                          )}
+                        </div>
+                        {videoCreditsLabel && (
+                          <span className="shrink-0 text-[11px] text-ink-500">{videoCreditsLabel}</span>
+                        )}
+                      </>
+                    ) : (
+                      <span className="flex-1 truncate text-sm text-ink-400">Select model</span>
+                    )}
+                    <ChevronDown className="h-4 w-4 shrink-0 text-ink-500" />
+                  </button>
+                  <ModelSidePanel
+                    appId="broll-studio"
+                    task="video"
+                    isOpen={modelPanelOpen}
+                    onClose={() => setModelPanelOpen(false)}
+                    requireMode={tab === 'animate' ? 'image-to-video' : (hasActiveRef ? 'reference-to-video' : undefined)}
+                    requireModeNote={tab === 'animate'
+                      ? "Greyed-out models can't animate a still — they have no image-to-video mode. Pick Veo 3.1 Fast, Seedance 2.0, or another image-to-video model."
+                      : "Greyed-out models don't support reference image-to-video. To use these, generate still frames in the Image tab, then send them to Playground for start/end frames."}
+                    costParams={{
+                      durationSeconds: cardState.cardVideoDurationSeconds,
+                      resolution: cardState.cardVideoResolution,
+                      audio: cardState.cardVideoAudio,
+                    }}
+                  />
                   {videoConstraints && (
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
                       <ConstraintChip

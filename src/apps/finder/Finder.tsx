@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Plus, Package, UserRound, FileText, Mic, Film, Upload } from 'lucide-react'
+import { Plus, Package, UserRound, FileText, Mic, Film, Upload, LayoutGrid } from 'lucide-react'
 import { useAppStore } from '../../stores/appStore'
 import { useBankStore } from '../../stores/bankStore'
 import type { BankType } from '../../utils/constants'
@@ -27,10 +27,23 @@ const SIDEBAR_ICONS: Record<BankType, React.ElementType> = {
 
 const BANK_TYPES: BankType[] = ['products', 'models', 'scripts', 'voices', 'brolls']
 
+// Influencers bank sub-filter. An entry is a "sheet" when `sheetImage` is set,
+// otherwise a portrait. Local-only UI state — not persisted.
+export type ModelFilter = 'all' | 'portraits' | 'sheets'
+// Short labels + icons (not "Portraits" / "Influencer Sheets") so the row never
+// clips on narrow screens.
+const MODEL_FILTER_OPTIONS: { value: ModelFilter; label: string; icon?: React.ElementType }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'portraits', label: 'Portrait', icon: UserRound },
+  { value: 'sheets', label: 'Sheets', icon: LayoutGrid },
+]
+
 export default function Finder() {
   const [activeBank, setActiveBank] = useState<BankType>('products')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
+  // Influencers bank sub-filter (All / Portraits / Influencer Sheets).
+  const [modelFilter, setModelFilter] = useState<ModelFilter>('all')
 
   const consumePayload = useAppStore((s) => s.consumePayload)
   const interAppPayload = useAppStore((s) => s.interAppPayload)
@@ -210,9 +223,11 @@ export default function Finder() {
 
   return (
     <div className="flex h-full flex-col">
-      {/* Header — bank toggle on the left, actions on the right. Replaces
-          the old Banks sidebar so the browser gets the full width. */}
-      <div className="flex flex-col gap-3 border-b border-ink/5 px-5 pb-3 pt-4 lg:flex-row lg:items-center lg:justify-between">
+      {/* Header — single fixed-height row: bank toggle on the left, actions on
+          the right, with the separator footing flush under the toggle. Mirrors
+          the Influencers gallery header so the toggle reads the same height as
+          the other main toggles across the app. */}
+      <div className="flex h-[57px] shrink-0 items-center justify-between gap-3 border-b border-ink/5 px-5">
         <div className="min-w-0 overflow-x-auto">
           <SegmentedToggle<BankType>
             fitContent
@@ -228,6 +243,23 @@ export default function Finder() {
           />
         </div>
         <div className="flex shrink-0 items-center justify-end gap-3">
+          {/* Influencers sub-filter — sized to match the main bank toggle
+              (h-10 !p-1). Only the Influencers bank has the portrait/sheet
+              split. */}
+          {activeBank === 'models' && counts.models > 0 && !showForm && (
+            <SegmentedToggle<ModelFilter>
+              fitContent
+              accent="influencers"
+              className="h-10 !p-1 shrink-0"
+              value={modelFilter}
+              onChange={setModelFilter}
+              options={MODEL_FILTER_OPTIONS.map((o) => ({
+                value: o.value,
+                label: o.label,
+                icon: o.icon,
+              }))}
+            />
+          )}
           {sortOptions && counts[activeBank] > 0 && !showForm && (
             <SortControl value={sort} onChange={setSort} options={sortOptions} />
           )}
@@ -298,6 +330,7 @@ export default function Finder() {
             onEdit={handleEdit}
             onAdd={handleAdd}
             sort={sort}
+            modelFilter={modelFilter}
             inFlightProductIds={inFlightIds}
             onBulkProductFiles={handleBulkFiles}
           />

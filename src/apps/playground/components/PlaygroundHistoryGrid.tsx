@@ -271,7 +271,7 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode }: Playgrou
 
 function DayPill({ label }: { label: string }) {
   return (
-    <div className="my-2 flex items-center justify-center">
+    <div className="my-5 flex items-center justify-center">
       <span className="rounded-full bg-ink/[0.06] px-3 py-1 text-[11px] font-medium text-ink-300">{label}</span>
     </div>
   )

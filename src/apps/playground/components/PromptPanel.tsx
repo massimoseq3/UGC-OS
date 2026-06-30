@@ -745,7 +745,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
                     <button
                       type="button"
                       onClick={() => setPresetOpen(true)}
-                      className="flex w-full shrink-0 items-center gap-3 border-b border-ink/10 px-3.5 py-3 text-left transition-colors hover:bg-ink/[0.04]"
+                      className="flex w-full shrink-0 items-center gap-3 border-b border-dashed border-ink/10 px-3.5 py-3 text-left transition-colors hover:bg-ink/[0.04]"
                     >
                       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-playground-500/10 text-playground-400">
                         <Camera className="h-4 w-4" />

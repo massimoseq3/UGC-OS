@@ -130,7 +130,7 @@ function PresetActions({
 
   return (
     <div className="ml-auto flex items-center gap-1.5">
-      <ClearAllButton onClear={onClear} label="New" className="!py-1 !text-[11px]" />
+      <ClearAllButton onClear={onClear} label="Clear" className="!py-1 !text-[11px]" />
       <button
         type="button"
         onClick={startNaming}

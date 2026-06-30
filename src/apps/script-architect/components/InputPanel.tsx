@@ -83,7 +83,7 @@ export default function InputPanel({
   const [influencerPickerOpen, setInfluencerPickerOpen] = useState(false)
   const [scriptPickerOpen, setScriptPickerOpen] = useState(false)
   // Which big text box is open in the full-screen editor (null = none).
-  const [expandedField, setExpandedField] = useState<null | 'brief' | 'transcript' | 'reverse'>(null)
+  const [expandedField, setExpandedField] = useState<null | 'brief' | 'transcript' | 'reverse' | 'additionalContext'>(null)
   // Seed the editable context from a product that's already selected on mount
   // (persisted selection / history reload) so the "Edit product details"
   // dropdown is available immediately — not only after picking a new product.
@@ -359,7 +359,7 @@ export default function InputPanel({
             tabIndex={0}
             onClick={() => setInfluencerPickerOpen(true)}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setInfluencerPickerOpen(true) } }}
-            className="group flex w-full cursor-pointer items-center gap-3 rounded-full border border-ink/10 bg-ink/[0.02] px-4 py-3.5 text-left transition-colors hover:border-ink/20 hover:bg-ink/[0.04]"
+            className="group flex w-full cursor-pointer items-center gap-3 rounded-full border border-influencers-500/30 bg-influencers-500/[0.06] px-4 py-3.5 text-left transition-colors hover:border-influencers-500/40 hover:bg-influencers-500/10"
           >
             <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-ink/5">
               {resolvedInfluencerImage ? (
@@ -510,7 +510,7 @@ export default function InputPanel({
                 <div className="min-w-0 flex-1">
                   {styleChosen ? (
                     <>
-                      <div className="truncate text-[13px] font-medium tracking-tight text-scripts-300">{WRITE_STYLE_META[writeStyle].label}</div>
+                      <div className="truncate text-[13px] font-medium tracking-tight text-scripts-text">{WRITE_STYLE_META[writeStyle].label}</div>
                       <div className="truncate text-[11px] leading-snug text-ink-500">{WRITE_STYLE_META[writeStyle].hint}</div>
                     </>
                   ) : (
@@ -545,59 +545,63 @@ export default function InputPanel({
             {/* Product — sits below the style / influencer picker. */}
             {productSection}
 
-            {/* The brief */}
-            <div className="mt-3 mb-6 flex flex-col">
-              <div className="flex items-center justify-between gap-2">
+            {/* The brief — its section grows to absorb leftover column height so
+                the box fills the blank space below the pickers (same
+                expand-don't-scroll pattern as Playground's prompt). */}
+            <div className="mt-3 mb-6 flex min-h-0 flex-1 flex-col">
+              <div className="mb-3 flex items-center gap-2">
                 <StepLabel
                   label="Describe Your Video"
                   optional
                   tooltip="What should this video say or focus on? Vibe, angle, key points — anything goes. Leave it blank and the model will come up with the angle for you."
                 />
-                {/* Enhance + Undo/Redo — rewrites the brief into a sharper one,
-                    with full undo history (mirrors Playground's prompt bar). */}
-                <div className="flex shrink-0 items-center gap-1.5">
+              </div>
+              {/* Single rounded box (Playground prompt pattern): the textarea
+                  grows to fill the box, the Enhance + Undo/Redo + Expand controls
+                  sit attached in a footer under a hairline. */}
+              <div className="relative flex grow flex-col overflow-hidden rounded-3xl border border-ink/10 bg-ink/[0.02] transition-colors focus-within:border-scripts-500/30">
+                <textarea
+                  value={brief}
+                  onChange={(e) => handleBriefType(e.target.value)}
+                  onBlur={commitBriefDraft}
+                  placeholder={"Leave blank and I'll come up with the angle — or steer it: e.g. A girl in her 20s talking about this serum like she's telling her best friend, focus on how fast it cleared her skin. Casual, a little funny, end with the discount code."}
+                  className="min-h-[120px] w-full flex-1 resize-none border-0 bg-transparent px-4 py-3 text-sm leading-relaxed text-ink-200 placeholder-ink-600 outline-none"
+                />
+                {/* Footer toolbar — Enhance bottom-left; Undo/Redo + Expand
+                    bottom-right, all attached to the box under a hairline. */}
+                <div className="flex items-center justify-between gap-2 border-t border-ink/10 px-2 py-1.5">
                   <button
                     type="button"
                     title="Enhance brief"
                     onClick={handleEnhanceBrief}
                     disabled={isEnhancing || !brief.trim()}
-                    className="flex items-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.02] px-2.5 py-1 text-[11px] font-medium text-ink-300 transition-colors hover:border-scripts-500/30 hover:bg-scripts-500/10 hover:text-scripts-300 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium text-ink-400 transition-colors hover:bg-scripts-500/10 hover:text-scripts-300 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {isEnhancing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
                     Enhance
                   </button>
-                  <button
-                    type="button"
-                    title="Undo"
-                    onClick={handleBriefUndo}
-                    disabled={!canUndoBrief || isEnhancing}
-                    className="flex h-6 w-6 items-center justify-center rounded-full border border-ink/10 bg-ink/[0.02] text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-30"
-                  >
-                    <Undo2 className="h-3 w-3" />
-                  </button>
-                  <button
-                    type="button"
-                    title="Redo"
-                    onClick={handleBriefRedo}
-                    disabled={!canRedoBrief || isEnhancing}
-                    className="flex h-6 w-6 items-center justify-center rounded-full border border-ink/10 bg-ink/[0.02] text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-30"
-                  >
-                    <Redo2 className="h-3 w-3" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      title="Undo"
+                      onClick={handleBriefUndo}
+                      disabled={!canUndoBrief || isEnhancing}
+                      className="flex h-6 w-6 items-center justify-center rounded-full text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-30"
+                    >
+                      <Undo2 className="h-3 w-3" />
+                    </button>
+                    <button
+                      type="button"
+                      title="Redo"
+                      onClick={handleBriefRedo}
+                      disabled={!canRedoBrief || isEnhancing}
+                      className="flex h-6 w-6 items-center justify-center rounded-full text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-30"
+                    >
+                      <Redo2 className="h-3 w-3" />
+                    </button>
+                    <ExpandButton onClick={() => setExpandedField('brief')} />
+                  </div>
                 </div>
-              </div>
-              {/* Fixed-height box (Playground prompt pattern): it never grows
-                  with content — it scrolls internally so the page stays put. */}
-              <div className="relative mt-3">
-                <textarea
-                  value={brief}
-                  onChange={(e) => handleBriefType(e.target.value)}
-                  onBlur={commitBriefDraft}
-                  rows={6}
-                  placeholder={"Leave blank and I'll come up with the angle — or steer it: e.g. A girl in her 20s talking about this serum like she's telling her best friend, focus on how fast it cleared her skin. Casual, a little funny, end with the discount code."}
-                  className="h-[150px] w-full resize-none overflow-y-auto rounded-3xl border border-ink/10 bg-ink/[0.02] px-4 py-3 text-sm leading-relaxed text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-scripts-500/30"
-                />
-                <ExpandButton onClick={() => setExpandedField('brief')} className="absolute bottom-2 right-2" />
               </div>
             </div>
           </>
@@ -664,16 +668,19 @@ export default function InputPanel({
             remix / scene-rewrite modes. */}
         {mode !== 'write' && (
           <div className="mb-6">
-            <StepLabel label="Additional Context (Optional)" />
-            <textarea
-              value={additionalContext}
-              onChange={(e) => onAdditionalContextChange(e.target.value)}
-              rows={3}
-              placeholder={mode === 'remix'
-                ? "Additional context for this script (e.g. 'Focus on the self-cleaning feature', 'Summer campaign tone')..."
-                : "Additional context for the rewrite (e.g. 'Keep tone playful', 'Make the CTA softer')..."}
-              className="mt-2 w-full rounded-2xl border border-ink/10 bg-ink/[0.02] px-4 py-3 text-sm text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-scripts-500/30 resize-none"
-            />
+            <StepLabel label="Additional Context" optional />
+            <div className="relative mt-2">
+              <textarea
+                value={additionalContext}
+                onChange={(e) => onAdditionalContextChange(e.target.value)}
+                rows={3}
+                placeholder={mode === 'remix'
+                  ? "Additional context for this script (e.g. 'Focus on the self-cleaning feature', 'Summer campaign tone')..."
+                  : "Additional context for the rewrite (e.g. 'Keep tone playful', 'Make the CTA softer')..."}
+                className="w-full rounded-2xl border border-ink/10 bg-ink/[0.02] px-4 py-3 text-sm text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-scripts-500/30 resize-none"
+              />
+              <ExpandButton onClick={() => setExpandedField('additionalContext')} className="absolute bottom-2 right-2" />
+            </div>
           </div>
         )}
       </div>
@@ -821,6 +828,15 @@ export default function InputPanel({
         accent="scripts"
         mono
         placeholder="Paste the reverse-engineered prompt from Ad Analyzer here…"
+      />
+      <ExpandTextModal
+        open={expandedField === 'additionalContext'}
+        onClose={() => setExpandedField(null)}
+        value={additionalContext}
+        onChange={onAdditionalContextChange}
+        title="Additional Context"
+        accent="scripts"
+        placeholder="Additional context for this generation…"
       />
     </div>
   )
