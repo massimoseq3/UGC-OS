@@ -135,11 +135,9 @@ export default function Sidebar() {
         <div className="border-t border-ink/5 px-2 py-3">
           {showExpanded ? (
             <>
-              {/* Buy-credits CTA on top, live balance stacked directly below it. */}
-              <div className="flex flex-col gap-1.5">
-                <GetMoreCreditsChip collapsed={false} />
-                <CreditsChip collapsed={false} />
-              </div>
+              {/* Live balance + buy-credits CTA merged into one pill, split by a
+                  dotted divider (balance left, Get Credits right). */}
+              <CreditsBar />
               {/* Appearance — sits directly under credits, sized to match it. */}
               <SidebarThemeToggle collapsed={false} />
               {/* Account group — Settings + My Account read as one set of rows. */}
@@ -312,6 +310,77 @@ function CreditsChip({ collapsed }: { collapsed: boolean }) {
         <span className="text-ink-500"> credits left</span>
       </span>
     </button>
+  )
+}
+
+// Expanded-sidebar credits control: the live balance (a manual refresh control)
+// and the buy-credits CTA merged into one pill, split by a dotted divider. The
+// collapsed rail keeps the two stacked icon chips above.
+function CreditsBar() {
+  const apiKey = useSettingsStore((s) => s.kieApiKey)
+  const balance = useCreditsStore((s) => s.balance)
+  const refresh = useCreditsStore((s) => s.refresh)
+  const [refreshing, setRefreshing] = useState(false)
+
+  useEffect(() => {
+    if (!apiKey) return
+    refresh()
+    const interval = window.setInterval(refresh, 60_000)
+    const onFocus = () => refresh()
+    window.addEventListener('focus', onFocus)
+    return () => {
+      window.clearInterval(interval)
+      window.removeEventListener('focus', onFocus)
+    }
+  }, [apiKey, refresh])
+
+  const handleRefresh = async () => {
+    if (refreshing) return
+    setRefreshing(true)
+    try { await refresh() } finally { setRefreshing(false) }
+  }
+
+  const label = useAnimatedCount(balance)
+
+  return (
+    <div className="flex h-9 w-full items-center overflow-hidden rounded-full border border-ink/10 bg-ink/[0.04]">
+      {/* Left — live balance + manual refresh. */}
+      <button
+        onClick={handleRefresh}
+        disabled={refreshing}
+        className="group flex h-full min-w-0 flex-1 items-center gap-1.5 px-2.5 transition-colors hover:bg-ink/[0.06] disabled:opacity-60"
+        title="kie.ai credits remaining — click to refresh"
+        aria-label="Refresh credits balance"
+      >
+        <span className="relative flex h-3.5 w-3.5 shrink-0 items-center justify-center">
+          {refreshing ? (
+            <RefreshCw className="h-3.5 w-3.5 animate-spin text-ink-300" strokeWidth={1.75} />
+          ) : (
+            <>
+              <Coins className="h-3.5 w-3.5 text-ink-300 group-hover:opacity-0" strokeWidth={1.75} />
+              <RefreshCw className="absolute h-3.5 w-3.5 text-ink-200 opacity-0 group-hover:opacity-100" strokeWidth={1.75} />
+            </>
+          )}
+        </span>
+        <span className="min-w-0 truncate text-[12px] text-ink-300">
+          <span className="tabular-nums">{label}</span>
+          <span className="text-ink-500"> credits</span>
+        </span>
+      </button>
+      {/* Dotted divider down the middle. */}
+      <div className="h-5 shrink-0 border-l border-dashed border-ink/15" />
+      {/* Right — buy-credits CTA (leaves the app). Subtle, like the balance. */}
+      <a
+        href="https://kie.ai/billing"
+        target="_blank"
+        rel="noopener noreferrer"
+        title="Get credits — opens kie.ai billing"
+        className="group flex h-full shrink-0 items-center gap-1 px-2.5 text-ink-500 transition-colors hover:bg-ink/[0.06] hover:text-ink-300"
+      >
+        <ArrowUpRight className="h-3 w-3 shrink-0 transition-colors" strokeWidth={2} />
+        <span className="whitespace-nowrap text-[11px] font-medium">Get credits</span>
+      </a>
+    </div>
   )
 }
 

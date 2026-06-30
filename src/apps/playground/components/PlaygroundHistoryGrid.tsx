@@ -22,8 +22,9 @@ import type { PlaygroundMode, InFlightGen } from '../types'
 import { humanizeError } from '../../../utils/friendlyError'
 export type { InFlightGen }
 
-// List-view media-height bounds (px) for the header size slider. Max is ≈ two
-// of the smallest cards stacked, so one big card ≈ two compact ones.
+// List-view size-slider bounds. The raw value drives the slider fill % and the
+// media frame's aspect ratio (see `mediaAspect`) — not a pixel height. Min → a
+// 16:9 frame (landscape fills, no bars); max → a tall frame that grows portraits.
 const LIST_CARD_MIN = 200
 const LIST_CARD_MAX = 560
 
@@ -61,6 +62,11 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode }: Playgrou
   // so the clip is more watchable. Max ≈ two of the smallest cards stacked.
   const [listCardHeight, setListCardHeight] = usePersistedState<number>('ai-ugc-lab:playground:list-card-height', 300)
   const cardPct = ((listCardHeight - LIST_CARD_MIN) / (LIST_CARD_MAX - LIST_CARD_MIN)) * 100
+  // The list media frame keeps a constant width (its column) and grows taller as
+  // the slider moves right. At the minimum it's a perfect 16:9 (landscape fills,
+  // no bars); sliding right lowers the ratio toward 9:16, letterboxing landscape
+  // while portraits get bigger. Mirrors the Influencers gallery.
+  const mediaAspect = 16 / 9 + (cardPct / 100) * (9 / 16 - 16 / 9)
 
   const entries = useMemo<HistoryEntry[]>(() => {
     const out: HistoryEntry[] = []
@@ -171,7 +177,7 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode }: Playgrou
               </div>
             ) : (
               <div className="flex flex-col gap-3">
-                {visibleInFlight.map((gen) => <InFlightRow key={gen.id} gen={gen} cardHeight={listCardHeight} />)}
+                {visibleInFlight.map((gen) => <InFlightRow key={gen.id} gen={gen} mediaAspect={mediaAspect} />)}
               </div>
             )}
           </>
@@ -225,7 +231,7 @@ export default function PlaygroundHistoryGrid({ inFlight, filterMode }: Playgrou
                   <HistoryListRow
                     key={`${entry.kind}-${entry.data.id}`}
                     entry={entry}
-                    cardHeight={listCardHeight}
+                    mediaAspect={mediaAspect}
                     isSaving={savingIds.has(entry.data.id)}
                     onClickImage={entry.kind === 'image' ? () => setPreviewItem(entry) : undefined}
                     onCopyPrompt={() => handleCopyPrompt(entry.data.prompt)}
@@ -306,7 +312,7 @@ function ViewToggle({ value, onChange }: { value: 'grid' | 'list'; onChange: (v:
 // competitor's List view — scroll the feed, hit play, copy from the side box.
 function HistoryListRow({
   entry,
-  cardHeight,
+  mediaAspect,
   isSaving,
   onClickImage,
   onCopyPrompt,
@@ -315,7 +321,7 @@ function HistoryListRow({
   onDelete,
 }: {
   entry: HistoryEntry
-  cardHeight: number
+  mediaAspect: number
   isSaving: boolean
   onClickImage?: () => void
   onCopyPrompt: () => void
@@ -345,11 +351,12 @@ function HistoryListRow({
   }
 
   return (
-    <div className="flex w-full items-stretch gap-3 overflow-hidden rounded-2xl border border-ink/10 bg-ink/[0.02]">
-      {/* Media — two-thirds of the row, height driven by the size slider.
-          Content is letterboxed on black so a vertical clip shows with bars
-          instead of cropping. */}
-      <div className="relative min-w-0 flex-[2] bg-black" style={{ height: cardHeight }}>
+    <div className="flex w-full items-stretch gap-3 overflow-hidden rounded-2xl border border-ink/10 bg-ink/[0.02] card-soft-shadow">
+      {/* Media — fixed-width column (the larger share of the row) whose height is
+          the slider-driven aspect ratio. At the slider minimum it's 16:9 so
+          landscape fills with no bars; taller frames letterbox landscape on black
+          and grow portraits. */}
+      <div className="relative min-w-0 flex-[3] bg-black" style={{ aspectRatio: mediaAspect }}>
         {entry.kind === 'music' ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-ink/[0.04]">
             <MusicIcon className="h-8 w-8 text-ink-600" />
@@ -375,10 +382,12 @@ function HistoryListRow({
         )}
       </div>
 
-      {/* Side panel — the remaining third: model, prompt, meta, actions.
-          Height is pinned to the media card so the prompt scrolls inside the
-          box (auto-hiding overlay scrollbar) instead of stretching the row. */}
-      <div className="flex min-w-0 flex-[1] flex-col gap-2 py-3 pr-3" style={{ height: cardHeight }}>
+      {/* Side panel — the remaining quarter: model, prompt, meta, actions. Its
+          content is absolutely filled so the panel contributes no intrinsic
+          height — the media's aspect ratio alone drives the row height. The
+          prompt scrolls within the stretched panel. */}
+      <div className="relative min-w-0 flex-[1]">
+        <div className="absolute inset-0 flex flex-col gap-2 py-3 pr-3">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="rounded-full bg-playground-500/15 px-2 py-0.5 text-[10px] font-semibold text-playground-200">{modelLabel}</span>
           {meta.map((m) => (
@@ -393,12 +402,11 @@ function HistoryListRow({
         {entry.kind === 'music' && audioUrl && (
           <audio src={audioUrl} controls className="h-8 w-full" />
         )}
+        {/* Canonical action order: download · save · copy · delete. */}
         <div className="flex items-center gap-1">
-          {prompt && (
-            <ListRowButton title="Copy prompt" onClick={onCopyPrompt}>
-              <Copy className="h-4 w-4" />
-            </ListRowButton>
-          )}
+          <ListRowButton title="Download" onClick={onDownload}>
+            <Download className="h-4 w-4" />
+          </ListRowButton>
           {onSave && (
             <ListRowButton
               title={isSaved ? 'Saved to B-Rolls' : isSaving ? 'Saving…' : 'Save to B-Rolls Bank'}
@@ -408,10 +416,13 @@ function HistoryListRow({
               {isSaved ? <Check className="h-4 w-4" /> : isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bookmark className="h-4 w-4" />}
             </ListRowButton>
           )}
-          <ListRowButton title="Download" onClick={onDownload}>
-            <Download className="h-4 w-4" />
-          </ListRowButton>
+          {prompt && (
+            <ListRowButton title="Copy prompt" onClick={onCopyPrompt}>
+              <Copy className="h-4 w-4" />
+            </ListRowButton>
+          )}
           <ListRowDeleteButton onDelete={onDelete} />
+        </div>
         </div>
       </div>
     </div>
@@ -420,12 +431,12 @@ function HistoryListRow({
 
 // In-flight generation as a list row — placeholder + progress, matching the
 // finished-row layout (2/3 media · 1/3 info) so the feed doesn't jump.
-function InFlightRow({ gen, cardHeight }: { gen: InFlightGen; cardHeight: number }) {
+function InFlightRow({ gen, mediaAspect }: { gen: InFlightGen; mediaAspect: number }) {
   const modelLabel = getModel(gen.modelId)?.displayName ?? gen.modelId
   const Icon = gen.mode === 'image' ? ImageIcon : gen.mode === 'video' ? Film : MusicIcon
   return (
-    <div className="flex w-full items-stretch gap-3 overflow-hidden rounded-2xl border border-playground-500/20 bg-playground-500/[0.04]">
-      <div className="relative min-w-0 flex-[2]" style={{ height: cardHeight }}>
+    <div className="flex w-full items-stretch gap-3 overflow-hidden rounded-2xl border border-playground-500/20 bg-playground-500/[0.04] card-soft-shadow">
+      <div className="relative min-w-0 flex-[3]" style={{ aspectRatio: mediaAspect }}>
         <GeneratingBackdrop family="playground" />
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
           <Icon className="h-7 w-7 text-playground-100" />
@@ -540,24 +551,9 @@ function ImageTile({
               : <ImageIcon className="h-6 w-6 text-ink-700" />}
           </div>
         )}
-        {/* Hover actions: delete top-right; copy prompt + save + download all
-            grouped bottom-right — round icon buttons. */}
-        <div className="absolute right-1.5 top-1.5 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-          <DeleteConfirmButton onDelete={onDelete} />
-        </div>
-        <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-          {item.prompt && (
-            <TileButton title="Copy prompt" onClick={(e) => { e.stopPropagation(); onCopyPrompt() }}>
-              <Copy className="h-4 w-4" />
-            </TileButton>
-          )}
-          <TileButton
-            title={isSaved ? 'Saved to B-Rolls' : isSaving ? 'Saving…' : 'Save to B-Rolls Bank'}
-            tone={isSaved ? 'saved' : 'default'}
-            onClick={(e) => { e.stopPropagation(); if (!isSaved && !isSaving) onSave() }}
-          >
-            {isSaved ? <Check className="h-4 w-4" /> : isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bookmark className="h-4 w-4" />}
-          </TileButton>
+        {/* Hover action stack — top-right vertical column, app-wide standard
+            order: download · save · copy · delete. */}
+        <div className="absolute right-1.5 top-1.5 flex flex-col items-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
           <TileButton
             title="Download"
             onClick={async (e) => {
@@ -568,6 +564,19 @@ function ImageTile({
           >
             <Download className="h-4 w-4" />
           </TileButton>
+          <TileButton
+            title={isSaved ? 'Saved to B-Rolls' : isSaving ? 'Saving…' : 'Save to B-Rolls Bank'}
+            tone={isSaved ? 'saved' : 'default'}
+            onClick={(e) => { e.stopPropagation(); if (!isSaved && !isSaving) onSave() }}
+          >
+            {isSaved ? <Check className="h-4 w-4" /> : isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bookmark className="h-4 w-4" />}
+          </TileButton>
+          {item.prompt && (
+            <TileButton title="Copy prompt" onClick={(e) => { e.stopPropagation(); onCopyPrompt() }}>
+              <Copy className="h-4 w-4" />
+            </TileButton>
+          )}
+          <DeleteConfirmButton onDelete={onDelete} />
         </div>
       </div>
       {modelLabel && (
@@ -689,17 +698,9 @@ function VideoTile({
           </button>
         )}
 
-        {/* Hover actions: delete top-right; copy prompt + download grouped
-            bottom-right, all round icon buttons. */}
-        <div className="absolute right-1.5 top-1.5 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-          <DeleteConfirmButton onDelete={onDelete} />
-        </div>
-        <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-          {item.prompt && (
-            <TileButton title="Copy prompt" onClick={(e) => { e.stopPropagation(); onCopyPrompt() }}>
-              <Copy className="h-4 w-4" />
-            </TileButton>
-          )}
+        {/* Hover action stack — top-right vertical column, app-wide standard
+            order: download · copy · delete (video has no save-to-bank). */}
+        <div className="absolute right-1.5 top-1.5 flex flex-col items-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
           <TileButton
             title="Download"
             onClick={async (e) => {
@@ -710,6 +711,12 @@ function VideoTile({
           >
             <Download className="h-4 w-4" />
           </TileButton>
+          {item.prompt && (
+            <TileButton title="Copy prompt" onClick={(e) => { e.stopPropagation(); onCopyPrompt() }}>
+              <Copy className="h-4 w-4" />
+            </TileButton>
+          )}
+          <DeleteConfirmButton onDelete={onDelete} />
         </div>
       </div>
       {modelLabel && (

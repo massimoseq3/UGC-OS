@@ -16,7 +16,7 @@ import {
   User,
   Package,
   Coins,
-  ChevronDown,
+  ChevronRight,
   Star,
 } from 'lucide-react'
 import ModelPicker from '../../../components/ModelPicker'
@@ -365,21 +365,9 @@ export default function CardDetailModal(props: CardDetailModalProps) {
         onClick={(e) => e.stopPropagation()}
         className="flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-ink/10 bg-ink-950/95 shadow-2xl"
       >
-        {/* Header — chip + scene line only. Descriptive ALL-CAPS label is gone. */}
-        <div className="flex items-center justify-between gap-3 border-b border-ink/5 px-5 py-3">
-          <div className="flex min-w-0 items-center gap-2">
-            {!isManual && (
-              <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium tracking-tight ${tagChipStyle(variation.tag)}`}>
-                {tagLabel(variation.tag)}
-              </span>
-            )}
-            <span className="text-[10px] uppercase tracking-wider text-ink-400">
-              {rollTypeForTag(variation.tag)} · Scene {sceneNumber}
-            </span>
-          </div>
-        </div>
-
-        {/* Body — fixed 50/50 grid; content scrolls inside each column. */}
+        {/* Body — fixed 50/50 grid; content scrolls inside each column. The
+            variation's tag + roll/scene line now lives in the right panel
+            header (the modal-wide top bar was removed). */}
         <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden md:grid-cols-2">
           {/* LEFT 50% — scrollable body (model + refs + prompt) over a pinned
               footer (output settings + Generate), mirroring the Playground panel. */}
@@ -400,8 +388,9 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                   ]}
                 />
 
-                {/* Separator between the toggle and the controls below. */}
-                <div className="-mt-1 border-b border-ink/5" />
+                {/* Full-width separator between the toggle and the controls
+                    below (breaks out of the px-5 column padding). */}
+                <div className="-mx-5 -mt-1 border-b border-ink/5" />
 
                 {/* Model picker — no heading (Playground style); constraint
                     chips live in the pinned footer above Generate. */}
@@ -426,14 +415,13 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                               <Star className="h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400 light:fill-yellow-600 light:text-yellow-600" strokeWidth={1.5} />
                             )}
                           </div>
-                          {videoCreditsLabel && (
-                            <span className="shrink-0 text-[11px] text-ink-500">{videoCreditsLabel}</span>
-                          )}
                         </>
                       ) : (
                         <span className="flex-1 truncate text-sm text-ink-400">Select model</span>
                       )}
-                      <ChevronDown className="h-4 w-4 shrink-0 text-ink-500" />
+                      {/* Chevron signals the slide-in panel; no credits badge
+                          here — costs show per-model in the panel. */}
+                      <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" />
                     </button>
                     <ModelSidePanel
                       appId="broll-studio"
@@ -464,7 +452,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                     <div className="mt-2">
                       {effectiveAnimateFrame && animateFrameUrl ? (
                         <div
-                          className="relative max-w-[140px] overflow-hidden rounded-xl border border-ink/10 bg-ink/[0.02]"
+                          className="relative max-w-[96px] overflow-hidden rounded-xl border border-ink/10 bg-ink/[0.02]"
                           style={aspectStyle(cardState.cardVideoAspectRatio)}
                         >
                           <img src={animateFrameUrl} alt="" className="h-full w-full object-cover" />
@@ -746,8 +734,23 @@ export default function CardDetailModal(props: CardDetailModalProps) {
             </div>
           </div>
 
-          {/* RIGHT 50% — per-card gallery (Playground masonry) */}
+          {/* RIGHT 50% — variation meta header (moved out of the removed top
+              bar) + per-card gallery (Playground masonry). */}
           <div className="col-span-1 flex min-h-0 flex-col overflow-hidden">
+            <div className="flex flex-col gap-3 px-5 pt-3">
+              <div className="flex min-w-0 items-center gap-2">
+                {!isManual && (
+                  <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium tracking-tight ${tagChipStyle(variation.tag)}`}>
+                    {tagLabel(variation.tag)}
+                  </span>
+                )}
+                <span className="text-[10px] uppercase tracking-wider text-ink-400">
+                  {rollTypeForTag(variation.tag)} · Scene {sceneNumber}
+                </span>
+              </div>
+              {/* Full-width separator — matches the one under the left toggle. */}
+              <div className="-mx-5 border-b border-ink/5" />
+            </div>
             <ModalGallery
               cardState={cardState}
               onUpdateState={onUpdateState}

@@ -721,29 +721,67 @@ export default function VariationCard(props: VariationCardProps) {
 
           {/* Top-right status badges — small "Video N" indicator when the
               cover is the image but the card also has video gens. */}
+          {/* Top-right status badges fade out on hover so the action stack
+              (same corner) reads cleanly. */}
           {showVideoBadge && (
-            <span className="pointer-events-none absolute right-2 top-2 flex items-center gap-1 rounded-full border border-purple-400/30 bg-purple-500/30 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-purple-100 backdrop-blur">
+            <span className="pointer-events-none absolute right-2 top-2 flex items-center gap-1 rounded-full border border-purple-400/30 bg-purple-500/30 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-purple-100 backdrop-blur transition-opacity group-hover:opacity-0">
               <Play className="h-2.5 w-2.5 fill-current" />
               {cardState.videos.length > 1 ? `${cardState.videos.length} videos` : 'Video'}
             </span>
           )}
           {hasFailedInFlight && !isGeneratingVideo && !isGeneratingImageInFlight && !cardState.isGeneratingImage && (
-            <span className="pointer-events-none absolute right-2 top-2 flex items-center gap-1 rounded-full border border-red-400/40 bg-red-500/30 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-red-100 backdrop-blur">
+            <span className="pointer-events-none absolute right-2 top-2 flex items-center gap-1 rounded-full border border-red-400/40 bg-red-500/30 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-red-100 backdrop-blur transition-opacity group-hover:opacity-0">
               <AlertCircle className="h-2.5 w-2.5" />
               Failed
             </span>
           )}
           {cardState.videoStatus === 'error' && (
-            <span className="pointer-events-none absolute right-2 top-2 flex items-center gap-1 rounded-full border border-red-400/40 bg-red-500/30 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-red-100 backdrop-blur">
+            <span className="pointer-events-none absolute right-2 top-2 flex items-center gap-1 rounded-full border border-red-400/40 bg-red-500/30 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-red-100 backdrop-blur transition-opacity group-hover:opacity-0">
               <AlertCircle className="h-2.5 w-2.5" />
               Video error
             </span>
           )}
 
-          {/* Top-right hover-reveal trash. Two-click confirm so a user can't
-              accidentally nuke a variation. The card body is still clickable
-              to open the detail modal, so no Maximize button is needed. */}
-          <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          {/* Hover-reveal action stack — top-right vertical column, app-wide
+              standard order: download · copy · save (stills only) · delete.
+              Two-click delete confirm keeps the column visible. The card body
+              stays clickable to open the detail modal. */}
+          <div className={`absolute right-2 top-2 z-10 flex flex-col items-end gap-1 transition-opacity ${confirmingDelete ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+            {coverKind && (
+              <>
+                <button
+                  type="button"
+                  title={coverKind === 'image' ? 'Download image' : 'Download video'}
+                  onClick={(e) => { e.stopPropagation(); void handleDownloadCover() }}
+                  className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white backdrop-blur transition-colors hover:bg-black/50"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                </button>
+                {/* Save-to-bank is stills-only — videos are download-only. */}
+                {coverKind === 'image' && (
+                  <button
+                    type="button"
+                    title={savedCover ? 'Saved to B-Rolls bank' : savingCover ? 'Saving…' : 'Save to B-Rolls bank'}
+                    onClick={(e) => { e.stopPropagation(); void handleSaveCover() }}
+                    className={`flex h-7 w-7 items-center justify-center rounded-full border backdrop-blur transition-colors ${
+                      savedCover
+                        ? 'border-emerald-400/50 bg-emerald-500/30 text-emerald-100'
+                        : 'border-white/20 bg-black/35 text-white hover:bg-black/50'
+                    }`}
+                  >
+                    {savedCover ? <Check className="h-3.5 w-3.5" /> : savingCover ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Bookmark className="h-3.5 w-3.5" />}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  title={copiedPrompt ? 'Prompt copied' : 'Copy prompt'}
+                  onClick={(e) => { e.stopPropagation(); void handleCopyPrompt() }}
+                  className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white backdrop-blur transition-colors hover:bg-black/50"
+                >
+                  {copiedPrompt ? <Check className="h-3.5 w-3.5 text-emerald-300" /> : <Copy className="h-3.5 w-3.5" />}
+                </button>
+              </>
+            )}
             <button
               type="button"
               title={confirmingDelete ? 'Click again to delete' : 'Delete variation'}
@@ -765,44 +803,6 @@ export default function VariationCard(props: VariationCardProps) {
               <Trash2 className="h-3.5 w-3.5" />
             </button>
           </div>
-
-          {/* Bottom-right hover-reveal actions: save-to-bank + download for
-              the current cover. Only shown once the card has an output. */}
-          {coverKind && (
-            <div className="absolute bottom-2 right-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-              <button
-                type="button"
-                title={copiedPrompt ? 'Prompt copied' : 'Copy prompt'}
-                onClick={(e) => { e.stopPropagation(); void handleCopyPrompt() }}
-                className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white backdrop-blur transition-colors hover:bg-black/50"
-              >
-                {copiedPrompt ? <Check className="h-3.5 w-3.5 text-emerald-300" /> : <Copy className="h-3.5 w-3.5" />}
-              </button>
-              {/* Save-to-bank is stills-only — videos are download-only. */}
-              {coverKind === 'image' && (
-                <button
-                  type="button"
-                  title={savedCover ? 'Saved to B-Rolls bank' : savingCover ? 'Saving…' : 'Save to B-Rolls bank'}
-                  onClick={(e) => { e.stopPropagation(); void handleSaveCover() }}
-                  className={`flex h-7 w-7 items-center justify-center rounded-full border backdrop-blur transition-colors ${
-                    savedCover
-                      ? 'border-emerald-400/50 bg-emerald-500/30 text-emerald-100'
-                      : 'border-white/20 bg-black/35 text-white hover:bg-black/50'
-                  }`}
-                >
-                  {savedCover ? <Check className="h-3.5 w-3.5" /> : savingCover ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Bookmark className="h-3.5 w-3.5" />}
-                </button>
-              )}
-              <button
-                type="button"
-                title={coverKind === 'image' ? 'Download image' : 'Download video'}
-                onClick={(e) => { e.stopPropagation(); void handleDownloadCover() }}
-                className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white backdrop-blur transition-colors hover:bg-black/50"
-              >
-                <Download className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          )}
 
           {cardState.imageError && !hasImages && !cardState.isGeneratingImage && (
             <div className="absolute inset-x-2 bottom-2 flex items-start gap-1.5 rounded-lg border border-red-500/30 bg-red-500/15 px-2 py-1.5 backdrop-blur">

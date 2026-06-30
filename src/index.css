@@ -353,6 +353,16 @@ select {
   mask-image: linear-gradient(to right, transparent 0%, black 35%, black 65%, transparent 100%);
 }
 
+/* Right-edge fade for a left-aligned horizontal scroller (e.g. the Bank
+   category toggle). Paired with `flex-1` on the scroll container so, when the
+   items fit, the fade falls over empty space (invisible); when they overflow,
+   the clipped item softly fades out to signal "scroll for more" instead of a
+   hard cut. */
+.scroll-fade-r {
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - 28px), transparent 100%);
+  mask-image: linear-gradient(to right, black calc(100% - 28px), transparent 100%);
+}
+
 /* Gemini-style generating backdrop — soft, blurred accent blobs that slowly
    drift and breathe behind a dark frosted surface, conveying "alive" without
    a harsh pulse. Used by GeneratingBackdrop. */

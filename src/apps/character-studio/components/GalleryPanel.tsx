@@ -15,9 +15,9 @@ import { buildJsonPrompt, buildImagePrompt } from '../services/generateCharacter
 import { pickInfluencerName, sheetNameFrom } from './nameGenerator'
 import { downloadImage } from '../../../utils/downloadImage'
 
-// List-view media-height bounds (px) for the header size slider. Mirrors the
-// Playground list view — max ≈ two of the smallest cards stacked, so one big
-// card ≈ two compact ones.
+// List-view size-slider bounds. The raw value only drives the slider fill % and
+// the media frame's aspect ratio (see `mediaAspect`); it's no longer a pixel
+// height. Min → a 16:9 frame (landscape fills, no bars); max → a tall frame.
 const LIST_CARD_MIN = 200
 const LIST_CARD_MAX = 560
 
@@ -74,6 +74,11 @@ export default function GalleryPanel({
   // List-view card size — the media frame height (px), set by the header slider.
   const [listCardHeight, setListCardHeight] = usePersistedState<number>('ai-ugc-lab:influencers:list-card-height', 300)
   const cardPct = ((listCardHeight - LIST_CARD_MIN) / (LIST_CARD_MAX - LIST_CARD_MIN)) * 100
+  // The list media frame keeps a constant width (its column) and grows taller as
+  // the slider moves right. At the minimum it's a perfect 16:9 so landscape fills
+  // edge-to-edge with no bars; sliding right lowers the ratio toward 9:16,
+  // letterboxing landscape top/bottom while portraits get bigger.
+  const mediaAspect = 16 / 9 + (cardPct / 100) * (9 / 16 - 16 / 9)
 
   // Copy an influencer's generation prompt (built from its saved profile) to
   // the clipboard. Replaces the old "Edit in form" tile action.
@@ -160,7 +165,7 @@ export default function GalleryPanel({
                 ) : (
                   <div className="flex flex-col gap-3">
                     {inFlight.map((gen) => (
-                      <InFlightRow key={gen.id} gen={gen} cardHeight={listCardHeight} onCancel={() => onCancelGen(gen.id)} />
+                      <InFlightRow key={gen.id} gen={gen} mediaAspect={mediaAspect} onCancel={() => onCancelGen(gen.id)} />
                     ))}
                   </div>
                 )}
@@ -190,7 +195,7 @@ export default function GalleryPanel({
                       <HistoryListRow
                         key={item.id}
                         item={item}
-                        cardHeight={listCardHeight}
+                        mediaAspect={mediaAspect}
                         onClick={() => { setPreviewMode('edit'); setPreviewItem(item) }}
                         onDelete={() => deleteCharacterHistory(item.id)}
                         onMakeSheet={() => { setPreviewMode('sheet'); setPreviewItem(item) }}
@@ -481,20 +486,21 @@ function HistoryTile({
       <SourceBadge isSheet={a.isSheet} savedAsModel={a.savedAsModel} />
 
       {/* Hover actions — a single vertical column in the top-right, top to
-          bottom: Save · Download · Copy · Make Sheet (portraits only) · Delete.
-          The column stays visible while a delete is being confirmed. The inline
-          name input takes over the bottom edge while a save is being named. */}
+          bottom: Download · Save · Copy · Make Sheet (portraits only) · Delete.
+          This order is the app-wide standard for hover action stacks. The column
+          stays visible while a delete is being confirmed. The inline name input
+          takes over the bottom edge while a save is being named. */}
       {a.nameDraft === null && (
         <div className={`absolute right-1.5 top-1.5 flex flex-col items-end gap-1 transition-opacity ${a.deleting || a.confirmingDelete ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+          <TileIconButton title="Download image" onClick={(e) => { e.stopPropagation(); a.handleDownload() }}>
+            <Download className="h-4 w-4" />
+          </TileIconButton>
           <TileIconButton
             title={a.savedAsModel ? 'Saved — click to remove from Bank' : a.savingToBank ? 'Saving…' : 'Save to Bank'}
             tone={a.savedAsModel ? 'saved' : 'default'}
             onClick={(e) => { e.stopPropagation(); a.toggleSave() }}
           >
             {a.savingToBank ? <Loader2 className="h-4 w-4 animate-spin" /> : a.savedAsModel ? <Check className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
-          </TileIconButton>
-          <TileIconButton title="Download image" onClick={(e) => { e.stopPropagation(); a.handleDownload() }}>
-            <Download className="h-4 w-4" />
           </TileIconButton>
           <TileIconButton title="Copy prompt" onClick={(e) => { e.stopPropagation(); onCopyPrompt() }}>
             <Copy className="h-4 w-4" />
@@ -587,14 +593,14 @@ function SourceBadge({ isSheet, savedAsModel }: { isSheet: boolean; savedAsModel
 // `cardHeight`. Mirrors the Playground's List view.
 function HistoryListRow({
   item,
-  cardHeight,
+  mediaAspect,
   onClick,
   onDelete,
   onMakeSheet,
   onCopyPrompt,
 }: {
   item: CharacterHistoryItem
-  cardHeight: number
+  mediaAspect: number
   onClick: () => void
   onDelete: () => void | Promise<unknown>
   onMakeSheet: () => void
@@ -608,11 +614,12 @@ function HistoryListRow({
   if (item.aspectRatio) meta.push(item.aspectRatio)
 
   return (
-    <div className="flex w-full items-stretch gap-3 overflow-hidden rounded-2xl border border-ink/10 bg-ink/[0.02]">
-      {/* Media — the bulk of the row, height driven by the size slider.
-          Letterboxed on black so a wide sheet / vertical portrait shows with
-          bars instead of cropping. */}
-      <div className="relative min-w-0 flex-[3] bg-black" style={{ height: cardHeight }}>
+    <div className="flex w-full items-stretch gap-3 overflow-hidden rounded-2xl border border-ink/10 bg-ink/[0.02] card-soft-shadow">
+      {/* Media — fixed-width column whose height is the slider-driven aspect
+          ratio. At the slider minimum it's 16:9 so landscape fills with no bars;
+          taller frames letterbox landscape on black and grow portraits. The
+          side panel keeps enough width for the action row to stay on one line. */}
+      <div className="relative min-w-0 flex-[2] bg-black" style={{ aspectRatio: mediaAspect }}>
         {a.status === 'ready' && a.url ? (
           <img
             src={a.url}
@@ -631,8 +638,12 @@ function HistoryListRow({
       </div>
 
       {/* Side panel — slimmer (the remaining quarter): model, prompt, meta,
-          actions. Height is pinned to the media so the prompt scrolls inside. */}
-      <div className="flex min-w-0 flex-[1] flex-col gap-2 py-3 pr-3" style={{ height: cardHeight }}>
+          actions. Its content is absolutely filled so the panel contributes no
+          intrinsic height — the media's aspect ratio alone drives the row height
+          (otherwise a long prompt would stretch the media past 16:9). The prompt
+          scrolls within the stretched panel. */}
+      <div className="relative min-w-0 flex-[1]">
+        <div className="absolute inset-0 flex flex-col gap-2 py-3 pr-3">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="rounded-full bg-influencers-500/15 px-2 py-0.5 text-[10px] font-semibold text-influencers-200">{a.modelLabel}</span>
           {meta.map((m) => (
@@ -653,28 +664,32 @@ function HistoryListRow({
             saving={a.savingToBank}
           />
         ) : (
-          <div className="flex flex-wrap items-center gap-1">
-            {!a.isSheet && (
-              <ListRowButton title="Make a character sheet from this portrait" onClick={onMakeSheet}>
-                <LayoutGrid className="h-4 w-4" />
-              </ListRowButton>
-            )}
-            <ListRowButton title="Copy prompt" onClick={onCopyPrompt}>
-              <Copy className="h-4 w-4" />
+          // Canonical action order, kept on one centered line: download · save ·
+          // copy · make-sheet · delete (delete last). Buttons are compact so the
+          // narrow side panel never wraps them onto a second row.
+          <div className="flex flex-nowrap items-center justify-center gap-1">
+            <ListRowButton title="Download image" onClick={a.handleDownload}>
+              <Download className="h-3.5 w-3.5" />
             </ListRowButton>
             <ListRowButton
               title={a.savedAsModel ? 'Saved — click to remove from Bank' : a.savingToBank ? 'Saving…' : 'Save to Bank'}
               tone={a.savedAsModel ? 'saved' : 'default'}
               onClick={a.toggleSave}
             >
-              {a.savingToBank ? <Loader2 className="h-4 w-4 animate-spin" /> : a.savedAsModel ? <Check className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
+              {a.savingToBank ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : a.savedAsModel ? <Check className="h-3.5 w-3.5" /> : <Bookmark className="h-3.5 w-3.5" />}
             </ListRowButton>
-            <ListRowButton title="Download image" onClick={a.handleDownload}>
-              <Download className="h-4 w-4" />
+            <ListRowButton title="Copy prompt" onClick={onCopyPrompt}>
+              <Copy className="h-3.5 w-3.5" />
             </ListRowButton>
+            {!a.isSheet && (
+              <ListRowButton title="Make a character sheet from this portrait" onClick={onMakeSheet}>
+                <LayoutGrid className="h-3.5 w-3.5" />
+              </ListRowButton>
+            )}
             <ListRowDeleteButton confirming={a.confirmingDelete} deleting={a.deleting} onClick={a.handleDelete} />
           </div>
         )}
+        </div>
       </div>
     </div>
   )
@@ -682,10 +697,10 @@ function HistoryListRow({
 
 // In-flight generation as a list row — placeholder + progress, matching the
 // finished-row layout (2/3 media · 1/3 info) so the feed doesn't jump.
-function InFlightRow({ gen, cardHeight, onCancel }: { gen: InFlightCharacterGen; cardHeight: number; onCancel: () => void }) {
+function InFlightRow({ gen, mediaAspect, onCancel }: { gen: InFlightCharacterGen; mediaAspect: number; onCancel: () => void }) {
   return (
-    <div className="flex w-full items-stretch gap-3 overflow-hidden rounded-2xl border border-influencers-500/20 bg-influencers-500/[0.04]">
-      <div className="relative min-w-0 flex-[3]" style={{ height: cardHeight }}>
+    <div className="flex w-full items-stretch gap-3 overflow-hidden rounded-2xl border border-influencers-500/20 bg-influencers-500/[0.04] card-soft-shadow">
+      <div className="relative min-w-0 flex-[2]" style={{ aspectRatio: mediaAspect }}>
         <GeneratingTile modelId={gen.modelId} kind={gen.kind} aspectRatio={gen.aspectRatio} onCancel={onCancel} fill />
       </div>
       <div className="flex min-w-0 flex-[1] flex-col justify-center gap-2 py-3 pr-3">
@@ -750,7 +765,7 @@ function ListRowButton({
       type="button"
       title={title}
       onClick={(e) => { e.stopPropagation(); onClick() }}
-      className={`flex h-8 w-8 items-center justify-center rounded-full border transition-colors ${toneClass}`}
+      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-colors ${toneClass}`}
     >
       {children}
     </button>
@@ -774,13 +789,13 @@ function ListRowDeleteButton({
       title={deleting ? 'Deleting…' : confirming ? 'Click again to delete' : 'Delete'}
       onClick={(e) => { e.stopPropagation(); onClick() }}
       disabled={deleting}
-      className={`flex h-8 items-center justify-center gap-1 rounded-full border px-2 transition-colors disabled:cursor-wait ${
+      className={`flex h-6 shrink-0 items-center justify-center gap-1 rounded-full border px-1.5 transition-colors disabled:cursor-wait ${
         confirming
           ? 'border-red-400/50 bg-red-500/20 text-red-300 light:text-red-700'
           : 'border-ink/10 bg-ink/[0.03] text-ink-300 hover:border-red-400/40 hover:bg-red-500/15 hover:text-red-300'
       }`}
     >
-      {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+      {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
       {confirming && !deleting && <span className="text-[9px] font-medium uppercase tracking-wider">Confirm</span>}
     </button>
   )

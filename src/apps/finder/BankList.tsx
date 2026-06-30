@@ -161,8 +161,8 @@ function ProductCard({ item, onEdit, onDelete, inFlight }: { item: Product; onEd
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/55 to-transparent px-3 pb-2.5 pt-10 text-center">
         <span className="block line-clamp-2 text-[13px] font-semibold leading-tight tracking-tight text-zinc-100">{item.productName}</span>
       </div>
-      {/* Action buttons top-right: Download · Delete */}
-      <div className="absolute right-2 top-2 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+      {/* Hover action stack — top-right vertical column: download · delete. */}
+      <div className="absolute right-2 top-2 flex flex-col items-end gap-1" onClick={(e) => e.stopPropagation()}>
         {confirm ? (
           <ConfirmDelete onConfirm={onDelete} onCancel={() => setConfirm(false)} />
         ) : (
@@ -261,12 +261,17 @@ function ModelCard({ item, onEdit, onDelete }: { item: Model; onEdit: () => void
       <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/55 to-transparent p-3 pt-10">
         <span className="block truncate text-center text-sm font-semibold tracking-tight text-zinc-100">{item.name}</span>
       </div>
-      {/* Action buttons top-right */}
-      <div className="absolute right-2 top-2 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+      {/* Hover action stack — top-right vertical column: download · copy · delete. */}
+      <div className="absolute right-2 top-2 flex flex-col items-end gap-1" onClick={(e) => e.stopPropagation()}>
         {confirm ? (
           <ConfirmDelete onConfirm={onDelete} onCancel={() => setConfirm(false)} />
         ) : (
           <>
+            {resolvedImage && (
+              <button onClick={handleDownload} title="Download image" className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white opacity-0 backdrop-blur transition-all hover:bg-black/50 group-hover:opacity-100">
+                <Download className="h-3.5 w-3.5" />
+              </button>
+            )}
             {item.jsonProfile && (
               <button
                 onClick={handleCopy}
@@ -276,12 +281,7 @@ function ModelCard({ item, onEdit, onDelete }: { item: Model; onEdit: () => void
                 {copied ? <Check className="h-3.5 w-3.5 text-emerald-300" /> : <Copy className="h-3.5 w-3.5" />}
               </button>
             )}
-            {resolvedImage && (
-              <button onClick={handleDownload} className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white opacity-0 backdrop-blur transition-all hover:bg-black/50 group-hover:opacity-100">
-                <Download className="h-3.5 w-3.5" />
-              </button>
-            )}
-            <button onClick={() => setConfirm(true)} className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white opacity-0 backdrop-blur transition-all hover:bg-red-500/30 hover:text-red-100 hover:border-red-400/40 group-hover:opacity-100">
+            <button onClick={() => setConfirm(true)} title="Delete" className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white opacity-0 backdrop-blur transition-all hover:bg-red-500/30 hover:text-red-100 hover:border-red-400/40 group-hover:opacity-100">
               <Trash2 className="h-3.5 w-3.5" />
             </button>
           </>
@@ -408,16 +408,16 @@ function BRollCard({ item, onEdit, onDelete }: { item: BRoll; onEdit: () => void
             {videoCount} {videoCount === 1 ? 'video' : 'videos'}
           </span>
         )}
-        {/* Action buttons overlay */}
-        <div className="absolute right-2 top-2 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+        {/* Hover action stack — top-right vertical column: download · delete. */}
+        <div className="absolute right-2 top-2 flex flex-col items-end gap-1" onClick={(e) => e.stopPropagation()}>
           {confirm ? (
             <ConfirmDelete onConfirm={onDelete} onCancel={() => setConfirm(false)} />
           ) : (
             <>
-              <button onClick={handleDownload} className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white opacity-0 backdrop-blur transition-all hover:bg-black/50 group-hover:opacity-100">
+              <button onClick={handleDownload} title="Download image" className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white opacity-0 backdrop-blur transition-all hover:bg-black/50 group-hover:opacity-100">
                 <Download className="h-3.5 w-3.5" />
               </button>
-              <button onClick={() => setConfirm(true)} className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white opacity-0 backdrop-blur transition-all hover:bg-red-500/30 hover:text-red-100 hover:border-red-400/40 group-hover:opacity-100">
+              <button onClick={() => setConfirm(true)} title="Delete" className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white opacity-0 backdrop-blur transition-all hover:bg-red-500/30 hover:text-red-100 hover:border-red-400/40 group-hover:opacity-100">
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
             </>

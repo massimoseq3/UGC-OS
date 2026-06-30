@@ -8,12 +8,16 @@ import {
   Volume2,
   VolumeX,
   Sparkles,
+  Eraser,
   Undo2,
   Redo2,
   Loader2,
   Coins,
+  Star,
 } from 'lucide-react'
 import ModelPicker from '../../../components/ModelPicker'
+import ModelSidePanel from '../../../components/ModelSidePanel'
+import ProviderLogo from '../../../components/ProviderLogo'
 import SegmentedToggle from '../../../components/SegmentedToggle'
 import AspectIcon from '../../../components/AspectIcon'
 import ConstraintChip from '../../../components/ConstraintChip'
@@ -135,6 +139,8 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
   const [dragOver, setDragOver] = useState(false)
   // Preset slide-in overlay.
   const [presetOpen, setPresetOpen] = useState(false)
+  // Video mode swaps the inline model dropdown for the slide-in side panel.
+  const [modelPanelOpen, setModelPanelOpen] = useState(false)
   // Full-screen prompt editor.
   const [promptExpanded, setPromptExpanded] = useState(false)
 
@@ -184,6 +190,11 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
     const i = promptHistoryIndex + 1
     setPromptHistoryIndex(i)
     onChange({ ...state, prompt: promptHistory[i] })
+  }
+  // Clear the prompt — pushed as a history entry so it's undoable.
+  function handlePromptClear() {
+    if (!state.prompt.trim()) return
+    pushPromptHistory('')
   }
 
   async function handleEnhancePrompt() {
@@ -603,9 +614,50 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
       <div className="relative min-h-0 flex-1 overflow-hidden">
         <div className="flex h-full flex-col overflow-y-auto">
           <div className="flex grow flex-col gap-3 px-5 pb-6 pt-3">
-            {/* Model */}
+            {/* Model — video mode uses the slide-in side panel (matching
+                B-Roll); image / music keep the inline dropdown. */}
             <div>
-              <div>
+              {state.mode === 'video' ? (
+                <>
+                  {/* Trigger — provider logo + name + star, an arrow (not a
+                      chevron) for the slide-in, and no credits badge. */}
+                  <button
+                    type="button"
+                    onClick={() => setModelPanelOpen(true)}
+                    className="flex h-12 w-full items-center gap-2.5 rounded-full border border-ink/10 bg-ink/[0.02] px-3 text-left transition-colors hover:bg-ink/[0.05]"
+                  >
+                    {model ? (
+                      <>
+                        <ProviderLogo provider={model.provider} />
+                        <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                          <span className="truncate text-[13px] font-medium text-ink-100">{model.displayName}</span>
+                          {model.tags.includes('recommended') && (
+                            <Star className="h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400 light:fill-yellow-600 light:text-yellow-600" strokeWidth={1.5} />
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      <span className="flex-1 truncate text-sm text-ink-400">Select model</span>
+                    )}
+                    <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" />
+                  </button>
+                  <ModelSidePanel
+                    appId="playground"
+                    task="video"
+                    mode={pickerMode}
+                    isOpen={modelPanelOpen}
+                    onClose={() => setModelPanelOpen(false)}
+                    value={state.modelId}
+                    onChange={(modelId) => onChange({ ...state, modelId })}
+                    costParams={{
+                      durationSeconds: isMotionControl ? motionDuration : state.durationSeconds,
+                      resolution: state.resolution,
+                      audio: state.audio,
+                      videoInput: state.refs.some((r) => r.slot === 'omni-clip'),
+                    }}
+                  />
+                </>
+              ) : (
                 <ModelPicker
                   appId="playground"
                   task={taskForMode}
@@ -613,7 +665,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
                   value={state.modelId}
                   onChange={(modelId) => onChange({ ...state, modelId })}
                 />
-              </div>
+              )}
 
               {/* Output settings (resolution / aspect / duration / audio,
                   per mode) now live in the footer, just above Generate. */}
@@ -799,6 +851,16 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
                       >
                         {isEnhancing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
                         Enhance Prompt
+                      </button>
+                      <button
+                        type="button"
+                        title="Clear prompt"
+                        onClick={handlePromptClear}
+                        disabled={isEnhancing || !state.prompt.trim()}
+                        className="flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <Eraser className="h-3 w-3" />
+                        Clear Prompt
                       </button>
                       <button
                         type="button"

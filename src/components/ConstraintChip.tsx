@@ -30,8 +30,9 @@ export default function ConstraintChip({
   // Horizontal anchor of the menu. 'right' keeps a wide menu from overflowing
   // (and being clipped) when the chip sits near the right edge of its panel.
   align?: 'left' | 'right'
-  // 'lg' matches the large ModelPicker trigger height in footer rows.
-  size?: 'md' | 'lg'
+  // 'lg' matches the large ModelPicker trigger height; 'sm' matches a single-
+  // line text input (e.g. the Influencers Pose/Action fields).
+  size?: 'sm' | 'md' | 'lg'
   // When true, the chip flexes to fill its share of the row (used to spread the
   // constraint chips across the full width under the model picker).
   grow?: boolean
@@ -79,7 +80,7 @@ export default function ConstraintChip({
         className={`flex items-center gap-1.5 rounded-full border transition-colors ${
           triggerClassName ?? 'border-ink/10 bg-ink/[0.02] text-ink-300 hover:bg-ink/[0.05]'
         } ${grow ? 'w-full justify-center' : ''} ${
-          size === 'lg' ? 'h-12 px-4 text-[13px]' : 'h-10 px-4 text-[12px]'
+          size === 'lg' ? 'h-12 px-4 text-[13px]' : size === 'sm' ? 'h-9 px-3.5 text-[13px]' : 'h-10 px-4 text-[12px]'
         }`}
       >
         {render ? render(value) : <span>{value}</span>}
