@@ -609,6 +609,11 @@ function HistoryListRow({
   const a = useHistoryTileActions(item, onDelete)
   const prompt = buildImagePrompt(item.profile).trim()
 
+  // Landscape (16:9) outputs always render in a 16:9 frame so they fill edge-to-
+  // edge with no letterbox bars, whatever the slider is set to. Only portraits
+  // follow the slider-driven aspect (taller as it moves right).
+  const frameAspect = item.aspectRatio.includes('16:9') ? 16 / 9 : mediaAspect
+
   const meta: string[] = []
   if (item.resolution) meta.push(item.resolution)
   if (item.aspectRatio) meta.push(item.aspectRatio)
@@ -619,7 +624,7 @@ function HistoryListRow({
           ratio. At the slider minimum it's 16:9 so landscape fills with no bars;
           taller frames letterbox landscape on black and grow portraits. The
           side panel keeps enough width for the action row to stay on one line. */}
-      <div className="relative min-w-0 flex-[2] bg-black" style={{ aspectRatio: mediaAspect }}>
+      <div className="relative min-w-0 flex-[5] bg-black" style={{ aspectRatio: frameAspect }}>
         {a.status === 'ready' && a.url ? (
           <img
             src={a.url}
@@ -642,7 +647,7 @@ function HistoryListRow({
           intrinsic height — the media's aspect ratio alone drives the row height
           (otherwise a long prompt would stretch the media past 16:9). The prompt
           scrolls within the stretched panel. */}
-      <div className="relative min-w-0 flex-[1]">
+      <div className="relative min-w-0 flex-[2]">
         <div className="absolute inset-0 flex flex-col gap-2 py-3 pr-3">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="rounded-full bg-influencers-500/15 px-2 py-0.5 text-[10px] font-semibold text-influencers-200">{a.modelLabel}</span>
@@ -698,12 +703,15 @@ function HistoryListRow({
 // In-flight generation as a list row — placeholder + progress, matching the
 // finished-row layout (2/3 media · 1/3 info) so the feed doesn't jump.
 function InFlightRow({ gen, mediaAspect, onCancel }: { gen: InFlightCharacterGen; mediaAspect: number; onCancel: () => void }) {
+  // Match HistoryListRow: landscape gens keep a 16:9 frame; portraits follow the
+  // slider so the in-flight placeholder doesn't jump when the result lands.
+  const frameAspect = gen.aspectRatio.includes('16:9') ? 16 / 9 : mediaAspect
   return (
     <div className="flex w-full items-stretch gap-3 overflow-hidden rounded-2xl border border-influencers-500/20 bg-influencers-500/[0.04] card-soft-shadow">
-      <div className="relative min-w-0 flex-[2]" style={{ aspectRatio: mediaAspect }}>
+      <div className="relative min-w-0 flex-[5]" style={{ aspectRatio: frameAspect }}>
         <GeneratingTile modelId={gen.modelId} kind={gen.kind} aspectRatio={gen.aspectRatio} onCancel={onCancel} fill />
       </div>
-      <div className="flex min-w-0 flex-[1] flex-col justify-center gap-2 py-3 pr-3">
+      <div className="flex min-w-0 flex-[2] flex-col justify-center gap-2 py-3 pr-3">
         <span className="text-[12px] font-semibold tracking-wide text-influencers-200">
           {getModel(gen.modelId)?.displayName ?? gen.modelId}
         </span>

@@ -111,19 +111,20 @@ export default function GenerateBar({
           { value: 'sheet', label: 'Influencer Sheet', icon: LayoutGrid },
         ]}
       />
-      {/* Model picker on its own row; resolution + aspect chips stacked
-          underneath (matching the Edit Influencer modal). The footer chips open
-          upward. Resolution options show their credit cost. */}
-      <ModelPicker
-        appId="character-studio"
-        task="image"
-        mode="text-to-image"
-        large
-      />
+      {/* Model picker + resolution / aspect chips share one row — the picker
+          flexes to fill, the two chips sit compact beside it at the same h-12
+          height. The footer chips open upward; resolution shows its credit cost. */}
       <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <ModelPicker
+            appId="character-studio"
+            task="image"
+            mode="text-to-image"
+            large
+          />
+        </div>
         <ConstraintChip
-          grow
-          size="sm"
+          size="lg"
           openDirection="up"
           options={getModel(selectedModelId ?? '')?.imageConstraints?.resolutions ?? ['1K', '2K', '4K']}
           value={resolution}
@@ -142,8 +143,7 @@ export default function GenerateBar({
           // Sheets pick between a 16:9 horizontal turnaround and a 9:16
           // vertical layout — the sheet prompt swaps panel composition to suit.
           <ConstraintChip
-            grow
-            size="sm"
+            size="lg"
             openDirection="up"
             options={SHEET_ASPECT_OPTIONS}
             value={sheetAspect.includes('9:16') ? '9:16' : '16:9'}
@@ -157,8 +157,7 @@ export default function GenerateBar({
           />
         ) : (
           <ConstraintChip
-            grow
-            size="sm"
+            size="lg"
             openDirection="up"
             options={ASPECT_OPTIONS}
             value={normalizeAspect(aspectRatio)}

@@ -1,7 +1,7 @@
 import type { CharacterProfile } from '../types'
 import { useSettingsStore } from '../../../stores/settingsStore'
-import { createTask, pollTask, parseResult, downloadAsBase64, ensureHostedUrl, IMAGE_POLL_ATTEMPTS } from '../../../utils/kie'
-import { getDefaultModel, getModel, buildImageInput, type AspectRatio, type ImageResolution } from '../../../utils/models'
+import { createTask, pollTask, parseResult, downloadAsBase64, ensureHostedUrl, IMAGE_POLL_ATTEMPTS, kieChatCompletions, type ChatMessage } from '../../../utils/kie'
+import { getDefaultModel, getModel, buildImageInput, getChatEndpointPath, type AspectRatio, type ImageResolution } from '../../../utils/models'
 import { saveBase64Asset, isAssetRef, getAsBase64 } from '../../../utils/assetStore'
 
 export interface GenerationResult {
@@ -305,4 +305,37 @@ export async function generateCharacter(
     imageUrl: assetId,
     jsonPrompt: buildJsonPrompt(profile),
   }
+}
+
+// ── Edit-instruction enhancement ──
+// Sharpens the creator's rough "describe the change" instruction into a clear,
+// specific image-edit instruction. Mirrors the Scripts/Playground prompt-enhance
+// but tuned for an image-to-image edit on an existing influencer portrait.
+const ENHANCE_EDIT_SYSTEM = `You are a senior photo-retouching director. You rewrite a creator's rough edit instruction into a clear, specific instruction for an image-editing model working on an existing portrait of a person. You KEEP the creator's intent — you only edit what they asked for and never invent a different change. You never alter the person's identity (face, bone structure, ethnicity) unless explicitly asked. You make the change concrete (wardrobe, accessories, lighting, background, colour) without padding.`
+
+export async function enhanceEditInstruction(draft: string): Promise<string> {
+  const apiKey = useSettingsStore.getState().getKieApiKey()
+  const endpoint = getChatEndpointPath()
+
+  const userMessage = `Rewrite the rough image-edit instruction below into a sharper instruction for an image-to-image model editing an existing portrait. Keep the creator's intent; make the requested change concrete and specific. Preserve the person's identity unless they explicitly ask to change it.
+
+Rules:
+- Keep it a short, direct instruction (a sentence or two), not a full prompt.
+- Return ONLY the rewritten instruction as plain text. No preamble, no quotes, no markdown, no "Here is".
+
+Draft:
+"""
+${draft}
+"""`
+
+  const messages: ChatMessage[] = [
+    { role: 'system', content: [{ type: 'text', text: ENHANCE_EDIT_SYSTEM }] },
+    { role: 'user', content: [{ type: 'text', text: userMessage }] },
+  ]
+  const responseText = await kieChatCompletions(apiKey, endpoint, messages)
+  return responseText
+    .replace(/```[a-z]*\n?/gi, '')
+    .replace(/```/g, '')
+    .replace(/^\s*["']|["']\s*$/g, '')
+    .trim()
 }

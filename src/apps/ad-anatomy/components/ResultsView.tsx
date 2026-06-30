@@ -74,7 +74,7 @@ function SectionHeader({ icon: Icon, title, iconClass = 'text-[#FF5257]/80' }: {
 
 function Section({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`rounded-xl border border-ink/5 bg-ink/[0.02] p-5 ${className}`}>
+    <div className={`rounded-xl border border-ink/5 bg-ink/[0.02] p-5 card-soft-shadow ${className}`}>
       {children}
     </div>
   )
