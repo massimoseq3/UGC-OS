@@ -228,7 +228,7 @@ export default function Finder() {
           the Influencers gallery header so the toggle reads the same height as
           the other main toggles across the app. */}
       <div className="flex h-[57px] shrink-0 items-center justify-between gap-3 border-b border-ink/5 px-5">
-        <div className="min-w-0 overflow-x-auto">
+        <div className="min-w-0 flex-1 overflow-x-auto scrollbar-hide scroll-fade-r">
           <SegmentedToggle<BankType>
             fitContent
             className="h-10 !p-1"

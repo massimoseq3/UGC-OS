@@ -35,6 +35,11 @@ interface ModelSidePanelProps {
   requireModeNote?: string
   // Cost params for the per-row credit estimate (e.g. duration/resolution/audio).
   costParams?: CostEstimateParams
+  // Optional controlled mode: when both are provided the panel reflects `value`
+  // and reports picks through `onChange` instead of reading/writing settingsStore
+  // (lets a controlled consumer like Playground reuse the same panel).
+  value?: string
+  onChange?: (modelId: string) => void
 }
 
 export default function ModelSidePanel({
@@ -46,6 +51,8 @@ export default function ModelSidePanel({
   requireMode,
   requireModeNote,
   costParams = {},
+  value,
+  onChange,
 }: ModelSidePanelProps) {
   const setAppModel = useSettingsStore((s) => s.setAppModel)
   const getAppModel = useSettingsStore((s) => s.getAppModel)
@@ -57,7 +64,7 @@ export default function ModelSidePanel({
 
   const models = listModels({ task, mode })
   const fallback = getDefaultModel(appId, task, mode)
-  const resolved = getAppModel(persistedKey) ?? fallback?.id
+  const resolved = value ?? getAppModel(persistedKey) ?? fallback?.id
 
   // Filter by display name, then split into Featured (recommended) + the rest.
   const filtered = search.trim()
@@ -85,7 +92,8 @@ export default function ModelSidePanel({
   }, [isOpen, onClose])
 
   function pick(modelId: string) {
-    setAppModel(persistedKey, modelId)
+    if (onChange) onChange(modelId)
+    else setAppModel(persistedKey, modelId)
     onClose()
   }
 
@@ -125,7 +133,7 @@ export default function ModelSidePanel({
 
         {/* Header */}
         <div className="flex items-center justify-between border-b border-ink/5 px-5 py-3.5">
-          <h3 className="text-sm font-semibold tracking-tight text-ink-200">Video model</h3>
+          <h3 className="text-sm font-semibold tracking-tight text-ink-200">Video Model</h3>
           <button
             onClick={onClose}
             className="rounded-full p-2 lg:p-1 text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-300"
@@ -159,7 +167,7 @@ export default function ModelSidePanel({
             <div className="flex flex-col gap-3">
               {featured.length > 0 && (
                 <div className="flex flex-col gap-1.5">
-                  <span className="px-1 text-[11px] font-semibold uppercase tracking-wide text-ink-600">
+                  <span className="px-1 text-[11px] font-semibold uppercase tracking-tight text-ink-600">
                     Featured models
                   </span>
                   {featured.map((m) => (
@@ -177,7 +185,7 @@ export default function ModelSidePanel({
               {rest.length > 0 && (
                 <div className="flex flex-col gap-1.5">
                   {featured.length > 0 && (
-                    <span className="px-1 text-[11px] font-semibold uppercase tracking-wide text-ink-600">
+                    <span className="px-1 text-[11px] font-semibold uppercase tracking-tight text-ink-600">
                       All models
                     </span>
                   )}
@@ -221,11 +229,12 @@ interface ModelCardProps {
 function ModelCard({ model, active, muted, credits, onClick }: ModelCardProps) {
   const isRecommended = model.tags.includes('recommended')
   const c = model.videoConstraints
-  // Resolution chip: max → min range (or single tier). Per-call models with no
-  // duration toggle (durations === []) show "per clip" instead of a range.
+  // Resolution chip: min → max range (ascending, e.g. "480p–1080p"), or a single
+  // tier. Per-call models with no duration toggle (durations === []) show "per
+  // clip" instead of a range.
   const resolutionChip = c?.resolutions.length
     ? c.resolutions.length > 1
-      ? `${videoResolutionLabel(c.resolutions[c.resolutions.length - 1])}–${videoResolutionLabel(c.resolutions[0])}`
+      ? `${videoResolutionLabel(c.resolutions[0])}–${videoResolutionLabel(c.resolutions[c.resolutions.length - 1])}`
       : videoResolutionLabel(c.resolutions[0])
     : null
   const durationChip = c
@@ -235,15 +244,19 @@ function ModelCard({ model, active, muted, credits, onClick }: ModelCardProps) {
       ? `${c.durations[0]}s`
       : 'per clip'
     : null
+  const hasSpecs = !!(resolutionChip || durationChip || credits)
+  const hasMeta = model.tags.length > 0 || hasSpecs
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`flex w-full flex-col gap-2 rounded-2xl border px-3 py-2.5 text-left transition-colors ${
-        muted ? 'opacity-45 hover:opacity-70' : ''
-      } ${
-        active
+      disabled={muted}
+      aria-disabled={muted}
+      className={`flex w-full flex-col gap-2 rounded-[1.75rem] border px-3.5 py-3 text-left transition-colors ${
+        muted
+          ? 'cursor-not-allowed border-ink/10 bg-ink/[0.01] opacity-30 grayscale'
+          : active
           ? 'border-broll-500/50 bg-broll-500/10'
           : 'border-ink/10 bg-ink/[0.02] hover:bg-ink/[0.05]'
       }`}
@@ -251,7 +264,7 @@ function ModelCard({ model, active, muted, credits, onClick }: ModelCardProps) {
       <div className="flex items-center gap-2.5">
         <ProviderLogo provider={model.provider} />
         <div className="flex min-w-0 flex-1 items-center gap-1.5">
-          <span className="truncate text-[13px] font-semibold text-ink-100">{model.displayName}</span>
+          <span className={`truncate text-[13px] font-semibold text-ink-100 ${muted ? 'line-through decoration-ink-400' : ''}`}>{model.displayName}</span>
           {isRecommended && (
             <Star className="h-3 w-3 shrink-0 fill-broll-400 text-broll-400" strokeWidth={1.5} />
           )}
@@ -259,38 +272,35 @@ function ModelCard({ model, active, muted, credits, onClick }: ModelCardProps) {
         {active && <Check className="h-4 w-4 shrink-0 text-broll-400" />}
       </div>
 
-      {/* Tag badges */}
-      {model.tags.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1">
-          {model.tags.map((t) => (
-            <span
-              key={t}
-              className={`rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${TAG_STYLES[t].className}`}
-            >
-              {TAG_STYLES[t].label}
-            </span>
-          ))}
-        </div>
+      {hasMeta && (
+        <>
+          {/* Inset hairline between the name and the chips (not full width). */}
+          <div className="mx-3 border-b border-ink/10" />
+          {/* One chip line: tags · vertical divider · spec chips. */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            {model.tags.map((t) => (
+              <span
+                key={t}
+                className={`rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${TAG_STYLES[t].className}`}
+              >
+                {TAG_STYLES[t].label}
+              </span>
+            ))}
+            {model.tags.length > 0 && hasSpecs && (
+              <span aria-hidden className="mx-0.5 h-3 w-px shrink-0 bg-ink/15" />
+            )}
+            {resolutionChip && (
+              <span className="rounded-full border border-ink/10 bg-ink/[0.03] px-2 py-0.5 text-[10px] text-ink-400">{resolutionChip}</span>
+            )}
+            {durationChip && (
+              <span className="rounded-full border border-ink/10 bg-ink/[0.03] px-2 py-0.5 text-[10px] text-ink-400">{durationChip}</span>
+            )}
+            {credits && (
+              <span className="rounded-full border border-ink/10 bg-ink/[0.03] px-2 py-0.5 text-[10px] text-ink-400">{credits}</span>
+            )}
+          </div>
+        </>
       )}
-
-      {/* Detail chips — resolution, duration range, credit estimate */}
-      <div className="flex flex-wrap items-center gap-1">
-        {resolutionChip && (
-          <span className="rounded-full border border-ink/10 bg-ink/[0.03] px-2 py-0.5 text-[10px] text-ink-400">
-            {resolutionChip}
-          </span>
-        )}
-        {durationChip && (
-          <span className="rounded-full border border-ink/10 bg-ink/[0.03] px-2 py-0.5 text-[10px] text-ink-400">
-            {durationChip}
-          </span>
-        )}
-        {credits && (
-          <span className="rounded-full border border-ink/10 bg-ink/[0.03] px-2 py-0.5 text-[10px] text-ink-400">
-            {credits}
-          </span>
-        )}
-      </div>
     </button>
   )
 }

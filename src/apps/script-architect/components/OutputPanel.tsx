@@ -267,8 +267,8 @@ function VariationCard({
           </div>
         ) : scenes ? (
           <>
-            {voiceProfile && <VoiceProfileCard body={voiceProfile} />}
             {scenes.map((scene, i) => <SceneChunkCard key={i} chunk={scene} />)}
+            {voiceProfile && <VoiceProfileCard body={voiceProfile} />}
           </>
         ) : mode === 'reverse-engineer' ? (
           <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed tracking-tight text-ink-100">
@@ -375,8 +375,8 @@ function VariationCard({
   )
 }
 
-// The shared voice spec that leads a scene blueprint — the same on-camera
-// voice every scene's clip should be read in. Rendered once, above the scenes.
+// The shared voice spec for a scene blueprint — the same on-camera voice every
+// scene's clip should be read in. Rendered once, below the scenes.
 function VoiceProfileCard({ body }: { body: string }) {
   const [copied, setCopied] = useState(false)
   const addToast = useAppStore((s) => s.addToast)
@@ -393,7 +393,7 @@ function VoiceProfileCard({ body }: { body: string }) {
   return (
     <div className="rounded-2xl border border-scripts-500/15 bg-scripts-500/[0.04] p-3 card-soft-shadow">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-scripts-300/80">
+        <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-scripts-300">
           <Mic className="h-3 w-3 text-scripts-300" strokeWidth={2} />
           Voice Profile · same in every scene
         </span>
@@ -428,7 +428,7 @@ function SceneChunkCard({ chunk }: { chunk: SceneChunk }) {
   return (
     <div className="rounded-2xl border border-ink/5 bg-ink/[0.02] p-3 card-soft-shadow">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="truncate text-[10px] font-semibold uppercase tracking-widest text-scripts-300/80">
+        <span className="truncate text-[10px] font-semibold uppercase tracking-widest text-scripts-300">
           {chunk.header.replace(/^---\s*|\s*---$/g, '')}
         </span>
         <button

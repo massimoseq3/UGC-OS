@@ -396,7 +396,7 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
       </button>
 
       <div
-        className="flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-ink/10 bg-surface-1 shadow-2xl"
+        className="flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-ink/10 bg-surface-0 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Body — 50/50 grid; each column scrolls. */}
@@ -422,14 +422,6 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
 
               {/* Separator between the toggle and the controls below. */}
               <div className="-mt-1 border-b border-ink/5" />
-
-              {/* Image Model picker — no heading (Playground style); constraint
-                  chips live in the pinned footer above Generate. */}
-              <ModelPicker
-                appId="character-studio"
-                task="image"
-                mode="text-to-image"
-              />
 
               {mode === 'edit' ? (
                 <>
@@ -549,10 +541,22 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
                 the Generate button, separated by a hairline. Matches the
                 Playground panel's sticky footer; chips open upward. */}
             <div className="shrink-0 border-t border-ink/5 px-5 py-4">
+              {/* Image Model picker — sits just above the resolution/aspect row
+                  (mirrors the main Influencers footer); the picker auto-opens
+                  upward this close to the footer. */}
+              <div className="mb-3">
+                <ModelPicker
+                  appId="character-studio"
+                  task="image"
+                  mode="text-to-image"
+                  large
+                />
+              </div>
               <div className="mb-3 flex flex-wrap items-center gap-1.5">
                 {resolutionOptions.length > 0 && (
                   <ConstraintChip
                     grow
+                    size="sm"
                     openDirection="up"
                     options={resolutionOptions}
                     value={resolution}
@@ -563,6 +567,7 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
                   ? aspectOptions.length > 0 && (
                       <ConstraintChip
                         grow
+                        size="sm"
                         openDirection="up"
                         options={aspectOptions}
                         value={editAspect}
@@ -578,6 +583,7 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
                   : sheetAspectOptions.length > 0 && (
                       <ConstraintChip
                         grow
+                        size="sm"
                         openDirection="up"
                         options={sheetAspectOptions}
                         value={sheetAspect}

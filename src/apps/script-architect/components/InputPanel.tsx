@@ -1,5 +1,5 @@
 import { useState, type ComponentType } from 'react'
-import { Package, Loader2, PenLine, ChevronRight, FileText, Clapperboard, RefreshCw, X, Film, UserRound, Sparkles, Undo2, Redo2 } from 'lucide-react'
+import { Package, Loader2, PenLine, ChevronRight, FileText, Clapperboard, RefreshCw, X, Film, UserRound, Sparkles, Undo2, Redo2, Eraser } from 'lucide-react'
 import type { Model, Product, Script } from '../../../stores/types'
 import { WRITE_LENGTHS, WRITE_STYLE_META, type EditableProductContext, type ScriptMode, type WriteStyle, type WriteFormat, type WriteLength } from '../types'
 
@@ -180,6 +180,11 @@ export default function InputPanel({
   // matches the latest entry.
   const commitBriefDraft = () => {
     if (brief !== briefHistory[briefIndex]) pushBriefHistory(brief)
+  }
+  // Clear the brief — pushed as a history entry so it's undoable.
+  const handleBriefClear = () => {
+    if (!brief.trim()) return
+    pushBriefHistory('')
   }
   const handleBriefUndo = () => {
     if (briefIndex <= 0) return
@@ -567,19 +572,9 @@ export default function InputPanel({
                   placeholder={"Leave blank and I'll come up with the angle — or steer it: e.g. A girl in her 20s talking about this serum like she's telling her best friend, focus on how fast it cleared her skin. Casual, a little funny, end with the discount code."}
                   className="min-h-[120px] w-full flex-1 resize-none border-0 bg-transparent px-4 py-3 text-sm leading-relaxed text-ink-200 placeholder-ink-600 outline-none"
                 />
-                {/* Footer toolbar — Enhance bottom-left; Undo/Redo + Expand
-                    bottom-right, all attached to the box under a hairline. */}
+                {/* Footer toolbar — Undo/Redo bottom-left; Enhance Prompt +
+                    Clear Prompt + Expand bottom-right, attached under a hairline. */}
                 <div className="flex items-center justify-between gap-2 border-t border-ink/10 px-2 py-1.5">
-                  <button
-                    type="button"
-                    title="Enhance brief"
-                    onClick={handleEnhanceBrief}
-                    disabled={isEnhancing || !brief.trim()}
-                    className="flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium text-ink-400 transition-colors hover:bg-scripts-500/10 hover:text-scripts-300 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    {isEnhancing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-                    Enhance
-                  </button>
                   <div className="flex items-center gap-1">
                     <button
                       type="button"
@@ -598,6 +593,28 @@ export default function InputPanel({
                       className="flex h-6 w-6 items-center justify-center rounded-full text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-30"
                     >
                       <Redo2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      title="Enhance prompt"
+                      onClick={handleEnhanceBrief}
+                      disabled={isEnhancing || !brief.trim()}
+                      className="flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium text-ink-400 transition-colors hover:bg-scripts-500/10 hover:text-scripts-300 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {isEnhancing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                      Enhance Prompt
+                    </button>
+                    <button
+                      type="button"
+                      title="Clear prompt"
+                      onClick={handleBriefClear}
+                      disabled={isEnhancing || !brief.trim()}
+                      className="flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <Eraser className="h-3 w-3" />
+                      Clear Prompt
                     </button>
                     <ExpandButton onClick={() => setExpandedField('brief')} />
                   </div>

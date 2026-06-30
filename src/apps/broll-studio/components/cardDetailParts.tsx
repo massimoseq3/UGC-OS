@@ -288,24 +288,10 @@ function ImageTile({
           Animate B-Roll
         </button>
       )}
-      {/* Top-right trash — appears on hover */}
-      <div className="absolute right-1.5 top-1.5 opacity-0 transition-opacity group-hover:opacity-100">
-        <TileDeleteButton onDelete={onDelete} />
-      </div>
-      {/* Bottom-right: Reinsert prompt · Save · Download — all square. (The
-          bottom-left corner is taken by the Animate pill on B-Roll image tiles,
-          so the reinsert button stays in this cluster.) */}
-      <div className="absolute right-1.5 bottom-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-        <TileIconButton title="Copy prompt" onClick={(e) => { e.stopPropagation(); onCopyPrompt() }}>
-          <Copy className="h-4 w-4" />
-        </TileIconButton>
-        <TileIconButton
-          title={saved ? 'Saved to bank' : saving ? 'Saving…' : 'Save to bank'}
-          tone={saved ? 'saved' : 'default'}
-          onClick={(e) => { e.stopPropagation(); if (!saved && !saving) onSave() }}
-        >
-          {saved ? <Check className="h-4 w-4" /> : saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bookmark className="h-4 w-4" />}
-        </TileIconButton>
+      {/* Hover action stack — top-right vertical column, app-wide standard
+          order: download · save · copy · delete. The Animate pill keeps the
+          bottom-left corner. */}
+      <div className="absolute right-1.5 top-1.5 flex flex-col items-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
         <TileIconButton
           title="Download"
           onClick={async (e) => {
@@ -316,6 +302,17 @@ function ImageTile({
         >
           <Download className="h-4 w-4" />
         </TileIconButton>
+        <TileIconButton
+          title={saved ? 'Saved to bank' : saving ? 'Saving…' : 'Save to bank'}
+          tone={saved ? 'saved' : 'default'}
+          onClick={(e) => { e.stopPropagation(); if (!saved && !saving) onSave() }}
+        >
+          {saved ? <Check className="h-4 w-4" /> : saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bookmark className="h-4 w-4" />}
+        </TileIconButton>
+        <TileIconButton title="Copy prompt" onClick={(e) => { e.stopPropagation(); onCopyPrompt() }}>
+          <Copy className="h-4 w-4" />
+        </TileIconButton>
+        <TileDeleteButton onDelete={onDelete} />
       </div>
     </div>
   )
@@ -442,15 +439,9 @@ function VideoTile({
           Cover
         </span>
       )}
-      {/* Top-right trash */}
-      <div className="absolute right-1.5 top-1.5 opacity-0 transition-opacity group-hover:opacity-100">
-        <TileDeleteButton onDelete={onDelete} />
-      </div>
-      {/* Bottom-right hover actions */}
-      <div className="absolute right-1.5 bottom-1.5 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-        <TileIconButton title="Copy prompt" onClick={(e) => { e.stopPropagation(); onCopyPrompt() }}>
-          <Copy className="h-4 w-4" />
-        </TileIconButton>
+      {/* Hover action stack — top-right vertical column, app-wide standard
+          order: download · copy · delete (video has no save-to-bank). */}
+      <div className="absolute right-1.5 top-1.5 flex flex-col items-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
         <TileIconButton
           title="Download"
           onClick={async (e) => {
@@ -461,6 +452,10 @@ function VideoTile({
         >
           <Download className="h-4 w-4" />
         </TileIconButton>
+        <TileIconButton title="Copy prompt" onClick={(e) => { e.stopPropagation(); onCopyPrompt() }}>
+          <Copy className="h-4 w-4" />
+        </TileIconButton>
+        <TileDeleteButton onDelete={onDelete} />
       </div>
     </div>
   )
