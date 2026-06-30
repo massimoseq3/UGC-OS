@@ -250,6 +250,9 @@ export default function ScriptArchitect() {
           cinematicDuration={outputLength}
           isGenerating={isGenerating}
           error={error}
+          onEditVariation={(index, text) =>
+            setVariations((prev) => prev.map((v, i) => (i === index ? text : v)))
+          }
           history={scriptHistory}
           activeHistoryId={activeHistoryId}
           onSelectHistory={handleSelectHistory}

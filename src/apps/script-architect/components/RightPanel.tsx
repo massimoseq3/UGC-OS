@@ -22,6 +22,8 @@ interface RightPanelProps {
   cinematicDuration: WriteLength
   isGenerating: boolean
   error: string | null
+  // Commits an inline edit of take `index` back to the persisted output state.
+  onEditVariation: (index: number, text: string) => void
 
   history: ScriptHistoryItem[]
   activeHistoryId: string | null
@@ -40,6 +42,7 @@ export default function RightPanel({
   cinematicDuration,
   isGenerating,
   error,
+  onEditVariation,
   history,
   activeHistoryId,
   onSelectHistory,
@@ -81,6 +84,7 @@ export default function RightPanel({
             cinematicDuration={cinematicDuration}
             isGenerating={isGenerating}
             error={error}
+            onEditVariation={onEditVariation}
           />
         ) : (
           <HistoryView
