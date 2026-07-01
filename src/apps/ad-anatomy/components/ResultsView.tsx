@@ -79,12 +79,12 @@ function Section({ children, className = '' }: { children: React.ReactNode; clas
 // Copy) sits at the right of the band.
 function CardHeader({ icon: Icon, title, accentClass = 'text-[#FF5257]/80', action }: { icon: React.ElementType; title: string; accentClass?: string; action?: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-2 border-b border-ink/5 px-4 py-3">
+    <div className="relative flex items-center justify-center gap-2 border-b border-ink/5 px-4 py-3">
       <span className="flex items-center gap-2 text-sm font-semibold tracking-tight text-ink-200">
         <Icon className={`h-4 w-4 ${accentClass}`} strokeWidth={1.5} />
         {title}
       </span>
-      {action}
+      {action && <div className="absolute right-4 top-1/2 -translate-y-1/2">{action}</div>}
     </div>
   )
 }

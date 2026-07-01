@@ -6,7 +6,7 @@ import InputPanel from './components/InputPanel'
 import RightPanel from './components/RightPanel'
 import { generateScript } from './services/generateScript'
 import { humanizeError } from '../../utils/friendlyError'
-import { WRITE_STYLE_META, type ScriptMode, type EditableProductContext, type WriteStyle, type WriteFormat, type WriteLength } from './types'
+import { WRITE_STYLE_META, isWriteStyle, type ScriptMode, type EditableProductContext, type WriteStyle, type WriteFormat, type WriteLength } from './types'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
 
 interface ReverseEngineerPayload {
@@ -24,7 +24,9 @@ export default function ScriptArchitect() {
   const [winningTranscript, setWinningTranscript] = usePersistedState(`${baseKey}:transcript`, '')
   const [reversePrompt, setReversePrompt] = usePersistedState(`${baseKey}:reversePrompt`, '')
   const [brief, setBrief] = usePersistedState(`${baseKey}:brief`, '')
-  const [writeStyle, setWriteStyle] = usePersistedState<WriteStyle>(`${baseKey}:writeStyle`, 'pas')
+  const [writeStyle, setWriteStyle] = usePersistedState<WriteStyle>(`${baseKey}:writeStyle`, 'pas', {
+    sanitize: (v) => (isWriteStyle(v) ? v : 'pas'),
+  })
   const [writeFormat, setWriteFormat] = usePersistedState<WriteFormat>(`${baseKey}:writeFormat`, 'script')
   const [writeLength, setWriteLength] = usePersistedState<WriteLength>(`${baseKey}:writeLength`, 15)
   const [selectedProductId, setSelectedProductId] = usePersistedState<string | null>(`${baseKey}:productId`, null)
@@ -39,7 +41,9 @@ export default function ScriptArchitect() {
   // selectors) so flipping the Style/mode after a generation doesn't
   // retroactively relabel the cards or their save-to-bank titles.
   const [outputMode, setOutputMode] = usePersistedState<ScriptMode>(`${baseKey}:outputMode`, 'remix')
-  const [outputStyle, setOutputStyle] = usePersistedState<WriteStyle>(`${baseKey}:outputStyle`, 'pas')
+  const [outputStyle, setOutputStyle] = usePersistedState<WriteStyle>(`${baseKey}:outputStyle`, 'pas', {
+    sanitize: (v) => (isWriteStyle(v) ? v : 'pas'),
+  })
   // Format + length pinned to the *currently shown* output, so the cinematic
   // "Send to Playground" handoff uses the duration that actually produced the
   // prompt — not whatever the live left-panel toggles read now.
