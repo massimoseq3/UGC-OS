@@ -1,7 +1,7 @@
 import { useState, type ComponentType } from 'react'
-import { Package, Loader2, PenLine, ChevronRight, FileText, Clapperboard, RefreshCw, X, Film, UserRound, Sparkles, Undo2, Redo2, Eraser } from 'lucide-react'
+import { Package, Loader2, PenLine, ChevronRight, FileText, Clapperboard, RefreshCw, X, Film, UserRound, Sparkles, Undo2, Redo2, Eraser, Shuffle } from 'lucide-react'
 import type { Model, Product, Script } from '../../../stores/types'
-import { WRITE_LENGTHS, WRITE_STYLE_META, type EditableProductContext, type ScriptMode, type WriteStyle, type WriteFormat, type WriteLength } from '../types'
+import { WRITE_LENGTHS, WRITE_STYLE_META, type EditableProductContext, type ScriptUiMode, type WriteStyle, type WriteFormat, type WriteLength } from '../types'
 
 // The cinematic 'prompt' format is single-clip-capped, so it only offers the
 // shorter durations a video model can render in one generation.
@@ -29,12 +29,16 @@ function createEditableContext(product: Product): EditableProductContext {
 }
 
 interface InputPanelProps {
-  mode: ScriptMode
-  onModeChange: (mode: ScriptMode) => void
-  winningTranscript: string
-  onTranscriptChange: (value: string) => void
-  reversePrompt: string
-  onReversePromptChange: (value: string) => void
+  mode: ScriptUiMode
+  onModeChange: (mode: ScriptUiMode) => void
+  // The merged Remix source — a plain winning transcript OR an Ad Analyzer
+  // scene blueprint; the format is auto-detected (see detectSceneBlueprint).
+  source: string
+  onSourceChange: (value: string) => void
+  isBlueprint: boolean
+  // User override: remix a blueprint-shaped source as a plain script anyway.
+  forceTranscript: boolean
+  onForceTranscriptChange: (value: boolean) => void
   brief: string
   onBriefChange: (value: string) => void
   writeStyle: WriteStyle
@@ -57,10 +61,11 @@ interface InputPanelProps {
 export default function InputPanel({
   mode,
   onModeChange,
-  winningTranscript,
-  onTranscriptChange,
-  reversePrompt,
-  onReversePromptChange,
+  source,
+  onSourceChange,
+  isBlueprint,
+  forceTranscript,
+  onForceTranscriptChange,
   brief,
   onBriefChange,
   writeStyle,
@@ -83,7 +88,7 @@ export default function InputPanel({
   const [influencerPickerOpen, setInfluencerPickerOpen] = useState(false)
   const [scriptPickerOpen, setScriptPickerOpen] = useState(false)
   // Which big text box is open in the full-screen editor (null = none).
-  const [expandedField, setExpandedField] = useState<null | 'brief' | 'transcript' | 'reverse' | 'additionalContext'>(null)
+  const [expandedField, setExpandedField] = useState<null | 'brief' | 'source' | 'additionalContext'>(null)
   // Seed the editable context from a product that's already selected on mount
   // (persisted selection / history reload) so the "Edit product details"
   // dropdown is available immediately — not only after picking a new product.
@@ -92,11 +97,9 @@ export default function InputPanel({
   )
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [styleSlideOpen, setStyleSlideOpen] = useState(false)
-  // The script/scene picked from the bank for the remix / scene-rewrite source.
-  // Editing the textarea clears it (reverts to the dashed picker), mirroring
-  // the B-Roll reference cards.
-  const [remixScript, setRemixScript] = useState<Script | null>(null)
-  const [sceneScript, setSceneScript] = useState<Script | null>(null)
+  // The script picked from the bank for the remix source. Editing the textarea
+  // clears it (reverts to the dashed picker), mirroring the B-Roll ref cards.
+  const [sourceScript, setSourceScript] = useState<Script | null>(null)
   // True once the user has actively picked a Script Style — flips the trigger
   // from a dashed "click to choose" affordance to a solid, accented outline.
   const [styleChosen, setStyleChosen] = useState(false)
@@ -126,6 +129,9 @@ export default function InputPanel({
   // Cinematic master-prompt format: swaps the Script Style picker for an
   // Influencer picker and caps the length toggle to single-clip durations.
   const isPromptFormat = writeFormat === 'prompt'
+  // The scene-rewrite pipeline will run (blueprint detected, no override) —
+  // drives the source box chrome, the chip copy, and the button labels.
+  const blueprintActive = isBlueprint && !forceTranscript
 
   // Switching into the cinematic format clamps the length to one the single-clip
   // format offers (10s / 15s / 30s).
@@ -219,9 +225,7 @@ export default function InputPanel({
 
   // Write New's brief is optional (an empty brief lets the model invent the
   // angle), so that mode only needs a selected product to generate.
-  const sourceFilled = mode === 'write'
-    ? true
-    : mode === 'remix' ? winningTranscript.trim().length > 0 : reversePrompt.trim().length > 0
+  const sourceFilled = mode === 'write' ? true : source.trim().length > 0
   const canGenerate = sourceFilled && selectedProduct !== null
 
   const handleOpenFinder = () => {
@@ -240,20 +244,16 @@ export default function InputPanel({
   }
 
   // Bank pick → fill the source text AND remember the chosen item so the
-  // picker card shows the filled state (routes by the active mode).
+  // picker card shows the filled state. The pipeline follows from the picked
+  // item's content (a Scenes bank item auto-detects as a blueprint).
   const handleBankScriptSelect = (item: Script) => {
-    if (mode === 'reverse-engineer') {
-      onReversePromptChange(item.scriptText)
-      setSceneScript(item)
-    } else {
-      onTranscriptChange(item.scriptText)
-      setRemixScript(item)
-    }
+    onSourceChange(item.scriptText)
+    setSourceScript(item)
   }
 
   const generateLabel = mode === 'write'
     ? (writeFormat === 'prompt' ? 'Generate 3 Cinematic Concepts' : writeFormat === 'scenes' ? 'Generate 3 Scene Drafts' : 'Generate 3 Scripts')
-    : mode === 'remix' ? 'Generate 3 Script Variations' : 'Generate Prompts'
+    : blueprintActive ? 'Rewrite Scene Prompts' : 'Generate 3 Script Variations'
 
   // Product picker — step 2 in every mode, but rendered in a different spot
   // for Write New (before the brief) than for the remix modes (after the
@@ -441,13 +441,12 @@ export default function InputPanel({
           + dense pill) so the line runs cleanly across both columns and lines up
           with the sidebar header divider. */}
       <div className="flex h-[57px] shrink-0 items-center border-b border-ink/5 px-5">
-        <SegmentedToggle<ScriptMode>
+        <SegmentedToggle<ScriptUiMode>
           className="h-10 !p-1"
           value={mode}
           onChange={onModeChange}
           options={[
-            { value: 'remix', label: 'Remix Script', icon: FileText },
-            { value: 'reverse-engineer', label: 'Remix Scenes', icon: Clapperboard },
+            { value: 'remix', label: 'Remix', icon: Shuffle },
             { value: 'write', label: 'Write New', icon: PenLine },
           ]}
         />
@@ -620,56 +619,55 @@ export default function InputPanel({
               </div>
             </div>
           </>
-        ) : mode === 'remix' ? (
+        ) : (
           <div className="mb-6 flex grow flex-col">
             {/* Select from bank (header) + paste manually (textarea) merged into
-                one rounded box so the two sources read as a single input. */}
-            <div className={`flex grow flex-col overflow-hidden rounded-3xl border bg-ink/[0.02] transition-colors focus-within:border-scripts-500/30 ${remixScript ? 'border-scripts-500/40' : 'border-dashed border-ink/10'} ${highlightField === 'transcript' ? 'animate-field-flash' : ''}`}>
+                one rounded box so the two sources read as a single input. One
+                box serves both remix pipelines: the pasted source's format is
+                auto-detected (a scene blueprint flips the chrome to fuchsia and
+                routes to the scene-rewrite pipeline; plain text gets 3 remixed
+                variations). */}
+            <div className={`flex grow flex-col overflow-hidden rounded-3xl border bg-ink/[0.02] transition-colors focus-within:border-scripts-500/30 ${sourceScript ? (blueprintActive ? 'border-fuchsia-500/40' : 'border-scripts-500/40') : 'border-dashed border-ink/10'} ${highlightField === 'source' ? 'animate-field-flash' : ''}`}>
               <ScriptBankCard
-                selected={remixScript}
-                label="Script"
-                icon={FileText}
-                accentClass="bg-scripts-500/10 text-scripts-300/80"
+                selected={sourceScript}
+                label={blueprintActive ? 'Scene' : 'Script'}
+                icon={blueprintActive ? Clapperboard : FileText}
+                accentClass={blueprintActive ? 'bg-fuchsia-500/10 text-fuchsia-300/80 light:text-fuchsia-700/80' : 'bg-scripts-500/10 text-scripts-300/80'}
                 onSelect={() => setScriptPickerOpen(true)}
-                onClear={() => setRemixScript(null)}
+                onClear={() => setSourceScript(null)}
                 flat
               />
               <div className="relative flex grow flex-col">
                 <textarea
-                  value={winningTranscript}
-                  onChange={(e) => { onTranscriptChange(e.target.value); setRemixScript(null) }}
+                  value={source}
+                  onChange={(e) => { onSourceChange(e.target.value); setSourceScript(null) }}
                   rows={8}
-                  placeholder="…or paste a proven ad transcript here, or send one from Ad Analyzer"
-                  className="min-h-[160px] w-full grow resize-none border-0 bg-transparent px-4 py-3 text-sm leading-relaxed text-ink-200 placeholder-ink-600 outline-none"
+                  placeholder={'…or paste a proven ad transcript, or a scene blueprint from Ad Analyzer — the format is detected automatically.'}
+                  className={`w-full grow resize-none border-0 bg-transparent px-4 py-3 leading-relaxed text-ink-200 outline-none ${
+                    isBlueprint ? 'min-h-[200px] overflow-y-auto font-mono text-xs placeholder-ink-700' : 'min-h-[160px] text-sm placeholder-ink-600'
+                  }`}
                 />
-                <ExpandButton onClick={() => setExpandedField('transcript')} className="absolute bottom-2 right-2" />
+                <ExpandButton onClick={() => setExpandedField('source')} className="absolute bottom-2 right-2" />
               </div>
-            </div>
-          </div>
-        ) : (
-          <div className="mb-6 flex grow flex-col">
-            {/* Select from bank (header) + paste manually (textarea) merged into
-                one rounded box so the two sources read as a single input. */}
-            <div className={`flex grow flex-col overflow-hidden rounded-3xl border bg-ink/[0.02] transition-colors focus-within:border-scripts-500/30 ${sceneScript ? 'border-fuchsia-500/40' : 'border-dashed border-ink/10'} ${highlightField === 'reverse-prompt' ? 'animate-field-flash' : ''}`}>
-              <ScriptBankCard
-                selected={sceneScript}
-                label="Scene"
-                icon={Clapperboard}
-                accentClass="bg-fuchsia-500/10 text-fuchsia-300/80 light:text-fuchsia-700/80"
-                onSelect={() => setScriptPickerOpen(true)}
-                onClear={() => setSceneScript(null)}
-                flat
-              />
-              <div className="relative flex min-h-0 flex-1 flex-col">
-                <textarea
-                  value={reversePrompt}
-                  onChange={(e) => { onReversePromptChange(e.target.value); setSceneScript(null) }}
-                  rows={10}
-                  placeholder={'…or paste the reverse-engineered prompt from Ad Analyzer here.\n\nExample (multi-scene):\n--- Scene 1: Mirror reaction hook (00:00-00:08) ---\nA woman in her late 20s with shoulder-length auburn hair, wearing a cream cable-knit sweater, stands in a softly-lit bathroom holding a clear glass dropper bottle... She says: "I had dark spots for years and nothing worked."\n\n--- Scene 2: Product reveal (00:08-00:15) ---\n...'}
-                  className="min-h-[200px] w-full grow resize-none overflow-y-auto border-0 bg-transparent px-4 py-3 font-mono text-xs leading-relaxed text-ink-200 placeholder-ink-700 outline-none"
-                />
-                <ExpandButton onClick={() => setExpandedField('reverse')} className="absolute bottom-2 right-2" />
-              </div>
+              {/* Detection chip — only shows once a blueprint is recognised.
+                  The right-hand button is the escape hatch for the one case
+                  auto-detect can't know: remixing a blueprint's spoken lines
+                  as a plain script instead of rewriting its scenes. */}
+              {isBlueprint && (
+                <div className="flex items-center justify-between gap-2 border-t border-ink/10 px-4 py-2">
+                  <span className={`flex min-w-0 items-center gap-1.5 truncate text-[11px] font-medium ${blueprintActive ? 'text-fuchsia-300 light:text-fuchsia-700' : 'text-ink-500'}`}>
+                    {blueprintActive ? <Clapperboard className="h-3 w-3 shrink-0" /> : <FileText className="h-3 w-3 shrink-0" />}
+                    {blueprintActive ? 'Scene blueprint detected — scenes will be rewritten' : 'Remixing as a plain script — 3 variations'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onForceTranscriptChange(!forceTranscript)}
+                    className="shrink-0 rounded-full border border-ink/10 px-2.5 py-1 text-[11px] font-medium text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200"
+                  >
+                    {blueprintActive ? 'Remix as script instead' : 'Rewrite scenes instead'}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -689,9 +687,9 @@ export default function InputPanel({
                 value={additionalContext}
                 onChange={(e) => onAdditionalContextChange(e.target.value)}
                 rows={3}
-                placeholder={mode === 'remix'
-                  ? "Additional context for this script (e.g. 'Focus on the self-cleaning feature', 'Summer campaign tone')..."
-                  : "Additional context for the rewrite (e.g. 'Keep tone playful', 'Make the CTA softer')..."}
+                placeholder={blueprintActive
+                  ? "Additional context for the rewrite (e.g. 'Keep tone playful', 'Make the CTA softer')..."
+                  : "Additional context for this script (e.g. 'Focus on the self-cleaning feature', 'Summer campaign tone')..."}
                 className="w-full rounded-2xl border border-ink/10 bg-ink/[0.02] px-4 py-3 text-sm text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-scripts-500/30 resize-none"
               />
               <ExpandButton onClick={() => setExpandedField('additionalContext')} className="absolute bottom-2 right-2" />
@@ -710,7 +708,7 @@ export default function InputPanel({
           {isGenerating ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              <span>{mode === 'write' ? (writeFormat === 'prompt' ? 'Directing 3 Concepts...' : 'Writing 3 Takes...') : mode === 'remix' ? 'Generating 3 Script Variations...' : 'Generating Prompts...'}</span>
+              <span>{mode === 'write' ? (writeFormat === 'prompt' ? 'Directing 3 Concepts...' : 'Writing 3 Takes...') : blueprintActive ? 'Rewriting Scene Prompts...' : 'Generating 3 Script Variations...'}</span>
             </>
           ) : (
             <>
@@ -826,23 +824,14 @@ export default function InputPanel({
         placeholder="What should this video say or focus on? Vibe, angle, key points…"
       />
       <ExpandTextModal
-        open={expandedField === 'transcript'}
+        open={expandedField === 'source'}
         onClose={() => setExpandedField(null)}
-        value={winningTranscript}
-        onChange={(v) => { onTranscriptChange(v); setRemixScript(null) }}
-        title="Proven Script Transcript"
+        value={source}
+        onChange={(v) => { onSourceChange(v); setSourceScript(null) }}
+        title={blueprintActive ? 'Scene Blueprint' : 'Proven Script Transcript'}
         accent="scripts"
-        placeholder="Paste a proven ad transcript here…"
-      />
-      <ExpandTextModal
-        open={expandedField === 'reverse'}
-        onClose={() => setExpandedField(null)}
-        value={reversePrompt}
-        onChange={(v) => { onReversePromptChange(v); setSceneScript(null) }}
-        title="Reverse-Engineered Scene"
-        accent="scripts"
-        mono
-        placeholder="Paste the reverse-engineered prompt from Ad Analyzer here…"
+        mono={isBlueprint}
+        placeholder="Paste a proven ad transcript or an Ad Analyzer scene blueprint…"
       />
       <ExpandTextModal
         open={expandedField === 'additionalContext'}

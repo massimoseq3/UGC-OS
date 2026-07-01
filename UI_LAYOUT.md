@@ -127,16 +127,21 @@ Single full-width column: a header toolbar over a scrolling card area.
 
 - **Products** — square cards, `grid-cols-2 → 5`. Status dot top-left
   (orange=draft / green=confirmed / "Extracting" badge), title on a bottom
-  gradient, download + delete top-right on hover.
+  gradient, download + star + delete top-right on hover.
 - **Influencers (models)** — portrait `9/16` cards, dense masonry `grid-cols-2 →
   6`; landscape sheets span 2–3 cols (`aspect-video`). Badges top-left ("Sheet" /
-  "Preset"), copy-JSON + download + delete top-right.
+  "Preset"), copy-JSON + download + star + delete top-right.
 - **Scripts** — tall `9/16` text cards `grid-cols-2 → 4`: a SCRIPT/SCENES badge +
-  title at top, faded body preview, product + date footer, delete top-right.
+  title at top, faded body preview, product + date footer, star + delete top-right.
 - **Voices** — NOT a grid; a vertical list of rounded-full horizontal pills (mic
   avatar + label + voice name + stability), delete trailing.
 - **B-Rolls** — portrait `9/16` dense grid `grid-cols-2 → 6`, grouped under date
-  pills; "Animate in Playground" pill appears on hover (stills only).
+  pills; download + star + delete top-right on hover; "Animate in Playground"
+  pill appears on hover (stills only).
+
+Star buttons (products / influencers / scripts / b-rolls) are hover-revealed but
+stay visible (filled amber) once starred; starred items sort first in every bank
+picker slide-over, marked with a small amber star badge.
 
 ### Add/Edit Product form (`src/apps/finder/ProductForm.tsx`)
 
@@ -203,29 +208,32 @@ save / download on the right), model caption underneath.
 **Two panes** 50/50 (`ScriptArchitect.tsx:222`): **left = input**, **right =
 output**.
 
-### Mode tabs (top of left pane, `InputPanel.tsx:378`)
+### Mode tabs (top of left pane)
 
-Left→right: **Write New · Remix Script · Remix Scenes**.
+Left→right: **Remix · Write New** (the old Remix Script / Remix Scenes tabs are
+merged into one Remix mode — the source box auto-detects the pasted format).
 
 ### Left input, top→bottom by mode
 
+- **Remix:** one merged source box (bank card header + paste textarea) →
+  Product Context → Additional Context (optional). When the pasted text is a
+  scene blueprint (`--- Scene N` / `SCENE N —` headers) the box flips to
+  fuchsia + monospace and a footer chip appears: "Scene blueprint detected —
+  scenes will be rewritten" with a **Remix as script instead** override button
+  (toggles back via "Rewrite scenes instead").
 - **Write New:**
   1. **Output** sub-toggle — left→right **Script · Scenes · Cinematic**.
   2. **Product Context** card (+ "Edit product details" link).
   3. **Script Style** picker — *replaced by an optional **Influencer** picker when
      Output = Cinematic*.
   4. **Describe Your Video** textarea (the brief; optional).
-     - ⚠️ The label is **"Describe Your Video"** (`InputPanel.tsx:487`). Older copy
-       and the June screenshots say "Describe Your Ad"; the live label is the former.
+     - ⚠️ The label is **"Describe Your Video"**. Older copy and the June
+       screenshots say "Describe Your Ad"; the live label is the former.
   5. **Length** toggle — 10s / 15s / 30s / 60s (Cinematic caps to 10s/15s).
-- **Remix Script:** Proven Script Transcript (bank card + "or paste manually" +
-  textarea) → Product Context → Additional Context (optional).
-- **Remix Scenes:** Reverse-Engineered Scene (bank card + paste + monospace
-  textarea) → Product Context → Additional Context (optional).
 
 **Generate button** (pinned bottom): label varies — "Generate 3 Scripts" /
 "Generate 3 Scene Drafts" / "Generate 3 Cinematic Concepts" / "Generate 3 Script
-Variations" / "Generate Prompts" (`InputPanel.tsx:183`).
+Variations" / "Rewrite Scene Prompts".
 
 ### Right output (`components/OutputPanel.tsx`)
 

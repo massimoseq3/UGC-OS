@@ -1,4 +1,22 @@
+// The pipeline discriminator. Persisted in scriptHistory rows and dispatched
+// on by the service, so all three values stay — but the UI only exposes two
+// modes ('remix' | 'write'); the remix source's format picks between the
+// 'remix' and 'reverse-engineer' pipelines at generate time.
 export type ScriptMode = 'write' | 'remix' | 'reverse-engineer'
+
+// What the left-panel mode toggle actually offers.
+export type ScriptUiMode = 'remix' | 'write'
+
+// A scene blueprint (Ad Analyzer output / a Scenes bank item) is machine-
+// written with rigid "--- Scene N: <label> (MM:SS-MM:SS) ---" headers, so the
+// remix source's format is detectable: blueprint → scene-rewrite pipeline,
+// plain text → 3 remixed script variations. Also matches the looser
+// hand-written shape (a line starting "SCENE 1 —" / "Scene 2:") so pasted
+// blueprints that skip the divider dashes still route correctly; a spoken
+// transcript never opens a line with a numbered scene header.
+export function detectSceneBlueprint(source: string): boolean {
+  return /^(?:---\s*)?scene\s*\d+\s*[—:–-]/im.test(source)
+}
 
 export type RemixAngle = 'hook-led' | 'pain-point-led' | 'curiosity-led'
 

@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { Trash2, Package, UserRound, FileText, Mic, Film, Plus, Video, Download, Loader2, ChevronDown, Sparkles, Check, LayoutGrid, Copy, Bookmark } from 'lucide-react'
+import { Trash2, Package, UserRound, FileText, Mic, Film, Plus, Video, Download, Loader2, ChevronDown, Sparkles, Check, LayoutGrid, Copy, Bookmark, Star } from 'lucide-react'
 import type { Product, Model, Script, VoicePreset, BRoll } from '../../stores/types'
 import type { BankType } from '../../utils/constants'
 import type { ModelFilter } from './Finder'
@@ -110,6 +110,23 @@ function ConfirmDelete({ onConfirm, onCancel }: { onConfirm: () => Promise<void>
   )
 }
 
+// Star toggle for the hover action stack (image cards). Hover-revealed like
+// its neighbours, but stays visible once starred so the pin reads at a glance.
+// Starred items surface first in the bank pickers.
+function StarButton({ starred, onToggle }: { starred: boolean; onToggle: () => void }) {
+  return (
+    <button
+      onClick={onToggle}
+      title={starred ? 'Unstar' : 'Star — starred items show first when picking from banks'}
+      className={`flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/35 backdrop-blur transition-all hover:bg-black/50 group-hover:opacity-100 ${
+        starred ? 'text-amber-300 opacity-100' : 'text-white opacity-0'
+      }`}
+    >
+      <Star className={`h-3.5 w-3.5 ${starred ? 'fill-current' : ''}`} />
+    </button>
+  )
+}
+
 // undefined → legacy product (predates the draft system, no dot).
 // false → draft awaiting user review (orange dot).
 // true → confirmed via Save in the form (green dot).
@@ -121,6 +138,7 @@ function productState(p: Product): 'legacy' | 'draft' | 'confirmed' {
 function ProductCard({ item, onEdit, onDelete, inFlight }: { item: Product; onEdit: () => void; onDelete: () => void; inFlight?: boolean }) {
   const [confirm, setConfirm] = useState(false)
   const resolvedImage = useAssetUrl(item.productImage)
+  const toggleStar = useBankStore((s) => s.toggleStar)
   const state = productState(item)
 
   const handleDownload = (e: React.MouseEvent) => {
@@ -172,6 +190,7 @@ function ProductCard({ item, onEdit, onDelete, inFlight }: { item: Product; onEd
                 <Download className="h-3.5 w-3.5" />
               </button>
             )}
+            <StarButton starred={!!item.starred} onToggle={() => toggleStar('products', item.id)} />
             <button onClick={() => setConfirm(true)} title="Delete" className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white opacity-0 backdrop-blur transition-all hover:bg-red-500/30 hover:text-red-100 hover:border-red-400/40 group-hover:opacity-100">
               <Trash2 className="h-3.5 w-3.5" />
             </button>
@@ -185,6 +204,7 @@ function ProductCard({ item, onEdit, onDelete, inFlight }: { item: Product; onEd
 function ModelCard({ item, onEdit, onDelete }: { item: Model; onEdit: () => void; onDelete: () => void }) {
   const [confirm, setConfirm] = useState(false)
   const [copied, setCopied] = useState(false)
+  const toggleStar = useBankStore((s) => s.toggleStar)
   const resolvedImage = useAssetUrl(item.characterImage)
   // A saved character sheet stamps `sheetImage`; surface it with a badge.
   const isSheet = !!item.sheetImage
@@ -281,6 +301,7 @@ function ModelCard({ item, onEdit, onDelete }: { item: Model; onEdit: () => void
                 {copied ? <Check className="h-3.5 w-3.5 text-emerald-300" /> : <Copy className="h-3.5 w-3.5" />}
               </button>
             )}
+            <StarButton starred={!!item.starred} onToggle={() => toggleStar('models', item.id)} />
             <button onClick={() => setConfirm(true)} title="Delete" className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white opacity-0 backdrop-blur transition-all hover:bg-red-500/30 hover:text-red-100 hover:border-red-400/40 group-hover:opacity-100">
               <Trash2 className="h-3.5 w-3.5" />
             </button>
@@ -293,6 +314,7 @@ function ModelCard({ item, onEdit, onDelete }: { item: Model; onEdit: () => void
 
 function ScriptCard({ item, onEdit, onDelete }: { item: Script; onEdit: () => void; onDelete: () => void }) {
   const [confirm, setConfirm] = useState(false)
+  const toggleStar = useBankStore((s) => s.toggleStar)
   const getProductById = useBankStore((s) => s.getProductById)
   const linked = item.linkedProductId ? getProductById(item.linkedProductId) : null
   // Legacy items predate `kind` — treat them as scripts.
@@ -322,14 +344,26 @@ function ScriptCard({ item, onEdit, onDelete }: { item: Script; onEdit: () => vo
         {linked && <span className="truncate text-[10px] text-ink-600">{linked.productName}</span>}
         <span className="shrink-0 text-[10px] text-ink-700">{new Date(item.createdAt).toLocaleDateString()}</span>
       </div>
-      {/* Delete button overlay */}
-      <div className="absolute right-2 top-2" onClick={(e) => e.stopPropagation()}>
+      {/* Hover action stack — star · delete. Text-card styling (ink chrome, not
+          the image cards' white-on-black pills); star stays visible once set. */}
+      <div className="absolute right-2 top-2 flex flex-col items-end gap-1" onClick={(e) => e.stopPropagation()}>
         {confirm ? (
           <ConfirmDelete onConfirm={onDelete} onCancel={() => setConfirm(false)} />
         ) : (
-          <button onClick={() => setConfirm(true)} className="rounded-full bg-ink/5 p-1.5 text-ink-700 opacity-0 backdrop-blur-sm transition-all hover:text-red-400 group-hover:opacity-100">
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
+          <>
+            <button
+              onClick={() => toggleStar('scripts', item.id)}
+              title={item.starred ? 'Unstar' : 'Star — starred items show first when picking from banks'}
+              className={`rounded-full bg-ink/5 p-1.5 backdrop-blur-sm transition-all group-hover:opacity-100 ${
+                item.starred ? 'text-amber-400 opacity-100' : 'text-ink-700 opacity-0 hover:text-amber-400'
+              }`}
+            >
+              <Star className={`h-3.5 w-3.5 ${item.starred ? 'fill-current' : ''}`} />
+            </button>
+            <button onClick={() => setConfirm(true)} className="rounded-full bg-ink/5 p-1.5 text-ink-700 opacity-0 backdrop-blur-sm transition-all hover:text-red-400 group-hover:opacity-100">
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </>
         )}
       </div>
     </div>
@@ -338,6 +372,7 @@ function ScriptCard({ item, onEdit, onDelete }: { item: Script; onEdit: () => vo
 
 function BRollCard({ item, onEdit, onDelete }: { item: BRoll; onEdit: () => void; onDelete: () => void }) {
   const [confirm, setConfirm] = useState(false)
+  const toggleStar = useBankStore((s) => s.toggleStar)
   // Landscape (16:9) stills span three portrait columns, mirroring the
   // Influencers tab's character sheets. Detected from natural media dimensions.
   const [landscape, setLandscape] = useState(false)
@@ -417,6 +452,7 @@ function BRollCard({ item, onEdit, onDelete }: { item: BRoll; onEdit: () => void
               <button onClick={handleDownload} title="Download image" className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white opacity-0 backdrop-blur transition-all hover:bg-black/50 group-hover:opacity-100">
                 <Download className="h-3.5 w-3.5" />
               </button>
+              <StarButton starred={!!item.starred} onToggle={() => toggleStar('brolls', item.id)} />
               <button onClick={() => setConfirm(true)} title="Delete" className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white opacity-0 backdrop-blur transition-all hover:bg-red-500/30 hover:text-red-100 hover:border-red-400/40 group-hover:opacity-100">
                 <Trash2 className="h-3.5 w-3.5" />
               </button>

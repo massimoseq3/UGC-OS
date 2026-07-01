@@ -6,7 +6,7 @@ import InputPanel from './components/InputPanel'
 import RightPanel from './components/RightPanel'
 import { generateScript } from './services/generateScript'
 import { humanizeError } from '../../utils/friendlyError'
-import { WRITE_STYLE_META, type ScriptMode, type EditableProductContext, type WriteStyle, type WriteFormat, type WriteLength } from './types'
+import { WRITE_STYLE_META, detectSceneBlueprint, type ScriptMode, type ScriptUiMode, type EditableProductContext, type WriteStyle, type WriteFormat, type WriteLength } from './types'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
 
 interface ReverseEngineerPayload {
@@ -18,11 +18,32 @@ interface ReverseEngineerPayload {
 // instead of the user hitting a hard "brief required" wall.
 const OPEN_BRIEF = "I'm open to seeing what you can come up with."
 
+// One-time draft migration: the merged Remix source box replaced the two
+// per-mode fields (transcript / reversePrompt). Seed the new slot from
+// whichever legacy draft is non-empty so nobody loses work on upgrade.
+function readLegacySource(baseKey: string): string {
+  try {
+    const read = (key: string) => {
+      const raw = localStorage.getItem(key)
+      return raw ? String(JSON.parse(raw)) : ''
+    }
+    return read(`${baseKey}:transcript`) || read(`${baseKey}:reversePrompt`) || ''
+  } catch {
+    return ''
+  }
+}
+
 export default function ScriptArchitect() {
   const baseKey = useProjectScopedKey('script-architect')
-  const [mode, setMode] = usePersistedState<ScriptMode>(`${baseKey}:mode`, 'remix')
-  const [winningTranscript, setWinningTranscript] = usePersistedState(`${baseKey}:transcript`, '')
-  const [reversePrompt, setReversePrompt] = usePersistedState(`${baseKey}:reversePrompt`, '')
+  // Drafts persisted before the merge may hold 'reverse-engineer' — fold it
+  // into the merged 'remix' mode on hydration.
+  const [mode, setMode] = usePersistedState<ScriptUiMode>(`${baseKey}:mode`, 'remix', {
+    sanitize: (v) => ((v as string) === 'reverse-engineer' ? 'remix' : v),
+  })
+  const [source, setSource] = usePersistedState(`${baseKey}:source`, readLegacySource(baseKey))
+  // Override for the blueprint auto-detect: remix the pasted blueprint as a
+  // plain script (3 variations) instead of rewriting its scene prompts.
+  const [forceTranscript, setForceTranscript] = useState(false)
   const [brief, setBrief] = usePersistedState(`${baseKey}:brief`, '')
   const [writeStyle, setWriteStyle] = usePersistedState<WriteStyle>(`${baseKey}:writeStyle`, 'pas')
   const [writeFormat, setWriteFormat] = usePersistedState<WriteFormat>(`${baseKey}:writeFormat`, 'script')
@@ -72,7 +93,16 @@ export default function ScriptArchitect() {
   )
   const handleInfluencerSelect = (m: Model | null) => setSelectedInfluencerId(m?.id ?? null)
 
-  // Consume inter-app payloads
+  // The pipeline the next Generate will run. The UI toggle only offers
+  // Remix / Write New; within Remix, a detected scene blueprint routes to the
+  // scene-rewrite ('reverse-engineer') pipeline unless the user overrides.
+  const isBlueprint = detectSceneBlueprint(source)
+  const resolvedMode: ScriptMode = mode === 'write'
+    ? 'write'
+    : isBlueprint && !forceTranscript ? 'reverse-engineer' : 'remix'
+
+  // Consume inter-app payloads. Both Ad Analyzer send actions land in the
+  // same merged source box — the format detection picks the pipeline.
   useEffect(() => {
     if (activeApp !== 'script-architect') return
     if (!interAppPayload || interAppPayload.targetApp !== 'script-architect') return
@@ -86,14 +116,16 @@ export default function ScriptArchitect() {
         : (payload.fullPrompt ?? (payload.scenes ?? [])
             .map((s) => `--- Scene ${s.index}: ${s.label} (${s.startTime}-${s.endTime}) ---\n${s.prompt}`)
             .join('\n\n'))
-      setMode('reverse-engineer')
-      setReversePrompt(full)
-      setHighlightField('reverse-prompt')
+      setMode('remix')
+      setForceTranscript(false)
+      setSource(full)
+      setHighlightField('source')
       setTimeout(() => setHighlightField(null), 800)
     } else if (targetField === 'winningTranscript' || targetField === 'reconstructionPrompt') {
       setMode('remix')
-      setWinningTranscript(data as string)
-      setHighlightField('transcript')
+      setForceTranscript(false)
+      setSource(data as string)
+      setHighlightField('source')
       setTimeout(() => setHighlightField(null), 800)
     } else if (targetField === 'productId') {
       const product = getProductById(data as string)
@@ -101,14 +133,14 @@ export default function ScriptArchitect() {
     }
 
     consumePayload()
-  }, [interAppPayload, activeApp, consumePayload, getProductById, setMode, setReversePrompt, setWinningTranscript, setSelectedProductId])
+  }, [interAppPayload, activeApp, consumePayload, getProductById, setMode, setSource, setSelectedProductId])
 
   const handleGenerate = async (productContext: EditableProductContext | null) => {
     // Write New's brief is optional: an empty brief hands the model creative
     // license rather than blocking generation (avoids decision paralysis for
     // users who don't know what to write).
     const effectiveBrief = mode === 'write' && !brief.trim() ? OPEN_BRIEF : brief
-    const sourceFilled = mode === 'write' ? true : mode === 'remix' ? winningTranscript.trim() : reversePrompt.trim()
+    const sourceFilled = mode === 'write' ? true : source.trim()
     if (!sourceFilled || !selectedProduct) return
 
     setIsGenerating(true)
@@ -116,13 +148,16 @@ export default function ScriptArchitect() {
     setActiveHistoryId(null)
     // Lock the output's labelling context to this run up front, so the
     // loading copy and the resulting cards reflect what was generated.
-    setOutputMode(mode)
+    setOutputMode(resolvedMode)
     setOutputStyle(writeStyle)
     setOutputFormat(writeFormat)
     setOutputLength(writeLength)
+    // Route the merged source into the field the resolved pipeline reads.
+    const winningTranscript = resolvedMode === 'remix' ? source : ''
+    const reversePrompt = resolvedMode === 'reverse-engineer' ? source : ''
     try {
       const result = await generateScript({
-        mode,
+        mode: resolvedMode,
         winningTranscript,
         reversePrompt,
         brief: effectiveBrief,
@@ -136,10 +171,10 @@ export default function ScriptArchitect() {
       })
       setVariations(result.variations)
 
-      const inputSource = mode === 'write' ? brief : mode === 'remix' ? winningTranscript : reversePrompt
+      const inputSource = mode === 'write' ? brief : source
       const item: ScriptHistoryItem = {
         id: crypto.randomUUID(),
-        mode,
+        mode: resolvedMode,
         variations: result.variations,
         inputSummary: inputSource.slice(0, 200),
         linkedProductId: selectedProduct.id,
@@ -157,9 +192,9 @@ export default function ScriptArchitect() {
       setActiveHistoryId(item.id)
 
       useAppStore.getState().addToast(
-        mode === 'write'
+        resolvedMode === 'write'
           ? (writeFormat === 'prompt' ? '3 cinematic concepts generated' : writeFormat === 'scenes' ? '3 scene drafts generated' : '3 scripts generated')
-          : mode === 'remix' ? '3 script variations generated' : 'Script rewritten',
+          : resolvedMode === 'remix' ? '3 script variations generated' : 'Script rewritten',
         'success',
       )
     } catch (err) {
@@ -172,7 +207,7 @@ export default function ScriptArchitect() {
   }
 
   const handleSelectHistory = (item: ScriptHistoryItem) => {
-    setMode(item.mode)
+    setMode(item.mode === 'write' ? 'write' : 'remix')
     setVariations(item.variations)
     setActiveHistoryId(item.id)
     setError(null)
@@ -184,8 +219,15 @@ export default function ScriptArchitect() {
     // Restore the left-panel inputs too. Older rows (saved before these
     // fields existed) fall back to the inputSummary slice for the source so
     // something sensible reappears.
-    setWinningTranscript(item.winningTranscript ?? (item.mode === 'remix' ? item.inputSummary : ''))
-    setReversePrompt(item.reversePrompt ?? (item.mode === 'reverse-engineer' ? item.inputSummary : ''))
+    const restoredSource = item.mode === 'reverse-engineer'
+      ? (item.reversePrompt ?? item.inputSummary)
+      : item.mode === 'remix'
+        ? (item.winningTranscript ?? item.inputSummary)
+        : (item.winningTranscript || item.reversePrompt || '')
+    setSource(restoredSource)
+    // Keep a regenerate faithful to the restored run: if this row remixed a
+    // blueprint-shaped source as a plain script, restore that override too.
+    setForceTranscript(item.mode === 'remix' && detectSceneBlueprint(restoredSource))
     setAdditionalContext(item.additionalContext ?? '')
     setSelectedProductId(item.linkedProductId ?? null)
     if (item.mode === 'write') {
@@ -214,10 +256,11 @@ export default function ScriptArchitect() {
         <InputPanel
           mode={mode}
           onModeChange={setMode}
-          winningTranscript={winningTranscript}
-          onTranscriptChange={setWinningTranscript}
-          reversePrompt={reversePrompt}
-          onReversePromptChange={setReversePrompt}
+          source={source}
+          onSourceChange={setSource}
+          isBlueprint={isBlueprint}
+          forceTranscript={forceTranscript}
+          onForceTranscriptChange={setForceTranscript}
           brief={brief}
           onBriefChange={setBrief}
           writeStyle={writeStyle}
@@ -241,7 +284,7 @@ export default function ScriptArchitect() {
       <div className="flex w-full md:w-1/2 flex-col min-h-[300px] md:min-h-0">
         <RightPanel
           variations={variations}
-          mode={mode}
+          mode={resolvedMode}
           outputMode={outputMode}
           writeFormat={outputFormat}
           writeStyleLabel={WRITE_STYLE_META[outputStyle].label}

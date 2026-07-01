@@ -9,7 +9,7 @@ import type { Product, Model, Script, VoicePreset, BRoll } from '../stores/types
 import BankItemCard from './BankItemCard'
 import SegmentedToggle from './SegmentedToggle'
 import { useIsDesktop } from '../hooks/useBreakpoint'
-import { sortByOrder, SORT_OPTIONS_WITH_NAME, SORT_OPTIONS_DATE_ONLY, type SortOrder } from '../apps/finder/bankSort'
+import { sortByOrder, starredFirst, SORT_OPTIONS_WITH_NAME, SORT_OPTIONS_DATE_ONLY, type SortOrder } from '../apps/finder/bankSort'
 
 type BankItem = Product | Model | Script | VoicePreset | BRoll
 
@@ -126,7 +126,9 @@ export default function BankPicker({
       currentBankType === 'models' ? (it: BankItem) => (it as Model).name :
       currentBankType === 'scripts' ? (it: BankItem) => (it as Script).title :
       undefined
-    return sortByOrder(filtered, sort, nameOf)
+    // Starred items float to the top regardless of the chosen sort — the
+    // picker is where pinned assets pay off.
+    return starredFirst(sortByOrder(filtered, sort, nameOf))
   }, [filtered, sort, sortOptions, currentBankType])
 
   // Brolls don't have a Finder-form create path (no useful empty record to

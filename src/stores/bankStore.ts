@@ -58,6 +58,10 @@ interface BankState {
   deleteBRoll: (id: string) => Promise<BankActionResult>
   getBRollById: (id: string) => BRoll | undefined
 
+  // Star toggle — the four starrable banks share one action. Starred items
+  // surface first in the bank pickers.
+  toggleStar: (bank: StarrableBank, id: string) => void
+
   // Voice History
   addVoiceHistory: (item: VoiceHistoryItem) => Promise<BankActionResult>
   deleteVoiceHistory: (id: string) => Promise<BankActionResult>
@@ -105,6 +109,9 @@ interface BankState {
   clearAdAnatomyHistory: () => Promise<BankActionResult>
   getAdAnatomyHistoryById: (id: string) => AdAnatomyHistoryItem | undefined
 }
+
+// Banks whose items can be starred (pinned) by the user.
+export type StarrableBank = 'products' | 'models' | 'scripts' | 'brolls'
 
 function generateId(): string {
   return crypto.randomUUID()
@@ -535,6 +542,24 @@ export const useBankStore = create<BankState>((set, get) => ({
   },
 
   getBRollById: (id) => get().brolls.find((b) => b.id === id),
+
+  // ── Star toggle ──────────────────────────────────────────────────
+  // Deliberately silent (no toast): starring is a lightweight pin, not a
+  // save-worthy event. Same local-first + background-push contract as the
+  // update actions; no asset cleanup is ever involved.
+  toggleStar: (bank, id) => {
+    const items = get()[bank] as Array<Product | Model | Script | BRoll>
+    const old = items.find((item) => item.id === id)
+    if (!old) return
+    const updated = { ...old, starred: !old.starred }
+    set((state) => {
+      const nextArr = (state[bank] as Array<{ id: string }>).map((item) => (item.id === id ? updated : item))
+      const next = { [bank]: nextArr } as unknown as Partial<BankState>
+      saveToStorage({ ...state, ...next })
+      return next
+    })
+    pushRow(bank, updated)
+  },
 
   // ── Voice History ────────────────────────────────────────────────
   // Local set() runs first so the gallery updates synchronously; the cloud
