@@ -425,7 +425,7 @@ function SidebarRow({ app, active, collapsed, onClick }: SidebarRowProps) {
     return (
       <button
         onClick={onClick}
-        className={`flex w-full flex-col items-center gap-1 rounded-full px-1 py-2 transition-colors ${
+        className={`flex w-full flex-col items-center gap-1 rounded-2xl px-1 py-2 transition-colors ${
           active ? 'bg-ink/[0.08]' : 'hover:bg-ink/[0.04]'
         }`}
       >

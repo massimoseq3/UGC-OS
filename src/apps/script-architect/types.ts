@@ -53,6 +53,13 @@ export const WRITE_STYLE_META: Record<WriteStyle, { label: string; hint: string 
   comparison: { label: 'Us vs Them', hint: 'The usual stuff vs this one' },
 }
 
+// Guards persisted / handed-off style slugs: styles get trimmed over time
+// (see #211), so a value read from localStorage or history may no longer be a
+// live key. Callers coerce misses back to a default rather than dereferencing
+// WRITE_STYLE_META[missing] and crashing.
+export const isWriteStyle = (value: unknown): value is WriteStyle =>
+  typeof value === 'string' && value in WRITE_STYLE_META
+
 export interface EditableProductContext {
   productDescription: string
   targetMarket: string
