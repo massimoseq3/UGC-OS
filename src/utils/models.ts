@@ -545,10 +545,10 @@ export const MODEL_REGISTRY: ModelEntry[] = [
   // and 1 trimmed source video clip — all sharing a 7-slot quota
   // (images×1 + video×2 + characters×1 ≤ 7). Audio is always baked into the
   // output (no generate_audio toggle). Docs: https://docs.kie.ai/market/gemini-omni-video
-  // Pricing (user-verified from kie playground, 2026-06-12): per-call,
-  // duration-tiered — 720p/1080p: 4s=90 / 6s=120 / 8s=150 / 10s=180; 4k adds
-  // +120. With a video input, duration is model-decided and billing is flat:
-  // 240 (720p/1080p) or 360 (4k).
+  // Pricing (from kie docs, 2026-07-01): per-call, duration-tiered —
+  // 720p/1080p: 4s=63 / 6s=84 / 8s=105 / 10s=126; 4k adds +84. With a video
+  // input, duration is model-decided and billing is flat: 168 (720p/1080p) or
+  // 252 (4k).
   {
     id: 'gemini-omni-video',
     displayName: 'Gemini Omni',
@@ -560,15 +560,15 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     omniInputs: true,
     pricing: {
       unit: 'per-call',
-      credits: 150,
+      credits: 105,
       priceFor: ({ durationSeconds = 8, resolution = '720p', videoInput = false }) => {
         const is4k = resolution === '4k'
-        if (videoInput) return is4k ? 360 : 240
+        if (videoInput) return is4k ? 252 : 168
         const base =
-          durationSeconds >= 10 ? 180 :
-          durationSeconds >= 8 ? 150 :
-          durationSeconds >= 6 ? 120 : 90
-        return is4k ? base + 120 : base
+          durationSeconds >= 10 ? 126 :
+          durationSeconds >= 8 ? 105 :
+          durationSeconds >= 6 ? 84 : 63
+        return is4k ? base + 84 : base
       },
     },
     videoEndpoint: 'createTask',
