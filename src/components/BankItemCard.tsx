@@ -1,4 +1,4 @@
-import { Package, UserRound, Mic, Film } from 'lucide-react'
+import { Package, UserRound, Mic, Film, Star } from 'lucide-react'
 import type { Product, Model, Script, VoicePreset, BRoll } from '../stores/types'
 import type { BankType } from '../utils/constants'
 import { useAssetUrl } from '../hooks/useAssetUrl'
@@ -48,6 +48,7 @@ export default function BankItemCard({ bankType, item, onClick, selected, accent
         fallbackAspect="aspect-[9/16]"
         name={m.name || 'Untitled Influencer'}
         centerName
+        starred={m.starred}
         onClick={onClick}
         selected={selected}
         selectedStyle={accentSelected}
@@ -64,6 +65,7 @@ export default function BankItemCard({ bankType, item, onClick, selected, accent
         fallbackAspect="aspect-square"
         name={p.productName || 'Untitled Product'}
         centerName
+        starred={p.starred}
         onClick={onClick}
         selected={selected}
         selectedStyle={accentSelected}
@@ -81,6 +83,7 @@ export default function BankItemCard({ bankType, item, onClick, selected, accent
         fallbackAspect="aspect-video"
         name={b.prompt || 'Untitled B-Roll'}
         sublabel={`${b.imageUrl ? 'Still' : 'Video only'}${videoCount > 0 ? ` · ${videoCount} clip${videoCount === 1 ? '' : 's'}` : ''}`}
+        starred={b.starred}
         onClick={onClick}
         selected={selected}
         selectedStyle={accentSelected}
@@ -129,6 +132,7 @@ function ScriptCard({ item, onClick, selected, accentColor }: { item: Script; on
           : 'border-ink/5 bg-ink/[0.03] hover:border-ink/15 hover:-translate-y-px'
       }`}
     >
+      {item.starred && <StarBadge className="right-2 top-2" />}
       <div className="flex flex-col gap-1.5">
         <span className={`w-fit rounded-full border px-2 py-0.5 text-[8px] font-semibold tracking-widest ${badge.className}`}>
           {badge.label}
@@ -145,6 +149,16 @@ function ScriptCard({ item, onClick, selected, accentColor }: { item: Script; on
   )
 }
 
+// Small amber star marker for starred (pinned) items — picker cards only;
+// the Bank browser renders its own interactive star in the hover stack.
+function StarBadge({ className }: { className: string }) {
+  return (
+    <span className={`pointer-events-none absolute z-10 flex h-5 w-5 items-center justify-center rounded-full bg-black/50 backdrop-blur-sm ${className}`}>
+      <Star className="h-3 w-3 fill-amber-300 text-amber-300" strokeWidth={2} />
+    </span>
+  )
+}
+
 // Full image card — shows the asset at its natural aspect ratio with a
 // gradient name overlay, mirroring the Bank browser's influencer/product cards.
 function ImageCard({
@@ -154,6 +168,7 @@ function ImageCard({
   name,
   sublabel,
   centerName,
+  starred,
   onClick,
   selected,
   selectedStyle,
@@ -165,6 +180,7 @@ function ImageCard({
   name: string
   sublabel?: string
   centerName?: boolean
+  starred?: boolean
   onClick: () => void
   selected?: boolean
   selectedStyle?: React.CSSProperties
@@ -179,6 +195,7 @@ function ImageCard({
         selected ? '' : 'border-ink/5 bg-ink/[0.03] hover:border-ink/15 hover:-translate-y-px'
       }`}
     >
+      {starred && <StarBadge className="left-2 top-2" />}
       {resolvedUrl ? (
         <img
           src={resolvedUrl}

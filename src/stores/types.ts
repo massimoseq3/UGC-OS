@@ -13,6 +13,8 @@ export interface Product {
   // undefined → legacy (no dot), false → draft (orange dot),
   // true → user-confirmed via Save (green dot).
   confirmed?: boolean
+  // User-pinned favourite. Starred items surface first in the bank pickers.
+  starred?: boolean
 }
 
 export interface Model {
@@ -30,6 +32,8 @@ export interface Model {
   // attached from a sheet generation in Influencers. Kept alongside the
   // portrait so downstream apps can prefer it as a consistency reference.
   sheetImage?: string
+  // User-pinned favourite. Starred items surface first in the bank pickers.
+  starred?: boolean
   createdAt: number
 }
 
@@ -43,6 +47,8 @@ export interface Script {
   // reverse-engineered reconstruction prompt ('reverse-engineer').
   // Drives the SCRIPT/PROMPT badge in the Scripts bank.
   kind?: 'remix' | 'reverse-engineer'
+  // User-pinned favourite. Starred items surface first in the bank pickers.
+  starred?: boolean
   createdAt: number
 }
 
@@ -80,6 +86,8 @@ export interface BRoll {
   // Missing on legacy entries (pre-2026-05); treated as 'playground' for
   // gallery filter purposes.
   sourceApp?: 'broll-studio' | 'playground'
+  // User-pinned favourite. Starred items surface first in the bank pickers.
+  starred?: boolean
   createdAt: number
 }
 

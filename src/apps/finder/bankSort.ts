@@ -38,6 +38,17 @@ export function sortByOrder<T extends { createdAt: number }>(items: T[], order: 
   return arr
 }
 
+// Stable partition: starred items first, original order preserved within each
+// half. Applied on top of the user's chosen sort in the bank pickers so pinned
+// items always surface at the top of the slide-over. Unconstrained generic (not
+// `T extends { starred?: boolean }`) so bank-item unions containing types
+// without the field (VoicePreset) still pass through untouched.
+export function starredFirst<T>(items: T[]): T[] {
+  const isStarred = (it: T) => !!(it as { starred?: boolean }).starred
+  if (!items.some(isStarred)) return items
+  return [...items.filter(isStarred), ...items.filter((it) => !isStarred(it))]
+}
+
 export function useBankSort(bankType: BankType): [SortOrder, (v: SortOrder) => void, { value: SortOrder; label: string }[] | null] {
   const [productsSort, setProductsSort] = usePersistedState<SortOrder>('finder:sort:products', 'newest')
   const [modelsSort, setModelsSort] = usePersistedState<SortOrder>('finder:sort:models', 'newest')
