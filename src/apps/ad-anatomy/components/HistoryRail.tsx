@@ -61,10 +61,15 @@ export default function HistoryRail({ items, selectedId, onSelect, onDelete, onN
 
   return (
     <div className="flex h-full w-[280px] shrink-0 flex-col border-r border-ink/5">
-      {/* Search sits in the top header band; h-[57px] pushes the border-box
-          bottom border down to y=56 so it lines up with the sidebar header
-          divider, matching the toggle bands in the other tabs. */}
-      <div className="flex h-[57px] shrink-0 items-center border-b border-ink/5 px-3">
+      {/* New analysis lives at the top of the rail, above the search field. */}
+      <div className="flex shrink-0 flex-col gap-2.5 border-b border-ink/5 p-3">
+        <button
+          onClick={onNew}
+          className="flex w-full items-center justify-center gap-2 rounded-full border border-white/15 bg-[#FF5257] px-4 py-2.5 text-[13px] font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] btn-soft-shadow transition-colors hover:bg-[#FF5257]/90"
+        >
+          <Plus className="h-4 w-4" strokeWidth={2.5} />
+          New Analysis
+        </button>
         <div className="relative w-full">
           <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-500" />
           <input
@@ -109,18 +114,6 @@ export default function HistoryRail({ items, selectedId, onSelect, onDelete, onN
             ))}
           </div>
         )}
-      </div>
-
-      {/* New analysis — action footer, mirroring the bottom Generate button in
-          the other tabs. */}
-      <div className="shrink-0 border-t border-ink/5 p-3">
-        <button
-          onClick={onNew}
-          className="flex w-full items-center justify-center gap-2 rounded-full border border-white/15 bg-[#FF5257] px-4 py-3 text-sm font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] btn-soft-shadow transition-colors hover:bg-[#FF5257]/90"
-        >
-          <Plus className="h-4 w-4" strokeWidth={2.5} />
-          New analysis
-        </button>
       </div>
     </div>
   )

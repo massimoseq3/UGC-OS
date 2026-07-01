@@ -5,7 +5,6 @@ import ResultsView from './components/ResultsView'
 import HistoryRail from './components/HistoryRail'
 import type { AnalysisResult } from './types'
 import type { AdAnatomyHistoryItem } from '../../stores/types'
-import GenerationProgress from '../../components/GenerationProgress'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
 import { useAssetUrl } from '../../hooks/useAssetUrl'
 import { saveAsset, deleteAsset } from '../../utils/assetStore'
@@ -220,16 +219,16 @@ function AnalyzingPane({ item }: { item: AdAnatomyHistoryItem }) {
     <div className="flex h-full flex-col items-center justify-center gap-6 px-6 py-8">
       <div className="flex flex-col items-center gap-1 text-center">
         <h2 className="text-xl font-semibold tracking-tight text-ink-100">
-          Analysing your ad
+          Analyzing the ad
         </h2>
         {item.fileName && (
-          <p className="max-w-md truncate text-xs text-ink-500">{item.fileName}</p>
+          <p className="max-w-md truncate text-[11px] text-ink-600">{item.fileName}</p>
         )}
       </div>
 
       {(sourceUrl || thumbUrl) && (
         <div
-          className="relative max-h-80 max-w-72 overflow-hidden rounded-xl border border-[#FF5257]/30 shadow-[0_0_40px_-10px_rgba(255,82,87,0.6)]"
+          className="relative max-h-80 max-w-72 overflow-hidden rounded-2xl border border-ink/10 shadow-[0_0_90px_-28px_rgba(255,82,87,0.45)]"
           style={{ aspectRatio: '9 / 16' }}
         >
           {sourceUrl ? (
@@ -237,25 +236,22 @@ function AnalyzingPane({ item }: { item: AdAnatomyHistoryItem }) {
           ) : (
             <img src={thumbUrl!} alt="" className="h-full w-full object-cover" />
           )}
-          {/* Scanning bar */}
-          <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          {/* Scanning sweep — a soft glow band trailing a crisp leading line
+              that travels top→bottom. Deliberately understated. */}
+          <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
             <div
-              className="absolute inset-x-0 h-1/3 -top-1/3 bg-gradient-to-b from-transparent via-[#FF5257]/50 to-transparent"
-              style={{ animation: 'broll-scanner 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite' }}
-            />
+              className="absolute inset-x-0 -top-1/4 h-1/4"
+              style={{ animation: 'ad-scan 2.8s cubic-bezier(0.4, 0, 0.6, 1) infinite' }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent to-[#FF5257]/10" />
+              <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[#FF5257]/60 to-transparent" />
+            </div>
           </div>
-          <div className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-[#FF5257]/20" />
+          <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/5" />
         </div>
       )}
 
       <div className="flex w-full max-w-md flex-col items-center gap-3">
-        <GenerationProgress
-          isActive
-          color="bg-[#FF5257]"
-          messages={['Preparing ad for analysis...', 'Sending request...', 'Dissecting the ad...', 'Compiling results...']}
-          showHelper={false}
-          className="w-full"
-        />
         <div className="flex min-h-[60px] w-full items-start gap-2 rounded-xl border border-ink/5 bg-ink/[0.02] px-3.5 py-3">
           <span className="mt-0.5 shrink-0 rounded-full bg-[#FF5257]/15 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest text-[#FF5257]/80">
             Did you know
@@ -268,10 +264,9 @@ function AnalyzingPane({ item }: { item: AdAnatomyHistoryItem }) {
       </div>
 
       <style>{`
-        @keyframes broll-scanner {
+        @keyframes ad-scan {
           0% { transform: translateY(0); }
-          50% { transform: translateY(300%); }
-          100% { transform: translateY(0); }
+          100% { transform: translateY(500%); }
         }
         @keyframes fade-in {
           from { opacity: 0; transform: translateY(2px); }
