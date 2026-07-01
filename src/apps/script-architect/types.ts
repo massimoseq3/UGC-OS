@@ -12,12 +12,6 @@ export type WriteStyle =
   | 'before-after'
   | 'demo'
   | 'comparison'
-  | 'pov'
-  | 'day-in-life'
-  | 'grwm'
-  | 'tutorial'
-  | 'whats-in-bag'
-  | 'tiktok-made-me'
 
 // 'script' → spoken words only (→ Voiceovers). 'scenes' → scene-by-scene
 // visual blueprint with the dialogue embedded ([CHARACTER]/[PRODUCT] tokens,
@@ -39,12 +33,6 @@ export const WRITE_STYLE_META: Record<WriteStyle, { label: string; hint: string 
   'before-after': { label: 'Before & After', hint: 'Transformation with a real timeframe' },
   demo: { label: 'Unboxing / Demo', hint: 'First-impressions reaction energy' },
   comparison: { label: 'Us vs Them', hint: 'The usual stuff vs this one' },
-  pov: { label: 'POV', hint: '"POV: you finally found the one"' },
-  'day-in-life': { label: 'Day in My Life', hint: 'Routine vlog, product slots into the day' },
-  grwm: { label: 'GRWM (Get Ready With Me)', hint: 'Talk to camera while you get ready' },
-  tutorial: { label: 'How-To / Tutorial', hint: '"How I got X" — teach it in steps' },
-  'whats-in-bag': { label: "What's In My Bag", hint: 'Roundup of faves, product as the standout' },
-  'tiktok-made-me': { label: 'TikTok Made Me Buy It', hint: '"Okay I finally caved" — hype verdict' },
 }
 
 export interface EditableProductContext {

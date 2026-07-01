@@ -446,9 +446,9 @@ export default function InputPanel({
           value={mode}
           onChange={onModeChange}
           options={[
-            { value: 'write', label: 'Write New', icon: PenLine },
             { value: 'remix', label: 'Remix Script', icon: FileText },
             { value: 'reverse-engineer', label: 'Remix Scenes', icon: Clapperboard },
+            { value: 'write', label: 'Write New', icon: PenLine },
           ]}
         />
       </div>
