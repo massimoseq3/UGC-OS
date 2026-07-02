@@ -108,7 +108,7 @@ export default function GenerateBar({
         className="h-12 !p-1"
         options={[
           { value: 'portrait', label: 'Portrait', icon: UserRound },
-          { value: 'sheet', label: 'Influencer Sheet', icon: LayoutGrid },
+          { value: 'sheet', label: 'Character Sheet', icon: LayoutGrid },
         ]}
       />
       {/* Model picker + resolution / aspect chips split the row into two equal
@@ -185,7 +185,7 @@ export default function GenerateBar({
       >
         {sheetMode ? <LayoutGrid className="h-4 w-4" strokeWidth={2.5} /> : <UserRound className="h-4 w-4" strokeWidth={2.5} />}
         <span>
-          {sheetMode ? 'Generate Influencer Sheet' : 'Generate Influencer'}
+          {sheetMode ? 'Generate Character Sheet' : 'Generate Character'}
           {inFlightCount > 0 && ` · ${inFlightCount} running`}
         </span>
         {creditsLabel && (

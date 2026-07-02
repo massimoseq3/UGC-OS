@@ -34,7 +34,7 @@ export default function InfluencerLightbox({
   async function handleDownload() {
     if (!url) return
     const resolved = (await getUrl(imageRef)) ?? url
-    await downloadImage(resolved, `${isSheet ? 'character-sheet' : 'influencer'}-${imageRef}`)
+    await downloadImage(resolved, `${isSheet ? 'character-sheet' : 'character'}-${imageRef}`)
   }
   async function handleCopy() {
     if (await copyToClipboard(prompt)) {
@@ -80,7 +80,7 @@ export default function InfluencerLightbox({
           {isSheet && (
             <span className="flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-white/80">
               <LayoutGrid className="h-3 w-3" strokeWidth={2} />
-              Influencer Sheet
+              Character Sheet
             </span>
           )}
           {prompt && (

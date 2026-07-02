@@ -663,7 +663,7 @@ export function ReferenceSlotCard({
 }: {
   icon: React.ReactNode
   accentClass: string
-  kind: 'Influencer' | 'Product'
+  kind: 'Character' | 'Product'
   name?: string | null
   imageRef?: string | null
   onClick: () => void

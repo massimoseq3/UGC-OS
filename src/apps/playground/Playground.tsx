@@ -318,7 +318,7 @@ export default function Playground() {
       const hasImg = refsSnapshot.some((r) => r.slot === 'motion-image')
       const hasVid = refsSnapshot.some((r) => r.slot === 'motion-video')
       if (!hasImg || !hasVid) {
-        addToast('Motion Control needs an influencer image and a driving video.', 'error')
+        addToast('Motion Control needs a character image and a driving video.', 'error')
         return
       }
     }

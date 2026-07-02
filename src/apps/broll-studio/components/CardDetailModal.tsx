@@ -477,7 +477,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                       <ReferenceSlotCard
                         icon={<User className="h-4 w-4 text-influencers-400 light:text-influencers-600" />}
                         accentClass="bg-influencers-500/15 text-influencers-400 light:text-influencers-600"
-                        kind="Influencer"
+                        kind="Character"
                         name={selectedModel?.name}
                         imageRef={selectedModel?.characterImage}
                         onClick={() => onOpenCharacterPicker?.()}
@@ -512,7 +512,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                     )}
                     {hasActiveRef && refsUnsupportedForVideo && (
                       <p className="mt-2 text-[11px] leading-relaxed text-gold-400/80 light:text-gold-600/80">
-                        {videoModelName} doesn't support reference images — this will generate text-to-video only. Pick Veo 3.1 Fast or Seedance 2.0 to use your influencer/product.
+                        {videoModelName} doesn't support reference images — this will generate text-to-video only. Pick Veo 3.1 Fast or Seedance 2.0 to use your character/product.
                       </p>
                     )}
                   </div>

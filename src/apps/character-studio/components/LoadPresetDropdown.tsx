@@ -90,7 +90,7 @@ export function PresetPickerSlideOver({
   open,
   onClose,
   onPick,
-  title = 'Influencer Presets',
+  title = 'Character Presets',
   subtitle = 'Pick a recipe to fill the form',
 }: {
   open: boolean
@@ -168,7 +168,7 @@ export default function LoadPresetDropdown({ onLoadProfile }: LoadPresetDropdown
         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-influencers-500/10 text-influencers-400">
           <UserRound className="h-3.5 w-3.5" />
         </span>
-        <div className="min-w-0 flex-1 truncate text-[14px] font-medium text-ink-100">Influencer Preset</div>
+        <div className="min-w-0 flex-1 truncate text-[14px] font-medium text-ink-100">Character Presets</div>
         <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" strokeWidth={2} />
       </button>
 

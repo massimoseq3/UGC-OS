@@ -298,7 +298,7 @@ function ModelCard({ item, onEdit, onDelete }: { item: Model; onEdit: () => void
             {item.jsonProfile && (
               <button
                 onClick={handleCopy}
-                title={copied ? 'Copied!' : 'Copy influencer prompt (JSON)'}
+                title={copied ? 'Copied!' : 'Copy character prompt (JSON)'}
                 className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white opacity-0 backdrop-blur transition-all hover:bg-black/50 group-hover:opacity-100"
               >
                 {copied ? <Check className="h-3.5 w-3.5 text-emerald-300" /> : <Copy className="h-3.5 w-3.5" />}
@@ -537,14 +537,14 @@ export default function BankList({ bankType, onEdit, onAdd, sort, modelFilter = 
   }
 
   if (bankType === 'models') {
-    if (models.length === 0) return <EmptyState icon={UserRound} label="influencers" singular="influencer" onAdd={onAdd} />
+    if (models.length === 0) return <EmptyState icon={UserRound} label="characters" singular="character" onAdd={onAdd} />
     // Sub-filter: portraits have no sheetImage, sheets do.
     const filtered =
       modelFilter === 'portraits' ? models.filter((m) => !m.sheetImage)
       : modelFilter === 'sheets' ? models.filter((m) => !!m.sheetImage)
       : models
     if (filtered.length === 0) {
-      const label = modelFilter === 'sheets' ? 'influencer sheets' : 'portraits'
+      const label = modelFilter === 'sheets' ? 'character sheets' : 'portraits'
       return (
         <div className="flex flex-col items-center justify-center gap-2 py-20 text-center">
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-ink/[0.04]">

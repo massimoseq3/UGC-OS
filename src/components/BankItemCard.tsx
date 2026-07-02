@@ -46,7 +46,7 @@ export default function BankItemCard({ bankType, item, onClick, selected, accent
         src={m.characterImage}
         fallback={UserRound}
         fallbackAspect="aspect-[9/16]"
-        name={m.name || 'Untitled Influencer'}
+        name={m.name || 'Untitled Character'}
         centerName
         starred={m.starred}
         onClick={onClick}

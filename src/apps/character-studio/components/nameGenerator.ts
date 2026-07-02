@@ -32,10 +32,11 @@ export function pickInfluencerName(gender?: string): string {
   return pool[Math.floor(Math.random() * pool.length)]
 }
 
-// A character sheet files next to its source portrait — same influencer name
-// with a " - Influencer Sheet" suffix. Strips an existing suffix first so a
-// sheet-of-a-sheet doesn't stack it (e.g. "Mia - Influencer Sheet").
+// A character sheet files next to its source portrait — same character name
+// with a " - Character Sheet" suffix. Strips an existing suffix first so a
+// sheet-of-a-sheet doesn't stack it (e.g. "Mia - Character Sheet"). Also strips
+// the legacy "Influencer Sheet" suffix so re-sheeting an older entry is clean.
 export function sheetNameFrom(baseName: string): string {
-  const clean = baseName.replace(/\s*-\s*Influencer Sheet\s*$/i, '').trim()
-  return `${clean} - Influencer Sheet`
+  const clean = baseName.replace(/\s*-\s*(Character|Influencer) Sheet\s*$/i, '').trim()
+  return `${clean} - Character Sheet`
 }
