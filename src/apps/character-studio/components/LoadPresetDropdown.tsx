@@ -81,6 +81,65 @@ function flattenJsonProfile(json: unknown): Record<string, string> {
   return out
 }
 
+// Shared right slide-over listing the built-in starters + the user's saved
+// bank recipes. Calls `onPick` with the chosen recipe as a flat profile map,
+// then closes. Callers decide what to do with that map: apply it wholesale
+// (LoadPresetDropdown) or merge only a subset of keys (the scoped Physical /
+// Scene & Pose preset buttons in ControlsPanel).
+export function PresetPickerSlideOver({
+  open,
+  onClose,
+  onPick,
+  title = 'Influencer Presets',
+  subtitle = 'Pick a recipe to fill the form',
+}: {
+  open: boolean
+  onClose: () => void
+  onPick: (profile: Record<string, string>) => void
+  title?: string
+  subtitle?: string
+}) {
+  const bankModels = useBankStore((s) => s.models)
+
+  const pick = (incoming: CharacterProfile | Record<string, string>) => {
+    onPick(incoming)
+    onClose()
+  }
+
+  return (
+    <SlideOver open={open} onClose={onClose} title={title} subtitle={subtitle}>
+      <div className="p-3">
+        <div className="px-1 pb-2 pt-0.5 text-[9px] font-semibold uppercase tracking-widest text-ink-500">
+          Starters
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {BUILTIN_PRESETS.map((p) => (
+            <PresetCard key={p.id} name={p.name} imageUrl={p.image} onClick={() => pick(p.profile)} />
+          ))}
+        </div>
+        {bankModels.filter((m) => m.jsonProfile).length > 0 && (
+          <>
+            <div className="mx-1 mt-4 border-t border-ink/10" />
+            <div className="px-1 pb-2 pt-3 text-[9px] font-semibold uppercase tracking-widest text-ink-500">
+              Bank
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {bankModels.filter((m) => m.jsonProfile).map((m: Model) => (
+                <PresetCard
+                  key={m.id}
+                  imageRef={m.characterImage}
+                  name={m.name}
+                  onClick={() => m.jsonProfile && pick(flattenJsonProfile(m.jsonProfile))}
+                />
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    </SlideOver>
+  )
+}
+
 interface LoadPresetDropdownProps {
   onLoadProfile: (profile: CharacterProfile) => void
 }
@@ -89,15 +148,14 @@ interface LoadPresetDropdownProps {
 // (File name kept from the dropdown era so call sites stay stable.)
 export default function LoadPresetDropdown({ onLoadProfile }: LoadPresetDropdownProps) {
   const [open, setOpen] = useState(false)
-  const bankModels = useBankStore((s) => s.models)
 
-  const apply = (incoming: CharacterProfile | Record<string, string>) => {
+  // Full apply — replace the whole form with the picked recipe.
+  const apply = (incoming: Record<string, string>) => {
     const next = createEmptyProfile()
     for (const [key, value] of Object.entries(incoming)) {
       if (key in next && typeof value === 'string') next[key] = value
     }
     onLoadProfile(next)
-    setOpen(false)
   }
 
   return (
@@ -110,45 +168,11 @@ export default function LoadPresetDropdown({ onLoadProfile }: LoadPresetDropdown
         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-influencers-500/10 text-influencers-400">
           <UserRound className="h-3.5 w-3.5" />
         </span>
-        <div className="min-w-0 flex-1 truncate text-[14px] font-medium text-ink-100">Select Influencer Preset</div>
+        <div className="min-w-0 flex-1 truncate text-[14px] font-medium text-ink-100">Influencer Preset</div>
         <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" strokeWidth={2} />
       </button>
 
-      <SlideOver
-        open={open}
-        onClose={() => setOpen(false)}
-        title="Influencer Presets"
-        subtitle="Pick a recipe to fill the form"
-      >
-        <div className="p-3">
-          <div className="px-1 pb-2 pt-0.5 text-[9px] font-semibold uppercase tracking-widest text-ink-500">
-            Starters
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            {BUILTIN_PRESETS.map((p) => (
-              <PresetCard key={p.id} name={p.name} imageUrl={p.image} onClick={() => apply(p.profile)} />
-            ))}
-          </div>
-          {bankModels.filter((m) => m.jsonProfile).length > 0 && (
-            <>
-              <div className="mx-1 mt-4 border-t border-ink/10" />
-              <div className="px-1 pb-2 pt-3 text-[9px] font-semibold uppercase tracking-widest text-ink-500">
-                Bank
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                {bankModels.filter((m) => m.jsonProfile).map((m: Model) => (
-                  <PresetCard
-                    key={m.id}
-                    imageRef={m.characterImage}
-                    name={m.name}
-                    onClick={() => m.jsonProfile && apply(flattenJsonProfile(m.jsonProfile))}
-                  />
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      </SlideOver>
+      <PresetPickerSlideOver open={open} onClose={() => setOpen(false)} onPick={apply} />
     </>
   )
 }
