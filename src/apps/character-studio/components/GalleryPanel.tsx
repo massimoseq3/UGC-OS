@@ -120,7 +120,7 @@ export default function GalleryPanel({
           <p className="text-sm text-ink-500">No generations yet</p>
           <p className="max-w-[300px] text-xs leading-relaxed text-ink-600">
             Configure parameters on the left and hit Generate.
-            Every influencer you make lands here, sorted by day.
+            Every character you make lands here, sorted by day.
           </p>
         </div>
       ) : (
@@ -370,7 +370,7 @@ function useHistoryTileActions(item: CharacterHistoryItem, onDelete: () => void 
   async function handleDownload() {
     const resolved = await getUrl(item.imageRef)
     if (!resolved) return
-    await downloadImage(resolved, `${isSheet ? 'character-sheet' : 'influencer'}-${item.id}`)
+    await downloadImage(resolved, `${isSheet ? 'character-sheet' : 'character'}-${item.id}`)
   }
 
   return {
@@ -420,7 +420,7 @@ function NameEditor({
           if (e.key === 'Enter') { e.preventDefault(); onCommit() }
           if (e.key === 'Escape') { e.preventDefault(); onCancel() }
         }}
-        placeholder="Name this influencer"
+        placeholder="Name this character"
         disabled={saving}
         className={`min-w-0 flex-1 bg-transparent text-[11px] font-medium focus:outline-none ${
           dark ? 'text-zinc-100 placeholder:text-zinc-500' : 'text-ink-100 placeholder:text-ink-500'
@@ -560,7 +560,7 @@ function SourceBadge({ isSheet, savedAsModel }: { isSheet: boolean; savedAsModel
   if (isSheet) {
     return (
       <div
-        title={savedAsModel ? 'Sheet saved to Influencers bank' : 'Influencer sheet'}
+        title={savedAsModel ? 'Sheet saved to Characters bank' : 'Character sheet'}
         className={`absolute left-1.5 top-1.5 flex h-6 items-center gap-1 rounded-full px-2 text-[9px] font-medium backdrop-blur ${
           savedAsModel ? 'bg-emerald-500/30 text-emerald-100' : 'bg-black/60 text-zinc-200'
         }`}
@@ -574,7 +574,7 @@ function SourceBadge({ isSheet, savedAsModel }: { isSheet: boolean; savedAsModel
   if (savedAsModel) {
     return (
       <div
-        title="Saved to Influencers bank"
+        title="Saved to Characters bank"
         className="absolute left-1.5 top-1.5 flex h-6 items-center gap-1 rounded-full bg-emerald-500/30 px-2 text-[9px] font-medium text-emerald-100 backdrop-blur"
       >
         <Bookmark className="h-3 w-3" strokeWidth={2} />
@@ -715,7 +715,7 @@ function InFlightRow({ gen, mediaAspect, onCancel }: { gen: InFlightCharacterGen
         <span className="text-[12px] font-semibold tracking-wide text-influencers-200">
           {getModel(gen.modelId)?.displayName ?? gen.modelId}
         </span>
-        <span className="text-[11px] text-ink-500">{gen.kind === 'sheet' ? 'Influencer sheet' : 'Influencer'}</span>
+        <span className="text-[11px] text-ink-500">{gen.kind === 'sheet' ? 'Character sheet' : 'Character'}</span>
       </div>
     </div>
   )

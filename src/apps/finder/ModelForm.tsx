@@ -255,7 +255,7 @@ export default function ModelForm({ item, onSave, onCancel }: ModelFormProps) {
   )
   const savedDate = item?.createdAt ? new Date(item.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : null
   const metaParts = [
-    'Influencer',
+    'Character',
     savedDate ? `Saved ${savedDate}` : null,
   ].filter(Boolean)
 
@@ -303,7 +303,7 @@ export default function ModelForm({ item, onSave, onCancel }: ModelFormProps) {
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Unnamed influencer"
+              placeholder="Unnamed character"
               className="w-full bg-transparent text-3xl font-semibold tracking-tight text-ink-100 placeholder-ink-700 outline-none border-b border-transparent transition-colors focus:border-ink/15 py-1"
             />
             <p className="text-xs text-ink-500">{metaParts.join(' · ')}</p>
@@ -315,7 +315,7 @@ export default function ModelForm({ item, onSave, onCancel }: ModelFormProps) {
             className="flex items-center justify-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-ink-900 transition-colors hover:bg-ink-100 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-            {saving ? 'Saving…' : (item ? 'Save Changes' : 'Add Influencer')}
+            {saving ? 'Saving…' : (item ? 'Save Changes' : 'Add Character')}
           </button>
 
           {profile && (
@@ -340,7 +340,7 @@ export default function ModelForm({ item, onSave, onCancel }: ModelFormProps) {
             <div>
               <div className="mb-3 flex items-center gap-2.5">
                 <span className="block h-3 w-[3px] rounded-full bg-influencers-400/40" />
-                <h4 className="text-[11px] font-medium uppercase tracking-widest text-ink-400">Influencer Sheet</h4>
+                <h4 className="text-[11px] font-medium uppercase tracking-widest text-ink-400">Character Sheet</h4>
                 <span className="ml-1 h-px flex-1 bg-ink/5" />
               </div>
               <div className="relative group/sheet overflow-hidden rounded-3xl border border-ink/5 bg-ink/[0.02]">
@@ -372,7 +372,7 @@ export default function ModelForm({ item, onSave, onCancel }: ModelFormProps) {
               out as one continuous scroll. */}
           {tabs.length === 0 && other.length === 0 ? (
             <p className="py-8 text-center text-xs text-ink-500">
-              {item ? 'No DNA on file for this influencer.' : 'DNA will appear here after generating from Influencers.'}
+              {item ? 'No DNA on file for this character.' : 'DNA will appear here after generating from Characters.'}
             </p>
           ) : (
             <div className="flex flex-col gap-10">

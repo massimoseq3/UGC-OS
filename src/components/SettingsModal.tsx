@@ -380,7 +380,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                         This permanently deletes every file in your cloud storage that no item in your banks or history references. Anything you generated but never saved (or whose history entry you've since cleared) will be removed and cannot be recovered.
                       </p>
                       <p className="text-amber-200/90">
-                        Before continuing, make sure anything you want to keep — Playground generations, B-Roll variations, influencers, voiceovers, music — has been saved to its bank.
+                        Before continuing, make sure anything you want to keep — Playground generations, B-Roll variations, characters, voiceovers, music — has been saved to its bank.
                       </p>
                     </div>
                   </div>

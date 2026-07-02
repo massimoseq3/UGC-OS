@@ -173,7 +173,7 @@ const PLAYGROUND_SOURCE = 'playground' as const
 export async function ensureOmniCharacterId(bankModelId: string): Promise<string> {
   const bank = useBankStore.getState()
   const model = bank.models.find((m) => m.id === bankModelId)
-  if (!model) throw new Error('Influencer not found in bank — it may have been deleted.')
+  if (!model) throw new Error('Character not found in bank — it may have been deleted.')
   if (model.omniCharacterId) return model.omniCharacterId
 
   const apiKey = useSettingsStore.getState().getKieApiKey()
@@ -332,7 +332,7 @@ export async function startPlaygroundVideoTask(
     motionImageUrl = await hosted(input.motionImageUrl)
     motionVideoUrl = await hosted(input.motionVideoUrl)
     if (!motionImageUrl || !motionVideoUrl) {
-      throw new Error('Motion Control needs both an influencer image and a driving video. Re-attach them and try again.')
+      throw new Error('Motion Control needs both a character image and a driving video. Re-attach them and try again.')
     }
   }
 

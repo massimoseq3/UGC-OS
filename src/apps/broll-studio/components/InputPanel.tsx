@@ -151,7 +151,7 @@ function ModelCard({ model }: { model: Model }) {
       )}
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-ink-200">{model.name}</p>
-        <p className="truncate text-[11px] text-ink-500">Influencer</p>
+        <p className="truncate text-[11px] text-ink-500">Character</p>
       </div>
     </div>
   )
@@ -221,7 +221,7 @@ export default function InputPanel({
           {/* Character */}
           <BankCard
             icon={UserRound}
-            label="Influencer"
+            label="Character"
             accentClass="bg-influencers-500/15 text-influencers-400"
             selectedClass="border-influencers-500/30 bg-influencers-500/[0.06] hover:bg-influencers-500/10"
             isEmpty={!selectedModel}

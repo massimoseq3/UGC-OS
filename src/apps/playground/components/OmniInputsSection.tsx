@@ -115,7 +115,7 @@ export default function OmniInputsSection({ refs, onChangeRefs }: OmniInputsSect
   async function handleClipFile(file: File | null) {
     if (!file) return
     if (quotaUsed + 2 > 7) {
-      addToast('The source clip needs 2 free slots — remove images or influencers first.', 'error')
+      addToast('The source clip needs 2 free slots — remove images or characters first.', 'error')
       return
     }
     const dataUri = await fileToDataUri(file)

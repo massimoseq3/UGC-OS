@@ -32,7 +32,7 @@ function csvCell(v: string | number): string {
 function downloadMembersCsv(rows: MemberRow[]) {
   const header = [
     'Name', 'Email', 'Status', 'Admin', 'Joined', 'Last active', 'Days inactive',
-    'Storage bytes', 'Assets', 'Products', 'Influencers', 'Scripts', 'Voices',
+    'Storage bytes', 'Assets', 'Products', 'Characters', 'Scripts', 'Voices',
     'B-rolls', 'Voiceovers', 'Videos', 'Assets last 7d',
   ]
   const lines = rows.map((r) => [

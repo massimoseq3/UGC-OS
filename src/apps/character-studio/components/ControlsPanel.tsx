@@ -236,14 +236,14 @@ export default function ControlsPanel({
                 center={
                   tabIndex === 0 ? (
                     <PresetPillButton
-                      label="Physical Preset"
+                      label="Physical Presets"
                       title="Load only the physical fields from a preset"
                       icon={TAB_ICONS.physical}
                       onClick={() => setPhysicalPresetOpen(true)}
                     />
                   ) : (
                     <PresetPillButton
-                      label="Scene & Pose Preset"
+                      label="Scene & Pose Presets"
                       title="Load only the scene & pose fields from a preset"
                       icon={TAB_ICONS.scene}
                       onClick={() => setScenePresetOpen(true)}

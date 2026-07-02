@@ -23,7 +23,7 @@ const SHEET_MESSAGES = [
 ]
 const PORTRAIT_MESSAGES = [
   'Sending request...',
-  'Composing the influencer...',
+  'Composing the character...',
   'Rendering details...',
   'Finalizing the frame...',
 ]

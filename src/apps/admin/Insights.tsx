@@ -7,7 +7,7 @@ const DAY = 24 * 60 * 60_000
 // Per-bank accent hexes (mirror of BANK_CONFIG, plus a videos tint).
 const BANK_BARS: Array<{ key: keyof MemberRow; label: string; color: string }> = [
   { key: 'products', label: 'Products', color: '#f59e0b' },
-  { key: 'models', label: 'Influencers', color: '#F74F9E' },
+  { key: 'models', label: 'Characters', color: '#F74F9E' },
   { key: 'scripts', label: 'Scripts', color: '#F05A24' },
   { key: 'voices', label: 'Voices', color: '#007AFF' },
   { key: 'brolls', label: 'B-Rolls', color: '#7165FF' },

@@ -457,7 +457,7 @@ export async function seedMockData(): Promise<void> {
     // Influencers (models) — last one carries a character sheet.
     for (let i = 0; i < INFLUENCERS.length; i++) {
       const m = INFLUENCERS[i]
-      const portrait = await makeImageAsset({ w: 768, h: 1365, from: m.from, to: m.to, label: m.name, sub: 'INFLUENCER' })
+      const portrait = await makeImageAsset({ w: 768, h: 1365, from: m.from, to: m.to, label: m.name, sub: 'CHARACTER' })
       const isSheet = i === INFLUENCERS.length - 1
       const sheet = isSheet
         ? await makeImageAsset({ w: 1365, h: 768, from: m.from, to: m.to, label: `${m.name} — Sheet`, sub: 'turnaround · expressions · full body' })

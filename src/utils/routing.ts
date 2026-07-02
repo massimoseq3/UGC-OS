@@ -6,7 +6,7 @@ export const DEFAULT_SLUG = 'bank'
 
 const APP_ID_TO_SLUG: Record<string, string> = {
   'finder': 'bank',
-  'character-studio': 'influencers',
+  'character-studio': 'ugc-characters',
   'script-architect': 'scripts',
   'voice-studio': 'voiceovers',
   'broll-studio': 'broll',
@@ -17,9 +17,10 @@ const APP_ID_TO_SLUG: Record<string, string> = {
 
 const SLUG_TO_APP_ID: Record<string, string> = {
   ...Object.fromEntries(Object.entries(APP_ID_TO_SLUG).map(([id, slug]) => [slug, id])),
-  // Legacy alias from before the Characters → Influencers rebrand so old
-  // bookmarks keep resolving.
+  // Legacy aliases from before the Characters → Influencers → UGC Characters
+  // rebrands so old bookmarks keep resolving.
   'characters': 'character-studio',
+  'influencers': 'character-studio',
 }
 
 export function getSlugForAppId(appId: string | null): string | null {

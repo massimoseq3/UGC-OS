@@ -78,13 +78,13 @@ export default function MentionPopover({ query, onSelect }: MentionPopoverProps)
             </Section>
           )}
           {matchedCharacters.length > 0 && (
-            <Section label="Influencers" icon={UserRound}>
+            <Section label="Characters" icon={UserRound}>
               {matchedCharacters.map((c) => (
                 <MentionRow
                   key={c.id}
                   imageRef={c.characterImage}
                   title={c.name}
-                  subtitle="Influencer"
+                  subtitle="Character"
                   onClick={() => onSelect({ kind: 'character', item: c as Character })}
                 />
               ))}

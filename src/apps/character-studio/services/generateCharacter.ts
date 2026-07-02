@@ -274,7 +274,7 @@ export async function startCharacterEditTask(opts: {
   let modelId = opts.modelIdOverride
     ?? useSettingsStore.getState().getAppModel('character-studio:image:text-to-image')
     ?? getDefaultModel('character-studio', 'image', 'text-to-image')?.id
-  if (!modelId) throw new Error('No image model configured for Influencers.')
+  if (!modelId) throw new Error('No image model configured for Characters.')
   modelId = resolveImageToImageModel(modelId)
 
   const inputUrls: string[] = []

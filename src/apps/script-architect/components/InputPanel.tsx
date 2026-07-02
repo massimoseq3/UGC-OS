@@ -438,7 +438,7 @@ export default function InputPanel({
               <span className="truncate text-sm font-medium tracking-tight text-ink-200">
                 {selectedInfluencer.name}
               </span>
-              <span className="truncate text-[11px] text-ink-500">Influencer</span>
+              <span className="truncate text-[11px] text-ink-500">Character</span>
             </div>
             <div className="flex shrink-0 items-center gap-1">
               <span className="hidden items-center rounded-md px-2 py-0.5 text-ink-500 group-hover:flex">
@@ -447,8 +447,8 @@ export default function InputPanel({
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onInfluencerSelect(null) }}
-                title="Remove influencer"
-                aria-label="Remove influencer"
+                title="Remove character"
+                aria-label="Remove character"
                 className="flex h-6 w-6 items-center justify-center rounded-full text-ink-500 transition-colors hover:bg-ink/5 hover:text-red-400 light:hover:text-red-600"
               >
                 <X className="h-3.5 w-3.5" />
@@ -467,7 +467,7 @@ export default function InputPanel({
                 <UserRound className="h-5 w-5 text-scripts-400" />
               </div>
               <div className="flex min-w-0 flex-1 flex-col">
-                <span className="text-sm font-medium text-ink-300">Influencer</span>
+                <span className="text-sm font-medium text-ink-300">Character</span>
                 <span className="text-xs text-ink-600">Optional · adds a consistent face</span>
               </div>
               <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" />
@@ -478,7 +478,7 @@ export default function InputPanel({
                 <UserRound className="h-5 w-5 text-ink-700" />
               </div>
               <div className="flex flex-col">
-                <span className="text-sm text-ink-500">No influencers yet</span>
+                <span className="text-sm text-ink-500">No characters yet</span>
                 <button
                   onClick={handleOpenInfluencerFinder}
                   className="text-left text-xs text-scripts-400 transition-colors hover:text-scripts-300"

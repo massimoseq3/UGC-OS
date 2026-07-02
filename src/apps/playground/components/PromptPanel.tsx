@@ -895,7 +895,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
               </div>
               {!isMotionControl && (
                 <p className="mt-2 text-[11px] text-ink-500">
-                  Tip: type <span className="font-medium text-ink-400">@</span> to reference Products, Influencers, B-Rolls, or a Script.
+                  Tip: type <span className="font-medium text-ink-400">@</span> to reference Products, Characters, B-Rolls, or a Script.
                 </p>
               )}
             </div>

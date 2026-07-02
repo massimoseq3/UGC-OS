@@ -359,7 +359,7 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
       )
       const assetId = await finishCharacterTask(taskId, modelId)
       recordOutput(assetId, 'sheet', sheetAspect)
-      addToast('Influencer sheet generated', 'success')
+      addToast('Character sheet generated', 'success')
     } catch (err) {
       addToast(humanizeError(err, 'Sheet generation failed. Check your API key and try again.'), 'error')
     } finally {
@@ -425,7 +425,7 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
 
   async function handleDownload(output: SessionOutput) {
     const url = await getUrl(output.imageRef)
-    if (url) await downloadImage(url, `${output.kind === 'sheet' ? 'character-sheet' : 'influencer'}-${output.id}`)
+    if (url) await downloadImage(url, `${output.kind === 'sheet' ? 'character-sheet' : 'character'}-${output.id}`)
   }
 
   const creditsLabel = imageModelId
@@ -468,8 +468,8 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
                 onChange={handleModeChange}
                 accent="influencers"
                 options={[
-                  { value: 'edit', label: 'Edit Influencer', icon: Pencil },
-                  { value: 'sheet', label: 'Influencer Sheet', icon: LayoutGrid },
+                  { value: 'edit', label: 'Edit Character', icon: Pencil },
+                  { value: 'sheet', label: 'Character Sheet', icon: LayoutGrid },
                 ]}
               />
 
@@ -602,7 +602,7 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
               ) : (
                 /* Sheet mode — no prompt; the sheet is built from the source. */
                 <div className="flex grow flex-col">
-                  <span className="text-sm font-medium text-ink-200">Reference influencer</span>
+                  <span className="text-sm font-medium text-ink-200">Reference character</span>
                   <div className="mt-2 flex items-center gap-3 rounded-full border border-ink/10 bg-ink/[0.02] px-3 py-2">
                     <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border border-ink/10 bg-black">
                       {selectedUrl
@@ -611,11 +611,11 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
                     </div>
                     <div className="min-w-0">
                       <p className="truncate text-[13px] font-medium text-ink-100">{influencerName}</p>
-                      <p className="text-[11px] text-ink-500">Influencer</p>
+                      <p className="text-[11px] text-ink-500">Character</p>
                     </div>
                   </div>
                   <p className="mt-2 text-[11px] leading-relaxed text-ink-500">
-                    Builds a turnaround + expressions sheet from this influencer — same face, neutral studio background. Pick a different output on the right to change the source.
+                    Builds a turnaround + expressions sheet from this character — same face, neutral studio background. Pick a different output on the right to change the source.
                   </p>
                 </div>
               )}
@@ -709,7 +709,7 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
                   className="flex w-full items-center justify-center gap-2.5 rounded-full border border-white/15 bg-influencers-500 px-7 py-4 text-sm font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-all hover:bg-influencers-400 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <LayoutGrid className="h-4 w-4" />}
-                  {generating ? 'Generating influencer sheet…' : 'Generate Influencer Sheet'}
+                  {generating ? 'Generating character sheet…' : 'Generate Character Sheet'}
                   {!generating && creditsLabel && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight">
                       <Coins className="h-3 w-3" strokeWidth={2} />
@@ -920,7 +920,7 @@ function OutputTile({
               if (e.key === 'Enter') { e.preventDefault(); commitSave() }
               if (e.key === 'Escape') { e.preventDefault(); setNameDraft(null) }
             }}
-            placeholder="Name this influencer"
+            placeholder="Name this character"
             disabled={saving}
             className="min-w-0 flex-1 bg-transparent text-[11px] font-medium text-zinc-100 placeholder:text-zinc-500 focus:outline-none"
           />

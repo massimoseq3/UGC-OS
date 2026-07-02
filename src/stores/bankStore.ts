@@ -371,7 +371,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       return next
     })
     pushRow('models', newModel)
-    reportSuccess('Influencer saved')
+    reportSuccess('Character saved')
   },
 
   updateModel: async (id, updates) => {
@@ -393,7 +393,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       return next
     })
     pushRow('models', updated)
-    reportSuccess('Influencer updated')
+    reportSuccess('Character updated')
   },
 
   deleteModel: async (id) => {
@@ -413,7 +413,7 @@ export const useBankStore = create<BankState>((set, get) => ({
     if (item.sheetImage && !get().characterHistory.some((h) => h.imageRef === item.sheetImage)) {
       void cleanupAssets(item.sheetImage)
     }
-    reportSuccess('Influencer deleted')
+    reportSuccess('Character deleted')
   },
 
   getModelById: (id) => get().models.find((m) => m.id === id),
@@ -865,7 +865,7 @@ export const useBankStore = create<BankState>((set, get) => ({
     // Only purge the asset blob if it isn't referenced by a saved Model.
     // The Model owns the image once saved; the history row is just an index.
     if (!item.linkedModelId) void cleanupAssets(item.imageRef)
-    reportSuccess('Influencer removed from history')
+    reportSuccess('Character removed from history')
   },
 
   clearCharacterHistory: async () => {
@@ -879,7 +879,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       dropRow('characterHistory', item.id)
       if (!item.linkedModelId) void cleanupAssets(item.imageRef)
     }
-    reportSuccess('Influencer history cleared')
+    reportSuccess('Character history cleared')
   },
 
   // ── Ad Anatomy History (Ad Analyzer) ────────────────────────────

@@ -286,7 +286,7 @@ function VariationCard({
   const handleSendCinematic = () => {
     const refs: CinematicHandoffRef[] = []
     if (productImage) refs.push({ url: productImage, label: productName ?? 'product', source: 'product', slot: 'ref' })
-    if (influencerImage) refs.push({ url: influencerImage, label: influencerName ?? 'influencer', source: 'character', slot: 'ref' })
+    if (influencerImage) refs.push({ url: influencerImage, label: influencerName ?? 'character', source: 'character', slot: 'ref' })
 
     const resolved = text
       .replace(/@INFLUENCER(?:_IMAGE)?\d*/gi, influencerName || 'the reference character')
