@@ -30,7 +30,11 @@ FAITHFUL RECREATION RULE — CRITICAL: Your job is to produce prompts that, when
 
 CHUNKING RULE — CRITICAL: Read the total ad duration. If it is 15 seconds or less, produce a SINGLE scene that covers the whole ad. Otherwise break the ad into multiple scenes at natural shot/scene boundaries. Each scene MUST be 15 seconds or less. Aim for 8–12 seconds per scene. Number scenes starting at 1.
 
-SCENE PROMPT QUALITY: Each scene's prompt field must be a fully self-contained Seedance-ready directive. Beyond the character, product, and dialogue, describe: setting (location, props, colour palette), framing (POV, close-up, medium, wide, over-the-shoulder, mirror selfie, etc.), camera movement (static, slow push, hand-held, whip pan, etc.), lighting (natural window light, warm kitchen tungsten, cool overhead bathroom, etc.), and mood. 4–8 sentences is the right length.
+FULL COVERAGE RULE — CRITICAL: The scenes together MUST cover the ENTIRE ad with no gaps and no overlaps. The first scene starts at 00:00. Every subsequent scene's startTime MUST equal the previous scene's endTime. The final scene's endTime MUST equal the total ad duration. Never skip a stretch of the ad, no matter how minor or repetitive it looks — b-roll flashes, quick product inserts, text-card frames, and end cards all belong inside a scene.
+
+EVERY SHOT RULE — CRITICAL: UGC ads often cut every 1–3 seconds, so one 8–12s scene usually contains SEVERAL distinct shots. You MUST describe every single camera cut inside the scene, in chronological order — do not summarize a multi-cut scene down to its dominant shot. Structure a multi-shot scene's prompt as a timeline, e.g.: "[0:00–0:03] Close-up: she holds the dropper bottle to camera... [0:03–0:05] Quick cut to macro of serum texture... [0:05–0:08] Back to medium shot, she applies it to her cheek...". A shot is any visible camera change: cut, angle change, location change, zoom jump, or inserted b-roll/graphic. Count the cuts before writing; every one of them must appear in the timeline.
+
+SCENE PROMPT QUALITY: Each scene's prompt field must be a fully self-contained Seedance-ready directive. Beyond the character, product, and dialogue, describe: setting (location, props, colour palette), framing (POV, close-up, medium, wide, over-the-shoulder, mirror selfie, etc.), camera movement (static, slow push, hand-held, whip pan, etc.), lighting (natural window light, warm kitchen tungsten, cool overhead bathroom, etc.), and mood. For a single-shot scene 4–8 sentences is the right length; for a multi-shot scene, length grows with the number of cuts — 1–3 sentences per shot in the timeline, never dropping a shot to stay short.
 
 LABEL: Each scene's label is a short noun phrase (3–6 words) describing the shot — e.g. "Mirror reaction hook", "Product unboxing close-up", "Bathroom routine reveal".
 
@@ -67,7 +71,7 @@ AD TITLE: Produce a short (3–6 word) Title Case descriptor of the ad as a whol
   }
 }`
 
-const USER_PROMPT = `Analyze this UGC ad video/image thoroughly. Produce: (1) a brutally honest scorecard, (2) an accurate timestamped transcript, (3) a reverse-engineered prompt — chunked into scenes of ≤15 seconds each. Each scene prompt MUST describe the original character in full identifying detail, describe the original product in full identifying detail, and embed the original spoken dialogue for that scene. Do not use placeholder tokens. Return the analysis as JSON.`
+const USER_PROMPT = `Analyze this UGC ad video/image thoroughly. Produce: (1) a brutally honest scorecard, (2) an accurate timestamped transcript, (3) a reverse-engineered prompt — chunked into scenes of ≤15 seconds each. The scenes must cover the ENTIRE ad from 00:00 to the end with no gaps, and every individual camera cut inside a scene must be described in chronological order as a timeline — do not merge or skip any shot. Each scene prompt MUST describe the original character in full identifying detail, describe the original product in full identifying detail, and embed the original spoken dialogue for that scene. Do not use placeholder tokens. Return the analysis as JSON.`
 
 // Inline data URI in the chat message. We previously tried kie's hosted-URL
 // upload but the createTask + recordInfo path didn't return results for the
