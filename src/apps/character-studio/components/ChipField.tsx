@@ -13,6 +13,10 @@ interface ChipFieldProps {
   // When true, the field starts locked: input is read-only and the dropdown
   // stays closed. User can click Unlock to edit.
   defaultLocked?: boolean
+  // Widen the dropdown beyond the (half-width) input and let options wrap
+  // instead of truncating — for fields with long, sentence-length presets that
+  // still want to sit half-width in the grid (e.g. Skin & Realism).
+  wideMenu?: boolean
 }
 
 // A value this long no longer fits the single-line pill — surface the expand
@@ -37,7 +41,7 @@ const detailedFirst = (arr: string[]) => [
 // flips before it kisses the boundary.
 const PANEL_MAX_HEIGHT = 240
 
-export default function ChipField({ label, value, onChange, suggestions, placeholder, defaultLocked = false }: ChipFieldProps) {
+export default function ChipField({ label, value, onChange, suggestions, placeholder, defaultLocked = false, wideMenu = false }: ChipFieldProps) {
   const isFilled = value.trim() !== ''
   const [locked, setLocked] = useState(defaultLocked)
   // The dropdown opens on click (focus) and closes on blur — no hover-open, so
@@ -185,17 +189,19 @@ export default function ChipField({ label, value, onChange, suggestions, placeho
             // a row or dragging the scrollbar must not blur the input (which would
             // race the menu shut mid-scroll). The pick handlers close it explicitly.
             onMouseDown={(e) => e.preventDefault()}
-            className={`absolute left-0 right-0 z-30 ${panelPos} overflow-hidden rounded-2xl border border-ink/10 bg-surface-2 shadow-2xl`}
+            // wideMenu drops right-0 and spans two grid columns (2× the field +
+            // the gap-x-3) so a half-width field's long presets stay readable.
+            className={`absolute z-30 ${wideMenu ? 'left-0 w-[calc(200%+0.75rem)]' : 'left-0 right-0'} ${panelPos} overflow-hidden rounded-2xl border border-ink/10 bg-surface-2 shadow-2xl`}
           >
             <div ref={listRef} onScroll={updateFade} className="max-h-52 overflow-y-auto overscroll-contain menu-scroll p-1">
               {topSection.map((s) => (
-                <SuggestionRow key={s} text={s} selected={s === value} starred={isDetailed(s)} onPick={() => { onChange(s); setOpen(false) }} />
+                <SuggestionRow key={s} text={s} selected={s === value} starred={isDetailed(s)} wrap={wideMenu} onPick={() => { onChange(s); setOpen(false) }} />
               ))}
               {topSection.length > 0 && restSection.length > 0 && (
                 <div className="mx-2 my-1 h-px bg-ink/[0.08]" />
               )}
               {restSection.map((s) => (
-                <SuggestionRow key={s} text={s} selected={s === value} starred={isDetailed(s)} onPick={() => { onChange(s); setOpen(false) }} />
+                <SuggestionRow key={s} text={s} selected={s === value} starred={isDetailed(s)} wrap={wideMenu} onPick={() => { onChange(s); setOpen(false) }} />
               ))}
             </div>
             {/* "More below" cue — fades out the last row when the list overflows
@@ -242,17 +248,17 @@ export default function ChipField({ label, value, onChange, suggestions, placeho
   )
 }
 
-function SuggestionRow({ text, selected, starred, onPick }: { text: string; selected: boolean; starred: boolean; onPick: () => void }) {
+function SuggestionRow({ text, selected, starred, wrap = false, onPick }: { text: string; selected: boolean; starred: boolean; wrap?: boolean; onPick: () => void }) {
   return (
     <button
       type="button"
       onClick={onPick}
-      className={`flex w-full items-center gap-1.5 rounded-full px-3 py-1.5 text-left text-[12px] transition-colors ${
-        selected ? 'bg-ink/[0.08] text-ink-100' : 'text-ink-300 hover:bg-ink/[0.06]'
-      }`}
+      className={`flex w-full gap-1.5 px-3 py-1.5 text-left text-[12px] transition-colors ${
+        wrap ? 'items-start rounded-xl' : 'items-center rounded-full'
+      } ${selected ? 'bg-ink/[0.08] text-ink-100' : 'text-ink-300 hover:bg-ink/[0.06]'}`}
     >
-      {starred && <Star className="h-3 w-3 shrink-0 fill-influencers-400 text-influencers-400" />}
-      <span className="truncate">{text}</span>
+      {starred && <Star className={`h-3 w-3 shrink-0 fill-influencers-400 text-influencers-400 ${wrap ? 'mt-0.5' : ''}`} />}
+      <span className={wrap ? 'whitespace-normal leading-snug' : 'truncate'}>{text}</span>
     </button>
   )
 }

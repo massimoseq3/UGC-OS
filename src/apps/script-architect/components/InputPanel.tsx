@@ -118,6 +118,19 @@ export default function InputPanel({
   }
   const canUndoBrief = briefIndex > 0
   const canRedoBrief = briefIndex < briefHistory.length - 1
+  // Additional Context (remix modes) gets the same Enhance / Clear / Undo / Redo
+  // controls as the brief — a parallel local history stack, synced the same way.
+  const [isEnhancingContext, setIsEnhancingContext] = useState(false)
+  const [contextHistory, setContextHistory] = useState<string[]>([additionalContext])
+  const [contextIndex, setContextIndex] = useState(0)
+  const [contextSync, setContextSync] = useState(additionalContext)
+  if (additionalContext !== contextSync) {
+    setContextSync(additionalContext)
+    setContextHistory([additionalContext])
+    setContextIndex(0)
+  }
+  const canUndoContext = contextIndex > 0
+  const canRedoContext = contextIndex < contextHistory.length - 1
   const products = useBankStore((s) => s.products)
   const models = useBankStore((s) => s.models)
   const updateProduct = useBankStore((s) => s.updateProduct)
@@ -220,6 +233,54 @@ export default function InputPanel({
       addToast(humanizeError(err, 'Enhance failed.'), 'error')
     } finally {
       setIsEnhancing(false)
+    }
+  }
+
+  // Additional Context controls — mirror the brief handlers above.
+  const setContext = (next: string) => {
+    setContextSync(next)
+    onAdditionalContextChange(next)
+  }
+  const handleContextType = (next: string) => setContext(next)
+  const pushContextHistory = (next: string, base = contextHistory, baseIndex = contextIndex) => {
+    const nextHistory = [...base.slice(0, baseIndex + 1), next]
+    setContextHistory(nextHistory)
+    setContextIndex(nextHistory.length - 1)
+    setContext(next)
+  }
+  const commitContextDraft = () => {
+    if (additionalContext !== contextHistory[contextIndex]) pushContextHistory(additionalContext)
+  }
+  const handleContextClear = () => {
+    if (!additionalContext.trim()) return
+    pushContextHistory('')
+  }
+  const handleContextUndo = () => {
+    if (contextIndex <= 0) return
+    const i = contextIndex - 1
+    setContextIndex(i)
+    setContext(contextHistory[i])
+  }
+  const handleContextRedo = () => {
+    if (contextIndex >= contextHistory.length - 1) return
+    const i = contextIndex + 1
+    setContextIndex(i)
+    setContext(contextHistory[i])
+  }
+  const handleEnhanceContext = async () => {
+    if (isEnhancingContext) return
+    if (!additionalContext.trim()) return
+    const committed = additionalContext !== contextHistory[contextIndex]
+      ? [...contextHistory.slice(0, contextIndex + 1), additionalContext]
+      : contextHistory.slice(0, contextIndex + 1)
+    setIsEnhancingContext(true)
+    try {
+      const rewritten = await enhanceBrief(additionalContext)
+      pushContextHistory(rewritten, committed, committed.length - 1)
+    } catch (err) {
+      addToast(humanizeError(err, 'Enhance failed.'), 'error')
+    } finally {
+      setIsEnhancingContext(false)
     }
   }
 
@@ -555,7 +616,7 @@ export default function InputPanel({
             <div className="mt-3 mb-6 flex min-h-0 flex-1 flex-col">
               <div className="mb-3 flex items-center gap-2">
                 <StepLabel
-                  label="Describe Your Video"
+                  label="Describe Your Ad"
                   optional
                   tooltip="What should this video say or focus on? Vibe, angle, key points — anything goes. Leave it blank and the model will come up with the angle for you."
                 />
@@ -641,10 +702,10 @@ export default function InputPanel({
                 <textarea
                   value={source}
                   onChange={(e) => { onSourceChange(e.target.value); setSourceScript(null) }}
-                  rows={8}
+                  rows={6}
                   placeholder={'…or paste a proven ad transcript, or a scene blueprint from Ad Analyzer — the format is detected automatically.'}
                   className={`w-full grow resize-none border-0 bg-transparent px-4 py-3 leading-relaxed text-ink-200 outline-none ${
-                    isBlueprint ? 'min-h-[200px] overflow-y-auto font-mono text-xs placeholder-ink-700' : 'min-h-[160px] text-sm placeholder-ink-600'
+                    isBlueprint ? 'min-h-[150px] overflow-y-auto font-mono text-xs placeholder-ink-700' : 'min-h-[120px] text-sm placeholder-ink-600'
                   }`}
                 />
                 <ExpandButton onClick={() => setExpandedField('source')} className="absolute bottom-2 right-2" />
@@ -681,18 +742,67 @@ export default function InputPanel({
             remix / scene-rewrite modes. */}
         {mode !== 'write' && (
           <div className="mb-6">
-            <StepLabel label="Additional Context" optional />
-            <div className="relative mt-2">
+            <div className="mb-2 flex items-center gap-2">
+              <StepLabel label="Additional Context" optional />
+            </div>
+            {/* Single rounded box (matches the Write New brief): the textarea
+                grows, with Enhance / Clear / Undo / Redo + Expand attached in a
+                footer under a hairline. */}
+            <div className="relative flex flex-col overflow-hidden rounded-3xl border border-ink/10 bg-ink/[0.02] transition-colors focus-within:border-scripts-500/30">
               <textarea
                 value={additionalContext}
-                onChange={(e) => onAdditionalContextChange(e.target.value)}
-                rows={3}
+                onChange={(e) => handleContextType(e.target.value)}
+                onBlur={commitContextDraft}
                 placeholder={blueprintActive
                   ? "Additional context for the rewrite (e.g. 'Keep tone playful', 'Make the CTA softer')..."
                   : "Additional context for this script (e.g. 'Focus on the self-cleaning feature', 'Summer campaign tone')..."}
-                className="w-full rounded-2xl border border-ink/10 bg-ink/[0.02] px-4 py-3 text-sm text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-scripts-500/30 resize-none"
+                className="min-h-[160px] w-full resize-none border-0 bg-transparent px-4 py-3 text-sm leading-relaxed text-ink-200 placeholder-ink-600 outline-none"
               />
-              <ExpandButton onClick={() => setExpandedField('additionalContext')} className="absolute bottom-2 right-2" />
+              {/* Footer toolbar — Enhance + Clear + Undo/Redo bottom-left;
+                  Expand bottom-right (mirrors the Describe Your Ad field). */}
+              <div className="flex items-center justify-between gap-2 border-t border-ink/10 px-2 py-1.5">
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    title="Enhance prompt"
+                    onClick={handleEnhanceContext}
+                    disabled={isEnhancingContext || !additionalContext.trim()}
+                    className="flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium text-ink-400 transition-colors hover:bg-scripts-500/10 hover:text-scripts-300 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {isEnhancingContext ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                    Enhance Prompt
+                  </button>
+                  <button
+                    type="button"
+                    title="Clear prompt"
+                    onClick={handleContextClear}
+                    disabled={isEnhancingContext || !additionalContext.trim()}
+                    className="flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Eraser className="h-3 w-3" />
+                    Clear Prompt
+                  </button>
+                  <button
+                    type="button"
+                    title="Undo"
+                    onClick={handleContextUndo}
+                    disabled={!canUndoContext || isEnhancingContext}
+                    className="flex h-6 w-6 items-center justify-center rounded-full text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    <Undo2 className="h-3 w-3" />
+                  </button>
+                  <button
+                    type="button"
+                    title="Redo"
+                    onClick={handleContextRedo}
+                    disabled={!canRedoContext || isEnhancingContext}
+                    className="flex h-6 w-6 items-center justify-center rounded-full text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    <Redo2 className="h-3 w-3" />
+                  </button>
+                </div>
+                <ExpandButton onClick={() => setExpandedField('additionalContext')} />
+              </div>
             </div>
           </div>
         )}
@@ -819,7 +929,7 @@ export default function InputPanel({
         onClose={() => { commitBriefDraft(); setExpandedField(null) }}
         value={brief}
         onChange={handleBriefType}
-        title="Describe Your Video"
+        title="Describe Your Ad"
         accent="scripts"
         placeholder="What should this video say or focus on? Vibe, angle, key points…"
       />
@@ -835,9 +945,9 @@ export default function InputPanel({
       />
       <ExpandTextModal
         open={expandedField === 'additionalContext'}
-        onClose={() => setExpandedField(null)}
+        onClose={() => { commitContextDraft(); setExpandedField(null) }}
         value={additionalContext}
-        onChange={onAdditionalContextChange}
+        onChange={handleContextType}
         title="Additional Context"
         accent="scripts"
         placeholder="Additional context for this generation…"
@@ -864,7 +974,7 @@ function StepLabel({ label, tooltip, optional }: { label: string; tooltip?: stri
       <span className={tooltip ? 'underline decoration-dotted decoration-ink-600 underline-offset-4' : ''}>
         {label}
       </span>
-      {optional && <span className="ml-1.5 font-normal text-ink-500">— optional</span>}
+      {optional && <span className="ml-2 inline-block rounded-full bg-ink/5 px-2 py-0.5 align-middle text-[10px] font-medium uppercase tracking-wide text-ink-500">optional</span>}
       {tooltip && hover && (
         <span
           role="tooltip"
