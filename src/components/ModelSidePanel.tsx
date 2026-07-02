@@ -10,6 +10,7 @@ import {
   TAG_STYLES,
   type Task,
   type Mode,
+  type Tag,
   type ModelEntry,
   type CostEstimateParams,
 } from '../utils/models'
@@ -22,6 +23,31 @@ import ProviderLogo from './ProviderLogo'
 // through the SAME settingsStore key as ModelPicker (`appId:task[:mode]`), so
 // the two pickers stay interchangeable — swapping one for the other keeps the
 // user's saved choice.
+
+// Host-app accent for the selected-row tint and check/star icons. Explicit
+// class strings (not template interpolation) so Tailwind sees them; the
+// 100–400 tints auto-flip in light mode, so no `light:` variants needed.
+const ACCENTS: Record<string, { selectedBg: string; icon: string; star: string }> = {
+  'broll-studio': {
+    selectedBg: 'bg-broll-500/10',
+    icon: 'text-broll-400',
+    star: 'fill-broll-400 text-broll-400',
+  },
+  playground: {
+    selectedBg: 'bg-playground-500/15',
+    icon: 'text-playground-300',
+    star: 'fill-playground-300 text-playground-300',
+  },
+}
+
+// Non-recommended tags render as small colored words (no pill chrome) — same
+// hues as TAG_STYLES, text only. Recommended is carried by the star icon.
+const TAG_TEXT: Record<Tag, string> = {
+  recommended: 'text-emerald-300 light:text-emerald-700',
+  new: 'text-fuchsia-300 light:text-fuchsia-700',
+  fast: 'text-sky-300 light:text-sky-700',
+  cheap: 'text-ink-400',
+}
 interface ModelSidePanelProps {
   appId: string
   task: Task
@@ -61,6 +87,7 @@ export default function ModelSidePanel({
   const [search, setSearch] = useState('')
   const searchRef = useRef<HTMLInputElement>(null)
   const isDesktop = useIsDesktop()
+  const accent = ACCENTS[appId] ?? ACCENTS['broll-studio']
 
   const models = listModels({ task, mode })
   const fallback = getDefaultModel(appId, task, mode)
@@ -131,83 +158,88 @@ export default function ModelSidePanel({
           </div>
         )}
 
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-ink/5 px-5 py-3.5">
-          <h3 className="text-sm font-semibold tracking-tight text-ink-200">Video Model</h3>
+        {/* Header — no full-bleed border; the search block below does the
+            visual separating with whitespace alone. */}
+        <div className="flex items-start justify-between px-5 pb-2 pt-5">
+          <div className="min-w-0">
+            <h3 className="text-[15px] font-semibold tracking-tight text-ink-100">Video Model</h3>
+            <p className="mt-0.5 text-[11px] text-ink-600">{models.length} models available</p>
+          </div>
           <button
             onClick={onClose}
-            className="rounded-full p-2 lg:p-1 text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-300"
+            className="-mr-1 -mt-1 rounded-full p-2 text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-300"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
         {/* Search */}
-        <div className="flex items-center gap-2 border-b border-ink/5 px-4 py-3">
-          <div className="flex h-10 flex-1 items-center gap-2 rounded-full border border-ink/10 bg-ink/[0.03] px-3.5 focus-within:border-broll-500/40">
+        <div className="px-4 pb-2">
+          <div className="flex h-10 items-center gap-2.5 rounded-full bg-ink/[0.05] px-4 transition-colors focus-within:bg-ink/[0.08]">
             <Search className="h-3.5 w-3.5 shrink-0 text-ink-600" />
             <input
               ref={searchRef}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search..."
+              placeholder="Search models"
               className="w-full bg-transparent text-sm text-ink-200 placeholder-ink-600 outline-none"
             />
           </div>
         </div>
 
-        {/* Model list */}
-        <div className="flex-1 overflow-y-auto px-4 py-3">
+        {/* Model list — quiet rows, no per-model chrome. Rows breathe via
+            their own padding; sections separate with labels, not borders. */}
+        <div className="flex-1 overflow-y-auto px-2.5 pb-3 pt-1">
           {filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-1 py-12 text-center">
               <span className="text-sm text-ink-600">No matches found</span>
               <span className="text-xs text-ink-700">Try a different search</span>
             </div>
           ) : (
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col">
               {featured.length > 0 && (
-                <div className="flex flex-col gap-1.5">
-                  <span className="px-1 text-[11px] font-semibold uppercase tracking-tight text-ink-600">
-                    Featured models
+                <span className="px-3.5 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-wider text-ink-600">
+                  Featured
+                </span>
+              )}
+              {featured.map((m) => (
+                <ModelRow
+                  key={`feat-${m.id}`}
+                  model={m}
+                  active={m.id === resolved}
+                  muted={requireMode ? !m.modes?.includes(requireMode) : false}
+                  credits={formatCredits(estimateCredits(m.id, costParams))}
+                  accent={accent}
+                  onClick={() => pick(m.id)}
+                />
+              ))}
+              {featured.length > 0 && rest.length > 0 && (
+                <div className="flex items-center gap-3 px-3.5 pb-1.5 pt-3">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-600">
+                    All models
                   </span>
-                  {featured.map((m) => (
-                    <ModelCard
-                      key={`feat-${m.id}`}
-                      model={m}
-                      active={m.id === resolved}
-                      muted={requireMode ? !m.modes?.includes(requireMode) : false}
-                      credits={formatCredits(estimateCredits(m.id, costParams))}
-                      onClick={() => pick(m.id)}
-                    />
-                  ))}
+                  <span className="h-px flex-1 bg-ink/10" />
                 </div>
               )}
-              {rest.length > 0 && (
-                <div className="flex flex-col gap-1.5">
-                  {featured.length > 0 && (
-                    <span className="px-1 text-[11px] font-semibold uppercase tracking-tight text-ink-600">
-                      All models
-                    </span>
-                  )}
-                  {rest.map((m) => (
-                    <ModelCard
-                      key={m.id}
-                      model={m}
-                      active={m.id === resolved}
-                      muted={requireMode ? !m.modes?.includes(requireMode) : false}
-                      credits={formatCredits(estimateCredits(m.id, costParams))}
-                      onClick={() => pick(m.id)}
-                    />
-                  ))}
-                </div>
-              )}
+              {rest.map((m) => (
+                <ModelRow
+                  key={m.id}
+                  model={m}
+                  active={m.id === resolved}
+                  muted={requireMode ? !m.modes?.includes(requireMode) : false}
+                  credits={formatCredits(estimateCredits(m.id, costParams))}
+                  accent={accent}
+                  onClick={() => pick(m.id)}
+                />
+              ))}
             </div>
           )}
         </div>
 
-        {/* Footer — requireMode caveat, mirrors ModelPicker's dropdown footer. */}
+        {/* Footer — requireMode caveat, mirrors ModelPicker's dropdown footer.
+            Inset hairline, not full-bleed. */}
         {showRequireNote && (
-          <p className="border-t border-ink/5 px-4 py-3 text-[11px] leading-relaxed text-ink-500">
+          <p className="mx-4 border-t border-ink/10 px-1 py-3 text-[11px] leading-relaxed text-ink-500">
             {requireModeNote}
           </p>
         )}
@@ -218,34 +250,35 @@ export default function ModelSidePanel({
   return createPortal(panel, portalTarget)
 }
 
-interface ModelCardProps {
+interface ModelRowProps {
   model: ModelEntry
   active: boolean
   muted: boolean
   credits: string | null
+  accent: (typeof ACCENTS)[string]
   onClick: () => void
 }
 
-function ModelCard({ model, active, muted, credits, onClick }: ModelCardProps) {
+function ModelRow({ model, active, muted, credits, accent, onClick }: ModelRowProps) {
   const isRecommended = model.tags.includes('recommended')
+  const textTags = model.tags.filter((t) => t !== 'recommended')
   const c = model.videoConstraints
-  // Resolution chip: min → max range (ascending, e.g. "480p–1080p"), or a single
-  // tier. Per-call models with no duration toggle (durations === []) show "per
-  // clip" instead of a range.
-  const resolutionChip = c?.resolutions.length
+  // Metadata line: resolution range (ascending, e.g. "480p–1080p") · duration
+  // range · credit estimate, dot-joined plain text. Per-call models with no
+  // duration toggle (durations === []) read "per clip".
+  const resolution = c?.resolutions.length
     ? c.resolutions.length > 1
       ? `${videoResolutionLabel(c.resolutions[0])}–${videoResolutionLabel(c.resolutions[c.resolutions.length - 1])}`
       : videoResolutionLabel(c.resolutions[0])
     : null
-  const durationChip = c
+  const duration = c
     ? c.durations.length > 1
-      ? `${c.durations[0]}s–${c.durations[c.durations.length - 1]}s`
+      ? `${c.durations[0]}–${c.durations[c.durations.length - 1]}s`
       : c.durations.length === 1
       ? `${c.durations[0]}s`
       : 'per clip'
     : null
-  const hasSpecs = !!(resolutionChip || durationChip || credits)
-  const hasMeta = model.tags.length > 0 || hasSpecs
+  const meta = [resolution, duration, credits].filter(Boolean).join(' · ')
 
   return (
     <button
@@ -253,54 +286,30 @@ function ModelCard({ model, active, muted, credits, onClick }: ModelCardProps) {
       onClick={onClick}
       disabled={muted}
       aria-disabled={muted}
-      className={`flex w-full flex-col gap-2 rounded-[1.75rem] border px-3.5 py-3 text-left transition-colors ${
+      className={`flex w-full items-center gap-3 rounded-full px-3.5 py-2.5 text-left transition-colors ${
         muted
-          ? 'cursor-not-allowed border-ink/10 bg-ink/[0.01] opacity-30 grayscale'
+          ? 'cursor-not-allowed opacity-30 grayscale'
           : active
-          ? 'border-broll-500/50 bg-broll-500/10'
-          : 'border-ink/10 bg-ink/[0.02] hover:bg-ink/[0.05]'
+          ? accent.selectedBg
+          : 'hover:bg-ink/[0.04]'
       }`}
     >
-      <div className="flex items-center gap-2.5">
-        <ProviderLogo provider={model.provider} />
-        <div className="flex min-w-0 flex-1 items-center gap-1.5">
+      <ProviderLogo provider={model.provider} />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
           <span className={`truncate text-[13px] font-semibold text-ink-100 ${muted ? 'line-through decoration-ink-400' : ''}`}>{model.displayName}</span>
           {isRecommended && (
-            <Star className="h-3 w-3 shrink-0 fill-broll-400 text-broll-400" strokeWidth={1.5} />
+            <Star className={`h-3 w-3 shrink-0 ${accent.star}`} strokeWidth={1.5} />
           )}
+          {textTags.map((t) => (
+            <span key={t} className={`shrink-0 text-[11px] font-medium ${TAG_TEXT[t]}`}>
+              {TAG_STYLES[t].label}
+            </span>
+          ))}
         </div>
-        {active && <Check className="h-4 w-4 shrink-0 text-broll-400" />}
+        {meta && <p className="mt-0.5 truncate text-[11px] text-ink-500">{meta}</p>}
       </div>
-
-      {hasMeta && (
-        <>
-          {/* Inset hairline between the name and the chips (not full width). */}
-          <div className="mx-3 border-b border-ink/10" />
-          {/* One chip line: tags · vertical divider · spec chips. */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            {model.tags.map((t) => (
-              <span
-                key={t}
-                className={`rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${TAG_STYLES[t].className}`}
-              >
-                {TAG_STYLES[t].label}
-              </span>
-            ))}
-            {model.tags.length > 0 && hasSpecs && (
-              <span aria-hidden className="mx-0.5 h-3 w-px shrink-0 bg-ink/15" />
-            )}
-            {resolutionChip && (
-              <span className="rounded-full border border-ink/10 bg-ink/[0.03] px-2 py-0.5 text-[10px] text-ink-400">{resolutionChip}</span>
-            )}
-            {durationChip && (
-              <span className="rounded-full border border-ink/10 bg-ink/[0.03] px-2 py-0.5 text-[10px] text-ink-400">{durationChip}</span>
-            )}
-            {credits && (
-              <span className="rounded-full border border-ink/10 bg-ink/[0.03] px-2 py-0.5 text-[10px] text-ink-400">{credits}</span>
-            )}
-          </div>
-        </>
-      )}
+      {active && <Check className={`h-4 w-4 shrink-0 ${accent.icon}`} />}
     </button>
   )
 }
