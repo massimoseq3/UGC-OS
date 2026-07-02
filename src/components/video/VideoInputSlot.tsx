@@ -85,16 +85,16 @@ export default function VideoInputSlot({ label, helper, value, onChange, bankTyp
     onChange({ dataUri, sourceBRollId })
   }
 
-  // Compact mode (Playground start/end frames): a single rounded card with an
-  // "Optional" pill, a circular image glyph and the label inside. Clicking the
-  // empty card pops the Upload / Pick-from-Bank menu (same as the reference
-  // strip). Once filled it shows the chosen still.
+  // Compact mode (Playground start/end frames): a single rounded card with a
+  // circular image glyph, the label, and the "Optional" pill below it (matches
+  // OmniAddCard). Clicking the empty card pops the Upload / Pick-from-Bank
+  // menu (same as the reference strip). Once filled it shows the chosen still.
   if (compact) {
     const badge = (helper ?? '').replace(/^—\s*/, '').trim()
     return (
       <div className="relative">
         {value ? (
-          <div className="relative h-20 w-full overflow-hidden rounded-2xl border border-ink/10 bg-black/40">
+          <div className="relative h-24 w-full overflow-hidden rounded-2xl border border-ink/10 bg-black/40">
             <img src={value.dataUri} alt="" className="mx-auto block h-full w-auto max-w-full object-contain" />
             <button
               onClick={() => onChange(null)}
@@ -115,19 +115,19 @@ export default function VideoInputSlot({ label, helper, value, onChange, bankTyp
               type="button"
               disabled={disabled}
               onClick={() => { if (!disabled) setActionMenu((v) => !v) }}
-              className={`group relative flex h-20 w-full flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-ink/15 bg-ink/[0.02] transition-colors ${
+              className={`group relative flex h-24 w-full flex-col items-center justify-center gap-1 rounded-2xl border border-dashed border-ink/15 bg-ink/[0.02] transition-colors ${
                 disabled ? 'cursor-not-allowed opacity-50' : 'hover:border-ink/25 hover:bg-ink/[0.04]'
               }`}
             >
-              {badge && (
-                <span className="absolute left-2 top-2 rounded-full bg-ink/[0.06] px-2 py-0.5 text-[9px] font-medium capitalize tracking-tight text-ink-500">
-                  {badge}
-                </span>
-              )}
               <span className="flex h-8 w-8 items-center justify-center rounded-full border border-ink/15 bg-ink/[0.03] text-ink-400 transition-colors group-hover:text-ink-200">
                 <ImageIcon className="h-3.5 w-3.5" />
               </span>
-              <span className="text-[12px] font-normal text-ink-500">{label}</span>
+              <span className="text-[11px] font-normal text-ink-500">{label}</span>
+              {badge && (
+                <span className="mt-0.5 rounded-full bg-ink/[0.06] px-2 py-0.5 text-[9px] font-medium capitalize tracking-tight text-ink-500">
+                  {badge}
+                </span>
+              )}
             </button>
             {!disabled && (
               <SlotActionMenu
