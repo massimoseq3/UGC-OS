@@ -116,30 +116,31 @@ export default function VideoRefStrip({ label, helper, values, onChange, max, ba
         </div>
       )}
 
-      {/* Labelled add card — key info lives here (title · count · helper),
-          mirrors the Start/End frame slots. Click opens Upload / Pick-from-Bank. */}
+      {/* Labelled add card — count pill top-right, centered icon + label with
+          the "Optional" pill below (matches OmniAddCard and the frame slots).
+          Click opens Upload / Pick-from-Bank. */}
       <div className="relative">
         <button
           ref={triggerRef}
           type="button"
           disabled={remaining <= 0}
           onClick={() => { if (remaining > 0) setActionMenu((v) => !v) }}
-          className={`group relative flex h-20 w-full flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-ink/15 bg-ink/[0.02] transition-colors ${
+          className={`group relative flex h-24 w-full flex-col items-center justify-center gap-1 rounded-2xl border border-dashed border-ink/15 bg-ink/[0.02] transition-colors ${
             remaining <= 0 ? 'cursor-not-allowed opacity-50' : 'hover:border-ink/25 hover:bg-ink/[0.04]'
           }`}
         >
-          {helper && (
-            <span className="absolute left-2 top-2 rounded-full bg-ink/[0.06] px-2 py-0.5 text-[9px] font-medium capitalize tracking-tight text-ink-500">
-              {helper}
-            </span>
-          )}
           <span className="absolute right-2 top-2 rounded-full bg-ink/[0.06] px-2 py-0.5 text-[9px] font-medium tabular-nums tracking-tight text-ink-500">
             {values.length}/{max}
           </span>
           <span className="flex h-8 w-8 items-center justify-center rounded-full border border-ink/15 bg-ink/[0.03] text-ink-400 transition-colors group-hover:text-ink-200">
             <ImagePlus className="h-3.5 w-3.5" />
           </span>
-          <span className="text-[12px] font-normal text-ink-500">{title}</span>
+          <span className="text-[11px] font-normal text-ink-500">{title}</span>
+          {helper && (
+            <span className="mt-0.5 rounded-full bg-ink/[0.06] px-2 py-0.5 text-[9px] font-medium capitalize tracking-tight text-ink-500">
+              {helper}
+            </span>
+          )}
         </button>
         {remaining > 0 && (
           <SlotActionMenu
