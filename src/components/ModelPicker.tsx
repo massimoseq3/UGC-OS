@@ -3,13 +3,22 @@ import { ChevronDown, Check, Star } from 'lucide-react'
 import {
   listModels,
   getDefaultModel,
+  videoResolutionLabel,
+  estimateCredits,
+  formatCredits,
   type Task,
   type Mode,
   type ModelEntry,
+  type CostEstimateParams,
 } from '../utils/models'
 import { useSettingsStore } from '../stores/settingsStore'
 import { APP_REGISTRY } from '../utils/constants'
 import ProviderLogo from './ProviderLogo'
+
+// Append 8-digit alpha to a 6-digit hex accent for the selected-row tint.
+function hexAlpha(hex: string, alpha: string): string {
+  return /^#[0-9a-fA-F]{6}$/.test(hex) ? `${hex}${alpha}` : hex
+}
 
 interface ModelPickerProps {
   appId: string
@@ -31,9 +40,12 @@ interface ModelPickerProps {
   // Roomier trigger (more padding, larger type) for footer rows where the
   // picker is the primary control. Ignored when `compact` is set.
   large?: boolean
+  // Cost params for the per-row credit estimate (e.g. current resolution),
+  // mirroring ModelSidePanel. Defaults to a single image at base resolution.
+  costParams?: CostEstimateParams
 }
 
-export default function ModelPicker({ appId, task, mode, value, onChange, requireMode, requireModeNote, compact, large }: ModelPickerProps) {
+export default function ModelPicker({ appId, task, mode, value, onChange, requireMode, requireModeNote, compact, large, costParams }: ModelPickerProps) {
   const setAppModel = useSettingsStore((s) => s.setAppModel)
   const getAppModel = useSettingsStore((s) => s.getAppModel)
   const persistedKey = `${appId}:${task}${mode ? `:${mode}` : ''}`
@@ -131,7 +143,7 @@ export default function ModelPicker({ appId, task, mode, value, onChange, requir
 
       {open && (
         <div
-          className={`absolute left-0 right-0 z-50 overflow-hidden rounded-3xl border border-ink/10 bg-surface-2/95 shadow-2xl backdrop-blur-xl ${
+          className={`absolute left-0 right-0 z-50 overflow-hidden rounded-[30px] border border-ink/10 bg-surface-2/95 shadow-2xl backdrop-blur-xl ${
             openUpward ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
           }`}
         >
@@ -148,6 +160,7 @@ export default function ModelPicker({ appId, task, mode, value, onChange, requir
                   active={m.id === resolved}
                   muted={muted}
                   accent={accent}
+                  costParams={{ imageCount: 1, ...costParams }}
                   onClick={() => pick(m.id)}
                 />
               )
@@ -162,6 +175,7 @@ export default function ModelPicker({ appId, task, mode, value, onChange, requir
                   active={m.id === resolved}
                   muted={muted}
                   accent={accent}
+                  costParams={{ imageCount: 1, ...costParams }}
                   onClick={() => pick(m.id)}
                 />
               )
@@ -183,36 +197,76 @@ interface ModelRowProps {
   active: boolean
   muted?: boolean
   accent: string
+  costParams: CostEstimateParams
   onClick: () => void
 }
 
-function ModelRow({ model, active, muted, accent, onClick }: ModelRowProps) {
+// Credit estimate across a model's resolution tiers: the low tier alone when
+// price is flat (or the model has a single tier), otherwise "low–high credits".
+function creditRange(modelId: string, tiers: string[] | undefined, costParams: CostEstimateParams): string | null {
+  if (!tiers?.length) return formatCredits(estimateCredits(modelId, costParams))
+  const lo = estimateCredits(modelId, { ...costParams, resolution: tiers[0] })
+  const hi = estimateCredits(modelId, { ...costParams, resolution: tiers[tiers.length - 1] })
+  if (lo == null) return null
+  if (hi == null || hi === lo) return formatCredits(lo)
+  const round = (n: number) => Math.round(n * 10) / 10
+  return `${round(lo)}–${round(hi)} credits`
+}
+
+// Row aesthetic mirrors ModelSidePanel: provider logo, name + star + colored
+// tag words, a quiet metadata sub-line (resolution range · [duration] ·
+// credits), and an accent-tinted selected state with an accent check. The
+// slide-in and this dropdown are one visual family; only the container differs.
+function ModelRow({ model, active, muted, accent, costParams, onClick }: ModelRowProps) {
   const isRecommended = model.tags.includes('recommended')
+
+  // Prefer video constraints (resolution + duration ranges); fall back to image
+  // constraints (resolution range only). Music models carry neither → credits
+  // alone. Video resolution tiers get human labels ('std'→'720p'); image tiers
+  // are already display-ready ('1K'/'2K'/'4K').
+  const cv = model.videoConstraints
+  const ci = model.imageConstraints
+  const res = cv?.resolutions ?? ci?.resolutions
+  const label = cv ? videoResolutionLabel : (s: string) => s
+  const resolution = res?.length
+    ? res.length > 1
+      ? `${label(res[0])}–${label(res[res.length - 1])}`
+      : label(res[0])
+    : null
+  const duration = cv
+    ? cv.durations.length > 1
+      ? `${cv.durations[0]}–${cv.durations[cv.durations.length - 1]}s`
+      : cv.durations.length === 1
+      ? `${cv.durations[0]}s`
+      : 'per clip'
+    : null
+  // Credits span the resolution tiers (low–high) so the cheapest and priciest
+  // settings are both visible, not just the low end.
+  const credits = creditRange(model.id, res, costParams)
+  const meta = [resolution, duration, credits].filter(Boolean).join(' · ')
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`flex h-12 w-full items-center gap-3 rounded-full px-2.5 text-left transition-colors ${
-        muted ? 'opacity-45 hover:opacity-70' : ''
-      } ${active ? 'bg-ink/[0.06]' : 'hover:bg-ink/[0.04]'}`}
+      style={active && !muted ? { backgroundColor: hexAlpha(accent, '1a') } : undefined}
+      className={`flex w-full items-center gap-3 rounded-full px-2.5 py-2.5 text-left transition-colors ${
+        muted ? 'opacity-45 hover:opacity-70' : active ? '' : 'hover:bg-ink/[0.04]'
+      }`}
     >
       <ProviderLogo provider={model.provider} />
 
-      <div className="flex min-w-0 flex-1 items-center gap-1.5">
-        <span className="truncate text-[13px] font-semibold text-ink-100">{model.displayName}</span>
-        {isRecommended && (
-          <Star className="h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400 light:fill-yellow-600 light:text-yellow-600" strokeWidth={1.5} />
-        )}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
+          <span className="truncate text-[13px] font-semibold text-ink-100">{model.displayName}</span>
+          {isRecommended && (
+            <Star className="h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400 light:fill-yellow-600 light:text-yellow-600" strokeWidth={1.5} />
+          )}
+        </div>
+        {meta && <p className="mt-0.5 truncate text-[11px] text-ink-500">{meta}</p>}
       </div>
 
-      <div className="flex shrink-0 items-center">
-        {active ? (
-          <Check className="h-4 w-4" style={{ color: accent }} />
-        ) : (
-          <span className="h-4 w-4" />
-        )}
-      </div>
+      {active && <Check className="h-4 w-4 shrink-0" style={{ color: accent }} />}
     </button>
   )
 }

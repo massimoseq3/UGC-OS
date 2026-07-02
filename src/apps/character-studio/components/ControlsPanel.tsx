@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, type ElementType, type ReactNode } from 'react'
-import { ScanFace, PersonStanding, Camera, Copy, Check } from 'lucide-react'
+import { ScanFace, PersonStanding, Camera, Copy, Check, ChevronRight } from 'lucide-react'
 import type { TabId, CharacterProfile } from '../types'
-import { TABS } from '../types'
+import { TABS, PHOTOREALISM_STYLE, getTabFields } from '../types'
 
 // Per-tab glyphs — specific to each tab's job (appearance / pose / lens),
 // not a generic decoration. Keyed by the stable tab id.
@@ -15,28 +15,33 @@ import ChipField from './ChipField'
 import GenerateBar from './GenerateBar'
 import SegmentedToggle from '../../../components/SegmentedToggle'
 import ClearAllButton from '../../../components/ClearAllButton'
-import { buildImagePrompt, buildSheetPrompt } from '../services/generateCharacter'
+import { PresetPickerSlideOver } from './LoadPresetDropdown'
+import { buildPhysicalPrompt, buildScenePrompt } from '../services/generateCharacter'
 import { copyToClipboard } from '../../../utils/clipboard'
 
-// A centered icon + label pill marking each tab's block of sections (same
-// icon + title-case style as the top toggle). `left` / `right` slots host
+// Field keys owned by each tab, derived from the tab config so the scoped
+// preset pickers stay in sync with the form. Physical = identity/physical/
+// wardrobe; Scene = scene/pose/camera.
+const PHYSICAL_KEYS = getTabFields(TABS[0]).map((f) => f.key)
+const SCENE_KEYS = getTabFields(TABS[1]).map((f) => f.key)
+
+// A centered pill marking each tab's block. The `center` node (the scoped
+// preset button) stands in for the old static label pill — it carries the tab's
+// glyph + name and doubles as the preset action. `left` / `right` slots host
 // optional actions (Clear / Copy), pinned to the row's edges.
-function TabDivider({ label, icon: Icon, left, right }: { label: string; icon: ElementType; left?: ReactNode; right?: ReactNode }) {
+function TabDivider({ center, left, right }: { center: ReactNode; left?: ReactNode; right?: ReactNode }) {
   return (
     <div className="relative flex items-center justify-center">
       {left && <div className="absolute left-0">{left}</div>}
-      <span className="flex items-center gap-1.5 rounded-full bg-ink/[0.06] px-3 py-1 text-[12px] font-medium text-ink-300">
-        <Icon className="h-3.5 w-3.5" />
-        {label}
-      </span>
+      {center}
       {right && <div className="absolute right-0">{right}</div>}
     </div>
   )
 }
 
-// Copies the full assembled prompt (exactly what would be sent to the image
-// model) to the clipboard. Sits on the right of the first tab divider.
-function CopyPromptButton({ text }: { text: string }) {
+// Copies a scoped slice of the assembled prompt (physical, or scene & pose) to
+// the clipboard. One sits on the right of each tab divider.
+function CopyPromptButton({ text, label, title }: { text: string; label: string; title: string }) {
   const [copied, setCopied] = useState(false)
   const handleCopy = async () => {
     if (await copyToClipboard(text)) {
@@ -49,11 +54,30 @@ function CopyPromptButton({ text }: { text: string }) {
       type="button"
       onClick={handleCopy}
       disabled={!text.trim()}
-      title="Copy the full prompt"
+      title={title}
       className="flex items-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.02] px-2.5 py-1 text-[11px] font-medium text-ink-400 transition-colors hover:border-ink/20 hover:bg-ink/[0.05] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-40"
     >
       {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
-      {copied ? 'Copied' : 'Copy'}
+      {copied ? 'Copied' : label}
+    </button>
+  )
+}
+
+// Preset pill — opens the shared preset picker but scoped to one tab's fields.
+// Matches the Portrait/Sheet toggle's glassy influencers tint (translucent fill
+// + soft accent ring + faint sheen) so the two read as one accent family, with
+// the tab's own glyph leading and a chevron hinting the slide-over.
+function PresetPillButton({ label, title, icon: Icon, onClick }: { label: string; title: string; icon: ElementType; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      className="flex items-center gap-1.5 rounded-full bg-influencers-500/10 px-3 py-1 text-[12px] font-medium text-influencers-300 ring-1 ring-inset ring-influencers-500/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition-colors hover:bg-influencers-500/15"
+    >
+      <Icon className="h-3.5 w-3.5" />
+      {label}
+      <ChevronRight className="h-3.5 w-3.5" strokeWidth={2} />
     </button>
   )
 }
@@ -110,6 +134,23 @@ export default function ControlsPanel({
     onProfileChange({ ...profile, [key]: value })
   }
 
+  // Scoped preset pickers — each opens the shared preset slide-over but merges
+  // only its own tab's keys onto the current form, leaving the other tab's
+  // fields untouched.
+  const [physicalPresetOpen, setPhysicalPresetOpen] = useState(false)
+  const [scenePresetOpen, setScenePresetOpen] = useState(false)
+
+  const applyScopedPreset = (incoming: Record<string, string>, keys: string[]) => {
+    const next = { ...profile }
+    for (const key of keys) {
+      next[key] = typeof incoming[key] === 'string' ? incoming[key] : ''
+    }
+    // Camera Device is always-on — never let a preset that omits it blank the
+    // photorealism style string (mirrors createEmptyProfile).
+    if (keys.includes('cameraDevice') && !next.cameraDevice) next.cameraDevice = PHOTOREALISM_STYLE
+    onProfileChange(next)
+  }
+
   // All groups render on one scrollable page; the top toggle jumps to a tab's
   // section (like the Ad Analyzer Scorecard/Transcript/Scenes strip) instead of
   // swapping the panel. Refs anchor each tab's block; a scroll-spy keeps the
@@ -145,9 +186,11 @@ export default function ControlsPanel({
     return () => obs.disconnect()
   }, [])
 
-  // The full assembled prompt for the current mode — what the Copy prompt
-  // button in the first tab divider puts on the clipboard.
-  const fullPrompt = sheetMode ? buildSheetPrompt(profile, sheetAspect) : buildImagePrompt(profile)
+  // Scoped prompt slices for the per-divider Copy buttons. Physical = identity/
+  // physical/wardrobe (valid in both portrait + sheet modes); Scene & Pose =
+  // scene/pose/camera.
+  const physicalPrompt = buildPhysicalPrompt(profile)
+  const scenePrompt = buildScenePrompt(profile)
 
   return (
     <div className="flex min-w-0 flex-col md:h-full">
@@ -184,15 +227,36 @@ export default function ControlsPanel({
               data-tab={tab.id}
               className="flex scroll-mt-4 flex-col gap-4"
             >
-              {/* Tab divider — a centered pill on a full-width line (mirrors the
-                  History date pills), marking each tab's block. The first tab's
-                  divider also hosts the global Clear (left) + Copy (right)
-                  actions, using the space on either side of the pill. */}
+              {/* Tab divider — a centered preset button on a full-width line
+                  (mirrors the History date pills), marking each tab's block. The
+                  centered button doubles as the scoped preset picker; Clear sits
+                  on the left and the scoped Copy on the right of every divider. */}
               <TabDivider
-                label={tab.shortLabel ?? tab.label}
-                icon={TAB_ICONS[tab.id]}
-                left={tabIndex === 0 ? <ClearAllButton onClear={onClear} label="Clear" className="!py-1 !text-[11px]" /> : undefined}
-                right={tabIndex === 0 ? <CopyPromptButton text={fullPrompt} /> : undefined}
+                left={<ClearAllButton onClear={onClear} label="Clear" className="!py-1 !text-[11px]" />}
+                center={
+                  tabIndex === 0 ? (
+                    <PresetPillButton
+                      label="Physical Preset"
+                      title="Load only the physical fields from a preset"
+                      icon={TAB_ICONS.physical}
+                      onClick={() => setPhysicalPresetOpen(true)}
+                    />
+                  ) : (
+                    <PresetPillButton
+                      label="Scene & Pose Preset"
+                      title="Load only the scene & pose fields from a preset"
+                      icon={TAB_ICONS.scene}
+                      onClick={() => setScenePresetOpen(true)}
+                    />
+                  )
+                }
+                right={
+                  tabIndex === 0 ? (
+                    <CopyPromptButton text={physicalPrompt} label="Copy Physical" title="Copy the physical fields as a prompt" />
+                  ) : (
+                    <CopyPromptButton text={scenePrompt} label="Copy Scene & Pose" title="Copy the scene & pose fields as a prompt" />
+                  )
+                }
               />
               {tab.groups.map((group) => {
                 const GroupIcon = group.icon
@@ -255,6 +319,23 @@ export default function ControlsPanel({
         sheetAspect={sheetAspect}
         onSheetAspectChange={onSheetAspectChange}
         inFlightCount={inFlightCount}
+      />
+
+      {/* Scoped preset pickers — same slide-over as the footer's full picker,
+          but each merges only its tab's fields onto the current form. */}
+      <PresetPickerSlideOver
+        open={physicalPresetOpen}
+        onClose={() => setPhysicalPresetOpen(false)}
+        onPick={(incoming) => applyScopedPreset(incoming, PHYSICAL_KEYS)}
+        title="Physical Presets"
+        subtitle="Fill only the physical fields"
+      />
+      <PresetPickerSlideOver
+        open={scenePresetOpen}
+        onClose={() => setScenePresetOpen(false)}
+        onPick={(incoming) => applyScopedPreset(incoming, SCENE_KEYS)}
+        title="Scene & Pose Presets"
+        subtitle="Fill only the scene & pose fields"
       />
     </div>
   )

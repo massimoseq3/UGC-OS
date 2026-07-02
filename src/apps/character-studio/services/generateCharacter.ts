@@ -96,12 +96,11 @@ function buildIdentitySections(profile: CharacterProfile): string[] {
   return sections
 }
 
-// Builds a structured, labeled prompt grouped by category. Values are
-// preserved verbatim — never paraphrased — so chip presets and free-text
-// entries land in the model unchanged. Labels + section headers help the
-// image model parse the request without wading through comma soup.
-export function buildImagePrompt(profile: CharacterProfile): string {
-  const sections: string[] = buildIdentitySections(profile)
+// Scene / pose / camera sections — the "Scene & Pose" tab. Split out so the
+// scoped "Copy scene & pose" action and the full portrait prompt share one
+// source of truth.
+function buildSceneSections(profile: CharacterProfile): string[] {
+  const sections: string[] = []
 
   // Scene / environment.
   const sceneLines: string[] = []
@@ -128,7 +127,27 @@ export function buildImagePrompt(profile: CharacterProfile): string {
   if (cameraBits.length) sections.push(`Shot: ${cameraBits.join(', ')}.`)
   if (has(profile.cameraDevice)) sections.push(`Style: ${profile.cameraDevice}`)
 
-  return sections.join('\n\n')
+  return sections
+}
+
+// Builds a structured, labeled prompt grouped by category. Values are
+// preserved verbatim — never paraphrased — so chip presets and free-text
+// entries land in the model unchanged. Labels + section headers help the
+// image model parse the request without wading through comma soup.
+export function buildImagePrompt(profile: CharacterProfile): string {
+  return [...buildIdentitySections(profile), ...buildSceneSections(profile)].join('\n\n')
+}
+
+// Physical-only prompt — identity / physical / wardrobe (the Physical tab).
+// Backs the scoped "Copy physical" action on the first tab divider.
+export function buildPhysicalPrompt(profile: CharacterProfile): string {
+  return buildIdentitySections(profile).join('\n\n')
+}
+
+// Scene & pose prompt — scene / pose / camera (the Scene & Pose tab). Backs the
+// scoped "Copy scene & pose" action on the second tab divider.
+export function buildScenePrompt(profile: CharacterProfile): string {
+  return buildSceneSections(profile).join('\n\n')
 }
 
 // Sheet layout directive — leads the prompt so the model commits to the

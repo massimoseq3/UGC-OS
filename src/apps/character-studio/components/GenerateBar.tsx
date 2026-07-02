@@ -122,6 +122,7 @@ export default function GenerateBar({
             task="image"
             mode="text-to-image"
             large
+            costParams={{ imageCount: 1, resolution }}
           />
         </div>
         <div className="flex min-w-0 flex-1 items-center gap-2">
