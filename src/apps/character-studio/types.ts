@@ -22,6 +22,10 @@ export interface FieldConfig {
   // or sentence-length preset values) span the full row so they don't look
   // cramped next to a one-word neighbour. See ControlsPanel's grid.
   wide?: boolean
+  // Widen the typeahead dropdown beyond the (half-width) input and let options
+  // wrap instead of truncate — for half-width fields whose presets are long
+  // sentences (e.g. Skin & Realism). See ChipField's `wideMenu`.
+  wideMenu?: boolean
 }
 
 // Searchable ethnicity/nationality list for the Ethnicity typeahead. Broad
@@ -184,11 +188,10 @@ export const TABS: TabConfig[] = [
               'Textured',
             ],
             placeholder: 'e.g. "Natural realism — visible pores, light freckles"',
-            // Full-width like Hair Style — the realism presets are long
-            // sentences, so the field (and its dropdown) spans the row to show
-            // far more of each option without truncating. Skin Tone follows so
-            // no half field is left stranded next to an empty cell.
-            wide: true,
+            // Half-width so it pairs with Skin Tone on one row; the realism
+            // presets are long sentences, so its dropdown widens and wraps
+            // (wideMenu) to stay readable despite the narrow input.
+            wideMenu: true,
           },
           {
             key: 'skinTone',
