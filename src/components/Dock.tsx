@@ -1,16 +1,15 @@
-import { Fragment, useEffect, useState, type ReactNode } from 'react'
-import { Coins, Moon, RefreshCw, Settings, Sun } from 'lucide-react'
+import { Fragment, useState, type ReactNode } from 'react'
+import { Moon, Settings, Sun } from 'lucide-react'
 import { useAppStore } from '../stores/appStore'
-import { useSettingsStore } from '../stores/settingsStore'
-import { useCreditsStore } from '../stores/creditsStore'
 import { useThemeStore, type ThemePref } from '../stores/themeStore'
 import { APP_REGISTRY, type AppCategory, type AppConfig } from '../utils/constants'
 import SettingsModal from './SettingsModal'
 
 // macOS-style bottom dock — the sidebar's replacement for this experiment.
 // Every icon carries its label underneath (no hover-only tooltips), app tiles
-// are filled with each app's accent, and a utility cluster (credits, theme,
-// settings) sits on the right. Account + Admin live in the Settings modal.
+// are filled with each app's accent, and a utility cluster (theme, settings)
+// sits on the right. Credits moved to the menu bar; Account + Admin live in
+// the Settings modal.
 
 const SECTION_ORDER: AppCategory[] = ['library', 'create', 'tools']
 
@@ -46,7 +45,6 @@ export default function Dock() {
           ))}
 
           <DockDivider />
-          <CreditsTile />
           <ThemeTile />
           <DockItem label="Settings" title="Settings" onClick={() => setSettingsOpen(true)}>
             <UtilityTile>
@@ -144,64 +142,6 @@ function UtilityTile({ children }: { children: ReactNode }) {
     <span className="relative flex h-12 w-12 items-center justify-center rounded-[14px] bg-ink/[0.07] ring-1 ring-inset ring-ink/10 transition-colors duration-300 group-hover:bg-ink/[0.1]">
       {children}
     </span>
-  )
-}
-
-// kie.ai balance — the label IS the number; clicking the tile refreshes it.
-// Same polling behaviour as the sidebar chip (mount + 60s + window focus).
-function CreditsTile() {
-  const apiKey = useSettingsStore((s) => s.kieApiKey)
-  const balance = useCreditsStore((s) => s.balance)
-  const refresh = useCreditsStore((s) => s.refresh)
-  const [refreshing, setRefreshing] = useState(false)
-
-  useEffect(() => {
-    if (!apiKey) return
-    refresh()
-    const interval = window.setInterval(refresh, 60_000)
-    const onFocus = () => refresh()
-    window.addEventListener('focus', onFocus)
-    return () => {
-      window.clearInterval(interval)
-      window.removeEventListener('focus', onFocus)
-    }
-  }, [apiKey, refresh])
-
-  const handleRefresh = async () => {
-    if (refreshing) return
-    setRefreshing(true)
-    try {
-      await refresh()
-    } finally {
-      setRefreshing(false)
-    }
-  }
-
-  const label = balance !== null ? balance.toLocaleString() : '—'
-
-  return (
-    <DockItem
-      label={label}
-      title="kie.ai credits remaining — click to refresh"
-      onClick={handleRefresh}
-    >
-      <UtilityTile>
-        {refreshing ? (
-          <RefreshCw className="h-[22px] w-[22px] animate-spin text-ink-200" strokeWidth={1.75} />
-        ) : (
-          <>
-            <Coins
-              className="h-[22px] w-[22px] text-ink-200 transition-opacity group-hover:opacity-0"
-              strokeWidth={1.75}
-            />
-            <RefreshCw
-              className="absolute h-[22px] w-[22px] text-ink-200 opacity-0 transition-opacity group-hover:opacity-100"
-              strokeWidth={1.75}
-            />
-          </>
-        )}
-      </UtilityTile>
-    </DockItem>
   )
 }
 

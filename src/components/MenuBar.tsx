@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
-import { ArrowUpRight } from 'lucide-react'
+import { ArrowUpRight, Coins, RefreshCw } from 'lucide-react'
 import { useAppStore } from '../stores/appStore'
+import { useSettingsStore } from '../stores/settingsStore'
+import { useCreditsStore } from '../stores/creditsStore'
 import { getAppConfig, SKOOL_COMMUNITY_URL } from '../utils/constants'
 import AppLogo from './AppLogo'
 
 // Thin macOS-style menu bar: branding + the active app's name on the left,
-// external quick links + clock on the right. Pure chrome — app navigation
-// stays in the dock.
+// credits balance, external quick links + clock on the right. Pure chrome —
+// app navigation stays in the dock.
 
 function useClock(): string {
   const [now, setNow] = useState(() => new Date())
@@ -47,10 +49,65 @@ export default function MenuBar() {
 
       <div className="flex-1" />
 
+      <CreditsItem />
       <MenuLink href={SKOOL_COMMUNITY_URL} label="Community" />
       <MenuLink href="https://kie.ai/billing" label="Get Credits" />
       <span className="hidden pl-1 text-[12px] tabular-nums text-ink-400 sm:block">{clock}</span>
     </header>
+  )
+}
+
+// kie.ai balance as a menu-bar item — clicking refreshes it (the coin glyph
+// swaps to a spinner). Same polling as the old dock tile: mount + 60s +
+// window focus.
+function CreditsItem() {
+  const apiKey = useSettingsStore((s) => s.kieApiKey)
+  const balance = useCreditsStore((s) => s.balance)
+  const refresh = useCreditsStore((s) => s.refresh)
+  const [refreshing, setRefreshing] = useState(false)
+
+  useEffect(() => {
+    if (!apiKey) return
+    refresh()
+    const interval = window.setInterval(refresh, 60_000)
+    const onFocus = () => refresh()
+    window.addEventListener('focus', onFocus)
+    return () => {
+      window.clearInterval(interval)
+      window.removeEventListener('focus', onFocus)
+    }
+  }, [apiKey, refresh])
+
+  const handleRefresh = async () => {
+    if (refreshing) return
+    setRefreshing(true)
+    try {
+      await refresh()
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
+  return (
+    <button
+      onClick={handleRefresh}
+      disabled={refreshing}
+      title="kie.ai credits remaining — click to refresh"
+      aria-label="Refresh credits balance"
+      className="group flex h-6 shrink-0 items-center gap-1.5 rounded-md px-2 text-[12px] text-ink-300 transition-colors hover:bg-ink/[0.06] hover:text-ink-100 disabled:opacity-60"
+    >
+      <span className="relative flex h-3.5 w-3.5 items-center justify-center">
+        {refreshing ? (
+          <RefreshCw className="h-3.5 w-3.5 animate-spin text-ink-400" strokeWidth={1.75} />
+        ) : (
+          <>
+            <Coins className="h-3.5 w-3.5 text-ink-400 group-hover:opacity-0" strokeWidth={1.75} />
+            <RefreshCw className="absolute h-3.5 w-3.5 text-ink-300 opacity-0 group-hover:opacity-100" strokeWidth={1.75} />
+          </>
+        )}
+      </span>
+      <span className="tabular-nums">{balance !== null ? balance.toLocaleString() : '—'}</span>
+    </button>
   )
 }
 
