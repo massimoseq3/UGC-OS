@@ -5,6 +5,7 @@ import { kieOmniAudioCreate } from '../../../utils/kie'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import { useOmniVoiceStore, type OmniVoice } from '../../../stores/omniVoiceStore'
 import { humanizeError } from '../../../utils/friendlyError'
+import { useCloseOnAppSwitch } from '../../../hooks/useCloseOnAppSwitch'
 import { OMNI_BASE_VOICES, omniVoicePreviewUrl } from '../omniVoices'
 
 interface OmniVoiceDesignerProps {
@@ -46,6 +47,8 @@ export default function OmniVoiceDesigner({ open, onClose, onCreated }: OmniVoic
     if (!open) stopPreview()
     return stopPreview
   }, [open])
+
+  useCloseOnAppSwitch(open, onClose)
 
   if (!open) return null
 

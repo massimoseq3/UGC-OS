@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
+import { useCloseOnAppSwitch } from '../hooks/useCloseOnAppSwitch'
 
 interface SlideOverProps {
   open: boolean
@@ -16,6 +17,8 @@ interface SlideOverProps {
 // document root, backdrop, 380px panel) so pickers and preset browsers read
 // as one pattern across the app.
 export default function SlideOver({ open, onClose, title, subtitle, children, footer }: SlideOverProps) {
+  useCloseOnAppSwitch(open, onClose)
+
   useEffect(() => {
     if (!open) return
     const handleKey = (e: KeyboardEvent) => {

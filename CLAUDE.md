@@ -89,6 +89,7 @@ Most files are self-explanatory. These carry behaviour worth knowing before you 
 - `utils/orphanCleanup.ts` — once-per-sign-in asset sweep. Its bank list **must** cover every bank (compile-time `satisfies Record<BankKey, true>` guard) or it deletes that bank's live assets from IDB + R2.
 - `utils/assetStore.ts` — IndexedDB blobs + fire-and-forget R2 mirror; `getBlob()` falls back to R2 on miss.
 - `utils/friendlyError.ts` — `humanizeError(err, fallback)`, the ordered rule table for end-user error copy.
+- `hooks/useCloseOnAppSwitch.ts` — every body-portaled overlay (slide-over, picker, modal) must call it: portals escape the opacity-0 wrapper that hides background apps, so an open overlay would float over the next app after a dock switch.
 - `lib/cloudSync.ts` — pull on sign-in + debounced diff-push + persistent localStorage outbox + non-destructive hydrate.
 - `lib/supabase.ts` — `ensureFreshSession()` (3s race + cached-token fallback) and a custom non-blocking `auth.lock`.
 - `hooks/useAssetUrl.ts` — resolves `asset://` refs to blob URLs.

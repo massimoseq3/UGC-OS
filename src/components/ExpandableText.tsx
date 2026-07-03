@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Maximize2, X } from 'lucide-react'
+import { useCloseOnAppSwitch } from '../hooks/useCloseOnAppSwitch'
 
 // Per-app accent for the modal's focus ring + Done button. Literal class
 // strings (Tailwind can't build class names from props at runtime).
@@ -102,6 +103,8 @@ export default function ExpandTextModal({
   mono = false,
 }: ExpandTextModalProps) {
   const highlightRef = useRef<HTMLDivElement>(null)
+
+  useCloseOnAppSwitch(open, onClose)
 
   useEffect(() => {
     if (!open) return

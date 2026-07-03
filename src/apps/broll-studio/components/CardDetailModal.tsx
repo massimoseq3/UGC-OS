@@ -31,6 +31,7 @@ import { useSettingsStore } from '../../../stores/settingsStore'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAppStore } from '../../../stores/appStore'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
+import { useCloseOnAppSwitch } from '../../../hooks/useCloseOnAppSwitch'
 import { getDefaultModel, getModel, estimateCredits, formatCredits, videoResolutionLabel, type ImageResolution } from '../../../utils/models'
 import { tagChipStyle, tagLabel, rollTypeForTag } from './variationTags'
 import { humanizeError } from '../../../utils/friendlyError'
@@ -173,6 +174,9 @@ export default function CardDetailModal(props: CardDetailModalProps) {
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose])
+
+  // Mounted only while open, so `enabled` is simply true.
+  useCloseOnAppSwitch(true, onClose)
 
   const persistedImageModel = useSettingsStore((s) => s.getAppModel('broll-studio:image:text-to-image'))
   const imageModelId = persistedImageModel ?? getDefaultModel('broll-studio', 'image', 'text-to-image')?.id

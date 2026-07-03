@@ -35,6 +35,7 @@ import {
   enhanceEditInstruction,
 } from '../services/generateCharacter'
 import { pickInfluencerName, sheetNameFrom } from './nameGenerator'
+import { useCloseOnAppSwitch } from '../../../hooks/useCloseOnAppSwitch'
 import GeneratingTile from './GeneratingTile'
 import InfluencerLightbox from './InfluencerLightbox'
 
@@ -227,6 +228,9 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose, generating])
+
+  // Same guard as Escape/backdrop: don't discard an in-flight generation.
+  useCloseOnAppSwitch(!generating, onClose)
 
   function handlePickFiles(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
