@@ -4,14 +4,13 @@ import {
   Check,
   PenLine,
   ArrowUpRight,
-  BarChart3,
   FileText,
   Clapperboard,
   Film,
   Bookmark,
   Lightbulb,
 } from 'lucide-react'
-import type { AnalysisResult, CreativeBreakdown, Scene } from '../types'
+import type { AnalysisResult, Scene } from '../types'
 import { useAppStore } from '../../../stores/appStore'
 import { useBankStore } from '../../../stores/bankStore'
 import SegmentedToggle from '../../../components/SegmentedToggle'
@@ -90,7 +89,7 @@ function CardHeader({ icon: Icon, title, accentClass = 'text-[#FF5257]/80', acti
   )
 }
 
-/* ─── 1. Scorecard ─── */
+/* ─── 1. Breakdown — scorecard + creative breakdown in one card ─── */
 // One distinct hue per score, stepping across the spectrum from red (1) to
 // light blue (10) so adjacent scores never read as the same color.
 const SCORE_COLORS: Record<number, { text: string; bg: string }> = {
@@ -111,39 +110,37 @@ function scoreColor(score: number) {
   return SCORE_COLORS[step]
 }
 
-function ScorecardSection({ result }: { result: AnalysisResult }) {
+// Scorecard rows + analyst note — lives at the top of the merged Breakdown
+// section (it kept its own card until the two were folded together).
+function ScorecardBody({ result }: { result: AnalysisResult }) {
   const { scorecard } = result
   return (
-    <Section>
-      <CardHeader icon={BarChart3} title="Scorecard" />
-      <div className="flex flex-col md:flex-row gap-5 p-4">
-        <div className="flex flex-1 flex-col gap-0.5">
-          {scorecard.scores.map((s) => {
-            const color = scoreColor(s.score)
-            const isOverall = s.label === 'Overall Execution'
-            return (
-              <div key={s.label}>
-                {isOverall && <div className="mb-1.5 mt-1 h-px w-full bg-ink/10" />}
-                <div className="flex items-center gap-2.5 rounded-full px-1 py-0.5 transition-colors hover:bg-ink/[0.04]">
-                  <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[12px] font-semibold tabular-nums tracking-tight ${color.bg} ${color.text}`}>
-                    {s.score}
-                  </span>
-                  <span className={`text-[13px] ${isOverall ? 'font-bold text-ink-200' : 'text-ink-400'}`}>{s.label}</span>
-                </div>
+    <div className="flex flex-col md:flex-row gap-5 p-4">
+      <div className="flex flex-1 flex-col gap-0.5">
+        {scorecard.scores.map((s) => {
+          const color = scoreColor(s.score)
+          const isOverall = s.label === 'Overall Execution'
+          return (
+            <div key={s.label}>
+              {isOverall && <div className="mb-1.5 mt-1 h-px w-full bg-ink/10" />}
+              <div className="flex items-center gap-2.5 rounded-full px-1 py-0.5 transition-colors hover:bg-ink/[0.04]">
+                <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[12px] font-semibold tabular-nums tracking-tight ${color.bg} ${color.text}`}>
+                  {s.score}
+                </span>
+                <span className={`text-[13px] ${isOverall ? 'font-bold text-ink-200' : 'text-ink-400'}`}>{s.label}</span>
               </div>
-            )
-          })}
-        </div>
-        <div className="flex-1 rounded-xl bg-surface-0 px-4 py-3">
-          <span className="text-[11px] font-medium uppercase tracking-tight text-ink-600">Analyst&apos;s Note</span>
-          <p className="mt-1.5 text-[13px] font-light leading-relaxed tracking-tight text-ink-200">{scorecard.analystNote}</p>
-        </div>
+            </div>
+          )
+        })}
       </div>
-    </Section>
+      <div className="flex-1 rounded-xl bg-surface-0 px-4 py-3">
+        <span className="text-[11px] font-medium uppercase tracking-tight text-ink-600">Analyst&apos;s Note</span>
+        <p className="mt-1.5 text-[13px] font-light leading-relaxed tracking-tight text-ink-200">{scorecard.analystNote}</p>
+      </div>
+    </div>
   )
 }
 
-/* ─── 2. Creative Breakdown ─── */
 
 // One labelled insight row — mirrors the Analyst's Note block styling.
 function BreakdownBlock({ label, text, pre = false }: { label: string; text: string; pre?: boolean }) {
@@ -157,15 +154,21 @@ function BreakdownBlock({ label, text, pre = false }: { label: string; text: str
   )
 }
 
-function CreativeBreakdownSection({ breakdown, adTitle }: { breakdown: CreativeBreakdown; adTitle: string }) {
+// The merged Breakdown card: scorecard + analyst note on top, then (when the
+// analysis has one — legacy results don't) the creative breakdown blocks and
+// the reusable style prompt with its bank/Scripts actions.
+function BreakdownSection({ result, fileName }: { result: AnalysisResult; fileName: string }) {
+  const breakdown = result.creativeBreakdown ?? null
   const { copied, copy } = useCopy()
   const addToast = useAppStore((s) => s.addToast)
   const sendToApp = useAppStore((s) => s.sendToApp)
   const addScript = useBankStore((s) => s.addScript)
 
+  const adTitle = result.adTitle?.trim() || deriveFallbackTitle(fileName)
   const scriptTitle = `${adTitle} — Script Style`
 
   const saveStyleToBank = () => {
+    if (!breakdown) return
     addScript({
       title: scriptTitle,
       scriptText: breakdown.stylePrompt,
@@ -185,6 +188,7 @@ function CreativeBreakdownSection({ breakdown, adTitle }: { breakdown: CreativeB
   // prompt encodes, so pairing it with a product writes new scripts from
   // scratch in this ad's style.
   const handleSendToScripts = () => {
+    if (!breakdown) return
     saveStyleToBank()
     sendToApp({
       targetApp: 'script-architect',
@@ -198,46 +202,54 @@ function CreativeBreakdownSection({ breakdown, adTitle }: { breakdown: CreativeB
     <Section>
       <CardHeader
         icon={Lightbulb}
-        title="Creative Breakdown"
+        title="Breakdown"
         accentClass="text-amber-400/90 light:text-amber-600"
       />
 
-      <div className="flex flex-col gap-3 p-4">
-        <BreakdownBlock label="Hook" text={breakdown.hook} />
-        <BreakdownBlock label="Angle" text={breakdown.angle} />
-        <BreakdownBlock label="Structure" text={breakdown.structure} pre />
+      <ScorecardBody result={result} />
 
-        {/* The reusable style prompt — the artifact the actions below ship. */}
-        <div className="rounded-2xl border border-ink/5 bg-ink/[0.02] p-3 card-soft-shadow">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <span className="shrink-0 rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-tight text-sky-300 light:text-sky-700">
-                Script Style Prompt
-              </span>
-              <span className="text-[11px] text-ink-500">
-                Reusable — writes new scripts with this ad&apos;s psychology
-              </span>
+      {breakdown && (
+        <>
+          {/* Inset divider between the scorecard block and the creative blocks. */}
+          <div className="mx-4 h-px bg-ink/5" />
+          <div className="flex flex-col gap-3 p-4">
+            <BreakdownBlock label="Hook" text={breakdown.hook} />
+            <BreakdownBlock label="Angle" text={breakdown.angle} />
+            <BreakdownBlock label="Structure" text={breakdown.structure} pre />
+
+            {/* The reusable style prompt — the artifact the actions below ship. */}
+            <div className="rounded-2xl border border-ink/5 bg-ink/[0.02] p-3 card-soft-shadow">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <span className="shrink-0 rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-tight text-sky-300 light:text-sky-700">
+                    Script Style Prompt
+                  </span>
+                  <span className="text-[11px] text-ink-500">
+                    Reusable — writes new scripts with this ad&apos;s psychology
+                  </span>
+                </div>
+                <button
+                  onClick={() => copy(breakdown.stylePrompt)}
+                  className="flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium text-ink-600 transition-colors hover:bg-ink/5 hover:text-ink-300"
+                >
+                  {copied ? <Check className="h-3 w-3 text-green-400 light:text-green-600" /> : <Copy className="h-3 w-3" />}
+                  {copied ? 'Copied' : 'Copy'}
+                </button>
+              </div>
+              <div className="whitespace-pre-wrap rounded-xl bg-surface-0 p-2.5 text-[13px] font-light leading-relaxed tracking-tight text-ink-200">
+                {breakdown.stylePrompt}
+              </div>
             </div>
-            <button
-              onClick={() => copy(breakdown.stylePrompt)}
-              className="flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium text-ink-600 transition-colors hover:bg-ink/5 hover:text-ink-300"
-            >
-              {copied ? <Check className="h-3 w-3 text-green-400 light:text-green-600" /> : <Copy className="h-3 w-3" />}
-              {copied ? 'Copied' : 'Copy'}
-            </button>
           </div>
-          <div className="whitespace-pre-wrap rounded-xl bg-surface-0 p-2.5 text-[13px] font-light leading-relaxed tracking-tight text-ink-200">
-            {breakdown.stylePrompt}
-          </div>
-        </div>
-      </div>
 
-      <ScriptActionRow onSave={handleSaveToBank} onSend={handleSendToScripts} />
+          <ScriptActionRow onSave={handleSaveToBank} onSend={handleSendToScripts} />
+        </>
+      )}
     </Section>
   )
 }
 
-/* ─── 3. Transcript ─── */
+/* ─── 2. Transcript ─── */
 function TranscriptSection({ result, fileName }: { result: AnalysisResult; fileName: string }) {
   const { copied, copy } = useCopy()
   const addToast = useAppStore((s) => s.addToast)
@@ -303,7 +315,7 @@ function TranscriptSection({ result, fileName }: { result: AnalysisResult; fileN
   )
 }
 
-/* ─── 4. Reverse-Engineered Prompt ─── */
+/* ─── 3. Reverse-Engineered Prompt ─── */
 
 function joinScenes(scenes: Scene[]): string {
   if (scenes.length === 1) return scenes[0].prompt
@@ -449,7 +461,7 @@ function ScriptActionRow({ onSave, onSend }: { onSave: () => void; onSend: () =>
 }
 
 /* ─── Section jump toggle ─── */
-type SectionKey = 'scorecard' | 'breakdown' | 'transcript' | 'scenes'
+type SectionKey = 'breakdown' | 'transcript' | 'scenes'
 
 /* ─── Main ResultsView ─── */
 export default function ResultsView({ result, videoSrc, restoredThumbUrl, fileName }: ResultsViewProps) {
@@ -457,19 +469,15 @@ export default function ResultsView({ result, videoSrc, restoredThumbUrl, fileNa
   // still is available (e.g. restored from a history row whose thumbnail
   // capture had failed). Results panels then take the full width.
   const hasMedia = !!videoSrc || !!restoredThumbUrl
-  // Legacy persisted results predate the creative breakdown — hide the
-  // section and its toggle chip rather than rendering empty blocks.
-  const breakdown = result.creativeBreakdown ?? null
 
   const scrollRef = useRef<HTMLDivElement>(null)
-  const scorecardRef = useRef<HTMLDivElement>(null)
   const breakdownRef = useRef<HTMLDivElement>(null)
   const transcriptRef = useRef<HTMLDivElement>(null)
   const scenesRef = useRef<HTMLDivElement>(null)
-  const [active, setActive] = useState<SectionKey>('scorecard')
+  const [active, setActive] = useState<SectionKey>('breakdown')
 
   const refFor = (k: SectionKey) =>
-    k === 'scorecard' ? scorecardRef : k === 'breakdown' ? breakdownRef : k === 'transcript' ? transcriptRef : scenesRef
+    k === 'breakdown' ? breakdownRef : k === 'transcript' ? transcriptRef : scenesRef
 
   const scrollTo = (k: SectionKey) => {
     setActive(k)
@@ -481,7 +489,7 @@ export default function ResultsView({ result, videoSrc, restoredThumbUrl, fileNa
   useEffect(() => {
     const root = scrollRef.current
     if (!root) return
-    const els = [scorecardRef.current, breakdownRef.current, transcriptRef.current, scenesRef.current].filter(Boolean) as HTMLElement[]
+    const els = [breakdownRef.current, transcriptRef.current, scenesRef.current].filter(Boolean) as HTMLElement[]
     if (els.length === 0) return
     const obs = new IntersectionObserver(
       (entries) => {
@@ -495,7 +503,7 @@ export default function ResultsView({ result, videoSrc, restoredThumbUrl, fileNa
     )
     els.forEach((el) => obs.observe(el))
     return () => obs.disconnect()
-  }, [hasMedia, breakdown])
+  }, [hasMedia])
 
   return (
     <div className="flex flex-col md:flex-row h-full overflow-hidden">
@@ -546,8 +554,7 @@ export default function ResultsView({ result, videoSrc, restoredThumbUrl, fileNa
             value={active}
             onChange={scrollTo}
             options={[
-              { value: 'scorecard', label: 'Scorecard', icon: BarChart3 },
-              ...(breakdown ? [{ value: 'breakdown' as const, label: 'Breakdown', icon: Lightbulb }] : []),
+              { value: 'breakdown', label: 'Breakdown', icon: Lightbulb },
               { value: 'transcript', label: 'Transcript', icon: FileText },
               { value: 'scenes', label: 'Scenes', icon: Clapperboard },
             ]}
@@ -565,17 +572,9 @@ export default function ResultsView({ result, videoSrc, restoredThumbUrl, fileNa
               </div>
             </div>
           )}
-          <div ref={scorecardRef} data-section="scorecard" className="scroll-mt-20">
-            <ScorecardSection result={result} />
+          <div ref={breakdownRef} data-section="breakdown" className="scroll-mt-20">
+            <BreakdownSection result={result} fileName={fileName} />
           </div>
-          {breakdown && (
-            <div ref={breakdownRef} data-section="breakdown" className="scroll-mt-20">
-              <CreativeBreakdownSection
-                breakdown={breakdown}
-                adTitle={result.adTitle?.trim() || deriveFallbackTitle(fileName)}
-              />
-            </div>
-          )}
           <div ref={transcriptRef} data-section="transcript" className="scroll-mt-20">
             <TranscriptSection result={result} fileName={fileName} />
           </div>

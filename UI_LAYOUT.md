@@ -378,19 +378,21 @@ open:
    at the **top**, then the list of past analyses.
 2. **Media column (center, `md:w-1/3`)** — the video/image player + filename chip
    (only when the analysis has media).
-3. **Results column (right, flex-fill)** — `ResultsView.tsx:332`, top→bottom:
-   - **Scorecard** — scored dimensions in this fixed order: **Hook Strength,
-     Structure Clarity, Visual Variety, Persuasion Depth, Overall Execution**
-     (`services/analyzeAd.ts:43`), with the analyst's note to the right.
-   - **Creative Breakdown** — Hook / Angle / Structure blocks, then the copyable
-     **Script Style Prompt** (product-agnostic writing brief; saves to the
-     Script Bank with a STYLE badge). Hidden on legacy results that predate it.
+3. **Results column (right, flex-fill)** — `ResultsView.tsx`, with a sticky
+   section-jump toggle (**Breakdown · Transcript · Scenes**), top→bottom:
+   - **Breakdown** — one card: the scorecard on top (scored dimensions in this
+     fixed order: **Hook Strength, Structure Clarity, Visual Variety,
+     Persuasion Depth, Overall Execution**, analyst's note to the right), then
+     under an inset divider the Hook / Angle / Structure blocks and the
+     copyable **Script Style Prompt** (product-agnostic writing brief; saves to
+     the Script Bank with a STYLE badge). Legacy results that predate the
+     creative breakdown show only the scorecard part.
    - **Transcript**.
    - **Reverse-Engineered Scenes**.
 
-Under the Creative Breakdown, Transcript, and Scenes sections sits a shared
-action row (`ResultsView.tsx`), left→right: **Save to Script Bank · Send to
-Scripts**.
+Under the Breakdown, Transcript, and Scenes sections sits a shared action row
+(`ResultsView.tsx`), left→right: **Save to Script Bank · Send to Scripts**
+(hidden on the Breakdown card for legacy results with no style prompt).
 
 The pre-result **upload state** (`UploadView.tsx`) shows the drop/upload target
 instead of the media+results columns.
