@@ -9,6 +9,7 @@ import type { Product, Model, Script, VoicePreset, BRoll } from '../stores/types
 import BankItemCard from './BankItemCard'
 import SegmentedToggle from './SegmentedToggle'
 import { useIsDesktop } from '../hooks/useBreakpoint'
+import { useCloseOnAppSwitch } from '../hooks/useCloseOnAppSwitch'
 import { sortByOrder, starredFirst, SORT_OPTIONS_WITH_NAME, SORT_OPTIONS_DATE_ONLY, type SortOrder } from '../apps/finder/bankSort'
 
 type BankItem = Product | Model | Script | VoicePreset | BRoll
@@ -155,6 +156,8 @@ export default function BankPicker({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, bankType])
+
+  useCloseOnAppSwitch(isOpen, onClose)
 
   // Close on Escape
   useEffect(() => {

@@ -16,6 +16,7 @@ import {
 } from '../utils/models'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useIsDesktop } from '../hooks/useBreakpoint'
+import { useCloseOnAppSwitch } from '../hooks/useCloseOnAppSwitch'
 import ProviderLogo from './ProviderLogo'
 
 // Slide-in side-panel model picker (mirrors BankPicker's mechanics). Used by
@@ -107,6 +108,8 @@ export default function ModelSidePanel({
       setTimeout(() => searchRef.current?.focus(), 100)
     }
   }, [isOpen])
+
+  useCloseOnAppSwitch(isOpen, onClose)
 
   // Close on Escape.
   useEffect(() => {

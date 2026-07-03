@@ -1,6 +1,7 @@
 import { useLayoutEffect, useState, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { Upload, Bookmark } from 'lucide-react'
+import { useCloseOnAppSwitch } from '../../hooks/useCloseOnAppSwitch'
 
 interface SlotActionMenuProps {
   // Anchor element — usually the "+" / upload tile that triggers the menu.
@@ -26,6 +27,8 @@ interface SlotActionMenuProps {
 // viewport's bottom edge.
 export default function SlotActionMenu({ anchorRef, open, onClose, onUpload, onPickFromBank, hover, onMouseEnter, onMouseLeave }: SlotActionMenuProps) {
   const [pos, setPos] = useState<{ top: number; left: number; placement: 'below' | 'above' } | null>(null)
+
+  useCloseOnAppSwitch(open, onClose)
 
   useLayoutEffect(() => {
     // When closed the component renders null regardless of `pos`, so there's

@@ -18,6 +18,7 @@ import ConstraintChip from '../../../components/ConstraintChip'
 import AspectIcon from '../../../components/AspectIcon'
 import VariationCard from './VariationCard'
 import { humanizeError } from '../../../utils/friendlyError'
+import { useCloseOnAppSwitch } from '../../../hooks/useCloseOnAppSwitch'
 
 interface ScenesViewProps {
   result: BrollResult | null
@@ -102,6 +103,9 @@ export default function ScenesView({
     getDefaultModel('broll-studio', 'image', 'text-to-image')?.id
   const [batchTokens, setBatchTokens] = useState<Record<string, number>>({})
   const [batchConfirm, setBatchConfirm] = useState<{ keys: string[]; scope: string } | null>(null)
+  // The confirm dialog portals to document.body, so it would outlive an app
+  // switch — dismiss it when the user docks away.
+  useCloseOnAppSwitch(!!batchConfirm, () => setBatchConfirm(null))
   // Resolution + aspect chosen for the run (model lives in the global setting).
   const [batchResolution, setBatchResolution] = useState<ImageResolution | undefined>(undefined)
   const [batchAspect, setBatchAspect] = useState<string | undefined>(undefined)
