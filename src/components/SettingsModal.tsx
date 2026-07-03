@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { X, Eye, EyeOff, Key, Check, ExternalLink, Loader2, AlertCircle, HardDrive, Trash2, LogOut, User, Sun, Moon, Monitor, Palette, FlaskConical } from 'lucide-react'
+import { X, Eye, EyeOff, Key, Check, ExternalLink, Loader2, AlertCircle, HardDrive, Trash2, LogOut, User, Sun, Moon, Monitor, Palette, FlaskConical, Shield, ChevronRight } from 'lucide-react'
+import { useAppStore } from '../stores/appStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useThemeStore, type ThemePref } from '../stores/themeStore'
 import SegmentedToggle from './SegmentedToggle'
@@ -33,6 +34,7 @@ type StorageState =
 export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   const storedKieKey = useSettingsStore((s) => s.kieApiKey)
   const setKieApiKey = useSettingsStore((s) => s.setKieApiKey)
+  const openApp = useAppStore((s) => s.openApp)
   const profile = useAuthStore((s) => s.profile)
   const signOut = useAuthStore((s) => s.signOut)
   // Call the hook unconditionally (not behind `isCloudEnabled() &&`) so hook
@@ -574,6 +576,28 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
             >
               <LogOut className="h-3.5 w-3.5" />
               Sign out
+            </button>
+          </div>
+        )}
+
+        {/* Admin — the Admin app moved out of the dock; this row is the only
+            entry point and renders solely for admins. */}
+        {profile?.is_admin && (
+          <div className="mt-6 border-t border-ink/5 pt-5">
+            <div className="flex items-center gap-2">
+              <Shield className="h-3.5 w-3.5 text-ink-500" />
+              <span className="text-sm font-medium text-ink-300">Admin</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => { onClose(); openApp('admin') }}
+              className="mt-3 flex w-full items-center gap-3 rounded-lg border border-ink/5 bg-ink/[0.02] px-3 py-2.5 text-left transition-colors hover:bg-ink/[0.05]"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block text-[12px] font-medium text-ink-200">Open Admin panel</span>
+                <span className="block text-[11px] text-ink-500">Members, insights, and the allowlist.</span>
+              </span>
+              <ChevronRight className="h-3.5 w-3.5 shrink-0 text-ink-500" />
             </button>
           </div>
         )}
