@@ -320,10 +320,11 @@ function ScriptCard({ item, onEdit, onDelete }: { item: Script; onEdit: () => vo
   const getProductById = useBankStore((s) => s.getProductById)
   const linked = item.linkedProductId ? getProductById(item.linkedProductId) : null
   // Legacy items predate `kind` — treat them as scripts.
-  const isPrompt = item.kind === 'reverse-engineer'
-  const badge = isPrompt
+  const badge = item.kind === 'reverse-engineer'
     ? { label: 'SCENES', className: 'bg-fuchsia-500/15 text-fuchsia-300 light:text-fuchsia-700 border-fuchsia-500/20' }
-    : { label: 'SCRIPT', className: 'bg-scripts-500/15 text-scripts-300 border-scripts-500/20' }
+    : item.kind === 'style'
+      ? { label: 'STYLE', className: 'bg-sky-500/15 text-sky-300 light:text-sky-700 border-sky-500/20' }
+      : { label: 'SCRIPT', className: 'bg-scripts-500/15 text-scripts-300 border-scripts-500/20' }
   return (
     <div
       onClick={onEdit}

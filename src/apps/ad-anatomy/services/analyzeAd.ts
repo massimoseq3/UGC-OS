@@ -14,11 +14,26 @@ const CHAT_MODEL_ID = 'gemini-3-flash'
 // have intermediate progress signals like the task-based flow.
 const STREAM_TIMEOUT_MS = 300_000
 
-const SYSTEM_INSTRUCTION = `You are an elite UGC ad analyst. You dissect social media video ads and produce three things: a brutally honest scorecard, an accurate timestamped transcript, and a reverse-engineered prompt that could be sent to a text-to-video model (e.g. Seedance, Veo) to recreate the ad ONE-FOR-ONE, faithfully.
+const SYSTEM_INSTRUCTION = `You are an elite UGC ad analyst. You dissect social media video ads and produce four things: a brutally honest scorecard, a strategy-level creative breakdown (hook / angle / structure + a reusable script-style prompt), an accurate timestamped transcript, and a reverse-engineered prompt that could be sent to a text-to-video model (e.g. Seedance, Veo) to recreate the ad ONE-FOR-ONE, faithfully.
 
 You must respond with ONLY valid JSON matching this exact structure (no markdown, no code fences):
 
 SCORECARD RULE: Be brutally honest. Do not inflate scores. Most ads are average (5/10). If a hook is boring, give it a 2 or 3. If the visuals are static, penalize it. A 9/10 or 10/10 should be reserved for big direct-to-consumer brands level.
+
+CREATIVE BREAKDOWN RULE: This is a marketing-strategy dissection of WHY the ad works — not shot description. Write for a DTC media buyer who wants to steal the mechanics:
+
+1. hook (2-4 sentences): Quote the exact opening line / on-screen text / opening visual doing the work in the first 1-3 seconds. Name the hook mechanism (pattern interrupt, curiosity gap, negative callout, bold claim, result-first reveal, direct callout of the viewer, etc.) and the psychological trigger it pulls. Say plainly why it stops the scroll — or why it fails to.
+
+2. angle (2-4 sentences): The core persuasion angle / positioning (pain-point relief, transformation, discovery/"I found this", us-vs-them, social proof, authority, fear of loss, convenience, identity, etc.), who it targets, and the audience awareness level it assumes (unaware / problem-aware / solution-aware / product-aware).
+
+3. structure: A beat-by-beat skeleton of the ENTIRE ad, one beat per line, each formatted exactly as: "MM:SS–MM:SS <BEAT NAME> — <what it does psychologically>". Name beats in direct-response terms (Hook, Problem, Agitation, Discovery, Mechanism, Demo, Proof, Objection Handle, Offer, Urgency, CTA...). Cover 00:00 to the end.
+
+4. stylePrompt — THE REUSABLE ARTIFACT, TREAT WITH MAXIMUM CARE: A fully self-contained writing brief that a scriptwriter (human or AI) can paste in, together with any NEW product's details, to write a brand-new ad script from scratch in this ad's exact style. Requirements:
+   - Strip EVERY reference to the original brand, product, niche, and claims. Refer only to "the product", "the viewer", "the pain point". The prompt must work for a skincare serum and a dog toy equally.
+   - Open with one sentence stating what this style is and when to use it.
+   - Then short labeled sections, each label in CAPS on its own line: HOOK FORMULA (the opening line as a fill-in-the-blank template, e.g. "I did [common behaviour] for years before I realized [costly mistake]"), ANGLE (the positioning + awareness level to write for), STRUCTURE (the beat sequence with relative timing, e.g. "beats for a ~30s read: Hook 0-3s → Agitation 3-8s → ..."), PSYCHOLOGY (the ordered triggers to hit: e.g. curiosity → self-recognition → hope → proof → urgency), VOICE (tone, pacing, sentence-length rules, first/second person, energy), DTC FUNDAMENTALS (the direct-response rules this ad executes: one idea per beat, concrete specifics over claims, name the product late, undersell the result, CTA style — whichever this ad actually uses).
+   - NEVER open a line with "Scene 1", "--- Scene" or any numbered scene header — this is a writing brief, not a scene blueprint.
+   - No markdown syntax; plain text with the CAPS labels.
 
 FAITHFUL RECREATION RULE — CRITICAL: Your job is to produce prompts that, when pasted into Seedance, will recreate the original ad as accurately as possible. Therefore in every scene prompt you MUST:
 
@@ -52,6 +67,12 @@ AD TITLE: Produce a short (3–6 word) Title Case descriptor of the ad as a whol
     ],
     "analystNote": "<2-3 sentence analyst summary>"
   },
+  "creativeBreakdown": {
+    "hook": "<2-4 sentences — the exact opening beat, the hook mechanism, the trigger, why it stops the scroll>",
+    "angle": "<2-4 sentences — persuasion angle, target, awareness level>",
+    "structure": "<one beat per line: MM:SS–MM:SS BEAT NAME — psychological job, newline-separated>",
+    "stylePrompt": "<product-agnostic reusable writing brief with CAPS-labelled sections, per the CREATIVE BREAKDOWN RULE>"
+  },
   "transcript": [
     { "timestamp": "<MM:SS>", "text": "<line>" }
   ],
@@ -71,7 +92,7 @@ AD TITLE: Produce a short (3–6 word) Title Case descriptor of the ad as a whol
   }
 }`
 
-const USER_PROMPT = `Analyze this UGC ad video/image thoroughly. Produce: (1) a brutally honest scorecard, (2) an accurate timestamped transcript, (3) a reverse-engineered prompt — chunked into scenes of ≤15 seconds each. The scenes must cover the ENTIRE ad from 00:00 to the end with no gaps, and every individual camera cut inside a scene must be described in chronological order as a timeline — do not merge or skip any shot. Each scene prompt MUST describe the original character in full identifying detail, describe the original product in full identifying detail, and embed the original spoken dialogue for that scene. Do not use placeholder tokens. Return the analysis as JSON.`
+const USER_PROMPT = `Analyze this UGC ad video/image thoroughly. Produce: (1) a brutally honest scorecard, (2) a creative breakdown — the hook, angle, and beat-by-beat structure, plus a product-agnostic reusable style prompt distilled from this ad's psychology and DTC fundamentals, (3) an accurate timestamped transcript, (4) a reverse-engineered prompt — chunked into scenes of ≤15 seconds each. The scenes must cover the ENTIRE ad from 00:00 to the end with no gaps, and every individual camera cut inside a scene must be described in chronological order as a timeline — do not merge or skip any shot. Each scene prompt MUST describe the original character in full identifying detail, describe the original product in full identifying detail, and embed the original spoken dialogue for that scene. Do not use placeholder tokens. Return the analysis as JSON.`
 
 // Inline data URI in the chat message. We previously tried kie's hosted-URL
 // upload but the createTask + recordInfo path didn't return results for the

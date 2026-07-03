@@ -9,8 +9,9 @@ import {
   Clapperboard,
   Film,
   Bookmark,
+  Lightbulb,
 } from 'lucide-react'
-import type { AnalysisResult, Scene } from '../types'
+import type { AnalysisResult, CreativeBreakdown, Scene } from '../types'
 import { useAppStore } from '../../../stores/appStore'
 import { useBankStore } from '../../../stores/bankStore'
 import SegmentedToggle from '../../../components/SegmentedToggle'
@@ -142,7 +143,101 @@ function ScorecardSection({ result }: { result: AnalysisResult }) {
   )
 }
 
-/* ─── 2. Transcript ─── */
+/* ─── 2. Creative Breakdown ─── */
+
+// One labelled insight row — mirrors the Analyst's Note block styling.
+function BreakdownBlock({ label, text, pre = false }: { label: string; text: string; pre?: boolean }) {
+  return (
+    <div className="rounded-xl bg-surface-0 px-4 py-3">
+      <span className="text-[11px] font-medium uppercase tracking-tight text-ink-600">{label}</span>
+      <p className={`mt-1.5 text-[13px] font-light leading-relaxed tracking-tight text-ink-200 ${pre ? 'whitespace-pre-wrap' : ''}`}>
+        {text}
+      </p>
+    </div>
+  )
+}
+
+function CreativeBreakdownSection({ breakdown, adTitle }: { breakdown: CreativeBreakdown; adTitle: string }) {
+  const { copied, copy } = useCopy()
+  const addToast = useAppStore((s) => s.addToast)
+  const sendToApp = useAppStore((s) => s.sendToApp)
+  const addScript = useBankStore((s) => s.addScript)
+
+  const scriptTitle = `${adTitle} — Script Style`
+
+  const saveStyleToBank = () => {
+    addScript({
+      title: scriptTitle,
+      scriptText: breakdown.stylePrompt,
+      linkedProductId: '',
+      source: 'manual',
+      kind: 'style',
+    })
+  }
+
+  const handleSaveToBank = () => {
+    saveStyleToBank()
+    addToast(`Saved "${scriptTitle}" to Script Bank`)
+  }
+
+  // Lands in the Remix source box — the remix pipeline reads the source for
+  // structure, pacing, and psychology, which is exactly what the style
+  // prompt encodes, so pairing it with a product writes new scripts from
+  // scratch in this ad's style.
+  const handleSendToScripts = () => {
+    saveStyleToBank()
+    sendToApp({
+      targetApp: 'script-architect',
+      targetField: 'winningTranscript',
+      data: breakdown.stylePrompt,
+    })
+    addToast('Sent to Scripts + saved to bank')
+  }
+
+  return (
+    <Section>
+      <CardHeader
+        icon={Lightbulb}
+        title="Creative Breakdown"
+        accentClass="text-amber-400/90 light:text-amber-600"
+      />
+
+      <div className="flex flex-col gap-3 p-4">
+        <BreakdownBlock label="Hook" text={breakdown.hook} />
+        <BreakdownBlock label="Angle" text={breakdown.angle} />
+        <BreakdownBlock label="Structure" text={breakdown.structure} pre />
+
+        {/* The reusable style prompt — the artifact the actions below ship. */}
+        <div className="rounded-2xl border border-ink/5 bg-ink/[0.02] p-3 card-soft-shadow">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <span className="shrink-0 rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-tight text-sky-300 light:text-sky-700">
+                Script Style Prompt
+              </span>
+              <span className="text-[11px] text-ink-500">
+                Reusable — writes new scripts with this ad&apos;s psychology
+              </span>
+            </div>
+            <button
+              onClick={() => copy(breakdown.stylePrompt)}
+              className="flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium text-ink-600 transition-colors hover:bg-ink/5 hover:text-ink-300"
+            >
+              {copied ? <Check className="h-3 w-3 text-green-400 light:text-green-600" /> : <Copy className="h-3 w-3" />}
+              {copied ? 'Copied' : 'Copy'}
+            </button>
+          </div>
+          <div className="whitespace-pre-wrap rounded-xl bg-surface-0 p-2.5 text-[13px] font-light leading-relaxed tracking-tight text-ink-200">
+            {breakdown.stylePrompt}
+          </div>
+        </div>
+      </div>
+
+      <ScriptActionRow onSave={handleSaveToBank} onSend={handleSendToScripts} />
+    </Section>
+  )
+}
+
+/* ─── 3. Transcript ─── */
 function TranscriptSection({ result, fileName }: { result: AnalysisResult; fileName: string }) {
   const { copied, copy } = useCopy()
   const addToast = useAppStore((s) => s.addToast)
@@ -208,7 +303,7 @@ function TranscriptSection({ result, fileName }: { result: AnalysisResult; fileN
   )
 }
 
-/* ─── 3. Reverse-Engineered Prompt ─── */
+/* ─── 4. Reverse-Engineered Prompt ─── */
 
 function joinScenes(scenes: Scene[]): string {
   if (scenes.length === 1) return scenes[0].prompt
@@ -354,7 +449,7 @@ function ScriptActionRow({ onSave, onSend }: { onSave: () => void; onSend: () =>
 }
 
 /* ─── Section jump toggle ─── */
-type SectionKey = 'scorecard' | 'transcript' | 'scenes'
+type SectionKey = 'scorecard' | 'breakdown' | 'transcript' | 'scenes'
 
 /* ─── Main ResultsView ─── */
 export default function ResultsView({ result, videoSrc, restoredThumbUrl, fileName }: ResultsViewProps) {
@@ -362,15 +457,19 @@ export default function ResultsView({ result, videoSrc, restoredThumbUrl, fileNa
   // still is available (e.g. restored from a history row whose thumbnail
   // capture had failed). Results panels then take the full width.
   const hasMedia = !!videoSrc || !!restoredThumbUrl
+  // Legacy persisted results predate the creative breakdown — hide the
+  // section and its toggle chip rather than rendering empty blocks.
+  const breakdown = result.creativeBreakdown ?? null
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const scorecardRef = useRef<HTMLDivElement>(null)
+  const breakdownRef = useRef<HTMLDivElement>(null)
   const transcriptRef = useRef<HTMLDivElement>(null)
   const scenesRef = useRef<HTMLDivElement>(null)
   const [active, setActive] = useState<SectionKey>('scorecard')
 
   const refFor = (k: SectionKey) =>
-    k === 'scorecard' ? scorecardRef : k === 'transcript' ? transcriptRef : scenesRef
+    k === 'scorecard' ? scorecardRef : k === 'breakdown' ? breakdownRef : k === 'transcript' ? transcriptRef : scenesRef
 
   const scrollTo = (k: SectionKey) => {
     setActive(k)
@@ -382,7 +481,7 @@ export default function ResultsView({ result, videoSrc, restoredThumbUrl, fileNa
   useEffect(() => {
     const root = scrollRef.current
     if (!root) return
-    const els = [scorecardRef.current, transcriptRef.current, scenesRef.current].filter(Boolean) as HTMLElement[]
+    const els = [scorecardRef.current, breakdownRef.current, transcriptRef.current, scenesRef.current].filter(Boolean) as HTMLElement[]
     if (els.length === 0) return
     const obs = new IntersectionObserver(
       (entries) => {
@@ -396,7 +495,7 @@ export default function ResultsView({ result, videoSrc, restoredThumbUrl, fileNa
     )
     els.forEach((el) => obs.observe(el))
     return () => obs.disconnect()
-  }, [hasMedia])
+  }, [hasMedia, breakdown])
 
   return (
     <div className="flex flex-col md:flex-row h-full overflow-hidden">
@@ -448,6 +547,7 @@ export default function ResultsView({ result, videoSrc, restoredThumbUrl, fileNa
             onChange={scrollTo}
             options={[
               { value: 'scorecard', label: 'Scorecard', icon: BarChart3 },
+              ...(breakdown ? [{ value: 'breakdown' as const, label: 'Breakdown', icon: Lightbulb }] : []),
               { value: 'transcript', label: 'Transcript', icon: FileText },
               { value: 'scenes', label: 'Scenes', icon: Clapperboard },
             ]}
@@ -468,6 +568,14 @@ export default function ResultsView({ result, videoSrc, restoredThumbUrl, fileNa
           <div ref={scorecardRef} data-section="scorecard" className="scroll-mt-20">
             <ScorecardSection result={result} />
           </div>
+          {breakdown && (
+            <div ref={breakdownRef} data-section="breakdown" className="scroll-mt-20">
+              <CreativeBreakdownSection
+                breakdown={breakdown}
+                adTitle={result.adTitle?.trim() || deriveFallbackTitle(fileName)}
+              />
+            </div>
+          )}
           <div ref={transcriptRef} data-section="transcript" className="scroll-mt-20">
             <TranscriptSection result={result} fileName={fileName} />
           </div>
