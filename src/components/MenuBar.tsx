@@ -50,8 +50,8 @@ export default function MenuBar() {
       <div className="flex-1" />
 
       <CreditsItem />
-      <MenuLink href={SKOOL_COMMUNITY_URL} label="Community" />
       <MenuLink href="https://kie.ai/billing" label="Get Credits" />
+      <MenuLink href={SKOOL_COMMUNITY_URL} label="Community" />
       <span className="hidden pl-1 text-[12px] tabular-nums text-ink-400 sm:block">{clock}</span>
     </header>
   )
@@ -106,7 +106,10 @@ function CreditsItem() {
           </>
         )}
       </span>
-      <span className="tabular-nums">{balance !== null ? balance.toLocaleString() : '—'}</span>
+      <span>
+        <span className="tabular-nums">{balance !== null ? balance.toLocaleString() : '—'}</span>
+        <span className="text-ink-500"> credits left</span>
+      </span>
     </button>
   )
 }
