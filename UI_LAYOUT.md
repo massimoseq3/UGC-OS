@@ -382,11 +382,15 @@ open:
    - **Scorecard** — scored dimensions in this fixed order: **Hook Strength,
      Structure Clarity, Visual Variety, Persuasion Depth, Overall Execution**
      (`services/analyzeAd.ts:43`), with the analyst's note to the right.
+   - **Creative Breakdown** — Hook / Angle / Structure blocks, then the copyable
+     **Script Style Prompt** (product-agnostic writing brief; saves to the
+     Script Bank with a STYLE badge). Hidden on legacy results that predate it.
    - **Transcript**.
    - **Reverse-Engineered Scenes**.
 
-Under the Transcript and the Scenes sections sits a shared action row
-(`ResultsView.tsx:303`), left→right: **Save to Script Bank · Send to Scripts**.
+Under the Creative Breakdown, Transcript, and Scenes sections sits a shared
+action row (`ResultsView.tsx`), left→right: **Save to Script Bank · Send to
+Scripts**.
 
 The pre-result **upload state** (`UploadView.tsx`) shows the drop/upload target
 instead of the media+results columns.

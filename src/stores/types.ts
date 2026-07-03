@@ -44,9 +44,10 @@ export interface Script {
   linkedProductId: string
   source: 'script-architect' | 'manual'
   // Distinguishes a generated ad script ('remix', default) from a
-  // reverse-engineered reconstruction prompt ('reverse-engineer').
-  // Drives the SCRIPT/PROMPT badge in the Scripts bank.
-  kind?: 'remix' | 'reverse-engineer'
+  // reverse-engineered reconstruction prompt ('reverse-engineer') and a
+  // reusable script-style writing brief from Ad Analyzer ('style').
+  // Drives the SCRIPT/SCENES/STYLE badge in the Scripts bank.
+  kind?: 'remix' | 'reverse-engineer' | 'style'
   // User-pinned favourite. Starred items surface first in the bank pickers.
   starred?: boolean
   createdAt: number
