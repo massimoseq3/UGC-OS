@@ -227,7 +227,7 @@ export default function Finder() {
           the right, with the separator footing flush under the toggle. Mirrors
           the Influencers gallery header so the toggle reads the same height as
           the other main toggles across the app. */}
-      <div className="flex h-[57px] shrink-0 items-center justify-between gap-3 border-b border-ink/5 px-5">
+      <div className="flex h-[57px] shrink-0 items-center justify-between gap-2 border-b border-ink/5 px-3 md:gap-3 md:px-5">
         <div className="min-w-0 flex-1 overflow-x-auto scrollbar-hide scroll-fade-r">
           <SegmentedToggle<BankType>
             fitContent
@@ -242,7 +242,7 @@ export default function Finder() {
             }))}
           />
         </div>
-        <div className="flex shrink-0 items-center justify-end gap-3">
+        <div className="flex shrink-0 items-center justify-end gap-2 md:gap-3">
           {/* Influencers sub-filter — sized to match the main bank toggle
               (h-10 !p-1). Only the Influencers bank has the portrait/sheet
               split. */}
@@ -279,10 +279,12 @@ export default function Finder() {
               />
               <button
                 onClick={() => bulkInputRef.current?.click()}
-                className="flex h-10 items-center gap-2 rounded-full border border-ink/10 bg-ink/[0.04] px-5 text-[13px] font-medium tracking-tight text-ink-300 transition-colors hover:bg-ink/[0.08]"
+                title="Bulk add"
+                className="flex h-10 items-center gap-2 rounded-full border border-ink/10 bg-ink/[0.04] px-3.5 text-[13px] font-medium tracking-tight text-ink-300 transition-colors hover:bg-ink/[0.08] md:px-5"
               >
                 <Upload className="h-4 w-4" />
-                Bulk add
+                {/* Icon-only on phones — the label crowded the toolbar. */}
+                <span className="hidden sm:inline">Bulk add</span>
               </button>
             </>
           )}

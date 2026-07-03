@@ -105,7 +105,9 @@ function Workspace() {
   const userId = useAuthStore((s) => s.user?.id)
 
   return (
-    <div key={userId ?? 'local'} className="relative h-screen w-screen overflow-hidden text-ink antialiased bg-surface-0">
+    // h-dvh (not h-screen): 100vh overflows behind mobile browser URL bars,
+    // which would push the dock half off-screen on iOS Safari.
+    <div key={userId ?? 'local'} className="relative h-dvh w-screen overflow-hidden text-ink antialiased bg-surface-0">
       {/* Universal Background Gradient */}
       <AppBackground />
 

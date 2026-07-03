@@ -127,8 +127,11 @@ export default function EditorArea({
         />
       </div>
 
-      {/* Footer row — pinned to viewport bottom on mobile so Generate is always reachable */}
-      <div className="fixed bottom-0 left-0 right-0 z-30 flex items-center justify-between border-t border-ink/5 bg-surface-0/95 px-5 py-5 backdrop-blur-xl md:static md:left-auto md:right-auto md:z-auto md:mt-4 md:bg-transparent md:backdrop-blur-none">
+      {/* Footer row — pinned to the app window's bottom edge on mobile so
+          Generate is always reachable. Opaque bg (not /95 + blur): backdrop-
+          filter doesn't re-blur inside the already-blurred window frame, so
+          any alpha lets the form underneath ghost through. */}
+      <div className="fixed bottom-0 left-0 right-0 z-30 flex items-center justify-between border-t border-ink/5 bg-surface-0 px-5 py-5 md:static md:left-auto md:right-auto md:z-auto md:mt-4 md:bg-transparent">
         {/* Left — character count */}
         <div className={`text-sm tabular-nums ${overLimit ? 'text-red-400 light:text-red-600' : 'text-ink-400'}`}>
           <span className={overLimit ? 'text-red-300 light:text-red-700' : 'text-ink-200'}>{charCount.toLocaleString()}</span>

@@ -808,8 +808,10 @@ export default function InputPanel({
         )}
       </div>
 
-      {/* Generate button. */}
-      <div className="fixed bottom-0 left-0 right-0 z-30 shrink-0 border-t border-ink/5 bg-surface-0/95 px-5 py-4 backdrop-blur-xl md:static md:left-auto md:right-auto md:z-auto md:bg-transparent md:backdrop-blur-none">
+      {/* Generate button — pinned to the app window's bottom edge on mobile.
+          Opaque bg: backdrop-filter doesn't re-blur inside the already-blurred
+          window frame, so any alpha lets content underneath ghost through. */}
+      <div className="fixed bottom-0 left-0 right-0 z-30 shrink-0 border-t border-ink/5 bg-surface-0 px-5 py-4 md:static md:left-auto md:right-auto md:z-auto md:bg-transparent">
         <button
           onClick={() => onGenerate(editableContext)}
           disabled={!canGenerate || isGenerating}

@@ -19,7 +19,10 @@ export default function CookieBanner() {
   }
 
   return (
-    <div className="fixed bottom-3 left-1/2 z-[180] -translate-x-1/2 flex max-w-[640px] items-center gap-3 rounded-xl border border-ink/10 bg-surface-1/95 px-4 py-2.5 text-[12px] text-ink-300 shadow-lg backdrop-blur-xl">
+    // Phones: full-width strip sitting above the dock (centering at 375px
+    // squeezed the copy into a one-word-per-line column over the dock).
+    // sm+: the original centered pill at the bottom edge.
+    <div className="fixed inset-x-3 bottom-[116px] z-[180] flex items-center gap-3 rounded-xl border border-ink/10 bg-surface-1/95 px-4 py-2.5 text-[12px] text-ink-300 shadow-lg backdrop-blur-xl sm:inset-x-auto sm:bottom-3 sm:left-1/2 sm:max-w-[640px] sm:-translate-x-1/2">
       <Cookie className="h-4 w-4 shrink-0 text-amber-300 light:text-amber-700" />
       <span className="leading-snug">
         We use browser storage (localStorage + IndexedDB) and authentication cookies to run the app.{' '}

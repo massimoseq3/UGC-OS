@@ -54,7 +54,7 @@ export default function AuthScreen() {
   }
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-surface-0 text-ink antialiased">
+    <div className="relative h-dvh w-screen overflow-hidden bg-surface-0 text-ink antialiased">
       <AppBackground />
 
       <div className="relative z-10 flex h-full w-full items-center justify-center px-6">
