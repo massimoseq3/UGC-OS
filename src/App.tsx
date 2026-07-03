@@ -4,8 +4,8 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import AppLogo from './components/AppLogo'
 import AppBackground from './components/AppBackground'
 
-import { Menu } from 'lucide-react'
-import Sidebar from './components/Sidebar'
+import Dock from './components/Dock'
+import MenuBar from './components/MenuBar'
 import ToastContainer from './components/Toast'
 import AuthGate from './components/auth/AuthGate'
 import RouterSync from './components/RouterSync'
@@ -58,22 +58,6 @@ function AppPlaceholder({ appId }: { appId: string }) {
   )
 }
 
-// With the top bar gone, mobile needs its own way to open the sidebar
-// drawer — a small floating burger pinned top-left. Hidden on md+ where the
-// sidebar is always visible and carries its own burger.
-function MobileMenuButton() {
-  const setMobileSidebarOpen = useAppStore((s) => s.setMobileSidebarOpen)
-  return (
-    <button
-      onClick={() => setMobileSidebarOpen(true)}
-      className="fixed left-3 top-3 z-30 flex h-10 w-10 items-center justify-center rounded-full border border-ink/10 bg-surface-1/80 text-ink-300 backdrop-blur transition-colors hover:bg-ink/[0.06] md:hidden"
-      aria-label="Open sidebar"
-    >
-      <Menu className="h-5 w-5" strokeWidth={1.75} />
-    </button>
-  )
-}
-
 function EmptyState() {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
@@ -83,7 +67,7 @@ function EmptyState() {
           UGC OS
         </h1>
         <p className="text-sm text-ink-500">
-          Pick a tool from the sidebar to get started.
+          Pick a tool from the dock to get started.
         </p>
       </div>
     </div>
@@ -118,12 +102,7 @@ export default function App() {
 function Workspace() {
   const activeApp = useAppStore((s) => s.activeApp)
   const runningApps = useAppStore((s) => s.runningApps)
-  const collapsed = useAppStore((s) => s.sidebarCollapsed)
   const userId = useAuthStore((s) => s.user?.id)
-
-  // Below lg the sidebar is an overlay drawer, so content reaches the left edge.
-  // Above lg it sits in a fixed gutter (collapsed = 80px, expanded = 224px).
-  const contentPadding = collapsed ? 'md:pl-20' : 'md:pl-56'
 
   return (
     <div key={userId ?? 'local'} className="relative h-screen w-screen overflow-hidden text-ink antialiased bg-surface-0">
@@ -131,41 +110,47 @@ function Workspace() {
       <AppBackground />
 
       <div className="relative z-10 h-full w-full">
-        <Sidebar />
-        <MobileMenuButton />
+        <MenuBar />
+        <Dock />
 
-        {/* Empty state — visible when no app is active */}
-        <div
-          className={`absolute inset-0 ${contentPadding} transition-[padding] duration-200 ease-out ${
-            activeApp ? 'pointer-events-none opacity-0' : 'pointer-events-auto opacity-100'
-          }`}
-        >
-          <EmptyState />
-        </div>
+        {/* macOS-style app "window": a rounded, bordered frame floating between
+            the menu bar and the dock, desktop gradient peeking around it. App
+            chrome clips at the window edge instead of ending in a hard line
+            against the dock gutter. */}
+        <div className="absolute inset-x-2 bottom-[108px] top-11 overflow-hidden rounded-2xl border border-ink/10 bg-surface-0/60 shadow-2xl shadow-black/25 backdrop-blur-xl md:inset-x-3">
+          {/* Empty state — visible when no app is active */}
+          <div
+            className={`absolute inset-0 ${
+              activeApp ? 'pointer-events-none opacity-0' : 'pointer-events-auto opacity-100'
+            }`}
+          >
+            <EmptyState />
+          </div>
 
-        {/* Running apps */}
-        {runningApps.map((appId) => {
-          const Component = APP_COMPONENTS[appId]
-          const isActive = activeApp === appId
-          return (
-            <div
-              key={appId}
-              className={`absolute inset-0 ${contentPadding} transition-[padding] duration-200 ease-out ${
-                isActive ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
-              }`}
-            >
-              <div className="h-full overflow-y-auto bg-transparent">
-                {Component ? (
-                  <Suspense fallback={<AppPlaceholder appId={appId} />}>
-                    <Component />
-                  </Suspense>
-                ) : (
-                  <AppPlaceholder appId={appId} />
-                )}
+          {/* Running apps */}
+          {runningApps.map((appId) => {
+            const Component = APP_COMPONENTS[appId]
+            const isActive = activeApp === appId
+            return (
+              <div
+                key={appId}
+                className={`absolute inset-0 ${
+                  isActive ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
+                }`}
+              >
+                <div className="h-full overflow-y-auto bg-transparent">
+                  {Component ? (
+                    <Suspense fallback={<AppPlaceholder appId={appId} />}>
+                      <Component />
+                    </Suspense>
+                  ) : (
+                    <AppPlaceholder appId={appId} />
+                  )}
+                </div>
               </div>
-            </div>
-          )
-        })}
+            )
+          })}
+        </div>
 
         <ToastContainer />
       </div>
