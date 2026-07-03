@@ -228,6 +228,20 @@ select {
   }
 }
 
+/* Touch polish: no gray flash on tap, and `manipulation` removes the
+   300ms double-tap-to-zoom delay on interactive elements. */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+button,
+a,
+input,
+select,
+textarea,
+[role='button'] {
+  touch-action: manipulation;
+}
+
 /* Native scrollbars are kept INVISIBLE but still reserve their 11px track, so
    layout stays stable (and the prompt editors' reserved scrollbar gutter is
    preserved). The visible, smoothly-fading thumb is drawn as an overlay element

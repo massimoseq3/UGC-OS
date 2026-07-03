@@ -60,17 +60,19 @@ export default function HistoryRail({ items, selectedId, onSelect, onDelete, onN
   }, [items, query])
 
   return (
-    <div className="flex h-full w-[280px] shrink-0 flex-col border-r border-ink/5">
+    // Phones: full-width strip on top of the app (New + search in one row,
+    // history capped to a short scrollable list). md+: the 280px left rail.
+    <div className="flex w-full shrink-0 flex-col border-b border-ink/5 md:h-full md:w-[280px] md:border-b-0 md:border-r">
       {/* New analysis lives at the top of the rail, above the search field. */}
-      <div className="flex shrink-0 flex-col gap-2.5 border-b border-ink/5 p-3">
+      <div className="flex shrink-0 items-center gap-2 border-b border-ink/5 p-3 md:flex-col md:items-stretch md:gap-2.5">
         <button
           onClick={onNew}
-          className="flex w-full items-center justify-center gap-2 rounded-full border border-white/15 bg-[#FF5257] px-4 py-2.5 text-[13px] font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] btn-soft-shadow transition-colors hover:bg-[#FF5257]/90"
+          className="flex shrink-0 items-center justify-center gap-2 rounded-full border border-white/15 bg-[#FF5257] px-4 py-2.5 text-[13px] font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] btn-soft-shadow transition-colors hover:bg-[#FF5257]/90 md:w-full"
         >
           <Plus className="h-4 w-4" strokeWidth={2.5} />
           New Analysis
         </button>
-        <div className="relative w-full">
+        <div className="relative min-w-0 flex-1 md:w-full md:flex-none">
           <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-500" />
           <input
             value={query}
@@ -81,14 +83,16 @@ export default function HistoryRail({ items, selectedId, onSelect, onDelete, onN
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="max-h-44 overflow-y-auto md:max-h-none md:flex-1">
         {items.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center">
+          // The tall empty placeholder is desktop-only — on phones an empty
+          // strip should take no space at all.
+          <div className="hidden h-full flex-col items-center justify-center gap-2 p-6 text-center md:flex">
             <Eye className="h-8 w-8 text-ink-800" strokeWidth={1.5} />
             <p className="text-xs text-ink-500">No analyses yet</p>
           </div>
         ) : groups.length === 0 ? (
-          <div className="flex h-full items-center justify-center px-6 text-center">
+          <div className="flex h-full items-center justify-center px-6 py-4 text-center">
             <span className="text-xs text-ink-500">No matches.</span>
           </div>
         ) : (

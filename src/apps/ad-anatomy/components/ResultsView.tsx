@@ -402,7 +402,9 @@ export default function ResultsView({ result, videoSrc, restoredThumbUrl, fileNa
     <div className="flex flex-col md:flex-row h-full overflow-hidden">
       {/* Left column — pinned video or restored still */}
       {hasMedia && (
-        <div className="flex md:h-full w-full md:w-1/3 shrink-0 flex-col gap-4 border-b md:border-b-0 md:border-r border-ink/5 p-4 md:p-5 min-h-0">
+        // max-h on phones: a portrait video would otherwise fill the whole
+        // stacked column and leave no room for the scorecard below.
+        <div className="flex max-h-[45dvh] md:h-full md:max-h-none w-full md:w-1/3 shrink-0 flex-col gap-4 border-b md:border-b-0 md:border-r border-ink/5 p-4 md:p-5 min-h-0">
           {/* Media sizes to its own aspect ratio so there are no letterbox
               black bars. The flex parent centers it within whatever vertical
               space is left after the caption / filename. */}
@@ -435,8 +437,10 @@ export default function ResultsView({ result, videoSrc, restoredThumbUrl, fileNa
         </div>
       )}
 
-      {/* Right column — scrollable results with a sticky section-jump toggle */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto">
+      {/* Right column — scrollable results with a sticky section-jump toggle.
+          min-h-0: in the phones' stacked column the scroller must be allowed
+          to shrink below its content, or it clips instead of scrolling. */}
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
         <div className="sticky top-0 z-10 flex h-[57px] shrink-0 items-center border-b border-ink/5 bg-surface-0/80 px-5 backdrop-blur-md">
           <SegmentedToggle<SectionKey>
             className="h-10 !p-1"

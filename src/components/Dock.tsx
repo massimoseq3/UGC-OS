@@ -28,7 +28,7 @@ export default function Dock() {
       <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-2 pb-[max(env(safe-area-inset-bottom),0.75rem)]">
         {/* overflow-x-auto keeps the dock usable on narrow screens; md+ fits
             everything so overflow stays visible. */}
-        <nav className="pointer-events-auto flex max-w-full items-start gap-0.5 overflow-x-auto rounded-[26px] border border-ink/10 bg-surface-1/75 px-2.5 pb-1.5 pt-2.5 shadow-2xl shadow-black/25 backdrop-blur-2xl md:overflow-visible light:bg-white/75">
+        <nav className="pointer-events-auto flex max-w-full items-start gap-0.5 overflow-x-auto overscroll-x-contain scrollbar-hide rounded-[26px] border border-ink/10 bg-surface-1/75 px-2 pb-1.5 pt-2 shadow-2xl shadow-black/25 backdrop-blur-2xl md:overflow-visible md:px-2.5 md:pt-2.5 light:bg-white/75">
           {groups.map((apps, i) => (
             <Fragment key={apps[0].category}>
               {i > 0 && <DockDivider />}
@@ -81,7 +81,7 @@ function DockItem({ label, title, active, running, onClick, children }: DockItem
     <button
       onClick={onClick}
       title={title}
-      className="group flex w-16 shrink-0 select-none flex-col items-center gap-1 pt-0.5"
+      className="group flex w-[3.4rem] shrink-0 select-none flex-col items-center gap-1 pt-0.5 md:w-16"
     >
       <span className="flex h-12 w-12 items-center justify-center will-change-transform transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:-translate-y-px group-active:translate-y-0 group-active:scale-[0.985] group-active:duration-150">
         {children}

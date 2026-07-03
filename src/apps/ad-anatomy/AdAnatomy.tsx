@@ -154,7 +154,9 @@ export default function AdAnatomy() {
     : null
 
   return (
-    <div className="flex h-full overflow-hidden">
+    // Phones stack: compact history strip on top, analysis below. md+ keeps
+    // the desktop split with the 280px rail on the left.
+    <div className="flex h-full flex-col overflow-hidden md:flex-row">
       <HistoryRail
         items={adAnatomyHistory}
         selectedId={selectedId}
@@ -162,7 +164,7 @@ export default function AdAnatomy() {
         onNew={() => setSelectedId(null)}
         onDelete={handleDelete}
       />
-      <div className="flex-1 min-w-0">
+      <div className="min-h-0 flex-1 md:min-w-0">
         {!selected ? (
           <UploadView onAnalyze={handleAnalyze} />
         ) : selected.status === 'analyzing' ? (
