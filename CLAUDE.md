@@ -2,7 +2,7 @@
 
 ## Project Identity
 
-You are building **UGC OS** — a browser-based, YouTube-style workspace that unifies seven AI tools for UGC ad production into one environment with shared data banks. Every AI call goes through **kie.ai**: one user-supplied Bearer key gives access to every model the app uses (chat, vision, image, video, TTS, music).
+You are building **UGC OS** — a browser-based, macOS-style workspace that unifies seven AI tools for UGC ad production into one environment with shared data banks. Every AI call goes through **kie.ai**: one user-supplied Bearer key gives access to every model the app uses (chat, vision, image, video, TTS, music).
 
 **Who it's for / why.** A private Skool community of solo creators and small teams producing AI UGC ads at scale — access is gated by an email allowlist synced from Skool, so non-members can't sign up even with the URL. The pitch is one workspace instead of seven tabs: the same product, character, script, voice, and B-Roll flow across every app via the shared banks. Inference cost is on the member (BYO kie.ai key), so the operator only pays for hosting + storage.
 
