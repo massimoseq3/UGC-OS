@@ -16,73 +16,83 @@ the viewport (`fixed bottom-0 … md:static`).
 
 ## 1. Global frame
 
-Full-viewport, no top bar. `src/App.tsx:128` → `Workspace`.
+macOS-style shell: a thin **menu bar** pinned top, a floating **dock** pinned
+bottom-center, and the active app inside a rounded, bordered **window** floating
+between them. `src/App.tsx:102` → `Workspace`.
 
 ```
-┌──────────┬───────────────────────────────────────────────┐
-│ SIDEBAR  │  ACTIVE APP (absolute inset, left-padded to    │
-│ (fixed   │  clear the sidebar gutter: md:pl-20 collapsed, │
-│  gutter) │  md:pl-56 expanded)                            │
-│          │                                                │
-└──────────┴───────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│ MENU BAR   logo · UGC OS · <active app>     credits · links  │  fixed top (h-9)
+├─────────────────────────────────────────────────────────────┤
+│    ┌───────────────────────────────────────────────────┐    │
+│    │  ACTIVE APP  (rounded window; desktop gradient      │    │
+│    │  peeks around it; empty state until an app opens)   │    │
+│    └───────────────────────────────────────────────────┘    │
+│              ┌──────── DOCK (floating) ────────┐             │  fixed bottom-center
+└──────────────┴─────────────────────────────────┴────────────┘
 ```
 
-- The sidebar is a **fixed left gutter** on `md`+: `w-20` collapsed (icon rail) /
-  `w-56` expanded. Below `md` it's an **overlay drawer** (hidden, slides in from
-  the left over a black backdrop) opened by a floating burger pinned top-left
-  (`App.tsx:64` `MobileMenuButton`).
-- Apps are kept mounted once opened and toggled by opacity, so all open apps
-  occupy the same content rectangle (`App.tsx:147`).
-- Toasts render bottom-stacked via `ToastContainer` (`App.tsx:170`).
+- The **window** is `absolute inset-x-2 top-11 bottom-[108px]` — a rounded,
+  bordered, blurred frame; app chrome clips at its edge instead of butting against
+  a gutter (`App.tsx:122`).
+- Apps are code-split and kept mounted once opened, toggled by opacity, so all
+  open apps share the window rectangle and switching back is instant
+  (`App.tsx:133`). No app active → centered **empty state** ("Pick a tool from the
+  dock to get started").
+- The old left **sidebar + mobile burger drawer are gone** — the dock is the sole
+  navigation at every screen size (it scrolls horizontally when it can't fit).
+  `Sidebar.tsx` / `auth/UserMenu.tsx` still exist as files but are no longer
+  rendered anywhere.
+- Toasts render bottom-stacked via `ToastContainer` (`App.tsx:157`).
 
-### 1.1 Sidebar — `src/components/Sidebar.tsx`
+### 1.1 Menu bar — `src/components/MenuBar.tsx`
 
-Top→bottom. Section list and order come from `APP_REGISTRY` / `SECTION_ORDER`
-(`src/utils/constants.ts:29`, `Sidebar.tsx:22`).
+Thin (`h-9`) top chrome — branding + status only, **no navigation**. Left→right:
 
-1. **Header row** (`Sidebar.tsx:83`): burger (leading) + app logo + "UGC *OS*"
-   wordmark. Below it an inset hairline divider.
-2. **LIBRARY** — `Bank` (bookmark icon).
-3. **CREATE** — in order: `Influencers`, `Scripts`, `Voiceovers`, `B-Roll`,
-   `Playground`.
-4. **TOOLS** — `Ad Analyzer`.
-5. **ADMIN** — `Admin` (only rendered for admin profiles; section hidden otherwise).
-6. **Footer block** (`Sidebar.tsx:136`), top→bottom:
-   - **Credits chip** — "`<n>` credits left" with a coin glyph; the whole chip is
-     the manual-refresh control (coin swaps to a refresh icon on hover). Hidden
-     until a kie.ai key is set.
-   - **Appearance toggle** — segmented Dark / Light / System (icon-only). Collapsed
-     rail drops System and shows Dark/Light only.
-   - **Settings** — opens the Settings modal (does NOT navigate).
-   - **My Account** — `UserMenu`; opens a small popover *above* the button.
+- **Leading:** app logo + "UGC *OS*" wordmark, then the **active app's name** (like
+  macOS naming the frontmost app beside the logo).
+- **Trailing:** **credits** balance ("`<n>` credits left"; coin glyph swaps to a
+  spinner, click refreshes — polls on mount + 60s + window focus; shows "—" until a
+  kie.ai key is set), then external links **Get Credits** (kie.ai billing) and
+  **Community** (Skool). The two links are `sm:`+ only — hidden on phones.
 
-Each nav row: leading icon + label. Collapsed rail stacks icon-over-label and
-center-aligns. Active row gets an `bg-ink/[0.08]` fill (`SidebarRow`,
-`Sidebar.tsx:315`).
+### 1.2 Dock — `src/components/Dock.tsx`
 
-Note the **two namespaces**: sidebar display names vs the internal app/folder ids
-(`constants.ts:29`). `Bank`→`finder`, `Influencers`→`character-studio`,
+Floating glassy rounded bar, bottom-center. Left→right, app tiles grouped by
+category with inset hairline **dividers** between groups (`SECTION_ORDER =
+library · create · tools`, order from `APP_REGISTRY`, `constants.ts:30`):
+
+- **Library:** Bank.
+- **Create:** Characters · Scripts · Voiceovers · B-Roll · Playground.
+- **Tools:** Ad Analyzer.
+- divider → **utility cluster:** a **theme** tile (dark↔light quick toggle; System
+  is Settings-only) + a **Settings** tile (opens the Settings modal).
+
+Each item is a colored macOS-style app icon (accent fill + sheen) over an
+always-visible label, with a running/active **dot** underneath. Hover gives a
+subtle lift; there is **no click-press animation**. **Admin is not in the dock**
+(its `category: 'admin'` is excluded from `SECTION_ORDER`) — it lives in Settings.
+
+Note the **two namespaces**: dock display names vs the internal app/folder ids
+(`constants.ts:30`). `Bank`→`finder`, `Characters`→`character-studio`,
 `Scripts`→`script-architect`, `Voiceovers`→`voice-studio`, `B-Roll`→`broll-studio`,
 `Ad Analyzer`→`ad-anatomy`.
 
-### 1.2 Settings modal — `src/components/SettingsModal.tsx`
+### 1.3 Settings modal — `src/components/SettingsModal.tsx`
 
-A single scrolling modal (NOT tabbed). Top→bottom:
+A single centered scrolling modal (NOT tabbed), opened from the dock's Settings
+tile. Header ("Settings" + ✕ top-right, `SettingsModal.tsx:196`), then top→bottom:
 
-1. Header: "Settings" title, close **✕ top-right** (`SettingsModal.tsx:189`).
-2. **kie.ai API key**: label + "Get key" link, masked input, "Test connection"
-   button + result, then a full-width **Save** button directly under the input.
-3. **Appearance**: Dark / Light / System segmented toggle.
-4. **Storage** (cloud mode only): usage bar + orphan-cleanup flow.
-5. **Legal** footer links (Terms / Privacy / AUP / DMCA).
-6. **Account** (cloud + signed-in): email + avatar, **Sign out** button.
-7. Demo-data tool (admin/local only), at the very bottom.
-
-### 1.3 User menu popover — `src/components/auth/UserMenu.tsx`
-
-Opens upward from the "My Account" footer button. Items top→bottom: a "Signed in
-as `<email>`" header, then a single **Sign out** action. (Account email + sign-out
-also live in the Settings modal.)
+1. **kie.ai API key** — label + "Get key" link, masked input, "Test connection"
+   button + result, full-width **Save** button.
+2. **Appearance** — Dark / Light / System segmented toggle.
+3. **Storage** (cloud mode only) — usage bar + manual orphan-cleanup flow
+   (confirm → scan → purge).
+4. **Legal** footer links (Terms · Privacy · AUP · DMCA), open in a new tab.
+5. **Account** (cloud + signed-in) — email + avatar, **Sign out** button.
+6. **Admin** (admins only) — an "Open Admin panel" row; the **only** entry point
+   to the Admin app now that it's out of the dock.
+7. **Demo-data** tool (admin / local-only), tiny + low-contrast at the very bottom.
 
 ### 1.4 Shared control idioms
 
@@ -95,15 +105,15 @@ also live in the Settings modal.)
   icon + name + credits + chevron) that opens an **inline dropdown anchored to the
   pill** (`absolute … bottom-full`/`top-full`, opens upward in footers, scrollable
   ~360px). The dropdown is a list of model rows: icon + name + credits + a check on
-  the active model. It is **NOT** a right-edge slide-over. Verified in Influencers
+  the active model. It is **NOT** a right-edge slide-over. Verified in Characters
   (Nano Banana 2 / GPT Image 2 ✓ / Seedream Lite); same component in B-Roll's card
   modal and Playground.
-- **Preset / style / voice / bank-ref slide-overs** — "Influencer Presets" (the
-  "Select Influencer" picker), "Select a style", "UGC Prompt Presets", the voice
-  picker, and "Select from bank" pickers open as **right-edge slide-over panels**
-  (roughly the right half of the viewport, ✕ top-right), with a titled header and a
-  card grid (e.g. Influencer Presets = a STARTERS recipe grid over a BANK section).
-  These are distinct from the model-picker dropdown above.
+- **Preset / style / voice / bank-ref slide-overs** — the Characters scoped preset
+  pickers ("Physical Presets" / "Scene & Pose Presets"), "Select a style", "UGC
+  Prompt Presets", the voice picker, and "Select from bank" pickers open as
+  **right-edge slide-over panels** (roughly the right half of the viewport, ✕
+  top-right), with a titled header and a card grid (e.g. a STARTERS recipe grid over
+  a BANK section). These are distinct from the model-picker dropdown above.
 - **Generate button** — every Create/Tool app's primary action is a full-width
   pill at the **bottom of the left control column**, accent-filled in the app's
   family color, with the credit cost in the label.
@@ -117,7 +127,7 @@ Single full-width column: a header toolbar over a scrolling card area.
 
 ### Header toolbar (`Finder.tsx:215`, `lg:justify-between`)
 
-- **Leading (left):** bank-type tabs, left→right: **Products · Influencers ·
+- **Leading (left):** bank-type tabs, left→right: **Products · Characters ·
   Scripts · Voices · B-Rolls** (each with a count badge). `Finder.tsx:217`.
 - **Trailing (right):** in order — **Sort** control (pill+chevron, e.g. "Newest
   first"; only when the active bank has items) → **Bulk add** (Products bank only)
@@ -128,7 +138,7 @@ Single full-width column: a header toolbar over a scrolling card area.
 - **Products** — square cards, `grid-cols-2 → 5`. Status dot top-left
   (orange=draft / green=confirmed / "Extracting" badge), title on a bottom
   gradient, download + star + delete top-right on hover.
-- **Influencers (models)** — portrait `9/16` cards, dense masonry `grid-cols-2 →
+- **Characters (models)** — portrait `9/16` cards, dense masonry `grid-cols-2 →
   6`; landscape sheets span 2–3 cols (`aspect-video`). Badges top-left ("Sheet" /
   "Preset"), copy-JSON + download + star + delete top-right.
 - **Scripts** — tall `9/16` text cards `grid-cols-2 → 4`: a SCRIPT/SCENES badge +
@@ -139,7 +149,7 @@ Single full-width column: a header toolbar over a scrolling card area.
   pills; download + star + delete top-right on hover; "Animate in Playground"
   pill appears on hover (stills only).
 
-Star buttons (products / influencers / scripts / b-rolls) are hover-revealed but
+Star buttons (products / characters / scripts / b-rolls) are hover-revealed but
 stay visible (filled amber) once starred; starred items sort first in every bank
 picker slide-over, marked with a small amber star badge.
 
@@ -153,39 +163,40 @@ Benefits, Offer, CTA**. Sticky footer holds the submit button ("Add Product" /
 
 ---
 
-## 3. Influencers (Character Studio) — `src/apps/character-studio/`
+## 3. Characters (Character Studio) — `src/apps/character-studio/`
 
-**Two panes** split 50/50 (`CharacterStudio.tsx:268`): **left = controls**, **right
-= output gallery**.
+**Two panes** split 50/50 (`CharacterStudio.tsx`): **left = controls**, **right =
+output gallery**. (The dock/bank label is now **Characters** — the internal app id,
+folder, and types keep the `character` naming.)
 
-### Left controls (`components/ControlsPanel.tsx`), top→bottom
+### Left controls (`components/ControlsPanel.tsx` + `GenerateBar.tsx`), top→bottom
 
 1. **Field-group tabs** — segmented toggle with **exactly two** options:
-   **Physical** and **Scene & Pose** (`ControlsPanel.tsx:226`, `types.ts:71`). Each
-   shows a filled-field count badge.
-   - ⚠️ **Camera is NOT a top-level tab.** It is a field *group within the Scene &
-     Pose tab* (`types.ts:274`), alongside Pose & Action and Setting. The Physical
-     tab contains the Identity / Eyes / Hair / Face & Skin / Wardrobe groups.
-2. **Preset + photo row** — two equal pills: a **"Select Influencer"** picker
-   (left, person icon + chevron) that opens the **Influencer Presets** right
-   slide-over (a STARTERS grid of recipe cards over a BANK section of saved
-   models), and a dashed **"Drop an image…"** auto-fill zone (right).
-   `ControlsPanel.tsx:176`.
-3. **Scrollable fields** — each group renders a header (icon + name) then a
-   two-column grid of `ChipField`s; "wide" fields span both columns. The **first**
-   group's header carries the trailing action cluster: **Clear All · Save as
-   Preset · Copy Prompt**.
-4. **Generate bar** (`components/GenerateBar.tsx`), pinned bottom, top→bottom:
-   - **Output toggle** — **Portrait** / **Influencer Sheet** (`GenerateBar.tsx:77`).
-     (CLAUDE.md historically called this "Character Sheet"; the live label is
-     "Influencer Sheet".)
-   - **Model picker row** — model picker (fills width) + a **resolution** chip + an
-     **aspect-ratio** chip (9:16 / 16:9 / 1:1; sheets get their own 16:9↔9:16
-     picker).
+   **Physical** and **Scene & Pose** (`ControlsPanel.tsx:201`). Clicking scroll-jumps
+   to that tab's field block; an IntersectionObserver keeps the active tab in sync
+   as you scroll.
+   - ⚠️ **Camera is NOT a top-level tab.** It is a field *group within Scene &
+     Pose*, alongside Pose & Action and Setting. Physical contains the Identity /
+     Eyes / Hair / Face & Skin / Wardrobe groups.
+2. **Scrollable field blocks** — every tab's block opens with a **TabDivider** (a
+   centered pill on a full-width rule, `ControlsPanel.tsx:234`): **Clear** on the
+   left, a **scoped preset picker** in the center (**Physical Presets** / **Scene &
+   Pose Presets** — each loads only that tab's fields from a saved preset, opening a
+   right slide-over), and a **scoped Copy** on the right (**Copy Physical** / **Copy
+   Scene & Pose**). Below it, each field group renders as its own card: centered
+   icon + title, then a two-column grid of `ChipField`s ("wide" fields span both).
+3. **Generate bar** (`components/GenerateBar.tsx`), pinned bottom, top→bottom:
+   - **Preset + photo row** — a **Load preset** dropdown (left, restores a full
+     saved recipe) + a dashed **"Drop an image to autofill"** zone (right,
+     vision-based DNA extraction). `GenerateBar.tsx:91`.
+   - **Output toggle** — **Portrait** / **Character Sheet** (`GenerateBar.tsx:107`).
+   - **Model picker row** — model picker (fills the left half) + a **resolution**
+     chip + an **aspect-ratio** chip (9:16 / 16:9 / 1:1; sheets get their own
+     16:9↔9:16 picker).
    - **Generate button** — pink (`bg-influencers-500`), full width: "Generate
-     Influencer" / "Generate Influencer Sheet" + credits.
+     Character" / "Generate Character Sheet" + credits.
 
-Influencers defaults to the **GPT Image 2** model (app-wide image default is Nano
+Characters defaults to the **GPT Image 2** model (app-wide image default is Nano
 Banana 2).
 
 ### Right gallery (`components/GalleryPanel.tsx`)
@@ -224,7 +235,7 @@ merged into one Remix mode — the source box auto-detects the pasted format).
 - **Write New:**
   1. **Output** sub-toggle — left→right **Script · Scenes · Cinematic**.
   2. **Product Context** card (+ "Edit product details" link).
-  3. **Script Style** picker — *replaced by an optional **Influencer** picker when
+  3. **Script Style** picker — *replaced by an optional **Character** picker when
      Output = Cinematic*.
   4. **Describe Your Video** textarea (the brief; optional).
      - ⚠️ The label is **"Describe Your Video"**. Older copy and the June
@@ -246,7 +257,7 @@ then a wrapping action-button row. Button order (`OutputPanel.tsx:275`):
   (all non-cinematic) · **Send to Playground** (scene formats; and the *only* send
   target for Cinematic).
 
-(The June screenshot's "Send to Influencers" is stale — no such button exists.)
+(The June screenshot's "Send to Characters" is stale — no such button exists.)
 
 ---
 
@@ -293,7 +304,7 @@ close (ChevronDown).
 
 ### Left input (`components/InputPanel.tsx`), top→bottom
 
-"References" header + Clear All → **Product** ref card → **Influencer** ref card →
+"References" header + Clear All → **Product** ref card → **Character** ref card →
 **Script** ref card (each: dashed "Click to select from bank" when empty, filled
 pill when set) → "or paste script manually" divider + script textarea → divider →
 **Additional Instructions** textarea → **Generate B-Roll Prompts** button (pinned
@@ -324,7 +335,7 @@ B-Rolls (stills only) · Download**. Click opens the card detail modal.
 
 - **Left:** **Image / Video / Animate** tab toggle → model picker + constraint
   chips (resolution, aspect, and for video: duration + audio) → **Reference Images**
-  (two slots: Influencer left, Product right) *or* the Animate start-frame preview →
+  (two slots: Character left, Product right) *or* the Animate start-frame preview →
   Prompt (with Enhance · Regenerate · Undo · Redo) → **Generate Image / Generate
   Video / Animate** button.
 - **Right:** a masonry gallery of this card's generations.
@@ -353,7 +364,7 @@ mode from the persisted draft**, so a returning session may open on Image or Mus
   toggle → **Reference frames** (Start frame / End frame slots, each with Upload +
   "Pick from Bank") + Reference images (≤9) / Reference audio (voice/lip-sync ≤15s) /
   Reference video (motion/style ≤15s) strips (model-dependent); **Motion Control**
-  models swap this for a "Motion inputs" section (influencer image + driving clip +
+  models swap this for a "Motion inputs" section (character image + driving clip +
   orientation toggle); **Gemini Omni** adds the Omni inputs section (characters /
   voices / source clip) → Prompt → **Generate Video**.
 - **Music:** "Music Model" picker → **Instrumental / With lyrics** toggle → Prompt →
