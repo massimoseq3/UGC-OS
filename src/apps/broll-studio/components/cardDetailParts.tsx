@@ -276,21 +276,22 @@ function ImageTile({
           Cover
         </span>
       )}
-      {/* Animate — opens the Animate tab with this still as the start frame. */}
+      {/* Animate — opens the Animate tab with this still as the start frame.
+          Full-width, chunky bar across the bottom so it's an easy hit target. */}
       {onAnimate && (
         <button
           type="button"
           title="Animate this image into a video"
           onClick={(e) => { e.stopPropagation(); onAnimate() }}
-          className="absolute left-1.5 bottom-1.5 flex h-8 items-center gap-1.5 whitespace-nowrap rounded-full border border-broll-400/50 bg-broll-500/85 px-3 text-[11px] font-medium text-white opacity-0 backdrop-blur transition-opacity hover:bg-broll-500 group-hover:opacity-100"
+          className="absolute inset-x-2 bottom-2 flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-broll-400/50 bg-broll-500/90 text-[13px] font-semibold text-white opacity-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur transition-opacity hover:bg-broll-500 group-hover:opacity-100"
         >
-          <Film className="h-3 w-3" />
+          <Film className="h-4 w-4" />
           Animate B-Roll
         </button>
       )}
       {/* Hover action stack — top-right vertical column, app-wide standard
-          order: download · save · copy · delete. The Animate pill keeps the
-          bottom-left corner. */}
+          order: download · save · copy · delete. The Animate bar keeps the
+          bottom edge. */}
       <div className="absolute right-1.5 top-1.5 flex flex-col items-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
         <TileIconButton
           title="Download"

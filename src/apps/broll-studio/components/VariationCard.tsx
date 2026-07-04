@@ -4,6 +4,9 @@ import {
   Loader2,
   AlertCircle,
   Play,
+  Pause,
+  Volume2,
+  VolumeX,
   Trash2,
   Bookmark,
   Check,
@@ -115,6 +118,31 @@ export default function VariationCard(props: VariationCardProps) {
   const [savingCover, setSavingCover] = useState(false)
   const [savedCover, setSavedCover] = useState(false)
   const [copiedPrompt, setCopiedPrompt] = useState(false)
+  // Inline video playback on the card face. Hover autoplay stays muted (browser
+  // policy); an explicit Play click is a user gesture, so it plays with sound.
+  const cardVideoRef = useRef<HTMLVideoElement>(null)
+  const [cardVideoPlaying, setCardVideoPlaying] = useState(false)
+  const [cardVideoUnmuted, setCardVideoUnmuted] = useState(false)
+
+  const toggleCardVideoPlay = () => {
+    const v = cardVideoRef.current
+    if (!v) return
+    if (v.paused) {
+      setCardVideoUnmuted(true)
+      v.muted = false
+      v.play().catch(() => {})
+    } else {
+      v.pause()
+    }
+  }
+  const toggleCardVideoMute = () => {
+    const v = cardVideoRef.current
+    setCardVideoUnmuted((prev) => {
+      const next = !prev
+      if (v) v.muted = !next
+      return next
+    })
+  }
 
   // Drive the in-flight indicator off the parallel-queue array — the legacy
   // single-slot `videoStatus` field is no longer written by runVideoTask so
@@ -681,18 +709,41 @@ export default function VariationCard(props: VariationCardProps) {
           ) : coverKind === 'video' && resolvedVideoUrl ? (
             <>
               <video
+                ref={cardVideoRef}
                 src={resolvedVideoUrl}
-                muted
+                muted={!cardVideoUnmuted}
                 loop
                 playsInline
                 className="absolute inset-0 h-full w-full object-cover"
-                onMouseEnter={(e) => { (e.currentTarget as HTMLVideoElement).play().catch(() => {}) }}
-                onMouseLeave={(e) => { const v = e.currentTarget as HTMLVideoElement; v.pause(); v.currentTime = 0 }}
+                onPlay={() => setCardVideoPlaying(true)}
+                onPause={() => setCardVideoPlaying(false)}
+                // Muted hover-preview only — an explicit Play click (below) takes
+                // over with sound and shouldn't be reset when the mouse leaves.
+                onMouseEnter={(e) => { if (!cardVideoUnmuted) (e.currentTarget as HTMLVideoElement).play().catch(() => {}) }}
+                onMouseLeave={(e) => { if (!cardVideoUnmuted) { const v = e.currentTarget as HTMLVideoElement; v.pause(); v.currentTime = 0 } }}
               />
               <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/70 to-transparent" />
-              <div className="pointer-events-none absolute left-2 top-1/2 hidden -translate-y-1/2 group-hover:hidden">
-                <Play className="h-4 w-4 fill-white text-white" />
-              </div>
+              {/* Always-visible play/pause — signals this cover is a video and,
+                  on click, plays it with audio in place (stopPropagation keeps
+                  the detail modal from opening). */}
+              <button
+                type="button"
+                title={cardVideoPlaying ? 'Pause' : 'Play with sound'}
+                onClick={(e) => { e.stopPropagation(); toggleCardVideoPlay() }}
+                className="absolute left-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white backdrop-blur transition-colors hover:bg-black/70"
+              >
+                {cardVideoPlaying ? <Pause className="h-3.5 w-3.5 fill-white" /> : <Play className="h-3.5 w-3.5 fill-white" />}
+              </button>
+              {(cardVideoPlaying || cardVideoUnmuted) && (
+                <button
+                  type="button"
+                  title={cardVideoUnmuted ? 'Mute' : 'Unmute'}
+                  onClick={(e) => { e.stopPropagation(); toggleCardVideoMute() }}
+                  className="absolute left-11 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white backdrop-blur transition-colors hover:bg-black/70"
+                >
+                  {cardVideoUnmuted ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
+                </button>
+              )}
             </>
           ) : coverKind === 'image' && coverImage ? (
             <>
@@ -710,10 +761,12 @@ export default function VariationCard(props: VariationCardProps) {
             </div>
           )}
 
-          {/* Top-left chip — type (Dialogue / Action / Emotional / Product shot) */}
+          {/* Top-center chip — type (Dialogue / Action / Emotional / Product
+              shot). Centered so it clears the top-left play button and the
+              top-right hover action stack. */}
           {!isManual && (
             <span
-              className={`pointer-events-none absolute left-2 top-2 rounded-full border px-2 py-0.5 text-[10px] font-medium tracking-tight backdrop-blur ${tagChipStyle(variation.tag)}`}
+              className={`pointer-events-none absolute left-1/2 top-2 -translate-x-1/2 rounded-full border px-2 py-0.5 text-[10px] font-medium tracking-tight backdrop-blur ${tagChipStyle(variation.tag)}`}
             >
               {tagText}
             </span>
@@ -743,9 +796,10 @@ export default function VariationCard(props: VariationCardProps) {
           )}
 
           {/* Hover-reveal action stack — top-right vertical column, app-wide
-              standard order: download · copy · save (stills only) · delete.
-              Two-click delete confirm keeps the column visible. The card body
-              stays clickable to open the detail modal. */}
+              standard order: download · save (stills only) · copy · delete.
+              First delete click flips to a labelled "Confirm" state and keeps
+              the column visible. The card body stays clickable to open the
+              detail modal. */}
           <div className={`absolute right-2 top-2 z-10 flex flex-col items-end gap-1 transition-opacity ${confirmingDelete ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
             {coverKind && (
               <>
@@ -794,13 +848,14 @@ export default function VariationCard(props: VariationCardProps) {
                 }
                 onDelete()
               }}
-              className={`flex h-7 w-7 items-center justify-center rounded-full border backdrop-blur transition-colors ${
+              className={`flex h-7 items-center justify-center gap-1 rounded-full border px-2 backdrop-blur transition-colors ${
                 confirmingDelete
-                  ? 'border-red-400/60 bg-red-500/40 text-red-50 hover:bg-red-500/55'
+                  ? 'border-red-400/60 bg-red-500/45 text-red-50 hover:bg-red-500/55'
                   : 'border-white/20 bg-black/35 text-white hover:bg-red-500/30 hover:text-red-100 hover:border-red-400/40'
               }`}
             >
               <Trash2 className="h-3.5 w-3.5" />
+              {confirmingDelete && <span className="text-[10px] font-medium uppercase tracking-wider">Confirm</span>}
             </button>
           </div>
 

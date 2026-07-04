@@ -33,7 +33,7 @@ import { useAppStore } from '../../../stores/appStore'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
 import { useCloseOnAppSwitch } from '../../../hooks/useCloseOnAppSwitch'
 import { getDefaultModel, getModel, estimateCredits, formatCredits, videoResolutionLabel, type ImageResolution } from '../../../utils/models'
-import { tagChipStyle, tagLabel, rollTypeForTag } from './variationTags'
+import { tagChipStyle, tagLabel } from './variationTags'
 import { humanizeError } from '../../../utils/friendlyError'
 import ModelWaitNotice from '../../../components/ModelWaitNotice'
 import ExpandTextModal, { ExpandButton } from '../../../components/ExpandableText'
@@ -109,6 +109,7 @@ interface CardDetailModalProps {
 export default function CardDetailModal(props: CardDetailModalProps) {
   const {
     sceneNumber,
+    scriptLine,
     variation,
     cardState,
     onUpdateState,
@@ -529,7 +530,11 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                   <div className="relative flex grow flex-col overflow-hidden rounded-2xl border border-ink/10 bg-ink/[0.03] transition-colors focus-within:border-ink/20 focus-within:bg-ink/[0.05]">
                     <textarea
                       value={draft}
-                      onChange={(e) => setDraft(e.target.value)}
+                      // Mirror the draft into cardState.editablePrompt on every
+                      // keystroke (not just on blur) so the Generate button
+                      // enables immediately and fires the live prompt. Prompt
+                      // history is still only committed on blur (handleDraftBlur).
+                      onChange={(e) => { setDraft(e.target.value); onUpdateState({ editablePrompt: e.target.value }) }}
                       onBlur={handleDraftBlur}
                       rows={8}
                       placeholder="Write your custom B-roll prompt here..."
@@ -742,18 +747,34 @@ export default function CardDetailModal(props: CardDetailModalProps) {
               bar) + per-card gallery (Playground masonry). */}
           <div className="col-span-1 flex min-h-0 flex-col overflow-hidden">
             <div className="flex flex-col gap-3 px-5 pt-3">
-              <div className="flex min-w-0 items-center gap-2">
+              {/* h-10 matches the left column's segmented toggle so this row's
+                  separator lands at the same Y — the two hairlines read as one
+                  line straight across the modal. */}
+              <div className="flex h-10 min-w-0 items-center gap-2">
                 {!isManual && (
-                  <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium tracking-tight ${tagChipStyle(variation.tag)}`}>
+                  <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium tracking-tight ${tagChipStyle(variation.tag)}`}>
                     {tagLabel(variation.tag)}
                   </span>
                 )}
-                <span className="text-[10px] uppercase tracking-wider text-ink-400">
-                  {rollTypeForTag(variation.tag)} · Scene {sceneNumber}
+                <span className="shrink-0 text-[10px] uppercase tracking-wider text-ink-400">
+                  Scene {sceneNumber}
                 </span>
+                {/* The script line this scene references, so the workspace
+                    always shows which line it's illustrating. Instrument Serif
+                    to match the scene line on the main B-Roll page. */}
+                {scriptLine && (
+                  <span
+                    className="min-w-0 flex-1 truncate text-[15px] not-italic leading-none text-ink-300"
+                    style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
+                    title={scriptLine}
+                  >
+                    &ldquo;{scriptLine}&rdquo;
+                  </span>
+                )}
               </div>
-              {/* Full-width separator — matches the one under the left toggle. */}
-              <div className="-mx-5 border-b border-ink/5" />
+              {/* Full-width separator — aligned with the one under the left
+                  toggle (same -mt-1) so the line runs across the whole modal. */}
+              <div className="-mx-5 -mt-1 border-b border-ink/5" />
             </div>
             <ModalGallery
               cardState={cardState}
