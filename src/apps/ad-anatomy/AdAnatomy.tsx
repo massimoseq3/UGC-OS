@@ -238,15 +238,17 @@ function AnalyzingPane({ item }: { item: AdAnatomyHistoryItem }) {
           ) : (
             <img src={thumbUrl!} alt="" className="h-full w-full object-cover" />
           )}
-          {/* Scanning sweep — a soft glow band trailing a crisp leading line
-              that travels top→bottom. Deliberately understated. */}
+          {/* Scanning sweep — a bright, glowing leading line with a trailing
+              glow band that travels top→bottom. A faint scrim over the media
+              keeps the sweep legible even while the video plays underneath. */}
           <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
+            <div className="absolute inset-0 bg-black/20" />
             <div
               className="absolute inset-x-0 -top-1/4 h-1/4"
               style={{ animation: 'ad-scan 2.8s cubic-bezier(0.4, 0, 0.6, 1) infinite' }}
             >
-              <div className="absolute inset-0 bg-gradient-to-b from-transparent to-[#FF5257]/10" />
-              <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[#FF5257]/60 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#FF5257]/20 to-[#FF5257]/40" />
+              <div className="absolute inset-x-0 bottom-0 h-[2px] bg-gradient-to-r from-transparent via-[#FF5257] to-transparent shadow-[0_0_16px_3px_rgba(255,82,87,0.85)]" />
             </div>
           </div>
           <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/5" />
