@@ -75,7 +75,7 @@ interface DockItemProps {
 
 // Shared item chrome: tile on top, always-visible label under it, and a
 // macOS-style running/active dot below the label. Hover gives a slow eased
-// lift (no scale — that's what felt clunky); click presses the tile down.
+// lift (no scale — that's what felt clunky); no click press, it felt slow.
 function DockItem({ label, title, active, running, onClick, children }: DockItemProps) {
   return (
     <button
@@ -83,7 +83,7 @@ function DockItem({ label, title, active, running, onClick, children }: DockItem
       title={title}
       className="group flex w-[3.4rem] shrink-0 select-none flex-col items-center gap-1 pt-0.5 md:w-16"
     >
-      <span className="flex h-12 w-12 items-center justify-center will-change-transform transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:-translate-y-px group-active:translate-y-0 group-active:scale-[0.985] group-active:duration-150">
+      <span className="flex h-12 w-12 items-center justify-center will-change-transform transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:-translate-y-px">
         {children}
       </span>
       <span
