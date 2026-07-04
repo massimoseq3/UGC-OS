@@ -350,15 +350,14 @@ export default function CharacterStudio() {
         />
       </div>
 
-      {/* Full-area drag overlay */}
+      {/* Full-area drag overlay — mirrors the Products bank dropzone: a full-bleed
+          dashed border with a light tint and a single centered pill, rather than
+          a dimming backdrop behind a large card. */}
       {overlayActive && (
-        <div className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-green-400/40 bg-green-400/[0.06] px-12 py-10">
-            <div className="rounded-xl bg-green-400/10 p-3">
-              <Dna className="h-8 w-8 text-green-400" strokeWidth={1.5} />
-            </div>
-            <p className="text-sm font-medium text-green-300">Drop to extract DNA</p>
-            <p className="text-xs text-ink-500">Auto-fills every field from the photo</p>
+        <div className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center rounded-xl border-2 border-dashed border-green-400/60 bg-green-500/10 backdrop-blur-sm">
+          <div className="flex items-center gap-2 rounded-full bg-black/70 px-4 py-2 text-sm font-medium text-green-200">
+            <Dna className="h-4 w-4" />
+            Drop to extract DNA
           </div>
         </div>
       )}
