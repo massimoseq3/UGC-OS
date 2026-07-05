@@ -8,9 +8,10 @@
 
 import { getSupabase, isCloudEnabled } from '../lib/supabase'
 import type { BankKey } from '../lib/cloudSync'
+import { deleteAssetFromR2 } from '../lib/r2'
 import { useAuthStore } from '../stores/authStore'
 import { useBankStore } from '../stores/bankStore'
-import { deleteAsset, isAssetRef } from './assetStore'
+import { assetIdFromRef, deleteAsset, isAssetRef } from './assetStore'
 
 // Every bank that stores `asset-…` refs anywhere in its `data` JSONB. This MUST
 // list every bank — a missing entry causes that bank's assets to be wrongly
@@ -27,7 +28,10 @@ const BANK_KEYS = Object.keys({
 
 function walkAssetRefs(value: unknown, out: Set<string>) {
   if (typeof value === 'string') {
-    if (isAssetRef(value)) out.add(value)
+    // Refs appear in two shapes (bare "asset-x" and "asset://asset-x") but the
+    // `assets` table is keyed by bare ids only — compare normalised, or every
+    // prefixed ref (B-Roll videos) reads as an orphan and gets purged.
+    if (isAssetRef(value)) out.add(assetIdFromRef(value))
     return
   }
   if (Array.isArray(value)) {
@@ -85,7 +89,13 @@ export async function findOrphanAssets(): Promise<{
     return { orphans: [], totalBytes: 0, total: all.length, totalAssetBytes }
   }
 
-  const orphans = all.filter((a) => !refs.has(a.id))
+  // Normalise the row id too: legacy duplicate rows keyed "asset://asset-x"
+  // (created by the pre-fix reconcile upload) may hold the only surviving copy
+  // of a live asset — deleting one via deleteAsset would normalise the id and
+  // destroy the LIVE bare-id blob/row instead. cloudSync's legacy repair
+  // migrates these rows away; until it has, never classify one as an orphan
+  // while its bare id is still referenced.
+  const orphans = all.filter((a) => !refs.has(assetIdFromRef(a.id)))
   const totalBytes = orphans.reduce((s, a) => s + Number(a.byte_size ?? 0), 0)
   return { orphans, totalBytes, total: all.length, totalAssetBytes }
 }
@@ -99,7 +109,14 @@ export async function purgeOrphans(
   for (let i = 0; i < ids.length; i++) {
     const id = ids[i]
     try {
-      await deleteAsset(id)
+      if (id.startsWith('asset://')) {
+        // Legacy duplicate row keyed by a raw ref — delete it VERBATIM.
+        // deleteAsset normalises ids, which here would destroy the live
+        // bare-id blob/row instead of the duplicate.
+        await deleteAssetFromR2(id)
+      } else {
+        await deleteAsset(id)
+      }
       ok++
     } catch (e) {
       failed.push({ id, error: e instanceof Error ? e.message : String(e) })

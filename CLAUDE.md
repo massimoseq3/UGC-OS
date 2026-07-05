@@ -86,11 +86,11 @@ Full list in `src/utils/models.ts`. Defaults below; users can swap image and vid
 Most files are self-explanatory. These carry behaviour worth knowing before you touch them:
 
 - `stores/bankStore.ts` — all banks + history + `migrateVoiceShape`.
-- `utils/orphanCleanup.ts` — once-per-sign-in asset sweep. Its bank list **must** cover every bank (compile-time `satisfies Record<BankKey, true>` guard) or it deletes that bank's live assets from IDB + R2.
+- `utils/orphanCleanup.ts` — once-per-sign-in asset sweep. Its bank list **must** cover every bank (compile-time `satisfies Record<BankKey, true>` guard) or it deletes that bank's live assets from IDB + R2. Asset refs come in two shapes (bare `asset-x` and `asset://asset-x`); anything comparing refs against `assets.id` must normalise via `assetIdFromRef` first — unnormalised comparison once purged every B-Roll video.
 - `utils/assetStore.ts` — IndexedDB blobs + fire-and-forget R2 mirror; `getBlob()` falls back to R2 on miss.
 - `utils/friendlyError.ts` — `humanizeError(err, fallback)`, the ordered rule table for end-user error copy.
 - `hooks/useCloseOnAppSwitch.ts` — every body-portaled overlay (slide-over, picker, modal) must call it: portals escape the opacity-0 wrapper that hides background apps, so an open overlay would float over the next app after a dock switch.
-- `lib/cloudSync.ts` — pull on sign-in + debounced diff-push + persistent localStorage outbox + non-destructive hydrate.
+- `lib/cloudSync.ts` — pull on sign-in + debounced diff-push + persistent localStorage outbox + non-destructive hydrate. `saveRow`/`deleteRow` are serialised per row (a stalled upsert can't land after a delete) and outbox markers are token-guarded (a late success can't clear a newer pending write). `repairLegacyPrefixedAssets` migrates duplicate `asset://`-keyed assets rows back to bare ids and must finish before reconcile/sweep.
 - `lib/supabase.ts` — `ensureFreshSession()` (3s race + cached-token fallback) and a custom non-blocking `auth.lock`.
 - `hooks/useAssetUrl.ts` — resolves `asset://` refs to blob URLs.
 - `UI_LAYOUT.md` (repo root) — spatial map of the rendered interface (pane splits, tab orders, button positions, modals) for every screen. Read it before any UI-driven / tutorial automation so you don't guess where a control sits.
