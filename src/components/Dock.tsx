@@ -1,8 +1,11 @@
 import { Fragment, useState, type ReactNode } from 'react'
 import { Moon, Settings, Sun } from 'lucide-react'
 import { useAppStore } from '../stores/appStore'
+import { useActivityStore } from '../stores/activityStore'
 import { useThemeStore, type ThemePref } from '../stores/themeStore'
 import { APP_REGISTRY, type AppCategory, type AppConfig } from '../utils/constants'
+import { getTeamMember } from '../utils/team'
+import CrabSprite from './CrabSprite'
 import SettingsModal from './SettingsModal'
 
 // macOS-style bottom dock — the sidebar's replacement for this experiment.
@@ -17,6 +20,7 @@ export default function Dock() {
   const activeApp = useAppStore((s) => s.activeApp)
   const runningApps = useAppStore((s) => s.runningApps)
   const openApp = useAppStore((s) => s.openApp)
+  const activityCounts = useActivityStore((s) => s.counts)
   const [settingsOpen, setSettingsOpen] = useState(false)
 
   const groups = SECTION_ORDER.map((category) =>
@@ -38,6 +42,7 @@ export default function Dock() {
                   app={app}
                   active={activeApp === app.id}
                   running={runningApps.includes(app.id)}
+                  busy={(activityCounts[app.id] ?? 0) > 0}
                   onClick={() => openApp(app.id)}
                 />
               ))}
@@ -69,6 +74,10 @@ interface DockItemProps {
   title?: string
   active?: boolean
   running?: boolean
+  // A generation is in flight in this app — the dot pulses in the app accent
+  // so the dock reads as "this teammate is working".
+  busy?: boolean
+  accent?: string
   onClick: () => void
   children: ReactNode
 }
@@ -76,7 +85,7 @@ interface DockItemProps {
 // Shared item chrome: tile on top, always-visible label under it, and a
 // macOS-style running/active dot below the label. Hover gives a slow eased
 // lift (no scale — that's what felt clunky); no click press, it felt slow.
-function DockItem({ label, title, active, running, onClick, children }: DockItemProps) {
+function DockItem({ label, title, active, running, busy, accent, onClick, children }: DockItemProps) {
   return (
     <button
       onClick={onClick}
@@ -94,10 +103,17 @@ function DockItem({ label, title, active, running, onClick, children }: DockItem
         {label}
       </span>
       <span className="flex h-1 items-center">
-        {(active || running) && (
+        {busy ? (
           <span
-            className={`h-1 w-1 rounded-full ${active ? 'bg-ink-200' : 'bg-ink-500/60'}`}
+            className="h-1 w-1 animate-pulse rounded-full"
+            style={{ backgroundColor: accent }}
           />
+        ) : (
+          (active || running) && (
+            <span
+              className={`h-1 w-1 rounded-full ${active ? 'bg-ink-200' : 'bg-ink-500/60'}`}
+            />
+          )
         )}
       </span>
     </button>
@@ -110,26 +126,53 @@ function DockAppTile({
   app,
   active,
   running,
+  busy,
   onClick,
 }: {
   app: AppConfig
   active: boolean
   running: boolean
+  busy: boolean
   onClick: () => void
 }) {
   const Icon = app.icon
   // Admin's accent is near-white — a white glyph would vanish on it.
   const iconColor = app.id === 'admin' ? '#27272a' : '#ffffff'
+  const member = getTeamMember(app.id)
 
   return (
-    <DockItem label={app.name} active={active} running={running} onClick={onClick}>
+    // No title attr: the native tooltip popping over the dock on hover was
+    // distracting — the persona introduction lives in Meet your team.
+    <DockItem
+      label={app.name}
+      active={active}
+      running={running}
+      busy={busy}
+      accent={app.accent}
+      onClick={onClick}
+    >
       <span
         className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-[14px] shadow-sm shadow-black/10"
         style={{ backgroundColor: app.accent }}
       >
         <span className="absolute inset-0 bg-gradient-to-b from-white/30 via-white/5 to-transparent" />
         <span className="absolute inset-0 rounded-[14px] ring-1 ring-inset ring-white/20" />
-        <Icon className="relative h-[22px] w-[22px]" style={{ color: iconColor }} strokeWidth={1.9} />
+        {/* Hover cross-fades the glyph to the app's crab persona — the crew
+            peeks out of the dock without changing the label. The tile keeps
+            its solid accent; a soft drop shadow hugging the sprite's pixel
+            silhouette lifts the coral crab off saturated fills. */}
+        <Icon
+          className={`relative h-[22px] w-[22px] ${member ? 'transition-opacity duration-200 group-hover:opacity-0' : ''}`}
+          style={{ color: iconColor }}
+          strokeWidth={1.9}
+        />
+        {member && (
+          <CrabSprite
+            variant={member.appId}
+            body="#F8F8F4"
+            className="absolute h-[26px] w-9 opacity-0 transition-opacity duration-200 [filter:drop-shadow(0_1px_2px_rgba(0,0,0,0.35))] group-hover:opacity-100"
+          />
+        )}
       </span>
     </DockItem>
   )

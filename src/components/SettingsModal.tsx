@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, Eye, EyeOff, Key, Check, ExternalLink, Loader2, AlertCircle, HardDrive, Trash2, LogOut, User, Sun, Moon, Monitor, Palette, FlaskConical, Shield, ChevronRight } from 'lucide-react'
+import { X, Eye, EyeOff, Key, Check, ExternalLink, Loader2, AlertCircle, HardDrive, Trash2, LogOut, User, Users, Sun, Moon, Monitor, Palette, FlaskConical, Shield, ChevronRight } from 'lucide-react'
 import { useAppStore } from '../stores/appStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useThemeStore, type ThemePref } from '../stores/themeStore'
@@ -35,6 +35,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   const storedKieKey = useSettingsStore((s) => s.kieApiKey)
   const setKieApiKey = useSettingsStore((s) => s.setKieApiKey)
   const openApp = useAppStore((s) => s.openApp)
+  const openTeamIntro = useAppStore((s) => s.openTeamIntro)
   const profile = useAuthStore((s) => s.profile)
   const signOut = useAuthStore((s) => s.signOut)
   // Call the hook unconditionally (not behind `isCloudEnabled() &&`) so hook
@@ -311,6 +312,29 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
             <span className="text-sm font-medium text-ink-300">Appearance</span>
           </div>
           <ThemeToggle className="mt-3" />
+        </div>
+
+        {/* Meet the Team — replays the onboarding intro (also behind the
+            menu-bar wordmark). Closes Settings so the intro isn't stacked. */}
+        <div className="mt-6 border-t border-ink/5 pt-5">
+          <div className="flex items-center gap-2">
+            <Users className="h-3.5 w-3.5 text-ink-500" />
+            <span className="text-sm font-medium text-ink-300">Your team</span>
+          </div>
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <p className="text-[11px] leading-snug text-ink-500">
+              Replay the intro — who does what, and how kie.ai credits pay the crew.
+            </p>
+            <button
+              onClick={() => {
+                onClose()
+                openTeamIntro()
+              }}
+              className="shrink-0 rounded-full border border-ink/10 bg-ink/[0.04] px-4 py-1.5 text-[12px] font-medium text-ink-200 transition-colors hover:bg-ink/[0.08]"
+            >
+              Meet your team
+            </button>
+          </div>
         </div>
 
         {/* Storage card — only when cloud is active */}

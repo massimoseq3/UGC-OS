@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState, useEffect, useRef } from 'react'
 import { useAppStore } from '../../stores/appStore'
+import { useReportActivity } from '../../stores/activityStore'
 import { useBankStore } from '../../stores/bankStore'
 import type { Product, Model, Script, BrollHistoryItem } from '../../stores/types'
 import type { BrollResult, PromptVariation, ReferenceImage, VariationTag, VariationRefs, CardState } from './types'
@@ -136,6 +137,20 @@ export default function BrollStudio() {
   const [error, setError] = useState<string | null>(null)
   const [pickerMode, setPickerMode] = useState<PickerMode>(null)
   const [highlightField, setHighlightField] = useState<string | null>(null)
+
+  // Pulse the dock dot while the scene analysis or any card generation runs.
+  useReportActivity(
+    'broll-studio',
+    isGenerating ||
+      Object.values(cardStates).some(
+        (cs) =>
+          cs.inFlightImages.length > 0 ||
+          cs.inFlightVideos.length > 0 ||
+          cs.isGeneratingImage ||
+          cs.videoStatus === 'generating' ||
+          cs.isPromptWorking === true,
+      ),
+  )
 
   const interAppPayload = useAppStore((s) => s.interAppPayload)
   const consumePayload = useAppStore((s) => s.consumePayload)

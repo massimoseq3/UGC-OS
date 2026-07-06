@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect, useRef } from 'react'
 import { useAppStore } from '../../stores/appStore'
+import { useReportActivity } from '../../stores/activityStore'
 import { useBankStore } from '../../stores/bankStore'
 import { useCreditsStore } from '../../stores/creditsStore'
 import type { Script, VoiceHistoryItem } from '../../stores/types'
@@ -40,6 +41,9 @@ export default function VoiceStudio() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [scriptPickerOpen, setScriptPickerOpen] = useState(false)
+
+  // Pulse the dock dot while TTS runs (or a persisted task resumes polling).
+  useReportActivity('voice-studio', isGenerating || inFlightVoice !== null)
   const [selectedScript, setSelectedScript] = useState<Script | null>(null)
   const [highlightField, setHighlightField] = useState<string | null>(null)
   const [detailsItem, setDetailsItem] = useState<VoiceHistoryItem | null>(null)
