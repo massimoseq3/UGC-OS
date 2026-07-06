@@ -14,8 +14,11 @@ interface AppState {
   toasts: Toast[]
   sidebarCollapsed: boolean
   mobileSidebarOpen: boolean
+  teamIntroOpen: boolean
 
   openApp: (appId: string) => void
+  openTeamIntro: () => void
+  closeTeamIntro: () => void
   setActiveApp: (appId: string | null) => void
   sendToApp: (payload: InterAppPayload) => void
   consumePayload: () => InterAppPayload | null
@@ -29,11 +32,23 @@ interface AppState {
 let toastCounter = 0
 
 const SIDEBAR_KEY = 'ugc-lab:sidebar-collapsed'
+const TEAM_INTRO_KEY = 'ugc-lab:team-intro-seen'
 
 function loadSidebarCollapsed(): boolean {
   if (typeof window === 'undefined') return false
   try {
     return window.localStorage.getItem(SIDEBAR_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+// The Meet the Team screen auto-opens once per browser: open unless the
+// seen flag is already set. Dismissing it (any path) writes the flag.
+function loadTeamIntroOpen(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    return window.localStorage.getItem(TEAM_INTRO_KEY) !== '1'
   } catch {
     return false
   }
@@ -46,6 +61,18 @@ export const useAppStore = create<AppState>((set, get) => ({
   toasts: [],
   sidebarCollapsed: loadSidebarCollapsed(),
   mobileSidebarOpen: false,
+  teamIntroOpen: loadTeamIntroOpen(),
+
+  openTeamIntro: () => set({ teamIntroOpen: true }),
+
+  closeTeamIntro: () => {
+    try {
+      window.localStorage.setItem(TEAM_INTRO_KEY, '1')
+    } catch {
+      // ignore
+    }
+    set({ teamIntroOpen: false })
+  },
 
   openApp: (appId) => set((state) => ({
     activeApp: appId,

@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect } from 'react'
 import { useAppStore } from '../../stores/appStore'
+import { useReportActivity } from '../../stores/activityStore'
 import { useBankStore } from '../../stores/bankStore'
 import type { Model, Product, ScriptHistoryItem } from '../../stores/types'
 import InputPanel from './components/InputPanel'
@@ -74,6 +75,9 @@ export default function ScriptArchitect() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [highlightField, setHighlightField] = useState<string | null>(null)
+
+  // Pulse the dock dot while the script LLM call runs.
+  useReportActivity('script-architect', isGenerating)
 
   const interAppPayload = useAppStore((s) => s.interAppPayload)
   const consumePayload = useAppStore((s) => s.consumePayload)

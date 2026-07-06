@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { Dna } from 'lucide-react'
 import { useAppStore } from '../../stores/appStore'
+import { useReportActivity } from '../../stores/activityStore'
 import { useBankStore } from '../../stores/bankStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import type { CharacterProfile, TabId } from './types'
@@ -61,6 +62,9 @@ export default function CharacterStudio() {
   const [error, setError] = useState<string | null>(null)
   const [isExtracting, setIsExtracting] = useState(false)
   const [extractError, setExtractError] = useState<string | null>(null)
+
+  // Pulse the dock dot while portraits/sheets generate or DNA extraction runs.
+  useReportActivity('character-studio', inFlight.length > 0 || isExtracting)
   const [overlayActive, setOverlayActive] = useState(false)
 
   // Abort controllers keyed by gen id so per-tile Cancel can target one job.

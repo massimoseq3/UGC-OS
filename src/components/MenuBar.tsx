@@ -12,11 +12,18 @@ import AppLogo from './AppLogo'
 
 export default function MenuBar() {
   const activeApp = useAppStore((s) => s.activeApp)
+  const openTeamIntro = useAppStore((s) => s.openTeamIntro)
   const appName = activeApp ? getAppConfig(activeApp)?.name : null
 
   return (
     <header className="fixed inset-x-0 top-0 z-40 flex h-9 select-none items-center gap-2 border-b border-ink/5 bg-surface-1/75 px-3 backdrop-blur-2xl light:bg-white/75">
-      <div className="flex shrink-0 items-center gap-1.5">
+      {/* Brand doubles as the "About" menu — clicking it reopens the Meet
+          the Team intro (macOS: Apple menu → About This Mac). */}
+      <button
+        onClick={openTeamIntro}
+        title="Meet your team"
+        className="-mx-1.5 flex shrink-0 items-center gap-1.5 rounded-md px-1.5 py-0.5 transition-colors hover:bg-ink/[0.06]"
+      >
         <AppLogo className="h-5 w-5" />
         <span className="whitespace-nowrap text-[13px] font-bold tracking-tight text-ink-100">
           UGC{' '}
@@ -27,7 +34,7 @@ export default function MenuBar() {
             OS
           </span>
         </span>
-      </div>
+      </button>
       {/* Active app name, like macOS shows the frontmost app beside the logo. */}
       {appName && (
         <span className="truncate text-[13px] font-medium text-ink-400">{appName}</span>
@@ -35,6 +42,14 @@ export default function MenuBar() {
 
       <div className="flex-1" />
 
+      {/* Explicit Meet your team entry (the wordmark also opens it) — desktop
+          only, like the links below; on phones the wordmark stays the way in. */}
+      <button
+        onClick={openTeamIntro}
+        className="hidden h-6 shrink-0 items-center rounded-md px-2 text-[12px] text-ink-300 transition-colors hover:bg-ink/[0.06] hover:text-ink-100 sm:flex"
+      >
+        Meet your team
+      </button>
       <CreditsItem />
       {/* External links are desktop chrome — on phones they overflowed the bar. */}
       <MenuLink href="https://kie.ai/billing" label="Get Credits" />

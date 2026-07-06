@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useAppStore } from '../../stores/appStore'
+import { useReportActivity } from '../../stores/activityStore'
 import type { CinematicVideoPayload } from '../../stores/types'
 import { useSettingsStore } from '../../stores/settingsStore'
 import {
@@ -524,6 +525,9 @@ export default function Playground() {
   // Submit button no longer disables on in-flight count — users can queue
   // unlimited parallel generations. The prop stays for any future use.
   const isGenerating = inFlight.length > 0
+
+  // Pulse the dock dot while any image/video/music generation is in flight.
+  useReportActivity('playground', isGenerating)
 
   return (
     <div className="relative flex flex-col md:h-full">

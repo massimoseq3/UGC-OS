@@ -49,12 +49,14 @@ between them. `src/App.tsx:102` → `Workspace`.
 
 Thin (`h-9`) top chrome — branding + status only, **no navigation**. Left→right:
 
-- **Leading:** app logo + "UGC *OS*" wordmark, then the **active app's name** (like
-  macOS naming the frontmost app beside the logo).
-- **Trailing:** **credits** balance ("`<n>` credits left"; coin glyph swaps to a
+- **Leading:** app logo + "UGC *OS*" wordmark (a **button** — clicking it reopens
+  the **Meet your team** intro, macOS "About This Mac" style), then the **active
+  app's name** (like macOS naming the frontmost app beside the logo).
+- **Trailing:** a **Meet your team** button (explicit twin of the wordmark click),
+  then the **credits** balance ("`<n>` credits left"; coin glyph swaps to a
   spinner, click refreshes — polls on mount + 60s + window focus; shows "—" until a
   kie.ai key is set), then external links **Get Credits** (kie.ai billing) and
-  **Community** (Skool). The two links are `sm:`+ only — hidden on phones.
+  **Community** (Skool). These trailing items are `sm:`+ only — hidden on phones.
 
 ### 1.2 Dock — `src/components/Dock.tsx`
 
@@ -70,8 +72,13 @@ library · create · tools`, order from `APP_REGISTRY`, `constants.ts:30`):
 
 Each item is a colored macOS-style app icon (accent fill + sheen) over an
 always-visible label, with a running/active **dot** underneath. Hover gives a
-subtle lift; there is **no click-press animation**. **Admin is not in the dock**
-(its `category: 'admin'` is excluded from `SECTION_ORDER`) — it lives in Settings.
+subtle lift and **cross-fades the tile glyph to the app's crab persona sprite**
+(label text never changes; roster in `src/utils/team.ts`, tooltip shows "Name ·
+Role"); there is **no click-press animation**. While an app has a generation in
+flight the dot **pulses in the app's accent** (apps report via
+`useReportActivity` into `stores/activityStore.ts`; lazy-mounted apps only
+report once opened that session). **Admin is not in the dock** (its
+`category: 'admin'` is excluded from `SECTION_ORDER`) — it lives in Settings.
 
 Note the **two namespaces**: dock display names vs the internal app/folder ids
 (`constants.ts:30`). `Bank`→`finder`, `Characters`→`character-studio`,
@@ -86,15 +93,37 @@ tile. Header ("Settings" + ✕ top-right, `SettingsModal.tsx:196`), then top→b
 1. **kie.ai API key** — label + "Get key" link, masked input, "Test connection"
    button + result, full-width **Save** button.
 2. **Appearance** — Dark / Light / System segmented toggle.
-3. **Storage** (cloud mode only) — usage bar + manual orphan-cleanup flow
+3. **Your team** — a "Meet your team" button that closes Settings and replays
+   the Meet your team intro (§1.4).
+4. **Storage** (cloud mode only) — usage bar + manual orphan-cleanup flow
    (confirm → scan → purge).
-4. **Legal** footer links (Terms · Privacy · AUP · DMCA), open in a new tab.
-5. **Account** (cloud + signed-in) — email + avatar, **Sign out** button.
-6. **Admin** (admins only) — an "Open Admin panel" row; the **only** entry point
+5. **Legal** footer links (Terms · Privacy · AUP · DMCA), open in a new tab.
+6. **Account** (cloud + signed-in) — email + avatar, **Sign out** button.
+7. **Admin** (admins only) — an "Open Admin panel" row; the **only** entry point
    to the Admin app now that it's out of the dock.
-7. **Demo-data** tool (admin / local-only), tiny + low-contrast at the very bottom.
+8. **Demo-data** tool (admin / local-only), tiny + low-contrast at the very bottom.
 
-### 1.4 Shared control idioms
+### 1.4 Meet your team intro — `src/components/MeetTheTeam.tsx`
+
+Centered onboarding modal ("Meet your *team*") framing the seven dock apps as
+a named production crew (roster data in `src/utils/team.ts`) — one pixel-art
+crab mascot per app (`src/components/CrabSprite.tsx`), each in a role costume,
+labelled "Name · Role" (kept to a single line — `whitespace-nowrap`, card
+width sized to the longest label): Bank = Sandy · Studio Manager (green
+visor), Characters = Clawdia · Casting Director (shades), Scripts = Pinchy ·
+Copywriter (pencil), Voiceovers = Echo · Voice Talent (headphones), B-Roll =
+Bubbles · Videographer (backwards cap), Playground = Sebastian · Creative
+Director (beret + paint), Ad Analyzer = Scout · Strategist (magnifying glass).
+Cards sit in dock order on accent-tinted tiles; clicking one opens that app.
+Below the roster, a compact horizontal **fuel row** — a golden sun-rayed `kie`
+crab variant + "kie.ai credits keep your team fed" + three one-line steps (get
+key → paste in Settings → top up via Get Credits) — sized so the modal fits
+without scrolling. **Auto-opens once per browser** (`ugc-lab:team-intro-seen`
+in localStorage, state in `appStore.teamIntroOpen`); reopens from the menu bar
+wordmark, the menu bar's "Meet your team" item, or Settings → Your team.
+Dismiss via ✕, backdrop, Escape, or the "Let's get to work" button.
+
+### 1.5 Shared control idioms
 
 - **SegmentedToggle** (`src/components/SegmentedToggle.tsx`) — the house tab/pill
   control used for nearly every mode switch and Output/History tab. Rounded-full

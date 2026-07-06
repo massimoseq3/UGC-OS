@@ -10,6 +10,7 @@ import { useAssetUrl } from '../../hooks/useAssetUrl'
 import { saveAsset, deleteAsset } from '../../utils/assetStore'
 import { enqueueAnalysis, resumeAnalysisTask } from './services/analysisQueue'
 import { useBankStore } from '../../stores/bankStore'
+import { useReportActivity } from '../../stores/activityStore'
 
 // Cycled under the spinner during analysis so the user has something
 // interesting to read while the kie task runs.
@@ -37,6 +38,10 @@ export default function AdAnatomy() {
   const [selectedId, setSelectedId] = usePersistedState<string | null>(`${baseKey}:selectedId`, null)
 
   const adAnatomyHistory = useBankStore((s) => s.adAnatomyHistory)
+
+  // Pulse the dock dot while any analysis row is still working.
+  useReportActivity('ad-anatomy', adAnatomyHistory.some((h) => h.status === 'analyzing'))
+
   const addAdAnatomyHistory = useBankStore((s) => s.addAdAnatomyHistory)
   const updateAdAnatomyHistory = useBankStore((s) => s.updateAdAnatomyHistory)
   const deleteAdAnatomyHistory = useBankStore((s) => s.deleteAdAnatomyHistory)
