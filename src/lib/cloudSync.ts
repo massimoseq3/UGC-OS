@@ -23,7 +23,7 @@ import { useBankStore } from '../stores/bankStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { getSupabase, isCloudEnabled, ensureFreshSession } from './supabase'
 import { existingRemoteAssetIds, uploadAssetToR2 } from './r2'
-import { isAssetRef, getBlob } from '../utils/assetStore'
+import { isAssetRef, assetIdFromRef, getBlob } from '../utils/assetStore'
 import { findOrphanAssets, purgeOrphans } from '../utils/orphanCleanup'
 import type { Product, Model, Script, VoicePreset, BRoll, VoiceHistoryItem, VideoHistoryItem, ImageHistoryItem, MusicHistoryItem, ScriptHistoryItem, BrollHistoryItem, CharacterHistoryItem, AdAnatomyHistoryItem } from '../stores/types'
 
@@ -104,22 +104,46 @@ function writeOutbox(ob: Outbox) {
   try { localStorage.setItem(key, JSON.stringify(ob)) } catch { /* quota — ignore */ }
 }
 
-export function recordPendingUpsert(table: BankKey, row: { id: string }): void {
+// Per-row marker tokens. Every record* call mints a fresh token, and
+// clearPending only removes the marker when the caller's token is still the
+// row's current one. Without this, a slow write that confirms late clears the
+// marker a NEWER write just recorded — e.g. update row (push stalls), delete
+// row (delete marker recorded), stalled upsert finally confirms and wipes the
+// delete marker → the delete is never replayed and the row resurrects on the
+// next hydrate. In-memory only is enough: a stale success callback can only
+// exist in the page session that started the write, and after a refresh the
+// map is empty so previous-session markers clear normally (token undefined).
+let markerSeq = 0
+const markerTokens = new Map<string, number>()
+
+export function pendingToken(table: BankKey, id: string): number | undefined {
+  return markerTokens.get(`${table}:${id}`)
+}
+
+export function recordPendingUpsert(table: BankKey, row: { id: string }): number {
   const ob = readOutbox()
   ;(ob.upserts[table] ??= {})[row.id] = row
   if (ob.deletes[table]) ob.deletes[table] = ob.deletes[table]!.filter((d) => d !== row.id)
   writeOutbox(ob)
+  const token = ++markerSeq
+  markerTokens.set(`${table}:${row.id}`, token)
+  return token
 }
 
-export function recordPendingDelete(table: BankKey, id: string): void {
+export function recordPendingDelete(table: BankKey, id: string): number {
   const ob = readOutbox()
   if (ob.upserts[table]) delete ob.upserts[table]![id]
   const list = (ob.deletes[table] ??= [])
   if (!list.includes(id)) list.push(id)
   writeOutbox(ob)
+  const token = ++markerSeq
+  markerTokens.set(`${table}:${id}`, token)
+  return token
 }
 
-export function clearPending(table: BankKey, id: string): void {
+export function clearPending(table: BankKey, id: string, token?: number): void {
+  if (markerTokens.get(`${table}:${id}`) !== token) return
+  markerTokens.delete(`${table}:${id}`)
   const ob = readOutbox()
   if (ob.upserts[table]) delete ob.upserts[table]![id]
   if (ob.deletes[table]) ob.deletes[table] = ob.deletes[table]!.filter((d) => d !== id)
@@ -179,11 +203,16 @@ export async function drainOutbox(): Promise<void> {
   try {
     for (const key of BANK_KEYS) {
       for (const row of Object.values(ob.upserts[key] ?? {})) {
-        try { await saveRow(key, row); clearPending(key, row.id) }
+        // Capture the marker token before replaying: if the user touches the
+        // row while our write is in flight, the token changes and our
+        // clearPending becomes a no-op — the fresh marker survives.
+        const token = pendingToken(key, row.id)
+        try { await saveRow(key, row); clearPending(key, row.id, token) }
         catch (e) { console.warn(`[cloudSync] outbox upsert ${key}/${row.id} still failing`, e) }
       }
       for (const id of [...(ob.deletes[key] ?? [])]) {
-        try { await deleteRow(key, id); clearPending(key, id) }
+        const token = pendingToken(key, id)
+        try { await deleteRow(key, id); clearPending(key, id, token) }
         catch (e) { console.warn(`[cloudSync] outbox delete ${key}/${id} still failing`, e) }
       }
     }
@@ -196,7 +225,11 @@ export async function drainOutbox(): Promise<void> {
 
 function walkAssetRefs(value: unknown, out: string[] = []): string[] {
   if (typeof value === 'string') {
-    if (isAssetRef(value)) out.push(value)
+    // Normalise "asset://asset-x" refs (B-Roll videos) to the bare id — the
+    // `assets` table and R2 keys use bare ids, so an unnormalised ref never
+    // matches existingRemoteAssetIds and gets re-uploaded under a duplicate
+    // prefixed key on every sign-in.
+    if (isAssetRef(value)) out.push(assetIdFromRef(value))
     return out
   }
   if (Array.isArray(value)) {
@@ -239,22 +272,44 @@ async function upsertRowOnce(table: BankKey, row: { id: string }, userId: string
   }
 }
 
+// Serialise cloud writes PER ROW. Pushes are fire-and-forget, so without this
+// two writes for the same row can land in Postgres out of order — the worst
+// case being a stalled upsert that finally completes AFTER a delete for the
+// same row, re-inserting it server-side with nothing left in the outbox to
+// correct it. Each attempt is already hard-bounded (attemptSignal aborts at
+// 6s, max two attempts), so a chain never grows past a few entries.
+const rowWriteChains = new Map<string, Promise<void>>()
+
+function serializedRowWrite<T>(table: BankKey, id: string, op: () => Promise<T>): Promise<T> {
+  const key = `${table}:${id}`
+  const prev = rowWriteChains.get(key) ?? Promise.resolve()
+  const run = prev.then(op, op) // run regardless of the previous write's outcome
+  const tail = run.then(() => undefined, () => undefined)
+  rowWriteChains.set(key, tail)
+  void tail.then(() => {
+    if (rowWriteChains.get(key) === tail) rowWriteChains.delete(key)
+  })
+  return run
+}
+
 // Save one bank row. Awaited. Throws on failure so callers can react.
 // Two bounded attempts: the common failure here is a stalled connection after
 // a long-lived tab (the fetch hangs, no error ever fires), and historically a
 // page refresh "fixed" it because the new page got a fresh connection. The
 // abort-and-retry reproduces that recovery without bothering the user.
-export async function saveRow(table: BankKey, row: { id: string }): Promise<void> {
-  const userId = useAuthStore.getState().user?.id
-  if (!userId) throw new Error('Not signed in')
-  await ensureFreshSession()
-  try {
-    await upsertRowOnce(table, row, userId)
-  } catch (first) {
-    console.warn(`[cloudSync] ${BANK_TO_TABLE[table]} upsert attempt 1 failed — retrying once`, first)
+export function saveRow(table: BankKey, row: { id: string }): Promise<void> {
+  return serializedRowWrite(table, row.id, async () => {
+    const userId = useAuthStore.getState().user?.id
+    if (!userId) throw new Error('Not signed in')
     await ensureFreshSession()
-    await upsertRowOnce(table, row, userId)
-  }
+    try {
+      await upsertRowOnce(table, row, userId)
+    } catch (first) {
+      console.warn(`[cloudSync] ${BANK_TO_TABLE[table]} upsert attempt 1 failed — retrying once`, first)
+      await ensureFreshSession()
+      await upsertRowOnce(table, row, userId)
+    }
+  })
 }
 
 // Bulk variant — kept for callers that need batched writes. Sequential per
@@ -286,18 +341,21 @@ async function deleteRowOnce(table: BankKey, id: string, userId: string): Promis
   }
 }
 
-// Delete one bank row. Awaited. Same bounded-attempts shape as saveRow.
-export async function deleteRow(table: BankKey, id: string): Promise<void> {
-  const userId = useAuthStore.getState().user?.id
-  if (!userId) throw new Error('Not signed in')
-  await ensureFreshSession()
-  try {
-    await deleteRowOnce(table, id, userId)
-  } catch (first) {
-    console.warn(`[cloudSync] ${BANK_TO_TABLE[table]} delete attempt 1 failed — retrying once`, first)
+// Delete one bank row. Awaited. Same bounded-attempts shape as saveRow, and
+// serialised behind any in-flight write for the same row (see above).
+export function deleteRow(table: BankKey, id: string): Promise<void> {
+  return serializedRowWrite(table, id, async () => {
+    const userId = useAuthStore.getState().user?.id
+    if (!userId) throw new Error('Not signed in')
     await ensureFreshSession()
-    await deleteRowOnce(table, id, userId)
-  }
+    try {
+      await deleteRowOnce(table, id, userId)
+    } catch (first) {
+      console.warn(`[cloudSync] ${BANK_TO_TABLE[table]} delete attempt 1 failed — retrying once`, first)
+      await ensureFreshSession()
+      await deleteRowOnce(table, id, userId)
+    }
+  })
 }
 
 // Save the profile sheet (per-app model selections only). The kie.ai API key
@@ -480,6 +538,19 @@ function seedLocalHistoryToCloud(userId: string) {
   if (seeded > 0) console.log(`[cloudSync] seeded ${seeded} local history row(s) for first-time cloud sync`)
   localStorage.setItem(flag, '1')
 }
+
+// NOTE — no "legacy prefixed asset" migration is needed, and one must not be
+// re-added. The concern would be duplicate `assets` rows keyed by the raw
+// "asset://asset-x" ref (vs the bare "asset-x" everything else uses). But such
+// rows can never have been written: uploadAssetToR2 presigns the id BEFORE the
+// row upsert, and the R2 sign/delete Edge functions reject any id that isn't
+// `^[a-zA-Z0-9._-]+$` (no `:` or `/`) — so a prefixed PUT 400s at presign and
+// the row is never inserted. A prefixed R2 object can't exist either, for the
+// same reason. The real fix for the historical data loss is the ref
+// normalisation in walkAssetRefs (below) + the sweep; the sweep is
+// normalisation-safe on the row-id side too, so even a prefixed row arriving
+// by some unforeseen path is classified correctly rather than purging its
+// live bare twin.
 
 // After hydrate: walk any local asset blobs that aren't yet in R2 and upload
 // them. Recovers users who had partial-state from prior buggy sessions.

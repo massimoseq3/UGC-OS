@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { Product, Model, Script, VoicePreset, BRoll, VoiceHistoryItem, VideoHistoryItem, ImageHistoryItem, MusicHistoryItem, ScriptHistoryItem, BrollHistoryItem, CharacterHistoryItem, AdAnatomyHistoryItem } from './types'
-import { isAssetRef, deleteAsset, saveFromDataUrl } from '../utils/assetStore'
+import { isAssetRef, assetIdFromRef, deleteAsset, saveFromDataUrl } from '../utils/assetStore'
 import { useAuthStore } from './authStore'
 import { isCloudEnabled } from '../lib/supabase'
 import { saveRow, deleteRow, recordPendingUpsert, recordPendingDelete, clearPending, scheduleOutboxDrain, type BankKey } from '../lib/cloudSync'
@@ -272,9 +272,12 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 // caller to await.
 function pushRow(table: BankKey, row: { id: string }): void {
   if (!cloudActive()) return
-  recordPendingUpsert(table, row)
+  // Keep the marker token: if a newer write (edit or delete) is recorded for
+  // this row while our push is in flight, clearPending sees a token mismatch
+  // and leaves the newer marker alone instead of erasing it.
+  const token = recordPendingUpsert(table, row)
   void withTimeout(saveRow(table, row), CLOUD_SYNC_TIMEOUT_MS, `Cloud save (${table})`)
-    .then(() => clearPending(table, row.id))
+    .then(() => clearPending(table, row.id, token))
     .catch((e) => {
       scheduleOutboxDrain()
       console.warn(`[bankStore] cloud sync deferred — ${table}/${row.id} saved locally, will retry`, e)
@@ -287,9 +290,9 @@ function pushRow(table: BankKey, row: { id: string }): void {
 // hydrate (applyOutbox replays the deletion).
 function dropRow(table: BankKey, id: string): void {
   if (!cloudActive()) return
-  recordPendingDelete(table, id)
+  const token = recordPendingDelete(table, id)
   void withTimeout(deleteRow(table, id), CLOUD_SYNC_TIMEOUT_MS, `Cloud delete (${table})`)
-    .then(() => clearPending(table, id))
+    .then(() => clearPending(table, id, token))
     .catch((e) => {
       scheduleOutboxDrain()
       console.warn(`[bankStore] cloud delete deferred — ${table}/${id} removed locally, will retry`, e)
@@ -307,6 +310,26 @@ async function cleanupAssets(...refs: (string | undefined)[]) {
       try { await deleteAsset(ref) } catch (e) { console.warn('[bankStore] asset delete failed', e) }
     }
   }
+}
+
+// A B-Roll saved from Playground shares its blob with the history row that
+// created it (which stamps `linkedBRollId`), so B-Roll delete/replace must not
+// purge a blob a history tile still renders. Compare normalised ids — B-Roll
+// video refs use the "asset://" form while Playground stores bare ids.
+function brollAssetStillInHistory(
+  state: { imageHistory: ImageHistoryItem[]; videoHistory: VideoHistoryItem[] },
+  ref: string | undefined,
+): boolean {
+  if (!ref || !isAssetRef(ref)) return false
+  const id = assetIdFromRef(ref)
+  return (
+    state.imageHistory.some((h) => h.imageUrl && assetIdFromRef(h.imageUrl) === id) ||
+    state.videoHistory.some(
+      (h) =>
+        (h.videoUrl && assetIdFromRef(h.videoUrl) === id) ||
+        (h.thumbnailUrl && assetIdFromRef(h.thumbnailUrl) === id),
+    )
+  )
 }
 
 export const useBankStore = create<BankState>((set, get) => ({
@@ -378,14 +401,19 @@ export const useBankStore = create<BankState>((set, get) => ({
     const old = get().models.find((m) => m.id === id)
     if (!old) return
     const updated: Model = { ...old, ...updates }
+    // Only purge a replaced blob when nothing else still shows it: a history
+    // row (save-from-studio shares the ref — the gallery tile would break), or
+    // the row's own other image field (sheets are stamped as BOTH
+    // characterImage and sheetImage, so replacing one must not purge the other).
+    const stillReferenced = (ref: string) =>
+      updated.characterImage === ref ||
+      updated.sheetImage === ref ||
+      get().characterHistory.some((h) => h.imageRef === ref)
     if (updates.characterImage && old.characterImage && old.characterImage !== updates.characterImage) {
-      cleanupAssets(old.characterImage)
+      if (!stillReferenced(old.characterImage)) cleanupAssets(old.characterImage)
     }
-    // Replacing an attached sheet: only purge the old blob when no history row
-    // still shows it — the gallery tile would otherwise break.
     if (updates.sheetImage && old.sheetImage && old.sheetImage !== updates.sheetImage) {
-      const stillInHistory = get().characterHistory.some((h) => h.imageRef === old.sheetImage)
-      if (!stillInHistory) cleanupAssets(old.sheetImage)
+      if (!stillReferenced(old.sheetImage)) cleanupAssets(old.sheetImage)
     }
     set((state) => {
       const next = { models: state.models.map((m) => m.id === id ? updated : m) }
@@ -514,7 +542,8 @@ export const useBankStore = create<BankState>((set, get) => ({
     if (!old) return
     const updated: BRoll = { ...old, ...updates }
     if (updates.imageUrl && old.imageUrl && old.imageUrl !== updates.imageUrl) {
-      cleanupAssets(old.imageUrl)
+      // Keep the old blob if a Playground history row still renders it.
+      if (!brollAssetStillInHistory(get(), old.imageUrl)) cleanupAssets(old.imageUrl)
     }
     set((state) => {
       const next = { brolls: state.brolls.map((b) => b.id === id ? updated : b) }
@@ -534,9 +563,19 @@ export const useBankStore = create<BankState>((set, get) => ({
       return next
     })
     dropRow('brolls', id)
-    void cleanupAssets(item.imageUrl, item.videoUrl)
-    if (item.videos) {
-      for (const v of item.videos) void cleanupAssets(v.url)
+    // Purge only blobs no history row still renders — shared ones stay, and
+    // releasing the back-link below hands their ownership to the history row.
+    const candidates = [item.imageUrl, item.videoUrl, ...(item.videos ?? []).map((v) => v.url)]
+    for (const ref of candidates) {
+      if (ref && !brollAssetStillInHistory(get(), ref)) void cleanupAssets(ref)
+    }
+    // Release the back-links so Playground can save the item again and the
+    // history row's own deletion resumes purging the blob.
+    for (const h of get().imageHistory) {
+      if (h.linkedBRollId === id) void get().updateImageHistory(h.id, { linkedBRollId: undefined })
+    }
+    for (const h of get().videoHistory) {
+      if (h.linkedBRollId === id) void get().updateVideoHistory(h.id, { linkedBRollId: undefined })
     }
     reportSuccess('B-roll deleted')
   },
