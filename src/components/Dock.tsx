@@ -156,19 +156,10 @@ function DockAppTile({
       >
         <span className="absolute inset-0 bg-gradient-to-b from-white/30 via-white/5 to-transparent" />
         <span className="absolute inset-0 rounded-[14px] ring-1 ring-inset ring-white/20" />
-        {/* Hover cross-fades the whole tile to the app's crab persona — the
-            crew peeks out of the dock without changing the label. The solid
-            accent fades to the soft tinted tile the Meet-your-team cards use,
-            because the coral crab has no contrast against saturated fills. */}
-        {member && (
-          <>
-            <span className="absolute inset-0 bg-surface-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
-            <span
-              className="absolute inset-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
-              style={{ backgroundColor: `${app.accent}1F` }}
-            />
-          </>
-        )}
+        {/* Hover cross-fades the glyph to the app's crab persona — the crew
+            peeks out of the dock without changing the label. The tile keeps
+            its solid accent; a soft drop shadow hugging the sprite's pixel
+            silhouette lifts the coral crab off saturated fills. */}
         <Icon
           className={`relative h-[22px] w-[22px] ${member ? 'transition-opacity duration-200 group-hover:opacity-0' : ''}`}
           style={{ color: iconColor }}
@@ -177,7 +168,7 @@ function DockAppTile({
         {member && (
           <CrabSprite
             variant={member.appId}
-            className="absolute h-[26px] w-9 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+            className="absolute h-[26px] w-9 opacity-0 transition-opacity duration-200 [filter:drop-shadow(0_1px_2px_rgba(0,0,0,0.45))] group-hover:opacity-100"
           />
         )}
       </span>
