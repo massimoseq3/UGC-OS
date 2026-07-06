@@ -69,20 +69,22 @@ const COSTUMES: Record<CrabVariant, Px[]> = {
     { x: 7, y: 3, w: 1, h: 1, fill: '#F27D98' }, // eraser
   ],
 
-  // Voice Talent — headphones, cups in the Voiceovers blue.
+  // Voice Talent — headphones, cups in a deep Voiceovers blue. Cups and cap
+  // sit outside the body silhouette, so they must be darker than their app's
+  // accent or they vanish into the dock tile on hover.
   'voice-studio': [
     { x: 4, y: 2, w: 8, h: 1, fill: DARK }, // band
     { x: 3, y: 3, w: 1, h: 2, fill: DARK },
     { x: 12, y: 3, w: 1, h: 2, fill: DARK },
-    { x: 3, y: 5, w: 1, h: 2, fill: '#007AFF' }, // cups
-    { x: 12, y: 5, w: 1, h: 2, fill: '#007AFF' },
+    { x: 3, y: 5, w: 1, h: 2, fill: '#0553BE' }, // cups
+    { x: 12, y: 5, w: 1, h: 2, fill: '#0553BE' },
   ],
 
-  // Videographer — backwards cap in the B-Roll purple.
+  // Videographer — backwards cap in a deep B-Roll indigo (see cups note).
   'broll-studio': [
-    { x: 4, y: 2, w: 8, h: 1, fill: '#7165FF' },
-    { x: 4, y: 3, w: 8, h: 1, fill: '#5F53E6' },
-    { x: 12, y: 3, w: 3, h: 1, fill: '#5F53E6' }, // bill, worn backwards
+    { x: 4, y: 2, w: 8, h: 1, fill: '#4E42DE' },
+    { x: 4, y: 3, w: 8, h: 1, fill: '#4034C4' },
+    { x: 12, y: 3, w: 3, h: 1, fill: '#4034C4' }, // bill, worn backwards
   ],
 
   // Creative Director — tilted beret + paint on the shell. The beret is teal
@@ -122,12 +124,16 @@ const COSTUMES: Record<CrabVariant, Px[]> = {
 
 export default function CrabSprite({
   variant = 'plain',
+  body,
   className,
 }: {
   variant?: CrabVariant
+  // Body color override — the dock passes beige (#F8F8F4) so the crab reads
+  // on saturated accent tiles; the default coral is for pale surfaces.
+  body?: string
   className?: string
 }) {
-  const body = variant === 'kie' ? GOLD : CRAB
+  const bodyFill = body ?? (variant === 'kie' ? GOLD : CRAB)
   return (
     <svg
       viewBox="0 0 16 12"
@@ -135,7 +141,7 @@ export default function CrabSprite({
       className={className}
       aria-hidden="true"
     >
-      {[...baseRects(body), ...COSTUMES[variant]].map((p, i) => (
+      {[...baseRects(bodyFill), ...COSTUMES[variant]].map((p, i) => (
         <rect key={i} x={p.x} y={p.y} width={p.w} height={p.h} fill={p.fill} />
       ))}
     </svg>

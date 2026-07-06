@@ -141,9 +141,10 @@ function DockAppTile({
   const member = getTeamMember(app.id)
 
   return (
+    // No title attr: the native tooltip popping over the dock on hover was
+    // distracting — the persona introduction lives in Meet your team.
     <DockItem
       label={app.name}
-      title={member ? `${member.name} · ${member.role}` : undefined}
       active={active}
       running={running}
       busy={busy}
@@ -168,7 +169,8 @@ function DockAppTile({
         {member && (
           <CrabSprite
             variant={member.appId}
-            className="absolute h-[26px] w-9 opacity-0 transition-opacity duration-200 [filter:drop-shadow(0_1px_2px_rgba(0,0,0,0.45))] group-hover:opacity-100"
+            body="#F8F8F4"
+            className="absolute h-[26px] w-9 opacity-0 transition-opacity duration-200 [filter:drop-shadow(0_1px_2px_rgba(0,0,0,0.35))] group-hover:opacity-100"
           />
         )}
       </span>
