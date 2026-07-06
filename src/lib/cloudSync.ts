@@ -22,7 +22,7 @@ import { useAppStore } from '../stores/appStore'
 import { useBankStore } from '../stores/bankStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { getSupabase, isCloudEnabled, ensureFreshSession } from './supabase'
-import { existingRemoteAssetIds, uploadAssetToR2, downloadAssetFromR2, deleteAssetFromR2 } from './r2'
+import { existingRemoteAssetIds, uploadAssetToR2 } from './r2'
 import { isAssetRef, assetIdFromRef, getBlob } from '../utils/assetStore'
 import { findOrphanAssets, purgeOrphans } from '../utils/orphanCleanup'
 import type { Product, Model, Script, VoicePreset, BRoll, VoiceHistoryItem, VideoHistoryItem, ImageHistoryItem, MusicHistoryItem, ScriptHistoryItem, BrollHistoryItem, CharacterHistoryItem, AdAnatomyHistoryItem } from '../stores/types'
@@ -539,54 +539,18 @@ function seedLocalHistoryToCloud(userId: string) {
   localStorage.setItem(flag, '1')
 }
 
-// One-time repair for the pre-normalisation walker bug: reconcileAssets used
-// to upload B-Roll video blobs under their raw "asset://asset-x" ref, minting
-// a duplicate `assets` row + R2 object keyed by the prefixed string, and the
-// orphan sweep then purged the real bare-id row (its prefixed ref never
-// matched). This migrates every prefixed row back to the bare id — recovering
-// videos whose only surviving copy sits under the prefixed R2 key — and drops
-// the duplicates. MUST complete before reconcile/sweep run: a leftover
-// prefixed row would be re-classified by the sweep, and deleteAsset normalises
-// ids, so purging one would destroy the live bare asset instead.
-async function repairLegacyPrefixedAssets(userId: string): Promise<void> {
-  const sb = getSupabase()
-  const { data, error } = await sb
-    .from('assets')
-    .select('id')
-    .eq('user_id', userId)
-    .like('id', 'asset://%')
-  if (error) throw new Error(`legacy asset scan: ${error.message}`)
-  const prefixedIds = (data ?? []).map((r) => r.id as string)
-  if (prefixedIds.length === 0) return
-
-  console.log(`[cloudSync] repairing ${prefixedIds.length} legacy prefixed asset row(s)`)
-  const bareExists = await existingRemoteAssetIds(prefixedIds.map(assetIdFromRef))
-
-  for (const prefixedId of prefixedIds) {
-    const bareId = assetIdFromRef(prefixedId)
-    try {
-      if (!bareExists.has(bareId)) {
-        // The bare row was purged by the old sweep — the prefixed object is
-        // the only surviving copy. Pull it down and re-home it first.
-        const blob = await downloadAssetFromR2(prefixedId)
-        if (!blob) {
-          console.warn(`[cloudSync] legacy repair: no blob behind ${prefixedId}, skipping`)
-          continue
-        }
-        await uploadAssetToR2(bareId, blob)
-      }
-      // Either way the prefixed row/object is now a pure duplicate — drop it.
-      // deleteAssetFromR2 takes the id verbatim (no normalisation), so this
-      // touches only the prefixed row + object, never the bare one.
-      await deleteAssetFromR2(prefixedId)
-    } catch (e) {
-      // Leave the row for the next session's repair. The orphan sweep is safe
-      // meanwhile: it compares normalised ids, so a prefixed row whose bare id
-      // is referenced is never classified as an orphan.
-      console.warn(`[cloudSync] legacy repair failed for ${prefixedId}`, e)
-    }
-  }
-}
+// NOTE — no "legacy prefixed asset" migration is needed, and one must not be
+// re-added. The concern would be duplicate `assets` rows keyed by the raw
+// "asset://asset-x" ref (vs the bare "asset-x" everything else uses). But such
+// rows can never have been written: uploadAssetToR2 presigns the id BEFORE the
+// row upsert, and the R2 sign/delete Edge functions reject any id that isn't
+// `^[a-zA-Z0-9._-]+$` (no `:` or `/`) — so a prefixed PUT 400s at presign and
+// the row is never inserted. A prefixed R2 object can't exist either, for the
+// same reason. The real fix for the historical data loss is the ref
+// normalisation in walkAssetRefs (below) + the sweep; the sweep is
+// normalisation-safe on the row-id side too, so even a prefixed row arriving
+// by some unforeseen path is classified correctly rather than purging its
+// live bare twin.
 
 // After hydrate: walk any local asset blobs that aren't yet in R2 and upload
 // them. Recovers users who had partial-state from prior buggy sessions.
@@ -696,26 +660,20 @@ export async function startCloudSync() {
       .eq('id', userId)
       .then(({ error }) => { if (error) console.warn('[cloudSync] last_active_at update failed', error) })
 
-    // Background maintenance, strictly sequenced: the legacy repair must
-    // finish before anything classifies orphans (see repairLegacyPrefixedAssets),
-    // and reconcile before the sweep so a just-recovered asset can't be
-    // mistaken for an orphan mid-upload. All best-effort — never blocks startup.
-    void (async () => {
-      try { await repairLegacyPrefixedAssets(userId) } catch (e) { console.warn('[cloudSync] legacy asset repair failed', e) }
-      try { await reconcileAssets() } catch (e) { console.warn('[cloudSync] reconcile failed', e) }
+    // Best-effort recovery — don't block startup on this.
+    reconcileAssets().catch((e) => console.warn('[cloudSync] reconcile failed', e))
 
-      // Sweep orphan assets in the background. Most users will never click the
-      // manual cleanup button; this keeps storage tidy without bothering them.
-      // ONLY when hydrate was fully clean — a bank that fell back to local (or
-      // empty) state because its cloud fetch errored would make live assets look
-      // orphaned, and the sweep deletes from IDB + R2 irreversibly. The opt-in
-      // Settings → Storage sweep still lets the user reclaim space deliberately.
-      if (hydratedClean) {
-        try { await sweepOrphansInBackground() } catch (e) { console.warn('[cloudSync] orphan sweep failed', e) }
-      } else {
-        console.warn('[cloudSync] skipping auto orphan sweep — hydrate had per-table errors; unsafe to classify orphans')
-      }
-    })()
+    // Sweep orphan assets in the background. Most users will never click the
+    // manual cleanup button; this keeps storage tidy without bothering them.
+    // ONLY when hydrate was fully clean — a bank that fell back to local (or
+    // empty) state because its cloud fetch errored would make live assets look
+    // orphaned, and the sweep deletes from IDB + R2 irreversibly. The opt-in
+    // Settings → Storage sweep still lets the user reclaim space deliberately.
+    if (hydratedClean) {
+      sweepOrphansInBackground().catch((e) => console.warn('[cloudSync] orphan sweep failed', e))
+    } else {
+      console.warn('[cloudSync] skipping auto orphan sweep — hydrate had per-table errors; unsafe to classify orphans')
+    }
   } catch (e) {
     reportError('startup', e)
     started = false

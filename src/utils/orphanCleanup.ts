@@ -89,12 +89,13 @@ export async function findOrphanAssets(): Promise<{
     return { orphans: [], totalBytes: 0, total: all.length, totalAssetBytes }
   }
 
-  // Normalise the row id too: legacy duplicate rows keyed "asset://asset-x"
-  // (created by the pre-fix reconcile upload) may hold the only surviving copy
-  // of a live asset — deleting one via deleteAsset would normalise the id and
-  // destroy the LIVE bare-id blob/row instead. cloudSync's legacy repair
-  // migrates these rows away; until it has, never classify one as an orphan
-  // while its bare id is still referenced.
+  // Normalise the row-id side too, as pure insurance. Bare ids are the only
+  // shape the assets table can hold (the R2 sign/delete Edge functions reject
+  // anything with `:`/`/`, so a prefixed row can't be written) — but if a
+  // "asset://asset-x" row ever appeared by any path, normalising here keeps it
+  // from being classified as an orphan while its bare id is still referenced,
+  // which would otherwise let deleteAsset normalise the id and destroy the
+  // LIVE bare-id blob instead.
   const orphans = all.filter((a) => !refs.has(assetIdFromRef(a.id)))
   const totalBytes = orphans.reduce((s, a) => s + Number(a.byte_size ?? 0), 0)
   return { orphans, totalBytes, total: all.length, totalAssetBytes }
