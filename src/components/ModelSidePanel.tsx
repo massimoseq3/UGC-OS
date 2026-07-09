@@ -7,6 +7,7 @@ import {
   videoResolutionLabel,
   estimateCredits,
   formatCredits,
+  officialSavingsPercent,
   TAG_STYLES,
   type Task,
   type Mode,
@@ -265,6 +266,9 @@ interface ModelRowProps {
 function ModelRow({ model, active, muted, credits, accent, onClick }: ModelRowProps) {
   const isRecommended = model.tags.includes('recommended')
   const textTags = model.tags.filter((t) => t !== 'recommended')
+  // Discount vs the provider's official API — only for models with a verified
+  // official rate in the registry (see ModelEntry.official).
+  const savings = officialSavingsPercent(model.id)
   const c = model.videoConstraints
   // Metadata line: resolution range (ascending, e.g. "480p–1080p") · duration
   // range · credit estimate, dot-joined plain text. Per-call models with no
@@ -309,6 +313,14 @@ function ModelRow({ model, active, muted, credits, accent, onClick }: ModelRowPr
               {TAG_STYLES[t].label}
             </span>
           ))}
+          {savings != null && (
+            <span
+              title="vs the provider's official API price"
+              className="shrink-0 rounded-full border border-dashboard-500/25 bg-dashboard-500/15 px-1.5 py-px text-[10px] font-medium text-dashboard-300"
+            >
+              {savings}% off
+            </span>
+          )}
         </div>
         {meta && <p className="mt-px truncate text-[11px] leading-tight text-ink-500">{meta}</p>}
       </div>

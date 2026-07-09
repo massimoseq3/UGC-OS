@@ -10,7 +10,7 @@
 // Every created row's id is recorded in a localStorage manifest so the same
 // control can cleanly remove the demo data afterwards.
 
-import { useBankStore } from '../stores/bankStore'
+import { useBankStore, setUsageRecordingSuppressed } from '../stores/bankStore'
 import { useAppStore } from '../stores/appStore'
 import { saveAsset } from './assetStore'
 import type {
@@ -429,6 +429,11 @@ export async function seedMockData(): Promise<void> {
   const realAddToast = useAppStore.getState().addToast
   useAppStore.setState({ addToast: () => {} })
 
+  // Demo rows go through the same add*History actions as real generations —
+  // keep them out of the Dashboard's usage ledger (removeMockData couldn't
+  // undo the inflated savings/streaks).
+  setUsageRecordingSuppressed(true)
+
   try {
     const now = Date.now()
     // Stagger createdAt so day-bucketing + sort order look natural.
@@ -736,6 +741,7 @@ export async function seedMockData(): Promise<void> {
     } catch { /* ignore quota */ }
   } finally {
     useAppStore.setState({ addToast: realAddToast })
+    setUsageRecordingSuppressed(false)
   }
 
   const manifest = diffNewIds(before)

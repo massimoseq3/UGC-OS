@@ -271,6 +271,26 @@ export interface AdAnatomyHistoryItem {
   errorMessage?: string
 }
 
+// What kind of generation a usage-ledger event counts. 'image' covers both
+// Playground and B-Roll stills; 'script' is one Scripts run (up to 3
+// variations); 'analysis' is one completed Ad Analyzer breakdown.
+export type UsageKind = 'image' | 'video' | 'voice' | 'music' | 'script' | 'character' | 'analysis'
+
+// One day of generation activity — the Dashboard's usage ledger. Rows are
+// keyed by LOCAL calendar day ('2026-07-09') and only ever accumulate:
+// deleting/clearing history never subtracts from the ledger, so streaks and
+// savings survive history housekeeping. `credits` is the estimated kie spend
+// that day; `officialUsd` is what the same generations would have cost on the
+// providers' own APIs (equal to the kie cost when a model has no verified
+// official rate — unknown savings count as zero, never invented).
+export interface UsageDay {
+  id: string
+  counts: Partial<Record<UsageKind, number>>
+  credits: number
+  officialUsd: number
+  createdAt: number
+}
+
 export interface InterAppPayload {
   targetApp: string
   targetField: string

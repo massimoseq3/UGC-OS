@@ -39,6 +39,17 @@ export interface Pricing {
   priceFor?: (opts: PriceParams) => number
 }
 
+// What the same generation costs on the provider's OWN API, in USD, for the
+// Dashboard's "money saved" math and the picker's "% off" chip. Only add a
+// value verified against the provider's public pricing page (source URL in
+// `source`) — a model without `official` simply shows no savings, it never
+// invents them. `usdFor` mirrors `Pricing.priceFor`'s params; return null for
+// tiers/params with no comparable official rate.
+export interface OfficialPricing {
+  usdFor: (opts: PriceParams) => number | null
+  source: string
+}
+
 export interface PriceParams {
   durationSeconds?: number
   imageCount?: number
@@ -106,6 +117,14 @@ export interface ModelEntry {
   voices?: Voice[]
   fetchVoicesAtRuntime?: boolean
   pricing?: Pricing
+  // Verified official-API pricing for savings display. See OfficialPricing.
+  official?: OfficialPricing
+  // Verified creator-platform pricing (Higgsfield, Freepik, Krea…) for the
+  // same generation — those platforms mark models up well past API rates, and
+  // they're the realistic alternative for most members. Feeds the Dashboard's
+  // money-saved metric (the ledger compares kie against the HIGHER of
+  // official/market); the picker's "% off" chip stays official-only.
+  market?: OfficialPricing
   defaultFor?: string[]
   // Chat-only: OpenAI-compatible endpoint path on api.kie.ai.
   // e.g. '/gemini-3-flash/v1/chat/completions'
@@ -168,6 +187,12 @@ export const MODEL_REGISTRY: ModelEntry[] = [
         return perImage * imageCount
       },
     },
+    // Gemini API image pricing per generated image (verified 2026-07-09).
+    official: {
+      usdFor: ({ imageCount = 1, resolution = '1K' }) =>
+        (resolution === '4K' ? 0.151 : resolution === '2K' ? 0.101 : 0.067) * imageCount,
+      source: 'https://ai.google.dev/gemini-api/docs/pricing',
+    },
     imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
   },
   {
@@ -191,6 +216,12 @@ export const MODEL_REGISTRY: ModelEntry[] = [
         return perImage * imageCount
       },
     },
+    // See the Edit sibling below for the estimate caveat.
+    official: {
+      usdFor: ({ imageCount = 1, resolution = '1K' }) =>
+        resolution === '1K' ? 0.053 * imageCount : null,
+      source: 'https://developers.openai.com/api/docs/pricing',
+    },
     imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
   },
   {
@@ -208,6 +239,14 @@ export const MODEL_REGISTRY: ModelEntry[] = [
         const perImage = resolution === '4K' ? 16 : resolution === '2K' ? 10 : 6
         return perImage * imageCount
       },
+    },
+    // OpenAI bills GPT Image per token; ≈$0.053 is the medium-quality 1024²
+    // estimate from their published token rates. Higher tiers have no clean
+    // flat equivalent → null (counts as zero savings, never invented).
+    official: {
+      usdFor: ({ imageCount = 1, resolution = '1K' }) =>
+        resolution === '1K' ? 0.053 * imageCount : null,
+      source: 'https://developers.openai.com/api/docs/pricing',
     },
     imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
   },
@@ -230,6 +269,12 @@ export const MODEL_REGISTRY: ModelEntry[] = [
       priceFor: ({ imageCount = 1, resolution = '1K' }) =>
         (resolution === '2K' ? 14 : 7) * imageCount,
     },
+    // BytePlus ModelArk list price per image: ≤2.36MP $0.045, above $0.09.
+    official: {
+      usdFor: ({ imageCount = 1, resolution = '1K' }) =>
+        (resolution === '2K' ? 0.09 : 0.045) * imageCount,
+      source: 'https://docs.byteplus.com/en/docs/ModelArk/1544106',
+    },
     imageConstraints: { resolutions: ['1K', '2K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
   },
   {
@@ -251,6 +296,13 @@ export const MODEL_REGISTRY: ModelEntry[] = [
         return perImage * imageCount + inputSurcharge
       },
     },
+    // Same BytePlus list price as the text-to-image slug; extra input images
+    // are $0.003 each on the official API (first free, matching kie's shape).
+    official: {
+      usdFor: ({ imageCount = 1, resolution = '1K', inputImageCount = 1 }) =>
+        (resolution === '2K' ? 0.09 : 0.045) * imageCount + 0.003 * Math.max(0, inputImageCount - 1),
+      source: 'https://docs.byteplus.com/en/docs/ModelArk/1544106',
+    },
     imageConstraints: { resolutions: ['1K', '2K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
   },
 
@@ -270,6 +322,12 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     // marketing page lists a "with video input" tier we don't expose — none
     // of our flows pass a video URL, only image inputs, so the higher
     // text-or-image rate applies across the board).
+    // No `official`/`market` entry for the Seedance 2.0 family ON PURPOSE:
+    // kie is ~30% cheaper than Fal (kie's own comparison baseline) but
+    // pricier than ByteDance's enterprise-gated BytePlus direct rate, and
+    // roughly at parity with Higgsfield ($1.55/8s std 720p vs kie's $1.64 —
+    // higgsfield.ai/blog/seedance-2-0-pricing-2026) — so we claim zero
+    // savings rather than pick a flattering baseline. (2026-07-09)
     pricing: {
       unit: 'per-second',
       credits: 41,
@@ -370,6 +428,19 @@ export const MODEL_REGISTRY: ModelEntry[] = [
         return perSec * durationSeconds
       },
     },
+    // BytePlus ModelArk per-second list price (audio doubles the rate; 1080p
+    // no-audio derived from that same 2× ratio). 480p has no published
+    // official tier → null.
+    official: {
+      usdFor: ({ durationSeconds = 8, resolution = '720p', audio = false }) => {
+        const perSec =
+          resolution === '1080p' ? (audio ? 0.116 : 0.058) :
+          resolution === '480p' ? null :
+          /* 720p */ (audio ? 0.052 : 0.026)
+        return perSec === null ? null : perSec * durationSeconds
+      },
+      source: 'https://docs.byteplus.com/en/docs/ModelArk/1544106',
+    },
     videoEndpoint: 'createTask',
     videoConstraints: {
       durations: [4, 6, 8, 10, 12],
@@ -397,6 +468,18 @@ export const MODEL_REGISTRY: ModelEntry[] = [
           /* std */              (audio ? 20 : 14)
         return perSec * durationSeconds
       },
+    },
+    // Kling's own developer API per-second rates (pro no-audio derived from
+    // the std audio/no-audio ratio).
+    official: {
+      usdFor: ({ durationSeconds = 5, resolution = 'std', audio = false }) => {
+        const perSec =
+          resolution === '4K' ? 0.42 :
+          resolution === 'pro' ? (audio ? 0.168 : 0.112) :
+          /* std */              (audio ? 0.126 : 0.084)
+        return perSec * durationSeconds
+      },
+      source: 'https://klingai.com/dev/pricing',
     },
     videoEndpoint: 'createTask',
     videoConstraints: {
@@ -427,6 +510,11 @@ export const MODEL_REGISTRY: ModelEntry[] = [
         const perSec = resolution === '1080p' ? 22.5 : 18
         return perSec * durationSeconds
       },
+    },
+    official: {
+      usdFor: ({ durationSeconds = 5, resolution = '720p' }) =>
+        (resolution === '1080p' ? 0.14 : 0.112) * durationSeconds,
+      source: 'https://klingai.com/dev/pricing',
     },
     videoEndpoint: 'createTask',
     videoConstraints: {
@@ -462,6 +550,12 @@ export const MODEL_REGISTRY: ModelEntry[] = [
         return perSec * durationSeconds
       },
     },
+    // Kling lists a single Motion Control rate (not per model version).
+    official: {
+      usdFor: ({ durationSeconds = 5, resolution = '720p' }) =>
+        (resolution === '1080p' ? 0.168 : 0.126) * durationSeconds,
+      source: 'https://klingai.com/dev/pricing',
+    },
     videoEndpoint: 'createTask',
     videoConstraints: {
       durations: [],
@@ -485,6 +579,12 @@ export const MODEL_REGISTRY: ModelEntry[] = [
         const perSec = resolution === '1080p' ? 18 : 11
         return perSec * durationSeconds
       },
+    },
+    // Same single official Motion Control rate as the 3.0 entry above.
+    official: {
+      usdFor: ({ durationSeconds = 5, resolution = '720p' }) =>
+        (resolution === '1080p' ? 0.168 : 0.126) * durationSeconds,
+      source: 'https://klingai.com/dev/pricing',
     },
     videoEndpoint: 'createTask',
     videoConstraints: {
@@ -520,6 +620,22 @@ export const MODEL_REGISTRY: ModelEntry[] = [
         return 60  // 720p
       },
     },
+    // Gemini API bills Veo Fast per second ($0.10/s 720p, $0.12/s 1080p);
+    // kie's flat call is an ~8s clip, so compare against 8s. No published
+    // official 4K rate for Fast → null.
+    official: {
+      usdFor: ({ resolution = '720p' }) => {
+        if (resolution === '4k') return null
+        return (resolution === '1080p' ? 0.12 : 0.10) * 8
+      },
+      source: 'https://ai.google.dev/gemini-api/docs/pricing',
+    },
+    // Higgsfield: 22 credits per 8s Veo Fast clip ≈ $0.86 on the Plus annual
+    // plan ($39/mo → 1,000 credits). Verified 2026-07-09.
+    market: {
+      usdFor: ({ resolution = '720p' }) => (resolution === '4k' ? null : 0.86),
+      source: 'https://www.vo3ai.com/higgsfield-ai-pricing',
+    },
     videoEndpoint: 'veo',
     videoConstraints: {
       durations: [],
@@ -544,6 +660,14 @@ export const MODEL_REGISTRY: ModelEntry[] = [
         return 30  // 720p
       },
     },
+    // Lite: $0.05/s 720p, $0.08/s 1080p × the ~8s clip. No official 4K rate.
+    official: {
+      usdFor: ({ resolution = '720p' }) => {
+        if (resolution === '4k') return null
+        return (resolution === '1080p' ? 0.08 : 0.05) * 8
+      },
+      source: 'https://ai.google.dev/gemini-api/docs/pricing',
+    },
     videoEndpoint: 'veo',
     videoConstraints: {
       durations: [],
@@ -566,6 +690,19 @@ export const MODEL_REGISTRY: ModelEntry[] = [
         if (resolution === '1080p') return 255
         return 250  // 720p
       },
+    },
+    // Quality: $0.40/s (720p and 1080p), $0.60/s 4K × the ~8s clip.
+    official: {
+      usdFor: ({ resolution = '720p' }) =>
+        (resolution === '4k' ? 0.60 : 0.40) * 8,
+      source: 'https://ai.google.dev/gemini-api/docs/pricing',
+    },
+    // Higgsfield: 58 credits per 8s premium (1080p) clip ≈ $2.26 on the Plus
+    // annual plan. Official is higher, so this rarely governs — kept for the
+    // record. Verified 2026-07-09.
+    market: {
+      usdFor: ({ resolution = '720p' }) => (resolution === '1080p' ? 2.26 : null),
+      source: 'https://www.vo3ai.com/higgsfield-ai-pricing',
     },
     videoEndpoint: 'veo',
     videoConstraints: {
@@ -606,6 +743,14 @@ export const MODEL_REGISTRY: ModelEntry[] = [
           durationSeconds >= 6 ? 84 : 63
         return is4k ? base + 84 : base
       },
+    },
+    // Gemini API bills Omni per token; ≈$0.10/s is the estimate from Google's
+    // published rates. Video-input and 4K calls have no clean per-second
+    // equivalent → null.
+    official: {
+      usdFor: ({ durationSeconds = 8, resolution = '720p', videoInput = false }) =>
+        videoInput || resolution === '4k' ? null : 0.10 * durationSeconds,
+      source: 'https://ai.google.dev/gemini-api/docs/pricing',
     },
     videoEndpoint: 'createTask',
     videoConstraints: {
@@ -688,6 +833,11 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     tags: ['recommended'],
     // Source: https://kie.ai/elevenlabs-tts. 12 credits per 1,000 characters.
     pricing: { unit: 'per-1k-chars', credits: 12 },
+    // ElevenLabs' own API rate for Multilingual v2: $0.10 per 1k characters.
+    official: {
+      usdFor: ({ charCount = 1000 }) => 0.10 * (charCount / 1000),
+      source: 'https://elevenlabs.io/pricing/api',
+    },
     defaultFor: ['voice-studio'],
   },
 ]
@@ -766,6 +916,60 @@ export function estimateCredits(modelId: string, params: CostEstimateParams = {}
     case 'per-1k-chars':
       return credits * ((params.charCount ?? 1000) / 1000)
   }
+}
+
+// kie.ai's credit exchange rate: $1 buys 200 credits (1 credit = $0.005) at
+// the base tier. Derived from kie's own per-model pricing pages (e.g.
+// Gemini 3 Flash: $0.15/M tokens = 30 credits/M). Used only for the
+// Dashboard's savings math — the UI everywhere else stays credits-only.
+export const CREDITS_PER_USD = 200
+
+export function creditsToUsd(credits: number): number {
+  return credits / CREDITS_PER_USD
+}
+
+// USD cost of one generation on the provider's official API, or null when the
+// model has no verified `official` pricing entry.
+export function estimateOfficialUsd(modelId: string, params: CostEstimateParams = {}): number | null {
+  const model = getModel(modelId)
+  if (!model?.official) return null
+  return model.official.usdFor(params)
+}
+
+// USD cost of one generation on a creator platform (see ModelEntry.market),
+// or null when no verified market rate exists.
+export function estimateMarketUsd(modelId: string, params: CostEstimateParams = {}): number | null {
+  const model = getModel(modelId)
+  if (!model?.market) return null
+  return model.market.usdFor(params)
+}
+
+// Representative params for a model's savings headline: its default
+// resolution and a mid-catalog duration, matching what the picker rows quote.
+function representativeParams(model: ModelEntry): CostEstimateParams {
+  const cv = model.videoConstraints
+  if (cv) {
+    const resolution = cv.default ?? cv.resolutions[0]
+    const durationSeconds = cv.durations.includes(8) ? 8 : cv.durations[0]
+    return { resolution, ...(durationSeconds ? { durationSeconds } : {}) }
+  }
+  const ci = model.imageConstraints
+  if (ci) return { resolution: ci.default ?? ci.resolutions[0], imageCount: 1 }
+  return {}
+}
+
+// Whole-percent discount vs the official API at representative params, for
+// the "% off" chip. Null when the model has no verified official pricing or
+// kie isn't actually cheaper.
+export function officialSavingsPercent(modelId: string): number | null {
+  const model = getModel(modelId)
+  if (!model?.official || !model.pricing) return null
+  const params = representativeParams(model)
+  const credits = estimateCredits(modelId, params)
+  const officialUsd = model.official.usdFor(params)
+  if (credits == null || officialUsd == null || officialUsd <= 0) return null
+  const pct = Math.round((1 - creditsToUsd(credits) / officialUsd) * 100)
+  return pct > 0 ? pct : null
 }
 
 export function formatCredits(credits: number | null): string | null {

@@ -309,7 +309,7 @@ export default function VariationCard(props: VariationCardProps) {
     }
 
     try {
-      const imageUrl = await finishImageTask(taskId, modelId)
+      const imageUrl = await finishImageTask(taskId, modelId, imageResolution)
       const newImage: GeneratedImage = { imageUrl, prompt: promptText, modelId, createdAt: Date.now() }
       onUpdateStateFn((prev) => {
         const newImages = [...prev.images, newImage]

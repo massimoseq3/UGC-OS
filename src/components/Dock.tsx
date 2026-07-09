@@ -14,7 +14,8 @@ import SettingsModal from './SettingsModal'
 // sits on the right. Credits moved to the menu bar; Account + Admin live in
 // the Settings modal.
 
-const SECTION_ORDER: AppCategory[] = ['library', 'create', 'tools']
+// Dashboard leads (its own 'system' group → divider between it and Bank).
+const SECTION_ORDER: AppCategory[] = ['system', 'library', 'create', 'tools']
 
 export default function Dock() {
   const activeApp = useAppStore((s) => s.activeApp)

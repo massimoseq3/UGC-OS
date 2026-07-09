@@ -9,6 +9,7 @@ import {
   FileText,
   Shield,
   ImagePlay,
+  LayoutDashboard,
 } from 'lucide-react'
 import type { ElementType } from 'react'
 
@@ -16,7 +17,9 @@ import type { ElementType } from 'react'
 // accounts as a link back to join.
 export const SKOOL_COMMUNITY_URL = 'https://www.skool.com/ai-ugc-lab-6995'
 
-export type AppCategory = 'library' | 'create' | 'tools' | 'admin'
+// 'system' is the Dashboard's own leading dock group (its divider separates it
+// from Bank); admin never renders in the dock.
+export type AppCategory = 'library' | 'create' | 'tools' | 'admin' | 'system'
 
 export interface AppConfig {
   id: string
@@ -27,13 +30,16 @@ export interface AppConfig {
 }
 
 export const APP_REGISTRY: AppConfig[] = [
+  { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard, accent: '#059669', category: 'system' },
   { id: 'finder', name: 'Bank', icon: Bookmark, accent: '#a1a1aa', category: 'library' },
+  // Ad Analyzer sits in the create group (leftmost, no divider vs Characters):
+  // analyze a winning ad first, then produce — the dock reads left-to-right.
+  { id: 'ad-anatomy', name: 'Ad Analyzer', icon: Eye, accent: '#FF5257', category: 'create' },
   { id: 'character-studio', name: 'Characters', icon: UserRound, accent: '#F74F9E', category: 'create' },
   { id: 'script-architect', name: 'Scripts', icon: PenLine, accent: '#E44F14', category: 'create' },
   { id: 'voice-studio', name: 'Voiceovers', icon: Mic, accent: '#007AFF', category: 'create' },
   { id: 'broll-studio', name: 'B-Roll', icon: Film, accent: '#7165FF', category: 'create' },
   { id: 'playground', name: 'Playground', icon: ImagePlay, accent: '#015C52', category: 'create' },
-  { id: 'ad-anatomy', name: 'Ad Analyzer', icon: Eye, accent: '#FF5257', category: 'tools' },
   { id: 'admin', name: 'Admin', icon: Shield, accent: '#fafafa', category: 'admin' },
 ]
 
@@ -42,6 +48,7 @@ export const CATEGORY_LABELS: Record<AppCategory, string> = {
   create: 'Create',
   tools: 'Tools',
   admin: 'Admin',
+  system: 'System',
 }
 
 export type BankType = 'products' | 'models' | 'scripts' | 'voices' | 'brolls'

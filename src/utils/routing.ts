@@ -2,7 +2,9 @@
 // App ids are stable (used in localStorage keys + folder layout); slugs are
 // derived from the sidebar display names so URLs read naturally.
 
-export const DEFAULT_SLUG = 'bank'
+// Landing page for fresh visits (and unknown/forbidden slugs): the Dashboard
+// greets the member with their savings before they pick a tool.
+export const DEFAULT_SLUG = 'dashboard'
 
 const APP_ID_TO_SLUG: Record<string, string> = {
   'finder': 'bank',
@@ -12,6 +14,7 @@ const APP_ID_TO_SLUG: Record<string, string> = {
   'broll-studio': 'broll',
   'ad-anatomy': 'ad-analyzer',
   'playground': 'playground',
+  'dashboard': 'dashboard',
   'admin': 'admin',
 }
 
