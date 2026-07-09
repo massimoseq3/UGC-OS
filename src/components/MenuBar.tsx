@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react'
-import { ArrowUpRight, Coins, RefreshCw } from 'lucide-react'
+import { createPortal } from 'react-dom'
+import { ArrowUpRight, Coins, ExternalLink, RefreshCw, X } from 'lucide-react'
 import { useAppStore } from '../stores/appStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useCreditsStore } from '../stores/creditsStore'
+import { useCloseOnAppSwitch } from '../hooks/useCloseOnAppSwitch'
 import { getAppConfig, SKOOL_COMMUNITY_URL } from '../utils/constants'
 import AppLogo from './AppLogo'
+import SettingsModal from './SettingsModal'
 
 // Thin macOS-style menu bar: branding + the active app's name on the left,
 // credits balance + external quick links on the right. Pure chrome —
@@ -21,7 +24,7 @@ export default function MenuBar() {
           the Team intro (macOS: Apple menu → About This Mac). */}
       <button
         onClick={openTeamIntro}
-        title="Meet your team"
+        title="Meet your Team"
         className="-mx-1.5 flex shrink-0 items-center gap-1.5 rounded-md px-1.5 py-0.5 transition-colors hover:bg-ink/[0.06]"
       >
         <AppLogo className="h-5 w-5" />
@@ -48,7 +51,7 @@ export default function MenuBar() {
         onClick={openTeamIntro}
         className="hidden h-6 shrink-0 items-center rounded-md px-2 text-[12px] text-ink-300 transition-colors hover:bg-ink/[0.06] hover:text-ink-100 sm:flex"
       >
-        Meet your team
+        Meet your Team
       </button>
       <CreditsItem />
       {/* External links are desktop chrome — on phones they overflowed the bar. */}
@@ -60,12 +63,19 @@ export default function MenuBar() {
 
 // kie.ai balance as a menu-bar item — clicking refreshes it (the coin glyph
 // swaps to a spinner). Same polling as the old dock tile: mount + 60s +
-// window focus.
+// window focus. With no API key saved, the item becomes a red pulsing
+// call-to-action that opens a setup guide (nothing can generate without it).
 function CreditsItem() {
   const apiKey = useSettingsStore((s) => s.kieApiKey)
   const balance = useCreditsStore((s) => s.balance)
   const refresh = useCreditsStore((s) => s.refresh)
   const [refreshing, setRefreshing] = useState(false)
+  const [guideOpen, setGuideOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  // Both overlays portal to document.body (the blurred menu bar is a
+  // containing block for fixed descendants), so they must close on app switch.
+  useCloseOnAppSwitch(guideOpen, () => setGuideOpen(false))
+  useCloseOnAppSwitch(settingsOpen, () => setSettingsOpen(false))
 
   useEffect(() => {
     if (!apiKey) return
@@ -87,6 +97,40 @@ function CreditsItem() {
     } finally {
       setRefreshing(false)
     }
+  }
+
+  if (!apiKey) {
+    return (
+      <>
+        <button
+          onClick={() => setGuideOpen(true)}
+          title="No kie.ai API key yet — click for setup instructions"
+          className="flex h-6 shrink-0 items-center gap-2 rounded-md px-2 text-[12px] text-red-300 transition-colors hover:bg-ink/[0.06] light:text-red-700"
+        >
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+          </span>
+          {/* Phones get just the pulsing dot — the tooltip + popup carry the message. */}
+          <span className="hidden sm:inline">Please enter your kie.ai API key</span>
+        </button>
+        {guideOpen &&
+          createPortal(
+            <ApiKeyGuide
+              onClose={() => setGuideOpen(false)}
+              onOpenSettings={() => {
+                setGuideOpen(false)
+                setSettingsOpen(true)
+              }}
+            />,
+            document.body,
+          )}
+        {createPortal(
+          <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />,
+          document.body,
+        )}
+      </>
+    )
   }
 
   return (
@@ -113,6 +157,96 @@ function CreditsItem() {
         <span className="hidden text-ink-500 sm:inline"> credits left</span>
       </span>
     </button>
+  )
+}
+
+// Setup guide shown when the user clicks the "no API key" alert. Explains
+// where the key comes from and hands off to Settings for the paste + test.
+function ApiKeyGuide({ onClose, onOpenSettings }: { onClose: () => void; onOpenSettings: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="mx-4 w-full max-w-md rounded-3xl border border-ink/10 bg-surface-1 p-5 shadow-2xl lg:mx-0 lg:p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex items-start justify-between">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight text-ink-100">Connect your kie.ai API key</h2>
+            <p className="mt-1 text-[12px] leading-relaxed text-ink-500">
+              UGC OS runs every generation through your own kie.ai account. Until a key is saved, nothing can generate.
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-300"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <ol className="space-y-3">
+          {[
+            <>
+              Create a free account at{' '}
+              <a
+                href="https://kie.ai/api-key"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-0.5 font-medium text-ink-200 underline decoration-ink/30 underline-offset-2 transition-colors hover:text-ink-100"
+              >
+                kie.ai <ExternalLink className="h-3 w-3" />
+              </a>{' '}
+              and open the <span className="font-medium text-ink-300">API Key</span> page.
+            </>,
+            <>Copy your key — it starts with <span className="font-mono text-[11px] text-ink-300">sk-</span>.</>,
+            <>
+              Top up credits at{' '}
+              <a
+                href="https://kie.ai/billing"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-0.5 font-medium text-ink-200 underline decoration-ink/30 underline-offset-2 transition-colors hover:text-ink-100"
+              >
+                kie.ai/billing <ExternalLink className="h-3 w-3" />
+              </a>{' '}
+              — every generation spends these credits.
+            </>,
+            <>
+              Paste the key in <span className="font-medium text-ink-300">Settings → kie.ai API Key</span> and hit{' '}
+              <span className="font-medium text-ink-300">Test connection</span>.
+            </>,
+          ].map((step, i) => (
+            <li key={i} className="flex items-start gap-3 text-[13px] leading-relaxed text-ink-400">
+              <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink/[0.06] text-[11px] font-semibold text-ink-300">
+                {i + 1}
+              </span>
+              <span>{step}</span>
+            </li>
+          ))}
+        </ol>
+
+        <div className="mt-5 flex items-center justify-end gap-2">
+          <a
+            href="https://kie.ai/api-key"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex h-9 items-center gap-1.5 rounded-full border border-ink/10 px-4 text-[13px] font-medium text-ink-200 transition-colors hover:border-ink/20 hover:bg-ink/[0.04]"
+          >
+            Get your key
+            <ExternalLink className="h-3.5 w-3.5 text-ink-500" />
+          </a>
+          <button
+            onClick={onOpenSettings}
+            className="flex h-9 items-center rounded-full bg-ink px-4 text-[13px] font-medium text-paper transition-opacity hover:opacity-90"
+          >
+            Open Settings
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 

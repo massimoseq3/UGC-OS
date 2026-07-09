@@ -300,7 +300,7 @@ function ModelRow({ model, active, muted, credits, accent, onClick }: ModelRowPr
       <ProviderLogo provider={model.provider} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
-          <span className={`truncate text-[13px] font-semibold text-ink-100 ${muted ? 'line-through decoration-ink-400' : ''}`}>{model.displayName}</span>
+          <span className={`truncate text-[13px] font-semibold leading-snug text-ink-100 ${muted ? 'line-through decoration-ink-400' : ''}`}>{model.displayName}</span>
           {isRecommended && (
             <Star className={`h-3 w-3 shrink-0 ${accent.star}`} strokeWidth={1.5} />
           )}
@@ -310,7 +310,7 @@ function ModelRow({ model, active, muted, credits, accent, onClick }: ModelRowPr
             </span>
           ))}
         </div>
-        {meta && <p className="mt-0.5 truncate text-[11px] text-ink-500">{meta}</p>}
+        {meta && <p className="mt-px truncate text-[11px] leading-tight text-ink-500">{meta}</p>}
       </div>
       {active && <Check className={`h-4 w-4 shrink-0 ${accent.icon}`} />}
     </button>

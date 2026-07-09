@@ -12,6 +12,7 @@ import {
 } from '../../../utils/kie'
 import { getDefaultModel, getChatEndpointPath, buildImageInput, getModel, type AspectRatio, type ImageResolution } from '../../../utils/models'
 import { saveBase64Asset, isAssetRef, getAsBase64 } from '../../../utils/assetStore'
+import { withIphoneRealism } from './realism'
 
 function getChatEndpoint(): { apiKey: string; endpoint: string } {
   return {
@@ -39,17 +40,34 @@ You decide per line:
 - POSITION — where the line sits in the ad's arc: hook / reframe / mechanism / payoff / CTA
 - VISIBILITY — whether the product is allowed in this shot (yes / no). Hook + reframe lines almost always = no. Mechanism = your call, usually no. Payoff + CTA = usually yes.
 
-The four variations are FIXED IN ORDER — do not vary the role per scene:
-- VAR_1 = DIALOGUE. The character is on camera, looking into the phone front camera, saying the LINE verbatim. Embed the exact LINE inline as the dialogue, in the form: ...says directly into the front camera: "<exact LINE text>". This is the lip-sync clip. Front-camera is fixed, but vary the distance, angle, and setting scene to scene (e.g. arm's-length chest-up, low-angle from the lap, mirror selfie waist-up). The line is SPOKEN only — end every DIALOGUE prompt with an explicit instruction that no on-screen text, captions, subtitles, or written words appear anywhere in the frame.
-- VAR_2 = ACTION. A literal demonstration of the moment the line describes (the act, the gesture, the interaction). No talking to camera. Choose a framing that best sells the action — over-the-shoulder, POV first-person hands, medium-wide full body, low angle, or a hands-only insert.
-- VAR_3 = EMOTIONAL. The character's face and body responding to the meaning of the line. No talking to camera. Could be a mirror reaction, a held look from a high angle, a profile three-quarter, a slow push-in close-up, a smile building.
-- VAR_4 = PRODUCT. Close-up / macro / detail on the product itself, or the visible after-state result (texture, surface, droplet, drop, swipe, sheen). Vary the angle — overhead flat-lay, raking-light macro, in-hand three-quarter, tilt down. Character may be partly in frame or absent.
+VAR_1 is FIXED — always DIALOGUE:
+- DIALOGUE. The character is on camera, looking into the phone front camera, saying the LINE verbatim. Embed the exact LINE inline as the dialogue, in the form: ...says directly into the front camera: "<exact LINE text>". This is the lip-sync clip. Front-camera is fixed, but vary the distance, angle, and setting scene to scene (e.g. arm's-length chest-up, low-angle from the lap, mirror selfie waist-up). The line is SPOKEN only — end every DIALOGUE prompt with an explicit instruction that no on-screen text, captions, subtitles, or written words appear anywhere in the frame.
+
+VAR_2, VAR_3, VAR_4 are YOUR CHOICE — pick three DISTINCT roles from this menu, chosen for what THIS specific line earns. Declare the chosen role in each variation's <TAG> field.
+
+- ACTION = a literal demonstration of the moment the line describes (the act, the gesture, the interaction). No talking to camera. Choose a framing that best sells the action — over-the-shoulder, medium-wide full body, low angle, or a hands-only insert.
+- EMOTIONAL = the character's face and body responding to the meaning of the line. No talking to camera. Could be a mirror reaction, a held look from a high angle, a profile three-quarter, a slow push-in close-up, a smile building.
+- PRODUCT = close-up / macro / detail on the product itself, or the visible after-state result (texture, surface, droplet, drop, swipe, sheen). Vary the angle — overhead flat-lay, raking-light macro, in-hand three-quarter, tilt down. Character may be partly in frame or absent.
+- POV = first-person, through the character's eyes: their hands doing the thing the line implies, the counter as they see it, the mirror they're walking toward. The character's face is never in frame.
+- ENVIRONMENT = the setting the line implies, treated as the subject: the bathroom counter mid-routine, the gym bag by the door, morning light hitting the kitchen table. Character absent or peripheral (out of focus is NOT allowed — keep them at frame edge or out of frame instead).
+- TRANSITION = movement between spaces or states that carries the ad forward: walking through a doorway toward the camera, tossing something into a bag, opening a cabinet, setting the phone down and stepping back.
+- PROOF = concrete visible evidence the line's claim is real: the after-state on the character or a surface, a side-by-side in the same frame, a phone screen showing an ordinary artifact (a timer, a streak, a calendar). Never invent fake reviews, star ratings, or statistics.
+
+Role-choice rules:
+- The three chosen roles must be different from each other.
+- Choose for the line, not by habit. A hook earns pattern-interrupts (TRANSITION, POV, ENVIRONMENT). A reframe earns EMOTIONAL / ENVIRONMENT quiet. A mechanism earns ACTION / POV demos. A payoff earns PROOF / PRODUCT / EMOTIONAL warmth. A CTA earns PRODUCT / TRANSITION momentum.
+- When VISIBILITY is no: PRODUCT is off the menu, and POV / PROOF / ENVIRONMENT shots must not show the product or its packaging.
+- When VISIBILITY is yes and the line names the product: at least one of VAR_2–4 must be PRODUCT or feature the product prominently in frame.
+- Do not repeat the same trio scene after scene — vary the mix across the ad.
 
 You decide per variation:
-- LABEL — a short, descriptive shot label that captures what THIS variation actually is (e.g. "TALKING-TO-CAMERA / CLOSE-IN", "MIRROR REACTION", "COUNTER LEAN / CONFIDENTIAL", "PRODUCT MACRO / DROPLET"). Two-to-four word slug, optionally separated by /.
+- LABEL — a short, descriptive shot label that captures what THIS variation actually is (e.g. "TALKING-TO-CAMERA / CLOSE-IN", "MIRROR REACTION", "DOORWAY WALK-IN", "PRODUCT MACRO / DROPLET"). Two-to-four word slug, optionally separated by /.
 - REFS — which reference images to attach: character / product / both / none.
-  - VAR_1 (DIALOGUE), VAR_2 (ACTION), VAR_3 (EMOTIONAL) almost always need the character. Add product only when the prompt actually features the product on screen.
-  - VAR_4 (PRODUCT) usually needs only product. Add character only when the character is also in frame.
+  - DIALOGUE, ACTION, EMOTIONAL, TRANSITION almost always need the character. Add product only when the prompt actually features the product on screen.
+  - POV needs the character (hands must match skin tone); add product only when the product is in frame.
+  - PRODUCT usually needs only product. Add character only when the character is also in frame.
+  - ENVIRONMENT usually needs none; add product only when VISIBILITY is yes and the product sits in the scene.
+  - PROOF: product when packaging is in frame, character when the after-state is on the character, none for pure artifacts.
   - When VISIBILITY is no, REFS cannot include product.
 
 # NON-NEGOTIABLE RULES
@@ -185,7 +203,7 @@ Before you output, run each variation against this checklist. If any answer is n
 5. Is the character showing the after-state, not the before?
 6. Is there explicit motion?
 7. Does the body language match the line's emotional register?
-8. Are the 4 variations meaningfully different in approach, not just rewording?
+8. Are the 4 variations meaningfully different in approach, not just rewording? Are VAR_2–4 three different roles, each earned by this specific line rather than picked by habit?
 9. Is the shot size + camera angle stated explicitly, and does this scene's framing differ from the previous scene's for the same role?
 10. For DIALOGUE: does the prompt explicitly forbid on-screen text / captions / subtitles?
 
@@ -210,31 +228,35 @@ Wrap every scene in this exact XML envelope. Do not include any text outside the
 <POSITION>hook|reframe|mechanism|payoff|CTA</POSITION>
 <VISIBILITY>yes|no</VISIBILITY>
 <VAR_1>
+<TAG>DIALOGUE</TAG>
 <LABEL>short descriptive shot label, e.g. TALKING-TO-CAMERA / CLOSE-IN</LABEL>
 <REFS>character|product|both|none</REFS>
-<PROMPT>VAR_1 is DIALOGUE — single paragraph 60-110 words, embed the exact LINE inline as ...says directly into the front camera: "<line>", full specificity, realism integrated, no bolted-on Style clause</PROMPT>
+<PROMPT>VAR_1 is always DIALOGUE — single paragraph 60-110 words, embed the exact LINE inline as ...says directly into the front camera: "<line>", full specificity, realism integrated, no bolted-on Style clause</PROMPT>
 </VAR_1>
 <VAR_2>
+<TAG>ACTION|EMOTIONAL|PRODUCT|POV|ENVIRONMENT|TRANSITION|PROOF</TAG>
 <LABEL>...</LABEL>
 <REFS>...</REFS>
-<PROMPT>VAR_2 is ACTION — literal demonstration, no talking to camera</PROMPT>
+<PROMPT>single paragraph 60-110 words matching the chosen role</PROMPT>
 </VAR_2>
 <VAR_3>
+<TAG>a DIFFERENT role from VAR_2</TAG>
 <LABEL>...</LABEL>
 <REFS>...</REFS>
-<PROMPT>VAR_3 is EMOTIONAL — face / body reaction, no talking to camera</PROMPT>
+<PROMPT>...</PROMPT>
 </VAR_3>
 <VAR_4>
+<TAG>a DIFFERENT role from VAR_2 and VAR_3</TAG>
 <LABEL>...</LABEL>
 <REFS>...</REFS>
-<PROMPT>VAR_4 is PRODUCT — close-up / macro / detail / result on the product itself</PROMPT>
+<PROMPT>...</PROMPT>
 </VAR_4>
 </SCENE>`
 
 export async function generateBroll(input: BrollInput): Promise<BrollResult> {
   const { apiKey, endpoint } = getChatEndpoint()
 
-  let prompt = `Break this script into B-Roll scenes following the system rules. For EACH scene emit four variations in FIXED order: VAR_1 = DIALOGUE (lip-sync, embed the line verbatim), VAR_2 = ACTION (literal demo), VAR_3 = EMOTIONAL (reaction), VAR_4 = PRODUCT (detail / macro). Decide POSITION + VISIBILITY per scene — if the line names or references the product, VISIBILITY must be yes regardless of POSITION. Pick REFS per variation honouring the VISIBILITY rule.\n\nScript:\n${input.scriptText}`
+  let prompt = `Break this script into B-Roll scenes following the system rules. For EACH scene emit four variations: VAR_1 = DIALOGUE (fixed — lip-sync, embed the line verbatim); VAR_2–4 = three DISTINCT roles you pick from the system menu (ACTION / EMOTIONAL / PRODUCT / POV / ENVIRONMENT / TRANSITION / PROOF), chosen for what this specific line earns. Declare each pick in the <TAG> field. Decide POSITION + VISIBILITY per scene — if the line names or references the product, VISIBILITY must be yes regardless of POSITION. Pick REFS per variation honouring the VISIBILITY rule.\n\nScript:\n${input.scriptText}`
 
   if (input.productContext) {
     prompt += `\n\n${input.productContext}`
@@ -273,10 +295,10 @@ function parseScenes(responseText: string): Scene[] {
   const positionRegex = /<POSITION>([\s\S]*?)<\/POSITION>/
   const visibilityRegex = /<VISIBILITY>([\s\S]*?)<\/VISIBILITY>/
 
-  // Tag is fixed by position so every scene gets exactly one of each bucket
-  // — DIALOGUE / ACTION / EMOTIONAL / PRODUCT — preserving variety the user
-  // expects. The LLM's freedom is limited to LABEL + REFS + PROMPT.
-  const FIXED_TAGS: VariationTag[] = ['DIALOGUE', 'ACTION', 'EMOTIONAL', 'PRODUCT']
+  // VAR_1 is always DIALOGUE (the lip-sync anchor). VAR_2–4 carry the LLM's
+  // per-line role pick in <TAG>; these legacy defaults only apply when the
+  // tag is missing or unrecognised (old-schema responses).
+  const FALLBACK_TAGS: VariationTag[] = ['DIALOGUE', 'ACTION', 'EMOTIONAL', 'PRODUCT']
 
   let match
   let number = 1
@@ -299,16 +321,22 @@ function parseScenes(responseText: string): Scene[] {
       const varBlock = block.match(varRegex)?.[1]
       if (!varBlock) continue
 
+      const tagRaw = varBlock.match(/<TAG>([\s\S]*?)<\/TAG>/)?.[1]?.trim()
       const labelRaw = varBlock.match(/<LABEL>([\s\S]*?)<\/LABEL>/)?.[1]?.trim()
       const refsRaw = varBlock.match(/<REFS>([\s\S]*?)<\/REFS>/)?.[1]?.trim().toLowerCase()
       const promptRaw = varBlock.match(/<PROMPT>([\s\S]*?)<\/PROMPT>/)?.[1]?.trim()
 
-      const tag = FIXED_TAGS[i - 1]
+      // VAR_1 is DIALOGUE no matter what the LLM claims; VAR_2–4 honour the
+      // emitted role, falling back to the legacy positional default.
+      const tag = i === 1
+        ? 'DIALOGUE'
+        : parseTag(tagRaw) ?? FALLBACK_TAGS[i - 1]
       // No nested PROMPT tag → treat the whole VAR_N body as the prompt
       // (legacy). When the LLM omits the closing tag we'd otherwise paste the
-      // raw `<LABEL>…</LABEL><REFS>…</REFS><PROMPT>…` wrappers into the
-      // prompt field — strip them defensively before falling back.
+      // raw `<TAG>…</TAG><LABEL>…</LABEL><REFS>…</REFS><PROMPT>…` wrappers
+      // into the prompt field — strip them defensively before falling back.
       const promptText = promptRaw || varBlock
+        .replace(/<TAG>[\s\S]*?<\/TAG>/g, '')
         .replace(/<LABEL>[\s\S]*?<\/LABEL>/g, '')
         .replace(/<REFS>[\s\S]*?<\/REFS>/g, '')
         .replace(/<\/?PROMPT>/g, '')
@@ -359,6 +387,14 @@ function parsePosition(raw: string | undefined): LinePosition | undefined {
   return undefined
 }
 
+const ALL_TAGS: VariationTag[] = ['DIALOGUE', 'ACTION', 'EMOTIONAL', 'PRODUCT', 'POV', 'ENVIRONMENT', 'TRANSITION', 'PROOF']
+
+function parseTag(raw: string | undefined): VariationTag | undefined {
+  if (!raw) return undefined
+  const r = raw.toUpperCase().trim()
+  return ALL_TAGS.find((t) => t === r)
+}
+
 function parseRefs(raw: string | undefined): VariationRefs | undefined {
   if (!raw) return undefined
   const r = raw.toLowerCase().trim()
@@ -370,10 +406,16 @@ function parseRefs(raw: string | undefined): VariationRefs | undefined {
 // Hook / reframe lines with VISIBILITY=no force product off regardless.
 function defaultRefsFor(tag: VariationTag, productVisible: boolean | undefined): VariationRefs {
   if (productVisible === false) {
-    return tag === 'PRODUCT' ? 'none' : 'character'
+    if (tag === 'PRODUCT') return 'none'
+    if (tag === 'ENVIRONMENT') return 'none'
+    return 'character'
   }
-  if (tag === 'PRODUCT') return 'product'
-  return 'both'
+  switch (tag) {
+    case 'PRODUCT': return 'product'
+    case 'ENVIRONMENT': return 'none'
+    case 'PROOF': return 'product'
+    default: return 'both'
+  }
 }
 
 function defaultLabelFor(tag: VariationTag): string {
@@ -382,6 +424,10 @@ function defaultLabelFor(tag: VariationTag): string {
     case 'ACTION': return 'Literal action'
     case 'EMOTIONAL': return 'Emotional reaction'
     case 'PRODUCT': return 'Product detail'
+    case 'POV': return 'POV insert'
+    case 'ENVIRONMENT': return 'Environment beat'
+    case 'TRANSITION': return 'Transition move'
+    case 'PROOF': return 'Proof shot'
   }
 }
 
@@ -453,9 +499,10 @@ export async function startImageTask(
   // Scope the references to identity/appearance only so the model builds a
   // fresh composition from the prompt instead of inheriting the reference's
   // framing, pose, and background. Phrased by which refs are actually attached.
+  const scenePrompt = withIphoneRealism(prompt)
   const finalPrompt = inputUrls.length > 0
-    ? `${buildReferencePreamble(referenceImages!)}\n\nSCENE:\n${prompt}`
-    : prompt
+    ? `${buildReferencePreamble(referenceImages!)}\n\nSCENE:\n${scenePrompt}`
+    : scenePrompt
 
   const body = buildImageInput(modelId, {
     prompt: finalPrompt,
@@ -504,6 +551,19 @@ export async function generateImage(
   return finishImageTask(taskId, modelId)
 }
 
+// One-line role brief per tag, shared by the regenerate + free-form variation
+// prompts so a forced tag always carries its definition.
+const TAG_BRIEFS: Record<VariationTag, string> = {
+  DIALOGUE: 'The character is on camera, looking into the phone front camera, saying the LINE verbatim — embed the exact LINE inline as dialogue (...says directly into the front camera: "<exact LINE text>"). The line is spoken only — end the prompt with an explicit instruction that no on-screen text, captions, or subtitles appear in the frame.',
+  ACTION: 'A literal demonstration of the moment the line describes — no talking to camera.',
+  EMOTIONAL: "The character's face/body responding to the meaning of the line — no talking to camera.",
+  PRODUCT: 'Close-up / macro / detail on the product or visible after-state result.',
+  POV: "First-person through the character's eyes — their hands doing the thing the line implies; the character's face never in frame.",
+  ENVIRONMENT: 'The setting the line implies, treated as the subject — character absent or peripheral.',
+  TRANSITION: 'Movement between spaces or states that carries the ad forward — a doorway walk, tossing something into a bag, setting the phone down.',
+  PROOF: "Concrete visible evidence the line's claim is real — after-state, same-frame comparison, or an ordinary phone-screen artifact. Never fake reviews, ratings, or statistics.",
+}
+
 /**
  * Generate a new prompt variation for a scene using Gemini 3 Flash.
  */
@@ -518,8 +578,8 @@ export async function generateNewVariation(
   const { apiKey, endpoint } = getChatEndpoint()
 
   const tagInstruction = forceTag
-    ? `The variation MUST be a ${forceTag} shot.${forceTag === 'DIALOGUE' ? ' The character is on camera, looking into the phone front camera, saying the LINE verbatim — embed the exact LINE inline as dialogue (...says directly into the front camera: "<exact LINE text>"). The line is spoken only — end the prompt with an explicit instruction that no on-screen text, captions, or subtitles appear in the frame.' : forceTag === 'ACTION' ? ' A literal demonstration of the moment the line describes — no talking to camera.' : forceTag === 'EMOTIONAL' ? " The character's face/body responding to the meaning of the line — no talking to camera." : ' Close-up / macro / detail on the product or visible after-state result.'}`
-    : ''
+    ? `The variation MUST be a ${forceTag} shot. ${TAG_BRIEFS[forceTag]}`
+    : `Pick the shot role yourself from this menu — choose what this specific line earns:\n${ALL_TAGS.filter((t) => t !== 'DIALOGUE').map((t) => `- ${t}: ${TAG_BRIEFS[t]}`).join('\n')}`
 
   const prompt = `Generate a single new creative image generation prompt for this B-Roll scene:
 
@@ -539,7 +599,7 @@ Provide a fresh creative angle. Follow the senior UGC creative director rules:
 Respond with ONLY valid JSON (no markdown):
 {
   "label": "<short descriptive shot label, e.g. MIRROR REACTION>",
-  "tag": "${forceTag ?? 'DIALOGUE" | "ACTION" | "EMOTIONAL" | "PRODUCT'}",
+  "tag": "${forceTag ?? 'ACTION" | "EMOTIONAL" | "PRODUCT" | "POV" | "ENVIRONMENT" | "TRANSITION" | "PROOF'}",
   "refs": "character" | "product" | "both" | "none",
   "prompt": "<60-110 word paragraph>"
 }`
@@ -557,8 +617,10 @@ Respond with ONLY valid JSON (no markdown):
     throw new Error(`Bad JSON from variation model: ${reason} — body: ${cleaned.slice(0, 400)}`)
   }
 
-  // Honour the forced tag even if the LLM ignores the instruction.
-  const finalTag: VariationTag = forceTag ?? parsed.tag
+  // Honour the forced tag even if the LLM ignores the instruction; validate
+  // a free-choice tag against the known union so a made-up role can't leak
+  // into persisted state.
+  const finalTag: VariationTag = forceTag ?? parseTag(parsed.tag) ?? 'ACTION'
   return {
     id: nextId(),
     label: parsed.label || defaultLabelFor(finalTag),
@@ -593,7 +655,7 @@ Rules:
 - Integrate the realism stack into the prose (iPhone front camera, casual, natural handheld jitter, unedited photorealism, sharp focus). No "Style: ..." trailer.
 - DO NOT mention aspect ratio, resolution, or framing in numbers.
 - State the shot size + camera angle explicitly; the composition is owned by the prompt, not by any attached reference image. Keep the user's chosen framing if they named one, otherwise pick a distinctive, non-default shot.
-- ${variation.tag === 'DIALOGUE' ? `Embed the LINE verbatim as dialogue (..."<exact LINE text>"). The line is spoken only — end the prompt with an explicit instruction that no on-screen text, captions, or subtitles appear in the frame.` : 'No talking to camera unless the variation is DIALOGUE.'}
+- ${variation.tag === 'DIALOGUE' ? `Embed the LINE verbatim as dialogue (..."<exact LINE text>"). The line is spoken only — end the prompt with an explicit instruction that no on-screen text, captions, or subtitles appear in the frame.` : `Honour the shot role: ${TAG_BRIEFS[variation.tag]}`}
 
 Draft:
 """

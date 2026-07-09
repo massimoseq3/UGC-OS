@@ -8,11 +8,19 @@ export type SceneType =
   | 'B-ROLL REACTION'
   | 'B-ROLL ENVIRONMENT'
 
+// Shot role for a variation. VAR_1 of every scene is always DIALOGUE (the
+// lip-sync anchor); the other three slots are picked by the LLM per line from
+// the full menu below, so the mix adapts to what each script line earns
+// instead of forcing the same four buckets on every scene.
 export type VariationTag =
   | 'DIALOGUE'
   | 'ACTION'
   | 'EMOTIONAL'
   | 'PRODUCT'
+  | 'POV'
+  | 'ENVIRONMENT'
+  | 'TRANSITION'
+  | 'PROOF'
 
 // LLM-emitted hint declaring which reference images this variation needs
 // attached when we run image / reference-to-video generation. 'none' = no
