@@ -91,7 +91,7 @@ export default function MeetTheTeam() {
         <div className="mb-4 text-center">
           <CrabSprite variant="plain" className="mx-auto mb-2 h-9 w-12" />
           <h2 className="text-2xl font-bold tracking-tight text-ink-100">
-            Meet your{' '}
+            Meet Your{' '}
             <span
               className="font-normal italic"
               style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}

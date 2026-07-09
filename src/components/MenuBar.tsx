@@ -24,7 +24,7 @@ export default function MenuBar() {
           the Team intro (macOS: Apple menu → About This Mac). */}
       <button
         onClick={openTeamIntro}
-        title="Meet your Team"
+        title="Meet Your Team"
         className="-mx-1.5 flex shrink-0 items-center gap-1.5 rounded-md px-1.5 py-0.5 transition-colors hover:bg-ink/[0.06]"
       >
         <AppLogo className="h-5 w-5" />
@@ -51,7 +51,7 @@ export default function MenuBar() {
         onClick={openTeamIntro}
         className="hidden h-6 shrink-0 items-center rounded-md px-2 text-[12px] text-ink-300 transition-colors hover:bg-ink/[0.06] hover:text-ink-100 sm:flex"
       >
-        Meet your Team
+        Meet Your Team
       </button>
       <CreditsItem />
       {/* External links are desktop chrome — on phones they overflowed the bar. */}

@@ -332,7 +332,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
               }}
               className="shrink-0 rounded-full border border-ink/10 bg-ink/[0.04] px-4 py-1.5 text-[12px] font-medium text-ink-200 transition-colors hover:bg-ink/[0.08]"
             >
-              Meet your Team
+              Meet Your Team
             </button>
           </div>
         </div>
