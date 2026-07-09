@@ -5,51 +5,16 @@ import { getAppConfig } from '../utils/constants'
 import { TEAM } from '../utils/team'
 import CrabSprite from './CrabSprite'
 import AppLogo from './AppLogo'
+import { API_KEY_STEPS } from './apiKeySteps'
 
 // "Meet the team" onboarding — frames the dock apps as a production crew,
 // one crab per role. Auto-opens once per browser (appStore.teamIntroOpen),
 // reopenable from the empty desktop. Clicking a card visits that teammate's
 // desk (opens the app) and dismisses the intro.
-
-// The setup steps in the "fuel" row — the crew is useless without a kie.ai
-// key, so the intro doubles as the get-started checklist. One short line
-// each; the row must not push the modal into scrolling.
-const FUEL_STEPS = [
-  {
-    body: (
-      <>
-        Grab your API key at{' '}
-        <a
-          href="https://kie.ai/api-key"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="font-medium text-ink-200 underline decoration-ink/30 underline-offset-2 hover:text-ink-100"
-        >
-          kie.ai
-        </a>
-      </>
-    ),
-  },
-  {
-    body: <>Paste it in Settings (the gear in the dock) and Save</>,
-  },
-  {
-    body: (
-      <>
-        Top up anytime via{' '}
-        <a
-          href="https://kie.ai/billing"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="font-medium text-ink-200 underline decoration-ink/30 underline-offset-2 hover:text-ink-100"
-        >
-          Get Credits
-        </a>{' '}
-        in the menu bar
-      </>
-    ),
-  },
-]
+//
+// The "fuel" row doubles as the get-started checklist — the crew is useless
+// without a kie.ai key. Steps live in ./apiKeySteps so the ApiKeyGuide modal
+// stays in sync.
 
 export default function MeetTheTeam() {
   const open = useAppStore((s) => s.teamIntroOpen)
@@ -160,12 +125,12 @@ export default function MeetTheTeam() {
               kie.ai credits keep your team fed
             </span>
             <ol className="mt-1 flex flex-col gap-x-4 gap-y-1 md:flex-row">
-              {FUEL_STEPS.map((step, i) => (
+              {API_KEY_STEPS.map((step, i) => (
                 <li key={i} className="flex items-center gap-1.5 text-[11px] leading-snug text-ink-500">
                   <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-ink/[0.07] text-[9px] font-semibold text-ink-300 ring-1 ring-inset ring-ink/10">
                     {i + 1}
                   </span>
-                  <span>{step.body}</span>
+                  <span>{step}</span>
                 </li>
               ))}
             </ol>

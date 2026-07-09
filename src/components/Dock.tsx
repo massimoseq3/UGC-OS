@@ -152,28 +152,30 @@ function DockAppTile({
       accent={app.accent}
       onClick={onClick}
     >
-      <span
-        className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-[14px] shadow-sm shadow-black/10"
-        style={{ backgroundColor: app.accent }}
-      >
-        <span className="absolute inset-0 bg-gradient-to-b from-white/30 via-white/5 to-transparent" />
-        <span className="absolute inset-0 rounded-[14px] ring-1 ring-inset ring-white/20" />
-        {/* Hover cross-fades the glyph to the app's crab persona — the crew
-            peeks out of the dock without changing the label. The tile keeps
-            its solid accent; a soft drop shadow hugging the sprite's pixel
-            silhouette lifts the coral crab off saturated fills. */}
-        <Icon
-          className={`relative h-[22px] w-[22px] ${member ? 'transition-opacity duration-200 group-hover:opacity-0' : ''}`}
-          style={{ color: iconColor }}
-          strokeWidth={1.9}
-        />
+      <span className="relative flex h-12 w-12 items-center justify-center">
+        {/* On hover the app's crab persona peeks up over the top-right corner
+            of the tile — tucked behind it (z-0) and hidden until hover, then it
+            rises and fades in so the crew pokes out of the dock. Coloured in the
+            teammate's accent (not white) so it reads as "the new colour". */}
         {member && (
           <CrabSprite
             variant={member.appId}
-            body="#F8F8F4"
-            className="absolute h-[26px] w-9 opacity-0 transition-opacity duration-200 [filter:drop-shadow(0_1px_2px_rgba(0,0,0,0.35))] group-hover:opacity-100"
+            body={member.roleColor ?? app.accent}
+            className="pointer-events-none absolute -top-3 right-0 z-0 h-6 w-[22px] translate-y-2 rotate-6 opacity-0 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] [filter:drop-shadow(0_1px_2px_rgba(0,0,0,0.3))] group-hover:translate-y-0 group-hover:opacity-100"
           />
         )}
+        <span
+          className="relative z-10 flex h-12 w-12 items-center justify-center overflow-hidden rounded-[14px] shadow-sm shadow-black/10"
+          style={{ backgroundColor: app.accent }}
+        >
+          <span className="absolute inset-0 bg-gradient-to-b from-white/30 via-white/5 to-transparent" />
+          <span className="absolute inset-0 rounded-[14px] ring-1 ring-inset ring-white/20" />
+          <Icon
+            className="relative h-[22px] w-[22px]"
+            style={{ color: iconColor }}
+            strokeWidth={1.9}
+          />
+        </span>
       </span>
     </DockItem>
   )

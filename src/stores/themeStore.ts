@@ -15,7 +15,7 @@ function loadPref(): ThemePref {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw === 'light' || raw === 'system' || raw === 'dark') return raw
   } catch { /* ignore */ }
-  return 'dark'
+  return 'light'
 }
 
 const systemQuery = window.matchMedia('(prefers-color-scheme: light)')

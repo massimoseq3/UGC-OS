@@ -74,7 +74,7 @@ export default function Dashboard() {
   const hasActivity = metrics.totalGenerations > 0
 
   return (
-    <div className="mx-auto flex min-h-full max-w-5xl flex-col gap-6 px-5 py-8 md:px-8 md:py-10">
+    <div className="mx-auto flex min-h-full max-w-5xl flex-col gap-4 px-5 py-6 md:px-8">
       {/* Greeting + quick links */}
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-1">
@@ -93,13 +93,15 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* Bento grid — until a kie.ai key is saved, a slim red to-do row sits
-          above the metrics (nothing can generate without it). */}
+      {/* Bento grid — until a kie.ai key is saved, a slim neutral to-do row
+          sits above the metrics (nothing can generate without it). Top row is
+          the two hero stats; the streaks + activity row below matches its
+          height so the page never needs scrolling. */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-12">
         {needsKey && <ConnectKeyCard />}
 
         {/* Time saved */}
-        <BentoCard className="col-span-2 md:col-span-5">
+        <BentoCard className="col-span-2 md:col-span-6 md:h-[200px]">
           <CardLabel icon={Clock} label="Time saved" />
           <p className="mt-3 text-5xl italic font-normal tracking-tight text-ink-50 md:text-6xl" style={DISPLAY_FONT}>
             {formatTimeSaved(metrics.minutesSaved)}
@@ -119,7 +121,7 @@ export default function Dashboard() {
         </BentoCard>
 
         {/* Money saved */}
-        <BentoCard className="col-span-2 md:col-span-4">
+        <BentoCard className="col-span-2 md:col-span-6 md:h-[200px]">
           <CardLabel icon={PiggyBank} label="Money saved" />
           <p className="mt-3 text-5xl italic font-normal tracking-tight text-ink-50 md:text-6xl" style={DISPLAY_FONT}>
             {formatUsd(metrics.usdSaved)}
@@ -136,8 +138,8 @@ export default function Dashboard() {
           </p>
         </BentoCard>
 
-        {/* Streaks */}
-        <BentoCard className="col-span-2 md:col-span-3">
+        {/* Streaks — sits left of the activity heatmap, matching its height */}
+        <BentoCard className="col-span-2 md:col-span-4 md:h-[200px]">
           <div className="flex h-full flex-col justify-between gap-4">
             <MiniStat
               icon={Flame}
@@ -160,8 +162,9 @@ export default function Dashboard() {
           </div>
         </BentoCard>
 
-        {/* Activity heatmap */}
-        <BentoCard className="col-span-2 md:col-span-12">
+        {/* Activity heatmap — a touch less padding so the grid clears the
+            shared row height */}
+        <BentoCard className="col-span-2 md:col-span-8 md:h-[200px]" pad="p-5">
           <div className="flex items-baseline justify-between gap-3">
             <CardLabel icon={CalendarCheck} label="Activity" />
             {hasActivity && (
@@ -170,7 +173,7 @@ export default function Dashboard() {
               </p>
             )}
           </div>
-          <div className="mt-4">
+          <div className="mt-3">
             <ActivityHeatmap days={usageDays} />
           </div>
         </BentoCard>
@@ -185,7 +188,7 @@ export default function Dashboard() {
                 key={member.appId}
                 onClick={() => openApp(member.appId)}
                 title={`Open ${app.name}`}
-                className={`group relative flex flex-col items-start gap-2 rounded-2xl border border-ink/10 bg-surface-1/60 px-3.5 py-3 text-left transition-colors hover:border-ink/20 hover:bg-ink/[0.04] ${CARD_SHADOW}`}
+                className={`group relative flex flex-col items-start gap-2 rounded-2xl border border-ink/10 bg-surface-1/60 px-3.5 py-3 text-left transition-all hover:-translate-y-px ${CARD_SHADOW}`}
               >
                 <ArrowUpRight
                   className="absolute right-2.5 top-2.5 h-3.5 w-3.5 text-ink-600 transition-colors group-hover:text-ink-300"
@@ -197,7 +200,8 @@ export default function Dashboard() {
                 >
                   <CrabSprite
                     variant={member.appId}
-                    className="h-6 w-8 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:-translate-y-0.5"
+                    body={member.roleColor ?? app.accent}
+                    className="h-6 w-8"
                   />
                 </span>
                 {/* w-full so the truncation actually engages — items-start
@@ -221,9 +225,11 @@ export default function Dashboard() {
   )
 }
 
-function BentoCard({ className = '', children }: { className?: string; children: ReactNode }) {
+function BentoCard({ className = '', pad = 'p-5 md:p-6', children }: { className?: string; pad?: string; children: ReactNode }) {
   return (
-    <section className={`rounded-3xl border border-ink/10 bg-surface-1/60 p-5 md:p-6 ${CARD_SHADOW} ${className}`}>
+    <section
+      className={`rounded-3xl border border-ink/10 bg-surface-1/60 ${pad} ${CARD_SHADOW} transition-all hover:-translate-y-px ${className}`}
+    >
       {children}
     </section>
   )

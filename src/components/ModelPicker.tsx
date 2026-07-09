@@ -70,6 +70,10 @@ export default function ModelPicker({ appId, task, mode, value, onChange, requir
   const resolved = value ?? persisted ?? fallback?.id
   const selected = models.find((m) => m.id === resolved)
 
+  // Mirror the rows on the collapsed trigger with the same "% off" chip (the
+  // per-params credit cost lives on the Generate button, not here).
+  const selectedSavings = selected ? officialSavingsPercent(selected.id) : null
+
   useEffect(() => {
     function onClick(e: MouseEvent) {
       if (!wrapperRef.current?.contains(e.target as Node)) setOpen(false)
@@ -119,10 +123,13 @@ export default function ModelPicker({ appId, task, mode, value, onChange, requir
           compact ? (
             <>
               <ProviderLogo provider={selected.provider} size="sm" />
-              <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-ink-100">{selected.displayName}</span>
-              {selected.tags.includes('recommended') && (
-                <Star className="h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400 light:fill-yellow-600 light:text-yellow-600" strokeWidth={1.5} />
-              )}
+              <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                <span className="truncate text-[12px] font-medium text-ink-100">{selected.displayName}</span>
+                {selected.tags.includes('recommended') && (
+                  <Star className="h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400 light:fill-yellow-600 light:text-yellow-600" strokeWidth={1.5} />
+                )}
+                {selectedSavings != null && <SavingsPill pct={selectedSavings} />}
+              </div>
             </>
           ) : (
             <>
@@ -132,6 +139,7 @@ export default function ModelPicker({ appId, task, mode, value, onChange, requir
                 {selected.tags.includes('recommended') && (
                   <Star className="h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400 light:fill-yellow-600 light:text-yellow-600" strokeWidth={1.5} />
                 )}
+                {selectedSavings != null && <SavingsPill pct={selectedSavings} />}
               </div>
             </>
           )
@@ -189,6 +197,19 @@ export default function ModelPicker({ appId, task, mode, value, onChange, requir
         </div>
       )}
     </div>
+  )
+}
+
+// The green "% off vs the official API" chip — shared by the collapsed trigger
+// and each dropdown row so they read identically.
+function SavingsPill({ pct }: { pct: number }) {
+  return (
+    <span
+      title="vs the provider's official API price"
+      className="shrink-0 rounded-full border border-dashboard-500/25 bg-dashboard-500/15 px-1.5 py-px text-[10px] font-medium text-dashboard-300"
+    >
+      {pct}% off
+    </span>
   )
 }
 
@@ -256,14 +277,7 @@ function ModelRow({ model, active, muted, accent, costParams, onClick }: ModelRo
           {isRecommended && (
             <Star className="h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400 light:fill-yellow-600 light:text-yellow-600" strokeWidth={1.5} />
           )}
-          {savings != null && (
-            <span
-              title="vs the provider's official API price"
-              className="shrink-0 rounded-full border border-dashboard-500/25 bg-dashboard-500/15 px-1.5 py-px text-[10px] font-medium text-dashboard-300"
-            >
-              {savings}% off
-            </span>
-          )}
+          {savings != null && <SavingsPill pct={savings} />}
         </div>
         {meta && <p className="mt-px truncate text-[11px] leading-tight text-ink-500">{meta}</p>}
       </div>
