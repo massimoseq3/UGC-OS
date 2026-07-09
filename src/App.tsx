@@ -26,6 +26,7 @@ const CharacterStudio = lazy(() => import('./apps/character-studio/CharacterStud
 const VoiceStudio = lazy(() => import('./apps/voice-studio/VoiceStudio'))
 const BrollStudio = lazy(() => import('./apps/broll-studio/BrollStudio'))
 const Playground = lazy(() => import('./apps/playground/Playground'))
+const Dashboard = lazy(() => import('./apps/dashboard/Dashboard'))
 const AdminPanel = lazy(() => import('./apps/admin/AdminPanel'))
 
 import TermsOfService from './legal/TermsOfService'
@@ -41,6 +42,7 @@ const APP_COMPONENTS: Record<string, React.ComponentType> = {
   'voice-studio': VoiceStudio,
   'broll-studio': BrollStudio,
   'playground': Playground,
+  'dashboard': Dashboard,
   'admin': AdminPanel,
 }
 

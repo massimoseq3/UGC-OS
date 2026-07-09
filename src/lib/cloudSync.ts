@@ -19,18 +19,19 @@
 
 import { useAuthStore } from '../stores/authStore'
 import { useAppStore } from '../stores/appStore'
-import { useBankStore } from '../stores/bankStore'
+import { useBankStore, backfillUsageLedger } from '../stores/bankStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { getSupabase, isCloudEnabled, ensureFreshSession } from './supabase'
 import { existingRemoteAssetIds, uploadAssetToR2 } from './r2'
 import { isAssetRef, assetIdFromRef, getBlob } from '../utils/assetStore'
 import { findOrphanAssets, purgeOrphans } from '../utils/orphanCleanup'
-import type { Product, Model, Script, VoicePreset, BRoll, VoiceHistoryItem, VideoHistoryItem, ImageHistoryItem, MusicHistoryItem, ScriptHistoryItem, BrollHistoryItem, CharacterHistoryItem, AdAnatomyHistoryItem } from '../stores/types'
+import type { Product, Model, Script, VoicePreset, BRoll, VoiceHistoryItem, VideoHistoryItem, ImageHistoryItem, MusicHistoryItem, ScriptHistoryItem, BrollHistoryItem, CharacterHistoryItem, AdAnatomyHistoryItem, UsageDay } from '../stores/types'
 
 export type BankKey =
   | 'products' | 'models' | 'scripts' | 'voices' | 'brolls'
   | 'voiceHistory' | 'videoHistory' | 'imageHistory' | 'musicHistory'
   | 'scriptHistory' | 'brollHistory' | 'characterHistory' | 'adAnatomyHistory'
+  | 'usageDays'
 
 const BANK_TO_TABLE: Record<BankKey, string> = {
   products: 'products',
@@ -46,9 +47,10 @@ const BANK_TO_TABLE: Record<BankKey, string> = {
   brollHistory: 'broll_history',
   characterHistory: 'character_history',
   adAnatomyHistory: 'ad_anatomy_history',
+  usageDays: 'usage_days',
 }
 
-const BANK_KEYS: BankKey[] = ['products', 'models', 'scripts', 'voices', 'brolls', 'voiceHistory', 'videoHistory', 'imageHistory', 'musicHistory', 'scriptHistory', 'brollHistory', 'characterHistory', 'adAnatomyHistory']
+const BANK_KEYS: BankKey[] = ['products', 'models', 'scripts', 'voices', 'brolls', 'voiceHistory', 'videoHistory', 'imageHistory', 'musicHistory', 'scriptHistory', 'brollHistory', 'characterHistory', 'adAnatomyHistory', 'usageDays']
 
 function reportError(context: string, err: unknown) {
   const msg = err instanceof Error ? err.message : (typeof err === 'string' ? err : JSON.stringify(err))
@@ -438,6 +440,7 @@ async function hydrateFromCloud(userId: string): Promise<boolean> {
     brollHistory: (next.brollHistory as BrollHistoryItem[]) ?? [],
     characterHistory: (next.characterHistory as CharacterHistoryItem[]) ?? [],
     adAnatomyHistory: (next.adAnatomyHistory as AdAnatomyHistoryItem[]) ?? [],
+    usageDays: (next.usageDays as UsageDay[]) ?? [],
   })
 
   try {
@@ -450,6 +453,7 @@ async function hydrateFromCloud(userId: string): Promise<boolean> {
       scriptHistory: s.scriptHistory, brollHistory: s.brollHistory,
       characterHistory: s.characterHistory,
       adAnatomyHistory: s.adAnatomyHistory,
+      usageDays: s.usageDays,
     }))
   } catch { /* ignore */ }
 
@@ -645,6 +649,15 @@ export async function startCloudSync() {
     seedLocalHistoryToCloud(userId)
     const hydratedClean = await hydrateFromCloud(userId)
     console.log(`[cloudSync] hydrated from cloud${hydratedClean ? '' : ' (with per-table errors)'}`)
+
+    // Seed the Dashboard's usage ledger from the freshly-hydrated history
+    // banks — once per user. Only after a CLEAN hydrate: a bank that fell
+    // back to partial local state would backfill an undercount and the
+    // once-flag would lock it in. (Local-only mode backfills on Dashboard
+    // mount instead.)
+    if (hydratedClean) {
+      try { backfillUsageLedger() } catch (e) { console.warn('[cloudSync] usage backfill failed', e) }
+    }
 
     // Replay any writes that didn't confirm in a previous session (push failed
     // or timed out). Best-effort; don't block startup.

@@ -21,6 +21,12 @@ export const TEAM: TeamMember[] = [
     blurb: 'Keeps every product, character, script and clip filed and ready to reuse.',
   },
   {
+    appId: 'ad-anatomy',
+    name: 'Scout',
+    role: 'Strategist',
+    blurb: 'Tears down winning ads and tells you exactly why they work.',
+  },
+  {
     appId: 'character-studio',
     name: 'Clawdia',
     role: 'Casting Director',
@@ -50,12 +56,6 @@ export const TEAM: TeamMember[] = [
     role: 'Creative Director',
     blurb: 'The do-anything senior — freeform images, video and music on demand.',
     roleColor: '#1FA08C',
-  },
-  {
-    appId: 'ad-anatomy',
-    name: 'Scout',
-    role: 'Strategist',
-    blurb: 'Tears down winning ads and tells you exactly why they work.',
   },
 ]
 

@@ -12,6 +12,7 @@ import {
 } from '../../../utils/kie'
 import { getDefaultModel, getChatEndpointPath, buildImageInput, getModel, type AspectRatio, type ImageResolution } from '../../../utils/models'
 import { saveBase64Asset, isAssetRef, getAsBase64 } from '../../../utils/assetStore'
+import { useBankStore } from '../../../stores/bankStore'
 import { withIphoneRealism } from './realism'
 
 function getChatEndpoint(): { apiKey: string; endpoint: string } {
@@ -518,8 +519,10 @@ export async function startImageTask(
  * Phase 2 of B-Roll image generation: poll an existing kie taskId until success,
  * download the resulting image, and persist it as an asset. Resumable — pass
  * the taskId returned by `startImageTask` (possibly from a prior session).
+ * `resolution` only feeds the usage ledger's credit estimate (callers persist
+ * it on the in-flight entry); omitted → base-tier estimate.
  */
-export async function finishImageTask(taskId: string, modelId: string): Promise<string> {
+export async function finishImageTask(taskId: string, modelId: string, resolution?: string): Promise<string> {
   const apiKey = useSettingsStore.getState().getKieApiKey()
   const record = await pollTask(apiKey, taskId, { maxPollAttempts: IMAGE_POLL_ATTEMPTS })
   const urls = parseResult(record).resultUrls
@@ -529,7 +532,11 @@ export async function finishImageTask(taskId: string, modelId: string): Promise<
     )
   }
   const { base64, mimeType } = await downloadAsBase64(urls[0])
-  return saveBase64Asset(base64, mimeType)
+  const assetRef = await saveBase64Asset(base64, mimeType)
+  // B-Roll stills don't push an imageHistory row (card state lives in the
+  // session snapshot), so this is their usage-ledger hook.
+  useBankStore.getState().recordUsage({ kind: 'image', modelId, params: { resolution, imageCount: 1 } })
+  return assetRef
 }
 
 /**
@@ -548,7 +555,7 @@ export async function generateImage(
   resolution?: ImageResolution,
 ): Promise<string> {
   const { taskId, modelId } = await startImageTask(prompt, referenceImages, aspectRatio, resolution)
-  return finishImageTask(taskId, modelId)
+  return finishImageTask(taskId, modelId, resolution)
 }
 
 // One-line role brief per tag, shared by the regenerate + free-form variation

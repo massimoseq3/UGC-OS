@@ -1,10 +1,16 @@
 import { create } from 'zustand'
-import type { Product, Model, Script, VoicePreset, BRoll, VoiceHistoryItem, VideoHistoryItem, ImageHistoryItem, MusicHistoryItem, ScriptHistoryItem, BrollHistoryItem, CharacterHistoryItem, AdAnatomyHistoryItem } from './types'
+import type { Product, Model, Script, VoicePreset, BRoll, VoiceHistoryItem, VideoHistoryItem, ImageHistoryItem, MusicHistoryItem, ScriptHistoryItem, BrollHistoryItem, CharacterHistoryItem, AdAnatomyHistoryItem, UsageDay, UsageKind } from './types'
 import { isAssetRef, assetIdFromRef, deleteAsset, saveFromDataUrl } from '../utils/assetStore'
 import { useAuthStore } from './authStore'
 import { isCloudEnabled } from '../lib/supabase'
 import { saveRow, deleteRow, recordPendingUpsert, recordPendingDelete, clearPending, scheduleOutboxDrain, type BankKey } from '../lib/cloudSync'
 import { useAppStore } from './appStore'
+import { estimateCredits, estimateOfficialUsd, estimateMarketUsd, creditsToUsd, type CostEstimateParams } from '../utils/models'
+import { usageDayId } from '../utils/usage'
+
+// The ElevenLabs TTS registry id — voice history rows don't carry a modelId
+// (Voiceovers has no picker), so recordUsage fills it in here.
+const TTS_MODEL_ID = 'elevenlabs/text-to-speech-multilingual-v2'
 
 const STORAGE_KEY = 'ai-ugc-lab-banks'
 const MIGRATION_FLAG = 'ai-ugc-lab-migrated-v2'
@@ -27,6 +33,12 @@ interface BankState {
   brollHistory: BrollHistoryItem[]
   characterHistory: CharacterHistoryItem[]
   adAnatomyHistory: AdAnatomyHistoryItem[]
+  usageDays: UsageDay[]
+
+  // Usage ledger — one accumulate-only row per local calendar day, written on
+  // every successful generation (the add*History actions call this). Feeds
+  // the Dashboard's savings + streak metrics. Never decremented.
+  recordUsage: (event: UsageEvent) => void
 
   // Product CRUD
   addProduct: (product: Omit<Product, 'id' | 'createdAt'>) => Promise<string>
@@ -113,11 +125,57 @@ interface BankState {
 // Banks whose items can be starred (pinned) by the user.
 export type StarrableBank = 'products' | 'models' | 'scripts' | 'brolls'
 
+export interface UsageEvent {
+  kind: UsageKind
+  // Registry model id — omitted for chat-backed work (scripts, ad analyses),
+  // which records zero credits: Gemini Flash costs are fractions of a cent
+  // and inventing a number would be worse than under-counting.
+  modelId?: string
+  params?: CostEstimateParams
+  // Generation timestamp; defaults to now. Backfill passes historical times.
+  at?: number
+}
+
+// Mock-data seeding pushes demo rows through the same add*History actions as
+// real generations — suppress ledger writes while it runs so demo content
+// can't inflate anyone's savings.
+let usageRecordingSuppressed = false
+export function setUsageRecordingSuppressed(suppressed: boolean): void {
+  usageRecordingSuppressed = suppressed
+}
+
+// Fold one event into a day-row array (pure — shared by recordUsage and the
+// one-time history backfill).
+function foldUsageEvent(days: UsageDay[], event: UsageEvent): { days: UsageDay[]; row: UsageDay } {
+  const at = event.at ?? Date.now()
+  const id = usageDayId(at)
+  const credits = event.modelId ? (estimateCredits(event.modelId, event.params) ?? 0) : 0
+  // "Cost elsewhere" = the higher of the provider's official API rate and the
+  // verified creator-platform (market) rate. No verified rate at all → count
+  // the kie price on both sides (zero saved), never a made-up discount.
+  // Floored at the kie price so a model that's cheaper elsewhere can't eat
+  // into savings other models earned.
+  const kieUsd = creditsToUsd(credits)
+  const officialRaw = event.modelId ? estimateOfficialUsd(event.modelId, event.params) : null
+  const marketRaw = event.modelId ? estimateMarketUsd(event.modelId, event.params) : null
+  const officialUsd = Math.max(officialRaw ?? kieUsd, marketRaw ?? kieUsd, kieUsd)
+  const existing = days.find((d) => d.id === id)
+  const row: UsageDay = existing
+    ? {
+        ...existing,
+        counts: { ...existing.counts, [event.kind]: (existing.counts[event.kind] ?? 0) + 1 },
+        credits: existing.credits + credits,
+        officialUsd: existing.officialUsd + officialUsd,
+      }
+    : { id, counts: { [event.kind]: 1 }, credits, officialUsd, createdAt: at }
+  return { days: existing ? days.map((d) => (d.id === id ? row : d)) : [...days, row], row }
+}
+
 function generateId(): string {
   return crypto.randomUUID()
 }
 
-type BankData = Pick<BankState, 'products' | 'models' | 'scripts' | 'voices' | 'brolls' | 'voiceHistory' | 'videoHistory' | 'imageHistory' | 'musicHistory' | 'scriptHistory' | 'brollHistory' | 'characterHistory' | 'adAnatomyHistory'>
+type BankData = Pick<BankState, 'products' | 'models' | 'scripts' | 'voices' | 'brolls' | 'voiceHistory' | 'videoHistory' | 'imageHistory' | 'musicHistory' | 'scriptHistory' | 'brollHistory' | 'characterHistory' | 'adAnatomyHistory' | 'usageDays'>
 
 function migrateVoiceShape<T>(arr: unknown): T[] {
   if (!Array.isArray(arr)) return []
@@ -150,6 +208,7 @@ const EMPTY_BANKS: BankData = {
   brollHistory: [],
   characterHistory: [],
   adAnatomyHistory: [],
+  usageDays: [],
 }
 
 // Wipe the in-memory bank state and the localStorage snapshot. Called on
@@ -181,6 +240,7 @@ function loadFromStorage(): BankData {
         brollHistory: Array.isArray(parsed.brollHistory) ? parsed.brollHistory : [],
         characterHistory: Array.isArray(parsed.characterHistory) ? parsed.characterHistory : [],
         adAnatomyHistory: Array.isArray(parsed.adAnatomyHistory) ? parsed.adAnatomyHistory : [],
+        usageDays: Array.isArray(parsed.usageDays) ? parsed.usageDays : [],
       }
     }
   } catch {
@@ -212,6 +272,7 @@ function flushSaveToStorage() {
       brollHistory: state.brollHistory,
       characterHistory: state.characterHistory,
       adAnatomyHistory: state.adAnatomyHistory,
+      usageDays: state.usageDays,
     }))
   } catch (error) {
     console.error('Failed to save to storage', error)
@@ -334,6 +395,22 @@ function brollAssetStillInHistory(
 
 export const useBankStore = create<BankState>((set, get) => ({
   ...loadFromStorage(),
+
+  // ── Usage ledger ──────────────────────────────────────────────────
+  // Same local-first + background-push contract as every bank action. No
+  // toast — recording is invisible bookkeeping behind each generation.
+  recordUsage: (event) => {
+    if (usageRecordingSuppressed) return
+    let row: UsageDay | null = null
+    set((state) => {
+      const folded = foldUsageEvent(state.usageDays, event)
+      row = folded.row
+      const next = { usageDays: folded.days }
+      saveToStorage({ ...state, ...next })
+      return next
+    })
+    if (row) pushRow('usageDays', row)
+  },
 
   // ── Products ─────────────────────────────────────────────────────
   // Every add/update/delete writes local Zustand state + localStorage FIRST
@@ -612,6 +689,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       return next
     })
     pushRow('voiceHistory', item)
+    get().recordUsage({ kind: 'voice', modelId: TTS_MODEL_ID, params: { charCount: item.scriptText.length } })
   },
 
   deleteVoiceHistory: async (id) => {
@@ -649,6 +727,11 @@ export const useBankStore = create<BankState>((set, get) => ({
       return next
     })
     pushRow('videoHistory', item)
+    get().recordUsage({
+      kind: 'video',
+      modelId: item.modelId,
+      params: { durationSeconds: item.durationSeconds, resolution: item.resolution, audio: item.audio },
+    })
   },
 
   updateVideoHistory: async (id, updates) => {
@@ -698,6 +781,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       return next
     })
     pushRow('imageHistory', item)
+    get().recordUsage({ kind: 'image', modelId: item.modelId, params: { resolution: item.resolution, imageCount: 1 } })
   },
 
   updateImageHistory: async (id, updates) => {
@@ -749,6 +833,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       return next
     })
     pushRow('musicHistory', item)
+    get().recordUsage({ kind: 'music', modelId: item.modelId })
   },
 
   updateMusicHistory: async (id, updates) => {
@@ -800,6 +885,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       return next
     })
     pushRow('scriptHistory', item)
+    get().recordUsage({ kind: 'script' })
   },
 
   deleteScriptHistory: async (id) => {
@@ -878,6 +964,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       return next
     })
     pushRow('characterHistory', item)
+    get().recordUsage({ kind: 'character', modelId: item.modelId, params: { resolution: item.resolution, imageCount: 1 } })
   },
 
   updateCharacterHistory: async (id, updates) => {
@@ -941,6 +1028,11 @@ export const useBankStore = create<BankState>((set, get) => ({
       return next
     })
     pushRow('adAnatomyHistory', updated)
+    // Rows are added while still 'analyzing' — the generation only counts once
+    // it lands. Chat-backed, so no modelId (zero credits, time saved only).
+    if (updates.status === 'complete' && old.status !== 'complete') {
+      get().recordUsage({ kind: 'analysis' })
+    }
   },
 
   deleteAdAnatomyHistory: async (id) => {
@@ -972,6 +1064,90 @@ export const useBankStore = create<BankState>((set, get) => ({
 
   getAdAnatomyHistoryById: (id) => get().adAnatomyHistory.find((h) => h.id === id),
 }))
+
+// ── One-time usage-ledger backfill from the history banks ───────────
+//
+// The ledger only started recording when the Dashboard shipped; existing
+// members already have months of generations sitting in the (cloud-synced)
+// history banks. Rebuild day rows from those so nobody's streaks/savings
+// start at zero. Runs once per user per browser: cloudSync calls it after a
+// clean hydrate (so cloud rows are in), and the Dashboard calls it on mount
+// in local-only mode. If the ledger already has rows (hydrated from another
+// browser's backfill), skip — re-adding history would double-count.
+export function backfillUsageLedger(): void {
+  const userId = useAuthStore.getState().user?.id ?? 'local'
+  const flag = `ugc-lab:usage-backfill:${userId}`
+  try {
+    if (localStorage.getItem(flag)) return
+  } catch { return }
+
+  const s = useBankStore.getState()
+  if (s.usageDays.length > 0) {
+    try { localStorage.setItem(flag, '1') } catch { /* ignore */ }
+    return
+  }
+
+  // Demo rows (Settings → seed demo data) sit in the same history banks as
+  // real generations — exclude everything the mock manifest claims, or a
+  // seeded browser starts with invented savings the ledger can never shed.
+  let mockManifest: Partial<Record<string, string[]>> = {}
+  try { mockManifest = JSON.parse(localStorage.getItem('ugc-os:mock-data-manifest') ?? '{}') } catch { /* corrupted — treat as none */ }
+  const mockIds = (bank: string) => new Set(mockManifest[bank] ?? [])
+  const mockVideo = mockIds('videoHistory')
+  const mockImage = mockIds('imageHistory')
+  const mockVoice = mockIds('voiceHistory')
+  const mockMusic = mockIds('musicHistory')
+  const mockScript = mockIds('scriptHistory')
+  const mockCharacter = mockIds('characterHistory')
+  const mockAd = mockIds('adAnatomyHistory')
+
+  const events: UsageEvent[] = []
+  for (const h of s.videoHistory) {
+    if (mockVideo.has(h.id)) continue
+    events.push({
+      kind: 'video', modelId: h.modelId, at: h.createdAt,
+      params: { durationSeconds: h.durationSeconds, resolution: h.resolution, audio: h.audio },
+    })
+  }
+  for (const h of s.imageHistory) {
+    if (mockImage.has(h.id)) continue
+    events.push({ kind: 'image', modelId: h.modelId, at: h.createdAt, params: { resolution: h.resolution, imageCount: 1 } })
+  }
+  for (const h of s.voiceHistory) {
+    if (mockVoice.has(h.id)) continue
+    events.push({ kind: 'voice', modelId: TTS_MODEL_ID, at: h.createdAt, params: { charCount: h.scriptText?.length ?? 0 } })
+  }
+  for (const h of s.musicHistory) {
+    if (mockMusic.has(h.id)) continue
+    events.push({ kind: 'music', modelId: h.modelId, at: h.createdAt })
+  }
+  for (const h of s.scriptHistory) {
+    if (mockScript.has(h.id)) continue
+    events.push({ kind: 'script', at: h.createdAt })
+  }
+  for (const h of s.characterHistory) {
+    if (mockCharacter.has(h.id)) continue
+    events.push({ kind: 'character', modelId: h.modelId, at: h.createdAt, params: { resolution: h.resolution, imageCount: 1 } })
+  }
+  for (const h of s.adAnatomyHistory) {
+    if (mockAd.has(h.id)) continue
+    if (h.status === 'complete') events.push({ kind: 'analysis', at: h.createdAt })
+  }
+
+  let days: UsageDay[] = []
+  for (const event of events) days = foldUsageEvent(days, event).days
+
+  if (days.length > 0) {
+    useBankStore.setState((state) => {
+      const next = { usageDays: days }
+      saveToStorage({ ...state, ...next })
+      return next
+    })
+    for (const row of days) pushRow('usageDays', row)
+    console.log(`[bankStore] usage ledger backfilled: ${events.length} generation(s) across ${days.length} day(s)`)
+  }
+  try { localStorage.setItem(flag, '1') } catch { /* ignore */ }
+}
 
 // ── One-time migration: data URLs → IndexedDB asset IDs ─────────────
 

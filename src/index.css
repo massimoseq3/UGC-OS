@@ -129,6 +129,14 @@
 
   /* Ad Analyzer — red #FF5257 (used as literal hex in ad-anatomy) */
   --color-analyzer-500: #FF5257;
+
+  /* Dashboard — green #059669 */
+  --color-dashboard-100: color-mix(in oklab, #059669 25%, white);
+  --color-dashboard-200: color-mix(in oklab, #059669 40%, white);
+  --color-dashboard-300: color-mix(in oklab, #059669 60%, white);
+  --color-dashboard-400: color-mix(in oklab, #059669 80%, white);
+  --color-dashboard-500: #059669;
+  --color-dashboard-600: color-mix(in oklab, #059669 85%, black);
 }
 
 /* ---- Light mode ----
@@ -197,6 +205,12 @@
   --color-gold-300: color-mix(in oklab, #4C1D95 70%, black);
   --color-gold-400: color-mix(in oklab, #4C1D95 95%, black);
   --color-gold-600: color-mix(in oklab, #4C1D95 85%, black);
+
+  --color-dashboard-100: color-mix(in oklab, #059669 35%, black);
+  --color-dashboard-200: color-mix(in oklab, #059669 50%, black);
+  --color-dashboard-300: color-mix(in oklab, #059669 70%, black);
+  --color-dashboard-400: color-mix(in oklab, #059669 95%, black);
+  --color-dashboard-600: color-mix(in oklab, #059669 85%, black);
 }
 
 html,

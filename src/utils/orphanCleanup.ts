@@ -24,6 +24,7 @@ const BANK_KEYS = Object.keys({
   products: true, models: true, scripts: true, voices: true, brolls: true,
   voiceHistory: true, videoHistory: true, imageHistory: true, musicHistory: true,
   scriptHistory: true, brollHistory: true, characterHistory: true, adAnatomyHistory: true,
+  usageDays: true,
 } satisfies Record<BankKey, true>) as BankKey[]
 
 function walkAssetRefs(value: unknown, out: Set<string>) {

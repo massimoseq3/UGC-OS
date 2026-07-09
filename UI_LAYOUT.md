@@ -53,7 +53,8 @@ Thin (`h-9`) top chrome — branding + status only, **no navigation**. Left→ri
   the **Meet your team** intro, macOS "About This Mac" style), then the **active
   app's name** (like macOS naming the frontmost app beside the logo).
 - **Trailing:** a **Meet your team** button (explicit twin of the wordmark click),
-  then the **credits** balance ("`<n>` credits left"; coin glyph swaps to a
+  then a **streak** chip (flame + "N day streak", only while a generation streak
+  is live; click opens the Dashboard), then the **credits** balance ("`<n>` credits left"; coin glyph swaps to a
   spinner, click refreshes — polls on mount + 60s + window focus; shows "—" until a
   kie.ai key is set), then external links **Get Credits** (kie.ai billing) and
   **Community** (Skool). These trailing items are `sm:`+ only — hidden on phones.
@@ -62,11 +63,13 @@ Thin (`h-9`) top chrome — branding + status only, **no navigation**. Left→ri
 
 Floating glassy rounded bar, bottom-center. Left→right, app tiles grouped by
 category with inset hairline **dividers** between groups (`SECTION_ORDER =
-library · create · tools`, order from `APP_REGISTRY`, `constants.ts:30`):
+system · library · create · tools`, order from `APP_REGISTRY`, `constants.ts`):
 
+- **System:** Dashboard (green; also the default landing page — fresh visits
+  redirect to `/dashboard`).
 - **Library:** Bank.
-- **Create:** Characters · Scripts · Voiceovers · B-Roll · Playground.
-- **Tools:** Ad Analyzer.
+- **Create:** Ad Analyzer · Characters · Scripts · Voiceovers · B-Roll ·
+  Playground (analyzer leads the group — no divider between it and Characters).
 - divider → **utility cluster:** a **theme** tile (dark↔light quick toggle; System
   is Settings-only) + a **Settings** tile (opens the Settings modal).
 
@@ -439,7 +442,42 @@ instead of the media+results columns.
 
 ---
 
-## 9. Admin — `src/apps/admin/AdminPanel.tsx`
+## 9. Dashboard — `src/apps/dashboard/Dashboard.tsx`
+
+Single scrollable page (no panes/tabs), centered `max-w-5xl`. First tile in the
+dock (green) and the **default landing page** (`DEFAULT_SLUG = 'dashboard'`).
+Hero text (greeting + big stat values) is Instrument Serif italic; every card,
+pill, and tile carries a subtle drop shadow. Top→bottom:
+
+- **Greeting header:** date line, "Good morning, `<first name>`" (time-of-day
+  phrase; name from `profile.first_name`, omitted in local-only mode), one-line
+  sub. Top-right: **Get Credits** (kie.ai/billing) and **Community** (Skool)
+  pill links.
+- **Bento grid** (12-col on `md:`):
+  - **Time saved** card (5 cols): serif hero ("286 hrs"), workdays sub-line
+    ("…of production and tool-hopping…"). No hover tooltip — assumptions live in
+    `utils/usage.ts` (`MINUTES_SAVED_PER_GEN` + `TASK_SWITCH_MINUTES_PER_GEN`).
+  - **Money saved** card (4 cols): serif hero USD, sub "vs official APIs &
+    creator platforms · N credits used".
+  - **Streaks** card (3 cols): three icon rows — current streak (flame, green),
+    longest streak (trophy), active days since first activity (calendar).
+  - **Activity** card (full width): 26-week GitHub-style heatmap
+    (`ActivityHeatmap.tsx`) — Monday-first columns, month labels above, green
+    intensity ramp, Less→More legend bottom-right, native `title` tooltip per
+    cell; "`<n>` generations · last 6 months" top-right.
+  - **Crew shortcut row** (7 tiles, dock order): crab sprite on an accent-tinted
+    chip, app name, "Name · Role" in the app accent (truncated), `ArrowUpRight`
+    top-right; clicking opens that app. No footer below the grid.
+
+All values derive from `bankStore.usageDays` via `computeUsageMetrics`
+(`utils/usage.ts`); the page is read-only. Related: model pickers (ModelPicker +
+ModelSidePanel rows) show a green "**`<n>`% off**" chip after the model name for
+models with verified `official` pricing in `models.ts`, and the menu bar shows a
+flame streak chip while a streak is live (§1.1).
+
+---
+
+## 10. Admin — `src/apps/admin/AdminPanel.tsx`
 
 Admin-only (sidebar entry hidden for non-admins). Tabs: **Members · Insights ·
 Allowlist** (`MembersTable.tsx`, `Insights.tsx`, `AllowlistEditor.tsx`). Not

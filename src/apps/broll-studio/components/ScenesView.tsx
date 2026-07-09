@@ -228,9 +228,10 @@ export default function ScenesView({
         const taskId = entry.taskId
         const modelId = entry.modelId
         const prompt = entry.prompt
+        const resolution = entry.resolution || undefined
         ;(async () => {
           try {
-            const imageUrl = await finishImageTask(taskId, modelId)
+            const imageUrl = await finishImageTask(taskId, modelId, resolution)
             const newImage = { imageUrl, prompt, modelId, createdAt: Date.now() }
             setCardStates((prev) => {
               const existing = prev[key]

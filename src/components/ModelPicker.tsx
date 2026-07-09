@@ -5,6 +5,7 @@ import {
   getDefaultModel,
   estimateCredits,
   formatCredits,
+  officialSavingsPercent,
   type Task,
   type Mode,
   type ModelEntry,
@@ -218,6 +219,9 @@ function creditRange(modelId: string, tiers: string[] | undefined, costParams: C
 // slide-in and this dropdown are one visual family; only the container differs.
 function ModelRow({ model, active, muted, accent, costParams, onClick }: ModelRowProps) {
   const isRecommended = model.tags.includes('recommended')
+  // Discount vs the provider's official API — only for models with a verified
+  // official rate in the registry (see ModelEntry.official).
+  const savings = officialSavingsPercent(model.id)
 
   // Resolution tiers drive the credit span only — we no longer print the range
   // itself. Video tiers still need human labels ('std'→'720p') for the estimate.
@@ -251,6 +255,14 @@ function ModelRow({ model, active, muted, accent, costParams, onClick }: ModelRo
           <span className="truncate text-[13px] font-semibold leading-snug text-ink-100">{model.displayName}</span>
           {isRecommended && (
             <Star className="h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400 light:fill-yellow-600 light:text-yellow-600" strokeWidth={1.5} />
+          )}
+          {savings != null && (
+            <span
+              title="vs the provider's official API price"
+              className="shrink-0 rounded-full border border-dashboard-500/25 bg-dashboard-500/15 px-1.5 py-px text-[10px] font-medium text-dashboard-300"
+            >
+              {savings}% off
+            </span>
           )}
         </div>
         {meta && <p className="mt-px truncate text-[11px] leading-tight text-ink-500">{meta}</p>}

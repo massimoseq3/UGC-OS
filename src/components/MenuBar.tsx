@@ -1,11 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { ArrowUpRight, Coins, ExternalLink, RefreshCw, X } from 'lucide-react'
+import { ArrowUpRight, Coins, ExternalLink, Flame, RefreshCw, X } from 'lucide-react'
 import { useAppStore } from '../stores/appStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useCreditsStore } from '../stores/creditsStore'
+import { useBankStore } from '../stores/bankStore'
 import { useCloseOnAppSwitch } from '../hooks/useCloseOnAppSwitch'
 import { getAppConfig, SKOOL_COMMUNITY_URL } from '../utils/constants'
+import { computeUsageMetrics } from '../utils/usage'
+import { creditsToUsd } from '../utils/models'
 import AppLogo from './AppLogo'
 import SettingsModal from './SettingsModal'
 
@@ -53,11 +56,38 @@ export default function MenuBar() {
       >
         Meet your Team
       </button>
+      <StreakItem />
       <CreditsItem />
       {/* External links are desktop chrome — on phones they overflowed the bar. */}
       <MenuLink href="https://kie.ai/billing" label="Get Credits" />
       <MenuLink href={SKOOL_COMMUNITY_URL} label="Community" />
     </header>
+  )
+}
+
+// Current generation streak as a menu-bar item — hidden until a streak
+// exists, clicking opens the Dashboard. Reads the same ledger the Dashboard
+// derives everything from.
+function StreakItem() {
+  const usageDays = useBankStore((s) => s.usageDays)
+  const openApp = useAppStore((s) => s.openApp)
+  const streak = useMemo(
+    () => computeUsageMetrics(usageDays, creditsToUsd).currentStreak,
+    [usageDays],
+  )
+  if (streak === 0) return null
+
+  return (
+    <button
+      onClick={() => openApp('dashboard')}
+      title={`${streak}-day generation streak — open Dashboard`}
+      className="flex h-6 shrink-0 items-center gap-1 rounded-md px-2 text-[12px] text-ink-300 transition-colors hover:bg-ink/[0.06] hover:text-ink-100"
+    >
+      <Flame className="h-3.5 w-3.5 text-dashboard-400" strokeWidth={1.75} />
+      <span className="tabular-nums">{streak}</span>
+      {/* Phones get flame + number; the suffix would crowd the bar. */}
+      <span className="hidden text-ink-500 sm:inline"> day streak</span>
+    </button>
   )
 }
 
