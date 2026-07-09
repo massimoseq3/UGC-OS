@@ -134,6 +134,15 @@ export default function CrabSprite({
   className?: string
 }) {
   const bodyFill = body ?? (variant === 'kie' ? GOLD : CRAB)
+  const rects = [...baseRects(bodyFill), ...COSTUMES[variant]]
+  // The crab body is deliberately bottom-anchored (rows 0–3 are reserved hat
+  // headroom, legs always reach y=12), so short-hat costumes — B-Roll's cap,
+  // the bare-headed variants — would otherwise sit low in the frame. Every
+  // variant's content bottoms out at y=12, so re-centering reduces to shifting
+  // up by half the empty top rows. Rounded to keep rects on the pixel grid
+  // (crispEdges + the ~2× scale-up makes half-unit offsets seam).
+  const minY = Math.min(...rects.map((r) => r.y))
+  const shiftY = Math.round(-minY / 2)
   return (
     <svg
       viewBox="0 0 16 12"
@@ -141,9 +150,11 @@ export default function CrabSprite({
       className={className}
       aria-hidden="true"
     >
-      {[...baseRects(bodyFill), ...COSTUMES[variant]].map((p, i) => (
-        <rect key={i} x={p.x} y={p.y} width={p.w} height={p.h} fill={p.fill} />
-      ))}
+      <g transform={`translate(0 ${shiftY})`}>
+        {rects.map((p, i) => (
+          <rect key={i} x={p.x} y={p.y} width={p.w} height={p.h} fill={p.fill} />
+        ))}
+      </g>
     </svg>
   )
 }

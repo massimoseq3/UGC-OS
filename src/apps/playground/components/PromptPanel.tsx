@@ -1023,6 +1023,15 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
               options={model.imageConstraints.resolutions}
               value={state.resolution}
               onChange={(v) => onChange({ ...state, resolution: v })}
+              renderOption={(v) => {
+                const credits = formatCredits(estimateCredits(state.modelId, { imageCount: 1, resolution: v }))
+                return (
+                  <span className="flex w-full items-center justify-between gap-6">
+                    <span>{v}</span>
+                    {credits && <span className="text-ink-500">{credits}</span>}
+                  </span>
+                )
+              }}
             />
             {model.imageConstraints.aspectRatios && (
               <ConstraintChip

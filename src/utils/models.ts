@@ -42,6 +42,10 @@ export interface Pricing {
 export interface PriceParams {
   durationSeconds?: number
   imageCount?: number
+  // Number of reference/input images supplied to an image-to-image model.
+  // Some models (Seedream 5.0 Pro edit) surcharge per input image beyond the
+  // first. Defaults to 1 (first input free) when not provided.
+  inputImageCount?: number
   tokenCount?: number
   charCount?: number
   resolution?: string
@@ -207,15 +211,47 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     },
     imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
   },
+  // Seedream 5.0 Pro — the higher-quality tier. Split across two kie slugs like
+  // GPT Image 2: the text-to-image slug is the picker face; the image-to-image
+  // slug is the hidden sibling the ref-swap logic resolves to (family
+  // `seedream/5-pro` → `seedream/5-pro-image-to-image`). `basic`/`high` quality
+  // maps to 1K/2K. Source: docs.kie.ai seedream/5-pro-{text,image}-to-image.
   {
-    id: 'seedream/5-lite-text-to-image',
-    displayName: 'Seedream 5 Lite',
+    id: 'seedream/5-pro-text-to-image',
+    displayName: 'Seedream 5.0 Pro',
     provider: 'ByteDance',
     task: 'image',
     modes: ['text-to-image'],
-    tags: ['new', 'fast'],
-    pricing: { unit: 'per-image', credits: 5.5 },
-    imageConstraints: { resolutions: ['1K'], aspectRatios: ['9:16', '16:9', '1:1'] },
+    tags: ['recommended', 'new'],
+    // 1K (basic) 7 cr · 2K (high) 14 cr per image. Source (user-supplied).
+    pricing: {
+      unit: 'per-image',
+      credits: 7,
+      priceFor: ({ imageCount = 1, resolution = '1K' }) =>
+        (resolution === '2K' ? 14 : 7) * imageCount,
+    },
+    imageConstraints: { resolutions: ['1K', '2K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
+  },
+  {
+    id: 'seedream/5-pro-image-to-image',
+    displayName: 'Seedream 5.0 Pro (Edit)',
+    provider: 'ByteDance',
+    task: 'image',
+    modes: ['image-to-image', 'image-edit'],
+    tags: ['recommended', 'new'],
+    supportsReferenceImages: true,
+    // Same 7/14 base per output image, plus 0.5 cr per input image beyond the
+    // first (the first input image is free). Source (user-supplied).
+    pricing: {
+      unit: 'per-image',
+      credits: 7,
+      priceFor: ({ imageCount = 1, resolution = '1K', inputImageCount = 1 }) => {
+        const perImage = resolution === '2K' ? 14 : 7
+        const inputSurcharge = 0.5 * Math.max(0, inputImageCount - 1)
+        return perImage * imageCount + inputSurcharge
+      },
+    },
+    imageConstraints: { resolutions: ['1K', '2K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
   },
 
   // ── Video generation ──────────────────────────────────────────
@@ -704,6 +740,7 @@ export function getChatEndpointPath(modelId: string = 'gemini-3-flash'): string 
 export interface CostEstimateParams {
   durationSeconds?: number
   imageCount?: number
+  inputImageCount?: number
   tokenCount?: number
   charCount?: number
   resolution?: string
@@ -778,12 +815,14 @@ export function buildImageInput(modelId: string, opts: ImageGenOptions): Record<
       ...(opts.inputUrls?.length ? { image_input: opts.inputUrls } : {}),
     }
   }
-  if (modelId === 'seedream/5-lite-text-to-image') {
-    // Seedream Lite is single-tier; map any resolution to its 'basic' quality.
+  if (modelId.startsWith('seedream/5-pro')) {
+    // Seedream 5.0 Pro: 1K→'basic', 2K→'high'. The text-to-image slug omits
+    // image_urls; the image-to-image slug requires it (added when refs present).
     return {
       prompt: opts.prompt,
       aspect_ratio: ar,
-      quality: resolution === '1K' ? 'basic' : 'high',
+      quality: resolution === '2K' ? 'high' : 'basic',
+      ...(opts.inputUrls?.length ? { image_urls: opts.inputUrls } : {}),
     }
   }
   // Fallback: send prompt + aspect_ratio and hope for the best
