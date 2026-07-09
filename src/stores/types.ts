@@ -171,8 +171,10 @@ export interface ScriptHistoryItem {
   // app-level unions.
   brief?: string
   writeStyle?: string
-  writeFormat?: 'script' | 'scenes' | 'prompt'
+  writeFormat?: 'script' | 'hooks' | 'scenes' | 'prompt'
   writeLength?: number
+  // Hooks format only: the formula-family choice ('auto' or a category slug).
+  hookCategory?: string
   createdAt: number
 }
 

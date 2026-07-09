@@ -4,7 +4,7 @@ import GenerationProgress from '../../../components/GenerationProgress'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAppStore } from '../../../stores/appStore'
 import type { CinematicHandoffRef, CinematicVideoPayload, Model } from '../../../stores/types'
-import { REMIX_ANGLE_LABEL, type RemixAngle, type ScriptMode, type WriteFormat, type WriteLength } from '../types'
+import { REMIX_ANGLE_LABEL, HOOK_CATEGORY_META, HOOK_COUNT, parseHooks, hooksPlainText, type ParsedHook, type RemixAngle, type ScriptMode, type WriteFormat, type WriteLength } from '../types'
 
 // The cinematic handoff lands in Playground on a ref-capable, native-audio
 // model so the @INFLUENCER + @PRODUCT references actually lock and the VO bakes
@@ -21,6 +21,8 @@ interface OutputPanelProps {
   liveMode?: ScriptMode
   writeFormat?: WriteFormat
   writeStyleLabel?: string
+  // Hooks format only — the family choice that produced the shown pack.
+  hookCategoryLabel?: string
   linkedProductId: string | null
   // Cinematic 'prompt' format only: the influencer + clip length that ride the
   // Playground handoff. Ignored by the script / scene formats.
@@ -110,6 +112,9 @@ interface VariationCardProps {
   mode: ScriptMode
   // Cinematic 'prompt' format extras — drive the refs-aware Playground handoff.
   isCinematic?: boolean
+  // Hooks format: renders the tagged one-liners as per-hook rows; copy/save use
+  // the clean spoken lines (tags stripped).
+  isHooks?: boolean
   productImage?: string
   productName?: string
   influencerImage?: string
@@ -130,6 +135,7 @@ function VariationCard({
   linkedProductId,
   mode,
   isCinematic = false,
+  isHooks = false,
   productImage,
   productName,
   influencerImage,
@@ -172,17 +178,23 @@ function VariationCard({
   // remaining text into scenes — otherwise the appended profile gets merged into
   // the last scene's body.
   const { scenes, voiceProfile } = useMemo(() => {
-    if (isCinematic) return { scenes: null, voiceProfile: '' }
+    if (isCinematic || isHooks) return { scenes: null, voiceProfile: '' }
     const { body, rest } = splitVoiceProfile(text)
     const parsed = splitScenes(rest)
     return { scenes: parsed, voiceProfile: parsed ? body : '' }
-  }, [text, isCinematic])
+  }, [text, isCinematic, isHooks])
+
+  // Hooks: the raw text carries <FAMILY> tags — parse them into rows, and use
+  // the clean spoken lines for copy / save-to-bank.
+  const hooks = useMemo<ParsedHook[] | null>(() => (isHooks ? parseHooks(text) : null), [text, isHooks])
+  const shareText = isHooks ? hooksPlainText(text) : text
 
   // A plain spoken script (remix variation, or a write-mode 'script' output)
   // can be read aloud → Voiceovers. A scene blueprint (reverse-engineer, or a
   // write-mode 'scenes' output) is a prompt asset → Playground. A cinematic
   // master prompt is its own thing — never spoken, only the Playground handoff.
-  const isSpokenScript = !isCinematic && (mode === 'remix' || (mode === 'write' && !scenes))
+  // A hooks pack is a list of standalone openers — copy/save only, no sends.
+  const isSpokenScript = !isCinematic && !isHooks && (mode === 'remix' || (mode === 'write' && !scenes))
 
   const startEdit = () => {
     setDraft(text)
@@ -229,10 +241,10 @@ function VariationCard({
   }
 
   const handleCopyAll = async () => {
-    const ok = await copyToClipboard(text)
+    const ok = await copyToClipboard(shareText)
     if (ok) {
       setCopied(true)
-      addToast('Script copied to clipboard')
+      addToast(isHooks ? 'Hooks copied to clipboard' : 'Script copied to clipboard')
       setTimeout(() => setCopied(false), 2000)
     } else {
       addToast('Copy failed', 'error')
@@ -242,10 +254,11 @@ function VariationCard({
   const saveToBank = (title: string) => {
     addScript({
       title,
-      scriptText: text,
+      scriptText: shareText,
       linkedProductId: linkedProductId ?? '',
       source: 'script-architect',
-      kind: isSpokenScript ? 'remix' : 'reverse-engineer',
+      // Hooks are spoken one-liners, so they file with the spoken scripts.
+      kind: isSpokenScript || isHooks ? 'remix' : 'reverse-engineer',
     })
     setSavedOnce(true)
     setSaved(true)
@@ -317,6 +330,11 @@ function VariationCard({
               {scenes.length} scene{scenes.length === 1 ? '' : 's'}
             </span>
           )}
+          {hooks && !editing && (
+            <span className="rounded-full bg-ink/5 px-2.5 py-0.5 text-[10px] text-ink-500">
+              {hooks.length} hook{hooks.length === 1 ? '' : 's'}
+            </span>
+          )}
         </div>
         {onEdit && !editing && (
           <div className="absolute left-2 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
@@ -351,7 +369,7 @@ function VariationCard({
             className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-300"
           >
             {copied ? <Check className="h-3 w-3 text-green-400 light:text-green-600" /> : <Copy className="h-3 w-3" />}
-            {copied ? 'Copied' : scenes ? 'Copy Full Script' : 'Copy'}
+            {copied ? 'Copied' : scenes ? 'Copy Full Script' : hooks ? 'Copy All' : 'Copy'}
           </button>
         )}
         {editing && (
@@ -372,6 +390,11 @@ function VariationCard({
             spellCheck={false}
             className="min-h-[320px] w-full resize-y rounded-2xl border border-ink/10 bg-surface-0 p-3 text-[13px] font-light leading-relaxed tracking-tight text-ink-100 outline-none transition-colors focus:border-scripts-500/30"
           />
+        ) : hooks ? (
+          // One row per hook — family chip + the line + its own copy button.
+          <>
+            {hooks.map((hook, i) => <HookLineCard key={i} hook={hook} index={i} />)}
+          </>
         ) : isCinematic ? (
           // One structured master prompt — preserve the section layout as-is.
           <div className="whitespace-pre-wrap text-[13px] font-light leading-relaxed tracking-tight text-ink-100">
@@ -463,6 +486,10 @@ function VariationCard({
                 Send to Playground
                 <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.75} />
               </button>
+            ) : isHooks ? (
+              // A hook pack has no full-script send target — each line is a
+              // different video's opener. Copy per row / save the pack.
+              null
             ) : (
               <>
                 {isSpokenScript && (
@@ -539,6 +566,45 @@ function VoiceProfileCard({ body }: { body: string }) {
   )
 }
 
+// One hook in the pack — its family chip, the spoken line, and a copy button.
+// The copy target is the clean line only (the chip is UI metadata).
+function HookLineCard({ hook, index }: { hook: ParsedHook; index: number }) {
+  const [copied, setCopied] = useState(false)
+  const addToast = useAppStore((s) => s.addToast)
+  const handleCopy = async () => {
+    const ok = await copyToClipboard(hook.text)
+    if (ok) {
+      setCopied(true)
+      addToast('Hook copied to clipboard')
+      setTimeout(() => setCopied(false), 2000)
+    } else {
+      addToast('Copy failed', 'error')
+    }
+  }
+  return (
+    <div className="rounded-2xl border border-ink/5 bg-ink/[0.02] p-3 card-soft-shadow">
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className="shrink-0 text-[10px] font-semibold tabular-nums text-ink-600">{index + 1}</span>
+          {hook.category && (
+            <span className="truncate rounded-full bg-scripts-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-tight text-scripts-300">
+              {HOOK_CATEGORY_META[hook.category].label}
+            </span>
+          )}
+        </span>
+        <button
+          onClick={handleCopy}
+          className="flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium text-ink-600 transition-colors hover:bg-ink/5 hover:text-ink-300"
+        >
+          {copied ? <Check className="h-3 w-3 text-green-400 light:text-green-600" /> : <Copy className="h-3 w-3" />}
+          {copied ? 'Copied' : 'Copy'}
+        </button>
+      </div>
+      <p className="text-sm font-light leading-normal tracking-tight text-ink-100">{hook.text}</p>
+    </div>
+  )
+}
+
 function SceneChunkCard({ chunk }: { chunk: SceneChunk }) {
   const [copied, setCopied] = useState(false)
   const addToast = useAppStore((s) => s.addToast)
@@ -575,7 +641,7 @@ function SceneChunkCard({ chunk }: { chunk: SceneChunk }) {
   )
 }
 
-export default function OutputPanel({ variations, mode, liveMode, writeFormat, writeStyleLabel, linkedProductId, influencer, cinematicDuration, isGenerating, error, onEditVariation }: OutputPanelProps) {
+export default function OutputPanel({ variations, mode, liveMode, writeFormat, writeStyleLabel, hookCategoryLabel, linkedProductId, influencer, cinematicDuration, isGenerating, error, onEditVariation }: OutputPanelProps) {
   // Resolve the linked product so saved scripts get a meaningful default title
   // ("<Product> — Hook-Led Script") and the cinematic handoff has its image.
   const products = useBankStore((s) => s.products)
@@ -585,6 +651,8 @@ export default function OutputPanel({ variations, mode, liveMode, writeFormat, w
   // Cinematic master-prompt cards (write mode + 'prompt' format) get their own
   // labels, body, and Playground-only handoff.
   const isCinematic = mode === 'write' && writeFormat === 'prompt'
+  // A hooks pack (write mode + 'hooks' format) renders as tagged one-liners.
+  const isHooks = mode === 'write' && writeFormat === 'hooks'
 
   // Take switcher — a 1/2/3 row above the cards that scrolls the matching take
   // into view. `activeTake` tracks which card is currently nearest the top so
@@ -641,7 +709,9 @@ export default function OutputPanel({ variations, mode, liveMode, writeFormat, w
     const message = copyMode === 'write'
       ? (writeFormat === 'prompt'
           ? ['Reading your brief...', 'Directing 3 cinematic concepts...', 'Building the world bible...', 'Laying out the timeline...']
-          : ['Reading your brief...', 'Writing 3 takes...', 'Making it sound human...', 'Tightening the hooks...'])
+          : writeFormat === 'hooks'
+            ? ['Reading your brief...', 'Digging through the hook library...', `Writing ${HOOK_COUNT} hooks...`, 'Cutting the weak ones...']
+            : ['Reading your brief...', 'Writing 3 takes...', 'Making it sound human...', 'Tightening the hooks...'])
       : copyMode === 'remix'
         ? ['Building 3 angles...', 'Sending parallel requests...', 'Writing variations...', 'Polishing final drafts...']
         : ['Reading scene blueprint...', 'Mapping product into structure...', 'Rewriting scenes...', 'Preserving structure...']
@@ -667,7 +737,7 @@ export default function OutputPanel({ variations, mode, liveMode, writeFormat, w
         <PenLine className="h-8 w-8 text-ink-800" strokeWidth={1.5} />
         <p className="text-sm text-ink-700">
           {copyMode === 'write'
-            ? (writeFormat === 'prompt' ? 'Your 3 cinematic concepts will appear here' : 'Your 3 takes will appear here')
+            ? (writeFormat === 'prompt' ? 'Your 3 cinematic concepts will appear here' : writeFormat === 'hooks' ? `Your ${HOOK_COUNT} hooks will appear here` : 'Your 3 takes will appear here')
             : copyMode === 'remix' ? 'Your 3 script variations will appear here' : 'Your scene prompts will appear here'}
         </p>
         {error && (
@@ -711,25 +781,29 @@ export default function OutputPanel({ variations, mode, liveMode, writeFormat, w
           const isRemix = mode === 'remix'
           const isWrite = mode === 'write'
           const angleLabel = isRemix && variations.length === 3 ? REMIX_ANGLE_LABEL[angles[i]] : null
-          const cardTitle = isCinematic
-            ? `Concept ${i + 1} · Cinematic`
-            : isWrite
-              ? `Take ${i + 1}${writeStyleLabel ? ` · ${writeStyleLabel}` : ''}`
-              : angleLabel
-                ? `Variation ${i + 1}: ${angleLabel}`
-                : isRemix
-                  ? `Variation ${i + 1}`
-                  : 'Scene prompts'
-          const defaultSaveTitle = isCinematic
-            ? (productName ? `${productName} — Cinematic Concept ${i + 1}` : `Cinematic Concept ${i + 1}`)
-            : isWrite && productName
-              ? `${productName} — ${writeStyleLabel ?? 'New'} Take ${i + 1}`
-              : isRemix && productName
-                ? `${productName} — ${angleLabel ?? `Variation ${i + 1}`} Script`
-                : deriveTitleFromContent(
-                    text,
-                    mode === 'reverse-engineer' ? 'Reverse-engineered prompts' : 'Untitled script',
-                  )
+          const cardTitle = isHooks
+            ? `Hooks · ${hookCategoryLabel ?? 'Best Mix'}`
+            : isCinematic
+              ? `Concept ${i + 1} · Cinematic`
+              : isWrite
+                ? `Take ${i + 1}${writeStyleLabel ? ` · ${writeStyleLabel}` : ''}`
+                : angleLabel
+                  ? `Variation ${i + 1}: ${angleLabel}`
+                  : isRemix
+                    ? `Variation ${i + 1}`
+                    : 'Scene prompts'
+          const defaultSaveTitle = isHooks
+            ? (productName ? `${productName} — Hooks (${hookCategoryLabel ?? 'Best Mix'})` : `Hooks — ${hookCategoryLabel ?? 'Best Mix'}`)
+            : isCinematic
+              ? (productName ? `${productName} — Cinematic Concept ${i + 1}` : `Cinematic Concept ${i + 1}`)
+              : isWrite && productName
+                ? `${productName} — ${writeStyleLabel ?? 'New'} Take ${i + 1}`
+                : isRemix && productName
+                  ? `${productName} — ${angleLabel ?? `Variation ${i + 1}`} Script`
+                  : deriveTitleFromContent(
+                      text,
+                      mode === 'reverse-engineer' ? 'Reverse-engineered prompts' : 'Untitled script',
+                    )
           return (
             <VariationCard
               key={i}
@@ -740,6 +814,7 @@ export default function OutputPanel({ variations, mode, liveMode, writeFormat, w
               linkedProductId={linkedProductId}
               mode={mode}
               isCinematic={isCinematic}
+              isHooks={isHooks}
               productImage={product?.productImage}
               productName={productName}
               influencerImage={influencer?.characterImage}

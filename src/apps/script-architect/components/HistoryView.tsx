@@ -1,17 +1,23 @@
 import { useMemo, useState } from 'react'
-import { Search, FileText, Trash2, PenLine, Clapperboard } from 'lucide-react'
+import { Search, FileText, Trash2, PenLine, Clapperboard, FishingHook } from 'lucide-react'
 import type { ScriptHistoryItem } from '../../../stores/types'
-import { WRITE_STYLE_META } from '../types'
+import { WRITE_STYLE_META, HOOK_CATEGORY_META, isHookCategoryChoice, parseHooks } from '../types'
+
+const isHooksItem = (item: ScriptHistoryItem) => item.mode === 'write' && item.writeFormat === 'hooks'
 
 // A clean, recognisable title for a history row — "<Product> · <descriptor>"
 // — so the list reads as titles you click to restore, not raw script dumps.
 function historyTitle(item: ScriptHistoryItem): string {
   const product = item.productName?.trim()
-  const descriptor = item.mode === 'write'
-    ? (item.writeStyle && item.writeStyle in WRITE_STYLE_META
-        ? WRITE_STYLE_META[item.writeStyle as keyof typeof WRITE_STYLE_META].label
-        : 'Written script')
-    : item.mode === 'remix' ? 'Remix' : 'Scenes'
+  const descriptor = isHooksItem(item)
+    ? (isHookCategoryChoice(item.hookCategory) && item.hookCategory !== 'auto'
+        ? `${HOOK_CATEGORY_META[item.hookCategory].label} Hooks`
+        : 'Hooks')
+    : item.mode === 'write'
+      ? (item.writeStyle && item.writeStyle in WRITE_STYLE_META
+          ? WRITE_STYLE_META[item.writeStyle as keyof typeof WRITE_STYLE_META].label
+          : 'Written script')
+      : item.mode === 'remix' ? 'Remix' : 'Scenes'
   return product ? `${product} · ${descriptor}` : descriptor
 }
 
@@ -138,12 +144,15 @@ export default function HistoryView({ items, activeId, onSelect, onDelete }: His
 
                 {dayItems.map((item) => {
                   const isActive = activeId === item.id
-                  const ModeIcon = item.mode === 'write' ? PenLine : item.mode === 'remix' ? FileText : Clapperboard
-                  const modeColor = item.mode === 'write' ? 'text-emerald-300 light:text-emerald-700' : item.mode === 'remix' ? 'text-scripts-300' : 'text-fuchsia-300 light:text-fuchsia-700'
-                  const count = item.variations.length
-                  const countLabel = item.mode === 'write'
-                    ? `${count} take${count === 1 ? '' : 's'}`
-                    : `${count} variation${count === 1 ? '' : 's'}`
+                  const hooksRow = isHooksItem(item)
+                  const ModeIcon = hooksRow ? FishingHook : item.mode === 'write' ? PenLine : item.mode === 'remix' ? FileText : Clapperboard
+                  const modeColor = hooksRow ? 'text-amber-300 light:text-amber-700' : item.mode === 'write' ? 'text-emerald-300 light:text-emerald-700' : item.mode === 'remix' ? 'text-scripts-300' : 'text-fuchsia-300 light:text-fuchsia-700'
+                  const count = hooksRow ? parseHooks(item.variations[0] ?? '').length : item.variations.length
+                  const countLabel = hooksRow
+                    ? `${count} hook${count === 1 ? '' : 's'}`
+                    : item.mode === 'write'
+                      ? `${count} take${count === 1 ? '' : 's'}`
+                      : `${count} variation${count === 1 ? '' : 's'}`
                   return (
                     <div
                       key={item.id}

@@ -265,18 +265,20 @@ merged into one Remix mode — the source box auto-detects the pasted format).
   scenes will be rewritten" with a **Remix as script instead** override button
   (toggles back via "Rewrite scenes instead").
 - **Write New:**
-  1. **Output** sub-toggle — left→right **Script · Scenes · Cinematic**.
+  1. **Output** sub-toggle — left→right **Script · Hooks · Scenes · Cinematic**.
   2. **Product Context** card (+ "Edit product details" link).
   3. **Script Style** picker — *replaced by an optional **Character** picker when
-     Output = Cinematic*.
-  4. **Describe Your Video** textarea (the brief; optional).
-     - ⚠️ The label is **"Describe Your Video"**. Older copy and the June
-       screenshots say "Describe Your Ad"; the live label is the former.
-  5. **Length** toggle — 10s / 15s / 30s / 60s (Cinematic caps to 10s/15s).
+     Output = Cinematic, and by the **Hook Style** picker when Output = Hooks*
+     (a slide-over with **Best Mix** (auto, default) + the 7 hook families:
+     Educational · Comparison · Myth Busting · Storytelling · Authority · Day in
+     the Life · Pattern Interrupt; the X on a chosen family resets to Best Mix).
+  4. **Describe Your Ad** textarea (the brief; optional).
+  5. **Length** toggle — 10s / 15s / 30s / 60s (Cinematic caps to 10s/15s;
+     hidden entirely for Hooks — they're one-liners).
 
 **Generate button** (pinned bottom): label varies — "Generate 3 Scripts" /
-"Generate 3 Scene Drafts" / "Generate 3 Cinematic Concepts" / "Generate 3 Script
-Variations" / "Rewrite Scene Prompts".
+"Generate 10 Hooks" / "Generate 3 Scene Drafts" / "Generate 3 Cinematic
+Concepts" / "Generate 3 Script Variations" / "Rewrite Scene Prompts".
 
 ### Right output (`components/OutputPanel.tsx`)
 
@@ -287,7 +289,8 @@ then a wrapping action-button row. Button order (`OutputPanel.tsx:275`):
 - **Save to Bank** (always, leading).
 - Then conditionally: **Send to Voiceovers** (spoken scripts) · **Send to B-Roll**
   (all non-cinematic) · **Send to Playground** (scene formats; and the *only* send
-  target for Cinematic).
+  target for Cinematic). A Hooks pack gets no send buttons — each row is its own
+  opener with a per-hook Copy, plus a Copy All in the card header.
 
 (The June screenshot's "Send to Characters" is stale — no such button exists.)
 

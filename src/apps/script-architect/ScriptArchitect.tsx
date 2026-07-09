@@ -7,7 +7,7 @@ import InputPanel from './components/InputPanel'
 import RightPanel from './components/RightPanel'
 import { generateScript } from './services/generateScript'
 import { humanizeError } from '../../utils/friendlyError'
-import { WRITE_STYLE_META, detectSceneBlueprint, isWriteStyle, type ScriptMode, type ScriptUiMode, type EditableProductContext, type WriteStyle, type WriteFormat, type WriteLength } from './types'
+import { WRITE_STYLE_META, HOOK_CATEGORY_META, detectSceneBlueprint, isWriteStyle, isHookCategoryChoice, parseHooks, type ScriptMode, type ScriptUiMode, type EditableProductContext, type WriteStyle, type WriteFormat, type WriteLength, type HookCategoryChoice } from './types'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
 
 interface ReverseEngineerPayload {
@@ -51,6 +51,10 @@ export default function ScriptArchitect() {
   })
   const [writeFormat, setWriteFormat] = usePersistedState<WriteFormat>(`${baseKey}:writeFormat`, 'script')
   const [writeLength, setWriteLength] = usePersistedState<WriteLength>(`${baseKey}:writeLength`, 15)
+  // Hooks format: which formula family the pack draws from ('auto' = mixed).
+  const [hookCategory, setHookCategory] = usePersistedState<HookCategoryChoice>(`${baseKey}:hookCategory`, 'auto', {
+    sanitize: (v) => (isHookCategoryChoice(v) ? v : 'auto'),
+  })
   const [selectedProductId, setSelectedProductId] = usePersistedState<string | null>(`${baseKey}:productId`, null)
   // Influencer (Bank → Influencers / models) for the cinematic 'prompt' format.
   // Optional, only used by that format: its portrait rides the Playground
@@ -71,6 +75,9 @@ export default function ScriptArchitect() {
   // prompt — not whatever the live left-panel toggles read now.
   const [outputFormat, setOutputFormat] = usePersistedState<WriteFormat>(`${baseKey}:outputFormat`, 'script')
   const [outputLength, setOutputLength] = usePersistedState<WriteLength>(`${baseKey}:outputLength`, 15)
+  const [outputHookCategory, setOutputHookCategory] = usePersistedState<HookCategoryChoice>(`${baseKey}:outputHookCategory`, 'auto', {
+    sanitize: (v) => (isHookCategoryChoice(v) ? v : 'auto'),
+  })
   const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -160,6 +167,7 @@ export default function ScriptArchitect() {
     setOutputStyle(writeStyle)
     setOutputFormat(writeFormat)
     setOutputLength(writeLength)
+    setOutputHookCategory(hookCategory)
     // Route the merged source into the field the resolved pipeline reads.
     const winningTranscript = resolvedMode === 'remix' ? source : ''
     const reversePrompt = resolvedMode === 'reverse-engineer' ? source : ''
@@ -172,6 +180,7 @@ export default function ScriptArchitect() {
         writeStyle,
         writeFormat,
         writeLength,
+        hookCategory,
         productId: selectedProduct.id,
         productName: selectedProduct.productName,
         productContext,
@@ -194,14 +203,16 @@ export default function ScriptArchitect() {
         writeStyle,
         writeFormat,
         writeLength,
+        hookCategory,
         createdAt: Date.now(),
       }
       addScriptHistory(item)
       setActiveHistoryId(item.id)
 
+      const hookCount = writeFormat === 'hooks' ? parseHooks(result.variations[0] ?? '').length : 0
       useAppStore.getState().addToast(
         resolvedMode === 'write'
-          ? (writeFormat === 'prompt' ? '3 cinematic concepts generated' : writeFormat === 'scenes' ? '3 scene drafts generated' : '3 scripts generated')
+          ? (writeFormat === 'hooks' ? `${hookCount || 'Your'} hooks generated` : writeFormat === 'prompt' ? '3 cinematic concepts generated' : writeFormat === 'scenes' ? '3 scene drafts generated' : '3 scripts generated')
           : resolvedMode === 'remix' ? '3 script variations generated' : 'Script rewritten',
         'success',
       )
@@ -224,6 +235,7 @@ export default function ScriptArchitect() {
     setOutputStyle(item.writeStyle && item.writeStyle in WRITE_STYLE_META ? (item.writeStyle as WriteStyle) : 'pas')
     setOutputFormat(item.writeFormat ?? 'script')
     setOutputLength(item.writeLength === 10 || item.writeLength === 15 || item.writeLength === 30 || item.writeLength === 60 ? item.writeLength : 15)
+    setOutputHookCategory(isHookCategoryChoice(item.hookCategory) ? item.hookCategory : 'auto')
     // Restore the left-panel inputs too. Older rows (saved before these
     // fields existed) fall back to the inputSummary slice for the source so
     // something sensible reappears.
@@ -244,6 +256,9 @@ export default function ScriptArchitect() {
       if (item.writeFormat) setWriteFormat(item.writeFormat)
       if (item.writeLength === 10 || item.writeLength === 15 || item.writeLength === 30 || item.writeLength === 60) {
         setWriteLength(item.writeLength)
+      }
+      if (item.writeFormat === 'hooks' && isHookCategoryChoice(item.hookCategory)) {
+        setHookCategory(item.hookCategory)
       }
     }
   }
@@ -277,6 +292,8 @@ export default function ScriptArchitect() {
           onWriteFormatChange={setWriteFormat}
           writeLength={writeLength}
           onWriteLengthChange={setWriteLength}
+          hookCategory={hookCategory}
+          onHookCategoryChange={setHookCategory}
           selectedProduct={selectedProduct}
           onProductSelect={handleProductSelect}
           selectedInfluencer={selectedInfluencer}
@@ -296,6 +313,7 @@ export default function ScriptArchitect() {
           outputMode={outputMode}
           writeFormat={outputFormat}
           writeStyleLabel={WRITE_STYLE_META[outputStyle].label}
+          hookCategoryLabel={HOOK_CATEGORY_META[outputHookCategory].label}
           linkedProductId={selectedProduct?.id ?? null}
           influencer={selectedInfluencer}
           cinematicDuration={outputLength}
