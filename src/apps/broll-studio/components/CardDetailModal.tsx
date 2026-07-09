@@ -613,7 +613,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                             value={cardState.cardImageResolution}
                             onChange={(v) => onUpdateState({ cardImageResolution: v as ImageResolution })}
                             renderOption={(v) => {
-                              const credits = formatCredits(estimateCredits(imageModelId, { imageCount: 1, resolution: v as ImageResolution }))
+                              const credits = formatCredits(estimateCredits(imageModelId ?? '', { imageCount: 1, resolution: v as ImageResolution }))
                               return (
                                 <span className="flex w-full items-center justify-between gap-6">
                                   <span>{v}</span>
