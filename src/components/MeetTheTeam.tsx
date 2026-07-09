@@ -96,12 +96,12 @@ export default function MeetTheTeam() {
               className="font-normal italic"
               style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
             >
-              team
+              Team
             </span>
           </h2>
           <p className="mx-auto mt-1 max-w-md text-[13px] leading-snug text-ink-500">
             Seven specialists, one studio. They share the same banks and pass
-            work to each other — so you don't have to.
+            work to each other, so you don't have to.
           </p>
         </div>
 
