@@ -453,12 +453,18 @@ pill, and tile carries a subtle drop shadow. Top→bottom:
   phrase; name from `profile.first_name`, omitted in local-only mode), one-line
   sub. Top-right: **Get Credits** (kie.ai/billing) and **Community** (Skool)
   pill links.
-- **Bento grid** (12-col on `md:`):
-  - **Time saved** card (5 cols): serif hero ("286 hrs"), workdays sub-line
-    ("…of production and tool-hopping…"). No hover tooltip — assumptions live in
-    `utils/usage.ts` (`MINUTES_SAVED_PER_GEN` + `TASK_SWITCH_MINUTES_PER_GEN`).
-  - **Money saved** card (4 cols): serif hero USD, sub "vs official APIs &
-    creator platforms · N credits used".
+- **Bento grid** (12-col on `md:`). While no kie.ai key is saved, a slim
+  full-width **red to-do row** (`ConnectKeyCard.tsx` — unchecked circle +
+  "Connect your kie.ai API key to get started") sits ABOVE the metric cards;
+  clicking opens the same 4-step `ApiKeyGuide` popup as the menu bar's red
+  alert (→ Open Settings), and the row removes itself once a key lands. Cards:
+  - **Time saved** card (5 cols): serif hero ("286 hrs"), a green
+    "+N hrs this week" delta (rolling 7 days, hidden at zero), workdays
+    sub-line ("…of production and tool-hopping…"). No hover tooltip —
+    assumptions live in `utils/usage.ts` (`MINUTES_SAVED_PER_GEN` +
+    `TASK_SWITCH_MINUTES_PER_GEN`).
+  - **Money saved** card (4 cols): serif hero USD, green "+$N this week"
+    delta, sub "vs official APIs & creator platforms · N credits used".
   - **Streaks** card (3 cols): three icon rows — current streak (flame, green),
     longest streak (trophy), active days since first activity (calendar).
   - **Activity** card (full width): 26-week GitHub-style heatmap
