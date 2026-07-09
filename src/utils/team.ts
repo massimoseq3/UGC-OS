@@ -24,7 +24,7 @@ export const TEAM: TeamMember[] = [
     appId: 'character-studio',
     name: 'Clawdia',
     role: 'Casting Director',
-    blurb: 'Creates the faces of your ads — consistent characters you can book again and again.',
+    blurb: 'Casts consistent characters you can book again and again.',
   },
   {
     appId: 'script-architect',
@@ -35,7 +35,7 @@ export const TEAM: TeamMember[] = [
   {
     appId: 'voice-studio',
     name: 'Echo',
-    role: 'Voice Talent',
+    role: 'Voice Actor',
     blurb: 'Reads your script out loud in any of dozens of voices.',
   },
   {

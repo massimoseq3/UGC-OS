@@ -7,6 +7,7 @@ import { useCreditsStore } from '../stores/creditsStore'
 import { useCloseOnAppSwitch } from '../hooks/useCloseOnAppSwitch'
 import { getAppConfig, SKOOL_COMMUNITY_URL } from '../utils/constants'
 import AppLogo from './AppLogo'
+import CrabSprite from './CrabSprite'
 import SettingsModal from './SettingsModal'
 
 // Thin macOS-style menu bar: branding + the active app's name on the left,
@@ -112,7 +113,7 @@ function CreditsItem() {
             <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
           </span>
           {/* Phones get just the pulsing dot — the tooltip + popup carry the message. */}
-          <span className="hidden sm:inline">Please enter your kie.ai API key</span>
+          <span className="hidden sm:inline">Connect your kie.ai API key</span>
         </button>
         {guideOpen &&
           createPortal(
@@ -174,6 +175,9 @@ function ApiKeyGuide({ onClose, onOpenSettings }: { onClose: () => void; onOpenS
       >
         <div className="mb-4 flex items-start justify-between">
           <div>
+            <span className="mb-2 flex h-11 w-11 items-center justify-center rounded-xl bg-amber-400/10">
+              <CrabSprite variant="kie" className="h-8 w-[2.7rem]" />
+            </span>
             <h2 className="text-lg font-semibold tracking-tight text-ink-100">Connect your kie.ai API key</h2>
             <p className="mt-1 text-[12px] leading-relaxed text-ink-500">
               UGC OS runs every generation through your own kie.ai account. Until a key is saved, nothing can generate.

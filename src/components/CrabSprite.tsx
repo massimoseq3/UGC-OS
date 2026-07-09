@@ -98,12 +98,14 @@ const COSTUMES: Record<CrabVariant, Px[]> = {
     { x: 10, y: 7, w: 1, h: 1, fill: '#FFD84D' },
   ],
 
-  // Strategist — magnifying glass held over the right eye.
+  // Strategist — magnifying glass held over the right eye. Dark rim so the
+  // lens reads on any body color (the card tints the body its app accent —
+  // a red rim would vanish into Ad Analyzer's own red).
   'ad-anatomy': [
-    { x: 8, y: 4, w: 3, h: 1, fill: '#FF5257' }, // lens ring
-    { x: 8, y: 6, w: 3, h: 1, fill: '#FF5257' },
-    { x: 8, y: 5, w: 1, h: 1, fill: '#FF5257' },
-    { x: 10, y: 5, w: 1, h: 1, fill: '#FF5257' },
+    { x: 8, y: 4, w: 3, h: 1, fill: DARK }, // lens ring
+    { x: 8, y: 6, w: 3, h: 1, fill: DARK },
+    { x: 8, y: 5, w: 1, h: 1, fill: DARK },
+    { x: 10, y: 5, w: 1, h: 1, fill: DARK },
     { x: 11, y: 7, w: 1, h: 1, fill: DARK }, // handle
     { x: 12, y: 8, w: 1, h: 1, fill: DARK },
   ],
