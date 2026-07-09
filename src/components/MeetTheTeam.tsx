@@ -4,6 +4,7 @@ import { useAppStore } from '../stores/appStore'
 import { getAppConfig } from '../utils/constants'
 import { TEAM } from '../utils/team'
 import CrabSprite from './CrabSprite'
+import AppLogo from './AppLogo'
 
 // "Meet the team" onboarding — frames the dock apps as a production crew,
 // one crab per role. Auto-opens once per browser (appStore.teamIntroOpen),
@@ -89,7 +90,7 @@ export default function MeetTheTeam() {
         </button>
 
         <div className="mb-4 text-center">
-          <CrabSprite variant="plain" className="mx-auto mb-2 h-9 w-12" />
+          <AppLogo className="mx-auto mb-0.5 h-12 w-12" />
           <h2 className="text-2xl font-bold tracking-tight text-ink-100">
             Meet Your{' '}
             <span
@@ -100,8 +101,8 @@ export default function MeetTheTeam() {
             </span>
           </h2>
           <p className="mx-auto mt-1 max-w-md text-[13px] leading-snug text-ink-500">
-            Seven specialists, one studio. They share the same banks and pass
-            work to each other, so you don't have to.
+            Seven specialists, one operating system. They share the same banks
+            and pass work to each other, so you don't have to.
           </p>
         </div>
 
@@ -124,6 +125,7 @@ export default function MeetTheTeam() {
                 >
                   <CrabSprite
                     variant={member.appId}
+                    body={member.roleColor ?? app.accent}
                     className="h-11 w-[3.75rem] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:-translate-y-0.5"
                   />
                 </span>
@@ -149,7 +151,7 @@ export default function MeetTheTeam() {
         {/* The fuel row — the crew works for kie.ai credits; no credits, no
             output. Kept to one compact horizontal strip so the modal never
             needs scrolling. */}
-        <div className="mt-4 flex items-center gap-4 rounded-2xl border border-ink/5 bg-ink/[0.03] px-4 py-3">
+        <div className="mx-auto mt-4 flex w-full max-w-[42.875rem] items-center gap-4 rounded-2xl border border-ink/5 bg-ink/[0.03] px-4 py-3">
           <span className="flex h-14 w-[4.5rem] shrink-0 items-center justify-center rounded-xl bg-amber-400/10">
             <CrabSprite variant="kie" className="h-10 w-[3.4rem]" />
           </span>
