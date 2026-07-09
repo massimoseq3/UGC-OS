@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react'
-import { Clock, PiggyBank, Flame, Trophy, CalendarCheck, ArrowUpRight } from 'lucide-react'
+import { Clock, PiggyBank, Flame, Trophy, CalendarCheck, ArrowUpRight, GraduationCap } from 'lucide-react'
 import type { ElementType, ReactNode } from 'react'
 import { useAuthStore } from '../../stores/authStore'
 import { useAppStore } from '../../stores/appStore'
@@ -8,7 +8,7 @@ import { useBankStore, backfillUsageLedger } from '../../stores/bankStore'
 import { isCloudEnabled } from '../../lib/supabase'
 import { creditsToUsd } from '../../utils/models'
 import { computeUsageMetrics, usageDayStart } from '../../utils/usage'
-import { getAppConfig, SKOOL_COMMUNITY_URL } from '../../utils/constants'
+import { getAppConfig, SKOOL_COMMUNITY_URL, AI_UGC_ACADEMY_URL } from '../../utils/constants'
 import { TEAM } from '../../utils/team'
 import CrabSprite from '../../components/CrabSprite'
 import ActivityHeatmap from './ActivityHeatmap'
@@ -138,8 +138,10 @@ export default function Dashboard() {
           </p>
         </BentoCard>
 
-        {/* Streaks — sits left of the activity heatmap, matching its height */}
-        <BentoCard className="col-span-2 md:col-span-4 md:h-[200px]">
+        {/* Streaks — sits left of the activity heatmap, matching its height.
+            Narrowed to col-span-3 to free room for the Academy card on the
+            row's right edge. */}
+        <BentoCard className="col-span-2 md:col-span-3 md:h-[200px]">
           <div className="flex h-full flex-col justify-between gap-4">
             <MiniStat
               icon={Flame}
@@ -163,8 +165,9 @@ export default function Dashboard() {
         </BentoCard>
 
         {/* Activity heatmap — a touch less padding so the grid clears the
-            shared row height */}
-        <BentoCard className="col-span-2 md:col-span-8 md:h-[200px]" pad="p-5">
+            shared row height. col-span-6 hugs the heatmap's natural width so
+            the old dead space on its right now holds the Academy card. */}
+        <BentoCard className="col-span-2 md:col-span-6 md:h-[200px]" pad="p-5">
           <div className="flex items-baseline justify-between gap-3">
             <CardLabel icon={CalendarCheck} label="Activity" />
             {hasActivity && (
@@ -177,6 +180,32 @@ export default function Dashboard() {
             <ActivityHeatmap days={usageDays} />
           </div>
         </BentoCard>
+
+        {/* AI UGC Academy — opens the training classroom in the community.
+            Fills the row's right edge (mirrors the crew tiles' ArrowUpRight
+            open-in-new affordance). */}
+        <a
+          href={AI_UGC_ACADEMY_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`group relative col-span-2 flex flex-col justify-between overflow-hidden rounded-3xl border border-ink/10 bg-surface-1/60 p-5 transition-all hover:-translate-y-px hover:border-dashboard-400/40 md:col-span-3 md:h-[200px] ${CARD_SHADOW}`}
+        >
+          <ArrowUpRight
+            className="absolute right-4 top-4 h-4 w-4 text-ink-600 transition-colors group-hover:text-dashboard-400"
+            strokeWidth={2}
+          />
+          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-dashboard-500/[0.12]">
+            <GraduationCap className="h-6 w-6 text-dashboard-400" strokeWidth={1.75} />
+          </span>
+          <div className="mt-3">
+            <p className="text-lg italic font-normal leading-tight tracking-tight text-ink-50" style={DISPLAY_FONT}>
+              AI UGC Academy
+            </p>
+            <p className="mt-1 text-[12px] leading-snug text-ink-500">
+              Step-by-step trainings to get more out of every tool.
+            </p>
+          </div>
+        </a>
 
         {/* The crew — one shortcut tile per teammate/app */}
         <div className="col-span-2 grid grid-cols-2 gap-3 md:col-span-12 md:grid-cols-4 lg:grid-cols-7">

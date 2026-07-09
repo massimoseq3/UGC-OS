@@ -100,12 +100,16 @@ const COSTUMES: Record<CrabVariant, Px[]> = {
 
   // Strategist — magnifying glass held over the right eye. Dark rim so the
   // lens reads on any body color (the card tints the body its app accent —
-  // a red rim would vanish into Ad Analyzer's own red).
+  // a red rim would vanish into Ad Analyzer's own red). The lens interior is
+  // painted light "glass" so the eye behind it stays visible instead of
+  // merging into the dark rim (the ring + a dark eye would fill all 9 cells,
+  // reading as a solid blob with no eye).
   'ad-anatomy': [
     { x: 8, y: 4, w: 3, h: 1, fill: DARK }, // lens ring
     { x: 8, y: 6, w: 3, h: 1, fill: DARK },
     { x: 8, y: 5, w: 1, h: 1, fill: DARK },
     { x: 10, y: 5, w: 1, h: 1, fill: DARK },
+    { x: 9, y: 5, w: 1, h: 1, fill: '#EAF1F4' }, // glass — reveals the eye
     { x: 11, y: 7, w: 1, h: 1, fill: DARK }, // handle
     { x: 12, y: 8, w: 1, h: 1, fill: DARK },
   ],

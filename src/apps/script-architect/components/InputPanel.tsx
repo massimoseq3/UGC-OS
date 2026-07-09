@@ -546,21 +546,6 @@ export default function InputPanel({
               />
             </div>
 
-            {/* Length — sits directly under the format toggle, tight with the
-                product + style cluster below it. Hooks are one-liners, so the
-                format has no duration and the toggle hides. */}
-            {!isHooksFormat && (
-            <div className="mb-3">
-              <SegmentedToggle<string>
-                className="h-12 !p-1"
-                accent="scripts"
-                value={String(writeLength)}
-                onChange={(v) => onWriteLengthChange(Number(v) as WriteLength)}
-                options={(isPromptFormat ? PROMPT_LENGTHS : WRITE_LENGTHS).map((len) => ({ value: String(len), label: `${len}s` }))}
-              />
-            </div>
-            )}
-
             {/* Cinematic format swaps the Script Style picker for an Influencer
                 picker — an optional consistent face for the @INFLUENCER ref. */}
             {isPromptFormat && influencerSection}
@@ -747,6 +732,20 @@ export default function InputPanel({
                 </div>
               </div>
             </div>
+
+            {/* Length — sits below the Describe Your Ad box. Hooks are
+                one-liners, so the format has no duration and the toggle hides. */}
+            {!isHooksFormat && (
+            <div className="mb-3">
+              <SegmentedToggle<string>
+                className="h-12 !p-1"
+                accent="scripts"
+                value={String(writeLength)}
+                onChange={(v) => onWriteLengthChange(Number(v) as WriteLength)}
+                options={(isPromptFormat ? PROMPT_LENGTHS : WRITE_LENGTHS).map((len) => ({ value: String(len), label: `${len}s` }))}
+              />
+            </div>
+            )}
           </>
         ) : (
           <div className="mb-6 flex grow flex-col">
