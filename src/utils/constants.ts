@@ -17,6 +17,10 @@ import type { ElementType } from 'react'
 // accounts as a link back to join.
 export const SKOOL_COMMUNITY_URL = 'https://www.skool.com/ai-ugc-lab-6995'
 
+// The paid training classroom inside the community — surfaced from the
+// Dashboard as the "AI UGC Academy" shortcut.
+export const AI_UGC_ACADEMY_URL = 'https://www.skool.com/ai-ugc-lab-6995/classroom/bd64d8bd?md=e629eb69abaf42f5b8d545538f7da046'
+
 // 'system' is the Dashboard's own leading dock group (its divider separates it
 // from Bank); admin never renders in the dock.
 export type AppCategory = 'library' | 'create' | 'tools' | 'admin' | 'system'
