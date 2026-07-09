@@ -188,7 +188,7 @@ export default function Dashboard() {
                 key={member.appId}
                 onClick={() => openApp(member.appId)}
                 title={`Open ${app.name}`}
-                className={`group relative flex flex-col items-start gap-2 rounded-2xl border border-ink/10 bg-surface-1/60 px-3.5 py-3 text-left transition-colors hover:border-ink/20 hover:bg-ink/[0.04] ${CARD_SHADOW}`}
+                className={`group relative flex flex-col items-start gap-2 rounded-2xl border border-ink/10 bg-surface-1/60 px-3.5 py-3 text-left transition-all hover:-translate-y-px ${CARD_SHADOW}`}
               >
                 <ArrowUpRight
                   className="absolute right-2.5 top-2.5 h-3.5 w-3.5 text-ink-600 transition-colors group-hover:text-ink-300"
@@ -200,7 +200,8 @@ export default function Dashboard() {
                 >
                   <CrabSprite
                     variant={member.appId}
-                    className="h-6 w-8 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:-translate-y-0.5"
+                    body={member.roleColor ?? app.accent}
+                    className="h-6 w-8"
                   />
                 </span>
                 {/* w-full so the truncation actually engages — items-start
@@ -227,7 +228,7 @@ export default function Dashboard() {
 function BentoCard({ className = '', pad = 'p-5 md:p-6', children }: { className?: string; pad?: string; children: ReactNode }) {
   return (
     <section
-      className={`rounded-3xl border border-ink/10 bg-surface-1/60 ${pad} ${CARD_SHADOW} transition-all hover:-translate-y-px hover:border-ink/20 ${className}`}
+      className={`rounded-3xl border border-ink/10 bg-surface-1/60 ${pad} ${CARD_SHADOW} transition-all hover:-translate-y-px ${className}`}
     >
       {children}
     </section>

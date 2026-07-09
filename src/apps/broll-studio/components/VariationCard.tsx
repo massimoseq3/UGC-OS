@@ -761,17 +761,25 @@ export default function VariationCard(props: VariationCardProps) {
             // bottom. The mask fades the text to transparent regardless of the
             // translucent card background behind it. `pt-9` clears the
             // top-left type chip.
-            <div className="flex h-full w-full flex-col px-3 pb-3 pt-9">
-              <p
-                className="flex-1 overflow-hidden whitespace-pre-wrap text-[11px] leading-relaxed tracking-tight text-ink-400"
-                style={{
-                  maskImage: 'linear-gradient(to bottom, #000 72%, transparent)',
-                  WebkitMaskImage: 'linear-gradient(to bottom, #000 72%, transparent)',
-                }}
-              >
-                {cardState.editablePrompt}
+            <>
+              <div className="flex h-full w-full flex-col px-3 pb-3 pt-9">
+                <p
+                  className="flex-1 overflow-hidden whitespace-pre-wrap text-[11px] leading-relaxed tracking-tight text-ink-400"
+                  style={{
+                    maskImage: 'linear-gradient(to bottom, #000 72%, transparent)',
+                    WebkitMaskImage: 'linear-gradient(to bottom, #000 72%, transparent)',
+                  }}
+                >
+                  {cardState.editablePrompt}
+                </p>
+              </div>
+              {/* Nudge for the not-yet-generated card: the prompt is scripted
+                  but no image/video exists — spell out that the card opens for
+                  setup, sitting in the faded bottom-left so it clears the text. */}
+              <p className="pointer-events-none absolute bottom-2 left-3 z-10 text-[10px] font-medium tracking-tight text-ink-500">
+                Click to set up
               </p>
-            </div>
+            </>
           ) : (
             <div className="flex h-full w-full flex-col items-center justify-center gap-2 px-4 text-center">
               <ImageIcon className="h-7 w-7 text-ink-700" strokeWidth={1.5} />
@@ -779,10 +787,15 @@ export default function VariationCard(props: VariationCardProps) {
             </div>
           )}
 
-          {/* Top-left chip — type (Dialogue / Action / Emotional / Product
-              shot). Video covers move their play/mute controls to the
+          {/* Top-left chip — the scene type (Dialogue / Action / …) for
+              generated variations, or a neutral "Custom" tag for a manually
+              added option. Video covers move their play/mute controls to the
               bottom-left so this corner stays clear. */}
-          {!isManual && (
+          {isManual ? (
+            <span className="pointer-events-none absolute left-2 top-2 z-10 rounded-full border border-ink/15 bg-ink/10 px-2 py-0.5 text-[10px] font-medium tracking-tight text-ink-300 backdrop-blur light:text-ink-700">
+              Custom
+            </span>
+          ) : (
             <span
               className={`pointer-events-none absolute left-2 top-2 z-10 rounded-full border px-2 py-0.5 text-[10px] font-medium tracking-tight backdrop-blur ${tagChipStyle(variation.tag)}`}
             >
