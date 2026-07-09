@@ -323,7 +323,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
           </div>
           <div className="mt-3 flex items-center justify-between gap-3">
             <p className="text-[11px] leading-snug text-ink-500">
-              Replay the intro — who does what, and how kie.ai credits pay the crew.
+              Understand who does what, and how kie.ai powers the crew.
             </p>
             <button
               onClick={() => {
@@ -332,7 +332,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
               }}
               className="shrink-0 rounded-full border border-ink/10 bg-ink/[0.04] px-4 py-1.5 text-[12px] font-medium text-ink-200 transition-colors hover:bg-ink/[0.08]"
             >
-              Meet your team
+              Meet Your Team
             </button>
           </div>
         </div>
