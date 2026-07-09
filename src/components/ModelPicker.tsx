@@ -3,7 +3,6 @@ import { ChevronDown, Check, Star } from 'lucide-react'
 import {
   listModels,
   getDefaultModel,
-  videoResolutionLabel,
   estimateCredits,
   formatCredits,
   type Task,
@@ -201,16 +200,16 @@ interface ModelRowProps {
   onClick: () => void
 }
 
-// Credit estimate across a model's resolution tiers: the low tier alone when
-// price is flat (or the model has a single tier), otherwise "low–high credits".
+// Credit estimate across a model's resolution tiers: the flat price when the
+// model has one tier (or price doesn't vary), otherwise "from {cheapest}
+// credits" so the row leads with the lowest cost the user can pay.
 function creditRange(modelId: string, tiers: string[] | undefined, costParams: CostEstimateParams): string | null {
   if (!tiers?.length) return formatCredits(estimateCredits(modelId, costParams))
   const lo = estimateCredits(modelId, { ...costParams, resolution: tiers[0] })
   const hi = estimateCredits(modelId, { ...costParams, resolution: tiers[tiers.length - 1] })
   if (lo == null) return null
   if (hi == null || hi === lo) return formatCredits(lo)
-  const round = (n: number) => Math.round(n * 10) / 10
-  return `${round(lo)}–${round(hi)} credits`
+  return `from ${formatCredits(lo)}`
 }
 
 // Row aesthetic mirrors ModelSidePanel: provider logo, name + star + colored
@@ -220,19 +219,11 @@ function creditRange(modelId: string, tiers: string[] | undefined, costParams: C
 function ModelRow({ model, active, muted, accent, costParams, onClick }: ModelRowProps) {
   const isRecommended = model.tags.includes('recommended')
 
-  // Prefer video constraints (resolution + duration ranges); fall back to image
-  // constraints (resolution range only). Music models carry neither → credits
-  // alone. Video resolution tiers get human labels ('std'→'720p'); image tiers
-  // are already display-ready ('1K'/'2K'/'4K').
+  // Resolution tiers drive the credit span only — we no longer print the range
+  // itself. Video tiers still need human labels ('std'→'720p') for the estimate.
   const cv = model.videoConstraints
   const ci = model.imageConstraints
   const res = cv?.resolutions ?? ci?.resolutions
-  const label = cv ? videoResolutionLabel : (s: string) => s
-  const resolution = res?.length
-    ? res.length > 1
-      ? `${label(res[0])}–${label(res[res.length - 1])}`
-      : label(res[0])
-    : null
   const duration = cv
     ? cv.durations.length > 1
       ? `${cv.durations[0]}–${cv.durations[cv.durations.length - 1]}s`
@@ -240,10 +231,9 @@ function ModelRow({ model, active, muted, accent, costParams, onClick }: ModelRo
       ? `${cv.durations[0]}s`
       : 'per clip'
     : null
-  // Credits span the resolution tiers (low–high) so the cheapest and priciest
-  // settings are both visible, not just the low end.
+  // Lead with the cheapest tier ("from N credits") rather than a low–high span.
   const credits = creditRange(model.id, res, costParams)
-  const meta = [resolution, duration, credits].filter(Boolean).join(' · ')
+  const meta = [duration, credits].filter(Boolean).join(' · ')
 
   return (
     <button

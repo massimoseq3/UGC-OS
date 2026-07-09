@@ -651,6 +651,15 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
                     options={resolutionOptions}
                     value={resolution}
                     onChange={(v) => setResolution(v as ImageResolution)}
+                    renderOption={(v) => {
+                      const credits = formatCredits(estimateCredits(imageModelId ?? '', { imageCount: 1, resolution: v as ImageResolution }))
+                      return (
+                        <span className="flex w-full items-center justify-between gap-6">
+                          <span>{v}</span>
+                          {credits && <span className="text-ink-500">{credits}</span>}
+                        </span>
+                      )
+                    }}
                   />
                 )}
                 {mode === 'edit'
