@@ -93,14 +93,10 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* Bento grid — until a kie.ai key is saved, the get-set-up card sits
+      {/* Bento grid — until a kie.ai key is saved, a slim red to-do row sits
           above the metrics (nothing can generate without it). */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-12">
-        {needsKey && (
-          <BentoCard className="col-span-2 md:col-span-12">
-            <ConnectKeyCard />
-          </BentoCard>
-        )}
+        {needsKey && <ConnectKeyCard />}
 
         {/* Time saved */}
         <BentoCard className="col-span-2 md:col-span-5">
