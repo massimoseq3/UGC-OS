@@ -453,12 +453,10 @@ pill, and tile carries a subtle drop shadow. Top→bottom:
   phrase; name from `profile.first_name`, omitted in local-only mode), one-line
   sub. Top-right: **Get Credits** (kie.ai/billing) and **Community** (Skool)
   pill links.
-- **Bento grid** (12-col on `md:`). First run (zero recorded generations) the
-  metric cards + heatmap are replaced by a **Get set up checklist**
-  (`SetupChecklist.tsx`): three self-checking rows — connect kie.ai key (opens
-  the Settings modal) · add a product (opens Bank) · create a character (opens
-  Characters) — with an "N of 3 done" counter; the first recorded generation
-  swaps the metrics in. With activity:
+- **Bento grid** (12-col on `md:`). While no kie.ai key is saved, a full-width
+  **Get set up** card (`ConnectKeyCard.tsx`) sits ABOVE the metric cards — a
+  single "Connect your kie.ai API key" row that opens the Settings modal and
+  removes itself once a key lands. Cards:
   - **Time saved** card (5 cols): serif hero ("286 hrs"), a green
     "+N hrs this week" delta (rolling 7 days, hidden at zero), workdays
     sub-line ("…of production and tool-hopping…"). No hover tooltip —
