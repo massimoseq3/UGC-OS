@@ -723,14 +723,14 @@ export default function VariationCard(props: VariationCardProps) {
                 onMouseLeave={(e) => { if (!cardVideoUnmuted) { const v = e.currentTarget as HTMLVideoElement; v.pause(); v.currentTime = 0 } }}
               />
               <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/70 to-transparent" />
-              {/* Always-visible play/pause — signals this cover is a video and,
-                  on click, plays it with audio in place (stopPropagation keeps
-                  the detail modal from opening). */}
+              {/* Always-visible play/pause — bottom-left so it clears the
+                  top-left type chip. On click, plays with audio in place
+                  (stopPropagation keeps the detail modal from opening). */}
               <button
                 type="button"
                 title={cardVideoPlaying ? 'Pause' : 'Play with sound'}
                 onClick={(e) => { e.stopPropagation(); toggleCardVideoPlay() }}
-                className="absolute left-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white backdrop-blur transition-colors hover:bg-black/70"
+                className="absolute bottom-2 left-2 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white backdrop-blur transition-colors hover:bg-black/70"
               >
                 {cardVideoPlaying ? <Pause className="h-3.5 w-3.5 fill-white" /> : <Play className="h-3.5 w-3.5 fill-white" />}
               </button>
@@ -739,7 +739,7 @@ export default function VariationCard(props: VariationCardProps) {
                   type="button"
                   title={cardVideoUnmuted ? 'Mute' : 'Unmute'}
                   onClick={(e) => { e.stopPropagation(); toggleCardVideoMute() }}
-                  className="absolute left-11 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white backdrop-blur transition-colors hover:bg-black/70"
+                  className="absolute bottom-2 left-11 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white backdrop-blur transition-colors hover:bg-black/70"
                 >
                   {cardVideoUnmuted ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
                 </button>
@@ -754,6 +754,24 @@ export default function VariationCard(props: VariationCardProps) {
               />
               <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/70 to-transparent" />
             </>
+          ) : cardState.editablePrompt.trim() ? (
+            // No image/video yet — show the prompt itself so every scene's
+            // direction is glanceable without opening the card. Mirrors the
+            // Script Bank card: text fills the face and fades out at the
+            // bottom. The mask fades the text to transparent regardless of the
+            // translucent card background behind it. `pt-9` clears the
+            // top-left type chip.
+            <div className="flex h-full w-full flex-col px-3 pb-3 pt-9">
+              <p
+                className="flex-1 overflow-hidden whitespace-pre-wrap text-[11px] leading-relaxed tracking-tight text-ink-400"
+                style={{
+                  maskImage: 'linear-gradient(to bottom, #000 72%, transparent)',
+                  WebkitMaskImage: 'linear-gradient(to bottom, #000 72%, transparent)',
+                }}
+              >
+                {cardState.editablePrompt}
+              </p>
+            </div>
           ) : (
             <div className="flex h-full w-full flex-col items-center justify-center gap-2 px-4 text-center">
               <ImageIcon className="h-7 w-7 text-ink-700" strokeWidth={1.5} />
@@ -761,12 +779,12 @@ export default function VariationCard(props: VariationCardProps) {
             </div>
           )}
 
-          {/* Top-center chip — type (Dialogue / Action / Emotional / Product
-              shot). Centered so it clears the top-left play button and the
-              top-right hover action stack. */}
+          {/* Top-left chip — type (Dialogue / Action / Emotional / Product
+              shot). Video covers move their play/mute controls to the
+              bottom-left so this corner stays clear. */}
           {!isManual && (
             <span
-              className={`pointer-events-none absolute left-1/2 top-2 -translate-x-1/2 rounded-full border px-2 py-0.5 text-[10px] font-medium tracking-tight backdrop-blur ${tagChipStyle(variation.tag)}`}
+              className={`pointer-events-none absolute left-2 top-2 z-10 rounded-full border px-2 py-0.5 text-[10px] font-medium tracking-tight backdrop-blur ${tagChipStyle(variation.tag)}`}
             >
               {tagText}
             </span>
