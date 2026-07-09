@@ -20,6 +20,7 @@ import {
 } from '../../../utils/kie'
 import { saveAsset } from '../../../utils/assetStore'
 import { buildVideoInput, getModel, resolveVideoModelSlug, type VideoMode } from '../../../utils/models'
+import { withIphoneRealism } from './realism'
 
 export interface VideoGenInput {
   prompt: string
@@ -70,7 +71,7 @@ export async function startVideoTask(
   }
 
   const buildOpts = {
-    prompt: input.prompt,
+    prompt: withIphoneRealism(input.prompt),
     mode: input.mode,
     aspectRatio: input.aspectRatio,
     duration: input.durationSeconds,

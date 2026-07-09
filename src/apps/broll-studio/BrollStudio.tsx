@@ -28,6 +28,10 @@ const TAG_MIGRATION: Record<string, VariationTag> = {
   'ACTION': 'ACTION',
   'EMOTIONAL': 'EMOTIONAL',
   'PRODUCT': 'PRODUCT',
+  'POV': 'POV',
+  'ENVIRONMENT': 'ENVIRONMENT',
+  'TRANSITION': 'TRANSITION',
+  'PROOF': 'PROOF',
 }
 
 const DEFAULT_LABELS: Record<VariationTag, string> = {
@@ -35,6 +39,10 @@ const DEFAULT_LABELS: Record<VariationTag, string> = {
   ACTION: 'Literal action',
   EMOTIONAL: 'Emotional reaction',
   PRODUCT: 'Product detail',
+  POV: 'POV insert',
+  ENVIRONMENT: 'Environment beat',
+  TRANSITION: 'Transition move',
+  PROOF: 'Proof shot',
 }
 
 function migrateVariation(v: PromptVariation): PromptVariation {

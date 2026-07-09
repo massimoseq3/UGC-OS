@@ -222,7 +222,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     provider: 'ByteDance',
     task: 'image',
     modes: ['text-to-image'],
-    tags: ['recommended', 'new'],
+    tags: ['new'],
     // 1K (basic) 7 cr · 2K (high) 14 cr per image. Source (user-supplied).
     pricing: {
       unit: 'per-image',
@@ -238,7 +238,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     provider: 'ByteDance',
     task: 'image',
     modes: ['image-to-image', 'image-edit'],
-    tags: ['recommended', 'new'],
+    tags: ['new'],
     supportsReferenceImages: true,
     // Same 7/14 base per output image, plus 0.5 cr per input image beyond the
     // first (the first input image is free). Source (user-supplied).
