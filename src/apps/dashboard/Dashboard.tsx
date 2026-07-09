@@ -11,6 +11,7 @@ import { getAppConfig, SKOOL_COMMUNITY_URL } from '../../utils/constants'
 import { TEAM } from '../../utils/team'
 import CrabSprite from '../../components/CrabSprite'
 import ActivityHeatmap from './ActivityHeatmap'
+import SetupChecklist from './SetupChecklist'
 
 // Dashboard — the workspace's "what you're getting out of this" screen and the
 // default landing page. Greeting + a bento grid: time saved, money saved vs
@@ -89,20 +90,30 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* Bento grid */}
+      {/* Bento grid — first run shows the setup checklist instead of a wall
+          of zeros; the first recorded generation swaps the metrics in. */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-12">
+        {!hasActivity ? (
+          <BentoCard className="col-span-2 md:col-span-12">
+            <SetupChecklist />
+          </BentoCard>
+        ) : (
+          <>
         {/* Time saved */}
         <BentoCard className="col-span-2 md:col-span-5">
           <CardLabel icon={Clock} label="Time saved" />
           <p className="mt-3 text-5xl italic font-normal tracking-tight text-ink-50 md:text-6xl" style={DISPLAY_FONT}>
             {formatTimeSaved(metrics.minutesSaved)}
           </p>
-          <p className="mt-1.5 text-[13px] text-ink-500">
+          {metrics.minutesSavedLast7d > 0 && (
+            <p className="mt-1.5 text-[12px] font-semibold text-dashboard-400">
+              +{formatTimeSaved(metrics.minutesSavedLast7d)} this week
+            </p>
+          )}
+          <p className="mt-1 text-[13px] text-ink-500">
             {workdays >= 1
               ? `≈ ${workdays < 10 ? (Math.round(workdays * 10) / 10) : Math.round(workdays)} workdays of production and tool-hopping, across ${metrics.totalGenerations.toLocaleString()} generations`
-              : hasActivity
-                ? `across ${metrics.totalGenerations.toLocaleString()} generation${metrics.totalGenerations === 1 ? '' : 's'}`
-                : 'vs producing every asset by hand'}
+              : `across ${metrics.totalGenerations.toLocaleString()} generation${metrics.totalGenerations === 1 ? '' : 's'}`}
           </p>
         </BentoCard>
 
@@ -112,10 +123,13 @@ export default function Dashboard() {
           <p className="mt-3 text-5xl italic font-normal tracking-tight text-ink-50 md:text-6xl" style={DISPLAY_FONT}>
             {formatUsd(metrics.usdSaved)}
           </p>
-          <p className="mt-1.5 text-[13px] text-ink-500">
-            {hasActivity
-              ? `vs official APIs & creator platforms · ${Math.round(metrics.creditsSpent).toLocaleString()} credits used`
-              : 'vs paying for the same models elsewhere'}
+          {metrics.usdSavedLast7d >= 0.01 && (
+            <p className="mt-1.5 text-[12px] font-semibold text-dashboard-400">
+              +{formatUsd(metrics.usdSavedLast7d)} this week
+            </p>
+          )}
+          <p className="mt-1 text-[13px] text-ink-500">
+            {`vs official APIs & creator platforms · ${Math.round(metrics.creditsSpent).toLocaleString()} credits used`}
           </p>
         </BentoCard>
 
@@ -147,16 +161,16 @@ export default function Dashboard() {
         <BentoCard className="col-span-2 md:col-span-12">
           <div className="flex items-baseline justify-between gap-3">
             <CardLabel icon={CalendarCheck} label="Activity" />
-            {hasActivity && (
-              <p className="text-[12px] text-ink-500">
-                {metrics.totalGenerations.toLocaleString()} generations · last 6 months
-              </p>
-            )}
+            <p className="text-[12px] text-ink-500">
+              {metrics.totalGenerations.toLocaleString()} generations · last 6 months
+            </p>
           </div>
           <div className="mt-4">
             <ActivityHeatmap days={usageDays} />
           </div>
         </BentoCard>
+          </>
+        )}
 
         {/* The crew — one shortcut tile per teammate/app */}
         <div className="col-span-2 grid grid-cols-2 gap-3 md:col-span-12 md:grid-cols-4 lg:grid-cols-7">

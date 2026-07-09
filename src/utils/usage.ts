@@ -68,6 +68,9 @@ export interface UsageMetrics {
   longestStreak: number
   /** Day key of the earliest activity, or null when the ledger is empty. */
   firstActiveDay: string | null
+  /** Rolling last-7-days slice (including today) — the "this week" deltas. */
+  minutesSavedLast7d: number
+  usdSavedLast7d: number
 }
 
 function dayTotal(day: UsageDay): number {
@@ -80,17 +83,27 @@ export function computeUsageMetrics(days: UsageDay[], creditsToUsd: (credits: nu
   let creditsSpent = 0
   let officialUsd = 0
   let totalGenerations = 0
+  let minutesSavedLast7d = 0
+  let usdSavedLast7d = 0
+
+  // Rolling window: today plus the six days before it, by local day key.
+  const weekStart = usageDayStart(usageDayId(Date.now())) - 6 * DAY_MS
 
   const activeIds: number[] = []
   for (const day of days) {
     if (dayTotal(day) === 0) continue
-    activeIds.push(usageDayStart(day.id))
+    const dayStart = usageDayStart(day.id)
+    activeIds.push(dayStart)
     creditsSpent += day.credits
     officialUsd += day.officialUsd
+    const inWindow = dayStart >= weekStart
+    if (inWindow) usdSavedLast7d += Math.max(0, day.officialUsd - creditsToUsd(day.credits))
     for (const [kind, n] of Object.entries(day.counts) as Array<[UsageKind, number | undefined]>) {
       const count = n ?? 0
+      const minutes = ((MINUTES_SAVED_PER_GEN[kind] ?? 0) + TASK_SWITCH_MINUTES_PER_GEN) * count
       countsByKind[kind] = (countsByKind[kind] ?? 0) + count
-      minutesSaved += ((MINUTES_SAVED_PER_GEN[kind] ?? 0) + TASK_SWITCH_MINUTES_PER_GEN) * count
+      minutesSaved += minutes
+      if (inWindow) minutesSavedLast7d += minutes
       totalGenerations += count
     }
   }
@@ -124,5 +137,7 @@ export function computeUsageMetrics(days: UsageDay[], creditsToUsd: (credits: nu
     currentStreak,
     longestStreak,
     firstActiveDay: activeIds.length ? usageDayId(activeIds[0]) : null,
+    minutesSavedLast7d,
+    usdSavedLast7d,
   }
 }
