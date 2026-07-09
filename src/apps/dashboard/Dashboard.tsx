@@ -3,6 +3,7 @@ import { Clock, PiggyBank, Flame, Trophy, CalendarCheck, ArrowUpRight } from 'lu
 import type { ElementType, ReactNode } from 'react'
 import { useAuthStore } from '../../stores/authStore'
 import { useAppStore } from '../../stores/appStore'
+import { useSettingsStore } from '../../stores/settingsStore'
 import { useBankStore, backfillUsageLedger } from '../../stores/bankStore'
 import { isCloudEnabled } from '../../lib/supabase'
 import { creditsToUsd } from '../../utils/models'
@@ -11,7 +12,7 @@ import { getAppConfig, SKOOL_COMMUNITY_URL } from '../../utils/constants'
 import { TEAM } from '../../utils/team'
 import CrabSprite from '../../components/CrabSprite'
 import ActivityHeatmap from './ActivityHeatmap'
-import SetupChecklist from './SetupChecklist'
+import ConnectKeyCard from './ConnectKeyCard'
 
 // Dashboard — the workspace's "what you're getting out of this" screen and the
 // default landing page. Greeting + a bento grid: time saved, money saved vs
@@ -51,6 +52,8 @@ export default function Dashboard() {
   const profile = useAuthStore((s) => s.profile)
   const usageDays = useBankStore((s) => s.usageDays)
   const openApp = useAppStore((s) => s.openApp)
+  const kieApiKey = useSettingsStore((s) => s.kieApiKey)
+  const needsKey = kieApiKey.trim().length === 0
 
   // Cloud mode backfills after hydrate (cloudSync); local-only has no hydrate,
   // so seed the ledger from local history the first time the Dashboard opens.
@@ -90,15 +93,15 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* Bento grid — first run shows the setup checklist instead of a wall
-          of zeros; the first recorded generation swaps the metrics in. */}
+      {/* Bento grid — until a kie.ai key is saved, the get-set-up card sits
+          above the metrics (nothing can generate without it). */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-12">
-        {!hasActivity ? (
+        {needsKey && (
           <BentoCard className="col-span-2 md:col-span-12">
-            <SetupChecklist />
+            <ConnectKeyCard />
           </BentoCard>
-        ) : (
-          <>
+        )}
+
         {/* Time saved */}
         <BentoCard className="col-span-2 md:col-span-5">
           <CardLabel icon={Clock} label="Time saved" />
@@ -113,7 +116,9 @@ export default function Dashboard() {
           <p className="mt-1 text-[13px] text-ink-500">
             {workdays >= 1
               ? `≈ ${workdays < 10 ? (Math.round(workdays * 10) / 10) : Math.round(workdays)} workdays of production and tool-hopping, across ${metrics.totalGenerations.toLocaleString()} generations`
-              : `across ${metrics.totalGenerations.toLocaleString()} generation${metrics.totalGenerations === 1 ? '' : 's'}`}
+              : hasActivity
+                ? `across ${metrics.totalGenerations.toLocaleString()} generation${metrics.totalGenerations === 1 ? '' : 's'}`
+                : 'vs producing every asset by hand'}
           </p>
         </BentoCard>
 
@@ -129,7 +134,9 @@ export default function Dashboard() {
             </p>
           )}
           <p className="mt-1 text-[13px] text-ink-500">
-            {`vs official APIs & creator platforms · ${Math.round(metrics.creditsSpent).toLocaleString()} credits used`}
+            {hasActivity
+              ? `vs official APIs & creator platforms · ${Math.round(metrics.creditsSpent).toLocaleString()} credits used`
+              : 'vs paying for the same models elsewhere'}
           </p>
         </BentoCard>
 
@@ -161,16 +168,16 @@ export default function Dashboard() {
         <BentoCard className="col-span-2 md:col-span-12">
           <div className="flex items-baseline justify-between gap-3">
             <CardLabel icon={CalendarCheck} label="Activity" />
-            <p className="text-[12px] text-ink-500">
-              {metrics.totalGenerations.toLocaleString()} generations · last 6 months
-            </p>
+            {hasActivity && (
+              <p className="text-[12px] text-ink-500">
+                {metrics.totalGenerations.toLocaleString()} generations · last 6 months
+              </p>
+            )}
           </div>
           <div className="mt-4">
             <ActivityHeatmap days={usageDays} />
           </div>
         </BentoCard>
-          </>
-        )}
 
         {/* The crew — one shortcut tile per teammate/app */}
         <div className="col-span-2 grid grid-cols-2 gap-3 md:col-span-12 md:grid-cols-4 lg:grid-cols-7">
