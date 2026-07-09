@@ -12,13 +12,13 @@
       // Set the theme before first paint so light-mode users don't get a dark
       // flash (and vice versa). Mirrors stores/themeStore.ts — same key.
       try {
-        var pref = localStorage.getItem('ai-ugc-lab-theme') || 'dark'
+        var pref = localStorage.getItem('ai-ugc-lab-theme') || 'light'
         var resolved = pref === 'system'
           ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
           : pref
         document.documentElement.dataset.theme = resolved === 'light' ? 'light' : 'dark'
       } catch (e) {
-        document.documentElement.dataset.theme = 'dark'
+        document.documentElement.dataset.theme = 'light'
       }
     </script>
   </head>

@@ -12,6 +12,7 @@ import { creditsToUsd } from '../utils/models'
 import AppLogo from './AppLogo'
 import CrabSprite from './CrabSprite'
 import SettingsModal from './SettingsModal'
+import { API_KEY_STEPS } from './apiKeySteps'
 
 // Thin macOS-style menu bar: branding + the active app's name on the left,
 // credits balance + external quick links on the right. Pure chrome —
@@ -211,7 +212,7 @@ export function ApiKeyGuide({ onClose, onOpenSettings }: { onClose: () => void; 
             </span>
             <h2 className="text-lg font-semibold tracking-tight text-ink-100">Connect your kie.ai API key</h2>
             <p className="mt-1 text-[12px] leading-relaxed text-ink-500">
-              UGC OS runs every generation through your own kie.ai account. Until a key is saved, nothing can generate.
+              Every generation runs on your own kie.ai key. Add one to start generating.
             </p>
           </div>
           <button
@@ -223,37 +224,7 @@ export function ApiKeyGuide({ onClose, onOpenSettings }: { onClose: () => void; 
         </div>
 
         <ol className="space-y-3">
-          {[
-            <>
-              Create a free account at{' '}
-              <a
-                href="https://kie.ai/api-key"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-0.5 font-medium text-ink-200 underline decoration-ink/30 underline-offset-2 transition-colors hover:text-ink-100"
-              >
-                kie.ai <ExternalLink className="h-3 w-3" />
-              </a>{' '}
-              and open the <span className="font-medium text-ink-300">API Key</span> page.
-            </>,
-            <>Copy your key — it starts with <span className="font-mono text-[11px] text-ink-300">sk-</span>.</>,
-            <>
-              Top up credits at{' '}
-              <a
-                href="https://kie.ai/billing"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-0.5 font-medium text-ink-200 underline decoration-ink/30 underline-offset-2 transition-colors hover:text-ink-100"
-              >
-                kie.ai/billing <ExternalLink className="h-3 w-3" />
-              </a>{' '}
-              — every generation spends these credits.
-            </>,
-            <>
-              Paste the key in <span className="font-medium text-ink-300">Settings → kie.ai API Key</span> and hit{' '}
-              <span className="font-medium text-ink-300">Test connection</span>.
-            </>,
-          ].map((step, i) => (
+          {API_KEY_STEPS.map((step, i) => (
             <li key={i} className="flex items-start gap-3 text-[13px] leading-relaxed text-ink-400">
               <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink/[0.06] text-[11px] font-semibold text-ink-300">
                 {i + 1}
