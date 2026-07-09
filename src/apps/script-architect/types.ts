@@ -31,13 +31,15 @@ export type WriteStyle =
   | 'demo'
   | 'comparison'
 
-// 'script' → spoken words only (→ Voiceovers). 'scenes' → scene-by-scene
-// visual blueprint with the dialogue embedded ([CHARACTER]/[PRODUCT] tokens,
-// same format the Remix Scenes pipeline emits → B-Roll / Playground).
-// 'prompt' → ONE structured cinematic master prompt for a single premium AI
-// commercial (STYLE/ENVIRONMENT/CHARACTER/.../TIMELINE), with @INFLUENCER /
-// @PRODUCT reference tokens → Playground video mode (Seedance-led).
-export type WriteFormat = 'script' | 'scenes' | 'prompt'
+// 'script' → spoken words only (→ Voiceovers). 'hooks' → a pack of 10
+// standalone opening lines built on the 7 viral-hook formula families (each
+// line tagged with its family; no length/style controls). 'scenes' →
+// scene-by-scene visual blueprint with the dialogue embedded
+// ([CHARACTER]/[PRODUCT] tokens, same format the Remix Scenes pipeline emits
+// → B-Roll / Playground). 'prompt' → ONE structured cinematic master prompt
+// for a single premium AI commercial (STYLE/ENVIRONMENT/.../TIMELINE), with
+// @INFLUENCER / @PRODUCT reference tokens → Playground video mode.
+export type WriteFormat = 'script' | 'hooks' | 'scenes' | 'prompt'
 
 export type WriteLength = 10 | 15 | 30 | 60
 export const WRITE_LENGTHS: WriteLength[] = [10, 15, 30, 60]
@@ -60,6 +62,70 @@ export const WRITE_STYLE_META: Record<WriteStyle, { label: string; hint: string 
 export const isWriteStyle = (value: unknown): value is WriteStyle =>
   typeof value === 'string' && value in WRITE_STYLE_META
 
+// ── Hooks format ──
+//
+// The 7 formula families distilled from the "1,000 Viral Hooks" swipe file the
+// generation prompt is trained on. 'auto' lets the model pick the mix that
+// fits the product; a specific category locks all 10 hooks to that family.
+export type HookCategory =
+  | 'educational'
+  | 'comparison'
+  | 'myth-busting'
+  | 'storytelling'
+  | 'authority'
+  | 'day-in-the-life'
+  | 'pattern-interrupt'
+
+export type HookCategoryChoice = 'auto' | HookCategory
+
+export const HOOK_COUNT = 10
+
+export const HOOK_CATEGORY_META: Record<HookCategoryChoice, { label: string; hint: string }> = {
+  auto: { label: 'Best Mix', hint: 'The model picks the strongest angles across all 7 families' },
+  educational: { label: 'Educational', hint: '"Here\'s exactly how much X you need to get Y"' },
+  comparison: { label: 'Comparison', hint: 'This vs that — same price, wildly different result' },
+  'myth-busting': { label: 'Myth Busting', hint: '"Let me de-influence you" — call out the common belief' },
+  storytelling: { label: 'Storytelling', hint: '"2 years ago I..." — drop in mid-story, no warm-up' },
+  authority: { label: 'Authority', hint: 'Receipts and transformations — "I went from this to this"' },
+  'day-in-the-life': { label: 'Day in the Life', hint: '"Come to work with me as a..." POV energy' },
+  'pattern-interrupt': { label: 'Pattern Interrupt', hint: 'Challenges, absurd stakes, "they didn\'t sponsor this"' },
+}
+
+export const isHookCategoryChoice = (value: unknown): value is HookCategoryChoice =>
+  typeof value === 'string' && value in HOOK_CATEGORY_META
+
+export interface ParsedHook {
+  // null when a line arrives without a recognisable <FAMILY> tag — the hook
+  // still renders, just without a category chip.
+  category: HookCategory | null
+  text: string
+}
+
+// Parses the hooks pipeline's "<FAMILY> hook text" lines. Tolerates missing /
+// unknown tags so a slightly off-format model reply still renders every hook.
+export function parseHooks(text: string): ParsedHook[] {
+  return text
+    .split('\n')
+    .map((line) => line.trim().replace(/^\d+[.)]\s*/, ''))
+    .filter(Boolean)
+    .map((line) => {
+      const match = /^<([^>]+)>\s*(.*)$/.exec(line)
+      if (!match || !match[2]) return { category: null, text: line }
+      const slug = match[1].trim().toLowerCase().replace(/[^a-z]+/g, '-')
+      return {
+        category: slug !== 'auto' && isHookCategoryChoice(slug) ? (slug as HookCategory) : null,
+        text: match[2].trim(),
+      }
+    })
+    .filter((h) => h.text.length > 0)
+}
+
+// The clean spoken lines — what copy / save-to-bank should produce (the
+// <FAMILY> tags are UI metadata, not script text).
+export function hooksPlainText(text: string): string {
+  return parseHooks(text).map((h) => h.text).join('\n')
+}
+
 export interface EditableProductContext {
   productDescription: string
   targetMarket: string
@@ -79,6 +145,8 @@ export interface GenerateScriptInput {
   writeStyle?: WriteStyle
   writeFormat?: WriteFormat
   writeLength?: WriteLength
+  // Hooks format only: which formula family the 10 hooks draw from.
+  hookCategory?: HookCategoryChoice
   productId: string | null
   // The product's display name — fed into the cinematic 'prompt' format so the
   // VOICEOVER sign-off can name the brand. Other formats keep the brand name

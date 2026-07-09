@@ -1,4 +1,5 @@
-import type { GenerateScriptInput, GeneratedScript, RemixAngle, EditableProductContext, WriteStyle, WriteLength } from '../types'
+import type { GenerateScriptInput, GeneratedScript, RemixAngle, EditableProductContext, WriteStyle, WriteLength, HookCategory } from '../types'
+import { HOOK_COUNT } from '../types'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import { kieChatCompletions, type ChatMessage } from '../../../utils/kie'
 import { getChatEndpointPath } from '../../../utils/models'
@@ -60,6 +61,120 @@ function lengthDiscipline(length: WriteLength): string {
   }
   return `LENGTH DISCIPLINE: you have ${length}s — enough for a real arc (hook, tension, payoff, CTA). Still resist listing every feature; choose the 1-2 points that actually sell and let them breathe. Depth on one idea beats a shallow tour of five.`
 }
+
+// ── The viral-hook library ──
+//
+// A hook is the FIRST spoken line of a UGC ad — the 1.5 seconds that decide
+// whether the thumb stops. The library below is the "1,000 Viral Hooks" swipe
+// file distilled into its 7 formula families with representative fill-in-the-
+// blank templates, kept at their ORIGINAL full length (setup AND payoff clause
+// — never truncated). It powers the dedicated Hooks format AND seeds the
+// opening line of the Write New script / scenes pipelines.
+
+// The literal tag each family uses in the hooks pipeline's tagged-line output.
+// Keys are the HookCategory slugs; values must round-trip through parseHooks'
+// slug normalisation (lowercase, non-letters → '-').
+const HOOK_TAG: Record<HookCategory, string> = {
+  educational: 'EDUCATIONAL',
+  comparison: 'COMPARISON',
+  'myth-busting': 'MYTH BUSTING',
+  storytelling: 'STORYTELLING',
+  authority: 'AUTHORITY',
+  'day-in-the-life': 'DAY IN THE LIFE',
+  'pattern-interrupt': 'PATTERN INTERRUPT',
+}
+
+const HOOK_LIBRARY = `THE 7 HOOK FAMILIES AND THEIR PROVEN FORMULAS — every "(...)" is a blank you fill with THIS product's specifics. Each formula is a COMPLETE thought: if it has a setup and a payoff clause, both parts are the formula — never use half of one.
+
+<EDUCATIONAL> — teach or promise a concrete lesson. Wins when the product solves a how-do-I problem.
+- Here's exactly how much (thing) you need to (result).
+- It took me 10 years to learn this but I'll teach it to you in less than 1 minute.
+- If I woke up with (pain point) tomorrow and wanted (dream result) by (time), here's exactly what I would do.
+- Everyone tells you to (action) but nobody actually shows you how to do it. Here's a (number) second step-by-step tutorial that you can save.
+- I think I just found the biggest (niche) cheat code.
+- Stop (common action) if you actually want to (dream result).
+- (Action) for (period of time) and you will get (dream result).
+- What if I told you, you could (action) for only (low cost).
+- Here are the (number) (noun) items you need to throw in the garbage right now.
+- If you're a (target audience) and you want (dream result) by (avenue), then listen to this video because you have a huge advantage and I'm going to tell you how to use it.
+- If you're in your (age range), these are the (number) things you need to do so you don't end up (pain point) by (age).
+- In 60 seconds I'm going to teach you more about (thing) than you've ever learned in your entire life.
+
+<COMPARISON> — put two things side by side and let the gap sell. Wins on price, ingredients, or results contrasts.
+- This is a (thing), and this is also a (thing).
+- This (option) and this (option) have the same amount of (metric).
+- For the price of this one (item) you could have all of these (items).
+- Cheap vs expensive (thing).
+- Both of these (things) are exactly the same. I haven't changed a single thing. But this one is (metric) and this one is (metric).
+- A lot of people ask me what's better, (option one) or (option two), for (dream result). I got (dream result) doing one of these and it's not even close.
+- This is my (thing) before (action), and this is my (thing) after.
+- This group did (action) and this group didn't, and here's what happened.
+- This is a (item) from (place) for (price), and this is the same (item) from (other place) for (price).
+
+<MYTH BUSTING> — attack a belief the viewer holds. Wins when the product replaces an overpriced or overhyped habit.
+- Let me de-influence you from (popular thing).
+- They said "(famous cliché)". That's a lie.
+- You're using your (thing) wrong, and I'm going to show you how to use it the right way.
+- It's time to throw away your (item), you don't need it anymore.
+- You're not bad at (action), you probably were just never taught how to (action).
+- Everyone on the internet is going to tell you (result) is impossible. But I'm going to show you how to do it from home.
+- This is why doing (common action) is giving you (pain point).
+- No, your (pain point) is not caused by (common belief).
+- Don't (action) until you've done this one thing.
+- You don't have (pain point), you're not (negative label), you just need to (solution), and I'm going to tell you how to do it.
+- More (target audience) need to hear this: (common belief) will not (promised result).
+
+<STORYTELLING> — drop the viewer mid-story. Wins on relatability and open loops.
+- (Number) years ago I (decision or action).
+- I started (venture) when I was (age) with (small amount).
+- I don't have a backup plan so this kind of needs to work.
+- So I messed up.
+- (Number) days into (journey), my worst nightmare became my reality.
+- When I (action), people said (dismissive feedback).
+- In (time frame), I went from (before state) to (after state).
+- This is probably the scariest thing I've ever done.
+- I got (dream result) without (expected sacrifice), here's how.
+- Yesterday I was at (place) when I noticed something (adjective).
+- (Number) months ago I started (action) thinking it would magically solve (pain point), but here's what actually happened.
+- If you told me (number) years ago I'd be (dream result), I wouldn't have believed you.
+
+<AUTHORITY> — lead with receipts: a transformation, a client result, or hard-earned experience. Wins on believable proof.
+- My (thing) used to look like this, and now it looks like this.
+- It took me (number) years to go from (before state) to (after state).
+- My client got (dream result) without (pain point), and here's how.
+- I've been doing pretty much the same (routine) for the past (time frame) and it's legit (result).
+- I (dream result) in the past (time frame). Here's proof.
+- Nobody believes me when I say I went from this to this.
+- After (dream result), here's the one thing I learned the hard way so you don't have to.
+- (Number) years as a (occupation) and you guys still don't believe me when I say these things.
+- I became a (achievement) at (age), and if I could give you (number) pieces of advice, it would be these.
+- I'm only (age or metric) but I've become one of the best (title)s in the world.
+
+<DAY IN THE LIFE> — POV access to a routine or grind. Wins when the product lives naturally inside a day.
+- Day in the life of a (title).
+- Come to work with me as a (title).
+- Day 1 of starting over my whole entire life.
+- Day (number) of trying to (goal) by (deadline), by (method).
+- We all have the same 24 hours in a day, so here I am putting my 24 hours to work.
+- I'm a (age) year old (title), and I'm heading to (event).
+- Welcome back to the day in the life of two (label)s trying to build the next (business).
+- What I actually (do/use/eat) in a day as someone who (dream result).
+
+<PATTERN INTERRUPT> — break the feed's rhythm with something absurd, spicy, or unexpected. Wins on pure scroll-stop.
+- (Big brand) didn't want to sponsor this video, let me show you what they're missing out on.
+- You're losing your (person) this week to (hobby or obsession).
+- What (title)s say vs what they actually mean.
+- I bought this (item) for (price) and I'm going to make it worth over (bigger price) without changing the product in any way.
+- If I get this in, then I have to (forfeit).
+- I'm trying a different (thing) for each letter of the alphabet.
+- (Trend) is the most disgusting trend on social media.
+- Do you ever (weird situation)? Yeah well, that's my job.
+- (Big brand) is trying to get this video removed from the internet because it exposes their product, so watch this before it's gone.`
+
+// Injected into the Write New script + scenes systems so every generated ad
+// OPENS on a proven formula instead of an invented hook. The <FAMILY> tags are
+// library labels only — the scripts must never emit them.
+const HOOK_OPENING_INSTRUCTION = `THE OPENING LINE COMES FROM THE HOOK LIBRARY: build the script's first spoken line from one of the proven formulas above. Pick the family that fits this product, audience, and structure; fill the blanks with the product's real specifics; and keep the formula's COMPLETE shape — if it has a setup and a payoff clause, the opening line keeps both. A hook that stops where the payoff should be is a failed hook. Adapt the wording so it sounds like the same person speaking the rest of the script — never a bolted-on template — and never include the <FAMILY> tags in the output; they only label the library.`
 
 const REMIX_SYSTEM = `You are an elite UGC ad script writer with the specialized skill of "Structural Adaptation". Brands pay you because your rewrites hold attention and convert WITHOUT ever sounding like marketing — they sound like a real person talking to their phone camera.
 
@@ -139,6 +254,10 @@ const WRITE_SCRIPT_SYSTEM = `You are a top 1% UGC creator who writes organic Tik
 
 ${HOOK_RULES}
 
+${HOOK_LIBRARY}
+
+${HOOK_OPENING_INSTRUCTION}
+
 ${HUMAN_VOICE_RULES}
 - Mention the product name at most twice, the way a person would ("so I got the X", "this thing").
 
@@ -159,6 +278,10 @@ First write the dialogue as a real spoken script following the voice rules below
 
 ${HOOK_RULES}
 - Scene 1's visual must be a pattern interrupt, never a calm establishing shot.
+
+${HOOK_LIBRARY}
+
+${HOOK_OPENING_INSTRUCTION} Scene 1's DIALOGUE line is that opening hook.
 
 ${HUMAN_VOICE_RULES}
 - In dialogue, ALWAYS refer to the product as the literal token [PRODUCT] — never a brand name.
@@ -186,6 +309,56 @@ OUTPUT FORMAT — CRITICAL:
 - Every scene starts with a header EXACTLY in this form: --- Scene N: <short label> (MM:SS-MM:SS) ---
 - Below each header, the labelled SETTING / CAMERA / LIGHTING / ACTION / DIALOGUE / AUDIO lines.
 - Blank line between scenes. No introduction, conclusion, commentary, or markdown code fences. Plain text only.`
+
+const HOOKS_SYSTEM = `You are a top 1% short-form hook writer. Your instincts were built by studying 1,000 hooks that actually went viral on TikTok and Reels — you know the first line IS the video: it either stops the thumb in under 1.5 seconds or nothing else you wrote matters. Brands pay you for opening lines that stop the scroll WITHOUT sounding like an ad.
+
+${HOOK_LIBRARY}
+
+HOW TO USE THE FORMULAS:
+- Fill every blank with THIS product's specifics — real pain points, numbers, timeframes, prices pulled from the product context. Specifics beat claims: "$30", "two weeks", "every single morning".
+- Adapt the formula to the product; never template-fill robotically, and NEVER leave a "(...)" blank or placeholder in the output.
+- Each hook must stand alone as the first spoken line of its own video. No warm-up, no context-setting — the most interesting beat goes first.
+- USE THE FORMULA'S COMPLETE STRUCTURE. If a formula has a setup and a payoff clause ("(Big brand) didn't want to sponsor this video, let me show you what they're missing out on"), the hook keeps BOTH — a line that stops where the payoff should be ("(Big brand) didn't want to sponsor this video.") is a failed hook. The win happens in the first 3-4 words, but you never shorten a formula to get there.
+- Sound like a person talking to their phone camera: contractions always (I'm, don't, it's), 6th-grade vocabulary, no emojis, no hashtags.
+- Mention the brand name in at most 2 of the ${HOOK_COUNT} hooks — "this thing" or the product category is how real people talk.
+- Banned hook openers (they scream "ad"): "So I've been...", "Have you ever...", "Let me tell you about...", "Introducing...", "If you struggle with...".
+
+${BANNED_AI_PATTERNS}
+
+SELF-AUDIT BEFORE YOU ANSWER (silently): read each hook and ask "would this stop MY thumb in 1.5 seconds?" — rewrite the weak ones. Then check every hook against its formula: does it carry the COMPLETE thought, setup and payoff both? Rewrite any line that ends mid-thought. Kill any banned sentence shape, any em-dash, any leftover blank. Make one vague hook specific.
+
+OUTPUT FORMAT — CRITICAL:
+- Return EXACTLY ${HOOK_COUNT} lines. One hook per line. Nothing else.
+- Every line starts with its family tag in angle brackets, then the hook, e.g.: <MYTH BUSTING> Let me de-influence you from $80 serums.
+- Valid tags: <EDUCATIONAL> <COMPARISON> <MYTH BUSTING> <STORYTELLING> <AUTHORITY> <DAY IN THE LIFE> <PATTERN INTERRUPT>
+- No numbering, no blank lines, no quotation marks, no commentary, no markdown.`
+
+async function runHooks(input: GenerateScriptInput, apiKey: string, endpoint: string): Promise<string> {
+  let prompt = `The creator's brief for these hooks:\n\n${input.brief.trim()}\n\n`
+
+  const ctxLines = productContextLines(input.productContext)
+  if (ctxLines) {
+    prompt += `The product being advertised:\n${ctxLines}\n\n`
+  }
+
+  if (input.additionalContext) {
+    prompt += `Additional context and instructions:\n${input.additionalContext}\n\n`
+  }
+
+  const category = input.hookCategory ?? 'auto'
+  prompt += category === 'auto'
+    ? `CATEGORY MIX: you pick the families. Choose the ones that genuinely fit this product and audience — cover at least 4 different families across the ${HOOK_COUNT} hooks, never more than 3 hooks from any one family, and order the ${HOOK_COUNT} strongest-first.\n\n`
+    : `CATEGORY LOCK: every one of the ${HOOK_COUNT} hooks must be <${HOOK_TAG[category]}>. Use a different formula from that family for each hook so the ${HOOK_COUNT} don't blur together, and order them strongest-first.\n\n`
+
+  prompt += `Write the ${HOOK_COUNT} hooks now.`
+
+  const messages: ChatMessage[] = [
+    { role: 'system', content: [{ type: 'text', text: HOOKS_SYSTEM }] },
+    { role: 'user', content: [{ type: 'text', text: prompt }] },
+  ]
+
+  return kieChatCompletions(apiKey, endpoint, messages)
+}
 
 const WRITE_STYLE_INSTRUCTION: Record<WriteStyle, string> = {
   pas: 'STRUCTURE — PROBLEM-AGITATE-SOLUTION: open by naming the viewer\'s exact pain in their own words. Spend a beat making it worse (the cost, the embarrassment, the wasted time, the stuff they already tried). Only then bring the product in as the relief. Close with the call-to-action.',
@@ -430,6 +603,11 @@ export async function generateScript(input: GenerateScriptInput): Promise<Genera
   }
 
   if (input.mode === 'write') {
+    // Hooks: one pack of tagged one-liners, not 3 parallel takes.
+    if (input.writeFormat === 'hooks') {
+      const text = await runHooks(input, apiKey, endpoint)
+      return { variations: [text] }
+    }
     const variations = await Promise.all([0, 1, 2].map((take) => runWrite(input, take, apiKey, endpoint)))
     return { variations }
   }

@@ -1,7 +1,7 @@
 import { useState, type ComponentType } from 'react'
-import { Package, Loader2, PenLine, ChevronRight, FileText, Clapperboard, RefreshCw, X, Film, UserRound, Sparkles, Undo2, Redo2, Eraser, Shuffle } from 'lucide-react'
+import { Package, Loader2, PenLine, ChevronRight, FileText, Clapperboard, RefreshCw, X, Film, UserRound, Sparkles, Undo2, Redo2, Eraser, Shuffle, FishingHook } from 'lucide-react'
 import type { Model, Product, Script } from '../../../stores/types'
-import { WRITE_LENGTHS, WRITE_STYLE_META, type EditableProductContext, type ScriptUiMode, type WriteStyle, type WriteFormat, type WriteLength } from '../types'
+import { WRITE_LENGTHS, WRITE_STYLE_META, HOOK_CATEGORY_META, HOOK_COUNT, type EditableProductContext, type ScriptUiMode, type WriteStyle, type WriteFormat, type WriteLength, type HookCategoryChoice } from '../types'
 
 // The cinematic 'prompt' format is single-clip-capped, so it only offers the
 // shorter durations a video model can render in one generation.
@@ -47,6 +47,8 @@ interface InputPanelProps {
   onWriteFormatChange: (value: WriteFormat) => void
   writeLength: WriteLength
   onWriteLengthChange: (value: WriteLength) => void
+  hookCategory: HookCategoryChoice
+  onHookCategoryChange: (value: HookCategoryChoice) => void
   selectedProduct: Product | null
   onProductSelect: (product: Product | null) => void
   selectedInfluencer: Model | null
@@ -74,6 +76,8 @@ export default function InputPanel({
   onWriteFormatChange,
   writeLength,
   onWriteLengthChange,
+  hookCategory,
+  onHookCategoryChange,
   selectedProduct,
   onProductSelect,
   selectedInfluencer,
@@ -97,6 +101,7 @@ export default function InputPanel({
   )
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [styleSlideOpen, setStyleSlideOpen] = useState(false)
+  const [hookSlideOpen, setHookSlideOpen] = useState(false)
   // The script picked from the bank for the remix source. Editing the textarea
   // clears it (reverts to the dashed picker), mirroring the B-Roll ref cards.
   const [sourceScript, setSourceScript] = useState<Script | null>(null)
@@ -142,6 +147,9 @@ export default function InputPanel({
   // Cinematic master-prompt format: swaps the Script Style picker for an
   // Influencer picker and caps the length toggle to single-clip durations.
   const isPromptFormat = writeFormat === 'prompt'
+  // Hooks format: one-liners, so no length toggle; the Script Style picker is
+  // swapped for the hook-family picker.
+  const isHooksFormat = writeFormat === 'hooks'
   // The scene-rewrite pipeline will run (blueprint detected, no override) —
   // drives the source box chrome, the chip copy, and the button labels.
   const blueprintActive = isBlueprint && !forceTranscript
@@ -313,7 +321,7 @@ export default function InputPanel({
   }
 
   const generateLabel = mode === 'write'
-    ? (writeFormat === 'prompt' ? 'Generate 3 Cinematic Concepts' : writeFormat === 'scenes' ? 'Generate 3 Scene Drafts' : 'Generate 3 Scripts')
+    ? (writeFormat === 'prompt' ? 'Generate 3 Cinematic Concepts' : writeFormat === 'scenes' ? 'Generate 3 Scene Drafts' : writeFormat === 'hooks' ? `Generate ${HOOK_COUNT} Hooks` : 'Generate 3 Scripts')
     : blueprintActive ? 'Rewrite Scene Prompts' : 'Generate 3 Script Variations'
 
   // Product picker — step 2 in every mode, but rendered in a different spot
@@ -531,6 +539,7 @@ export default function InputPanel({
                 onChange={handleFormatChange}
                 options={[
                   { value: 'script', label: 'Script', icon: FileText },
+                  { value: 'hooks', label: 'Hooks', icon: FishingHook },
                   { value: 'scenes', label: 'Scenes', icon: Clapperboard },
                   { value: 'prompt', label: 'Cinematic', icon: Film },
                 ]}
@@ -538,7 +547,9 @@ export default function InputPanel({
             </div>
 
             {/* Length — sits directly under the format toggle, tight with the
-                product + style cluster below it. */}
+                product + style cluster below it. Hooks are one-liners, so the
+                format has no duration and the toggle hides. */}
+            {!isHooksFormat && (
             <div className="mb-3">
               <SegmentedToggle<string>
                 className="h-12 !p-1"
@@ -548,15 +559,72 @@ export default function InputPanel({
                 options={(isPromptFormat ? PROMPT_LENGTHS : WRITE_LENGTHS).map((len) => ({ value: String(len), label: `${len}s` }))}
               />
             </div>
+            )}
 
             {/* Cinematic format swaps the Script Style picker for an Influencer
                 picker — an optional consistent face for the @INFLUENCER ref. */}
             {isPromptFormat && influencerSection}
 
+            {/* Hook Style — the hooks format's replacement for the Script Style
+                picker. 'auto' (Best Mix) is the default and renders as the
+                dashed unset affordance; picking a family flips it solid, and
+                the X resets back to auto. */}
+            {isHooksFormat && (
+            <div className="mb-3">
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => setHookSlideOpen(true)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setHookSlideOpen(true) } }}
+                className={`group flex w-full cursor-pointer items-center gap-3 rounded-full border px-4 py-3.5 text-left transition-colors ${
+                  hookCategory !== 'auto'
+                    ? 'border-scripts-500/20 bg-scripts-500/[0.06] hover:border-scripts-500/30 hover:bg-scripts-500/10'
+                    : 'border-dashed border-ink/10 bg-ink/[0.02] hover:border-scripts-500/30 hover:bg-scripts-500/5'
+                }`}
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-scripts-500/10 text-scripts-400">
+                  <FishingHook className="h-5 w-5" strokeWidth={1.75} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  {hookCategory !== 'auto' ? (
+                    <>
+                      <div className="truncate text-[13px] font-medium tracking-tight text-scripts-text">{HOOK_CATEGORY_META[hookCategory].label}</div>
+                      <div className="truncate text-[11px] leading-snug text-ink-500">{HOOK_CATEGORY_META[hookCategory].hint}</div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-sm font-medium text-ink-300">Hook Style</div>
+                      <div className="text-xs text-ink-600">Auto picks the best mix — or lock one category</div>
+                    </>
+                  )}
+                </div>
+                {hookCategory !== 'auto' ? (
+                  <div className="flex shrink-0 items-center gap-1">
+                    <span className="hidden items-center rounded-md px-2 py-0.5 text-ink-500 group-hover:flex">
+                      <RefreshCw className="h-2.5 w-2.5" />
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); onHookCategoryChange('auto') }}
+                      title="Back to Best Mix"
+                      aria-label="Back to Best Mix"
+                      className="flex h-6 w-6 items-center justify-center rounded-full text-ink-500 transition-colors hover:bg-ink/5 hover:text-red-400 light:hover:text-red-600"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" strokeWidth={2} />
+                )}
+              </div>
+            </div>
+            )}
+
             {/* Script Style — sits above the product picker. Tapping the button
                 opens the style picker slide-over. Hidden in the cinematic format
-                (no spoken-script structure). */}
-            {!isPromptFormat && (
+                (no spoken-script structure) and the hooks format (which has its
+                own family picker above). */}
+            {!isPromptFormat && !isHooksFormat && (
             <div className="mb-3">
               <div
                 role="button"
@@ -820,7 +888,7 @@ export default function InputPanel({
           {isGenerating ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              <span>{mode === 'write' ? (writeFormat === 'prompt' ? 'Directing 3 Concepts...' : 'Writing 3 Takes...') : blueprintActive ? 'Rewriting Scene Prompts...' : 'Generating 3 Script Variations...'}</span>
+              <span>{mode === 'write' ? (writeFormat === 'prompt' ? 'Directing 3 Concepts...' : writeFormat === 'hooks' ? `Writing ${HOOK_COUNT} Hooks...` : 'Writing 3 Takes...') : blueprintActive ? 'Rewriting Scene Prompts...' : 'Generating 3 Script Variations...'}</span>
             </>
           ) : (
             <>
@@ -919,6 +987,42 @@ export default function InputPanel({
                     {WRITE_STYLE_META[style].label}
                   </div>
                   <div className="text-[11px] leading-snug text-ink-500">{WRITE_STYLE_META[style].hint}</div>
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      </SlideOver>
+
+      {/* Hook family picker — mirrors the style slide-over. 'auto' leads. */}
+      <SlideOver
+        open={hookSlideOpen}
+        onClose={() => setHookSlideOpen(false)}
+        title="Choose a hook style"
+        subtitle={`Which formula family the ${HOOK_COUNT} hooks draw from`}
+      >
+        <div className="flex flex-col gap-2 p-4">
+          {(Object.keys(HOOK_CATEGORY_META) as HookCategoryChoice[]).map((choice) => {
+            const active = choice === hookCategory
+            return (
+              <button
+                key={choice}
+                type="button"
+                onClick={() => { onHookCategoryChange(choice); setHookSlideOpen(false) }}
+                className={`flex items-center gap-3 rounded-full border px-4 py-3 text-left transition-colors ${
+                  active
+                    ? 'border-scripts-500/30 bg-scripts-500/10'
+                    : 'border-ink/5 bg-ink/[0.02] hover:border-ink/10 hover:bg-ink/[0.04]'
+                }`}
+              >
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${active ? 'bg-scripts-500/10 text-scripts-400' : 'bg-ink/5 text-ink-500'}`}>
+                  {choice === 'auto' ? <Sparkles className="h-5 w-5" strokeWidth={1.75} /> : <FishingHook className="h-5 w-5" strokeWidth={1.75} />}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className={`text-[13px] font-medium tracking-tight ${active ? 'text-scripts-300' : 'text-ink-200'}`}>
+                    {HOOK_CATEGORY_META[choice].label}
+                  </div>
+                  <div className="text-[11px] leading-snug text-ink-500">{HOOK_CATEGORY_META[choice].hint}</div>
                 </div>
               </button>
             )

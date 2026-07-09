@@ -15,6 +15,8 @@ interface RightPanelProps {
   outputMode: ScriptMode
   writeFormat: WriteFormat
   writeStyleLabel: string
+  // Hooks format only — labels the pack's card ("Best Mix" / a family name).
+  hookCategoryLabel: string
   linkedProductId: string | null
   // Influencer + clip length for the cinematic 'prompt' format's Playground
   // handoff (ignored by the other formats).
@@ -37,6 +39,7 @@ export default function RightPanel({
   outputMode,
   writeFormat,
   writeStyleLabel,
+  hookCategoryLabel,
   linkedProductId,
   influencer,
   cinematicDuration,
@@ -79,6 +82,7 @@ export default function RightPanel({
             liveMode={mode}
             writeFormat={writeFormat}
             writeStyleLabel={writeStyleLabel}
+            hookCategoryLabel={hookCategoryLabel}
             linkedProductId={linkedProductId}
             influencer={influencer}
             cinematicDuration={cinematicDuration}
