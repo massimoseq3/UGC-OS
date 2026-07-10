@@ -20,6 +20,17 @@ export function usageDayStart(id: string): number {
   return new Date(y, m - 1, d).getTime()
 }
 
+/**
+ * Calendar-day ordinal for a 'YYYY-MM-DD' key — days since the Unix epoch,
+ * computed in UTC so it's immune to DST. Adjacent calendar days always differ
+ * by exactly 1, so streak/window math must use this, never millisecond deltas
+ * on local-midnight timestamps (those are 23h/25h apart across a DST switch).
+ */
+export function usageDayIndex(id: string): number {
+  const [y, m, d] = id.split('-').map(Number)
+  return Math.round(Date.UTC(y, m - 1, d) / DAY_MS)
+}
+
 // Estimated minutes of manual work one generation replaces, per kind. These
 // are deliberately conservative "if you produced this asset the traditional
 // way" figures — shooting a b-roll clip, writing a script from scratch,
@@ -86,17 +97,24 @@ export function computeUsageMetrics(days: UsageDay[], creditsToUsd: (credits: nu
   let minutesSavedLast7d = 0
   let usdSavedLast7d = 0
 
-  // Rolling window: today plus the six days before it, by local day key.
-  const weekStart = usageDayStart(usageDayId(Date.now())) - 6 * DAY_MS
+  // Rolling window: today plus the six days before it, in calendar-day space.
+  const todayIndex = usageDayIndex(usageDayId(Date.now()))
+  const weekStartIndex = todayIndex - 6
 
-  const activeIds: number[] = []
+  const activeIndices: number[] = []
+  let firstActiveDay: string | null = null
+  let firstActiveIndex = Infinity
   for (const day of days) {
     if (dayTotal(day) === 0) continue
-    const dayStart = usageDayStart(day.id)
-    activeIds.push(dayStart)
+    const dayIndex = usageDayIndex(day.id)
+    activeIndices.push(dayIndex)
+    if (dayIndex < firstActiveIndex) {
+      firstActiveIndex = dayIndex
+      firstActiveDay = day.id
+    }
     creditsSpent += day.credits
     officialUsd += day.officialUsd
-    const inWindow = dayStart >= weekStart
+    const inWindow = dayIndex >= weekStartIndex
     if (inWindow) usdSavedLast7d += Math.max(0, day.officialUsd - creditsToUsd(day.credits))
     for (const [kind, n] of Object.entries(day.counts) as Array<[UsageKind, number | undefined]>) {
       const count = n ?? 0
@@ -107,7 +125,7 @@ export function computeUsageMetrics(days: UsageDay[], creditsToUsd: (credits: nu
       totalGenerations += count
     }
   }
-  activeIds.sort((a, b) => a - b)
+  activeIndices.sort((a, b) => a - b)
 
   // Longest run of consecutive calendar days, and the current run. The current
   // streak stays alive through "today has no activity yet" — it only breaks
@@ -115,14 +133,13 @@ export function computeUsageMetrics(days: UsageDay[], creditsToUsd: (credits: nu
   let longestStreak = 0
   let run = 0
   let prev: number | null = null
-  for (const ts of activeIds) {
-    run = prev !== null && ts - prev === DAY_MS ? run + 1 : 1
+  for (const idx of activeIndices) {
+    run = prev !== null && idx - prev === 1 ? run + 1 : 1
     longestStreak = Math.max(longestStreak, run)
-    prev = ts
+    prev = idx
   }
-  const today = usageDayStart(usageDayId(Date.now()))
-  const last = activeIds[activeIds.length - 1]
-  const currentStreak = last === today || last === today - DAY_MS ? run : 0
+  const last = activeIndices[activeIndices.length - 1]
+  const currentStreak = last === todayIndex || last === todayIndex - 1 ? run : 0
 
   const kieUsd = creditsToUsd(creditsSpent)
   return {
@@ -133,10 +150,10 @@ export function computeUsageMetrics(days: UsageDay[], creditsToUsd: (credits: nu
     kieUsd,
     officialUsd,
     usdSaved: Math.max(0, officialUsd - kieUsd),
-    activeDays: activeIds.length,
+    activeDays: activeIndices.length,
     currentStreak,
     longestStreak,
-    firstActiveDay: activeIds.length ? usageDayId(activeIds[0]) : null,
+    firstActiveDay,
     minutesSavedLast7d,
     usdSavedLast7d,
   }

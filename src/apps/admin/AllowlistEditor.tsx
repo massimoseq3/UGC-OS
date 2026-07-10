@@ -660,7 +660,7 @@ function ImportPreviewModal({
           </button>
           <button
             onClick={() => onConfirm(syncMode)}
-            disabled={importing || (willAdd === 0 && willRemove === 0)}
+            disabled={importing || (willAdd === 0 && willUpdate === 0 && willRemove === 0)}
             className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors disabled:opacity-60 ${
               willRemove > 0
                 ? 'bg-red-500 text-white hover:bg-red-400'

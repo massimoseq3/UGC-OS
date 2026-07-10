@@ -35,7 +35,7 @@ const RULES: Array<{ test: (m: string) => boolean; message: string }> = [
 
   // ── Auth / billing on the kie.ai key ──
   {
-    test: (m) => m.includes('401') || m.includes('invalid') && m.includes('key') || m.includes('expired'),
+    test: (m) => m.includes('401') || (m.includes('invalid') && m.includes('key')) || (m.includes('expired') && m.includes('key')),
     message:
       'Your kie.ai API key looks invalid or expired. Open Settings, paste a fresh key from kie.ai, and try again.',
   },

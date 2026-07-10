@@ -7,7 +7,7 @@ import { useSettingsStore } from '../../stores/settingsStore'
 import type { CharacterProfile, TabId } from './types'
 import { createEmptyProfile, flattenDna, PHOTOREALISM_STYLE } from './types'
 import type { ImageResolution } from '../../utils/models'
-import { getDefaultModel } from '../../utils/models'
+import { getDefaultModel, clampImageResolution } from '../../utils/models'
 import ControlsPanel from './components/ControlsPanel'
 import GalleryPanel, { type InFlightCharacterGen } from './components/GalleryPanel'
 import { startCharacterTask, finishCharacterTask, type GenerationKind } from './services/generateCharacter'
@@ -41,14 +41,33 @@ export default function CharacterStudio() {
   // modes preserves each. Defaults to the horizontal turnaround layout.
   const [sheetAspect, setSheetAspect] = usePersistedState<string>(`${baseKey}:sheet-aspect`, '16:9')
 
+  // The image model actually used for portraits/sheets (persisted picker
+  // selection, else the app default). Subscribed reactively so a model swap
+  // re-clamps the resolution below.
+  const persistedImageModel = useSettingsStore((s) => s.getAppModel('character-studio:image:text-to-image'))
+  const selectedImageModelId = persistedImageModel
+    ?? getDefaultModel('character-studio', 'image', 'text-to-image')?.id
+    ?? 'unknown'
+
+  // Keep resolution inside the selected model's supported tiers. Without this,
+  // switching to a 1K/2K-only model (Seedream) while 4K is set would leave a
+  // stale 4K that the resolution toggle can't display and that silently
+  // downgrades to basic quality at request time.
+  useEffect(() => {
+    setResolution((r) => clampImageResolution(selectedImageModelId, r))
+    setPreSheetResolution((r) => clampImageResolution(selectedImageModelId, r))
+  }, [selectedImageModelId, setResolution, setPreSheetResolution])
+
   const handleSheetModeChange = (on: boolean) => {
     if (on === sheetMode) return
     if (on) {
       setPreSheetResolution(resolution)
-      setResolution('4K')
+      // Sheets want the crispest tier the model offers (each panel is a
+      // fraction of the frame) — clamp 4K down when the model tops out lower.
+      setResolution(clampImageResolution(selectedImageModelId, '4K'))
       setSheetAspect('16:9')
     } else {
-      setResolution(preSheetResolution)
+      setResolution(clampImageResolution(selectedImageModelId, preSheetResolution))
     }
     setSheetMode(on)
   }

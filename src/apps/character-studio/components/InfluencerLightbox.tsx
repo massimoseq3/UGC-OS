@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { X, Download, Copy, Check, Loader2, LayoutGrid } from 'lucide-react'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
+import { useCloseOnAppSwitch } from '../../../hooks/useCloseOnAppSwitch'
 import { getUrl } from '../../../utils/assetStore'
 import { downloadImage } from '../../../utils/downloadImage'
 import { copyToClipboard } from '../../../utils/clipboard'
@@ -24,6 +25,7 @@ export default function InfluencerLightbox({
 }) {
   const url = useAssetUrl(imageRef)
   const [copied, setCopied] = useState(false)
+  useCloseOnAppSwitch(true, onClose)
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
