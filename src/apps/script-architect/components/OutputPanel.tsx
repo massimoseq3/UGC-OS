@@ -708,12 +708,12 @@ export default function OutputPanel({ variations, mode, liveMode, writeFormat, w
   if (isGenerating) {
     const message = copyMode === 'write'
       ? (writeFormat === 'prompt'
-          ? ['Reading your brief...', 'Directing 3 cinematic concepts...', 'Building the world bible...', 'Laying out the timeline...']
+          ? ['Reading your brief...', 'Directing 5 cinematic concepts...', 'Building the world bible...', 'Laying out the timeline...']
           : writeFormat === 'hooks'
             ? ['Reading your brief...', 'Digging through the hook library...', `Writing ${HOOK_COUNT} hooks...`, 'Cutting the weak ones...']
-            : ['Reading your brief...', 'Writing 3 takes...', 'Making it sound human...', 'Tightening the hooks...'])
+            : ['Reading your brief...', 'Writing 5 takes...', 'Making it sound human...', 'Tightening the hooks...'])
       : copyMode === 'remix'
-        ? ['Building 3 angles...', 'Sending parallel requests...', 'Writing variations...', 'Polishing final drafts...']
+        ? ['Building 5 angles...', 'Sending parallel requests...', 'Writing variations...', 'Polishing final drafts...']
         : ['Reading scene blueprint...', 'Mapping product into structure...', 'Rewriting scenes...', 'Preserving structure...']
     return (
       <div className="flex h-full flex-col gap-2 p-5">
@@ -737,8 +737,8 @@ export default function OutputPanel({ variations, mode, liveMode, writeFormat, w
         <PenLine className="h-8 w-8 text-ink-800" strokeWidth={1.5} />
         <p className="text-sm text-ink-700">
           {copyMode === 'write'
-            ? (writeFormat === 'prompt' ? 'Your 3 cinematic concepts will appear here' : writeFormat === 'hooks' ? `Your ${HOOK_COUNT} hooks will appear here` : 'Your 3 takes will appear here')
-            : copyMode === 'remix' ? 'Your 3 script variations will appear here' : 'Your scene prompts will appear here'}
+            ? (writeFormat === 'prompt' ? 'Your 5 cinematic concepts will appear here' : writeFormat === 'hooks' ? `Your ${HOOK_COUNT} hooks will appear here` : 'Your 5 takes will appear here')
+            : copyMode === 'remix' ? 'Your 5 script variations will appear here' : 'Your scene prompts will appear here'}
         </p>
         {error && (
           <div className="mt-2 flex max-w-sm items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2">
@@ -750,7 +750,7 @@ export default function OutputPanel({ variations, mode, liveMode, writeFormat, w
     )
   }
 
-  const angles: RemixAngle[] = ['hook-led', 'pain-point-led', 'curiosity-led']
+  const angles: RemixAngle[] = ['hook-led', 'pain-point-led', 'curiosity-led', 'story-led', 'proof-led']
   const takeUnit = isCinematic ? 'Concept' : mode === 'remix' ? 'Variation' : 'Take'
 
   return (
@@ -780,7 +780,7 @@ export default function OutputPanel({ variations, mode, liveMode, writeFormat, w
         {variations.map((text, i) => {
           const isRemix = mode === 'remix'
           const isWrite = mode === 'write'
-          const angleLabel = isRemix && variations.length === 3 ? REMIX_ANGLE_LABEL[angles[i]] : null
+          const angleLabel = isRemix && variations.length === angles.length ? REMIX_ANGLE_LABEL[angles[i]] : null
           const cardTitle = isHooks
             ? `Hooks · ${hookCategoryLabel ?? 'Best Mix'}`
             : isCinematic

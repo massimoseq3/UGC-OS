@@ -203,6 +203,10 @@ const REMIX_ANGLE_INSTRUCTION: Record<RemixAngle, string> = {
     'ANGLE: Lead with the customer\'s pain point in vivid, specific terms. Make the viewer feel the problem viscerally before the product appears.',
   'curiosity-led':
     'ANGLE: Lead with a curiosity gap or counter-intuitive claim that makes the viewer need to know more. Withhold the punchline until later in the script.',
+  'story-led':
+    'ANGLE: Lead with a short personal story or moment ("last week I..."). Pull the viewer in with a relatable narrative, then let the product emerge naturally as the turning point.',
+  'proof-led':
+    'ANGLE: Lead with a concrete result, number, or before/after proof point. Open on the outcome the viewer wants, then reveal how the product delivered it.',
 }
 
 const REVERSE_ENGINEER_SYSTEM = `You are an elite UGC ad creative director. You take a comprehensive scene-by-scene blueprint of a winning ad — where the original character and the original product are described in full identifying detail — and you rewrite it so the SAME ad structure can be regenerated for a NEW product with a NEW character.
@@ -371,12 +375,14 @@ const WRITE_STYLE_INSTRUCTION: Record<WriteStyle, string> = {
   comparison: 'STRUCTURE — US VS THEM: what people normally use versus this. Concrete differences — price, time, result. Never name competitor brands; say "the stuff from the drugstore", "the one everyone buys". End on why switching is obvious, then the call-to-action.',
 }
 
-// Three parallel takes per generate — same style, deliberately different
-// openings so the variations aren't three flavors of one hook.
+// Five parallel takes per generate — same style, deliberately different
+// openings so the variations aren't five flavors of one hook.
 const WRITE_TAKE_INSTRUCTION: string[] = [
   'THIS TAKE: open with a bold claim or hot take stated as fact.',
   'THIS TAKE: open with a specific personal confession or moment ("I did X for years before I realized...").',
   'THIS TAKE: open by directly calling out the viewer ("if you [pain point], stop scrolling" energy — in your own words, not that phrase).',
+  'THIS TAKE: open with a surprising number, stat, or before/after result that reframes the problem.',
+  'THIS TAKE: open mid-story, in the middle of a moment or a question, so the viewer is dropped straight into the action.',
 ]
 
 // Word budgets assume ~2.4 words/sec on-camera pace, so the read time
@@ -432,12 +438,14 @@ HARD RULES:
 - Keep @INFLUENCER and @PRODUCT consistent with their references; never describe their literal appearance.
 - Output ONLY the labelled prompt. No preamble, no commentary, no markdown code fences, no "Here is…".`
 
-// Three parallel concepts per generate — deliberately different cinematic
-// worlds so the cards are real alternatives, not three flavours of one idea.
+// Five parallel concepts per generate — deliberately different cinematic
+// worlds so the cards are real alternatives, not five flavours of one idea.
 const WRITE_PROMPT_TAKE_INSTRUCTION: string[] = [
   'THIS CONCEPT — EPIC / GRAND: build a powerful, large-scale, atmospheric world that dramatises the product\'s core benefit as something mythic and larger than life. Wide, awe-driven, cinematic scale.',
   'THIS CONCEPT — INTIMATE / HUMAN: a quiet, real, emotionally-driven moment built around one character. The product appears as a personal ritual or a turning point. Restrained and sincere.',
   'THIS CONCEPT — SLEEK / DESIGN-FORWARD: a stylised, ultra-premium brand-film world — bold colour, striking architecture, or a surreal-but-photoreal setting. Modern, iconic, high-fashion energy.',
+  'THIS CONCEPT — KINETIC / HIGH-ENERGY: a fast-cut, dynamic world full of movement and momentum — sport, motion, speed, or urban energy. Punchy rhythm, athletic camera, adrenaline.',
+  'THIS CONCEPT — NATURAL / ORGANIC: a warm, grounded world rooted in nature, craft, or everyday texture — golden light, real hands, tactile materials. Honest, earthy, effortlessly premium.',
 ]
 
 // Single-clip beat budgets. The cinematic format renders as one generation, so
@@ -603,16 +611,16 @@ export async function generateScript(input: GenerateScriptInput): Promise<Genera
   }
 
   if (input.mode === 'write') {
-    // Hooks: one pack of tagged one-liners, not 3 parallel takes.
+    // Hooks: one pack of tagged one-liners, not 5 parallel takes.
     if (input.writeFormat === 'hooks') {
       const text = await runHooks(input, apiKey, endpoint)
       return { variations: [text] }
     }
-    const variations = await Promise.all([0, 1, 2].map((take) => runWrite(input, take, apiKey, endpoint)))
+    const variations = await Promise.all([0, 1, 2, 3, 4].map((take) => runWrite(input, take, apiKey, endpoint)))
     return { variations }
   }
 
-  const angles: RemixAngle[] = ['hook-led', 'pain-point-led', 'curiosity-led']
+  const angles: RemixAngle[] = ['hook-led', 'pain-point-led', 'curiosity-led', 'story-led', 'proof-led']
   const variations = await Promise.all(angles.map((angle) => runRemix(input, angle, apiKey, endpoint)))
   return { variations }
 }
