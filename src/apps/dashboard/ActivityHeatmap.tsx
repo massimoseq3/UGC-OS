@@ -102,14 +102,6 @@ export default function ActivityHeatmap({ days }: { days: UsageDay[] }) {
             </div>
           ))}
         </div>
-        {/* Intensity legend */}
-        <div className="mt-1 flex items-center justify-end gap-1.5 text-[10px] text-ink-500">
-          <span>Less</span>
-          {[...LEVELS].reverse().map((l) => (
-            <span key={l.min} className={`h-[9px] w-[9px] rounded-[2.5px] ${l.className}`} />
-          ))}
-          <span>More</span>
-        </div>
       </div>
     </div>
   )
