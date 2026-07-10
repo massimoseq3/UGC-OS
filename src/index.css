@@ -84,16 +84,17 @@
   --color-influencers-500: #F74F9E;
   --color-influencers-600: color-mix(in oklab, #F74F9E 85%, black);
 
-  /* Scripts — orange #E44F14 */
-  --color-scripts-100: color-mix(in oklab, #E44F14 25%, white);
-  --color-scripts-200: color-mix(in oklab, #E44F14 40%, white);
-  --color-scripts-300: color-mix(in oklab, #E44F14 60%, white);
-  --color-scripts-400: color-mix(in oklab, #E44F14 80%, white);
-  --color-scripts-500: #E44F14;
-  --color-scripts-600: color-mix(in oklab, #E44F14 85%, black);
+  /* Scripts — navy #24365A (Teenage Engineering "field blue") */
+  --color-scripts-100: color-mix(in oklab, #24365A 25%, white);
+  --color-scripts-200: color-mix(in oklab, #24365A 40%, white);
+  --color-scripts-300: color-mix(in oklab, #24365A 60%, white);
+  --color-scripts-400: color-mix(in oklab, #24365A 80%, white);
+  --color-scripts-500: #24365A;
+  --color-scripts-600: color-mix(in oklab, #24365A 85%, black);
   /* Active accent label/icon (mode + length toggles, chosen Style card). A
-     softer salmon on dark; the light override below is a deeper red-orange. */
-  --color-scripts-text: #F77F5A;
+     light steel blue on dark — the navy itself would vanish on the dark
+     canvas; the light override below is the navy. */
+  --color-scripts-text: #8FA6CE;
 
   /* Voiceovers — blue #007AFF */
   --color-voice-100: color-mix(in oklab, #007AFF 25%, white);
@@ -175,12 +176,12 @@
   --color-influencers-400: color-mix(in oklab, #F74F9E 95%, black);
   --color-influencers-600: color-mix(in oklab, #F74F9E 85%, black);
 
-  --color-scripts-100: color-mix(in oklab, #E44F14 35%, black);
-  --color-scripts-200: color-mix(in oklab, #E44F14 50%, black);
-  --color-scripts-300: color-mix(in oklab, #E44F14 70%, black);
-  --color-scripts-400: color-mix(in oklab, #E44F14 95%, black);
-  --color-scripts-600: color-mix(in oklab, #E44F14 85%, black);
-  --color-scripts-text: #E05321;
+  --color-scripts-100: color-mix(in oklab, #24365A 35%, black);
+  --color-scripts-200: color-mix(in oklab, #24365A 50%, black);
+  --color-scripts-300: color-mix(in oklab, #24365A 70%, black);
+  --color-scripts-400: color-mix(in oklab, #24365A 95%, black);
+  --color-scripts-600: color-mix(in oklab, #24365A 85%, black);
+  --color-scripts-text: #2C4A78;
 
   --color-voice-100: color-mix(in oklab, #007AFF 35%, black);
   --color-voice-200: color-mix(in oklab, #007AFF 50%, black);

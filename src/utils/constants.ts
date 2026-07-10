@@ -41,7 +41,7 @@ export const APP_REGISTRY: AppConfig[] = [
   // analyze a winning ad first, then produce — the dock reads left-to-right.
   { id: 'ad-anatomy', name: 'Ad Analyzer', icon: Eye, accent: '#FF5257', category: 'create' },
   { id: 'character-studio', name: 'Characters', icon: UserRound, accent: '#F74F9E', category: 'create' },
-  { id: 'script-architect', name: 'Scripts', icon: PenLine, accent: '#E44F14', category: 'create' },
+  { id: 'script-architect', name: 'Scripts', icon: PenLine, accent: '#24365A', category: 'create' },
   { id: 'voice-studio', name: 'Voiceovers', icon: Mic, accent: '#007AFF', category: 'create' },
   { id: 'broll-studio', name: 'B-Roll', icon: Film, accent: '#7165FF', category: 'create' },
   { id: 'playground', name: 'Playground', icon: ImagePlay, accent: '#015C52', category: 'create' },
@@ -64,7 +64,7 @@ export type BankType = 'products' | 'models' | 'scripts' | 'voices' | 'brolls'
 export const BANK_CONFIG: Record<BankType, { label: string; icon: ElementType; accent: string }> = {
   products: { label: 'Products', icon: Package, accent: '#4C1D95' },
   models: { label: 'Characters', icon: UserRound, accent: '#F74F9E' },
-  scripts: { label: 'Scripts', icon: FileText, accent: '#E44F14' },
+  scripts: { label: 'Scripts', icon: FileText, accent: '#24365A' },
   voices: { label: 'Voices', icon: Mic, accent: '#007AFF' },
   brolls: { label: 'B-Rolls', icon: Film, accent: '#7165FF' },
 }
