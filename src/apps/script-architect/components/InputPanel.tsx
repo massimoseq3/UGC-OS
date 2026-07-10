@@ -515,8 +515,8 @@ export default function InputPanel({
           value={mode}
           onChange={onModeChange}
           options={[
-            { value: 'remix', label: 'Remix', icon: Shuffle },
             { value: 'write', label: 'Write New', icon: PenLine },
+            { value: 'remix', label: 'Remix', icon: Shuffle },
           ]}
         />
       </div>
@@ -665,8 +665,10 @@ export default function InputPanel({
 
             {/* The brief — its section grows to absorb leftover column height so
                 the box fills the blank space below the pickers (same
-                expand-don't-scroll pattern as Playground's prompt). */}
-            <div className="mt-3 mb-6 flex min-h-0 flex-1 flex-col">
+                expand-don't-scroll pattern as Playground's prompt). The length
+                toggle is pinned to the footer above Generate, so the brief owns
+                all the leftover space here. */}
+            <div className="mt-3 flex min-h-0 flex-1 flex-col">
               <div className="mb-3 flex items-center gap-2">
                 <StepLabel
                   label="Describe Your Ad"
@@ -732,30 +734,17 @@ export default function InputPanel({
                 </div>
               </div>
             </div>
-
-            {/* Length — sits below the Describe Your Ad box. Hooks are
-                one-liners, so the format has no duration and the toggle hides. */}
-            {!isHooksFormat && (
-            <div className="mb-3">
-              <SegmentedToggle<string>
-                className="h-12 !p-1"
-                accent="scripts"
-                value={String(writeLength)}
-                onChange={(v) => onWriteLengthChange(Number(v) as WriteLength)}
-                options={(isPromptFormat ? PROMPT_LENGTHS : WRITE_LENGTHS).map((len) => ({ value: String(len), label: `${len}s` }))}
-              />
-            </div>
-            )}
           </>
         ) : (
-          <div className="mb-6 flex grow flex-col">
+          <div className="mb-4 flex flex-col">
             {/* Select from bank (header) + paste manually (textarea) merged into
                 one rounded box so the two sources read as a single input. One
                 box serves both remix pipelines: the pasted source's format is
                 auto-detected (a scene blueprint flips the chrome to fuchsia and
                 routes to the scene-rewrite pipeline; plain text gets 3 remixed
-                variations). */}
-            <div className={`flex grow flex-col overflow-hidden rounded-3xl border bg-ink/[0.02] transition-colors focus-within:border-scripts-500/30 ${sourceScript ? (blueprintActive ? 'border-fuchsia-500/40' : 'border-scripts-500/40') : 'border-dashed border-ink/10'} ${highlightField === 'source' ? 'animate-field-flash' : ''}`}>
+                variations). Natural height (no grow) so the product row hugs it —
+                the Additional Context box absorbs the leftover column space. */}
+            <div className={`flex flex-col overflow-hidden rounded-3xl border bg-ink/[0.02] transition-colors focus-within:border-scripts-500/30 ${sourceScript ? (blueprintActive ? 'border-fuchsia-500/40' : 'border-scripts-500/40') : 'border-dashed border-ink/10'} ${highlightField === 'source' ? 'animate-field-flash' : ''}`}>
               <ScriptBankCard
                 selected={sourceScript}
                 label={blueprintActive ? 'Scene' : 'Script'}
@@ -808,14 +797,14 @@ export default function InputPanel({
             "Describe Your Video" brief (step 3), so it's only shown for the
             remix / scene-rewrite modes. */}
         {mode !== 'write' && (
-          <div className="mb-6">
+          <div className="mt-2 flex min-h-0 flex-1 flex-col">
             <div className="mb-2 flex items-center gap-2">
               <StepLabel label="Additional Context" optional />
             </div>
             {/* Single rounded box (matches the Write New brief): the textarea
-                grows, with Enhance / Clear / Undo / Redo + Expand attached in a
-                footer under a hairline. */}
-            <div className="relative flex flex-col overflow-hidden rounded-3xl border border-ink/10 bg-ink/[0.02] transition-colors focus-within:border-scripts-500/30">
+                grows to absorb the leftover column height, with Enhance / Clear /
+                Undo / Redo + Expand attached in a footer under a hairline. */}
+            <div className="relative flex grow flex-col overflow-hidden rounded-3xl border border-ink/10 bg-ink/[0.02] transition-colors focus-within:border-scripts-500/30">
               <textarea
                 value={additionalContext}
                 onChange={(e) => handleContextType(e.target.value)}
@@ -823,7 +812,7 @@ export default function InputPanel({
                 placeholder={blueprintActive
                   ? "Additional context for the rewrite (e.g. 'Keep tone playful', 'Make the CTA softer')..."
                   : "Additional context for this script (e.g. 'Focus on the self-cleaning feature', 'Summer campaign tone')..."}
-                className="min-h-[160px] w-full resize-none border-0 bg-transparent px-4 py-3 text-sm leading-relaxed text-ink-200 placeholder-ink-600 outline-none"
+                className="min-h-[160px] w-full flex-1 resize-none border-0 bg-transparent px-4 py-3 text-sm leading-relaxed text-ink-200 placeholder-ink-600 outline-none"
               />
               {/* Footer toolbar — Enhance + Clear + Undo/Redo bottom-left;
                   Expand bottom-right (mirrors the Describe Your Ad field). */}
@@ -879,6 +868,19 @@ export default function InputPanel({
           Opaque bg: backdrop-filter doesn't re-blur inside the already-blurred
           window frame, so any alpha lets content underneath ghost through. */}
       <div className="fixed bottom-0 left-0 right-0 z-30 shrink-0 border-t border-ink/5 bg-surface-0 px-5 py-4 md:static md:left-auto md:right-auto md:z-auto md:bg-transparent">
+        {/* Length — pinned directly above Generate. Hooks are one-liners, so the
+            format has no duration and the toggle hides; only Write New offers it. */}
+        {mode === 'write' && !isHooksFormat && (
+          <div className="mb-3">
+            <SegmentedToggle<string>
+              className="h-12 !p-1"
+              accent="scripts"
+              value={String(writeLength)}
+              onChange={(v) => onWriteLengthChange(Number(v) as WriteLength)}
+              options={(isPromptFormat ? PROMPT_LENGTHS : WRITE_LENGTHS).map((len) => ({ value: String(len), label: `${len}s` }))}
+            />
+          </div>
+        )}
         <button
           onClick={() => onGenerate(editableContext)}
           disabled={!canGenerate || isGenerating}
