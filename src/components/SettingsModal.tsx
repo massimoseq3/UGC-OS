@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, Eye, EyeOff, Key, Check, ExternalLink, Loader2, AlertCircle, HardDrive, Trash2, LogOut, User, Users, Sun, Moon, Monitor, Palette, FlaskConical, Shield, ChevronRight } from 'lucide-react'
+import { X, Eye, EyeOff, Key, Check, ExternalLink, Loader2, AlertCircle, HardDrive, Trash2, LogOut, User, Sun, Moon, Monitor, Palette, FlaskConical, Shield, ChevronRight } from 'lucide-react'
 import { useAppStore } from '../stores/appStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useThemeStore, type ThemePref } from '../stores/themeStore'
@@ -35,9 +35,9 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   const storedKieKey = useSettingsStore((s) => s.kieApiKey)
   const setKieApiKey = useSettingsStore((s) => s.setKieApiKey)
   const openApp = useAppStore((s) => s.openApp)
-  const openTeamIntro = useAppStore((s) => s.openTeamIntro)
   const profile = useAuthStore((s) => s.profile)
   const signOut = useAuthStore((s) => s.signOut)
+  const updateDisplayName = useAuthStore((s) => s.updateDisplayName)
   // Call the hook unconditionally (not behind `isCloudEnabled() &&`) so hook
   // order is stable across renders — rules-of-hooks.
   const authUser = useAuthStore((s) => s.user)
@@ -45,6 +45,13 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
 
   const [kieDraft, setKieDraft] = useState(storedKieKey)
   const [showKie, setShowKie] = useState(false)
+
+  // "What should we call you?" — edits profiles.display_name.
+  const storedName = profile?.display_name ?? ''
+  const [nameDraft, setNameDraft] = useState(storedName)
+  const [nameSaving, setNameSaving] = useState(false)
+  const [nameSaved, setNameSaved] = useState(false)
+  const [nameError, setNameError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [testing, setTesting] = useState(false)
@@ -72,6 +79,10 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   useEffect(() => {
     if (open) {
       setKieDraft(storedKieKey)
+      setNameDraft(storedName)
+      setNameSaving(false)
+      setNameSaved(false)
+      setNameError(null)
       setSaving(false)
       setSaved(false)
       setShowKie(false)
@@ -111,6 +122,19 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
     setSaving(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
+  }
+
+  async function handleSaveName() {
+    setNameSaving(true)
+    setNameError(null)
+    const result = await updateDisplayName(nameDraft)
+    setNameSaving(false)
+    if (result.ok) {
+      setNameSaved(true)
+      setTimeout(() => setNameSaved(false), 2000)
+    } else {
+      setNameError(result.error)
+    }
   }
 
   async function handleTest() {
@@ -273,7 +297,9 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
 
         {(() => {
           const trimmedDraft = kieDraft.trim()
-          const hasPendingChange = trimmedDraft.length > 0 && trimmedDraft !== storedKieKey
+          // Allow clearing a saved key (empty draft) — the only no-op is when
+          // the trimmed draft already matches what's stored.
+          const hasPendingChange = trimmedDraft !== storedKieKey
           const disabled = saving || saved || !hasPendingChange
           const primary = hasPendingChange && !saving && !saved
           return (
@@ -314,29 +340,6 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
           <ThemeToggle className="mt-3" />
         </div>
 
-        {/* Meet the Team — replays the onboarding intro (also behind the
-            menu-bar wordmark). Closes Settings so the intro isn't stacked. */}
-        <div className="mt-6 border-t border-ink/5 pt-5">
-          <div className="flex items-center gap-2">
-            <Users className="h-3.5 w-3.5 text-ink-500" />
-            <span className="text-sm font-medium text-ink-300">Your Team</span>
-          </div>
-          <div className="mt-3 flex items-center justify-between gap-3">
-            <p className="text-[11px] leading-snug text-ink-500">
-              Understand who does what, and how kie.ai powers the crew.
-            </p>
-            <button
-              onClick={() => {
-                onClose()
-                openTeamIntro()
-              }}
-              className="shrink-0 rounded-full border border-ink/10 bg-ink/[0.04] px-4 py-1.5 text-[12px] font-medium text-ink-200 transition-colors hover:bg-ink/[0.08]"
-            >
-              Meet Your Team
-            </button>
-          </div>
-        </div>
-
         {/* Account card — email + sign out, only when signed in */}
         {cloudOn && profile && (
           <div className="mt-6 border-t border-ink/5 pt-5">
@@ -344,6 +347,54 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
               <User className="h-3.5 w-3.5 text-ink-500" />
               <span className="text-sm font-medium text-ink-300">Account</span>
             </div>
+
+            {/* Preferred name — what the Dashboard greeting calls you. */}
+            <div className="mt-3">
+              <label className="text-[12px] font-medium text-ink-300">What should we call you?</label>
+              <div className="mt-2 flex items-center gap-2">
+                <input
+                  type="text"
+                  value={nameDraft}
+                  onChange={(e) => {
+                    setNameDraft(e.target.value)
+                    setNameError(null)
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && nameDraft.trim() !== storedName.trim() && !nameSaving) handleSaveName()
+                  }}
+                  placeholder={profile.first_name ?? 'Your name'}
+                  maxLength={40}
+                  className="min-w-0 flex-1 rounded-full border border-ink/10 bg-ink/5 px-4 py-2 text-sm text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-ink/20 focus:bg-ink/[0.07]"
+                />
+                <button
+                  type="button"
+                  onClick={handleSaveName}
+                  disabled={nameSaving || nameSaved || nameDraft.trim() === storedName.trim()}
+                  className={`flex shrink-0 items-center justify-center gap-1.5 rounded-full px-4 py-2 text-[12px] font-medium transition-colors ${
+                    nameSaved
+                      ? 'bg-emerald-500/15 text-emerald-300'
+                      : nameDraft.trim() !== storedName.trim() && !nameSaving
+                        ? 'bg-ink text-ink-900 hover:bg-ink-200'
+                        : 'bg-ink/10 text-ink-400 disabled:cursor-not-allowed disabled:opacity-60'
+                  }`}
+                >
+                  {nameSaving ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : nameSaved ? (
+                    <><Check className="h-3.5 w-3.5" />Saved</>
+                  ) : (
+                    'Save'
+                  )}
+                </button>
+              </div>
+              {nameError && (
+                <div className="mt-2 flex items-start gap-2 rounded-md border border-red-500/20 bg-red-500/10 px-2.5 py-1.5 text-[11px] text-red-300">
+                  <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
+                  <span>{nameError}</span>
+                </div>
+              )}
+            </div>
+
             <div className="mt-3 flex items-center gap-3 rounded-lg border border-ink/5 bg-ink/[0.02] px-3 py-2.5">
               <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-500 to-orange-500 text-[12px] font-semibold text-ink">
                 {(profile.email[0] || '?').toUpperCase()}
