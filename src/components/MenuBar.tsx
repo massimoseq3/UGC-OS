@@ -50,19 +50,20 @@ export default function MenuBar() {
 
       <div className="flex-1" />
 
+      <StreakItem />
+      <CreditsItem />
+      {/* External links are desktop chrome — on phones they overflowed the bar. */}
+      <MenuLink href="https://kie.ai/billing" label="Get Credits" />
+      <MenuLink href={SKOOL_COMMUNITY_URL} label="Community" />
       {/* Explicit Meet your team entry (the wordmark also opens it) — desktop
-          only, like the links below; on phones the wordmark stays the way in. */}
+          only, like the links above; on phones the wordmark stays the way in.
+          Sits at the far right of the bar. */}
       <button
         onClick={openTeamIntro}
         className="hidden h-6 shrink-0 items-center rounded-md px-2 text-[12px] text-ink-300 transition-colors hover:bg-ink/[0.06] hover:text-ink-100 sm:flex"
       >
         Meet Your Team
       </button>
-      <StreakItem />
-      <CreditsItem />
-      {/* External links are desktop chrome — on phones they overflowed the bar. */}
-      <MenuLink href="https://kie.ai/billing" label="Get Credits" />
-      <MenuLink href={SKOOL_COMMUNITY_URL} label="Community" />
     </header>
   )
 }

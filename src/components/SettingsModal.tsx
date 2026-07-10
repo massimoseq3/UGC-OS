@@ -319,7 +319,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
         <div className="mt-6 border-t border-ink/5 pt-5">
           <div className="flex items-center gap-2">
             <Users className="h-3.5 w-3.5 text-ink-500" />
-            <span className="text-sm font-medium text-ink-300">Your team</span>
+            <span className="text-sm font-medium text-ink-300">Your Team</span>
           </div>
           <div className="mt-3 flex items-center justify-between gap-3">
             <p className="text-[11px] leading-snug text-ink-500">
@@ -336,6 +336,32 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
             </button>
           </div>
         </div>
+
+        {/* Account card — email + sign out, only when signed in */}
+        {cloudOn && profile && (
+          <div className="mt-6 border-t border-ink/5 pt-5">
+            <div className="flex items-center gap-2">
+              <User className="h-3.5 w-3.5 text-ink-500" />
+              <span className="text-sm font-medium text-ink-300">Account</span>
+            </div>
+            <div className="mt-3 flex items-center gap-3 rounded-lg border border-ink/5 bg-ink/[0.02] px-3 py-2.5">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-500 to-orange-500 text-[12px] font-semibold text-ink">
+                {(profile.email[0] || '?').toUpperCase()}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-[12px] text-ink-300">
+                {profile.email}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => { onClose(); signOut() }}
+              className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-ink/10 py-2 text-[12px] font-medium text-ink-300 transition-colors hover:bg-ink/[0.05]"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              Sign out
+            </button>
+          </div>
+        )}
 
         {/* Storage card — only when cloud is active */}
         {cloudOn && (
@@ -577,32 +603,6 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
             </span>
           ))}
         </div>
-
-        {/* Account card — email + sign out, only when signed in */}
-        {cloudOn && profile && (
-          <div className="mt-6 border-t border-ink/5 pt-5">
-            <div className="flex items-center gap-2">
-              <User className="h-3.5 w-3.5 text-ink-500" />
-              <span className="text-sm font-medium text-ink-300">Account</span>
-            </div>
-            <div className="mt-3 flex items-center gap-3 rounded-lg border border-ink/5 bg-ink/[0.02] px-3 py-2.5">
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-500 to-orange-500 text-[12px] font-semibold text-ink">
-                {(profile.email[0] || '?').toUpperCase()}
-              </span>
-              <span className="min-w-0 flex-1 truncate text-[12px] text-ink-300">
-                {profile.email}
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => { onClose(); signOut() }}
-              className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-ink/10 py-2 text-[12px] font-medium text-ink-300 transition-colors hover:bg-ink/[0.05]"
-            >
-              <LogOut className="h-3.5 w-3.5" />
-              Sign out
-            </button>
-          </div>
-        )}
 
         {/* Admin — the Admin app moved out of the dock; this row is the only
             entry point and renders solely for admins. */}
