@@ -785,7 +785,7 @@ export default function InputPanel({
                 <div className="flex items-center justify-between gap-2 border-t border-ink/10 px-4 py-2">
                   <span className={`flex min-w-0 items-center gap-1.5 truncate text-[11px] font-medium ${blueprintActive ? 'text-fuchsia-300 light:text-fuchsia-700' : 'text-ink-500'}`}>
                     {blueprintActive ? <Clapperboard className="h-3 w-3 shrink-0" /> : <FileText className="h-3 w-3 shrink-0" />}
-                    {blueprintActive ? 'Scene blueprint detected — scenes will be rewritten' : 'Remixing as a plain script — 3 variations'}
+                    {blueprintActive ? 'Scene blueprint detected — scenes will be rewritten' : 'Remixing as a plain script — 5 variations'}
                   </span>
                   <button
                     type="button"

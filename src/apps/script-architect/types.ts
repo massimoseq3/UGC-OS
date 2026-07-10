@@ -18,7 +18,7 @@ export function detectSceneBlueprint(source: string): boolean {
   return /^(?:---\s*)?scene\s*\d+\s*[—:–-]/im.test(source)
 }
 
-export type RemixAngle = 'hook-led' | 'pain-point-led' | 'curiosity-led'
+export type RemixAngle = 'hook-led' | 'pain-point-led' | 'curiosity-led' | 'story-led' | 'proof-led'
 
 // ── Write New (from-scratch) mode ──
 export type WriteStyle =
@@ -164,4 +164,6 @@ export const REMIX_ANGLE_LABEL: Record<RemixAngle, string> = {
   'hook-led': 'Hook-led',
   'pain-point-led': 'Pain-point-led',
   'curiosity-led': 'Curiosity-led',
+  'story-led': 'Story-led',
+  'proof-led': 'Proof-led',
 }
