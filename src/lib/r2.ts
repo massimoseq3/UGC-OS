@@ -110,12 +110,24 @@ export async function existingRemoteAssetIds(assetIds: string[]): Promise<Set<st
   const userId = useAuthStore.getState().user?.id
   if (!userId) return new Set()
   const sb = getSupabase()
-  const { data, error } = await sb.from('assets').select('id').in('id', assetIds).eq('user_id', userId)
-  if (error) {
-    console.warn('[r2] existingRemoteAssetIds failed', error)
-    return new Set()
+
+  // A heavy library can hold thousands of assets; `.in('id', allIds)` becomes a
+  // single GET with every id in the URL, which blows past URL/PostgREST limits
+  // and errors. That used to be swallowed into an empty Set, making the caller
+  // treat *every* asset as missing and re-upload the whole library each
+  // sign-in. Chunk the id list so each query stays well under the limit.
+  const CHUNK = 200
+  const found = new Set<string>()
+  for (let i = 0; i < assetIds.length; i += CHUNK) {
+    const chunk = assetIds.slice(i, i + CHUNK)
+    const { data, error } = await sb.from('assets').select('id').in('id', chunk).eq('user_id', userId)
+    if (error) {
+      console.warn('[r2] existingRemoteAssetIds chunk failed', error)
+      continue
+    }
+    for (const row of data ?? []) found.add(row.id as string)
   }
-  return new Set((data ?? []).map((row) => row.id as string))
+  return found
 }
 
 export async function downloadAssetFromR2(assetId: string): Promise<Blob | null> {

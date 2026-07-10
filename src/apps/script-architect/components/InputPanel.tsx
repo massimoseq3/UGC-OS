@@ -321,8 +321,8 @@ export default function InputPanel({
   }
 
   const generateLabel = mode === 'write'
-    ? (writeFormat === 'prompt' ? 'Generate 3 Cinematic Concepts' : writeFormat === 'scenes' ? 'Generate 3 Scene Drafts' : writeFormat === 'hooks' ? `Generate ${HOOK_COUNT} Hooks` : 'Generate 3 Scripts')
-    : blueprintActive ? 'Rewrite Scene Prompts' : 'Generate 3 Script Variations'
+    ? (writeFormat === 'prompt' ? 'Generate 5 Cinematic Concepts' : writeFormat === 'scenes' ? 'Generate 5 Scene Drafts' : writeFormat === 'hooks' ? `Generate ${HOOK_COUNT} Hooks` : 'Generate 5 Scripts')
+    : blueprintActive ? 'Rewrite Scene Prompts' : 'Generate 5 Script Variations'
 
   // Product picker — step 2 in every mode, but rendered in a different spot
   // for Write New (before the brief) than for the remix modes (after the
@@ -889,7 +889,7 @@ export default function InputPanel({
           {isGenerating ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              <span>{mode === 'write' ? (writeFormat === 'prompt' ? 'Directing 3 Concepts...' : writeFormat === 'hooks' ? `Writing ${HOOK_COUNT} Hooks...` : 'Writing 3 Takes...') : blueprintActive ? 'Rewriting Scene Prompts...' : 'Generating 3 Script Variations...'}</span>
+              <span>{mode === 'write' ? (writeFormat === 'prompt' ? 'Directing 5 Concepts...' : writeFormat === 'hooks' ? `Writing ${HOOK_COUNT} Hooks...` : 'Writing 5 Takes...') : blueprintActive ? 'Rewriting Scene Prompts...' : 'Generating 5 Script Variations...'}</span>
             </>
           ) : (
             <>

@@ -8,6 +8,7 @@ import { createDefaultCardState } from '../cardState'
 import type { VideoHistoryItem } from '../../../stores/types'
 import { finishImageTask } from '../services/generateBroll'
 import { finishVideoTask } from '../services/generateVideo'
+import { isPollTimeout } from '../../../utils/kie'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAppStore } from '../../../stores/appStore'
 import { useSettingsStore } from '../../../stores/settingsStore'
@@ -334,6 +335,12 @@ export default function ScenesView({
             await useBankStore.getState().addVideoHistory(historyEntry)
             useAppStore.getState().addToast('B-Roll video ready', 'success')
           } catch (err) {
+            if (isPollTimeout(err)) {
+              // Still rendering past the poll budget — keep the entry in-flight
+              // so a later refresh resumes it, rather than flipping it to a
+              // Failed/Retry that would re-bill a clip already on its way.
+              return
+            }
             const msg = humanizeError(err, 'Video resume failed.')
             setCardStates((prev) => {
               const existing = prev[key]

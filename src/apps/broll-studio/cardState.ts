@@ -173,7 +173,10 @@ function legacyInFlightImages(card: Partial<CardState> & Record<string, unknown>
 }
 
 function legacyInFlightVideos(card: Partial<CardState> & Record<string, unknown>): CardState['inFlightVideos'] {
-  const STALE_MS = 30 * 60_000
+  // 60 min (vs images' 30): a video whose poll budget (~20 min) ran out is kept
+  // in-flight so a refresh resumes it, and slow models (Seedance 2 / Veo
+  // Quality) can render well past 30 min. Matches Playground's STALE_TASK_MS.
+  const STALE_MS = 60 * 60_000
   const persisted = Array.isArray(card.inFlightVideos) ? (card.inFlightVideos as CardState['inFlightVideos']) : []
   const filtered = persisted.filter((e) => Date.now() - (e.startedAt ?? 0) < STALE_MS)
   if (filtered.length > 0) return filtered

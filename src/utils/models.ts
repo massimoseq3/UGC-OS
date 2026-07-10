@@ -988,6 +988,29 @@ export type AspectRatio = '1:1' | '16:9' | '9:16' | '4:3' | '3:4' | '3:2' | '2:3
 
 export type ImageResolution = '1K' | '2K' | '4K'
 
+const IMAGE_RESOLUTION_ORDER: ImageResolution[] = ['1K', '2K', '4K']
+
+// The still-image resolution tiers a model actually supports (defaults to the
+// full ladder when the model declares no image constraints).
+export function imageResolutionsFor(modelId: string): ImageResolution[] {
+  const declared = getModel(modelId)?.imageConstraints?.resolutions as ImageResolution[] | undefined
+  return declared && declared.length > 0 ? declared : IMAGE_RESOLUTION_ORDER
+}
+
+// Snap a desired resolution into the model's supported set. When the desired
+// tier isn't offered (e.g. 4K on a 1K/2K-only model) we fall back to the
+// highest tier the model does support rather than silently downgrading to the
+// cheapest one at request time.
+export function clampImageResolution(modelId: string, desired: ImageResolution): ImageResolution {
+  const allowed = imageResolutionsFor(modelId)
+  if (allowed.includes(desired)) return desired
+  for (let i = IMAGE_RESOLUTION_ORDER.indexOf(desired) - 1; i >= 0; i--) {
+    if (allowed.includes(IMAGE_RESOLUTION_ORDER[i])) return IMAGE_RESOLUTION_ORDER[i]
+  }
+  // Desired sits below everything supported — take the model's lowest tier.
+  return allowed[0]
+}
+
 export interface ImageGenOptions {
   prompt: string
   aspectRatio?: AspectRatio

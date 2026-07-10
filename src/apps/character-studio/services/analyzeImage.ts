@@ -72,6 +72,20 @@ export async function analyzeImage(imageFile: File): Promise<VisualDNA> {
   const responseText = await kieChatCompletions(apiKey, endpoint, messages)
 
   const cleaned = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-  const result: VisualDNA = JSON.parse(cleaned)
-  return result
+  // The model is asked for pure JSON, but occasionally wraps it in a sentence
+  // ("Here is the analysis: {...}"). Parse directly first, then fall back to the
+  // outermost { … } slice so a bit of surrounding prose doesn't drop the whole
+  // extraction and leave the user's reference photo doing nothing.
+  try {
+    return JSON.parse(cleaned) as VisualDNA
+  } catch {
+    const first = cleaned.indexOf('{')
+    const last = cleaned.lastIndexOf('}')
+    if (first !== -1 && last > first) {
+      try {
+        return JSON.parse(cleaned.slice(first, last + 1)) as VisualDNA
+      } catch { /* fall through to the descriptive throw below */ }
+    }
+    throw new Error(`Bad JSON from DNA extraction model — body: ${cleaned.slice(0, 400)}`)
+  }
 }

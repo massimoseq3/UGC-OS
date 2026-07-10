@@ -19,6 +19,7 @@ import type { PromptVariation, CardState, GeneratedImage, ReferenceImage } from 
 import type { VideoHistoryItem, Product, Model, BRoll } from '../../../stores/types'
 import { enhanceVariationPrompt, generateNewVariation, startImageTask, finishImageTask } from '../services/generateBroll'
 import { startVideoTask, finishVideoTask } from '../services/generateVideo'
+import { isPollTimeout } from '../../../utils/kie'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAppStore } from '../../../stores/appStore'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
@@ -564,6 +565,15 @@ export default function VariationCard(props: VariationCardProps) {
       await useBankStore.getState().addVideoHistory(historyEntry)
       useAppStore.getState().addToast('B-Roll video ready', 'success')
     } catch (err) {
+      if (isPollTimeout(err)) {
+        // The poll budget ran out but kie may still be rendering (Seedance 2 /
+        // Veo Quality routinely exceed it). Leave the entry in-flight and
+        // persisted — the resume effect picks it up on the next refresh, and
+        // the staleness filter evicts it only once it's genuinely too old.
+        // Marking it "Failed" here would hand the user a Retry that
+        // double-charges credits for a clip that's still on its way.
+        return
+      }
       const msg = humanizeError(err, 'Video generation failed.')
       onUpdateStateFn((prev) => ({
         inFlightVideos: prev.inFlightVideos.map((e) =>

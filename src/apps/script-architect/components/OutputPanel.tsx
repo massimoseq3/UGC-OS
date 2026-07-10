@@ -34,7 +34,12 @@ interface OutputPanelProps {
   onEditVariation?: (index: number, text: string) => void
 }
 
-const SCENE_REGEX = /(^|\n)--- Scene \d+.*?---/
+// Canonically "--- Scene N: label (mm:ss-mm:ss) ---", but we tolerate a model
+// near-miss that drops the surrounding dashes ("Scene 1:", "SCENE 1 —") so a
+// scenes/reverse output still splits into cards instead of silently degrading
+// to a plain spoken script. Mirrors detectSceneBlueprint's input matcher.
+const SCENE_HEADER = /^(?:---\s*)?scene\s*\d+\s*[—:–-]/i
+const SCENE_REGEX = /(^|\n)\s*(?:---\s*)?scene\s*\d+\s*[—:–-]/i
 
 interface SceneChunk {
   header: string
@@ -47,7 +52,7 @@ function splitScenes(text: string): SceneChunk[] | null {
   const chunks: SceneChunk[] = []
   let current: SceneChunk | null = null
   for (const line of lines) {
-    if (/^--- Scene \d+.*---$/.test(line.trim())) {
+    if (SCENE_HEADER.test(line.trim())) {
       if (current) chunks.push(current)
       current = { header: line.trim(), body: '' }
     } else if (current) {

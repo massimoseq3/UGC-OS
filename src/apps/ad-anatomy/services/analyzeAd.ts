@@ -148,8 +148,21 @@ function parseAnalysisJson(rawText: string): AnalysisResult {
     const reason = e instanceof Error ? e.message : String(e)
     throw new Error(`Bad JSON from ad analysis model: ${reason} — body: ${cleaned.slice(0, 400)}`)
   }
-  if (!parsed || typeof parsed !== 'object' || !('reverseEngineeredPrompt' in parsed)) {
-    throw new Error(`Analysis response missing reverseEngineeredPrompt — body: ${cleaned.slice(0, 400)}`)
+  if (!parsed || typeof parsed !== 'object') {
+    throw new Error(`Analysis response was not an object — body: ${cleaned.slice(0, 400)}`)
+  }
+  // ResultsView consumes scorecard.scores, transcript, and
+  // reverseEngineeredPrompt.scenes with .map(), so a response that parses as
+  // valid JSON but omits one of them would crash the render (a white screen)
+  // after the row is already persisted as complete. Validate the shape here so
+  // an incomplete response surfaces the friendly error pane and can be retried.
+  const p = parsed as Partial<AnalysisResult>
+  const missing: string[] = []
+  if (!p.reverseEngineeredPrompt || !Array.isArray(p.reverseEngineeredPrompt.scenes)) missing.push('reverseEngineeredPrompt.scenes')
+  if (!p.scorecard || !Array.isArray(p.scorecard.scores)) missing.push('scorecard.scores')
+  if (!Array.isArray(p.transcript)) missing.push('transcript')
+  if (missing.length > 0) {
+    throw new Error(`Analysis response missing ${missing.join(', ')} — body: ${cleaned.slice(0, 400)}`)
   }
   return parsed as AnalysisResult
 }

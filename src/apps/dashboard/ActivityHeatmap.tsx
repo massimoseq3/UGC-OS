@@ -7,7 +7,6 @@ import { usageDayId } from '../../utils/usage'
 // amber. Empty days stay in quiet ink so the accent only ever encodes data.
 
 const WEEKS = 26
-const DAY_MS = 86_400_000
 
 // Sequential intensity ramp — thresholds chosen so a casual day (1–2 gens)
 // already lights up while heavy batch days still read distinctly darker.
@@ -23,11 +22,15 @@ function levelClass(count: number): string {
   return LEVELS.find((l) => count >= l.min)!.className
 }
 
-function mondayOfWeek(ts: number): number {
+// Local-midnight Date of the Monday on or before `ts`. Returns a Date (not a
+// timestamp) so callers can step by calendar days via the Date constructor,
+// which handles DST/month rollover — millisecond stepping drifts a day around
+// a DST switch and lands two cells on the same calendar day.
+function mondayOfWeek(ts: number): Date {
   const d = new Date(ts)
   d.setHours(0, 0, 0, 0)
   const shift = (d.getDay() + 6) % 7 // Mon=0 … Sun=6
-  return d.getTime() - shift * DAY_MS
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() - shift)
 }
 
 interface WeekColumn {
@@ -46,27 +49,34 @@ export default function ActivityHeatmap({ days }: { days: UsageDay[] }) {
       if (total > 0) counts.set(day.id, total)
     }
 
-    const firstMonday = mondayOfWeek(now) - (WEEKS - 1) * 7 * DAY_MS
+    const anchor = mondayOfWeek(now)
+    // First Monday of the grid, stepped back by whole calendar weeks.
+    const gridYear = anchor.getFullYear()
+    const gridMonth = anchor.getMonth()
+    const gridDate = anchor.getDate() - (WEEKS - 1) * 7
     const out: WeekColumn[] = []
     let lastMonth = -1
     for (let w = 0; w < WEEKS; w++) {
-      const weekStart = firstMonday + w * 7 * DAY_MS
+      // Constructing each day as a real calendar date (not weekStart + i·DAY_MS)
+      // keeps every cell on the right local day across DST transitions.
+      const weekStart = new Date(gridYear, gridMonth, gridDate + w * 7)
       // Label a column when it starts a new month (skip the very first column
       // if the label would collide with nothing before it — GitHub-style).
-      const month = new Date(weekStart).getMonth()
+      const month = weekStart.getMonth()
       const monthLabel = month !== lastMonth
-        ? new Date(weekStart).toLocaleDateString(undefined, { month: 'short' })
+        ? weekStart.toLocaleDateString(undefined, { month: 'short' })
         : null
       lastMonth = month
       const daysInWeek = Array.from({ length: 7 }, (_, i) => {
-        const ts = weekStart + i * DAY_MS
+        const cell = new Date(gridYear, gridMonth, gridDate + w * 7 + i)
+        const ts = cell.getTime()
         const id = usageDayId(ts)
         const count = counts.get(id) ?? 0
         return {
           id,
           count,
           future: ts > now,
-          label: `${new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} — ${count === 0 ? 'no generations' : `${count} generation${count === 1 ? '' : 's'}`}`,
+          label: `${cell.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} — ${count === 0 ? 'no generations' : `${count} generation${count === 1 ? '' : 's'}`}`,
         }
       })
       out.push({ monthLabel, days: daysInWeek })
