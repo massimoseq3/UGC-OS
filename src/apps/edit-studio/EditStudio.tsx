@@ -62,7 +62,7 @@ export default function EditStudio() {
             className="flex h-10 items-center gap-2 rounded-full bg-ink px-5 text-[13px] font-medium text-paper transition-opacity hover:opacity-90"
           >
             <Download className="h-4 w-4" strokeWidth={2} />
-            Download skill
+            Download Skill
           </button>
           <p className="text-[11px] text-ink-600">video-editor.skill · 20 KB</p>
         </div>
@@ -75,7 +75,7 @@ export default function EditStudio() {
             Your AI Video Editor
           </h1>
           <p className="mt-2 max-w-md text-[14px] leading-relaxed text-ink-400">
-            A Claude skill that edits your videos for you.
+            A Claude Skill that edits your videos for you.
           </p>
           <ul className="mt-2 space-y-1.5">
             {BENEFITS.map((benefit) => (
