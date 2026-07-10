@@ -12,6 +12,7 @@ export type CrabVariant =
   | 'voice-studio'
   | 'broll-studio'
   | 'playground'
+  | 'edit-studio'
   | 'ad-anatomy'
   | 'kie'
 
@@ -96,6 +97,20 @@ const COSTUMES: Record<CrabVariant, Px[]> = {
     { x: 6, y: 0, w: 1, h: 1, fill: '#1FA08C' }, // stem
     { x: 8, y: 8, w: 1, h: 1, fill: '#F74F9E' }, // paint splats
     { x: 10, y: 7, w: 1, h: 1, fill: '#FFD84D' },
+  ],
+
+  // Editor — a film clapperboard raised in the right claw. Big striped hinge
+  // bar on top, a slate with a chalk line below, its base sitting right over
+  // the raised claw so it reads as "held up". The light "chalk"-tint stripes
+  // (same glass tint as the magnifier lens) keep the slate legible on the dark
+  // cards, the ivory folder icon, and the orange dock tile alike.
+  'edit-studio': [
+    { x: 10, y: 1, w: 6, h: 1, fill: DARK }, // clapper stick (hinge bar)
+    { x: 10, y: 1, w: 1, h: 1, fill: '#EAF1F4' }, // stripes
+    { x: 12, y: 1, w: 1, h: 1, fill: '#EAF1F4' },
+    { x: 14, y: 1, w: 1, h: 1, fill: '#EAF1F4' },
+    { x: 10, y: 2, w: 6, h: 3, fill: DARK }, // slate body
+    { x: 11, y: 3, w: 4, h: 1, fill: '#EAF1F4' }, // chalk line
   ],
 
   // Strategist — magnifying glass held over the right eye. Dark rim so the

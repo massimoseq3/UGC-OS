@@ -208,7 +208,7 @@ export default function Dashboard() {
         </a>
 
         {/* The crew — one shortcut tile per teammate/app */}
-        <div className="col-span-2 grid grid-cols-2 gap-3 md:col-span-12 md:grid-cols-4 lg:grid-cols-7">
+        <div className="col-span-2 grid grid-cols-2 gap-3 md:col-span-12 md:grid-cols-4 lg:grid-cols-8">
           {TEAM.map((member) => {
             const app = getAppConfig(member.appId)
             if (!app) return null
