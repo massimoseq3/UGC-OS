@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Search, Eye, Trash2, Plus, AlertCircle } from 'lucide-react'
 import type { AdAnatomyHistoryItem } from '../../../stores/types'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
+import { formatRelative, sectionLabel, groupByDay } from '../../../utils/history'
 
 interface HistoryRailProps {
   items: AdAnatomyHistoryItem[]
@@ -9,28 +10,6 @@ interface HistoryRailProps {
   onSelect: (id: string | null) => void
   onDelete: (id: string) => void
   onNew: () => void
-}
-
-function formatRelative(ts: number): string {
-  const diff = Date.now() - ts
-  if (diff < 60_000) return 'just now'
-  if (diff < 3600_000) return `${Math.floor(diff / 60_000)}m ago`
-  if (diff < 86_400_000) return `${Math.floor(diff / 3600_000)}h ago`
-  return `${Math.floor(diff / 86_400_000)}d ago`
-}
-
-function startOfDay(ts: number): number {
-  const d = new Date(ts)
-  d.setHours(0, 0, 0, 0)
-  return d.getTime()
-}
-
-function sectionLabel(dayTs: number): string {
-  const today = startOfDay(Date.now())
-  const yesterday = today - 86_400_000
-  if (dayTs === today) return 'Today'
-  if (dayTs === yesterday) return 'Yesterday'
-  return new Date(dayTs).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })
 }
 
 export default function HistoryRail({ items, selectedId, onSelect, onDelete, onNew }: HistoryRailProps) {
@@ -49,14 +28,7 @@ export default function HistoryRail({ items, selectedId, onSelect, onDelete, onN
       .slice()
       .sort((a, b) => b.createdAt - a.createdAt)
 
-    const map = new Map<number, AdAnatomyHistoryItem[]>()
-    for (const it of filtered) {
-      const day = startOfDay(it.createdAt)
-      const arr = map.get(day) ?? []
-      arr.push(it)
-      map.set(day, arr)
-    }
-    return Array.from(map.entries()).sort(([a], [b]) => b - a)
+    return groupByDay(filtered, (it) => it.createdAt)
   }, [items, query])
 
   return (

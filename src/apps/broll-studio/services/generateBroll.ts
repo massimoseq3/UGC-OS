@@ -3,15 +3,12 @@ import { useSettingsStore } from '../../../stores/settingsStore'
 import {
   kieChatCompletions,
   ensureHostedUrl,
-  downloadAsBase64,
   createTask,
-  pollTask,
-  parseResult,
-  IMAGE_POLL_ATTEMPTS,
   type ChatMessage,
 } from '../../../utils/kie'
 import { getDefaultModel, getChatEndpointPath, buildImageInput, getModel, type AspectRatio, type ImageResolution } from '../../../utils/models'
-import { saveBase64Asset, isAssetRef, getAsBase64 } from '../../../utils/assetStore'
+import { isAssetRef, getAsBase64 } from '../../../utils/assetStore'
+import { finishImageAssetTask } from '../../../utils/imageTask'
 import { useBankStore } from '../../../stores/bankStore'
 import { withIphoneRealism } from './realism'
 
@@ -523,39 +520,11 @@ export async function startImageTask(
  * it on the in-flight entry); omitted → base-tier estimate.
  */
 export async function finishImageTask(taskId: string, modelId: string, resolution?: string): Promise<string> {
-  const apiKey = useSettingsStore.getState().getKieApiKey()
-  const record = await pollTask(apiKey, taskId, { maxPollAttempts: IMAGE_POLL_ATTEMPTS })
-  const urls = parseResult(record).resultUrls
-  if (urls.length === 0) {
-    throw new Error(
-      `${modelId}: kie.ai returned no resultUrls. record=${JSON.stringify(record).slice(0, 400)}`,
-    )
-  }
-  const { base64, mimeType } = await downloadAsBase64(urls[0])
-  const assetRef = await saveBase64Asset(base64, mimeType)
+  const assetRef = await finishImageAssetTask(taskId, modelId)
   // B-Roll stills don't push an imageHistory row (card state lives in the
   // session snapshot), so this is their usage-ledger hook.
   useBankStore.getState().recordUsage({ kind: 'image', modelId, params: { resolution, imageCount: 1 } })
   return assetRef
-}
-
-/**
- * Generate an image from a B-Roll prompt via kie.ai.
- * If reference images are provided, uses image-to-image (uploads each ref
- * to kie's hosted storage to get a public URL). Otherwise text-to-image.
- *
- * Thin wrapper over startImageTask + finishImageTask for callers that don't
- * need refresh-resume. The OutputPanel uses the two-phase API directly so it
- * can persist `pendingTaskId` between phases.
- */
-export async function generateImage(
-  prompt: string,
-  referenceImages?: ReferenceImage[],
-  aspectRatio: string = '9:16',
-  resolution?: ImageResolution,
-): Promise<string> {
-  const { taskId, modelId } = await startImageTask(prompt, referenceImages, aspectRatio, resolution)
-  return finishImageTask(taskId, modelId, resolution)
 }
 
 // One-line role brief per tag, shared by the regenerate + free-form variation

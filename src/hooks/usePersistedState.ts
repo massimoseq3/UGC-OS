@@ -33,6 +33,17 @@ interface UsePersistedStateOptions<T> {
 // Drop-in replacement for useState that persists to localStorage under `key`.
 // When `key` changes, the value re-hydrates from the new slot, falling back
 // to `initial` when it's empty.
+// Coalesce a burst of writes into one serialize + localStorage.setItem using
+// requestIdleCallback (with a timeout fallback). Callers that bind this to a
+// text input would otherwise stringify the whole payload on every keystroke.
+function scheduleIdle(cb: () => void): void {
+  const ric = (window as unknown as {
+    requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => void
+  }).requestIdleCallback
+  if (ric) ric(cb, { timeout: 500 })
+  else setTimeout(cb, 250)
+}
+
 export function usePersistedState<T>(
   key: string,
   initial: T,
@@ -49,6 +60,24 @@ export function usePersistedState<T>(
   // without firing an extra write of the stale value into the new slot.
   const hydratedKey = useRef(key)
 
+  // Latest (key, value, prune) to persist, held in a ref so the debounced,
+  // unmount, and tab-teardown flushes all write the current value rather than
+  // a stale closure capture.
+  const pending = useRef<{ key: string; value: T; prune?: (v: T) => T } | null>(null)
+  const scheduled = useRef(false)
+  const flush = useRef(() => {
+    const p = pending.current
+    if (!p) return
+    pending.current = null
+    scheduled.current = false
+    try {
+      localStorage.setItem(p.key, JSON.stringify(p.prune ? p.prune(p.value) : p.value))
+    } catch {
+      // Quota exceeded or serialization failure — drop silently; the in-memory
+      // value is still correct for this session.
+    }
+  })
+
   useEffect(() => {
     if (hydratedKey.current === key) return
     hydratedKey.current = key
@@ -62,16 +91,27 @@ export function usePersistedState<T>(
 
   useEffect(() => {
     if (hydratedKey.current !== key) return
-    try {
-      localStorage.setItem(key, JSON.stringify(prune ? prune(value) : value))
-    } catch {
-      // Quota exceeded or serialization failure — drop silently; the in-memory
-      // value is still correct for this session.
-    }
+    pending.current = { key, value, prune }
+    if (scheduled.current) return
+    scheduled.current = true
+    scheduleIdle(() => flush.current())
     // `prune` is intentionally excluded — callers pass fresh closures on
     // every render and we only want to react to value/key changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, value])
+
+  // Flush the last pending write on unmount and on tab teardown so a refresh
+  // within the debounce window doesn't lose the final keystrokes.
+  useEffect(() => {
+    const runFlush = () => flush.current()
+    window.addEventListener('beforeunload', runFlush)
+    window.addEventListener('pagehide', runFlush)
+    return () => {
+      window.removeEventListener('beforeunload', runFlush)
+      window.removeEventListener('pagehide', runFlush)
+      runFlush()
+    }
+  }, [])
 
   return [value, setValue]
 }

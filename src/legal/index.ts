@@ -1,5 +1,0 @@
-export { default as TermsOfService } from './TermsOfService'
-export { default as PrivacyPolicy } from './PrivacyPolicy'
-export { default as AcceptableUsePolicy } from './AcceptableUsePolicy'
-export { default as DMCAPolicy } from './DMCAPolicy'
-export { POLICY_VERSION, LAST_UPDATED } from './version'

@@ -2,8 +2,10 @@ import type { VoiceSettings, HistoryItem } from '../types'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import { createTask, pollTask, parseResult } from '../../../utils/kie'
 import { saveAsset } from '../../../utils/assetStore'
+import { TTS_MODEL_ID } from '../../../utils/models'
 
-export const TTS_MODEL_ID = 'elevenlabs/text-to-speech-multilingual-v2'
+// Re-exported so voice-studio components can keep importing it from here.
+export { TTS_MODEL_ID }
 
 async function probeAudioDuration(blob: Blob): Promise<number> {
   return new Promise((resolve) => {

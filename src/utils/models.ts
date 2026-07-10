@@ -143,6 +143,10 @@ export interface ModelEntry {
 //   'ad-anatomy', 'script-architect', 'character-studio',
 //   'broll-studio', 'voice-studio', 'video-studio'
 
+// The ElevenLabs TTS registry id. Voiceovers has no model picker, so this is
+// the single source consumers (bankStore usage ledger, generateVoice) share.
+export const TTS_MODEL_ID = 'elevenlabs/text-to-speech-multilingual-v2'
+
 export const MODEL_REGISTRY: ModelEntry[] = [
   // ── Chat / Vision ─────────────────────────────────────────────
 
@@ -826,7 +830,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
   // Voice catalog lives in src/apps/voice-studio/types.ts — VOICES.
 
   {
-    id: 'elevenlabs/text-to-speech-multilingual-v2',
+    id: TTS_MODEL_ID,
     displayName: 'Eleven Multilingual v2',
     provider: 'ElevenLabs',
     task: 'tts',

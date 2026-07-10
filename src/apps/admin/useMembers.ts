@@ -55,12 +55,6 @@ export function isActivated(r: MemberRow): boolean {
   return r.asset_count > 0
 }
 
-// Days since the account was created.
-export function daysSinceJoined(r: Pick<MemberRow, 'created_at'>): number {
-  if (!r.created_at) return Infinity
-  return Math.floor((Date.now() - new Date(r.created_at).getTime()) / (24 * 60 * 60_000))
-}
-
 export function formatBytes(n: number): string {
   if (!n) return '0 B'
   if (n < 1024) return `${n} B`

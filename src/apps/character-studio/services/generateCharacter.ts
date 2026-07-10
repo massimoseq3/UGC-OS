@@ -1,8 +1,9 @@
 import type { CharacterProfile } from '../types'
 import { useSettingsStore } from '../../../stores/settingsStore'
-import { createTask, pollTask, parseResult, downloadAsBase64, ensureHostedUrl, IMAGE_POLL_ATTEMPTS, kieChatCompletions, type ChatMessage } from '../../../utils/kie'
+import { createTask, ensureHostedUrl, kieChatCompletions, type ChatMessage } from '../../../utils/kie'
+import { finishImageAssetTask } from '../../../utils/imageTask'
 import { getDefaultModel, getModel, buildImageInput, getChatEndpointPath, type AspectRatio, type ImageResolution } from '../../../utils/models'
-import { saveBase64Asset, isAssetRef, getAsBase64 } from '../../../utils/assetStore'
+import { isAssetRef, getAsBase64 } from '../../../utils/assetStore'
 
 export interface GenerationResult {
   imageUrl: string
@@ -300,16 +301,7 @@ export async function finishCharacterTask(
   modelId: string,
   signal?: AbortSignal,
 ): Promise<string> {
-  const apiKey = useSettingsStore.getState().getKieApiKey()
-  const record = await pollTask(apiKey, taskId, { signal, maxPollAttempts: IMAGE_POLL_ATTEMPTS })
-  const urls = parseResult(record).resultUrls
-  if (urls.length === 0) {
-    throw new Error(
-      `${modelId}: kie.ai returned no resultUrls. taskId=${taskId} record=${JSON.stringify(record).slice(0, 400)}`,
-    )
-  }
-  const { base64, mimeType } = await downloadAsBase64(urls[0])
-  return saveBase64Asset(base64, mimeType)
+  return finishImageAssetTask(taskId, modelId, { signal })
 }
 
 export async function generateCharacter(
