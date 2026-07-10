@@ -8,9 +8,11 @@ import { useAppStore } from './appStore'
 import { estimateCredits, estimateOfficialUsd, estimateMarketUsd, creditsToUsd, type CostEstimateParams } from '../utils/models'
 import { usageDayId } from '../utils/usage'
 
-// The ElevenLabs TTS registry id — voice history rows don't carry a modelId
-// (Voiceovers has no picker), so recordUsage fills it in here.
-const TTS_MODEL_ID = 'elevenlabs/text-to-speech-multilingual-v2'
+// ElevenLabs TTS registry ids. Voice rows now carry their own modelId (the
+// Voiceovers model picker), but legacy rows don't — V2 is the fallback since
+// that predates the picker.
+const TTS_V2_MODEL_ID = 'elevenlabs/text-to-speech-multilingual-v2'
+const TTS_V3_MODEL_ID = 'elevenlabs/text-to-dialogue-v3'
 
 const STORAGE_KEY = 'ai-ugc-lab-banks'
 const MIGRATION_FLAG = 'ai-ugc-lab-migrated-v2'
@@ -186,7 +188,14 @@ function migrateVoiceShape<T>(arr: unknown): T[] {
       delete item.creativity
       delete item.ambience
       delete item.styleInstructions
+      // Legacy voice rows predate the model picker — they were all V2.
+      if (typeof item.modelId !== 'string') item.modelId = TTS_V2_MODEL_ID
       if (typeof item.stability !== 'number') item.stability = 0.5
+      // V3 stability is discrete (0 / 0.5 / 1) — snap so a reused V3 row is
+      // API-valid. V2 keeps its continuous value.
+      if (item.modelId === TTS_V3_MODEL_ID) {
+        item.stability = Math.round((item.stability as number) * 2) / 2
+      }
       if (typeof item.similarityBoost !== 'number') item.similarityBoost = 0.75
       if (typeof item.style !== 'number') item.style = 0
       if (typeof item.speed !== 'number') item.speed = 1
@@ -689,7 +698,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       return next
     })
     pushRow('voiceHistory', item)
-    get().recordUsage({ kind: 'voice', modelId: TTS_MODEL_ID, params: { charCount: item.scriptText.length } })
+    get().recordUsage({ kind: 'voice', modelId: item.modelId ?? TTS_V2_MODEL_ID, params: { charCount: item.scriptText.length } })
   },
 
   deleteVoiceHistory: async (id) => {
@@ -1115,7 +1124,7 @@ export function backfillUsageLedger(): void {
   }
   for (const h of s.voiceHistory) {
     if (mockVoice.has(h.id)) continue
-    events.push({ kind: 'voice', modelId: TTS_MODEL_ID, at: h.createdAt, params: { charCount: h.scriptText?.length ?? 0 } })
+    events.push({ kind: 'voice', modelId: h.modelId ?? TTS_V2_MODEL_ID, at: h.createdAt, params: { charCount: h.scriptText?.length ?? 0 } })
   }
   for (const h of s.musicHistory) {
     if (mockMusic.has(h.id)) continue

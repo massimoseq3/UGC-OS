@@ -1,13 +1,26 @@
 import { useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import type { VoiceSettings } from '../types'
+import { isV3, snapStability } from '../types'
 import type { VoiceHistoryItem } from '../../../stores/types'
 import SettingsView from './SettingsView'
 import VoicePickerView from './VoicePickerView'
+import ModelPickerView from './ModelPickerView'
 import HistoryView from './HistoryView'
 import HistoryDetailsView from './HistoryDetailsView'
 import SegmentedToggle from '../../../components/SegmentedToggle'
 
 type Tab = 'settings' | 'history'
+
+// Shared slide-in for the settings-panel overlays (voice picker, model picker,
+// history details). Enters from the right edge, exits back to it — ~280ms with
+// an iOS-style ease so it feels like a panel gliding in, not a hard cut.
+const SLIDE_OVER = {
+  initial: { x: '100%' },
+  animate: { x: 0 },
+  exit: { x: '100%' },
+  transition: { duration: 0.28, ease: [0.32, 0.72, 0, 1] as const },
+}
 
 interface RightPanelProps {
   settings: VoiceSettings
@@ -38,9 +51,20 @@ export default function RightPanel({
 }: RightPanelProps) {
   const [tab, setTab] = useState<Tab>('settings')
   const [voicePickerOpen, setVoicePickerOpen] = useState(false)
+  const [modelPickerOpen, setModelPickerOpen] = useState(false)
 
   const openPicker = () => setVoicePickerOpen(true)
   const closePicker = () => setVoicePickerOpen(false)
+  const openModelPicker = () => setModelPickerOpen(true)
+  const closeModelPicker = () => setModelPickerOpen(false)
+
+  const handleSelectModel = (modelId: string) => {
+    // Switching into V3 must snap the (possibly continuous) V2 stability onto
+    // V3's 0 / 0.5 / 1 grid so the value is API-valid.
+    const stability = isV3(modelId) ? snapStability(settings.stability) : settings.stability
+    onSettingsChange({ ...settings, modelId, stability })
+    closeModelPicker()
+  }
 
   // When details opens (e.g. from BottomPlayer), make sure we're on the History
   // tab. Done during render (prop-change sync), not in an effect.
@@ -69,7 +93,7 @@ export default function RightPanel({
   }
 
   // Tabs are hidden when a slide-over view (picker, details) owns the chrome.
-  const showTabs = !voicePickerOpen && !detailsItem
+  const showTabs = !voicePickerOpen && !modelPickerOpen && !detailsItem
 
   return (
     <div className="flex h-full flex-col">
@@ -88,13 +112,15 @@ export default function RightPanel({
       )}
 
       {/* Body — base layer switches between Settings and History instantly.
-          Slide-in overlays (picker, details) ride on top via AnimatePresence. */}
+          Slide-in overlays (picker, details) ride on top: they slide in from
+          the right and back out via AnimatePresence. */}
       <div className="relative min-h-0 flex-1 overflow-hidden">
         {tab === 'settings' ? (
           <SettingsView
             settings={settings}
             onSettingsChange={onSettingsChange}
             onOpenVoicePicker={openPicker}
+            onOpenModelPicker={openModelPicker}
           />
         ) : (
           <HistoryView
@@ -106,25 +132,36 @@ export default function RightPanel({
           />
         )}
 
-        {voicePickerOpen && (
-          <div className="absolute inset-0 bg-surface-1">
-            <VoicePickerView
-              selectedId={settings.voiceId}
-              onSelect={handleSelectVoice}
-              onClose={closePicker}
-            />
-          </div>
-        )}
-        {detailsItem && (
-          <div className="absolute inset-0 bg-surface-1">
-            <HistoryDetailsView
-              item={detailsItem}
-              onClose={handleCloseDetails}
-              onRestoreText={onRestoreText}
-              onRestoreSettings={onRestoreSettings}
-            />
-          </div>
-        )}
+        <AnimatePresence>
+          {voicePickerOpen && (
+            <motion.div key="voice-picker" className="absolute inset-0 bg-surface-1" {...SLIDE_OVER}>
+              <VoicePickerView
+                selectedId={settings.voiceId}
+                onSelect={handleSelectVoice}
+                onClose={closePicker}
+              />
+            </motion.div>
+          )}
+          {modelPickerOpen && (
+            <motion.div key="model-picker" className="absolute inset-0 bg-surface-1" {...SLIDE_OVER}>
+              <ModelPickerView
+                selectedId={settings.modelId}
+                onSelect={handleSelectModel}
+                onClose={closeModelPicker}
+              />
+            </motion.div>
+          )}
+          {detailsItem && (
+            <motion.div key="details" className="absolute inset-0 bg-surface-1" {...SLIDE_OVER}>
+              <HistoryDetailsView
+                item={detailsItem}
+                onClose={handleCloseDetails}
+                onRestoreText={onRestoreText}
+                onRestoreSettings={onRestoreSettings}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   )
