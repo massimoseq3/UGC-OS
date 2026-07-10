@@ -18,7 +18,10 @@ function cloudActive(): boolean {
   return isCloudEnabled() && !!useAuthStore.getState().user
 }
 
-const urlCache = new Map<string, string>()
+// Caches the in-flight promise, not just the resolved URL, so two concurrent
+// callers for the same not-yet-cached id (e.g. an <img> and a modal preview
+// mounting together) share one createObjectURL instead of leaking the loser.
+const urlCache = new Map<string, Promise<string>>()
 let fallbackStore: Map<string, StoredAsset> | null = null
 let dbPromise: Promise<IDBDatabase> | null = null
 
@@ -159,12 +162,6 @@ export async function saveBase64Asset(base64: string, mimeType: string): Promise
   return saveAsset(blob, mimeType)
 }
 
-export async function saveFromBlobUrl(blobUrl: string): Promise<string> {
-  const res = await fetch(blobUrl)
-  const blob = await res.blob()
-  return saveAsset(blob)
-}
-
 // ── Read ─────────────────────────────────────────────────────────────
 
 export async function getBlob(refOrId: string): Promise<Blob | null> {
@@ -210,15 +207,23 @@ export async function getBlob(refOrId: string): Promise<Blob | null> {
 
 export async function getUrl(refOrId: string): Promise<string | null> {
   const assetId = assetIdFromRef(refOrId)
-  const cached = urlCache.get(assetId)
-  if (cached) return cached
-
-  const blob = await getBlob(assetId)
-  if (!blob) return null
-
-  const url = URL.createObjectURL(blob)
-  urlCache.set(assetId, url)
-  return url
+  let cached = urlCache.get(assetId)
+  if (!cached) {
+    cached = (async () => {
+      const blob = await getBlob(assetId)
+      if (!blob) throw new Error('asset-miss')
+      return URL.createObjectURL(blob)
+    })()
+    urlCache.set(assetId, cached)
+  }
+  try {
+    return await cached
+  } catch {
+    // Blob missing (or resolution failed) — drop the cached rejection so a
+    // later call can retry once the asset lands.
+    urlCache.delete(assetId)
+    return null
+  }
 }
 
 export async function getAsBase64(assetId: string): Promise<{ base64: string; mimeType: string } | null> {
@@ -244,8 +249,8 @@ export async function getAsBase64(assetId: string): Promise<{ base64: string; mi
 // previous user's assets via `getBlob(knownId)`. Cloud-mirrored blobs are
 // safe — `getBlob` falls back to R2 (scoped per user) when IndexedDB misses.
 export async function resetAssetStore(): Promise<void> {
-  for (const url of urlCache.values()) {
-    try { URL.revokeObjectURL(url) } catch { /* ignore */ }
+  for (const p of urlCache.values()) {
+    p.then((url) => { try { URL.revokeObjectURL(url) } catch { /* ignore */ } }).catch(() => { /* never resolved */ })
   }
   urlCache.clear()
   fallbackStore = null
@@ -277,8 +282,8 @@ export async function deleteAsset(refOrId: string): Promise<void> {
   const assetId = assetIdFromRef(refOrId)
   const cached = urlCache.get(assetId)
   if (cached) {
-    URL.revokeObjectURL(cached)
     urlCache.delete(assetId)
+    cached.then((url) => { try { URL.revokeObjectURL(url) } catch { /* ignore */ } }).catch(() => { /* never resolved */ })
   }
 
   await idbDelete(assetId)

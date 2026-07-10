@@ -130,8 +130,3 @@ export function resumeAnalysisTask(historyId: string, taskId: string, fileName: 
   })
   pump()
 }
-
-// Exposed for debugging / verification only.
-export function _debugRunningCount(): number {
-  return running
-}

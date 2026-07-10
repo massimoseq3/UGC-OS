@@ -5,12 +5,8 @@ import { useAuthStore } from './authStore'
 import { isCloudEnabled } from '../lib/supabase'
 import { saveRow, deleteRow, recordPendingUpsert, recordPendingDelete, clearPending, scheduleOutboxDrain, type BankKey } from '../lib/cloudSync'
 import { useAppStore } from './appStore'
-import { estimateCredits, estimateOfficialUsd, estimateMarketUsd, creditsToUsd, type CostEstimateParams } from '../utils/models'
+import { estimateCredits, estimateOfficialUsd, estimateMarketUsd, creditsToUsd, TTS_MODEL_ID, type CostEstimateParams } from '../utils/models'
 import { usageDayId } from '../utils/usage'
-
-// The ElevenLabs TTS registry id — voice history rows don't carry a modelId
-// (Voiceovers has no picker), so recordUsage fills it in here.
-const TTS_MODEL_ID = 'elevenlabs/text-to-speech-multilingual-v2'
 
 const STORAGE_KEY = 'ai-ugc-lab-banks'
 const MIGRATION_FLAG = 'ai-ugc-lab-migrated-v2'

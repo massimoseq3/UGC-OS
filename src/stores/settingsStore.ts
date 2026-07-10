@@ -30,7 +30,6 @@ interface SettingsState {
 
   setKieApiKey: (key: string) => void
 
-  hasKieApiKey: () => boolean
   getKieApiKey: () => string
 
   setAppModel: (appId: string, modelId: string) => void
@@ -200,8 +199,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     saveToStorage(next)
     set({ kieApiKey: key })
   },
-
-  hasKieApiKey: () => get().kieApiKey.length > 0,
 
   getKieApiKey: () => {
     const key = get().kieApiKey

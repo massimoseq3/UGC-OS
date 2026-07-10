@@ -40,16 +40,6 @@ export const MINUTES_SAVED_PER_GEN: Record<UsageKind, number> = {
 // output between tools — a few minutes of switching cost per asset.
 export const TASK_SWITCH_MINUTES_PER_GEN = 4
 
-export const USAGE_KIND_LABELS: Record<UsageKind, { singular: string; plural: string }> = {
-  video: { singular: 'video', plural: 'videos' },
-  image: { singular: 'image', plural: 'images' },
-  voice: { singular: 'voiceover', plural: 'voiceovers' },
-  music: { singular: 'track', plural: 'tracks' },
-  script: { singular: 'script', plural: 'scripts' },
-  character: { singular: 'character', plural: 'characters' },
-  analysis: { singular: 'ad analysis', plural: 'ad analyses' },
-}
-
 export const ALL_USAGE_KINDS: UsageKind[] = ['video', 'image', 'voice', 'script', 'character', 'analysis', 'music']
 
 export interface UsageMetrics {

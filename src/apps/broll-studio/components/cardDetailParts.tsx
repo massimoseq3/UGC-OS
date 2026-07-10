@@ -617,36 +617,6 @@ function TileDeleteButton({ onDelete }: { onDelete: () => void }) {
   )
 }
 
-export function IconChipButton({
-  children,
-  onClick,
-  title,
-  disabled,
-  tone = 'default',
-}: {
-  children: React.ReactNode
-  onClick: () => void
-  title: string
-  disabled?: boolean
-  tone?: 'default' | 'emerald'
-}) {
-  const toneClass =
-    tone === 'emerald'
-      ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200 light:text-emerald-800 hover:bg-emerald-500/20'
-      : 'border-ink/[0.06] bg-ink/[0.02] text-ink-400 hover:bg-ink/[0.05] hover:text-ink-200'
-  return (
-    <button
-      type="button"
-      title={title}
-      onClick={onClick}
-      disabled={disabled}
-      className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${toneClass}`}
-    >
-      {children}
-    </button>
-  )
-}
-
 // Reference Images slot card — Bank-picker-style. Same outer shell as
 // the ModelPicker rows: rounded-xl border + bg-ink/[0.02] + p-3 with an
 // icon avatar on the left. Click opens the script-level BankPicker.

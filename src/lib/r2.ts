@@ -96,15 +96,6 @@ export async function uploadAssetToR2(assetId: string, blob: Blob): Promise<void
   }
 }
 
-export async function hasRemoteAssetRow(assetId: string): Promise<boolean> {
-  if (!isCloudEnabled()) return false
-  const userId = useAuthStore.getState().user?.id
-  if (!userId) return false
-  const sb = getSupabase()
-  const { data } = await sb.from('assets').select('id').eq('id', assetId).maybeSingle()
-  return !!data
-}
-
 export async function existingRemoteAssetIds(assetIds: string[]): Promise<Set<string>> {
   if (!isCloudEnabled() || assetIds.length === 0) return new Set()
   const userId = useAuthStore.getState().user?.id

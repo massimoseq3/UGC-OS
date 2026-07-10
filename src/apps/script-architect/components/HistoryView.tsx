@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Search, FileText, Trash2, PenLine, Clapperboard, FishingHook } from 'lucide-react'
 import type { ScriptHistoryItem } from '../../../stores/types'
+import { formatRelative, sectionLabel, groupByDay } from '../../../utils/history'
 import { WRITE_STYLE_META, HOOK_CATEGORY_META, isHookCategoryChoice, parseHooks } from '../types'
 
 const isHooksItem = (item: ScriptHistoryItem) => item.mode === 'write' && item.writeFormat === 'hooks'
@@ -26,28 +27,6 @@ interface HistoryViewProps {
   activeId: string | null
   onSelect: (item: ScriptHistoryItem) => void
   onDelete: (id: string) => void
-}
-
-function formatRelative(ts: number): string {
-  const diff = Date.now() - ts
-  if (diff < 60_000) return 'just now'
-  if (diff < 3600_000) return `${Math.floor(diff / 60_000)}m ago`
-  if (diff < 86_400_000) return `${Math.floor(diff / 3600_000)}h ago`
-  return `${Math.floor(diff / 86_400_000)}d ago`
-}
-
-function startOfDay(ts: number): number {
-  const d = new Date(ts)
-  d.setHours(0, 0, 0, 0)
-  return d.getTime()
-}
-
-function sectionLabel(dayTs: number): string {
-  const today = startOfDay(Date.now())
-  const yesterday = today - 86_400_000
-  if (dayTs === today) return 'Today'
-  if (dayTs === yesterday) return 'Yesterday'
-  return new Date(dayTs).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })
 }
 
 // Two-click confirm delete — same pattern as the B-Roll / Ad Analyzer
@@ -93,14 +72,7 @@ export default function HistoryView({ items, activeId, onSelect, onDelete }: His
       .slice()
       .sort((a, b) => b.createdAt - a.createdAt)
 
-    const map = new Map<number, ScriptHistoryItem[]>()
-    for (const it of filtered) {
-      const day = startOfDay(it.createdAt)
-      const arr = map.get(day) ?? []
-      arr.push(it)
-      map.set(day, arr)
-    }
-    return Array.from(map.entries()).sort(([a], [b]) => b - a)
+    return groupByDay(filtered, (it) => it.createdAt)
   }, [items, query])
 
   if (items.length === 0) {

@@ -14,18 +14,14 @@ import { useSettingsStore } from '../../stores/settingsStore'
 import { useBankStore } from '../../stores/bankStore'
 import {
   createTask,
-  pollTask,
-  parseResult,
   kieVeoCreate,
-  kieVeoPoll,
   kieMusicGenerate,
   pollMusicTask,
   kieOmniCharacterCreate,
   ensureHostedUrl,
-  downloadAsBase64,
-  IMAGE_POLL_ATTEMPTS,
-  VIDEO_POLL_ATTEMPTS,
 } from '../../utils/kie'
+import { finishImageAssetTask } from '../../utils/imageTask'
+import { finishVideoAssetTask } from '../../utils/videoTask'
 import {
   buildImageInput,
   buildVideoInput,
@@ -36,7 +32,7 @@ import {
   type ImageResolution,
   type VideoMode,
 } from '../../utils/models'
-import { saveAsset, saveBase64Asset, isAssetRef, getAsBase64 } from '../../utils/assetStore'
+import { saveAsset, isAssetRef, getAsBase64 } from '../../utils/assetStore'
 import { kieChatCompletions, type ChatMessage } from '../../utils/kie'
 import { getChatEndpointPath } from '../../utils/models'
 import type { ImageHistoryItem, MusicHistoryItem, VideoHistoryItem } from '../../stores/types'
@@ -137,16 +133,7 @@ export async function finishPlaygroundImageTask(
   modelId: string,
   params: PlaygroundImageFinishInput,
 ): Promise<ImageHistoryItem> {
-  const apiKey = useSettingsStore.getState().getKieApiKey()
-  const record = await pollTask(apiKey, taskId, { maxPollAttempts: IMAGE_POLL_ATTEMPTS })
-  const urls = parseResult(record).resultUrls
-  if (urls.length === 0) {
-    throw new Error(
-      `${modelId}: kie.ai returned no resultUrls. record=${JSON.stringify(record).slice(0, 400)}`,
-    )
-  }
-  const { base64, mimeType } = await downloadAsBase64(urls[0])
-  const assetId = await saveBase64Asset(base64, mimeType)
+  const assetId = await finishImageAssetTask(taskId, modelId)
 
   const item: ImageHistoryItem = {
     id: crypto.randomUUID(),
@@ -383,27 +370,7 @@ export async function finishPlaygroundVideoTask(
   videoEndpoint: 'veo' | undefined,
   params: PlaygroundVideoFinishInput,
 ): Promise<VideoHistoryItem> {
-  const apiKey = useSettingsStore.getState().getKieApiKey()
-
-  const urls = videoEndpoint === 'veo'
-    ? await kieVeoPoll(apiKey, taskId, { maxPollAttempts: VIDEO_POLL_ATTEMPTS })
-    : parseResult(await pollTask(apiKey, taskId, { maxPollAttempts: VIDEO_POLL_ATTEMPTS })).resultUrls
-
-  if (urls.length === 0) {
-    throw new Error(
-      `${modelId}: kie.ai returned no resultUrls. taskId=${taskId} endpoint=${videoEndpoint ?? 'jobs'}`,
-    )
-  }
-
-  const res = await fetch(urls[0])
-  if (!res.ok) {
-    const body = await res.text().catch(() => '')
-    throw new Error(
-      `Failed to download generated video (${res.status} ${res.statusText}). url=${urls[0]} body=${body.slice(0, 200)}`,
-    )
-  }
-  const blob = await res.blob()
-  const assetId = await saveAsset(blob)
+  const assetId = await finishVideoAssetTask(taskId, modelId, videoEndpoint)
 
   const historyEntry: VideoHistoryItem = {
     id: crypto.randomUUID(),

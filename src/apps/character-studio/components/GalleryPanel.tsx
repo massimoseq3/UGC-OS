@@ -6,6 +6,7 @@ import { getUrl } from '../../../utils/assetStore'
 import { useAppStore } from '../../../stores/appStore'
 import { usePersistedState } from '../../../hooks/usePersistedState'
 import { humanizeError } from '../../../utils/friendlyError'
+import { sectionLabel, groupByDay } from '../../../utils/history'
 import type { CharacterHistoryItem } from '../../../stores/types'
 import { getModel, type ImageResolution } from '../../../utils/models'
 import SegmentedToggle from '../../../components/SegmentedToggle'
@@ -43,20 +44,6 @@ export interface InFlightCharacterGen {
 interface GalleryPanelProps {
   inFlight: InFlightCharacterGen[]
   onCancelGen: (id: string) => void
-}
-
-function startOfDay(ts: number): number {
-  const d = new Date(ts)
-  d.setHours(0, 0, 0, 0)
-  return d.getTime()
-}
-
-function dayLabel(dayTs: number): string {
-  const today = startOfDay(Date.now())
-  const yesterday = today - 86_400_000
-  if (dayTs === today) return 'Today'
-  if (dayTs === yesterday) return 'Yesterday'
-  return new Date(dayTs).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })
 }
 
 export default function GalleryPanel({
@@ -99,16 +86,10 @@ export default function GalleryPanel({
   const characterHistory = useBankStore((s) => s.characterHistory)
   const deleteCharacterHistory = useBankStore((s) => s.deleteCharacterHistory)
 
-  const dayGroups = useMemo(() => {
-    const map = new Map<number, CharacterHistoryItem[]>()
-    for (const e of characterHistory) {
-      const day = startOfDay(e.createdAt)
-      const arr = map.get(day) ?? []
-      arr.push(e)
-      map.set(day, arr)
-    }
-    return Array.from(map.entries()).sort(([a], [b]) => b - a)
-  }, [characterHistory])
+  const dayGroups = useMemo(
+    () => groupByDay(characterHistory, (e) => e.createdAt),
+    [characterHistory],
+  )
 
   const isEmpty = characterHistory.length === 0 && inFlight.length === 0
 
@@ -174,7 +155,7 @@ export default function GalleryPanel({
 
             {dayGroups.map(([dayTs, items]) => (
               <div key={dayTs}>
-                <DayPill label={dayLabel(dayTs)} />
+                <DayPill label={sectionLabel(dayTs)} />
                 {viewMode === 'grid' ? (
                   <div className="grid grid-cols-2 gap-2 [grid-auto-flow:dense] lg:grid-cols-3">
                     {items.map((item) => (

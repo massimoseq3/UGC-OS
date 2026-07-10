@@ -314,16 +314,6 @@ export async function pollTask(
   throw new PollTimeoutError(minutes)
 }
 
-export async function runTask(
-  apiKey: string,
-  model: string,
-  input: Record<string, unknown>,
-  opts: RunTaskOptions = {},
-): Promise<TaskRecord> {
-  const taskId = await createTask(apiKey, model, input, opts.signal)
-  return pollTask(apiKey, taskId, opts)
-}
-
 // ── Result parsing ──────────────────────────────────────────────
 
 export interface ParsedResult {
@@ -350,28 +340,6 @@ export function parseResult(record: TaskRecord): ParsedResult {
   }
 }
 
-// ── High-level helpers ─────────────────────────────────────────
-//
-// Each helper wraps runTask + parseResult for a specific task type.
-// The exact `input` shape varies per model — see individual model docs
-// at https://docs.kie.ai/. Helpers below codify the shapes confirmed
-// against kie.ai's docs as of 2026-05-05.
-
-// Generic image-gen call. Body shape varies per model — use `buildImageInput`
-// from src/utils/models.ts to construct the right body for the chosen model.
-export async function kieImageGenerate(
-  apiKey: string,
-  modelId: string,
-  input: Record<string, unknown>,
-  opts: RunTaskOptions = {},
-): Promise<string[]> {
-  const record = await runTask(apiKey, modelId, input, {
-    ...opts,
-    maxPollAttempts: opts.maxPollAttempts ?? IMAGE_POLL_ATTEMPTS,
-  })
-  return parseResult(record).resultUrls
-}
-
 // Download a generated URL and return base64 + mimeType for local persistence.
 export async function downloadAsBase64(url: string): Promise<{ base64: string; mimeType: string }> {
   const res = await fetch(url)
@@ -388,31 +356,6 @@ export async function downloadAsBase64(url: string): Promise<{ base64: string; m
     binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK))
   }
   return { base64: btoa(binary), mimeType }
-}
-
-export async function kieVideoGenerate(
-  apiKey: string,
-  modelId: string,
-  input: Record<string, unknown>,
-  opts: RunTaskOptions = {},
-): Promise<string[]> {
-  const record = await runTask(apiKey, modelId, input, {
-    ...opts,
-    maxPollAttempts: opts.maxPollAttempts ?? VIDEO_POLL_ATTEMPTS,
-  })
-  return parseResult(record).resultUrls
-}
-
-export async function kieChat(
-  apiKey: string,
-  modelId: string,
-  input: Record<string, unknown>,
-  opts: RunTaskOptions = {},
-): Promise<TaskRecord> {
-  // Used for chat models that go through the createTask/recordInfo pipeline
-  // (rare). Most chat models on kie.ai use the OpenAI-compatible chat
-  // completions endpoint instead — see `kieChatCompletions` below.
-  return runTask(apiKey, modelId, input, opts)
 }
 
 // ── OpenAI-compatible chat completions ─────────────────────────
@@ -529,16 +472,6 @@ function parseSSEContent(raw: string): string {
   return content
 }
 
-export async function kieTTS(
-  apiKey: string,
-  modelId: string,
-  input: { text: string; voice?: string; [k: string]: unknown },
-  opts: RunTaskOptions = {},
-): Promise<string[]> {
-  const record = await runTask(apiKey, modelId, input as unknown as Record<string, unknown>, opts)
-  return parseResult(record).resultUrls
-}
-
 // ── Veo generate (custom endpoint) ──────────────────────────────
 //
 // Veo 3.1 family uses POST /api/v1/veo/generate (NOT /jobs/createTask).
@@ -645,16 +578,6 @@ export async function kieVeoPoll(
         ? (JSON.parse(record.resultJson) as { resultUrls?: string[] }).resultUrls
         : undefined
       const urls = fromResponse ?? fromFullResponse ?? fromOrigin ?? fromTop ?? fromJson ?? []
-      const chosen =
-        fromResponse ? 'response.resultUrls'
-          : fromFullResponse ? 'response.fullResultUrls'
-            : fromOrigin ? 'response.originUrls'
-              : fromTop ? 'resultUrls'
-                : fromJson ? 'resultJson(parsed).resultUrls'
-                  : '(none)'
-      // Log the envelope shape every time so debugging black-video reports
-      // can compare against the raw kie response side-by-side.
-      console.log('[kie] kieVeoPoll: result URLs extracted via', chosen, urls)
       if (urls.length === 0) {
         console.warn('[kie] kieVeoPoll: success state but no resultUrls in', record)
         throw new Error('Veo returned no result URLs.')
@@ -668,17 +591,6 @@ export async function kieVeoPoll(
 
   const minutes = Math.round((maxPollAttempts * pollIntervalMs) / 60_000)
   throw new PollTimeoutError(minutes, 'Veo generation')
-}
-
-// Thin wrapper for callers that don't need refresh-resume (kept for
-// backwards compatibility with existing video-studio/broll-studio callers).
-export async function kieVeoGenerate(
-  apiKey: string,
-  body: Record<string, unknown>,
-  opts: RunTaskOptions = {},
-): Promise<string[]> {
-  const taskId = await kieVeoCreate(apiKey, body, opts.signal)
-  return kieVeoPoll(apiKey, taskId, opts)
 }
 
 // ── Suno music generation (custom endpoint) ────────────────────
@@ -801,16 +713,6 @@ export async function pollMusicTask(
 
   const minutes = Math.round((maxPollAttempts * pollIntervalMs) / 60_000)
   throw new PollTimeoutError(minutes, 'Music generation')
-}
-
-// Thin wrapper for callers that don't need refresh-resume.
-export async function runMusicTask(
-  apiKey: string,
-  body: Record<string, unknown>,
-  opts: RunTaskOptions = {},
-): Promise<SunoRecordData> {
-  const taskId = await kieMusicGenerate(apiKey, body, opts.signal)
-  return pollMusicTask(apiKey, taskId, opts)
 }
 
 // ── Gemini Omni create endpoints (synchronous) ─────────────────
