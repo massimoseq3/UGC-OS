@@ -75,6 +75,9 @@ interface AuthState {
   signOut: () => Promise<void>
   clearAccessRevoked: () => void
   refreshProfile: () => Promise<void>
+  // Sets the preferred name the app greets the user by (profiles.display_name).
+  // Optimistic: updates local state first, then persists; reverts on failure.
+  updateDisplayName: (name: string) => Promise<{ ok: true } | { ok: false; error: string }>
   // Stamps tos/privacy/aup acceptance + policy version. Used on signup and
   // when an existing user re-accepts after a POLICY_VERSION bump.
   acceptPolicies: (version: string) => Promise<{ ok: true } | { ok: false; error: string }>
@@ -218,6 +221,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (!user) return
     const profile = await fetchProfile(user.id)
     set({ profile })
+  },
+
+  updateDisplayName: async (name) => {
+    const user = get().user
+    if (!isCloudEnabled() || !user) return { ok: false, error: 'Not signed in.' }
+    const trimmed = name.trim()
+    const value = trimmed.length > 0 ? trimmed : null
+    const prev = get().profile
+    // Optimistic local update so the greeting reflects the change instantly.
+    if (prev) set({ profile: { ...prev, display_name: value } })
+    const sb = getSupabase()
+    const { error } = await sb
+      .from('profiles')
+      .update({ display_name: value })
+      .eq('id', user.id)
+    if (error) {
+      if (prev) set({ profile: prev }) // revert
+      return { ok: false, error: error.message }
+    }
+    return { ok: true }
   },
 
   acceptPolicies: async (version) => {

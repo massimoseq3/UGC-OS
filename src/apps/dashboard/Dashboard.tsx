@@ -63,8 +63,10 @@ export default function Dashboard() {
 
   const metrics = useMemo(() => computeUsageMetrics(usageDays, creditsToUsd), [usageDays])
 
-  const firstName = profile?.first_name?.trim()
-  const greeting = `${greetingForHour(new Date().getHours())}${firstName ? `, ${firstName}` : ''}`
+  // Prefer the name the user set in Settings ("What should we call you?"),
+  // falling back to their sign-up first name.
+  const displayName = profile?.display_name?.trim() || profile?.first_name?.trim()
+  const greeting = `${greetingForHour(new Date().getHours())}${displayName ? `, ${displayName}` : ''}`
 
   const workdays = metrics.minutesSaved / 60 / 8
   const sinceLabel = metrics.firstActiveDay
@@ -243,7 +245,7 @@ export default function Dashboard() {
                     style={{ color: member.roleColor ?? app.accent, ...DISPLAY_FONT }}
                   >
                     <span className="block truncate">{member.name}</span>
-                    <span className="block truncate">{member.role}</span>
+                    <span className="block truncate opacity-65">{member.role}</span>
                   </span>
                 </span>
               </button>
