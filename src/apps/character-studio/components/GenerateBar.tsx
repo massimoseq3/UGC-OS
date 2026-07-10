@@ -5,9 +5,6 @@ import ConstraintChip from '../../../components/ConstraintChip'
 import AspectIcon from '../../../components/AspectIcon'
 import SegmentedToggle from '../../../components/SegmentedToggle'
 import ModelWaitNotice from '../../../components/ModelWaitNotice'
-import LoadPresetDropdown from './LoadPresetDropdown'
-import PhotoExtractZone from './PhotoExtractZone'
-import type { CharacterProfile } from '../types'
 import { estimateCredits, formatCredits, getDefaultModel, getModel, type ImageResolution } from '../../../utils/models'
 
 interface GenerateBarProps {
@@ -26,14 +23,6 @@ interface GenerateBarProps {
   sheetAspect: string
   onSheetAspectChange: (value: string) => void
   inFlightCount: number
-  // Preset loader + reference-photo autofill — sit at the head of the footer,
-  // directly above the Portrait / Influencer Sheet toggle.
-  onLoadProfile: (profile: CharacterProfile) => void
-  isExtracting: boolean
-  extractError: string | null
-  extractedThumb: string | null
-  onPhotoDrop: (file: File) => void
-  onResetExtract: () => void
 }
 
 // Aspect options offered by the dropdown. Stored values may be legacy verbose
@@ -65,12 +54,6 @@ export default function GenerateBar({
   sheetAspect,
   onSheetAspectChange,
   inFlightCount,
-  onLoadProfile,
-  isExtracting,
-  extractError,
-  extractedThumb,
-  onPhotoDrop,
-  onResetExtract,
 }: GenerateBarProps) {
   const persistedModel = useSettingsStore((s) => s.getAppModel('character-studio:image:text-to-image'))
   const selectedModelId = persistedModel ?? getDefaultModel('character-studio', 'image', 'text-to-image')?.id
@@ -86,22 +69,6 @@ export default function GenerateBar({
           <p className="text-xs leading-relaxed text-red-300 light:text-red-700">{error}</p>
         </div>
       )}
-      {/* Preset loader + reference-photo autofill — same pill styling as the
-          model picker, sitting at the head of the footer. */}
-      <div className="flex items-center gap-2">
-        <div className="min-w-0 flex-1">
-          <LoadPresetDropdown onLoadProfile={onLoadProfile} />
-        </div>
-        <div className="min-w-0 flex-1">
-          <PhotoExtractZone
-            isExtracting={isExtracting}
-            extractError={extractError}
-            thumbnail={extractedThumb}
-            onPhotoDrop={onPhotoDrop}
-            onReset={onResetExtract}
-          />
-        </div>
-      </div>
       {/* Output mode — a single portrait vs a multi-panel reference sheet
           (face turnaround + expressions + full body on a neutral studio bg). */}
       <SegmentedToggle<'portrait' | 'sheet'>

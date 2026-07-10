@@ -15,7 +15,8 @@ import ChipField from './ChipField'
 import GenerateBar from './GenerateBar'
 import SegmentedToggle from '../../../components/SegmentedToggle'
 import ClearAllButton from '../../../components/ClearAllButton'
-import { PresetPickerSlideOver } from './LoadPresetDropdown'
+import LoadPresetDropdown, { PresetPickerSlideOver } from './LoadPresetDropdown'
+import PhotoExtractZone from './PhotoExtractZone'
 import { buildPhysicalPrompt, buildScenePrompt } from '../services/generateCharacter'
 import { copyToClipboard } from '../../../utils/clipboard'
 
@@ -73,7 +74,7 @@ function PresetPillButton({ label, title, icon: Icon, onClick }: { label: string
       type="button"
       onClick={onClick}
       title={title}
-      className="flex items-center gap-1.5 rounded-full bg-influencers-500/10 px-3 py-1 text-[12px] font-medium text-influencers-300 ring-1 ring-inset ring-influencers-500/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition-colors hover:bg-influencers-500/15"
+      className="flex items-center gap-1.5 rounded-full border border-dashed border-influencers-500/30 bg-influencers-500/10 px-3 py-1 text-[12px] font-medium text-influencers-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition-colors hover:bg-influencers-500/15"
     >
       <Icon className="h-3.5 w-3.5" />
       {label}
@@ -210,22 +211,42 @@ export default function ControlsPanel({
         />
       </div>
 
-      {/* Divider between the toggle and the parameter inputs — full width. The
-          preset picker + autofill drop zone now live in the action footer,
-          directly above the Portrait / Influencer Sheet toggle. */}
+      {/* Divider between the toggle and the parameter inputs — full width. */}
       <div className="border-t border-ink/5" />
 
       {/* Scrollable parameter fields (only scrolls internally on desktop). Every
           tab's groups render on one page — each group sits in its own card, and
           the top toggle scroll-jumps between tab blocks (Ad Analyzer pattern). */}
-      <div ref={scrollRef} className="min-w-0 flex-1 p-4 md:overflow-y-auto">
+      <div ref={scrollRef} className="min-w-0 flex-1 px-4 pb-4 md:overflow-y-auto">
         <div className="flex flex-col gap-4">
+          {/* Preset loader + reference-photo autofill — pinned just under the
+              Physical / Scene & Pose toggle (sticky over the scroll), with an
+              opaque backdrop + a feathered gradient so fields dissolve under it
+              instead of clipping against a hard edge. The -mx-4/px-4 stretches
+              the backdrop across the scroll container's own padding. */}
+          <div className="sticky top-0 z-10 -mx-4 bg-surface-0 px-4 pt-2">
+            <div className="flex items-center gap-2">
+              <div className="min-w-0 flex-1">
+                <LoadPresetDropdown onLoadProfile={onProfileChange} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <PhotoExtractZone
+                  isExtracting={isExtracting}
+                  extractError={extractError}
+                  thumbnail={extractedThumb}
+                  onPhotoDrop={onPhotoDrop}
+                  onReset={onResetExtract}
+                />
+              </div>
+            </div>
+            <div className="pointer-events-none absolute inset-x-0 top-full h-5 bg-gradient-to-b from-surface-0 to-transparent" />
+          </div>
           {TABS.map((tab, tabIndex) => (
             <div
               key={tab.id}
               ref={(el) => { tabRefs.current[tab.id] = el }}
               data-tab={tab.id}
-              className="flex scroll-mt-4 flex-col gap-4"
+              className="flex scroll-mt-20 flex-col gap-4"
             >
               {/* Tab divider — a centered preset button on a full-width line
                   (mirrors the History date pills), marking each tab's block. The
@@ -304,12 +325,6 @@ export default function ControlsPanel({
         error={error}
         onGenerate={onGenerate}
         canGenerate={canGenerate}
-        onLoadProfile={onProfileChange}
-        isExtracting={isExtracting}
-        extractError={extractError}
-        extractedThumb={extractedThumb}
-        onPhotoDrop={onPhotoDrop}
-        onResetExtract={onResetExtract}
         aspectRatio={profile.aspectRatio || '9:16'}
         onAspectRatioChange={(value) => onProfileChange({ ...profile, aspectRatio: value })}
         resolution={resolution}

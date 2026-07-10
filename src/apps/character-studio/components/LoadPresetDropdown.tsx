@@ -163,12 +163,12 @@ export default function LoadPresetDropdown({ onLoadProfile }: LoadPresetDropdown
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex h-12 w-full items-center gap-3 rounded-full border border-ink/10 bg-ink/[0.02] px-4 text-left transition-colors hover:bg-ink/[0.05]"
+        className="flex h-12 w-full items-center gap-3 rounded-full border border-dashed border-ink/10 bg-ink/[0.02] px-4 text-left transition-colors hover:bg-ink/[0.05]"
       >
         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-influencers-500/10 text-influencers-400">
           <UserRound className="h-3.5 w-3.5" />
         </span>
-        <div className="min-w-0 flex-1 truncate text-[14px] font-medium text-ink-100">Character Presets</div>
+        <div className="min-w-0 flex-1 truncate text-[14px] font-medium text-ink-100">Select Character Preset</div>
         <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" strokeWidth={2} />
       </button>
 
