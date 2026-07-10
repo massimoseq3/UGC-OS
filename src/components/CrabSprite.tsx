@@ -62,11 +62,14 @@ const COSTUMES: Record<CrabVariant, Px[]> = {
     { x: 5, y: 5, w: 1, h: 1, fill: '#F74F9E' },
   ],
 
-  // Copywriter — pencil tucked over the ear.
+  // Copywriter — pencil tucked over the ear. White eyes overdraw the base
+  // dark eyes so they stay visible on the navy body.
   'script-architect': [
     { x: 8, y: 3, w: 4, h: 1, fill: '#E8A33D' }, // shaft
     { x: 12, y: 3, w: 1, h: 1, fill: DARK }, // tip
     { x: 7, y: 3, w: 1, h: 1, fill: '#F27D98' }, // eraser
+    { x: 6, y: 5, w: 1, h: 1, fill: '#FFFFFF' }, // eyes — white, read on navy
+    { x: 9, y: 5, w: 1, h: 1, fill: '#FFFFFF' },
   ],
 
   // Voice Talent — headphones, cups in a deep Voiceovers blue. Cups and cap

@@ -45,8 +45,8 @@ const ACCENT_INDICATOR: Record<SegmentedAccent, string> = {
 }
 const ACCENT_ACTIVE_TEXT: Record<SegmentedAccent, string> = {
   ink: 'text-ink-100',
-  // Active label + icon use the dedicated scripts-text token: a softer salmon
-  // (#F77F5A) on dark, a deeper red-orange (#E05321) in light.
+  // Active label + icon use the dedicated scripts-text token: a light steel
+  // blue (#8FA6CE) on dark, the navy (#2C4A78) in light.
   scripts: 'text-scripts-text',
   influencers: 'text-influencers-300',
   products: 'text-gold-300',
