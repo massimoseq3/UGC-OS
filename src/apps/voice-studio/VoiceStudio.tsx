@@ -7,7 +7,6 @@ import type { Script, VoiceHistoryItem } from '../../stores/types'
 import type { VoiceSettings } from './types'
 import { createDefaultSettings } from './types'
 import { startVoiceTask, finishVoiceTask } from './services/generateVoice'
-import { getUrl } from '../../utils/assetStore'
 import { humanizeError } from '../../utils/friendlyError'
 import EditorArea from './components/EditorArea'
 import RightPanel from './components/RightPanel'
@@ -175,17 +174,6 @@ export default function VoiceStudio() {
     setDetailsItem(null)
   }
 
-  const handleDownloadLatest = async () => {
-    if (!activePlayerItem) return
-    const ref = activePlayerItem.audioUrl
-    const url = ref.startsWith('asset-') ? await getUrl(ref) : ref
-    if (!url) return
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${activePlayerItem.voiceName}-${Date.now()}.mp3`
-    a.click()
-  }
-
   return (
     <div className="relative flex flex-col pb-28 md:h-full md:pb-0">
       <div className="flex flex-1 flex-col md:min-h-0 md:flex-row">
@@ -202,8 +190,6 @@ export default function VoiceStudio() {
             canGenerate={scriptText.trim().length > 0}
             highlightField={highlightField}
             error={error}
-            onDownloadLatest={handleDownloadLatest}
-            hasLatest={!!activePlayerItem}
           />
         </div>
 

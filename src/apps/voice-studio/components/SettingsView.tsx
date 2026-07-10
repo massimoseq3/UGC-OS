@@ -19,7 +19,7 @@ export default function SettingsView({ settings, onSettingsChange, onOpenVoicePi
 
   return (
     <div className="flex h-full flex-col overflow-y-auto">
-      <div className="flex flex-col gap-6 px-5 py-6">
+      <div className="flex flex-col gap-6 px-5 pb-6 pt-4">
         {/* Voice row — clickable, slides into picker */}
         <div>
           <span className="text-sm font-medium text-ink-200">Voice</span>

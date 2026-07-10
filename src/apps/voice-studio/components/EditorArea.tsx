@@ -1,4 +1,4 @@
-import { FileText, Loader2, Mic, AlertCircle, Download, RefreshCw, X, ChevronRight, Coins } from 'lucide-react'
+import { FileText, Loader2, Mic, AlertCircle, RefreshCw, X, ChevronRight, Coins } from 'lucide-react'
 import type { Script } from '../../../stores/types'
 import GenerationProgress from '../../../components/GenerationProgress'
 import { estimateCredits, formatCredits } from '../../../utils/models'
@@ -17,8 +17,6 @@ interface EditorAreaProps {
   canGenerate: boolean
   highlightField?: string | null
   error?: string | null
-  onDownloadLatest?: () => void
-  hasLatest: boolean
 }
 
 export default function EditorArea({
@@ -32,8 +30,6 @@ export default function EditorArea({
   canGenerate,
   highlightField,
   error,
-  onDownloadLatest,
-  hasLatest,
 }: EditorAreaProps) {
   const charCount = scriptText.length
   const overLimit = charCount > MAX_CHARACTERS
@@ -140,47 +136,37 @@ export default function EditorArea({
           Generate is always reachable. Opaque bg (not /95 + blur): backdrop-
           filter doesn't re-blur inside the already-blurred window frame, so
           any alpha lets the form underneath ghost through. */}
-      <div className={`fixed bottom-0 left-0 right-0 z-30 flex items-center justify-between border-t border-ink/5 bg-surface-0 px-5 py-5 md:static md:left-auto md:right-auto md:z-auto md:bg-transparent ${isGenerating ? 'md:mt-0' : 'md:mt-4'}`}>
+      <div className={`fixed bottom-0 left-0 right-0 z-30 flex items-center justify-between border-t border-ink/5 bg-surface-0 px-5 py-3 md:static md:left-auto md:right-auto md:z-auto md:bg-transparent ${isGenerating ? 'md:mt-0' : 'md:mt-4'}`}>
         {/* Left — character count */}
         <div className={`text-sm tabular-nums ${overLimit ? 'text-red-400 light:text-red-600' : 'text-ink-400'}`}>
           <span className={overLimit ? 'text-red-300 light:text-red-700' : 'text-ink-200'}>{charCount.toLocaleString()}</span>
           <span className="text-ink-500"> / {MAX_CHARACTERS.toLocaleString()} characters</span>
         </div>
 
-        {/* Right — download + generate */}
-        <div className="flex items-center gap-2.5">
-          <button
-            onClick={onDownloadLatest}
-            disabled={!hasLatest}
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-ink/10 text-ink-300 transition-colors hover:bg-ink/5 hover:text-ink-100 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
-            title="Download latest"
-          >
-            <Download className="h-4 w-4" />
-          </button>
-          <button
-            onClick={onGenerate}
-            disabled={!canGenerate || isGenerating || overLimit}
-            className="flex items-center justify-center gap-2.5 rounded-full border border-white/15 bg-voice-500 px-7 py-4 text-sm font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] btn-soft-shadow transition-all hover:bg-voice-400 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Generating...</span>
-              </>
-            ) : (
-              <>
-                <Mic className="h-4 w-4" strokeWidth={2.5} />
-                <span>Generate Voiceover</span>
-                {creditsLabel && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight">
-                    <Coins className="h-3 w-3" strokeWidth={2} />
-                    {creditsLabel}
-                  </span>
-                )}
-              </>
-            )}
-          </button>
-        </div>
+        {/* Right — generate */}
+        <button
+          onClick={onGenerate}
+          disabled={!canGenerate || isGenerating || overLimit}
+          className="flex items-center justify-center gap-2.5 rounded-full border border-white/15 bg-voice-500 px-10 py-4 text-sm font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] btn-soft-shadow transition-all hover:bg-voice-400 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {isGenerating ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Generating...</span>
+            </>
+          ) : (
+            <>
+              <Mic className="h-4 w-4" strokeWidth={2.5} />
+              <span>Generate Voiceover</span>
+              {creditsLabel && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight">
+                  <Coins className="h-3 w-3" strokeWidth={2} />
+                  {creditsLabel}
+                </span>
+              )}
+            </>
+          )}
+        </button>
       </div>
     </div>
   )
