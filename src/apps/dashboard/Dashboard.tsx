@@ -233,16 +233,17 @@ export default function Dashboard() {
                     className="h-6 w-8"
                   />
                 </span>
-                {/* w-full so the truncation actually engages — items-start
-                    would otherwise size this to its content and let long
-                    "Name · Role" lines spill past the card edge. */}
+                {/* w-full + min-w-0 so the app name truncates and the
+                    "Name · Role" line wraps within the card instead of
+                    spilling past its edge (items-start would size to content). */}
                 <span className="w-full min-w-0">
-                  <span className="block truncate text-[13px] font-semibold tracking-tight text-ink-100">{app.name}</span>
+                  <span className="block truncate text-[12px] font-semibold tracking-tight text-ink-100">{app.name}</span>
                   <span
-                    className="block truncate text-[10px] font-semibold tracking-tight"
-                    style={{ color: member.roleColor ?? app.accent }}
+                    className="block text-[11px] italic font-normal leading-tight tracking-tight"
+                    style={{ color: member.roleColor ?? app.accent, ...DISPLAY_FONT }}
                   >
-                    {member.name} · {member.role}
+                    <span className="block truncate">{member.name}</span>
+                    <span className="block truncate">{member.role}</span>
                   </span>
                 </span>
               </button>

@@ -60,7 +60,7 @@ export const TEAM: TeamMember[] = [
   {
     appId: 'edit-studio',
     name: 'Snips',
-    role: 'Editor',
+    role: 'Video Editor',
     blurb: 'Cuts your script, voiceover and B-roll into a finished captioned ad.',
   },
 ]

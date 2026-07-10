@@ -43,9 +43,15 @@ export default function MenuBar() {
           </span>
         </span>
       </button>
-      {/* Active app name, like macOS shows the frontmost app beside the logo. */}
+      {/* Active app name, like macOS shows the frontmost app beside the logo,
+          set off by a thin divider slash. */}
       {appName && (
-        <span className="truncate text-[13px] font-medium text-ink-400">{appName}</span>
+        <>
+          <span className="text-[12px] font-light leading-none text-ink-500/40" aria-hidden>
+            /
+          </span>
+          <span className="truncate text-[13px] font-medium text-ink-400">{appName}</span>
+        </>
       )}
 
       <div className="flex-1" />

@@ -97,12 +97,15 @@ export default function MeetTheTeam() {
                 {/* whitespace-nowrap: "Sebastian · Creative Director" must
                     hold one line — a wrapped name line looks broken. */}
                 <span
-                  className="whitespace-nowrap text-[10px] font-semibold tracking-tight"
-                  style={{ color: member.roleColor ?? app.accent }}
+                  className="whitespace-nowrap text-[11px] italic font-normal tracking-tight"
+                  style={{
+                    color: member.roleColor ?? app.accent,
+                    fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif",
+                  }}
                 >
-                  {member.name} · {member.role}
+                  {member.name} – {member.role}
                 </span>
-                <span className="mt-0.5 text-[13px] font-semibold tracking-tight text-ink-100">
+                <span className="mt-0.5 text-[12px] font-semibold tracking-tight text-ink-100">
                   {app.name}
                 </span>
                 <span className="mt-0.5 text-[11px] leading-snug text-ink-500">
