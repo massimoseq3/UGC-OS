@@ -69,7 +69,8 @@ system · library · create · tools`, order from `APP_REGISTRY`, `constants.ts`
   redirect to `/dashboard`).
 - **Library:** Bank.
 - **Create:** Ad Analyzer · Characters · Scripts · Voiceovers · B-Roll ·
-  Playground (analyzer leads the group — no divider between it and Characters).
+  Playground · Edit (analyzer leads the group — no divider between it and
+  Characters; Edit closes it).
 - divider → **utility cluster:** a **theme** tile (dark↔light quick toggle; System
   is Settings-only) + a **Settings** tile (opens the Settings modal).
 
@@ -86,7 +87,7 @@ report once opened that session). **Admin is not in the dock** (its
 Note the **two namespaces**: dock display names vs the internal app/folder ids
 (`constants.ts:30`). `Bank`→`finder`, `Characters`→`character-studio`,
 `Scripts`→`script-architect`, `Voiceovers`→`voice-studio`, `B-Roll`→`broll-studio`,
-`Ad Analyzer`→`ad-anatomy`.
+`Ad Analyzer`→`ad-anatomy`, `Edit`→`edit-studio`.
 
 ### 1.3 Settings modal — `src/components/SettingsModal.tsx`
 
@@ -108,7 +109,7 @@ tile. Header ("Settings" + ✕ top-right, `SettingsModal.tsx:196`), then top→b
 
 ### 1.4 Meet your team intro — `src/components/MeetTheTeam.tsx`
 
-Centered onboarding modal ("Meet your *team*") framing the seven dock apps as
+Centered onboarding modal ("Meet your *team*") framing the eight dock apps as
 a named production crew (roster data in `src/utils/team.ts`) — one pixel-art
 crab mascot per app (`src/components/CrabSprite.tsx`), each in a role costume,
 labelled "Name · Role" (kept to a single line — `whitespace-nowrap`, card
@@ -116,7 +117,8 @@ width sized to the longest label): Bank = Sandy · Studio Manager (green
 visor), Characters = Clawdia · Casting Director (shades), Scripts = Pinchy ·
 Copywriter (pencil), Voiceovers = Echo · Voice Talent (headphones), B-Roll =
 Bubbles · Videographer (backwards cap), Playground = Sebastian · Creative
-Director (beret + paint), Ad Analyzer = Scout · Strategist (magnifying glass).
+Director (beret + paint), Ad Analyzer = Scout · Strategist (magnifying glass),
+Edit = Snips · Editor (clapperboard).
 Cards sit in dock order on accent-tinted tiles; clicking one opens that app.
 Below the roster, a compact horizontal **fuel row** — a golden sun-rayed `kie`
 crab variant + "kie.ai credits keep your team fed" + three one-line steps (get
@@ -445,7 +447,35 @@ instead of the media+results columns.
 
 ---
 
-## 9. Dashboard — `src/apps/dashboard/Dashboard.tsx`
+## 9. Edit — `src/apps/edit-studio/`
+
+No panes and no in-app generation — a download + setup page for the
+`/video-editor` Claude skill (script + voiceover + B-roll in → finished
+captioned 9:16 ad out, edited locally by Claude Code on the member's machine).
+Centered `max-w-5xl`, two columns on `md:` (stacks below), vertically centered
+(`EditStudio.tsx`):
+
+- **Left column:** the **skill folder** (`SkillFolder.tsx`) — an ivory
+  macOS-style folder illustration (accent `#F77646`) with an orange radial glow,
+  the app's editor crab (Snips, clapperboard) on an orange icon tile, and a bold
+  `/video-editor` label on the front pocket. The whole folder is one download
+  link for `public/video-editor.skill`; hovering lifts the folder a touch and
+  three work-cards (16:9 video frame left, "FULL SCRIPT" card middle, orange
+  waveform right) pop up over the top edge as a tight overlapping fan — the
+  folder body itself does not morph. Below: a black **Download skill** pill
+  (same link) over a
+  "video-editor.skill · 20 KB" caption. The folder keeps literal ivory/orange
+  colors in both themes (it's artwork, like user media).
+- **Right column:** "Your AI video editor" serif display header + one-paragraph
+  pitch, then a **Set it up** card with 4 numbered steps in the ApiKeyGuide
+  style, written plain (no jargon, no em dashes, ~6th-grade) for non-technical
+  members: install Claude Code → download the skill → in Claude open Settings ›
+  Customize › Add › Upload a skill → open Claude Code in a new folder named "Ad
+  Editor", run the skill and point it at the voiceover + B-roll. A footnote
+  (no editing apps needed, self-setup on first run, files stay local), and
+  a trailing "New to Claude Code? Start here" external link.
+
+## 10. Dashboard — `src/apps/dashboard/Dashboard.tsx`
 
 Single scrollable page (no panes/tabs), centered `max-w-5xl`. First tile in the
 dock (green) and the **default landing page** (`DEFAULT_SLUG = 'dashboard'`).
@@ -474,7 +504,7 @@ pill, and tile carries a subtle drop shadow. Top→bottom:
     (`ActivityHeatmap.tsx`) — Monday-first columns, month labels above, green
     intensity ramp, Less→More legend bottom-right, native `title` tooltip per
     cell; "`<n>` generations · last 6 months" top-right.
-  - **Crew shortcut row** (7 tiles, dock order): crab sprite on an accent-tinted
+  - **Crew shortcut row** (8 tiles, dock order): crab sprite on an accent-tinted
     chip, app name, "Name · Role" in the app accent (truncated), `ArrowUpRight`
     top-right; clicking opens that app. No footer below the grid.
 
@@ -486,7 +516,7 @@ flame streak chip while a streak is live (§1.1).
 
 ---
 
-## 10. Admin — `src/apps/admin/AdminPanel.tsx`
+## 11. Admin — `src/apps/admin/AdminPanel.tsx`
 
 Admin-only (sidebar entry hidden for non-admins). Tabs: **Members · Insights ·
 Allowlist** (`MembersTable.tsx`, `Insights.tsx`, `AllowlistEditor.tsx`). Not

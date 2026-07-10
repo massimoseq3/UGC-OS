@@ -10,6 +10,7 @@ import {
   Shield,
   ImagePlay,
   LayoutDashboard,
+  Scissors,
 } from 'lucide-react'
 import type { ElementType } from 'react'
 
@@ -44,6 +45,9 @@ export const APP_REGISTRY: AppConfig[] = [
   { id: 'voice-studio', name: 'Voiceovers', icon: Mic, accent: '#007AFF', category: 'create' },
   { id: 'broll-studio', name: 'B-Roll', icon: Film, accent: '#7165FF', category: 'create' },
   { id: 'playground', name: 'Playground', icon: ImagePlay, accent: '#015C52', category: 'create' },
+  // Edit closes the create row: everything produced on its left gets cut into
+  // a finished ad here (via the downloadable /video-editor Claude skill).
+  { id: 'edit-studio', name: 'Edit', icon: Scissors, accent: '#F77646', category: 'create' },
   { id: 'admin', name: 'Admin', icon: Shield, accent: '#fafafa', category: 'admin' },
 ]
 
