@@ -821,17 +821,13 @@ export const MODEL_REGISTRY: ModelEntry[] = [
   },
 
   // ── Text-to-Speech ────────────────────────────────────────────
-  // Voiceovers offers two ElevenLabs models (Settings → Model picker). V2 is
-  // the default because it needs no prompt engineering; V3 is more expressive
-  // but expects audio tags in the script. Voice catalog lives in
-  // src/apps/voice-studio/types.ts — VOICES (voice IDs shared across both).
+  // Voiceovers uses ElevenLabs Multilingual v2 exclusively (no picker).
+  // Spec: https://docs.kie.ai/market/elevenlabs/text-to-speech-multilingual-v2
+  // Voice catalog lives in src/apps/voice-studio/types.ts — VOICES.
 
   {
-    // Studio-quality, life-like reads in 29 languages. Flat input:
-    // { text, voice, stability (0–1), similarity_boost, style, speed }.
-    // Spec: https://docs.kie.ai/market/elevenlabs/text-to-speech-multilingual-v2
     id: 'elevenlabs/text-to-speech-multilingual-v2',
-    displayName: 'Eleven Multilingual V2',
+    displayName: 'Eleven Multilingual v2',
     provider: 'ElevenLabs',
     task: 'tts',
     tags: ['recommended'],
@@ -843,24 +839,6 @@ export const MODEL_REGISTRY: ModelEntry[] = [
       source: 'https://elevenlabs.io/pricing/api',
     },
     defaultFor: ['voice-studio'],
-  },
-  {
-    // Most expressive; 70+ languages. Input is a `dialogue: [{ text, voice }]`
-    // array (multi-speaker capable) + discrete `stability` (0 / 0.5 / 1). Audio
-    // tags like [excited] in the text drive delivery — see the Enhance action.
-    // Spec: https://docs.kie.ai/market/elevenlabs/text-to-dialogue-v3
-    id: 'elevenlabs/text-to-dialogue-v3',
-    displayName: 'Eleven V3',
-    provider: 'ElevenLabs',
-    task: 'tts',
-    tags: ['new'],
-    // Source: https://kie.ai/elevenlabs/text-to-dialogue-v3. 14 credits per 1,000 characters.
-    pricing: { unit: 'per-1k-chars', credits: 14 },
-    // ElevenLabs bills TTS per character uniformly across models — $0.10 per 1k.
-    official: {
-      usdFor: ({ charCount = 1000 }) => 0.10 * (charCount / 1000),
-      source: 'https://elevenlabs.io/pricing/api',
-    },
   },
 ]
 
