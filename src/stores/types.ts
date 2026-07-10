@@ -56,6 +56,9 @@ export interface Script {
 export interface VoicePreset {
   id: string
   label: string
+  // ElevenLabs model this preset targets (V2 / V3). Missing on legacy rows →
+  // backfilled to V2 by migrateVoiceShape.
+  modelId: string
   voiceId: string
   voiceName: string
   gender?: 'Female' | 'Male'
@@ -122,6 +125,9 @@ export interface VideoHistoryItem {
 
 export interface VoiceHistoryItem {
   id: string
+  // ElevenLabs model used for this generation (V2 / V3). Missing on legacy
+  // rows → backfilled to V2 by migrateVoiceShape.
+  modelId: string
   voiceId: string
   voiceName: string
   gender?: 'Female' | 'Male'

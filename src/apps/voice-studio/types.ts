@@ -29,7 +29,8 @@ export interface VoiceOption {
   gender?: Gender
 }
 
-// Full catalog from the kie.ai OpenAPI enum (text-to-speech-multilingual-v2).
+// Full catalog from the kie.ai ElevenLabs OpenAPI enum. Voice IDs are shared
+// across the ElevenLabs models, so the same list drives text-to-dialogue-v3.
 // Voice IDs are copied verbatim — do not edit by hand. Each voice is assigned
 // the most specific category from ElevenLabs' marketing buckets.
 export const VOICES: VoiceOption[] = [
@@ -119,18 +120,49 @@ export function getVoiceById(id: string): VoiceOption | undefined {
   return VOICES.find((v) => v.id === id)
 }
 
+// The two ElevenLabs TTS models the Voiceovers picker offers. V2 is the default
+// (no prompt engineering needed); V3 is more expressive but expects audio tags.
+export const TTS_V2_MODEL_ID = 'elevenlabs/text-to-speech-multilingual-v2'
+export const TTS_V3_MODEL_ID = 'elevenlabs/text-to-dialogue-v3'
+
+export function isV3(modelId: string): boolean {
+  return modelId === TTS_V3_MODEL_ID
+}
+
 export interface VoiceSettings {
+  // Which ElevenLabs model to call — see TTS_V2_MODEL_ID / TTS_V3_MODEL_ID.
+  modelId: string
   voiceId: string
   voiceName: string
   gender?: Gender
-  // ElevenLabs Multilingual v2 parameters (see API spec):
-  stability: number          // 0–1   (0 = variable, 1 = stable)
+  // V2: continuous 0–1. V3: discrete 0 / 0.5 / 1 (see STABILITY_OPTIONS).
+  stability: number
+  // V2-only knobs. V3 (Text to Dialogue) ignores these — it drives delivery
+  // through audio tags in the text instead.
   similarityBoost: number    // 0–1
   style: number              // 0–1   (style exaggeration)
   speed: number              // 0.7–1.2
 }
 
-export const DEFAULT_VOICE_SETTINGS: Omit<VoiceSettings, 'voiceId' | 'voiceName' | 'gender'> = {
+// The three stability presets v3 accepts (step 0.5). Labels match ElevenLabs'
+// own naming for the setting.
+export const STABILITY_OPTIONS: { value: number; label: string }[] = [
+  { value: 0, label: 'Creative' },
+  { value: 0.5, label: 'Natural' },
+  { value: 1, label: 'Robust' },
+]
+
+export function stabilityLabel(value: number): string {
+  return STABILITY_OPTIONS.find((o) => o.value === value)?.label ?? 'Natural'
+}
+
+// Snap an arbitrary stability onto the v3 grid (0 / 0.5 / 1) when switching a
+// V2 value into V3, which only accepts those three.
+export function snapStability(value: number): number {
+  return Math.round(value * 2) / 2
+}
+
+export const DEFAULT_VOICE_SETTINGS: Omit<VoiceSettings, 'voiceId' | 'voiceName' | 'gender' | 'modelId'> = {
   stability: 0.5,
   similarityBoost: 0.75,
   style: 0,
@@ -139,6 +171,7 @@ export const DEFAULT_VOICE_SETTINGS: Omit<VoiceSettings, 'voiceId' | 'voiceName'
 
 export interface HistoryItem {
   id: string
+  modelId: string
   voiceId: string
   voiceName: string
   gender?: Gender
@@ -156,12 +189,31 @@ export interface HistoryItem {
 export function createDefaultSettings(): VoiceSettings {
   // Default to "Liam — Energetic, Social Media Creator" since this app is
   // built for AI UGC ads. Falls back to first voice if Liam ever leaves the
-  // catalog.
+  // catalog. Defaults to V2 — the no-prompt-engineering model.
   const def = VOICES.find((v) => v.id === 'TX3LPaxmHKxFdv7VOQHJ') ?? VOICES[0]
   return {
+    modelId: TTS_V2_MODEL_ID,
     voiceId: def.id,
     voiceName: def.name,
     gender: def.gender,
     ...DEFAULT_VOICE_SETTINGS,
+  }
+}
+
+// Backfill any fields missing from persisted settings — chiefly `modelId` and
+// the V2 param set, which older saved settings (pre model-picker) don't carry.
+// Wired as usePersistedState's `sanitize` so hydration can't yield a partial
+// object that crashes the sliders or sends an undefined modelId to kie.
+export function normalizeSettings(s: Partial<VoiceSettings> | null | undefined): VoiceSettings {
+  const base = createDefaultSettings()
+  if (!s || typeof s !== 'object') return base
+  return {
+    ...base,
+    ...s,
+    modelId: typeof s.modelId === 'string' ? s.modelId : base.modelId,
+    stability: typeof s.stability === 'number' ? s.stability : base.stability,
+    similarityBoost: typeof s.similarityBoost === 'number' ? s.similarityBoost : base.similarityBoost,
+    style: typeof s.style === 'number' ? s.style : base.style,
+    speed: typeof s.speed === 'number' ? s.speed : base.speed,
   }
 }

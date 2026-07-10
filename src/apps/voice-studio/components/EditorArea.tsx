@@ -1,4 +1,4 @@
-import { FileText, Loader2, Mic, AlertCircle, Download, RefreshCw, X, ChevronRight } from 'lucide-react'
+import { FileText, Loader2, Mic, AlertCircle, Download, RefreshCw, X, ChevronRight, Sparkles } from 'lucide-react'
 import type { Script } from '../../../stores/types'
 import GenerationProgress from '../../../components/GenerationProgress'
 
@@ -17,6 +17,10 @@ interface EditorAreaProps {
   error?: string | null
   onDownloadLatest?: () => void
   hasLatest: boolean
+  // V3 only: weave expressive [audio tags] into the script via an LLM pass.
+  showEnhance: boolean
+  onEnhance: () => void
+  isEnhancing: boolean
 }
 
 export default function EditorArea({
@@ -32,6 +36,9 @@ export default function EditorArea({
   error,
   onDownloadLatest,
   hasLatest,
+  showEnhance,
+  onEnhance,
+  isEnhancing,
 }: EditorAreaProps) {
   const charCount = scriptText.length
   const overLimit = charCount > MAX_CHARACTERS
@@ -106,6 +113,35 @@ export default function EditorArea({
             highlightField === 'script' ? 'animate-field-flash' : ''
           }`}
         />
+
+        {/* Enhance for v3 — rewrites the script with expressive [audio tags].
+            Only shown when the V3 model is selected. */}
+        {showEnhance && (
+          <div className="mt-2 flex items-center gap-3 border-t border-ink/[0.06] pt-3">
+            <button
+              onClick={onEnhance}
+              disabled={!canGenerate || isEnhancing || isGenerating || overLimit}
+              className="flex items-center gap-2 rounded-full border border-voice-500/30 bg-voice-500/10 px-3.5 py-2 text-xs font-semibold text-voice-200 transition-colors hover:bg-voice-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+              title="Add expressive audio tags for Eleven V3"
+            >
+              {isEnhancing ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Enhancing…
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Enhance for V3
+                </>
+              )}
+            </button>
+            <span className="text-[11px] leading-tight text-ink-500">
+              Weaves in <span className="text-ink-400">[excited]</span>, <span className="text-ink-400">[whispers]</span>,{' '}
+              <span className="text-ink-400">[laughs]</span> and other delivery cues.
+            </span>
+          </div>
+        )}
 
       </div>
 

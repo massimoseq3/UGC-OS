@@ -305,8 +305,9 @@ playing.
 ### Center editor (`components/EditorArea.tsx`), top→bottom
 
 Script bank selector (pill / dashed "Click to select from bank") → "or paste
-script manually" divider → large textarea → "Clear All" link → progress bar →
-**footer row**: character counter (leading) · download icon + **Generate
+script manually" divider → large textarea → (**V3 only**) an **Enhance for v3**
+pill + helper text under the textarea (LLM-injects `[audio tags]`) → progress
+bar → **footer row**: character counter (leading) · download icon + **Generate
 Voiceover** button (trailing).
 
 ### Right panel (`components/RightPanel.tsx`)
@@ -315,10 +316,17 @@ Top tabs: **Settings / History**. Settings (`SettingsView.tsx`), top→bottom:
 
 1. **Voice** selector (avatar + name + description; opens the voice picker
    slide-over).
-2. **Model** row (read-only "Eleven Multilingual v2").
-3. Sliders **in this exact order**: **Speed → Stability → Similarity → Style
-   Exaggeration** (`SettingsView.tsx:54`–`101`).
+2. **Model** row (badge + name + chevron; opens the model picker slide-over).
+3. **Stability** — model-dependent: **V2** shows the four sliders (Speed →
+   Stability → Similarity → Style Exaggeration); **V3** shows a three-way
+   segmented toggle (**Creative / Natural / Robust**, tinted voice-accent when
+   active) plus audio-tag guidance.
 4. **Reset values** link.
+
+**Model picker** (`ModelPickerView.tsx`): slide-over with a "Select a model"
+header (back arrow), then two cards — **Eleven Multilingual v2** (Recommended)
+and **Eleven v3** (New) — each with description + language chips + a selected
+check.
 
 **Voice picker** (`VoicePickerView.tsx`): slide-over with a "Select a voice"
 header (back arrow), search box + category chips, then a scrolling list of rows

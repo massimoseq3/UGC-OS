@@ -487,6 +487,7 @@ export async function seedMockData(): Promise<void> {
       await store.addVoice({
         label: v.label,
         voiceId: `demo-voice-${v.voiceName.toLowerCase()}`,
+        modelId: 'elevenlabs/text-to-speech-multilingual-v2',
         voiceName: v.voiceName,
         gender: v.gender,
         stability: 0.75,
@@ -622,6 +623,7 @@ export async function seedMockData(): Promise<void> {
       const scriptText = voiceScripts[i] ?? SCRIPT_TEXT_1
       const item: VoiceHistoryItem = {
         id: `demo-voice-hist-${i}`,
+        modelId: 'elevenlabs/text-to-speech-multilingual-v2',
         voiceId: `demo-voice-${v.voiceName.toLowerCase()}`,
         voiceName: v.voiceName,
         gender: v.gender,

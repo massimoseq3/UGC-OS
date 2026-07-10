@@ -90,6 +90,7 @@ export default function HistoryView({ items, activeId, onSelect, onDelete, onSho
     if (!saveLabel.trim()) return
     addVoice({
       label: saveLabel.trim(),
+      modelId: item.modelId,
       voiceId: item.voiceId,
       voiceName: item.voiceName,
       gender: item.gender,
