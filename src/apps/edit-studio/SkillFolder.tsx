@@ -48,13 +48,24 @@ function PopCard({
   )
 }
 
+// Trigger the download from JS (via a throwaway anchor) rather than wrapping
+// the folder in an <a href>, so hovering it shows neither the browser's URL
+// preview nor a native tooltip.
+export function downloadSkill() {
+  const link = document.createElement('a')
+  link.href = '/video-editor.skill'
+  link.download = 'video-editor.skill'
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+}
+
 export default function SkillFolder() {
   return (
-    <a
-      href="/video-editor.skill"
-      download="video-editor.skill"
-      title="Download the video editor skill"
-      className="group relative mx-auto block w-[300px] select-none outline-none sm:w-[340px]"
+    <button
+      type="button"
+      onClick={downloadSkill}
+      className="group relative mx-auto block w-[300px] cursor-pointer select-none outline-none sm:w-[340px]"
       aria-label="Download the video editor Claude skill"
     >
       {/* Orange halo, brightens and widens on hover */}
@@ -124,6 +135,6 @@ export default function SkillFolder() {
           </span>
         </div>
       </div>
-    </a>
+    </button>
   )
 }

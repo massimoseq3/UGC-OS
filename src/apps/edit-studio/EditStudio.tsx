@@ -1,6 +1,6 @@
 import { CheckCircle2, Download, ExternalLink } from 'lucide-react'
 import type { ReactNode } from 'react'
-import SkillFolder from './SkillFolder'
+import SkillFolder, { downloadSkill } from './SkillFolder'
 
 // Edit is the last stop in the create row. Unlike the other apps it doesn't
 // generate anything in the browser: it hands out the video editor Claude skill
@@ -29,7 +29,7 @@ const SKILL_STEPS: ReactNode[] = [
     </a>{' '}
     if you don&apos;t have it yet.
   </>,
-  <>Download the video editor skill. Just click the folder.</>,
+  <>Download the video editor Skill.</>,
   <>
     In Claude, open <Ui>Settings</Ui>, click <Ui>Customize</Ui>, click <Ui>Add</Ui>, then click{' '}
     <Ui>Upload a skill</Ui>. Pick the file you just downloaded.
@@ -56,14 +56,14 @@ export default function EditStudio() {
       <div className="flex flex-col items-center gap-7">
         <SkillFolder />
         <div className="flex flex-col items-center gap-2">
-          <a
-            href="/video-editor.skill"
-            download="video-editor.skill"
+          <button
+            type="button"
+            onClick={downloadSkill}
             className="flex h-10 items-center gap-2 rounded-full bg-ink px-5 text-[13px] font-medium text-paper transition-opacity hover:opacity-90"
           >
             <Download className="h-4 w-4" strokeWidth={2} />
             Download skill
-          </a>
+          </button>
           <p className="text-[11px] text-ink-600">video-editor.skill · 20 KB</p>
         </div>
       </div>
