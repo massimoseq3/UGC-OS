@@ -1,6 +1,8 @@
-import { FileText, Loader2, Mic, AlertCircle, Download, RefreshCw, X, ChevronRight, Sparkles } from 'lucide-react'
+import { FileText, Loader2, Mic, AlertCircle, Download, RefreshCw, X, ChevronRight, Coins } from 'lucide-react'
 import type { Script } from '../../../stores/types'
 import GenerationProgress from '../../../components/GenerationProgress'
+import { estimateCredits, formatCredits } from '../../../utils/models'
+import { TTS_MODEL_ID } from '../services/generateVoice'
 
 const MAX_CHARACTERS = 5000
 
@@ -17,10 +19,6 @@ interface EditorAreaProps {
   error?: string | null
   onDownloadLatest?: () => void
   hasLatest: boolean
-  // V3 only: weave expressive [audio tags] into the script via an LLM pass.
-  showEnhance: boolean
-  onEnhance: () => void
-  isEnhancing: boolean
 }
 
 export default function EditorArea({
@@ -36,12 +34,12 @@ export default function EditorArea({
   error,
   onDownloadLatest,
   hasLatest,
-  showEnhance,
-  onEnhance,
-  isEnhancing,
 }: EditorAreaProps) {
   const charCount = scriptText.length
   const overLimit = charCount > MAX_CHARACTERS
+  // ElevenLabs bills per character (12 credits / 1k). Show the estimate for the
+  // current script on the Generate button so cost is visible before spending.
+  const creditsLabel = charCount > 0 ? formatCredits(estimateCredits(TTS_MODEL_ID, { charCount })) : null
 
   return (
     <div className="flex flex-col md:h-full md:overflow-hidden">
@@ -114,35 +112,6 @@ export default function EditorArea({
           }`}
         />
 
-        {/* Enhance for v3 — rewrites the script with expressive [audio tags].
-            Only shown when the V3 model is selected. */}
-        {showEnhance && (
-          <div className="mt-2 flex items-center gap-3 border-t border-ink/[0.06] pt-3">
-            <button
-              onClick={onEnhance}
-              disabled={!canGenerate || isEnhancing || isGenerating || overLimit}
-              className="flex items-center gap-2 rounded-full border border-voice-500/30 bg-voice-500/10 px-3.5 py-2 text-xs font-semibold text-voice-200 transition-colors hover:bg-voice-500/20 disabled:cursor-not-allowed disabled:opacity-40"
-              title="Add expressive audio tags for Eleven V3"
-            >
-              {isEnhancing ? (
-                <>
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  Enhancing…
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Enhance for V3
-                </>
-              )}
-            </button>
-            <span className="text-[11px] leading-tight text-ink-500">
-              Weaves in <span className="text-ink-400">[excited]</span>, <span className="text-ink-400">[whispers]</span>,{' '}
-              <span className="text-ink-400">[laughs]</span> and other delivery cues.
-            </span>
-          </div>
-        )}
-
       </div>
 
       {/* Error */}
@@ -153,21 +122,25 @@ export default function EditorArea({
         </div>
       )}
 
-      {/* Progress bar */}
-      <div className="px-5 pt-3">
-        <GenerationProgress
-          isActive={isGenerating}
-          color="bg-voice-500"
-          messages={['Preparing audio...', 'Sending request...', 'Generating speech...', 'Encoding audio...']}
-          className="mb-3"
-        />
-      </div>
+      {/* Progress bar — only takes space while generating so it sits snug
+          just above the footer separator (no empty gap when idle). The
+          "keep this tab open" helper is hidden here to keep it tight. */}
+      {isGenerating && (
+        <div className="px-5 pb-2 pt-2">
+          <GenerationProgress
+            isActive
+            color="bg-voice-500"
+            messages={['Preparing audio...', 'Sending request...', 'Generating speech...', 'Encoding audio...']}
+            showHelper={false}
+          />
+        </div>
+      )}
 
       {/* Footer row — pinned to the app window's bottom edge on mobile so
           Generate is always reachable. Opaque bg (not /95 + blur): backdrop-
           filter doesn't re-blur inside the already-blurred window frame, so
           any alpha lets the form underneath ghost through. */}
-      <div className="fixed bottom-0 left-0 right-0 z-30 flex items-center justify-between border-t border-ink/5 bg-surface-0 px-5 py-5 md:static md:left-auto md:right-auto md:z-auto md:mt-4 md:bg-transparent">
+      <div className={`fixed bottom-0 left-0 right-0 z-30 flex items-center justify-between border-t border-ink/5 bg-surface-0 px-5 py-5 md:static md:left-auto md:right-auto md:z-auto md:bg-transparent ${isGenerating ? 'md:mt-0' : 'md:mt-4'}`}>
         {/* Left — character count */}
         <div className={`text-sm tabular-nums ${overLimit ? 'text-red-400 light:text-red-600' : 'text-ink-400'}`}>
           <span className={overLimit ? 'text-red-300 light:text-red-700' : 'text-ink-200'}>{charCount.toLocaleString()}</span>
@@ -198,6 +171,12 @@ export default function EditorArea({
               <>
                 <Mic className="h-4 w-4" strokeWidth={2.5} />
                 <span>Generate Voiceover</span>
+                {creditsLabel && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight">
+                    <Coins className="h-3 w-3" strokeWidth={2} />
+                    {creditsLabel}
+                  </span>
+                )}
               </>
             )}
           </button>

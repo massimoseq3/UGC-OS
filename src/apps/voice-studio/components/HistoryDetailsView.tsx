@@ -2,8 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { ArrowLeft, Play, Pause, RotateCcw, Download } from 'lucide-react'
 import type { VoiceHistoryItem } from '../../../stores/types'
 import type { VoiceSettings } from '../types'
-import { getVoiceById, stabilityLabel, isV3 } from '../types'
-import { getModel } from '../../../utils/models'
+import { getVoiceById } from '../types'
 import { getUrl } from '../../../utils/assetStore'
 import { seedColor } from './seedColor'
 
@@ -78,7 +77,6 @@ export default function HistoryDetailsView({ item, onClose, onRestoreText, onRes
 
   const handleRestoreText = () => onRestoreText(item.scriptText)
   const handleRestoreSettings = () => onRestoreSettings({
-    modelId: item.modelId,
     voiceId: item.voiceId,
     voiceName: item.voiceName,
     gender: item.gender,
@@ -88,8 +86,6 @@ export default function HistoryDetailsView({ item, onClose, onRestoreText, onRes
     speed: item.speed,
   })
 
-  const v3 = isV3(item.modelId)
-  const modelName = getModel(item.modelId)?.displayName ?? 'ElevenLabs'
   const pct = (n: number) => `${Math.round(n * 100)}%`
 
   return (
@@ -125,7 +121,7 @@ export default function HistoryDetailsView({ item, onClose, onRestoreText, onRes
         {/* Pills */}
         <div className="mt-3 flex flex-wrap gap-1.5">
           <span className="rounded-full border border-ink/10 bg-ink/[0.03] px-2.5 py-1 text-[11px] text-ink-300">
-            {modelName}
+            Eleven Multilingual v2
           </span>
           <span className="rounded-full border border-ink/10 bg-ink/[0.03] px-2.5 py-1 text-[11px] text-ink-300">
             {item.scriptText.length} chars
@@ -167,17 +163,11 @@ export default function HistoryDetailsView({ item, onClose, onRestoreText, onRes
         <div className="mt-6">
           <div className="mb-3 text-sm font-semibold text-ink-100">Settings</div>
           <div className="flex flex-col gap-2.5">
-            <SettingRow label="Model" value={modelName} />
-            {v3 ? (
-              <SettingRow label="Stability" value={stabilityLabel(item.stability)} />
-            ) : (
-              <>
-                <SettingRow label="Speed" value={`${item.speed.toFixed(2)}×`} />
-                <SettingRow label="Stability" value={pct(item.stability)} />
-                <SettingRow label="Similarity boost" value={pct(item.similarityBoost)} />
-                <SettingRow label="Style" value={pct(item.style)} />
-              </>
-            )}
+            <SettingRow label="Model" value="Eleven Multilingual v2" />
+            <SettingRow label="Speed" value={`${item.speed.toFixed(2)}×`} />
+            <SettingRow label="Stability" value={pct(item.stability)} />
+            <SettingRow label="Similarity boost" value={pct(item.similarityBoost)} />
+            <SettingRow label="Style" value={pct(item.style)} />
           </div>
 
           <button

@@ -5,8 +5,8 @@ import { useBankStore } from '../../stores/bankStore'
 import { useCreditsStore } from '../../stores/creditsStore'
 import type { Script, VoiceHistoryItem } from '../../stores/types'
 import type { VoiceSettings } from './types'
-import { createDefaultSettings, isV3, normalizeSettings } from './types'
-import { startVoiceTask, finishVoiceTask, enhanceForV3 } from './services/generateVoice'
+import { createDefaultSettings } from './types'
+import { startVoiceTask, finishVoiceTask } from './services/generateVoice'
 import { getUrl } from '../../utils/assetStore'
 import { humanizeError } from '../../utils/friendlyError'
 import EditorArea from './components/EditorArea'
@@ -30,7 +30,7 @@ const INFLIGHT_TTL_MS = 30 * 60 * 1000
 
 export default function VoiceStudio() {
   const baseKey = useProjectScopedKey('voice-studio')
-  const [settings, setSettings] = usePersistedState<VoiceSettings>(`${baseKey}:settings`, createDefaultSettings(), { sanitize: normalizeSettings })
+  const [settings, setSettings] = usePersistedState<VoiceSettings>(`${baseKey}:settings`, createDefaultSettings())
   const [scriptText, setScriptText] = usePersistedState(`${baseKey}:scriptText`, '')
   const [activePlayerItemId, setActivePlayerItemId] = usePersistedState<string | null>(`${baseKey}:playerId`, null)
   // Persisted so a refresh between createTask and the audio download still
@@ -39,7 +39,6 @@ export default function VoiceStudio() {
   const [inFlightVoice, setInFlightVoice] = usePersistedState<InFlightVoice | null>(`${baseKey}:in-flight`, null)
 
   const [isGenerating, setIsGenerating] = useState(false)
-  const [isEnhancing, setIsEnhancing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [scriptPickerOpen, setScriptPickerOpen] = useState(false)
 
@@ -176,31 +175,6 @@ export default function VoiceStudio() {
     setDetailsItem(null)
   }
 
-  const handleEnhance = async () => {
-    if (!scriptText.trim() || isEnhancing) return
-    setIsEnhancing(true)
-    setError(null)
-    try {
-      const enhanced = (await enhanceForV3(scriptText)).trim()
-      if (!enhanced) {
-        throw new Error('The model returned an empty script. Please try Enhance again.')
-      }
-      setScriptText(enhanced)
-      setSelectedScript(null)
-      setHighlightField('script')
-      setTimeout(() => setHighlightField(null), 800)
-      useAppStore.getState().addToast('Script enhanced with expressive tags', 'success')
-    } catch (err) {
-      const msg = humanizeError(err, 'Could not enhance the script. Check your API key and try again.')
-      // Surface inline too — a toast alone is easy to miss, which reads as
-      // "nothing happened" when the real cause is a missing key or an API error.
-      setError(msg)
-      useAppStore.getState().addToast(`Enhance failed: ${msg}`, 'error')
-    } finally {
-      setIsEnhancing(false)
-    }
-  }
-
   const handleDownloadLatest = async () => {
     if (!activePlayerItem) return
     const ref = activePlayerItem.audioUrl
@@ -230,9 +204,6 @@ export default function VoiceStudio() {
             error={error}
             onDownloadLatest={handleDownloadLatest}
             hasLatest={!!activePlayerItem}
-            showEnhance={isV3(settings.modelId)}
-            onEnhance={handleEnhance}
-            isEnhancing={isEnhancing}
           />
         </div>
 
