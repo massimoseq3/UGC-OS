@@ -131,6 +131,16 @@ One-shot handoffs. Sender calls `sendToApp({ targetApp, targetField, data })`. C
 
 This file no longer keeps a changelog — read `git log` for history. Most recent coherent work: friendly, consistent end-user error copy via `utils/friendlyError.ts`, wired into every generation catch across the apps.
 
+## Keeping the local folder synced
+
+Massimo's primary Mac checkout lives at `/Users/massimoenzo/Documents/AI Shortcuts/UGC OS` and must always reflect the latest **merged** code on `main`. **After you merge a PR to `main`**, update that folder so it tracks the newest merged PR:
+
+```
+cd "/Users/massimoenzo/Documents/AI Shortcuts/UGC OS" && git checkout main && git pull origin main --ff-only
+```
+
+Only do this when its working tree is clean (`git status --porcelain` empty) — never discard uncommitted work. Worktrees under `.claude/worktrees/` are separate checkouts and are unaffected.
+
 ## When making changes
 
 After non-trivial changes to behaviour, file structure, or the model lineup:
