@@ -49,106 +49,77 @@ export function buildJsonPrompt(profile: CharacterProfile): Record<string, Recor
 const SKIP_VALUES = new Set(['None', 'No makeup', 'Indoor (N/A)'])
 const has = (v: string | undefined): v is string => !!v && !SKIP_VALUES.has(v)
 
-// Identity + physical + wardrobe sections — who the person *is*, independent
-// of any scene. Shared by the portrait prompt and the character-sheet prompt
-// (a sheet describes the same person but ignores scene/pose/camera fields).
-function buildIdentitySections(profile: CharacterProfile): string[] {
-  const sections: string[] = []
+// Ordered field keys per prompt section. Prompts are emitted as pretty-printed
+// JSON — the section names and camelCase keys carry the semantics the old
+// prose labels did, and the same JSON is what every Copy-prompt action yields.
+const PHYSICAL_KEYS = [
+  'gender', 'age', 'ethnicity', 'bodyType', 'skinTone', 'skinTexture',
+  'eyeColor', 'eyeShape', 'hairColor', 'hairStyle', 'hairTexture',
+  'facialFeatures', 'facialHair', 'distinguishingMarks',
+] as const
+const WARDROBE_KEYS = ['clothingStyle', 'accessories', 'makeup'] as const
+const SCENE_KEYS = ['location', 'background', 'lighting', 'weather', 'timeOfDay'] as const
+const POSE_KEYS = ['pose', 'action', 'expression'] as const
+const CAMERA_KEYS = ['shotType', 'cameraAngle'] as const
 
-  // Identity sentence — flows as natural prose since these read as one phrase.
-  const identityBits = [
-    profile.gender,
-    has(profile.age) && `aged ${profile.age}`,
-    profile.ethnicity,
-    has(profile.bodyType) && `with a ${profile.bodyType} build`,
-  ].filter(Boolean) as string[]
-  if (identityBits.length) {
-    sections.push(`Subject: ${identityBits.join(', ')}.`)
+// Pick the given profile keys in order, skipping unset fields and "None"-style
+// values. Returns undefined when nothing survives so the whole section drops
+// out of the JSON instead of rendering as an empty object.
+function pickSection(profile: CharacterProfile, keys: readonly string[]): Record<string, string> | undefined {
+  const out: Record<string, string> = {}
+  for (const key of keys) {
+    const v = profile[key]
+    if (has(v)) out[key] = v
   }
-
-  // Physical attributes — one labeled line per facet so the model can parse
-  // each independently. Skips any unset field instead of stringing empties.
-  const physicalLines: string[] = []
-  if (has(profile.skinTone)) physicalLines.push(`Skin tone: ${profile.skinTone}.`)
-  if (has(profile.skinTexture)) physicalLines.push(`Skin texture: ${profile.skinTexture}.`)
-  const eyeBits = [
-    has(profile.eyeColor) && profile.eyeColor,
-    has(profile.eyeShape) && `${profile.eyeShape} shape`,
-  ].filter(Boolean) as string[]
-  if (eyeBits.length) physicalLines.push(`Eyes: ${eyeBits.join(', ')}.`)
-  const hairBits = [
-    has(profile.hairColor) && profile.hairColor,
-    has(profile.hairStyle) && profile.hairStyle,
-    has(profile.hairTexture) && `${profile.hairTexture} texture`,
-  ].filter(Boolean) as string[]
-  if (hairBits.length) physicalLines.push(`Hair: ${hairBits.join(', ')}.`)
-  if (has(profile.facialFeatures)) physicalLines.push(`Facial features: ${profile.facialFeatures}.`)
-  if (has(profile.facialHair)) physicalLines.push(`Facial hair: ${profile.facialHair}.`)
-  if (has(profile.distinguishingMarks)) physicalLines.push(`Distinguishing marks: ${profile.distinguishingMarks}.`)
-  if (physicalLines.length) sections.push(physicalLines.join(' '))
-
-  // Wardrobe & styling — one labeled line per facet.
-  const wardrobeLines: string[] = []
-  if (has(profile.clothingStyle)) wardrobeLines.push(`Wardrobe: ${profile.clothingStyle}.`)
-  if (has(profile.accessories)) wardrobeLines.push(`Accessories: ${profile.accessories}.`)
-  if (has(profile.makeup)) wardrobeLines.push(`Makeup: ${profile.makeup}.`)
-  if (wardrobeLines.length) sections.push(wardrobeLines.join(' '))
-
-  return sections
+  return Object.keys(out).length ? out : undefined
 }
 
-// Scene / pose / camera sections — the "Scene & Pose" tab. Split out so the
-// scoped "Copy scene & pose" action and the full portrait prompt share one
-// source of truth.
-function buildSceneSections(profile: CharacterProfile): string[] {
-  const sections: string[] = []
-
-  // Scene / environment.
-  const sceneLines: string[] = []
-  if (has(profile.location)) sceneLines.push(`Location: ${profile.location}.`)
-  if (has(profile.background)) sceneLines.push(`Background: ${profile.background}.`)
-  if (has(profile.lighting)) sceneLines.push(`Lighting: ${profile.lighting}.`)
-  if (has(profile.weather)) sceneLines.push(`Weather: ${profile.weather}.`)
-  if (has(profile.timeOfDay)) sceneLines.push(`Time of day: ${profile.timeOfDay}.`)
-  if (sceneLines.length) sections.push(sceneLines.join(' '))
-
-  // Pose & action.
-  const poseLines: string[] = []
-  if (has(profile.pose)) poseLines.push(`Pose: ${profile.pose}.`)
-  if (has(profile.action)) poseLines.push(`Action: ${profile.action}.`)
-  if (has(profile.expression)) poseLines.push(`Expression: ${profile.expression}.`)
-  if (poseLines.length) sections.push(poseLines.join(' '))
-
-  // Camera / shot style. cameraDevice carries the photorealism style string
-  // verbatim — we keep it on its own line so it reads as the final directive.
-  const cameraBits = [
-    has(profile.shotType) && profile.shotType,
-    has(profile.cameraAngle) && `${profile.cameraAngle} angle`,
-  ].filter(Boolean) as string[]
-  if (cameraBits.length) sections.push(`Shot: ${cameraBits.join(', ')}.`)
-  if (has(profile.cameraDevice)) sections.push(`Style: ${profile.cameraDevice}`)
-
-  return sections
+// Identity sections — who the person *is*, independent of any scene. Shared by
+// the portrait prompt and the character-sheet prompt (a sheet describes the
+// same person but ignores scene/pose/camera fields).
+function buildIdentityJson(profile: CharacterProfile) {
+  return {
+    physical: pickSection(profile, PHYSICAL_KEYS),
+    wardrobe: pickSection(profile, WARDROBE_KEYS),
+  }
 }
 
-// Builds a structured, labeled prompt grouped by category. Values are
-// preserved verbatim — never paraphrased — so chip presets and free-text
-// entries land in the model unchanged. Labels + section headers help the
-// image model parse the request without wading through comma soup.
+// Scene / pose / camera sections — the "Scene & Pose" tab. cameraDevice carries
+// the photorealism style string verbatim; it lands as a top-level "style" key
+// so it reads as the final directive.
+function buildSceneJson(profile: CharacterProfile) {
+  return {
+    scene: pickSection(profile, SCENE_KEYS),
+    pose: pickSection(profile, POSE_KEYS),
+    camera: pickSection(profile, CAMERA_KEYS),
+    style: has(profile.cameraDevice) ? profile.cameraDevice : undefined,
+  }
+}
+
+// Serialise prompt sections to pretty-printed JSON, dropping empty ones.
+// Returns '' when nothing survives so callers' `!prompt` empty checks hold.
+function toJsonPrompt(sections: Record<string, unknown>): string {
+  const clean = Object.fromEntries(Object.entries(sections).filter(([, v]) => v !== undefined))
+  return Object.keys(clean).length ? JSON.stringify(clean, null, 2) : ''
+}
+
+// The full generation prompt: one JSON object. Values are preserved verbatim —
+// never paraphrased — so chip presets and free-text entries land in the model
+// unchanged, and copying the prompt yields the same JSON the model saw.
 export function buildImagePrompt(profile: CharacterProfile): string {
-  return [...buildIdentitySections(profile), ...buildSceneSections(profile)].join('\n\n')
+  return toJsonPrompt({ ...buildIdentityJson(profile), ...buildSceneJson(profile) })
 }
 
 // Physical-only prompt — identity / physical / wardrobe (the Physical tab).
 // Backs the scoped "Copy physical" action on the first tab divider.
 export function buildPhysicalPrompt(profile: CharacterProfile): string {
-  return buildIdentitySections(profile).join('\n\n')
+  return toJsonPrompt(buildIdentityJson(profile))
 }
 
 // Scene & pose prompt — scene / pose / camera (the Scene & Pose tab). Backs the
 // scoped "Copy scene & pose" action on the second tab divider.
 export function buildScenePrompt(profile: CharacterProfile): string {
-  return buildSceneSections(profile).join('\n\n')
+  return toJsonPrompt(buildSceneJson(profile))
 }
 
 // Sheet layout directive — leads the prompt so the model commits to the
@@ -167,15 +138,18 @@ Layout — top section: one wide panel with a full-body standing shot, head to t
 
 No text, no labels, no logos, no watermarks. Panels separated only by the plain background.`
 
-// Character-sheet prompt: layout directive + identity/physical/wardrobe
-// sections from the form. The photorealism style string still applies so the
-// sheet matches the look of the portraits it will be used alongside. The
-// layout swaps with orientation — horizontal turnaround strip vs stacked rows.
+// Character-sheet prompt: the same JSON shape, led by a "layout" key carrying
+// the panel-composition directive, then identity/physical/wardrobe from the
+// form. The photorealism style string still applies so the sheet matches the
+// look of the portraits it will be used alongside. The layout swaps with
+// orientation — horizontal turnaround strip vs stacked rows.
 export function buildSheetPrompt(profile: CharacterProfile, aspect = '16:9'): string {
   const layout = aspect.includes('9:16') ? SHEET_LAYOUT_VERTICAL : SHEET_LAYOUT_HORIZONTAL
-  const sections = [layout, ...buildIdentitySections(profile)]
-  if (has(profile.cameraDevice)) sections.push(`Style: ${profile.cameraDevice}`)
-  return sections.join('\n\n')
+  return toJsonPrompt({
+    layout,
+    ...buildIdentityJson(profile),
+    style: has(profile.cameraDevice) ? profile.cameraDevice : undefined,
+  })
 }
 
 export type GenerationKind = 'portrait' | 'sheet'

@@ -30,13 +30,11 @@ export default function CharacterStudio() {
   // references. The user can drop to 1K or bump to 4K from the resolution
   // toggle. Key bumped to :v2 so the new default lands over a stored 1K.
   const [resolution, setResolution] = usePersistedState<ImageResolution>(`${baseKey}:resolution:v2`, '2K')
-  // Portrait vs character-sheet output. Flipping to sheet bumps resolution to
-  // 4K and orients horizontal (each panel is a fraction of the frame, so a
-  // crisp full-res sheet holds up when reused as a reference); flipping back
-  // restores what was set before. Both are persisted so a refresh mid-session
-  // keeps the pairing.
+  // Portrait vs character-sheet output. Flipping either way resets resolution
+  // to the 2K sweet spot (1K is too soft for reuse as a reference, 4K burns
+  // credits for detail that rarely pays off) — the user can still bump a
+  // specific gen afterwards. Persisted so a refresh mid-session keeps the mode.
   const [sheetMode, setSheetMode] = usePersistedState<boolean>(`${baseKey}:sheet-mode`, false)
-  const [preSheetResolution, setPreSheetResolution] = usePersistedState<ImageResolution>(`${baseKey}:pre-sheet-resolution:v2`, '2K')
   // Sheet orientation — kept separate from the portrait aspect so flipping
   // modes preserves each. Defaults to the horizontal turnaround layout.
   const [sheetAspect, setSheetAspect] = usePersistedState<string>(`${baseKey}:sheet-aspect`, '16:9')
@@ -55,20 +53,14 @@ export default function CharacterStudio() {
   // downgrades to basic quality at request time.
   useEffect(() => {
     setResolution((r) => clampImageResolution(selectedImageModelId, r))
-    setPreSheetResolution((r) => clampImageResolution(selectedImageModelId, r))
-  }, [selectedImageModelId, setResolution, setPreSheetResolution])
+  }, [selectedImageModelId, setResolution])
 
   const handleSheetModeChange = (on: boolean) => {
     if (on === sheetMode) return
-    if (on) {
-      setPreSheetResolution(resolution)
-      // Sheets want the crispest tier the model offers (each panel is a
-      // fraction of the frame) — clamp 4K down when the model tops out lower.
-      setResolution(clampImageResolution(selectedImageModelId, '4K'))
-      setSheetAspect('16:9')
-    } else {
-      setResolution(clampImageResolution(selectedImageModelId, preSheetResolution))
-    }
+    // Both directions land on 2K (clamped down when the model tops out lower);
+    // any 4K choice is a deliberate per-mode override, not carried across.
+    setResolution(clampImageResolution(selectedImageModelId, '2K'))
+    if (on) setSheetAspect('16:9')
     setSheetMode(on)
   }
   const [extractedThumb, setExtractedThumb] = usePersistedState<string | null>(`${baseKey}:thumb`, null)
