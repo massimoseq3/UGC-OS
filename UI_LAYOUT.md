@@ -355,12 +355,16 @@ Top tabs: **Scenes / History**. Scenes view: a control bar with the scene count
 
 - Header: big italic scene number + "Line N" chip + the quoted script line (left);
   a **Generate all** button for that scene (right).
-- A grid of **4 variation cards**, `grid-cols-2 → md:3 → xl:5`. The four variation
-  tags (`variationTags.ts`): **Dialogue · Action · Emotional · Product shot** —
-  shown as a colored chip top-left of each card (cyan / lime / pink / amber). The
-  bottom-center caption reads **A-Roll** (Dialogue) or **B-Roll** (others).
-  - Tags are not pinned to a fixed column position — cards fill the responsive grid
-    in generation order.
+- A grid of **5 variation cards** plus an **Add option** affordance:
+  `grid-cols-2 → md:3 → xl:[repeat(5,1fr) 2.5rem]`. At `xl` all five cards sit on one
+  row and Add option collapses to a 40px full-height strip on the right end with
+  vertical (`writing-mode: vertical-rl`) text; below `xl` it wraps as a normal card.
+  Nine variation tags (`variationTags.ts`): **Dialogue · Static · Action · Emotional ·
+  Product shot · POV · Environment · Transition · Proof** — a colored chip top-left of
+  each card (cyan / emerald / lime / pink / amber / violet / teal / sky / orange). The
+  bottom-center caption reads **A-Roll** (Dialogue, Static) or **B-Roll** (others).
+  - Card 1 is always Dialogue and card 5 is always Static (the locked anchor take);
+    cards 2–4 are the LLM's per-line role picks, filling the grid in generation order.
 
 Each card (`VariationCard.tsx`, portrait `9/16`): tag chip top-left, status badges +
 delete top-right (hover), and a bottom-right hover toolbar **Copy Prompt · Save to

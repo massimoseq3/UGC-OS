@@ -25,6 +25,7 @@ const TAG_MIGRATION: Record<string, VariationTag> = {
   'PRODUCT / DETAIL': 'PRODUCT',
   // Identity entries so already-migrated tags pass through unchanged.
   'DIALOGUE': 'DIALOGUE',
+  'STATIC': 'STATIC',
   'ACTION': 'ACTION',
   'EMOTIONAL': 'EMOTIONAL',
   'PRODUCT': 'PRODUCT',
@@ -36,6 +37,7 @@ const TAG_MIGRATION: Record<string, VariationTag> = {
 
 const DEFAULT_LABELS: Record<VariationTag, string> = {
   DIALOGUE: 'Talking to camera',
+  STATIC: 'Same shot every scene',
   ACTION: 'Literal action',
   EMOTIONAL: 'Emotional reaction',
   PRODUCT: 'Product detail',
@@ -329,11 +331,6 @@ export default function BrollStudio() {
     if (!scriptText.trim()) return
     setIsGenerating(true)
     setError(null)
-    // Fresh session — clear any prior cardStates and stamp a new id so the
-    // History upsert lands as a new row.
-    const id = newSessionId()
-    setSessionId(id)
-    setCardStates({})
     try {
       const res = await generateBroll({
         productId: selectedProduct?.id ?? null,
@@ -345,6 +342,13 @@ export default function BrollStudio() {
         modelContext,
         referenceImages,
       })
+      // Only now that we have scenes do we start a fresh session: rotating the
+      // id and clearing cardStates up-front meant a failed call left the old
+      // scenes on screen stripped of every image (and wrote a new history row
+      // holding the old result with no card states). Batched into one commit,
+      // so the rebuild effect sees the new result against empty cards.
+      setSessionId(newSessionId())
+      setCardStates({})
       setResult(res)
       useAppStore.getState().addToast('B-roll image generated', 'success')
     } catch (err) {
