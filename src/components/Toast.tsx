@@ -15,42 +15,90 @@ const ICON_STYLE_MAP = {
   error: 'text-red-400 light:text-red-600',
 }
 
+// How long a toast holds before it starts fading. A success is a status blip,
+// but an error carries text worth reading and often worth copying (raw kie/R2
+// messages, storage caps) — 3s wasn't enough to finish reading one, let alone
+// select it. Hovering pauses the countdown so a long message can't escape
+// mid-copy.
+const LINGER_MS = {
+  success: 3000,
+  info: 3000,
+  error: 10000,
+}
+
+// Matches the transition duration below, so the fade finishes exactly as the
+// toast unmounts.
+const EXIT_MS = 200
+
 function ToastItem({ toast }: { toast: ToastType }) {
   const [visible, setVisible] = useState(false)
+  const [paused, setPaused] = useState(false)
   const removeToast = useAppStore((s) => s.removeToast)
   const type = toast.type ?? 'success'
   const Icon = ICON_MAP[type]
+  const isError = type === 'error'
 
   useEffect(() => {
     // Trigger enter animation on next frame
     const enterFrame = requestAnimationFrame(() => setVisible(true))
-    // Schedule fade-out, then unmount once the transition completes
-    const fadeTimer = setTimeout(() => setVisible(false), 2800)
-    const removeTimer = setTimeout(() => removeToast(toast.id), 3000)
+    return () => cancelAnimationFrame(enterFrame)
+  }, [])
+
+  useEffect(() => {
+    // Re-runs on unpause, which restarts the full linger — a toast the user
+    // just finished reading shouldn't vanish the instant they look away.
+    if (paused) return
+    const linger = LINGER_MS[type]
+    const fadeTimer = setTimeout(() => setVisible(false), linger - EXIT_MS)
+    const removeTimer = setTimeout(() => removeToast(toast.id), linger)
     return () => {
-      cancelAnimationFrame(enterFrame)
       clearTimeout(fadeTimer)
       clearTimeout(removeTimer)
     }
-  }, [removeToast, toast.id])
+  }, [paused, type, removeToast, toast.id])
 
   const handleDismiss = () => {
     setVisible(false)
-    setTimeout(() => removeToast(toast.id), 200)
+    setTimeout(() => removeToast(toast.id), EXIT_MS)
+  }
+
+  const handlePause = () => {
+    setPaused(true)
+    setVisible(true) // Restore opacity if the hover landed mid-fade.
   }
 
   // Compact neutral pill — the type only tints the icon, so a toast reads as
-  // a quiet status blip rather than a colored banner.
+  // a quiet status blip rather than a colored banner. Errors take the wider
+  // wrapping variant: truncating a message at 260px hid the part that says
+  // what actually went wrong, and there was no way to copy it out.
   return (
     <div
-      className={`flex items-center gap-2 self-end rounded-full border border-ink/10 bg-surface-2/90 py-1.5 pl-3 pr-1.5 shadow-lg backdrop-blur-xl transition-all duration-200 ease-out ${
+      onMouseEnter={handlePause}
+      onMouseLeave={() => setPaused(false)}
+      className={`flex gap-2 self-end border border-ink/10 bg-surface-2/90 shadow-lg backdrop-blur-xl transition-all duration-200 ease-out ${
+        isError
+          ? 'max-w-[360px] items-start rounded-2xl py-2 pl-3 pr-1.5'
+          : 'items-center rounded-full py-1.5 pl-3 pr-1.5'
+      } ${
         visible
           ? 'translate-y-0 opacity-100'
           : '-translate-y-2 opacity-0'
       }`}
     >
-      <Icon className={`h-3.5 w-3.5 shrink-0 ${ICON_STYLE_MAP[type]}`} strokeWidth={2} />
-      <span className="max-w-[260px] truncate text-[12px] font-medium text-ink-300" title={toast.message}>
+      <Icon
+        className={`h-3.5 w-3.5 shrink-0 ${isError ? 'mt-[3px]' : ''} ${ICON_STYLE_MAP[type]}`}
+        strokeWidth={2}
+      />
+      <span
+        className={`text-[12px] font-medium text-ink-300 ${
+          isError
+            // min-w-0 lets break-words act on the flex child — R2/kie errors
+            // embed long unbroken hostnames that would otherwise overflow.
+            ? 'min-w-0 flex-1 select-text whitespace-pre-wrap break-words'
+            : 'max-w-[260px] truncate'
+        }`}
+        title={isError ? undefined : toast.message}
+      >
         {toast.message}
       </span>
       <button
