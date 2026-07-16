@@ -10,8 +10,7 @@ import { getDefaultModel, getChatEndpointPath, buildImageInput, getModel, type A
 import { isAssetRef, getAsBase64 } from '../../../utils/assetStore'
 import { finishImageAssetTask } from '../../../utils/imageTask'
 import { useBankStore } from '../../../stores/bankStore'
-import { IPHONE_REALISM_SUFFIX, withPromptSuffix } from './realism'
-import { buildStyleDirective, resolveVideoStyle } from './style'
+import { withIphoneRealism } from './realism'
 
 function getChatEndpoint(): { apiKey: string; endpoint: string } {
   return {
@@ -263,11 +262,6 @@ export async function generateBroll(input: BrollInput): Promise<BrollResult> {
   if (input.modelContext) {
     prompt += `\n\n${input.modelContext}\nIMPORTANT: never describe the character's physical appearance in detail. Refer to them as "the character" — a visual reference image will be attached to capture their exact look.`
   }
-  // Non-UGC styles override the system prompt's realism rules — see style.ts.
-  const styleDirective = buildStyleDirective(input.videoStyle, input.customVideoStyle)
-  if (styleDirective) {
-    prompt += `\n\n${styleDirective}`
-  }
   if (input.additionalContext) {
     prompt += `\n\nAdditional context:\n${input.additionalContext}`
   }
@@ -458,7 +452,6 @@ export async function startImageTask(
   referenceImages?: ReferenceImage[],
   aspectRatio: string = '9:16',
   resolution?: ImageResolution,
-  styleSuffix?: string,
 ): Promise<{ taskId: string; modelId: string }> {
   const apiKey = useSettingsStore.getState().getKieApiKey()
   const hasRefs = !!referenceImages?.length
@@ -504,7 +497,7 @@ export async function startImageTask(
   // Scope the references to identity/appearance only so the model builds a
   // fresh composition from the prompt instead of inheriting the reference's
   // framing, pose, and background. Phrased by which refs are actually attached.
-  const scenePrompt = withPromptSuffix(prompt, styleSuffix ?? IPHONE_REALISM_SUFFIX)
+  const scenePrompt = withIphoneRealism(prompt)
   const finalPrompt = inputUrls.length > 0
     ? `${buildReferencePreamble(referenceImages!)}\n\nSCENE:\n${scenePrompt}`
     : scenePrompt
@@ -557,20 +550,12 @@ export async function generateNewVariation(
   forceTag?: VariationTag,
   productContext?: string,
   modelContext?: string,
-  videoStyle?: string,
-  customVideoStyle?: string,
 ): Promise<PromptVariation> {
   const { apiKey, endpoint } = getChatEndpoint()
 
   const tagInstruction = forceTag
     ? `The variation MUST be a ${forceTag} shot. ${TAG_BRIEFS[forceTag]}`
     : `Pick the shot role yourself from this menu — choose what this specific line earns:\n${ALL_TAGS.filter((t) => t !== 'DIALOGUE').map((t) => `- ${t}: ${TAG_BRIEFS[t]}`).join('\n')}`
-
-  // Non-UGC styles swap the realism-stack rule for the style's own brief.
-  const styleBrief = resolveVideoStyle(videoStyle, customVideoStyle).brief
-  const styleRule = styleBrief
-    ? `Integrate this visual style into the scene description — the ad is rendered as ${styleBrief} Do NOT describe iPhone cameras, handheld phone footage, or photorealism, and do NOT bolt on a "Style: ..." sentence at the end.`
-    : `Integrate the realism stack into the scene description (iPhone front camera, casual, natural handheld jitter, unedited photorealism, matching A-roll lighting, zero bokeh, zero DoF, sharp focus, no commercial gloss). Do NOT bolt on a "Style: ..." sentence at the end.`
 
   const prompt = `Generate a single new creative image generation prompt for this B-Roll scene:
 
@@ -581,7 +566,7 @@ ${productContext ? `\n${productContext}\n` : ''}${modelContext ? `\n${modelConte
 Provide a fresh creative angle. Follow the senior UGC creative director rules:
 1. Specificity over completeness — name exact body position, hand position, gaze, micro-expression, setting detail, framing.
 2. NEVER use he / him / his / she / her / "subject". Refer to the on-screen person as "the character" or "they / them / their".
-3. ${styleRule}
+3. Integrate the realism stack into the scene description (iPhone front camera, casual, natural handheld jitter, unedited photorealism, matching A-roll lighting, zero bokeh, zero DoF, sharp focus, no commercial gloss). Do NOT bolt on a "Style: ..." sentence at the end.
 4. DO NOT mention aspect ratio, resolution, or framing dimensions in numbers — those are set separately.
 5. The character looks like the after-state, never the before.
 6. Constant motion: name the movement.
@@ -631,26 +616,19 @@ export async function enhanceVariationPrompt(
   variation: { tag: VariationTag; label: string },
   productContext?: string,
   modelContext?: string,
-  videoStyle?: string,
-  customVideoStyle?: string,
 ): Promise<string> {
   const { apiKey, endpoint } = getChatEndpoint()
-
-  const styleDirective = buildStyleDirective(videoStyle, customVideoStyle)
-  const styleRule = resolveVideoStyle(videoStyle, customVideoStyle).brief
-    ? `Integrate the visual style named above into the prose. No iPhone/photorealism language, no "Style: ..." trailer.`
-    : `Integrate the realism stack into the prose (iPhone front camera, casual, natural handheld jitter, unedited photorealism, sharp focus). No "Style: ..." trailer.`
 
   const userMessage = `Rewrite the draft below for the ${variation.tag} variation of this scene. Keep the user's intent; tighten the language; obey the framework. Return strict JSON only.
 
 Scene ${scene.number} — LINE: "${scene.scriptLine}"
 Variation tag: ${variation.tag}${variation.label ? `\nShot label: ${variation.label}` : ''}
-${productContext ? `\n${productContext}\n` : ''}${modelContext ? `\n${modelContext}\nIMPORTANT: never describe the character's physical appearance in detail. Refer to them as "the character".\n` : ''}${styleDirective ? `\n${styleDirective}\n` : ''}
+${productContext ? `\n${productContext}\n` : ''}${modelContext ? `\n${modelContext}\nIMPORTANT: never describe the character's physical appearance in detail. Refer to them as "the character".\n` : ''}
 Rules:
 - 60–110 words, single paragraph.
 - Specificity over completeness — body position, hand position, gaze, micro-expression, setting detail, framing.
 - Never "he/him/she/her/subject" — use "the character" or "they/them/their".
-- ${styleRule}
+- Integrate the realism stack into the prose (iPhone front camera, casual, natural handheld jitter, unedited photorealism, sharp focus). No "Style: ..." trailer.
 - DO NOT mention aspect ratio, resolution, or framing in numbers.
 - State the shot size + camera angle explicitly; the composition is owned by the prompt, not by any attached reference image. Keep the user's chosen framing if they named one, otherwise pick a distinctive, non-default shot.
 - ${variation.tag === 'DIALOGUE' ? `Embed the LINE verbatim as dialogue (..."<exact LINE text>"). The line is spoken only — end the prompt with an explicit instruction that no on-screen text, captions, or subtitles appear in the frame.` : `Honour the shot role: ${TAG_BRIEFS[variation.tag]}`}

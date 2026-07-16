@@ -5,8 +5,6 @@ import { useBankStore } from '../../stores/bankStore'
 import type { Product, Model, Script, BrollHistoryItem } from '../../stores/types'
 import type { BrollResult, PromptVariation, ReferenceImage, VariationTag, VariationRefs, CardState } from './types'
 import { generateBroll } from './services/generateBroll'
-import { buildVoiceDirective } from './services/voice'
-
 import InputPanel from './components/InputPanel'
 import RightPanel from './components/RightPanel'
 import { backfillCardState } from './cardState'
@@ -85,18 +83,6 @@ export default function BrollStudio() {
   const [selectedScriptId, setSelectedScriptId] = usePersistedState<string | null>(`${baseKey}:scriptId`, null)
   const [scriptText, setScriptText] = usePersistedState(`${baseKey}:scriptText`, '')
   const [additionalContext, setAdditionalContext] = usePersistedState(`${baseKey}:context`, '')
-  // Session-wide dialogue voice — an accent quick-pick + free-text notes.
-  // Composed into one deterministic directive (services/voice.ts) that every
-  // DIALOGUE card appends to its video prompt at request time, so the
-  // character speaks with the same voice across takes and models.
-  const [voiceAccent, setVoiceAccent] = usePersistedState(`${baseKey}:voiceAccent`, '')
-  const [voiceNotes, setVoiceNotes] = usePersistedState(`${baseKey}:voiceNotes`, '')
-  // Visual style for the whole session (services/style.ts). Steers both the
-  // scene-writing LLM call and the deterministic suffix on every generation.
-  // Optional: empty style + empty custom text → the default UGC realism.
-  // Selecting a chip and typing a custom style are mutually exclusive.
-  const [videoStyle, setVideoStyle] = usePersistedState(`${baseKey}:videoStyle`, '')
-  const [customVideoStyle, setCustomVideoStyle] = usePersistedState(`${baseKey}:customVideoStyle`, '')
   const [result, setResult] = usePersistedState<BrollResult | null>(
     `${baseKey}:result`,
     null,
@@ -251,17 +237,13 @@ export default function BrollStudio() {
         scriptId: selectedScriptId ?? undefined,
         scriptText: scriptText || undefined,
         context: additionalContext || undefined,
-        voiceAccent: voiceAccent || undefined,
-        voiceNotes: voiceNotes || undefined,
-        videoStyle: videoStyle || undefined,
-        customVideoStyle: customVideoStyle || undefined,
         result,
         cardStates,
       }
       upsertBrollHistory(item)
     }, 1000)
     return () => clearTimeout(handle)
-  }, [result, cardStates, selectedProductId, selectedModelId, selectedScriptId, scriptText, additionalContext, voiceAccent, voiceNotes, videoStyle, customVideoStyle, selectedProduct, upsertBrollHistory])
+  }, [result, cardStates, selectedProductId, selectedModelId, selectedScriptId, scriptText, additionalContext, selectedProduct, upsertBrollHistory])
 
   // "New": clear the inputs / references only. The generated scene cards stay
   // on screen — they're the user's output, never wiped by starting a new
@@ -343,13 +325,6 @@ export default function BrollStudio() {
     ...(productRef ? [productRef] : []),
   ]
 
-  // The composed voice directive — null when both fields are empty. Passed
-  // down to the cards, which append it to DIALOGUE video prompts only.
-  const voiceDirective = useMemo(
-    () => buildVoiceDirective(voiceAccent, voiceNotes),
-    [voiceAccent, voiceNotes],
-  )
-
   const handleGenerate = async () => {
     if (!scriptText.trim()) return
     setIsGenerating(true)
@@ -369,8 +344,6 @@ export default function BrollStudio() {
         productContext,
         modelContext,
         referenceImages,
-        videoStyle,
-        customVideoStyle,
       })
       setResult(res)
       useAppStore.getState().addToast('B-roll image generated', 'success')
@@ -394,10 +367,6 @@ export default function BrollStudio() {
     setSelectedScriptId(item.scriptId ?? null)
     setScriptText(item.scriptText ?? '')
     setAdditionalContext(item.context ?? '')
-    setVoiceAccent(item.voiceAccent ?? '')
-    setVoiceNotes(item.voiceNotes ?? '')
-    setVideoStyle(item.videoStyle ?? '')
-    setCustomVideoStyle(item.customVideoStyle ?? '')
     setResult(item.result as BrollResult)
     const restored: Record<string, CardState> = {}
     for (const k in item.cardStates as Record<string, unknown>) {
@@ -427,14 +396,6 @@ export default function BrollStudio() {
           onClearScript={() => setSelectedScriptId(null)}
           onScriptTextChange={(v) => { setScriptText(v); setSelectedScriptId(null) }}
           onAdditionalContextChange={setAdditionalContext}
-          voiceAccent={voiceAccent}
-          voiceNotes={voiceNotes}
-          onVoiceAccentChange={setVoiceAccent}
-          onVoiceNotesChange={setVoiceNotes}
-          videoStyle={videoStyle}
-          customVideoStyle={customVideoStyle}
-          onVideoStyleChange={(id) => { setVideoStyle(id); setCustomVideoStyle('') }}
-          onCustomVideoStyleChange={(text) => { setCustomVideoStyle(text); if (text.trim()) setVideoStyle('') }}
           onGenerate={handleGenerate}
           isGenerating={isGenerating}
           highlightField={highlightField}
@@ -458,9 +419,6 @@ export default function BrollStudio() {
           selectedScriptId={selectedScript?.id ?? undefined}
           productContext={productContext}
           modelContext={modelContext}
-          voiceDirective={voiceDirective}
-          videoStyleId={videoStyle}
-          customVideoStyle={customVideoStyle}
           onOpenCharacterPicker={handleOpenCharacterPicker}
           onOpenProductPicker={handleOpenProductPicker}
           cardStates={cardStates}

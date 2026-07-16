@@ -1,10 +1,8 @@
 import { useState } from 'react'
-import { Package, UserRound, FileText, RefreshCw, Loader2, Film, X, ChevronRight, AudioLines, Palette } from 'lucide-react'
+import { Package, UserRound, FileText, RefreshCw, Loader2, Film, X, ChevronRight } from 'lucide-react'
 import type { Product, Model, Script } from '../../../stores/types'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
 import ExpandTextModal, { ExpandButton } from '../../../components/ExpandableText'
-import { VOICE_ACCENTS } from '../services/voice'
-import { VIDEO_STYLES } from '../services/style'
 
 interface InputPanelProps {
   selectedProduct: Product | null
@@ -20,14 +18,6 @@ interface InputPanelProps {
   onClearScript: () => void
   onScriptTextChange: (value: string) => void
   onAdditionalContextChange: (value: string) => void
-  voiceAccent: string
-  voiceNotes: string
-  onVoiceAccentChange: (value: string) => void
-  onVoiceNotesChange: (value: string) => void
-  videoStyle: string
-  customVideoStyle: string
-  onVideoStyleChange: (value: string) => void
-  onCustomVideoStyleChange: (value: string) => void
   onGenerate: () => void
   isGenerating: boolean
   highlightField?: string | null
@@ -196,14 +186,6 @@ export default function InputPanel({
   onClearScript,
   onScriptTextChange,
   onAdditionalContextChange,
-  voiceAccent,
-  voiceNotes,
-  onVoiceAccentChange,
-  onVoiceNotesChange,
-  videoStyle,
-  customVideoStyle,
-  onVideoStyleChange,
-  onCustomVideoStyleChange,
   onGenerate,
   isGenerating,
   highlightField,
@@ -212,9 +194,6 @@ export default function InputPanel({
   const canGenerate = hasScript
   const [scriptExpanded, setScriptExpanded] = useState(false)
   const [instructionsExpanded, setInstructionsExpanded] = useState(false)
-
-  // A custom description overrides the chips (see services/style.ts).
-  const hasCustomStyle = customVideoStyle.trim().length > 0
 
   return (
     <div className="flex flex-col md:h-full">
@@ -277,98 +256,6 @@ export default function InputPanel({
               />
               <ExpandButton onClick={() => setScriptExpanded(true)} className="absolute bottom-2 right-2" />
             </div>
-          </div>
-
-          {/* Dialogue voice — session-wide voice spec appended to every
-              DIALOGUE card's video prompt at generation time (services/
-              voice.ts), so audio models keep one consistent voice across
-              takes. Accent chips are single-select; notes cover the rest
-              (pitch, age, pace, regional accents). */}
-          <div className="rounded-3xl border border-dashed border-ink/10 bg-ink/[0.02] px-4 py-3.5">
-            <div className="flex items-center gap-2">
-              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-broll-500/15 text-broll-400">
-                <AudioLines className="h-3.5 w-3.5" strokeWidth={1.5} />
-              </div>
-              <span className="text-sm font-medium text-ink-300">Dialogue Voice</span>
-              <span className="text-[10px] text-ink-600">optional</span>
-            </div>
-            <p className="mt-1.5 text-[11px] leading-relaxed text-ink-600">
-              Keeps the same voice across every dialogue take.
-            </p>
-            <div className="mt-2.5 flex flex-wrap gap-1.5">
-              {VOICE_ACCENTS.map((accent) => {
-                const active = voiceAccent === accent
-                return (
-                  <button
-                    key={accent}
-                    type="button"
-                    onClick={() => onVoiceAccentChange(active ? '' : accent)}
-                    className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                      active
-                        ? 'border-broll-500/40 bg-broll-500/15 text-broll-200'
-                        : 'border-ink/10 text-ink-500 hover:border-ink/20 hover:text-ink-300'
-                    }`}
-                  >
-                    {accent}
-                  </button>
-                )
-              })}
-            </div>
-            <input
-              type="text"
-              value={voiceNotes}
-              onChange={(e) => onVoiceNotesChange(e.target.value)}
-              placeholder="Voice notes — e.g. warm, mid-30s, relaxed pace"
-              className="mt-2.5 w-full rounded-full border border-ink/10 bg-transparent px-3.5 py-2 text-xs text-ink-200 placeholder-ink-700 outline-none transition-colors focus:border-broll-500/40"
-            />
-          </div>
-
-          {/* Video style — picks the aesthetic the whole session is written
-              and rendered in. Steers the scene-writing LLM call AND swaps the
-              deterministic suffix on every generation (services/style.ts).
-              Optional: nothing picked → Realistic UGC. A custom description
-              overrides the chips, so typing one deselects them all. */}
-          <div className="rounded-3xl border border-dashed border-ink/10 bg-ink/[0.02] px-4 py-3.5">
-            <div className="flex items-center gap-2">
-              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-broll-500/15 text-broll-400">
-                <Palette className="h-3.5 w-3.5" strokeWidth={1.5} />
-              </div>
-              <span className="text-sm font-medium text-ink-300">Video Style</span>
-              <span className="text-[10px] text-ink-600">optional</span>
-            </div>
-            <p className="mt-1.5 text-[11px] leading-relaxed text-ink-600">
-              Defaults to Realistic UGC.
-            </p>
-            <div className="mt-2.5 flex flex-wrap gap-1.5">
-              {VIDEO_STYLES.map((style) => {
-                // A custom description wins, so no chip reads as selected
-                // while it's filled in.
-                const active = !hasCustomStyle && videoStyle === style.id
-                return (
-                  <button
-                    key={style.id}
-                    type="button"
-                    onClick={() => onVideoStyleChange(active ? '' : style.id)}
-                    className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                      active
-                        ? 'border-broll-500/40 bg-broll-500/15 text-broll-200'
-                        : 'border-ink/10 text-ink-500 hover:border-ink/20 hover:text-ink-300'
-                    }`}
-                  >
-                    {style.label}
-                  </button>
-                )
-              })}
-            </div>
-            <input
-              type="text"
-              value={customVideoStyle}
-              onChange={(e) => onCustomVideoStyleChange(e.target.value)}
-              placeholder="…or describe your own — e.g. watercolor storybook"
-              className={`mt-2.5 w-full rounded-full border bg-transparent px-3.5 py-2 text-xs text-ink-200 placeholder-ink-700 outline-none transition-colors focus:border-broll-500/40 ${
-                hasCustomStyle ? 'border-broll-500/40 bg-broll-500/[0.06]' : 'border-ink/10'
-              }`}
-            />
           </div>
 
           {/* Section separator */}

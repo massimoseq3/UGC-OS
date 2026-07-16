@@ -243,15 +243,6 @@ export interface BrollHistoryItem {
   scriptId?: string
   scriptText?: string
   context?: string
-  // Session-wide dialogue-voice inputs (accent chip + free-text notes) —
-  // baked into every DIALOGUE card's video prompt at generation time so the
-  // character keeps one voice across takes. Restored with the session.
-  voiceAccent?: string
-  voiceNotes?: string
-  // Visual style id (broll-studio/services/style.ts); absent → UGC realism.
-  videoStyle?: string
-  // Free-text visual style; takes precedence over videoStyle when set.
-  customVideoStyle?: string
   // Both stored as opaque JSON so this file stays decoupled from
   // broll-studio's internal types.
   result: unknown

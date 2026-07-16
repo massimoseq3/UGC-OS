@@ -341,16 +341,11 @@ close (ChevronDown).
 
 ### Left input (`components/InputPanel.tsx`), top→bottom
 
-"References" header + Clear All → **Product** ref card → **Character** ref card
-(each bank card: dashed "Click to select from bank" when empty, filled pill when
-set) → **Script** ref card + "or paste script manually" textarea (merged box) →
-**Dialogue Voice** box (optional; 6 single-select accent chips American…Indian +
-a "Voice notes" rounded input — composes the voice directive baked into every
-DIALOGUE card's video prompt) → **Video Style** box (optional; 5 single-select
-chips — Realistic UGC · Claymation · 3D Pixar · Anime · LEGO stop motion — plus
-a "…or describe your own" input. The custom input wins and deselects every chip;
-nothing set → Realistic UGC) → divider → **Additional Instructions** textarea →
-**Generate B-Roll Prompts** button (pinned bottom).
+"References" header + Clear All → **Product** ref card → **Character** ref card →
+**Script** ref card (each: dashed "Click to select from bank" when empty, filled
+pill when set) → "or paste script manually" divider + script textarea → divider →
+**Additional Instructions** textarea → **Generate B-Roll Prompts** button (pinned
+bottom).
 
 ### Right scenes (`components/RightPanel.tsx` → `ScenesView.tsx`)
 
