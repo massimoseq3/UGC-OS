@@ -58,6 +58,8 @@ Thin (`h-9`) top chrome — branding + status only, **no navigation**. Left→ri
   spinner, click refreshes — polls on mount + 60s + window focus; shows "—" until a
   kie.ai key is set), then external links **Get Credits** (kie.ai billing) and
   **Community** (Skool). These trailing items are `sm:`+ only — hidden on phones.
+  At the far right, an icon-only **theme** toggle (moon/sun, dark↔light quick
+  switch; System is Settings-only) — always visible, phones included.
 
 ### 1.2 Dock — `src/components/Dock.tsx`
 
@@ -71,8 +73,8 @@ system · library · create · tools`, order from `APP_REGISTRY`, `constants.ts`
 - **Create:** Ad Analyzer · Characters · Scripts · Voiceovers · B-Roll ·
   Playground · Edit (analyzer leads the group — no divider between it and
   Characters; Edit closes it).
-- divider → **utility cluster:** a **theme** tile (dark↔light quick toggle; System
-  is Settings-only) + a **Settings** tile (opens the Settings modal).
+- divider → a **Settings** tile (opens the Settings modal). The theme quick
+  toggle lives in the menu bar's top-right corner, not here.
 
 Each item is a colored macOS-style app icon (accent fill + sheen) over an
 always-visible label, with a running/active **dot** underneath. Hover gives a

@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { ArrowUpRight, Coins, ExternalLink, Flame, RefreshCw, X } from 'lucide-react'
+import { ArrowUpRight, Coins, ExternalLink, Flame, Moon, RefreshCw, Sun, X } from 'lucide-react'
 import { useAppStore } from '../stores/appStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useCreditsStore } from '../stores/creditsStore'
 import { useBankStore } from '../stores/bankStore'
+import { useThemeStore, type ThemePref } from '../stores/themeStore'
 import { useCloseOnAppSwitch } from '../hooks/useCloseOnAppSwitch'
 import { getAppConfig, SKOOL_COMMUNITY_URL } from '../utils/constants'
 import { computeUsageMetrics } from '../utils/usage'
@@ -15,7 +16,7 @@ import SettingsModal from './SettingsModal'
 import { API_KEY_STEPS } from './apiKeySteps'
 
 // Thin macOS-style menu bar: branding + the active app's name on the left,
-// credits balance + external quick links on the right. Pure chrome —
+// credits balance + external quick links + the theme toggle on the right. Pure chrome —
 // app navigation stays in the dock.
 
 export default function MenuBar() {
@@ -70,7 +71,33 @@ export default function MenuBar() {
       >
         Meet Your Team
       </button>
+      <ThemeItem />
     </header>
+  )
+}
+
+// Dark ↔ light switch, far right of the bar — System stays a Settings-only
+// option. When the preference is System the item shows whichever theme it
+// currently resolves to, and clicking flips to the opposite explicit theme.
+function ThemeItem() {
+  const pref = useThemeStore((s) => s.pref)
+  const resolved = useThemeStore((s) => s.resolved)
+  const setPref = useThemeStore((s) => s.setPref)
+
+  const current: ThemePref = pref === 'system' ? resolved : pref
+  const next: ThemePref = current === 'dark' ? 'light' : 'dark'
+  const Icon = current === 'dark' ? Moon : Sun
+  const label = current === 'dark' ? 'Dark' : 'Light'
+
+  return (
+    <button
+      onClick={() => setPref(next)}
+      title={`Theme: ${label} — click for ${next === 'dark' ? 'Dark' : 'Light'}`}
+      aria-label={`Switch to ${next} mode`}
+      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-ink-300 transition-colors hover:bg-ink/[0.06] hover:text-ink-100"
+    >
+      <Icon className="h-3.5 w-3.5" strokeWidth={1.75} />
+    </button>
   )
 }
 
