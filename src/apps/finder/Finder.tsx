@@ -143,10 +143,11 @@ export default function Finder() {
     })
   }, [])
 
-  const handleCancelDuringExtraction = useCallback((file: File, partial: Omit<Product, 'id' | 'createdAt'>) => {
+  const handleCancelDuringExtraction = useCallback((file: File, partial: Omit<Product, 'id' | 'createdAt'>, listingText?: string) => {
     closeForm()
     saveProductDraft({
       file,
+      listingText,
       initial: partial,
       onStart: (id) => trackInFlight(id, true),
       onFinish: (id, ok) => {

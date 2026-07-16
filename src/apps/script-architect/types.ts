@@ -127,11 +127,15 @@ export function hooksPlainText(text: string): string {
 }
 
 export interface EditableProductContext {
+  productName: string
   productDescription: string
   targetMarket: string
   painPoints: string
   usps: string
   benefits: string
+  keySpecs: string
+  customerLanguage: string
+  objections: string
   offer: string
   cta: string
 }

@@ -11,38 +11,48 @@ export interface ProductExtraction {
   benefits: string
   offer: string
   cta: string
+  keySpecs: string
+  customerLanguage: string
+  objections: string
 }
 
-const SYSTEM_INSTRUCTION = `You are a UGC ad copywriter filling out a product profile from a product photo. The user will paste your output straight into a form, so the copy must be ready-to-use, never explanatory.
+const SYSTEM_INSTRUCTION = `You are a senior UGC ad strategist filling out a deep product profile. The user will paste your output straight into a form that feeds AI scriptwriting, so every field must be ready-to-use, specific, and dense with usable material — vague filler directly produces vague scripts.
+
+INPUTS: You always get a product photo. You MAY also get pasted listing copy (a product page, Amazon listing, or landing page). When listing copy is present it is the AUTHORITATIVE source for claims, specs, ingredients, price, offer, reviews, and audience — mine it hard and quote its concrete specifics. The photo is the authority on visual/physical details.
+
+WORK IN TWO STEPS. Step 1 (do this silently, before writing any field): transcribe every piece of visible text in the image — brand name, product name, claims, ingredient callouts, quantities, badges — and inventory the physical object (category, form factor, materials, finish, colors, size cues, premium vs. budget positioning). Step 2: write the fields from that inventory plus the listing copy.
 
 You must respond with ONLY valid JSON matching this exact structure (no markdown, no code fences, no commentary before or after):
 
 {
   "productName": "<short, exactly as it's sold; use [brand name] placeholder if not visible>",
-  "productDescription": "<1-3 sentences. What it is and what it does.>",
-  "targetMarket": "<1-2 sentences naming a specific audience. Push past 'everyone' — get an actual person.>",
-  "painPoints": "<3-5 short lines, newline-separated. The frustration the customer feels BEFORE buying, from the customer's POV.>",
-  "usps": "<3-5 short lines, newline-separated. What's unique about THIS product vs. alternatives. Features and differentiators, not feelings.>",
-  "benefits": "<3-5 short lines, newline-separated. The outcome/transformation the customer GETS. The payoff of the USPs, in the customer's life.>",
+  "productDescription": "<4-6 sentences. What it is, what it does, how it's used (the ritual/moment of use), and what it looks and feels like — texture, scent, weight, finish. Concrete nouns over adjectives.>",
+  "targetMarket": "<2-3 sentences painting a specific person: age range, life situation, what they've already tried, where they hang out online. Push past 'everyone' — get an actual person.>",
+  "painPoints": "<4-6 lines, newline-separated. The frustration the customer feels BEFORE buying, from the customer's POV, each as a specific moment or scene (not an abstract category). 'Wakes up to a new breakout the morning of an event' beats 'has skin problems'.>",
+  "usps": "<4-6 lines, newline-separated. What's unique about THIS product vs. named alternatives the buyer would otherwise consider. Features and differentiators with their concrete detail attached (the ingredient, the mechanism, the material), not feelings.>",
+  "benefits": "<4-6 lines, newline-separated. The outcome/transformation the customer GETS. The payoff of the USPs, in the customer's life — visible, feelable results tied to real moments.>",
   "offer": "<1-2 lines stating the commercial deal: price, bundle, discount, bonus, guarantee, shipping.>",
-  "cta": "<one short imperative line, e.g. 'Shop now', 'Claim 20% off today'.>"
+  "cta": "<one short imperative line, e.g. 'Shop now', 'Claim 20% off today'.>",
+  "keySpecs": "<3-6 lines, newline-separated. Hard facts scripts can cite: key ingredients or materials with amounts if known, dimensions/quantity/servings, how the mechanism works in one plain sentence, usage frequency, anything certifiable that is actually visible or stated. Facts only — no marketing language.>",
+  "customerLanguage": "<4-6 lines, newline-separated. Verbatim-style phrases the target buyer would actually say about the problem or the product — the words they'd type in a review or say to a friend ('my makeup just slides off by noon'). First person, casual, no marketing speak. These seed hooks and dialogue.>",
+  "objections": "<3-5 lines, newline-separated. Each line: the hesitation, then ' — ' then the counter. E.g. 'Looks expensive for the size — one jar lasts 3 months, cheaper per use than [alternative]'. Only counters you can support from the image or listing copy; otherwise leave a [bracketed placeholder] as the counter.>"
 }
 
 Field discipline — these overlap in ways that trip people up. Keep them distinct:
 - Pain Points = the problem/frustration the customer feels BEFORE buying.
 - USPs = "ours has X" — features and differentiators.
 - Benefits = "so you get Y" — the outcome in the customer's life.
+- Key Specs = the raw facts behind the USPs, stripped of persuasion.
+- Customer Language = how the buyer talks, not how the brand talks.
 - Offer = the commercial deal (price/bundle/guarantee). NOT the same as the CTA.
 - CTA = the single action you want them to take, as an imperative.
 
-Look at the image carefully before writing. Infer: product category, materials/finish, form factor, likely use case, premium vs. budget positioning, and any text or branding visible on the packaging or device.
-
 Tone matches positioning: a premium product gets elevated, confident, sensory language; a budget utility gets plain, practical language. Default to punchy UGC-friendly phrasing rather than corporate filler.
 
-HONESTY RULE — this is non-negotiable. Do NOT invent specific claims you can't support from the image:
+HONESTY RULE — this is non-negotiable. Do NOT invent specific claims you can't support from the image or the provided listing copy:
 - No clinical percentages, "FDA approved", award names, certifications, or fake reviews.
-- No specific prices unless visibly printed on packaging.
-- No specific guarantees, bundles, or shipping terms.
+- No specific prices unless visibly printed on packaging or stated in the listing copy.
+- No specific guarantees, bundles, or shipping terms unless stated.
 
 When a strong claim or fact would help but you don't actually have it, write a bracketed placeholder the user will fill in, e.g.:
 - "[insert your X-day money-back guarantee]"
@@ -51,24 +61,36 @@ When a strong claim or fact would help but you don't actually have it, write a b
 
 Output ONLY the JSON object. No preamble, no markdown fences, no trailing notes.`
 
-export async function extractProductInfo(imageFile: File): Promise<ProductExtraction> {
+// `image` is the product photo as a File or an already-encoded data URI
+// (the form re-extracts from the stored image when no fresh File exists).
+// `listingText` is optional pasted product-page / listing copy — when present
+// it becomes the authoritative source for claims, specs, and offer details.
+export async function extractProductInfo(image: File | string, listingText?: string): Promise<ProductExtraction> {
   const apiKey = useSettingsStore.getState().getKieApiKey()
   const endpoint = getChatEndpointPath()
 
-  const dataUri = await fileToDataUri(imageFile)
+  const dataUri = typeof image === 'string' ? image : await fileToDataUri(image)
+
+  const trimmedListing = listingText?.trim()
+  const userText = trimmedListing
+    ? `Extract the product profile from this image and the listing copy below. The listing copy is authoritative for claims, specs, price, and offer. Return as JSON.\n\n--- LISTING COPY ---\n${trimmedListing}`
+    : 'Extract the product profile from this image. Return as JSON.'
 
   const messages: ChatMessage[] = [
     { role: 'system', content: [{ type: 'text', text: SYSTEM_INSTRUCTION }] },
     {
       role: 'user',
       content: [
-        { type: 'text', text: 'Extract the product profile from this image. Return as JSON.' },
+        { type: 'text', text: userText },
         { type: 'image_url', image_url: { url: dataUri } },
       ],
     },
   ]
 
-  const responseText = await kieChatCompletions(apiKey, endpoint, messages, { timeoutMs: 180_000 })
+  const responseText = await kieChatCompletions(apiKey, endpoint, messages, {
+    timeoutMs: 180_000,
+    reasoningEffort: 'high',
+  })
 
   const cleaned = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
 
@@ -83,6 +105,9 @@ export async function extractProductInfo(imageFile: File): Promise<ProductExtrac
       benefits: parsed.benefits ?? '',
       offer: parsed.offer ?? '',
       cta: parsed.cta ?? '',
+      keySpecs: parsed.keySpecs ?? '',
+      customerLanguage: parsed.customerLanguage ?? '',
+      objections: parsed.objections ?? '',
     }
   } catch (err) {
     const tail = cleaned.slice(-400)

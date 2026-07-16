@@ -9,6 +9,13 @@ export interface Product {
   benefits: string
   offer: string
   cta: string
+  // Deep-context fields (optional — absent on rows saved before they existed).
+  // Concrete facts: ingredients, materials, specs, sizes, how it works.
+  keySpecs?: string
+  // Voice-of-customer phrases — the words real buyers use about the problem.
+  customerLanguage?: string
+  // Purchase hesitations, each paired with its counter.
+  objections?: string
   createdAt: number
   // undefined → legacy (no dot), false → draft (orange dot),
   // true → user-confirmed via Save (green dot).
@@ -263,10 +270,16 @@ export interface AdAnatomyHistoryItem {
   // Source ad asset id — only present while status === 'analyzing'. Dropped
   // on success/error so the bank doesn't accumulate large video blobs.
   uploadedRef?: string
-  // kie.ai job id. Set after createTask returns. Persisted so a refresh-
-  // mid-analysis can resume polling instead of dropping the result. Missing
-  // when the analyser falls back to the streaming transport.
+  // kie.ai job id of whichever pass is currently in flight. Set after
+  // createTask returns. Persisted so a refresh-mid-analysis can resume
+  // polling instead of dropping the result. Missing when the analyser falls
+  // back to the streaming transport.
   taskId?: string
+  // Pass-1 (perception) output — transcript + shot list + visual dossiers.
+  // Persisted between the two analysis passes so pass 2 (text-only) can be
+  // restarted after a refresh even without the source file. Cleared on
+  // success/error. Opaque JSON, same reasoning as `result`.
+  perception?: unknown
   // Opaque JSON so types.ts stays decoupled from ad-anatomy's internal types.
   // Undefined until status === 'complete'.
   result?: unknown
