@@ -1,8 +1,7 @@
 import { Fragment, useState, type ReactNode } from 'react'
-import { Moon, Settings, Sun } from 'lucide-react'
+import { Settings } from 'lucide-react'
 import { useAppStore } from '../stores/appStore'
 import { useActivityStore } from '../stores/activityStore'
-import { useThemeStore, type ThemePref } from '../stores/themeStore'
 import { APP_REGISTRY, type AppCategory, type AppConfig } from '../utils/constants'
 import { getTeamMember } from '../utils/team'
 import CrabSprite from './CrabSprite'
@@ -10,9 +9,9 @@ import SettingsModal from './SettingsModal'
 
 // macOS-style bottom dock — the sidebar's replacement for this experiment.
 // Every icon carries its label underneath (no hover-only tooltips), app tiles
-// are filled with each app's accent, and a utility cluster (theme, settings)
-// sits on the right. Credits moved to the menu bar; Account + Admin live in
-// the Settings modal.
+// are filled with each app's accent, and Settings sits on the right. Credits
+// and the theme toggle live in the menu bar; Account + Admin live in the
+// Settings modal.
 
 // Dashboard leads (its own 'system' group → divider between it and Bank).
 const SECTION_ORDER: AppCategory[] = ['system', 'library', 'create', 'tools']
@@ -51,7 +50,6 @@ export default function Dock() {
           ))}
 
           <DockDivider />
-          <ThemeTile />
           <DockItem label="Settings" title="Settings" onClick={() => setSettingsOpen(true)}>
             <UtilityTile>
               <Settings className="h-[22px] w-[22px] text-ink-200" strokeWidth={1.75} />
@@ -188,32 +186,6 @@ function UtilityTile({ children }: { children: ReactNode }) {
     <span className="relative flex h-12 w-12 items-center justify-center rounded-[14px] bg-ink/[0.07] ring-1 ring-inset ring-ink/10 transition-colors duration-300 group-hover:bg-ink/[0.1]">
       {children}
     </span>
-  )
-}
-
-// Simple dark ↔ light switch — System is a Settings-only option. When the
-// preference is System, the tile shows whichever theme it currently resolves
-// to, and clicking flips to the opposite explicit theme.
-function ThemeTile() {
-  const pref = useThemeStore((s) => s.pref)
-  const resolved = useThemeStore((s) => s.resolved)
-  const setPref = useThemeStore((s) => s.setPref)
-
-  const current: ThemePref = pref === 'system' ? resolved : pref
-  const next: ThemePref = current === 'dark' ? 'light' : 'dark'
-  const Icon = current === 'dark' ? Moon : Sun
-  const label = current === 'dark' ? 'Dark' : 'Light'
-
-  return (
-    <DockItem
-      label={label}
-      title={`Theme: ${label} — click for ${next === 'dark' ? 'Dark' : 'Light'}`}
-      onClick={() => setPref(next)}
-    >
-      <UtilityTile>
-        <Icon className="h-[22px] w-[22px] text-ink-200" strokeWidth={1.75} />
-      </UtilityTile>
-    </DockItem>
   )
 }
 
