@@ -304,7 +304,7 @@ export default function BrollStudio() {
 
   // Build context strings and reference images from selected bank items
   const productContext = selectedProduct
-    ? `Product: ${selectedProduct.productName}. ${selectedProduct.productDescription}. USPs: ${selectedProduct.usps}. Benefits: ${selectedProduct.benefits}.`
+    ? `Product: ${selectedProduct.productName}. ${selectedProduct.productDescription}. USPs: ${selectedProduct.usps}. Benefits: ${selectedProduct.benefits}.${selectedProduct.keySpecs ? ` Key specs: ${selectedProduct.keySpecs}.` : ''}`
     : ''
   const modelContext = selectedModel
     ? `Model/Character: ${selectedModel.name}.${selectedModel.notes ? ` ${selectedModel.notes}.` : ''}${selectedModel.jsonProfile ? ` Profile: ${JSON.stringify(selectedModel.jsonProfile)}` : ''}`

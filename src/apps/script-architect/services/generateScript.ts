@@ -213,7 +213,7 @@ const REVERSE_ENGINEER_SYSTEM = `You are an elite UGC ad creative director. You 
 
 You will receive:
 - A comprehensive reverse-engineered prompt for a winning UGC video ad, broken into one or more scenes (separated by "--- Scene N: <label> (MM:SS-MM:SS) ---" headers). Each scene fully describes the original character (age / gender / hair / wardrobe / etc.), the original product (label / container / colour / etc.), embedded original dialogue lines, plus setting / framing / camera / lighting / mood.
-- The user's product context (description, target market, pain points, USPs, benefits, offer, CTA).
+- The user's product context (name, description, target market, pain points, USPs, benefits, key specs, customer language, objections, offer, CTA).
 
 YOUR TASK — apply these four transformations to every scene:
 
@@ -376,13 +376,18 @@ const WRITE_STYLE_INSTRUCTION: Record<WriteStyle, string> = {
 }
 
 // Five parallel takes per generate — same style, deliberately different
-// openings so the variations aren't five flavors of one hook.
+// openings AND different committed angles, so the batch is a real A/B test
+// instead of five flavors of one hook. Each take runs as its own LLM call
+// (blind to the others), so the anchor heuristics below are what keep the
+// five from all converging on the same pain point.
+const WRITE_ANGLE_DISCIPLINE = `ANGLE DISCIPLINE: commit to exactly ONE pain point and the ONE benefit that pays it off — chosen from the product details per the anchor below (or inferred from the brief if no product details are given). Every line of the script drives that single idea deeper. Do NOT tour multiple pain points, stack USPs, or list benefits — a script that mentions three benefits sells none. Other product facts may appear only in service of the one idea (a spec as proof, the offer at the CTA).`
+
 const WRITE_TAKE_INSTRUCTION: string[] = [
-  'THIS TAKE: open with a bold claim or hot take stated as fact.',
-  'THIS TAKE: open with a specific personal confession or moment ("I did X for years before I realized...").',
-  'THIS TAKE: open by directly calling out the viewer ("if you [pain point], stop scrolling" energy — in your own words, not that phrase).',
-  'THIS TAKE: open with a surprising number, stat, or before/after result that reframes the problem.',
-  'THIS TAKE: open mid-story, in the middle of a moment or a question, so the viewer is dropped straight into the action.',
+  `THIS TAKE: open with a bold claim or hot take stated as fact. Anchor: the single strongest USP — write for a solution-aware viewer comparing options.\n${WRITE_ANGLE_DISCIPLINE}`,
+  `THIS TAKE: open with a specific personal confession or moment ("I did X for years before I realized..."). Anchor: the most personal, private-feeling pain point — write for a problem-aware viewer who thinks it's just them.\n${WRITE_ANGLE_DISCIPLINE}`,
+  `THIS TAKE: open by directly calling out the viewer ("if you [pain point], stop scrolling" energy — in your own words, not that phrase). Anchor: the most widespread everyday pain point — write for a problem-aware viewer who hasn't looked for a fix yet.\n${WRITE_ANGLE_DISCIPLINE}`,
+  `THIS TAKE: open with a surprising number, stat, or before/after result that reframes the problem. Anchor: the most concrete, measurable benefit — write proof-first for a skeptical, solution-aware viewer.\n${WRITE_ANGLE_DISCIPLINE}`,
+  `THIS TAKE: open mid-story, in the middle of a moment or a question, so the viewer is dropped straight into the action. Anchor: the most unexpected benefit or use-moment — write curiosity-first for an unaware viewer who wasn't shopping at all.\n${WRITE_ANGLE_DISCIPLINE}`,
 ]
 
 // Word budgets assume ~2.4 words/sec on-camera pace, so the read time
@@ -535,11 +540,15 @@ async function runWrite(input: GenerateScriptInput, take: number, apiKey: string
 function productContextLines(ctx?: EditableProductContext | null): string {
   if (!ctx) return ''
   const lines: string[] = []
+  if (ctx.productName) lines.push(`- Product Name: ${ctx.productName}`)
   if (ctx.productDescription) lines.push(`- Product: ${ctx.productDescription}`)
   if (ctx.targetMarket) lines.push(`- Target Market: ${ctx.targetMarket}`)
   if (ctx.painPoints) lines.push(`- Pain Points: ${ctx.painPoints}`)
   if (ctx.usps) lines.push(`- USPs: ${ctx.usps}`)
   if (ctx.benefits) lines.push(`- Benefits: ${ctx.benefits}`)
+  if (ctx.keySpecs) lines.push(`- Key Facts & Specs (cite these concrete specifics instead of vague claims): ${ctx.keySpecs}`)
+  if (ctx.customerLanguage) lines.push(`- Customer Language (verbatim phrases real buyers use — mirror this voice in hooks and dialogue): ${ctx.customerLanguage}`)
+  if (ctx.objections) lines.push(`- Objections (hesitation — counter; address the most relevant one, don't list them): ${ctx.objections}`)
   if (ctx.offer) lines.push(`- Offer: ${ctx.offer}`)
   if (ctx.cta) lines.push(`- Call-to-Action: ${ctx.cta}`)
   return lines.join('\n')

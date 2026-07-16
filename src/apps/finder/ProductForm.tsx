@@ -16,7 +16,7 @@ interface ProductFormProps {
   // Called when the user dismisses the form while extraction is still running.
   // The parent takes over: persists the partial form as a draft and lets the
   // extraction finish in the background.
-  onCancelDuringExtraction?: (file: File, partial: Omit<Product, 'id' | 'createdAt'>) => void
+  onCancelDuringExtraction?: (file: File, partial: Omit<Product, 'id' | 'createdAt'>, listingText?: string) => void
 }
 
 const FIELD_META: Record<string, { label: string; type: 'text' | 'textarea'; required?: boolean }> = {
@@ -26,13 +26,16 @@ const FIELD_META: Record<string, { label: string; type: 'text' | 'textarea'; req
   painPoints: { label: 'Pain Points', type: 'textarea' },
   usps: { label: 'USPs', type: 'textarea' },
   benefits: { label: 'Benefits', type: 'textarea' },
+  keySpecs: { label: 'Key Specs & Facts', type: 'textarea' },
+  customerLanguage: { label: 'Customer Language', type: 'textarea' },
+  objections: { label: 'Objections', type: 'textarea' },
   offer: { label: 'Offer', type: 'textarea' },
   cta: { label: 'CTA', type: 'text' },
 }
 
 // The image sits alone on the left; every text field stacks down the right
 // column (which scrolls).
-const FIELDS = ['productName', 'productDescription', 'targetMarket', 'painPoints', 'usps', 'benefits', 'offer', 'cta'] as const
+const FIELDS = ['productName', 'productDescription', 'targetMarket', 'painPoints', 'usps', 'benefits', 'keySpecs', 'customerLanguage', 'objections', 'offer', 'cta'] as const
 
 const REQUIRED_KEYS = ['productName', 'productDescription'] as const
 
@@ -45,9 +48,13 @@ export default function ProductForm({ item, onSave, onCancel, onCancelDuringExtr
     painPoints: item?.painPoints ?? '',
     usps: item?.usps ?? '',
     benefits: item?.benefits ?? '',
+    keySpecs: item?.keySpecs ?? '',
+    customerLanguage: item?.customerLanguage ?? '',
+    objections: item?.objections ?? '',
     offer: item?.offer ?? '',
     cta: item?.cta ?? '',
   })
+  const [listingText, setListingText] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
   const dragDepthRef = useRef(0)
   const extractingFileRef = useRef<File | null>(null)
@@ -72,6 +79,9 @@ export default function ProductForm({ item, onSave, onCancel, onCancelDuringExtr
         painPoints: item.painPoints,
         usps: item.usps,
         benefits: item.benefits,
+        keySpecs: item.keySpecs ?? '',
+        customerLanguage: item.customerLanguage ?? '',
+        objections: item.objections ?? '',
         offer: item.offer,
         cta: item.cta,
       })
@@ -115,7 +125,7 @@ export default function ProductForm({ item, onSave, onCancel, onCancelDuringExtr
     reader.readAsDataURL(file)
 
     try {
-      const result = await extractProductInfo(file)
+      const result = await extractProductInfo(file, listingText)
       setForm((f) => ({ ...f, ...result }))
       setShowError(false)
     } catch (err) {
@@ -128,9 +138,39 @@ export default function ProductForm({ item, onSave, onCancel, onCancelDuringExtr
     }
   }
 
+  // Re-run extraction on the image already in the form (e.g. after pasting
+  // listing copy). Editing an existing product means there's no File — the
+  // stored image resolves to a blob/data URL, which we re-encode.
+  const rerunExtraction = async () => {
+    if (!displayImage || isExtracting) return
+    setExtractError(null)
+    setIsExtracting(true)
+    try {
+      let dataUri = displayImage
+      if (!dataUri.startsWith('data:')) {
+        const blob = await (await fetch(dataUri)).blob()
+        dataUri = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => resolve(reader.result as string)
+          reader.onerror = () => reject(reader.error)
+          reader.readAsDataURL(blob)
+        })
+      }
+      const result = await extractProductInfo(dataUri, listingText)
+      setForm((f) => ({ ...f, ...result }))
+      setShowError(false)
+    } catch (err) {
+      const message = humanizeError(err, 'Failed to extract product info from image.')
+      setExtractError(message)
+      addToast('Extraction failed', 'error')
+    } finally {
+      setIsExtracting(false)
+    }
+  }
+
   const handleClose = () => {
     if (isExtracting && extractingFileRef.current && onCancelDuringExtraction) {
-      onCancelDuringExtraction(extractingFileRef.current, form)
+      onCancelDuringExtraction(extractingFileRef.current, form, listingText)
     } else {
       onCancel()
     }
@@ -251,7 +291,7 @@ export default function ProductForm({ item, onSave, onCancel, onCancelDuringExtr
       {/* Side-by-side: image alone on the left, every field scrolls down the right. */}
       <div className="flex flex-col gap-6 md:flex-row lg:min-h-0 lg:flex-1">
         {/* Left — just the product image */}
-        <div className="flex w-full shrink-0 flex-col gap-4 md:w-[300px]">
+        <div className="flex w-full shrink-0 flex-col gap-4 md:w-[300px] lg:min-h-0 lg:overflow-y-auto">
           {displayImage ? (
             <div className="group/img relative aspect-square w-full overflow-hidden rounded-3xl border border-ink/10 bg-ink/[0.02]">
               <img src={displayImage} alt="" className="h-full w-full object-cover" />
@@ -286,6 +326,32 @@ export default function ProductForm({ item, onSave, onCancel, onCancelDuringExtr
               <span className="text-[10px] font-medium uppercase tracking-widest text-ink-600 transition-colors group-hover:text-ink-500">
                 Drop to auto-fill
               </span>
+            </button>
+          )}
+
+          {/* Listing copy — optional paste box that feeds auto-fill. Text from
+              the product page carries the claims/specs/offer a photo can't. */}
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[11px] font-medium uppercase tracking-widest text-ink-400">
+              Listing Copy <span className="normal-case tracking-normal text-ink-600">(optional)</span>
+            </span>
+            <textarea
+              value={listingText}
+              onChange={(e) => setListingText(e.target.value)}
+              rows={5}
+              placeholder="Paste the product page or Amazon listing text — auto-fill gets far more accurate with it."
+              className="w-full resize-none rounded-2xl border border-ink/10 bg-ink/[0.02] px-4 py-3 text-[13px] leading-relaxed text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-ink/20"
+            />
+          </label>
+          {displayImage && (
+            <button
+              type="button"
+              onClick={rerunExtraction}
+              disabled={isExtracting}
+              className="flex items-center justify-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-4 py-2 text-[12px] font-medium text-emerald-300 transition-colors hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50 light:text-emerald-700"
+            >
+              {isExtracting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              {isExtracting ? 'Extracting…' : listingText.trim() ? 'Auto-fill from image + copy' : 'Auto-fill from image'}
             </button>
           )}
         </div>

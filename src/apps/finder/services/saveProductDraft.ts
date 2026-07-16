@@ -6,6 +6,9 @@ import { extractProductInfo } from './extractProductInfo'
 
 export interface DraftSaveOptions {
   file: File
+  // Optional pasted product-page copy — forwarded to extraction as the
+  // authoritative source for claims/specs/offer.
+  listingText?: string
   initial?: Partial<Omit<Product, 'id' | 'createdAt'>>
   onStart?: (productId: string) => void
   onFinish?: (productId: string, ok: boolean) => void
@@ -24,7 +27,7 @@ function placeholderNameFor(file: File, initial?: Partial<Product>): string {
 }
 
 export async function saveProductDraft(opts: DraftSaveOptions): Promise<DraftSaveResult> {
-  const { file, initial, onStart, onFinish } = opts
+  const { file, listingText, initial, onStart, onFinish } = opts
 
   const dataUrl = await fileToDataUri(file)
   const assetRef = await saveFromDataUrl(dataUrl)
@@ -50,7 +53,7 @@ export async function saveProductDraft(opts: DraftSaveOptions): Promise<DraftSav
   onStart?.(id)
 
   try {
-    const extracted = await extractProductInfo(file)
+    const extracted = await extractProductInfo(file, listingText)
     await store.updateProduct(id, {
       ...extracted,
       productName: extracted.productName?.trim() || placeholderName,

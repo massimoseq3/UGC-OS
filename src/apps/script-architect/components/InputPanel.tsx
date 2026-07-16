@@ -18,11 +18,15 @@ import { humanizeError } from '../../../utils/friendlyError'
 
 function createEditableContext(product: Product): EditableProductContext {
   return {
+    productName: product.productName,
     productDescription: product.productDescription,
     targetMarket: product.targetMarket,
     painPoints: product.painPoints,
     usps: product.usps,
     benefits: product.benefits,
+    keySpecs: product.keySpecs ?? '',
+    customerLanguage: product.customerLanguage ?? '',
+    objections: product.objections ?? '',
     offer: product.offer,
     cta: product.cta,
   }
@@ -948,11 +952,15 @@ export default function InputPanel({
       >
         {editableContext && (
           <div className="flex flex-col gap-4 p-5">
+            <EditableField label="Name" value={editableContext.productName} onChange={(v) => updateField('productName', v)} />
             <EditableField label="Description" value={editableContext.productDescription} onChange={(v) => updateField('productDescription', v)} />
             <EditableField label="Target Market" value={editableContext.targetMarket} onChange={(v) => updateField('targetMarket', v)} />
             <EditableField label="Pain Points" value={editableContext.painPoints} onChange={(v) => updateField('painPoints', v)} />
             <EditableField label="USPs" value={editableContext.usps} onChange={(v) => updateField('usps', v)} />
             <EditableField label="Benefits" value={editableContext.benefits} onChange={(v) => updateField('benefits', v)} />
+            <EditableField label="Key Specs & Facts" value={editableContext.keySpecs} onChange={(v) => updateField('keySpecs', v)} />
+            <EditableField label="Customer Language" value={editableContext.customerLanguage} onChange={(v) => updateField('customerLanguage', v)} />
+            <EditableField label="Objections" value={editableContext.objections} onChange={(v) => updateField('objections', v)} />
             <EditableField label="Offer" value={editableContext.offer} onChange={(v) => updateField('offer', v)} />
             <EditableField label="CTA" value={editableContext.cta} onChange={(v) => updateField('cta', v)} />
           </div>
