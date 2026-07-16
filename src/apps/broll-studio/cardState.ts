@@ -1,14 +1,29 @@
 import type { PromptVariation, CardState } from './types'
 import { refsToToggles } from './types'
-import { type ImageResolution } from '../../utils/models'
+import { getDefaultModel, getModel, type ImageResolution } from '../../utils/models'
+import { useSettingsStore } from '../../stores/settingsStore'
 
 // Card-state factory + legacy-shape migration. Lives in its own module (not
 // inside ScenesView / RightPanel) so those component files only export
 // components — keeps React Fast Refresh working when editing the B-Roll UI.
 
+// Seed a fresh card's video resolution from the currently-selected B-Roll
+// video model. Models that declare a preferred default win (Gemini Omni →
+// 1080p, same credits as 720p); otherwise fall back to 720p when supported.
+// Without this, a card created while Omni is selected starts at the factory
+// 720p and never gets the model's better same-price tier.
+function defaultVideoResolution(): string {
+  const modelId = useSettingsStore.getState().getAppModel('broll-studio:video')
+    ?? getDefaultModel('broll-studio', 'video')?.id
+  const c = modelId ? getModel(modelId)?.videoConstraints : undefined
+  if (!c) return '720p'
+  return c.default ?? (c.resolutions.includes('720p') ? '720p' : c.resolutions[0] ?? '720p')
+}
+
 // Initial CardState for a freshly-mounted variation. Per-card settings
-// default to 9:16 / 1K / 5s / 720p / audio-on — same defaults the old global
-// SettingsPopover used as seed values.
+// default to 9:16 / 1K / 5s / audio-on — same defaults the old global
+// SettingsPopover used as seed values. Video resolution follows the
+// selected model's preferred tier (see defaultVideoResolution).
 export function createDefaultCardState(variation: PromptVariation): CardState {
   const { refsCharacter, refsProduct } = refsToToggles(variation.refs ?? 'both')
   const initialPrompt = variation.prompt ?? ''
@@ -34,7 +49,7 @@ export function createDefaultCardState(variation: PromptVariation): CardState {
     cardImageResolution: '1K',
     cardVideoAspectRatio: '9:16',
     cardVideoDurationSeconds: 5,
-    cardVideoResolution: '720p',
+    cardVideoResolution: defaultVideoResolution(),
     cardVideoAudio: true,
     isPromptWorking: false,
     promptError: null,
