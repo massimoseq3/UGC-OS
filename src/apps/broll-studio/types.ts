@@ -9,11 +9,17 @@ export type SceneType =
   | 'B-ROLL ENVIRONMENT'
 
 // Shot role for a variation. VAR_1 of every scene is always DIALOGUE (the
-// lip-sync anchor); the other three slots are picked by the LLM per line from
-// the full menu below, so the mix adapts to what each script line earns
-// instead of forcing the same four buckets on every scene.
+// lip-sync anchor) and VAR_5 is always STATIC (the locked anchor take); the
+// three slots between them are picked by the LLM per line from the menu below,
+// so the mix adapts to what each script line earns instead of forcing the same
+// buckets on every scene.
+//
+// STATIC never comes from the LLM — it's synthesized client-side from a fixed
+// template (see buildStaticDialoguePrompt) precisely so it does NOT vary, and
+// is therefore absent from the model's selectable menu (ALL_TAGS).
 export type VariationTag =
   | 'DIALOGUE'
+  | 'STATIC'
   | 'ACTION'
   | 'EMOTIONAL'
   | 'PRODUCT'

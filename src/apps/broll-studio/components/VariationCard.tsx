@@ -290,7 +290,9 @@ export default function VariationCard(props: VariationCardProps) {
     let taskId: string
     let modelId: string
     try {
-      const started = await startImageTask(promptText, refs, imageAspectRatio, imageResolution)
+      const started = await startImageTask(promptText, refs, imageAspectRatio, imageResolution, {
+        inheritReference: variation.tag === 'STATIC',
+      })
       taskId = started.taskId
       modelId = started.modelId
       onUpdateStateFn((prev) => ({

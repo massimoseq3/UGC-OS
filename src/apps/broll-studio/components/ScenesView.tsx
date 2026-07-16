@@ -103,7 +103,13 @@ export default function ScenesView({
     useSettingsStore((s) => s.perAppModel['broll-studio:image:text-to-image']) ??
     getDefaultModel('broll-studio', 'image', 'text-to-image')?.id
   const [batchTokens, setBatchTokens] = useState<Record<string, number>>({})
-  const [batchConfirm, setBatchConfirm] = useState<{ keys: string[]; scope: string } | null>(null)
+  // `fresh` = prompt-ready cards with no image yet; `done` = cards already
+  // generated. Kept apart so a second press doesn't silently re-bill work the
+  // user already paid for and picked through — see includeExisting.
+  const [batchConfirm, setBatchConfirm] = useState<
+    { fresh: string[]; done: string[]; scope: string } | null
+  >(null)
+  const [includeExisting, setIncludeExisting] = useState(false)
   // The confirm dialog portals to document.body, so it would outlive an app
   // switch — dismiss it when the user docks away.
   useCloseOnAppSwitch(!!batchConfirm, () => setBatchConfirm(null))
@@ -131,8 +137,15 @@ export default function ScenesView({
   const batchPerImage = batchImageModelId
     ? estimateCredits(batchImageModelId, { imageCount: 1, resolution: effectiveBatchRes })
     : null
+  // What this run will actually fire: the untouched cards, plus the already-
+  // generated ones only when the user explicitly opts in.
+  const batchTargets = batchConfirm
+    ? includeExisting
+      ? [...batchConfirm.fresh, ...batchConfirm.done]
+      : batchConfirm.fresh
+    : []
   const batchTotalCredits =
-    batchConfirm && batchPerImage != null ? batchPerImage * batchConfirm.keys.length : null
+    batchConfirm && batchPerImage != null ? batchPerImage * batchTargets.length : null
   const batchOverBudget = batchTotalCredits != null && balance !== null && batchTotalCredits > balance
 
   const requestBatch = (keys: string[], scope: string) => {
@@ -142,15 +155,21 @@ export default function ScenesView({
       useAppStore.getState().addToast('No prompts ready to generate.', 'error')
       return
     }
-    setBatchConfirm({ keys: targets, scope })
+    const fresh = targets.filter((k) => (cardStates[k]?.images.length ?? 0) === 0)
+    const done = targets.filter((k) => (cardStates[k]?.images.length ?? 0) > 0)
+    // Default to skipping what's already generated. When everything is done the
+    // dialog still opens — with the toggle as the only way forward — so
+    // "regenerate the lot" stays possible but never accidental.
+    setIncludeExisting(false)
+    setBatchConfirm({ fresh, done, scope })
   }
 
   const confirmBatch = () => {
-    if (!batchConfirm) return
+    if (!batchConfirm || batchTargets.length === 0) return
     setBatchImageOverride({ aspectRatio: effectiveBatchAspect ?? '9:16', resolution: effectiveBatchRes })
     setBatchTokens((prev) => {
       const next = { ...prev }
-      for (const k of batchConfirm.keys) next[k] = (next[k] ?? 0) + 1
+      for (const k of batchTargets) next[k] = (next[k] ?? 0) + 1
       return next
     })
     setBatchConfirm(null)
@@ -463,9 +482,32 @@ export default function ScenesView({
             className="w-full max-w-md rounded-2xl border border-ink/10 bg-ink-950/95 p-5 shadow-2xl"
           >
             <h3 className="text-sm font-medium text-ink-100">
-              Generate {batchConfirm.keys.length} image{batchConfirm.keys.length === 1 ? '' : 's'}
+              {batchTargets.length === 0
+                ? 'Nothing to generate'
+                : `Generate ${batchTargets.length} image${batchTargets.length === 1 ? '' : 's'}`}
             </h3>
-            <p className="mt-1 text-xs text-ink-500">{batchConfirm.scope} · all fire in parallel.</p>
+            <p className="mt-1 text-xs text-ink-500">
+              {batchConfirm.scope} · all fire in parallel.
+              {batchConfirm.done.length > 0 && !includeExisting && (
+                <> {batchConfirm.done.length} card{batchConfirm.done.length === 1 ? '' : 's'} already
+                {batchConfirm.done.length === 1 ? ' has' : ' have'} an image and will be skipped.</>
+              )}
+            </p>
+
+            {batchConfirm.done.length > 0 && (
+              <label className="mt-3 flex cursor-pointer items-center gap-2.5 rounded-xl border border-ink/10 bg-ink/[0.03] px-3 py-2.5">
+                <input
+                  type="checkbox"
+                  checked={includeExisting}
+                  onChange={(e) => setIncludeExisting(e.target.checked)}
+                  className="h-3.5 w-3.5 shrink-0 accent-broll-500"
+                />
+                <span className="text-xs text-ink-300">
+                  Also regenerate the {batchConfirm.done.length} card
+                  {batchConfirm.done.length === 1 ? '' : 's'} that already {batchConfirm.done.length === 1 ? 'has' : 'have'} an image
+                </span>
+              </label>
+            )}
 
             {/* Run settings — model is the shared B-Roll image model; resolution
                 and aspect apply to every card in this batch. */}
@@ -517,7 +559,11 @@ export default function ScenesView({
 
             <div className="mt-3 flex items-center justify-between rounded-xl border border-ink/10 bg-ink/[0.03] px-3 py-2.5 text-xs">
               <span className="text-ink-400">Estimated cost</span>
-              <span className="font-medium text-ink-100">{formatCredits(batchTotalCredits) ?? '— credits'}</span>
+              <span className="font-medium text-ink-100">
+                {/* An empty run costs nothing — formatCredits(0) would read
+                    "< 1 credit", which looks like a real charge. */}
+                {batchTargets.length === 0 ? '—' : formatCredits(batchTotalCredits) ?? '— credits'}
+              </span>
             </div>
             {balance !== null && (
               <p className={`mt-1.5 text-[11px] ${batchOverBudget ? 'text-red-400 light:text-red-600' : 'text-ink-500'}`}>
@@ -536,7 +582,8 @@ export default function ScenesView({
               <button
                 type="button"
                 onClick={confirmBatch}
-                className="flex items-center gap-1.5 rounded-full border border-white/15 bg-broll-500 px-4 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-broll-400"
+                disabled={batchTargets.length === 0}
+                className="flex items-center gap-1.5 rounded-full border border-white/15 bg-broll-500 px-4 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-broll-500"
               >
                 <Images className="h-3.5 w-3.5" />
                 Generate
@@ -723,7 +770,10 @@ function SceneSection({
         </button>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+      {/* Five variations across one row at xl, with Add option collapsed to a
+          narrow strip on the end so the cards keep as much width as possible.
+          Below xl the strip goes back to being a normal card in the wrap. */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-[repeat(5,minmax(0,1fr))_2.5rem]">
         {scene.variations.map((variation, i) => {
           const key = `${scene.number}-${i}`
           const state = cardStates[key] ?? createDefaultCardState(variation)
@@ -773,10 +823,11 @@ function AddNewCard({ onAdd }: { onAdd: (variation: PromptVariation) => void }) 
   return (
     <button
       onClick={handleAdd}
-      className="flex aspect-[9/16] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-ink/[0.08] transition-colors hover:border-ink/15 hover:bg-ink/[0.02]"
+      title="Add a blank option to this scene"
+      className="flex aspect-[9/16] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-ink/[0.08] transition-colors hover:border-ink/15 hover:bg-ink/[0.02] xl:aspect-auto xl:h-full xl:gap-3"
     >
-      <Plus className="h-5 w-5 text-ink-700" />
-      <span className="text-[10px] font-medium text-ink-600">Add option</span>
+      <Plus className="h-5 w-5 shrink-0 text-ink-700 xl:h-4 xl:w-4" />
+      <span className="text-[10px] font-medium text-ink-600 xl:[writing-mode:vertical-rl]">Add option</span>
     </button>
   )
 }

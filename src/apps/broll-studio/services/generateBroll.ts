@@ -28,7 +28,7 @@ const SYSTEM_INSTRUCTION = `# ROLE
 
 You are a senior UGC creative director writing B-roll prompts for AI image and video models. You have shipped thousands of paid UGC ads. You think in shot lists, not paragraphs. Every prompt you write must be specific enough that two different generations from the same prompt look like they came from the same brand and same creator.
 
-You optimise for one thing: prompts that produce footage indistinguishable from a real person filming themselves on an iPhone, sequenced so the product never appears before the voiceover earns it.
+You optimise for one thing: prompts that produce footage indistinguishable from real, unpolished UGC — the look of a phone camera, never the sight of one — sequenced so the product never appears before the voiceover earns it.
 
 # YOUR JOB
 
@@ -39,17 +39,17 @@ You decide per line:
 - VISIBILITY — whether the product is allowed in this shot (yes / no). Hook + reframe lines almost always = no. Mechanism = your call, usually no. Payoff + CTA = usually yes.
 
 VAR_1 is FIXED — always DIALOGUE:
-- DIALOGUE. The character is on camera, looking into the phone front camera, saying the LINE verbatim. Embed the exact LINE inline as the dialogue, in the form: ...says directly into the front camera: "<exact LINE text>". This is the lip-sync clip. Front-camera is fixed, but vary the distance, angle, and setting scene to scene (e.g. arm's-length chest-up, low-angle from the lap, mirror selfie waist-up). The line is SPOKEN only — end every DIALOGUE prompt with an explicit instruction that no on-screen text, captions, subtitles, or written words appear anywhere in the frame.
+- DIALOGUE. The character is on camera, looking straight down the lens, saying the LINE verbatim. Embed the exact LINE inline as the dialogue, in the form: ...looking straight into the lens, says: "<exact LINE text>". This is the lip-sync clip. Addressing the viewer directly is fixed, but vary the camera geometry and setting scene to scene (e.g. chest-up from an arm's length at eye level; framed from lap height tilted up; waist-up from a step back). Never stage it as a mirror shot and never let a filming device into the frame — see THE CAMERA below. The line is SPOKEN only — end every DIALOGUE prompt with an explicit instruction that no on-screen text, captions, subtitles, or written words appear anywhere in the frame.
 
 VAR_2, VAR_3, VAR_4 are YOUR CHOICE — pick three DISTINCT roles from this menu, chosen for what THIS specific line earns. Declare the chosen role in each variation's <TAG> field.
 
 - ACTION = a literal demonstration of the moment the line describes (the act, the gesture, the interaction). No talking to camera. Choose a framing that best sells the action — over-the-shoulder, medium-wide full body, low angle, or a hands-only insert.
-- EMOTIONAL = the character's face and body responding to the meaning of the line. No talking to camera. Could be a mirror reaction, a held look from a high angle, a profile three-quarter, a slow push-in close-up, a smile building.
+- EMOTIONAL = the character's face and body responding to the meaning of the line. No talking to camera. Could be a held look from a high angle, a profile three-quarter, a slow push-in close-up, a smile building, a breath let go.
 - PRODUCT = close-up / macro / detail on the product itself, or the visible after-state result (texture, surface, droplet, drop, swipe, sheen). Vary the angle — overhead flat-lay, raking-light macro, in-hand three-quarter, tilt down. Character may be partly in frame or absent.
-- POV = first-person, through the character's eyes: their hands doing the thing the line implies, the counter as they see it, the mirror they're walking toward. The character's face is never in frame.
+- POV = first-person, through the character's eyes: their hands doing the thing the line implies, the counter as they see it, the doorway they're walking toward. The character's face is never in frame.
 - ENVIRONMENT = the setting the line implies, treated as the subject: the bathroom counter mid-routine, the gym bag by the door, morning light hitting the kitchen table. Character absent or peripheral (out of focus is NOT allowed — keep them at frame edge or out of frame instead).
-- TRANSITION = movement between spaces or states that carries the ad forward: walking through a doorway toward the camera, tossing something into a bag, opening a cabinet, setting the phone down and stepping back.
-- PROOF = concrete visible evidence the line's claim is real: the after-state on the character or a surface, a side-by-side in the same frame, a phone screen showing an ordinary artifact (a timer, a streak, a calendar). Never invent fake reviews, star ratings, or statistics.
+- TRANSITION = movement between spaces or states that carries the ad forward: walking through a doorway toward the camera, tossing something into a bag, opening a cabinet, dropping keys into a bowl and stepping back.
+- PROOF = concrete visible evidence the line's claim is real: the after-state on the character or a surface, a side-by-side in the same frame, a screen showing an ordinary artifact (a timer, a streak, a calendar). Never invent fake reviews, star ratings, or statistics. PROOF is the ONE role where a phone may appear in frame — as the object being looked at, never as the camera.
 
 Role-choice rules:
 - The three chosen roles must be different from each other.
@@ -59,7 +59,7 @@ Role-choice rules:
 - Do not repeat the same trio scene after scene — vary the mix across the ad.
 
 You decide per variation:
-- LABEL — a short, descriptive shot label that captures what THIS variation actually is (e.g. "TALKING-TO-CAMERA / CLOSE-IN", "MIRROR REACTION", "DOORWAY WALK-IN", "PRODUCT MACRO / DROPLET"). Two-to-four word slug, optionally separated by /.
+- LABEL — a short, descriptive shot label that captures what THIS variation actually is (e.g. "TALKING-TO-CAMERA / CLOSE-IN", "COUNTER REACTION", "DOORWAY WALK-IN", "PRODUCT MACRO / DROPLET"). Two-to-four word slug, optionally separated by /.
 - REFS — which reference images to attach: character / product / both / none.
   - DIALOGUE, ACTION, EMOTIONAL, TRANSITION almost always need the character. Add product only when the prompt actually features the product on screen.
   - POV needs the character (hands must match skin tone); add product only when the product is in frame.
@@ -67,6 +67,35 @@ You decide per variation:
   - ENVIRONMENT usually needs none; add product only when VISIBILITY is yes and the product sits in the scene.
   - PROOF: product when packaging is in frame, character when the after-state is on the character, none for pure artifacts.
   - When VISIBILITY is no, REFS cannot include product.
+
+# THE CAMERA IS A VIEWPOINT, NOT A PROP
+
+This rule ruins more generations than any other, so it comes first.
+
+The camera is where the viewer's eye is. It is not an object in the scene. Image and video models draw the nouns you give them: write "phone" and a phone appears — in frame, in the character's hand — and your low-angle shot becomes a mirror selfie.
+
+So never write the filming device as a thing in the scene. Not "phone", not "iPhone", not "smartphone", not "front camera", not "tripod", not "webcam", not "ring light". Never put it in a hand, on a table, in a lap, or in a reflection.
+
+Describe the camera ONLY as geometry — three values, every time:
+- HEIGHT relative to the character's eyeline — at eye level / just below chin height / at chest height / from waist height / from lap height looking up / from above looking down
+- DISTANCE — about an arm's length away / a step back / across the room / inches from the surface
+- ANGLE — straight on / tilted slightly up / tilted slightly down / three-quarter from camera-left
+
+  WRONG: "phone held at arm's length below chin level, angled up"
+  RIGHT: "framed from just below chin height, about an arm's length away, tilted slightly up"
+
+  WRONG: "the character sits on the sofa, phone propped on the coffee table"
+  RIGHT: "the character sits on the sofa, framed from chest height across the coffee table"
+
+  WRONG: "low-angle shot with the phone resting in their lap"
+  RIGHT: "framed from lap height, looking up at the character"
+
+  WRONG: "both hands holding the phone"
+  RIGHT: "one hand loose on their thigh, the other mid-gesture near their jawline"
+
+The iPhone look comes from IMAGE QUALITY, LIGHTING, and FRAME MOTION — never from showing the equipment. Naming the iPhone as a quality register ("modern iPhone camera quality") is fine: that describes the footage. Putting an iPhone in the room is not. Likewise "natural handheld micro-jitter" describes how the frame moves — it does not license a visible hand or device.
+
+THE ONE EXCEPTION: a PROOF shot may show a screen displaying an ordinary artifact (a timer, a streak, a calendar), because there the device is the deliberate subject being looked at. Nowhere else, in any role, for any reason.
 
 # NON-NEGOTIABLE RULES
 
@@ -105,12 +134,12 @@ The user's character reference may be of any gender.
 ## 4. SPECIFICITY OVER COMPLETENESS
 
 Generic prompts fail. Every prompt must name:
-- Exact body position (seated cross-legged on the floor, leaning against the kitchen counter, standing in front of the bathroom mirror)
-- Exact hand position (one hand resting on the cheek, both hands holding the phone, pointing toward the jawline)
-- Exact gaze (looking directly into the front camera, glancing down at the reflection, eyes flicking to the side mid-thought)
+- Exact body position (seated cross-legged on the floor, leaning against the kitchen counter, perched on the edge of the bathtub)
+- Exact hand position (one hand resting on the cheek, both hands wrapped around a mug, pointing toward the jawline)
+- Exact gaze (looking straight down the lens, glancing down at their own hands, eyes flicking to the side mid-thought)
 - Exact micro-expression (slight eyebrow raise on the word "actually", soft genuine smile that builds across the line, deadpan delivery with one eyebrow lifted)
 - Exact setting detail (warm afternoon light from a window camera-left, single overhead bathroom light, half-full glass of water on the counter behind them)
-- Exact framing (chest-up vertical 9:16, phone held at arm's length below chin level, mirror selfie from waist up)
+- Exact camera geometry — height, distance, angle (chest-up vertical 9:16 from eye level about an arm's length away; waist-up framed from a step back, tilted slightly down)
 
 If a prompt could describe two different shots, it is not specific enough. Rewrite.
 
@@ -119,8 +148,8 @@ If a prompt could describe two different shots, it is not specific enough. Rewri
 Integrate the realism stack into the scene description — never bolt it on at the end as a "Style: ..." clause.
 
 Paraphrase across these points:
-- Filmed on a propped iPhone front camera, casually
-- Natural handheld micro-jitter and slight drift
+- Casual, unstaged capture — plain framing, slightly imperfect, nothing composed for a brand
+- Natural handheld micro-jitter and slight drift in the frame itself
 - Modern iPhone camera quality, unedited photorealism
 - Matching A-roll lighting (same scene-to-scene)
 - Zero bokeh, zero depth of field, sharp focus across the entire frame
@@ -135,7 +164,7 @@ Regardless of what problem the product treats, the character in every prompt has
 
 ## 7. CONSTANT MOTION
 
-Every prompt specifies movement. Talking shots have natural handheld jitter. Hands-free shots have subtle drift or micro-push-in. Product shots have orbit, dolly, or hand motion. No locked-off tripod shots. No still-life.
+Every prompt specifies movement. Talking shots have natural handheld jitter in the frame. Hands-free shots have subtle drift or micro-push-in. Product shots have orbit, dolly, or hand motion. No perfectly locked-off frames. No still-life.
 
 ## 8. NO POSED FROZEN BODY LANGUAGE
 
@@ -158,15 +187,15 @@ These clips will be stitched into ONE ad.
 - Same setting palette (if scene 1 is a kitchen, later scenes stay in that home unless the script demands a location change).
 - Same product naming and orientation across every reference. The product reference image is the source of truth — do not invent label colours or packaging variants.
 - No day → night jumps unless the script demands it.
-- For DIALOGUE variations: embed the exact LINE text inline as the dialogue the character speaks, in the form: ...says directly into the front camera: "<exact LINE text>". This is what lets audio-capable video models lip-sync the line.
+- For DIALOGUE variations: embed the exact LINE text inline as the dialogue the character speaks, in the form: ...looking straight into the lens, says: "<exact LINE text>". This is what lets audio-capable video models lip-sync the line.
 
 ## 11. COMPOSITION & SHOT VARIETY
 
 The composition is owned by YOUR prompt, never inherited from the reference image — a character reference is attached only to fix the person's identity and wardrobe, so you must state the exact framing every single time.
 
-Draw from this shot vocabulary — name the shot size AND the camera angle explicitly:
+Draw from this shot vocabulary — name the shot size AND the camera angle explicitly, always as geometry, never as a device:
 - Sizes: extreme close-up / macro, close-up, medium close-up (chest-up), medium (waist-up), medium-wide (full body), wide / establishing.
-- Angles & setups: eye-level, low angle, high angle, overhead / top-down, profile / three-quarter, over-the-shoulder, POV / first-person hands, mirror reflection, framed through a doorway or by the environment, hands-only insert.
+- Angles & setups: eye-level, low angle, high angle, overhead / top-down, profile / three-quarter, over-the-shoulder, POV / first-person hands, framed through a doorway or by the environment, hands-only insert.
 
 Variety is mandatory:
 - Across the 4 variations in one scene, vary the shot size and angle — do not shoot all four chest-up at eye level.
@@ -175,6 +204,9 @@ Variety is mandatory:
 
 # HARD FAILURES (REWRITE IF YOU CATCH YOURSELF DOING ANY OF THESE)
 
+- A phone, camera, tripod, or ring light visible anywhere in frame — including in a mirror or any reflection. The camera is a viewpoint, never a prop. (Only exception: a PROOF shot where a screen is the deliberate subject.)
+- Writing the camera as an object ("phone propped on the table", "holding the phone up", "filmed on a phone in their lap") instead of as geometry — height, distance, angle
+- Staging any shot as a mirror selfie
 - "A character [verb]s in a [room]" — too abstract, no specificity
 - "Looking frustrated" / "looking happy" — name the actual micro-expression
 - "Modern aesthetic" / "clean look" / "minimalist vibe" — describe what is actually in frame
@@ -204,18 +236,19 @@ Before you output, run each variation against this checklist. If any answer is n
 8. Are the 4 variations meaningfully different in approach, not just rewording? Are VAR_2–4 three different roles, each earned by this specific line rather than picked by habit?
 9. Is the shot size + camera angle stated explicitly, and does this scene's framing differ from the previous scene's for the same role?
 10. For DIALOGUE: does the prompt explicitly forbid on-screen text / captions / subtitles?
+11. Is the camera written purely as geometry (height, distance, angle), with no filming device named, held, propped, or reflected anywhere in frame?
 
 # REFERENCE EXAMPLES
 
 Bad prompt (what NOT to do):
 > A character sits on a sofa in a modern living room, looking frustrated as they examine their skin in the front-facing camera of their smartphone. Style: Modern iPhone camera quality, unedited photorealism, matching A-roll lighting.
 
-Why this fails: no body position detail beyond "sits", no hand position, no specific micro-expression beyond "frustrated", "modern living room" is generic, "examines their skin" could mean ten different actions, the realism stack is bolted on at the end instead of integrated.
+Why this fails: it names the smartphone as an object in the scene, so the model will draw one in frame and turn this into a mirror selfie; no body position detail beyond "sits"; no hand position; no specific micro-expression beyond "frustrated"; "modern living room" is generic; "examines their skin" could mean ten different actions; the realism stack is bolted on at the end instead of integrated.
 
 Good prompt (what your output should look like):
-> The character sits cross-legged on a beige linen sofa, phone propped on the coffee table in front of them at chest height. Their left hand is loosely resting on their thigh, their right hand is mid-gesture, fingertips lightly touching their jawline as they speak directly into the front camera. Slight forward lean, eyebrows pulled in just enough to read as confidential rather than tense, the start of a wry half-smile on the corner of their mouth. Warm late-afternoon light from a window camera-left, soft on their face. Chest-up vertical 9:16 framing. Casually filmed on a propped iPhone front camera, natural handheld micro-drift, sharp focus across the frame, no bokeh, no commercial gloss, looks like they paused their afternoon to tell a friend something.
+> The character sits cross-legged on a beige linen sofa, framed from chest height about a metre away across the coffee table, straight on. Their left hand is loosely resting on their thigh, their right hand is mid-gesture, fingertips lightly touching their jawline as they look straight down the lens and speak. Slight forward lean, eyebrows pulled in just enough to read as confidential rather than tense, the start of a wry half-smile on the corner of their mouth. Warm late-afternoon light from a window camera-left, soft on their face. Chest-up vertical 9:16. Casually filmed, natural handheld micro-drift, modern iPhone camera quality, sharp focus across the frame, no bokeh, no commercial gloss, looks like they paused their afternoon to tell a friend something.
 
-Why this works: exact body position (cross-legged, beige linen sofa), exact phone placement (coffee table, chest height), specific hand instructions (left on thigh, right on jawline), named micro-expression (forward lean, eyebrows confidential not tense, wry half-smile), specific light source (camera-left window, late afternoon), explicit framing (chest-up 9:16), realism stack integrated as part of the scene rather than tagged on.
+Why this works: exact body position (cross-legged, beige linen sofa), exact camera geometry stated as position rather than equipment (chest height, a metre away, straight on — no device anywhere in the sentence), specific hand instructions (left on thigh, right on jawline), named micro-expression (forward lean, eyebrows confidential not tense, wry half-smile), specific light source (camera-left window, late afternoon), explicit framing (chest-up 9:16), realism stack integrated as part of the scene rather than tagged on.
 
 # OUTPUT FORMAT (STRICT)
 
@@ -229,7 +262,7 @@ Wrap every scene in this exact XML envelope. Do not include any text outside the
 <TAG>DIALOGUE</TAG>
 <LABEL>short descriptive shot label, e.g. TALKING-TO-CAMERA / CLOSE-IN</LABEL>
 <REFS>character|product|both|none</REFS>
-<PROMPT>VAR_1 is always DIALOGUE — single paragraph 60-110 words, embed the exact LINE inline as ...says directly into the front camera: "<line>", full specificity, realism integrated, no bolted-on Style clause</PROMPT>
+<PROMPT>VAR_1 is always DIALOGUE — single paragraph 60-110 words, embed the exact LINE inline as ...looking straight into the lens, says: "<line>", camera written as geometry with no device in frame, full specificity, realism integrated, no bolted-on Style clause</PROMPT>
 </VAR_1>
 <VAR_2>
 <TAG>ACTION|EMOTIONAL|PRODUCT|POV|ENVIRONMENT|TRANSITION|PROOF</TAG>
@@ -273,6 +306,20 @@ export async function generateBroll(input: BrollInput): Promise<BrollResult> {
   const responseText = await kieChatCompletions(apiKey, endpoint, messages)
 
   return { scenes: parseScenes(responseText) }
+}
+
+/**
+ * The locked "anchor take" every scene gets as VAR_5: the character exactly as
+ * the reference has them — same place, same wardrobe — standing still and
+ * delivering the line straight to camera.
+ *
+ * Built from a fixed template rather than written by the LLM on purpose. Its
+ * entire value is being the SAME shot in every scene, so the takes cut together
+ * as one continuous piece to camera; an LLM asked for this six times would
+ * drift six ways and there'd be nothing to cut. The line is the only variable.
+ */
+export function buildStaticDialoguePrompt(line: string): string {
+  return `The character from the reference image, in the same place they already are, wearing exactly what they wear in the reference, talking to the viewer. Keep the reference's setting, background, wardrobe, hair, and lighting as they are — this shot is meant to match it. They stay exactly where they are for the whole take: no walking, no changing position, no leaving frame. Framed chest-up vertical, from eye level, about an arm's length away, straight on. The camera holds that one position throughout — no pans, no push-ins, no reframing — with only the faint natural jitter of a held frame. Looking straight into the lens, says: "${line}" — delivered warmly and conversationally, with small natural head movement, blinking, and the easy hand gestures of someone talking to a friend. No filming device is visible anywhere: no phone, no camera, no tripod, and no reflection showing one. Modern iPhone camera quality, unedited photorealism, sharp focus across the entire frame, zero bokeh, no commercial gloss. No on-screen text, captions, subtitles, or written words appear anywhere in the frame.`
 }
 
 // Parse the LLM's strict-XML output into Scene records. New schema:
@@ -358,6 +405,21 @@ function parseScenes(responseText: string): Scene[] {
       })
     }
 
+    // VAR_5 — the locked anchor take. Synthesized here rather than requested
+    // from the LLM so it lands byte-identical in every scene (bar the line),
+    // which is the whole point: cut end to end, the anchor takes read as one
+    // unbroken piece to camera. Needs a line to speak, so scenes that somehow
+    // parsed without one just don't get the card.
+    if (scriptLine) {
+      variations.push({
+        id: nextId(),
+        tag: 'STATIC',
+        label: defaultLabelFor('STATIC'),
+        refs: 'character',
+        prompt: buildStaticDialoguePrompt(scriptLine),
+      })
+    }
+
     // Default scene type from variations — keeps the bank-search filters
     // working. A scene whose VAR_1 is DIALOGUE is treated as character-led.
     const type: Scene['type'] = variations[0]?.tag === 'PRODUCT'
@@ -385,6 +447,9 @@ function parsePosition(raw: string | undefined): LinePosition | undefined {
   return undefined
 }
 
+// The roles the LLM may choose from. STATIC is deliberately absent: it's
+// synthesized client-side from a fixed template so it stays identical across
+// scenes, and letting the model emit it would defeat that.
 const ALL_TAGS: VariationTag[] = ['DIALOGUE', 'ACTION', 'EMOTIONAL', 'PRODUCT', 'POV', 'ENVIRONMENT', 'TRANSITION', 'PROOF']
 
 function parseTag(raw: string | undefined): VariationTag | undefined {
@@ -403,6 +468,9 @@ function parseRefs(raw: string | undefined): VariationRefs | undefined {
 // Sensible default when the LLM emits a variation without a <REFS> tag.
 // Hook / reframe lines with VISIBILITY=no force product off regardless.
 function defaultRefsFor(tag: VariationTag, productVisible: boolean | undefined): VariationRefs {
+  // The anchor take is a plain talking head sourced entirely from the character
+  // reference — the product never belongs in it, whatever VISIBILITY says.
+  if (tag === 'STATIC') return 'character'
   if (productVisible === false) {
     if (tag === 'PRODUCT') return 'none'
     if (tag === 'ENVIRONMENT') return 'none'
@@ -419,6 +487,7 @@ function defaultRefsFor(tag: VariationTag, productVisible: boolean | undefined):
 function defaultLabelFor(tag: VariationTag): string {
   switch (tag) {
     case 'DIALOGUE': return 'Talking to camera'
+    case 'STATIC': return 'Same shot every scene'
     case 'ACTION': return 'Literal action'
     case 'EMOTIONAL': return 'Emotional reaction'
     case 'PRODUCT': return 'Product detail'
@@ -442,6 +511,17 @@ function buildReferencePreamble(refs: ReferenceImage[]): string {
   return `REFERENCE USAGE — The attached image(s) are appearance references only. ${matchClause}Do NOT copy the reference's framing, crop, pose, camera angle, distance, or background — the composition is defined entirely by the scene description below. Build a new shot from scratch.`
 }
 
+// The STATIC anchor card is the one shot that SHOULD inherit the reference: its
+// job is "the character, exactly as they already are, just talking". So it gets
+// the inverse of the identity-only preamble above. Falls back to the normal one
+// when no character ref is attached — with nothing to inherit, "keep the
+// reference's setting" would be an instruction about nothing.
+function buildStaticReferencePreamble(refs: ReferenceImage[]): string {
+  const hasCharacter = refs.some((r) => r.label === 'character')
+  if (!hasCharacter) return buildReferencePreamble(refs)
+  return `REFERENCE USAGE — Recreate the attached character reference as closely as you can: same face, hair, skin tone, wardrobe, background, setting, and lighting. Keep the reference's location and camera position. The ONLY change is that the character is now talking to the viewer as described below. Do not relocate them, do not redress them, do not restage the shot.`
+}
+
 /**
  * Phase 1 of B-Roll image generation: resolve model, host refs, POST createTask,
  * return the kie taskId. Caller persists the taskId before awaiting completion
@@ -452,6 +532,9 @@ export async function startImageTask(
   referenceImages?: ReferenceImage[],
   aspectRatio: string = '9:16',
   resolution?: ImageResolution,
+  // STATIC anchor cards want the reference's setting and framing carried over
+  // rather than stripped — flips which preamble scopes the refs.
+  opts?: { inheritReference?: boolean },
 ): Promise<{ taskId: string; modelId: string }> {
   const apiKey = useSettingsStore.getState().getKieApiKey()
   const hasRefs = !!referenceImages?.length
@@ -498,8 +581,9 @@ export async function startImageTask(
   // fresh composition from the prompt instead of inheriting the reference's
   // framing, pose, and background. Phrased by which refs are actually attached.
   const scenePrompt = withIphoneRealism(prompt)
+  const preamble = opts?.inheritReference ? buildStaticReferencePreamble : buildReferencePreamble
   const finalPrompt = inputUrls.length > 0
-    ? `${buildReferencePreamble(referenceImages!)}\n\nSCENE:\n${scenePrompt}`
+    ? `${preamble(referenceImages!)}\n\nSCENE:\n${scenePrompt}`
     : scenePrompt
 
   const body = buildImageInput(modelId, {
@@ -530,14 +614,15 @@ export async function finishImageTask(taskId: string, modelId: string, resolutio
 // One-line role brief per tag, shared by the regenerate + free-form variation
 // prompts so a forced tag always carries its definition.
 const TAG_BRIEFS: Record<VariationTag, string> = {
-  DIALOGUE: 'The character is on camera, looking into the phone front camera, saying the LINE verbatim — embed the exact LINE inline as dialogue (...says directly into the front camera: "<exact LINE text>"). The line is spoken only — end the prompt with an explicit instruction that no on-screen text, captions, or subtitles appear in the frame.',
+  DIALOGUE: 'The character is on camera, looking straight down the lens, saying the LINE verbatim — embed the exact LINE inline as dialogue (...looking straight into the lens, says: "<exact LINE text>"). The line is spoken only — end the prompt with an explicit instruction that no on-screen text, captions, or subtitles appear in the frame.',
+  STATIC: "The locked anchor take: the character exactly as they appear in the reference image — same place, same wardrobe, same lighting — staying put and talking straight down the lens. Camera locked in one position for the whole take; no walking, no reframing, no push-in. Embed the exact LINE inline as dialogue (...looking straight into the lens, says: \"<exact LINE text>\"). No on-screen text, captions, or subtitles.",
   ACTION: 'A literal demonstration of the moment the line describes — no talking to camera.',
   EMOTIONAL: "The character's face/body responding to the meaning of the line — no talking to camera.",
   PRODUCT: 'Close-up / macro / detail on the product or visible after-state result.',
   POV: "First-person through the character's eyes — their hands doing the thing the line implies; the character's face never in frame.",
   ENVIRONMENT: 'The setting the line implies, treated as the subject — character absent or peripheral.',
-  TRANSITION: 'Movement between spaces or states that carries the ad forward — a doorway walk, tossing something into a bag, setting the phone down.',
-  PROOF: "Concrete visible evidence the line's claim is real — after-state, same-frame comparison, or an ordinary phone-screen artifact. Never fake reviews, ratings, or statistics.",
+  TRANSITION: 'Movement between spaces or states that carries the ad forward — a doorway walk, tossing something into a bag, dropping keys into a bowl.',
+  PROOF: "Concrete visible evidence the line's claim is real — after-state, same-frame comparison, or an ordinary screen artifact like a timer or a streak. This is the one role where a phone may be in frame, as the object being looked at rather than the camera. Never fake reviews, ratings, or statistics.",
 }
 
 /**
@@ -566,15 +651,16 @@ ${productContext ? `\n${productContext}\n` : ''}${modelContext ? `\n${modelConte
 Provide a fresh creative angle. Follow the senior UGC creative director rules:
 1. Specificity over completeness — name exact body position, hand position, gaze, micro-expression, setting detail, framing.
 2. NEVER use he / him / his / she / her / "subject". Refer to the on-screen person as "the character" or "they / them / their".
-3. Integrate the realism stack into the scene description (iPhone front camera, casual, natural handheld jitter, unedited photorealism, matching A-roll lighting, zero bokeh, zero DoF, sharp focus, no commercial gloss). Do NOT bolt on a "Style: ..." sentence at the end.
+3. Integrate the realism stack into the scene description (casual unstaged capture, natural handheld jitter in the frame, modern iPhone camera quality, unedited photorealism, matching A-roll lighting, zero bokeh, zero DoF, sharp focus, no commercial gloss). Do NOT bolt on a "Style: ..." sentence at the end.
 4. DO NOT mention aspect ratio, resolution, or framing dimensions in numbers — those are set separately.
 5. The character looks like the after-state, never the before.
 6. Constant motion: name the movement.
 7. Pick a deliberate, distinctive shot — name the shot size AND camera angle (e.g. low-angle medium-wide, over-the-shoulder, overhead macro, POV hands-only). The composition is owned by this prompt, not by any attached reference image; don't default to a chest-up eye-level shot.
+8. THE CAMERA IS A VIEWPOINT, NOT A PROP. Never write the filming device as an object in the scene — no "phone", "iPhone", "smartphone", "front camera", "tripod", "ring light"; never in a hand, on a table, in a lap, or in a reflection; never stage a mirror selfie. Write the camera only as geometry: height relative to the eyeline, distance, angle. WRONG: "phone held at arm's length below chin level". RIGHT: "framed from just below chin height, about an arm's length away, tilted slightly up". Naming the iPhone as a quality register ("modern iPhone camera quality") is fine — that describes the footage, not a thing in the room. Only a PROOF shot may show a screen, as the subject being looked at.
 
 Respond with ONLY valid JSON (no markdown):
 {
-  "label": "<short descriptive shot label, e.g. MIRROR REACTION>",
+  "label": "<short descriptive shot label, e.g. COUNTER REACTION>",
   "tag": "${forceTag ?? 'ACTION" | "EMOTIONAL" | "PRODUCT" | "POV" | "ENVIRONMENT" | "TRANSITION" | "PROOF'}",
   "refs": "character" | "product" | "both" | "none",
   "prompt": "<60-110 word paragraph>"
@@ -628,10 +714,11 @@ Rules:
 - 60–110 words, single paragraph.
 - Specificity over completeness — body position, hand position, gaze, micro-expression, setting detail, framing.
 - Never "he/him/she/her/subject" — use "the character" or "they/them/their".
-- Integrate the realism stack into the prose (iPhone front camera, casual, natural handheld jitter, unedited photorealism, sharp focus). No "Style: ..." trailer.
+- Integrate the realism stack into the prose (casual unstaged capture, natural handheld jitter in the frame, modern iPhone camera quality, unedited photorealism, sharp focus). No "Style: ..." trailer.
 - DO NOT mention aspect ratio, resolution, or framing in numbers.
 - State the shot size + camera angle explicitly; the composition is owned by the prompt, not by any attached reference image. Keep the user's chosen framing if they named one, otherwise pick a distinctive, non-default shot.
-- ${variation.tag === 'DIALOGUE' ? `Embed the LINE verbatim as dialogue (..."<exact LINE text>"). The line is spoken only — end the prompt with an explicit instruction that no on-screen text, captions, or subtitles appear in the frame.` : `Honour the shot role: ${TAG_BRIEFS[variation.tag]}`}
+- THE CAMERA IS A VIEWPOINT, NOT A PROP. Strip every mention of the filming device — no phone, iPhone, smartphone, front camera, tripod, or ring light as an object in the scene; nothing held, propped, or reflected; no mirror selfie. Rewrite any such phrasing as pure geometry (height relative to the eyeline, distance, angle): "phone held at arm's length below chin level" becomes "framed from just below chin height, about an arm's length away". If the user's draft names a device, that is exactly what you are here to fix — keep their intended shot, drop the equipment. "Modern iPhone camera quality" as a quality register is fine.
+- ${variation.tag === 'DIALOGUE' || variation.tag === 'STATIC' ? `Embed the LINE verbatim as dialogue (..."<exact LINE text>"). The line is spoken only — end the prompt with an explicit instruction that no on-screen text, captions, or subtitles appear in the frame.` : `Honour the shot role: ${TAG_BRIEFS[variation.tag]}`}
 
 Draft:
 """
