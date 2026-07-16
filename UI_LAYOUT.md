@@ -392,20 +392,25 @@ mode from the persisted draft**, so a returning session may open on Image or Mus
 
 ### Left panel, top→bottom (varies by mode)
 
-- **Image:** "Image Model" picker (+ Clear trailing) → resolution + aspect chips →
-  **Reference images** strip (≤4 drop slots) → **Prompt** (heading + Enhance Prompt /
-  Undo / Redo, then a full-width **"Select UGC Preset"** button that opens the presets
-  slide-over, then the textarea with the `@`-mention popover) → **Generate Image**
-  (pinned bottom).
-- **Video:** "Video Model" picker → resolution + aspect + duration chips + **Audio**
-  toggle → **Reference frames** (Start frame / End frame slots, each with Upload +
-  "Pick from Bank") + Reference images (≤9) / Reference audio (voice/lip-sync ≤15s) /
-  Reference video (motion/style ≤15s) strips (model-dependent); **Motion Control**
-  models swap this for a "Motion inputs" section (character image + driving clip +
-  orientation toggle); **Gemini Omni** adds the Omni inputs section (characters /
-  voices / source clip) → Prompt → **Generate Video**.
-- **Music:** "Music Model" picker → **Instrumental / With lyrics** toggle → Prompt →
-  **Generate Music**. (No reference section.)
+Every mode is: model picker → attachment row (model-dependent) → **Prompt** (a
+"UGC Prompt Preset" header row that opens the presets slide-over, the textarea
+with the `@`-mention popover, then an Enhance Prompt / Clear Prompt / Undo / Redo
++ Expand footer) → pinned bottom footer: constraint chips → **Generate**.
+
+The **attachment row** is one wrapping 36px bar (`components/video/RefSlot.tsx`):
+each input the model accepts is a dashed pill (icon + label + `count/max`), and
+whatever is attached to it follows immediately as a chip or a square thumbnail.
+Clicking an image pill opens Upload / Pick from Bank.
+
+- **Image:** Reference Images (≤4).
+- **Video:** Start Frame / End Frame (End dimmed + "not supported" off
+  frames-to-video models), Reference Images (≤9, or Omni's remaining quota),
+  Reference Audio (≤15s) / Reference Videos (≤15s) on the Seedance 2 family, and
+  on **Gemini Omni** Characters (≤3) / Voices (≤3) / Source Clip (with a trim
+  window `start → end s` beside the clip chip). **Motion Control** models replace
+  the row with Character Image + Driving Video + an orientation toggle and a
+  caption line. Footer chips: resolution + aspect + duration + **Audio**.
+- **Music:** **Instrumental / With lyrics** toggle. (No attachment row.)
 
 ### Right history grid (`components/PlaygroundHistoryGrid.tsx`)
 

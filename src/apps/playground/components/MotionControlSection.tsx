@@ -1,6 +1,7 @@
 import { useRef } from 'react'
-import { X, Plus, Film } from 'lucide-react'
+import { Film } from 'lucide-react'
 import VideoInputSlot, { type VideoInputValue } from '../../../components/video/VideoInputSlot'
+import { RefSlotPill, RefChip } from '../../../components/video/RefSlot'
 import { fileToDataUri } from '../../../utils/kie'
 import { readMediaDuration } from '../../../utils/media'
 import type { BankType } from '../../../utils/constants'
@@ -73,47 +74,25 @@ export default function MotionControlSection({
   }
 
   return (
-    <div className="space-y-4">
-      {/* Character image */}
-      <div>
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-1.5">
         <VideoInputSlot
-          label="Character image"
-          helper="— the look to animate"
+          label="Character Image"
           value={imageRef ? { dataUri: imageRef.url } : null}
           onChange={setImage}
           bankType="models"
           tabs={MOTION_IMAGE_TABS}
         />
-      </div>
 
-      {/* Driving video */}
-      <div>
-        <label className="mb-2 block text-[10px] font-medium uppercase tracking-wider text-ink-500">
-          Driving video
-          <span className="text-ink-700 normal-case"> — the motion to copy</span>
-        </label>
         {videoRef ? (
-          <div className="flex h-9 items-center gap-2 rounded-full border border-ink/10 bg-ink/[0.03] pl-3 pr-1.5 text-[12px] text-ink-300">
-            <Film className="h-3.5 w-3.5 shrink-0 text-ink-500" />
-            <span className="max-w-[180px] truncate">{videoRef.label}</span>
-            {videoRef.durationSeconds != null && (
-              <span className="text-[10px] text-ink-600">{Math.round(videoRef.durationSeconds)}s</span>
-            )}
-            <button
-              onClick={() => onChangeRefs(refs.filter((r) => r.slot !== 'motion-video'))}
-              className="flex h-5 w-5 items-center justify-center rounded-full text-ink-500 transition-colors hover:bg-ink/10 hover:text-ink-200"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          </div>
+          <RefChip
+            icon={Film}
+            label={videoRef.label}
+            meta={videoRef.durationSeconds != null ? `${Math.round(videoRef.durationSeconds)}s` : undefined}
+            onRemove={() => onChangeRefs(refs.filter((r) => r.slot !== 'motion-video'))}
+          />
         ) : (
-          <button
-            onClick={() => videoInputRef.current?.click()}
-            className="flex h-9 items-center gap-1.5 rounded-full border border-dashed border-ink/15 bg-ink/[0.02] px-3.5 text-[12px] text-ink-500 transition-colors hover:border-ink/25 hover:text-ink-300"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            <span>Upload video</span>
-          </button>
+          <RefSlotPill icon={Film} label="Driving Video" onClick={() => videoInputRef.current?.click()} />
         )}
         <input
           ref={videoInputRef}
@@ -125,18 +104,13 @@ export default function MotionControlSection({
             e.target.value = ''
           }}
         />
-      </div>
 
-      {/* Orientation */}
-      <div>
-        <label className="mb-2 block text-[10px] font-medium uppercase tracking-wider text-ink-500">
-          Orientation
-        </label>
-        <div className="inline-flex rounded-full border border-ink/10 bg-ink/[0.02] p-0.5">
+        {/* Orientation */}
+        <div className="flex h-9 shrink-0 items-center rounded-full border border-ink/10 bg-ink/[0.02] p-0.5">
           <button
             type="button"
             onClick={() => onChangeOrientation('video')}
-            className={`rounded-full px-4 py-1.5 text-[12px] transition-colors ${
+            className={`h-full rounded-full px-3 text-[12px] transition-colors ${
               orientation === 'video'
                 ? 'bg-playground-500/15 text-playground-200'
                 : 'text-ink-400 hover:text-ink-200'
@@ -147,7 +121,7 @@ export default function MotionControlSection({
           <button
             type="button"
             onClick={() => onChangeOrientation('image')}
-            className={`rounded-full px-4 py-1.5 text-[12px] transition-colors ${
+            className={`h-full rounded-full px-3 text-[12px] transition-colors ${
               orientation === 'image'
                 ? 'bg-playground-500/15 text-playground-200'
                 : 'text-ink-400 hover:text-ink-200'
@@ -156,12 +130,14 @@ export default function MotionControlSection({
             Match photo
           </button>
         </div>
-        <p className="mt-2 text-[11px] text-ink-600">
-          {orientation === 'video'
-            ? 'Character faces the same way as the driving video (clip up to 30s).'
-            : 'Character keeps the orientation of the reference photo (clip up to 10s).'}
-        </p>
       </div>
+
+      <p className="text-[11px] text-ink-600">
+        The image sets the look, the video sets the motion.{' '}
+        {orientation === 'video'
+          ? 'Character faces the same way as the driving video (clip up to 30s).'
+          : 'Character keeps the orientation of the reference photo (clip up to 10s).'}
+      </p>
     </div>
   )
 }

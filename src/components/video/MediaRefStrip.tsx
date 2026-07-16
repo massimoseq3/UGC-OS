@@ -1,11 +1,12 @@
 import { useRef } from 'react'
-import { X, Music, Film } from 'lucide-react'
+import { Music, Film } from 'lucide-react'
 import { fileToDataUri } from '../../utils/kie'
 import { readMediaDuration } from '../../utils/media'
+import { RefSlotPill, RefChip } from './RefSlot'
 
-// Upload strip for non-image media references (Seedance 2's reference audio
+// Upload slot for non-image media references (Seedance 2's reference audio
 // and reference video clips). Upload-only — the bank picker doesn't surface
-// audio/video rows yet. Values render as labelled chips, not thumbnails.
+// audio/video rows yet. Attached clips render as labelled chips.
 
 export interface MediaRefValue {
   dataUri: string
@@ -59,54 +60,28 @@ export default function MediaRefStrip({
     onChange([...values, { dataUri, name: file.name, durationSeconds }])
   }
 
-  const full = values.length >= max
-
+  // Fragment, not a block: the parent's attachment row flows the pill and its
+  // chips together with the other slots.
   return (
-    <div>
-      {/* Labelled add card — count pill top-right, centered icon + label with
-          the "Optional" pill below (matches OmniAddCard and the frame slots).
-          Uploaded clips list below it. */}
-      <button
+    <>
+      <RefSlotPill
+        icon={Icon}
+        label={label}
+        count={values.length}
+        max={max}
+        disabled={values.length >= max}
         onClick={() => fileInputRef.current?.click()}
-        disabled={full}
-        className={`group relative flex h-24 w-full flex-col items-center justify-center gap-1 rounded-2xl border border-dashed border-ink/15 bg-ink/[0.02] transition-colors ${
-          full ? 'cursor-not-allowed opacity-50' : 'hover:border-ink/25 hover:bg-ink/[0.04]'
-        }`}
-      >
-        <span className="absolute right-2 top-2 rounded-full bg-ink/[0.06] px-2 py-0.5 text-[9px] font-medium tabular-nums tracking-tight text-ink-500">
-          {values.length}/{max}
-        </span>
-        <span className="flex h-8 w-8 items-center justify-center rounded-full border border-ink/15 bg-ink/[0.03] text-ink-400 transition-colors group-hover:text-ink-200">
-          <Icon className="h-3.5 w-3.5" />
-        </span>
-        <span className="text-[11px] font-normal text-ink-500">{label}</span>
-        <span className="mt-0.5 rounded-full bg-ink/[0.06] px-2 py-0.5 text-[9px] font-medium capitalize tracking-tight text-ink-500">
-          Optional
-        </span>
-      </button>
+      />
 
-      {values.length > 0 && (
-        <div className="mt-2 flex flex-col gap-1.5">
-          {values.map((v, i) => (
-            <div
-              key={i}
-              className="flex h-9 items-center gap-2 rounded-full border border-ink/10 bg-ink/[0.03] pl-3 pr-1.5 text-[12px] text-ink-300"
-            >
-              <Icon className="h-3.5 w-3.5 shrink-0 text-ink-500" />
-              <span className="min-w-0 flex-1 truncate">{v.name}</span>
-              {v.durationSeconds != null && (
-                <span className="shrink-0 text-[10px] text-ink-600">{Math.round(v.durationSeconds)}s</span>
-              )}
-              <button
-                onClick={() => onChange(values.filter((_, idx) => idx !== i))}
-                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-ink-500 transition-colors hover:bg-ink/10 hover:text-ink-200"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
+      {values.map((v, i) => (
+        <RefChip
+          key={i}
+          icon={Icon}
+          label={v.name}
+          meta={v.durationSeconds != null ? `${Math.round(v.durationSeconds)}s` : undefined}
+          onRemove={() => onChange(values.filter((_, idx) => idx !== i))}
+        />
+      ))}
 
       <input
         ref={fileInputRef}
@@ -118,6 +93,6 @@ export default function MediaRefStrip({
           e.target.value = ''
         }}
       />
-    </div>
+    </>
   )
 }

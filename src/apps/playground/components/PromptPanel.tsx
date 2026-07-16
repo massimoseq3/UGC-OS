@@ -34,7 +34,7 @@ import {
 import { useSettingsStore } from '../../../stores/settingsStore'
 import { fileToDataUri } from '../../../utils/kie'
 import VideoInputSlot, { type VideoInputValue } from '../../../components/video/VideoInputSlot'
-import VideoRefStrip, { RefThumbnailStrip } from '../../../components/video/VideoRefStrip'
+import VideoRefStrip from '../../../components/video/VideoRefStrip'
 import MediaRefStrip, { type MediaRefValue } from '../../../components/video/MediaRefStrip'
 import { readMediaDuration } from '../../../utils/media'
 import OmniInputsSection from './OmniInputsSection'
@@ -292,10 +292,10 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
   const supportsEndFrame = !!model?.modes?.includes('frames-to-video')
   const supportsRefAudio = state.mode === 'video' && !!model?.supportsReferenceAudio
   const supportsRefVideos = state.mode === 'video' && !!model?.supportsReferenceVideos
-  // Reference Images + Audio + Video share one row, one column each.
-  const refRowCount = [refsAllowed, supportsRefAudio, supportsRefVideos].filter(Boolean).length
-  const refRowCols = refRowCount >= 3 ? 'grid-cols-3' : refRowCount === 2 ? 'grid-cols-2' : 'grid-cols-1'
   const isOmni = state.mode === 'video' && !!model?.omniInputs
+  // Whether the model accepts any input at all — a text-only model shows no
+  // attachment row rather than an empty one.
+  const hasAnyRefSlot = supportsFrames || refsAllowed || supportsRefAudio || supportsRefVideos || isOmni
   const isMotionControl = state.mode === 'video' && !!model?.motionControl
   const motionOrientation = state.characterOrientation ?? 'video'
 
@@ -671,89 +671,73 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
                   per mode) now live in the footer, just above Generate. */}
             </div>
 
-            {/* Reference inputs */}
+            {/* Reference inputs — every slot the active model accepts renders
+                as a pill in one wrapping row, with whatever is attached to it
+                following as a chip or thumbnail. */}
             {hasRefsSection && (
               <>
                 {state.mode === 'video' && isMotionControl && (
-                  <div>
-                    <div>
-                      <MotionControlSection
-                        refs={state.refs}
-                        onChangeRefs={(refs) => onChange({ ...state, refs })}
-                        orientation={motionOrientation}
-                        onChangeOrientation={(o) => onChange({ ...state, characterOrientation: o })}
-                        onError={(m) => addToast(m, 'error')}
-                      />
-                    </div>
-                  </div>
+                  <MotionControlSection
+                    refs={state.refs}
+                    onChangeRefs={(refs) => onChange({ ...state, refs })}
+                    orientation={motionOrientation}
+                    onChangeOrientation={(o) => onChange({ ...state, characterOrientation: o })}
+                    onError={(m) => addToast(m, 'error')}
+                  />
                 )}
-                {state.mode === 'video' && !isMotionControl && (
-                  <div className="flex flex-col gap-3">
+                {state.mode === 'video' && !isMotionControl && hasAnyRefSlot && (
+                  <div className="flex flex-wrap items-center gap-1.5">
                     {supportsFrames && (
-                      <div className="grid grid-cols-2 gap-3">
+                      <>
                         <VideoInputSlot
                           label="Start Frame"
-                          helper="— Optional"
                           value={startFrameValue()}
                           onChange={(v) => setSlot('start', v)}
                           bankType="brolls"
                           tabs={PLAYGROUND_FRAME_TABS}
-                          compact
                         />
                         <VideoInputSlot
                           label="End Frame"
-                          helper={supportsEndFrame ? '— Optional' : '— Not Supported'}
+                          helper={supportsEndFrame ? undefined : 'not supported'}
                           value={supportsEndFrame ? endFrameValue() : null}
                           onChange={(v) => supportsEndFrame && setSlot('end', v)}
                           bankType="brolls"
                           tabs={PLAYGROUND_FRAME_TABS}
-                          compact
                           disabled={!supportsEndFrame}
                         />
-                      </div>
+                      </>
                     )}
-                    {/* Picked reference images sit full-width above the row as a
-                        four-up strip, not crammed into the Images column. */}
-                    {refsAllowed && refStripValues().length > 0 && (
-                      <RefThumbnailStrip values={refStripValues()} onChange={setRefStrip} />
+                    {refsAllowed && (
+                      <VideoRefStrip
+                        label="Reference Images"
+                        values={refStripValues()}
+                        onChange={setRefStrip}
+                        max={maxRefs}
+                        bankType="models"
+                        tabs={PLAYGROUND_REF_TABS}
+                      />
                     )}
-                    {(refsAllowed || supportsRefAudio || supportsRefVideos) && (
-                      <div className={`grid items-start gap-3 ${refRowCols}`}>
-                        {refsAllowed && (
-                          <VideoRefStrip
-                            label="Reference Images"
-                            helper="Optional"
-                            values={refStripValues()}
-                            onChange={setRefStrip}
-                            max={maxRefs}
-                            bankType="models"
-                            tabs={PLAYGROUND_REF_TABS}
-                            showThumbnails={false}
-                          />
-                        )}
-                        {supportsRefAudio && (
-                          <MediaRefStrip
-                            label="Reference Audio"
-                            kind="audio"
-                            values={mediaStripValues('audio')}
-                            onChange={(v) => setMediaStrip('audio', v)}
-                            max={3}
-                            maxTotalSeconds={15}
-                            onLimitError={(m) => addToast(m, 'error')}
-                          />
-                        )}
-                        {supportsRefVideos && (
-                          <MediaRefStrip
-                            label="Reference Videos"
-                            kind="video"
-                            values={mediaStripValues('video')}
-                            onChange={(v) => setMediaStrip('video', v)}
-                            max={3}
-                            maxTotalSeconds={15}
-                            onLimitError={(m) => addToast(m, 'error')}
-                          />
-                        )}
-                      </div>
+                    {supportsRefAudio && (
+                      <MediaRefStrip
+                        label="Reference Audio"
+                        kind="audio"
+                        values={mediaStripValues('audio')}
+                        onChange={(v) => setMediaStrip('audio', v)}
+                        max={3}
+                        maxTotalSeconds={15}
+                        onLimitError={(m) => addToast(m, 'error')}
+                      />
+                    )}
+                    {supportsRefVideos && (
+                      <MediaRefStrip
+                        label="Reference Videos"
+                        kind="video"
+                        values={mediaStripValues('video')}
+                        onChange={(v) => setMediaStrip('video', v)}
+                        max={3}
+                        maxTotalSeconds={15}
+                        onLimitError={(m) => addToast(m, 'error')}
+                      />
                     )}
                     {isOmni && (
                       <OmniInputsSection refs={state.refs} onChangeRefs={(refs) => onChange({ ...state, refs })} />
@@ -761,15 +745,16 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
                   </div>
                 )}
                 {state.mode === 'image' && (
-                  <VideoRefStrip
-                    label="Reference Images"
-                    helper="Optional"
-                    values={refStripValues()}
-                    onChange={setRefStrip}
-                    max={4}
-                    bankType="models"
-                    tabs={PLAYGROUND_REF_TABS}
-                  />
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <VideoRefStrip
+                      label="Reference Images"
+                      values={refStripValues()}
+                      onChange={setRefStrip}
+                      max={4}
+                      bankType="models"
+                      tabs={PLAYGROUND_REF_TABS}
+                    />
+                  </div>
                 )}
               </>
             )}
@@ -893,11 +878,6 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
                   </div>
                 )}
               </div>
-              {!isMotionControl && (
-                <p className="mt-2 text-[11px] text-ink-500">
-                  Tip: type <span className="font-medium text-ink-400">@</span> to reference Products, Characters, B-Rolls, or a Script.
-                </p>
-              )}
             </div>
 
           </div>
