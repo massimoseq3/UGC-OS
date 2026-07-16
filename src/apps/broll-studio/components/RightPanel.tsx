@@ -21,6 +21,13 @@ interface RightPanelProps {
   selectedScriptId?: string
   productContext?: string
   modelContext?: string
+  // Session-wide dialogue-voice directive (null when unset) — appended to
+  // DIALOGUE cards' video prompts at generation time.
+  voiceDirective?: string | null
+  // Visual style id (services/style.ts) — swaps the deterministic suffix and
+  // grounds the per-card prompt-rewrite LLM calls.
+  videoStyleId?: string
+  customVideoStyle?: string
   onOpenCharacterPicker?: () => void
   onOpenProductPicker?: () => void
   cardStates: Record<string, CardState>
@@ -50,6 +57,9 @@ export default function RightPanel(props: RightPanelProps) {
     selectedScriptId,
     productContext,
     modelContext,
+    voiceDirective,
+    videoStyleId,
+    customVideoStyle,
     onOpenCharacterPicker,
     onOpenProductPicker,
     cardStates,
@@ -100,6 +110,9 @@ export default function RightPanel(props: RightPanelProps) {
             selectedScriptId={selectedScriptId}
             productContext={productContext}
             modelContext={modelContext}
+            voiceDirective={voiceDirective}
+            videoStyleId={videoStyleId}
+            customVideoStyle={customVideoStyle}
             onOpenCharacterPicker={onOpenCharacterPicker}
             onOpenProductPicker={onOpenProductPicker}
             cardStates={cardStates}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
   X,
@@ -227,8 +227,15 @@ export default function CardDetailModal(props: CardDetailModalProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [imageModelId])
 
+  // Tracks the model across effect runs so a genuine model FLIP (vs the
+  // modal simply mounting) can snap resolution to the new model's preferred
+  // default. On mount we only clamp invalid values — the card's persisted
+  // choice survives a close/reopen.
+  const prevVideoModelRef = useRef<string | undefined>(undefined)
   useEffect(() => {
     const c = videoConstraints
+    const modelChanged = prevVideoModelRef.current !== undefined && prevVideoModelRef.current !== videoModelId
+    prevVideoModelRef.current = videoModelId
     if (!c) return
     const updates: Partial<CardState> = {}
     if (c.aspectRatios.length > 0 && !c.aspectRatios.includes(cardState.cardVideoAspectRatio)) {
@@ -237,8 +244,17 @@ export default function CardDetailModal(props: CardDetailModalProps) {
     if (c.durations.length > 0 && !c.durations.includes(cardState.cardVideoDurationSeconds)) {
       updates.cardVideoDurationSeconds = c.durations[0]
     }
-    if (!c.resolutions.includes(cardState.cardVideoResolution)) {
-      updates.cardVideoResolution = c.default ?? c.resolutions[0] ?? '720p'
+    // On a model flip, a declared default wins outright (Gemini Omni prefers
+    // 1080p — same credits as 720p, so 720p would be money left on the
+    // table). Otherwise keep a still-valid resolution, clamping only when
+    // the current tier doesn't exist on this model.
+    const nextRes = modelChanged && c.default
+      ? c.default
+      : c.resolutions.includes(cardState.cardVideoResolution)
+        ? cardState.cardVideoResolution
+        : c.default ?? c.resolutions[0] ?? '720p'
+    if (nextRes !== cardState.cardVideoResolution) {
+      updates.cardVideoResolution = nextRes
     }
     // Audio: force ON for every audio-capable model. Force OFF when the
     // model can't do audio. Matches the user's "audio on by default" ask.
