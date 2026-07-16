@@ -38,11 +38,6 @@ interface ScenesViewProps {
   // so its Enhance / Regenerate-prompt service calls can ground the LLM.
   productContext?: string
   modelContext?: string
-  // Session-wide dialogue-voice directive — appended to DIALOGUE cards'
-  // video prompts at generation time (see services/voice.ts).
-  voiceDirective?: string | null
-  videoStyleId?: string
-  customVideoStyle?: string
   onOpenCharacterPicker?: () => void
   onOpenProductPicker?: () => void
   // CardStates live in RightPanel so the Gallery view can see in-flight cards
@@ -66,9 +61,6 @@ export default function ScenesView({
   selectedScriptId,
   productContext,
   modelContext,
-  voiceDirective,
-  videoStyleId,
-  customVideoStyle,
   onOpenCharacterPicker,
   onOpenProductPicker,
   cardStates,
@@ -447,9 +439,6 @@ export default function ScenesView({
             selectedScriptId={selectedScriptId}
             productContext={productContext}
             modelContext={modelContext}
-            voiceDirective={voiceDirective}
-            videoStyleId={videoStyleId}
-            customVideoStyle={customVideoStyle}
             onOpenCharacterPicker={onOpenCharacterPicker}
             onOpenProductPicker={onOpenProductPicker}
             batchTokens={batchTokens}
@@ -585,9 +574,6 @@ const VariationCardRow = memo(function VariationCardRow({
   selectedScriptId,
   productContext,
   modelContext,
-  voiceDirective,
-  videoStyleId,
-  customVideoStyle,
   onOpenCharacterPicker,
   onOpenProductPicker,
   generateImageToken,
@@ -610,9 +596,6 @@ const VariationCardRow = memo(function VariationCardRow({
   selectedScriptId?: string
   productContext?: string
   modelContext?: string
-  voiceDirective?: string | null
-  videoStyleId?: string
-  customVideoStyle?: string
   onOpenCharacterPicker?: () => void
   onOpenProductPicker?: () => void
   generateImageToken?: number
@@ -649,9 +632,6 @@ const VariationCardRow = memo(function VariationCardRow({
       selectedScriptId={selectedScriptId}
       productContext={productContext}
       modelContext={modelContext}
-      voiceDirective={voiceDirective}
-      videoStyleId={videoStyleId}
-      customVideoStyle={customVideoStyle}
       onOpenCharacterPicker={onOpenCharacterPicker}
       onOpenProductPicker={onOpenProductPicker}
       generateImageToken={generateImageToken}
@@ -676,9 +656,6 @@ function SceneSection({
   selectedScriptId,
   productContext,
   modelContext,
-  voiceDirective,
-  videoStyleId,
-  customVideoStyle,
   onOpenCharacterPicker,
   onOpenProductPicker,
   batchTokens,
@@ -700,9 +677,6 @@ function SceneSection({
   selectedScriptId?: string
   productContext?: string
   modelContext?: string
-  voiceDirective?: string | null
-  videoStyleId?: string
-  customVideoStyle?: string
   onOpenCharacterPicker?: () => void
   onOpenProductPicker?: () => void
   batchTokens: Record<string, number>
@@ -773,9 +747,6 @@ function SceneSection({
               selectedScriptId={selectedScriptId}
               productContext={productContext}
               modelContext={modelContext}
-              voiceDirective={voiceDirective}
-              videoStyleId={videoStyleId}
-              customVideoStyle={customVideoStyle}
               onOpenCharacterPicker={onOpenCharacterPicker}
               onOpenProductPicker={onOpenProductPicker}
               generateImageToken={batchTokens[key]}

@@ -16,7 +16,7 @@ import {
 } from '../../../utils/kie'
 import { finishVideoAssetTask } from '../../../utils/videoTask'
 import { buildVideoInput, getModel, resolveVideoModelSlug, type VideoMode } from '../../../utils/models'
-import { IPHONE_REALISM_SUFFIX, withPromptSuffix } from './realism'
+import { withIphoneRealism } from './realism'
 
 export interface VideoGenInput {
   prompt: string
@@ -29,8 +29,6 @@ export interface VideoGenInput {
   firstFrameDataUri?: string
   lastFrameDataUri?: string
   referenceDataUris?: string[]
-  // Deterministic style trailer (services/style.ts). Absent → UGC realism.
-  styleSuffix?: string
 }
 
 export interface VideoGenResult {
@@ -69,7 +67,7 @@ export async function startVideoTask(
   }
 
   const buildOpts = {
-    prompt: withPromptSuffix(input.prompt, input.styleSuffix ?? IPHONE_REALISM_SUFFIX),
+    prompt: withIphoneRealism(input.prompt),
     mode: input.mode,
     aspectRatio: input.aspectRatio,
     duration: input.durationSeconds,
