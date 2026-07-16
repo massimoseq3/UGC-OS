@@ -152,9 +152,9 @@ export interface GenerateScriptInput {
   // Hooks format only: which formula family the 10 hooks draw from.
   hookCategory?: HookCategoryChoice
   productId: string | null
-  // The product's display name — fed into the cinematic 'prompt' format so the
-  // VOICEOVER sign-off can name the brand. Other formats keep the brand name
-  // out of the spoken copy, so they ignore this.
+  // The raw bank name. What the model is SHOWN is productContext.productName
+  // (user-editable in the form); this is the fallback when that's blank — see
+  // spokenProductName in the service.
   productName?: string
   productContext?: EditableProductContext | null
   additionalContext: string

@@ -219,11 +219,11 @@ YOUR TASK — apply these four transformations to every scene:
 
 1. CHARACTER SWAP. Find every visual description of the original character and replace it with the literal token [CHARACTER]. Strip ALL identity markers: gender presentation, ethnicity cues, age, body type, hair (length / colour / styling), wardrobe (every garment / accessory / nails / etc.). Keep emotional state, gaze direction, body language, hand position, gesture, micro-expression — those are scene direction, not identity. Example: "a woman in her late 20s with shoulder-length auburn hair, wearing an oversized cream cable-knit sweater, looking into a bathroom mirror with a soft surprised smile" → "[CHARACTER] looks into a bathroom mirror with a soft surprised smile".
 
-2. PRODUCT SWAP. Find every visual description AND every spoken mention of the original product and replace with the literal token [PRODUCT]. Includes: brand name, wordmark, container shape, container colour, label, packaging, "the bottle / jar / pump / sleeve / etc." Replace with [PRODUCT] both in the visual description and inside any dialogue line. Example: "she holds a clear glass dropper bottle with a soft pink label reading 'NUDE PERFECT' close to the lens" → "she holds [PRODUCT] close to the lens".
+2. PRODUCT SWAP — VISUAL DIRECTION ONLY. Find every visual description of the original product and replace it with the literal token [PRODUCT]. Includes: brand name, wordmark, container shape, container colour, label, packaging, "the bottle / jar / pump / sleeve / etc." Example: "she holds a clear glass dropper bottle with a soft pink label reading 'NUDE PERFECT' close to the lens" → "she holds [PRODUCT] close to the lens". This token marks the slot for the user's reference image, so it belongs in scene direction ONLY — it is never a spoken word (see rule 3).
 
-3. DIALOGUE REWRITE. The original spoken lines (embedded in each scene as "She says: '...'" or similar) describe the original product. Rewrite them so they describe the user's product instead — pull from the user's pain points / benefits / USPs / CTA. Keep the same number of dialogue lines per scene and the same emotional beat / hook style. In the rewritten dialogue, ALWAYS refer to the product as [PRODUCT] — never use the user's brand name in the spoken text. Keep the speaker attribution format identical (e.g. "She says: '...'", "Voiceover: '...'").
+3. DIALOGUE REWRITE. The original spoken lines (embedded in each scene as: She says: "...", or similar) describe the original product. Rewrite them so they describe the user's product instead — pull from the user's pain points / benefits / USPs / CTA. Keep the same number of dialogue lines per scene and the same emotional beat / hook style. Refer to the product the way a real person talks: say its ACTUAL name (given in the product context) at most twice across the whole ad, and everywhere else use "this thing", "it", or the product category. NEVER put [PRODUCT], [CHARACTER], or any other bracketed token inside a spoken line — the dialogue is read aloud by a voice model, which pronounces the token literally. Keep the speaker attribution format identical (e.g. She says: "...", Voiceover: "...").
 
-4. PRESERVE STRUCTURE. Keep the exact scene count, scene order, timestamps, durations, scene labels, camera/framing cues, lighting cues, and the "--- Scene N: <label> (MM:SS-MM:SS) ---" headers. The only fields that change are: the character description (→ [CHARACTER]), the product description (→ [PRODUCT]), and the dialogue text (→ rewritten for the user's product, with [PRODUCT] inline). Light-touch adaptation of a shot's prop description is allowed ONLY when the user's product is fundamentally a different physical form than the original (e.g. dropper bottle → compact case), and only for that one prop reference — don't restructure the scene.
+4. PRESERVE STRUCTURE. Keep the exact scene count, scene order, timestamps, durations, scene labels, camera/framing cues, lighting cues, and the "--- Scene N: <label> (MM:SS-MM:SS) ---" headers. The only fields that change are: the character description (→ [CHARACTER]), the product description (→ [PRODUCT]), and the dialogue text (→ rewritten for the user's product, naming it in plain spoken words, never a token). Light-touch adaptation of a shot's prop description is allowed ONLY when the user's product is fundamentally a different physical form than the original (e.g. dropper bottle → compact case), and only for that one prop reference — don't restructure the scene.
 
 WHEN YOU REWRITE THE DIALOGUE, apply this voice (the rewritten lines are spoken on camera, so they must sound like a real person, never like ad copy):
 
@@ -239,11 +239,11 @@ Anchor it to how [CHARACTER] is acting across the scenes so the read feels nativ
 OUTPUT FORMAT — CRITICAL:
 - Start directly with the scenes. After the last scene, add a blank line, then the "=== VOICE PROFILE ... ===" block described above (it comes LAST, not first).
 - Reproduce each "--- Scene N: <label> (MM:SS-MM:SS) ---" header EXACTLY as given.
-- Below each header, write the rewritten scene prompt as one self-contained block — visual direction first, then the rewritten dialogue line(s) embedded inline using the same "She says: '[PRODUCT]…'" pattern as the input.
+- Below each header, write the rewritten scene prompt as one self-contained block — visual direction first, then the rewritten dialogue line(s) embedded inline using the same speaker-attribution pattern as the input, with the spoken words in double quotes: She says: "…". Spoken words are plain English — no tokens inside the quotes.
 - In every scene, include an explicit audio direction: NO background music, NO soundtrack, NO score — only the spoken dialogue and natural ambient/diegetic sound (music is added later in editing).
 - Separate scenes with a blank line.
 - Do NOT include any introduction, conclusion, commentary, or markdown code fences. Plain text only.
-- Do NOT use the user's brand name anywhere. Always use [PRODUCT].
+- Do NOT use the user's brand name in the VISUAL direction — that is always [PRODUCT]. The brand name lives ONLY in spoken dialogue, at most twice across the ad.
 - Do NOT describe the new character's appearance anywhere. Always use [CHARACTER].`
 
 // ── Write New (from-scratch) mode ──
@@ -288,7 +288,7 @@ ${HOOK_LIBRARY}
 ${HOOK_OPENING_INSTRUCTION} Scene 1's DIALOGUE line is that opening hook.
 
 ${HUMAN_VOICE_RULES}
-- In dialogue, ALWAYS refer to the product as the literal token [PRODUCT] — never a brand name.
+- In dialogue, name the product the way a real person would: say its ACTUAL name (given in the product context) at most twice across the whole ad, and use "this thing", "it", or the product category everywhere else. NEVER put [PRODUCT], [CHARACTER], or any other bracketed token inside a spoken line — a voice model reads the token out literally.
 
 ${BANNED_AI_PATTERNS}
 
@@ -299,7 +299,7 @@ ${VOICE_PROFILE_SPEC}
 SCENE RULES:
 - Let the creative concept decide how many scenes/shots there are, not a fixed split of the duration. If the idea is a single uninterrupted take with no cuts, that is ONE scene. A cut-heavy concept uses several. Each scene/shot can run anywhere from ~2 seconds up to the full ad length. Timestamps start at 00:00, are contiguous, and end exactly at the ad's total length.
 - NEVER describe the character's identity or appearance (gender, age, ethnicity, hair, body, clothing) — always the literal token [CHARACTER]. Emotional state, gaze, gesture, and body language ARE allowed: that's scene direction, not identity.
-- NEVER describe the product's physical appearance, container, label, or brand — always the literal token [PRODUCT].
+- NEVER describe the product's physical appearance, container, label, or brand in the VISUAL direction — always the literal token [PRODUCT] there. (Dialogue is the exception: spoken lines name the product in plain words, per the rule above.)
 - Each scene block uses these labelled lines, each on its own line, in this order:
   SETTING: where we are and the moment's atmosphere.
   CAMERA: framing and movement (e.g. handheld close-up, slow push-in).
@@ -361,7 +361,9 @@ async function runHooks(input: GenerateScriptInput, apiKey: string, endpoint: st
     { role: 'user', content: [{ type: 'text', text: prompt }] },
   ]
 
-  return kieChatCompletions(apiKey, endpoint, messages)
+  // Hooks are spoken opening lines end to end.
+  const text = await kieChatCompletions(apiKey, endpoint, messages)
+  return nameSpokenTokens(text, spokenProductName(input))
 }
 
 const WRITE_STYLE_INSTRUCTION: Record<WriteStyle, string> = {
@@ -469,8 +471,10 @@ async function runCinematicPrompt(input: GenerateScriptInput, take: number, leng
 
   let prompt = `The creator's brief for this commercial:\n\n${input.brief.trim()}\n\n`
 
-  if (input.productName) {
-    prompt += `Product / brand name (name it in the VOICEOVER sign-off): ${input.productName}\n\n`
+  // The name itself rides in with the product context below; this is only the
+  // cinematic-specific directive about where to spend it.
+  if (spokenProductName(input)) {
+    prompt += `Name the brand in the VOICEOVER sign-off.\n\n`
   }
 
   const ctxLines = productContextLines(input.productContext)
@@ -534,9 +538,18 @@ async function runWrite(input: GenerateScriptInput, take: number, apiKey: string
     { role: 'user', content: [{ type: 'text', text: prompt }] },
   ]
 
-  return kieChatCompletions(apiKey, endpoint, messages)
+  // Scenes mix visual direction with speech (tokens are legitimate in the
+  // former); a plain script is spoken end to end.
+  const text = await kieChatCompletions(apiKey, endpoint, messages)
+  return format === 'scenes'
+    ? nameSpokenTokensInDialogue(text, spokenProductName(input))
+    : nameSpokenTokens(text, spokenProductName(input))
 }
 
+// The name line is load-bearing, not cosmetic: every spoken-copy prompt tells
+// the model to "mention the product name at most twice", so withholding it left
+// the model with an instruction it couldn't follow — it filled the gap with a
+// [Product Name] placeholder, which TTS and video models then read aloud.
 function productContextLines(ctx?: EditableProductContext | null): string {
   if (!ctx) return ''
   const lines: string[] = []
@@ -552,6 +565,34 @@ function productContextLines(ctx?: EditableProductContext | null): string {
   if (ctx.offer) lines.push(`- Offer: ${ctx.offer}`)
   if (ctx.cta) lines.push(`- Call-to-Action: ${ctx.cta}`)
   return lines.join('\n')
+}
+
+// ── Spoken-token guard ──
+//
+// [PRODUCT] / [CHARACTER] are reference-image slots for the video model, so
+// they're correct in visual direction — but a token inside a spoken line gets
+// pronounced literally ("bracket product bracket") by TTS and video models.
+// The prompts say so; this is the deterministic backstop for when the model
+// ignores them, because the failure is silent and only shows up in the audio.
+const SPOKEN_TOKEN_RE = /\[(?:PRODUCT|PRODUCT[_ ]NAME|BRAND|BRAND[_ ]NAME)\]/gi
+
+// Safe against a module-level /g regex: String.replace resets lastIndex, unlike
+// .test() / .exec().
+function nameSpokenTokens(text: string, productName?: string): string {
+  return text.replace(SPOKEN_TOKEN_RE, productName?.trim() || 'it')
+}
+
+// Blueprints interleave visual direction with speech, so the swap is scoped to
+// double-quoted text — the one place both scene formats put spoken words.
+// Contractions use apostrophes, which makes double quotes an unambiguous fence.
+function nameSpokenTokensInDialogue(text: string, productName?: string): string {
+  return text.replace(/"[^"\n]*"/g, (quoted) => nameSpokenTokens(quoted, productName))
+}
+
+// The context name wins: it's what the prompt actually showed the model, and
+// the user can edit it in the form. input.productName is the raw bank name.
+function spokenProductName(input: GenerateScriptInput): string | undefined {
+  return input.productContext?.productName?.trim() || input.productName?.trim()
 }
 
 async function runRemix(input: GenerateScriptInput, angle: RemixAngle, apiKey: string, endpoint: string): Promise<string> {
@@ -581,7 +622,9 @@ async function runRemix(input: GenerateScriptInput, angle: RemixAngle, apiKey: s
     { role: 'user', content: [{ type: 'text', text: prompt }] },
   ]
 
-  return kieChatCompletions(apiKey, endpoint, messages)
+  // Plain remix output is pure spoken words, so any token anywhere is spoken.
+  const text = await kieChatCompletions(apiKey, endpoint, messages)
+  return nameSpokenTokens(text, spokenProductName(input))
 }
 
 async function runReverseEngineer(input: GenerateScriptInput, apiKey: string, endpoint: string): Promise<string> {
@@ -607,7 +650,8 @@ async function runReverseEngineer(input: GenerateScriptInput, apiKey: string, en
     { role: 'user', content: [{ type: 'text', text: prompt }] },
   ]
 
-  return kieChatCompletions(apiKey, endpoint, messages)
+  const text = await kieChatCompletions(apiKey, endpoint, messages)
+  return nameSpokenTokensInDialogue(text, spokenProductName(input))
 }
 
 export async function generateScript(input: GenerateScriptInput): Promise<GeneratedScript> {
