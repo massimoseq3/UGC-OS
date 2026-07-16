@@ -19,6 +19,8 @@ import type { PromptVariation, CardState, GeneratedImage, ReferenceImage } from 
 import type { VideoHistoryItem, Product, Model, BRoll } from '../../../stores/types'
 import { enhanceVariationPrompt, generateNewVariation, startImageTask, finishImageTask } from '../services/generateBroll'
 import { startVideoTask, finishVideoTask } from '../services/generateVideo'
+import { withDialogueVoice } from '../services/voice'
+import { resolveVideoStyle } from '../services/style'
 import { isPollTimeout } from '../../../utils/kie'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAppStore } from '../../../stores/appStore'
@@ -51,6 +53,16 @@ interface VariationCardProps {
   selectedScriptId?: string
   productContext?: string
   modelContext?: string
+  // Session-wide dialogue-voice directive. Appended (deterministically, at
+  // request time — like the iPhone-realism suffix) to the video prompt of
+  // DIALOGUE cards only, so every take speaks with the same voice.
+  voiceDirective?: string | null
+  // Visual style id (services/style.ts) — its suffix replaces the iPhone
+  // realism trailer on every generation, and its brief grounds the
+  // Enhance / Regenerate prompt rewrites. `customVideoStyle` (free text)
+  // takes precedence; both empty → UGC realism.
+  videoStyleId?: string
+  customVideoStyle?: string
   onOpenCharacterPicker?: () => void
   onOpenProductPicker?: () => void
   // Batch trigger. Each increment (from a Generate-all action) fires one image
@@ -79,11 +91,18 @@ export default function VariationCard(props: VariationCardProps) {
     selectedScriptId,
     productContext,
     modelContext,
+    voiceDirective,
+    videoStyleId,
+    customVideoStyle,
     onOpenCharacterPicker,
     onOpenProductPicker,
     generateImageToken,
     batchImageOverride,
   } = props
+
+  // Resolved style for this session's generations (custom text wins; both
+  // empty → UGC realism).
+  const videoStyle = resolveVideoStyle(videoStyleId, customVideoStyle)
 
   const hasImages = cardState.images.length > 0
   const hasVideos = cardState.videos.length > 0
@@ -227,6 +246,8 @@ export default function VariationCard(props: VariationCardProps) {
         { tag: variation.tag, label: variation.label ?? '' },
         productContext,
         modelContext,
+        videoStyleId,
+        customVideoStyle,
       )
       pushPromptHistory(rewritten)
       onUpdateState({ isPromptWorking: false, promptError: null })
@@ -248,6 +269,8 @@ export default function VariationCard(props: VariationCardProps) {
         variation.tag,
         productContext,
         modelContext,
+        videoStyleId,
+        customVideoStyle,
       )
       pushPromptHistory(fresh.prompt)
       onUpdateState({ isPromptWorking: false, promptError: null })
@@ -290,7 +313,7 @@ export default function VariationCard(props: VariationCardProps) {
     let taskId: string
     let modelId: string
     try {
-      const started = await startImageTask(promptText, refs, imageAspectRatio, imageResolution)
+      const started = await startImageTask(promptText, refs, imageAspectRatio, imageResolution, videoStyle.suffix)
       taskId = started.taskId
       modelId = started.modelId
       onUpdateStateFn((prev) => ({
@@ -474,6 +497,12 @@ export default function VariationCard(props: VariationCardProps) {
 
     const inFlightId = crypto.randomUUID()
     const promptText = cardState.editablePrompt
+    // Dialogue cards get the session's voice directive appended at request
+    // time (persisted entries keep the clean prompt — same treatment as the
+    // iPhone-realism suffix, which startVideoTask appends after this).
+    const requestPrompt = variation.tag === 'DIALOGUE'
+      ? withDialogueVoice(promptText, voiceDirective)
+      : promptText
     const videoAspectRatio = cardState.cardVideoAspectRatio
     const videoDurationSeconds = cardState.cardVideoDurationSeconds
     const videoResolution = cardState.cardVideoResolution
@@ -501,7 +530,7 @@ export default function VariationCard(props: VariationCardProps) {
 
     try {
       const { taskId, videoEndpoint } = await startVideoTask({
-        prompt: promptText,
+        prompt: requestPrompt,
         mode: effectiveMode,
         firstFrameDataUri,
         referenceDataUris,
@@ -510,6 +539,7 @@ export default function VariationCard(props: VariationCardProps) {
         resolution: videoResolution,
         audio: videoAudio,
         modelId: videoModelId,
+        styleSuffix: videoStyle.suffix,
       })
       onUpdateStateFn((prev) => ({
         inFlightVideos: prev.inFlightVideos.map((e) =>

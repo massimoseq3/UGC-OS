@@ -79,6 +79,11 @@ export interface BrollInput {
   productContext: string
   modelContext: string
   referenceImages: ReferenceImage[]
+  // Visual style id (services/style.ts). Empty / 'ugc' / undefined → default
+  // UGC realism; anything else injects a style override into the LLM call.
+  videoStyle?: string
+  // Free-text style, mutually exclusive with videoStyle (custom wins).
+  customVideoStyle?: string
 }
 
 export interface GeneratedImage {
