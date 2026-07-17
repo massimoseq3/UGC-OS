@@ -135,6 +135,34 @@ const MODEL_MIGRATIONS: Array<{ name: string; apply: (m: Record<string, string>)
       } catch { /* ignore */ }
     },
   },
+  {
+    // Video default flipped to Gemini Omni for both video surfaces (B-Roll was
+    // Veo 3.1 Fast, Playground fell through to Seedance 2.0 by registry order).
+    // Clear the persisted picks so users land on the new default unless they
+    // pick explicitly afterwards, and repair Playground's draft `state` blob,
+    // which snapshots modelId separately from perAppModel (see the Nano Banana
+    // migration above). A user who had deliberately picked the old default is
+    // indistinguishable from one who never opened the picker, so both move —
+    // same trade-off the image-default migration accepted.
+    name: '2026-07-video-default-gemini-omni',
+    apply: (m) => {
+      delete m['broll-studio:video']
+      delete m['playground:video']
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i)
+          if (!key || !key.endsWith(':playground:state')) continue
+          const raw = localStorage.getItem(key)
+          if (!raw) continue
+          const parsed = JSON.parse(raw)
+          if (parsed && parsed.modelId === 'bytedance/seedance-2') {
+            parsed.modelId = 'gemini-omni-video'
+            localStorage.setItem(key, JSON.stringify(parsed))
+          }
+        }
+      } catch { /* ignore */ }
+    },
+  },
 ]
 
 function loadFromStorage(): { kieApiKey: string; perAppModel: Record<string, string> } {

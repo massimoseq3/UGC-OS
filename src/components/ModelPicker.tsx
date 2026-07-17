@@ -14,6 +14,7 @@ import {
 import { useSettingsStore } from '../stores/settingsStore'
 import { APP_REGISTRY } from '../utils/constants'
 import ProviderLogo from './ProviderLogo'
+import SavingsPill from './SavingsPill'
 
 // Append 8-digit alpha to a 6-digit hex accent for the selected-row tint.
 function hexAlpha(hex: string, alpha: string): string {
@@ -202,17 +203,6 @@ export default function ModelPicker({ appId, task, mode, value, onChange, requir
 
 // The green "% off vs the official API" chip — shared by the collapsed trigger
 // and each dropdown row so they read identically.
-function SavingsPill({ pct }: { pct: number }) {
-  return (
-    <span
-      title="vs the provider's official API price"
-      className="shrink-0 rounded-full border border-dashboard-500/25 bg-dashboard-500/15 px-1.5 py-px text-[10px] font-medium text-dashboard-300"
-    >
-      {pct}% off
-    </span>
-  )
-}
-
 interface ModelRowProps {
   model: ModelEntry
   active: boolean

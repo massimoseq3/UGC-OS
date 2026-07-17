@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import {
   ImageIcon,
+  Video as VideoIcon,
   Loader2,
   AlertCircle,
   Play,
@@ -476,6 +477,17 @@ export default function VariationCard(props: VariationCardProps) {
           'error',
         )
       }
+      if (effectiveMode === 'image-to-video' && firstFrameDataUri) {
+        // Animate on a model with no image-to-video mode (Gemini Omni, the
+        // default, is one). Without this the still is dropped and the clip
+        // renders from the prompt alone — a text-to-video that silently
+        // ignores the frame the user picked to animate.
+        useAppStore.getState().addToast(
+          `${model.displayName} can't animate a still — pick Veo 3.1 Fast or Seedance 2.0 in the model picker.`,
+          'error',
+        )
+        return
+      }
       referenceDataUris = undefined
       firstFrameDataUri = undefined
       effectiveMode = fallback
@@ -672,6 +684,15 @@ export default function VariationCard(props: VariationCardProps) {
     !cardState.isGeneratingImage &&
     !isGeneratingImageInFlight &&
     !isGeneratingVideo
+  // Hoisted out of the JSX because the hover shortcut row also needs it — the
+  // error banner owns the bottom strip, so the row has to sit above it.
+  const showImageError = !!cardState.imageError && !hasImages && !cardState.isGeneratingImage
+  // True while the mute button is out beside play. The pair reaches 76px into
+  // the top strip, but the centred chip's inset shrinks with the card (~59px at
+  // a 194px face), so on a narrow card they'd collide. Hover already clears the
+  // chip; this covers the case hover doesn't — a card played WITH SOUND keeps
+  // playing after the mouse leaves, so its mute button outlives the hover.
+  const videoControlsExpanded = coverKind === 'video' && (cardVideoPlaying || cardVideoUnmuted)
   const tagText = tagLabel(variation.tag)
   const rollText = rollTypeForTag(variation.tag)
 
@@ -742,14 +763,14 @@ export default function VariationCard(props: VariationCardProps) {
                 onMouseLeave={(e) => { if (!cardVideoUnmuted) { const v = e.currentTarget as HTMLVideoElement; v.pause(); v.currentTime = 0 } }}
               />
               <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/70 to-transparent" />
-              {/* Always-visible play/pause — bottom-left so it clears the
-                  top-left type chip. On click, plays with audio in place
-                  (stopPropagation keeps the detail modal from opening). */}
+              {/* Always-visible play/pause — top-left, the corner the type chip
+                  vacated when it moved to centre. On click, plays with audio in
+                  place (stopPropagation keeps the detail modal from opening). */}
               <button
                 type="button"
                 title={cardVideoPlaying ? 'Pause' : 'Play with sound'}
                 onClick={(e) => { e.stopPropagation(); toggleCardVideoPlay() }}
-                className="absolute bottom-2 left-2 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white backdrop-blur transition-colors hover:bg-black/70"
+                className="absolute left-2 top-2 z-20 flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white backdrop-blur transition-colors hover:bg-black/70"
               >
                 {cardVideoPlaying ? <Pause className="h-3.5 w-3.5 fill-white" /> : <Play className="h-3.5 w-3.5 fill-white" />}
               </button>
@@ -758,7 +779,7 @@ export default function VariationCard(props: VariationCardProps) {
                   type="button"
                   title={cardVideoUnmuted ? 'Mute' : 'Unmute'}
                   onClick={(e) => { e.stopPropagation(); toggleCardVideoMute() }}
-                  className="absolute bottom-2 left-11 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white backdrop-blur transition-colors hover:bg-black/70"
+                  className="absolute left-11 top-2 z-20 flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white backdrop-blur transition-colors hover:bg-black/70"
                 >
                   {cardVideoUnmuted ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
                 </button>
@@ -794,8 +815,10 @@ export default function VariationCard(props: VariationCardProps) {
               </div>
               {/* Nudge for the not-yet-generated card: the prompt is scripted
                   but no image/video exists — spell out that the card opens for
-                  setup, sitting in the faded bottom-left so it clears the text. */}
-              <p className="pointer-events-none absolute bottom-2 left-3 z-10 text-[10px] font-medium tracking-tight text-ink-500">
+                  setup, sitting in the faded bottom-left so it clears the text.
+                  Fades on hover: the full-width shortcut row lands on this exact
+                  strip and IS the answer to "set up", so the two never share it. */}
+              <p className="pointer-events-none absolute bottom-2 left-3 z-10 text-[10px] font-medium tracking-tight text-ink-500 transition-opacity group-hover:opacity-0">
                 Click to set up
               </p>
             </>
@@ -806,21 +829,23 @@ export default function VariationCard(props: VariationCardProps) {
             </div>
           )}
 
-          {/* Top-left chip — the scene type (Dialogue / Action / …) for
+          {/* Top-centre chip — the scene type (Dialogue / Action / …) for
               generated variations, or a neutral "Custom" tag for a manually
-              added option. Video covers move their play/mute controls to the
-              bottom-left so this corner stays clear. */}
+              added option. Centred so the top-left corner belongs to a video
+              cover's play/mute controls; fades on hover because the top-right
+              action stack and (when playing) the mute button both reach into
+              its lane on a narrow card. */}
           {isManual ? (
             // No `light:` override here: the ink ramp already mirrors per theme,
             // so ink-300 is the readable tint in both. Adding light:text-ink-700
             // double-flipped it to near-white on the pale pill and the word
             // vanished in light mode.
-            <span className="pointer-events-none absolute left-2 top-2 z-10 rounded-full border border-ink/15 bg-ink/10 px-2 py-0.5 text-[10px] font-medium tracking-tight text-ink-300 backdrop-blur">
+            <span className={`pointer-events-none absolute left-1/2 top-2 z-10 max-w-[60%] -translate-x-1/2 truncate rounded-full border border-ink/15 bg-ink/10 px-2 py-0.5 text-[10px] font-medium tracking-tight text-ink-300 backdrop-blur transition-opacity group-hover:opacity-0 ${videoControlsExpanded ? 'opacity-0' : ''}`}>
               Custom
             </span>
           ) : (
             <span
-              className={`pointer-events-none absolute left-2 top-2 z-10 rounded-full border px-2 py-0.5 text-[10px] font-medium tracking-tight backdrop-blur ${tagChipStyle(variation.tag)}`}
+              className={`pointer-events-none absolute left-1/2 top-2 z-10 max-w-[60%] -translate-x-1/2 truncate rounded-full border px-2 py-0.5 text-[10px] font-medium tracking-tight backdrop-blur transition-opacity group-hover:opacity-0 ${videoControlsExpanded ? 'opacity-0' : ''} ${tagChipStyle(variation.tag)}`}
             >
               {tagText}
             </span>
@@ -913,7 +938,7 @@ export default function VariationCard(props: VariationCardProps) {
             </button>
           </div>
 
-          {cardState.imageError && !hasImages && !cardState.isGeneratingImage && (
+          {showImageError && (
             <div className="absolute inset-x-2 bottom-2 flex items-start gap-1.5 rounded-lg border border-red-500/30 bg-red-500/15 px-2 py-1.5 backdrop-blur">
               <AlertCircle className="mt-0.5 h-3 w-3 shrink-0 text-red-300 light:text-red-700" />
               <p className="line-clamp-2 text-[10px] leading-relaxed text-red-200 light:text-red-800">{cardState.imageError}</p>
@@ -922,27 +947,35 @@ export default function VariationCard(props: VariationCardProps) {
 
           {/* Hover shortcuts into the card's workspace — one per tab, so the
               common trip (open the card, switch to Video, generate) is one click.
-              Bottom-RIGHT on purpose: the top-right stack is for acting on the
-              media, not navigating into it. Labels match the modal's own toggle
-              so they read as the control they land on.
-              Text-only, no leading icons: icons pushed the pair to 126px, which
-              ran into the "Click to set up" nudge and a playing card's mute
-              button over on the bottom-left. Words alone clear both. */}
-          <div className="absolute bottom-2 right-2 z-10 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+              Full-bleed row split half-half, with the modal's own tab icons and
+              labels so each button reads as the control it lands on.
+              The row spans the whole width, so it can't sit beside anything
+              else on the bottom strip — it raises above the image-error banner
+              rather than covering it, since hover is exactly when that needs to
+              stay readable. Video play/mute used to force the same dodge; they
+              live top-left now, so a video cover keeps the row at its usual
+              height. */}
+          <div
+            className={`absolute inset-x-2 z-10 flex items-center gap-1.5 opacity-0 transition-opacity group-hover:opacity-100 ${
+              showImageError ? 'bottom-14' : 'bottom-2'
+            }`}
+          >
             <button
               type="button"
               title="Open this card on the Image tab"
               onClick={(e) => { e.stopPropagation(); openDetail('image') }}
-              className="flex h-7 items-center rounded-full border border-white/20 bg-black/50 px-2.5 text-[10px] font-medium text-white backdrop-blur transition-colors hover:bg-black/70"
+              className="flex h-7 flex-1 items-center justify-center gap-1.5 rounded-full border border-white/20 bg-black/50 text-[10px] font-medium text-white backdrop-blur transition-colors hover:bg-black/70"
             >
+              <ImageIcon className="h-3 w-3" />
               Image
             </button>
             <button
               type="button"
               title="Open this card on the Video tab"
               onClick={(e) => { e.stopPropagation(); openDetail('video') }}
-              className="flex h-7 items-center rounded-full border border-white/20 bg-black/50 px-2.5 text-[10px] font-medium text-white backdrop-blur transition-colors hover:bg-black/70"
+              className="flex h-7 flex-1 items-center justify-center gap-1.5 rounded-full border border-white/20 bg-black/50 text-[10px] font-medium text-white backdrop-blur transition-colors hover:bg-black/70"
             >
+              <VideoIcon className="h-3 w-3" />
               Video
             </button>
           </div>

@@ -1,11 +1,18 @@
 import type { PromptVariation, CardState } from './types'
 import { refsToToggles } from './types'
-import { getDefaultModel, getModel, type ImageResolution } from '../../utils/models'
+import { getDefaultModel, getModel, snapVideoDuration, type ImageResolution } from '../../utils/models'
 import { useSettingsStore } from '../../stores/settingsStore'
 
 // Card-state factory + legacy-shape migration. Lives in its own module (not
 // inside ScenesView / RightPanel) so those component files only export
 // components — keeps React Fast Refresh working when editing the B-Roll UI.
+
+// Constraints of the video model a fresh card will generate with.
+function selectedVideoConstraints() {
+  const modelId = useSettingsStore.getState().getAppModel('broll-studio:video')
+    ?? getDefaultModel('broll-studio', 'video')?.id
+  return modelId ? getModel(modelId)?.videoConstraints : undefined
+}
 
 // Seed a fresh card's video resolution from the currently-selected B-Roll
 // video model. Models that declare a preferred default win (Gemini Omni →
@@ -13,17 +20,26 @@ import { useSettingsStore } from '../../stores/settingsStore'
 // Without this, a card created while Omni is selected starts at the factory
 // 720p and never gets the model's better same-price tier.
 function defaultVideoResolution(): string {
-  const modelId = useSettingsStore.getState().getAppModel('broll-studio:video')
-    ?? getDefaultModel('broll-studio', 'video')?.id
-  const c = modelId ? getModel(modelId)?.videoConstraints : undefined
+  const c = selectedVideoConstraints()
   if (!c) return '720p'
   return c.default ?? (c.resolutions.includes('720p') ? '720p' : c.resolutions[0] ?? '720p')
 }
 
+// Same idea for clip length: the card wants 5s, but a model that doesn't offer
+// it snaps to the nearest option at or below (Omni [4,6,8,10] → 4s). Seeding
+// here rather than leaning on the modal's snap matters because Omni's
+// buildVideoInput coerces an off-grid duration to 8s — so a card generated
+// straight from the grid, never opened, would otherwise bill double the card
+// the user opened first.
+function defaultVideoDuration(): number {
+  const c = selectedVideoConstraints()
+  return c ? snapVideoDuration(5, c.durations) : 5
+}
+
 // Initial CardState for a freshly-mounted variation. Per-card settings
 // default to 9:16 / 1K / 5s / audio-on — same defaults the old global
-// SettingsPopover used as seed values. Video resolution follows the
-// selected model's preferred tier (see defaultVideoResolution).
+// SettingsPopover used as seed values. Video resolution and duration follow
+// the selected model's preferred tier (see the two helpers above).
 export function createDefaultCardState(variation: PromptVariation): CardState {
   const { refsCharacter, refsProduct } = refsToToggles(variation.refs ?? 'both')
   const initialPrompt = variation.prompt ?? ''
@@ -48,7 +64,7 @@ export function createDefaultCardState(variation: PromptVariation): CardState {
     cardImageAspectRatio: '9:16',
     cardImageResolution: '1K',
     cardVideoAspectRatio: '9:16',
-    cardVideoDurationSeconds: 5,
+    cardVideoDurationSeconds: defaultVideoDuration(),
     cardVideoResolution: defaultVideoResolution(),
     cardVideoAudio: true,
     isPromptWorking: false,
