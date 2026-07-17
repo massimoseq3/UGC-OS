@@ -67,7 +67,7 @@ MODEL
 - skinTone: closest of ${oneOf('skinTone')} — add an undertone qualifier when visible ("Golden, warm undertone").
 - skinTexture: forensic detail — pore visibility, freckles (where and how dense), T-zone shine, blemishes, under-eye texture, fine lines, peach fuzz. This field is what makes the render read as a real photo; never answer just "smooth" or "clear".
 - eyeColor: the precise shade ("dark chocolate brown", "gray-blue with a darker limbal ring"), not just the color family.
-- eyeShape: closest of ${oneOf('eyeShape')}.
+- eyeShape: closest of ${oneOf('eyeShape')} — read the eye before you label it. Check three things: the crease (clearly visible / partly hidden under the upper lid / absent), the corner tilt (outer corner sitting above, level with, or below the inner corner), and how the eye sits in the socket (set deep, or wide apart). Name the option those observations point to. "Almond" is the safe generic answer and is the one to distrust — choose it only when the crease is clearly visible, the corners sit level, and the shape tapers to a point at both ends. If a hooded lid, a monolid, or a corner tilt is visible, that option wins over Almond.
 - hairColor: exact shade including roots, highlights, or dimension ("ash blonde with darker roots and face-framing money pieces").
 - hairStyle: the cut, a length landmark (chin / shoulder / collarbone / mid-back), the part (middle / left / right), and how it falls (tucked behind ears, over one shoulder, curtain bangs) — plus flyaways or baby hairs if visible.
 - hairTexture: closest of ${oneOf('hairTexture')}.

@@ -94,9 +94,7 @@ function initialState(): PromptPanelState {
   // fresh visit should land on video, not image. Seed the model from the
   // user's last video pick (or the registry's video default) so the picker
   // isn't briefly out of sync with the mode on first paint.
-  const defaultVideo = getDefaultModel('playground', 'video')?.id
-    ?? getDefaultModel('broll-studio', 'video')?.id
-    ?? 'bytedance/seedance-2'
+  const defaultVideo = getDefaultModel('playground', 'video')?.id ?? 'gemini-omni-video'
   const persistedVideo = useSettingsStore.getState().getAppModel('playground:video')
   return {
     mode: 'video',

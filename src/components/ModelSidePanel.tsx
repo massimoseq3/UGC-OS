@@ -19,6 +19,7 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { useIsDesktop } from '../hooks/useBreakpoint'
 import { useCloseOnAppSwitch } from '../hooks/useCloseOnAppSwitch'
 import ProviderLogo from './ProviderLogo'
+import SavingsPill from './SavingsPill'
 
 // Slide-in side-panel model picker (mirrors BankPicker's mechanics). Used by
 // B-Roll in place of the inline ModelPicker dropdown. Selection is persisted
@@ -313,14 +314,7 @@ function ModelRow({ model, active, muted, credits, accent, onClick }: ModelRowPr
               {TAG_STYLES[t].label}
             </span>
           ))}
-          {savings != null && (
-            <span
-              title="vs the provider's official API price"
-              className="shrink-0 rounded-full border border-dashboard-500/25 bg-dashboard-500/15 px-1.5 py-px text-[10px] font-medium text-dashboard-300"
-            >
-              {savings}% off
-            </span>
-          )}
+          {savings != null && <SavingsPill pct={savings} />}
         </div>
         {meta && <p className="mt-px truncate text-[11px] leading-tight text-ink-500">{meta}</p>}
       </div>

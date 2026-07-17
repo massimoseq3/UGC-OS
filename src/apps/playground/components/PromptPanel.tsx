@@ -18,6 +18,7 @@ import {
 import ModelPicker from '../../../components/ModelPicker'
 import ModelSidePanel from '../../../components/ModelSidePanel'
 import ProviderLogo from '../../../components/ProviderLogo'
+import SavingsPill from '../../../components/SavingsPill'
 import SegmentedToggle from '../../../components/SegmentedToggle'
 import AspectIcon from '../../../components/AspectIcon'
 import ConstraintChip from '../../../components/ConstraintChip'
@@ -28,6 +29,8 @@ import {
   estimateCredits,
   formatCredits,
   videoResolutionLabel,
+  snapVideoDuration,
+  officialSavingsPercent,
   type Task,
   type Mode,
 } from '../../../utils/models'
@@ -226,6 +229,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
   }, [state.prompt])
 
   const model = getModel(state.modelId)
+  const modelSavings = model ? officialSavingsPercent(model.id) : null
   const taskForMode: Task = state.mode === 'image' ? 'image' : state.mode === 'video' ? 'video' : 'music'
   const addToast = useAppStore((s) => s.addToast)
 
@@ -334,7 +338,8 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
       // Motion Control declares no aspect ratios (output inherits the image),
       // so only snap when the model actually offers a set.
       if (c.aspectRatios.length > 0 && !c.aspectRatios.includes(state.aspectRatio)) patch.aspectRatio = c.aspectRatios[0]
-      if (c.durations.length > 0 && !c.durations.includes(state.durationSeconds)) patch.durationSeconds = c.durations[0]
+      const snappedDuration = snapVideoDuration(state.durationSeconds, c.durations)
+      if (snappedDuration !== state.durationSeconds) patch.durationSeconds = snappedDuration
       // Snap to the model's preferred default on switch (e.g. Omni prefers
       // 1080p — same credits as 720p). Models without a declared default keep
       // a still-valid resolution, only clamping when the current tier is gone.
@@ -479,10 +484,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
     const finalAspect = allowedAspects && allowedAspects.length > 0 && !allowedAspects.includes(aspectFromPreset)
       ? allowedAspects[0]
       : aspectFromPreset
-    const finalDuration =
-      vc && vc.durations.length > 0 && !vc.durations.includes(durationFromPreset)
-        ? vc.durations[0]
-        : durationFromPreset
+    const finalDuration = vc ? snapVideoDuration(durationFromPreset, vc.durations) : durationFromPreset
 
     // Append (with a blank-line separator) when there's already text in the
     // textarea — users were losing typed context every time they picked a
@@ -619,8 +621,8 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
             <div>
               {state.mode === 'video' ? (
                 <>
-                  {/* Trigger — provider logo + name + star, an arrow (not a
-                      chevron) for the slide-in, and no credits badge. */}
+                  {/* Trigger — provider logo + name + star + "% off", an arrow
+                      (not a chevron) for the slide-in, and no credits badge. */}
                   <button
                     type="button"
                     onClick={() => setModelPanelOpen(true)}
@@ -634,6 +636,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
                           {model.tags.includes('recommended') && (
                             <Star className="h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400 light:fill-yellow-600 light:text-yellow-600" strokeWidth={1.5} />
                           )}
+                          {modelSavings != null && <SavingsPill pct={modelSavings} />}
                         </div>
                       </>
                     ) : (

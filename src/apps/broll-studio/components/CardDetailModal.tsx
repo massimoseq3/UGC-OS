@@ -22,6 +22,7 @@ import {
 import ModelPicker from '../../../components/ModelPicker'
 import ModelSidePanel from '../../../components/ModelSidePanel'
 import ProviderLogo from '../../../components/ProviderLogo'
+import SavingsPill from '../../../components/SavingsPill'
 import AspectIcon from '../../../components/AspectIcon'
 import ConstraintChip from '../../../components/ConstraintChip'
 import SegmentedToggle from '../../../components/SegmentedToggle'
@@ -32,7 +33,7 @@ import { useBankStore } from '../../../stores/bankStore'
 import { useAppStore } from '../../../stores/appStore'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
 import { useCloseOnAppSwitch } from '../../../hooks/useCloseOnAppSwitch'
-import { getDefaultModel, getModel, estimateCredits, formatCredits, videoResolutionLabel, type ImageResolution } from '../../../utils/models'
+import { getDefaultModel, getModel, estimateCredits, formatCredits, videoResolutionLabel, snapVideoDuration, officialSavingsPercent, type ImageResolution } from '../../../utils/models'
 import { tagChipStyle, tagLabel } from './variationTags'
 import { humanizeError } from '../../../utils/friendlyError'
 import ModelWaitNotice from '../../../components/ModelWaitNotice'
@@ -201,6 +202,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
     ? (getModel(videoModelId)?.modes ?? []).includes('reference-to-video')
     : false
   const videoModelName = videoModelId ? (getModel(videoModelId)?.displayName ?? videoModelId) : 'This model'
+  const videoModelSavings = videoModelId ? officialSavingsPercent(videoModelId) : null
   // The "doesn't support reference images" caveat is about VIDEO models only —
   // image models always accept references (image-to-image), so dim the slots
   // and show the warning solely while the Video tab is active.
@@ -246,8 +248,9 @@ export default function CardDetailModal(props: CardDetailModalProps) {
     if (c.aspectRatios.length > 0 && !c.aspectRatios.includes(cardState.cardVideoAspectRatio)) {
       updates.cardVideoAspectRatio = c.aspectRatios[0]
     }
-    if (c.durations.length > 0 && !c.durations.includes(cardState.cardVideoDurationSeconds)) {
-      updates.cardVideoDurationSeconds = c.durations[0]
+    const snappedDuration = snapVideoDuration(cardState.cardVideoDurationSeconds, c.durations)
+    if (snappedDuration !== cardState.cardVideoDurationSeconds) {
+      updates.cardVideoDurationSeconds = snappedDuration
     }
     // On a model flip, a declared default wins outright (Gemini Omni prefers
     // 1080p — same credits as 720p, so 720p would be money left on the
@@ -426,7 +429,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                   <>
                     {/* Trigger button — opens the slide-in ModelSidePanel.
                         Mirrors ModelPicker's trigger look (provider logo + name
-                        + star), no heading (Playground style). */}
+                        + star + "% off"), no heading (Playground style). */}
                     <button
                       type="button"
                       onClick={() => setModelPanelOpen(true)}
@@ -440,6 +443,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                             {getModel(videoModelId)?.tags.includes('recommended') && (
                               <Star className="h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400 light:fill-yellow-600 light:text-yellow-600" strokeWidth={1.5} />
                             )}
+                            {videoModelSavings != null && <SavingsPill pct={videoModelSavings} />}
                           </div>
                         </>
                       ) : (

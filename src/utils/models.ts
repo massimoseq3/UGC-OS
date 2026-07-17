@@ -646,7 +646,6 @@ export const MODEL_REGISTRY: ModelEntry[] = [
       resolutions: ['720p', '1080p', '4k'],
       aspectRatios: ['16:9', '9:16'],
     },
-    defaultFor: ['broll-studio'],
   },
   {
     id: 'veo3_lite',
@@ -764,6 +763,11 @@ export const MODEL_REGISTRY: ModelEntry[] = [
       default: '1080p',
       aspectRatios: ['16:9', '9:16'],
     },
+    // The video default for both video surfaces. Note Omni has no
+    // 'image-to-video' mode — it takes every image as a generic reference, not
+    // as frame one — so B-Roll's Animate tab greys it out and asks for Veo /
+    // Seedance instead. That's the one flow where the default isn't the answer.
+    defaultFor: ['broll-studio', 'playground'],
   },
   // Wan 2.7 — Alibaba Tongyi's video suite. kie exposes T2V and I2V as
   // separate slugs; we register one virtual id and resolve to the real slug
@@ -946,6 +950,21 @@ export function estimateMarketUsd(modelId: string, params: CostEstimateParams = 
   const model = getModel(modelId)
   if (!model?.market) return null
   return model.market.usdFor(params)
+}
+
+// Snap a clip length onto the grid a model actually offers, rounding DOWN to
+// the next option and flooring at the shortest. Short and cheap is the default
+// posture — a longer take is a per-card opt-in, not something a model swap
+// should buy on the user's behalf. With Gemini Omni ([4,6,8,10]) as the video
+// default, the app-wide 5s lands on 4s.
+// Assumes `durations` is sorted ascending — every registry entry above is.
+//
+// Only bites when the selected model omits the app-wide 5s default: the whole
+// Seedance family offers 5s, so nothing hit this until Omni became the default.
+export function snapVideoDuration(current: number, durations: number[]): number {
+  if (durations.length === 0 || durations.includes(current)) return current
+  const below = durations.filter((d) => d < current)
+  return below.length > 0 ? below[below.length - 1] : durations[0]
 }
 
 // Representative params for a model's savings headline: its default
