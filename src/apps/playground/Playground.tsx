@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useAppStore } from '../../stores/appStore'
 import { useReportActivity } from '../../stores/activityStore'
-import type { CinematicVideoPayload } from '../../stores/types'
+import type { CinematicVideoPayload, VideoSourceClipPayload } from '../../stores/types'
 import { useSettingsStore } from '../../stores/settingsStore'
 import {
   startPlaygroundImageTask,
@@ -202,6 +202,37 @@ export default function Playground() {
           refs: [...s.refs.filter((r) => r.slot !== 'start'), { url: imageUrl!, label: 'start', source: 'upload', slot: 'start' }],
         }))
       }
+    } else if (targetField === 'videoSourceClip' && data && typeof data === 'object' && 'videoRef' in data) {
+      // Generated video (B-Roll take, etc.) → Gemini Omni source clip, for
+      // redubs/restyles of an existing clip. Omni is the one model that takes
+      // a source video, so the handoff switches to it outright. Refs are
+      // replaced wholesale: a stale start frame would force image-to-video (a
+      // mode Omni doesn't have) and leftover images could bust the 7-slot
+      // quota. The prompt is left alone — with a source clip it's the change
+      // instruction ("same take, dialogue in Spanish"), not a scene brief.
+      const clip = data as VideoSourceClipPayload
+      const omni = getModel('gemini-omni-video')
+      const knownDuration = Number.isFinite(clip.durationSeconds) && clip.durationSeconds! > 0
+        ? clip.durationSeconds!
+        : undefined
+      // Same floor the trim inputs enforce (ends ≥ start + 0.5).
+      const ends = Math.max(0.5, Math.min(10, knownDuration ?? 10))
+      setState((s) => ({
+        ...s,
+        mode: 'video',
+        modelId: 'gemini-omni-video',
+        resolution: omni?.videoConstraints?.default ?? s.resolution,
+        audio: true,
+        refs: [{
+          url: clip.videoRef,
+          label: clip.label ?? 'Source clip',
+          source: 'broll',
+          slot: 'omni-clip',
+          clipStart: 0,
+          clipEnds: Math.round(ends * 10) / 10,
+          durationSeconds: knownDuration,
+        }],
+      }))
     } else if (targetField === 'cinematicVideo' && data && typeof data === 'object') {
       // Scripts cinematic concept → land in video mode on the Seedance default
       // with the @INFLUENCER / @PRODUCT references already attached (slot 'ref'

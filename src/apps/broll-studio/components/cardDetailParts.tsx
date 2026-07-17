@@ -16,6 +16,7 @@ import { useAssetUrlState, useAssetUrl } from '../../../hooks/useAssetUrl'
 import { getUrl } from '../../../utils/assetStore'
 import { getModel } from '../../../utils/models'
 import { startOfDay, sectionLabel } from '../../../utils/history'
+import { sendClipToPlayground } from '../services/sendClipToPlayground'
 import { downloadImage } from '../../../utils/downloadImage'
 
 // ─── Modal gallery — per-card masonry ────────────────────────────────────
@@ -208,6 +209,10 @@ export function ModalGallery({
                       }}
                       onDelete={() => onDeleteVideo(entry.idx)}
                       onCopyPrompt={() => onCopyPrompt(entry.prompt)}
+                      onSendToPlayground={() => {
+                        const v = cardState.videos[entry.idx]
+                        if (v) void sendClipToPlayground(v)
+                      }}
                     />
                   </div>
                 )
@@ -327,6 +332,7 @@ function VideoTile({
   onClick,
   onDelete,
   onCopyPrompt,
+  onSendToPlayground,
 }: {
   videoRef: string
   aspectRatio: string
@@ -335,6 +341,7 @@ function VideoTile({
   onClick: () => void
   onDelete: () => void
   onCopyPrompt: () => void
+  onSendToPlayground: () => void
 }) {
   const url = useAssetUrl(videoRef)
   const videoElRef = useRef<HTMLVideoElement>(null)
@@ -441,7 +448,8 @@ function VideoTile({
         </span>
       )}
       {/* Hover action stack — top-right vertical column, app-wide standard
-          order: download · copy · delete (video has no save-to-bank). */}
+          order: download · copy · send-to-Playground · delete (video has no
+          save-to-bank). */}
       <div className="absolute right-1.5 top-1.5 flex flex-col items-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
         <TileIconButton
           title="Download"
@@ -455,6 +463,12 @@ function VideoTile({
         </TileIconButton>
         <TileIconButton title="Copy prompt" onClick={(e) => { e.stopPropagation(); onCopyPrompt() }}>
           <Copy className="h-4 w-4" />
+        </TileIconButton>
+        <TileIconButton
+          title="Use in Playground as Gemini Omni source clip"
+          onClick={(e) => { e.stopPropagation(); onSendToPlayground() }}
+        >
+          <Film className="h-4 w-4" />
         </TileIconButton>
         <TileDeleteButton onDelete={onDelete} />
       </div>

@@ -12,6 +12,7 @@ import {
   Check,
   Copy,
   Download,
+  Film,
 } from 'lucide-react'
 import GenerationProgress from '../../../components/GenerationProgress'
 import GeneratingBackdrop from '../../../components/GeneratingBackdrop'
@@ -19,6 +20,7 @@ import type { PromptVariation, CardState, GeneratedImage, ReferenceImage } from 
 import type { VideoHistoryItem, Product, Model, BRoll } from '../../../stores/types'
 import { enhanceVariationPrompt, generateNewVariation, startImageTask, finishImageTask } from '../services/generateBroll'
 import { startVideoTask, finishVideoTask } from '../services/generateVideo'
+import { sendClipToPlayground } from '../services/sendClipToPlayground'
 import { isPollTimeout } from '../../../utils/kie'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAppStore } from '../../../stores/appStore'
@@ -850,7 +852,8 @@ export default function VariationCard(props: VariationCardProps) {
           )}
 
           {/* Hover-reveal action stack — top-right vertical column, app-wide
-              standard order: download · save (stills only) · copy · delete.
+              standard order: download · save (stills only) · copy · send-to-
+              Playground (videos only) · delete.
               First delete click flips to a labelled "Confirm" state and keeps
               the column visible. The card body stays clickable to open the
               detail modal. */}
@@ -888,6 +891,16 @@ export default function VariationCard(props: VariationCardProps) {
                 >
                   {copiedPrompt ? <Check className="h-3.5 w-3.5 text-emerald-300" /> : <Copy className="h-3.5 w-3.5" />}
                 </button>
+                {coverKind === 'video' && coverVideo && (
+                  <button
+                    type="button"
+                    title="Use in Playground as Gemini Omni source clip"
+                    onClick={(e) => { e.stopPropagation(); void sendClipToPlayground(coverVideo) }}
+                    className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white backdrop-blur transition-colors hover:bg-black/50"
+                  >
+                    <Film className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </>
             )}
             <button

@@ -331,3 +331,14 @@ export interface CinematicVideoPayload {
   modelId: string
   durationSeconds: number
 }
+
+// Payload for the "use a generated video as a Gemini Omni source clip"
+// handoff (targetField 'videoSourceClip'). `videoRef` stays an asset:// ref —
+// Playground's service resolves those at generate time, and unlike an
+// uploaded data URI the ref survives a refresh (it isn't pruned from the
+// persisted draft).
+export interface VideoSourceClipPayload {
+  videoRef: string
+  durationSeconds?: number
+  label?: string
+}
