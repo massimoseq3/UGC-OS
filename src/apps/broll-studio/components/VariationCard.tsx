@@ -25,7 +25,7 @@ import { useAppStore } from '../../../stores/appStore'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
 import { getAsBase64, getUrl, isAssetRef } from '../../../utils/assetStore'
 import { getModel, type VideoMode, type ImageResolution } from '../../../utils/models'
-import CardDetailModal from './CardDetailModal'
+import CardDetailModal, { type Tab as DetailTab } from './CardDetailModal'
 import { humanizeError } from '../../../utils/friendlyError'
 import { rollTypeForTag, tagLabel, tagChipStyle } from './variationTags'
 import { downloadImage } from '../../../utils/downloadImage'
@@ -107,6 +107,13 @@ export default function VariationCard(props: VariationCardProps) {
   const resolvedImageUrl = useAssetUrl(coverImage?.imageUrl)
   const resolvedVideoUrl = useAssetUrl(coverVideo?.url)
   const [detailOpen, setDetailOpen] = useState(false)
+  // Which tab the modal lands on. The card body opens on Image (unchanged); the
+  // hover shortcuts below jump straight to Image or Video.
+  const [detailTab, setDetailTab] = useState<DetailTab>('image')
+  const openDetail = (tab: DetailTab) => {
+    setDetailTab(tab)
+    setDetailOpen(true)
+  }
   // Extra user-attached reference images (beyond the bank-keyed character /
   // product refs). Memory-only — data: URIs are too big for the persisted card,
   // and they reset on a full refresh (same trade-off as the Influencers editor).
@@ -912,6 +919,33 @@ export default function VariationCard(props: VariationCardProps) {
               <p className="line-clamp-2 text-[10px] leading-relaxed text-red-200 light:text-red-800">{cardState.imageError}</p>
             </div>
           )}
+
+          {/* Hover shortcuts into the card's workspace — one per tab, so the
+              common trip (open the card, switch to Video, generate) is one click.
+              Bottom-RIGHT on purpose: the top-right stack is for acting on the
+              media, not navigating into it. Labels match the modal's own toggle
+              so they read as the control they land on.
+              Text-only, no leading icons: icons pushed the pair to 126px, which
+              ran into the "Click to set up" nudge and a playing card's mute
+              button over on the bottom-left. Words alone clear both. */}
+          <div className="absolute bottom-2 right-2 z-10 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+            <button
+              type="button"
+              title="Open this card on the Image tab"
+              onClick={(e) => { e.stopPropagation(); openDetail('image') }}
+              className="flex h-7 items-center rounded-full border border-white/20 bg-black/50 px-2.5 text-[10px] font-medium text-white backdrop-blur transition-colors hover:bg-black/70"
+            >
+              Image
+            </button>
+            <button
+              type="button"
+              title="Open this card on the Video tab"
+              onClick={(e) => { e.stopPropagation(); openDetail('video') }}
+              className="flex h-7 items-center rounded-full border border-white/20 bg-black/50 px-2.5 text-[10px] font-medium text-white backdrop-blur transition-colors hover:bg-black/70"
+            >
+              Video
+            </button>
+          </div>
         </div>
 
         {/* Bottom text — roll type. Centred + small so it reads as a quiet label. */}
@@ -930,6 +964,7 @@ export default function VariationCard(props: VariationCardProps) {
           cardState={cardState}
           onUpdateState={onUpdateState}
           onClose={() => setDetailOpen(false)}
+          initialTab={detailTab}
           characterRef={characterRef}
           productRef={productRef}
           selectedProduct={selectedProduct}

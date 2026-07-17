@@ -54,7 +54,7 @@ function rekeyAfterDelete(set: Set<number>, removed: number): Set<number> {
   return next
 }
 
-type Tab = 'video' | 'image' | 'animate'
+export type Tab = 'video' | 'image' | 'animate'
 
 interface CardDetailModalProps {
   sceneNumber: number
@@ -63,6 +63,10 @@ interface CardDetailModalProps {
   cardState: CardState
   onUpdateState: (updates: Partial<CardState>) => void
   onClose: () => void
+  // Which tab to land on. The card face's hover shortcuts pass this so one click
+  // gets to Image or Video, instead of opening here and toggling. The modal is
+  // conditionally mounted, so this seeds fresh on every open.
+  initialTab?: Tab
   onDelete?: () => void
   characterRef?: ReferenceImage
   productRef?: ReferenceImage
@@ -114,6 +118,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
     cardState,
     onUpdateState,
     onClose,
+    initialTab,
     selectedProduct,
     selectedModel,
     selectedProductId,
@@ -138,7 +143,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
     handleDismissInFlight,
   } = props
 
-  const [tab, setTab] = useState<Tab>('image')
+  const [tab, setTab] = useState<Tab>(initialTab ?? 'image')
   // Video-model picker is a slide-in side panel (like the ref-image bank
   // picker) rather than an inline dropdown.
   const [modelPanelOpen, setModelPanelOpen] = useState(false)
