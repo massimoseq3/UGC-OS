@@ -371,9 +371,15 @@ Top tabs: **Scenes / History**. Scenes view: a control bar with the scene count
     generation order, then any manually added cards. `displayOrder` (ScenesView) sorts
     the render only — Static stays last in the underlying array.
 
-Each card (`VariationCard.tsx`, portrait `9/16`): tag chip top-left, status badges +
-delete top-right (hover), and a bottom-right hover toolbar **Copy Prompt · Save to
-B-Rolls (stills only) · Download**. Click opens the card detail modal.
+Each card (`VariationCard.tsx`, portrait `9/16`): tag chip top-left (or a neutral
+**Custom** chip on a manually added card); status badges top-right, replaced on hover
+by a vertical action stack **Download · Save to B-Rolls (stills only) · Copy Prompt ·
+Delete** (delete is two-click, flipping to a red "Confirm"). Bottom-left holds the
+play/mute pair on a video cover, or the "Click to set up" nudge. Bottom-right, on
+hover: **Image · Video** — shortcuts that open the detail modal straight onto that
+tab (`initialTab`), so the common trip (open → switch to Video → generate) is one
+click. They're text-only because adding icons widened the pair into the nudge and the
+mute button. Clicking the card body opens the modal on Image, as before.
 
 ### Card detail modal (`components/CardDetailModal.tsx`)
 
