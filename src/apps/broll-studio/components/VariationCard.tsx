@@ -804,7 +804,11 @@ export default function VariationCard(props: VariationCardProps) {
               added option. Video covers move their play/mute controls to the
               bottom-left so this corner stays clear. */}
           {isManual ? (
-            <span className="pointer-events-none absolute left-2 top-2 z-10 rounded-full border border-ink/15 bg-ink/10 px-2 py-0.5 text-[10px] font-medium tracking-tight text-ink-300 backdrop-blur light:text-ink-700">
+            // No `light:` override here: the ink ramp already mirrors per theme,
+            // so ink-300 is the readable tint in both. Adding light:text-ink-700
+            // double-flipped it to near-white on the pale pill and the word
+            // vanished in light mode.
+            <span className="pointer-events-none absolute left-2 top-2 z-10 rounded-full border border-ink/15 bg-ink/10 px-2 py-0.5 text-[10px] font-medium tracking-tight text-ink-300 backdrop-blur">
               Custom
             </span>
           ) : (
