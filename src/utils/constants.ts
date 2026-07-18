@@ -11,6 +11,7 @@ import {
   ImagePlay,
   LayoutDashboard,
   Scissors,
+  Workflow,
 } from 'lucide-react'
 import type { ElementType } from 'react'
 
@@ -48,6 +49,9 @@ export const APP_REGISTRY: AppConfig[] = [
   // Edit closes the create row: everything produced on its left gets cut into
   // a finished ad here (via the downloadable /video-editor Claude skill).
   { id: 'edit-studio', name: 'Edit', icon: Scissors, accent: '#F77646', category: 'create' },
+  // Flows gets its own 'tools' group (divider after Edit): the create row
+  // makes the pieces, Flows chains them into one runnable pipeline.
+  { id: 'flow-studio', name: 'Flows', icon: Workflow, accent: '#D97706', category: 'tools' },
   { id: 'admin', name: 'Admin', icon: Shield, accent: '#fafafa', category: 'admin' },
 ]
 

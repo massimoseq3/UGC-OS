@@ -66,7 +66,7 @@ export default function MeetTheTeam() {
             </span>
           </h2>
           <p className="mx-auto mt-1 max-w-md text-[13px] leading-snug text-ink-500">
-            Eight specialists, one operating system. They share the same banks
+            Nine specialists, one operating system. They share the same banks
             and pass work to each other, so you don't have to.
           </p>
         </div>

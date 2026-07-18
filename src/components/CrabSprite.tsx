@@ -14,6 +14,7 @@ export type CrabVariant =
   | 'playground'
   | 'edit-studio'
   | 'ad-anatomy'
+  | 'flow-studio'
   | 'kie'
 
 interface Px {
@@ -130,6 +131,17 @@ const COSTUMES: Record<CrabVariant, Px[]> = {
     { x: 9, y: 5, w: 1, h: 1, fill: '#EAF1F4' }, // glass — reveals the eye
     { x: 11, y: 7, w: 1, h: 1, fill: DARK }, // handle
     { x: 12, y: 8, w: 1, h: 1, fill: DARK },
+  ],
+
+  // Producer — a little node graph worn on the shell: two golden nodes joined
+  // by a dark wire, plus an antenna up top. Reads as "the one wiring the crew
+  // together" on any body colour (gold pops on the amber tile and dark cards).
+  'flow-studio': [
+    { x: 7, y: 1, w: 1, h: 3, fill: DARK }, // antenna stem
+    { x: 7, y: 0, w: 1, h: 1, fill: '#FFD84D' }, // antenna tip
+    { x: 5, y: 7, w: 1, h: 1, fill: '#FFD84D' }, // node A
+    { x: 6, y: 8, w: 3, h: 1, fill: DARK }, // wire
+    { x: 9, y: 7, w: 1, h: 1, fill: '#FFD84D' }, // node B
   ],
 
   // kie.ai — the power source. Golden body (set in CrabSprite below) with

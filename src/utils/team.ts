@@ -63,6 +63,12 @@ export const TEAM: TeamMember[] = [
     role: 'Video Editor',
     blurb: 'Cuts your script, voiceover and B-roll into a finished captioned ad.',
   },
+  {
+    appId: 'flow-studio',
+    name: 'Flo',
+    role: 'Producer',
+    blurb: 'Wires the whole crew into one pipeline and runs your ad end to end.',
+  },
 ]
 
 export function getTeamMember(appId: string): TeamMember | undefined {

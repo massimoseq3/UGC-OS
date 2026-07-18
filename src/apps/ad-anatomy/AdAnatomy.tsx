@@ -8,7 +8,7 @@ import type { AdAnatomyHistoryItem } from '../../stores/types'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
 import { useAssetUrl } from '../../hooks/useAssetUrl'
 import { saveAsset, deleteAsset } from '../../utils/assetStore'
-import { enqueueAnalysis, resumeAnalysis } from './services/analysisQueue'
+import { enqueueAnalysis, resumeAnalysisTask } from './services/analysisQueue'
 import { useBankStore } from '../../stores/bankStore'
 import { useReportActivity } from '../../stores/activityStore'
 
@@ -47,10 +47,9 @@ export default function AdAnatomy() {
   const deleteAdAnatomyHistory = useBankStore((s) => s.deleteAdAnatomyHistory)
 
   // Mount-time reconciler. Two passes:
-  //  1. Resume any 'analyzing' row that can be re-attached: a kie taskId
-  //     (createTask transport — refresh-safe) or a stored pass-1 perception
-  //     (pass 2 is text-only and restarts without the source file). Flip the
-  //     rest to 'error' (pass-1 streaming rows can't resume).
+  //  1. Resume any 'analyzing' row that still has a kie taskId (createTask
+  //     transport — refresh-safe). Flip the rest to 'error' (streaming
+  //     transport rows can't resume).
   //  2. One-time dedupe of duplicate-pair rows from the pre-fix bulk-drop bug
   //     (same fileName + createdAt within 2s). Guarded by a localStorage flag
   //     so it runs once per browser.
@@ -60,8 +59,8 @@ export default function AdAnatomy() {
     // Pass 1: resume / fail in-flight rows
     for (const item of items) {
       if (item.status !== 'analyzing') continue
-      if (item.taskId || item.perception) {
-        resumeAnalysis(item)
+      if (item.taskId) {
+        resumeAnalysisTask(item.id, item.taskId, item.fileName)
       } else {
         void updateAdAnatomyHistory(item.id, {
           status: 'error',
@@ -229,9 +228,6 @@ function AnalyzingPane({ item }: { item: AdAnatomyHistoryItem }) {
         <h2 className="text-xl font-semibold tracking-tight text-ink-100">
           Analyzing the ad
         </h2>
-        <p className="text-[11px] font-medium uppercase tracking-widest text-[#FF5257]/70">
-          {item.perception ? 'Pass 2 of 2 — strategy & scene prompts' : 'Pass 1 of 2 — logging every cut'}
-        </p>
         {item.fileName && (
           <p className="max-w-md truncate text-[11px] text-ink-600">{item.fileName}</p>
         )}

@@ -544,6 +544,32 @@ exercised by creator-facing tutorials; mapped here only for completeness.
 
 ---
 
+## 12. Flows — `src/apps/flow-studio/`
+
+One full-bleed React Flow canvas (`FlowStudio.tsx`), no scrollable page. Floating
+chrome overlays the canvas corners (all inside the app frame, nothing
+body-portaled):
+
+- **Node palette (top-left)** — `components/NodePalette.tsx`. Two groups,
+  **Sources** (Product · Character · Ad Analyzer) and **Generate** (Script ·
+  Voiceover · B-Roll · Image · Video); clicking a chip adds that node near the
+  canvas origin.
+- **Run bar (top-right)** — credit estimate (`≈ N credits`) · clear-outputs
+  (eraser) · reset-to-starter (rotate, click twice to confirm) · **Run flow**
+  (ink pill, spinner while running).
+- **Config panel (top-right, left of the run bar)** — `components/ConfigPanel.tsx`.
+  Opens when a node is selected; per-kind form (bank selects, brief textarea,
+  voice/model/duration/resolution selects, analyzer file attach) + **Remove
+  node** in the footer.
+
+Node cards (`components/FlowNode.tsx`) are 240px wide: header (accent-tinted
+icon + label + status chip), typed port rows (inputs left, outputs right,
+handles colored by `PORT_COLORS`), then a body that shows the config summary,
+the live progress note while running, the error line, or the output preview
+(image thumbs / audio player / video player / script snippet).
+
+---
+
 ## Maintenance
 
 When you change a pane split, reorder tabs/buttons, rename a control, or move a

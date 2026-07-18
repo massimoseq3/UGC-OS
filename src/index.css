@@ -138,6 +138,14 @@
   --color-dashboard-400: color-mix(in oklab, #059669 80%, white);
   --color-dashboard-500: #059669;
   --color-dashboard-600: color-mix(in oklab, #059669 85%, black);
+
+  /* Flows — amber #D97706 */
+  --color-flows-100: color-mix(in oklab, #D97706 25%, white);
+  --color-flows-200: color-mix(in oklab, #D97706 40%, white);
+  --color-flows-300: color-mix(in oklab, #D97706 60%, white);
+  --color-flows-400: color-mix(in oklab, #D97706 80%, white);
+  --color-flows-500: #D97706;
+  --color-flows-600: color-mix(in oklab, #D97706 85%, black);
 }
 
 /* ---- Light mode ----
@@ -212,6 +220,12 @@
   --color-dashboard-300: color-mix(in oklab, #059669 70%, black);
   --color-dashboard-400: color-mix(in oklab, #059669 95%, black);
   --color-dashboard-600: color-mix(in oklab, #059669 85%, black);
+
+  --color-flows-100: color-mix(in oklab, #D97706 35%, black);
+  --color-flows-200: color-mix(in oklab, #D97706 50%, black);
+  --color-flows-300: color-mix(in oklab, #D97706 70%, black);
+  --color-flows-400: color-mix(in oklab, #D97706 95%, black);
+  --color-flows-600: color-mix(in oklab, #D97706 85%, black);
 }
 
 html,

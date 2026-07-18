@@ -27,6 +27,7 @@ const VoiceStudio = lazy(() => import('./apps/voice-studio/VoiceStudio'))
 const BrollStudio = lazy(() => import('./apps/broll-studio/BrollStudio'))
 const Playground = lazy(() => import('./apps/playground/Playground'))
 const EditStudio = lazy(() => import('./apps/edit-studio/EditStudio'))
+const FlowStudio = lazy(() => import('./apps/flow-studio/FlowStudio'))
 const Dashboard = lazy(() => import('./apps/dashboard/Dashboard'))
 const AdminPanel = lazy(() => import('./apps/admin/AdminPanel'))
 
@@ -44,6 +45,7 @@ const APP_COMPONENTS: Record<string, React.ComponentType> = {
   'broll-studio': BrollStudio,
   'playground': Playground,
   'edit-studio': EditStudio,
+  'flow-studio': FlowStudio,
   'dashboard': Dashboard,
   'admin': AdminPanel,
 }
