@@ -10,6 +10,7 @@ import {
 import type { FlowEdge, FlowNode, FlowNodeData, NodeConfig, NodeKind, PortType } from '../types'
 import { PORT_COLORS } from '../types'
 import { NODE_DEFS } from '../nodeDefs'
+import { buildTemplate, makeEdge, makeNode } from '../templates'
 import { dropNodeFile } from '../services/nodeFiles'
 
 // Per-browser canvas state (same idiom as themeStore/omniVoiceStore: own
@@ -21,7 +22,12 @@ const STORAGE_KEY = 'ai-ugc-lab-flows'
 interface FlowState {
   nodes: FlowNode[]
   edges: FlowEdge[]
-  selectedNodeId: string | null
+  // Node whose edit sheet is open (click a card to open, backdrop/X to close).
+  sheetNodeId: string | null
+  // "Start from scratch" was chosen — suppresses the template chooser that an
+  // empty canvas otherwise shows. Not persisted: an empty canvas after a
+  // reload gets the chooser again, which is the friendly default.
+  scratch: boolean
   running: boolean
 
   onNodesChange: (changes: NodeChange<FlowNode>[]) => void
@@ -30,11 +36,16 @@ interface FlowState {
   isValidConnection: (connection: Connection | FlowEdge) => boolean
 
   addNode: (kind: NodeKind, position?: { x: number; y: number }) => string
+  // The "+ Next step" path: create `kind` to the right of `sourceId`, already
+  // wired from sourceHandle → targetHandle.
+  addNodeAfter: (sourceId: string, sourceHandle: string, kind: NodeKind, targetHandle: string) => void
   removeNode: (id: string) => void
   updateNodeConfig: (id: string, patch: Partial<NodeConfig>) => void
   setNodeRuntime: (id: string, patch: Partial<Pick<FlowNodeData, 'status' | 'error' | 'output' | 'note'>>) => void
-  setSelected: (id: string | null) => void
+  setSheetNode: (id: string | null) => void
+  setScratch: (scratch: boolean) => void
   setRunning: (running: boolean) => void
+  applyTemplate: (templateId: string) => void
   clearOutputs: () => void
   resetFlow: () => void
 }
@@ -52,7 +63,14 @@ function normalizeNode(node: FlowNode): FlowNode {
   return {
     ...node,
     type: 'flowNode',
-    data: { ...node.data, status, note: undefined },
+    data: {
+      ...node.data,
+      // Merge over defaults so configs saved before a field existed (e.g. the
+      // Bank/Generate `source` toggle) pick up sane values instead of undefined.
+      config: { ...NODE_DEFS[node.data.kind].defaultConfig(), ...node.data.config } as NodeConfig,
+      status,
+      note: undefined,
+    },
   }
 }
 
@@ -83,49 +101,9 @@ function persistSoon(get: () => FlowState) {
   }, 300)
 }
 
-// ── Starter flow ───────────────────────────────────────────────────
-// Seeded on the very first open so the canvas explains itself: the classic
-// Product → Script → Voiceover + B-Roll pipeline, unconfigured.
-
-function makeNode(kind: NodeKind, x: number, y: number): FlowNode {
-  return {
-    id: crypto.randomUUID(),
-    type: 'flowNode',
-    position: { x, y },
-    data: { kind, config: NODE_DEFS[kind].defaultConfig(), status: 'idle' },
-  }
-}
-
-function edgeBetween(source: FlowNode, sourceHandle: string, target: FlowNode, targetHandle: string): FlowEdge {
-  const type = NODE_DEFS[source.data.kind].outputs.find((p) => p.id === sourceHandle)?.type
-  return {
-    id: `e-${source.id}-${sourceHandle}-${target.id}-${targetHandle}`,
-    source: source.id,
-    sourceHandle,
-    target: target.id,
-    targetHandle,
-    style: { stroke: type ? PORT_COLORS[type] : undefined, strokeWidth: 1.5 },
-  }
-}
-
-function starterFlow(): { nodes: FlowNode[]; edges: FlowEdge[] } {
-  const product = makeNode('product', 40, 200)
-  const script = makeNode('script', 360, 170)
-  const voice = makeNode('voiceover', 700, 60)
-  const broll = makeNode('broll', 700, 300)
-  return {
-    nodes: [product, script, voice, broll],
-    edges: [
-      edgeBetween(product, 'product', script, 'product'),
-      edgeBetween(script, 'script', voice, 'script'),
-      edgeBetween(script, 'script', broll, 'script'),
-    ],
-  }
-}
-
 // ── Store ──────────────────────────────────────────────────────────
 
-const initial = loadStored() ?? starterFlow()
+const initial = loadStored() ?? { nodes: [], edges: [] }
 
 function portType(nodes: FlowNode[], nodeId: string | null, handleId: string | null | undefined, dir: 'source' | 'target'): PortType | undefined {
   const node = nodes.find((n) => n.id === nodeId)
@@ -138,7 +116,8 @@ function portType(nodes: FlowNode[], nodeId: string | null, handleId: string | n
 export const useFlowStore = create<FlowState>((set, get) => ({
   nodes: initial.nodes,
   edges: initial.edges,
-  selectedNodeId: null,
+  sheetNodeId: null,
+  scratch: false,
   running: false,
 
   onNodesChange: (changes) => {
@@ -182,9 +161,22 @@ export const useFlowStore = create<FlowState>((set, get) => ({
 
   addNode: (kind, position) => {
     const node = makeNode(kind, position?.x ?? 120, position?.y ?? 120)
-    set((s) => ({ nodes: [...s.nodes, node], selectedNodeId: node.id }))
+    set((s) => ({ nodes: [...s.nodes, node] }))
     persistSoon(get)
     return node.id
+  },
+
+  addNodeAfter: (sourceId, sourceHandle, kind, targetHandle) => {
+    const { nodes, edges } = get()
+    const source = nodes.find((n) => n.id === sourceId)
+    if (!source) return
+    // Place to the right of the source; each additional branch off the same
+    // node steps down so siblings (voiceover + b-roll) don't stack.
+    const branchCount = edges.filter((e) => e.source === sourceId).length
+    const node = makeNode(kind, source.position.x + 330, source.position.y + branchCount * 190)
+    const edge = makeEdge(source, sourceHandle, node, targetHandle)
+    set((s) => ({ nodes: [...s.nodes, node], edges: [...s.edges, edge] }))
+    persistSoon(get)
   },
 
   removeNode: (id) => {
@@ -192,7 +184,7 @@ export const useFlowStore = create<FlowState>((set, get) => ({
     set((s) => ({
       nodes: s.nodes.filter((n) => n.id !== id),
       edges: s.edges.filter((e) => e.source !== id && e.target !== id),
-      selectedNodeId: s.selectedNodeId === id ? null : s.selectedNodeId,
+      sheetNodeId: s.sheetNodeId === id ? null : s.sheetNodeId,
     }))
     persistSoon(get)
   },
@@ -213,8 +205,17 @@ export const useFlowStore = create<FlowState>((set, get) => ({
     persistSoon(get)
   },
 
-  setSelected: (id) => set({ selectedNodeId: id }),
+  setSheetNode: (id) => set({ sheetNodeId: id }),
+  setScratch: (scratch) => set({ scratch }),
   setRunning: (running) => set({ running }),
+
+  applyTemplate: (templateId) => {
+    const built = buildTemplate(templateId)
+    if (!built) return
+    get().nodes.forEach((n) => dropNodeFile(n.id))
+    set({ nodes: built.nodes, edges: built.edges, sheetNodeId: null, scratch: false })
+    persistSoon(get)
+  },
 
   clearOutputs: () => {
     set((s) => ({
@@ -228,8 +229,7 @@ export const useFlowStore = create<FlowState>((set, get) => ({
 
   resetFlow: () => {
     get().nodes.forEach((n) => dropNodeFile(n.id))
-    const fresh = starterFlow()
-    set({ nodes: fresh.nodes, edges: fresh.edges, selectedNodeId: null })
+    set({ nodes: [], edges: [], sheetNodeId: null, scratch: false })
     persistSoon(get)
   },
 }))

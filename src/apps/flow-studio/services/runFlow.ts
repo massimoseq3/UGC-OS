@@ -133,6 +133,16 @@ const runAnalyzer: Executor = async ({ node, note }) => {
 
 const runScript: Executor = async ({ node, inputs, note }) => {
   const cfg = node.data.config as ScriptNodeConfig
+
+  // "From Bank": hand the saved script straight through — no LLM, no credits.
+  if (cfg.source === 'bank') {
+    const row = cfg.bankScriptId
+      ? useBankStore.getState().scripts.find((s) => s.id === cfg.bankScriptId)
+      : undefined
+    if (!row) throw new Error('Pick a script from your Bank in this card.')
+    return { script: { type: 'script', text: row.scriptText } }
+  }
+
   const product = first(inputs.product, 'product')
   const transcript = first(inputs.script, 'script')
   const bank = useBankStore.getState()
@@ -196,6 +206,16 @@ const runScript: Executor = async ({ node, inputs, note }) => {
 
 const runVoiceover: Executor = async ({ node, inputs, note }) => {
   const cfg = node.data.config as VoiceoverNodeConfig
+
+  // "From Bank": reuse an already-generated read from voice history.
+  if (cfg.source === 'bank') {
+    const item = cfg.historyId
+      ? useBankStore.getState().voiceHistory.find((h) => h.id === cfg.historyId)
+      : undefined
+    if (!item) throw new Error('Pick a saved voiceover in this card.')
+    return { audio: { type: 'audio', assetRef: item.audioUrl } }
+  }
+
   const script = first(inputs.script, 'script')
   if (!script?.text.trim()) throw new Error('Connect a Script to this node first.')
 
@@ -215,6 +235,14 @@ const runVoiceover: Executor = async ({ node, inputs, note }) => {
 
 const runBroll: Executor = async ({ node, inputs, note }) => {
   const cfg = node.data.config as BrollNodeConfig
+
+  // "From Bank": pass the picked stills through as-is.
+  if (cfg.source === 'bank') {
+    const rows = useBankStore.getState().brolls.filter((b) => cfg.bankBrollIds.includes(b.id))
+    if (rows.length === 0) throw new Error('Pick at least one still from your Bank in this card.')
+    return { images: { type: 'image', refs: rows.map((r) => r.imageUrl) } }
+  }
+
   const script = first(inputs.script, 'script')
   if (!script?.text.trim()) throw new Error('Connect a Script to this node first.')
 
@@ -310,6 +338,16 @@ function resolveImageModel(modelId: string, hasRefs: boolean): string {
 
 const runImage: Executor = async ({ node, inputs, note }) => {
   const cfg = node.data.config as ImageNodeConfig
+
+  // "From Bank": pass a saved image through.
+  if (cfg.source === 'bank') {
+    const item = cfg.historyId
+      ? useBankStore.getState().imageHistory.find((i) => i.id === cfg.historyId)
+      : undefined
+    if (!item) throw new Error('Pick a saved image in this card.')
+    return { image: { type: 'image', refs: [item.imageUrl] } }
+  }
+
   if (!cfg.prompt.trim()) throw new Error('Write a prompt in this node first.')
 
   const bank = useBankStore.getState()
@@ -491,11 +529,14 @@ export async function runFlow(): Promise<{ ok: boolean; failed: number }> {
   return { ok: failed === 0, failed }
 }
 
-// Rough pre-run cost, credits-only (chat-backed steps are ~free and excluded).
+// Rough pre-run cost, credits-only. Chat-backed steps are ~free and excluded;
+// "From Bank" nodes reuse saved assets so they cost nothing.
 export function estimateFlowCredits(nodes: FlowNode[]): number {
   let total = 0
   for (const n of nodes) {
     const d = n.data
+    const source = (d.config as { source?: string }).source
+    if (source === 'bank') continue
     if (d.kind === 'image') {
       total += estimateCredits((d.config as ImageNodeConfig).modelId, { imageCount: 1 }) ?? 0
     } else if (d.kind === 'video') {

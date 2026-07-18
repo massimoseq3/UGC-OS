@@ -11,7 +11,8 @@ import { Eraser, Loader2, Play, RotateCcw } from 'lucide-react'
 
 import FlowNodeCard from './components/FlowNode'
 import NodePalette from './components/NodePalette'
-import ConfigPanel from './components/ConfigPanel'
+import NodeSheet from './components/NodeSheet'
+import TemplateChooser from './components/TemplateChooser'
 import { useFlowStore } from './stores/flowStore'
 import { runFlow, estimateFlowCredits, MissingApiKeyError } from './services/runFlow'
 import { useAppStore } from '../../stores/appStore'
@@ -28,7 +29,8 @@ function FlowCanvas() {
   const onEdgesChange = useFlowStore((s) => s.onEdgesChange)
   const onConnect = useFlowStore((s) => s.onConnect)
   const isValidConnection = useFlowStore((s) => s.isValidConnection)
-  const setSelected = useFlowStore((s) => s.setSelected)
+  const setSheetNode = useFlowStore((s) => s.setSheetNode)
+  const scratch = useFlowStore((s) => s.scratch)
   const running = useFlowStore((s) => s.running)
   const setRunning = useFlowStore((s) => s.setRunning)
   const clearOutputs = useFlowStore((s) => s.clearOutputs)
@@ -39,6 +41,7 @@ function FlowCanvas() {
 
   const estimate = useMemo(() => estimateFlowCredits(nodes), [nodes])
   const estimateText = formatCredits(estimate)
+  const showChooser = nodes.length === 0 && !scratch
 
   const handleRun = useCallback(async () => {
     if (running || nodes.length === 0) return
@@ -67,8 +70,7 @@ function FlowCanvas() {
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         isValidConnection={isValidConnection}
-        onNodeClick={(_, node) => setSelected(node.id)}
-        onPaneClick={() => setSelected(null)}
+        onNodeClick={(_, node) => setSheetNode(node.id)}
         colorMode={theme}
         fitView
         fitViewOptions={{ padding: 0.25, maxZoom: 1 }}
@@ -82,16 +84,15 @@ function FlowCanvas() {
 
       {/* Floating chrome — inside the app frame, never body-portaled */}
       <div className="pointer-events-none absolute inset-0 flex items-start justify-between p-4">
-        <NodePalette />
-        <div className="flex items-start gap-3">
-          <ConfigPanel />
+        {!showChooser && <NodePalette />}
+        {!showChooser && (
           <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-ink/10 bg-surface-1/90 py-1.5 pl-4 pr-1.5 shadow-xl shadow-black/10 backdrop-blur-xl">
             {estimateText && (
               <span className="whitespace-nowrap text-[11px] text-ink-500">≈ {estimateText}</span>
             )}
             <button
               onClick={clearOutputs}
-              title="Clear results (keeps the graph)"
+              title="Clear results (keeps the steps)"
               className="rounded-full p-2 text-ink-500 transition-colors duration-150 hover:bg-ink/5 hover:text-ink-200"
             >
               <Eraser className="h-4 w-4" />
@@ -106,7 +107,7 @@ function FlowCanvas() {
                 setConfirmReset(false)
                 resetFlow()
               }}
-              title={confirmReset ? 'Click again to confirm' : 'Reset to the starter flow'}
+              title={confirmReset ? 'Click again to confirm' : 'Start over (pick a new recipe)'}
               className={`rounded-full p-2 transition-colors duration-150 hover:bg-ink/5 ${
                 confirmReset ? 'text-red-400 light:text-red-600' : 'text-ink-500 hover:text-ink-200'
               }`}
@@ -122,8 +123,11 @@ function FlowCanvas() {
               {running ? 'Running…' : 'Run flow'}
             </button>
           </div>
-        </div>
+        )}
       </div>
+
+      {showChooser && <TemplateChooser />}
+      <NodeSheet />
     </div>
   )
 }

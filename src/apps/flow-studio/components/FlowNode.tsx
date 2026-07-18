@@ -1,6 +1,6 @@
-import { memo } from 'react'
+import { memo, useState } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
-import { AlertCircle, Check, Loader2 } from 'lucide-react'
+import { AlertCircle, Bookmark, Check, Loader2, Plus } from 'lucide-react'
 import type {
   AnalyzerNodeConfig,
   BrollNodeConfig,
@@ -14,7 +14,8 @@ import type {
   VoiceoverNodeConfig,
 } from '../types'
 import { PORT_COLORS } from '../types'
-import { NODE_DEFS } from '../nodeDefs'
+import { NODE_DEFS, nextStepsFor } from '../nodeDefs'
+import { useFlowStore } from '../stores/flowStore'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
 import { getModel } from '../../../utils/models'
@@ -88,37 +89,74 @@ function ConfigSummary({ data }: { data: FlowNodeType['data'] }) {
   const { kind, config } = data
   const products = useBankStore((s) => s.products)
   const models = useBankStore((s) => s.models)
+  const scripts = useBankStore((s) => s.scripts)
+  const voiceHistory = useBankStore((s) => s.voiceHistory)
 
   let text = ''
+  let fromBank = false
   if (kind === 'product') {
     const c = config as ProductNodeConfig
-    text = products.find((p) => p.id === c.productId)?.productName ?? 'Pick a product'
+    text = products.find((p) => p.id === c.productId)?.productName ?? 'Tap to pick a product'
   } else if (kind === 'character') {
     const c = config as CharacterNodeConfig
-    text = models.find((m) => m.id === c.bankModelId)?.name ?? 'Pick a character'
+    text = models.find((m) => m.id === c.bankModelId)?.name ?? 'Tap to pick a character'
   } else if (kind === 'analyzer') {
     const c = config as AnalyzerNodeConfig
-    text = c.fileName ?? 'Attach an ad video'
+    text = c.fileName ?? 'Tap to attach an ad video'
   } else if (kind === 'script') {
     const c = config as ScriptNodeConfig
-    text = c.brief.trim() ? c.brief : 'Remixes a connected transcript, or writes from a brief'
+    if (c.source === 'bank') {
+      fromBank = true
+      text = c.bankScriptId
+        ? scripts.find((s) => s.id === c.bankScriptId)?.title ?? 'Tap to pick a script'
+        : 'Tap to pick a script'
+    } else {
+      text = c.brief.trim() ? c.brief : 'Remixes a connected transcript, or writes from a brief'
+    }
   } else if (kind === 'voiceover') {
     const c = config as VoiceoverNodeConfig
-    text = c.voiceName
+    if (c.source === 'bank') {
+      fromBank = true
+      const item = c.historyId ? voiceHistory.find((h) => h.id === c.historyId) : undefined
+      text = item ? `${item.voiceName} — ${item.scriptPreview}` : 'Tap to pick a saved voiceover'
+    } else {
+      text = c.voiceName
+    }
   } else if (kind === 'broll') {
     const c = config as BrollNodeConfig
-    text = `Up to ${c.maxScenes} scene${c.maxScenes === 1 ? '' : 's'} · ${c.aspectRatio}`
+    if (c.source === 'bank') {
+      fromBank = true
+      text = c.bankBrollIds.length > 0
+        ? `${c.bankBrollIds.length} still${c.bankBrollIds.length === 1 ? '' : 's'} from your Bank`
+        : 'Tap to pick stills'
+    } else {
+      text = `Up to ${c.maxScenes} scene${c.maxScenes === 1 ? '' : 's'} · ${c.aspectRatio}`
+    }
   } else if (kind === 'image') {
     const c = config as ImageNodeConfig
-    const modelName = getModel(c.modelId)?.displayName ?? c.modelId
-    text = c.prompt.trim() ? c.prompt : `${modelName} — write a prompt`
+    if (c.source === 'bank') {
+      fromBank = true
+      text = c.historyId ? 'Saved image' : 'Tap to pick an image'
+    } else {
+      const modelName = getModel(c.modelId)?.displayName ?? c.modelId
+      text = c.prompt.trim() ? c.prompt : `${modelName} — write a prompt`
+    }
   } else if (kind === 'video') {
     const c = config as VideoNodeConfig
     const modelName = getModel(c.modelId)?.displayName ?? c.modelId
     text = c.prompt.trim() ? c.prompt : `${modelName} — prompt or start frame`
   }
 
-  return <p className="line-clamp-2 text-[11px] leading-snug text-ink-500">{text}</p>
+  return (
+    <p className="line-clamp-2 text-[11px] leading-snug text-ink-500">
+      {fromBank && (
+        <span className="mr-1 inline-flex items-center gap-0.5 align-middle text-[9px] font-medium uppercase tracking-wide text-amber-400 light:text-amber-600">
+          <Bookmark className="h-2.5 w-2.5" /> Bank
+        </span>
+      )}
+      {text}
+    </p>
+  )
 }
 
 function StatusChip({ status }: { status: FlowNodeType['data']['status'] }) {
@@ -129,7 +167,58 @@ function StatusChip({ status }: { status: FlowNodeType['data']['status'] }) {
   return null
 }
 
-function FlowNodeCard({ data, selected }: NodeProps<FlowNodeType>) {
+// "+ Next step" — the no-wire way to grow the flow: lists only the steps that
+// can accept this node's output, adds them pre-wired and auto-placed.
+function NextStepButton({ nodeId, kind }: { nodeId: string; kind: FlowNodeType['data']['kind'] }) {
+  const [open, setOpen] = useState(false)
+  const addNodeAfter = useFlowStore((s) => s.addNodeAfter)
+  const steps = nextStepsFor(kind)
+  if (steps.length === 0) return null
+
+  return (
+    <div className="nodrag nopan relative border-t border-ink/10">
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          setOpen((v) => !v)
+        }}
+        className="flex w-full items-center justify-center gap-1 rounded-b-2xl py-1.5 text-[10px] font-medium text-ink-500 transition-colors duration-150 hover:bg-ink/5 hover:text-ink-200"
+      >
+        <Plus className="h-3 w-3" />
+        Next step
+      </button>
+      {open && (
+        <div className="absolute left-1/2 top-full z-10 mt-1 w-44 -translate-x-1/2 space-y-0.5 rounded-2xl border border-ink/10 bg-surface-2 p-1.5 shadow-xl shadow-black/20">
+          {steps.map((step) => {
+            const stepDef = NODE_DEFS[step.kind]
+            const StepIcon = stepDef.icon
+            return (
+              <button
+                key={`${step.sourcePort}-${step.kind}`}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setOpen(false)
+                  addNodeAfter(nodeId, step.sourcePort, step.kind, step.targetPort)
+                }}
+                className="flex w-full items-center gap-2 rounded-full px-2 py-1.5 text-left transition-colors duration-150 hover:bg-ink/5"
+              >
+                <span
+                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full"
+                  style={{ backgroundColor: `${stepDef.accent}26` }}
+                >
+                  <StepIcon className="h-3 w-3" style={{ color: stepDef.accent }} strokeWidth={2} />
+                </span>
+                <span className="text-xs text-ink-300">{stepDef.label}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function FlowNodeCard({ id, data, selected }: NodeProps<FlowNodeType>) {
   const def = NODE_DEFS[data.kind]
   const Icon = def.icon
   const rows = [
@@ -211,6 +300,8 @@ function FlowNodeCard({ data, selected }: NodeProps<FlowNodeType>) {
           <ConfigSummary data={data} />
         )}
       </div>
+
+      <NextStepButton nodeId={id} kind={data.kind} />
     </div>
   )
 }
