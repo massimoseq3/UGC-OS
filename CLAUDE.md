@@ -6,7 +6,7 @@ You are building **UGC OS** — a browser-based, macOS-style workspace that unif
 
 **Who it's for / why.** A private Skool community of solo creators and small teams producing AI UGC ads at scale — access is gated by an email allowlist synced from Skool, so non-members can't sign up even with the URL. The pitch is one workspace instead of seven tabs: the same product, character, script, voice, and B-Roll flow across every app via the shared banks. Inference cost is on the member (BYO kie.ai key), so the operator only pays for hosting + storage.
 
-Dock order: **Dashboard** (own 'system' group) | **Bank** | **Ad Analyzer + the Create apps** (one group, analyzer leads — analyze first, then produce; **Edit** closes it — cut what you produced) | Settings utility tile. Fresh visits land on the Dashboard (`DEFAULT_SLUG`). Display names are terse nouns, not action verbs. Folder names and the `id` strings in `src/utils/constants.ts` are **stable** — they key per-app model selections in localStorage. Do not rename them.
+Dock order: **Dashboard** (own 'system' group) | **Bank** | **the Create apps** (Characters → Scripts → Voiceovers → B-Roll → **Edit**, which closes the row — cut what you produced) | **Tools** (Playground, Ad Analyzer) | Settings utility tile. Fresh visits land on the Dashboard (`DEFAULT_SLUG`). Display names are terse nouns, not action verbs. Folder names and the `id` strings in `src/utils/constants.ts` are **stable** — they key per-app model selections in localStorage. Do not rename them.
 
 | Section | Sidebar entry | Folder | Job |
 |---|---|---|---|

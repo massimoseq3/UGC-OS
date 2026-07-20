@@ -21,12 +21,6 @@ export const TEAM: TeamMember[] = [
     blurb: 'Keeps every product, character, script and clip filed and ready to reuse.',
   },
   {
-    appId: 'ad-anatomy',
-    name: 'Scout',
-    role: 'Strategist',
-    blurb: 'Tears down winning ads and tells you exactly why they work.',
-  },
-  {
     appId: 'character-studio',
     name: 'Clawdia',
     role: 'Casting Director',
@@ -51,6 +45,12 @@ export const TEAM: TeamMember[] = [
     blurb: 'Turns scripts into scenes and shoots four takes of every one.',
   },
   {
+    appId: 'edit-studio',
+    name: 'Snips',
+    role: 'Video Editor',
+    blurb: 'Cuts your script, voiceover and B-roll into a finished captioned ad.',
+  },
+  {
     appId: 'playground',
     name: 'Sebastian',
     role: 'Creative Director',
@@ -58,10 +58,10 @@ export const TEAM: TeamMember[] = [
     roleColor: '#1FA08C',
   },
   {
-    appId: 'edit-studio',
-    name: 'Snips',
-    role: 'Video Editor',
-    blurb: 'Cuts your script, voiceover and B-roll into a finished captioned ad.',
+    appId: 'ad-anatomy',
+    name: 'Scout',
+    role: 'Strategist',
+    blurb: 'Tears down winning ads and tells you exactly why they work.',
   },
 ]
 
