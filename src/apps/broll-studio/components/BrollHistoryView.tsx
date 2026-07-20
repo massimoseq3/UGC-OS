@@ -171,10 +171,11 @@ function HistoryRow({
           }
           onDelete()
         }}
-        className={`flex h-7 shrink-0 items-center justify-center gap-1 rounded-full px-2 transition-all ${
+        // Idle is a fixed 7×7 circle; only "Confirm" grows into a pill.
+        className={`flex h-7 shrink-0 items-center justify-center rounded-full transition-all ${
           confirming
-            ? 'bg-red-500/30 text-red-100 light:text-red-900 opacity-100 ring-1 ring-red-400/60'
-            : `text-ink-500 hover:bg-red-500/10 hover:text-red-400 light:hover:text-red-600 ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`
+            ? 'gap-1 px-2 bg-red-500/30 text-red-100 light:text-red-900 opacity-100 ring-1 ring-red-400/60'
+            : `w-7 text-ink-500 hover:bg-red-500/10 hover:text-red-400 light:hover:text-red-600 ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`
         }`}
         title={confirming ? 'Click again to delete' : 'Delete'}
       >
