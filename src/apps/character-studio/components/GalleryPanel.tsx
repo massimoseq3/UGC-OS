@@ -499,10 +499,12 @@ function HistoryTile({
             title={a.deleting ? 'Deleting…' : a.confirmingDelete ? 'Click again to delete' : 'Delete'}
             onClick={(e) => { e.stopPropagation(); a.handleDelete() }}
             disabled={a.deleting}
-            className={`flex h-8 items-center justify-center gap-1 rounded-full border px-2 transition-colors disabled:cursor-wait ${
+            // Idle state is a fixed 8×8 circle, matching TileIconButton above
+            // it; only the "Confirm" state grows into a pill for its label.
+            className={`flex h-8 items-center justify-center rounded-full border transition-colors disabled:cursor-wait ${
               a.confirmingDelete
-                ? 'border-red-400/60 bg-red-500/55 text-red-50'
-                : 'border-white/20 bg-black/55 text-white hover:bg-red-500/45 hover:text-red-100 hover:border-red-400/40 disabled:hover:bg-black/55 disabled:hover:text-white'
+                ? 'gap-1 px-2 border-red-400/60 bg-red-500/55 text-red-50'
+                : 'w-8 border-white/20 bg-black/55 text-white hover:bg-red-500/45 hover:text-red-100 hover:border-red-400/40 disabled:hover:bg-black/55 disabled:hover:text-white'
             }`}
           >
             {a.deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
@@ -778,10 +780,11 @@ function ListRowDeleteButton({
       title={deleting ? 'Deleting…' : confirming ? 'Click again to delete' : 'Delete'}
       onClick={(e) => { e.stopPropagation(); onClick() }}
       disabled={deleting}
-      className={`flex h-6 shrink-0 items-center justify-center gap-1 rounded-full border px-1.5 transition-colors disabled:cursor-wait ${
+      // Idle state is a fixed 6×6 circle; only "Confirm" grows into a pill.
+      className={`flex h-6 shrink-0 items-center justify-center rounded-full border transition-colors disabled:cursor-wait ${
         confirming
-          ? 'border-red-400/50 bg-red-500/20 text-red-300 light:text-red-700'
-          : 'border-ink/10 bg-ink/[0.03] text-ink-300 hover:border-red-400/40 hover:bg-red-500/15 hover:text-red-300'
+          ? 'gap-1 px-1.5 border-red-400/50 bg-red-500/20 text-red-300 light:text-red-700'
+          : 'w-6 border-ink/10 bg-ink/[0.03] text-ink-300 hover:border-red-400/40 hover:bg-red-500/15 hover:text-red-300'
       }`}
     >
       {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
