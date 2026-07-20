@@ -47,8 +47,8 @@ export const APP_REGISTRY: AppConfig[] = [
   { id: 'edit-studio', name: 'Edit', icon: Scissors, accent: '#F77646', category: 'create' },
   // Tools sit past the divider after Edit — free-form surfaces that aren't a
   // step in the production line.
-  { id: 'playground', name: 'Playground', icon: ImagePlay, accent: '#015C52', category: 'tools' },
   { id: 'ad-anatomy', name: 'Ad Analyzer', icon: Eye, accent: '#FF5257', category: 'tools' },
+  { id: 'playground', name: 'Playground', icon: ImagePlay, accent: '#015C52', category: 'tools' },
   { id: 'admin', name: 'Admin', icon: Shield, accent: '#fafafa', category: 'admin' },
 ]
 

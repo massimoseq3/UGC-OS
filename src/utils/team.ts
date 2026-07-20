@@ -51,17 +51,17 @@ export const TEAM: TeamMember[] = [
     blurb: 'Cuts your script, voiceover and B-roll into a finished captioned ad.',
   },
   {
+    appId: 'ad-anatomy',
+    name: 'Scout',
+    role: 'Strategist',
+    blurb: 'Tears down winning ads and tells you exactly why they work.',
+  },
+  {
     appId: 'playground',
     name: 'Sebastian',
     role: 'Creative Director',
     blurb: 'The do-anything senior — freeform images, video and music on demand.',
     roleColor: '#1FA08C',
-  },
-  {
-    appId: 'ad-anatomy',
-    name: 'Scout',
-    role: 'Strategist',
-    blurb: 'Tears down winning ads and tells you exactly why they work.',
   },
 ]
 
