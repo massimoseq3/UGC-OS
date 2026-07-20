@@ -37,17 +37,18 @@ export interface AppConfig {
 export const APP_REGISTRY: AppConfig[] = [
   { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard, accent: '#059669', category: 'system' },
   { id: 'finder', name: 'Bank', icon: Bookmark, accent: '#a1a1aa', category: 'library' },
-  // Ad Analyzer sits in the create group (leftmost, no divider vs Characters):
-  // analyze a winning ad first, then produce — the dock reads left-to-right.
-  { id: 'ad-anatomy', name: 'Ad Analyzer', icon: Eye, accent: '#FF5257', category: 'create' },
+  // The create group runs the production line in order: character → script →
+  // voice → B-Roll → Edit, which closes the row (everything produced on its
+  // left gets cut into a finished ad via the /video-editor Claude skill).
   { id: 'character-studio', name: 'Characters', icon: UserRound, accent: '#F74F9E', category: 'create' },
   { id: 'script-architect', name: 'Scripts', icon: PenLine, accent: '#24365A', category: 'create' },
   { id: 'voice-studio', name: 'Voiceovers', icon: Mic, accent: '#007AFF', category: 'create' },
   { id: 'broll-studio', name: 'B-Roll', icon: Film, accent: '#7165FF', category: 'create' },
-  { id: 'playground', name: 'Playground', icon: ImagePlay, accent: '#015C52', category: 'create' },
-  // Edit closes the create row: everything produced on its left gets cut into
-  // a finished ad here (via the downloadable /video-editor Claude skill).
   { id: 'edit-studio', name: 'Edit', icon: Scissors, accent: '#F77646', category: 'create' },
+  // Tools sit past the divider after Edit — free-form surfaces that aren't a
+  // step in the production line.
+  { id: 'playground', name: 'Playground', icon: ImagePlay, accent: '#015C52', category: 'tools' },
+  { id: 'ad-anatomy', name: 'Ad Analyzer', icon: Eye, accent: '#FF5257', category: 'tools' },
   { id: 'admin', name: 'Admin', icon: Shield, accent: '#fafafa', category: 'admin' },
 ]
 

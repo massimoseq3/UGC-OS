@@ -940,10 +940,12 @@ export default function VariationCard(props: VariationCardProps) {
                 }
                 onDelete()
               }}
-              className={`flex h-7 items-center justify-center gap-1 rounded-full border px-2 backdrop-blur transition-colors ${
+              // Idle state is a fixed 7×7 circle (matching its siblings in the
+              // stack); only the "Confirm" state grows into a pill.
+              className={`flex h-7 items-center justify-center rounded-full border backdrop-blur transition-colors ${
                 confirmingDelete
-                  ? 'border-red-400/60 bg-red-500/45 text-red-50 hover:bg-red-500/55'
-                  : 'border-white/20 bg-black/35 text-white hover:bg-red-500/30 hover:text-red-100 hover:border-red-400/40'
+                  ? 'gap-1 px-2 border-red-400/60 bg-red-500/45 text-red-50 hover:bg-red-500/55'
+                  : 'w-7 border-white/20 bg-black/35 text-white hover:bg-red-500/30 hover:text-red-100 hover:border-red-400/40'
               }`}
             >
               <Trash2 className="h-3.5 w-3.5" />

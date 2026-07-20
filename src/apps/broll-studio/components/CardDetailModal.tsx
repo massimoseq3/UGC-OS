@@ -784,15 +784,20 @@ export default function CardDetailModal(props: CardDetailModalProps) {
               {/* h-10 matches the left column's segmented toggle so this row's
                   separator lands at the same Y — the two hairlines read as one
                   line straight across the modal. */}
-              <div className="flex h-10 min-w-0 items-center gap-2">
-                {!isManual && (
-                  <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium tracking-tight ${tagChipStyle(variation.tag)}`}>
-                    {tagLabel(variation.tag)}
+              <div className="flex h-10 min-w-0 items-center gap-3">
+                {/* Scene number stacked over its role chip, so the two identity
+                    labels read as one block and the line gets the full width. */}
+                <div className="flex shrink-0 flex-col items-start gap-1">
+                  <span className="text-[10px] uppercase leading-none tracking-wider text-ink-400">
+                    Scene {sceneNumber}
                   </span>
-                )}
-                <span className="shrink-0 text-[10px] uppercase tracking-wider text-ink-400">
-                  Scene {sceneNumber}
-                </span>
+                  {!isManual && (
+                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium leading-none tracking-tight ${tagChipStyle(variation.tag)}`}>
+                      {tagLabel(variation.tag)}
+                    </span>
+                  )}
+                </div>
+                <div className="h-7 w-px shrink-0 bg-ink/10" />
                 {/* The script line this scene references, so the workspace
                     always shows which line it's illustrating. Instrument Serif
                     to match the scene line on the main B-Roll page. */}

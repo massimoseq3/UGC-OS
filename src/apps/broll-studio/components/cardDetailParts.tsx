@@ -619,10 +619,11 @@ function TileDeleteButton({ onDelete }: { onDelete: () => void }) {
         }
         onDelete()
       }}
-      className={`flex h-8 items-center justify-center gap-1 rounded-full border px-2 backdrop-blur transition-colors ${
+      // Idle is a fixed 8×8 circle; only the "Confirm" state grows into a pill.
+      className={`flex h-8 items-center justify-center rounded-full border backdrop-blur transition-colors ${
         confirming
-          ? 'border-red-400/60 bg-red-500/45 text-red-50'
-          : 'border-white/20 bg-black/35 text-white hover:bg-red-500/30 hover:text-red-100 hover:border-red-400/40'
+          ? 'gap-1 px-2 border-red-400/60 bg-red-500/45 text-red-50'
+          : 'w-8 border-white/20 bg-black/35 text-white hover:bg-red-500/30 hover:text-red-100 hover:border-red-400/40'
       }`}
     >
       <Trash2 className="h-4 w-4" />
