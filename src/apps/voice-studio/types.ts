@@ -18,14 +18,15 @@ export const VOICE_CATEGORIES: VoiceCategory[] = [
 ]
 
 // Google publishes a pitch band for every voice (in AI Studio's voice library).
-// The picker groups by these, lowest → highest, so members can scan by register.
-export type VoicePitch = 'Lower' | 'Lower-middle' | 'Middle' | 'Higher'
-export const PITCH_ORDER: VoicePitch[] = ['Lower', 'Lower-middle', 'Middle', 'Higher']
+// The picker groups AND filters by these, highest → lowest, so members can scan
+// by register.
+export type VoicePitch = 'Higher' | 'Middle' | 'Lower-middle' | 'Lower'
+export const PITCH_ORDER: VoicePitch[] = ['Higher', 'Middle', 'Lower-middle', 'Lower']
 export const PITCH_LABELS: Record<VoicePitch, string> = {
-  Lower: 'Lower pitch',
-  'Lower-middle': 'Lower-mid pitch',
-  Middle: 'Middle pitch',
   Higher: 'Higher pitch',
+  Middle: 'Middle pitch',
+  'Lower-middle': 'Lower or mid pitch',
+  Lower: 'Lower pitch',
 }
 
 export interface VoiceOption {

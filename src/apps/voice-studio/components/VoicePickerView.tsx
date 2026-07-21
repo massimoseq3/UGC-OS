@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { ArrowLeft, Search, Play, Pause, Check } from 'lucide-react'
-import type { VoiceOption, Gender } from '../types'
+import type { VoiceOption, VoicePitch } from '../types'
 import { VOICES, PITCH_ORDER, PITCH_LABELS } from '../types'
 import { voicePreviewUrl } from '../services/previewVoice'
 
@@ -12,12 +12,13 @@ interface VoicePickerViewProps {
   onClose: () => void
 }
 
-type GenderFilter = 'All' | Gender
-const GENDER_FILTERS: GenderFilter[] = ['All', 'Female', 'Male']
+// Filter chips: All + each pitch band, highest → lowest (PITCH_ORDER).
+type PitchFilter = 'All' | VoicePitch
+const PITCH_FILTERS: PitchFilter[] = ['All', ...PITCH_ORDER]
 
 export default function VoicePickerView({ selectedId, onSelect, onClose }: VoicePickerViewProps) {
   const [query, setQuery] = useState('')
-  const [gender, setGender] = useState<GenderFilter>('All')
+  const [pitchFilter, setPitchFilter] = useState<PitchFilter>('All')
   const [previewingId, setPreviewingId] = useState<string | null>(null)
   const [loadingId, setLoadingId] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -31,12 +32,12 @@ export default function VoicePickerView({ selectedId, onSelect, onClose }: Voice
     }
   }, [])
 
-  // Filter by query + gender, then group by pitch band (lowest → highest) with
-  // a header per group, so members can scan voices by register.
+  // Filter by query + pitch, then group by pitch band (highest → lowest) with a
+  // header per group, so members can scan voices by register.
   const groups = useMemo(() => {
     const q = query.trim().toLowerCase()
     const filtered = VOICES.filter((v) => {
-      if (gender !== 'All' && v.gender !== gender) return false
+      if (pitchFilter !== 'All' && v.pitch !== pitchFilter) return false
       if (!q) return true
       return (
         v.name.toLowerCase().includes(q) ||
@@ -47,7 +48,7 @@ export default function VoicePickerView({ selectedId, onSelect, onClose }: Voice
     return PITCH_ORDER
       .map((p) => [p, filtered.filter((v) => v.pitch === p)] as const)
       .filter(([, list]) => list.length > 0)
-  }, [query, gender])
+  }, [query, pitchFilter])
 
   const totalCount = groups.reduce((n, [, list]) => n + list.length, 0)
 
@@ -175,21 +176,21 @@ export default function VoicePickerView({ selectedId, onSelect, onClose }: Voice
           />
         </div>
 
-        {/* Gender filter chips */}
+        {/* Pitch filter chips — All, then highest → lowest */}
         <div className="mt-3 flex flex-wrap gap-1.5">
-          {GENDER_FILTERS.map((g) => {
-            const active = gender === g
+          {PITCH_FILTERS.map((p) => {
+            const active = pitchFilter === p
             return (
               <button
-                key={g}
-                onClick={() => setGender(g)}
+                key={p}
+                onClick={() => setPitchFilter(p)}
                 className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
                   active
                     ? 'bg-voice-500/25 text-voice-200'
                     : 'bg-ink/[0.05] text-ink-300 hover:bg-ink/[0.08] hover:text-ink-100'
                 }`}
               >
-                {g}
+                {p === 'All' ? 'All' : PITCH_LABELS[p]}
               </button>
             )
           })}
