@@ -1,0 +1,70 @@
+import { useRef, useState } from 'react'
+import { ChevronDown, Check } from 'lucide-react'
+import AnchoredPopover from '../../../components/video/AnchoredPopover'
+
+interface DropdownProps {
+  value: string
+  options: readonly string[]
+  onChange: (value: string) => void
+  // Compact trigger (smaller padding) for side-by-side rows.
+  compact?: boolean
+}
+
+// A rounded-full select whose menu is portaled via AnchoredPopover, so it
+// escapes the settings panel's `overflow-y-auto` clip and flips above the
+// trigger when it's near the bottom edge. Replaces the native <select>, whose
+// menu used the browser's default (unstyled) popup.
+export default function Dropdown({ value, options, onChange, compact }: DropdownProps) {
+  const anchorRef = useRef<HTMLButtonElement>(null)
+  const [open, setOpen] = useState(false)
+  const [width, setWidth] = useState(0)
+
+  const toggle = () => {
+    if (open) { setOpen(false); return }
+    setWidth(anchorRef.current?.offsetWidth ?? 0)
+    setOpen(true)
+  }
+
+  return (
+    <>
+      <button
+        ref={anchorRef}
+        type="button"
+        onClick={toggle}
+        className={`flex w-full items-center justify-between gap-2 rounded-full border bg-ink/[0.03] text-left text-sm font-medium text-ink-100 outline-none transition-colors hover:bg-ink/[0.06] ${
+          open ? 'border-voice-500/40' : 'border-ink/10'
+        } ${compact ? 'px-3 py-2' : 'px-3.5 py-2.5'}`}
+      >
+        <span className="truncate">{value}</span>
+        <ChevronDown className={`h-4 w-4 shrink-0 text-ink-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      <AnchoredPopover
+        anchorRef={anchorRef}
+        open={open}
+        onClose={() => setOpen(false)}
+        width={width}
+        estimatedHeight={Math.min(options.length * 38 + 8, 280)}
+      >
+        <div className="max-h-[280px] overflow-y-auto rounded-2xl border border-ink/10 bg-surface-2 p-1 shadow-xl shadow-black/20">
+          {options.map((o) => {
+            const selected = o === value
+            return (
+              <button
+                key={o}
+                type="button"
+                onClick={() => { onChange(o); setOpen(false) }}
+                className={`flex w-full items-center justify-between gap-2 rounded-full px-3 py-2 text-left text-sm transition-colors ${
+                  selected ? 'bg-voice-500/15 text-ink-50' : 'text-ink-200 hover:bg-ink/[0.06]'
+                }`}
+              >
+                <span className="truncate">{o}</span>
+                {selected && <Check className="h-3.5 w-3.5 shrink-0 text-voice-300" />}
+              </button>
+            )
+          })}
+        </div>
+      </AnchoredPopover>
+    </>
+  )
+}

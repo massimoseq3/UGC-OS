@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { X, Loader2 } from 'lucide-react'
 import type { VoicePreset } from '../../stores/types'
-import { VOICES, DEFAULT_VOICE_SETTINGS } from '../voice-studio/types'
+import { VOICES, DEFAULT_VOICE_SETTINGS, VOICE_STYLES, VOICE_PACES, VOICE_ACCENTS } from '../voice-studio/types'
 
 interface VoiceFormProps {
   item?: VoicePreset | null
@@ -12,7 +12,9 @@ interface VoiceFormProps {
 export default function VoiceForm({ item, onSave, onCancel }: VoiceFormProps) {
   const [label, setLabel] = useState(item?.label ?? '')
   const [voiceId, setVoiceId] = useState(item?.voiceId ?? VOICES[0].id)
-  const [stability, setStability] = useState<number>(item?.stability ?? DEFAULT_VOICE_SETTINGS.stability)
+  const [style, setStyle] = useState(item?.style ?? DEFAULT_VOICE_SETTINGS.style)
+  const [pace, setPace] = useState(item?.pace ?? DEFAULT_VOICE_SETTINGS.pace)
+  const [accent, setAccent] = useState(item?.accent ?? DEFAULT_VOICE_SETTINGS.accent)
   const [linkedModelId] = useState(item?.linkedModelId ?? '')
   const [saving, setSaving] = useState(false)
 
@@ -20,7 +22,9 @@ export default function VoiceForm({ item, onSave, onCancel }: VoiceFormProps) {
     if (item) {
       setLabel(item.label)
       setVoiceId(item.voiceId)
-      setStability(item.stability)
+      setStyle(item.style)
+      setPace(item.pace)
+      setAccent(item.accent)
     }
   }, [item])
 
@@ -36,10 +40,12 @@ export default function VoiceForm({ item, onSave, onCancel }: VoiceFormProps) {
         voiceId,
         voiceName: voice.name,
         gender: voice.gender,
-        stability,
-        similarityBoost: item?.similarityBoost ?? DEFAULT_VOICE_SETTINGS.similarityBoost,
-        style: item?.style ?? DEFAULT_VOICE_SETTINGS.style,
-        speed: item?.speed ?? DEFAULT_VOICE_SETTINGS.speed,
+        style,
+        pace,
+        accent,
+        temperature: item?.temperature ?? DEFAULT_VOICE_SETTINGS.temperature,
+        scene: item?.scene,
+        sampleContext: item?.sampleContext,
         linkedModelId,
       })
     } finally {
@@ -83,25 +89,11 @@ export default function VoiceForm({ item, onSave, onCancel }: VoiceFormProps) {
         </select>
       </label>
 
-      <label className="flex flex-col gap-1">
-        <div className="flex items-center justify-between">
-          <span className="text-[11px] font-medium uppercase tracking-widest text-ink-500">Stability *</span>
-          <span className="text-[11px] tabular-nums text-ink-400">{stability.toFixed(2)}</span>
-        </div>
-        <input
-          type="range"
-          min={0}
-          max={1}
-          step={0.05}
-          value={stability}
-          onChange={(e) => setStability(parseFloat(e.target.value))}
-          className="mt-1 w-full accent-voice-500"
-        />
-        <div className="mt-1 flex items-center justify-between text-[10px] text-ink-700">
-          <span>Variable</span>
-          <span>Stable</span>
-        </div>
-      </label>
+      <div className="grid grid-cols-3 gap-2">
+        <SelectField label="Style" value={style} options={VOICE_STYLES} onChange={setStyle} />
+        <SelectField label="Pace" value={pace} options={VOICE_PACES} onChange={setPace} />
+        <SelectField label="Accent" value={accent} options={VOICE_ACCENTS} onChange={setAccent} />
+      </div>
 
       <button
         type="submit"
@@ -112,5 +104,32 @@ export default function VoiceForm({ item, onSave, onCancel }: VoiceFormProps) {
         {saving ? 'Saving…' : (item ? 'Save Changes' : 'Add Voice Preset')}
       </button>
     </form>
+  )
+}
+
+function SelectField({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string
+  value: string
+  options: readonly string[]
+  onChange: (value: string) => void
+}) {
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="text-[11px] font-medium uppercase tracking-widest text-ink-500">{label}</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="rounded-lg border border-ink/10 bg-surface-1 px-2.5 py-2 text-sm text-ink-200 outline-none focus:border-ink/20"
+      >
+        {options.map((o) => (
+          <option key={o} value={o}>{o}</option>
+        ))}
+      </select>
+    </label>
   )
 }

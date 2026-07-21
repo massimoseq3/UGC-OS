@@ -1,140 +1,144 @@
 export type Gender = 'Female' | 'Male'
 
-// Categories surfaced from the kie.ai ElevenLabs catalog. Filter chips in
-// the picker map 1:1 onto these.
+// Gemini 3.1 Flash TTS ships 30 prebuilt voices. We group them by delivery
+// vibe so the picker's filter chips are useful for ad work (not by gender —
+// gender is shown separately). Each voice's `description` is Google's canonical
+// one-word character for that voice.
 export type VoiceCategory =
-  | 'Narration'
-  | 'Conversational'
-  | 'Social Media'
-  | 'Characters'
-  | 'Educational'
-  | 'Advertisement'
-  | 'Entertainment'
+  | 'Energetic'
+  | 'Warm'
+  | 'Authoritative'
+  | 'Friendly'
 
 export const VOICE_CATEGORIES: VoiceCategory[] = [
-  'Narration',
-  'Conversational',
-  'Social Media',
-  'Characters',
-  'Educational',
-  'Advertisement',
-  'Entertainment',
+  'Energetic',
+  'Warm',
+  'Authoritative',
+  'Friendly',
 ]
 
 export interface VoiceOption {
-  id: string                // ElevenLabs voice_id
-  name: string              // Display name (without descriptor)
-  description: string       // Short style descriptor shown beneath the name
+  // For Gemini the voice IS the name (e.g. "Zephyr") — it's what the API's
+  // `voice_name` field wants. `id` mirrors it so bank rows / seed colours keep
+  // keying on a stable string.
+  id: string
+  name: string
+  description: string       // Google's one-word character for the voice
   category: VoiceCategory
   gender?: Gender
 }
 
-// Full catalog from the kie.ai OpenAPI enum (text-to-speech-multilingual-v2).
-// Voice IDs are copied verbatim — do not edit by hand. Each voice is assigned
-// the most specific category from ElevenLabs' marketing buckets.
+// The 30 Gemini 3.1 Flash TTS voices. Names + genders are from Google's TTS
+// voice docs; the one-word characters are Google's published descriptors.
+// Do not rename — the name is the `voice_name` sent to kie.ai.
 export const VOICES: VoiceOption[] = [
-  // ── Narration ──────────────────────────────────────────────────
-  { id: 'EkK5I93UQWFDigLMpZcX', name: 'James',          description: 'Husky, engaging and bold',           category: 'Narration',     gender: 'Male' },
-  { id: 'Z3R5wn05IrDiVCyEkUrK', name: 'Arabella',       description: 'Mysterious and emotive',             category: 'Narration',     gender: 'Female' },
-  { id: 'NNl6r8mD7vthiJatiJt1', name: 'Bradford',       description: 'Expressive and articulate',          category: 'Narration',     gender: 'Male' },
-  { id: '5l5f8iK3YPeGga21rQIX', name: 'Adeline',        description: 'Feminine and conversational',        category: 'Narration',     gender: 'Female' },
-  { id: 'x70vRnQBMBu4FAYhjJbO', name: 'Nathan',         description: 'Virtual radio host',                 category: 'Narration',     gender: 'Male' },
-  { id: 'P1bg08DkjqiVEzOn76yG', name: 'Viraj',          description: 'Rich and soft',                      category: 'Narration',     gender: 'Male' },
-  { id: 'qDuRKMlYmrm8trt5QyBn', name: 'Taksh',          description: 'Calm, serious and smooth',           category: 'Narration',     gender: 'Male' },
-  { id: 'eR40ATw9ArzDf9h3v7t7', name: 'Addison 2.0',    description: 'Australian audiobook & podcast',     category: 'Narration' },
-  { id: '8JVbfL6oEdmuxKn5DK2C', name: 'Johnny Kid',     description: 'Serious and calm narrator',          category: 'Narration',     gender: 'Male' },
-  { id: 'iCrDUkL56s3C8sCRl7wb', name: 'Hope',           description: 'Poetic, romantic and captivating',   category: 'Narration',     gender: 'Female' },
-  { id: 'wJqPPQ618aTW29mptyoc', name: 'Ana Rita',       description: 'Smooth, expressive and bright',      category: 'Narration',     gender: 'Female' },
-  { id: 'EiNlNiXeDU1pqqOPrYMO', name: 'John Doe',       description: 'Deep',                               category: 'Narration',     gender: 'Male' },
-  { id: '4YYIPFl9wE5c4L2eu2Gb', name: 'Burt Reynolds',  description: 'Deep, smooth and clear',             category: 'Narration',     gender: 'Male' },
-  { id: 'YXpFCvM1S3JbWEJhoskW', name: 'Wyatt',          description: 'Wise rustic cowboy',                 category: 'Narration',     gender: 'Male' },
-  { id: '1U02n4nD6AdIZ9CjF053', name: 'Viraj',          description: 'Smooth and gentle',                  category: 'Narration',     gender: 'Male' },
-  { id: 'AeRdCCKzvd23BpJoofzx', name: 'Nathaniel',      description: 'Engaging, British and calm',         category: 'Narration',     gender: 'Male' },
-  { id: 'LruHrtVF6PSyGItzMNHS', name: 'Benjamin',       description: 'Deep, warm, calming',                category: 'Narration',     gender: 'Male' },
+  // ── Energetic ──────────────────────────────────────────────────
+  { id: 'Puck',          name: 'Puck',          description: 'Upbeat and lively',        category: 'Energetic',     gender: 'Male' },
+  { id: 'Zephyr',        name: 'Zephyr',        description: 'Bright and clear',         category: 'Energetic',     gender: 'Female' },
+  { id: 'Autonoe',       name: 'Autonoe',       description: 'Bright and buoyant',       category: 'Energetic',     gender: 'Female' },
+  { id: 'Laomedeia',     name: 'Laomedeia',     description: 'Upbeat and peppy',         category: 'Energetic',     gender: 'Female' },
+  { id: 'Fenrir',        name: 'Fenrir',        description: 'Excitable and eager',      category: 'Energetic',     gender: 'Male' },
+  { id: 'Sadachbia',     name: 'Sadachbia',     description: 'Lively and animated',      category: 'Energetic',     gender: 'Male' },
+  { id: 'Pulcherrima',   name: 'Pulcherrima',   description: 'Forward and expressive',   category: 'Energetic',     gender: 'Female' },
 
-  // ── Conversational ─────────────────────────────────────────────
-  { id: '1SM7GgM6IMuvQlz2BwM3', name: 'Mark',           description: 'Casual, relaxed and light',          category: 'Conversational', gender: 'Male' },
-  { id: 'scOwDtmlUjD3prqpp97I', name: 'Sam',            description: 'Support agent',                      category: 'Conversational', gender: 'Male' },
-  { id: 'NOpBlnGInO9m6vDvFkFC', name: 'Spuds Oxley',    description: 'Wise and approachable',              category: 'Conversational', gender: 'Male' },
-  { id: 'BZgkqPqms7Kj9ulSkVzn', name: 'Eve',            description: 'Authentic, energetic and happy',     category: 'Conversational', gender: 'Female' },
-  { id: 'UgBBYS2sOqTuMpoF3BR0', name: 'Mark',           description: 'Natural conversations',              category: 'Conversational', gender: 'Male' },
-  { id: 'uYXf8XasLslADfZ2MB4u', name: 'Hope',           description: 'Bubbly, gossipy and girly',          category: 'Conversational', gender: 'Female' },
-  { id: 'gs0tAILXbY5DNrJrsM6F', name: 'Jeff',           description: 'Classy, resonating and strong',      category: 'Conversational', gender: 'Male' },
-  { id: 'DTKMou8ccj1ZaWGBiotd', name: 'Jamahal',        description: 'Young, vibrant and natural',         category: 'Conversational', gender: 'Male' },
-  { id: 'vBKc2FfBKJfcZNyEt1n6', name: 'Finn',           description: 'Youthful, eager and energetic',      category: 'Conversational', gender: 'Male' },
-  { id: 'DYkrAHD8iwork3YSUBbs', name: 'Tom',            description: 'Conversations & books',              category: 'Conversational', gender: 'Male' },
-  { id: '56AoDkrOh6qfVPDXZ7Pt', name: 'Cassidy',        description: 'Crisp, direct and clear',            category: 'Conversational', gender: 'Female' },
-  { id: 'g6xIsTj2HwM6VR4iXFCw', name: 'Jessica',        description: 'Chatty and friendly',                category: 'Conversational', gender: 'Female' },
-  { id: 'lcMyyd2HUfFzxdCaC4Ta', name: 'Lucy',           description: 'Fresh & casual',                     category: 'Conversational', gender: 'Female' },
-  { id: '6aDn1KB0hjpdcocrUkmq', name: 'Tiffany',        description: 'Natural and welcoming',              category: 'Conversational', gender: 'Female' },
-  { id: 'Sq93GQT4X1lKDXsQcixO', name: 'Felix',          description: 'Warm, positive & contemporary RP',   category: 'Conversational', gender: 'Male' },
-  { id: 'hqfrgApggtO1785R4Fsn', name: 'Theodore HQ',    description: 'Serene and grounded',                category: 'Conversational', gender: 'Male' },
+  // ── Warm ───────────────────────────────────────────────────────
+  { id: 'Sulafat',       name: 'Sulafat',       description: 'Warm and inviting',        category: 'Warm',          gender: 'Female' },
+  { id: 'Achernar',      name: 'Achernar',      description: 'Soft and gentle',          category: 'Warm',          gender: 'Female' },
+  { id: 'Vindemiatrix',  name: 'Vindemiatrix',  description: 'Gentle and soothing',      category: 'Warm',          gender: 'Female' },
+  { id: 'Aoede',         name: 'Aoede',         description: 'Breezy and easy',          category: 'Warm',          gender: 'Female' },
+  { id: 'Enceladus',     name: 'Enceladus',     description: 'Breathy and mellow',       category: 'Warm',          gender: 'Male' },
+  { id: 'Algieba',       name: 'Algieba',       description: 'Smooth and rich',          category: 'Warm',          gender: 'Male' },
+  { id: 'Despina',       name: 'Despina',       description: 'Smooth and calm',          category: 'Warm',          gender: 'Female' },
 
-  // ── Social Media ───────────────────────────────────────────────
-  { id: '2zRM7PkgwBPiau2jvVXc', name: 'Monika Sogam',   description: 'Deep and natural',                   category: 'Social Media',   gender: 'Female' },
-  { id: 'TX3LPaxmHKxFdv7VOQHJ', name: 'Liam',           description: 'Energetic, social media creator',    category: 'Social Media',   gender: 'Male' },
-  { id: 'FGY2WhTYpPnrIDTdsKH5', name: 'Laura',          description: 'Enthusiast, quirky attitude',        category: 'Social Media',   gender: 'Female' },
-  { id: 'kPzsL2i3teMYv0FxEYQ6', name: 'Brittney',       description: 'Fun, youthful & informative',        category: 'Social Media',   gender: 'Female' },
-  { id: 'nPczCjzI2devNBz1zQrb', name: 'Brian',          description: 'Deep, resonant and comforting',      category: 'Social Media',   gender: 'Male' },
+  // ── Authoritative ──────────────────────────────────────────────
+  { id: 'Charon',        name: 'Charon',        description: 'Informative and steady',   category: 'Authoritative', gender: 'Male' },
+  { id: 'Rasalgethi',    name: 'Rasalgethi',    description: 'Informative and precise',  category: 'Authoritative', gender: 'Male' },
+  { id: 'Kore',          name: 'Kore',          description: 'Firm and confident',       category: 'Authoritative', gender: 'Female' },
+  { id: 'Orus',          name: 'Orus',          description: 'Firm and grounded',        category: 'Authoritative', gender: 'Male' },
+  { id: 'Alnilam',       name: 'Alnilam',       description: 'Firm and assured',         category: 'Authoritative', gender: 'Male' },
+  { id: 'Iapetus',       name: 'Iapetus',       description: 'Clear and articulate',     category: 'Authoritative', gender: 'Male' },
+  { id: 'Erinome',       name: 'Erinome',       description: 'Clear and crisp',          category: 'Authoritative', gender: 'Female' },
+  { id: 'Algenib',       name: 'Algenib',       description: 'Gravelly and textured',    category: 'Authoritative', gender: 'Male' },
+  { id: 'Schedar',       name: 'Schedar',       description: 'Even and measured',        category: 'Authoritative', gender: 'Male' },
+  { id: 'Gacrux',        name: 'Gacrux',        description: 'Mature and composed',      category: 'Authoritative', gender: 'Female' },
+  { id: 'Sadaltager',    name: 'Sadaltager',    description: 'Knowledgeable and calm',   category: 'Authoritative', gender: 'Male' },
 
-  // ── Characters ─────────────────────────────────────────────────
-  { id: 'YOq2y2Up4RgXP2HyXjE5', name: 'Xavier',         description: 'Dominating, metallic announcer',     category: 'Characters',     gender: 'Male' },
-  { id: 'B8gJV1IhpuegLxdpXFOE', name: 'Kuon',           description: 'Cheerful, clear and steady',         category: 'Characters',     gender: 'Male' },
-  { id: 'wo6udizrrtpIxWGp2qJk', name: 'Northern Terry', description: 'Northern English character',        category: 'Characters',     gender: 'Male' },
-  { id: 'gU0LNdkMOQCOrPrwtbee', name: 'Football Announcer', description: 'British football announcer',     category: 'Characters',     gender: 'Male' },
-  { id: 'DGzg6RaUqxGRTHSBjfgF', name: 'Brock',          description: 'Commanding, loud sergeant',          category: 'Characters',     gender: 'Male' },
-  { id: 'Sm1seazb4gs7RSlUVw7c', name: 'Anika',          description: 'Animated, friendly and engaging',    category: 'Characters',     gender: 'Female' },
-  { id: 'qXpMhyvQqiRxWQs4qSSB', name: 'Horatius',       description: 'Energetic character voice',          category: 'Characters',     gender: 'Male' },
-  { id: 'N2lVS1w4EtoT3dr4eOWO', name: 'Callum',         description: 'Husky trickster',                    category: 'Characters',     gender: 'Male' },
-  { id: 'flHkNRp1BlvT73UL6gyz', name: 'Jessica',        description: 'Eloquent villain',                   category: 'Characters',     gender: 'Female' },
-  { id: '9yzdeviXkFddZ4Oz8Mok', name: 'Lutz',           description: 'Chuckling, giggly and cheerful',     category: 'Characters',     gender: 'Male' },
-  { id: 'pPdl9cQBQq4p6mRkZy2Z', name: 'Emma',           description: 'Adorable and upbeat',                category: 'Characters',     gender: 'Female' },
-  { id: 'zYcjlYFOd3taleS0gkk3', name: 'Edward',         description: 'Loud, confident and cocky',          category: 'Characters',     gender: 'Male' },
-  { id: 'nzeAacJi50IvxcyDnMXa', name: 'Marshal',        description: 'Friendly, funny professor',          category: 'Characters',     gender: 'Male' },
-  { id: 'ruirxsoakN0GWmGNIo04', name: 'John Morgan',    description: 'Gritty, rugged cowboy',              category: 'Characters',     gender: 'Male' },
-  { id: 'TC0Zp7WVFzhA8zpTlRqV', name: 'Aria',           description: 'Sultry villain',                     category: 'Characters',     gender: 'Female' },
-  { id: 'ljo9gAlSqKOvF6D8sOsX', name: 'Viking Bjorn',   description: 'Epic medieval raider',               category: 'Characters',     gender: 'Male' },
-  { id: 'PPzYpIqttlTYA83688JI', name: 'Pirate Marshal', description: 'Swashbuckling pirate',               category: 'Characters',     gender: 'Male' },
-  { id: 'LG95yZDEHg6fCZdQjLqj', name: 'Phil',           description: 'Explosive, passionate announcer',    category: 'Characters',     gender: 'Male' },
-  { id: 'CeNX9CMwmxDxUF5Q2Inm', name: 'Johnny Dynamite', description: 'Vintage radio DJ',                  category: 'Characters',     gender: 'Male' },
-  { id: 'mtrellq69YZsNwzUSyXh', name: 'Rex Thunder',    description: 'Deep n tough',                       category: 'Characters',     gender: 'Male' },
-  { id: 'dHd5gvgSOzSfduK4CvEg', name: 'Ed',             description: 'Late night announcer',               category: 'Characters',     gender: 'Male' },
-  { id: 'eVItLK1UvXctxuaRV2Oq', name: 'Jean',           description: 'Alluring, playful femme fatale',     category: 'Characters',     gender: 'Female' },
-  { id: 'esy0r39YPLQjOczyOib8', name: 'Britney',        description: 'Calm and calculative villain',       category: 'Characters',     gender: 'Female' },
-
-  // ── Educational ────────────────────────────────────────────────
-  { id: 'hpp4J3VqNfWAUOO0d1Us', name: 'Bella',          description: 'Professional, bright, warm',         category: 'Educational',    gender: 'Female' },
-  { id: 'MJ0RnG71ty4LH3dvNfSd', name: 'Leon',           description: 'Soothing and grounded',              category: 'Educational',    gender: 'Male' },
-
-  // ── Advertisement ──────────────────────────────────────────────
-  { id: 'Tsns2HvNFKfGiNjllgqo', name: 'Sven',           description: 'Emotional and nice',                 category: 'Advertisement',  gender: 'Male' },
-
-  // ── Entertainment ──────────────────────────────────────────────
-  { id: '6F5Zhi321D3Oq7v1oNT4', name: 'Hank',           description: 'Deep and engaging narrator',         category: 'Entertainment',  gender: 'Male' },
-  { id: 'aD6riP1btT197c6dACmy', name: 'Rachel M',       description: 'Pro British radio presenter',        category: 'Entertainment',  gender: 'Female' },
-  { id: '1wGbFxmAM3Fgw63G1zZJ', name: 'Allison',        description: 'Calm, soothing and meditative',      category: 'Entertainment',  gender: 'Female' },
+  // ── Friendly ───────────────────────────────────────────────────
+  { id: 'Achird',        name: 'Achird',        description: 'Friendly and open',        category: 'Friendly',      gender: 'Male' },
+  { id: 'Zubenelgenubi', name: 'Zubenelgenubi', description: 'Casual and relaxed',       category: 'Friendly',      gender: 'Male' },
+  { id: 'Leda',          name: 'Leda',          description: 'Youthful and fresh',       category: 'Friendly',      gender: 'Female' },
+  { id: 'Callirrhoe',    name: 'Callirrhoe',    description: 'Easy-going and mellow',    category: 'Friendly',      gender: 'Female' },
+  { id: 'Umbriel',       name: 'Umbriel',       description: 'Easy-going and laid back', category: 'Friendly',      gender: 'Male' },
 ]
 
 export function getVoiceById(id: string): VoiceOption | undefined {
   return VOICES.find((v) => v.id === id)
 }
 
+// ── Delivery controls (Gemini 3.1 Flash TTS `speakers` fields) ──────
+// These are the exact option sets kie.ai exposes for the model's `style`,
+// `pace`, and `accent` selects — do not invent values, the model only
+// recognizes these. Verified against https://kie.ai/gemini-3.1-flash-tts.
+export const VOICE_STYLES = [
+  'Vocal Smile',
+  'Newscaster',
+  'Whisper',
+  'Empathetic',
+  'Promo/Hype',
+  'Deadpan',
+] as const
+
+export const VOICE_PACES = ['Natural', 'Rapid Fire', 'The Drift', 'Staccato'] as const
+
+export const VOICE_ACCENTS = [
+  'Neutral',
+  'American (Gen)',
+  'American (Valley)',
+  'American (South)',
+  'British (RP)',
+  'British (Brixton)',
+  'Transatlantic',
+  'Australian',
+] as const
+
 export interface VoiceSettings {
+  // For Gemini, voiceId === the voice_name (kept as `voiceId` so bank rows,
+  // cloud sync, and seed colours don't have to change shape).
   voiceId: string
   voiceName: string
   gender?: Gender
-  // ElevenLabs Multilingual v2 parameters (see API spec):
-  stability: number          // 0–1   (0 = variable, 1 = stable)
-  similarityBoost: number    // 0–1
-  style: number              // 0–1   (style exaggeration)
-  speed: number              // 0.7–1.2
+  // Gemini 3.1 Flash TTS delivery parameters:
+  style: string              // overall delivery style ('Natural' = neutral)
+  pace: string               // 'Slow' | 'Natural' | 'Fast'
+  accent: string             // 'Neutral' | 'American' | …
+  temperature: number        // 0–2 — variation in delivery (1 = default)
+  scene: string              // optional scene description (empty = unused)
+  sampleContext: string      // optional overall tone / context (empty = unused)
 }
 
 export const DEFAULT_VOICE_SETTINGS: Omit<VoiceSettings, 'voiceId' | 'voiceName' | 'gender'> = {
-  stability: 0.5,
-  similarityBoost: 0.75,
-  style: 0,
-  speed: 1,
+  // 'Vocal Smile' = warm, engaged, natural — the best default for UGC ads
+  // (kie's own default is the flat 'Deadpan', which reads wrong for ads).
+  style: 'Vocal Smile',
+  pace: 'Natural',
+  accent: 'Neutral',
+  temperature: 1,
+  scene: '',
+  sampleContext: '',
+}
+
+// Coerce any style/pace/accent that isn't a current option back to its default.
+// Guards against settings persisted before the option lists changed (localStorage
+// survives across versions and isn't run through the bank's migrateVoiceShape).
+export function sanitizeVoiceSettings(s: VoiceSettings): VoiceSettings {
+  const fix = (v: string, opts: readonly string[], fallback: string) =>
+    opts.includes(v) ? v : fallback
+  return {
+    ...s,
+    style: fix(s.style, VOICE_STYLES, DEFAULT_VOICE_SETTINGS.style),
+    pace: fix(s.pace, VOICE_PACES, DEFAULT_VOICE_SETTINGS.pace),
+    accent: fix(s.accent, VOICE_ACCENTS, DEFAULT_VOICE_SETTINGS.accent),
+  }
 }
 
 export interface HistoryItem {
@@ -142,10 +146,12 @@ export interface HistoryItem {
   voiceId: string
   voiceName: string
   gender?: Gender
-  stability: number
-  similarityBoost: number
-  style: number
-  speed: number
+  style: string
+  pace: string
+  accent: string
+  temperature: number
+  scene?: string
+  sampleContext?: string
   scriptText: string
   scriptPreview: string
   audioUrl: string
@@ -154,10 +160,9 @@ export interface HistoryItem {
 }
 
 export function createDefaultSettings(): VoiceSettings {
-  // Default to "Liam — Energetic, Social Media Creator" since this app is
-  // built for AI UGC ads. Falls back to first voice if Liam ever leaves the
-  // catalog.
-  const def = VOICES.find((v) => v.id === 'TX3LPaxmHKxFdv7VOQHJ') ?? VOICES[0]
+  // Default to "Puck — Upbeat and lively": an energetic read that suits most
+  // AI UGC ads. Falls back to the first voice if Puck ever leaves the catalog.
+  const def = VOICES.find((v) => v.id === 'Puck') ?? VOICES[0]
   return {
     voiceId: def.id,
     voiceName: def.name,

@@ -1,8 +1,10 @@
-import { FileText, Loader2, Mic, AlertCircle, RefreshCw, X, ChevronRight, Coins } from 'lucide-react'
+import { FileText, Loader2, Mic, AlertCircle, RefreshCw, X, ChevronRight, Coins, Sparkles } from 'lucide-react'
 import type { Script } from '../../../stores/types'
 import GenerationProgress from '../../../components/GenerationProgress'
-import { estimateCredits, formatCredits } from '../../../utils/models'
+import { estimateCredits, formatCredits, getModel } from '../../../utils/models'
 import { TTS_MODEL_ID } from '../services/generateVoice'
+
+const MODEL_NAME = getModel(TTS_MODEL_ID)?.displayName ?? 'Gemini 3.1 Flash TTS'
 
 const MAX_CHARACTERS = 5000
 
@@ -15,6 +17,8 @@ interface EditorAreaProps {
   onGenerate: () => void
   isGenerating: boolean
   canGenerate: boolean
+  onEnhance: () => void
+  isEnhancing: boolean
   highlightField?: string | null
   error?: string | null
 }
@@ -28,13 +32,16 @@ export default function EditorArea({
   onGenerate,
   isGenerating,
   canGenerate,
+  onEnhance,
+  isEnhancing,
   highlightField,
   error,
 }: EditorAreaProps) {
   const charCount = scriptText.length
   const overLimit = charCount > MAX_CHARACTERS
-  // ElevenLabs bills per character (12 credits / 1k). Show the estimate for the
-  // current script on the Generate button so cost is visible before spending.
+  // Gemini 3.1 Flash TTS bills by tokens; we estimate from the script's char
+  // count (see geminiTtsCredits in models.ts). Show the estimate on the Generate
+  // button so cost is visible before spending.
   const creditsLabel = charCount > 0 ? formatCredits(estimateCredits(TTS_MODEL_ID, { charCount })) : null
 
   return (
@@ -98,6 +105,24 @@ export default function EditorArea({
           <div className="h-px flex-1 bg-ink/[0.07]" />
         </div>
 
+        {/* Enhance — appears once there's a script. Rewrites it with square-
+            bracket expression tags (e.g. [warmly], [excited]) so the read is
+            emotive. Only inserts direction; never changes the spoken words. */}
+        {canGenerate && (
+          <div className="mb-2 flex justify-end">
+            <button
+              type="button"
+              onClick={onEnhance}
+              disabled={isEnhancing || isGenerating}
+              title="Add expression tags (e.g. [warmly], [excited]) for a more emotive read"
+              className="flex items-center gap-1.5 rounded-full border border-voice-500/30 bg-voice-500/10 px-3 py-1.5 text-xs font-semibold text-voice-300 transition-colors hover:bg-voice-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isEnhancing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              {isEnhancing ? 'Enhancing…' : 'Enhance'}
+            </button>
+          </div>
+        )}
+
         {/* Textarea — borderless, full-bleed, minimal aesthetic */}
         <textarea
           value={scriptText}
@@ -143,12 +168,17 @@ export default function EditorArea({
           <span className="text-ink-500"> / {MAX_CHARACTERS.toLocaleString()} characters</span>
         </div>
 
-        {/* Right — generate */}
-        <button
-          onClick={onGenerate}
-          disabled={!canGenerate || isGenerating || overLimit}
-          className="flex items-center justify-center gap-2.5 rounded-full border border-white/15 bg-voice-500 px-10 py-4 text-sm font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] btn-soft-shadow transition-all hover:bg-voice-400 disabled:cursor-not-allowed disabled:opacity-40"
-        >
+        {/* Right — model chip + generate. The model indicator lives here (not
+            in the settings panel) since there's only one model. */}
+        <div className="flex items-center gap-3">
+          <div className="hidden items-center rounded-full border border-ink/10 px-3.5 py-1.5 text-xs font-medium text-ink-400 md:flex">
+            {MODEL_NAME}
+          </div>
+          <button
+            onClick={onGenerate}
+            disabled={!canGenerate || isGenerating || overLimit}
+            className="flex items-center justify-center gap-2.5 rounded-full border border-white/15 bg-voice-500 px-10 py-4 text-sm font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] btn-soft-shadow transition-all hover:bg-voice-400 disabled:cursor-not-allowed disabled:opacity-40"
+          >
           {isGenerating ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -166,7 +196,8 @@ export default function EditorArea({
               )}
             </>
           )}
-        </button>
+          </button>
+        </div>
       </div>
     </div>
   )

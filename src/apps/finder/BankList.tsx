@@ -496,8 +496,8 @@ function VoiceCard({ item, onEdit, onDelete }: { item: VoicePreset; onEdit: () =
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="truncate text-sm font-semibold tracking-tight text-ink-200">{item.label}</span>
         <span className="text-xs text-ink-500">{item.voiceName}{item.gender ? ` · ${item.gender}` : ''}</span>
-        <span className="truncate text-[10px] tabular-nums text-ink-600">
-          Stability {item.stability.toFixed(2)}
+        <span className="truncate text-[10px] text-ink-600">
+          {item.style} · {item.pace} · {item.accent}
         </span>
       </div>
       <div className="shrink-0 self-center" onClick={(e) => e.stopPropagation()}>

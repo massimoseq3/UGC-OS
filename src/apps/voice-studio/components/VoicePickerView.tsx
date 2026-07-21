@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { ArrowLeft, Search, Play, Pause, Check } from 'lucide-react'
-import type { VoiceOption, VoiceCategory } from '../types'
-import { VOICES, VOICE_CATEGORIES } from '../types'
+import type { VoiceOption, Gender } from '../types'
+import { VOICES } from '../types'
+import { getVoicePreview } from '../services/previewVoice'
+import { useAppStore } from '../../../stores/appStore'
+import { humanizeError } from '../../../utils/friendlyError'
 
 import { seedColor } from './seedColor'
-
-const PREVIEW_BASE = 'https://static.aiquickdraw.com/elevenlabs/voice'
 
 interface VoicePickerViewProps {
   selectedId: string
@@ -13,14 +14,21 @@ interface VoicePickerViewProps {
   onClose: () => void
 }
 
-type CategoryFilter = VoiceCategory | 'All'
+type GenderFilter = 'All' | Gender
+const GENDER_FILTERS: GenderFilter[] = ['All', 'Female', 'Male']
+// Voices are grouped under these headers, Female first, then Male.
+const GENDER_ORDER: Gender[] = ['Female', 'Male']
 
 export default function VoicePickerView({ selectedId, onSelect, onClose }: VoicePickerViewProps) {
   const [query, setQuery] = useState('')
-  const [category, setCategory] = useState<CategoryFilter>('All')
+  const [gender, setGender] = useState<GenderFilter>('All')
   const [previewingId, setPreviewingId] = useState<string | null>(null)
   const [loadingId, setLoadingId] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  // Mirror of loadingId readable inside the async preview flow (whose closure
+  // captures a stale loadingId) to detect the user switching voices mid-fetch.
+  const loadingIdRef = useRef<string | null>(null)
+  useEffect(() => { loadingIdRef.current = loadingId }, [loadingId])
 
   useEffect(() => {
     return () => {
@@ -31,10 +39,12 @@ export default function VoicePickerView({ selectedId, onSelect, onClose }: Voice
     }
   }, [])
 
-  const filtered = useMemo(() => {
+  // Filter by query + gender, then group Female-first / Male so the list is
+  // sorted by gender with a header per group.
+  const groups = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return VOICES.filter((v) => {
-      if (category !== 'All' && v.category !== category) return false
+    const filtered = VOICES.filter((v) => {
+      if (gender !== 'All' && v.gender !== gender) return false
       if (!q) return true
       return (
         v.name.toLowerCase().includes(q) ||
@@ -42,26 +52,17 @@ export default function VoicePickerView({ selectedId, onSelect, onClose }: Voice
         v.category.toLowerCase().includes(q)
       )
     })
-  }, [query, category])
+    return GENDER_ORDER
+      .map((g) => [g, filtered.filter((v) => v.gender === g)] as const)
+      .filter(([, list]) => list.length > 0)
+  }, [query, gender])
 
-  const handlePreview = (voice: VoiceOption, e: React.MouseEvent) => {
-    e.stopPropagation()
+  const totalCount = groups.reduce((n, [, list]) => n + list.length, 0)
 
-    // Toggle off if same voice
-    if (previewingId === voice.id || loadingId === voice.id) {
-      audioRef.current?.pause()
-      audioRef.current = null
-      setPreviewingId(null)
-      setLoadingId(null)
-      return
-    }
-
+  const playPreview = (voice: VoiceOption, url: string) => {
     audioRef.current?.pause()
-    const audio = new Audio(`${PREVIEW_BASE}/${voice.id}.mp3`)
+    const audio = new Audio(url)
     audioRef.current = audio
-    setLoadingId(voice.id)
-    setPreviewingId(null)
-
     audio.addEventListener('playing', () => {
       setPreviewingId(voice.id)
       setLoadingId(null)
@@ -74,14 +75,97 @@ export default function VoicePickerView({ selectedId, onSelect, onClose }: Voice
       setPreviewingId(null)
       setLoadingId(null)
     })
-
     audio.play().catch(() => {
       setLoadingId(null)
       setPreviewingId(null)
     })
   }
 
-  const filters: CategoryFilter[] = ['All', ...VOICE_CATEGORIES]
+  const handlePreview = async (voice: VoiceOption, e: React.MouseEvent) => {
+    e.stopPropagation()
+
+    // Toggle off if the same voice is playing or being fetched.
+    if (previewingId === voice.id || loadingId === voice.id) {
+      audioRef.current?.pause()
+      audioRef.current = null
+      setPreviewingId(null)
+      setLoadingId(null)
+      return
+    }
+
+    // Gemini has no hosted samples — the first preview is generated on demand,
+    // then cached for the session (see previewVoice.ts). Show the loading ring
+    // meanwhile; a stale generation resolves onto whichever voice is active.
+    audioRef.current?.pause()
+    setLoadingId(voice.id)
+    setPreviewingId(null)
+    try {
+      const url = await getVoicePreview(voice.id)
+      // Bail if the user moved on to a different voice while this generated.
+      if (loadingIdRef.current !== voice.id) return
+      playPreview(voice, url)
+    } catch (err) {
+      if (loadingIdRef.current === voice.id) setLoadingId(null)
+      // Recognized kie errors (401/402/429…) get their own friendly copy; the
+      // common case here is simply no key saved yet, so the fallback points there.
+      useAppStore.getState().addToast(
+        humanizeError(err, 'Add your kie.ai API key in Settings to preview voices.'),
+        'error',
+      )
+    }
+  }
+
+  const renderRow = (voice: VoiceOption) => {
+    const isSelected = voice.id === selectedId
+    const isPlaying = previewingId === voice.id
+    const isLoading = loadingId === voice.id
+
+    return (
+      <div
+        key={voice.id}
+        onClick={() => onSelect(voice)}
+        className={`group flex cursor-pointer items-center gap-3 rounded-xl px-3 py-3 transition-colors ${
+          isSelected ? 'bg-voice-500/15' : 'hover:bg-ink/[0.04]'
+        }`}
+      >
+        {/* Avatar with loading ring */}
+        <button
+          type="button"
+          onClick={(e) => handlePreview(voice, e)}
+          className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+          aria-label={isPlaying ? 'Stop preview' : 'Preview voice'}
+        >
+          <span className="absolute inset-0 rounded-full" style={{ background: seedColor(voice.id) }} />
+          {isLoading && (
+            <span className="absolute -inset-[3px] rounded-full border-2 border-ink/10 border-t-ink animate-spin" />
+          )}
+          {isPlaying && <span className="absolute -inset-[3px] rounded-full border-2 border-voice-400" />}
+          <span
+            className={`relative flex h-full w-full items-center justify-center rounded-full bg-black/40 text-white transition-opacity ${
+              isPlaying || isLoading ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+            }`}
+          >
+            {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+          </span>
+        </button>
+
+        {/* Text */}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline gap-2">
+            <span className={`truncate text-sm font-medium ${isSelected ? 'text-ink-50' : 'text-ink-100'}`}>
+              {voice.name}
+            </span>
+            <span className="shrink-0 text-[10px] uppercase tracking-wider text-ink-500">
+              {voice.category}
+            </span>
+          </div>
+          <div className="truncate text-xs text-ink-400">{voice.description}</div>
+        </div>
+
+        {isSelected && <Check className="h-4 w-4 shrink-0 text-voice-300" />}
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -96,7 +180,7 @@ export default function VoicePickerView({ selectedId, onSelect, onClose }: Voice
         </button>
         <div className="min-w-0 flex-1">
           <div className="text-base font-semibold tracking-tight text-ink-100">Select a voice</div>
-          <div className="text-xs text-ink-400">Voices tuned for AI UGC ads</div>
+          <div className="text-xs text-ink-400">Click a voice to hear a sample</div>
         </div>
       </div>
 
@@ -112,100 +196,43 @@ export default function VoicePickerView({ selectedId, onSelect, onClose }: Voice
           />
         </div>
 
-        {/* Category chips */}
+        {/* Gender filter chips */}
         <div className="mt-3 flex flex-wrap gap-1.5">
-          {filters.map((c) => {
-            const active = category === c
+          {GENDER_FILTERS.map((g) => {
+            const active = gender === g
             return (
               <button
-                key={c}
-                onClick={() => setCategory(c)}
+                key={g}
+                onClick={() => setGender(g)}
                 className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
                   active
                     ? 'bg-voice-500/25 text-voice-200'
                     : 'bg-ink/[0.05] text-ink-300 hover:bg-ink/[0.08] hover:text-ink-100'
                 }`}
               >
-                {c}
+                {g}
               </button>
             )
           })}
         </div>
       </div>
 
-      {/* Voice list */}
+      {/* Voice list — grouped by gender with a header per group */}
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {filtered.length === 0 ? (
+        {totalCount === 0 ? (
           <div className="flex h-full items-center justify-center px-6 text-center">
             <span className="text-sm text-ink-500">No voices match these filters.</span>
           </div>
         ) : (
           <div className="flex flex-col gap-0.5 p-2">
-            {filtered.map((voice) => {
-              const isSelected = voice.id === selectedId
-              const isPlaying = previewingId === voice.id
-              const isLoading = loadingId === voice.id
-
-              return (
-                <div
-                  key={voice.id}
-                  onClick={() => onSelect(voice)}
-                  className={`group flex cursor-pointer items-center gap-3 rounded-xl px-3 py-3 transition-colors ${
-                    isSelected ? 'bg-voice-500/15' : 'hover:bg-ink/[0.04]'
-                  }`}
-                >
-                  {/* Avatar with loading ring */}
-                  <button
-                    type="button"
-                    onClick={(e) => handlePreview(voice, e)}
-                    className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
-                    aria-label={isPlaying ? 'Stop preview' : 'Preview voice'}
-                  >
-                    {/* The avatar circle */}
-                    <span
-                      className="absolute inset-0 rounded-full"
-                      style={{ background: seedColor(voice.id) }}
-                    />
-                    {/* Loading ring (spinner) */}
-                    {isLoading && (
-                      <span className="absolute -inset-[3px] rounded-full border-2 border-ink/10 border-t-ink animate-spin" />
-                    )}
-                    {/* Static playing ring */}
-                    {isPlaying && (
-                      <span className="absolute -inset-[3px] rounded-full border-2 border-voice-400" />
-                    )}
-                    {/* Play/Pause icon overlay (visible on hover, or while playing/loading) */}
-                    <span
-                      className={`relative flex h-full w-full items-center justify-center rounded-full bg-black/40 text-white transition-opacity ${
-                        isPlaying || isLoading ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                      }`}
-                    >
-                      {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                    </span>
-                  </button>
-
-                  {/* Text */}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-baseline gap-2">
-                      <span className={`truncate text-sm font-medium ${isSelected ? 'text-ink-50' : 'text-ink-100'}`}>
-                        {voice.name}
-                      </span>
-                      <span className="shrink-0 text-[10px] uppercase tracking-wider text-ink-500">
-                        {voice.category}
-                      </span>
-                    </div>
-                    <div className="truncate text-xs text-ink-400">
-                      {voice.description}
-                    </div>
-                  </div>
-
-                  {/* Selected check */}
-                  {isSelected && (
-                    <Check className="h-4 w-4 shrink-0 text-voice-300" />
-                  )}
+            {groups.map(([g, list]) => (
+              <div key={g} className="flex flex-col gap-0.5">
+                <div className="px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wider text-ink-500">
+                  {g} <span className="text-ink-600">· {list.length}</span>
                 </div>
-              )
-            })}
+                {list.map(renderRow)}
+              </div>
+            ))}
           </div>
         )}
       </div>

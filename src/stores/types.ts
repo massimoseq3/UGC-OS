@@ -66,10 +66,13 @@ export interface VoicePreset {
   voiceId: string
   voiceName: string
   gender?: 'Female' | 'Male'
-  stability: number
-  similarityBoost: number
-  style: number
-  speed: number
+  // Gemini 3.1 Flash TTS delivery params (see voice-studio/types.ts).
+  style: string
+  pace: string
+  accent: string
+  temperature: number
+  scene?: string
+  sampleContext?: string
   linkedModelId: string
   createdAt: number
 }
@@ -132,10 +135,13 @@ export interface VoiceHistoryItem {
   voiceId: string
   voiceName: string
   gender?: 'Female' | 'Male'
-  stability: number
-  similarityBoost: number
-  style: number
-  speed: number
+  // Gemini 3.1 Flash TTS delivery params (see voice-studio/types.ts).
+  style: string
+  pace: string
+  accent: string
+  temperature: number
+  scene?: string
+  sampleContext?: string
   scriptText: string
   scriptPreview: string
   audioUrl: string

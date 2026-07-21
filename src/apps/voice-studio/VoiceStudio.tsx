@@ -5,8 +5,9 @@ import { useBankStore } from '../../stores/bankStore'
 import { useCreditsStore } from '../../stores/creditsStore'
 import type { Script, VoiceHistoryItem } from '../../stores/types'
 import type { VoiceSettings } from './types'
-import { createDefaultSettings } from './types'
+import { createDefaultSettings, sanitizeVoiceSettings } from './types'
 import { startVoiceTask, finishVoiceTask } from './services/generateVoice'
+import { enhanceScriptWithTags } from './services/enhanceScript'
 import { humanizeError } from '../../utils/friendlyError'
 import EditorArea from './components/EditorArea'
 import RightPanel from './components/RightPanel'
@@ -30,6 +31,19 @@ const INFLIGHT_TTL_MS = 30 * 60 * 1000
 export default function VoiceStudio() {
   const baseKey = useProjectScopedKey('voice-studio')
   const [settings, setSettings] = usePersistedState<VoiceSettings>(`${baseKey}:settings`, createDefaultSettings())
+
+  // Coerce style/pace/accent persisted before the option lists changed (see
+  // sanitizeVoiceSettings). Runs once on mount; no-op when already valid.
+  const didSanitizeRef = useRef(false)
+  useEffect(() => {
+    if (didSanitizeRef.current) return
+    didSanitizeRef.current = true
+    const clean = sanitizeVoiceSettings(settings)
+    if (clean.style !== settings.style || clean.pace !== settings.pace || clean.accent !== settings.accent) {
+      setSettings(clean)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [scriptText, setScriptText] = usePersistedState(`${baseKey}:scriptText`, '')
   const [activePlayerItemId, setActivePlayerItemId] = usePersistedState<string | null>(`${baseKey}:playerId`, null)
   // Persisted so a refresh between createTask and the audio download still
@@ -38,6 +52,7 @@ export default function VoiceStudio() {
   const [inFlightVoice, setInFlightVoice] = usePersistedState<InFlightVoice | null>(`${baseKey}:in-flight`, null)
 
   const [isGenerating, setIsGenerating] = useState(false)
+  const [isEnhancing, setIsEnhancing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [scriptPickerOpen, setScriptPickerOpen] = useState(false)
 
@@ -104,6 +119,25 @@ export default function VoiceStudio() {
     } finally {
       setIsGenerating(false)
       setInFlightVoice(null)
+    }
+  }
+
+  const handleEnhance = async () => {
+    if (!scriptText.trim() || isEnhancing || isGenerating) return
+    setIsEnhancing(true)
+    setError(null)
+    try {
+      const enhanced = await enhanceScriptWithTags(scriptText)
+      setScriptText(enhanced)
+      setSelectedScript(null)
+      setHighlightField('script')
+      setTimeout(() => setHighlightField(null), 800)
+      useAppStore.getState().addToast('Expression tags added', 'success')
+    } catch (err) {
+      const msg = humanizeError(err, 'Could not enhance the script. Check your API key and try again.')
+      useAppStore.getState().addToast(msg, 'error')
+    } finally {
+      setIsEnhancing(false)
     }
   }
 
@@ -188,6 +222,8 @@ export default function VoiceStudio() {
             onGenerate={handleGenerate}
             isGenerating={isGenerating}
             canGenerate={scriptText.trim().length > 0}
+            onEnhance={handleEnhance}
+            isEnhancing={isEnhancing}
             highlightField={highlightField}
             error={error}
           />

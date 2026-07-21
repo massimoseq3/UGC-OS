@@ -143,9 +143,35 @@ export interface ModelEntry {
 //   'ad-anatomy', 'script-architect', 'character-studio',
 //   'broll-studio', 'voice-studio', 'video-studio'
 
-// The ElevenLabs TTS registry id. Voiceovers has no model picker, so this is
-// the single source consumers (bankStore usage ledger, generateVoice) share.
-export const TTS_MODEL_ID = 'elevenlabs/text-to-speech-multilingual-v2'
+// The TTS registry id. Voiceovers has no model picker, so this is the single
+// source consumers (bankStore usage ledger, generateVoice) share.
+export const TTS_MODEL_ID = 'google/gemini-3-1-flash-tts'
+
+// Gemini 3.1 Flash TTS bills by tokens, not characters:
+//   input text:  140 credits / 1M tokens
+//   audio output: 2,800 credits / 1M tokens
+// We only know the script's character count at estimate time, so approximate:
+//   • input tokens ≈ chars / 4 (rough tokenizer ratio)
+//   • spoken audio ≈ chars / 12.5 chars-per-second (~150 wpm), and Gemini
+//     tokenizes audio at ~32 tokens/sec → audioTokens ≈ seconds × 32.
+// Audio output dominates. This is a display estimate like the rest of the
+// registry; the real charge is metered server-side.
+const GEMINI_TTS_RATES = {
+  inputCreditsPerMTok: 140,
+  audioCreditsPerMTok: 2800,
+  charsPerSecond: 12.5,
+  audioTokensPerSecond: 32,
+}
+function geminiTtsCredits(charCount: number): number {
+  const inputTokens = charCount / 4
+  const audioSeconds = charCount / GEMINI_TTS_RATES.charsPerSecond
+  const audioTokens = audioSeconds * GEMINI_TTS_RATES.audioTokensPerSecond
+  return (
+    (inputTokens * GEMINI_TTS_RATES.inputCreditsPerMTok +
+      audioTokens * GEMINI_TTS_RATES.audioCreditsPerMTok) /
+    1_000_000
+  )
+}
 
 export const MODEL_REGISTRY: ModelEntry[] = [
   // ── Chat / Vision ─────────────────────────────────────────────
@@ -829,22 +855,29 @@ export const MODEL_REGISTRY: ModelEntry[] = [
   },
 
   // ── Text-to-Speech ────────────────────────────────────────────
-  // Voiceovers uses ElevenLabs Multilingual v2 exclusively (no picker).
-  // Spec: https://docs.kie.ai/market/elevenlabs/text-to-speech-multilingual-v2
+  // Voiceovers uses Gemini 3.1 Flash TTS exclusively (no picker).
+  // Spec: https://docs.kie.ai/ (google/gemini-3-1-flash-tts).
   // Voice catalog lives in src/apps/voice-studio/types.ts — VOICES.
 
   {
     id: TTS_MODEL_ID,
-    displayName: 'Eleven Multilingual v2',
-    provider: 'ElevenLabs',
+    displayName: 'Gemini 3.1 Flash TTS',
+    provider: 'Google',
     task: 'tts',
-    tags: ['recommended'],
-    // Source: https://kie.ai/elevenlabs-tts. 12 credits per 1,000 characters.
-    pricing: { unit: 'per-1k-chars', credits: 12 },
-    // ElevenLabs' own API rate for Multilingual v2: $0.10 per 1k characters.
+    tags: ['recommended', 'new'],
+    // Token-metered (see geminiTtsCredits above). `unit`/`credits` are unused
+    // when `priceFor` is present but required by the type — keep them sane.
+    pricing: {
+      unit: 'per-1k-chars',
+      credits: 7,
+      priceFor: ({ charCount = 1000 }) => geminiTtsCredits(charCount),
+    },
+    // kie is ~30% cheaper than Google's own API rate for this model, so the
+    // official price ≈ kie credits / 0.70 converted to USD. Derived from kie's
+    // published "~30% cheaper than official" claim on the model's pricing page.
     official: {
-      usdFor: ({ charCount = 1000 }) => 0.10 * (charCount / 1000),
-      source: 'https://elevenlabs.io/pricing/api',
+      usdFor: ({ charCount = 1000 }) => geminiTtsCredits(charCount) / CREDITS_PER_USD / 0.7,
+      source: 'https://kie.ai/pricing',
     },
     defaultFor: ['voice-studio'],
   },
