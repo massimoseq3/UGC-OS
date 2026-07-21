@@ -127,17 +127,36 @@ export const DEFAULT_VOICE_SETTINGS: Omit<VoiceSettings, 'voiceId' | 'voiceName'
   sampleContext: '',
 }
 
-// Coerce any style/pace/accent that isn't a current option back to its default.
-// Guards against settings persisted before the option lists changed (localStorage
-// survives across versions and isn't run through the bank's migrateVoiceShape).
-export function sanitizeVoiceSettings(s: VoiceSettings): VoiceSettings {
-  const fix = (v: string, opts: readonly string[], fallback: string) =>
-    opts.includes(v) ? v : fallback
+// Normalize a persisted settings blob into a valid, fully-populated VoiceSettings.
+// localStorage survives across versions and is NOT run through the bank's
+// migrateVoiceShape, so settings saved by the old ElevenLabs Voiceovers (no
+// `temperature`, numeric `style`, an ElevenLabs `voiceId`, etc.) reach us here.
+// Rendering those directly crashes (e.g. the Expressiveness slider does
+// `temperature.toFixed(2)`), so every field is defended and back-filled. Applied
+// at READ time (not in an effect) so the very first render is already safe.
+export function sanitizeVoiceSettings(s: VoiceSettings | Partial<VoiceSettings> | null | undefined): VoiceSettings {
+  const src = (s ?? {}) as Partial<VoiceSettings>
+  const def = createDefaultSettings()
+  const inList = (v: unknown, opts: readonly string[], fallback: string) =>
+    typeof v === 'string' && (opts as readonly string[]).includes(v) ? v : fallback
+
+  // A voiceId that isn't a current Gemini voice (e.g. a leftover ElevenLabs id)
+  // can't be sent as `voice_name`, so fall back to the default voice.
+  const known = typeof src.voiceId === 'string' ? getVoiceById(src.voiceId) : undefined
+
   return {
-    ...s,
-    style: fix(s.style, VOICE_STYLES, DEFAULT_VOICE_SETTINGS.style),
-    pace: fix(s.pace, VOICE_PACES, DEFAULT_VOICE_SETTINGS.pace),
-    accent: fix(s.accent, VOICE_ACCENTS, DEFAULT_VOICE_SETTINGS.accent),
+    voiceId: known ? known.id : def.voiceId,
+    voiceName: known ? known.name : def.voiceName,
+    gender: known ? known.gender : def.gender,
+    style: inList(src.style, VOICE_STYLES, DEFAULT_VOICE_SETTINGS.style),
+    pace: inList(src.pace, VOICE_PACES, DEFAULT_VOICE_SETTINGS.pace),
+    accent: inList(src.accent, VOICE_ACCENTS, DEFAULT_VOICE_SETTINGS.accent),
+    temperature:
+      typeof src.temperature === 'number' && Number.isFinite(src.temperature)
+        ? src.temperature
+        : DEFAULT_VOICE_SETTINGS.temperature,
+    scene: typeof src.scene === 'string' ? src.scene : '',
+    sampleContext: typeof src.sampleContext === 'string' ? src.sampleContext : '',
   }
 }
 

@@ -30,18 +30,22 @@ const INFLIGHT_TTL_MS = 30 * 60 * 1000
 
 export default function VoiceStudio() {
   const baseKey = useProjectScopedKey('voice-studio')
-  const [settings, setSettings] = usePersistedState<VoiceSettings>(`${baseKey}:settings`, createDefaultSettings())
+  const [rawSettings, setSettings] = usePersistedState<VoiceSettings>(`${baseKey}:settings`, createDefaultSettings())
 
-  // Coerce style/pace/accent persisted before the option lists changed (see
-  // sanitizeVoiceSettings). Runs once on mount; no-op when already valid.
-  const didSanitizeRef = useRef(false)
+  // Settings persisted by an older version can be missing fields or hold stale
+  // shapes (e.g. no `temperature`, a numeric `style`, an ElevenLabs `voiceId`).
+  // Rendering those directly white-screens the tab (the slider does
+  // `temperature.toFixed(2)`), so sanitize at READ time — every render, every
+  // consumer, sees a valid blob. `settings` is what the rest of the component uses.
+  const settings = useMemo(() => sanitizeVoiceSettings(rawSettings), [rawSettings])
+
+  // Heal the stored value once so the persisted blob matches what we render (and
+  // so a stale ElevenLabs voiceId doesn't get sent to the new model on generate).
+  const didHealRef = useRef(false)
   useEffect(() => {
-    if (didSanitizeRef.current) return
-    didSanitizeRef.current = true
-    const clean = sanitizeVoiceSettings(settings)
-    if (clean.style !== settings.style || clean.pace !== settings.pace || clean.accent !== settings.accent) {
-      setSettings(clean)
-    }
+    if (didHealRef.current) return
+    didHealRef.current = true
+    if (JSON.stringify(settings) !== JSON.stringify(rawSettings)) setSettings(settings)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   const [scriptText, setScriptText] = usePersistedState(`${baseKey}:scriptText`, '')
