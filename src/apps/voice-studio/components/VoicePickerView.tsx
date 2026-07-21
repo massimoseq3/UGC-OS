@@ -1,10 +1,8 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { ArrowLeft, Search, Play, Pause, Check } from 'lucide-react'
-import type { VoiceOption, Gender } from '../types'
-import { VOICES } from '../types'
-import { getVoicePreview } from '../services/previewVoice'
-import { useAppStore } from '../../../stores/appStore'
-import { humanizeError } from '../../../utils/friendlyError'
+import type { VoiceOption, VoicePitch } from '../types'
+import { VOICES, PITCH_ORDER, PITCH_LABELS } from '../types'
+import { voicePreviewUrl } from '../services/previewVoice'
 
 import { seedColor } from './seedColor'
 
@@ -14,21 +12,16 @@ interface VoicePickerViewProps {
   onClose: () => void
 }
 
-type GenderFilter = 'All' | Gender
-const GENDER_FILTERS: GenderFilter[] = ['All', 'Female', 'Male']
-// Voices are grouped under these headers, Female first, then Male.
-const GENDER_ORDER: Gender[] = ['Female', 'Male']
+// Filter chips: All + each pitch band, highest → lowest (PITCH_ORDER).
+type PitchFilter = 'All' | VoicePitch
+const PITCH_FILTERS: PitchFilter[] = ['All', ...PITCH_ORDER]
 
 export default function VoicePickerView({ selectedId, onSelect, onClose }: VoicePickerViewProps) {
   const [query, setQuery] = useState('')
-  const [gender, setGender] = useState<GenderFilter>('All')
+  const [pitchFilter, setPitchFilter] = useState<PitchFilter>('All')
   const [previewingId, setPreviewingId] = useState<string | null>(null)
   const [loadingId, setLoadingId] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
-  // Mirror of loadingId readable inside the async preview flow (whose closure
-  // captures a stale loadingId) to detect the user switching voices mid-fetch.
-  const loadingIdRef = useRef<string | null>(null)
-  useEffect(() => { loadingIdRef.current = loadingId }, [loadingId])
 
   useEffect(() => {
     return () => {
@@ -39,12 +32,12 @@ export default function VoicePickerView({ selectedId, onSelect, onClose }: Voice
     }
   }, [])
 
-  // Filter by query + gender, then group Female-first / Male so the list is
-  // sorted by gender with a header per group.
+  // Filter by query + pitch, then group by pitch band (highest → lowest) with a
+  // header per group, so members can scan voices by register.
   const groups = useMemo(() => {
     const q = query.trim().toLowerCase()
     const filtered = VOICES.filter((v) => {
-      if (gender !== 'All' && v.gender !== gender) return false
+      if (pitchFilter !== 'All' && v.pitch !== pitchFilter) return false
       if (!q) return true
       return (
         v.name.toLowerCase().includes(q) ||
@@ -52,10 +45,10 @@ export default function VoicePickerView({ selectedId, onSelect, onClose }: Voice
         v.category.toLowerCase().includes(q)
       )
     })
-    return GENDER_ORDER
-      .map((g) => [g, filtered.filter((v) => v.gender === g)] as const)
+    return PITCH_ORDER
+      .map((p) => [p, filtered.filter((v) => v.pitch === p)] as const)
       .filter(([, list]) => list.length > 0)
-  }, [query, gender])
+  }, [query, pitchFilter])
 
   const totalCount = groups.reduce((n, [, list]) => n + list.length, 0)
 
@@ -81,7 +74,7 @@ export default function VoicePickerView({ selectedId, onSelect, onClose }: Voice
     })
   }
 
-  const handlePreview = async (voice: VoiceOption, e: React.MouseEvent) => {
+  const handlePreview = (voice: VoiceOption, e: React.MouseEvent) => {
     e.stopPropagation()
 
     // Toggle off if the same voice is playing or being fetched.
@@ -93,26 +86,13 @@ export default function VoicePickerView({ selectedId, onSelect, onClose }: Voice
       return
     }
 
-    // Gemini has no hosted samples — the first preview is generated on demand,
-    // then cached for the session (see previewVoice.ts). Show the loading ring
-    // meanwhile; a stale generation resolves onto whichever voice is active.
+    // Play Google's pre-rendered sample straight from the public gstatic CDN —
+    // instant, free, no kie.ai call or key (see previewVoice.ts). The loading
+    // ring shows only for the brief first fetch; 'playing'/'error' clear it.
     audioRef.current?.pause()
     setLoadingId(voice.id)
     setPreviewingId(null)
-    try {
-      const url = await getVoicePreview(voice.id)
-      // Bail if the user moved on to a different voice while this generated.
-      if (loadingIdRef.current !== voice.id) return
-      playPreview(voice, url)
-    } catch (err) {
-      if (loadingIdRef.current === voice.id) setLoadingId(null)
-      // Recognized kie errors (401/402/429…) get their own friendly copy; the
-      // common case here is simply no key saved yet, so the fallback points there.
-      useAppStore.getState().addToast(
-        humanizeError(err, 'Add your kie.ai API key in Settings to preview voices.'),
-        'error',
-      )
-    }
+    playPreview(voice, voicePreviewUrl(voice.id))
   }
 
   const renderRow = (voice: VoiceOption) => {
@@ -196,28 +176,28 @@ export default function VoicePickerView({ selectedId, onSelect, onClose }: Voice
           />
         </div>
 
-        {/* Gender filter chips */}
+        {/* Pitch filter chips — All, then highest → lowest */}
         <div className="mt-3 flex flex-wrap gap-1.5">
-          {GENDER_FILTERS.map((g) => {
-            const active = gender === g
+          {PITCH_FILTERS.map((p) => {
+            const active = pitchFilter === p
             return (
               <button
-                key={g}
-                onClick={() => setGender(g)}
+                key={p}
+                onClick={() => setPitchFilter(p)}
                 className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
                   active
                     ? 'bg-voice-500/25 text-voice-200'
                     : 'bg-ink/[0.05] text-ink-300 hover:bg-ink/[0.08] hover:text-ink-100'
                 }`}
               >
-                {g}
+                {p === 'All' ? 'All' : PITCH_LABELS[p]}
               </button>
             )
           })}
         </div>
       </div>
 
-      {/* Voice list — grouped by gender with a header per group */}
+      {/* Voice list — grouped by pitch band with a header per group */}
       <div className="min-h-0 flex-1 overflow-y-auto">
         {totalCount === 0 ? (
           <div className="flex h-full items-center justify-center px-6 text-center">
@@ -225,10 +205,10 @@ export default function VoicePickerView({ selectedId, onSelect, onClose }: Voice
           </div>
         ) : (
           <div className="flex flex-col gap-0.5 p-2">
-            {groups.map(([g, list]) => (
-              <div key={g} className="flex flex-col gap-0.5">
+            {groups.map(([p, list]) => (
+              <div key={p} className="flex flex-col gap-0.5">
                 <div className="px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wider text-ink-500">
-                  {g} <span className="text-ink-600">· {list.length}</span>
+                  {PITCH_LABELS[p]} <span className="text-ink-600">· {list.length}</span>
                 </div>
                 {list.map(renderRow)}
               </div>

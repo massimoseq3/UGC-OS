@@ -10,7 +10,6 @@ import MeetTheTeam from './components/MeetTheTeam'
 import ToastContainer from './components/Toast'
 import AuthGate from './components/auth/AuthGate'
 import RouterSync from './components/RouterSync'
-import CookieBanner from './components/CookieBanner'
 import LegalAcceptModal from './components/LegalAcceptModal'
 import { useAppStore } from './stores/appStore'
 import { useAuthStore } from './stores/authStore'
@@ -94,7 +93,6 @@ export default function App() {
             <AuthGate>
               <RouterSync />
               <Workspace />
-              <CookieBanner />
               <LegalAcceptModal />
             </AuthGate>
           }
