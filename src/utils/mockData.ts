@@ -247,9 +247,9 @@ const INFLUENCERS = [
 ]
 
 const VOICES = [
-  { label: 'Warm Female VO', voiceName: 'Rachel', gender: 'Female' as const },
-  { label: 'Confident Male VO', voiceName: 'Adam', gender: 'Male' as const },
-  { label: 'Friendly Female VO', voiceName: 'Bella', gender: 'Female' as const },
+  { label: 'Warm Female VO', voiceName: 'Sulafat', gender: 'Female' as const },
+  { label: 'Confident Male VO', voiceName: 'Puck', gender: 'Male' as const },
+  { label: 'Friendly Female VO', voiceName: 'Leda', gender: 'Female' as const },
 ]
 
 const SCRIPT_TEXT_1 = `Okay so I almost returned this serum… and now I'm on my third bottle.\n\nMy skin was so dull I'd cake on foundation just to look awake. Nothing worked.\n\nThen I tried this for a week — and people literally asked if I'd been on holiday.\n\nIt's 15% vitamin C, no sticky finish, zero fragrance. I just put it on, glow, done.\n\nThey're doing 20% off right now. Don't sleep on it.`
@@ -486,13 +486,13 @@ export async function seedMockData(): Promise<void> {
     for (const v of VOICES) {
       await store.addVoice({
         label: v.label,
-        voiceId: `demo-voice-${v.voiceName.toLowerCase()}`,
+        voiceId: v.voiceName,
         voiceName: v.voiceName,
         gender: v.gender,
-        stability: 0.75,
-        similarityBoost: 0.75,
-        style: 0,
-        speed: 1,
+        style: 'Vocal Smile',
+        pace: 'Natural',
+        accent: 'Neutral',
+        temperature: 1,
         linkedModelId: '',
       })
     }
@@ -622,13 +622,13 @@ export async function seedMockData(): Promise<void> {
       const scriptText = voiceScripts[i] ?? SCRIPT_TEXT_1
       const item: VoiceHistoryItem = {
         id: `demo-voice-hist-${i}`,
-        voiceId: `demo-voice-${v.voiceName.toLowerCase()}`,
+        voiceId: v.voiceName,
         voiceName: v.voiceName,
         gender: v.gender,
-        stability: 0.75,
-        similarityBoost: 0.75,
-        style: 0,
-        speed: 1,
+        style: 'Vocal Smile',
+        pace: 'Natural',
+        accent: 'Neutral',
+        temperature: 1,
         scriptText,
         scriptPreview: scriptText.replace(/\n+/g, ' ').slice(0, 120),
         audioUrl,

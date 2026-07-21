@@ -179,13 +179,20 @@ function migrateVoiceShape<T>(arr: unknown): T[] {
     .filter((v) => v && typeof v === 'object' && 'voiceId' in v && typeof v.voiceId === 'string')
     .map((v) => {
       const item = { ...(v as Record<string, unknown>) }
+      // Legacy ElevenLabs params — drop; the new Gemini shape uses string
+      // delivery controls (style/pace/accent) + a numeric temperature.
       delete item.creativity
       delete item.ambience
       delete item.styleInstructions
-      if (typeof item.stability !== 'number') item.stability = 0.5
-      if (typeof item.similarityBoost !== 'number') item.similarityBoost = 0.75
-      if (typeof item.style !== 'number') item.style = 0
-      if (typeof item.speed !== 'number') item.speed = 1
+      delete item.stability
+      delete item.similarityBoost
+      delete item.speed
+      // `style` was a number under ElevenLabs; it's a string now. Overwrite any
+      // non-string value with the neutral default.
+      if (typeof item.style !== 'string') item.style = 'Vocal Smile'
+      if (typeof item.pace !== 'string') item.pace = 'Natural'
+      if (typeof item.accent !== 'string') item.accent = 'Neutral'
+      if (typeof item.temperature !== 'number') item.temperature = 1
       return item as unknown as T
     })
 }

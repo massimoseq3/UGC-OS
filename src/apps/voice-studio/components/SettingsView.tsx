@@ -1,8 +1,9 @@
 import { ChevronRight, RotateCcw } from 'lucide-react'
 import type { VoiceSettings } from '../types'
-import { DEFAULT_VOICE_SETTINGS, getVoiceById } from '../types'
+import { DEFAULT_VOICE_SETTINGS, getVoiceById, VOICE_STYLES, VOICE_PACES, VOICE_ACCENTS } from '../types'
 import { seedColor } from './seedColor'
 import Slider from './Slider'
+import Dropdown from './Dropdown'
 
 interface SettingsViewProps {
   settings: VoiceSettings
@@ -19,13 +20,13 @@ export default function SettingsView({ settings, onSettingsChange, onOpenVoicePi
 
   return (
     <div className="flex h-full flex-col overflow-y-auto">
-      <div className="flex flex-col gap-6 px-5 pb-6 pt-4">
-        {/* Voice row — clickable, slides into picker */}
+      <div className="flex flex-col gap-4 px-5 pb-6 pt-2">
+        {/* Voice — clickable, slides into picker */}
         <div>
           <span className="text-sm font-medium text-ink-200">Voice</span>
           <button
             onClick={onOpenVoicePicker}
-            className="mt-2 flex w-full items-center gap-3 rounded-full border border-ink/10 bg-ink/[0.03] px-3.5 py-3 text-left transition-colors hover:bg-ink/[0.06]"
+            className="mt-1.5 flex w-full items-center gap-3 rounded-full border border-ink/10 bg-ink/[0.03] px-3.5 py-2.5 text-left transition-colors hover:bg-ink/[0.06]"
           >
             <span
               className="h-8 w-8 shrink-0 rounded-full"
@@ -41,64 +42,61 @@ export default function SettingsView({ settings, onSettingsChange, onOpenVoicePi
           </button>
         </div>
 
-        {/* Model — static row, only one model in use */}
-        <div>
-          <span className="text-sm font-medium text-ink-200">Model</span>
-          <div className="mt-2 flex w-full items-center gap-3 rounded-full border border-ink/10 bg-ink/[0.03] px-3.5 py-3">
-            <span className="rounded-full border border-ink/15 px-2 py-0.5 text-[10px] font-semibold tracking-wider text-ink-200">V2</span>
-            <span className="text-sm font-medium text-ink-100">Eleven Multilingual v2</span>
-          </div>
+        {/* Style — full width */}
+        <Field label="Style">
+          <Dropdown value={settings.style} options={VOICE_STYLES} onChange={(style) => onSettingsChange({ ...settings, style })} />
+        </Field>
+
+        {/* Pace + Accent — side by side to save vertical space */}
+        <div className="grid grid-cols-2 gap-2.5">
+          <Field label="Pace">
+            <Dropdown compact value={settings.pace} options={VOICE_PACES} onChange={(pace) => onSettingsChange({ ...settings, pace })} />
+          </Field>
+          <Field label="Accent">
+            <Dropdown compact value={settings.accent} options={VOICE_ACCENTS} onChange={(accent) => onSettingsChange({ ...settings, accent })} />
+          </Field>
         </div>
 
-        {/* Sliders */}
-        <Slider
-          label="Speed"
-          tooltip="Controls the speed of the generated speech. Values below 1.0 will slow down the speech, while values above 1.0 will speed it up. Extreme values may affect the quality of the generated speech."
-          value={settings.speed}
-          min={0.7}
-          max={1.2}
-          step={0.01}
-          leftHint="Slower"
-          rightHint="Faster"
-          onChange={(speed) => onSettingsChange({ ...settings, speed })}
-          format={(v) => `${v.toFixed(2)}×`}
-        />
+        {/* Expressiveness (temperature) — extra top space so it doesn't crowd
+            the dropdowns above. */}
+        <div className="pt-2">
+          <Slider
+            label="Expressiveness"
+            tooltip="Controls how much the delivery varies. Lower values are more predictable and consistent between re-generations; higher values are more creative and expressive but less repeatable."
+            value={settings.temperature}
+            min={0}
+            max={2}
+            step={0.05}
+            leftHint="Focused"
+            rightHint="Creative"
+            onChange={(temperature) => onSettingsChange({ ...settings, temperature })}
+            format={(v) => v.toFixed(2)}
+          />
+        </div>
 
-        <Slider
-          label="Stability"
-          tooltip="Increasing stability will make the voice more consistent between re-generations, but it can also make it sound a bit monotone. On longer text fragments we recommend lowering this value."
-          value={settings.stability}
-          min={0}
-          max={1}
-          step={0.01}
-          leftHint="More variable"
-          rightHint="More stable"
-          onChange={(stability) => onSettingsChange({ ...settings, stability })}
-        />
-
-        <Slider
-          label="Similarity"
-          tooltip="High similarity boosts overall voice clarity and resemblance to the chosen voice. Very high values can introduce artifacts, so adjust to find the optimal value for your script."
-          value={settings.similarityBoost}
-          min={0}
-          max={1}
-          step={0.01}
-          leftHint="Low"
-          rightHint="High"
-          onChange={(similarityBoost) => onSettingsChange({ ...settings, similarityBoost })}
-        />
-
-        <Slider
-          label="Style Exaggeration"
-          tooltip="Pushes the voice toward the speaking style of the original sample. Higher values amplify expressiveness but may reduce stability — keep low for consistent ad reads."
-          value={settings.style}
-          min={0}
-          max={1}
-          step={0.01}
-          leftHint="None"
-          rightHint="Exaggerated"
-          onChange={(style) => onSettingsChange({ ...settings, style })}
-        />
+        {/* Optional direction — scene + overall tone (always visible) */}
+        <div className="flex flex-col gap-2">
+          <span className="text-sm font-medium text-ink-200">Scene <span className="text-ink-500">· optional</span></span>
+          <textarea
+            value={settings.scene}
+            onChange={(e) => onSettingsChange({ ...settings, scene: e.target.value })}
+            rows={2}
+            maxLength={1000}
+            placeholder="e.g. A bright, upbeat product demo in a sunny kitchen."
+            className="resize-none rounded-2xl border border-ink/10 bg-ink/[0.03] px-3.5 py-2.5 text-sm text-ink-100 placeholder-ink-600 outline-none transition-colors focus:border-voice-500/40"
+          />
+        </div>
+        <div className="flex flex-col gap-2">
+          <span className="text-sm font-medium text-ink-200">Tone / context <span className="text-ink-500">· optional</span></span>
+          <textarea
+            value={settings.sampleContext}
+            onChange={(e) => onSettingsChange({ ...settings, sampleContext: e.target.value })}
+            rows={2}
+            maxLength={1000}
+            placeholder="e.g. An excited creator sharing a product they love with a friend."
+            className="resize-none rounded-2xl border border-ink/10 bg-ink/[0.03] px-3.5 py-2.5 text-sm text-ink-100 placeholder-ink-600 outline-none transition-colors focus:border-voice-500/40"
+          />
+        </div>
 
         {/* Reset */}
         <div className="mt-1">
@@ -111,6 +109,15 @@ export default function SettingsView({ settings, onSettingsChange, onOpenVoicePi
           </button>
         </div>
       </div>
+    </div>
+  )
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <span className="text-sm font-medium text-ink-200">{label}</span>
+      <div className="mt-1.5">{children}</div>
     </div>
   )
 }

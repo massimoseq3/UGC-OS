@@ -80,13 +80,13 @@ export default function HistoryDetailsView({ item, onClose, onRestoreText, onRes
     voiceId: item.voiceId,
     voiceName: item.voiceName,
     gender: item.gender,
-    stability: item.stability,
-    similarityBoost: item.similarityBoost,
     style: item.style,
-    speed: item.speed,
+    pace: item.pace,
+    accent: item.accent,
+    temperature: item.temperature,
+    scene: item.scene ?? '',
+    sampleContext: item.sampleContext ?? '',
   })
-
-  const pct = (n: number) => `${Math.round(n * 100)}%`
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -121,7 +121,7 @@ export default function HistoryDetailsView({ item, onClose, onRestoreText, onRes
         {/* Pills */}
         <div className="mt-3 flex flex-wrap gap-1.5">
           <span className="rounded-full border border-ink/10 bg-ink/[0.03] px-2.5 py-1 text-[11px] text-ink-300">
-            Eleven Multilingual v2
+            Gemini 3.1 Flash TTS
           </span>
           <span className="rounded-full border border-ink/10 bg-ink/[0.03] px-2.5 py-1 text-[11px] text-ink-300">
             {item.scriptText.length} chars
@@ -163,11 +163,13 @@ export default function HistoryDetailsView({ item, onClose, onRestoreText, onRes
         <div className="mt-6">
           <div className="mb-3 text-sm font-semibold text-ink-100">Settings</div>
           <div className="flex flex-col gap-2.5">
-            <SettingRow label="Model" value="Eleven Multilingual v2" />
-            <SettingRow label="Speed" value={`${item.speed.toFixed(2)}×`} />
-            <SettingRow label="Stability" value={pct(item.stability)} />
-            <SettingRow label="Similarity boost" value={pct(item.similarityBoost)} />
-            <SettingRow label="Style" value={pct(item.style)} />
+            <SettingRow label="Model" value="Gemini 3.1 Flash TTS" />
+            <SettingRow label="Style" value={item.style} />
+            <SettingRow label="Pace" value={item.pace} />
+            <SettingRow label="Accent" value={item.accent} />
+            <SettingRow label="Expressiveness" value={item.temperature.toFixed(2)} />
+            {item.scene && <SettingRow label="Scene" value={item.scene} />}
+            {item.sampleContext && <SettingRow label="Tone / context" value={item.sampleContext} />}
           </div>
 
           <button

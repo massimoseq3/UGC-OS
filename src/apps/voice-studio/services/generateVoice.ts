@@ -25,6 +25,29 @@ async function probeAudioDuration(blob: Blob): Promise<number> {
   })
 }
 
+// Build the Gemini 3.1 Flash TTS `input` body from the app's settings. The
+// model takes two JSON-string fields — one speaker + one dialogue turn for a
+// single-voice ad read — plus top-level temperature / scene / sample_context.
+export function buildVoiceInput(settings: VoiceSettings, scriptText: string): Record<string, unknown> {
+  const speakers = JSON.stringify([
+    {
+      speaker_id: 'Speaker 1',
+      voice_name: settings.voiceId, // voiceId === Gemini voice_name
+      audio_profile: '',
+      style: settings.style,
+      pace: settings.pace,
+      accent: settings.accent,
+    },
+  ])
+  const dialogue_turns = JSON.stringify([{ speaker_id: 'Speaker 1', text: scriptText }])
+
+  const input: Record<string, unknown> = { speakers, dialogue_turns, temperature: settings.temperature }
+  // scene / sample_context are optional direction — only send when filled.
+  if (settings.scene.trim()) input.scene = settings.scene.trim()
+  if (settings.sampleContext.trim()) input.sample_context = settings.sampleContext.trim()
+  return input
+}
+
 // Phase 1: POST createTask, return the kie taskId so the caller can persist
 // it before awaiting completion. A mid-flight refresh can resume polling by
 // calling finishVoiceTask with the stored taskId.
@@ -33,17 +56,7 @@ export async function startVoiceTask(
   scriptText: string,
 ): Promise<{ taskId: string }> {
   const apiKey = useSettingsStore.getState().getKieApiKey()
-  // ElevenLabs Multilingual v2 expects a flat object — the v3 dialogue array
-  // shape is gone. `voice` accepts a voice ID directly (preset names also
-  // work but IDs are stabler across regions).
-  const taskId = await createTask(apiKey, TTS_MODEL_ID, {
-    text: scriptText,
-    voice: settings.voiceId,
-    stability: settings.stability,
-    similarity_boost: settings.similarityBoost,
-    style: settings.style,
-    speed: settings.speed,
-  })
+  const taskId = await createTask(apiKey, TTS_MODEL_ID, buildVoiceInput(settings, scriptText))
   return { taskId }
 }
 
@@ -80,10 +93,12 @@ export async function finishVoiceTask(
     voiceId: settings.voiceId,
     voiceName: settings.voiceName,
     gender: settings.gender,
-    stability: settings.stability,
-    similarityBoost: settings.similarityBoost,
     style: settings.style,
-    speed: settings.speed,
+    pace: settings.pace,
+    accent: settings.accent,
+    temperature: settings.temperature,
+    scene: settings.scene || undefined,
+    sampleContext: settings.sampleContext || undefined,
     scriptText,
     scriptPreview: scriptText.slice(0, 80) + (scriptText.length > 80 ? '...' : ''),
     audioUrl: assetId,

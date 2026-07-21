@@ -93,10 +93,12 @@ export default function HistoryView({ items, activeId, onSelect, onDelete, onSho
       voiceId: item.voiceId,
       voiceName: item.voiceName,
       gender: item.gender,
-      stability: item.stability,
-      similarityBoost: item.similarityBoost,
       style: item.style,
-      speed: item.speed,
+      pace: item.pace,
+      accent: item.accent,
+      temperature: item.temperature,
+      scene: item.scene,
+      sampleContext: item.sampleContext,
       linkedModelId: '',
     })
     setSaveFormId(null)
