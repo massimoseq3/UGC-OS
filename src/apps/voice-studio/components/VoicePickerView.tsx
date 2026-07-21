@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { ArrowLeft, Search, Play, Pause, Check } from 'lucide-react'
 import type { VoiceOption, Gender } from '../types'
-import { VOICES } from '../types'
+import { VOICES, PITCH_ORDER, PITCH_LABELS } from '../types'
 import { voicePreviewUrl } from '../services/previewVoice'
 
 import { seedColor } from './seedColor'
@@ -14,8 +14,6 @@ interface VoicePickerViewProps {
 
 type GenderFilter = 'All' | Gender
 const GENDER_FILTERS: GenderFilter[] = ['All', 'Female', 'Male']
-// Voices are grouped under these headers, Female first, then Male.
-const GENDER_ORDER: Gender[] = ['Female', 'Male']
 
 export default function VoicePickerView({ selectedId, onSelect, onClose }: VoicePickerViewProps) {
   const [query, setQuery] = useState('')
@@ -33,8 +31,8 @@ export default function VoicePickerView({ selectedId, onSelect, onClose }: Voice
     }
   }, [])
 
-  // Filter by query + gender, then group Female-first / Male so the list is
-  // sorted by gender with a header per group.
+  // Filter by query + gender, then group by pitch band (lowest → highest) with
+  // a header per group, so members can scan voices by register.
   const groups = useMemo(() => {
     const q = query.trim().toLowerCase()
     const filtered = VOICES.filter((v) => {
@@ -46,8 +44,8 @@ export default function VoicePickerView({ selectedId, onSelect, onClose }: Voice
         v.category.toLowerCase().includes(q)
       )
     })
-    return GENDER_ORDER
-      .map((g) => [g, filtered.filter((v) => v.gender === g)] as const)
+    return PITCH_ORDER
+      .map((p) => [p, filtered.filter((v) => v.pitch === p)] as const)
       .filter(([, list]) => list.length > 0)
   }, [query, gender])
 
@@ -198,7 +196,7 @@ export default function VoicePickerView({ selectedId, onSelect, onClose }: Voice
         </div>
       </div>
 
-      {/* Voice list — grouped by gender with a header per group */}
+      {/* Voice list — grouped by pitch band with a header per group */}
       <div className="min-h-0 flex-1 overflow-y-auto">
         {totalCount === 0 ? (
           <div className="flex h-full items-center justify-center px-6 text-center">
@@ -206,10 +204,10 @@ export default function VoicePickerView({ selectedId, onSelect, onClose }: Voice
           </div>
         ) : (
           <div className="flex flex-col gap-0.5 p-2">
-            {groups.map(([g, list]) => (
-              <div key={g} className="flex flex-col gap-0.5">
+            {groups.map(([p, list]) => (
+              <div key={p} className="flex flex-col gap-0.5">
                 <div className="px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wider text-ink-500">
-                  {g} <span className="text-ink-600">· {list.length}</span>
+                  {PITCH_LABELS[p]} <span className="text-ink-600">· {list.length}</span>
                 </div>
                 {list.map(renderRow)}
               </div>

@@ -17,6 +17,17 @@ export const VOICE_CATEGORIES: VoiceCategory[] = [
   'Friendly',
 ]
 
+// Google publishes a pitch band for every voice (in AI Studio's voice library).
+// The picker groups by these, lowest → highest, so members can scan by register.
+export type VoicePitch = 'Lower' | 'Lower-middle' | 'Middle' | 'Higher'
+export const PITCH_ORDER: VoicePitch[] = ['Lower', 'Lower-middle', 'Middle', 'Higher']
+export const PITCH_LABELS: Record<VoicePitch, string> = {
+  Lower: 'Lower pitch',
+  'Lower-middle': 'Lower-mid pitch',
+  Middle: 'Middle pitch',
+  Higher: 'Higher pitch',
+}
+
 export interface VoiceOption {
   // For Gemini the voice IS the name (e.g. "Zephyr") — it's what the API's
   // `voice_name` field wants. `id` mirrors it so bank rows / seed colours keep
@@ -25,6 +36,7 @@ export interface VoiceOption {
   name: string
   description: string       // Google's one-word character for the voice
   category: VoiceCategory
+  pitch: VoicePitch         // Google's published pitch band; groups the picker
   gender?: Gender
 }
 
@@ -33,42 +45,42 @@ export interface VoiceOption {
 // Do not rename — the name is the `voice_name` sent to kie.ai.
 export const VOICES: VoiceOption[] = [
   // ── Energetic ──────────────────────────────────────────────────
-  { id: 'Puck',          name: 'Puck',          description: 'Upbeat and lively',        category: 'Energetic',     gender: 'Male' },
-  { id: 'Zephyr',        name: 'Zephyr',        description: 'Bright and clear',         category: 'Energetic',     gender: 'Female' },
-  { id: 'Autonoe',       name: 'Autonoe',       description: 'Bright and buoyant',       category: 'Energetic',     gender: 'Female' },
-  { id: 'Laomedeia',     name: 'Laomedeia',     description: 'Upbeat and peppy',         category: 'Energetic',     gender: 'Female' },
-  { id: 'Fenrir',        name: 'Fenrir',        description: 'Excitable and eager',      category: 'Energetic',     gender: 'Male' },
-  { id: 'Sadachbia',     name: 'Sadachbia',     description: 'Lively and animated',      category: 'Energetic',     gender: 'Male' },
-  { id: 'Pulcherrima',   name: 'Pulcherrima',   description: 'Forward and expressive',   category: 'Energetic',     gender: 'Female' },
+  { id: 'Puck',          name: 'Puck',          description: 'Upbeat and lively',        category: 'Energetic',     pitch: 'Middle',       gender: 'Male' },
+  { id: 'Zephyr',        name: 'Zephyr',        description: 'Bright and clear',         category: 'Energetic',     pitch: 'Higher',       gender: 'Female' },
+  { id: 'Autonoe',       name: 'Autonoe',       description: 'Bright and buoyant',       category: 'Energetic',     pitch: 'Middle',       gender: 'Female' },
+  { id: 'Laomedeia',     name: 'Laomedeia',     description: 'Upbeat and peppy',         category: 'Energetic',     pitch: 'Higher',       gender: 'Female' },
+  { id: 'Fenrir',        name: 'Fenrir',        description: 'Excitable and eager',      category: 'Energetic',     pitch: 'Lower-middle', gender: 'Male' },
+  { id: 'Sadachbia',     name: 'Sadachbia',     description: 'Lively and animated',      category: 'Energetic',     pitch: 'Lower',        gender: 'Male' },
+  { id: 'Pulcherrima',   name: 'Pulcherrima',   description: 'Forward and expressive',   category: 'Energetic',     pitch: 'Middle',       gender: 'Female' },
 
   // ── Warm ───────────────────────────────────────────────────────
-  { id: 'Sulafat',       name: 'Sulafat',       description: 'Warm and inviting',        category: 'Warm',          gender: 'Female' },
-  { id: 'Achernar',      name: 'Achernar',      description: 'Soft and gentle',          category: 'Warm',          gender: 'Female' },
-  { id: 'Vindemiatrix',  name: 'Vindemiatrix',  description: 'Gentle and soothing',      category: 'Warm',          gender: 'Female' },
-  { id: 'Aoede',         name: 'Aoede',         description: 'Breezy and easy',          category: 'Warm',          gender: 'Female' },
-  { id: 'Enceladus',     name: 'Enceladus',     description: 'Breathy and mellow',       category: 'Warm',          gender: 'Male' },
-  { id: 'Algieba',       name: 'Algieba',       description: 'Smooth and rich',          category: 'Warm',          gender: 'Male' },
-  { id: 'Despina',       name: 'Despina',       description: 'Smooth and calm',          category: 'Warm',          gender: 'Female' },
+  { id: 'Sulafat',       name: 'Sulafat',       description: 'Warm and inviting',        category: 'Warm',          pitch: 'Middle',       gender: 'Female' },
+  { id: 'Achernar',      name: 'Achernar',      description: 'Soft and gentle',          category: 'Warm',          pitch: 'Higher',       gender: 'Female' },
+  { id: 'Vindemiatrix',  name: 'Vindemiatrix',  description: 'Gentle and soothing',      category: 'Warm',          pitch: 'Middle',       gender: 'Female' },
+  { id: 'Aoede',         name: 'Aoede',         description: 'Breezy and easy',          category: 'Warm',          pitch: 'Middle',       gender: 'Female' },
+  { id: 'Enceladus',     name: 'Enceladus',     description: 'Breathy and mellow',       category: 'Warm',          pitch: 'Lower',        gender: 'Male' },
+  { id: 'Algieba',       name: 'Algieba',       description: 'Smooth and rich',          category: 'Warm',          pitch: 'Lower',        gender: 'Male' },
+  { id: 'Despina',       name: 'Despina',       description: 'Smooth and calm',          category: 'Warm',          pitch: 'Middle',       gender: 'Female' },
 
   // ── Authoritative ──────────────────────────────────────────────
-  { id: 'Charon',        name: 'Charon',        description: 'Informative and steady',   category: 'Authoritative', gender: 'Male' },
-  { id: 'Rasalgethi',    name: 'Rasalgethi',    description: 'Informative and precise',  category: 'Authoritative', gender: 'Male' },
-  { id: 'Kore',          name: 'Kore',          description: 'Firm and confident',       category: 'Authoritative', gender: 'Female' },
-  { id: 'Orus',          name: 'Orus',          description: 'Firm and grounded',        category: 'Authoritative', gender: 'Male' },
-  { id: 'Alnilam',       name: 'Alnilam',       description: 'Firm and assured',         category: 'Authoritative', gender: 'Male' },
-  { id: 'Iapetus',       name: 'Iapetus',       description: 'Clear and articulate',     category: 'Authoritative', gender: 'Male' },
-  { id: 'Erinome',       name: 'Erinome',       description: 'Clear and crisp',          category: 'Authoritative', gender: 'Female' },
-  { id: 'Algenib',       name: 'Algenib',       description: 'Gravelly and textured',    category: 'Authoritative', gender: 'Male' },
-  { id: 'Schedar',       name: 'Schedar',       description: 'Even and measured',        category: 'Authoritative', gender: 'Male' },
-  { id: 'Gacrux',        name: 'Gacrux',        description: 'Mature and composed',      category: 'Authoritative', gender: 'Female' },
-  { id: 'Sadaltager',    name: 'Sadaltager',    description: 'Knowledgeable and calm',   category: 'Authoritative', gender: 'Male' },
+  { id: 'Charon',        name: 'Charon',        description: 'Informative and steady',   category: 'Authoritative', pitch: 'Lower',        gender: 'Male' },
+  { id: 'Rasalgethi',    name: 'Rasalgethi',    description: 'Informative and precise',  category: 'Authoritative', pitch: 'Middle',       gender: 'Male' },
+  { id: 'Kore',          name: 'Kore',          description: 'Firm and confident',       category: 'Authoritative', pitch: 'Middle',       gender: 'Female' },
+  { id: 'Orus',          name: 'Orus',          description: 'Firm and grounded',        category: 'Authoritative', pitch: 'Lower-middle', gender: 'Male' },
+  { id: 'Alnilam',       name: 'Alnilam',       description: 'Firm and assured',         category: 'Authoritative', pitch: 'Lower-middle', gender: 'Male' },
+  { id: 'Iapetus',       name: 'Iapetus',       description: 'Clear and articulate',     category: 'Authoritative', pitch: 'Lower-middle', gender: 'Male' },
+  { id: 'Erinome',       name: 'Erinome',       description: 'Clear and crisp',          category: 'Authoritative', pitch: 'Middle',       gender: 'Female' },
+  { id: 'Algenib',       name: 'Algenib',       description: 'Gravelly and textured',    category: 'Authoritative', pitch: 'Lower',        gender: 'Male' },
+  { id: 'Schedar',       name: 'Schedar',       description: 'Even and measured',        category: 'Authoritative', pitch: 'Lower-middle', gender: 'Male' },
+  { id: 'Gacrux',        name: 'Gacrux',        description: 'Mature and composed',      category: 'Authoritative', pitch: 'Middle',       gender: 'Female' },
+  { id: 'Sadaltager',    name: 'Sadaltager',    description: 'Knowledgeable and calm',   category: 'Authoritative', pitch: 'Middle',       gender: 'Male' },
 
   // ── Friendly ───────────────────────────────────────────────────
-  { id: 'Achird',        name: 'Achird',        description: 'Friendly and open',        category: 'Friendly',      gender: 'Male' },
-  { id: 'Zubenelgenubi', name: 'Zubenelgenubi', description: 'Casual and relaxed',       category: 'Friendly',      gender: 'Male' },
-  { id: 'Leda',          name: 'Leda',          description: 'Youthful and fresh',       category: 'Friendly',      gender: 'Female' },
-  { id: 'Callirrhoe',    name: 'Callirrhoe',    description: 'Easy-going and mellow',    category: 'Friendly',      gender: 'Female' },
-  { id: 'Umbriel',       name: 'Umbriel',       description: 'Easy-going and laid back', category: 'Friendly',      gender: 'Male' },
+  { id: 'Achird',        name: 'Achird',        description: 'Friendly and open',        category: 'Friendly',      pitch: 'Lower-middle', gender: 'Male' },
+  { id: 'Zubenelgenubi', name: 'Zubenelgenubi', description: 'Casual and relaxed',       category: 'Friendly',      pitch: 'Lower-middle', gender: 'Male' },
+  { id: 'Leda',          name: 'Leda',          description: 'Youthful and fresh',       category: 'Friendly',      pitch: 'Higher',       gender: 'Female' },
+  { id: 'Callirrhoe',    name: 'Callirrhoe',    description: 'Easy-going and mellow',    category: 'Friendly',      pitch: 'Middle',       gender: 'Female' },
+  { id: 'Umbriel',       name: 'Umbriel',       description: 'Easy-going and laid back', category: 'Friendly',      pitch: 'Lower-middle', gender: 'Male' },
 ]
 
 export function getVoiceById(id: string): VoiceOption | undefined {
