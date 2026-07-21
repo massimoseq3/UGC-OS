@@ -2,9 +2,7 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import { ArrowLeft, Search, Play, Pause, Check } from 'lucide-react'
 import type { VoiceOption, Gender } from '../types'
 import { VOICES } from '../types'
-import { getVoicePreview } from '../services/previewVoice'
-import { useAppStore } from '../../../stores/appStore'
-import { humanizeError } from '../../../utils/friendlyError'
+import { voicePreviewUrl } from '../services/previewVoice'
 
 import { seedColor } from './seedColor'
 
@@ -25,10 +23,6 @@ export default function VoicePickerView({ selectedId, onSelect, onClose }: Voice
   const [previewingId, setPreviewingId] = useState<string | null>(null)
   const [loadingId, setLoadingId] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
-  // Mirror of loadingId readable inside the async preview flow (whose closure
-  // captures a stale loadingId) to detect the user switching voices mid-fetch.
-  const loadingIdRef = useRef<string | null>(null)
-  useEffect(() => { loadingIdRef.current = loadingId }, [loadingId])
 
   useEffect(() => {
     return () => {
@@ -81,7 +75,7 @@ export default function VoicePickerView({ selectedId, onSelect, onClose }: Voice
     })
   }
 
-  const handlePreview = async (voice: VoiceOption, e: React.MouseEvent) => {
+  const handlePreview = (voice: VoiceOption, e: React.MouseEvent) => {
     e.stopPropagation()
 
     // Toggle off if the same voice is playing or being fetched.
@@ -93,26 +87,13 @@ export default function VoicePickerView({ selectedId, onSelect, onClose }: Voice
       return
     }
 
-    // Gemini has no hosted samples — the first preview is generated on demand,
-    // then cached for the session (see previewVoice.ts). Show the loading ring
-    // meanwhile; a stale generation resolves onto whichever voice is active.
+    // Play Google's pre-rendered sample straight from the public gstatic CDN —
+    // instant, free, no kie.ai call or key (see previewVoice.ts). The loading
+    // ring shows only for the brief first fetch; 'playing'/'error' clear it.
     audioRef.current?.pause()
     setLoadingId(voice.id)
     setPreviewingId(null)
-    try {
-      const url = await getVoicePreview(voice.id)
-      // Bail if the user moved on to a different voice while this generated.
-      if (loadingIdRef.current !== voice.id) return
-      playPreview(voice, url)
-    } catch (err) {
-      if (loadingIdRef.current === voice.id) setLoadingId(null)
-      // Recognized kie errors (401/402/429…) get their own friendly copy; the
-      // common case here is simply no key saved yet, so the fallback points there.
-      useAppStore.getState().addToast(
-        humanizeError(err, 'Add your kie.ai API key in Settings to preview voices.'),
-        'error',
-      )
-    }
+    playPreview(voice, voicePreviewUrl(voice.id))
   }
 
   const renderRow = (voice: VoiceOption) => {
