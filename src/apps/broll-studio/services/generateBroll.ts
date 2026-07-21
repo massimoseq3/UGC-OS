@@ -10,7 +10,7 @@ import { getDefaultModel, getChatEndpointPath, buildImageInput, getModel, type A
 import { isAssetRef, getAsBase64 } from '../../../utils/assetStore'
 import { finishImageAssetTask } from '../../../utils/imageTask'
 import { useBankStore } from '../../../stores/bankStore'
-import { withIphoneRealism, IPHONE_REALISM_SUFFIX } from './realism'
+import { withIphoneRealism } from './realism'
 
 function getChatEndpoint(): { apiKey: string; endpoint: string } {
   return {
@@ -25,32 +25,18 @@ function nextId() {
 }
 
 /**
- * The one voice the whole ad is spoken in.
- *
- * A fixed string rather than something the LLM phrases per scene: audio-capable
- * video models cast a voice from the words in the prompt, so identical wording
- * every time is the only lever that keeps the same voice across takes that get
- * cut together. Paraphrasing it recasts the speaker.
- *
- * Deliberately silent on gender and accent — the model takes those from the
- * character reference, which is the thing that actually stays constant scene to
- * scene. Naming them here would fight the reference (and rule 3).
- *
- * Declared above VOICE_BLOCK and buildStaticDialoguePrompt because both inline
- * it at module-init time — moving it below them is a TDZ ReferenceError that
- * takes the whole app down, and tsc does not catch it.
- */
-export const VOICE_SPEC = `The character's own speaking voice, matching their apparent age and build in the reference image: natural conversational tone, relaxed everyday pace, ordinary pitch variation, with the small breaths and half-beat pauses of unrehearsed speech. Warm and direct, like talking to a friend — never an announcer, a narrator, or a voice-actor read. Recorded close to camera in an ordinary room with the faint natural room tone of that space. The same voice in every scene. No background music, no sound effects, no other voices.`
-
-/**
  * The six-field shape every B-Roll prompt takes. Shared by all four prompt
- * sites (scene generation, single-variation generation, Enhance, and the
- * hard-coded STATIC template) so the format can't drift between them — a card
- * regenerated or enhanced has to come back in the same shape it went out.
+ * sites (scene generation, single-variation generation, and Enhance) so the
+ * format can't drift between them — a card regenerated or enhanced has to come
+ * back in the same shape it went out.
  *
  * Labelled fields beat one flowing paragraph here: image and video models weight
  * what they can find, and a named CAMERA / LIGHTING / AUDIO line is far harder
  * to skim past than the same words buried mid-sentence.
+ *
+ * Every clip is SILENT b-roll — no one speaks. A finished voiceover is laid over
+ * these shots in the edit, so DIALOGUE is always "none" and AUDIO is diegetic
+ * room sound only. Nothing lip-syncs, and no on-screen speech is ever written.
  */
 const PROMPT_FORMAT = `Every prompt is six labelled lines, in this exact order, one line each:
 
@@ -58,21 +44,13 @@ SETTING: where we are and who is in frame — the room, the surfaces, the props 
 CAMERA: shot size, then the three geometry values (height relative to the eyeline, distance, angle), then how the frame itself moves. Then the quality register: modern iPhone camera quality, unedited photorealism, sharp focus across the frame, zero bokeh, no commercial gloss. NEVER name a filming device here.
 LIGHTING: the actual source, its direction, and its warmth — "warm late-afternoon light from a window camera-left", "one overhead bathroom light", "flat grey daylight through the kitchen door". Natural and unstaged: no studio lighting, no colour grade.
 ACTION: what moves across the take — the gesture, the gaze, the micro-expression, the shift of weight. Name the actual movement, never a mood word.
-DIALOGUE: for a talking shot, the exact LINE in quotes plus how it is delivered. For a silent shot, the single word: none
-AUDIO: what is actually heard. For a talking shot, THE VOICE block verbatim. For a silent shot, the diegetic sound of the scene (fabric, running water, a bag zip, room tone) — never music, never a voiceover.
+DIALOGUE: always the single word: none. No one speaks in any shot — a voiceover is added later, so the character never mouths words or addresses the viewer with speech.
+AUDIO: the diegetic sound of the scene only (fabric, running water, a bag zip, room tone) — never dialogue, never music, never a voiceover. This footage is scored and voiced in the edit; here it carries only the natural sound of the room.
 
 Format rules:
-- All six labels appear in every prompt, in this order, even when the answer is "none".
+- All six labels appear in every prompt, in this order. DIALOGUE is always "none".
 - One line per field. Aim for 90-150 words across all six.
 - Never repeat yourself across fields: the room belongs in SETTING, the light belongs in LIGHTING, the movement belongs in ACTION.`
-
-const VOICE_BLOCK = `# THE VOICE (COPY IT VERBATIM)
-
-Every shot where the character speaks must use this exact AUDIO text, word for word, nothing added, nothing removed, nothing "improved":
-
-AUDIO: ${VOICE_SPEC}
-
-Do not paraphrase it. Do not tailor it to the line or the mood. These clips get cut together into one ad, and the voice has to be the same person in every one — identical wording is the only thing holding that. A silent shot never uses this block; it describes its own diegetic sound instead.`
 
 const SYSTEM_INSTRUCTION = `# ROLE
 
@@ -84,17 +62,16 @@ You optimise for one thing: prompts that produce footage indistinguishable from 
 
 For each voiceover line in the script, produce 4 distinct prompt variations. Each variation is one viable shot for that line. The variations must differ in approach, not just wording.
 
+**Every shot is SILENT b-roll.** No one talks to camera, no one lip-syncs, no line is spoken. The finished voiceover is laid over these clips in the edit, so the footage only has to SHOW what the line is about — never say it. DIALOGUE is always "none"; AUDIO is diegetic room sound only.
+
 You decide per line:
 - POSITION — where the line sits in the ad's arc: hook / reframe / mechanism / payoff / CTA
 - VISIBILITY — whether the product is allowed in this shot (yes / no). Hook + reframe lines almost always = no. Mechanism = your call, usually no. Payoff + CTA = usually yes.
 
-VAR_1 is FIXED — always DIALOGUE:
-- DIALOGUE. The character is on camera, looking straight down the lens, saying the LINE verbatim — put the exact LINE, in quotes, in the DIALOGUE field. This is the lip-sync clip. Addressing the viewer directly is fixed, but vary the camera geometry and setting scene to scene (e.g. chest-up from an arm's length at eye level; framed from lap height tilted up; waist-up from a step back). Never stage it as a mirror shot and never let a filming device into the frame — see THE CAMERA below. The line is SPOKEN only — every DIALOGUE field ends with an explicit instruction that no on-screen text, captions, subtitles, or written words appear anywhere in the frame.
+ALL FOUR variations are YOUR CHOICE — pick four DISTINCT roles from this menu, chosen for what THIS specific line earns. Declare the chosen role in each variation's <TAG> field.
 
-VAR_2, VAR_3, VAR_4 are YOUR CHOICE — pick three DISTINCT roles from this menu, chosen for what THIS specific line earns. Declare the chosen role in each variation's <TAG> field.
-
-- ACTION = a literal demonstration of the moment the line describes (the act, the gesture, the interaction). No talking to camera. Choose a framing that best sells the action — over-the-shoulder, medium-wide full body, low angle, or a hands-only insert.
-- EMOTIONAL = the character's face and body responding to the meaning of the line. No talking to camera. Could be a held look from a high angle, a profile three-quarter, a slow push-in close-up, a smile building, a breath let go.
+- ACTION = a literal demonstration of the moment the line describes (the act, the gesture, the interaction). Choose a framing that best sells the action — over-the-shoulder, medium-wide full body, low angle, or a hands-only insert.
+- EMOTIONAL = the character's face and body responding to the meaning of the line. A held look from a high angle, a profile three-quarter, a slow push-in close-up, a smile building, a breath let go. The character may glance toward the lens, but never speaks.
 - PRODUCT = close-up / macro / detail on the product itself, or the visible after-state result (texture, surface, droplet, drop, swipe, sheen). Vary the angle — overhead flat-lay, raking-light macro, in-hand three-quarter, tilt down. Character may be partly in frame or absent.
 - POV = first-person, through the character's eyes: their hands doing the thing the line implies, the counter as they see it, the doorway they're walking toward. The character's face is never in frame.
 - ENVIRONMENT = the setting the line implies, treated as the subject: the bathroom counter mid-routine, the gym bag by the door, morning light hitting the kitchen table. Character absent or peripheral (out of focus is NOT allowed — keep them at frame edge or out of frame instead).
@@ -102,16 +79,16 @@ VAR_2, VAR_3, VAR_4 are YOUR CHOICE — pick three DISTINCT roles from this menu
 - PROOF = concrete visible evidence the line's claim is real: the after-state on the character or a surface, a side-by-side in the same frame, a screen showing an ordinary artifact (a timer, a streak, a calendar). Never invent fake reviews, star ratings, or statistics. PROOF is the ONE role where a phone may appear in frame — as the object being looked at, never as the camera.
 
 Role-choice rules:
-- The three chosen roles must be different from each other.
+- The four chosen roles must be different from each other.
 - Choose for the line, not by habit. A hook earns pattern-interrupts (TRANSITION, POV, ENVIRONMENT). A reframe earns EMOTIONAL / ENVIRONMENT quiet. A mechanism earns ACTION / POV demos. A payoff earns PROOF / PRODUCT / EMOTIONAL warmth. A CTA earns PRODUCT / TRANSITION momentum.
 - When VISIBILITY is no: PRODUCT is off the menu, and POV / PROOF / ENVIRONMENT shots must not show the product or its packaging.
-- When VISIBILITY is yes and the line names the product: at least one of VAR_2–4 must be PRODUCT or feature the product prominently in frame.
-- Do not repeat the same trio scene after scene — vary the mix across the ad.
+- When VISIBILITY is yes and the line names the product: at least one variation must be PRODUCT or feature the product prominently in frame.
+- Do not repeat the same set of roles scene after scene — vary the mix across the ad.
 
 You decide per variation:
-- LABEL — a short, descriptive shot label that captures what THIS variation actually is (e.g. "TALKING-TO-CAMERA / CLOSE-IN", "COUNTER REACTION", "DOORWAY WALK-IN", "PRODUCT MACRO / DROPLET"). Two-to-four word slug, optionally separated by /.
+- LABEL — a short, descriptive shot label that captures what THIS variation actually is (e.g. "COUNTER REACTION", "DOORWAY WALK-IN", "PRODUCT MACRO / DROPLET", "HANDS-ONLY INSERT"). Two-to-four word slug, optionally separated by /.
 - REFS — which reference images to attach: character / product / both / none.
-  - DIALOGUE, ACTION, EMOTIONAL, TRANSITION almost always need the character. Add product only when the prompt actually features the product on screen.
+  - ACTION, EMOTIONAL, TRANSITION almost always need the character. Add product only when the prompt actually features the product on screen.
   - POV needs the character (hands must match skin tone); add product only when the product is in frame.
   - PRODUCT usually needs only product. Add character only when the character is also in frame.
   - ENVIRONMENT usually needs none; add product only when VISIBILITY is yes and the product sits in the scene.
@@ -121,8 +98,6 @@ You decide per variation:
 # PROMPT FORMAT (EVERY PROMPT, EVERY VARIATION)
 
 ${PROMPT_FORMAT}
-
-${VOICE_BLOCK}
 
 # THE CAMERA IS A VIEWPOINT, NOT A PROP
 
@@ -243,8 +218,7 @@ These clips will be stitched into ONE ad.
 - Same setting palette (if scene 1 is a kitchen, later scenes stay in that home unless the script demands a location change).
 - Same product naming and orientation across every reference. The product reference image is the source of truth — do not invent label colours or packaging variants.
 - No day → night jumps unless the script demands it.
-- For DIALOGUE variations: the DIALOGUE field carries the exact LINE text in quotes. This is what lets audio-capable video models lip-sync the line.
-- Every speaking shot carries THE VOICE block verbatim in AUDIO. One ad, one voice.
+- Every shot is silent: DIALOGUE is "none" and AUDIO is diegetic room sound only. The voiceover is added later in the edit — none of this footage carries speech.
 
 ## 11. COMPOSITION & SHOT VARIETY
 
@@ -257,7 +231,6 @@ Draw from this shot vocabulary — name the shot size AND the camera angle expli
 Variety is mandatory:
 - Across the 4 variations in one scene, vary the shot size and angle — do not shoot all four chest-up at eye level.
 - Across adjacent scenes, do not repeat the same framing back-to-back for the same role. If scene 1's ACTION was an over-the-shoulder medium, scene 2's ACTION should be a different size or angle.
-- DIALOGUE stays front-camera, but its distance, angle, and setting must still drift scene to scene — it is the one anchor, not an excuse for ten identical chest-up shots.
 
 # HARD FAILURES (REWRITE IF YOU CATCH YOURSELF DOING ANY OF THESE)
 
@@ -270,12 +243,12 @@ Variety is mandatory:
 - "They hold the product" with no instruction on how, which hand, what angle
 - "Style: photorealism" pasted at the end instead of the quality register living in CAMERA
 - Dropping a field, reordering the six, inventing a seventh, or writing prose with no labels at all
-- Paraphrasing THE VOICE block, or tailoring it to the line — it is copied verbatim or not used
-- A silent shot with a voice in AUDIO, or music / a voiceover in any AUDIO field
+- Any spoken line: a character talking to camera, mouthing words, or DIALOGUE holding anything other than "none"
+- Dialogue, music, or a voiceover in any AUDIO field — AUDIO is diegetic room sound only
 - All 4 variations being the same shot with different word order
 - Every scene framed chest-up at eye level — shot size and angle never vary across scenes
 - Inheriting the reference image's framing/crop/background instead of stating your own composition
-- A DIALOGUE prompt that lets caption text, subtitles, or the spoken line appear written on screen
+- Any caption, subtitle, or on-screen written text appearing in frame
 - Product appearing in a hook or reframe shot when VISIBILITY is no
 - Cinematic lighting, shallow depth of field, soft bokeh
 - "Confident smile" / "genuine expression" — name what the face is actually doing
@@ -294,10 +267,10 @@ Before you output, run each variation against this checklist. If any answer is n
 6. Is the character showing the after-state, not the before?
 7. Is there explicit motion in ACTION?
 8. Does the body language match the line's emotional register?
-9. Are the 4 variations meaningfully different in approach, not just rewording? Are VAR_2–4 three different roles, each earned by this specific line rather than picked by habit?
+9. Are the 4 variations meaningfully different in approach, not just rewording? Are they four different roles, each earned by this specific line rather than picked by habit?
 10. Is the shot size + camera angle stated explicitly, and does this scene's framing differ from the previous scene's for the same role?
-11. For a speaking shot: is the exact LINE in DIALOGUE, does DIALOGUE forbid on-screen text / captions / subtitles, and is THE VOICE block in AUDIO word for word?
-12. For a silent shot: is DIALOGUE exactly "none", and does AUDIO describe only diegetic sound?
+11. Is this shot silent — DIALOGUE exactly "none", no one talking to camera or mouthing words, and no caption/subtitle text in frame?
+12. Does AUDIO describe only the diegetic sound of the scene — no dialogue, no music, no voiceover?
 13. Is the camera written purely as geometry (height, distance, angle), with no filming device named, held, propped, or reflected anywhere in frame?
 
 # REFERENCE EXAMPLES
@@ -307,19 +280,19 @@ Bad prompt (what NOT to do):
 
 Why this fails: no labelled fields at all; it names the smartphone as an object in the scene, so the model will draw one in frame and turn this into a mirror selfie; no body position detail beyond "sits"; no hand position; no specific micro-expression beyond "frustrated"; "modern living room" is generic; "examines their skin" could mean ten different actions; the realism stack is bolted on at the end instead of living in CAMERA; nothing says what is heard.
 
-Good prompt — a DIALOGUE variation (what your output should look like):
-> SETTING: The character sits cross-legged on a beige linen sofa in their own living room, a half-full glass of water and a paperback on the coffee table between them and the camera. Left hand loose on their thigh, right hand mid-gesture with fingertips lightly touching their jawline.
-> CAMERA: Chest-up vertical, framed from chest height about a metre away across the coffee table, straight on. Natural handheld micro-drift in the frame. Modern iPhone camera quality, unedited photorealism, sharp focus across the frame, zero bokeh, no commercial gloss.
+Good prompt — a silent EMOTIONAL variation (what your output should look like):
+> SETTING: The character sits cross-legged on a beige linen sofa in their own living room, a half-full glass of water and a paperback on the coffee table in front of them. Left hand loose on their thigh, right hand resting against their collarbone.
+> CAMERA: Medium close-up vertical, framed from chest height about a metre away, three-quarter from camera-left. Natural handheld micro-drift in the frame. Modern iPhone camera quality, unedited photorealism, sharp focus across the frame, zero bokeh, no commercial gloss.
 > LIGHTING: Warm late-afternoon light from a window camera-left, soft across their face, one dim lamp behind them. No studio lighting, no colour grade.
-> ACTION: They lean in slightly on the first few words, eyebrows pulling in just enough to read as confidential rather than tense, a wry half-smile starting at the corner of their mouth as they finish. Small weight shift, one blink mid-line.
-> DIALOGUE: "I stopped buying the expensive stuff after this." — delivered like a confession to a friend, unhurried. Spoken only: no on-screen text, captions, subtitles, or written words appear anywhere in the frame.
-> AUDIO: [THE VOICE block, verbatim]
-
-Why this works: all six labels, in order; exact body position (cross-legged, beige linen sofa); camera geometry stated as position rather than equipment (chest height, a metre away, straight on — no device anywhere); specific hand instructions (left on thigh, right on jawline); named micro-expression (forward lean, eyebrows confidential not tense, wry half-smile); one real light source; the quality register inside CAMERA where it belongs; the line verbatim in DIALOGUE; the voice fixed in AUDIO so this take cuts against every other scene.
-
-Good prompt — a silent variation (note DIALOGUE and AUDIO):
+> ACTION: Their gaze drops to their own hands and lifts again, a slow breath let out, the corner of their mouth softening into a small private smile as their shoulders drop. One blink, a slight tilt of the head. Lips stay closed — they do not speak.
 > DIALOGUE: none
-> AUDIO: The soft scuff of a jar set down on stone, a tap running in the next room, ordinary bathroom room tone. No music, no voiceover.
+> AUDIO: The faint hum of the room, a page settling, distant traffic through the window. No dialogue, no music, no voiceover.
+
+Why this works: all six labels, in order; exact body position (cross-legged, beige linen sofa); camera geometry stated as position rather than equipment (chest height, a metre away, three-quarter — no device anywhere); specific hand instructions (left on thigh, right on collarbone); named micro-expression (gaze drop and lift, breath out, private smile, shoulders dropping); one real light source; the quality register inside CAMERA where it belongs; DIALOGUE is "none" and the character never speaks; AUDIO is diegetic room tone only, ready for a voiceover in the edit.
+
+Good prompt — a silent PRODUCT variation (note DIALOGUE and AUDIO):
+> DIALOGUE: none
+> AUDIO: The soft scuff of a jar set down on stone, a tap running in the next room, ordinary bathroom room tone. No dialogue, no music, no voiceover.
 
 # OUTPUT FORMAT (STRICT)
 
@@ -330,25 +303,25 @@ Wrap every scene in this exact XML envelope. Do not include any text outside the
 <POSITION>hook|reframe|mechanism|payoff|CTA</POSITION>
 <VISIBILITY>yes|no</VISIBILITY>
 <VAR_1>
-<TAG>DIALOGUE</TAG>
-<LABEL>short descriptive shot label, e.g. TALKING-TO-CAMERA / CLOSE-IN</LABEL>
+<TAG>ACTION|EMOTIONAL|PRODUCT|POV|ENVIRONMENT|TRANSITION|PROOF</TAG>
+<LABEL>short descriptive shot label, e.g. COUNTER REACTION</LABEL>
 <REFS>character|product|both|none</REFS>
-<PROMPT>VAR_1 is always DIALOGUE. The six labelled lines. The exact LINE in quotes in DIALOGUE, THE VOICE block verbatim in AUDIO, camera written as geometry with no device in frame, full specificity, quality register in CAMERA</PROMPT>
+<PROMPT>the six labelled lines, matching the chosen role. Silent b-roll → DIALOGUE: none, and AUDIO carries only diegetic sound</PROMPT>
 </VAR_1>
 <VAR_2>
-<TAG>ACTION|EMOTIONAL|PRODUCT|POV|ENVIRONMENT|TRANSITION|PROOF</TAG>
+<TAG>a DIFFERENT role from VAR_1</TAG>
 <LABEL>...</LABEL>
 <REFS>...</REFS>
-<PROMPT>the six labelled lines, matching the chosen role. Silent role → DIALOGUE: none, and AUDIO carries only diegetic sound</PROMPT>
+<PROMPT>...</PROMPT>
 </VAR_2>
 <VAR_3>
-<TAG>a DIFFERENT role from VAR_2</TAG>
+<TAG>a DIFFERENT role from VAR_1 and VAR_2</TAG>
 <LABEL>...</LABEL>
 <REFS>...</REFS>
 <PROMPT>...</PROMPT>
 </VAR_3>
 <VAR_4>
-<TAG>a DIFFERENT role from VAR_2 and VAR_3</TAG>
+<TAG>a DIFFERENT role from VAR_1, VAR_2 and VAR_3</TAG>
 <LABEL>...</LABEL>
 <REFS>...</REFS>
 <PROMPT>...</PROMPT>
@@ -358,7 +331,7 @@ Wrap every scene in this exact XML envelope. Do not include any text outside the
 export async function generateBroll(input: BrollInput): Promise<BrollResult> {
   const { apiKey, endpoint } = getChatEndpoint()
 
-  let prompt = `Break this script into B-Roll scenes following the system rules. For EACH scene emit four variations: VAR_1 = DIALOGUE (fixed — lip-sync, embed the line verbatim); VAR_2–4 = three DISTINCT roles you pick from the system menu (ACTION / EMOTIONAL / PRODUCT / POV / ENVIRONMENT / TRANSITION / PROOF), chosen for what this specific line earns. Declare each pick in the <TAG> field. Decide POSITION + VISIBILITY per scene — if the line names or references the product, VISIBILITY must be yes regardless of POSITION. Pick REFS per variation honouring the VISIBILITY rule.\n\nScript:\n${input.scriptText}`
+  let prompt = `Break this script into B-Roll scenes following the system rules. For EACH scene emit four variations: four DISTINCT silent b-roll roles you pick from the system menu (ACTION / EMOTIONAL / PRODUCT / POV / ENVIRONMENT / TRANSITION / PROOF), chosen for what this specific line earns. Every shot is silent — no one speaks, DIALOGUE is always "none", AUDIO is diegetic room sound only (a voiceover is added later). Declare each pick in the <TAG> field. Decide POSITION + VISIBILITY per scene — if the line names or references the product, VISIBILITY must be yes regardless of POSITION. Pick REFS per variation honouring the VISIBILITY rule.\n\nScript:\n${input.scriptText}`
 
   if (input.productContext) {
     prompt += `\n\n${input.productContext}`
@@ -379,30 +352,6 @@ export async function generateBroll(input: BrollInput): Promise<BrollResult> {
   return { scenes: parseScenes(responseText) }
 }
 
-/**
- * The locked "anchor take" every scene gets as VAR_5: the character exactly as
- * the reference has them — same place, same wardrobe — standing still and
- * delivering the line straight to camera.
- *
- * Built from a fixed template rather than written by the LLM on purpose. Its
- * entire value is being the SAME shot in every scene, so the takes cut together
- * as one continuous piece to camera; an LLM asked for this six times would
- * drift six ways and there'd be nothing to cut. The line is the only variable.
- */
-export function buildStaticDialoguePrompt(line: string): string {
-  return [
-    `SETTING: The character from the reference image, in the same place they already are, wearing exactly what they wear in the reference. Keep the reference's setting, background, wardrobe, and hair exactly as they are — this shot is meant to match it.`,
-    // Ends on IPHONE_REALISM_SUFFIX verbatim, not a paraphrase of it, so
-    // withIphoneRealism's dedupe recognises the stack and skips its append —
-    // otherwise CAMERA ships the same register twice in near-identical words.
-    `CAMERA: Framed chest-up vertical, from eye level, about an arm's length away, straight on. The camera holds that one position for the whole take — no pans, no push-ins, no reframing — with only the faint natural jitter of a held frame. No filming device is visible anywhere: no phone, no camera, no tripod, and no reflection showing one. No commercial gloss. ${IPHONE_REALISM_SUFFIX}`,
-    `LIGHTING: Exactly the reference's lighting — same sources, same direction, same warmth. No studio lighting, no colour grade.`,
-    `ACTION: They stay exactly where they are for the whole take: no walking, no changing position, no leaving frame. Looking straight into the lens, talking to the viewer with small natural head movement, blinking, and the easy hand gestures of someone talking to a friend.`,
-    `DIALOGUE: "${line}" — delivered warmly and conversationally. Spoken only: no on-screen text, captions, subtitles, or written words appear anywhere in the frame.`,
-    `AUDIO: ${VOICE_SPEC}`,
-  ].join('\n')
-}
-
 // Parse the LLM's strict-XML output into Scene records. New schema:
 //   <SCENE>
 //     <LINE>...</LINE>
@@ -421,10 +370,10 @@ function parseScenes(responseText: string): Scene[] {
   const positionRegex = /<POSITION>([\s\S]*?)<\/POSITION>/
   const visibilityRegex = /<VISIBILITY>([\s\S]*?)<\/VISIBILITY>/
 
-  // VAR_1 is always DIALOGUE (the lip-sync anchor). VAR_2–4 carry the LLM's
-  // per-line role pick in <TAG>; these legacy defaults only apply when the
-  // tag is missing or unrecognised (old-schema responses).
-  const FALLBACK_TAGS: VariationTag[] = ['DIALOGUE', 'ACTION', 'EMOTIONAL', 'PRODUCT']
+  // All four variations carry the LLM's per-line role pick in <TAG>; these
+  // defaults only apply when the tag is missing or unrecognised. No talking
+  // heads any more — every role is silent b-roll.
+  const FALLBACK_TAGS: VariationTag[] = ['ACTION', 'EMOTIONAL', 'PRODUCT', 'POV']
 
   let match
   let number = 1
@@ -452,11 +401,9 @@ function parseScenes(responseText: string): Scene[] {
       const refsRaw = varBlock.match(/<REFS>([\s\S]*?)<\/REFS>/)?.[1]?.trim().toLowerCase()
       const promptRaw = varBlock.match(/<PROMPT>([\s\S]*?)<\/PROMPT>/)?.[1]?.trim()
 
-      // VAR_1 is DIALOGUE no matter what the LLM claims; VAR_2–4 honour the
-      // emitted role, falling back to the legacy positional default.
-      const tag = i === 1
-        ? 'DIALOGUE'
-        : parseTag(tagRaw) ?? FALLBACK_TAGS[i - 1]
+      // Every variation honours its emitted role, falling back to the
+      // positional default when the tag is missing or unrecognised.
+      const tag = parseTag(tagRaw) ?? FALLBACK_TAGS[i - 1]
       // No nested PROMPT tag → treat the whole VAR_N body as the prompt
       // (legacy). When the LLM omits the closing tag we'd otherwise paste the
       // raw `<TAG>…</TAG><LABEL>…</LABEL><REFS>…</REFS><PROMPT>…` wrappers
@@ -486,23 +433,9 @@ function parseScenes(responseText: string): Scene[] {
       })
     }
 
-    // VAR_5 — the locked anchor take. Synthesized here rather than requested
-    // from the LLM so it lands byte-identical in every scene (bar the line),
-    // which is the whole point: cut end to end, the anchor takes read as one
-    // unbroken piece to camera. Needs a line to speak, so scenes that somehow
-    // parsed without one just don't get the card.
-    if (scriptLine) {
-      variations.push({
-        id: nextId(),
-        tag: 'STATIC',
-        label: defaultLabelFor('STATIC'),
-        refs: 'character',
-        prompt: buildStaticDialoguePrompt(scriptLine),
-      })
-    }
-
     // Default scene type from variations — keeps the bank-search filters
-    // working. A scene whose VAR_1 is DIALOGUE is treated as character-led.
+    // working. A PRODUCT-led first variation marks the scene product-led;
+    // everything else is treated as character-led.
     const type: Scene['type'] = variations[0]?.tag === 'PRODUCT'
       ? 'A-ROLL PRODUCT'
       : 'A-ROLL CHARACTER'
@@ -528,10 +461,11 @@ function parsePosition(raw: string | undefined): LinePosition | undefined {
   return undefined
 }
 
-// The roles the LLM may choose from. STATIC is deliberately absent: it's
-// synthesized client-side from a fixed template so it stays identical across
-// scenes, and letting the model emit it would defeat that.
-const ALL_TAGS: VariationTag[] = ['DIALOGUE', 'ACTION', 'EMOTIONAL', 'PRODUCT', 'POV', 'ENVIRONMENT', 'TRANSITION', 'PROOF']
+// The roles the LLM may choose from — all silent b-roll. DIALOGUE and STATIC
+// are deliberately absent: every clip is now voiceless (a voiceover is added in
+// the edit), so no talking-head or lip-sync role is offered. Both tags survive
+// in the VariationTag union so legacy persisted cards still render.
+const ALL_TAGS: VariationTag[] = ['ACTION', 'EMOTIONAL', 'PRODUCT', 'POV', 'ENVIRONMENT', 'TRANSITION', 'PROOF']
 
 function parseTag(raw: string | undefined): VariationTag | undefined {
   if (!raw) return undefined
@@ -549,8 +483,8 @@ function parseRefs(raw: string | undefined): VariationRefs | undefined {
 // Sensible default when the LLM emits a variation without a <REFS> tag.
 // Hook / reframe lines with VISIBILITY=no force product off regardless.
 function defaultRefsFor(tag: VariationTag, productVisible: boolean | undefined): VariationRefs {
-  // The anchor take is a plain talking head sourced entirely from the character
-  // reference — the product never belongs in it, whatever VISIBILITY says.
+  // Legacy STATIC anchor cards are sourced entirely from the character
+  // reference — the product never belongs in them, whatever VISIBILITY says.
   if (tag === 'STATIC') return 'character'
   if (productVisible === false) {
     if (tag === 'PRODUCT') return 'none'
@@ -695,10 +629,12 @@ export async function finishImageTask(taskId: string, modelId: string, resolutio
 // One-line role brief per tag, shared by the regenerate + free-form variation
 // prompts so a forced tag always carries its definition.
 const TAG_BRIEFS: Record<VariationTag, string> = {
-  DIALOGUE: 'The character is on camera, looking straight down the lens, saying the LINE verbatim — the exact LINE goes in the DIALOGUE field, in quotes. The line is spoken only: the DIALOGUE field ends with an explicit instruction that no on-screen text, captions, or subtitles appear in the frame.',
-  STATIC: 'The locked anchor take: the character exactly as they appear in the reference image — same place, same wardrobe, same lighting — staying put and talking straight down the lens. Camera locked in one position for the whole take; no walking, no reframing, no push-in. The exact LINE goes in the DIALOGUE field, in quotes. No on-screen text, captions, or subtitles.',
-  ACTION: 'A literal demonstration of the moment the line describes — no talking to camera.',
-  EMOTIONAL: "The character's face/body responding to the meaning of the line — no talking to camera.",
+  // Legacy roles — no longer offered (every shot is silent b-roll now), but a
+  // forced regen of an old card could still pass one, so keep them voiceless.
+  DIALOGUE: 'A silent shot of the character on camera, present and natural but NOT speaking — lips closed, no words mouthed. DIALOGUE is "none". A voiceover is added later.',
+  STATIC: 'A silent shot of the character in their own space, present and natural but NOT speaking — lips closed, no words mouthed. DIALOGUE is "none". A voiceover is added later.',
+  ACTION: 'A literal demonstration of the moment the line describes — silent, no talking to camera.',
+  EMOTIONAL: "The character's face/body responding to the meaning of the line — silent, no talking to camera.",
   PRODUCT: 'Close-up / macro / detail on the product or visible after-state result.',
   POV: "First-person through the character's eyes — their hands doing the thing the line implies; the character's face never in frame.",
   ENVIRONMENT: 'The setting the line implies, treated as the subject — character absent or peripheral.',
@@ -721,7 +657,7 @@ export async function generateNewVariation(
 
   const tagInstruction = forceTag
     ? `The variation MUST be a ${forceTag} shot. ${TAG_BRIEFS[forceTag]}`
-    : `Pick the shot role yourself from this menu — choose what this specific line earns:\n${ALL_TAGS.filter((t) => t !== 'DIALOGUE').map((t) => `- ${t}: ${TAG_BRIEFS[t]}`).join('\n')}`
+    : `Pick the shot role yourself from this menu — choose what this specific line earns:\n${ALL_TAGS.map((t) => `- ${t}: ${TAG_BRIEFS[t]}`).join('\n')}`
 
   const prompt = `Generate a single new creative image generation prompt for this B-Roll scene:
 
@@ -733,7 +669,7 @@ ${productContext ? `\n${productContext}\n` : ''}${modelContext ? `\n${modelConte
 
 ${PROMPT_FORMAT}
 
-${VOICE_BLOCK}
+This is SILENT b-roll — no one speaks. DIALOGUE is always "none" and AUDIO is diegetic room sound only (a voiceover is laid over the footage later). The character never talks to camera or mouths words.
 
 Provide a fresh creative angle. Follow the senior UGC creative director rules:
 1. Specificity over completeness — name exact body position, hand position, gaze, micro-expression, setting detail, framing.
@@ -812,7 +748,8 @@ Rules:
 - DO NOT mention aspect ratio, resolution, or framing in numbers.
 - State the shot size + camera angle explicitly; the composition is owned by the prompt, not by any attached reference image. Keep the user's chosen framing if they named one, otherwise pick a distinctive, non-default shot.
 - THE CAMERA IS A VIEWPOINT, NOT A PROP. Strip every mention of the filming device — no phone, iPhone, smartphone, front camera, tripod, or ring light as an object in the scene; nothing held, propped, or reflected; no mirror selfie. Rewrite any such phrasing as pure geometry (height relative to the eyeline, distance, angle): "phone held at arm's length below chin level" becomes "framed from just below chin height, about an arm's length away". If the user's draft names a device, that is exactly what you are here to fix — keep their intended shot, drop the equipment. "Modern iPhone camera quality" as a quality register is fine.
-- ${variation.tag === 'DIALOGUE' || variation.tag === 'STATIC' ? `DIALOGUE carries the LINE verbatim, in quotes, and ends with an explicit instruction that no on-screen text, captions, or subtitles appear in the frame. AUDIO carries THE VOICE block verbatim.` : `Honour the shot role: ${TAG_BRIEFS[variation.tag]}\n- This is a silent shot: DIALOGUE is exactly "none", and AUDIO describes only the diegetic sound of the scene.`}
+- Honour the shot role: ${TAG_BRIEFS[variation.tag]}
+- This is SILENT b-roll: no one speaks, no words are mouthed, DIALOGUE is exactly "none", and AUDIO describes only the diegetic sound of the scene (no dialogue, no music, no voiceover). If the draft has the character talking to camera or speaking a line, that is exactly what you are here to fix — keep the shot, drop the speech.
 
 Draft:
 """

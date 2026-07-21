@@ -687,20 +687,6 @@ const VariationCardRow = memo(function VariationCardRow({
   )
 })
 
-// Render order for a scene's cards: the STATIC anchor leads, everything else
-// keeps its generated order. This sorts a *view* of the array rather than the
-// array itself because `cardStates` is keyed by array index (`<scene>-<i>`) —
-// reordering `variations` would re-point every key at a different card and the
-// rebuild effect would discard its generated images. Sorting here also fixes
-// the order for sessions generated before this change.
-function displayOrder(variations: PromptVariation[]): { variation: PromptVariation; index: number }[] {
-  const indexed = variations.map((variation, index) => ({ variation, index }))
-  return [
-    ...indexed.filter((e) => e.variation.tag === 'STATIC'),
-    ...indexed.filter((e) => e.variation.tag !== 'STATIC'),
-  ]
-}
-
 function SceneSection({
   scene,
   cardStates,
@@ -784,11 +770,10 @@ function SceneSection({
         </button>
       </div>
 
-      {/* Five variations across one row at xl, with Add option collapsed to a
-          narrow strip on the end so the cards keep as much width as possible.
-          Below xl the strip goes back to being a normal card in the wrap. */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-[repeat(5,minmax(0,1fr))_2.75rem]">
-        {displayOrder(scene.variations).map(({ variation, index: i }) => {
+      {/* Four variations plus the Add-option card across one row at xl — five
+          equal cards, the Add card just another cell in the grid. */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+        {scene.variations.map((variation, i) => {
           const key = `${scene.number}-${i}`
           const state = cardStates[key] ?? createDefaultCardState(variation)
           return (
@@ -835,17 +820,15 @@ function AddNewCard({ onAdd }: { onAdd: (variation: PromptVariation) => void }) 
     })
   }
   return (
-    // Pinned to the strip column of the first row at xl. Without an explicit
-    // position, auto-placement drops a sixth card into the narrow 2.75rem track
-    // and pushes this button onto a row of its own at full card width — the
-    // strip has to hold its cell so the extra cards wrap past it into row two.
+    // A normal card in the grid: same 9/16 footprint as the variation cards, so
+    // the four variations plus this Add card fill the five-column row evenly.
     <button
       onClick={handleAdd}
       title="Add a blank option to this scene"
-      className="group/add flex aspect-[9/16] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-ink/20 bg-ink/[0.03] transition-colors hover:border-broll-400/60 hover:bg-broll-500/10 xl:col-start-6 xl:row-start-1 xl:aspect-auto xl:h-full xl:gap-3"
+      className="group/add flex aspect-[9/16] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-ink/20 bg-ink/[0.03] transition-colors hover:border-broll-400/60 hover:bg-broll-500/10"
     >
-      <Plus className="h-5 w-5 shrink-0 text-ink-400 transition-colors group-hover/add:text-broll-300 xl:h-4 xl:w-4" />
-      <span className="text-[10px] font-medium text-ink-300 transition-colors group-hover/add:text-broll-300 xl:[writing-mode:vertical-rl]">
+      <Plus className="h-5 w-5 shrink-0 text-ink-400 transition-colors group-hover/add:text-broll-300" />
+      <span className="text-[10px] font-medium text-ink-300 transition-colors group-hover/add:text-broll-300">
         Add option
       </span>
     </button>
@@ -863,7 +846,7 @@ function SkeletonScene() {
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-        {[0, 1, 2, 3, 4].map((i) => (
+        {[0, 1, 2, 3].map((i) => (
           <div key={i} className="rounded-xl border border-ink/[0.06] bg-ink/[0.02] aspect-[9/16]" />
         ))}
       </div>
