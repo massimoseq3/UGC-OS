@@ -1,6 +1,7 @@
 import { useSettingsStore } from '../../../stores/settingsStore'
 import { createTask, pollTask, parseResult } from '../../../utils/kie'
 import { TTS_MODEL_ID } from '../../../utils/models'
+import { DEFAULT_VOICE_SETTINGS } from '../types'
 
 // Unlike ElevenLabs, Gemini 3.1 Flash TTS has no pre-hosted per-voice preview
 // files. So we synthesize a short sample on first click using the real model,
@@ -29,14 +30,17 @@ export async function getVoicePreview(voiceName: string): Promise<string> {
 
     // Native JSON arrays — kie's fastjson backend rejects stringified fields
     // ("expect {, actual string"). Must match buildVoiceInput's shape.
+    // Pull style/pace/accent from DEFAULT_VOICE_SETTINGS so the preview can't
+    // drift onto an invalid enum — kie 422s "The style parameter is invalid"
+    // if e.g. a Pace value ('Natural') is sent in the Style slot.
     const speakers = [
       {
         speaker_id: 'Speaker 1',
         voice_name: voiceName,
         audio_profile: '',
-        style: 'Natural',
-        pace: 'Natural',
-        accent: 'Neutral',
+        style: DEFAULT_VOICE_SETTINGS.style,
+        pace: DEFAULT_VOICE_SETTINGS.pace,
+        accent: DEFAULT_VOICE_SETTINGS.accent,
       },
     ]
     const dialogue_turns = [{ speaker_id: 'Speaker 1', text: PREVIEW_LINE }]
