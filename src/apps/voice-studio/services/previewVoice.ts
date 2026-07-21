@@ -27,7 +27,9 @@ export async function getVoicePreview(voiceName: string): Promise<string> {
     const apiKey = useSettingsStore.getState().getKieApiKey()
     if (!apiKey) throw new Error('Add your kie.ai API key in Settings to preview voices.')
 
-    const speakers = JSON.stringify([
+    // Native JSON arrays — kie's fastjson backend rejects stringified fields
+    // ("expect {, actual string"). Must match buildVoiceInput's shape.
+    const speakers = [
       {
         speaker_id: 'Speaker 1',
         voice_name: voiceName,
@@ -36,8 +38,8 @@ export async function getVoicePreview(voiceName: string): Promise<string> {
         pace: 'Natural',
         accent: 'Neutral',
       },
-    ])
-    const dialogue_turns = JSON.stringify([{ speaker_id: 'Speaker 1', text: PREVIEW_LINE }])
+    ]
+    const dialogue_turns = [{ speaker_id: 'Speaker 1', text: PREVIEW_LINE }]
 
     const taskId = await createTask(apiKey, TTS_MODEL_ID, { speakers, dialogue_turns, temperature: 1 })
     const record = await pollTask(apiKey, taskId)

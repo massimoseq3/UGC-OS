@@ -26,10 +26,12 @@ async function probeAudioDuration(blob: Blob): Promise<number> {
 }
 
 // Build the Gemini 3.1 Flash TTS `input` body from the app's settings. The
-// model takes two JSON-string fields — one speaker + one dialogue turn for a
-// single-voice ad read — plus top-level temperature / scene / sample_context.
+// model takes `speakers` + `dialogue_turns` as native JSON arrays — one speaker
+// + one dialogue turn for a single-voice ad read — plus top-level temperature /
+// scene / sample_context. (kie's fastjson backend rejects these fields as
+// strings with "expect {, actual string" — they must NOT be JSON.stringify'd.)
 export function buildVoiceInput(settings: VoiceSettings, scriptText: string): Record<string, unknown> {
-  const speakers = JSON.stringify([
+  const speakers = [
     {
       speaker_id: 'Speaker 1',
       voice_name: settings.voiceId, // voiceId === Gemini voice_name
@@ -38,8 +40,8 @@ export function buildVoiceInput(settings: VoiceSettings, scriptText: string): Re
       pace: settings.pace,
       accent: settings.accent,
     },
-  ])
-  const dialogue_turns = JSON.stringify([{ speaker_id: 'Speaker 1', text: scriptText }])
+  ]
+  const dialogue_turns = [{ speaker_id: 'Speaker 1', text: scriptText }]
 
   const input: Record<string, unknown> = { speakers, dialogue_turns, temperature: settings.temperature }
   // scene / sample_context are optional direction — only send when filled.
