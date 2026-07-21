@@ -164,10 +164,10 @@ export default function HistoryDetailsView({ item, onClose, onRestoreText, onRes
           <div className="mb-3 text-sm font-semibold text-ink-100">Settings</div>
           <div className="flex flex-col gap-2.5">
             <SettingRow label="Model" value="Gemini 3.1 Flash TTS" />
-            <SettingRow label="Style" value={item.style} />
-            <SettingRow label="Pace" value={item.pace} />
-            <SettingRow label="Accent" value={item.accent} />
-            <SettingRow label="Expressiveness" value={item.temperature.toFixed(2)} />
+            <SettingRow label="Style" value={item.style ?? '—'} />
+            <SettingRow label="Pace" value={item.pace ?? '—'} />
+            <SettingRow label="Accent" value={item.accent ?? '—'} />
+            <SettingRow label="Expressiveness" value={(item.temperature ?? 1).toFixed(2)} />
             {item.scene && <SettingRow label="Scene" value={item.scene} />}
             {item.sampleContext && <SettingRow label="Tone / context" value={item.sampleContext} />}
           </div>
