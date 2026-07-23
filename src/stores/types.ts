@@ -253,13 +253,20 @@ export interface BrollHistoryItem {
   // broll-studio's internal types.
   result: unknown
   cardStates: Record<string, unknown>
-  // One Shot mode snapshot. Absent on legacy rows (=> 'line'). Both modes'
-  // payloads can coexist on one row — the session holds both.
-  mode?: 'line' | 'oneshot'
+  // One Shot mode snapshot. Absent on legacy rows (=> 'line'). All modes'
+  // payloads can coexist on one row — the session holds them all.
+  mode?: 'line' | 'oneshot' | 'animated'
   oneShotResult?: unknown
   oneShotCardStates?: Record<string, unknown>
   oneShotDelivery?: 'dialogue' | 'silent'
   oneShotModelId?: string
+  // Animated (keyframe chain) mode snapshot. Absent on older rows.
+  animatedResult?: unknown
+  animatedFrameStates?: Record<string, unknown>
+  animatedClipStates?: Record<string, unknown>
+  animatedSelections?: Record<string, unknown>
+  animatedStyleId?: string
+  animatedModelId?: string
 }
 
 // One analysis in the Ad Analyzer. Pushed before the request starts so the

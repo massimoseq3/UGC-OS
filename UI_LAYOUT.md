@@ -341,6 +341,29 @@ close (ChevronDown).
 **Two panes** split **25 / 75** (`BrollStudio.tsx:371`): narrow **left input**
 (`md:w-1/4`), wide **right scenes** (`md:w-3/4`).
 
+### Mode toggle (left panel header, 57px bar)
+
+Three-way `SegmentedToggle`: **One-Shot** (clapperboard) · **Line-by-Line**
+(rows) · **Animated** (box). One-Shot swaps the right panel for concept rows
+(see `OneShotView.tsx`); **Animated** is the keyframe-chain mode
+(`AnimatedView.tsx`): the left panel adds a **Visual Style** chip row (3D
+Animated / Claymation / Papercraft / Anime / Cinematic) + a frames-capable
+**Video Model** picker, and the Generate button reads **Generate Storyboard**.
+The right panel's first tab is then labeled **Storyboard**: a meta strip
+(scene count · style · total seconds · keyframes-picked counter) with
+**Generate frames** + **Generate all clips** buttons, then one row per scene —
+big italic number + "Scene N" chip + the quoted line, a grid of **3 concept
+cards** (Option pills; the chosen keyframe gets a broll-accent ring + "Keyframe"
+badge; hover = Generate / Use) + an **Add concept** dashed card + a tinted
+**Clip N** card (shows "Pick keyframes…" until both ends exist, then the start
+frame + "Keyframes ready", then the hover-play video). A closing **Final
+Frame** row holds concepts only. Concept cards open `AnimatedFrameModal`
+(style note · chain/character/product ref toggles · prompt · Generate Image ·
+image gallery where clicking an image makes it the keyframe); clip cards open
+`AnimatedClipModal` (start/end thumbs · style note · motion prompt ·
+resolution/duration/audio chips · Generate Video + credits · video gallery).
+Both batch buttons confirm first (clips show summed credits + balance).
+
 ### Left input (`components/InputPanel.tsx`), top→bottom
 
 "References" header + Clear All → **Product** ref card → **Character** ref card →

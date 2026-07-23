@@ -232,7 +232,7 @@ export interface CardState {
 // script longer than the model's max clip splits into sequential segments
 // that share identical world/voice blocks so they cut together.
 
-export type BrollMode = 'line' | 'oneshot'
+export type BrollMode = 'line' | 'oneshot' | 'animated'
 
 // 'dialogue' — the character speaks the actual script lines on camera.
 // 'silent'   — pure silent b-roll montage; a voiceover is laid over in the
@@ -290,6 +290,88 @@ export interface OneShotCardState {
   durationSeconds: number
   // Kept on even in silent delivery: the prompt's AUDIO rules ban speech and
   // music, but diegetic room tone is wanted footage an editor can always mute.
+  audio: boolean
+}
+
+// ── Animated mode (keyframe chain) ─────────────────────────────
+// Zack-D-Films-style continuous animated ads. The script splits into narration
+// scenes; every scene has a START keyframe and the NEXT scene's keyframe is
+// simultaneously this scene's END state — so each clip is a frames-to-video
+// generation (first frame = keyframe N, last frame = keyframe N+1) and the cuts
+// are invisible. Frames come as multiple visual CONCEPTS the user picks from
+// before any video credits are spent.
+
+// One visual concept for a keyframe — a distinct way to stage the same story
+// state. Variations differ in composition/metaphor, never in story state, so
+// any pick still chains with the neighbouring frames.
+export interface AnimatedConcept {
+  id: string
+  label: string
+  prompt: string
+}
+
+// Keyframe slot N (1-based). frames.length === scenes.length + 1 — the last
+// frame is the final end-state and starts no scene.
+export interface AnimatedFrame {
+  index: number
+  concepts: AnimatedConcept[]
+}
+
+// One narration beat: its script slice, the motion that carries keyframe N into
+// keyframe N+1, and the transitional sound effect baked into the clip.
+export interface AnimatedScene {
+  index: number
+  scriptLine: string
+  motionPrompt: string
+  sfx: string
+  // Planned clip length — spoken seconds snapped UP onto the plan model's grid.
+  durationSeconds: number
+}
+
+export interface AnimatedResult {
+  // The storyboard-wide style block, appended to every image/video prompt at
+  // fire time (never shown inside the editable per-frame prompt).
+  style: string
+  styleId: string
+  scenes: AnimatedScene[]
+  frames: AnimatedFrame[]
+  // Video model the clip durations were planned against.
+  modelId: string
+  // Sample data shown when no kie.ai key is set.
+  demo?: boolean
+}
+
+// Which image is the chosen keyframe for a frame slot. Keyed by frame index
+// (stringified) in a persisted map. imageIndex points into the chosen
+// concept's card images[] (append-only, so indices stay stable).
+export interface AnimatedSelection {
+  conceptId: string
+  imageIndex: number
+}
+
+// Per-concept card state, keyed `${frameIndex}:${conceptId}`. Image-only —
+// frames never generate video directly.
+export interface AnimatedFrameCardState {
+  editablePrompt: string
+  images: GeneratedImage[]
+  currentImageIndex: number
+  inFlightImages: InFlightImage[]
+  // Which references attach on generate. Chain = the previous frame's chosen
+  // keyframe as a style/continuity reference (the character-lock protocol).
+  chainLink: boolean
+  refsCharacter: boolean
+  refsProduct: boolean
+}
+
+// Per-clip card state, keyed `c${sceneIndex}`. Video-only — the clip animates
+// keyframe N → keyframe N+1 with the scene's motion prompt.
+export interface AnimatedClipCardState {
+  editablePrompt: string
+  videos: GeneratedVideo[]
+  currentVideoIndex: number
+  inFlightVideos: InFlightVideo[]
+  durationSeconds: number
+  resolution: string
   audio: boolean
 }
 

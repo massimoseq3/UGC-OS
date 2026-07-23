@@ -1,4 +1,4 @@
-import type { PromptVariation, CardState, OneShotSegment, OneShotCardState } from './types'
+import type { PromptVariation, CardState, OneShotSegment, OneShotCardState, AnimatedConcept, AnimatedScene, AnimatedFrameCardState, AnimatedClipCardState } from './types'
 import { refsToToggles } from './types'
 import { getDefaultModel, getModel, snapVideoDuration, type ImageResolution } from '../../utils/models'
 import { useSettingsStore } from '../../stores/settingsStore'
@@ -259,6 +259,82 @@ export function backfillOneShotCardState(raw: Partial<OneShotCardState> & Record
     aspectRatio: (raw.aspectRatio as string) ?? '9:16',
     resolution: (raw.resolution as string) ?? '720p',
     durationSeconds: typeof raw.durationSeconds === 'number' ? raw.durationSeconds : 5,
+    audio: raw.audio !== false,
+  }
+}
+
+// ── Animated mode card states ──────────────────────────────────
+
+// Fresh per-concept keyframe card (image-only). Refs default on when the bank
+// items exist — the view drops absent refs at fire time anyway.
+export function createDefaultAnimatedFrameState(concept: AnimatedConcept): AnimatedFrameCardState {
+  return {
+    editablePrompt: concept.prompt,
+    images: [],
+    currentImageIndex: 0,
+    inFlightImages: [],
+    chainLink: true,
+    refsCharacter: true,
+    refsProduct: true,
+  }
+}
+
+// Fresh per-clip card. Resolution follows the animated model's preferred tier;
+// duration seeds from the scene's planned length.
+export function createDefaultAnimatedClipState(scene: AnimatedScene, modelId: string): AnimatedClipCardState {
+  const c = getModel(modelId)?.videoConstraints
+  const resolution = c
+    ? c.default ?? (c.resolutions.includes('720p') ? '720p' : c.resolutions[0] ?? '720p')
+    : '720p'
+  const durationSeconds = c ? snapVideoDuration(scene.durationSeconds, c.durations) : scene.durationSeconds
+  const editablePrompt = scene.sfx.trim()
+    ? `${scene.motionPrompt.trim()}\n\nSFX: ${scene.sfx.trim()}`
+    : scene.motionPrompt.trim()
+  return {
+    editablePrompt,
+    videos: [],
+    currentVideoIndex: 0,
+    inFlightVideos: [],
+    durationSeconds,
+    resolution,
+    audio: true,
+  }
+}
+
+// Defensive hydrate for persisted Animated frame cards. Drops in-flight image
+// entries past the 30-min TTL (image tasks never run longer).
+export function backfillAnimatedFrameState(raw: Partial<AnimatedFrameCardState> & Record<string, unknown>): AnimatedFrameCardState {
+  const STALE_MS = 30 * 60_000
+  const images = Array.isArray(raw.images) ? (raw.images as AnimatedFrameCardState['images']) : []
+  const inFlight = Array.isArray(raw.inFlightImages) ? (raw.inFlightImages as AnimatedFrameCardState['inFlightImages']) : []
+  return {
+    editablePrompt: (raw.editablePrompt as string) ?? '',
+    images: images.map((img) => ({ ...img, createdAt: img.createdAt ?? Date.now() })),
+    currentImageIndex: typeof raw.currentImageIndex === 'number'
+      ? Math.max(0, Math.min(raw.currentImageIndex, Math.max(0, images.length - 1)))
+      : Math.max(0, images.length - 1),
+    inFlightImages: inFlight.filter((e) => Date.now() - (e.startedAt ?? 0) < STALE_MS),
+    chainLink: raw.chainLink !== false,
+    refsCharacter: raw.refsCharacter !== false,
+    refsProduct: raw.refsProduct !== false,
+  }
+}
+
+// Defensive hydrate for persisted Animated clip cards — same 60-min video TTL
+// posture as the other modes.
+export function backfillAnimatedClipState(raw: Partial<AnimatedClipCardState> & Record<string, unknown>): AnimatedClipCardState {
+  const STALE_MS = 60 * 60_000
+  const videos = Array.isArray(raw.videos) ? (raw.videos as AnimatedClipCardState['videos']) : []
+  const inFlight = Array.isArray(raw.inFlightVideos) ? (raw.inFlightVideos as AnimatedClipCardState['inFlightVideos']) : []
+  return {
+    editablePrompt: (raw.editablePrompt as string) ?? '',
+    videos,
+    currentVideoIndex: typeof raw.currentVideoIndex === 'number'
+      ? Math.max(0, Math.min(raw.currentVideoIndex, Math.max(0, videos.length - 1)))
+      : Math.max(0, videos.length - 1),
+    inFlightVideos: inFlight.filter((e) => Date.now() - (e.startedAt ?? 0) < STALE_MS),
+    durationSeconds: typeof raw.durationSeconds === 'number' ? raw.durationSeconds : 5,
+    resolution: (raw.resolution as string) ?? '720p',
     audio: raw.audio !== false,
   }
 }

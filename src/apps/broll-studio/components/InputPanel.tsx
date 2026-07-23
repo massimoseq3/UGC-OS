@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Package, UserRound, FileText, RefreshCw, Loader2, Film, X, ChevronRight, Clapperboard, AlertTriangle, Rows3, Star } from 'lucide-react'
+import { Package, UserRound, FileText, RefreshCw, Loader2, Film, X, ChevronRight, Clapperboard, AlertTriangle, Rows3, Star, Box } from 'lucide-react'
 import type { Product, Model, Script } from '../../../stores/types'
 import type { BrollMode, OneShotDelivery } from '../types'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
@@ -10,6 +10,7 @@ import ProviderLogo from '../../../components/ProviderLogo'
 import SavingsPill from '../../../components/SavingsPill'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import { ONE_SHOT_MODEL_IDS, estimateSpokenSeconds, planSegments } from '../services/generateOneShot'
+import { ANIMATED_MODEL_IDS, ANIMATED_STYLES } from '../services/generateAnimated'
 import { getModel, officialSavingsPercent } from '../../../utils/models'
 
 interface InputPanelProps {
@@ -37,6 +38,12 @@ interface InputPanelProps {
   onOneShotDeliveryChange: (delivery: OneShotDelivery) => void
   oneShotModelId: string
   onOneShotModelChange: (modelId: string) => void
+  // Animated mode (keyframe chain) — visual style preset + frames-capable
+  // video model, both picked before generation (the clip plan depends on the
+  // model's duration grid).
+  animatedStyleId: string
+  onAnimatedStyleChange: (styleId: string) => void
+  animatedModelId: string
 }
 
 function BankCard({
@@ -211,14 +218,20 @@ export default function InputPanel({
   onOneShotDeliveryChange,
   oneShotModelId,
   onOneShotModelChange,
+  animatedStyleId,
+  onAnimatedStyleChange,
+  animatedModelId,
 }: InputPanelProps) {
   const hasScript = scriptText.trim().length > 0
   const canGenerate = hasScript
   const [scriptExpanded, setScriptExpanded] = useState(false)
   const [instructionsExpanded, setInstructionsExpanded] = useState(false)
   const [modelPanelOpen, setModelPanelOpen] = useState(false)
+  const [animatedModelPanelOpen, setAnimatedModelPanelOpen] = useState(false)
   const isOneShot = mode === 'oneshot'
+  const isAnimated = mode === 'animated'
   const hasRefs = !!selectedProduct?.productImage || !!selectedModel?.characterImage
+  const animatedModel = getModel(animatedModelId)
 
   // Live split preview: spoken seconds → clip count on the selected model.
   // Recomputed on every keystroke so the user sees the plan before paying.
@@ -244,6 +257,7 @@ export default function InputPanel({
           options={[
             { value: 'oneshot', label: 'One-Shot', icon: Clapperboard },
             { value: 'line', label: 'Line-by-Line', icon: Rows3 },
+            { value: 'animated', label: 'Animated', icon: Box },
           ]}
         />
       </div>
@@ -286,7 +300,7 @@ export default function InputPanel({
               merged into one rounded box so the two sources read as one input.
               In One-Shot the script box doesn't grow — there's a stack of
               controls below it (model, clip type) that should stay in view. */}
-          <div className={`flex min-h-0 flex-col overflow-hidden rounded-3xl border transition-colors ${isOneShot ? '' : 'flex-1'} ${selectedScript ? 'border-scripts-500/30 bg-scripts-500/[0.06] focus-within:border-scripts-500/50' : 'border-dashed border-ink/10 bg-ink/[0.02] focus-within:border-ink/20'} ${highlightField === 'script' ? 'animate-field-flash' : ''}`}>
+          <div className={`flex min-h-0 flex-col overflow-hidden rounded-3xl border transition-colors ${isOneShot || isAnimated ? '' : 'flex-1'} ${selectedScript ? 'border-scripts-500/30 bg-scripts-500/[0.06] focus-within:border-scripts-500/50' : 'border-dashed border-ink/10 bg-ink/[0.02] focus-within:border-ink/20'} ${highlightField === 'script' ? 'animate-field-flash' : ''}`}>
             <BankCard
               icon={FileText}
               label="Script / Hooks"
@@ -407,6 +421,76 @@ export default function InputPanel({
             </div>
           )}
 
+          {/* Animated mode — visual style preset. The chain mechanic works for
+              any aesthetic; the preset seeds the storyboard's STYLE block. */}
+          {isAnimated && (
+            <div>
+              <span className="text-sm font-medium text-ink-200">Visual Style</span>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {ANIMATED_STYLES.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => onAnimatedStyleChange(s.id)}
+                    title={s.hint}
+                    className={`rounded-full border px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                      animatedStyleId === s.id
+                        ? 'border-broll-500/40 bg-broll-500/15 text-broll-200 light:text-broll-700'
+                        : 'border-ink/10 bg-ink/[0.02] text-ink-400 hover:bg-ink/[0.05] hover:text-ink-200'
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Animated mode — frames-capable video model, picked BEFORE
+              generation because the clip durations snap to its grid. */}
+          {isAnimated && (
+            <div>
+              <span className="text-sm font-medium text-ink-200">Video Model</span>
+              <div className="mt-2">
+                <button
+                  type="button"
+                  onClick={() => setAnimatedModelPanelOpen(true)}
+                  className="flex h-12 w-full items-center gap-2.5 rounded-full border border-ink/10 bg-ink/[0.02] px-3 text-left transition-colors hover:bg-ink/[0.05]"
+                >
+                  {animatedModel ? (
+                    <>
+                      <ProviderLogo provider={animatedModel.provider ?? ''} />
+                      <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                        <span className="truncate text-[13px] font-medium text-ink-100">{animatedModel.displayName}</span>
+                        {animatedModel.tags.includes('recommended') && (
+                          <Star className="h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400 light:fill-yellow-600 light:text-yellow-600" strokeWidth={1.5} />
+                        )}
+                        {officialSavingsPercent(animatedModelId) != null && (
+                          <SavingsPill pct={officialSavingsPercent(animatedModelId)!} />
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <span className="flex-1 truncate text-sm text-ink-400">Select model</span>
+                  )}
+                  <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" />
+                </button>
+                <ModelSidePanel
+                  appId="broll-studio"
+                  task="video"
+                  allowedModelIds={ANIMATED_MODEL_IDS}
+                  value={animatedModelId}
+                  onChange={(id) => useSettingsStore.getState().setAppModel('broll-studio:animated:video', id)}
+                  isOpen={animatedModelPanelOpen}
+                  onClose={() => setAnimatedModelPanelOpen(false)}
+                />
+              </div>
+              <p className="mt-1.5 px-1 text-[11px] leading-relaxed text-ink-600">
+                {hasScript ? `≈ ${estimateSpokenSeconds(scriptText)}s spoken · one clip per line, chained start-to-end` : 'Frame-to-frame models only — each clip ends on the next clip\'s first frame'}
+              </p>
+            </div>
+          )}
+
           {/* Additional instructions */}
           <div>
             <span className="text-sm font-medium text-ink-200">Additional Instructions</span>
@@ -437,12 +521,17 @@ export default function InputPanel({
           {isGenerating ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              <span>{isOneShot ? 'Generating Variations...' : 'Generating Prompts...'}</span>
+              <span>{isOneShot ? 'Generating Variations...' : isAnimated ? 'Storyboarding...' : 'Generating Prompts...'}</span>
             </>
           ) : isOneShot ? (
             <>
               <Clapperboard className="h-4 w-4" strokeWidth={2.5} />
               <span>Generate Variations</span>
+            </>
+          ) : isAnimated ? (
+            <>
+              <Box className="h-4 w-4" strokeWidth={2.5} />
+              <span>Generate Storyboard</span>
             </>
           ) : (
             <>

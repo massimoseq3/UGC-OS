@@ -550,7 +550,9 @@ export async function startImageTask(
   resolution?: ImageResolution,
   // STATIC anchor cards want the reference's setting and framing carried over
   // rather than stripped — flips which preamble scopes the refs.
-  opts?: { inheritReference?: boolean },
+  // Animated mode passes noRealism (the stylized-3D aesthetic is the opposite
+  // of the iPhone stack) and its own chain-continuity preamble.
+  opts?: { inheritReference?: boolean; noRealism?: boolean; preambleOverride?: string },
 ): Promise<{ taskId: string; modelId: string }> {
   const apiKey = useSettingsStore.getState().getKieApiKey()
   const hasRefs = !!referenceImages?.length
@@ -596,10 +598,11 @@ export async function startImageTask(
   // Scope the references to identity/appearance only so the model builds a
   // fresh composition from the prompt instead of inheriting the reference's
   // framing, pose, and background. Phrased by which refs are actually attached.
-  const scenePrompt = withIphoneRealism(prompt)
+  const scenePrompt = opts?.noRealism ? prompt.trim() : withIphoneRealism(prompt)
   const preamble = opts?.inheritReference ? buildStaticReferencePreamble : buildReferencePreamble
-  const finalPrompt = inputUrls.length > 0
-    ? `${preamble(referenceImages!)}\n\nSCENE:\n${scenePrompt}`
+  const preambleText = opts?.preambleOverride ?? (inputUrls.length > 0 ? preamble(referenceImages!) : '')
+  const finalPrompt = inputUrls.length > 0 && preambleText
+    ? `${preambleText}\n\nSCENE:\n${scenePrompt}`
     : scenePrompt
 
   const body = buildImageInput(modelId, {
