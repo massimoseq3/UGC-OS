@@ -26,14 +26,12 @@ import ModelWaitNotice from '../../../components/ModelWaitNotice'
 import BankPicker from '../../../components/BankPicker'
 import ExpandTextModal, { ExpandButton } from '../../../components/ExpandableText'
 import {
-  startCharacterTask,
-  startCharacterEditTask,
-  finishCharacterTask,
   buildJsonPrompt,
   buildImagePrompt,
   buildSheetPrompt,
   enhanceEditInstruction,
 } from '../services/generateCharacter'
+import type { InFlightCharacterGen, LaunchGenOptions } from '../types'
 import { pickInfluencerName, sheetNameFrom } from './nameGenerator'
 import { useCloseOnAppSwitch } from '../../../hooks/useCloseOnAppSwitch'
 import GeneratingTile from './GeneratingTile'
@@ -82,6 +80,13 @@ interface InfluencerEditModalProps {
   // Which mode to open in. The gallery's "Make Sheet" action opens straight
   // into 'sheet' so the user just hits Generate; a normal tile click is 'edit'.
   initialMode?: Mode
+  // Generations are owned by CharacterStudio, not by this pop-up — the modal
+  // only fires the launcher and renders whichever in-flight entries belong to
+  // this character's lineage. That's what lets a running edit survive closing
+  // and reopening the editor (and a refresh).
+  inFlight: InFlightCharacterGen[]
+  onLaunchGen: (opts: LaunchGenOptions) => void
+  onCancelGen: (id: string) => void
 }
 
 function coerceAspect(ar: string): AspectRatio {
@@ -96,8 +101,14 @@ function aspectStyle(ar: string): React.CSSProperties {
   return { aspectRatio: '9 / 16' }
 }
 
-export default function InfluencerEditModal({ item, onClose, initialMode = 'edit' }: InfluencerEditModalProps) {
-  const addCharacterHistory = useBankStore((s) => s.addCharacterHistory)
+export default function InfluencerEditModal({
+  item,
+  onClose,
+  initialMode = 'edit',
+  inFlight,
+  onLaunchGen,
+  onCancelGen,
+}: InfluencerEditModalProps) {
   const addModel = useBankStore((s) => s.addModel)
   const deleteModel = useBankStore((s) => s.deleteModel)
   const updateCharacterHistory = useBankStore((s) => s.updateCharacterHistory)
@@ -151,7 +162,13 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
   const canUndoPrompt = promptIndex > 0
   const canRedoPrompt = promptIndex < promptHistory.length - 1
   const [refs, setRefs] = useState<UploadedRef[]>([])
-  const [generating, setGenerating] = useState(false)
+  // In-flight gens started from this editor. Derived from the app-level list, so
+  // reopening the modal mid-generation shows the tile again instead of losing it.
+  const lineageInFlight = useMemo(
+    () => inFlight.filter((g) => g.lineageId === lineageKey),
+    [inFlight, lineageKey],
+  )
+  const generating = lineageInFlight.length > 0
   const [savedIds, setSavedIds] = useState<Set<string>>(() => new Set())
   const [savingId, setSavingId] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -224,13 +241,14 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
   }
 
   useEffect(() => {
-    function onKey(e: KeyboardEvent) { if (e.key === 'Escape' && !generating) onClose() }
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose, generating])
+  }, [onClose])
 
-  // Same guard as Escape/backdrop: don't discard an in-flight generation.
-  useCloseOnAppSwitch(!generating, onClose)
+  // Closing mid-generation is safe — the job lives on CharacterStudio and keeps
+  // running (visible in the main gallery, and back here on reopen).
+  useCloseOnAppSwitch(true, onClose)
 
   function handlePickFiles(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
@@ -259,25 +277,21 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
     if (url) setRefs((prev) => (prev.length >= MAX_REFS ? prev : [...prev, { url: url as string, name }]))
   }
 
-  // Stamp a finished generation: persist to characterHistory (so it shows in the
-  // main gallery AND re-appears in this strip on reopen via the shared lineage),
-  // then select it as the new cover. The strip itself is derived from the store,
-  // so the new row flows in on the next render — no local list to keep in sync.
-  function recordOutput(assetId: string, kind: 'portrait' | 'sheet', aspect: string) {
-    const newId = crypto.randomUUID()
-    addCharacterHistory({
-      id: newId,
-      imageRef: assetId,
-      profile: item.profile,
-      modelId: imageModelId ?? item.modelId,
-      aspectRatio: aspect,
-      resolution,
-      kind,
-      lineageId: lineageKey,
-      createdAt: Date.now(),
-    })
-    setSelectedId(newId)
-  }
+  // A finished gen becomes the new cover, the way it did when this modal owned
+  // the generation itself. The row arrives through the store (CharacterStudio
+  // writes it), so we watch the head of the strip and select anything new. The
+  // first run only records what was already there — opening the editor must not
+  // hijack the tile the user clicked.
+  const newestSeenRef = useRef<string | null>(null)
+  useEffect(() => {
+    const newest = outputs[0]?.id
+    if (!newest) return
+    if (newestSeenRef.current === null) { newestSeenRef.current = newest; return }
+    if (newest !== newestSeenRef.current) {
+      newestSeenRef.current = newest
+      setSelectedId(newest)
+    }
+  }, [outputs])
 
   // Push a committed value onto the prompt history (truncating any redo tail).
   function pushPromptHistory(next: string, base = promptHistory, baseIndex = promptIndex) {
@@ -321,54 +335,41 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
     }
   }
 
-  async function handleEdit() {
+  function handleEdit() {
     const instruction = prompt.trim()
     if (!instruction || generating || !selected) return
-    setGenerating(true)
-    try {
-      const { taskId, modelId } = await startCharacterEditTask({
-        prompt: instruction,
+    onLaunchGen({
+      profile: item.profile,
+      resolution,
+      kind: 'portrait',
+      aspect: coerceAspect(editAspect),
+      lineageId: lineageKey,
+      edit: {
+        instruction,
         baseImageRef: selected.imageRef,
-        referenceRefs: refs.map((r) => r.url),
-        aspectRatio: coerceAspect(editAspect),
-        resolution,
-      })
-      const assetId = await finishCharacterTask(taskId, modelId)
-      recordOutput(assetId, 'portrait', editAspect)
-      setPrompt('')
-      setPromptHistory([''])
-      setPromptIndex(0)
-      addToast('Edit generated', 'success')
-    } catch (err) {
-      addToast(humanizeError(err, 'Edit failed. Check your API key and try again.'), 'error')
-    } finally {
-      setGenerating(false)
-    }
+        referenceUrls: refs.map((r) => r.url),
+      },
+    })
+    // Clear the box for the next instruction, but park the fired one in history
+    // so Undo brings it straight back.
+    const committed = prompt !== promptHistory[promptIndex]
+      ? [...promptHistory.slice(0, promptIndex + 1), prompt]
+      : promptHistory.slice(0, promptIndex + 1)
+    pushPromptHistory('', committed, committed.length - 1)
   }
 
-  async function handleSheet() {
+  function handleSheet() {
     if (generating || !selected) return
-    setGenerating(true)
-    try {
-      // Image-to-image off the cover so the sheet keeps the exact same person —
-      // startCharacterTask swaps to an i2i model and leads with an identity lock.
-      const { taskId, modelId } = await startCharacterTask(
-        item.profile,
-        undefined,
-        resolution,
-        undefined,
-        'sheet',
-        sheetAspect,
-        selected.imageRef,
-      )
-      const assetId = await finishCharacterTask(taskId, modelId)
-      recordOutput(assetId, 'sheet', sheetAspect)
-      addToast('Character sheet generated', 'success')
-    } catch (err) {
-      addToast(humanizeError(err, 'Sheet generation failed. Check your API key and try again.'), 'error')
-    } finally {
-      setGenerating(false)
-    }
+    // Image-to-image off the cover so the sheet keeps the exact same person —
+    // startCharacterTask swaps to an i2i model and leads with an identity lock.
+    onLaunchGen({
+      profile: item.profile,
+      resolution,
+      kind: 'sheet',
+      aspect: sheetAspect,
+      referenceUrl: selected.imageRef,
+      lineageId: lineageKey,
+    })
   }
 
   // Suggested name when opening the inline save input — sheets file next to
@@ -439,7 +440,7 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
   const modal = (
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
-      onClick={() => { if (!generating) onClose() }}
+      onClick={onClose}
     >
       {/* Floating close — anchored to the screen corner (like every other
           pop-up) so it never overlaps an output tile. */}
@@ -740,15 +741,16 @@ export default function InfluencerEditModal({ item, onClose, initialMode = 'edit
           <div className="col-span-1 flex min-h-0 flex-col overflow-y-auto">
             <div className="px-4 py-4">
               <div className="grid grid-cols-2 gap-2 [grid-auto-flow:dense]">
-                {generating && (
-                  <div className={(mode === 'sheet' ? sheetAspect : selected?.aspectRatio ?? '9:16').includes('16:9') ? 'col-span-2' : ''}>
+                {lineageInFlight.map((gen) => (
+                  <div key={gen.id} className={gen.aspectRatio.includes('16:9') ? 'col-span-2' : ''}>
                     <GeneratingTile
-                      modelId={imageModelId ?? item.modelId}
-                      kind={mode === 'sheet' ? 'sheet' : 'portrait'}
-                      aspectRatio={mode === 'sheet' ? sheetAspect : selected?.aspectRatio ?? '9:16'}
+                      modelId={gen.modelId}
+                      kind={gen.kind}
+                      aspectRatio={gen.aspectRatio}
+                      onCancel={() => onCancelGen(gen.id)}
                     />
                   </div>
-                )}
+                ))}
                 {outputs.map((o) => (
                   <OutputTile
                     key={o.id}

@@ -4,13 +4,13 @@ import { useAppStore } from '../../stores/appStore'
 import { useReportActivity } from '../../stores/activityStore'
 import { useBankStore } from '../../stores/bankStore'
 import { useSettingsStore } from '../../stores/settingsStore'
-import type { CharacterProfile, TabId } from './types'
+import type { CharacterProfile, InFlightCharacterGen, LaunchGenOptions, TabId } from './types'
 import { createEmptyProfile, flattenDna, PHOTOREALISM_STYLE } from './types'
-import type { ImageResolution } from '../../utils/models'
+import type { AspectRatio, ImageResolution } from '../../utils/models'
 import { getDefaultModel, clampImageResolution } from '../../utils/models'
 import ControlsPanel from './components/ControlsPanel'
-import GalleryPanel, { type InFlightCharacterGen } from './components/GalleryPanel'
-import { startCharacterTask, finishCharacterTask, type GenerationKind } from './services/generateCharacter'
+import GalleryPanel from './components/GalleryPanel'
+import { startCharacterTask, startCharacterEditTask, finishCharacterTask, type GenerationKind } from './services/generateCharacter'
 import { humanizeError } from '../../utils/friendlyError'
 import { analyzeImage } from './services/analyzeImage'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
@@ -203,9 +203,16 @@ export default function CharacterStudio() {
         aspectRatio: gen.aspectRatio,
         resolution: gen.resolution,
         kind: gen.kind ?? 'portrait',
+        // Derived gens (edit modal) rejoin their source's lineage strip.
+        lineageId: gen.lineageId,
         createdAt: Date.now(),
       })
-      useAppStore.getState().addToast(gen.kind === 'sheet' ? 'Character sheet generated' : 'Character generated', 'success')
+      // A lineage'd portrait can only have come from the modal's Edit tab —
+      // the form and "Make Sheet" never set one.
+      const label = gen.kind === 'sheet'
+        ? 'Character sheet generated'
+        : gen.lineageId ? 'Edit generated' : 'Character generated'
+      useAppStore.getState().addToast(label, 'success')
     } catch (err) {
       if (!controller.signal.aborted) {
         const msg = humanizeError(err, 'Image generation failed. Check your API key and try again.')
@@ -219,17 +226,15 @@ export default function CharacterStudio() {
   }, [addCharacterHistory, setInFlight])
 
   // Core launcher shared by the form's Generate button, the "Make Sheet from
-  // portrait" gallery action, and any future trigger. Stamps an in-flight tile,
-  // starts the task, persists the taskId, then polls to completion. The model
-  // recorded is the one actually used — startCharacterTask swaps to an
+  // portrait" gallery action, and the edit modal's Generate. Stamps an in-flight
+  // tile, starts the task, persists the taskId, then polls to completion. The
+  // model recorded is the one actually used — startCharacterTask swaps to an
   // image-to-image sibling when a reference portrait is supplied.
-  const launchGen = useCallback(async (opts: {
-    profile: CharacterProfile
-    resolution: ImageResolution
-    kind: GenerationKind
-    aspect: string
-    referenceUrl?: string
-  }) => {
+  //
+  // Owning modal generations here (rather than inside the modal) is what makes
+  // them survive a close + reopen: the tile and the poll live with the app, not
+  // with the pop-up.
+  const launchGen = useCallback(async (opts: LaunchGenOptions) => {
     const configuredModel = useSettingsStore.getState().getAppModel('character-studio:image:text-to-image')
       ?? getDefaultModel('character-studio', 'image', 'text-to-image')?.id
       ?? 'unknown'
@@ -247,13 +252,23 @@ export default function CharacterStudio() {
       resolution: opts.resolution,
       kind: opts.kind,
       profile: opts.profile,
+      lineageId: opts.lineageId,
     }
     setInFlight((prev) => [...prev, placeholder])
     setError(null)
 
     let started: { taskId: string; modelId: string }
     try {
-      started = await startCharacterTask(opts.profile, undefined, opts.resolution, controller.signal, opts.kind, opts.aspect, opts.referenceUrl)
+      started = opts.edit
+        ? await startCharacterEditTask({
+            prompt: opts.edit.instruction,
+            baseImageRef: opts.edit.baseImageRef,
+            referenceRefs: opts.edit.referenceUrls,
+            aspectRatio: opts.aspect as AspectRatio,
+            resolution: opts.resolution,
+            signal: controller.signal,
+          })
+        : await startCharacterTask(opts.profile, undefined, opts.resolution, controller.signal, opts.kind, opts.aspect, opts.referenceUrl)
     } catch (err) {
       abortersRef.current.delete(id)
       setInFlight((prev) => prev.filter((g) => g.id !== id))
@@ -362,6 +377,7 @@ export default function CharacterStudio() {
         <GalleryPanel
           inFlight={inFlight}
           onCancelGen={handleCancelGen}
+          onLaunchGen={(opts) => void launchGen(opts)}
         />
       </div>
 
