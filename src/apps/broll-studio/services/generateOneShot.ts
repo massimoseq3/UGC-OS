@@ -126,7 +126,9 @@ Design ONE complete video concept for the user's script, following the creative 
 
 # HOW TO WRITE A CLIP
 
-Break the clip into as many internal scenes/cuts as the moment earns — roughly one every 2-4 seconds; a single uninterrupted take is fine as ONE scene. Scene 1 is a pattern interrupt, never a calm establishing shot.
+This clip renders as ONE video with the cuts baked in — the model performs every scene transition internally, so direct it like a mini-edit, not one long take. Break the clip into several internal scenes/cuts, roughly one every 2-4 seconds: a ~15s clip is typically 4-6 distinct scenes, a ~10s clip 3-4, a ~6s clip 2-3. Only a very short clip is a single scene. Scene 1 is a pattern interrupt — motion, tension, or a face mid-reaction — never a calm establishing wide.
+
+Detail is what separates a winning clip from generic stock: every scene names the exact prop, the exact body position and hand placement, the exact micro-expression, and the real light source. Vague direction ("she looks happy", "nice lighting", "using the product") renders as generic footage — write each scene the way you'd describe a shot you already filmed and are now logging frame by frame. When in doubt, add specificity, not another scene.
 
 Every scene starts with a header EXACTLY in this form:
 --- Scene N: <short label> (MM:SS-MM:SS) ---
@@ -151,7 +153,7 @@ Wrap your answer in this exact XML envelope. No text outside the tags, no markdo
 
 <CONCEPT>
 <ANGLE>2-4 word slug naming the creative angle</ANGLE>
-<SUMMARY>one sentence describing the concept</SUMMARY>
+<SUMMARY>ONE plain-language sentence a total non-expert can read to instantly picture how this ad looks and feels — name the shooting style in everyday words (e.g. "a selfie-style talking-head", "a get-ready-with-me morning montage", "a hands-only product demo", "an unboxing on camera") and the vibe. No insider jargon, no restating the product's benefits.</SUMMARY>
 <SEGMENT_1>
 <EXCERPT>the exact, verbatim script slice this clip covers</EXCERPT>
 <PROMPT>
@@ -181,15 +183,24 @@ export function resolveOneShotTokens(prompt: string, productName?: string): stri
     .replace(/\[PRODUCT\]/gi, productName?.trim() || 'the product')
 }
 
-// Four deliberately different UGC worlds per generate — real alternatives,
-// not four flavours of one idea. The UGC counterpart of Scripts'
-// WRITE_PROMPT_TAKE_INSTRUCTION.
+// Deliberately different UGC worlds — real alternatives, not flavours of one
+// idea. The first four fan out on every generate; the rest feed the "Add
+// variation" button so a fifth+ card is a genuinely fresh angle, not a repeat.
+// The UGC counterpart of Scripts' WRITE_PROMPT_TAKE_INSTRUCTION.
 const ONE_SHOT_ANGLES: string[] = [
   'THIS CONCEPT — DIRECT CONFESSION: straight-to-camera storytime energy. One location, the character close and personal, escalating intimacy as the script builds. The classic "okay I have to tell you about this" register.',
   'THIS CONCEPT — DAY IN THE LIFE: the script carried across a real routine — morning counter, commute, desk, evening wind-down. The product is met naturally mid-day, never presented. Movement between micro-moments gives the cuts.',
   'THIS CONCEPT — DEMO FIRST: hands and product do the talking. Close-in inserts, textures, the actual use of the thing, the visible result. The character orbits the demonstration rather than fronting it.',
   'THIS CONCEPT — REACTION & DISCOVERY: the character encountering the product or its result — skeptical first beat, the try, the genuine reaction. The arc is doubt → surprise → sold.',
+  'THIS CONCEPT — PROBLEM / AGITATE / SOLVE: open on the frustration in vivid, specific detail, twist the knife a beat longer than feels comfortable, then let the product land as the release. The arc is pain → relief.',
+  'THIS CONCEPT — UNBOXING / FIRST TRY: the parcel, the reveal, the very first use on camera narrated as it happens. Fresh-discovery energy, nothing rehearsed.',
+  'THIS CONCEPT — TEXT-A-FRIEND: the register of telling one close friend about a find — casual, low-production, phone-propped-somewhere intimacy, "you genuinely need to try this".',
+  'THIS CONCEPT — BEFORE / AFTER CONTRAST: cut hard between the old way and the new result, the product as the visible pivot between them.',
 ]
+
+// How many angles the initial Generate fans out on. The rest of the pool is
+// reserved for Add-variation.
+const INITIAL_ANGLE_COUNT = 4
 
 export interface OneShotInput {
   scriptText: string
@@ -303,6 +314,25 @@ export function parseOneShotConcept(
 
 // ── Entry point ────────────────────────────────────────────────
 
+// One LLM call → one parsed concept for the given creative angle. Shared by
+// the initial fan-out and the Add-variation button so both produce identical
+// concept shapes.
+async function generateConceptForAngle(
+  apiKey: string,
+  endpoint: string,
+  system: string,
+  input: OneShotInput,
+  plan: SegmentPlan,
+  angle: string,
+): Promise<OneShotConcept | null> {
+  const messages: ChatMessage[] = [
+    { role: 'system', content: [{ type: 'text', text: system }] },
+    { role: 'user', content: [{ type: 'text', text: buildUserPrompt(input, plan, angle) }] },
+  ]
+  const response = await kieChatCompletions(apiKey, endpoint, messages)
+  return parseOneShotConcept(response, input)
+}
+
 // Four parallel calls, one per creative angle — mirrors the cinematic
 // pipeline's fan-out. Partial failures keep whatever parsed; only a total
 // wipe-out throws (the first rejection's error, for humanizeError upstream).
@@ -315,20 +345,15 @@ export async function generateOneShot(input: OneShotInput): Promise<OneShotResul
   const system = oneShotSystem(input.delivery)
 
   const settled = await Promise.allSettled(
-    ONE_SHOT_ANGLES.map((angle) => {
-      const messages: ChatMessage[] = [
-        { role: 'system', content: [{ type: 'text', text: system }] },
-        { role: 'user', content: [{ type: 'text', text: buildUserPrompt(input, plan, angle) }] },
-      ]
-      return kieChatCompletions(apiKey, endpoint, messages)
-    }),
+    ONE_SHOT_ANGLES.slice(0, INITIAL_ANGLE_COUNT).map((angle) =>
+      generateConceptForAngle(apiKey, endpoint, system, input, plan, angle),
+    ),
   )
 
   const concepts: OneShotConcept[] = []
   for (const result of settled) {
-    if (result.status !== 'fulfilled') continue
-    const concept = parseOneShotConcept(result.value, input)
-    if (concept) concepts.push(concept)
+    if (result.status !== 'fulfilled' || !result.value) continue
+    concepts.push(result.value)
   }
 
   if (concepts.length === 0) {
@@ -344,6 +369,94 @@ export async function generateOneShot(input: OneShotInput): Promise<OneShotResul
     segmentCount: plan.count,
     capped: plan.capped,
   }
+}
+
+// One more variation on demand (the grid's "Add variation" card). Picks the
+// next unused angle from the pool so a fifth+ card is a fresh creative world,
+// wrapping the pool if the user keeps adding. Planned against the SAME model
+// the existing result used (passed in via input.modelId) so its clip split
+// matches the other variations and they stay comparable.
+export async function generateOneShotVariation(
+  input: OneShotInput,
+  existingCount: number,
+): Promise<OneShotConcept> {
+  const apiKey = useSettingsStore.getState().getKieApiKey()
+  const endpoint = getChatEndpointPath()
+  const plan = planSegments(estimateSpokenSeconds(input.scriptText), input.modelId)
+  const system = oneShotSystem(input.delivery)
+  const angle = ONE_SHOT_ANGLES[existingCount % ONE_SHOT_ANGLES.length]
+  const concept = await generateConceptForAngle(apiKey, endpoint, system, input, plan, angle)
+  if (!concept) throw new Error('Could not generate another variation')
+  return concept
+}
+
+// ── Per-clip Enhance / Regenerate ──────────────────────────────
+//
+// Powers the blueprint toolbar in OneShotDetailModal (mirrors the Line-by-Line
+// card's Enhance / Regenerate). Both return ONE clip's blueprint body — the
+// scenes (+ VOICE PROFILE for dialogue) — with no <CONCEPT>/<SEGMENT> wrapper.
+
+export interface ClipContext {
+  angle: string
+  excerpt: string
+  delivery: OneShotDelivery
+  productContext?: string
+  modelContext?: string
+}
+
+const CLIP_ENVELOPE_NOTE =
+  'Return ONLY this one clip\'s scene blueprint wrapped in a single <PROMPT>…</PROMPT> tag — no <CONCEPT>, no <SEGMENT>, no <ANGLE>, no text outside the tag.'
+
+function clipContextBlock(ctx: ClipContext): string {
+  let out = ''
+  if (ctx.productContext) out += `\n${ctx.productContext}\n`
+  if (ctx.modelContext) out += `\n${ctx.modelContext}\nIMPORTANT: never describe the character's physical appearance — use the token [CHARACTER]; a reference image fixes their look.\n`
+  return out
+}
+
+// Extract the blueprint body from an LLM reply, tolerating a missing tag.
+function extractPromptBody(responseText: string): string {
+  const m = responseText.match(/<PROMPT>([\s\S]*?)<\/PROMPT>/i)
+  const body = (m ? m[1] : responseText).trim()
+  return body.replace(/<\/?(CONCEPT|SEGMENT_\d+|EXCERPT|ANGLE|SUMMARY|PROMPT)>/gi, '').trim()
+}
+
+export async function enhanceOneShotClip(currentPrompt: string, ctx: ClipContext): Promise<string> {
+  const apiKey = useSettingsStore.getState().getKieApiKey()
+  const endpoint = getChatEndpointPath()
+  const system = oneShotSystem(ctx.delivery)
+  const user = `Here is the scene blueprint for ONE clip of a UGC ad. Rewrite it to be MORE detailed and vivid while keeping the EXACT same format (same scene headers and timestamps, the same six labelled fields${ctx.delivery === 'dialogue' ? ', the same VOICE PROFILE block' : ''}) and the same spoken lines. Sharpen every field — more specific props, exact body position and hand placement, the real light source, precise micro-expressions — without changing what happens or padding it with extra scenes.
+
+CONCEPT ANGLE: ${ctx.angle}
+
+Current blueprint:
+${currentPrompt}
+${clipContextBlock(ctx)}
+${CLIP_ENVELOPE_NOTE}`
+  const messages: ChatMessage[] = [
+    { role: 'system', content: [{ type: 'text', text: system }] },
+    { role: 'user', content: [{ type: 'text', text: user }] },
+  ]
+  return extractPromptBody(await kieChatCompletions(apiKey, endpoint, messages))
+}
+
+export async function regenerateOneShotClip(ctx: ClipContext): Promise<string> {
+  const apiKey = useSettingsStore.getState().getKieApiKey()
+  const endpoint = getChatEndpointPath()
+  const system = oneShotSystem(ctx.delivery)
+  const user = `Write a FRESH scene blueprint for ONE clip of a UGC ad in the concept angle below — a genuinely different take from any previous version, same script.
+
+CONCEPT ANGLE: ${ctx.angle}
+
+The exact script this clip covers (verbatim, spread across its scenes):
+${ctx.excerpt}
+${clipContextBlock(ctx)}
+Break it into internal scenes with contiguous timestamps starting at 00:00. ${CLIP_ENVELOPE_NOTE}`
+  const messages: ChatMessage[] = [
+    { role: 'system', content: [{ type: 'text', text: system }] },
+    { role: 'user', content: [{ type: 'text', text: user }] },
+  ]
+  return extractPromptBody(await kieChatCompletions(apiKey, endpoint, messages))
 }
 
 // ── Demo / preview data ────────────────────────────────────────
@@ -418,7 +531,7 @@ function assembleDemoPrompt(spec: DemoSegmentSpec, voice: string, delivery: OneS
 const DEMO_CONCEPTS: DemoConceptSpec[] = [
   {
     angle: 'DIRECT CONFESSION',
-    summary: 'Straight-to-camera, close and personal — the honest "I have to tell you about this" register.',
+    summary: 'A selfie-style talking-head — she speaks straight to the phone the whole time, like she\'s telling a close friend about something she loves.',
     voice: 'Warm mid-pitch female voice, late twenties, light American accent, unhurried and conversational with a small laugh living just under the words and a habit of trailing off softly at the end of a thought.',
     segments: [
       {
@@ -447,7 +560,7 @@ const DEMO_CONCEPTS: DemoConceptSpec[] = [
   },
   {
     angle: 'DAY IN THE LIFE',
-    summary: 'The routine carried across a real morning — the product met naturally, then the payoff at work.',
+    summary: 'A get-ready-with-me morning montage — quick cuts between real moments (sink, mirror, desk) with the product woven in naturally.',
     voice: 'Warm mid-pitch female voice, late twenties, light American accent, easy and bright, clipped consonants, a smile you can hear.',
     segments: [
       {
@@ -490,7 +603,7 @@ const DEMO_CONCEPTS: DemoConceptSpec[] = [
   },
   {
     angle: 'DEMO FIRST',
-    summary: 'Hands and product do the talking — one pump, one pass, the whole routine.',
+    summary: 'A hands-and-product close-up demo — tight shots of the actual routine and the visible result, barely showing her face.',
     voice: 'Warm mid-pitch female voice, calm and instructional, unrushed, a touch of vocal fry at the end of lines.',
     segments: [
       {
@@ -519,7 +632,7 @@ const DEMO_CONCEPTS: DemoConceptSpec[] = [
   },
   {
     angle: 'REACTION & DISCOVERY',
-    summary: 'Skeptic to convert — the doubt, the try, the genuine "oh" and the sign-off.',
+    summary: 'A skeptic-to-believer arc — she doubts it on camera, tries it, and you watch her genuinely change her mind.',
     voice: 'Warm mid-pitch female voice, dry and a little skeptical at first, opening up as it goes, a real laugh on the turn.',
     segments: [
       {
@@ -581,10 +694,10 @@ export function buildDemoOneShotResult(modelId: string, delivery: OneShotDeliver
       }
     }),
   }))
-  const estimatedSeconds = concepts.reduce(
-    (sum, c) => sum + c.segments.reduce((s, seg) => s + seg.durationSeconds, 0),
-    0,
-  )
+  // One ad's length — the first concept's clip run, matching the header quote
+  // (which is reconstructed from that concept's excerpts). Summing ALL concepts
+  // would report ~4× the real ad length in the header.
+  const estimatedSeconds = concepts[0]?.segments.reduce((s, seg) => s + seg.durationSeconds, 0) ?? 0
   return {
     concepts,
     delivery,

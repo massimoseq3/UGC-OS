@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   Clapperboard,
   AlertCircle,
@@ -7,8 +8,12 @@ import {
   Sparkles,
   Video as VideoIcon,
   Play,
+  Plus,
+  Coins,
+  X,
 } from 'lucide-react'
 import GenerationProgress from '../../../components/GenerationProgress'
+import GeneratingBackdrop from '../../../components/GeneratingBackdrop'
 import OneShotDetailModal from './OneShotDetailModal'
 import type { OneShotResult, OneShotConcept, OneShotSegment, OneShotCardState, ReferenceImage, GeneratedVideo } from '../types'
 import type { Product, Model, VideoHistoryItem } from '../../../stores/types'
@@ -20,9 +25,11 @@ import { resolveOneShotTokens } from '../services/generateOneShot'
 import { isPollTimeout } from '../../../utils/kie'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAppStore } from '../../../stores/appStore'
+import { useCreditsStore } from '../../../stores/creditsStore'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
+import { useCloseOnAppSwitch } from '../../../hooks/useCloseOnAppSwitch'
 import { getAsBase64, isAssetRef } from '../../../utils/assetStore'
-import { getModel, snapVideoDurationUp } from '../../../utils/models'
+import { getModel, snapVideoDurationUp, estimateCredits, formatCredits } from '../../../utils/models'
 import { humanizeError } from '../../../utils/friendlyError'
 
 interface OneShotViewProps {
@@ -34,11 +41,17 @@ interface OneShotViewProps {
   selectedModel?: Model | null
   selectedProduct?: Product | null
   productName?: string
+  // Plain-text context strings — passed to the modal's Enhance / Regenerate.
+  productContext?: string
+  modelContext?: string
   // Currently selected One Shot video model. May differ from result.modelId
   // (the model the split was planned against) — that shows the stale-plan hint.
   oneShotModelId: string
   cardStates: Record<string, OneShotCardState>
   setCardStates: React.Dispatch<React.SetStateAction<Record<string, OneShotCardState>>>
+  // Generate one more variation concept (the grid's "Add variation" card).
+  onAddVariation: () => void
+  isAddingVariation?: boolean
 }
 
 function cardKey(conceptId: string, segmentIndex: number): string {
@@ -59,12 +72,25 @@ export default function OneShotView({
   selectedModel,
   selectedProduct,
   productName,
+  productContext,
+  modelContext,
   oneShotModelId,
   cardStates,
   setCardStates,
+  onAddVariation,
+  isAddingVariation,
 }: OneShotViewProps) {
   // The clip whose detail modal is open ("conceptId:segmentIndex"), or null.
   const [openKey, setOpenKey] = useState<string | null>(null)
+  // Extra user-attached reference images per card key (memory-only, like the
+  // Line-by-Line card's extraRefs — data: URIs are too big to persist).
+  const [extraRefs, setExtraRefs] = useState<Record<string, ReferenceImage[]>>({})
+  // Pending Generate-all / Generate request awaiting confirmation — video gens
+  // are expensive, so a click opens a cost popup before firing.
+  const [confirmGen, setConfirmGen] = useState<{ keys: string[]; scope: string } | null>(null)
+  const balance = useCreditsStore((s) => s.balance)
+  // Portals to body, so dismiss it on a dock switch.
+  useCloseOnAppSwitch(!!confirmGen, () => setConfirmGen(null))
 
   // Seed a card state for every segment when a result lands (history restore
   // included). Existing entries win — they hold the user's edits and videos.
@@ -110,6 +136,7 @@ export default function OneShotView({
     const refs: ReferenceImage[] = [
       ...(card.refsCharacter && characterRef ? [characterRef] : []),
       ...(card.refsProduct && productRef ? [productRef] : []),
+      ...(extraRefs[key] ?? []),
     ]
     const referenceDataUris: string[] = []
     for (const r of refs) {
@@ -313,18 +340,25 @@ export default function OneShotView({
 
   if (isGenerating) {
     return (
-      <div className="flex h-full flex-col overflow-hidden p-5">
+      <div className="flex h-full flex-col overflow-hidden px-5 py-4">
         <GenerationProgress
           isActive
           color="bg-broll-500"
-          messages={['Reading the script...', 'Planning the clips...', 'Designing 4 concepts...', 'Writing scene blueprints...']}
+          messages={['Reading the script...', 'Planning the clips...', 'Designing 4 variations...', 'Writing scene blueprints...']}
           className="mb-6"
           showHelper={false}
         />
         <div className="flex-1 overflow-y-auto">
-          <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-72 animate-pulse rounded-3xl border border-ink/5 bg-ink/[0.03]" />
+          <div className="mb-6 flex items-center gap-4">
+            <div className="skeleton h-14 w-14 rounded-2xl" />
+            <div className="flex flex-col gap-2">
+              <div className="skeleton h-4 w-40" />
+              <div className="skeleton h-3 w-56" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="aspect-[9/16] animate-pulse rounded-2xl border border-ink/5 bg-ink/[0.03]" />
             ))}
           </div>
         </div>
@@ -336,8 +370,8 @@ export default function OneShotView({
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-8">
         <Clapperboard className="h-10 w-10 text-ink-800" strokeWidth={1.5} />
-        <p className="text-sm text-ink-700">Generate 4 full-video concepts from your script</p>
-        <p className="text-xs text-ink-800">Each renders as one multi-cut clip — no image step</p>
+        <p className="text-sm text-ink-700">Generate the whole ad as one video</p>
+        <p className="text-xs text-ink-800">4 variations, each a single multi-cut clip — no image step</p>
         {error && (
           <div className="mt-2 flex max-w-sm items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2">
             <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-400 light:text-red-600" />
@@ -357,14 +391,44 @@ export default function OneShotView({
   const openSegment = openConcept?.segments.find((s) => cardKey(openConcept.id, s.index) === openKey)
   const openCard = openKey ? cardStates[openKey] : undefined
 
+  // One row = one CONCEPT (a distinct creative style); the concept's clips are
+  // the cards within that row. A short ad is one clip = one card; a longer one
+  // splits into sequential clips (Clip 1, Clip 2…) that cut together — still
+  // one concept, one row. Different rows = different styles. Card keying is
+  // `${conceptId}:${segmentIndex}`.
+  // Only *active* (non-errored) in-flight gens disable Generate-all — a card
+  // left with a Failed entry must not lock the buttons forever.
+  const anyInFlight = Object.values(cardStates).some((c) => c.inFlightVideos.some((e) => !e.error))
+  // Open the cost-confirm popup for a set of clips (never fire straight away).
+  const requestGenerate = (keys: string[], scope: string) => {
+    const targets = keys.filter((k) => cardStates[k])
+    if (targets.length === 0) return
+    setConfirmGen({ keys: targets, scope })
+  }
+  const confirmGenerate = () => {
+    if (!confirmGen) return
+    confirmGen.keys.forEach((k) => void runSegmentVideo(k))
+    setConfirmGen(null)
+  }
+  const allKeys = result.concepts.flatMap((c) => c.segments.map((s) => cardKey(c.id, s.index)))
+  // Credits for the pending run — summed per clip at each card's settings.
+  const confirmCredits = confirmGen
+    ? confirmGen.keys.reduce((sum, k) => {
+        const card = cardStates[k]
+        if (!card) return sum
+        return sum + (estimateCredits(oneShotModelId, { durationSeconds: card.durationSeconds, resolution: card.resolution, audio: card.audio }) ?? 0)
+      }, 0)
+    : 0
+  const overBudget = balance !== null && confirmCredits > balance
+
   return (
-    <div className="flex h-full flex-col overflow-y-auto p-5">
+    <div className="flex-1 overflow-y-auto px-5 py-4">
       {result.demo && (
         <div className="mb-4 flex items-start gap-2 rounded-2xl border border-broll-500/25 bg-broll-500/10 px-4 py-3">
           <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-broll-300" />
           <p className="text-xs leading-relaxed text-ink-300">
-            <span className="font-semibold text-broll-300">Sample concepts.</span>{' '}
-            This is a preview of what One-Shot produces. Add your kie.ai key in Settings to generate concepts from your own script and render the clips.
+            <span className="font-semibold text-broll-300">Sample variations.</span>{' '}
+            This is a preview of what One-Shot produces. Add your kie.ai key in Settings to generate variations from your own script and render the clips.
           </p>
         </div>
       )}
@@ -372,7 +436,7 @@ export default function OneShotView({
         <div className="mb-4 flex items-start gap-2 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300 light:text-amber-700" />
           <p className="text-xs leading-relaxed text-amber-200 light:text-amber-800">
-            These concepts were split for {planModel?.displayName ?? result.modelId}. You can still generate with{' '}
+            These variations were split for {planModel?.displayName ?? result.modelId}. You can still generate with{' '}
             {currentModel?.displayName ?? oneShotModelId} (clip lengths re-snap automatically), or regenerate to re-plan the split.
           </p>
         </div>
@@ -381,34 +445,102 @@ export default function OneShotView({
         <div className="mb-4 flex items-start gap-2 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300 light:text-amber-700" />
           <p className="text-xs leading-relaxed text-amber-200 light:text-amber-800">
-            The script runs long (~{result.estimatedSeconds}s of speech) — it was squeezed into {result.segmentCount} clips. For longer scripts, Line-by-Line gives better coverage.
+            The script runs long (~{result.estimatedSeconds}s of speech) — each concept was split into {result.segmentCount} clips that cut together. For longer scripts, Line-by-Line gives finer control.
           </p>
         </div>
       )}
       {result.concepts.length < 4 && (
         <p className="mb-4 text-[11px] text-ink-600">
-          {result.concepts.length} of 4 concepts generated — the rest failed. Regenerate for a fresh set.
+          {result.concepts.length} of 4 variations generated — the rest failed. Regenerate for a fresh set.
         </p>
       )}
 
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-        {result.concepts.map((concept) => (
-          <ConceptCard
+      {/* Top strip — full-ad meta + Generate-all, mirroring ScenesView. */}
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <span className="text-[11px] font-medium uppercase tracking-wider text-ink-400">
+          {result.concepts.length} {result.concepts.length === 1 ? 'style' : 'styles'} · {result.delivery === 'dialogue' ? 'With Dialogue' : 'B-Roll'} · ~{result.estimatedSeconds}s
+        </span>
+        <button
+          type="button"
+          onClick={() => requestGenerate(allKeys, 'Every variation')}
+          disabled={anyInFlight}
+          title="Generate the video for every variation"
+          className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/15 bg-broll-500 px-3.5 py-1.5 text-[11px] font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <VideoIcon className="h-3.5 w-3.5" />
+          Generate all
+        </button>
+      </div>
+
+      <div className="flex flex-col gap-10">
+        {result.concepts.map((concept, i) => (
+          <ConceptRow
             key={concept.id}
+            conceptNumber={i + 1}
             concept={concept}
-            delivery={result.delivery}
-            oneShotModelId={oneShotModelId}
             cardStates={cardStates}
             onOpenClip={setOpenKey}
-            onGenerateAll={(c) => c.segments.forEach((s) => void runSegmentVideo(cardKey(c.id, s.index)))}
+            onGenerateConcept={() => requestGenerate(concept.segments.map((s) => cardKey(concept.id, s.index)), `Variation ${i + 1}`)}
           />
         ))}
+        <AddVariationRow onAdd={onAddVariation} adding={!!isAddingVariation} />
       </div>
+
+      {confirmGen && createPortal(
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm"
+          onClick={() => setConfirmGen(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-2xl border border-ink/10 bg-ink-950/95 p-5 shadow-2xl"
+          >
+            <h3 className="text-sm font-medium text-ink-100">
+              Generate {confirmGen.keys.length} clip{confirmGen.keys.length === 1 ? '' : 's'}?
+            </h3>
+            <p className="mt-1 text-xs text-ink-500">
+              {confirmGen.scope} · all render in parallel and survive a refresh.
+            </p>
+            <div className="mt-4 flex items-center justify-between rounded-xl border border-ink/10 bg-ink/[0.03] px-3 py-2.5 text-xs">
+              <span className="text-ink-400">Estimated cost</span>
+              <span className="flex items-center gap-1 font-medium text-ink-100">
+                <Coins className="h-3 w-3" strokeWidth={2} />
+                {formatCredits(confirmCredits) ?? '— credits'}
+              </span>
+            </div>
+            {balance !== null && (
+              <p className={`mt-1.5 text-[11px] ${overBudget ? 'text-red-400 light:text-red-600' : 'text-ink-500'}`}>
+                Your balance: {balance.toLocaleString()} credits{overBudget ? ' — not enough' : ''}
+              </p>
+            )}
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmGen(null)}
+                className="flex items-center gap-1 rounded-full border border-ink/10 bg-ink/[0.03] px-3.5 py-1.5 text-[12px] font-medium text-ink-300 transition-colors hover:bg-ink/[0.06]"
+              >
+                <X className="h-3.5 w-3.5" />
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmGenerate}
+                className="flex items-center gap-1.5 rounded-full border border-white/15 bg-broll-500 px-4 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-broll-400"
+              >
+                <VideoIcon className="h-3.5 w-3.5" />
+                Generate
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
 
       {openKey && openConcept && openSegment && openCard && (
         <OneShotDetailModal
           segment={openSegment}
           conceptAngle={openConcept.angle}
+          conceptLabel={`Variation ${result.concepts.findIndex((c) => c.id === openConcept.id) + 1}`}
           clipLabel={openConcept.segments.length > 1 ? `Clip ${openSegment.index}` : ''}
           delivery={result.delivery}
           cardState={openCard}
@@ -417,6 +549,17 @@ export default function OneShotView({
           productRef={productRef}
           selectedModel={selectedModel}
           selectedProduct={selectedProduct}
+          productContext={productContext}
+          modelContext={modelContext}
+          extraRefs={extraRefs[openKey] ?? []}
+          onAddExtraRef={(r) => setExtraRefs((prev) => {
+            const cur = prev[openKey] ?? []
+            return cur.length >= 4 ? prev : { ...prev, [openKey]: [...cur, r] }
+          })}
+          onRemoveExtraRef={(i) => setExtraRefs((prev) => ({
+            ...prev,
+            [openKey]: (prev[openKey] ?? []).filter((_, idx) => idx !== i),
+          }))}
           onClose={() => setOpenKey(null)}
           onUpdate={(updater) => updateCard(openKey, updater)}
           onGenerate={() => runSegmentVideo(openKey)}
@@ -429,63 +572,70 @@ export default function OneShotView({
   )
 }
 
-// ── Concept card ───────────────────────────────────────────────
+// ── Concept row (one concept/style per row; cards = its clips) ──
+// Mirrors ScenesView's SceneSection: a serif concept number, a vertical rule,
+// the concept's angle pill + one-line summary in Instrument Serif, and a
+// Generate-all, then the concept's clip cards across one row. A short ad is a
+// single clip = one card; a long one splits into Clip 1 / Clip 2 that cut
+// together — still one concept, one row.
 
-interface ConceptCardProps {
+function ConceptRow({
+  conceptNumber,
+  concept,
+  cardStates,
+  onOpenClip,
+  onGenerateConcept,
+}: {
+  conceptNumber: number
   concept: OneShotConcept
-  delivery: OneShotResult['delivery']
-  oneShotModelId: string
   cardStates: Record<string, OneShotCardState>
   onOpenClip: (key: string) => void
-  onGenerateAll: (concept: OneShotConcept) => void
-}
-
-function ConceptCard({ concept, delivery, oneShotModelId, cardStates, onOpenClip, onGenerateAll }: ConceptCardProps) {
-  const model = getModel(oneShotModelId)
-  const durations = model?.videoConstraints?.durations ?? []
-  const totalSeconds = concept.segments.reduce((sum, s) => {
-    const card = cardStates[cardKey(concept.id, s.index)]
-    const d = card?.durationSeconds ?? s.durationSeconds
-    return sum + (durations.length > 0 ? snapVideoDurationUp(d, durations) : d)
-  }, 0)
+  onGenerateConcept: () => void
+}) {
   const multiClip = concept.segments.length > 1
-  const anyInFlight = concept.segments.some((s) => (cardStates[cardKey(concept.id, s.index)]?.inFlightVideos.length ?? 0) > 0)
-
+  const anyInFlight = concept.segments.some((s) => cardStates[cardKey(concept.id, s.index)]?.inFlightVideos.some((e) => !e.error) ?? false)
   return (
-    <div className="flex flex-col gap-4 rounded-3xl border border-ink/10 bg-surface-1 p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-broll-500/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-broll-300 ring-1 ring-inset ring-broll-500/15">
-              {concept.angle}
-            </span>
-            <span className="rounded-full bg-ink/[0.04] px-2 py-0.5 text-[10px] font-medium tabular-nums text-ink-500">
-              {multiClip ? `${concept.segments.length} clips · ~${totalSeconds}s` : `~${totalSeconds}s`}
-            </span>
-            <span className="rounded-full bg-ink/[0.04] px-2 py-0.5 text-[10px] font-medium text-ink-500">
-              {delivery === 'dialogue' ? 'With Dialogue' : 'B-Roll'}
-            </span>
-          </div>
-          {concept.summary && <p className="mt-2 text-xs leading-relaxed text-ink-500">{concept.summary}</p>}
-        </div>
-        {multiClip && (
-          <button
-            type="button"
-            disabled={anyInFlight}
-            onClick={() => onGenerateAll(concept)}
-            className="shrink-0 rounded-full border border-ink/10 bg-ink/[0.02] px-3.5 py-1.5 text-[11px] font-semibold text-ink-300 transition-colors hover:bg-ink/[0.06] disabled:cursor-not-allowed disabled:opacity-40"
+    <div className="-m-4 p-4" style={{ contentVisibility: 'auto', containIntrinsicSize: '700px' }}>
+      <div className="mb-5 flex items-center justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-4">
+          <span
+            className="text-5xl font-normal italic tabular-nums text-ink-800"
+            style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
           >
-            Generate all
-          </button>
-        )}
+            {String(conceptNumber).padStart(2, '0')}
+          </span>
+          <div className="h-8 w-px bg-ink/10" />
+          <div className="flex min-w-0 flex-col gap-1.5">
+            {/* Pill = "Variation N" (identity, like Line-by-Line's "Line N");
+                the serif names the style/type. */}
+            <span className="inline-flex w-fit rounded-full border border-ink/10 bg-ink/[0.03] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-ink-400">
+              Variation {conceptNumber}
+            </span>
+            <p
+              className="text-lg font-normal not-italic leading-relaxed text-ink-400"
+              style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
+            >
+              {concept.angle.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onGenerateConcept}
+          disabled={anyInFlight}
+          title={multiClip ? 'Generate every clip in this concept' : 'Generate this concept'}
+          className="flex shrink-0 items-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.03] px-3 py-1.5 text-[11px] font-medium text-ink-300 transition-colors hover:border-ink/20 hover:bg-ink/[0.06] hover:text-ink-100 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <VideoIcon className="h-3.5 w-3.5" />
+          {multiClip ? 'Generate all' : 'Generate'}
+        </button>
       </div>
 
-      <div className={`grid gap-3 ${multiClip ? 'grid-cols-2' : 'grid-cols-1'}`}>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
         {concept.segments.map((segment) => (
-          <ClipCard
+          <OSVariationCard
             key={segment.index}
             segment={segment}
-            showClipNumber={multiClip}
             cardState={cardStates[cardKey(concept.id, segment.index)]}
             onOpen={() => onOpenClip(cardKey(concept.id, segment.index))}
           />
@@ -495,16 +645,17 @@ function ConceptCard({ concept, delivery, oneShotModelId, cardStates, onOpenClip
   )
 }
 
-// ── Clip card (clickable tile) ─────────────────────────────────
+// ── Variation card (Line-by-Line chrome, video-only) ───────────
+// One clip of a concept. Same face as VariationCard: a 9:16 rounded card with
+// a top-centre pill, the rendered clip once it exists (else the blueprint faded
+// out), and a quiet caption. Click opens the video-only detail modal.
 
-function ClipCard({
+function OSVariationCard({
   segment,
-  showClipNumber,
   cardState,
   onOpen,
 }: {
   segment: OneShotSegment
-  showClipNumber: boolean
   cardState?: OneShotCardState
   onOpen: () => void
 }) {
@@ -517,54 +668,119 @@ function ClipCard({
   const duration = cardState?.durationSeconds ?? segment.durationSeconds
 
   return (
+    <div className="group flex flex-col gap-1.5">
+      <div
+        onClick={onOpen}
+        className="relative aspect-[9/16] cursor-pointer overflow-hidden rounded-xl border border-ink/[0.08] bg-ink/[0.02] transition-all hover:border-ink/15 hover:-translate-y-px card-soft-shadow"
+      >
+        {inFlight ? (
+          <>
+            <GeneratingBackdrop family="broll" />
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 px-4 text-center">
+              <GenerationProgress
+                isActive
+                color="bg-broll-500"
+                showHelper={false}
+                messages={['Sending request...', 'Storyboarding frames...', 'Rendering motion...', 'Finalizing the clip...']}
+                className="max-w-[180px]"
+              />
+            </div>
+          </>
+        ) : currentVideo && videoUrl ? (
+          <>
+            <video
+              src={videoUrl}
+              muted
+              loop
+              playsInline
+              className="absolute inset-0 h-full w-full object-cover"
+              onMouseEnter={(e) => (e.currentTarget as HTMLVideoElement).play().catch(() => {})}
+              onMouseLeave={(e) => { const v = e.currentTarget as HTMLVideoElement; v.pause(); v.currentTime = 0 }}
+            />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/70 to-transparent" />
+            <span className="absolute left-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white backdrop-blur"><Play className="h-3.5 w-3.5 fill-white" /></span>
+            {cardState && cardState.videos.length > 1 && (
+              <span className="pointer-events-none absolute right-2 top-2 z-10 rounded-full bg-black/60 px-1.5 py-0.5 text-[9px] font-semibold tabular-nums text-white backdrop-blur transition-opacity group-hover:opacity-0">
+                {Math.min(cardState.currentVideoIndex, cardState.videos.length - 1) + 1}/{cardState.videos.length}
+              </span>
+            )}
+          </>
+        ) : segment.prompt.trim() ? (
+          <>
+            <div className="flex h-full w-full flex-col px-3 pb-3 pt-9">
+              <p
+                className="flex-1 overflow-hidden whitespace-pre-wrap text-[11px] leading-relaxed tracking-tight text-ink-400"
+                style={{ maskImage: 'linear-gradient(to bottom, #000 72%, transparent)', WebkitMaskImage: 'linear-gradient(to bottom, #000 72%, transparent)' }}
+              >
+                {segment.prompt}
+              </p>
+            </div>
+            <p className="pointer-events-none absolute bottom-2 left-3 z-10 text-[10px] font-medium tracking-tight text-ink-500 transition-opacity group-hover:opacity-0">
+              Click to set up
+            </p>
+          </>
+        ) : (
+          <div className="flex h-full w-full flex-col items-center justify-center gap-2 px-4 text-center">
+            <VideoIcon className="h-7 w-7 text-ink-700" strokeWidth={1.5} />
+            <p className="text-[11px] text-ink-500">Click to set up</p>
+          </div>
+        )}
+
+        {/* Top-centre pill — which clip this is (always shown, "Clip 1" for a
+            single-clip concept). Neutral + small, Line-by-Line pill size. Stays
+            visible on hover (the action row is at the bottom). */}
+        <span className="pointer-events-none absolute left-1/2 top-2 z-10 -translate-x-1/2 rounded-full border border-ink/15 bg-ink/10 px-2 py-0.5 text-[10px] font-medium tracking-tight text-ink-300 backdrop-blur">
+          Clip {segment.index}
+        </span>
+
+        {errored && (
+          <span className="pointer-events-none absolute right-2 top-2 z-10 flex items-center gap-1 rounded-full border border-red-400/40 bg-red-500/30 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-red-100 backdrop-blur transition-opacity group-hover:opacity-0">
+            <AlertCircle className="h-2.5 w-2.5" /> Failed
+          </span>
+        )}
+
+        {/* Hover action row into the workspace — video-only, one control. */}
+        <div className="absolute inset-x-2 bottom-2 z-10 flex items-center gap-1.5 opacity-0 transition-opacity group-hover:opacity-100">
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onOpen() }}
+            className="flex h-7 flex-1 items-center justify-center gap-1.5 rounded-full border border-white/20 bg-black/50 text-[10px] font-medium text-white backdrop-blur transition-colors hover:bg-black/70"
+          >
+            <VideoIcon className="h-3 w-3" />
+            {currentVideo ? 'Open' : 'Set up & generate'}
+          </button>
+        </div>
+      </div>
+
+      {/* Quiet caption below the card — the Line-by-Line roll-type slot. */}
+      <p className="text-center text-[10px] font-medium tracking-wider text-ink-500">
+        {duration}s
+      </p>
+    </div>
+  )
+}
+
+// ── Add-variation row ──────────────────────────────────────────
+// One more concept/style on demand — fires a fresh-angle LLM concept upstream,
+// which lands as a new row. Full-width so it reads as "add another style".
+
+function AddVariationRow({ onAdd, adding }: { onAdd: () => void; adding: boolean }) {
+  return (
     <button
       type="button"
-      onClick={onOpen}
-      className="group relative flex aspect-[9/16] w-full flex-col overflow-hidden rounded-2xl border border-ink/10 bg-ink/[0.03] text-left transition-colors hover:border-broll-500/40"
+      onClick={onAdd}
+      disabled={adding}
+      title="Generate one more concept in a fresh style"
+      className="group/add flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-ink/20 bg-ink/[0.03] py-5 transition-colors hover:border-broll-400/60 hover:bg-broll-500/10 disabled:cursor-not-allowed disabled:opacity-60"
     >
-      {currentVideo && videoUrl ? (
-        <>
-          <video src={videoUrl} muted playsInline preload="metadata" className="absolute inset-0 h-full w-full object-cover" />
-          <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 transition-opacity group-hover:opacity-100">
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm"><Play className="h-4 w-4" /></span>
-          </div>
-          {cardState && cardState.videos.length > 1 && (
-            <span className="absolute right-2 top-2 rounded-full bg-black/60 px-1.5 py-0.5 text-[9px] font-semibold tabular-nums text-white backdrop-blur-sm">
-              {Math.min(cardState.currentVideoIndex, cardState.videos.length - 1) + 1}/{cardState.videos.length}
-            </span>
-          )}
-        </>
+      {adding ? (
+        <Loader2 className="h-4 w-4 shrink-0 animate-spin text-broll-300" />
       ) : (
-        <div className="flex h-full flex-col p-3.5">
-          <div className="flex items-center justify-between">
-            {showClipNumber ? (
-              <span className="rounded-full bg-ink/[0.06] px-2 py-0.5 text-[10px] font-semibold tabular-nums text-ink-400">Clip {segment.index}</span>
-            ) : <span />}
-            <span className="rounded-full bg-ink/[0.04] px-1.5 py-0.5 text-[9px] font-medium tabular-nums text-ink-500">{duration}s</span>
-          </div>
-          <p
-            className="mt-3 line-clamp-4 text-[14px] leading-snug text-ink-400"
-            style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
-          >
-            &ldquo;{segment.scriptExcerpt}&rdquo;
-          </p>
-          <div className="mt-auto flex items-center gap-1.5 pt-3 text-[11px] font-semibold text-broll-300">
-            {inFlight ? (
-              <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Rendering…</>
-            ) : errored ? (
-              <span className="flex items-center gap-1.5 text-red-300 light:text-red-600"><AlertCircle className="h-3.5 w-3.5" /> Failed — open to retry</span>
-            ) : (
-              <><VideoIcon className="h-3.5 w-3.5" /> Set up &amp; generate</>
-            )}
-          </div>
-        </div>
+        <Plus className="h-4 w-4 shrink-0 text-ink-400 transition-colors group-hover/add:text-broll-300" />
       )}
-      {currentVideo && (
-        <span className="absolute bottom-2 left-2 rounded-full bg-black/60 px-2 py-0.5 text-[9px] font-medium tabular-nums text-white backdrop-blur-sm">{currentVideo.durationSeconds}s</span>
-      )}
-      {inFlight && currentVideo && (
-        <span className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[9px] font-medium text-white backdrop-blur-sm"><Loader2 className="h-2.5 w-2.5 animate-spin" /> Rendering</span>
-      )}
+      <span className="text-[12px] font-medium text-ink-300 transition-colors group-hover/add:text-broll-300">
+        {adding ? 'Adding a style…' : 'Add another style'}
+      </span>
     </button>
   )
 }

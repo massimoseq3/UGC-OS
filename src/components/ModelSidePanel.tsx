@@ -64,6 +64,9 @@ interface ModelSidePanelProps {
   requireModeNote?: string
   // Cost params for the per-row credit estimate (e.g. duration/resolution/audio).
   costParams?: CostEstimateParams
+  // Restrict the list to a specific set of model ids (e.g. B-Roll One-Shot's
+  // allowlist). Omit to show every model for the task.
+  allowedModelIds?: string[]
   // Optional controlled mode: when both are provided the panel reflects `value`
   // and reports picks through `onChange` instead of reading/writing settingsStore
   // (lets a controlled consumer like Playground reuse the same panel).
@@ -80,6 +83,7 @@ export default function ModelSidePanel({
   requireMode,
   requireModeNote,
   costParams = {},
+  allowedModelIds,
   value,
   onChange,
 }: ModelSidePanelProps) {
@@ -92,7 +96,7 @@ export default function ModelSidePanel({
   const isDesktop = useIsDesktop()
   const accent = ACCENTS[appId] ?? ACCENTS['broll-studio']
 
-  const models = listModels({ task, mode })
+  const models = listModels({ task, mode }).filter((m) => !allowedModelIds || allowedModelIds.includes(m.id))
   const fallback = getDefaultModel(appId, task, mode)
   const resolved = value ?? getAppModel(persistedKey) ?? fallback?.id
 

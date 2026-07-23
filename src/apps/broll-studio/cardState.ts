@@ -217,6 +217,8 @@ export function createDefaultOneShotCardState(segment: OneShotSegment, modelId: 
   const durationSeconds = c ? snapVideoDuration(segment.durationSeconds, c.durations) : segment.durationSeconds
   return {
     editablePrompt: segment.prompt,
+    promptHistory: [segment.prompt],
+    promptHistoryIndex: 0,
     videos: [],
     currentVideoIndex: 0,
     inFlightVideos: [],
@@ -236,8 +238,17 @@ export function backfillOneShotCardState(raw: Partial<OneShotCardState> & Record
   const STALE_MS = 60 * 60_000
   const videos = Array.isArray(raw.videos) ? (raw.videos as OneShotCardState['videos']) : []
   const inFlight = Array.isArray(raw.inFlightVideos) ? (raw.inFlightVideos as OneShotCardState['inFlightVideos']) : []
+  const editablePrompt = (raw.editablePrompt as string) ?? ''
+  const promptHistory = Array.isArray(raw.promptHistory) && (raw.promptHistory as string[]).length > 0
+    ? (raw.promptHistory as string[])
+    : [editablePrompt]
+  const promptHistoryIndex = typeof raw.promptHistoryIndex === 'number'
+    ? Math.max(0, Math.min(raw.promptHistoryIndex as number, promptHistory.length - 1))
+    : promptHistory.length - 1
   return {
-    editablePrompt: (raw.editablePrompt as string) ?? '',
+    editablePrompt,
+    promptHistory,
+    promptHistoryIndex,
     videos,
     currentVideoIndex: typeof raw.currentVideoIndex === 'number'
       ? Math.max(0, Math.min(raw.currentVideoIndex, Math.max(0, videos.length - 1)))

@@ -16,15 +16,24 @@ import {
   Trash2,
   RefreshCw,
   Clapperboard,
+  Sparkles,
+  Undo2,
+  Redo2,
+  ChevronRight,
+  Star,
 } from 'lucide-react'
-import ModelPicker from '../../../components/ModelPicker'
+import ModelSidePanel from '../../../components/ModelSidePanel'
+import ProviderLogo from '../../../components/ProviderLogo'
+import SavingsPill from '../../../components/SavingsPill'
 import ConstraintChip from '../../../components/ConstraintChip'
 import AspectIcon from '../../../components/AspectIcon'
 import ExpandTextModal, { ExpandButton } from '../../../components/ExpandableText'
+import { ReferenceSlotCard, ExtraRefsRow } from './cardDetailParts'
 import type { OneShotSegment, OneShotCardState, GeneratedVideo, ReferenceImage } from '../types'
 import type { Product, Model } from '../../../stores/types'
-import { ONE_SHOT_MODEL_IDS } from '../services/generateOneShot'
+import { ONE_SHOT_MODEL_IDS, enhanceOneShotClip, regenerateOneShotClip } from '../services/generateOneShot'
 import { useAppStore } from '../../../stores/appStore'
+import { useSettingsStore } from '../../../stores/settingsStore'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
 import { getUrl } from '../../../utils/assetStore'
 import { useCloseOnAppSwitch } from '../../../hooks/useCloseOnAppSwitch'
@@ -34,13 +43,16 @@ import {
   formatCredits,
   videoResolutionLabel,
   snapVideoDuration,
+  officialSavingsPercent,
 } from '../../../utils/models'
 import { downloadImage } from '../../../utils/downloadImage'
 import { copyToClipboard } from '../../../utils/clipboard'
+import { humanizeError } from '../../../utils/friendlyError'
 
 interface OneShotDetailModalProps {
   segment: OneShotSegment
-  conceptAngle: string
+  conceptAngle: string // the internal angle slug — grounds Enhance / Regenerate
+  conceptLabel: string // display label, e.g. "Variation 1"
   clipLabel: string // "Clip 2" for multi-clip concepts, else ""
   delivery: 'dialogue' | 'silent'
   cardState: OneShotCardState
@@ -49,6 +61,13 @@ interface OneShotDetailModalProps {
   productRef?: ReferenceImage
   selectedModel?: Model | null
   selectedProduct?: Product | null
+  // Plain-text context strings — ground the Enhance / Regenerate LLM calls.
+  productContext?: string
+  modelContext?: string
+  // Extra user-attached reference images (beyond the bank-keyed refs), memory-only.
+  extraRefs: ReferenceImage[]
+  onAddExtraRef: (ref: ReferenceImage) => void
+  onRemoveExtraRef: (index: number) => void
   onClose: () => void
   onUpdate: (updater: (prev: OneShotCardState) => Partial<OneShotCardState>) => void
   onGenerate: () => void
@@ -63,6 +82,7 @@ interface OneShotDetailModalProps {
 export default function OneShotDetailModal({
   segment,
   conceptAngle,
+  conceptLabel,
   clipLabel,
   delivery,
   cardState,
@@ -71,6 +91,11 @@ export default function OneShotDetailModal({
   productRef,
   selectedModel,
   selectedProduct,
+  productContext,
+  modelContext,
+  extraRefs,
+  onAddExtraRef,
+  onRemoveExtraRef,
   onClose,
   onUpdate,
   onGenerate,
@@ -80,6 +105,8 @@ export default function OneShotDetailModal({
 }: OneShotDetailModalProps) {
   const [draft, setDraft] = useState(cardState.editablePrompt)
   const [promptExpanded, setPromptExpanded] = useState(false)
+  const [promptWorking, setPromptWorking] = useState(false)
+  const [modelPanelOpen, setModelPanelOpen] = useState(false)
 
   useEffect(() => { setDraft(cardState.editablePrompt) }, [cardState.editablePrompt])
   useEffect(() => {
@@ -119,6 +146,58 @@ export default function OneShotDetailModal({
   const audioTogglable = oneShotModelId !== 'gemini-omni-video' && (constraints?.supportsAudio ?? false)
   const isBusy = cardState.inFlightVideos.some((e) => !e.error)
 
+  // ── Blueprint prompt history (Enhance / Regenerate / Undo / Redo) ──
+  const history = cardState.promptHistory.length > 0 ? cardState.promptHistory : [cardState.editablePrompt]
+  const historyIndex = Math.max(0, Math.min(cardState.promptHistoryIndex, history.length - 1))
+  const canUndo = historyIndex > 0
+  const canRedo = historyIndex < history.length - 1
+
+  const pushHistory = (newPrompt: string) => {
+    const truncated = history.slice(0, historyIndex + 1)
+    const next = [...truncated, newPrompt]
+    onUpdate(() => ({ editablePrompt: newPrompt, promptHistory: next, promptHistoryIndex: next.length - 1 }))
+    setDraft(newPrompt)
+  }
+  const commitDraft = () => {
+    if (draft === history[historyIndex]) { onUpdate(() => ({ editablePrompt: draft })); return }
+    pushHistory(draft)
+  }
+  const handleUndo = () => {
+    if (!canUndo) return
+    const i = historyIndex - 1
+    onUpdate(() => ({ editablePrompt: history[i], promptHistoryIndex: i }))
+    setDraft(history[i])
+  }
+  const handleRedo = () => {
+    if (!canRedo) return
+    const i = historyIndex + 1
+    onUpdate(() => ({ editablePrompt: history[i], promptHistoryIndex: i }))
+    setDraft(history[i])
+  }
+  const clipCtx = { angle: conceptAngle, excerpt: segment.scriptExcerpt, delivery, productContext, modelContext }
+  const handleEnhance = async () => {
+    if (promptWorking || !draft.trim()) return
+    setPromptWorking(true)
+    try {
+      pushHistory(await enhanceOneShotClip(draft, clipCtx))
+    } catch (err) {
+      useAppStore.getState().addToast(`Enhance failed: ${humanizeError(err, 'Enhance failed.')}`, 'error')
+    } finally {
+      setPromptWorking(false)
+    }
+  }
+  const handleRegenerate = async () => {
+    if (promptWorking) return
+    setPromptWorking(true)
+    try {
+      pushHistory(await regenerateOneShotClip(clipCtx))
+    } catch (err) {
+      useAppStore.getState().addToast(`Regenerate failed: ${humanizeError(err, 'Regenerate failed.')}`, 'error')
+    } finally {
+      setPromptWorking(false)
+    }
+  }
+
   return createPortal((
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm sm:px-6"
@@ -142,48 +221,77 @@ export default function OneShotDetailModal({
           <div className="col-span-1 flex min-h-0 flex-col border-b border-ink/5 md:border-b-0 md:border-r">
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
               <div className="flex grow flex-col gap-3 px-5 pb-6 pt-4">
-                {/* Model picker */}
-                <div>
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-500">Video model</span>
-                  <div className="mt-1.5">
-                    <ModelPicker
-                      appId="broll-studio"
-                      task="video"
-                      persistKey="broll-studio:oneshot:video"
-                      allowedModelIds={ONE_SHOT_MODEL_IDS}
-                      value={oneShotModelId}
-                      requireMode={hasRefs ? 'reference-to-video' : undefined}
-                      requireModeNote="Dimmed models can't take reference images — your refs would be dropped (text-to-video only)."
-                      costParams={{ durationSeconds: cardState.durationSeconds, resolution: cardState.resolution, audio: cardState.audio }}
-                    />
-                  </div>
-                </div>
+                {/* Model picker — slide-in side panel (like CardDetailModal's
+                    video model), controlled so it persists to the One-Shot key. */}
+                <button
+                  type="button"
+                  onClick={() => setModelPanelOpen(true)}
+                  className="flex h-12 w-full items-center gap-2.5 rounded-full border border-ink/10 bg-ink/[0.02] px-3 text-left transition-colors hover:bg-ink/[0.05]"
+                >
+                  {model ? (
+                    <>
+                      <ProviderLogo provider={model.provider ?? ''} />
+                      <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                        <span className="truncate text-[13px] font-medium text-ink-100">{model.displayName}</span>
+                        {model.tags.includes('recommended') && (
+                          <Star className="h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400 light:fill-yellow-600 light:text-yellow-600" strokeWidth={1.5} />
+                        )}
+                        {officialSavingsPercent(oneShotModelId) != null && (
+                          <SavingsPill pct={officialSavingsPercent(oneShotModelId)!} />
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <span className="flex-1 truncate text-sm text-ink-400">Select model</span>
+                  )}
+                  <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" />
+                </button>
+                <ModelSidePanel
+                  appId="broll-studio"
+                  task="video"
+                  allowedModelIds={ONE_SHOT_MODEL_IDS}
+                  value={oneShotModelId}
+                  onChange={(id) => useSettingsStore.getState().setAppModel('broll-studio:oneshot:video', id)}
+                  isOpen={modelPanelOpen}
+                  onClose={() => setModelPanelOpen(false)}
+                  requireMode={hasRefs ? 'reference-to-video' : undefined}
+                  requireModeNote="Dimmed models can't take reference images — your refs would be dropped (text-to-video only)."
+                  costParams={{ durationSeconds: cardState.durationSeconds, resolution: cardState.resolution, audio: cardState.audio }}
+                />
 
-                {/* Reference toggles */}
+                {/* Reference slot cards — same chrome as CardDetailModal; the
+                    whole card and the tick both toggle whether the ref is sent
+                    (the product/character themselves are picked in the left
+                    input panel, so there's no bank picker to open here). */}
                 {(characterRef || productRef) && (
                   <div>
-                    <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-500">References</span>
-                    <div className="mt-1.5 grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 gap-2">
                       {characterRef && (
-                        <RefSlot
-                          icon={UserRound}
-                          label="Character"
+                        <ReferenceSlotCard
+                          icon={<UserRound className="h-4 w-4 text-influencers-400 light:text-influencers-600" />}
+                          accentClass="bg-influencers-500/15 text-influencers-400 light:text-influencers-600"
+                          kind="Character"
                           name={selectedModel?.name}
                           imageRef={characterRef.dataUrl}
+                          onClick={() => onUpdate((p) => ({ refsCharacter: !p.refsCharacter }))}
                           active={cardState.refsCharacter}
-                          onToggle={() => onUpdate((p) => ({ refsCharacter: !p.refsCharacter }))}
+                          onToggleActive={() => onUpdate((p) => ({ refsCharacter: !p.refsCharacter }))}
                           dimmed={!modelSupportsRefs}
+                          dimmedReason={`${model?.displayName ?? 'This model'} doesn't accept reference images.`}
                         />
                       )}
                       {productRef && (
-                        <RefSlot
-                          icon={Package}
-                          label="Product"
+                        <ReferenceSlotCard
+                          icon={<Package className="h-4 w-4 text-gold-400 light:text-gold-600" />}
+                          accentClass="bg-gold-500/15 text-gold-400 light:text-gold-600"
+                          kind="Product"
                           name={selectedProduct?.productName}
                           imageRef={productRef.dataUrl}
+                          onClick={() => onUpdate((p) => ({ refsProduct: !p.refsProduct }))}
                           active={cardState.refsProduct}
-                          onToggle={() => onUpdate((p) => ({ refsProduct: !p.refsProduct }))}
+                          onToggleActive={() => onUpdate((p) => ({ refsProduct: !p.refsProduct }))}
                           dimmed={!modelSupportsRefs}
+                          dimmedReason={`${model?.displayName ?? 'This model'} doesn't accept reference images.`}
                         />
                       )}
                     </div>
@@ -195,18 +303,69 @@ export default function OneShotDetailModal({
                   </div>
                 )}
 
-                {/* Prompt — the scene blueprint */}
+                {/* Extra reference images — attach more (a second product, an
+                    outfit, a pose), like CardDetailModal. Memory-only. */}
+                <ExtraRefsRow
+                  refs={extraRefs}
+                  onAdd={onAddExtraRef}
+                  onRemove={onRemoveExtraRef}
+                  dimmed={!modelSupportsRefs}
+                />
+
+                {/* Prompt — the scene blueprint, bare like CardDetailModal. */}
                 <div className="flex grow flex-col">
-                  <span className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-ink-500">Scene blueprint</span>
                   <div className="relative flex grow flex-col overflow-hidden rounded-2xl border border-ink/10 bg-ink/[0.03] transition-colors focus-within:border-ink/20 focus-within:bg-ink/[0.05]">
                     <textarea
                       value={draft}
                       onChange={(e) => { setDraft(e.target.value); onUpdate(() => ({ editablePrompt: e.target.value })) }}
+                      onBlur={commitDraft}
                       rows={12}
                       placeholder="The scene-by-scene blueprint for this clip…"
                       className="relative min-h-[240px] w-full grow resize-none border-0 bg-transparent px-3.5 pb-3 pt-3 font-mono text-[12px] leading-relaxed text-ink-200 placeholder-ink-600 outline-none"
                     />
-                    <div className="flex items-center justify-end border-t border-ink/10 px-2 py-1.5">
+                    {/* Footer toolbar — Enhance / Regenerate / Undo / Redo +
+                        Expand, matching CardDetailModal's prompt box. */}
+                    <div className="flex items-center justify-between gap-2 border-t border-ink/10 px-2 py-1.5">
+                      <div className="flex flex-wrap items-center gap-1">
+                        <button
+                          type="button"
+                          title="Enhance — rewrite this blueprint richer, same format"
+                          onClick={handleEnhance}
+                          disabled={promptWorking || !draft.trim()}
+                          className="flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium text-ink-400 transition-colors hover:bg-broll-500/10 hover:text-broll-300 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          {promptWorking ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                          Enhance Prompt
+                        </button>
+                        <button
+                          type="button"
+                          title="Regenerate — a fresh blueprint for this clip"
+                          onClick={handleRegenerate}
+                          disabled={promptWorking}
+                          className="flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <RefreshCw className="h-3 w-3" />
+                          Regenerate Prompt
+                        </button>
+                        <button
+                          type="button"
+                          title="Undo"
+                          onClick={handleUndo}
+                          disabled={!canUndo || promptWorking}
+                          className="flex h-6 w-6 items-center justify-center rounded-full text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-30"
+                        >
+                          <Undo2 className="h-3 w-3" />
+                        </button>
+                        <button
+                          type="button"
+                          title="Redo"
+                          onClick={handleRedo}
+                          disabled={!canRedo || promptWorking}
+                          className="flex h-6 w-6 items-center justify-center rounded-full text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-30"
+                        >
+                          <Redo2 className="h-3 w-3" />
+                        </button>
+                      </div>
                       <ExpandButton onClick={() => setPromptExpanded(true)} />
                     </div>
                   </div>
@@ -294,11 +453,12 @@ export default function OneShotDetailModal({
           <div className="col-span-1 flex min-h-0 flex-col overflow-hidden">
             <div className="flex flex-col gap-3 px-5 pt-4">
               <div className="flex min-w-0 items-center gap-3">
-                <div className="flex shrink-0 flex-col items-start gap-1">
-                  <span className="rounded-full bg-broll-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide leading-none text-broll-300 ring-1 ring-inset ring-broll-500/15">
-                    {conceptAngle}
+                {/* Angle + clip/delivery as two pills side by side. */}
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <span className="rounded-full border border-ink/10 bg-ink/[0.03] px-2 py-0.5 text-[10px] font-medium uppercase leading-none tracking-wider text-ink-400">
+                    {conceptLabel}
                   </span>
-                  <span className="text-[10px] uppercase leading-none tracking-wider text-ink-400">
+                  <span className="rounded-full border border-ink/10 bg-ink/[0.03] px-2 py-0.5 text-[10px] font-medium uppercase leading-none tracking-wider text-ink-400">
                     {clipLabel || (delivery === 'dialogue' ? 'With Dialogue' : 'B-Roll')}
                   </span>
                 </div>
@@ -351,7 +511,7 @@ export default function OneShotDetailModal({
 
       <ExpandTextModal
         open={promptExpanded}
-        onClose={() => setPromptExpanded(false)}
+        onClose={() => { setPromptExpanded(false); commitDraft() }}
         value={draft}
         onChange={(v) => { setDraft(v); onUpdate(() => ({ editablePrompt: v })) }}
         title={`${clipLabel || 'Clip'} — Scene blueprint`}
@@ -360,47 +520,6 @@ export default function OneShotDetailModal({
       />
     </div>
   ), document.body)
-}
-
-function RefSlot({
-  icon: Icon,
-  label,
-  name,
-  imageRef,
-  active,
-  onToggle,
-  dimmed,
-}: {
-  icon: React.ElementType
-  label: string
-  name?: string
-  imageRef?: string
-  active: boolean
-  onToggle: () => void
-  dimmed?: boolean
-}) {
-  const url = useAssetUrl(imageRef ?? '')
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className={`flex items-center gap-2 rounded-2xl border px-2.5 py-2 text-left transition-colors ${
-        active && !dimmed
-          ? 'border-broll-500/30 bg-broll-500/[0.08]'
-          : 'border-ink/10 bg-ink/[0.02] hover:bg-ink/[0.05]'
-      } ${dimmed ? 'opacity-50' : ''}`}
-    >
-      {url ? (
-        <img src={url} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover" />
-      ) : (
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink/[0.06] text-ink-400"><Icon className="h-4 w-4" /></span>
-      )}
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-[12px] font-medium text-ink-200">{name ?? label}</p>
-        <p className="text-[10px] text-ink-500">{active ? 'Attached' : 'Off'}</p>
-      </div>
-    </button>
-  )
 }
 
 function ModalVideoTile({ video, onDelete }: { video: GeneratedVideo; onDelete: () => void }) {

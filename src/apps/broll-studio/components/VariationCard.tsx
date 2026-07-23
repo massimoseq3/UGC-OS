@@ -842,12 +842,12 @@ export default function VariationCard(props: VariationCardProps) {
             // so ink-300 is the readable tint in both. Adding light:text-ink-700
             // double-flipped it to near-white on the pale pill and the word
             // vanished in light mode.
-            <span className={`pointer-events-none absolute left-1/2 top-2 z-10 max-w-[60%] -translate-x-1/2 truncate rounded-full border border-ink/15 bg-ink/10 px-2 py-0.5 text-[10px] font-medium tracking-tight text-ink-300 backdrop-blur transition-opacity group-hover:opacity-0 ${videoControlsExpanded ? 'opacity-0' : ''}`}>
+            <span className={`pointer-events-none absolute left-1/2 top-2 z-10 max-w-[60%] -translate-x-1/2 truncate rounded-full border border-ink/15 bg-ink/10 px-2 py-0.5 text-[10px] font-medium tracking-tight text-ink-300 backdrop-blur transition-opacity ${videoControlsExpanded ? 'opacity-0' : ''}`}>
               Custom
             </span>
           ) : (
             <span
-              className={`pointer-events-none absolute left-1/2 top-2 z-10 max-w-[60%] -translate-x-1/2 truncate rounded-full border px-2 py-0.5 text-[10px] font-medium tracking-tight backdrop-blur transition-opacity group-hover:opacity-0 ${videoControlsExpanded ? 'opacity-0' : ''} ${tagChipStyle(variation.tag)}`}
+              className={`pointer-events-none absolute left-1/2 top-2 z-10 max-w-[60%] -translate-x-1/2 truncate rounded-full border px-2 py-0.5 text-[10px] font-medium tracking-tight backdrop-blur transition-opacity ${videoControlsExpanded ? 'opacity-0' : ''} ${tagChipStyle(variation.tag)}`}
             >
               {tagText}
             </span>
