@@ -73,29 +73,26 @@ function segmentDuration(excerpt: string, delivery: OneShotDelivery, modelId: st
 
 // ── The system prompt ──────────────────────────────────────────
 //
-// Each clip is a scene-by-scene BLUEPRINT — the exact format the Scripts app's
-// "Scenes" output uses (timestamped `--- Scene N (MM:SS-MM:SS) ---` headers +
-// six labelled fields + a VOICE PROFILE block), adapted for B-Roll: the prompt
-// goes straight to a video model with reference images attached, so it carries
+// Each clip is a scene-by-scene BLUEPRINT — timestamped
+// `--- Scene N (MM:SS-MM:SS) ---` headers, ONE flowing paragraph per scene
+// (the old labelled SETTING/CAMERA/... fields read disjointed and crowded out
+// the idea), plus a VOICE PROFILE block for dialogue delivery. The prompt goes
+// straight to a video model with reference images attached, so it carries
 // [CHARACTER] / [PRODUCT] tokens (resolved to plain words at generation time,
 // see resolveOneShotTokens). withIphoneRealism still appends the deterministic
-// quality stack into a CAMERA line at request time.
+// quality stack at request time.
 
-const SCENE_FIELDS = `Below each scene header, these labelled lines, each on its own line, in this exact order:
-SETTING: where we are and the moment's atmosphere — the real room / place, the surfaces and props actually visible.
-CAMERA: framing and movement as GEOMETRY — height relative to the eyeline, distance, angle (e.g. "framed from just below chin height, about an arm's length away, tilted slightly up") — plus the quality register: modern iPhone camera quality, unedited photorealism, sharp focus across the frame, zero bokeh, no colour grade. NEVER name a filming device (no phone, iPhone, front camera, tripod, ring light) — a named device gets drawn into the frame. No mirror selfies.
-LIGHTING: the real light source, its direction and warmth (window light camera-left, one overhead bulb). Naturalistic only — no studio lighting, no glam beauty light.
-ACTION: what [CHARACTER] physically does — the gesture, gaze, micro-expression, weight shift. Name the actual movement, never a mood word. There is always motion.
-DIALOGUE: __DIALOGUE_RULE__
-AUDIO: __AUDIO_RULE__ NEVER background music, NEVER a soundtrack or score, NEVER a separate voiceover track (music is added later in editing).`
+const SCENE_PARAGRAPH = `Below each scene header, write ONE flowing paragraph (2-4 sentences) directing that shot — no labelled fields, no SETTING:/CAMERA:/LIGHTING: prefixes. Weave into natural prose: where we are and what's actually visible, what [CHARACTER] physically does (the exact gesture, gaze, micro-expression — a movement, never a mood word), the real light source, and the natural sound of the moment. State the camera only as a position when it matters ("framed from chest height an arm's length away", "from directly above") — NEVER name a filming device (no phone, iPhone, front camera, tripod, ring light): a named device gets drawn into the frame. No mirror selfies.
+__DIALOGUE_RULE__
+Sound: __AUDIO_RULE__ NEVER background music, NEVER a soundtrack or score, NEVER a separate voiceover track (music is added later in editing).`
 
 const TOKENS_BLOCK = `TOKENS — CRITICAL:
-- Use the literal token [CHARACTER] for the on-camera person in ALL visual direction (SETTING / CAMERA / ACTION). NEVER describe their identity or appearance — gender, age, ethnicity, hair, body, wardrobe colour. Emotional state, gaze, gesture, and body language ARE allowed. A reference image fixes their look.
+- Use the literal token [CHARACTER] for the on-camera person in ALL visual direction. NEVER describe their identity or appearance — gender, age, ethnicity, hair, body, wardrobe colour. Emotional state, gaze, gesture, and body language ARE allowed. A reference image fixes their look.
 - Use the literal token [PRODUCT] for the product in visual direction. NEVER describe its packaging, label, container, or brand there. A reference image fixes it.
-- EXCEPTION — spoken dialogue: in a DIALOGUE line, name the product in plain words the way a real person would — its ACTUAL name (from the product context) at most twice across the whole ad, and "this thing" / "it" / the category everywhere else. NEVER put [PRODUCT] or [CHARACTER] inside a spoken line — a voice model reads the token out literally.`
+- EXCEPTION — spoken dialogue: inside a quoted spoken line, name the product in plain words the way a real person would — its ACTUAL name (from the product context) at most twice across the whole ad, and "this thing" / "it" / the category everywhere else. NEVER put [PRODUCT] or [CHARACTER] inside a spoken line — a voice model reads the token out literally.`
 
 const DIALOGUE_RULES = {
-  dialogueLine: '[CHARACTER] says: "the exact spoken line for this beat" — use the script\'s words verbatim, and put [CHARACTER] only before "says", never inside the quotes.',
+  dialogueLine: 'When a script line is spoken in this scene, quote it inside the paragraph exactly as: [CHARACTER] says: "the exact spoken line" — the script\'s words verbatim, [CHARACTER] only before "says", never inside the quotes. While speaking, [CHARACTER] should also be DOING or SHOWING what the line is about whenever the line allows it — telling while showing.',
   audioLine: 'the character\'s spoken voice plus the natural diegetic sound of the scene (room tone, fabric, taps).',
   voiceBlock: `\n\nAfter the last scene of the clip, add a blank line, then this block EXACTLY — repeat it word-for-word identical in every clip of this concept so all clips share one on-camera voice:
 === VOICE PROFILE (same voice in every clip) ===
@@ -104,15 +101,15 @@ VOICE — describe, in rich and reproducible detail, HOW the character sounds: p
 }
 
 const SILENT_RULES = {
-  dialogueLine: 'always exactly the word: none. No one speaks in any scene.',
+  dialogueLine: 'No one speaks in any scene — never write speech or mouthed words into a paragraph.',
   audioLine: 'the diegetic sound of the scene only (room tone, fabric, taps, streets) — no dialogue.',
   voiceBlock: '',
-  deliveryNote: `DELIVERY — B-ROLL CLIPS. No one speaks in any scene: a finished voiceover is laid over this footage in the edit. Every DIALOGUE line is exactly "none", and there is NO VOICE PROFILE block. Each scene VISUALIZES what the matching script beat is about — the footage shows the act / product / reaction the voiceover will describe, it never says it.`,
+  deliveryNote: `DELIVERY — B-ROLL CLIPS. No one speaks in any scene: a finished voiceover is laid over this footage in the edit, and there is NO VOICE PROFILE block. Each scene SHOWS what the matching script beat says — the act happening, the metaphor made literal, the proof on screen, the reaction landing — never a person idling while the line plays. A viewer should be able to guess the beat from the footage alone.`,
 }
 
 function oneShotSystem(delivery: OneShotDelivery): string {
   const rules = delivery === 'dialogue' ? DIALOGUE_RULES : SILENT_RULES
-  const sceneFields = SCENE_FIELDS
+  const sceneFields = SCENE_PARAGRAPH
     .replace('__DIALOGUE_RULE__', rules.dialogueLine)
     .replace('__AUDIO_RULE__', rules.audioLine)
 
@@ -128,7 +125,9 @@ Design ONE complete video concept for the user's script, following the creative 
 
 This clip renders as ONE video with the cuts baked in — the model performs every scene transition internally, so direct it like a mini-edit, not one long take. Break the clip into several internal scenes/cuts, roughly one every 2-4 seconds: a ~15s clip is typically 4-6 distinct scenes, a ~10s clip 3-4, a ~6s clip 2-3. Only a very short clip is a single scene. Scene 1 is a pattern interrupt — motion, tension, or a face mid-reaction — never a calm establishing wide.
 
-Detail is what separates a winning clip from generic stock: every scene names the exact prop, the exact body position and hand placement, the exact micro-expression, and the real light source. Vague direction ("she looks happy", "nice lighting", "using the product") renders as generic footage — write each scene the way you'd describe a shot you already filmed and are now logging frame by frame. When in doubt, add specificity, not another scene.
+SHOW, DON'T TELL. Every scene must put the matching script beat's meaning ON SCREEN — the act happening, the claim's proof, a metaphor made literal (even absurdly: "tasted like cardboard" → a deadpan bite of actual cardboard) — so the viewer sees each sentence as they hear it. Never a scene of someone passively existing while a line plays.
+
+Detail is what separates a winning clip from generic stock: name the exact prop, the exact body position and hand placement, the exact micro-expression, the real light source. Vague direction ("she looks happy", "nice lighting", "using the product") renders as generic footage — write each scene the way you'd describe a shot you already filmed. When in doubt, add specificity, not another scene. Keep each paragraph tight and readable.
 
 Every scene starts with a header EXACTLY in this form:
 --- Scene N: <short label> (MM:SS-MM:SS) ---
@@ -158,12 +157,7 @@ Wrap your answer in this exact XML envelope. No text outside the tags, no markdo
 <EXCERPT>the exact, verbatim script slice this clip covers</EXCERPT>
 <PROMPT>
 --- Scene 1: <label> (00:00-00:04) ---
-SETTING: ...
-CAMERA: ...
-LIGHTING: ...
-ACTION: ...
-DIALOGUE: ...
-AUDIO: ...
+One flowing paragraph directing this shot.
 
 --- Scene 2: <label> (00:04-00:08) ---
 ...${delivery === 'dialogue' ? '\n\n=== VOICE PROFILE (same voice in every clip) ===\nVOICE — ...' : ''}
@@ -425,7 +419,7 @@ export async function enhanceOneShotClip(currentPrompt: string, ctx: ClipContext
   const apiKey = useSettingsStore.getState().getKieApiKey()
   const endpoint = getChatEndpointPath()
   const system = oneShotSystem(ctx.delivery)
-  const user = `Here is the scene blueprint for ONE clip of a UGC ad. Rewrite it to be MORE detailed and vivid while keeping the EXACT same format (same scene headers and timestamps, the same six labelled fields${ctx.delivery === 'dialogue' ? ', the same VOICE PROFILE block' : ''}) and the same spoken lines. Sharpen every field — more specific props, exact body position and hand placement, the real light source, precise micro-expressions — without changing what happens or padding it with extra scenes.
+  const user = `Here is the scene blueprint for ONE clip of a UGC ad. Rewrite it to be MORE vivid while keeping the EXACT same format (same scene headers and timestamps, one flowing paragraph per scene${ctx.delivery === 'dialogue' ? ', the same VOICE PROFILE block' : ''}) and the same spoken lines. If a scene still uses labelled fields (SETTING:/CAMERA:/...), fold them into one readable paragraph. Sharpen every scene — more specific props, exact body position and hand placement, the real light source, precise micro-expressions, and a stronger show-don't-tell visual for the beat — without changing what happens or padding it with extra scenes.
 
 CONCEPT ANGLE: ${ctx.angle}
 
@@ -498,28 +492,26 @@ function fmtTs(seconds: number): string {
 
 // Build a scene-blueprint prompt for one demo clip: distribute the clip's
 // duration evenly across its scenes, stamp contiguous timestamps, and append
-// the VOICE PROFILE block for dialogue clips.
+// the VOICE PROFILE block for dialogue clips. One flowing paragraph per scene,
+// matching the live format.
 function assembleDemoPrompt(spec: DemoSegmentSpec, voice: string, delivery: OneShotDelivery, durationSeconds: number): string {
   const n = spec.scenes.length
   const step = durationSeconds / n
   const blocks = spec.scenes.map((sc, i) => {
     const start = fmtTs(Math.round(i * step))
     const end = fmtTs(i === n - 1 ? durationSeconds : Math.round((i + 1) * step))
-    const dialogue = delivery === 'dialogue'
-      ? (sc.spoken ? `[CHARACTER] says: "${sc.spoken}"` : 'none')
-      : 'none'
-    const audio = delivery === 'dialogue'
-      ? `the character's voice plus soft diegetic room tone${sc.audioTail ? ` (${sc.audioTail})` : ''}. No music.`
-      : `diegetic room tone only${sc.audioTail ? ` (${sc.audioTail})` : ''}. No dialogue, no music, no voiceover.`
-    return [
-      `--- Scene ${i + 1}: ${sc.label} (${start}-${end}) ---`,
-      `SETTING: ${sc.setting}`,
-      `CAMERA: ${sc.camera}`,
-      `LIGHTING: ${sc.lighting ?? 'Same natural light as the previous scene — continuous.'}`,
-      `ACTION: ${sc.action}`,
-      `DIALOGUE: ${dialogue}`,
-      `AUDIO: ${audio}`,
-    ].join('\n')
+    const sentences = [sc.setting, sc.camera]
+    if (sc.lighting) sentences.push(sc.lighting)
+    sentences.push(sc.action)
+    if (delivery === 'dialogue' && sc.spoken) {
+      sentences.push(`[CHARACTER] says: "${sc.spoken}"`)
+    }
+    sentences.push(
+      delivery === 'dialogue'
+        ? `The only sound is the character's voice and soft room tone${sc.audioTail ? ` (${sc.audioTail})` : ''} — no music.`
+        : `The only sound is the room itself${sc.audioTail ? ` (${sc.audioTail})` : ''} — no dialogue, no music, no voiceover.`,
+    )
+    return `--- Scene ${i + 1}: ${sc.label} (${start}-${end}) ---\n${sentences.join(' ')}`
   })
   let out = blocks.join('\n\n')
   if (delivery === 'dialogue') {
