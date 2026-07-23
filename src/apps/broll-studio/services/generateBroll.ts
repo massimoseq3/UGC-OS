@@ -39,7 +39,7 @@ function nextId() {
  * Every clip is SILENT b-roll — no one speaks. A finished voiceover is laid
  * over these shots in the edit.
  */
-const PROMPT_FORMAT = `Every prompt is ONE flowing paragraph of 40-80 words. Plain, concrete, readable — no labels, no field names, no line breaks, no "Style:" trailer.
+const PROMPT_FORMAT = `Every prompt is ONE flowing paragraph — usually 40-80 words, longer when the idea needs it. Plain, concrete, readable — no labels, no field names, no line breaks, no "Style:" trailer.
 
 Write it like you're describing a clip you already filmed: what's in frame, what the character physically does (the exact gesture, gaze, micro-expression), where the light comes from, and — only when it matters — where the camera sits, always as a position ("framed from chest height an arm's length away", "from directly above"), never as a device. You may end with the natural sound of the moment (a dry crunch, a wrapper crinkle, room tone) — never dialogue, never music.
 
@@ -129,7 +129,7 @@ The ONE exception: a PROOF shot may show a screen as the deliberate subject bein
 1. Could someone watching this shot guess the line it belongs to? If not, the idea isn't visual enough — find the image inside the line and rewrite.
 2. Are the 4 variations four different IDEAS (different subject or concept), not one idea from four angles?
 3. If the line has a metaphor or vivid image, does one variation make it literal?
-4. Is every prompt ONE readable paragraph, 40-80 words, no labels, no device named, silent?
+4. Is every prompt ONE readable paragraph — no labels, no device named, silent?
 5. Does product visibility match the rule exactly?
 
 # REFERENCE EXAMPLE
@@ -156,7 +156,7 @@ Wrap every scene in this exact XML envelope. Do not include any text outside the
 <TAG>ACTION|EMOTIONAL|PRODUCT|POV|ENVIRONMENT|TRANSITION|PROOF</TAG>
 <LABEL>short descriptive shot label, e.g. COUNTER REACTION</LABEL>
 <REFS>character|product|both|none</REFS>
-<PROMPT>one flowing paragraph, 40-80 words, matching the chosen lens. Silent b-roll — no speech anywhere</PROMPT>
+<PROMPT>one flowing paragraph matching the chosen lens. Silent b-roll — no speech anywhere</PROMPT>
 </VAR_1>
 <VAR_2>
 <TAG>a DIFFERENT role from VAR_1</TAG>
@@ -181,7 +181,7 @@ Wrap every scene in this exact XML envelope. Do not include any text outside the
 export async function generateBroll(input: BrollInput): Promise<BrollResult> {
   const { apiKey, endpoint } = getChatEndpoint()
 
-  let prompt = `Break this script into B-Roll scenes following the system rules. For EACH scene emit four variations: four genuinely DIFFERENT ideas for showing what that line SAYS — make metaphors literal, show the act, the feeling, the proof. Pick four distinct lenses from the menu (ACTION / EMOTIONAL / PRODUCT / POV / ENVIRONMENT / TRANSITION / PROOF), declared in each <TAG> field. Every shot is silent — no one speaks (a voiceover is added later). Each prompt is ONE readable paragraph, 40-80 words. Decide POSITION + VISIBILITY per scene — if the line names or references the product, VISIBILITY must be yes regardless of POSITION. Pick REFS per variation honouring the VISIBILITY rule.\n\nScript:\n${input.scriptText}`
+  let prompt = `Break this script into B-Roll scenes following the system rules. For EACH scene emit four variations: four genuinely DIFFERENT ideas for showing what that line SAYS — make metaphors literal, show the act, the feeling, the proof. Pick four distinct lenses from the menu (ACTION / EMOTIONAL / PRODUCT / POV / ENVIRONMENT / TRANSITION / PROOF), declared in each <TAG> field. Every shot is silent — no one speaks (a voiceover is added later). Each prompt is ONE readable paragraph (usually 40-80 words, longer when the idea needs it). Decide POSITION + VISIBILITY per scene — if the line names or references the product, VISIBILITY must be yes regardless of POSITION. Pick REFS per variation honouring the VISIBILITY rule.\n\nScript:\n${input.scriptText}`
 
   if (input.productContext) {
     prompt += `\n\n${input.productContext}`
@@ -540,7 +540,7 @@ Respond with ONLY this envelope. No markdown, no commentary, nothing outside the
 <TAG>${forceTag ?? 'ACTION|EMOTIONAL|PRODUCT|POV|ENVIRONMENT|TRANSITION|PROOF'}</TAG>
 <REFS>character|product|both|none</REFS>
 <PROMPT>
-one flowing paragraph, 40-80 words
+one flowing paragraph
 </PROMPT>
 </VARIATION>`
 
@@ -593,7 +593,7 @@ Scene ${scene.number} — LINE: "${scene.scriptLine}"
 Variation tag: ${variation.tag}${variation.label ? `\nShot label: ${variation.label}` : ''}
 ${productContext ? `\n${productContext}\n` : ''}${modelContext ? `\n${modelContext}\nIMPORTANT: never describe the character's physical appearance in detail. Refer to them as "the character".\n` : ''}
 Rules:
-- Return ONE flowing paragraph, 40-80 words — no labels, no field names, no line breaks, no "Style:" trailer. If the draft is a labelled multi-line block (SETTING: / CAMERA: / ...), that is exactly what you are here to fix: fold it into one readable paragraph, keeping the idea.
+- Return ONE flowing paragraph — usually 40-80 words, longer when the idea needs it. No labels, no field names, no line breaks, no "Style:" trailer. If the draft is a labelled multi-line block (SETTING: / CAMERA: / ...), that is exactly what you are here to fix: fold it into one readable paragraph, keeping the idea.
 - SHOW, DON'T TELL — the shot must visualize what the script line says, so a viewer could guess the line from the footage. Sharpen the draft's idea toward that; if it's a person passively existing, give them the line's image to act out.
 - Be specific — the exact prop, the exact gesture, the exact micro-expression, the real light source.
 - Never "he/him/she/her/subject" — use "the character" or "they/them/their".
@@ -611,7 +611,7 @@ ${draft}
 Respond with ONLY this envelope. No markdown, no commentary, nothing outside the tags:
 
 <PROMPT>
-one flowing paragraph, 40-80 words
+one flowing paragraph
 </PROMPT>`
 
   const messages: ChatMessage[] = [
