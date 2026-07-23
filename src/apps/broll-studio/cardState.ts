@@ -291,13 +291,14 @@ export function createDefaultContinuousClipState(scene: ContinuousScene, modelId
     ? c.default ?? (c.resolutions.includes('720p') ? '720p' : c.resolutions[0] ?? '720p')
     : '720p'
   const durationSeconds = c ? snapVideoDuration(scene.durationSeconds, c.durations) : scene.durationSeconds
-  // The motion block carries its own SFX line now. Only append the separate
-  // `sfx` field when the model answered without one (older/looser responses),
-  // otherwise the card shows the sound direction twice.
+  // The motion paragraph ends with its own sound direction. Only append the
+  // separate `sfx` field when the model answered without one — matching either
+  // a labelled `SFX:` line (legacy responses) or the word appearing in the
+  // prose — otherwise the card shows the sound direction twice.
   const motion = scene.motionPrompt.trim()
-  const editablePrompt = scene.sfx.trim() && !/^SFX:/im.test(motion)
-    ? `${motion}\nSFX: ${scene.sfx.trim()}`
-    : motion
+  const sfx = scene.sfx.trim()
+  const alreadyHasSfx = /^SFX:/im.test(motion) || (!!sfx && motion.toLowerCase().includes(sfx.toLowerCase()))
+  const editablePrompt = sfx && !alreadyHasSfx ? `${motion} ${sfx}.` : motion
   return {
     editablePrompt,
     videos: [],

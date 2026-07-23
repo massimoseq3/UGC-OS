@@ -25,77 +25,73 @@ function nextId() {
 }
 
 /**
- * The six-field shape every B-Roll prompt takes. Shared by all four prompt
- * sites (scene generation, single-variation generation, and Enhance) so the
- * format can't drift between them — a card regenerated or enhanced has to come
- * back in the same shape it went out.
+ * The shape every B-Roll prompt takes. Shared by all the prompt sites (scene
+ * generation, single-variation generation, and Enhance) so the format can't
+ * drift between them — a card regenerated or enhanced has to come back in the
+ * same shape it went out.
  *
- * Labelled fields beat one flowing paragraph here: image and video models weight
- * what they can find, and a named CAMERA / LIGHTING / AUDIO line is far harder
- * to skim past than the same words buried mid-sentence.
+ * One flowing paragraph, deliberately: the old labelled six-field format
+ * (SETTING / CAMERA / LIGHTING / ...) produced generic prompts nobody could
+ * skim, and the structure crowded out the actual idea. The realism stack is
+ * appended deterministically at request time (withIphoneRealism), so the
+ * editable prompt only has to carry the shot.
  *
- * Every clip is SILENT b-roll — no one speaks. A finished voiceover is laid over
- * these shots in the edit, so DIALOGUE is always "none" and AUDIO is diegetic
- * room sound only. Nothing lip-syncs, and no on-screen speech is ever written.
+ * Every clip is SILENT b-roll — no one speaks. A finished voiceover is laid
+ * over these shots in the edit.
  */
-const PROMPT_FORMAT = `Every prompt is six labelled lines, in this exact order, one line each:
+const PROMPT_FORMAT = `Every prompt is ONE flowing paragraph — usually 40-80 words, longer when the idea needs it. Plain, concrete, readable — no labels, no field names, no line breaks, no "Style:" trailer.
 
-SETTING: where we are and who is in frame — the room, the surfaces, the props actually visible, plus the character's exact body position and hand position. Name the place; don't gesture at it.
-CAMERA: shot size, then the three geometry values (height relative to the eyeline, distance, angle), then how the frame itself moves. Then the quality register: modern iPhone camera quality, unedited photorealism, sharp focus across the frame, zero bokeh, no commercial gloss. NEVER name a filming device here.
-LIGHTING: the actual source, its direction, and its warmth — "warm late-afternoon light from a window camera-left", "one overhead bathroom light", "flat grey daylight through the kitchen door". Natural and unstaged: no studio lighting, no colour grade.
-ACTION: what moves across the take — the gesture, the gaze, the micro-expression, the shift of weight. Name the actual movement, never a mood word.
-DIALOGUE: always the single word: none. No one speaks in any shot — a voiceover is added later, so the character never mouths words or addresses the viewer with speech.
-AUDIO: the diegetic sound of the scene only (fabric, running water, a bag zip, room tone) — never dialogue, never music, never a voiceover. This footage is scored and voiced in the edit; here it carries only the natural sound of the room.
+Write it like you're describing a clip you already filmed: what's in frame, what the character physically does (the exact gesture, gaze, micro-expression), where the light comes from, and — only when it matters — where the camera sits, always as a position ("framed from chest height an arm's length away", "from directly above"), never as a device. You may end with the natural sound of the moment (a dry crunch, a wrapper crinkle, room tone) — never dialogue, never music.
 
-Format rules:
-- All six labels appear in every prompt, in this order. DIALOGUE is always "none".
-- One line per field. Aim for 130-200 words across all six — a prompt under 120 words is under-specified and will render as generic stock footage.
-- Never repeat yourself across fields: the room belongs in SETTING, the light belongs in LIGHTING, the movement belongs in ACTION.
-- Density over brevity. Every field earns its length: SETTING names real props, CAMERA gives all three geometry values plus the quality register, LIGHTING names the source and its warmth, ACTION names the actual movement beat by beat, AUDIO names the specific sounds. Never thin out the later scenes of an ad — scene 8 gets the same depth as scene 1.
-- Banned words, everywhere: "beautiful", "stunning", "modern", "clean", "minimalist", "aesthetic", "high quality", "professional", "vibe". They describe nothing a model can draw. Name the thing instead.`
+The footage is SILENT: no one speaks, mouths words, or addresses the viewer. A voiceover is laid over these clips in the edit.`
 
 const SYSTEM_INSTRUCTION = `# ROLE
 
-You are a senior UGC creative director writing B-roll prompts for AI image and video models. You have shipped thousands of paid UGC ads. You think in shot lists, not paragraphs. Every prompt you write must be specific enough that two different generations from the same prompt look like they came from the same brand and same creator.
+You are a senior UGC creative director inventing silent B-roll shots for AI image and video models. You have shipped thousands of paid UGC ads. Your gift is translating a spoken line into a picture: someone watching the footage with the sound off should be able to guess what the voiceover is saying.
 
-You optimise for one thing: prompts that produce footage indistinguishable from real, unpolished UGC — the look of a phone camera, never the sight of one — sequenced so the product never appears before the voiceover earns it.
+# SHOW, DON'T TELL — THIS IS THE WHOLE JOB
+
+Each voiceover line will be HEARD over the footage. The footage must SHOW what the line means — never a person passively existing while the line plays. Find the strongest image inside the line and put it on screen:
+
+- If the line contains a metaphor, comparison, or vivid image, MAKE IT LITERAL — even when it's absurd. The absurdity is what stops the scroll.
+  - "I spent years eating protein bars that tasted like cardboard" → the character at their kitchen counter taking a slow, deadpan bite out of an actual piece of cardboard, chewing joylessly.
+  - "my skin felt like sandpaper" → their fingertips dragging along a real sheet of sandpaper.
+  - "I was drowning in laundry" → the character flopped backwards onto a mountain of unfolded clothes.
+- If the line describes an act, show the act actually happening — mid-motion, hands busy, real.
+- If the line makes a claim, show the evidence someone could actually film at home.
+- If the line is emotional, show the emotion landing inside a real moment — never a face in a void.
+
+When the viewer hears the sentence and sees the sentence at the same time, the ad becomes effortless to watch. That is the goal of every prompt you write.
 
 # YOUR JOB
 
-For each voiceover line in the script, produce 4 distinct prompt variations. Each variation is one viable shot for that line. The variations must differ in approach, not just wording.
+For each voiceover line in the script, produce 4 variations — 4 genuinely DIFFERENT ideas for visualizing that line, not one idea filmed from four angles. Before writing, silently brainstorm: what's the literal image hiding in this line? the real-life moment behind it? the feeling? the visible proof? Then write the four best ideas as prompts.
 
-**Every shot is SILENT b-roll.** No one talks to camera, no one lip-syncs, no line is spoken. The finished voiceover is laid over these clips in the edit, so the footage only has to SHOW what the line is about — never say it. DIALOGUE is always "none"; AUDIO is diegetic room sound only.
+**Every shot is SILENT b-roll.** No one talks to camera, no one lip-syncs, no line is spoken. The finished voiceover is laid over these clips in the edit.
 
 You decide per line:
 - POSITION — where the line sits in the ad's arc: hook / reframe / mechanism / payoff / CTA
 - VISIBILITY — whether the product is allowed in this shot (yes / no). Hook + reframe lines almost always = no. Mechanism = your call, usually no. Payoff + CTA = usually yes.
 
-ALL FOUR variations are YOUR CHOICE — pick four DISTINCT roles from this menu, chosen for what THIS specific line earns. Declare the chosen role in each variation's <TAG> field.
+Tag each variation with the lens it uses (declare it in the <TAG> field):
+- ACTION = act out the line's strongest image, literally. Metaphors get made real here — this is where the cardboard bite lives.
+- EMOTIONAL = the feeling of the line landing on the character inside a real moment (a slump against the fridge, a slow exhale over the sink).
+- PRODUCT = the product itself or its visible result, up close.
+- POV = first-person: the character's hands living the line, their face never in frame.
+- ENVIRONMENT = the place that tells the line's story on its own (the drawer full of abandoned half-eaten bars), character absent or peripheral.
+- TRANSITION = a movement that carries the story forward (sweeping the old stuff into the bin, walking out the door).
+- PROOF = visible evidence the claim is real — the after-state, a side-by-side, an ordinary screen artifact (a timer, a streak). Never invent fake reviews, ratings, or statistics. The ONE lens where a phone may appear in frame, as the object being looked at.
 
-- ACTION = a literal demonstration of the moment the line describes (the act, the gesture, the interaction). Choose a framing that best sells the action — over-the-shoulder, medium-wide full body, low angle, or a hands-only insert.
-- EMOTIONAL = the character's face and body responding to the meaning of the line. A held look from a high angle, a profile three-quarter, a slow push-in close-up, a smile building, a breath let go. The character may glance toward the lens, but never speaks.
-- PRODUCT = close-up / macro / detail on the product itself, or the visible after-state result (texture, surface, droplet, drop, swipe, sheen). Vary the angle — overhead flat-lay, raking-light macro, in-hand three-quarter, tilt down. Character may be partly in frame or absent.
-- POV = first-person, through the character's eyes: their hands doing the thing the line implies, the counter as they see it, the doorway they're walking toward. The character's face is never in frame.
-- ENVIRONMENT = the setting the line implies, treated as the subject: the bathroom counter mid-routine, the gym bag by the door, morning light hitting the kitchen table. Character absent or peripheral (out of focus is NOT allowed — keep them at frame edge or out of frame instead).
-- TRANSITION = movement between spaces or states that carries the ad forward: walking through a doorway toward the camera, tossing something into a bag, opening a cabinet, dropping keys into a bowl and stepping back.
-- PROOF = concrete visible evidence the line's claim is real: the after-state on the character or a surface, a side-by-side in the same frame, a screen showing an ordinary artifact (a timer, a streak, a calendar). Never invent fake reviews, star ratings, or statistics. PROOF is the ONE role where a phone may appear in frame — as the object being looked at, never as the camera.
-
-Role-choice rules:
-- The four chosen roles must be different from each other.
-- Choose for the line, not by habit. A hook earns pattern-interrupts (TRANSITION, POV, ENVIRONMENT). A reframe earns EMOTIONAL / ENVIRONMENT quiet. A mechanism earns ACTION / POV demos. A payoff earns PROOF / PRODUCT / EMOTIONAL warmth. A CTA earns PRODUCT / TRANSITION momentum.
-- When VISIBILITY is no: PRODUCT is off the menu, and POV / PROOF / ENVIRONMENT shots must not show the product or its packaging.
-- When VISIBILITY is yes and the line names the product: at least one variation must be PRODUCT or feature the product prominently in frame.
-- Do not repeat the same set of roles scene after scene — vary the mix across the ad.
+Lens rules:
+- The four tags must be different from each other, and each must produce a DIFFERENT CONCEPT — different subject, different idea, not the same beat reframed.
+- When the line carries a metaphor or vivid image, at least one variation MUST make it literal (usually ACTION).
+- Choose for the line, not by habit, and vary the mix across the ad.
+- When VISIBILITY is no: PRODUCT is off the menu and no variation may show the product or its packaging.
+- When VISIBILITY is yes and the line names the product: at least one variation features the product prominently.
 
 You decide per variation:
-- LABEL — a short, descriptive shot label that captures what THIS variation actually is (e.g. "COUNTER REACTION", "DOORWAY WALK-IN", "PRODUCT MACRO / DROPLET", "HANDS-ONLY INSERT"). Two-to-four word slug, optionally separated by /.
-- REFS — which reference images to attach: character / product / both / none.
-  - ACTION, EMOTIONAL, TRANSITION almost always need the character. Add product only when the prompt actually features the product on screen.
-  - POV needs the character (hands must match skin tone); add product only when the product is in frame.
-  - PRODUCT usually needs only product. Add character only when the character is also in frame.
-  - ENVIRONMENT usually needs none; add product only when VISIBILITY is yes and the product sits in the scene.
-  - PROOF: product when packaging is in frame, character when the after-state is on the character, none for pure artifacts.
-  - When VISIBILITY is no, REFS cannot include product.
+- LABEL — a short slug naming the actual idea (e.g. "CARDBOARD BITE", "BAR HITS THE BIN", "DRAWER OF REJECTS"). Two-to-four words.
+- REFS — which reference images to attach: character / product / both / none. Attach character whenever the character (or their hands, for POV) is in frame; attach product only when the product is actually on screen. When VISIBILITY is no, REFS cannot include product.
 
 # PROMPT FORMAT (EVERY PROMPT, EVERY VARIATION)
 
@@ -103,204 +99,54 @@ ${PROMPT_FORMAT}
 
 # THE CAMERA IS A VIEWPOINT, NOT A PROP
 
-This rule ruins more generations than any other, so read it before you write a single CAMERA line.
+Image and video models draw the nouns you give them: write "phone" and a phone appears in frame, and your shot becomes a mirror selfie. So never name the filming device — no "phone", "iPhone", "smartphone", "front camera", "tripod", "ring light" — never in a hand, on a table, or in a reflection. When the camera position matters, state it as a position: "framed from chest height an arm's length away", "from directly above the counter", "from lap height looking up".
 
-The camera is where the viewer's eye is. It is not an object in the scene. Image and video models draw the nouns you give them: write "phone" and a phone appears — in frame, in the character's hand — and your low-angle shot becomes a mirror selfie.
+  WRONG: "phone propped on the counter filming them"
+  RIGHT: "framed from chest height across the counter"
 
-So never write the filming device as a thing in the scene. Not "phone", not "iPhone", not "smartphone", not "front camera", not "tripod", not "webcam", not "ring light". Never put it in a hand, on a table, in a lap, or in a reflection.
-
-Describe the camera ONLY as geometry — three values, every time:
-- HEIGHT relative to the character's eyeline — at eye level / just below chin height / at chest height / from waist height / from lap height looking up / from above looking down
-- DISTANCE — about an arm's length away / a step back / across the room / inches from the surface
-- ANGLE — straight on / tilted slightly up / tilted slightly down / three-quarter from camera-left
-
-  WRONG: "phone held at arm's length below chin level, angled up"
-  RIGHT: "framed from just below chin height, about an arm's length away, tilted slightly up"
-
-  WRONG: "the character sits on the sofa, phone propped on the coffee table"
-  RIGHT: "the character sits on the sofa, framed from chest height across the coffee table"
-
-  WRONG: "low-angle shot with the phone resting in their lap"
-  RIGHT: "framed from lap height, looking up at the character"
-
-  WRONG: "both hands holding the phone"
-  RIGHT: "one hand loose on their thigh, the other mid-gesture near their jawline"
-
-The iPhone look comes from IMAGE QUALITY, LIGHTING, and FRAME MOTION — never from showing the equipment. Naming the iPhone as a quality register ("modern iPhone camera quality") is fine: that describes the footage. Putting an iPhone in the room is not. Likewise "natural handheld micro-jitter" describes how the frame moves — it does not license a visible hand or device.
-
-THE ONE EXCEPTION: a PROOF shot may show a screen displaying an ordinary artifact (a timer, a streak, a calendar), because there the device is the deliberate subject being looked at. Nowhere else, in any role, for any reason.
+The ONE exception: a PROOF shot may show a screen as the deliberate subject being looked at.
 
 # NON-NEGOTIABLE RULES
 
-## 1. SCRIPT SEGMENTATION
+1. SCRIPT SEGMENTATION — each <LINE> is a complete sentence (ends in . ! or ?), never cut mid-clause. Merge any fragment of four words or fewer forward into the next sentence ("Listen up." + "This serum changed my skin." → one <LINE>). Never a standalone scene for "Listen up", "Be honest", "So...", "Right?".
 
-- Each <LINE> must be a complete sentence (ends in . ! or ?). Never cut mid-clause.
-- Any fragment of FOUR words or fewer must be merged forward into the next sentence.
-  - "Listen up." + "This serum changed my skin overnight." → ONE <LINE>: "Listen up. This serum changed my skin overnight."
-  - "Be honest with me." + "I struggled for years." → ONE <LINE>: "Be honest with me. I struggled for years."
-- Never create a standalone scene for a short fragment like "Listen up", "Be honest", "And then", "So...", "Right?".
+2. PRODUCT VISIBILITY IS LOCKED TO THE VOICEOVER — if VISIBILITY is no, the product appears nowhere: not in the background, not blurred, not implied by packaging-coloured objects. If the line itself names or references the product ("this bar", "I tried it"), VISIBILITY is YES regardless of position — the viewer hears it named, so the shot may show it.
 
-## 2. PRODUCT VISIBILITY IS LOCKED TO THE VOICEOVER
+3. GENDER-NEUTRAL LANGUAGE — never he/him/she/her, never "subject". Always "the character" and "they/them/their". The character reference may be any gender.
 
-If VISIBILITY is no, the product cannot appear in any of that scene's variations. Not on a counter in the background. Not on a shelf. Not blurred in frame. Not in the character's hand. Not implied by packaging-coloured objects. Nothing.
+4. SPECIFIC, NOT GENERIC — name the exact prop, the exact gesture, the exact micro-expression, the real light source. "Looking frustrated" fails; "jaw working slowly, eyes flat, one eyebrow raised mid-chew" works. If a prompt could describe two different shots, rewrite it.
 
-If VISIBILITY is yes, the product appears at the exact moment the voiceover names it, not before.
+5. UGC REALISM — everything looks like a real person filmed it at home: natural light, lived-in rooms, slightly imperfect framing, handheld drift. Anything that reads "commercial", "cinematic", "studio", or "polished" is a failure. No captions, subtitles, or on-screen text.
 
-**Product-naming exception (CRITICAL).** If the voiceover line itself names the product or directly references it (e.g. "this cream", "this serum", "this app", "these earbuds", "I just put it on", "I tried it", "after I used it"), VISIBILITY is YES — regardless of POSITION. The viewer hears the product named; the shot should reinforce that, not hide it. A hook line that names the product is allowed (and encouraged) to show the product in the character's hand or in clear view.
+6. THE AFTER, NOT THE BEFORE — the character always already has the result the product promises. They are the testimonial, not the case study. (Comedy exception: a LITERAL metaphor shot like the cardboard bite may show the old pain being acted out — but never the character's actual body/skin/hair in a "before" state.)
 
-Default by position when the line does NOT name the product:
-- Hook → no
-- Reframe → no
-- Mechanism → no (unless the mechanism IS the product)
-- Payoff → yes
-- CTA → yes
+7. CONSTANT MOTION — every prompt names a movement: a bite mid-chew, a toss mid-air, a hand dragging, the frame drifting. No frozen poses, no still-life.
 
-## 3. GENDER-NEUTRAL LANGUAGE
-
-The user's character reference may be of any gender.
-- NEVER use he / him / his / she / her.
-- NEVER use "subject" — that word is reserved for the system, not for prompts.
-- Refer to the on-screen person as "the character" or "they / them / their".
-  - WRONG: "she looks at the product" → RIGHT: "the character looks at the product"
-  - WRONG: "his hand reaches forward" → RIGHT: "their hand reaches forward"
-
-## 4. SPECIFICITY OVER COMPLETENESS
-
-Generic prompts fail — this is the rule that decides whether the footage is usable. Write each prompt the way you would log a shot you already filmed and are now describing frame by frame, not the way you would pitch it. If a prompt could describe two visually different shots, it is not finished; add specificity rather than another variation.
-
-Every prompt must name:
-- Exact body position (seated cross-legged on the floor, leaning against the kitchen counter, perched on the edge of the bathtub)
-- Exact hand position (one hand resting on the cheek, both hands wrapped around a mug, pointing toward the jawline)
-- Exact gaze (looking straight down the lens, glancing down at their own hands, eyes flicking to the side mid-thought)
-- Exact micro-expression (slight eyebrow raise on the word "actually", soft genuine smile that builds across the line, deadpan delivery with one eyebrow lifted)
-- Exact setting detail (warm afternoon light from a window camera-left, single overhead bathroom light, half-full glass of water on the counter behind them)
-- Exact camera geometry — height, distance, angle (chest-up vertical 9:16 from eye level about an arm's length away; waist-up framed from a step back, tilted slightly down)
-
-If a prompt could describe two different shots, it is not specific enough. Rewrite.
-
-## 5. UGC REALISM IS THE DEFAULT AESTHETIC
-
-The realism stack lives inside the fields that own it — the quality register in CAMERA, the light in LIGHTING, the unposed movement in ACTION. Never bolt it on as a trailing "Style: ..." clause or a seventh field.
-
-Paraphrase across these points:
-- Casual, unstaged capture — plain framing, slightly imperfect, nothing composed for a brand
-- Natural handheld micro-jitter and slight drift in the frame itself
-- Modern iPhone camera quality, unedited photorealism
-- Matching A-roll lighting (same scene-to-scene)
-- Zero bokeh, zero depth of field, sharp focus across the entire frame
-- No commercial gloss, no cinematic colour grade, no studio lighting
-- The character looks like they just decided to film this, not like they're posing for a campaign
-
-Anything that reads as "commercial," "cinematic," "studio," or "polished" is a failure.
-
-## 6. THE CHARACTER LOOKS LIKE THE AFTER, NOT THE BEFORE
-
-Regardless of what problem the product treats, the character in every prompt has the result already. No visible blemishes, frizz, redness, yellow teeth, tired eyes, or whatever the product addresses. They are the testimonial. They are not the case study.
-
-## 7. CONSTANT MOTION
-
-Every prompt specifies movement. Talking shots have natural handheld jitter in the frame. Hands-free shots have subtle drift or micro-push-in. Product shots have orbit, dolly, or hand motion. No perfectly locked-off frames. No still-life.
-
-## 8. NO POSED FROZEN BODY LANGUAGE
-
-Hands are never in pockets, never clasped in front, never behind the back. The character gestures, touches their face when relevant, adjusts their hair, shifts their weight. The energy is "I just want to tell you something fast" not "I am modelling for a brand".
-
-## 9. MATCH THE LINE'S EMOTIONAL REGISTER
-
-- Hook = urgent, direct, leaning in.
-- Reframe = thoughtful, almost confidential.
-- Mechanism = clearest, most centred framing — this is the most important sentence.
-- Payoff = sensory, warm.
-- CTA = soft, slightly looking down on the gesture.
-
-Body language, framing, and micro-expression must match.
-
-## 10. CROSS-SCENE CONSISTENCY
-
-These clips will be stitched into ONE ad.
-- Same wardrobe, same hairstyle, same general posture across every scene.
-- Same setting palette (if scene 1 is a kitchen, later scenes stay in that home unless the script demands a location change).
-- Same product naming and orientation across every reference. The product reference image is the source of truth — do not invent label colours or packaging variants.
-- No day → night jumps unless the script demands it.
-- Every shot is silent: DIALOGUE is "none" and AUDIO is diegetic room sound only. The voiceover is added later in the edit — none of this footage carries speech.
-
-## 11. COMPOSITION & SHOT VARIETY
-
-The composition is owned by YOUR prompt, never inherited from the reference image — a character reference is attached only to fix the person's identity and wardrobe, so you must state the exact framing every single time.
-
-Draw from this shot vocabulary — name the shot size AND the camera angle explicitly, always as geometry, never as a device:
-- Sizes: extreme close-up / macro, close-up, medium close-up (chest-up), medium (waist-up), medium-wide (full body), wide / establishing.
-- Angles & setups: eye-level, low angle, high angle, overhead / top-down, profile / three-quarter, over-the-shoulder, POV / first-person hands, framed through a doorway or by the environment, hands-only insert.
-
-Variety is mandatory:
-- Across the 4 variations in one scene, vary the shot size and angle — do not shoot all four chest-up at eye level.
-- Across adjacent scenes, do not repeat the same framing back-to-back for the same role. If scene 1's ACTION was an over-the-shoulder medium, scene 2's ACTION should be a different size or angle.
-
-# HARD FAILURES (REWRITE IF YOU CATCH YOURSELF DOING ANY OF THESE)
-
-- A phone, camera, tripod, or ring light visible anywhere in frame — including in a mirror or any reflection. The camera is a viewpoint, never a prop. (Only exception: a PROOF shot where a screen is the deliberate subject.)
-- Writing the camera as an object ("phone propped on the table", "holding the phone up", "filmed on a phone in their lap") instead of as geometry — height, distance, angle
-- Staging any shot as a mirror selfie
-- "A character [verb]s in a [room]" — too abstract, no specificity
-- "Looking frustrated" / "looking happy" — name the actual micro-expression
-- "Modern aesthetic" / "clean look" / "minimalist vibe" — describe what is actually in frame
-- "They hold the product" with no instruction on how, which hand, what angle
-- "Style: photorealism" pasted at the end instead of the quality register living in CAMERA
-- Dropping a field, reordering the six, inventing a seventh, or writing prose with no labels at all
-- Any spoken line: a character talking to camera, mouthing words, or DIALOGUE holding anything other than "none"
-- Dialogue, music, or a voiceover in any AUDIO field — AUDIO is diegetic room sound only
-- All 4 variations being the same shot with different word order
-- Every scene framed chest-up at eye level — shot size and angle never vary across scenes
-- Inheriting the reference image's framing/crop/background instead of stating your own composition
-- Any caption, subtitle, or on-screen written text appearing in frame
-- Product appearing in a hook or reframe shot when VISIBILITY is no
-- Cinematic lighting, shallow depth of field, soft bokeh
-- "Confident smile" / "genuine expression" — name what the face is actually doing
-- Mentioning the product on a shelf, counter, or in the background during a no-product line
-- Using "she", "he", "her", "him", "his", "subject"
+8. CROSS-SCENE CONSISTENCY — one ad: same wardrobe, same home, same time of day across scenes unless the script demands a change. The product reference image is the source of truth — never invent packaging.
 
 # SELF-CHECK BEFORE RETURNING
 
-Before you output, run each variation against this checklist. If any answer is no, rewrite that variation.
+1. Could someone watching this shot guess the line it belongs to? If not, the idea isn't visual enough — find the image inside the line and rewrite.
+2. Are the 4 variations four different IDEAS (different subject or concept), not one idea from four angles?
+3. If the line has a metaphor or vivid image, does one variation make it literal?
+4. Is every prompt ONE readable paragraph — no labels, no device named, silent?
+5. Does product visibility match the rule exactly?
 
-1. Are all six labels present, in order — SETTING, CAMERA, LIGHTING, ACTION, DIALOGUE, AUDIO — with no field dropped and none invented?
-2. Could this prompt describe two visually different shots? (If yes, add specificity.)
-3. Does the product visibility match the input rule exactly?
-4. Is every element of body position, hand position, gaze, micro-expression, setting, and framing specified?
-5. Does the realism stack appear, in the fields that own it?
-6. Is the character showing the after-state, not the before?
-7. Is there explicit motion in ACTION?
-8. Does the body language match the line's emotional register?
-9. Are the 4 variations meaningfully different in approach, not just rewording? Are they four different roles, each earned by this specific line rather than picked by habit?
-10. Is the shot size + camera angle stated explicitly, and does this scene's framing differ from the previous scene's for the same role?
-11. Is this shot silent — DIALOGUE exactly "none", no one talking to camera or mouthing words, and no caption/subtitle text in frame?
-12. Does AUDIO describe only the diegetic sound of the scene — no dialogue, no music, no voiceover?
-13. Is the camera written purely as geometry (height, distance, angle), with no filming device named, held, propped, or reflected anywhere in frame?
+# REFERENCE EXAMPLE
 
-# REFERENCE EXAMPLES
+Line: "I spent years eating protein bars that tasted like actual cardboard before I realized I didn't have to."
 
-Bad prompt (what NOT to do):
-> A character sits on a sofa in a modern living room, looking frustrated as they examine their skin in the front-facing camera of their smartphone. Style: Modern iPhone camera quality, unedited photorealism, matching A-roll lighting.
+> <TAG>ACTION</TAG> <LABEL>CARDBOARD BITE</LABEL>
+> The character stands at their kitchen counter holding a torn strip of corrugated cardboard like a snack bar, peels an imaginary wrapper, and takes a slow deadpan bite — chewing with dead eyes and a tiny resigned nod, a crumb of cardboard dropping to the counter. Framed from chest height across the counter, morning window light from the left. The only sound is the dry papery crunch.
 
-Why this fails: no labelled fields at all; it names the smartphone as an object in the scene, so the model will draw one in frame and turn this into a mirror selfie; no body position detail beyond "sits"; no hand position; no specific micro-expression beyond "frustrated"; "modern living room" is generic; "examines their skin" could mean ten different actions; the realism stack is bolted on at the end instead of living in CAMERA; nothing says what is heard.
+> <TAG>TRANSITION</TAG> <LABEL>BARS HIT THE BIN</LABEL>
+> A drawer slides open to reveal a graveyard of half-eaten, stale protein bars in dull wrappers; the character's hand sweeps the whole pile into a kitchen bin in one motion and the drawer knocks shut. Framed from just above the drawer, close enough to read the sad crumbs. Wrappers crinkle and thud into the bin.
 
-Good prompt — a silent EMOTIONAL variation (what your output should look like):
-> SETTING: The character sits cross-legged on a beige linen sofa in their own living room, a half-full glass of water and a paperback on the coffee table in front of them. Left hand loose on their thigh, right hand resting against their collarbone.
-> CAMERA: Medium close-up vertical, framed from chest height about a metre away, three-quarter from camera-left. Natural handheld micro-drift in the frame. Modern iPhone camera quality, unedited photorealism, sharp focus across the frame, zero bokeh, no commercial gloss.
-> LIGHTING: Warm late-afternoon light from a window camera-left, soft across their face, one dim lamp behind them. No studio lighting, no colour grade.
-> ACTION: Their gaze drops to their own hands and lifts again, a slow breath let out, the corner of their mouth softening into a small private smile as their shoulders drop. One blink, a slight tilt of the head. Lips stay closed — they do not speak.
-> DIALOGUE: none
-> AUDIO: The faint hum of the room, a page settling, distant traffic through the window. No dialogue, no music, no voiceover.
-
-Why this works: all six labels, in order; exact body position (cross-legged, beige linen sofa); camera geometry stated as position rather than equipment (chest height, a metre away, three-quarter — no device anywhere); specific hand instructions (left on thigh, right on collarbone); named micro-expression (gaze drop and lift, breath out, private smile, shoulders dropping); one real light source; the quality register inside CAMERA where it belongs; DIALOGUE is "none" and the character never speaks; AUDIO is diegetic room tone only, ready for a voiceover in the edit.
-
-Good prompt — a silent PRODUCT variation (note DIALOGUE and AUDIO):
-> DIALOGUE: none
-> AUDIO: The soft scuff of a jar set down on stone, a tap running in the next room, ordinary bathroom room tone. No dialogue, no music, no voiceover.
+Two different concepts: one makes the metaphor literal, one shows the years of bad bars ending. Neither is a person standing in a kitchen doing nothing.
 
 # OUTPUT FORMAT (STRICT)
 
-Wrap every scene in this exact XML envelope. Do not include any text outside these tags. Every <PROMPT> body is the six labelled lines from PROMPT FORMAT — never a bare paragraph.
+Wrap every scene in this exact XML envelope. Do not include any text outside these tags. Every <PROMPT> body is ONE paragraph in the PROMPT FORMAT above.
 
 <SCENE>
 <LINE>exact grouped script segment, a complete sentence</LINE>
@@ -310,7 +156,7 @@ Wrap every scene in this exact XML envelope. Do not include any text outside the
 <TAG>ACTION|EMOTIONAL|PRODUCT|POV|ENVIRONMENT|TRANSITION|PROOF</TAG>
 <LABEL>short descriptive shot label, e.g. COUNTER REACTION</LABEL>
 <REFS>character|product|both|none</REFS>
-<PROMPT>the six labelled lines, matching the chosen role. Silent b-roll → DIALOGUE: none, and AUDIO carries only diegetic sound</PROMPT>
+<PROMPT>one flowing paragraph matching the chosen lens. Silent b-roll — no speech anywhere</PROMPT>
 </VAR_1>
 <VAR_2>
 <TAG>a DIFFERENT role from VAR_1</TAG>
@@ -335,7 +181,7 @@ Wrap every scene in this exact XML envelope. Do not include any text outside the
 export async function generateBroll(input: BrollInput): Promise<BrollResult> {
   const { apiKey, endpoint } = getChatEndpoint()
 
-  let prompt = `Break this script into B-Roll scenes following the system rules. For EACH scene emit four variations: four DISTINCT silent b-roll roles you pick from the system menu (ACTION / EMOTIONAL / PRODUCT / POV / ENVIRONMENT / TRANSITION / PROOF), chosen for what this specific line earns. Every shot is silent — no one speaks, DIALOGUE is always "none", AUDIO is diegetic room sound only (a voiceover is added later). Declare each pick in the <TAG> field. Decide POSITION + VISIBILITY per scene — if the line names or references the product, VISIBILITY must be yes regardless of POSITION. Pick REFS per variation honouring the VISIBILITY rule.\n\nScript:\n${input.scriptText}`
+  let prompt = `Break this script into B-Roll scenes following the system rules. For EACH scene emit four variations: four genuinely DIFFERENT ideas for showing what that line SAYS — make metaphors literal, show the act, the feeling, the proof. Pick four distinct lenses from the menu (ACTION / EMOTIONAL / PRODUCT / POV / ENVIRONMENT / TRANSITION / PROOF), declared in each <TAG> field. Every shot is silent — no one speaks (a voiceover is added later). Each prompt is ONE readable paragraph (usually 40-80 words, longer when the idea needs it). Decide POSITION + VISIBILITY per scene — if the line names or references the product, VISIBILITY must be yes regardless of POSITION. Pick REFS per variation honouring the VISIBILITY rule.\n\nScript:\n${input.scriptText}`
 
   if (input.productContext) {
     prompt += `\n\n${input.productContext}`
@@ -639,15 +485,15 @@ export async function finishImageTask(taskId: string, modelId: string, resolutio
 const TAG_BRIEFS: Record<VariationTag, string> = {
   // Legacy roles — no longer offered (every shot is silent b-roll now), but a
   // forced regen of an old card could still pass one, so keep them voiceless.
-  DIALOGUE: 'A silent shot of the character on camera, present and natural but NOT speaking — lips closed, no words mouthed. DIALOGUE is "none". A voiceover is added later.',
-  STATIC: 'A silent shot of the character in their own space, present and natural but NOT speaking — lips closed, no words mouthed. DIALOGUE is "none". A voiceover is added later.',
-  ACTION: 'A literal demonstration of the moment the line describes — silent, no talking to camera.',
-  EMOTIONAL: "The character's face/body responding to the meaning of the line — silent, no talking to camera.",
-  PRODUCT: 'Close-up / macro / detail on the product or visible after-state result.',
-  POV: "First-person through the character's eyes — their hands doing the thing the line implies; the character's face never in frame.",
-  ENVIRONMENT: 'The setting the line implies, treated as the subject — character absent or peripheral.',
-  TRANSITION: 'Movement between spaces or states that carries the ad forward — a doorway walk, tossing something into a bag, dropping keys into a bowl.',
-  PROOF: "Concrete visible evidence the line's claim is real — after-state, same-frame comparison, or an ordinary screen artifact like a timer or a streak. This is the one role where a phone may be in frame, as the object being looked at rather than the camera. Never fake reviews, ratings, or statistics.",
+  DIALOGUE: 'A silent shot of the character on camera, present and natural but NOT speaking — lips closed, no words mouthed. A voiceover is added later.',
+  STATIC: 'A silent shot of the character in their own space, present and natural but NOT speaking — lips closed, no words mouthed. A voiceover is added later.',
+  ACTION: "Act out the line's strongest image, literally — if the line has a metaphor or comparison, make it real on screen (\"tasted like cardboard\" → the character deadpan biting actual cardboard). Silent.",
+  EMOTIONAL: 'The feeling of the line landing on the character inside a real moment — a slump against the fridge, a slow exhale over the sink. Silent, never a face in a void.',
+  PRODUCT: 'The product itself or its visible result, up close.',
+  POV: "First-person through the character's eyes — their hands living the line; the character's face never in frame.",
+  ENVIRONMENT: "The place that tells the line's story on its own (the drawer full of abandoned half-eaten bars) — character absent or peripheral.",
+  TRANSITION: 'A movement that carries the story forward — sweeping the old stuff into the bin, tossing something into a bag, walking out the door.',
+  PROOF: "Visible evidence the line's claim is real — after-state, same-frame comparison, or an ordinary screen artifact like a timer or a streak. This is the one lens where a phone may be in frame, as the object being looked at rather than the camera. Never fake reviews, ratings, or statistics.",
 }
 
 /**
@@ -677,26 +523,27 @@ ${productContext ? `\n${productContext}\n` : ''}${modelContext ? `\n${modelConte
 
 ${PROMPT_FORMAT}
 
-This is SILENT b-roll — no one speaks. DIALOGUE is always "none" and AUDIO is diegetic room sound only (a voiceover is laid over the footage later). The character never talks to camera or mouths words.
+This is SILENT b-roll — no one speaks; a voiceover is laid over the footage later. The character never talks to camera or mouths words.
 
-Provide a fresh creative angle. Follow the senior UGC creative director rules:
-1. Specificity over completeness — name exact body position, hand position, gaze, micro-expression, setting detail, framing.
+SHOW, DON'T TELL — the shot must visualize what the line SAYS, so a viewer could guess the line from the footage alone. If the line has a metaphor or vivid image, consider making it literal on screen, even if absurd ("tasted like cardboard" → the character deadpan biting actual cardboard). Never a person passively existing while the line plays. Bring a genuinely fresh idea, not a re-angle of an obvious shot.
+
+Rules:
+1. Be specific — the exact prop, the exact gesture, the exact micro-expression, the real light source. If the prompt could describe two different shots, rewrite it.
 2. NEVER use he / him / his / she / her / "subject". Refer to the on-screen person as "the character" or "they / them / their".
-3. The realism stack lives in the fields that own it — the quality register in CAMERA, the light in LIGHTING, the unposed movement in ACTION (casual unstaged capture, natural handheld jitter in the frame, modern iPhone camera quality, unedited photorealism, matching A-roll lighting, zero bokeh, zero DoF, sharp focus, no commercial gloss). Do NOT bolt on a "Style: ..." sentence at the end.
+3. UGC realism — looks filmed at home: natural light, lived-in rooms, handheld drift. Nothing commercial, cinematic, or studio-lit. No captions or on-screen text.
 4. DO NOT mention aspect ratio, resolution, or framing dimensions in numbers — those are set separately.
 5. The character looks like the after-state, never the before.
-6. Constant motion: name the movement in ACTION.
-7. Pick a deliberate, distinctive shot — name the shot size AND camera angle (e.g. low-angle medium-wide, over-the-shoulder, overhead macro, POV hands-only). The composition is owned by this prompt, not by any attached reference image; don't default to a chest-up eye-level shot.
-8. THE CAMERA IS A VIEWPOINT, NOT A PROP. Never write the filming device as an object in the scene — no "phone", "iPhone", "smartphone", "front camera", "tripod", "ring light"; never in a hand, on a table, in a lap, or in a reflection; never stage a mirror selfie. Write the camera only as geometry: height relative to the eyeline, distance, angle. WRONG: "phone held at arm's length below chin level". RIGHT: "framed from just below chin height, about an arm's length away, tilted slightly up". Naming the iPhone as a quality register ("modern iPhone camera quality") is fine — that describes the footage, not a thing in the room. Only a PROOF shot may show a screen, as the subject being looked at.
+6. Name a movement — no frozen poses, no still-life.
+7. THE CAMERA IS A VIEWPOINT, NOT A PROP. Never name the filming device — no "phone", "iPhone", "front camera", "tripod", "ring light"; never in a hand, on a table, or in a reflection; never a mirror selfie. When the camera position matters, state it as a position: "framed from chest height an arm's length away". Only a PROOF shot may show a screen, as the subject being looked at.
 
 Respond with ONLY this envelope. No markdown, no commentary, nothing outside the tags:
 
 <VARIATION>
-<LABEL>short descriptive shot label, e.g. COUNTER REACTION</LABEL>
+<LABEL>short slug naming the idea, e.g. CARDBOARD BITE</LABEL>
 <TAG>${forceTag ?? 'ACTION|EMOTIONAL|PRODUCT|POV|ENVIRONMENT|TRANSITION|PROOF'}</TAG>
 <REFS>character|product|both|none</REFS>
 <PROMPT>
-the six labelled lines
+one flowing paragraph
 </PROMPT>
 </VARIATION>`
 
@@ -749,16 +596,16 @@ Scene ${scene.number} — LINE: "${scene.scriptLine}"
 Variation tag: ${variation.tag}${variation.label ? `\nShot label: ${variation.label}` : ''}
 ${productContext ? `\n${productContext}\n` : ''}${modelContext ? `\n${modelContext}\nIMPORTANT: never describe the character's physical appearance in detail. Refer to them as "the character".\n` : ''}
 Rules:
-- Return the six labelled lines from PROMPT FORMAT — SETTING, CAMERA, LIGHTING, ACTION, DIALOGUE, AUDIO — in that order, 130-200 words total. If the draft is one unlabelled paragraph, that is exactly what you are here to fix: sort its content into the right fields and fill any the draft never covered.
-- Enhance means ADD DETAIL, not rephrase. Every field should come back richer than it went in — more specific props, exact body and hand position, the real light source, precise micro-expressions, the actual sounds. Never return a prompt shorter than the draft.
-- Specificity over completeness — body position, hand position, gaze, micro-expression, setting detail, framing.
+- Return ONE flowing paragraph — usually 40-80 words, longer when the idea needs it. No labels, no field names, no line breaks, no "Style:" trailer. If the draft is a labelled multi-line block (SETTING: / CAMERA: / ...), that is exactly what you are here to fix: fold it into one readable paragraph, keeping the idea.
+- SHOW, DON'T TELL — the shot must visualize what the script line says, so a viewer could guess the line from the footage. Sharpen the draft's idea toward that; if it's a person passively existing, give them the line's image to act out.
+- Be specific — the exact prop, the exact gesture, the exact micro-expression, the real light source.
+- Enhance means ADD DETAIL, not rephrase: the prompt comes back richer than it went in, never shorter than the draft.
 - Never "he/him/she/her/subject" — use "the character" or "they/them/their".
-- The realism stack goes in the fields that own it: quality register in CAMERA, light in LIGHTING, unposed movement in ACTION. No "Style: ..." trailer.
 - DO NOT mention aspect ratio, resolution, or framing in numbers.
-- State the shot size + camera angle explicitly; the composition is owned by the prompt, not by any attached reference image. Keep the user's chosen framing if they named one, otherwise pick a distinctive, non-default shot.
-- THE CAMERA IS A VIEWPOINT, NOT A PROP. Strip every mention of the filming device — no phone, iPhone, smartphone, front camera, tripod, or ring light as an object in the scene; nothing held, propped, or reflected; no mirror selfie. Rewrite any such phrasing as pure geometry (height relative to the eyeline, distance, angle): "phone held at arm's length below chin level" becomes "framed from just below chin height, about an arm's length away". If the user's draft names a device, that is exactly what you are here to fix — keep their intended shot, drop the equipment. "Modern iPhone camera quality" as a quality register is fine.
-- Honour the shot role: ${TAG_BRIEFS[variation.tag]}
-- This is SILENT b-roll: no one speaks, no words are mouthed, DIALOGUE is exactly "none", and AUDIO describes only the diegetic sound of the scene (no dialogue, no music, no voiceover). If the draft has the character talking to camera or speaking a line, that is exactly what you are here to fix — keep the shot, drop the speech.
+- UGC realism — filmed-at-home natural light and handheld feel; nothing commercial or studio-lit; no captions or on-screen text.
+- THE CAMERA IS A VIEWPOINT, NOT A PROP. Strip every mention of the filming device — no phone, iPhone, smartphone, front camera, tripod, or ring light as an object in the scene; nothing held, propped, or reflected; no mirror selfie. Rewrite any such phrasing as a position: "phone held at arm's length below chin level" becomes "framed from just below chin height, about an arm's length away". If the user's draft names a device, keep their intended shot, drop the equipment.
+- Honour the variation's lens: ${TAG_BRIEFS[variation.tag]}
+- This is SILENT b-roll: no one speaks and no words are mouthed. If the draft has the character talking to camera, keep the shot, drop the speech. Sound, if mentioned, is only the natural sound of the moment — no dialogue, no music, no voiceover.
 
 Draft:
 """
@@ -768,7 +615,7 @@ ${draft}
 Respond with ONLY this envelope. No markdown, no commentary, nothing outside the tags:
 
 <PROMPT>
-the six labelled lines
+one flowing paragraph
 </PROMPT>`
 
   const messages: ChatMessage[] = [

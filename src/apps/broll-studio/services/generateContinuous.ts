@@ -196,37 +196,25 @@ export function buildContinuousPreamble(opts: { chain: boolean; character: boole
 
 // ── Prompt formats ─────────────────────────────────────────────
 //
-// Both formats are labelled-field, not prose. Image and video models weight
-// what they can find, and a named COMPOSITION / LIGHTING line is far harder to
-// skim past than the same words buried mid-sentence. The word floors matter:
-// under-specified prompts are the biggest single cause of generic output, and
-// a frame that could describe two different images will render as neither.
+// One flowing paragraph each, matching Line-by-Line and One-Shot: the labelled
+// multi-field structure these used to carry read disjointed and crowded out the
+// actual idea. Keyframes keep one extra requirement the clip modes don't need —
+// an explicit safe-zone framing note, because 9:16 platform UI overlays the
+// frame edges and a keyframe that crops is unusable as a chain anchor.
 
-const KEYFRAME_FORMAT = `Every keyframe prompt is five labelled lines, in this exact order, one line each:
+const KEYFRAME_FORMAT = `Every keyframe prompt is ONE flowing paragraph — usually 50-90 words, longer when the idea needs it. Plain, concrete, readable — no labels, no field names, no line breaks, no "Style:" trailer.
 
-SUBJECT: exactly who or what is in frame and in what state — the pose, the body position, the hand position, the gaze direction, and the expression as a specific muscle action ("brows drawn together, jaw set"), plus whatever they are physically holding or touching. If the frame has no character, name the hero object and its exact orientation.
-SETTING: the place and the moment, named concretely — the actual space, the surfaces, and the two or three specific props that sell it, plus the depth cues (what is close, what is mid, what fills the background). Never "a modern room" — say what is in it.
-COMPOSITION: the shot size (extreme close-up / macro / close-up / medium / medium-wide / wide / aerial), the camera height relative to the subject, the angle (straight on, low, high, overhead, three-quarter), and where the subject sits in the vertical 9:16 frame. State the safe-zone margin explicitly: the subject is centred with comfortable headroom and side margin so nothing crucial touches the frame edge.
-LIGHTING: the real light source or sources, their direction and colour temperature, the quality (hard or soft), where the shadows fall, and any rim, glow, or volumetric effect. Name the dominant colour of the light.
-DETAIL: the texture and material specifics that make it feel rendered rather than sketched — surface finishes, micro-detail, particles, atmosphere, reflections. Close with the emotional register of the image in three or four words.
+Write it like you're describing a still you're looking at right now: what's in frame and in what state (the exact pose, hand position, gaze, and the expression as a real muscle action — "brows drawn together, jaw set", never "looking sad"), the actual space and the two or three specific props that sell it, where the light comes from and its colour, and the materials and textures that make it feel rendered rather than sketched. If there's no character, the hero object and its exact orientation carry the frame.
 
-Format rules:
-- All five labels appear in every prompt, in this order. One line per field.
-- Aim for 110-170 words across the five fields. A frame described in under 100 words is under-specified and will render as generic stock.
-- Never repeat yourself across fields: the pose belongs in SUBJECT, the space in SETTING, the framing in COMPOSITION, the light in LIGHTING.
-- Never name the art style, medium, or render technique — the style block is appended separately to every prompt.
-- No captions, subtitles, watermarks, on-screen text, logos, or UI of any kind.`
+Always state the framing: the shot size (macro / close-up / medium / wide / overhead / aerial), roughly where the camera sits, and — this one is non-negotiable — that the subject is centred with comfortable margins so nothing crucial touches the frame edge. Platform UI overlays the edges of a vertical 9:16 video.
 
-const MOTION_FORMAT = `Every motion prompt is three labelled lines, in this exact order, one line each:
+Never name the art style, medium, or render technique — the style block is appended separately to every prompt. No captions, subtitles, watermarks, on-screen text, logos, or UI of any kind.`
 
-MOTION: the physical movement carrying the start frame into the end frame — what moves, and in which direction, described as a vector ("lifts up and back", "rotates clockwise as it opens", "collapses inward"). Name the transformation when one state becomes another. One or two sentences.
-CAMERA: how the frame itself moves across the clip — push in, pull back, orbit left, tilt down, track alongside, or hold steady — plus the speed (slow, steady, quick) and whether it eases at the end.
-SFX: one transitional sound direction only — e.g. a soft sci-fi whoosh, a low building rumble, a gentle pop, a soft chime, or silence.
+const MOTION_FORMAT = `Every motion prompt is ONE short flowing paragraph — usually 40-70 words. No labels, no field names.
 
-Format rules:
-- The motion must plausibly connect ANY staging of the start frame to ANY staging of the end frame, so describe it in terms of the story state, never one specific composition.
-- Keep it physical and simple: this is interpolation direction, not a new scene. 45-80 words total.
-- Never write dialogue, narration, or music — a voiceover and a music bed are added later in the edit.`
+Describe the physical movement carrying the start frame into the end frame: what moves and in which direction, as a vector ("lifts up and back", "rotates clockwise as it opens", "collapses inward"), and the transformation when one state becomes another. Then how the frame itself moves — push in, pull back, orbit left, tilt down, track alongside, or hold steady — and how fast. End with one transitional sound direction (a soft sci-fi whoosh, a low building rumble, a gentle pop, or silence).
+
+Keep it physical and simple: this is interpolation direction between two fixed images, not a new scene. The motion must plausibly connect ANY staging of the start frame to ANY staging of the end frame, so describe it in terms of the story state, never one specific composition. Never write dialogue, narration, or music — a voiceover and a music bed are added later in the edit.`
 
 // ── The storyboard system prompt ───────────────────────────────
 
@@ -243,13 +231,20 @@ Turn the user's script into a STORYBOARD:
 3. For every scene, write the MOTION that carries its keyframe into the NEXT keyframe, plus one transitional SFX.
 4. Give every keyframe ${CONCEPTS_PER_FRAME} distinct visual CONCEPTS.
 
-# SHOW, NOT TELL
+# SHOW, DON'T TELL — THIS IS THE WHOLE JOB
 
-Every line of narration is represented by a concrete visual action or metaphor — never a static talking head, never text on screen. "Your liver filters toxins" is a glowing factory inside a translucent body, conveyor belts sorting particles — not a person explaining. When the script names the product, the product IS the visual.
+Each narration line will be HEARD over the footage. The frames must SHOW what the line means — never a person passively existing while the line plays. Find the strongest image inside the line and put it on screen:
 
-# SPECIFICITY IS THE WHOLE JOB
+- If the line contains a metaphor, comparison, or vivid image, MAKE IT LITERAL — even when it's absurd. The absurdity is what stops the scroll. "Your brain runs a cleanup cycle at night" → a glowing factory inside the skull, tiny drones sweeping the walkways. "My skin felt like sandpaper" → fingertips dragging across a real sheet of sandpaper.
+- If the line describes an act, show the act actually happening — mid-motion, hands busy, real.
+- If the line makes a claim, show the evidence.
+- If the line is emotional, show the emotion landing inside a real moment — never a face in a void.
 
-Vague direction renders as generic footage. Every frame names the exact prop, the exact body and hand position, the exact expression, the exact light source, and the exact material. Write each keyframe the way you would describe a still you are looking at right now and logging in detail — not the way you would pitch it. If a prompt could describe two visually different images, it is not finished. When in doubt, add specificity, never another scene.
+When the script names the product, the product IS the visual. A viewer watching with the sound off should be able to guess the narration.
+
+# SPECIFICITY
+
+Vague direction renders as generic footage. Every frame names the exact prop, the exact body and hand position, the exact expression, the real light source, and the actual material. Write each keyframe the way you'd describe a still you're looking at, not the way you'd pitch it. If a prompt could describe two visually different images, it isn't finished — add specificity, never another scene. Keep each paragraph tight and readable.
 
 Banned everywhere: "beautiful", "stunning", "modern", "clean", "minimalist", "high quality", "professional", "cinematic vibe", "looking happy/sad/frustrated" (name what the face is actually doing), "using the product" (name the actual action).
 
@@ -268,7 +263,7 @@ ${KEYFRAME_FORMAT}
 
 # CONCEPT VARIATIONS
 
-The ${CONCEPTS_PER_FRAME} concepts for one keyframe vary the COMPOSITION, CAMERA ANGLE, and VISUAL METAPHOR — never the story state. Whichever concept the user picks, the sequence must still connect: every concept of frame N must work as the end of scene N-1's motion and the start of scene N's motion. Make them genuinely different stagings — a macro close-up, a wide aerial, an inside-the-object view — not three crops of the same image. Each concept gets the full five-field treatment; a thinner alternative concept is a failure.
+The ${CONCEPTS_PER_FRAME} concepts for one keyframe are ${CONCEPTS_PER_FRAME} genuinely DIFFERENT ideas for picturing that same story state — a different visual metaphor, a different subject, a different scale — not one idea framed three ways. A macro close-up, a wide aerial, and an inside-the-object view of the same beat. Whichever concept the user picks, the sequence must still connect: every concept of frame N must work as the end of scene N-1's motion and the start of scene N's motion. Every concept gets the same depth; a thinner alternative is a failure.
 
 # MOTION PROMPT FORMAT (EVERY SCENE)
 
@@ -282,24 +277,14 @@ Wrap your answer in this exact XML envelope. No text outside the tags, no markdo
 <STYLE>One dense paragraph of 90-150 words locking the visual style for the whole sequence — medium and rendering technique, how forms and figures are treated, the named colour palette, the lighting register, and the camera/finish character. Adapt the style brief you are given to this specific script and product. This paragraph is appended verbatim to every image and video prompt, so it must be pure style direction with no subject matter in it.</STYLE>
 <SCENE_1>
 <LINE>exact narration slice, a complete sentence</LINE>
-<MOTION>
-MOTION: ...
-CAMERA: ...
-SFX: ...
-</MOTION>
+<MOTION>one short paragraph: what moves and where, how the frame moves, then the transitional sound</MOTION>
 <FRAME>
 <CONCEPT_1>
-<LABEL>2-4 word slug naming this staging, e.g. INSIDE THE BOTTLE</LABEL>
-<PROMPT>
-SUBJECT: ...
-SETTING: ...
-COMPOSITION: ...
-LIGHTING: ...
-DETAIL: ...
-</PROMPT>
+<LABEL>2-4 word slug naming the actual idea, e.g. INSIDE THE BOTTLE</LABEL>
+<PROMPT>one flowing paragraph — the still, described</PROMPT>
 </CONCEPT_1>
-<CONCEPT_2>a DIFFERENT staging, same story state, same five-field depth</CONCEPT_2>
-<CONCEPT_3>a DIFFERENT staging again, same five-field depth</CONCEPT_3>
+<CONCEPT_2>a DIFFERENT idea for the same story state, same depth</CONCEPT_2>
+<CONCEPT_3>a DIFFERENT idea again, same depth</CONCEPT_3>
 </FRAME>
 </SCENE_1>
 (repeat <SCENE_N> for every scene, in script order)
@@ -336,7 +321,7 @@ function buildUserPrompt(input: ContinuousInput): string {
     prompt += `\n${input.modelContext}\nIMPORTANT: never describe the character's physical appearance — say "the character"; a reference image fixes their look.\n`
   }
   if (input.additionalContext) prompt += `\nAdditional context and instructions:\n${input.additionalContext}\n`
-  prompt += `\nWrite the full <STORYBOARD> now. Every keyframe concept gets all five labelled fields at full depth — no thinning out on the later scenes.`
+  prompt += `\nWrite the full <STORYBOARD> now. Every keyframe concept gets the same depth — no thinning out on the later scenes.`
   return prompt
 }
 
@@ -521,7 +506,7 @@ ${FRAME_ENVELOPE_NOTE}
 <CONCEPT>
 <LABEL>2-4 word slug</LABEL>
 <PROMPT>
-the five labelled lines
+one flowing paragraph
 </PROMPT>
 </CONCEPT>`
 
@@ -553,11 +538,11 @@ Current prompt:
 ${draft}
 """
 
-Return the five labelled lines (SUBJECT / SETTING / COMPOSITION / LIGHTING / DETAIL), 110-170 words. If the draft is one unlabelled paragraph, that is exactly what you are here to fix: sort its content into the right fields and fill the gaps.
+Return ONE flowing paragraph, usually 50-90 words, keeping the safe-zone framing note. If the draft is a labelled multi-line block (SUBJECT: / SETTING: / ...), that is exactly what you are here to fix: fold it into one readable paragraph, keeping the idea.
 
 ${FRAME_ENVELOPE_NOTE}
 <PROMPT>
-the five labelled lines
+one flowing paragraph
 </PROMPT>`
 
   const messages: ChatMessage[] = [
@@ -576,11 +561,11 @@ export async function regenerateContinuousFrame(ctx: FrameContext, frameIndex: n
 
 ${frameBriefBlock(ctx, frameIndex)}
 ${ctx.existingLabels.length ? `\nStagings already used on this frame: ${ctx.existingLabels.join(' · ')}\n` : ''}
-Return the five labelled lines (SUBJECT / SETTING / COMPOSITION / LIGHTING / DETAIL), 110-170 words.
+Return ONE flowing paragraph, usually 50-90 words, including the safe-zone framing note.
 
 ${FRAME_ENVELOPE_NOTE}
 <PROMPT>
-the five labelled lines
+one flowing paragraph
 </PROMPT>`
 
   const messages: ChatMessage[] = [
@@ -593,7 +578,7 @@ the five labelled lines
 
 // ── Demo / preview data ────────────────────────────────────────
 // Shown when no kie.ai key is set so a member can see what the storyboard
-// produces before wiring billing. Written in the real five-field format at the
+// produces before wiring billing. Written in the real paragraph format at the
 // real depth, so the preview doesn't undersell the output.
 
 interface DemoFrameSpec {
@@ -602,27 +587,20 @@ interface DemoFrameSpec {
 
 const DEMO_STYLE =
   'Glossy stylized 3D render in the viral explainer register: soft rounded characters with gently exaggerated proportions and smooth subsurface-scattering skin, forms built from clean bevelled geometry with no hard edges, a palette of deep midnight blue and slate grey lit by warm amber and honey-gold accents, soft volumetric lighting with a gentle rim light separating every subject from its background, shallow atmospheric haze in the deep field, and a high-detail premium-animated-short finish with subtle bloom around light sources. Never photoreal, never live-action, no film grain.'
-
 const DEMO_SCENES = [
   {
     line: 'Your brain never actually switches off at night.',
-    motion: `MOTION: The bedroom wall dissolves away as the view travels inward toward the sleeping character, the amber glow at their temple swelling and blooming outward until it fills the frame and becomes the interior space.
-CAMERA: A slow, steady push in from outside the window, easing to a stop as the glow takes over.
-SFX: a soft airy whoosh building into a low hum`,
+    motion: 'The bedroom wall dissolves away as the view travels inward toward the sleeping character, the amber glow at their temple swelling and blooming outward until it fills the frame and becomes the space inside. A slow, steady push in from outside the window, easing to a stop as the glow takes over. A soft airy whoosh building into a low hum.',
     sfx: 'a soft airy whoosh',
   },
   {
     line: 'While you sleep, it runs a full cleanup cycle, flushing out the waste that builds up all day.',
-    motion: `MOTION: Glowing amber orbs stream along the pathways and converge into one bright channel that drains downward, the grey dust motes carried away with them as the whole space brightens and clears.
-CAMERA: A slow orbit to the left around the central channel, drifting gently downward to follow the flow.
-SFX: a shimmering hum with a soft rushing undertone`,
+    motion: 'Glowing amber orbs stream along the pathways and converge into one bright channel that drains downward, carrying the grey dust with them as the whole space brightens and clears. A slow orbit to the left around the central channel, drifting gently down to follow the flow. A shimmering hum with a soft rushing undertone.',
     sfx: 'a gentle shimmering hum',
   },
   {
     line: 'One scoop of this before bed gives that cycle everything it needs.',
-    motion: `MOTION: The product rises up into frame as a scoop of powder tips and dissolves into a spiral of light, the spiral flowing upward and outward until it settles into a calm, even glow surrounding the sleeping figure.
-CAMERA: A steady pull back with a slight tilt up, easing to a hold on the wide final composition.
-SFX: a soft magical pop followed by a warm settling chime`,
+    motion: 'The product rises into frame as a scoop of powder tips and dissolves into a spiral of light, the spiral flowing up and outward until it settles into a calm even glow around the sleeping figure. A steady pull back with a slight tilt up, easing to a hold on the wide final composition. A soft magical pop, then a warm settling chime.',
     sfx: 'a soft magical pop',
   },
 ]
@@ -632,27 +610,15 @@ const DEMO_FRAMES: DemoFrameSpec[] = [
     concepts: [
       {
         label: 'MOONLIT BEDROOM',
-        prompt: `SUBJECT: The character lies asleep on their side under a thick quilted duvet, one arm folded up beside the pillow and the other tucked under it, lips slightly parted, brow completely smooth and still. A single warm point of light glows steadily at their temple.
-SETTING: A small lived-in bedroom at night, seen from just outside the window. A paperback lies face-down on the nightstand beside a half-full glass of water and a folded pair of glasses; a knitted throw spills off the end of the bed. The window frame edges the foreground, the bed sits mid-depth, and a wardrobe stands in soft shadow behind.
-COMPOSITION: Medium-wide shot from just above the sleeping figure's height, angled slightly down through the window. The character is centred in the vertical 9:16 frame with generous headroom above the pillow and clear side margin so nothing crucial touches the edge.
-LIGHTING: Cool blue moonlight falls from the upper left across the duvet, its shadows soft and long; the amber temple glow is the only warm source, casting a small pool of gold onto the pillow beneath.
-DETAIL: Fine quilted stitching and soft fabric nap on the duvet, faint dust in the moonbeam, a gentle bloom around the temple light, condensation beading on the water glass. Hushed, safe, quietly mysterious.`,
+        prompt: 'A small lived-in bedroom at night seen from just outside the window, the character asleep on their side under a thick quilted duvet, one arm folded beside the pillow, lips slightly parted, brow completely smooth. A single warm point of light glows at their temple, pooling gold on the pillow beneath while cool blue moonlight rakes across the quilting from the upper left. A paperback lies face-down on the nightstand beside a sweating glass of water. Medium-wide from just above the sleeping figure, angled down through the window frame, the character centred with generous headroom and clear side margins so nothing crucial touches the edge.',
       },
       {
         label: 'OVERHEAD SLEEPER',
-        prompt: `SUBJECT: The character lies flat on their back, arms relaxed at their sides above the duvet, palms open and upward, head turned a few degrees to one side on the pillow. A soft amber halo sits just visible around their head.
-SETTING: The same bed, seen from directly above. The duvet folds radiate outward from the body like still ripples on water; the nightstand corner with a paperback and a glass of water enters the lower edge of frame, and the headboard caps the top.
-COMPOSITION: Overhead top-down shot, camera high and level, looking straight down. The figure runs vertically through the centre of the 9:16 frame with the duvet filling the width, comfortable margin left at head and foot so neither crops.
-LIGHTING: Flat cool blue ambient light from a window off-frame left, gentle and even with almost no hard shadow; the amber halo is the single warm accent, glowing softly into the pillow around the head.
-DETAIL: Deep soft folds in the bedding with visible weave, a slight sheen where the moonlight catches the fabric crests, faint particles suspended in the air above. Still, ordered, almost clinical calm.`,
+        prompt: 'Straight down onto the bed from directly above: the character flat on their back, arms relaxed at their sides on top of the duvet, palms open and upward, head turned a few degrees on the pillow. The duvet folds radiate outward from the body like still ripples on water, deep and soft with visible weave. Flat cool blue light fills the room evenly with almost no hard shadow, and a soft amber halo around the head is the only warm accent, glowing faintly into the pillow. The figure runs vertically up the centre of the frame with comfortable margin at head and foot.',
       },
       {
         label: 'TEMPLE GLOW MACRO',
-        prompt: `SUBJECT: A tight profile of the sleeping character's face resting on the pillow, eyes gently closed with lashes clearly defined, mouth relaxed, one hand curled loosely near the chin. A single warm point of light pulses softly at the temple, just above the cheekbone.
-SETTING: The pillow surface fills the lower frame in soft folds; the dark bedroom recedes behind into cool unlit depth with only the faint edge of a lampshade suggested. Nothing else competes for attention.
-COMPOSITION: Macro close-up from pillow height, camera level with the face and very close, three-quarter profile from the front. The face sits centred and slightly low in the vertical 9:16 frame, with clear margin above the head so the glow has room to breathe.
-LIGHTING: The temple glow is the key light, warm amber and soft, wrapping the near cheek and falling off quickly; cool blue moonlight rims the back of the head and shoulder from behind, separating the figure from the dark.
-DETAIL: Soft skin shading with gentle subsurface warmth where the glow passes through, individual pillow fibres catching light, a faint amber bloom ring around the temple point. Intimate, warm, quietly alive.`,
+        prompt: 'Very close on the sleeping character\'s face resting on the pillow, three-quarter profile, eyes gently closed with lashes clearly defined, mouth relaxed, one hand curled loosely near the chin. A single warm point of light pulses at the temple just above the cheekbone — it is the key light, wrapping the near cheek in soft amber and falling off fast, while cool moonlight rims the back of the head and separates it from the dark. Pillow fibres catch the glow; the room behind falls away into unlit depth. Framed from pillow height, the face centred and slightly low with clear room above.',
       },
     ],
   },
@@ -660,27 +626,15 @@ DETAIL: Soft skin shading with gentle subsurface warmth where the glow passes th
     concepts: [
       {
         label: 'NEURAL FACTORY',
-        prompt: `SUBJECT: The interior of the brain staged as a vast working factory hall. Translucent neural pathways run through it as glass tubes carrying streams of small amber orbs, while a handful of rounded cleanup drones sweep grey dust motes from the walkways with soft brushes.
-SETTING: A cathedral-scale industrial space built from smooth organic architecture — arched pathways branching overhead, gantries at mid-height, a wide central floor. The near gantry rail crosses the foreground, the drones work in the middle distance, and the arches vanish into haze behind.
-COMPOSITION: Wide establishing shot from walkway height, camera level and looking down the length of the hall. The central channel runs vertically up the middle of the 9:16 frame, with the arches leaving clear headroom at the top and the gantry margin holding the sides safe.
-LIGHTING: Warm amber light travels through the glass tubes and underlights everything from within; cool blue ambient fills the hall from above, so the warm streams read bright against a cold room. Shadows are soft and deep between the arches.
-DETAIL: Glass surfaces with faint internal reflections, the drones' matte rounded shells, drifting dust caught in the light, gentle bloom where tubes cross. Busy, purposeful, secretly magnificent.`,
+        prompt: 'The inside of the brain staged as a vast working factory hall: translucent neural pathways running through it as glass tubes carrying streams of small amber orbs, arched walkways branching overhead, a wide central floor. A handful of rounded cleanup drones sweep grey dust from the gantries with soft brushes, their matte shells catching the light. Warm amber travels through the tubes and underlights everything from within while cool blue ambient falls from above, so the warm streams read bright against a cold room. Wide establishing shot from walkway height looking down the hall, the central channel running up the middle with clear headroom above the arches.',
       },
       {
         label: 'RIVER OF LIGHT',
-        prompt: `SUBJECT: A luminous river of amber particles winding through a cavern, carrying loose grey dust motes away downstream. No figure — the river itself is the subject, its current reading clearly from the far bend toward the camera.
-SETTING: A deep blue cavern whose walls are formed from soft neuron trees with branching, rounded canopies. Reeds of light line the near bank in the foreground, the river bends through the middle distance, and the canopy closes overhead in the far depth.
-COMPOSITION: Low wide shot from just above the water's surface, camera almost level with the river, looking upstream so the current flows toward and past the lens. The river runs up the centre of the vertical 9:16 frame with the banks holding a comfortable margin on both sides.
-LIGHTING: The river is self-illuminating warm amber, throwing rippling light up onto the underside of the canopy; the surrounding cavern sits in cool deep blue with a faint cool rim on the tree edges. Reflections dance on the wet banks.
-DETAIL: Individual particles of light with soft falloff, gently rippling surface displacement, a light mist hanging above the water, grey motes visibly dulled against the glow. Flowing, cleansing, serene.`,
+        prompt: 'A luminous river of amber particles winding through a deep blue cavern, carrying loose grey motes away downstream — the river itself is the subject, no figure anywhere. The cavern walls are formed from soft neuron trees with branching rounded canopies, reeds of light lining the near bank, the water rippling and throwing dancing reflections up onto the underside of the canopy. Mist hangs just above the surface. Framed low from barely above the water looking upstream so the current flows toward and past the lens, the river running up the centre of the frame with the banks holding comfortable margin on both sides.',
       },
       {
         label: 'CONTROL ROOM',
-        prompt: `SUBJECT: A small rounded robot operator stands at a console, both hands on a large lever pulled fully down, its single soft-glowing eye fixed on the screens ahead. Its posture leans into the pull.
-SETTING: A cosy mission-control room built inside the head, all rounded consoles and padded surfaces. Chunky dials and toggles fill the console in the foreground, three curved screens showing tidy streams of light flowing outward sit at mid-depth, and a porthole window looks out into deep blue behind.
-COMPOSITION: Medium shot from slightly below the robot's eye line, angled up so the console dominates the lower frame. The robot sits centred and slightly high in the vertical 9:16 frame, screens filling the space behind, with clear margin above the head and around the console edges.
-LIGHTING: Warm amber light spills from the screens onto the robot's front and the console surface; cool blue backlight comes through the porthole, rimming the robot's shoulders and separating it cleanly from the wall.
-DETAIL: Matte moulded plastic on the robot's shell with subtle scuffs, glossy console buttons with soft highlights, a faint scanline glow on the curved screens, dust motes drifting through the beam. Homely, competent, quietly busy.`,
+        prompt: 'A cosy mission-control room built inside the head, all rounded consoles and padded surfaces. A small rounded robot operator stands at the console, both hands on a large lever pulled fully down, posture leaning into the pull, its single soft-glowing eye fixed on three curved screens showing tidy streams of light flowing outward. Chunky dials and glossy buttons fill the foreground; a porthole looks out into deep blue behind, its cool backlight rimming the robot\'s shoulders while warm amber from the screens washes its front. Medium shot from slightly below the robot\'s eye line, angled up, the robot centred with clear margin around the console edges.',
       },
     ],
   },
@@ -688,27 +642,15 @@ DETAIL: Matte moulded plastic on the robot's shell with subtle scuffs, glossy co
     concepts: [
       {
         label: 'HERO JAR RISE',
-        prompt: `SUBJECT: The product stands upright and centred with its lid off beside it, a gentle spiral of glowing powder rising from the open mouth and curling toward the top of frame. Nothing else moves.
-SETTING: A bedside table in the blue night bedroom. A folded cloth and a glass of water sit just behind the product, the bed and the softly sleeping figure read as a simple silhouette in the deeper background, and the table edge runs across the foreground.
-COMPOSITION: Medium close-up from just below the product's shoulder height, angled very slightly up so it reads heroic. The product stands centred in the lower third of the vertical 9:16 frame with the rising spiral filling the space above it and a clear margin on all sides.
-LIGHTING: A warm amber glow rises from inside the open product and underlights the spiral from below; cool blue moonlight from the window rims the product's left edge and the water glass, keeping the background cold against the warm centre.
-DETAIL: Smooth matte finish on the container with a soft specular band down one side, individual grains of powder catching the light in the spiral, faint bloom where the glow is strongest, condensation on the glass. Calm, ceremonial, inviting.`,
+        prompt: 'The product standing upright and centred on a bedside table in the blue night bedroom, lid off beside it, a gentle spiral of glowing powder rising from the open mouth and curling toward the top of frame. A warm amber glow climbs from inside the container and underlights the spiral from below, while cool moonlight from the window rims its left edge and catches a sweating glass of water behind. The bed and the sleeping figure read as a soft silhouette in the deeper background. Framed from just below the product\'s shoulder height, angled slightly up so it reads heroic, with clear margin on every side.',
       },
       {
         label: 'SCOOP POUR',
-        prompt: `SUBJECT: A rounded scoop tips slowly, releasing a stream of glowing powder into a glass of water below. The powder is caught mid-fall, the water already beginning to spiral with amber light where the stream has entered.
-SETTING: The same nightstand, seen close. The product stands tall just behind the glass with its lid resting beside it, and the folded cloth fills the lower foreground. The bedroom behind is reduced to soft dark blue shapes.
-COMPOSITION: Macro close-up from glass height, camera level and very close, angled three-quarter from the left. The glass sits centred and low in the vertical 9:16 frame with the scoop entering from the upper right, leaving clear margin around both so neither crops.
-LIGHTING: The falling powder is the brightest source, casting warm amber light up into the scoop's underside and down through the water; cool blue ambient holds the background, and a small warm caustic pattern lands on the tabletop beside the glass.
-DETAIL: Individual grains separating in the fall, refraction and light-bending through the glass and water, tiny bubbles rising, a soft glow blooming where powder meets liquid. Precise, satisfying, quietly magical.`,
+        prompt: 'Macro on a rounded scoop tipping slowly, releasing a stream of glowing powder into a glass of water below, the grains separating in the fall and the water already spiralling with amber light where the stream has entered. Tiny bubbles rise; light bends and refracts through the glass, throwing a small warm caustic onto the tabletop beside it. The product stands tall just behind with its lid resting alongside, the bedroom reduced to dark blue shapes. Framed at glass height, very close, three-quarter from the left, the glass centred and low with the scoop entering from the upper right, both well inside the edges.',
       },
       {
         label: 'GLOW HANDOFF',
-        prompt: `SUBJECT: The character's hand sets the product down on the nightstand, fingers still resting on its lid, while a ribbon of warm light arcs from the product across the frame toward their head on the pillow, physically connecting the two.
-SETTING: The bedside table in the foreground with the glass and folded cloth beside the product, the bed running back into the middle of frame, and the pillow with the resting head at the far end. The window sits dark behind.
-COMPOSITION: Wide shot from table height, camera level and angled along the length of the bed so both the hand and the head are in frame. The light ribbon runs diagonally through the vertical 9:16 frame, the product low-left and the head upper-right, both held well inside the safe margin.
-LIGHTING: The ribbon is the key source, warm amber and glowing along its whole length, spilling onto the duvet beneath it and onto the back of the hand; cool blue moonlight fills everything it does not touch.
-DETAIL: Soft translucent falloff along the ribbon's edges, gentle skin shading on the hand, fine duvet texture catching the warm spill, faint particles drifting along the arc. Tender, connective, resolved.`,
+        prompt: 'The character\'s hand setting the product down on the nightstand, fingers still resting on the lid, while a ribbon of warm light arcs from the product across the frame to their head on the pillow, physically connecting the two. The ribbon is the key source, glowing along its whole length with soft translucent edges, spilling onto the duvet beneath and the back of the hand, while cool moonlight fills everything it does not touch. Faint particles drift along the arc. Wide from table height angled along the length of the bed, the ribbon running diagonally with the product low-left and the head upper-right, both held inside the safe margin.',
       },
     ],
   },
@@ -716,27 +658,15 @@ DETAIL: Soft translucent falloff along the ribbon's edges, gentle skin shading o
     concepts: [
       {
         label: 'RESTORED MORNING',
-        prompt: `SUBJECT: The character sits up in bed mid-stretch, both arms raised and elbows bent, back arched slightly, eyes open and face bright with an easy unforced smile. The duvet has fallen to their waist.
-SETTING: The same bedroom at sunrise. The product catches a sunbeam on the nightstand beside the now-empty glass, the paperback sits closed, and the window behind is filled with warm morning light. The bed fills the middle of frame.
-COMPOSITION: Medium shot from just below eye level, camera level and straight on. The character is centred in the vertical 9:16 frame with clear headroom above the raised arms so the stretch does not crop, and the nightstand held inside the lower left margin.
-LIGHTING: Warm golden sunlight streams in from the window camera-right, wrapping the character's face and shoulders and throwing a long soft shadow across the bed; the room's blues have warmed to a gentle neutral.
-DETAIL: Soft rim of light along the hair and shoulder, fine dust drifting in the sunbeam, a warm specular highlight on the product's curve, crisp fabric creases in the pushed-back duvet. Fresh, restored, optimistic.`,
+        prompt: 'The same bedroom at sunrise, the character sitting up in bed mid-stretch with both arms raised and elbows bent, back slightly arched, eyes open and face bright with an easy unforced smile. The duvet has fallen to their waist in crisp creases. Warm golden light streams in from the window camera-right, wrapping their face and shoulders, rimming the hair, throwing a long soft shadow across the bed and catching a specular highlight on the product\'s curve on the nightstand beside the now-empty glass. Dust drifts in the sunbeam. Medium shot from just below eye level, straight on, with clear headroom above the raised arms.',
       },
       {
         label: 'AURA WIDE',
-        prompt: `SUBJECT: The character lies asleep and completely still, now wrapped head to toe in an even, calm amber aura that follows the contour of their body under the duvet. Their face is smooth and untroubled.
-SETTING: The full bedroom, seen wide. The nightstand with the product and glass sits at the left edge of frame, the wardrobe stands in soft shadow at the right, and the window behind is beginning to warm toward dawn.
-COMPOSITION: Wide shot from slightly above the bed, camera angled gently down over the whole room. The figure runs horizontally across the middle of the vertical 9:16 frame with generous space above and below, everything crucial held well inside the edges.
-LIGHTING: The aura is the dominant source, glowing warm amber outward from the figure and lifting the nearby duvet, floor and nightstand out of the dark; the window contributes a cool-to-warm gradient that meets the aura halfway across the room.
-DETAIL: Soft graduated falloff at the aura's outer edge, gentle bloom over the whole frame, fine bedding texture picking up the warm light, a faint haze in the air. Peaceful, complete, quietly triumphant.`,
+        prompt: 'The character asleep and completely still, now wrapped head to toe in an even calm amber aura that follows the contour of their body under the duvet, face smooth and untroubled. The aura is the dominant source, glowing outward and lifting the nearby bedding, floor and nightstand out of the dark with a soft graduated falloff at its outer edge and a gentle bloom over the whole frame. The window behind is warming toward dawn, its cool-to-warm gradient meeting the aura halfway across the room. Wide from slightly above the bed angled gently down, the figure running across the middle with generous space above and below.',
       },
       {
         label: 'BRAIN AT PEACE',
-        prompt: `SUBJECT: The factory hall from before, now spotless and dim. The cleanup drones are parked in a neat row along one wall with their brushes stowed, and one last amber orb drifts slowly upward through the centre of the space.
-SETTING: The same organic industrial hall, its arched pathways now clear of dust and glowing a steady even amber. The near gantry rail crosses the foreground, the parked drones sit mid-depth against the left wall, and the arches recede cleanly into soft haze.
-COMPOSITION: Wide shot from walkway height, camera level and looking down the hall — the same geometry as the earlier factory frame, so the return reads deliberately. The rising orb sits centred in the vertical 9:16 frame with the arches leaving clear headroom above.
-LIGHTING: A calm, even amber glow now fills the tubes and washes the whole hall in warm light; the earlier cold blue ambient has faded to a faint cool edge along the far arches. Shadows are shallow and soft.
-DETAIL: Clean reflective surfaces with no dust in the air, a soft bloom trailing the drifting orb, the drones' shells catching a low warm highlight, gentle atmospheric depth. Finished, restful, deeply calm.`,
+        prompt: 'The factory hall from before, now spotless and dim: the cleanup drones parked in a neat row along the left wall with their brushes stowed, one last amber orb drifting slowly upward through the centre trailing a soft bloom. The arched pathways are clear of dust and glow a steady even amber that washes the whole hall in warm light, the earlier cold blue faded to a faint edge along the far arches. Surfaces read clean and reflective, shadows shallow and soft. Wide from walkway height looking down the hall — deliberately the same geometry as the earlier factory frame — the rising orb centred with clear headroom above.',
       },
     ],
   },

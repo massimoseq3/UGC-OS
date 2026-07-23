@@ -26,9 +26,9 @@ const SYSTEM_TOKENS: Record<BrollMode, number> = {
 }
 
 // Typical output size of one unit of work, in tokens.
-const TOKENS_PER_VARIATION = 190   // one six-field b-roll prompt
-const TOKENS_PER_CONCEPT = 240     // one five-field keyframe prompt
-const TOKENS_PER_MOTION = 90       // one three-field motion prompt
+const TOKENS_PER_VARIATION = 130   // one b-roll prompt paragraph
+const TOKENS_PER_CONCEPT = 150     // one keyframe prompt paragraph
+const TOKENS_PER_MOTION = 90       // one motion prompt paragraph
 const TOKENS_PER_CLIP = 900        // one One-Shot scene blueprint
 const TOKENS_PER_STYLE_BLOCK = 200
 

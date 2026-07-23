@@ -299,7 +299,7 @@ export function ContinuousFrameModal({
                     onChange={(e) => { setDraft(e.target.value); onUpdate(() => ({ editablePrompt: e.target.value })) }}
                     onBlur={commitDraft}
                     rows={10}
-                    placeholder="Describe this keyframe — subject, setting, composition, lighting, detail…"
+                    placeholder="Describe this keyframe as one paragraph — what's in frame, the light, the framing…"
                     className="relative min-h-[200px] w-full grow resize-none border-0 bg-transparent px-3.5 pb-3 pt-3 text-[13px] leading-relaxed text-ink-200 placeholder-ink-600 outline-none"
                   />
                   <div className="flex items-center justify-between gap-2 border-t border-ink/10 px-2 py-1.5">
