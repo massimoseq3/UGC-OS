@@ -5,7 +5,7 @@ import { useBankStore } from '../../stores/bankStore'
 import type { Product, Model, Script, BrollHistoryItem } from '../../stores/types'
 import type { BrollResult, PromptVariation, ReferenceImage, VariationTag, VariationRefs, CardState, BrollMode, OneShotDelivery, OneShotResult, OneShotCardState } from './types'
 import { generateBroll } from './services/generateBroll'
-import { generateOneShot, buildDemoOneShotResult, ONE_SHOT_DEFAULT_MODEL_ID } from './services/generateOneShot'
+import { generateOneShot, generateOneShotVariation, buildDemoOneShotResult, ONE_SHOT_DEFAULT_MODEL_ID } from './services/generateOneShot'
 import InputPanel from './components/InputPanel'
 import RightPanel from './components/RightPanel'
 import { backfillCardState, backfillOneShotCardState } from './cardState'
@@ -170,6 +170,7 @@ export default function BrollStudio() {
     useSettingsStore((s) => s.perAppModel['broll-studio:oneshot:video']) ?? ONE_SHOT_DEFAULT_MODEL_ID
 
   const [isGenerating, setIsGenerating] = useState(false)
+  const [isAddingVariation, setIsAddingVariation] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [pickerMode, setPickerMode] = useState<PickerMode>(null)
   const [highlightField, setHighlightField] = useState<string | null>(null)
@@ -401,6 +402,38 @@ export default function BrollStudio() {
     }
   }
 
+  // "Add variation" — one more concept appended to the existing set, planned
+  // against the model the result was generated with so its clip split matches
+  // the others. The seed-card effect in OneShotView picks up the new segments.
+  const handleAddOneShotVariation = async () => {
+    if (!oneShotResult || isAddingVariation) return
+    if (!useSettingsStore.getState().kieApiKey) {
+      useAppStore.getState().addToast('Add your kie.ai key in Settings to generate more variations', 'info')
+      return
+    }
+    setIsAddingVariation(true)
+    try {
+      const concept = await generateOneShotVariation(
+        {
+          scriptText,
+          delivery: oneShotResult.delivery,
+          modelId: oneShotResult.modelId,
+          productContext,
+          modelContext,
+          additionalContext,
+        },
+        oneShotResult.concepts.length,
+      )
+      setOneShotResult((prev) => (prev ? { ...prev, concepts: [...prev.concepts, concept] } : prev))
+      useAppStore.getState().addToast('Variation added', 'success')
+    } catch (err) {
+      const msg = humanizeError(err, 'Could not add a variation. Try again.')
+      useAppStore.getState().addToast(`Add variation failed: ${msg}`, 'error')
+    } finally {
+      setIsAddingVariation(false)
+    }
+  }
+
   const handleGenerate = async () => {
     if (mode === 'oneshot') return handleGenerateOneShot()
     if (!scriptText.trim()) return
@@ -514,6 +547,8 @@ export default function BrollStudio() {
           oneShotModelId={oneShotModelId}
           oneShotCardStates={oneShotCardStates}
           setOneShotCardStates={setOneShotCardStates}
+          onAddOneShotVariation={handleAddOneShotVariation}
+          isAddingVariation={isAddingVariation}
           isGenerating={isGenerating}
           error={error}
           onAddVariation={handleAddVariation}

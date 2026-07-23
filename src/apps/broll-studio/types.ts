@@ -274,6 +274,10 @@ export interface OneShotResult {
 // push, and asset handling are identical to line-by-line cards.
 export interface OneShotCardState {
   editablePrompt: string
+  // Undo/redo history for the blueprint, same shape as CardState — pushed on
+  // Enhance / Regenerate / commit-after-edit; the index points at the live entry.
+  promptHistory: string[]
+  promptHistoryIndex: number
   videos: GeneratedVideo[]
   currentVideoIndex: number
   inFlightVideos: InFlightVideo[]

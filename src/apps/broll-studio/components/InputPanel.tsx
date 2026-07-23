@@ -1,13 +1,16 @@
 import { useState } from 'react'
-import { Package, UserRound, FileText, RefreshCw, Loader2, Film, X, ChevronRight, Clapperboard, AlertTriangle, Rows3 } from 'lucide-react'
+import { Package, UserRound, FileText, RefreshCw, Loader2, Film, X, ChevronRight, Clapperboard, AlertTriangle, Rows3, Star } from 'lucide-react'
 import type { Product, Model, Script } from '../../../stores/types'
 import type { BrollMode, OneShotDelivery } from '../types'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
 import ExpandTextModal, { ExpandButton } from '../../../components/ExpandableText'
 import SegmentedToggle from '../../../components/SegmentedToggle'
-import ModelPicker from '../../../components/ModelPicker'
+import ModelSidePanel from '../../../components/ModelSidePanel'
+import ProviderLogo from '../../../components/ProviderLogo'
+import SavingsPill from '../../../components/SavingsPill'
+import { useSettingsStore } from '../../../stores/settingsStore'
 import { ONE_SHOT_MODEL_IDS, estimateSpokenSeconds, planSegments } from '../services/generateOneShot'
-import { getModel } from '../../../utils/models'
+import { getModel, officialSavingsPercent } from '../../../utils/models'
 
 interface InputPanelProps {
   selectedProduct: Product | null
@@ -213,6 +216,7 @@ export default function InputPanel({
   const canGenerate = hasScript
   const [scriptExpanded, setScriptExpanded] = useState(false)
   const [instructionsExpanded, setInstructionsExpanded] = useState(false)
+  const [modelPanelOpen, setModelPanelOpen] = useState(false)
   const isOneShot = mode === 'oneshot'
   const hasRefs = !!selectedProduct?.productImage || !!selectedModel?.characterImage
 
@@ -221,7 +225,8 @@ export default function InputPanel({
   const estSeconds = hasScript ? estimateSpokenSeconds(scriptText) : 0
   const plan = isOneShot && hasScript ? planSegments(estSeconds, oneShotModelId) : null
   const perClipSeconds = plan ? Math.min(plan.maxClipSeconds, Math.max(4, Math.ceil(estSeconds / plan.count))) : undefined
-  const oneShotModelSupportsRefs = !!getModel(oneShotModelId)?.modes?.includes('reference-to-video')
+  const oneShotModel = getModel(oneShotModelId)
+  const oneShotModelSupportsRefs = !!oneShotModel?.modes?.includes('reference-to-video')
 
   return (
     <div className="flex flex-col md:h-full">
@@ -316,13 +321,38 @@ export default function InputPanel({
             <div>
               <span className="text-sm font-medium text-ink-200">Video Model</span>
               <div className="mt-2">
-                <ModelPicker
+                {/* Slide-in side-panel picker (same as the detail modal). */}
+                <button
+                  type="button"
+                  onClick={() => setModelPanelOpen(true)}
+                  className="flex h-12 w-full items-center gap-2.5 rounded-full border border-ink/10 bg-ink/[0.02] px-3 text-left transition-colors hover:bg-ink/[0.05]"
+                >
+                  {oneShotModel ? (
+                    <>
+                      <ProviderLogo provider={oneShotModel.provider ?? ''} />
+                      <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                        <span className="truncate text-[13px] font-medium text-ink-100">{oneShotModel.displayName}</span>
+                        {oneShotModel.tags.includes('recommended') && (
+                          <Star className="h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400 light:fill-yellow-600 light:text-yellow-600" strokeWidth={1.5} />
+                        )}
+                        {officialSavingsPercent(oneShotModelId) != null && (
+                          <SavingsPill pct={officialSavingsPercent(oneShotModelId)!} />
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <span className="flex-1 truncate text-sm text-ink-400">Select model</span>
+                  )}
+                  <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" />
+                </button>
+                <ModelSidePanel
                   appId="broll-studio"
                   task="video"
-                  persistKey="broll-studio:oneshot:video"
                   allowedModelIds={ONE_SHOT_MODEL_IDS}
                   value={oneShotModelId}
-                  onChange={onOneShotModelChange}
+                  onChange={(id) => { useSettingsStore.getState().setAppModel('broll-studio:oneshot:video', id); onOneShotModelChange(id) }}
+                  isOpen={modelPanelOpen}
+                  onClose={() => setModelPanelOpen(false)}
                   requireMode={hasRefs ? 'reference-to-video' : undefined}
                   requireModeNote="Dimmed models can't take reference images — your product/character refs would be dropped (text-to-video only)."
                   costParams={perClipSeconds ? { durationSeconds: perClipSeconds } : undefined}
@@ -407,12 +437,12 @@ export default function InputPanel({
           {isGenerating ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              <span>{isOneShot ? 'Generating Concepts...' : 'Generating Prompts...'}</span>
+              <span>{isOneShot ? 'Generating Variations...' : 'Generating Prompts...'}</span>
             </>
           ) : isOneShot ? (
             <>
               <Clapperboard className="h-4 w-4" strokeWidth={2.5} />
-              <span>Generate Concepts</span>
+              <span>Generate Variations</span>
             </>
           ) : (
             <>

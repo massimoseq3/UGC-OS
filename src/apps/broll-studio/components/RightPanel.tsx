@@ -14,6 +14,8 @@ interface RightPanelProps {
   oneShotModelId: string
   oneShotCardStates: Record<string, OneShotCardState>
   setOneShotCardStates: React.Dispatch<React.SetStateAction<Record<string, OneShotCardState>>>
+  onAddOneShotVariation: () => void
+  isAddingVariation?: boolean
   isGenerating?: boolean
   error?: string | null
   onAddVariation: (sceneNumber: number, variation: PromptVariation) => void
@@ -48,6 +50,8 @@ export default function RightPanel(props: RightPanelProps) {
     oneShotModelId,
     oneShotCardStates,
     setOneShotCardStates,
+    onAddOneShotVariation,
+    isAddingVariation,
     isGenerating,
     error,
     onAddVariation,
@@ -89,7 +93,7 @@ export default function RightPanel(props: RightPanelProps) {
           value={tab}
           onChange={setTab}
           options={[
-            { value: 'scenes', label: isOneShot ? 'Concepts' : 'Scenes', badge: sceneCount > 0 ? sceneCount : undefined },
+            { value: 'scenes', label: isOneShot ? 'Variations' : 'Scenes', badge: sceneCount > 0 ? sceneCount : undefined },
             { value: 'history', label: 'History', badge: historyCount > 0 ? historyCount : undefined },
           ]}
         />
@@ -106,9 +110,13 @@ export default function RightPanel(props: RightPanelProps) {
             selectedModel={selectedModel}
             selectedProduct={selectedProduct}
             productName={selectedProduct?.productName}
+            productContext={productContext}
+            modelContext={modelContext}
             oneShotModelId={oneShotModelId}
             cardStates={oneShotCardStates}
             setCardStates={setOneShotCardStates}
+            onAddVariation={onAddOneShotVariation}
+            isAddingVariation={isAddingVariation}
           />
         ) : tab === 'scenes' ? (
           <ScenesView
