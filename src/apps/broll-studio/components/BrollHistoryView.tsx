@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Search, Film, Trash2 } from 'lucide-react'
 import type { BrollHistoryItem } from '../../../stores/types'
-import type { BrollResult, CardState } from '../types'
+import type { BrollResult, CardState, OneShotResult } from '../types'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
 import { useBankStore } from '../../../stores/bankStore'
 import { formatRelative, sectionLabel, groupByDay } from '../../../utils/history'
@@ -117,7 +117,9 @@ function HistoryRow({
   const result = item.result as BrollResult | null
   const thumbRef = firstImageRef(cardStates)
   const thumbUrl = useAssetUrl(thumbRef ?? '')
-  const count = sceneCount(result)
+  const isOneShot = item.mode === 'oneshot'
+  const oneShotResult = item.oneShotResult as OneShotResult | undefined
+  const count = isOneShot ? (oneShotResult?.concepts?.length ?? 0) : sceneCount(result)
   const [confirming, setConfirming] = useState(false)
 
   // A clean title built from the linked references: "Product · Influencer ·
@@ -155,7 +157,12 @@ function HistoryRow({
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium leading-snug text-ink-100">{title}</p>
         <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-ink-500">
-          <span>{count} scene{count === 1 ? '' : 's'}</span>
+          {isOneShot && (
+            <span className="rounded-full bg-broll-500/10 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-broll-300">
+              One Shot
+            </span>
+          )}
+          <span>{count} {isOneShot ? `concept${count === 1 ? '' : 's'}` : `scene${count === 1 ? '' : 's'}`}</span>
           <span>·</span>
           <span className="shrink-0">{formatRelative(item.createdAt)}</span>
         </div>

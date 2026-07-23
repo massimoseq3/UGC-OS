@@ -225,6 +225,70 @@ export interface CardState {
   videoPrompt: string | null
 }
 
+// ── One Shot mode ──────────────────────────────────────────────
+// Instead of splitting the script line-by-line into silent stills, One Shot
+// asks the LLM for 4 complete video concepts — each a full master prompt a
+// multi-cut-capable model (Seedance 2.0 etc.) renders as ONE ≤15s clip. A
+// script longer than the model's max clip splits into sequential segments
+// that share identical world/voice blocks so they cut together.
+
+export type BrollMode = 'line' | 'oneshot'
+
+// 'dialogue' — the character speaks the actual script lines on camera.
+// 'silent'   — pure silent b-roll montage; a voiceover is laid over in the
+//              edit (the line-by-line mode's posture, at full-clip scale).
+export type OneShotDelivery = 'dialogue' | 'silent'
+
+export interface OneShotSegment {
+  index: number              // 1-based position within the concept
+  scriptExcerpt: string      // the exact script slice this clip covers
+  prompt: string             // full master prompt (STYLE … TIMELINE)
+  durationSeconds: number    // snapped UP onto the plan model's duration grid
+}
+
+export interface OneShotConcept {
+  id: string
+  angle: string              // short creative-angle title, e.g. "DEMO-FIRST"
+  summary: string            // one-line concept description
+  segments: OneShotSegment[]
+}
+
+export interface OneShotResult {
+  concepts: OneShotConcept[]
+  delivery: OneShotDelivery
+  // Model the segment split was computed against. A later model swap shows a
+  // stale-plan hint instead of silently re-splitting.
+  modelId: string
+  estimatedSeconds: number
+  segmentCount: number
+  // True when the script needed more than MAX_SEGMENTS clips — the LLM was
+  // told to tighten beats rather than drop lines, but the user should trim.
+  capped?: boolean
+  // Sample data shown when no kie.ai key is set — a preview of the feature,
+  // not a real generation. Drives the "sample concepts" banner.
+  demo?: boolean
+}
+
+// Slim per-segment card state, keyed `${conceptId}:${segmentIndex}`. Reuses
+// GeneratedVideo / InFlightVideo verbatim so the resume walker, videoHistory
+// push, and asset handling are identical to line-by-line cards.
+export interface OneShotCardState {
+  editablePrompt: string
+  videos: GeneratedVideo[]
+  currentVideoIndex: number
+  inFlightVideos: InFlightVideo[]
+  refsCharacter: boolean
+  refsProduct: boolean
+  aspectRatio: string
+  resolution: string
+  // Seeded from the segment's planned length; user-overridable in the detail
+  // modal. Snapped to the active model's grid at fire time.
+  durationSeconds: number
+  // Kept on even in silent delivery: the prompt's AUDIO rules ban speech and
+  // music, but diegetic room tone is wanted footage an editor can always mute.
+  audio: boolean
+}
+
 // Helpers for translating the LLM's `refs` enum into the two toggle booleans
 // the card stores. Kept in this module so OutputPanel + the migration in
 // BrollStudio.tsx share the same logic.

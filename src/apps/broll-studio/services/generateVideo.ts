@@ -29,6 +29,8 @@ export interface VideoGenInput {
   firstFrameDataUri?: string
   lastFrameDataUri?: string
   referenceDataUris?: string[]
+  // Kling 3.0: allow multi-cut inside one generation (One Shot mode).
+  multiShots?: boolean
 }
 
 export interface VideoGenResult {
@@ -77,6 +79,7 @@ export async function startVideoTask(
     firstFrameUrl,
     lastFrameUrl,
     referenceImageUrls,
+    multiShots: input.multiShots,
   }
   const body = buildVideoInput(input.modelId, buildOpts)
 
