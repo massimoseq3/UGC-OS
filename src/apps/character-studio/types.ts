@@ -1,7 +1,51 @@
 import type { ElementType } from 'react'
 import { IdCard, Eye, Scissors, Smile, Shirt, MapPin, PersonStanding, Camera } from 'lucide-react'
+import type { ImageResolution } from '../../utils/models'
 
 export type TabId = 'physical' | 'scene' | 'camera'
+
+// One running generation. Persisted to localStorage so a mid-flight refresh
+// resumes polling instead of losing the job. `taskId` is the kie.ai task ref
+// returned by startCharacterTask; missing while the createTask request is
+// in flight, populated as soon as kie returns it. `profile` / `resolution`
+// are the snapshot needed to write the history row on success.
+//
+// Owned by CharacterStudio for EVERY generation surface — the form, the
+// gallery's "Make Sheet" action, and the edit modal alike — so closing the
+// modal (or refreshing) never orphans an in-flight job.
+export interface InFlightCharacterGen {
+  id: string
+  modelId: string
+  aspectRatio: string
+  startedAt: number
+  taskId?: string
+  resolution?: ImageResolution
+  // Portrait vs character-sheet generation (undefined → portrait, pre-sheet entries).
+  kind?: 'portrait' | 'sheet'
+  // The CharacterProfile snapshot to write into characterHistory on success.
+  profile?: Record<string, string>
+  // Set when the gen belongs to an existing character's lineage (started from
+  // the edit modal) so the finished row rejoins that character's strip — and so
+  // the modal can re-render this tile after a close + reopen.
+  lineageId?: string
+}
+
+// Everything a caller needs to kick off a generation through CharacterStudio's
+// launcher. `edit` swaps the profile-built portrait prompt for an instruction
+// applied image-to-image on top of `baseImageRef` (the edit modal's cover).
+export interface LaunchGenOptions {
+  profile: CharacterProfile
+  resolution: ImageResolution
+  kind: 'portrait' | 'sheet'
+  aspect: string
+  referenceUrl?: string
+  lineageId?: string
+  edit?: {
+    instruction: string
+    baseImageRef: string
+    referenceUrls: string[]
+  }
+}
 
 // The single style string used for Camera Device — keeps every generated
 // character locked to the same UGC photorealism look.

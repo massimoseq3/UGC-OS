@@ -8,7 +8,8 @@ import { usePersistedState } from '../../../hooks/usePersistedState'
 import { humanizeError } from '../../../utils/friendlyError'
 import { sectionLabel, groupByDay } from '../../../utils/history'
 import type { CharacterHistoryItem } from '../../../stores/types'
-import { getModel, type ImageResolution } from '../../../utils/models'
+import type { InFlightCharacterGen, LaunchGenOptions } from '../types'
+import { getModel } from '../../../utils/models'
 import SegmentedToggle from '../../../components/SegmentedToggle'
 import InfluencerEditModal from './InfluencerEditModal'
 import GeneratingTile from './GeneratingTile'
@@ -22,33 +23,16 @@ import { downloadImage } from '../../../utils/downloadImage'
 const LIST_CARD_MIN = 200
 const LIST_CARD_MAX = 560
 
-// One running generation. Persisted to localStorage so a mid-flight refresh
-// resumes polling instead of losing the job. `taskId` is the kie.ai task ref
-// returned by startCharacterTask; missing while the createTask request is
-// in flight, populated as soon as kie returns it. `profile` / `resolution`
-// are the snapshot needed to write the history row on success.
-export interface InFlightCharacterGen {
-  id: string
-  modelId: string
-  aspectRatio: string
-  startedAt: number
-  taskId?: string
-  resolution?: ImageResolution
-  // Portrait vs character-sheet generation (undefined → portrait, pre-sheet entries).
-  kind?: 'portrait' | 'sheet'
-  // The CharacterProfile snapshot to write into characterHistory on success.
-  // Typed as Record<string, string> to avoid an import cycle through types.
-  profile?: Record<string, string>
-}
-
 interface GalleryPanelProps {
   inFlight: InFlightCharacterGen[]
   onCancelGen: (id: string) => void
+  onLaunchGen: (opts: LaunchGenOptions) => void
 }
 
 export default function GalleryPanel({
   inFlight,
   onCancelGen,
+  onLaunchGen,
 }: GalleryPanelProps) {
   const [previewItem, setPreviewItem] = useState<CharacterHistoryItem | null>(null)
   // Which mode the edit pop-up opens in. "Make Sheet" on a tile opens straight
@@ -195,6 +179,9 @@ export default function GalleryPanel({
         <InfluencerEditModal
           item={previewItem}
           initialMode={previewMode}
+          inFlight={inFlight}
+          onLaunchGen={onLaunchGen}
+          onCancelGen={onCancelGen}
           onClose={() => setPreviewItem(null)}
         />
       )}
