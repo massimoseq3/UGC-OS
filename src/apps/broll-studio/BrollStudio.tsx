@@ -3,17 +3,18 @@ import { useAppStore } from '../../stores/appStore'
 import { useReportActivity } from '../../stores/activityStore'
 import { useBankStore } from '../../stores/bankStore'
 import type { Product, Model, Script, BrollHistoryItem } from '../../stores/types'
-import type { BrollResult, PromptVariation, ReferenceImage, VariationTag, VariationRefs, CardState, BrollMode, OneShotDelivery, OneShotResult, OneShotCardState, AnimatedResult, AnimatedSelection, AnimatedFrameCardState, AnimatedClipCardState } from './types'
+import type { BrollResult, PromptVariation, ReferenceImage, VariationTag, VariationRefs, CardState, BrollMode, OneShotDelivery, OneShotResult, OneShotCardState, ContinuousResult, ContinuousSelection, ContinuousFrameCardState, ContinuousClipCardState } from './types'
 import { generateBroll } from './services/generateBroll'
 import { generateOneShot, generateOneShotVariation, buildDemoOneShotResult, ONE_SHOT_DEFAULT_MODEL_ID } from './services/generateOneShot'
-import { generateAnimated, generateAnimatedConcept, buildDemoAnimatedResult, ANIMATED_DEFAULT_MODEL_ID, ANIMATED_STYLES } from './services/generateAnimated'
+import { generateContinuous, generateContinuousConcept, buildDemoContinuousResult, analyzeStyleReferences, CONTINUOUS_DEFAULT_MODEL_ID, CONTINUOUS_STYLES } from './services/generateContinuous'
 import InputPanel from './components/InputPanel'
 import RightPanel from './components/RightPanel'
-import { backfillCardState, backfillOneShotCardState, backfillAnimatedFrameState, backfillAnimatedClipState } from './cardState'
+import { backfillCardState, backfillOneShotCardState, backfillContinuousFrameState, backfillContinuousClipState } from './cardState'
 import { useSettingsStore } from '../../stores/settingsStore'
 import BankPicker from '../../components/BankPicker'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
 import { humanizeError } from '../../utils/friendlyError'
+import { fileToDataUri } from '../../utils/kie'
 
 type PickerMode = 'products' | 'models' | 'scripts' | null
 
@@ -148,7 +149,10 @@ export default function BrollStudio() {
 
   // ── One Shot mode state ──────────────────────────────────────
   // Defaults keep existing users in line-by-line with zero change.
-  const [mode, setMode] = usePersistedState<BrollMode>(`${baseKey}:mode`, 'line')
+  const [mode, setMode] = usePersistedState<BrollMode>(`${baseKey}:mode`, 'line', {
+    // The keyframe-chain mode shipped briefly as 'animated' before the rename.
+    sanitize: (raw) => ((raw as string) === 'animated' ? 'continuous' : raw),
+  })
   const [oneShotDelivery, setOneShotDelivery] = usePersistedState<OneShotDelivery>(`${baseKey}:oneShotDelivery`, 'dialogue')
   const [oneShotResult, setOneShotResult] = usePersistedState<OneShotResult | null>(`${baseKey}:oneShotResult`, null)
   const [oneShotCardStates, setOneShotCardStates] = usePersistedState<Record<string, OneShotCardState>>(
@@ -170,34 +174,40 @@ export default function BrollStudio() {
   const oneShotModelId =
     useSettingsStore((s) => s.perAppModel['broll-studio:oneshot:video']) ?? ONE_SHOT_DEFAULT_MODEL_ID
 
-  // ── Animated mode (keyframe chain) state ─────────────────────
-  const [animatedStyleId, setAnimatedStyleId] = usePersistedState<string>(`${baseKey}:animatedStyle`, ANIMATED_STYLES[0].id)
-  const [animatedResult, setAnimatedResult] = usePersistedState<AnimatedResult | null>(`${baseKey}:animatedResult`, null)
-  const [animatedSelections, setAnimatedSelections] = usePersistedState<Record<string, AnimatedSelection>>(`${baseKey}:animatedSelections`, {})
-  const [animatedFrameStates, setAnimatedFrameStates] = usePersistedState<Record<string, AnimatedFrameCardState>>(
-    `${baseKey}:animatedFrameStates`,
+  // ── Continuous mode (keyframe chain) state ─────────────────────
+  const [continuousStyleId, setContinuousStyleId] = usePersistedState<string>(`${baseKey}:continuousStyle`, CONTINUOUS_STYLES[0].id)
+  // Style reference frames are memory-only (data: URIs blow the localStorage
+  // quota); the distilled brief they produce IS persisted, so a refresh keeps
+  // the locked style even though the thumbnails go.
+  const [styleRefs, setStyleRefs] = useState<string[]>([])
+  const [isAnalyzingStyle, setIsAnalyzingStyle] = useState(false)
+  const [continuousStyleBrief, setContinuousStyleBrief] = usePersistedState<string | null>(`${baseKey}:continuousStyleBrief`, null)
+  const [continuousResult, setContinuousResult] = usePersistedState<ContinuousResult | null>(`${baseKey}:continuousResult`, null)
+  const [continuousSelections, setContinuousSelections] = usePersistedState<Record<string, ContinuousSelection>>(`${baseKey}:continuousSelections`, {})
+  const [continuousFrameStates, setContinuousFrameStates] = usePersistedState<Record<string, ContinuousFrameCardState>>(
+    `${baseKey}:continuousFrameStates`,
     {},
     {
       sanitize: (raw) => {
-        const next: Record<string, AnimatedFrameCardState> = {}
-        for (const k in raw) next[k] = backfillAnimatedFrameState(raw[k] as Partial<AnimatedFrameCardState> & Record<string, unknown>)
+        const next: Record<string, ContinuousFrameCardState> = {}
+        for (const k in raw) next[k] = backfillContinuousFrameState(raw[k] as Partial<ContinuousFrameCardState> & Record<string, unknown>)
         return next
       },
     },
   )
-  const [animatedClipStates, setAnimatedClipStates] = usePersistedState<Record<string, AnimatedClipCardState>>(
-    `${baseKey}:animatedClipStates`,
+  const [continuousClipStates, setContinuousClipStates] = usePersistedState<Record<string, ContinuousClipCardState>>(
+    `${baseKey}:continuousClipStates`,
     {},
     {
       sanitize: (raw) => {
-        const next: Record<string, AnimatedClipCardState> = {}
-        for (const k in raw) next[k] = backfillAnimatedClipState(raw[k] as Partial<AnimatedClipCardState> & Record<string, unknown>)
+        const next: Record<string, ContinuousClipCardState> = {}
+        for (const k in raw) next[k] = backfillContinuousClipState(raw[k] as Partial<ContinuousClipCardState> & Record<string, unknown>)
         return next
       },
     },
   )
-  const animatedModelId =
-    useSettingsStore((s) => s.perAppModel['broll-studio:animated:video']) ?? ANIMATED_DEFAULT_MODEL_ID
+  const continuousModelId =
+    useSettingsStore((s) => s.perAppModel['broll-studio:continuous:video']) ?? CONTINUOUS_DEFAULT_MODEL_ID
   const [addingConceptFrame, setAddingConceptFrame] = useState<number | null>(null)
 
   const [isGenerating, setIsGenerating] = useState(false)
@@ -219,8 +229,8 @@ export default function BrollStudio() {
           cs.isPromptWorking === true,
       ) ||
       Object.values(oneShotCardStates).some((cs) => cs.inFlightVideos.length > 0) ||
-      Object.values(animatedFrameStates).some((cs) => cs.inFlightImages.some((e) => !e.error)) ||
-      Object.values(animatedClipStates).some((cs) => cs.inFlightVideos.some((e) => !e.error)),
+      Object.values(continuousFrameStates).some((cs) => cs.inFlightImages.some((e) => !e.error)) ||
+      Object.values(continuousClipStates).some((cs) => cs.inFlightVideos.some((e) => !e.error)),
   )
 
   const interAppPayload = useAppStore((s) => s.interAppPayload)
@@ -289,7 +299,7 @@ export default function BrollStudio() {
   // prompt) don't thrash localStorage. Only writes when there's actually a
   // result to snapshot.
   useEffect(() => {
-    if ((!result && !oneShotResult && !animatedResult) || !sessionIdRef.current) return
+    if ((!result && !oneShotResult && !continuousResult) || !sessionIdRef.current) return
     const handle = setTimeout(() => {
       const item: BrollHistoryItem = {
         id: sessionIdRef.current,
@@ -307,17 +317,17 @@ export default function BrollStudio() {
         oneShotCardStates: Object.keys(oneShotCardStates).length > 0 ? oneShotCardStates : undefined,
         oneShotDelivery: oneShotResult ? oneShotDelivery : undefined,
         oneShotModelId: oneShotResult ? oneShotModelId : undefined,
-        animatedResult: animatedResult ?? undefined,
-        animatedFrameStates: Object.keys(animatedFrameStates).length > 0 ? animatedFrameStates : undefined,
-        animatedClipStates: Object.keys(animatedClipStates).length > 0 ? animatedClipStates : undefined,
-        animatedSelections: Object.keys(animatedSelections).length > 0 ? animatedSelections : undefined,
-        animatedStyleId: animatedResult ? animatedStyleId : undefined,
-        animatedModelId: animatedResult ? animatedModelId : undefined,
+        continuousResult: continuousResult ?? undefined,
+        continuousFrameStates: Object.keys(continuousFrameStates).length > 0 ? continuousFrameStates : undefined,
+        continuousClipStates: Object.keys(continuousClipStates).length > 0 ? continuousClipStates : undefined,
+        continuousSelections: Object.keys(continuousSelections).length > 0 ? continuousSelections : undefined,
+        continuousStyleId: continuousResult ? continuousStyleId : undefined,
+        continuousModelId: continuousResult ? continuousModelId : undefined,
       }
       upsertBrollHistory(item)
     }, 1000)
     return () => clearTimeout(handle)
-  }, [result, cardStates, oneShotResult, oneShotCardStates, oneShotDelivery, oneShotModelId, animatedResult, animatedFrameStates, animatedClipStates, animatedSelections, animatedStyleId, animatedModelId, mode, selectedProductId, selectedModelId, selectedScriptId, scriptText, additionalContext, selectedProduct, upsertBrollHistory])
+  }, [result, cardStates, oneShotResult, oneShotCardStates, oneShotDelivery, oneShotModelId, continuousResult, continuousFrameStates, continuousClipStates, continuousSelections, continuousStyleId, continuousModelId, mode, selectedProductId, selectedModelId, selectedScriptId, scriptText, additionalContext, selectedProduct, upsertBrollHistory])
 
   // "New": clear the inputs / references only. The generated scene cards stay
   // on screen — they're the user's output, never wiped by starting a new
@@ -473,26 +483,27 @@ export default function BrollStudio() {
     }
   }
 
-  const handleGenerateAnimated = async () => {
+  const handleGenerateContinuous = async () => {
     if (!scriptText.trim()) return
     // No kie.ai key yet → show the sample storyboard so the member sees what
-    // Animated mode produces before wiring billing.
+    // Continuous mode produces before wiring billing.
     if (!useSettingsStore.getState().kieApiKey) {
       setSessionId(newSessionId())
-      setAnimatedFrameStates({})
-      setAnimatedClipStates({})
-      setAnimatedSelections({})
-      setAnimatedResult(buildDemoAnimatedResult(animatedModelId, animatedStyleId))
+      setContinuousFrameStates({})
+      setContinuousClipStates({})
+      setContinuousSelections({})
+      setContinuousResult(buildDemoContinuousResult(continuousModelId, continuousStyleId))
       useAppStore.getState().addToast('Showing a sample storyboard — add your kie.ai key to storyboard your own script', 'info')
       return
     }
     setIsGenerating(true)
     setError(null)
     try {
-      const res = await generateAnimated({
+      const res = await generateContinuous({
         scriptText,
-        styleId: animatedStyleId,
-        modelId: animatedModelId,
+        styleId: continuousStyleId,
+        styleBrief: continuousStyleBrief ?? undefined,
+        modelId: continuousModelId,
         productContext,
         modelContext,
         additionalContext,
@@ -500,10 +511,10 @@ export default function BrollStudio() {
       // Same commit discipline as the other modes: only rotate the session
       // once a storyboard actually landed.
       setSessionId(newSessionId())
-      setAnimatedFrameStates({})
-      setAnimatedClipStates({})
-      setAnimatedSelections({})
-      setAnimatedResult(res)
+      setContinuousFrameStates({})
+      setContinuousClipStates({})
+      setContinuousSelections({})
+      setContinuousResult(res)
       useAppStore.getState().addToast('Storyboard ready — pick a keyframe per frame, then animate', 'success')
     } catch (err) {
       const msg = humanizeError(err, 'Storyboard generation failed. Check your API key and try again.')
@@ -514,18 +525,46 @@ export default function BrollStudio() {
     }
   }
 
+  // Style references → one vision call → a style paragraph that outranks the
+  // preset chips for this storyboard. Reads the LOOK only, never the content.
+  const handleAddStyleRefs = async (files: File[]) => {
+    const room = 4 - styleRefs.length
+    if (room <= 0) return
+    const dataUris = await Promise.all(files.slice(0, room).map((f) => fileToDataUri(f)))
+    setStyleRefs((prev) => [...prev, ...dataUris].slice(0, 4))
+  }
+
+  const handleAnalyzeStyleRefs = async () => {
+    if (styleRefs.length === 0 || isAnalyzingStyle) return
+    if (!useSettingsStore.getState().kieApiKey) {
+      useAppStore.getState().addToast('Add your kie.ai key in Settings to analyze a reference style', 'info')
+      return
+    }
+    setIsAnalyzingStyle(true)
+    try {
+      const brief = await analyzeStyleReferences(styleRefs)
+      setContinuousStyleBrief(brief)
+      useAppStore.getState().addToast('Style locked from your references', 'success')
+    } catch (err) {
+      const msg = humanizeError(err, 'Could not read the style from those images.')
+      useAppStore.getState().addToast(`Style analysis failed: ${msg}`, 'error')
+    } finally {
+      setIsAnalyzingStyle(false)
+    }
+  }
+
   // One more visual concept for a single keyframe (the frame row's "Add
   // concept" card).
-  const handleAddAnimatedConcept = async (frameIndex: number) => {
-    if (!animatedResult || addingConceptFrame !== null) return
-    if (animatedResult.demo || !useSettingsStore.getState().kieApiKey) {
+  const handleAddContinuousConcept = async (frameIndex: number) => {
+    if (!continuousResult || addingConceptFrame !== null) return
+    if (continuousResult.demo || !useSettingsStore.getState().kieApiKey) {
       useAppStore.getState().addToast('Add your kie.ai key in Settings to generate more concepts', 'info')
       return
     }
     setAddingConceptFrame(frameIndex)
     try {
-      const concept = await generateAnimatedConcept(animatedResult, frameIndex, { productContext, modelContext })
-      setAnimatedResult((prev) => {
+      const concept = await generateContinuousConcept(continuousResult, frameIndex, { productContext, modelContext })
+      setContinuousResult((prev) => {
         if (!prev) return prev
         return {
           ...prev,
@@ -543,7 +582,7 @@ export default function BrollStudio() {
 
   const handleGenerate = async () => {
     if (mode === 'oneshot') return handleGenerateOneShot()
-    if (mode === 'animated') return handleGenerateAnimated()
+    if (mode === 'continuous') return handleGenerateContinuous()
     if (!scriptText.trim()) return
     setIsGenerating(true)
     setError(null)
@@ -614,26 +653,26 @@ export default function BrollStudio() {
       useSettingsStore.getState().setAppModel('broll-studio:oneshot:video', item.oneShotModelId)
     }
 
-    // Animated snapshot (absent on older rows).
-    setAnimatedResult((item.animatedResult as AnimatedResult | undefined) ?? null)
-    const restoredFrames: Record<string, AnimatedFrameCardState> = {}
-    for (const k in (item.animatedFrameStates ?? {}) as Record<string, unknown>) {
-      restoredFrames[k] = backfillAnimatedFrameState(
-        (item.animatedFrameStates as Record<string, Partial<AnimatedFrameCardState> & Record<string, unknown>>)[k],
+    // Continuous snapshot (absent on older rows).
+    setContinuousResult((item.continuousResult as ContinuousResult | undefined) ?? null)
+    const restoredFrames: Record<string, ContinuousFrameCardState> = {}
+    for (const k in (item.continuousFrameStates ?? {}) as Record<string, unknown>) {
+      restoredFrames[k] = backfillContinuousFrameState(
+        (item.continuousFrameStates as Record<string, Partial<ContinuousFrameCardState> & Record<string, unknown>>)[k],
       )
     }
-    setAnimatedFrameStates(restoredFrames)
-    const restoredClips: Record<string, AnimatedClipCardState> = {}
-    for (const k in (item.animatedClipStates ?? {}) as Record<string, unknown>) {
-      restoredClips[k] = backfillAnimatedClipState(
-        (item.animatedClipStates as Record<string, Partial<AnimatedClipCardState> & Record<string, unknown>>)[k],
+    setContinuousFrameStates(restoredFrames)
+    const restoredClips: Record<string, ContinuousClipCardState> = {}
+    for (const k in (item.continuousClipStates ?? {}) as Record<string, unknown>) {
+      restoredClips[k] = backfillContinuousClipState(
+        (item.continuousClipStates as Record<string, Partial<ContinuousClipCardState> & Record<string, unknown>>)[k],
       )
     }
-    setAnimatedClipStates(restoredClips)
-    setAnimatedSelections((item.animatedSelections as Record<string, AnimatedSelection> | undefined) ?? {})
-    if (item.animatedStyleId) setAnimatedStyleId(item.animatedStyleId)
-    if (item.animatedModelId) {
-      useSettingsStore.getState().setAppModel('broll-studio:animated:video', item.animatedModelId)
+    setContinuousClipStates(restoredClips)
+    setContinuousSelections((item.continuousSelections as Record<string, ContinuousSelection> | undefined) ?? {})
+    if (item.continuousStyleId) setContinuousStyleId(item.continuousStyleId)
+    if (item.continuousModelId) {
+      useSettingsStore.getState().setAppModel('broll-studio:continuous:video', item.continuousModelId)
     }
     setActiveHistoryId(item.id)
   }
@@ -665,9 +704,16 @@ export default function BrollStudio() {
           onOneShotDeliveryChange={setOneShotDelivery}
           oneShotModelId={oneShotModelId}
           onOneShotModelChange={() => { /* persisted by the picker via persistKey */ }}
-          animatedStyleId={animatedStyleId}
-          onAnimatedStyleChange={setAnimatedStyleId}
-          animatedModelId={animatedModelId}
+          continuousStyleId={continuousStyleId}
+          onContinuousStyleChange={setContinuousStyleId}
+          styleRefs={styleRefs}
+          onAddStyleRefs={(files) => { void handleAddStyleRefs(files) }}
+          onRemoveStyleRef={(i) => setStyleRefs((prev) => prev.filter((_, idx) => idx !== i))}
+          onClearStyleRefs={() => { setStyleRefs([]); setContinuousStyleBrief(null) }}
+          onAnalyzeStyleRefs={() => { void handleAnalyzeStyleRefs() }}
+          isAnalyzingStyle={isAnalyzingStyle}
+          continuousStyleBrief={continuousStyleBrief}
+          onClearStyleBrief={() => setContinuousStyleBrief(null)}
         />
       </div>
 
@@ -682,15 +728,15 @@ export default function BrollStudio() {
           setOneShotCardStates={setOneShotCardStates}
           onAddOneShotVariation={handleAddOneShotVariation}
           isAddingVariation={isAddingVariation}
-          animatedResult={animatedResult}
-          animatedModelId={animatedModelId}
-          animatedFrameStates={animatedFrameStates}
-          setAnimatedFrameStates={setAnimatedFrameStates}
-          animatedClipStates={animatedClipStates}
-          setAnimatedClipStates={setAnimatedClipStates}
-          animatedSelections={animatedSelections}
-          setAnimatedSelections={setAnimatedSelections}
-          onAddAnimatedConcept={handleAddAnimatedConcept}
+          continuousResult={continuousResult}
+          continuousModelId={continuousModelId}
+          continuousFrameStates={continuousFrameStates}
+          setContinuousFrameStates={setContinuousFrameStates}
+          continuousClipStates={continuousClipStates}
+          setContinuousClipStates={setContinuousClipStates}
+          continuousSelections={continuousSelections}
+          setContinuousSelections={setContinuousSelections}
+          onAddContinuousConcept={handleAddContinuousConcept}
           addingConceptFrame={addingConceptFrame}
           isGenerating={isGenerating}
           error={error}

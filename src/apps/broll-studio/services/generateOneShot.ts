@@ -130,6 +130,10 @@ This clip renders as ONE video with the cuts baked in — the model performs eve
 
 Detail is what separates a winning clip from generic stock: every scene names the exact prop, the exact body position and hand placement, the exact micro-expression, and the real light source. Vague direction ("she looks happy", "nice lighting", "using the product") renders as generic footage — write each scene the way you'd describe a shot you already filmed and are now logging frame by frame. When in doubt, add specificity, not another scene.
 
+Every scene's six fields run 90-150 words together. A scene written in under 80 words is under-specified and will render as stock. Hold that depth all the way through: the last scene of the last clip gets the same detail as Scene 1, and a two-clip concept never thins out in clip 2. If a scene could describe two visually different shots, rewrite it.
+
+Banned everywhere, in every field: "beautiful", "stunning", "modern", "clean", "minimalist", "aesthetic", "high quality", "professional", "vibe", "looking happy/sad/frustrated" (name what the face is actually doing), "using the product" (name the actual action). They describe nothing a model can render.
+
 Every scene starts with a header EXACTLY in this form:
 --- Scene N: <short label> (MM:SS-MM:SS) ---
 
@@ -426,6 +430,8 @@ export async function enhanceOneShotClip(currentPrompt: string, ctx: ClipContext
   const endpoint = getChatEndpointPath()
   const system = oneShotSystem(ctx.delivery)
   const user = `Here is the scene blueprint for ONE clip of a UGC ad. Rewrite it to be MORE detailed and vivid while keeping the EXACT same format (same scene headers and timestamps, the same six labelled fields${ctx.delivery === 'dialogue' ? ', the same VOICE PROFILE block' : ''}) and the same spoken lines. Sharpen every field — more specific props, exact body position and hand placement, the real light source, precise micro-expressions — without changing what happens or padding it with extra scenes.
+
+Enhance means ADD DETAIL, not rephrase: every scene should come back richer than it went in, at 90-150 words per scene. Never return a blueprint shorter than the one you were given.
 
 CONCEPT ANGLE: ${ctx.angle}
 

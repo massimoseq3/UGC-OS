@@ -49,8 +49,10 @@ AUDIO: the diegetic sound of the scene only (fabric, running water, a bag zip, r
 
 Format rules:
 - All six labels appear in every prompt, in this order. DIALOGUE is always "none".
-- One line per field. Aim for 90-150 words across all six.
-- Never repeat yourself across fields: the room belongs in SETTING, the light belongs in LIGHTING, the movement belongs in ACTION.`
+- One line per field. Aim for 130-200 words across all six — a prompt under 120 words is under-specified and will render as generic stock footage.
+- Never repeat yourself across fields: the room belongs in SETTING, the light belongs in LIGHTING, the movement belongs in ACTION.
+- Density over brevity. Every field earns its length: SETTING names real props, CAMERA gives all three geometry values plus the quality register, LIGHTING names the source and its warmth, ACTION names the actual movement beat by beat, AUDIO names the specific sounds. Never thin out the later scenes of an ad — scene 8 gets the same depth as scene 1.
+- Banned words, everywhere: "beautiful", "stunning", "modern", "clean", "minimalist", "aesthetic", "high quality", "professional", "vibe". They describe nothing a model can draw. Name the thing instead.`
 
 const SYSTEM_INSTRUCTION = `# ROLE
 
@@ -164,7 +166,9 @@ The user's character reference may be of any gender.
 
 ## 4. SPECIFICITY OVER COMPLETENESS
 
-Generic prompts fail. Every prompt must name:
+Generic prompts fail — this is the rule that decides whether the footage is usable. Write each prompt the way you would log a shot you already filmed and are now describing frame by frame, not the way you would pitch it. If a prompt could describe two visually different shots, it is not finished; add specificity rather than another variation.
+
+Every prompt must name:
 - Exact body position (seated cross-legged on the floor, leaning against the kitchen counter, perched on the edge of the bathtub)
 - Exact hand position (one hand resting on the cheek, both hands wrapped around a mug, pointing toward the jawline)
 - Exact gaze (looking straight down the lens, glancing down at their own hands, eyes flicking to the side mid-thought)
@@ -550,7 +554,7 @@ export async function startImageTask(
   resolution?: ImageResolution,
   // STATIC anchor cards want the reference's setting and framing carried over
   // rather than stripped — flips which preamble scopes the refs.
-  // Animated mode passes noRealism (the stylized-3D aesthetic is the opposite
+  // Continuous mode passes noRealism (the stylized-3D aesthetic is the opposite
   // of the iPhone stack) and its own chain-continuity preamble.
   opts?: { inheritReference?: boolean; noRealism?: boolean; preambleOverride?: string },
 ): Promise<{ taskId: string; modelId: string }> {
@@ -745,7 +749,8 @@ Scene ${scene.number} — LINE: "${scene.scriptLine}"
 Variation tag: ${variation.tag}${variation.label ? `\nShot label: ${variation.label}` : ''}
 ${productContext ? `\n${productContext}\n` : ''}${modelContext ? `\n${modelContext}\nIMPORTANT: never describe the character's physical appearance in detail. Refer to them as "the character".\n` : ''}
 Rules:
-- Return the six labelled lines from PROMPT FORMAT — SETTING, CAMERA, LIGHTING, ACTION, DIALOGUE, AUDIO — in that order, 90-150 words total. If the draft is one unlabelled paragraph, that is exactly what you are here to fix: sort its content into the right fields and fill any the draft never covered.
+- Return the six labelled lines from PROMPT FORMAT — SETTING, CAMERA, LIGHTING, ACTION, DIALOGUE, AUDIO — in that order, 130-200 words total. If the draft is one unlabelled paragraph, that is exactly what you are here to fix: sort its content into the right fields and fill any the draft never covered.
+- Enhance means ADD DETAIL, not rephrase. Every field should come back richer than it went in — more specific props, exact body and hand position, the real light source, precise micro-expressions, the actual sounds. Never return a prompt shorter than the draft.
 - Specificity over completeness — body position, hand position, gaze, micro-expression, setting detail, framing.
 - Never "he/him/she/her/subject" — use "the character" or "they/them/their".
 - The realism stack goes in the fields that own it: quality register in CAMERA, light in LIGHTING, unposed movement in ACTION. No "Style: ..." trailer.

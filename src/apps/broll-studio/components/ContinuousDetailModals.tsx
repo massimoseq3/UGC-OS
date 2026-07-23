@@ -19,19 +19,42 @@ import {
   Copy,
   ArrowDown,
   Palette,
+  Sparkles,
+  Undo2,
+  Redo2,
+  ChevronRight,
+  Star,
 } from 'lucide-react'
 import ConstraintChip from '../../../components/ConstraintChip'
+import AspectIcon from '../../../components/AspectIcon'
+import ModelPicker from '../../../components/ModelPicker'
+import ModelSidePanel from '../../../components/ModelSidePanel'
+import ProviderLogo from '../../../components/ProviderLogo'
+import SavingsPill from '../../../components/SavingsPill'
 import ExpandTextModal, { ExpandButton } from '../../../components/ExpandableText'
-import { ReferenceSlotCard } from './cardDetailParts'
-import type { AnimatedFrameCardState, AnimatedClipCardState, GeneratedVideo, ReferenceImage } from '../types'
+import { ReferenceSlotCard, ExtraRefsRow } from './cardDetailParts'
+import type { ContinuousFrameCardState, ContinuousClipCardState, GeneratedVideo, ReferenceImage } from '../types'
 import type { Product, Model } from '../../../stores/types'
+import { CONTINUOUS_MODEL_IDS } from '../services/generateContinuous'
 import { useAppStore } from '../../../stores/appStore'
+import { useSettingsStore } from '../../../stores/settingsStore'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
 import { getUrl } from '../../../utils/assetStore'
 import { useCloseOnAppSwitch } from '../../../hooks/useCloseOnAppSwitch'
-import { getModel, estimateCredits, formatCredits, videoResolutionLabel } from '../../../utils/models'
+import {
+  getModel,
+  getDefaultModel,
+  estimateCredits,
+  formatCredits,
+  videoResolutionLabel,
+  imageResolutionsFor,
+  officialSavingsPercent,
+  snapVideoDuration,
+  type ImageResolution,
+} from '../../../utils/models'
 import { downloadImage } from '../../../utils/downloadImage'
 import { copyToClipboard } from '../../../utils/clipboard'
+import { humanizeError } from '../../../utils/friendlyError'
 
 // ── Shared modal shell ─────────────────────────────────────────
 
@@ -88,29 +111,38 @@ function StyleNote({ style }: { style: string }) {
 
 // ── Frame modal — keyframe concept workspace ───────────────────
 
-interface AnimatedFrameModalProps {
+interface ContinuousFrameModalProps {
   frameLabel: string    // "Frame 3" / "Final Frame"
   conceptLabel: string  // the concept's staging slug
   scriptLine: string    // the narration line this frame opens ('' for final)
   style: string
-  cardState: AnimatedFrameCardState
+  cardState: ContinuousFrameCardState
   // The previous frame's chosen keyframe (chain reference), if picked.
   chainImageRef?: string
   characterRef?: ReferenceImage
   productRef?: ReferenceImage
   selectedModel?: Model | null
   selectedProduct?: Product | null
+  // Extra user-attached reference images (memory-only, like the Line-by-Line
+  // card's extraRefs — data: URIs are too big to persist).
+  extraRefs: ReferenceImage[]
+  onAddExtraRef: (ref: ReferenceImage) => void
+  onRemoveExtraRef: (index: number) => void
   // Which image (if any) of THIS concept is the frame's chosen keyframe.
   selectedImageIndex: number | null
   onSelectImage: (index: number) => void
   onClose: () => void
-  onUpdate: (updater: (prev: AnimatedFrameCardState) => Partial<AnimatedFrameCardState>) => void
+  onUpdate: (updater: (prev: ContinuousFrameCardState) => Partial<ContinuousFrameCardState>) => void
   onGenerate: () => void
+  // Prompt tools — the LLM rewrites (kept in the view so it owns the storyboard
+  // context the calls need).
+  onEnhancePrompt: () => Promise<string>
+  onRegeneratePrompt: () => Promise<string>
   onRetryInFlight: (id: string) => void
   onDismissInFlight: (id: string) => void
 }
 
-export function AnimatedFrameModal({
+export function ContinuousFrameModal({
   frameLabel,
   conceptLabel,
   scriptLine,
@@ -121,16 +153,22 @@ export function AnimatedFrameModal({
   productRef,
   selectedModel,
   selectedProduct,
+  extraRefs,
+  onAddExtraRef,
+  onRemoveExtraRef,
   selectedImageIndex,
   onSelectImage,
   onClose,
   onUpdate,
   onGenerate,
+  onEnhancePrompt,
+  onRegeneratePrompt,
   onRetryInFlight,
   onDismissInFlight,
-}: AnimatedFrameModalProps) {
+}: ContinuousFrameModalProps) {
   const [draft, setDraft] = useState(cardState.editablePrompt)
   const [promptExpanded, setPromptExpanded] = useState(false)
+  const [promptWorking, setPromptWorking] = useState(false)
   // Adjust-during-render sync: external prompt changes (undo, restore) reset
   // the local draft without an effect round-trip.
   const [syncedPrompt, setSyncedPrompt] = useState(cardState.editablePrompt)
@@ -141,13 +179,69 @@ export function AnimatedFrameModal({
 
   const isBusy = cardState.inFlightImages.some((e) => !e.error)
 
+  // Image model is the app-wide B-Roll pick (same ModelPicker as the
+  // Line-by-Line card), so its constraints drive the footer chips.
+  const imageModelId = useSettingsStore((s) => s.perAppModel['broll-studio:image:text-to-image'])
+    ?? getDefaultModel('broll-studio', 'image', 'text-to-image')?.id
+  const imageConstraints = imageModelId ? getModel(imageModelId)?.imageConstraints : undefined
+  const resolutions = (imageConstraints?.resolutions ?? imageResolutionsFor(imageModelId ?? '')) as ImageResolution[]
+  const aspects = imageConstraints?.aspectRatios ?? ['9:16', '1:1', '16:9', '4:3', '3:4']
+  const credits = imageModelId
+    ? formatCredits(estimateCredits(imageModelId, { imageCount: 1, resolution: cardState.resolution }))
+    : null
+
+  // ── Prompt history (Enhance / Regenerate / Undo / Redo) ──
+  const history = cardState.promptHistory.length > 0 ? cardState.promptHistory : [cardState.editablePrompt]
+  const historyIndex = Math.max(0, Math.min(cardState.promptHistoryIndex, history.length - 1))
+  const canUndo = historyIndex > 0
+  const canRedo = historyIndex < history.length - 1
+
+  const pushHistory = (next: string) => {
+    const trimmed = history.slice(0, historyIndex + 1)
+    const updated = [...trimmed, next]
+    onUpdate(() => ({ editablePrompt: next, promptHistory: updated, promptHistoryIndex: updated.length - 1 }))
+    setDraft(next)
+  }
+  const commitDraft = () => {
+    if (draft === history[historyIndex]) { onUpdate(() => ({ editablePrompt: draft })); return }
+    pushHistory(draft)
+  }
+  const handleUndo = () => {
+    if (!canUndo) return
+    const i = historyIndex - 1
+    onUpdate(() => ({ editablePrompt: history[i], promptHistoryIndex: i }))
+    setDraft(history[i])
+  }
+  const handleRedo = () => {
+    if (!canRedo) return
+    const i = historyIndex + 1
+    onUpdate(() => ({ editablePrompt: history[i], promptHistoryIndex: i }))
+    setDraft(history[i])
+  }
+  const runPromptTool = async (tool: () => Promise<string>, label: string) => {
+    if (promptWorking) return
+    setPromptWorking(true)
+    try {
+      const next = await tool()
+      if (next.trim()) pushHistory(next.trim())
+    } catch (err) {
+      useAppStore.getState().addToast(`${label} failed: ${humanizeError(err, `${label} failed.`)}`, 'error')
+    } finally {
+      setPromptWorking(false)
+    }
+  }
+
   return (
     <ModalShell onClose={onClose}>
       <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden md:grid-cols-2">
-        {/* LEFT — refs + prompt over a pinned Generate footer */}
+        {/* LEFT — model + refs + prompt over a pinned Generate footer */}
         <div className="col-span-1 flex min-h-0 flex-col border-b border-ink/5 md:border-b-0 md:border-r">
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
             <div className="flex grow flex-col gap-3 px-5 pb-6 pt-4">
+              {/* Image model — the same app-wide picker the Line-by-Line card
+                  uses, so a model swap applies across the whole storyboard. */}
+              <ModelPicker appId="broll-studio" task="image" mode="text-to-image" />
+
               <StyleNote style={style} />
 
               {/* Reference toggles — the chain ref (previous keyframe) is the
@@ -193,17 +287,62 @@ export function AnimatedFrameModal({
                 </div>
               )}
 
-              {/* Prompt — the keyframe scene description. */}
+              {/* Extra references — attach more (a prop, a location, a pose). */}
+              <ExtraRefsRow refs={extraRefs} onAdd={onAddExtraRef} onRemove={onRemoveExtraRef} />
+
+              {/* Prompt — the keyframe description, with the same toolbar the
+                  Line-by-Line card carries. */}
               <div className="flex grow flex-col">
                 <div className="relative flex grow flex-col overflow-hidden rounded-2xl border border-ink/10 bg-ink/[0.03] transition-colors focus-within:border-ink/20 focus-within:bg-ink/[0.05]">
                   <textarea
                     value={draft}
                     onChange={(e) => { setDraft(e.target.value); onUpdate(() => ({ editablePrompt: e.target.value })) }}
+                    onBlur={commitDraft}
                     rows={10}
-                    placeholder="Describe this keyframe — subject, pose, environment, camera angle…"
+                    placeholder="Describe this keyframe — subject, setting, composition, lighting, detail…"
                     className="relative min-h-[200px] w-full grow resize-none border-0 bg-transparent px-3.5 pb-3 pt-3 text-[13px] leading-relaxed text-ink-200 placeholder-ink-600 outline-none"
                   />
-                  <div className="flex items-center justify-end gap-2 border-t border-ink/10 px-2 py-1.5">
+                  <div className="flex items-center justify-between gap-2 border-t border-ink/10 px-2 py-1.5">
+                    <div className="flex flex-wrap items-center gap-1">
+                      <button
+                        type="button"
+                        title="Enhance — same staging, richer detail"
+                        onClick={() => void runPromptTool(onEnhancePrompt, 'Enhance')}
+                        disabled={promptWorking || !draft.trim()}
+                        className="flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium text-ink-400 transition-colors hover:bg-broll-500/10 hover:text-broll-300 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        {promptWorking ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                        Enhance Prompt
+                      </button>
+                      <button
+                        type="button"
+                        title="Regenerate — a fresh staging for this keyframe"
+                        onClick={() => void runPromptTool(onRegeneratePrompt, 'Regenerate')}
+                        disabled={promptWorking}
+                        className="flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <RefreshCw className="h-3 w-3" />
+                        Regenerate Prompt
+                      </button>
+                      <button
+                        type="button"
+                        title="Undo"
+                        onClick={handleUndo}
+                        disabled={!canUndo || promptWorking}
+                        className="flex h-6 w-6 items-center justify-center rounded-full text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-30"
+                      >
+                        <Undo2 className="h-3 w-3" />
+                      </button>
+                      <button
+                        type="button"
+                        title="Redo"
+                        onClick={handleRedo}
+                        disabled={!canRedo || promptWorking}
+                        className="flex h-6 w-6 items-center justify-center rounded-full text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-30"
+                      >
+                        <Redo2 className="h-3 w-3" />
+                      </button>
+                    </div>
                     <ExpandButton onClick={() => setPromptExpanded(true)} />
                   </div>
                 </div>
@@ -211,7 +350,39 @@ export function AnimatedFrameModal({
             </div>
           </div>
 
+          {/* Pinned footer — output settings + Generate, matching the
+              Line-by-Line card modal. */}
           <div className="shrink-0 border-t border-ink/5 px-5 py-4">
+            <div className="mb-3 flex flex-wrap items-center gap-1.5">
+              {resolutions.length > 0 && (
+                <ConstraintChip
+                  grow
+                  openDirection="up"
+                  options={resolutions as string[]}
+                  value={cardState.resolution}
+                  onChange={(v) => onUpdate(() => ({ resolution: v as ImageResolution }))}
+                  render={(v) => {
+                    const c = imageModelId ? formatCredits(estimateCredits(imageModelId, { imageCount: 1, resolution: v as ImageResolution })) : null
+                    return <span>{v}{c ? ` · ${c}` : ''}</span>
+                  }}
+                />
+              )}
+              {aspects.length > 0 && (
+                <ConstraintChip
+                  grow
+                  openDirection="up"
+                  options={aspects}
+                  value={cardState.aspectRatio}
+                  onChange={(v) => onUpdate(() => ({ aspectRatio: v }))}
+                  render={(v) => (
+                    <span className="flex items-center gap-1.5">
+                      <AspectIcon ratio={v} />
+                      <span>{v}</span>
+                    </span>
+                  )}
+                />
+              )}
+            </div>
             <button
               onClick={onGenerate}
               disabled={!cardState.editablePrompt.trim()}
@@ -219,6 +390,12 @@ export function AnimatedFrameModal({
             >
               {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
               Generate Image
+              {credits && !isBusy && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight">
+                  <Coins className="h-3 w-3" strokeWidth={2} />
+                  {credits}
+                </span>
+              )}
             </button>
           </div>
         </div>
@@ -313,7 +490,7 @@ function FrameImageTile({ imageRef, isKeyframe, onSelect }: {
     e.stopPropagation()
     const resolved = await getUrl(imageRef)
     if (!resolved) { useAppStore.getState().addToast('Could not load the image.', 'error'); return }
-    await downloadImage(resolved, 'animated-keyframe', 'png')
+    await downloadImage(resolved, 'continuous-keyframe', 'png')
   }
   return (
     <div
@@ -342,23 +519,23 @@ function FrameImageTile({ imageRef, isKeyframe, onSelect }: {
 
 // ── Clip modal — frames-to-video workspace ─────────────────────
 
-interface AnimatedClipModalProps {
+interface ContinuousClipModalProps {
   clipLabel: string     // "Clip 2"
   scriptLine: string
   style: string
-  cardState: AnimatedClipCardState
+  cardState: ContinuousClipCardState
   modelId: string
   startImageRef?: string
   endImageRef?: string
   onClose: () => void
-  onUpdate: (updater: (prev: AnimatedClipCardState) => Partial<AnimatedClipCardState>) => void
+  onUpdate: (updater: (prev: ContinuousClipCardState) => Partial<ContinuousClipCardState>) => void
   onGenerate: () => void
   onDeleteVideo: (index: number) => void
   onRetryInFlight: (id: string) => void
   onDismissInFlight: (id: string) => void
 }
 
-export function AnimatedClipModal({
+export function ContinuousClipModal({
   clipLabel,
   scriptLine,
   style,
@@ -372,7 +549,7 @@ export function AnimatedClipModal({
   onDeleteVideo,
   onRetryInFlight,
   onDismissInFlight,
-}: AnimatedClipModalProps) {
+}: ContinuousClipModalProps) {
   const [draft, setDraft] = useState(cardState.editablePrompt)
   const [promptExpanded, setPromptExpanded] = useState(false)
   // Adjust-during-render sync — same pattern as the frame modal above.
@@ -381,6 +558,8 @@ export function AnimatedClipModal({
     setSyncedPrompt(cardState.editablePrompt)
     setDraft(cardState.editablePrompt)
   }
+
+  const [modelPanelOpen, setModelPanelOpen] = useState(false)
 
   const model = getModel(modelId)
   const constraints = model?.videoConstraints
@@ -392,13 +571,70 @@ export function AnimatedClipModal({
     audio: cardState.audio,
   }))
 
+  // Clamp this clip's settings onto the active model's grid whenever the model
+  // changes, so the chips never offer something the model can't render.
+  const [syncedModel, setSyncedModel] = useState(modelId)
+  if (syncedModel !== modelId) {
+    setSyncedModel(modelId)
+    if (constraints) {
+      const updates: Partial<ContinuousClipCardState> = {}
+      if (!constraints.resolutions.includes(cardState.resolution)) {
+        updates.resolution = constraints.default ?? constraints.resolutions[0]
+      }
+      const snapped = snapVideoDuration(cardState.durationSeconds, constraints.durations)
+      if (snapped !== cardState.durationSeconds) updates.durationSeconds = snapped
+      if (Object.keys(updates).length) onUpdate(() => updates)
+    }
+  }
+
   return (
     <ModalShell onClose={onClose}>
       <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden md:grid-cols-2">
-        {/* LEFT — endpoints + motion prompt over a pinned Generate footer */}
+        {/* LEFT — model + endpoints + motion prompt over a pinned Generate footer */}
         <div className="col-span-1 flex min-h-0 flex-col border-b border-ink/5 md:border-b-0 md:border-r">
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
             <div className="flex grow flex-col gap-3 px-5 pb-6 pt-4">
+              {/* Video model — picked HERE rather than in the left input panel:
+                  the model only matters once there are keyframes to animate.
+                  Frames-to-video capable models only. */}
+              <button
+                type="button"
+                onClick={() => setModelPanelOpen(true)}
+                className="flex h-12 w-full items-center gap-2.5 rounded-full border border-ink/10 bg-ink/[0.02] px-3 text-left transition-colors hover:bg-ink/[0.05]"
+              >
+                {model ? (
+                  <>
+                    <ProviderLogo provider={model.provider ?? ''} />
+                    <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                      <span className="truncate text-[13px] font-medium text-ink-100">{model.displayName}</span>
+                      {model.tags.includes('recommended') && (
+                        <Star className="h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400 light:fill-yellow-600 light:text-yellow-600" strokeWidth={1.5} />
+                      )}
+                      {officialSavingsPercent(modelId) != null && <SavingsPill pct={officialSavingsPercent(modelId)!} />}
+                    </div>
+                  </>
+                ) : (
+                  <span className="flex-1 truncate text-sm text-ink-400">Select model</span>
+                )}
+                <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" />
+              </button>
+              <ModelSidePanel
+                appId="broll-studio"
+                task="video"
+                allowedModelIds={CONTINUOUS_MODEL_IDS}
+                value={modelId}
+                onChange={(id) => useSettingsStore.getState().setAppModel('broll-studio:continuous:video', id)}
+                isOpen={modelPanelOpen}
+                onClose={() => setModelPanelOpen(false)}
+                requireMode="frames-to-video"
+                requireModeNote="Continuous clips interpolate between two keyframes, so only frame-to-frame models are offered."
+                costParams={{
+                  durationSeconds: cardState.durationSeconds,
+                  resolution: cardState.resolution,
+                  audio: cardState.audio,
+                }}
+              />
+
               {/* Start → end keyframes this clip interpolates between. */}
               <div className="flex items-center gap-3">
                 <EndpointThumb label="Start frame" imageRef={startImageRef} />
@@ -582,7 +818,7 @@ function ClipVideoTile({ video, onDelete }: { video: GeneratedVideo; onDelete: (
   const handleDownload = async () => {
     const resolved = await getUrl(video.url)
     if (!resolved) { useAppStore.getState().addToast('Could not load the video.', 'error'); return }
-    await downloadImage(resolved, 'animated-clip', 'mp4')
+    await downloadImage(resolved, 'continuous-clip', 'mp4')
   }
   const handleCopy = async () => {
     if (await copyToClipboard(video.prompt)) { setCopied(true); window.setTimeout(() => setCopied(false), 1600) }

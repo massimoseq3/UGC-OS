@@ -1,4 +1,4 @@
-import type { PromptVariation, CardState, OneShotSegment, OneShotCardState, AnimatedConcept, AnimatedScene, AnimatedFrameCardState, AnimatedClipCardState } from './types'
+import type { PromptVariation, CardState, OneShotSegment, OneShotCardState, ContinuousConcept, ContinuousScene, ContinuousFrameCardState, ContinuousClipCardState } from './types'
 import { refsToToggles } from './types'
 import { getDefaultModel, getModel, snapVideoDuration, type ImageResolution } from '../../utils/models'
 import { useSettingsStore } from '../../stores/settingsStore'
@@ -263,33 +263,41 @@ export function backfillOneShotCardState(raw: Partial<OneShotCardState> & Record
   }
 }
 
-// ── Animated mode card states ──────────────────────────────────
+// ── Continuous mode card states ──────────────────────────────────
 
 // Fresh per-concept keyframe card (image-only). Refs default on when the bank
 // items exist — the view drops absent refs at fire time anyway.
-export function createDefaultAnimatedFrameState(concept: AnimatedConcept): AnimatedFrameCardState {
+export function createDefaultContinuousFrameState(concept: ContinuousConcept): ContinuousFrameCardState {
   return {
     editablePrompt: concept.prompt,
+    promptHistory: [concept.prompt],
+    promptHistoryIndex: 0,
     images: [],
     currentImageIndex: 0,
     inFlightImages: [],
     chainLink: true,
     refsCharacter: true,
     refsProduct: true,
+    aspectRatio: '9:16',
+    resolution: '1K',
   }
 }
 
-// Fresh per-clip card. Resolution follows the animated model's preferred tier;
+// Fresh per-clip card. Resolution follows the continuous model's preferred tier;
 // duration seeds from the scene's planned length.
-export function createDefaultAnimatedClipState(scene: AnimatedScene, modelId: string): AnimatedClipCardState {
+export function createDefaultContinuousClipState(scene: ContinuousScene, modelId: string): ContinuousClipCardState {
   const c = getModel(modelId)?.videoConstraints
   const resolution = c
     ? c.default ?? (c.resolutions.includes('720p') ? '720p' : c.resolutions[0] ?? '720p')
     : '720p'
   const durationSeconds = c ? snapVideoDuration(scene.durationSeconds, c.durations) : scene.durationSeconds
-  const editablePrompt = scene.sfx.trim()
-    ? `${scene.motionPrompt.trim()}\n\nSFX: ${scene.sfx.trim()}`
-    : scene.motionPrompt.trim()
+  // The motion block carries its own SFX line now. Only append the separate
+  // `sfx` field when the model answered without one (older/looser responses),
+  // otherwise the card shows the sound direction twice.
+  const motion = scene.motionPrompt.trim()
+  const editablePrompt = scene.sfx.trim() && !/^SFX:/im.test(motion)
+    ? `${motion}\nSFX: ${scene.sfx.trim()}`
+    : motion
   return {
     editablePrompt,
     videos: [],
@@ -301,14 +309,22 @@ export function createDefaultAnimatedClipState(scene: AnimatedScene, modelId: st
   }
 }
 
-// Defensive hydrate for persisted Animated frame cards. Drops in-flight image
+// Defensive hydrate for persisted Continuous frame cards. Drops in-flight image
 // entries past the 30-min TTL (image tasks never run longer).
-export function backfillAnimatedFrameState(raw: Partial<AnimatedFrameCardState> & Record<string, unknown>): AnimatedFrameCardState {
+export function backfillContinuousFrameState(raw: Partial<ContinuousFrameCardState> & Record<string, unknown>): ContinuousFrameCardState {
   const STALE_MS = 30 * 60_000
-  const images = Array.isArray(raw.images) ? (raw.images as AnimatedFrameCardState['images']) : []
-  const inFlight = Array.isArray(raw.inFlightImages) ? (raw.inFlightImages as AnimatedFrameCardState['inFlightImages']) : []
+  const images = Array.isArray(raw.images) ? (raw.images as ContinuousFrameCardState['images']) : []
+  const inFlight = Array.isArray(raw.inFlightImages) ? (raw.inFlightImages as ContinuousFrameCardState['inFlightImages']) : []
+  const editablePrompt = (raw.editablePrompt as string) ?? ''
+  const promptHistory = Array.isArray(raw.promptHistory) && (raw.promptHistory as string[]).length > 0
+    ? (raw.promptHistory as string[])
+    : [editablePrompt]
   return {
-    editablePrompt: (raw.editablePrompt as string) ?? '',
+    editablePrompt,
+    promptHistory,
+    promptHistoryIndex: typeof raw.promptHistoryIndex === 'number'
+      ? Math.max(0, Math.min(raw.promptHistoryIndex, promptHistory.length - 1))
+      : promptHistory.length - 1,
     images: images.map((img) => ({ ...img, createdAt: img.createdAt ?? Date.now() })),
     currentImageIndex: typeof raw.currentImageIndex === 'number'
       ? Math.max(0, Math.min(raw.currentImageIndex, Math.max(0, images.length - 1)))
@@ -317,15 +333,17 @@ export function backfillAnimatedFrameState(raw: Partial<AnimatedFrameCardState> 
     chainLink: raw.chainLink !== false,
     refsCharacter: raw.refsCharacter !== false,
     refsProduct: raw.refsProduct !== false,
+    aspectRatio: (raw.aspectRatio as string) ?? '9:16',
+    resolution: (raw.resolution as ImageResolution) ?? '1K',
   }
 }
 
-// Defensive hydrate for persisted Animated clip cards — same 60-min video TTL
+// Defensive hydrate for persisted Continuous clip cards — same 60-min video TTL
 // posture as the other modes.
-export function backfillAnimatedClipState(raw: Partial<AnimatedClipCardState> & Record<string, unknown>): AnimatedClipCardState {
+export function backfillContinuousClipState(raw: Partial<ContinuousClipCardState> & Record<string, unknown>): ContinuousClipCardState {
   const STALE_MS = 60 * 60_000
-  const videos = Array.isArray(raw.videos) ? (raw.videos as AnimatedClipCardState['videos']) : []
-  const inFlight = Array.isArray(raw.inFlightVideos) ? (raw.inFlightVideos as AnimatedClipCardState['inFlightVideos']) : []
+  const videos = Array.isArray(raw.videos) ? (raw.videos as ContinuousClipCardState['videos']) : []
+  const inFlight = Array.isArray(raw.inFlightVideos) ? (raw.inFlightVideos as ContinuousClipCardState['inFlightVideos']) : []
   return {
     editablePrompt: (raw.editablePrompt as string) ?? '',
     videos,

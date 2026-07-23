@@ -1,10 +1,10 @@
-import type { BrollResult, PromptVariation, CardState, ReferenceImage, BrollMode, OneShotResult, OneShotCardState, AnimatedResult, AnimatedSelection, AnimatedFrameCardState, AnimatedClipCardState } from '../types'
+import type { BrollResult, PromptVariation, CardState, ReferenceImage, BrollMode, OneShotResult, OneShotCardState, ContinuousResult, ContinuousSelection, ContinuousFrameCardState, ContinuousClipCardState } from '../types'
 import type { Product, Model, BrollHistoryItem } from '../../../stores/types'
 import { useBankStore } from '../../../stores/bankStore'
 import { usePersistedState, useProjectScopedKey } from '../../../hooks/usePersistedState'
 import ScenesView from './ScenesView'
 import OneShotView from './OneShotView'
-import AnimatedView from './AnimatedView'
+import ContinuousView from './ContinuousView'
 import BrollHistoryView from './BrollHistoryView'
 import SegmentedToggle from '../../../components/SegmentedToggle'
 
@@ -17,16 +17,16 @@ interface RightPanelProps {
   setOneShotCardStates: React.Dispatch<React.SetStateAction<Record<string, OneShotCardState>>>
   onAddOneShotVariation: () => void
   isAddingVariation?: boolean
-  // Animated mode (keyframe chain) state — owned by BrollStudio, like One Shot.
-  animatedResult: AnimatedResult | null
-  animatedModelId: string
-  animatedFrameStates: Record<string, AnimatedFrameCardState>
-  setAnimatedFrameStates: React.Dispatch<React.SetStateAction<Record<string, AnimatedFrameCardState>>>
-  animatedClipStates: Record<string, AnimatedClipCardState>
-  setAnimatedClipStates: React.Dispatch<React.SetStateAction<Record<string, AnimatedClipCardState>>>
-  animatedSelections: Record<string, AnimatedSelection>
-  setAnimatedSelections: React.Dispatch<React.SetStateAction<Record<string, AnimatedSelection>>>
-  onAddAnimatedConcept: (frameIndex: number) => void
+  // Continuous mode (keyframe chain) state — owned by BrollStudio, like One Shot.
+  continuousResult: ContinuousResult | null
+  continuousModelId: string
+  continuousFrameStates: Record<string, ContinuousFrameCardState>
+  setContinuousFrameStates: React.Dispatch<React.SetStateAction<Record<string, ContinuousFrameCardState>>>
+  continuousClipStates: Record<string, ContinuousClipCardState>
+  setContinuousClipStates: React.Dispatch<React.SetStateAction<Record<string, ContinuousClipCardState>>>
+  continuousSelections: Record<string, ContinuousSelection>
+  setContinuousSelections: React.Dispatch<React.SetStateAction<Record<string, ContinuousSelection>>>
+  onAddContinuousConcept: (frameIndex: number) => void
   addingConceptFrame: number | null
   isGenerating?: boolean
   error?: string | null
@@ -64,15 +64,15 @@ export default function RightPanel(props: RightPanelProps) {
     setOneShotCardStates,
     onAddOneShotVariation,
     isAddingVariation,
-    animatedResult,
-    animatedModelId,
-    animatedFrameStates,
-    setAnimatedFrameStates,
-    animatedClipStates,
-    setAnimatedClipStates,
-    animatedSelections,
-    setAnimatedSelections,
-    onAddAnimatedConcept,
+    continuousResult,
+    continuousModelId,
+    continuousFrameStates,
+    setContinuousFrameStates,
+    continuousClipStates,
+    setContinuousClipStates,
+    continuousSelections,
+    setContinuousSelections,
+    onAddContinuousConcept,
     addingConceptFrame,
     isGenerating,
     error,
@@ -102,11 +102,11 @@ export default function RightPanel(props: RightPanelProps) {
   const deleteBrollHistory = useBankStore((s) => s.deleteBrollHistory)
 
   const isOneShot = mode === 'oneshot'
-  const isAnimated = mode === 'animated'
+  const isContinuous = mode === 'continuous'
   const sceneCount = isOneShot
     ? (oneShotResult?.concepts.length ?? 0)
-    : isAnimated
-      ? (animatedResult?.scenes.length ?? 0)
+    : isContinuous
+      ? (continuousResult?.scenes.length ?? 0)
       : (result?.scenes.length ?? 0)
   const historyCount = brollHistory.length
 
@@ -120,30 +120,32 @@ export default function RightPanel(props: RightPanelProps) {
           value={tab}
           onChange={setTab}
           options={[
-            { value: 'scenes', label: isOneShot ? 'Variations' : isAnimated ? 'Storyboard' : 'Scenes', badge: sceneCount > 0 ? sceneCount : undefined },
+            { value: 'scenes', label: isOneShot ? 'Variations' : isContinuous ? 'Storyboard' : 'Scenes', badge: sceneCount > 0 ? sceneCount : undefined },
             { value: 'history', label: 'History', badge: historyCount > 0 ? historyCount : undefined },
           ]}
         />
       </div>
 
       <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-        {tab === 'scenes' && isAnimated ? (
-          <AnimatedView
-            result={animatedResult}
+        {tab === 'scenes' && isContinuous ? (
+          <ContinuousView
+            result={continuousResult}
             isGenerating={isGenerating}
             error={error}
             characterRef={characterRef}
             productRef={productRef}
             selectedModel={selectedModel}
             selectedProduct={selectedProduct}
-            animatedModelId={animatedModelId}
-            frameStates={animatedFrameStates}
-            setFrameStates={setAnimatedFrameStates}
-            clipStates={animatedClipStates}
-            setClipStates={setAnimatedClipStates}
-            selections={animatedSelections}
-            setSelections={setAnimatedSelections}
-            onAddConcept={onAddAnimatedConcept}
+            productContext={productContext}
+            modelContext={modelContext}
+            continuousModelId={continuousModelId}
+            frameStates={continuousFrameStates}
+            setFrameStates={setContinuousFrameStates}
+            clipStates={continuousClipStates}
+            setClipStates={setContinuousClipStates}
+            selections={continuousSelections}
+            setSelections={setContinuousSelections}
+            onAddConcept={onAddContinuousConcept}
             addingConceptFrame={addingConceptFrame}
           />
         ) : tab === 'scenes' && isOneShot ? (

@@ -255,18 +255,18 @@ export interface BrollHistoryItem {
   cardStates: Record<string, unknown>
   // One Shot mode snapshot. Absent on legacy rows (=> 'line'). All modes'
   // payloads can coexist on one row — the session holds them all.
-  mode?: 'line' | 'oneshot' | 'animated'
+  mode?: 'line' | 'oneshot' | 'continuous'
   oneShotResult?: unknown
   oneShotCardStates?: Record<string, unknown>
   oneShotDelivery?: 'dialogue' | 'silent'
   oneShotModelId?: string
-  // Animated (keyframe chain) mode snapshot. Absent on older rows.
-  animatedResult?: unknown
-  animatedFrameStates?: Record<string, unknown>
-  animatedClipStates?: Record<string, unknown>
-  animatedSelections?: Record<string, unknown>
-  animatedStyleId?: string
-  animatedModelId?: string
+  // Continuous (keyframe chain) mode snapshot. Absent on older rows.
+  continuousResult?: unknown
+  continuousFrameStates?: Record<string, unknown>
+  continuousClipStates?: Record<string, unknown>
+  continuousSelections?: Record<string, unknown>
+  continuousStyleId?: string
+  continuousModelId?: string
 }
 
 // One analysis in the Ad Analyzer. Pushed before the request starts so the

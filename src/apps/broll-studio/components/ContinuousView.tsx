@@ -16,23 +16,30 @@ import {
 } from 'lucide-react'
 import GenerationProgress from '../../../components/GenerationProgress'
 import GeneratingBackdrop from '../../../components/GeneratingBackdrop'
-import { AnimatedFrameModal, AnimatedClipModal } from './AnimatedDetailModals'
+import { ContinuousFrameModal, ContinuousClipModal } from './ContinuousDetailModals'
 import type {
-  AnimatedResult,
-  AnimatedFrame,
-  AnimatedScene,
-  AnimatedSelection,
-  AnimatedFrameCardState,
-  AnimatedClipCardState,
+  ContinuousResult,
+  ContinuousFrame,
+  ContinuousScene,
+  ContinuousSelection,
+  ContinuousFrameCardState,
+  ContinuousClipCardState,
   GeneratedImage,
   GeneratedVideo,
   ReferenceImage,
 } from '../types'
 import type { Product, Model, VideoHistoryItem } from '../../../stores/types'
-import { createDefaultAnimatedFrameState, createDefaultAnimatedClipState } from '../cardState'
+import { createDefaultContinuousFrameState, createDefaultContinuousClipState } from '../cardState'
 import { startImageTask, finishImageTask } from '../services/generateBroll'
 import { startVideoTask, finishVideoTask } from '../services/generateVideo'
-import { buildAnimatedPrompt, buildAnimatedPreamble, getAnimatedStyle } from '../services/generateAnimated'
+import {
+  buildContinuousPrompt,
+  buildContinuousPreamble,
+  getContinuousStyle,
+  frameContextFor,
+  enhanceContinuousFrame,
+  regenerateContinuousFrame,
+} from '../services/generateContinuous'
 import { isPollTimeout } from '../../../utils/kie'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAppStore } from '../../../stores/appStore'
@@ -54,32 +61,35 @@ function clipKey(sceneIndex: number): string {
   return `c${sceneIndex}`
 }
 
-interface AnimatedViewProps {
-  result: AnimatedResult | null
+interface ContinuousViewProps {
+  result: ContinuousResult | null
   isGenerating?: boolean
   error?: string | null
   characterRef?: ReferenceImage
   productRef?: ReferenceImage
   selectedModel?: Model | null
   selectedProduct?: Product | null
-  animatedModelId: string
-  frameStates: Record<string, AnimatedFrameCardState>
-  setFrameStates: React.Dispatch<React.SetStateAction<Record<string, AnimatedFrameCardState>>>
-  clipStates: Record<string, AnimatedClipCardState>
-  setClipStates: React.Dispatch<React.SetStateAction<Record<string, AnimatedClipCardState>>>
-  selections: Record<string, AnimatedSelection>
-  setSelections: React.Dispatch<React.SetStateAction<Record<string, AnimatedSelection>>>
+  // Plain-text context strings — ground the per-frame Enhance / Regenerate.
+  productContext?: string
+  modelContext?: string
+  continuousModelId: string
+  frameStates: Record<string, ContinuousFrameCardState>
+  setFrameStates: React.Dispatch<React.SetStateAction<Record<string, ContinuousFrameCardState>>>
+  clipStates: Record<string, ContinuousClipCardState>
+  setClipStates: React.Dispatch<React.SetStateAction<Record<string, ContinuousClipCardState>>>
+  selections: Record<string, ContinuousSelection>
+  setSelections: React.Dispatch<React.SetStateAction<Record<string, ContinuousSelection>>>
   // Appends one fresh concept to a frame (BrollStudio owns the result state).
   onAddConcept: (frameIndex: number) => void
   addingConceptFrame: number | null
 }
 
-// Right-panel view for Animated mode: one row per scene (its keyframe's
+// Right-panel view for Continuous mode: one row per scene (its keyframe's
 // concept cards + the clip card that animates into the next keyframe), plus a
 // final-frame row. Image chain: generating frame N attaches frame N-1's chosen
 // keyframe as a continuity reference; the clips are frames-to-video between
 // the two chosen keyframes, so the cuts are invisible.
-export default function AnimatedView({
+export default function ContinuousView({
   result,
   isGenerating,
   error,
@@ -87,7 +97,9 @@ export default function AnimatedView({
   productRef,
   selectedModel,
   selectedProduct,
-  animatedModelId,
+  productContext,
+  modelContext,
+  continuousModelId,
   frameStates,
   setFrameStates,
   clipStates,
@@ -96,10 +108,13 @@ export default function AnimatedView({
   setSelections,
   onAddConcept,
   addingConceptFrame,
-}: AnimatedViewProps) {
-  // Open modal: a frame concept ("3:anim-xxx") or a clip ("c2").
+}: ContinuousViewProps) {
+  // Open modal: a frame concept ("3:cont-xxx") or a clip ("c2").
   const [openFrameKey, setOpenFrameKey] = useState<string | null>(null)
   const [openClipKey, setOpenClipKey] = useState<string | null>(null)
+  // Extra user-attached reference images per frame card (memory-only, like the
+  // Line-by-Line card's extraRefs — data: URIs are too big to persist).
+  const [extraRefs, setExtraRefs] = useState<Record<string, ReferenceImage[]>>({})
   // Pending generate request awaiting cost confirmation.
   const [confirmGen, setConfirmGen] = useState<
     | { kind: 'clips'; sceneIndices: number[]; scope: string }
@@ -121,33 +136,33 @@ export default function AnimatedView({
   useEffect(() => {
     if (!result) return
     setFrameStates((prev) => {
-      const next: Record<string, AnimatedFrameCardState> = {}
+      const next: Record<string, ContinuousFrameCardState> = {}
       for (const frame of result.frames) {
         for (const concept of frame.concepts) {
           const key = frameKey(frame.index, concept.id)
-          next[key] = prev[key] ?? createDefaultAnimatedFrameState(concept)
+          next[key] = prev[key] ?? createDefaultContinuousFrameState(concept)
         }
       }
       return next
     })
     setClipStates((prev) => {
-      const next: Record<string, AnimatedClipCardState> = {}
+      const next: Record<string, ContinuousClipCardState> = {}
       for (const scene of result.scenes) {
         const key = clipKey(scene.index)
-        next[key] = prev[key] ?? createDefaultAnimatedClipState(scene, result.modelId)
+        next[key] = prev[key] ?? createDefaultContinuousClipState(scene, result.modelId)
       }
       return next
     })
   }, [result, setFrameStates, setClipStates])
 
-  const updateFrame = (key: string, updater: (prev: AnimatedFrameCardState) => Partial<AnimatedFrameCardState>) => {
+  const updateFrame = (key: string, updater: (prev: ContinuousFrameCardState) => Partial<ContinuousFrameCardState>) => {
     setFrameStates((prev) => {
       const existing = prev[key]
       if (!existing) return prev
       return { ...prev, [key]: { ...existing, ...updater(existing) } }
     })
   }
-  const updateClip = (key: string, updater: (prev: AnimatedClipCardState) => Partial<AnimatedClipCardState>) => {
+  const updateClip = (key: string, updater: (prev: ContinuousClipCardState) => Partial<ContinuousClipCardState>) => {
     setClipStates((prev) => {
       const existing = prev[key]
       if (!existing) return prev
@@ -189,33 +204,38 @@ export default function AnimatedView({
     // Chain reference: the previous frame's chosen keyframe. First in the ref
     // list so the preamble's "FIRST attached image" clause holds.
     const chainRefUrl = card.chainLink && frameIndex > 1 ? keyframeRef(frameIndex - 1) : undefined
+    const cardExtras = extraRefs[key] ?? []
     const refs: ReferenceImage[] = [
       ...(chainRefUrl ? [{ dataUrl: chainRefUrl, label: 'style' }] : []),
       ...(card.refsCharacter && characterRef ? [characterRef] : []),
       ...(card.refsProduct && productRef ? [productRef] : []),
+      ...cardExtras,
     ]
     const preamble = refs.length > 0
-      ? buildAnimatedPreamble({
+      ? buildContinuousPreamble({
           chain: !!chainRefUrl,
           character: !!(card.refsCharacter && characterRef),
           product: !!(card.refsProduct && productRef),
+          extras: cardExtras.length,
         })
       : undefined
-    const promptText = buildAnimatedPrompt(card.editablePrompt, result.style)
+    const promptText = buildContinuousPrompt(card.editablePrompt, result.style)
 
     const inFlightId = crypto.randomUUID()
     updateFrame(key, (prev) => ({
       inFlightImages: [
         ...prev.inFlightImages,
-        { id: inFlightId, taskId: null, modelId: null, startedAt: Date.now(), prompt: promptText, aspectRatio: '9:16', resolution: '1K' },
+        { id: inFlightId, taskId: null, modelId: null, startedAt: Date.now(), prompt: promptText, aspectRatio: card.aspectRatio, resolution: card.resolution },
       ],
     }))
 
     let taskId: string
     let modelId: string
     try {
-      const started = await startImageTask(promptText, refs.length > 0 ? refs : undefined, '9:16', '1K', {
-        noRealism: true,
+      // noRealism unless the storyboard is the UGC Realism style — that's the
+      // one look that wants the app's iPhone-realism stack kept on.
+      const started = await startImageTask(promptText, refs.length > 0 ? refs : undefined, card.aspectRatio, card.resolution, {
+        noRealism: !result.realism,
         preambleOverride: preamble,
       })
       taskId = started.taskId
@@ -233,7 +253,7 @@ export default function AnimatedView({
     }
 
     try {
-      const imageUrl = await finishImageTask(taskId, modelId, '1K')
+      const imageUrl = await finishImageTask(taskId, modelId, card.resolution)
       const newImage: GeneratedImage = { imageUrl, prompt: promptText, modelId, createdAt: Date.now() }
       let newIndex = 0
       updateFrame(key, (prev) => {
@@ -303,9 +323,9 @@ export default function AnimatedView({
       return
     }
 
-    const model = getModel(animatedModelId)
+    const model = getModel(continuousModelId)
     if (!model) {
-      useAppStore.getState().addToast(`Unknown video model: ${animatedModelId}`, 'error')
+      useAppStore.getState().addToast(`Unknown video model: ${continuousModelId}`, 'error')
       return
     }
     const [firstFrameDataUri, lastFrameDataUri] = await Promise.all([toDataUri(startRef), toDataUri(endRef)])
@@ -322,7 +342,7 @@ export default function AnimatedView({
       ? constraints.default ?? constraints.resolutions[0]
       : clipCard.resolution
 
-    const promptText = buildAnimatedPrompt(`${clipCard.editablePrompt.trim()}\n\n${CLIP_AUDIO_RULE}`, result.style)
+    const promptText = buildContinuousPrompt(`${clipCard.editablePrompt.trim()}\n\n${CLIP_AUDIO_RULE}`, result.style)
 
     const inFlightId = crypto.randomUUID()
     updateClip(key, (prev) => ({
@@ -331,7 +351,7 @@ export default function AnimatedView({
         {
           id: inFlightId,
           taskId: null,
-          modelId: animatedModelId,
+          modelId: continuousModelId,
           startedAt: Date.now(),
           prompt: promptText,
           mode: 'frames-to-video',
@@ -353,18 +373,18 @@ export default function AnimatedView({
         durationSeconds,
         resolution,
         audio: clipCard.audio,
-        modelId: animatedModelId,
-        noRealism: true,
+        modelId: continuousModelId,
+        noRealism: !result.realism,
       })
       updateClip(key, (prev) => ({
         inFlightVideos: prev.inFlightVideos.map((e) => (e.id === inFlightId ? { ...e, taskId, endpoint: videoEndpoint } : e)),
       }))
 
-      const res = await finishVideoTask(taskId, animatedModelId, videoEndpoint, durationSeconds, '9:16')
+      const res = await finishVideoTask(taskId, continuousModelId, videoEndpoint, durationSeconds, '9:16')
       const assetRef = `asset://${res.assetId}`
       const newVideo: GeneratedVideo = {
         url: assetRef,
-        modelId: animatedModelId,
+        modelId: continuousModelId,
         prompt: promptText,
         aspectRatio: res.aspectRatio,
         durationSeconds: res.durationSeconds,
@@ -380,7 +400,7 @@ export default function AnimatedView({
 
       const historyEntry: VideoHistoryItem = {
         id: crypto.randomUUID(),
-        modelId: animatedModelId,
+        modelId: continuousModelId,
         prompt: promptText,
         mode: 'frames-to-video',
         aspectRatio: res.aspectRatio,
@@ -445,7 +465,7 @@ export default function AnimatedView({
     for (const [key, cs] of Object.entries(frameStates)) {
       for (const entry of cs.inFlightImages) {
         if (!entry.taskId || !entry.modelId) continue
-        const resumeKey = `anim-image:${entry.taskId}`
+        const resumeKey = `cont-image:${entry.taskId}`
         if (resumingRef.current.has(resumeKey)) continue
         resumingRef.current.add(resumeKey)
         const { id: inFlightId, taskId, modelId, prompt, resolution } = entry
@@ -475,7 +495,7 @@ export default function AnimatedView({
     for (const [key, cs] of Object.entries(clipStates)) {
       for (const entry of cs.inFlightVideos) {
         if (!entry.taskId) continue
-        const resumeKey = `anim-video:${entry.taskId}`
+        const resumeKey = `cont-video:${entry.taskId}`
         if (resumingRef.current.has(resumeKey)) continue
         resumingRef.current.add(resumeKey)
         const { id: inFlightId, taskId, modelId, endpoint, durationSeconds, aspectRatio, resolution, audio, prompt, mode } = entry
@@ -498,7 +518,7 @@ export default function AnimatedView({
               durationSeconds: res.durationSeconds, resolution, audio, videoUrl: assetRef, sourceApp: 'broll-studio', createdAt: Date.now(),
             }
             await useBankStore.getState().addVideoHistory(historyEntry)
-            useAppStore.getState().addToast('Animated clip ready', 'success')
+            useAppStore.getState().addToast('Continuous clip ready', 'success')
           } catch (err) {
             if (isPollTimeout(err)) return
             const msg = humanizeError(err, 'Video resume failed.')
@@ -549,7 +569,7 @@ export default function AnimatedView({
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-8">
         <Box className="h-10 w-10 text-ink-800" strokeWidth={1.5} />
-        <p className="text-sm text-ink-700">Storyboard the script as a continuous animated ad</p>
+        <p className="text-sm text-ink-700">Storyboard the script as one continuous shot</p>
         <p className="text-xs text-ink-800">Keyframes chain into each other — every clip ends on the next clip's first frame</p>
         {error && (
           <div className="mt-2 flex max-w-sm items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2">
@@ -561,7 +581,7 @@ export default function AnimatedView({
     )
   }
 
-  const style = getAnimatedStyle(result.styleId)
+  const style = getContinuousStyle(result.styleId)
   const totalSeconds = result.scenes.reduce((s, sc) => s + (clipStates[clipKey(sc.index)]?.durationSeconds ?? sc.durationSeconds), 0)
   const finalFrame = result.frames[result.frames.length - 1]
   const framesPicked = result.frames.filter((f) => selections[String(f.index)]).length
@@ -592,7 +612,7 @@ export default function AnimatedView({
     ? confirmGen.sceneIndices.reduce((sum, i) => {
         const c = clipStates[clipKey(i)]
         if (!c) return sum
-        return sum + (estimateCredits(animatedModelId, { durationSeconds: c.durationSeconds, resolution: c.resolution, audio: c.audio }) ?? 0)
+        return sum + (estimateCredits(continuousModelId, { durationSeconds: c.durationSeconds, resolution: c.resolution, audio: c.audio }) ?? 0)
       }, 0)
     : 0
   const overBudget = balance !== null && confirmGen?.kind === 'clips' && confirmCredits > balance
@@ -622,7 +642,7 @@ export default function AnimatedView({
           <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-broll-300" />
           <p className="text-xs leading-relaxed text-ink-300">
             <span className="font-semibold text-broll-300">Sample storyboard.</span>{' '}
-            This is a preview of what Animated mode produces. Add your kie.ai key in Settings to storyboard your own script and generate the keyframes and clips.
+            This is a preview of what Continuous mode produces. Add your kie.ai key in Settings to storyboard your own script and generate the keyframes and clips.
           </p>
         </div>
       )}
@@ -762,7 +782,7 @@ export default function AnimatedView({
       )}
 
       {openFrameKey && openFrame && openConcept && openFrameCard && (
-        <AnimatedFrameModal
+        <ContinuousFrameModal
           frameLabel={openFrame.index === result.frames.length ? 'Final Frame' : `Frame ${openFrame.index}`}
           conceptLabel={openConcept.label}
           scriptLine={result.scenes.find((s) => s.index === openFrame.index)?.scriptLine ?? ''}
@@ -773,11 +793,29 @@ export default function AnimatedView({
           productRef={productRef}
           selectedModel={selectedModel}
           selectedProduct={selectedProduct}
+          extraRefs={extraRefs[openFrameKey] ?? []}
+          onAddExtraRef={(r) => setExtraRefs((prev) => {
+            const cur = prev[openFrameKey] ?? []
+            return cur.length >= 4 ? prev : { ...prev, [openFrameKey]: [...cur, r] }
+          })}
+          onRemoveExtraRef={(i) => setExtraRefs((prev) => ({
+            ...prev,
+            [openFrameKey]: (prev[openFrameKey] ?? []).filter((_, idx) => idx !== i),
+          }))}
           selectedImageIndex={openFrameSel?.conceptId === openConcept.id ? openFrameSel.imageIndex : null}
           onSelectImage={(i) => setSelections((prev) => ({ ...prev, [String(openFrame.index)]: { conceptId: openConcept.id, imageIndex: i } }))}
           onClose={() => setOpenFrameKey(null)}
           onUpdate={(updater) => updateFrame(openFrameKey, updater)}
           onGenerate={() => void runFrameImage(openFrameKey)}
+          onEnhancePrompt={() => enhanceContinuousFrame(
+            frameStates[openFrameKey]?.editablePrompt ?? '',
+            frameContextFor(result, openFrame.index, { productContext, modelContext, conceptLabel: openConcept.label }),
+            openFrame.index,
+          )}
+          onRegeneratePrompt={() => regenerateContinuousFrame(
+            frameContextFor(result, openFrame.index, { productContext, modelContext, conceptLabel: openConcept.label }),
+            openFrame.index,
+          )}
           onRetryInFlight={(id) => {
             updateFrame(openFrameKey, (prev) => ({ inFlightImages: prev.inFlightImages.filter((e) => e.id !== id) }))
             void runFrameImage(openFrameKey)
@@ -787,12 +825,12 @@ export default function AnimatedView({
       )}
 
       {openClipKey && openScene && openClipCard && (
-        <AnimatedClipModal
+        <ContinuousClipModal
           clipLabel={`Clip ${openScene.index}`}
           scriptLine={openScene.scriptLine}
           style={result.style}
           cardState={openClipCard}
-          modelId={animatedModelId}
+          modelId={continuousModelId}
           startImageRef={keyframeRef(openScene.index)}
           endImageRef={keyframeRef(openScene.index + 1)}
           onClose={() => setOpenClipKey(null)}
@@ -829,12 +867,12 @@ function SceneRow({
   onAddConcept,
   addingConcept,
 }: {
-  scene: AnimatedScene
-  frame: AnimatedFrame
+  scene: ContinuousScene
+  frame: ContinuousFrame
   nextFramePicked: boolean
-  selection?: AnimatedSelection
-  frameStates: Record<string, AnimatedFrameCardState>
-  clipState?: AnimatedClipCardState
+  selection?: ContinuousSelection
+  frameStates: Record<string, ContinuousFrameCardState>
+  clipState?: ContinuousClipCardState
   onOpenConcept: (key: string) => void
   onOpenClip: () => void
   onGenerateConcept: (key: string) => void
@@ -906,9 +944,9 @@ function FinalFrameRow({
   onAddConcept,
   addingConcept,
 }: {
-  frame: AnimatedFrame
-  selection?: AnimatedSelection
-  frameStates: Record<string, AnimatedFrameCardState>
+  frame: ContinuousFrame
+  selection?: ContinuousSelection
+  frameStates: Record<string, ContinuousFrameCardState>
   onOpenConcept: (key: string) => void
   onGenerateConcept: (key: string) => void
   onSelectConcept: (conceptId: string) => void
@@ -974,7 +1012,7 @@ function FrameConceptCard({
 }: {
   optionNumber: number
   label: string
-  cardState?: AnimatedFrameCardState
+  cardState?: ContinuousFrameCardState
   isKeyframe: boolean
   keyframeImageIndex?: number
   onOpen: () => void
@@ -1100,7 +1138,7 @@ function ClipCard({
   onOpen,
 }: {
   sceneIndex: number
-  clipState?: AnimatedClipCardState
+  clipState?: ContinuousClipCardState
   startPicked: boolean
   endPicked: boolean
   startRef?: string

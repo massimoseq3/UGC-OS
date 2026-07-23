@@ -649,7 +649,7 @@ export function ReferenceSlotCard({
 }: {
   icon: React.ReactNode
   accentClass: string
-  // Slot label ('Character', 'Product', Animated mode's 'Previous frame', …).
+  // Slot label ('Character', 'Product', Continuous mode's 'Previous frame', …).
   kind: string
   name?: string | null
   imageRef?: string | null
