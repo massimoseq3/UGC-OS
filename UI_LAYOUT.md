@@ -341,6 +341,42 @@ close (ChevronDown).
 **Two panes** split **25 / 75** (`BrollStudio.tsx:371`): narrow **left input**
 (`md:w-1/4`), wide **right scenes** (`md:w-3/4`).
 
+### Mode toggle (left panel header, 57px bar)
+
+Three-way `SegmentedToggle`, left→right: **Line-by-Line** (rows) ·
+**Continuous** (box) · **One-Shot** (clapperboard). All three Generate buttons
+carry an estimated-credits pill.
+
+One-Shot swaps the right panel for concept rows (see `OneShotView.tsx`).
+**Continuous** is the keyframe-chain mode (`ContinuousView.tsx`): the left panel
+adds a **Visual Style** chip row (3D Animated / Claymation / Papercraft / Anime
+/ Cinematic / UGC Realism) plus a dashed **Match a reference style** box —
+thumbnails + an add tile (max 4) + an *Analyze style from N images* button;
+once analysed, a "Custom style locked" card shows the distilled brief and the
+preset chips grey out until it's cleared. There is deliberately **no video model
+picker here** — it lives in the clip modal. The Generate button reads **Generate
+Storyboard**.
+
+The right panel's first tab is then labeled **Storyboard**: a meta strip
+(scene count · style · total seconds · keyframes-picked counter) with
+**Generate frames** + **Generate all clips** buttons, then one row per scene —
+big italic number + "Scene N" chip + the quoted line, a grid of **3 concept
+cards** (Option pills; the chosen keyframe gets a broll-accent ring + "Keyframe"
+badge; hover = Generate / Use) + an **Add concept** dashed card + a tinted
+**Clip N** card (shows "Pick keyframes…" until both ends exist, then the start
+frame + "Keyframes ready", then the hover-play video). A closing **Final
+Frame** row holds concepts only.
+
+Concept cards open `ContinuousFrameModal` — the same controls as the
+Line-by-Line card's Image tab: image `ModelPicker` → style note →
+chain/character/product ref cards → extra-refs row → prompt with
+**Enhance · Regenerate · Undo · Redo** → footer resolution/aspect chips →
+**Generate Image** + credits; the right column is the image gallery, where
+clicking a tile makes it the keyframe. Clip cards open `ContinuousClipModal`
+(frames-capable **video model picker** · start/end thumbs · style note · motion
+prompt · resolution/duration/audio chips · Generate Video + credits · video
+gallery). Both batch buttons confirm first (clips show summed credits + balance).
+
 ### Left input (`components/InputPanel.tsx`), top→bottom
 
 "References" header + Clear All → **Product** ref card → **Character** ref card →

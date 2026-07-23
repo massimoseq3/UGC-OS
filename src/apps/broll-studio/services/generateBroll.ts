@@ -400,7 +400,9 @@ export async function startImageTask(
   resolution?: ImageResolution,
   // STATIC anchor cards want the reference's setting and framing carried over
   // rather than stripped — flips which preamble scopes the refs.
-  opts?: { inheritReference?: boolean },
+  // Continuous mode passes noRealism (the stylized-3D aesthetic is the opposite
+  // of the iPhone stack) and its own chain-continuity preamble.
+  opts?: { inheritReference?: boolean; noRealism?: boolean; preambleOverride?: string },
 ): Promise<{ taskId: string; modelId: string }> {
   const apiKey = useSettingsStore.getState().getKieApiKey()
   const hasRefs = !!referenceImages?.length
@@ -446,10 +448,11 @@ export async function startImageTask(
   // Scope the references to identity/appearance only so the model builds a
   // fresh composition from the prompt instead of inheriting the reference's
   // framing, pose, and background. Phrased by which refs are actually attached.
-  const scenePrompt = withIphoneRealism(prompt)
+  const scenePrompt = opts?.noRealism ? prompt.trim() : withIphoneRealism(prompt)
   const preamble = opts?.inheritReference ? buildStaticReferencePreamble : buildReferencePreamble
-  const finalPrompt = inputUrls.length > 0
-    ? `${preamble(referenceImages!)}\n\nSCENE:\n${scenePrompt}`
+  const preambleText = opts?.preambleOverride ?? (inputUrls.length > 0 ? preamble(referenceImages!) : '')
+  const finalPrompt = inputUrls.length > 0 && preambleText
+    ? `${preambleText}\n\nSCENE:\n${scenePrompt}`
     : scenePrompt
 
   const body = buildImageInput(modelId, {
@@ -596,6 +599,7 @@ Rules:
 - Return ONE flowing paragraph — usually 40-80 words, longer when the idea needs it. No labels, no field names, no line breaks, no "Style:" trailer. If the draft is a labelled multi-line block (SETTING: / CAMERA: / ...), that is exactly what you are here to fix: fold it into one readable paragraph, keeping the idea.
 - SHOW, DON'T TELL — the shot must visualize what the script line says, so a viewer could guess the line from the footage. Sharpen the draft's idea toward that; if it's a person passively existing, give them the line's image to act out.
 - Be specific — the exact prop, the exact gesture, the exact micro-expression, the real light source.
+- Enhance means ADD DETAIL, not rephrase: the prompt comes back richer than it went in, never shorter than the draft.
 - Never "he/him/she/her/subject" — use "the character" or "they/them/their".
 - DO NOT mention aspect ratio, resolution, or framing in numbers.
 - UGC realism — filmed-at-home natural light and handheld feel; nothing commercial or studio-lit; no captions or on-screen text.

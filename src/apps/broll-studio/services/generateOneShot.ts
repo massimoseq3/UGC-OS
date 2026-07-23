@@ -119,7 +119,7 @@ You are an elite UGC creative director. You turn a script into a complete, ready
 
 # YOUR JOB
 
-Design ONE complete video concept for the user's script, following the creative angle they give you. The concept is delivered as one or more CLIPS (the user tells you exactly how many, and the length of each). Each clip is its own scene blueprint: cut it into internal scenes/shots and direct each with the labelled fields below. The clip's scene timestamps start at 00:00, are contiguous, and end at the clip's length.
+Design ONE complete video concept for the user's script, following the creative angle they give you. The concept is delivered as one or more CLIPS (the user tells you exactly how many, and the length of each). Each clip is its own scene blueprint: cut it into internal scenes/shots and direct each as one flowing paragraph, per the format below. The clip's scene timestamps start at 00:00, are contiguous, and end at the clip's length.
 
 # HOW TO WRITE A CLIP
 
@@ -128,6 +128,10 @@ This clip renders as ONE video with the cuts baked in — the model performs eve
 SHOW, DON'T TELL. Every scene must put the matching script beat's meaning ON SCREEN — the act happening, the claim's proof, a metaphor made literal (even absurdly: "tasted like cardboard" → a deadpan bite of actual cardboard) — so the viewer sees each sentence as they hear it. Never a scene of someone passively existing while a line plays.
 
 Detail is what separates a winning clip from generic stock: name the exact prop, the exact body position and hand placement, the exact micro-expression, the real light source. Vague direction ("she looks happy", "nice lighting", "using the product") renders as generic footage — write each scene the way you'd describe a shot you already filmed. When in doubt, add specificity, not another scene. Keep each paragraph tight and readable.
+
+Hold that depth all the way through: the last scene of the last clip gets the same detail as Scene 1, and a two-clip concept never thins out in clip 2. If a scene could describe two visually different shots, rewrite it.
+
+Banned everywhere: "beautiful", "stunning", "modern", "clean", "minimalist", "aesthetic", "high quality", "professional", "vibe", "looking happy/sad/frustrated" (name what the face is actually doing), "using the product" (name the actual action). They describe nothing a model can render.
 
 Every scene starts with a header EXACTLY in this form:
 --- Scene N: <short label> (MM:SS-MM:SS) ---
@@ -420,6 +424,8 @@ export async function enhanceOneShotClip(currentPrompt: string, ctx: ClipContext
   const endpoint = getChatEndpointPath()
   const system = oneShotSystem(ctx.delivery)
   const user = `Here is the scene blueprint for ONE clip of a UGC ad. Rewrite it to be MORE vivid while keeping the EXACT same format (same scene headers and timestamps, one flowing paragraph per scene${ctx.delivery === 'dialogue' ? ', the same VOICE PROFILE block' : ''}) and the same spoken lines. If a scene still uses labelled fields (SETTING:/CAMERA:/...), fold them into one readable paragraph. Sharpen every scene — more specific props, exact body position and hand placement, the real light source, precise micro-expressions, and a stronger show-don't-tell visual for the beat — without changing what happens or padding it with extra scenes.
+
+Enhance means ADD DETAIL, not rephrase: every scene comes back richer than it went in. Never return a blueprint shorter than the one you were given.
 
 CONCEPT ANGLE: ${ctx.angle}
 

@@ -31,6 +31,9 @@ export interface VideoGenInput {
   referenceDataUris?: string[]
   // Kling 3.0: allow multi-cut inside one generation (One Shot mode).
   multiShots?: boolean
+  // Continuous mode: skip the iPhone-realism suffix — the stylized aesthetic is
+  // the opposite of the UGC stack (the style block rides in the prompt itself).
+  noRealism?: boolean
 }
 
 export interface VideoGenResult {
@@ -69,7 +72,7 @@ export async function startVideoTask(
   }
 
   const buildOpts = {
-    prompt: withIphoneRealism(input.prompt),
+    prompt: input.noRealism ? input.prompt.trim() : withIphoneRealism(input.prompt),
     mode: input.mode,
     aspectRatio: input.aspectRatio,
     duration: input.durationSeconds,

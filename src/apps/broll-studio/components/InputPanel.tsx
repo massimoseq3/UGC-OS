@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Package, UserRound, FileText, RefreshCw, Loader2, Film, X, ChevronRight, Clapperboard, AlertTriangle, Rows3, Star } from 'lucide-react'
+import { Package, UserRound, FileText, RefreshCw, Loader2, Film, X, ChevronRight, Clapperboard, AlertTriangle, Rows3, Star, Box, ImagePlus, Sparkles, Coins } from 'lucide-react'
 import type { Product, Model, Script } from '../../../stores/types'
 import type { BrollMode, OneShotDelivery } from '../types'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
@@ -10,7 +10,9 @@ import ProviderLogo from '../../../components/ProviderLogo'
 import SavingsPill from '../../../components/SavingsPill'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import { ONE_SHOT_MODEL_IDS, estimateSpokenSeconds, planSegments } from '../services/generateOneShot'
-import { getModel, officialSavingsPercent } from '../../../utils/models'
+import { CONTINUOUS_STYLES } from '../services/generateContinuous'
+import { estimatePromptCredits } from '../services/promptCost'
+import { getModel, officialSavingsPercent, formatCredits } from '../../../utils/models'
 
 interface InputPanelProps {
   selectedProduct: Product | null
@@ -37,6 +39,21 @@ interface InputPanelProps {
   onOneShotDeliveryChange: (delivery: OneShotDelivery) => void
   oneShotModelId: string
   onOneShotModelChange: (modelId: string) => void
+  // Continuous mode (keyframe chain) — visual style only. The video model is
+  // NOT picked here: it only matters once there are keyframes to animate, so
+  // the picker lives in the clip modal.
+  continuousStyleId: string
+  onContinuousStyleChange: (styleId: string) => void
+  // Style reference frames (memory-only data URIs) + the style brief the
+  // vision pass distils out of them. A brief overrides the preset chips.
+  styleRefs: string[]
+  onAddStyleRefs: (files: File[]) => void
+  onRemoveStyleRef: (index: number) => void
+  onClearStyleRefs: () => void
+  onAnalyzeStyleRefs: () => void
+  isAnalyzingStyle: boolean
+  continuousStyleBrief: string | null
+  onClearStyleBrief: () => void
 }
 
 function BankCard({
@@ -211,6 +228,16 @@ export default function InputPanel({
   onOneShotDeliveryChange,
   oneShotModelId,
   onOneShotModelChange,
+  continuousStyleId,
+  onContinuousStyleChange,
+  styleRefs,
+  onAddStyleRefs,
+  onRemoveStyleRef,
+  onClearStyleRefs,
+  onAnalyzeStyleRefs,
+  isAnalyzingStyle,
+  continuousStyleBrief,
+  onClearStyleBrief,
 }: InputPanelProps) {
   const hasScript = scriptText.trim().length > 0
   const canGenerate = hasScript
@@ -218,7 +245,13 @@ export default function InputPanel({
   const [instructionsExpanded, setInstructionsExpanded] = useState(false)
   const [modelPanelOpen, setModelPanelOpen] = useState(false)
   const isOneShot = mode === 'oneshot'
+  const isContinuous = mode === 'continuous'
   const hasRefs = !!selectedProduct?.productImage || !!selectedModel?.characterImage
+
+  // Estimated cost of the prompt-writing call behind the Generate button. These
+  // are chat completions, so it's fractions of a credit — the pill is there so
+  // nothing ever fires unpriced, not because the number is large.
+  const promptCredits = hasScript ? formatCredits(estimatePromptCredits(mode, scriptText)) : null
 
   // Live split preview: spoken seconds → clip count on the selected model.
   // Recomputed on every keystroke so the user sees the plan before paying.
@@ -242,8 +275,9 @@ export default function InputPanel({
           onChange={onModeChange}
           accent="broll"
           options={[
-            { value: 'oneshot', label: 'One-Shot', icon: Clapperboard },
             { value: 'line', label: 'Line-by-Line', icon: Rows3 },
+            { value: 'continuous', label: 'Continuous', icon: Box },
+            { value: 'oneshot', label: 'One-Shot', icon: Clapperboard },
           ]}
         />
       </div>
@@ -286,7 +320,7 @@ export default function InputPanel({
               merged into one rounded box so the two sources read as one input.
               In One-Shot the script box doesn't grow — there's a stack of
               controls below it (model, clip type) that should stay in view. */}
-          <div className={`flex min-h-0 flex-col overflow-hidden rounded-3xl border transition-colors ${isOneShot ? '' : 'flex-1'} ${selectedScript ? 'border-scripts-500/30 bg-scripts-500/[0.06] focus-within:border-scripts-500/50' : 'border-dashed border-ink/10 bg-ink/[0.02] focus-within:border-ink/20'} ${highlightField === 'script' ? 'animate-field-flash' : ''}`}>
+          <div className={`flex min-h-0 flex-col overflow-hidden rounded-3xl border transition-colors ${isOneShot || isContinuous ? '' : 'flex-1'} ${selectedScript ? 'border-scripts-500/30 bg-scripts-500/[0.06] focus-within:border-scripts-500/50' : 'border-dashed border-ink/10 bg-ink/[0.02] focus-within:border-ink/20'} ${highlightField === 'script' ? 'animate-field-flash' : ''}`}>
             <BankCard
               icon={FileText}
               label="Script / Hooks"
@@ -303,9 +337,9 @@ export default function InputPanel({
               <textarea
                 value={scriptText}
                 onChange={(e) => onScriptTextChange(e.target.value)}
-                rows={8}
+                rows={5}
                 placeholder="…or paste your script text here"
-                className="min-h-[140px] w-full grow resize-none border-0 bg-transparent px-4 py-3 text-sm leading-relaxed text-ink-200 placeholder-ink-700 outline-none"
+                className="min-h-[92px] w-full grow resize-none border-0 bg-transparent px-4 py-2.5 text-[13px] leading-relaxed text-ink-200 placeholder-ink-700 outline-none"
               />
               <ExpandButton onClick={() => setScriptExpanded(true)} className="absolute bottom-2 right-2" />
             </div>
@@ -407,6 +441,122 @@ export default function InputPanel({
             </div>
           )}
 
+          {/* Continuous mode — visual style. A preset chip seeds the
+              storyboard's STYLE block, or reference frames get reverse-
+              engineered into a custom style brief that outranks the presets.
+              No video model picker here on purpose: the model only matters once
+              there are keyframes to animate, so it lives in the clip modal. */}
+          {isContinuous && (
+            <div>
+              <span className="text-sm font-medium text-ink-200">Visual Style</span>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {CONTINUOUS_STYLES.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => onContinuousStyleChange(s.id)}
+                    title={s.hint}
+                    disabled={!!continuousStyleBrief}
+                    className={`rounded-full border px-3 py-1.5 text-[11px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                      continuousStyleId === s.id && !continuousStyleBrief
+                        ? 'border-broll-500/40 bg-broll-500/15 text-broll-200 light:text-broll-700'
+                        : 'border-ink/10 bg-ink/[0.02] text-ink-400 hover:bg-ink/[0.05] hover:text-ink-200'
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Style references — the AI reads the LOOK out of these frames
+                  (medium, palette, light, finish) and never their content. */}
+              <div className="mt-3 rounded-2xl border border-dashed border-ink/10 bg-ink/[0.02] p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-medium text-ink-300">Match a reference style</span>
+                  {styleRefs.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={onClearStyleRefs}
+                      className="rounded-full px-2 py-0.5 text-[10px] font-medium text-ink-500 transition-colors hover:bg-ink/[0.06] hover:text-ink-300"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <p className="mt-1 text-[11px] leading-relaxed text-ink-600">
+                  Drop in frames of an ad whose look you want. Only the style is read — never the people, products, or scenes in them.
+                </p>
+
+                <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                  {styleRefs.map((ref, i) => (
+                    <div key={i} className="group/ref relative h-14 w-14 overflow-hidden rounded-xl border border-ink/10">
+                      <img src={ref} alt={`Style reference ${i + 1}`} className="h-full w-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => onRemoveStyleRef(i)}
+                        title="Remove"
+                        className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 transition-opacity group-hover/ref:opacity-100"
+                      >
+                        <X className="h-3.5 w-3.5 text-white" />
+                      </button>
+                    </div>
+                  ))}
+                  {styleRefs.length < 4 && (
+                    <label className="flex h-14 w-14 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-ink/15 text-ink-500 transition-colors hover:border-broll-400/50 hover:text-broll-300">
+                      <ImagePlus className="h-4 w-4" strokeWidth={1.5} />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        onChange={(e) => {
+                          const files = Array.from(e.target.files ?? [])
+                          if (files.length > 0) onAddStyleRefs(files)
+                          e.target.value = ''
+                        }}
+                      />
+                    </label>
+                  )}
+                </div>
+
+                {styleRefs.length > 0 && !continuousStyleBrief && (
+                  <button
+                    type="button"
+                    onClick={onAnalyzeStyleRefs}
+                    disabled={isAnalyzingStyle}
+                    className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-full border border-broll-500/30 bg-broll-500/10 px-3 py-2 text-[11px] font-medium text-broll-200 transition-colors hover:bg-broll-500/20 disabled:cursor-not-allowed disabled:opacity-50 light:text-broll-700"
+                  >
+                    {isAnalyzingStyle ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                    {isAnalyzingStyle ? 'Reading the style…' : `Analyze style from ${styleRefs.length} image${styleRefs.length === 1 ? '' : 's'}`}
+                  </button>
+                )}
+
+                {continuousStyleBrief && (
+                  <div className="mt-2.5 rounded-xl border border-broll-500/25 bg-broll-500/10 px-3 py-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-broll-300">Custom style locked</span>
+                      <button
+                        type="button"
+                        onClick={onClearStyleBrief}
+                        title="Drop the custom style and go back to the presets"
+                        className="shrink-0 rounded-full p-0.5 text-ink-400 transition-colors hover:bg-ink/10 hover:text-ink-200"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                    <p className="mt-1 line-clamp-3 text-[11px] leading-relaxed text-ink-400">{continuousStyleBrief}</p>
+                  </div>
+                )}
+              </div>
+
+              {hasScript && (
+                <p className="mt-2 px-1 text-[11px] leading-relaxed text-ink-600">
+                  ≈ {estimateSpokenSeconds(scriptText)}s spoken · one clip per line, each ending on the next clip's first frame
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Additional instructions */}
           <div>
             <span className="text-sm font-medium text-ink-200">Additional Instructions</span>
@@ -437,17 +587,29 @@ export default function InputPanel({
           {isGenerating ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              <span>{isOneShot ? 'Generating Variations...' : 'Generating Prompts...'}</span>
-            </>
-          ) : isOneShot ? (
-            <>
-              <Clapperboard className="h-4 w-4" strokeWidth={2.5} />
-              <span>Generate Variations</span>
+              <span>{isOneShot ? 'Generating Variations...' : isContinuous ? 'Storyboarding...' : 'Generating Prompts...'}</span>
             </>
           ) : (
             <>
-              <Film className="h-4 w-4" strokeWidth={2.5} />
-              <span>Generate B-Roll Prompts</span>
+              {isOneShot ? (
+                <Clapperboard className="h-4 w-4" strokeWidth={2.5} />
+              ) : isContinuous ? (
+                <Box className="h-4 w-4" strokeWidth={2.5} />
+              ) : (
+                <Film className="h-4 w-4" strokeWidth={2.5} />
+              )}
+              <span>
+                {isOneShot ? 'Generate Variations' : isContinuous ? 'Generate Storyboard' : 'Generate B-Roll Prompts'}
+              </span>
+              {promptCredits && (
+                <span
+                  title="Estimated cost of writing the prompts. Generating the images and videos afterwards is priced separately."
+                  className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight"
+                >
+                  <Coins className="h-3 w-3" strokeWidth={2} />
+                  {promptCredits}
+                </span>
+              )}
             </>
           )}
         </button>

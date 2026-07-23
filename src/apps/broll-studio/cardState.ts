@@ -1,4 +1,4 @@
-import type { PromptVariation, CardState, OneShotSegment, OneShotCardState } from './types'
+import type { PromptVariation, CardState, OneShotSegment, OneShotCardState, ContinuousConcept, ContinuousScene, ContinuousFrameCardState, ContinuousClipCardState } from './types'
 import { refsToToggles } from './types'
 import { getDefaultModel, getModel, snapVideoDuration, type ImageResolution } from '../../utils/models'
 import { useSettingsStore } from '../../stores/settingsStore'
@@ -259,6 +259,101 @@ export function backfillOneShotCardState(raw: Partial<OneShotCardState> & Record
     aspectRatio: (raw.aspectRatio as string) ?? '9:16',
     resolution: (raw.resolution as string) ?? '720p',
     durationSeconds: typeof raw.durationSeconds === 'number' ? raw.durationSeconds : 5,
+    audio: raw.audio !== false,
+  }
+}
+
+// ── Continuous mode card states ──────────────────────────────────
+
+// Fresh per-concept keyframe card (image-only). Refs default on when the bank
+// items exist — the view drops absent refs at fire time anyway.
+export function createDefaultContinuousFrameState(concept: ContinuousConcept): ContinuousFrameCardState {
+  return {
+    editablePrompt: concept.prompt,
+    promptHistory: [concept.prompt],
+    promptHistoryIndex: 0,
+    images: [],
+    currentImageIndex: 0,
+    inFlightImages: [],
+    chainLink: true,
+    refsCharacter: true,
+    refsProduct: true,
+    aspectRatio: '9:16',
+    resolution: '1K',
+  }
+}
+
+// Fresh per-clip card. Resolution follows the continuous model's preferred tier;
+// duration seeds from the scene's planned length.
+export function createDefaultContinuousClipState(scene: ContinuousScene, modelId: string): ContinuousClipCardState {
+  const c = getModel(modelId)?.videoConstraints
+  const resolution = c
+    ? c.default ?? (c.resolutions.includes('720p') ? '720p' : c.resolutions[0] ?? '720p')
+    : '720p'
+  const durationSeconds = c ? snapVideoDuration(scene.durationSeconds, c.durations) : scene.durationSeconds
+  // The motion paragraph ends with its own sound direction. Only append the
+  // separate `sfx` field when the model answered without one — matching either
+  // a labelled `SFX:` line (legacy responses) or the word appearing in the
+  // prose — otherwise the card shows the sound direction twice.
+  const motion = scene.motionPrompt.trim()
+  const sfx = scene.sfx.trim()
+  const alreadyHasSfx = /^SFX:/im.test(motion) || (!!sfx && motion.toLowerCase().includes(sfx.toLowerCase()))
+  const editablePrompt = sfx && !alreadyHasSfx ? `${motion} ${sfx}.` : motion
+  return {
+    editablePrompt,
+    videos: [],
+    currentVideoIndex: 0,
+    inFlightVideos: [],
+    durationSeconds,
+    resolution,
+    audio: true,
+  }
+}
+
+// Defensive hydrate for persisted Continuous frame cards. Drops in-flight image
+// entries past the 30-min TTL (image tasks never run longer).
+export function backfillContinuousFrameState(raw: Partial<ContinuousFrameCardState> & Record<string, unknown>): ContinuousFrameCardState {
+  const STALE_MS = 30 * 60_000
+  const images = Array.isArray(raw.images) ? (raw.images as ContinuousFrameCardState['images']) : []
+  const inFlight = Array.isArray(raw.inFlightImages) ? (raw.inFlightImages as ContinuousFrameCardState['inFlightImages']) : []
+  const editablePrompt = (raw.editablePrompt as string) ?? ''
+  const promptHistory = Array.isArray(raw.promptHistory) && (raw.promptHistory as string[]).length > 0
+    ? (raw.promptHistory as string[])
+    : [editablePrompt]
+  return {
+    editablePrompt,
+    promptHistory,
+    promptHistoryIndex: typeof raw.promptHistoryIndex === 'number'
+      ? Math.max(0, Math.min(raw.promptHistoryIndex, promptHistory.length - 1))
+      : promptHistory.length - 1,
+    images: images.map((img) => ({ ...img, createdAt: img.createdAt ?? Date.now() })),
+    currentImageIndex: typeof raw.currentImageIndex === 'number'
+      ? Math.max(0, Math.min(raw.currentImageIndex, Math.max(0, images.length - 1)))
+      : Math.max(0, images.length - 1),
+    inFlightImages: inFlight.filter((e) => Date.now() - (e.startedAt ?? 0) < STALE_MS),
+    chainLink: raw.chainLink !== false,
+    refsCharacter: raw.refsCharacter !== false,
+    refsProduct: raw.refsProduct !== false,
+    aspectRatio: (raw.aspectRatio as string) ?? '9:16',
+    resolution: (raw.resolution as ImageResolution) ?? '1K',
+  }
+}
+
+// Defensive hydrate for persisted Continuous clip cards — same 60-min video TTL
+// posture as the other modes.
+export function backfillContinuousClipState(raw: Partial<ContinuousClipCardState> & Record<string, unknown>): ContinuousClipCardState {
+  const STALE_MS = 60 * 60_000
+  const videos = Array.isArray(raw.videos) ? (raw.videos as ContinuousClipCardState['videos']) : []
+  const inFlight = Array.isArray(raw.inFlightVideos) ? (raw.inFlightVideos as ContinuousClipCardState['inFlightVideos']) : []
+  return {
+    editablePrompt: (raw.editablePrompt as string) ?? '',
+    videos,
+    currentVideoIndex: typeof raw.currentVideoIndex === 'number'
+      ? Math.max(0, Math.min(raw.currentVideoIndex, Math.max(0, videos.length - 1)))
+      : Math.max(0, videos.length - 1),
+    inFlightVideos: inFlight.filter((e) => Date.now() - (e.startedAt ?? 0) < STALE_MS),
+    durationSeconds: typeof raw.durationSeconds === 'number' ? raw.durationSeconds : 5,
+    resolution: (raw.resolution as string) ?? '720p',
     audio: raw.audio !== false,
   }
 }
