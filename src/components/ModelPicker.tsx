@@ -44,12 +44,19 @@ interface ModelPickerProps {
   // Cost params for the per-row credit estimate (e.g. current resolution),
   // mirroring ModelSidePanel. Defaults to a single image at base resolution.
   costParams?: CostEstimateParams
+  // Restrict the list to these registry ids (e.g. B-Roll One Shot's
+  // multi-cut-capable allowlist). Omit for the full task/mode catalog.
+  allowedModelIds?: string[]
+  // Override the settingsStore key this picker reads/writes. Without it the
+  // key is derived from appId+task — which would collide with another picker
+  // in the same app using the same task (B-Roll's per-card video picker).
+  persistKey?: string
 }
 
-export default function ModelPicker({ appId, task, mode, value, onChange, requireMode, requireModeNote, compact, large, costParams }: ModelPickerProps) {
+export default function ModelPicker({ appId, task, mode, value, onChange, requireMode, requireModeNote, compact, large, costParams, allowedModelIds, persistKey }: ModelPickerProps) {
   const setAppModel = useSettingsStore((s) => s.setAppModel)
   const getAppModel = useSettingsStore((s) => s.getAppModel)
-  const persistedKey = `${appId}:${task}${mode ? `:${mode}` : ''}`
+  const persistedKey = persistKey ?? `${appId}:${task}${mode ? `:${mode}` : ''}`
 
   const [open, setOpen] = useState(false)
   const [openUpward, setOpenUpward] = useState(false)
@@ -60,7 +67,8 @@ export default function ModelPicker({ appId, task, mode, value, onChange, requir
   // orange for Scripts, …) so the picker feels native to whatever app it sits in.
   const accent = APP_REGISTRY.find((a) => a.id === appId)?.accent ?? '#38bdf8'
 
-  const models = listModels({ task, mode })
+  const allModels = listModels({ task, mode })
+  const models = allowedModelIds ? allModels.filter((m) => allowedModelIds.includes(m.id)) : allModels
   // Image has only a handful of models — show them as one flat list (no pinned
   // "recommended" group and no divider) so the dropdown reads cleanly. The
   // recommended star still shows inline on the models that earn it.

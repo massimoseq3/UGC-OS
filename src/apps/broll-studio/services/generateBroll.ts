@@ -515,8 +515,9 @@ function defaultLabelFor(tag: VariationTag): string {
 
 // Build the identity-only scoping directive prepended to ref'd image prompts.
 // Only the clauses for refs that are actually attached appear, so a product-only
-// or character-only gen reads cleanly.
-function buildReferencePreamble(refs: ReferenceImage[]): string {
+// or character-only gen reads cleanly. Exported for One Shot mode, which
+// prepends the same directive to its reference-to-video prompts.
+export function buildReferencePreamble(refs: ReferenceImage[]): string {
   const hasCharacter = refs.some((r) => r.label === 'character')
   const hasProduct = refs.some((r) => r.label === 'product')
   const matchParts: string[] = []

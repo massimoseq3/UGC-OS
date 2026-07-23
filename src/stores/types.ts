@@ -253,6 +253,13 @@ export interface BrollHistoryItem {
   // broll-studio's internal types.
   result: unknown
   cardStates: Record<string, unknown>
+  // One Shot mode snapshot. Absent on legacy rows (=> 'line'). Both modes'
+  // payloads can coexist on one row — the session holds both.
+  mode?: 'line' | 'oneshot'
+  oneShotResult?: unknown
+  oneShotCardStates?: Record<string, unknown>
+  oneShotDelivery?: 'dialogue' | 'silent'
+  oneShotModelId?: string
 }
 
 // One analysis in the Ad Analyzer. Pushed before the request starts so the

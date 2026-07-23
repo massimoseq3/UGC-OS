@@ -3,11 +3,13 @@ import { useAppStore } from '../../stores/appStore'
 import { useReportActivity } from '../../stores/activityStore'
 import { useBankStore } from '../../stores/bankStore'
 import type { Product, Model, Script, BrollHistoryItem } from '../../stores/types'
-import type { BrollResult, PromptVariation, ReferenceImage, VariationTag, VariationRefs, CardState } from './types'
+import type { BrollResult, PromptVariation, ReferenceImage, VariationTag, VariationRefs, CardState, BrollMode, OneShotDelivery, OneShotResult, OneShotCardState } from './types'
 import { generateBroll } from './services/generateBroll'
+import { generateOneShot, buildDemoOneShotResult, ONE_SHOT_DEFAULT_MODEL_ID } from './services/generateOneShot'
 import InputPanel from './components/InputPanel'
 import RightPanel from './components/RightPanel'
-import { backfillCardState } from './cardState'
+import { backfillCardState, backfillOneShotCardState } from './cardState'
+import { useSettingsStore } from '../../stores/settingsStore'
 import BankPicker from '../../components/BankPicker'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
 import { humanizeError } from '../../utils/friendlyError'
@@ -143,6 +145,30 @@ export default function BrollStudio() {
     },
   )
 
+  // ── One Shot mode state ──────────────────────────────────────
+  // Defaults keep existing users in line-by-line with zero change.
+  const [mode, setMode] = usePersistedState<BrollMode>(`${baseKey}:mode`, 'line')
+  const [oneShotDelivery, setOneShotDelivery] = usePersistedState<OneShotDelivery>(`${baseKey}:oneShotDelivery`, 'dialogue')
+  const [oneShotResult, setOneShotResult] = usePersistedState<OneShotResult | null>(`${baseKey}:oneShotResult`, null)
+  const [oneShotCardStates, setOneShotCardStates] = usePersistedState<Record<string, OneShotCardState>>(
+    `${baseKey}:oneShotCardStates`,
+    {},
+    {
+      sanitize: (raw) => {
+        const next: Record<string, OneShotCardState> = {}
+        for (const k in raw) {
+          next[k] = backfillOneShotCardState(raw[k] as Partial<OneShotCardState> & Record<string, unknown>)
+        }
+        return next
+      },
+    },
+  )
+  // The One Shot model selection lives in settingsStore like every other model
+  // pick. Seedance 2.0 (not the app's Omni default) — it's the only default
+  // that does 15s multi-cut with refs AND audio.
+  const oneShotModelId =
+    useSettingsStore((s) => s.perAppModel['broll-studio:oneshot:video']) ?? ONE_SHOT_DEFAULT_MODEL_ID
+
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [pickerMode, setPickerMode] = useState<PickerMode>(null)
@@ -159,7 +185,8 @@ export default function BrollStudio() {
           cs.isGeneratingImage ||
           cs.videoStatus === 'generating' ||
           cs.isPromptWorking === true,
-      ),
+      ) ||
+      Object.values(oneShotCardStates).some((cs) => cs.inFlightVideos.length > 0),
   )
 
   const interAppPayload = useAppStore((s) => s.interAppPayload)
@@ -228,7 +255,7 @@ export default function BrollStudio() {
   // prompt) don't thrash localStorage. Only writes when there's actually a
   // result to snapshot.
   useEffect(() => {
-    if (!result || !sessionIdRef.current) return
+    if ((!result && !oneShotResult) || !sessionIdRef.current) return
     const handle = setTimeout(() => {
       const item: BrollHistoryItem = {
         id: sessionIdRef.current,
@@ -239,13 +266,18 @@ export default function BrollStudio() {
         scriptId: selectedScriptId ?? undefined,
         scriptText: scriptText || undefined,
         context: additionalContext || undefined,
-        result,
+        result: result ?? { scenes: [] },
         cardStates,
+        mode,
+        oneShotResult: oneShotResult ?? undefined,
+        oneShotCardStates: Object.keys(oneShotCardStates).length > 0 ? oneShotCardStates : undefined,
+        oneShotDelivery: oneShotResult ? oneShotDelivery : undefined,
+        oneShotModelId: oneShotResult ? oneShotModelId : undefined,
       }
       upsertBrollHistory(item)
     }, 1000)
     return () => clearTimeout(handle)
-  }, [result, cardStates, selectedProductId, selectedModelId, selectedScriptId, scriptText, additionalContext, selectedProduct, upsertBrollHistory])
+  }, [result, cardStates, oneShotResult, oneShotCardStates, oneShotDelivery, oneShotModelId, mode, selectedProductId, selectedModelId, selectedScriptId, scriptText, additionalContext, selectedProduct, upsertBrollHistory])
 
   // "New": clear the inputs / references only. The generated scene cards stay
   // on screen — they're the user's output, never wiped by starting a new
@@ -327,7 +359,50 @@ export default function BrollStudio() {
     ...(productRef ? [productRef] : []),
   ]
 
+  const handleGenerateOneShot = async () => {
+    if (!scriptText.trim()) return
+    // No kie.ai key yet → show sample concepts so the member can see exactly
+    // what One Shot produces before they set up billing. Rendering a clip
+    // still needs a real key (the Generate Video button surfaces that).
+    if (!useSettingsStore.getState().kieApiKey) {
+      setSessionId(newSessionId())
+      setOneShotCardStates({})
+      setOneShotResult(buildDemoOneShotResult(oneShotModelId, oneShotDelivery))
+      useAppStore.getState().addToast('Showing sample concepts — add your kie.ai key to generate from your own script', 'info')
+      return
+    }
+    setIsGenerating(true)
+    setError(null)
+    try {
+      const res = await generateOneShot({
+        scriptText,
+        delivery: oneShotDelivery,
+        modelId: oneShotModelId,
+        productContext,
+        modelContext,
+        additionalContext,
+      })
+      // Same commit discipline as line mode: only rotate the session once we
+      // actually have concepts, so a failed call leaves the old ones intact.
+      setSessionId(newSessionId())
+      setOneShotCardStates({})
+      setOneShotResult(res)
+      if (res.concepts.length < 4) {
+        useAppStore.getState().addToast(`${res.concepts.length} of 4 concepts generated — the rest failed`, 'error')
+      } else {
+        useAppStore.getState().addToast('One-Shot concepts ready', 'success')
+      }
+    } catch (err) {
+      const msg = humanizeError(err, 'Concept generation failed. Check your API key and try again.')
+      setError(msg)
+      useAppStore.getState().addToast(`Concept generation failed: ${msg}`, 'error')
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
   const handleGenerate = async () => {
+    if (mode === 'oneshot') return handleGenerateOneShot()
     if (!scriptText.trim()) return
     setIsGenerating(true)
     setError(null)
@@ -371,7 +446,10 @@ export default function BrollStudio() {
     setSelectedScriptId(item.scriptId ?? null)
     setScriptText(item.scriptText ?? '')
     setAdditionalContext(item.context ?? '')
-    setResult(item.result as BrollResult)
+    // One-shot-only sessions store a placeholder `{ scenes: [] }` — restore
+    // that as null so line mode shows its empty state, not a blank grid.
+    const lineResult = item.result as BrollResult | null
+    setResult(lineResult && lineResult.scenes?.length > 0 ? lineResult : null)
     const restored: Record<string, CardState> = {}
     for (const k in item.cardStates as Record<string, unknown>) {
       restored[k] = backfillCardState(
@@ -379,13 +457,28 @@ export default function BrollStudio() {
       )
     }
     setCardStates(restored)
+
+    // One Shot snapshot (absent on legacy rows → line mode).
+    setMode(item.mode ?? 'line')
+    setOneShotResult((item.oneShotResult as OneShotResult | undefined) ?? null)
+    const restoredOneShot: Record<string, OneShotCardState> = {}
+    for (const k in (item.oneShotCardStates ?? {}) as Record<string, unknown>) {
+      restoredOneShot[k] = backfillOneShotCardState(
+        (item.oneShotCardStates as Record<string, Partial<OneShotCardState> & Record<string, unknown>>)[k],
+      )
+    }
+    setOneShotCardStates(restoredOneShot)
+    if (item.oneShotDelivery) setOneShotDelivery(item.oneShotDelivery)
+    if (item.oneShotModelId) {
+      useSettingsStore.getState().setAppModel('broll-studio:oneshot:video', item.oneShotModelId)
+    }
     setActiveHistoryId(item.id)
   }
 
   return (
     <div className="flex flex-col pb-28 md:flex-row md:h-full md:pb-0">
       {/* Left panel — inputs */}
-      <div className="flex w-full md:w-1/4 shrink-0 flex-col border-b md:border-b-0 md:border-r border-ink/5">
+      <div className="flex w-full md:w-[30%] shrink-0 flex-col border-b md:border-b-0 md:border-r border-ink/5">
         <InputPanel
           selectedProduct={selectedProduct}
           selectedModel={selectedModel}
@@ -403,13 +496,24 @@ export default function BrollStudio() {
           onGenerate={handleGenerate}
           isGenerating={isGenerating}
           highlightField={highlightField}
+          mode={mode}
+          onModeChange={setMode}
+          oneShotDelivery={oneShotDelivery}
+          onOneShotDeliveryChange={setOneShotDelivery}
+          oneShotModelId={oneShotModelId}
+          onOneShotModelChange={() => { /* persisted by the picker via persistKey */ }}
         />
       </div>
 
       {/* Right panel — output */}
-      <div className="flex w-full md:w-3/4 flex-col overflow-hidden">
+      <div className="flex w-full md:w-[70%] flex-col overflow-hidden">
         <RightPanel
+          mode={mode}
           result={result}
+          oneShotResult={oneShotResult}
+          oneShotModelId={oneShotModelId}
+          oneShotCardStates={oneShotCardStates}
+          setOneShotCardStates={setOneShotCardStates}
           isGenerating={isGenerating}
           error={error}
           onAddVariation={handleAddVariation}

@@ -1,13 +1,19 @@
-import type { BrollResult, PromptVariation, CardState, ReferenceImage } from '../types'
+import type { BrollResult, PromptVariation, CardState, ReferenceImage, BrollMode, OneShotResult, OneShotCardState } from '../types'
 import type { Product, Model, BrollHistoryItem } from '../../../stores/types'
 import { useBankStore } from '../../../stores/bankStore'
 import { usePersistedState, useProjectScopedKey } from '../../../hooks/usePersistedState'
 import ScenesView from './ScenesView'
+import OneShotView from './OneShotView'
 import BrollHistoryView from './BrollHistoryView'
 import SegmentedToggle from '../../../components/SegmentedToggle'
 
 interface RightPanelProps {
+  mode: BrollMode
   result: BrollResult | null
+  oneShotResult: OneShotResult | null
+  oneShotModelId: string
+  oneShotCardStates: Record<string, OneShotCardState>
+  setOneShotCardStates: React.Dispatch<React.SetStateAction<Record<string, OneShotCardState>>>
   isGenerating?: boolean
   error?: string | null
   onAddVariation: (sceneNumber: number, variation: PromptVariation) => void
@@ -36,7 +42,12 @@ type Tab = 'scenes' | 'history'
 // each card's state — the page no longer has a global settings popover.
 export default function RightPanel(props: RightPanelProps) {
   const {
+    mode,
     result,
+    oneShotResult,
+    oneShotModelId,
+    oneShotCardStates,
+    setOneShotCardStates,
     isGenerating,
     error,
     onAddVariation,
@@ -64,7 +75,8 @@ export default function RightPanel(props: RightPanelProps) {
   const brollHistory = useBankStore((s) => s.brollHistory)
   const deleteBrollHistory = useBankStore((s) => s.deleteBrollHistory)
 
-  const sceneCount = result?.scenes.length ?? 0
+  const isOneShot = mode === 'oneshot'
+  const sceneCount = isOneShot ? (oneShotResult?.concepts.length ?? 0) : (result?.scenes.length ?? 0)
   const historyCount = brollHistory.length
 
   return (
@@ -77,14 +89,28 @@ export default function RightPanel(props: RightPanelProps) {
           value={tab}
           onChange={setTab}
           options={[
-            { value: 'scenes', label: 'Scenes', badge: sceneCount > 0 ? sceneCount : undefined },
+            { value: 'scenes', label: isOneShot ? 'Concepts' : 'Scenes', badge: sceneCount > 0 ? sceneCount : undefined },
             { value: 'history', label: 'History', badge: historyCount > 0 ? historyCount : undefined },
           ]}
         />
       </div>
 
       <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-        {tab === 'scenes' ? (
+        {tab === 'scenes' && isOneShot ? (
+          <OneShotView
+            result={oneShotResult}
+            isGenerating={isGenerating}
+            error={error}
+            characterRef={characterRef}
+            productRef={productRef}
+            selectedModel={selectedModel}
+            selectedProduct={selectedProduct}
+            productName={selectedProduct?.productName}
+            oneShotModelId={oneShotModelId}
+            cardStates={oneShotCardStates}
+            setCardStates={setOneShotCardStates}
+          />
+        ) : tab === 'scenes' ? (
           <ScenesView
             result={result}
             isGenerating={isGenerating}

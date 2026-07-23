@@ -1000,6 +1000,15 @@ export function snapVideoDuration(current: number, durations: number[]): number 
   return below.length > 0 ? below[below.length - 1] : durations[0]
 }
 
+// Snap-UP sibling: nearest option at or above, capped at the model's longest.
+// One Shot uses this — a segment's spoken lines must FIT inside the clip, so
+// rounding down would truncate speech mid-sentence.
+export function snapVideoDurationUp(current: number, durations: number[]): number {
+  if (durations.length === 0 || durations.includes(current)) return current
+  const above = durations.filter((d) => d > current)
+  return above.length > 0 ? above[0] : durations[durations.length - 1]
+}
+
 // Representative params for a model's savings headline: its default
 // resolution and a mid-catalog duration, matching what the picker rows quote.
 function representativeParams(model: ModelEntry): CostEstimateParams {
@@ -1149,6 +1158,10 @@ export interface VideoGenOptions {
   motionImageUrl?: string
   motionVideoUrl?: string
   characterOrientation?: 'image' | 'video'
+  // Kling 3.0 only: allow the model to cut between multiple shots inside one
+  // generation. Off for line-by-line b-roll (one continuous take per clip);
+  // B-Roll's One Shot mode turns it on for full multi-scene concepts.
+  multiShots?: boolean
 }
 
 // Resolves a registry model id to the actual kie.ai slug to send in the
@@ -1243,7 +1256,7 @@ export function buildVideoInput(modelId: string, opts: VideoGenOptions): Record<
       sound: opts.audio ?? false,
       duration: String(duration), // Kling expects string enum
       aspect_ratio: ar,
-      multi_shots: false,
+      multi_shots: opts.multiShots ?? false,
     }
   }
 

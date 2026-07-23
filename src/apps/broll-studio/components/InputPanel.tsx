@@ -1,8 +1,13 @@
 import { useState } from 'react'
-import { Package, UserRound, FileText, RefreshCw, Loader2, Film, X, ChevronRight } from 'lucide-react'
+import { Package, UserRound, FileText, RefreshCw, Loader2, Film, X, ChevronRight, Clapperboard, AlertTriangle, Rows3 } from 'lucide-react'
 import type { Product, Model, Script } from '../../../stores/types'
+import type { BrollMode, OneShotDelivery } from '../types'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
 import ExpandTextModal, { ExpandButton } from '../../../components/ExpandableText'
+import SegmentedToggle from '../../../components/SegmentedToggle'
+import ModelPicker from '../../../components/ModelPicker'
+import { ONE_SHOT_MODEL_IDS, estimateSpokenSeconds, planSegments } from '../services/generateOneShot'
+import { getModel } from '../../../utils/models'
 
 interface InputPanelProps {
   selectedProduct: Product | null
@@ -21,6 +26,14 @@ interface InputPanelProps {
   onGenerate: () => void
   isGenerating: boolean
   highlightField?: string | null
+  // Line by Line vs One Shot. One Shot swaps the right panel for concept
+  // cards and reveals the delivery toggle + video-model picker below.
+  mode: BrollMode
+  onModeChange: (mode: BrollMode) => void
+  oneShotDelivery: OneShotDelivery
+  onOneShotDeliveryChange: (delivery: OneShotDelivery) => void
+  oneShotModelId: string
+  onOneShotModelChange: (modelId: string) => void
 }
 
 function BankCard({
@@ -189,16 +202,49 @@ export default function InputPanel({
   onGenerate,
   isGenerating,
   highlightField,
+  mode,
+  onModeChange,
+  oneShotDelivery,
+  onOneShotDeliveryChange,
+  oneShotModelId,
+  onOneShotModelChange,
 }: InputPanelProps) {
   const hasScript = scriptText.trim().length > 0
   const canGenerate = hasScript
   const [scriptExpanded, setScriptExpanded] = useState(false)
   const [instructionsExpanded, setInstructionsExpanded] = useState(false)
+  const isOneShot = mode === 'oneshot'
+  const hasRefs = !!selectedProduct?.productImage || !!selectedModel?.characterImage
+
+  // Live split preview: spoken seconds → clip count on the selected model.
+  // Recomputed on every keystroke so the user sees the plan before paying.
+  const estSeconds = hasScript ? estimateSpokenSeconds(scriptText) : 0
+  const plan = isOneShot && hasScript ? planSegments(estSeconds, oneShotModelId) : null
+  const perClipSeconds = plan ? Math.min(plan.maxClipSeconds, Math.max(4, Math.ceil(estSeconds / plan.count))) : undefined
+  const oneShotModelSupportsRefs = !!getModel(oneShotModelId)?.modes?.includes('reference-to-video')
 
   return (
     <div className="flex flex-col md:h-full">
+      {/* Mode toggle header — One-Shot (script → full multi-cut video concepts)
+          vs Line-by-Line (script → per-line b-roll stills). Sits in a 57px bar
+          so its border-b lines up with the right panel's Concepts/History
+          strip, matching every other app's aligned top rule. */}
+      <div className="flex h-[57px] shrink-0 items-center border-b border-ink/5 px-5">
+        <SegmentedToggle<BrollMode>
+          className="h-10 !p-1"
+          dense
+          value={mode}
+          onChange={onModeChange}
+          accent="broll"
+          options={[
+            { value: 'oneshot', label: 'One-Shot', icon: Clapperboard },
+            { value: 'line', label: 'Line-by-Line', icon: Rows3 },
+          ]}
+        />
+      </div>
+
       {/* Bank selections */}
-      <div className="flex flex-1 flex-col p-5 md:overflow-y-auto">
+      <div className="flex flex-1 flex-col px-5 pb-5 pt-4 md:overflow-y-auto">
         <div className="flex grow flex-col gap-3">
           {/* References section. */}
           <div className="flex items-center justify-between gap-2">
@@ -232,8 +278,10 @@ export default function InputPanel({
           </BankCard>
 
           {/* Script — select from bank (header) or paste manually (textarea),
-              merged into one rounded box so the two sources read as one input. */}
-          <div className={`flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border transition-colors ${selectedScript ? 'border-scripts-500/30 bg-scripts-500/[0.06] focus-within:border-scripts-500/50' : 'border-dashed border-ink/10 bg-ink/[0.02] focus-within:border-ink/20'} ${highlightField === 'script' ? 'animate-field-flash' : ''}`}>
+              merged into one rounded box so the two sources read as one input.
+              In One-Shot the script box doesn't grow — there's a stack of
+              controls below it (model, clip type) that should stay in view. */}
+          <div className={`flex min-h-0 flex-col overflow-hidden rounded-3xl border transition-colors ${isOneShot ? '' : 'flex-1'} ${selectedScript ? 'border-scripts-500/30 bg-scripts-500/[0.06] focus-within:border-scripts-500/50' : 'border-dashed border-ink/10 bg-ink/[0.02] focus-within:border-ink/20'} ${highlightField === 'script' ? 'animate-field-flash' : ''}`}>
             <BankCard
               icon={FileText}
               label="Script / Hooks"
@@ -260,6 +308,74 @@ export default function InputPanel({
 
           {/* Section separator */}
           <div className="my-2 h-px bg-ink/5" />
+
+          {/* One Shot video model — picked BEFORE generation because the
+              script split is planned against this model's max clip length
+              (15s Seedance / Kling, 10s Gemini Omni). */}
+          {isOneShot && (
+            <div>
+              <span className="text-sm font-medium text-ink-200">Video Model</span>
+              <div className="mt-2">
+                <ModelPicker
+                  appId="broll-studio"
+                  task="video"
+                  persistKey="broll-studio:oneshot:video"
+                  allowedModelIds={ONE_SHOT_MODEL_IDS}
+                  value={oneShotModelId}
+                  onChange={onOneShotModelChange}
+                  requireMode={hasRefs ? 'reference-to-video' : undefined}
+                  requireModeNote="Dimmed models can't take reference images — your product/character refs would be dropped (text-to-video only)."
+                  costParams={perClipSeconds ? { durationSeconds: perClipSeconds } : undefined}
+                />
+              </div>
+              {plan && (
+                <p className="mt-1.5 px-1 text-[11px] leading-relaxed text-ink-600">
+                  ≈ {estSeconds}s spoken → {plan.count === 1
+                    ? `1 clip of up to ${plan.maxClipSeconds}s`
+                    : `${plan.count} clips of up to ${plan.maxClipSeconds}s`}
+                </p>
+              )}
+              {plan?.capped && (
+                <p className="mt-1 flex items-start gap-1.5 px-1 text-[11px] leading-relaxed text-amber-300 light:text-amber-700">
+                  <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+                  <span>~{estSeconds}s of speech won't fit comfortably in {plan.count} clips — trim the script or use Line-by-Line.</span>
+                </p>
+              )}
+              {hasRefs && !oneShotModelSupportsRefs && (
+                <p className="mt-1 flex items-start gap-1.5 px-1 text-[11px] leading-relaxed text-amber-300 light:text-amber-700">
+                  <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+                  <span>{getModel(oneShotModelId)?.displayName ?? 'This model'} can't take reference images — clips will match your refs by description only.</span>
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* One Shot delivery — does the character speak the script on camera
+              ("With Dialogue"), or is this pure b-roll footage a voiceover gets
+              laid over in the edit ("B-Roll Clips")? Both carry diegetic audio,
+              so neither is truly "silent". */}
+          {isOneShot && (
+            <div>
+              <span className="text-sm font-medium text-ink-200">Clip Type</span>
+              <div className="mt-2">
+                <SegmentedToggle<OneShotDelivery>
+                  className="h-12 !p-1"
+                  value={oneShotDelivery}
+                  onChange={onOneShotDeliveryChange}
+                  accent="broll"
+                  options={[
+                    { value: 'dialogue', label: 'With Dialogue' },
+                    { value: 'silent', label: 'B-Roll Clips' },
+                  ]}
+                />
+              </div>
+              <p className="mt-1.5 px-1 text-[11px] leading-relaxed text-ink-600">
+                {oneShotDelivery === 'dialogue'
+                  ? 'The character speaks the script on camera — same voice across every clip.'
+                  : 'B-roll footage only — lay your own voiceover over the clips in the edit.'}
+              </p>
+            </div>
+          )}
 
           {/* Additional instructions */}
           <div>
@@ -291,7 +407,12 @@ export default function InputPanel({
           {isGenerating ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              <span>Generating Prompts...</span>
+              <span>{isOneShot ? 'Generating Concepts...' : 'Generating Prompts...'}</span>
+            </>
+          ) : isOneShot ? (
+            <>
+              <Clapperboard className="h-4 w-4" strokeWidth={2.5} />
+              <span>Generate Concepts</span>
             </>
           ) : (
             <>
