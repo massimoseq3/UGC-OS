@@ -515,6 +515,63 @@ function InFlightTile({ entry }: { entry: ModalEntry }) {
   )
 }
 
+// A standalone 9:16 in-flight placeholder tile, shaped like the Line-by-Line
+// InFlightTile above but driven by plain props instead of a ModalEntry. The
+// Continuous frame/clip and One-Shot modals import this so a generating
+// keyframe or clip reads as a real card in the gallery grid — the animated
+// backdrop + rotating progress — rather than a flat text row.
+export function PendingMediaTile({
+  kind,
+  prompt,
+  modelId,
+  aspectRatio = '9:16',
+  messages,
+}: {
+  kind: 'image' | 'video'
+  prompt?: string
+  modelId?: string | null
+  aspectRatio?: string
+  messages?: string[]
+}) {
+  const isVideo = kind === 'video'
+  const Icon = isVideo ? VideoIcon : ImageIcon
+  const modelLabel = modelId ? getModel(modelId)?.displayName ?? modelId : null
+  return (
+    <div
+      className="relative overflow-hidden rounded-2xl border border-broll-500/20"
+      style={aspectStyle(aspectRatio)}
+    >
+      <GeneratingBackdrop family="broll" />
+      <div className="absolute left-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-lg bg-black/25 text-broll-100 backdrop-blur-sm">
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 px-4 text-center">
+        {modelLabel && <p className="text-[10px] font-medium text-broll-100">{modelLabel}</p>}
+        <GenerationProgress
+          isActive
+          color="bg-broll-500"
+          showHelper={false}
+          messages={
+            messages ??
+            (isVideo
+              ? ['Sending request...', 'Rendering motion...', 'Adding detail...', 'Finalizing the clip...']
+              : ['Sending request...', 'Composing the scene...', 'Rendering details...', 'Finalizing the frame...'])
+          }
+          className="max-w-[160px]"
+        />
+      </div>
+      {prompt && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/70 to-transparent px-2 pb-1.5 pt-6">
+          <p className="line-clamp-2 text-[10px] text-zinc-300">{prompt}</p>
+        </div>
+      )}
+      <div className="pointer-events-none absolute right-2 top-2 z-10 rounded-full bg-black/40 px-2 py-0.5 text-[9px] font-medium text-broll-100 backdrop-blur-sm">
+        Survives refresh
+      </div>
+    </div>
+  )
+}
+
 // A failed generation tile — replaces the perpetual spinner once an in-flight
 // entry carries an `error`. Retry re-fires the same gen; Dismiss drops it.
 function FailedTile({

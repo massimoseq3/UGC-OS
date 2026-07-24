@@ -13,6 +13,7 @@ import {
   Check,
   X,
   ArrowRight,
+  Download,
 } from 'lucide-react'
 import GenerationProgress from '../../../components/GenerationProgress'
 import GeneratingBackdrop from '../../../components/GeneratingBackdrop'
@@ -46,9 +47,11 @@ import { useAppStore } from '../../../stores/appStore'
 import { useCreditsStore } from '../../../stores/creditsStore'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
 import { useCloseOnAppSwitch } from '../../../hooks/useCloseOnAppSwitch'
-import { getAsBase64, isAssetRef } from '../../../utils/assetStore'
+import { getAsBase64, getUrl, isAssetRef } from '../../../utils/assetStore'
 import { getModel, snapVideoDurationUp, estimateCredits, formatCredits } from '../../../utils/models'
 import { humanizeError } from '../../../utils/friendlyError'
+import { downloadImage } from '../../../utils/downloadImage'
+import { downloadAssetsZip } from '../../../utils/downloadZip'
 
 // Every clip is silent narration-wise — the voiceover and music land in the
 // edit. Appended to the motion prompt at fire time so hand-edits can't drop it.
@@ -121,6 +124,7 @@ export default function ContinuousView({
     | { kind: 'frames'; frameIndices: number[] }
     | null
   >(null)
+  const [downloadingAll, setDownloadingAll] = useState(false)
   const balance = useCreditsStore((s) => s.balance)
   useCloseOnAppSwitch(!!confirmGen, () => setConfirmGen(null))
 
@@ -592,6 +596,29 @@ export default function ContinuousView({
     .map((s) => s.index)
     .filter((i) => keyframeRef(i) && keyframeRef(i + 1))
 
+  // Every generated clip across all rows, in scene order, for "Download all".
+  const allClipEntries = result.scenes.flatMap((s) => {
+    const cs = clipStates[clipKey(s.index)]
+    const vids = cs?.videos ?? []
+    return vids.map((v, i) => ({
+      ref: v.url,
+      name: vids.length > 1 ? `clip-${String(s.index).padStart(2, '0')}-take${i + 1}` : `clip-${String(s.index).padStart(2, '0')}`,
+    }))
+  })
+
+  const downloadAll = async () => {
+    if (downloadingAll || allClipEntries.length === 0) return
+    setDownloadingAll(true)
+    try {
+      const n = await downloadAssetsZip(allClipEntries, 'continuous-clips')
+      useAppStore.getState().addToast(`Downloading ${n} clip${n === 1 ? '' : 's'} as a zip`, 'success')
+    } catch (err) {
+      useAppStore.getState().addToast(humanizeError(err, 'Could not download the clips.'), 'error')
+    } finally {
+      setDownloadingAll(false)
+    }
+  }
+
   const requestClips = (sceneIndices: number[], scope: string) => {
     const targets = sceneIndices.filter((i) => clipStates[clipKey(i)])
     if (targets.length === 0) {
@@ -600,10 +627,17 @@ export default function ContinuousView({
     }
     setConfirmGen({ kind: 'clips', sceneIndices: targets, scope })
   }
-  const requestFrames = () => {
-    const missing = result.frames.map((f) => f.index).filter((i) => !selections[String(i)])
+  // Generate keyframes for a specific set of frames, or (no arg) every frame
+  // that doesn't have a picked keyframe yet. A single-frame request powers the
+  // per-row "Generate frame" button, matching Line-by-Line's per-row generate.
+  const requestFrames = (frameIndices?: number[]) => {
+    const pool = frameIndices ?? result.frames.map((f) => f.index)
+    const missing = pool.filter((i) => !selections[String(i)])
     if (missing.length === 0) {
-      useAppStore.getState().addToast('Every frame already has a keyframe picked.', 'info')
+      useAppStore.getState().addToast(
+        frameIndices ? 'This frame already has a keyframe picked.' : 'Every frame already has a keyframe picked.',
+        'info',
+      )
       return
     }
     setConfirmGen({ kind: 'frames', frameIndices: missing })
@@ -655,7 +689,7 @@ export default function ContinuousView({
         <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
-            onClick={requestFrames}
+            onClick={() => requestFrames()}
             disabled={chainRunning || anyFrameInFlight}
             title="Generate a keyframe image for every frame that doesn't have one yet, chained in order for consistency"
             className="flex items-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.03] px-3 py-1.5 text-[11px] font-medium text-ink-300 transition-colors hover:border-ink/20 hover:bg-ink/[0.06] hover:text-ink-100 disabled:cursor-not-allowed disabled:opacity-40"
@@ -673,6 +707,18 @@ export default function ContinuousView({
             <VideoIcon className="h-3.5 w-3.5" />
             Generate all clips
           </button>
+          {allClipEntries.length > 0 && (
+            <button
+              type="button"
+              onClick={() => void downloadAll()}
+              disabled={downloadingAll}
+              title="Download every generated clip as a single zip"
+              className="flex items-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.03] px-3 py-1.5 text-[11px] font-medium text-ink-300 transition-colors hover:border-ink/20 hover:bg-ink/[0.06] hover:text-ink-100 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {downloadingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+              {downloadingAll ? 'Zipping…' : `Download all (${allClipEntries.length})`}
+            </button>
+          )}
         </div>
       </div>
 
@@ -686,6 +732,9 @@ export default function ContinuousView({
             selection={selections[String(scene.index)]}
             frameStates={frameStates}
             clipState={clipStates[clipKey(scene.index)]}
+            framePicked={!!selections[String(scene.index)]}
+            chainRunning={chainRunning}
+            onGenerateFrame={() => requestFrames([scene.index])}
             onOpenConcept={setOpenFrameKey}
             onOpenClip={() => setOpenClipKey(clipKey(scene.index))}
             onGenerateConcept={(key) => void runFrameImage(key)}
@@ -704,6 +753,8 @@ export default function ContinuousView({
           frame={finalFrame}
           selection={selections[String(finalFrame.index)]}
           frameStates={frameStates}
+          chainRunning={chainRunning}
+          onGenerateFrame={() => requestFrames([finalFrame.index])}
           onOpenConcept={setOpenFrameKey}
           onGenerateConcept={(key) => void runFrameImage(key)}
           onSelectConcept={(conceptId) => {
@@ -784,6 +835,7 @@ export default function ContinuousView({
       {openFrameKey && openFrame && openConcept && openFrameCard && (
         <ContinuousFrameModal
           frameLabel={openFrame.index === result.frames.length ? 'Final Frame' : `Frame ${openFrame.index}`}
+          frameNumber={openFrame.index}
           conceptLabel={openConcept.label}
           scriptLine={result.scenes.find((s) => s.index === openFrame.index)?.scriptLine ?? ''}
           style={result.style}
@@ -860,6 +912,9 @@ function SceneRow({
   selection,
   frameStates,
   clipState,
+  framePicked,
+  chainRunning,
+  onGenerateFrame,
   onOpenConcept,
   onOpenClip,
   onGenerateConcept,
@@ -873,6 +928,9 @@ function SceneRow({
   selection?: ContinuousSelection
   frameStates: Record<string, ContinuousFrameCardState>
   clipState?: ContinuousClipCardState
+  framePicked: boolean
+  chainRunning: boolean
+  onGenerateFrame: () => void
   onOpenConcept: (key: string) => void
   onOpenClip: () => void
   onGenerateConcept: (key: string) => void
@@ -904,6 +962,16 @@ function SceneRow({
             </p>
           </div>
         </div>
+        <button
+          type="button"
+          onClick={onGenerateFrame}
+          disabled={chainRunning || framePicked}
+          title={framePicked ? 'A keyframe is already picked for this scene' : 'Generate the keyframe image for this scene'}
+          className="flex shrink-0 items-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.03] px-3 py-1.5 text-[11px] font-medium text-ink-300 transition-colors hover:border-ink/20 hover:bg-ink/[0.06] hover:text-ink-100 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {framePicked ? <Check className="h-3.5 w-3.5" /> : <ImageIcon className="h-3.5 w-3.5" />}
+          {framePicked ? 'Frame picked' : 'Generate frame'}
+        </button>
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
@@ -938,6 +1006,8 @@ function FinalFrameRow({
   frame,
   selection,
   frameStates,
+  chainRunning,
+  onGenerateFrame,
   onOpenConcept,
   onGenerateConcept,
   onSelectConcept,
@@ -947,33 +1017,48 @@ function FinalFrameRow({
   frame: ContinuousFrame
   selection?: ContinuousSelection
   frameStates: Record<string, ContinuousFrameCardState>
+  chainRunning: boolean
+  onGenerateFrame: () => void
   onOpenConcept: (key: string) => void
   onGenerateConcept: (key: string) => void
   onSelectConcept: (conceptId: string) => void
   onAddConcept: () => void
   addingConcept: boolean
 }) {
+  const framePicked = !!selection
   return (
     <div className="-m-4 p-4" style={{ contentVisibility: 'auto', containIntrinsicSize: '620px' }}>
-      <div className="mb-5 flex items-center gap-4">
-        <span
-          className="text-5xl font-normal italic tabular-nums text-ink-800"
-          style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
-        >
-          {String(frame.index).padStart(2, '0')}
-        </span>
-        <div className="h-8 w-px bg-ink/10" />
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <span className="inline-flex w-fit rounded-full border border-broll-500/25 bg-broll-500/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-broll-300">
-            Final Frame
-          </span>
-          <p
-            className="text-lg font-normal not-italic leading-relaxed text-ink-400"
+      <div className="mb-5 flex items-center justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-4">
+          <span
+            className="text-5xl font-normal italic tabular-nums text-ink-800"
             style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
           >
-            The end state the last clip lands on
-          </p>
+            {String(frame.index).padStart(2, '0')}
+          </span>
+          <div className="h-8 w-px bg-ink/10" />
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <span className="inline-flex w-fit rounded-full border border-broll-500/25 bg-broll-500/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-broll-300">
+              Final Frame
+            </span>
+            <p
+              className="text-lg font-normal not-italic leading-relaxed text-ink-400"
+              style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
+            >
+              The end state the last clip lands on
+            </p>
+          </div>
         </div>
+        <button
+          type="button"
+          onClick={onGenerateFrame}
+          disabled={chainRunning || framePicked}
+          title={framePicked ? 'A keyframe is already picked for the final frame' : 'Generate the final keyframe image'}
+          className="flex shrink-0 items-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.03] px-3 py-1.5 text-[11px] font-medium text-ink-300 transition-colors hover:border-ink/20 hover:bg-ink/[0.06] hover:text-ink-100 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {framePicked ? <Check className="h-3.5 w-3.5" /> : <ImageIcon className="h-3.5 w-3.5" />}
+          {framePicked ? 'Frame picked' : 'Generate frame'}
+        </button>
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
@@ -1233,6 +1318,21 @@ function ClipCard({
             <VideoIcon className="h-3 w-3" />
             {currentVideo ? 'Open' : 'Set up & generate'}
           </button>
+          {currentVideo && (
+            <button
+              type="button"
+              onClick={async (e) => {
+                e.stopPropagation()
+                const resolved = await getUrl(currentVideo.url)
+                if (!resolved) { useAppStore.getState().addToast('Could not load the video.', 'error'); return }
+                await downloadImage(resolved, `continuous-clip-${sceneIndex}`, 'mp4')
+              }}
+              title="Download this clip"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white backdrop-blur transition-colors hover:bg-black/70"
+            >
+              <Download className="h-3 w-3" />
+            </button>
+          )}
         </div>
       </div>
 
