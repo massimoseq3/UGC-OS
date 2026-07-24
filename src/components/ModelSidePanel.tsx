@@ -30,18 +30,30 @@ import SavingsPill from './SavingsPill'
 // Host-app accent for the selected-row tint and check/star icons. Explicit
 // class strings (not template interpolation) so Tailwind sees them; the
 // 100–400 tints auto-flip in light mode, so no `light:` variants needed.
-const ACCENTS: Record<string, { selectedBg: string; icon: string; star: string }> = {
+const ACCENTS: Record<string, { selectedBg: string; icon: string; star: string; pillActive: string }> = {
   'broll-studio': {
     selectedBg: 'bg-broll-500/10',
     icon: 'text-broll-400',
     star: 'fill-broll-400 text-broll-400',
+    pillActive: 'border-broll-500/40 bg-broll-500/15 text-broll-200',
   },
   playground: {
     selectedBg: 'bg-playground-500/15',
     icon: 'text-playground-300',
     star: 'fill-playground-300 text-playground-300',
+    pillActive: 'border-playground-500/40 bg-playground-500/15 text-playground-200',
   },
 }
+
+// Capability quick-filters for the video picker — tap to narrow the list to
+// models that accept that input shape (multi-select; none active = show all).
+// Only pills that at least one visible model supports are rendered.
+const VIDEO_CAPABILITY_FILTERS: { mode: Mode; label: string }[] = [
+  { mode: 'frames-to-video', label: 'Start + end frame' },
+  { mode: 'image-to-video', label: 'Start frame' },
+  { mode: 'reference-to-video', label: 'Reference images' },
+  { mode: 'text-to-video', label: 'Text to video' },
+]
 
 // Non-recommended tags render as small colored words (no pill chrome) — same
 // hues as TAG_STYLES, text only. Recommended is carried by the star icon.
@@ -64,9 +76,14 @@ interface ModelSidePanelProps {
   requireModeNote?: string
   // Cost params for the per-row credit estimate (e.g. duration/resolution/audio).
   costParams?: CostEstimateParams
-  // Restrict the list to a specific set of model ids (e.g. B-Roll One-Shot's
-  // allowlist). Omit to show every model for the task.
+  // Restrict which models are LISTED at all (e.g. B-Roll hides motion-control
+  // models). Omit to show every model for the task.
   allowedModelIds?: string[]
+  // Of the listed models, which are actually selectable. Any listed model NOT
+  // in this set is shown greyed + disabled (same look as requireMode dimming).
+  // Use for curated sets that aren't derivable from a single mode — e.g.
+  // One-Shot's "built for the ref+audio multi-cut" models. Omit to enable all.
+  enabledModelIds?: string[]
   // Optional controlled mode: when both are provided the panel reflects `value`
   // and reports picks through `onChange` instead of reading/writing settingsStore
   // (lets a controlled consumer like Playground reuse the same panel).
@@ -84,6 +101,7 @@ export default function ModelSidePanel({
   requireModeNote,
   costParams = {},
   allowedModelIds,
+  enabledModelIds,
   value,
   onChange,
 }: ModelSidePanelProps) {
@@ -92,6 +110,8 @@ export default function ModelSidePanel({
   const persistedKey = `${appId}:${task}${mode ? `:${mode}` : ''}`
 
   const [search, setSearch] = useState('')
+  // Active capability filters (video only). None = show all.
+  const [capFilters, setCapFilters] = useState<Set<Mode>>(new Set())
   const searchRef = useRef<HTMLInputElement>(null)
   const isDesktop = useIsDesktop()
   const accent = ACCENTS[appId] ?? ACCENTS['broll-studio']
@@ -100,20 +120,45 @@ export default function ModelSidePanel({
   const fallback = getDefaultModel(appId, task, mode)
   const resolved = value ?? getAppModel(persistedKey) ?? fallback?.id
 
-  // Filter by display name, then split into Featured (recommended) + the rest.
-  const filtered = search.trim()
+  // Whether a model is selectable — greyed + disabled otherwise. A model is
+  // muted when it falls outside the enabled set, OR when requireMode is set and
+  // the model can't do that mode.
+  const isMuted = (m: ModelEntry): boolean =>
+    (!!enabledModelIds && !enabledModelIds.includes(m.id)) ||
+    (!!requireMode && !m.modes?.includes(requireMode))
+
+  // Capability pills — only render ones some listed model actually supports.
+  const availableFilters = task === 'video'
+    ? VIDEO_CAPABILITY_FILTERS.filter((f) => models.some((m) => m.modes?.includes(f.mode)))
+    : []
+
+  // Filter by display name, then by any active capability pill, then split into
+  // Featured (recommended) + the rest.
+  const searched = search.trim()
     ? models.filter((m) => m.displayName.toLowerCase().includes(search.toLowerCase()))
     : models
+  const filtered = capFilters.size > 0
+    ? searched.filter((m) => Array.from(capFilters).some((mode) => m.modes?.includes(mode)))
+    : searched
   const featured = filtered.filter((m) => m.tags.includes('recommended'))
   const rest = filtered.filter((m) => !m.tags.includes('recommended'))
 
-  // Reset search + focus the input on open.
+  // Reset search + capability filters + focus the input on open.
   useEffect(() => {
     if (isOpen) {
       setSearch('')
+      setCapFilters(new Set())
       setTimeout(() => searchRef.current?.focus(), 100)
     }
   }, [isOpen])
+
+  const toggleFilter = (m: Mode) =>
+    setCapFilters((prev) => {
+      const next = new Set(prev)
+      if (next.has(m)) next.delete(m)
+      else next.add(m)
+      return next
+    })
 
   useCloseOnAppSwitch(isOpen, onClose)
 
@@ -134,7 +179,9 @@ export default function ModelSidePanel({
   }
 
   const showRequireNote =
-    requireMode && requireModeNote && models.some((m) => !m.modes?.includes(requireMode))
+    !!requireModeNote &&
+    ((!!requireMode && models.some((m) => !m.modes?.includes(requireMode))) ||
+      (!!enabledModelIds && models.some((m) => !enabledModelIds.includes(m.id))))
 
   // Render through a portal so the panel parents at document root, not inside
   // the B-Roll CardDetailModal (which has its own transform/backdrop context).
@@ -172,7 +219,7 @@ export default function ModelSidePanel({
         <div className="flex items-start justify-between px-5 pb-2 pt-5">
           <div className="min-w-0">
             <h3 className="text-[15px] font-semibold tracking-tight text-ink-100">Video Model</h3>
-            <p className="mt-0.5 text-[11px] text-ink-600">{models.length} models available</p>
+            <p className="mt-0.5 text-[11px] text-ink-600">{filtered.length} of {models.length} models</p>
           </div>
           <button
             onClick={onClose}
@@ -196,6 +243,29 @@ export default function ModelSidePanel({
           </div>
         </div>
 
+        {/* Capability filter pills — tap to narrow by input shape. */}
+        {availableFilters.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 px-4 pb-2">
+            {availableFilters.map((f) => {
+              const active = capFilters.has(f.mode)
+              return (
+                <button
+                  key={f.mode}
+                  type="button"
+                  onClick={() => toggleFilter(f.mode)}
+                  className={`rounded-full border px-3 py-1 text-[11px] font-medium transition-colors ${
+                    active
+                      ? accent.pillActive
+                      : 'border-ink/10 bg-ink/[0.03] text-ink-400 hover:bg-ink/[0.06] hover:text-ink-200'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              )
+            })}
+          </div>
+        )}
+
         {/* Model list — quiet rows, no per-model chrome. Rows breathe via
             their own padding; sections separate with labels, not borders. */}
         <div className="flex-1 overflow-y-auto px-2.5 pb-3 pt-1">
@@ -216,7 +286,7 @@ export default function ModelSidePanel({
                   key={`feat-${m.id}`}
                   model={m}
                   active={m.id === resolved}
-                  muted={requireMode ? !m.modes?.includes(requireMode) : false}
+                  muted={isMuted(m)}
                   credits={formatCredits(estimateCredits(m.id, costParams))}
                   accent={accent}
                   onClick={() => pick(m.id)}
@@ -235,7 +305,7 @@ export default function ModelSidePanel({
                   key={m.id}
                   model={m}
                   active={m.id === resolved}
-                  muted={requireMode ? !m.modes?.includes(requireMode) : false}
+                  muted={isMuted(m)}
                   credits={formatCredits(estimateCredits(m.id, costParams))}
                   accent={accent}
                   onClick={() => pick(m.id)}

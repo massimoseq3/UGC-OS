@@ -23,15 +23,16 @@ import {
   Star,
 } from 'lucide-react'
 import ModelSidePanel from '../../../components/ModelSidePanel'
+import SegmentedToggle from '../../../components/SegmentedToggle'
 import ProviderLogo from '../../../components/ProviderLogo'
 import SavingsPill from '../../../components/SavingsPill'
 import ConstraintChip from '../../../components/ConstraintChip'
 import AspectIcon from '../../../components/AspectIcon'
 import ExpandTextModal, { ExpandButton } from '../../../components/ExpandableText'
-import { ReferenceSlotCard, ExtraRefsRow } from './cardDetailParts'
+import { ReferenceSlotCard, ExtraRefsRow, PendingMediaTile } from './cardDetailParts'
 import type { OneShotSegment, OneShotCardState, GeneratedVideo, ReferenceImage } from '../types'
 import type { Product, Model } from '../../../stores/types'
-import { ONE_SHOT_MODEL_IDS, enhanceOneShotClip, regenerateOneShotClip } from '../services/generateOneShot'
+import { ONE_SHOT_MODEL_IDS, ONE_SHOT_ENABLED_MODEL_IDS, enhanceOneShotClip, regenerateOneShotClip } from '../services/generateOneShot'
 import { useAppStore } from '../../../stores/appStore'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
@@ -221,6 +222,17 @@ export default function OneShotDetailModal({
           <div className="col-span-1 flex min-h-0 flex-col border-b border-ink/5 md:border-b-0 md:border-r">
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
               <div className="flex grow flex-col gap-3 px-5 pb-6 pt-4">
+                {/* Output-type tab — One-Shot renders a whole clip. Styled as
+                    the Line-by-Line segmented toggle, single option; separator
+                    aligns with the right header. */}
+                <SegmentedToggle
+                  className="h-10 !p-1"
+                  value="video"
+                  onChange={() => {}}
+                  options={[{ value: 'video', label: 'Video', icon: VideoIcon }]}
+                />
+                <div className="-mx-5 -mt-1 border-b border-ink/5" />
+
                 {/* Model picker — slide-in side panel (like CardDetailModal's
                     video model), controlled so it persists to the One-Shot key. */}
                 <button
@@ -250,12 +262,13 @@ export default function OneShotDetailModal({
                   appId="broll-studio"
                   task="video"
                   allowedModelIds={ONE_SHOT_MODEL_IDS}
+                  enabledModelIds={ONE_SHOT_ENABLED_MODEL_IDS}
                   value={oneShotModelId}
                   onChange={(id) => useSettingsStore.getState().setAppModel('broll-studio:oneshot:video', id)}
                   isOpen={modelPanelOpen}
                   onClose={() => setModelPanelOpen(false)}
                   requireMode={hasRefs ? 'reference-to-video' : undefined}
-                  requireModeNote="Dimmed models can't take reference images — your refs would be dropped (text-to-video only)."
+                  requireModeNote="Greyed-out models aren't built for One-Shot's ref + audio multi-cut — they'd drop your refs and render a plain text-to-video clip."
                   costParams={{ durationSeconds: cardState.durationSeconds, resolution: cardState.resolution, audio: cardState.audio }}
                 />
 
@@ -452,7 +465,7 @@ export default function OneShotDetailModal({
           {/* RIGHT — header + gallery */}
           <div className="col-span-1 flex min-h-0 flex-col overflow-hidden">
             <div className="flex flex-col gap-3 px-5 pt-4">
-              <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-10 min-w-0 items-center gap-3">
                 {/* Angle + clip/delivery as two pills side by side. */}
                 <div className="flex shrink-0 items-center gap-1.5">
                   <span className="rounded-full border border-ink/10 bg-ink/[0.03] px-2 py-0.5 text-[10px] font-medium uppercase leading-none tracking-wider text-ink-400">
@@ -471,7 +484,7 @@ export default function OneShotDetailModal({
                   &ldquo;{segment.scriptExcerpt}&rdquo;
                 </span>
               </div>
-              <div className="-mx-5 border-b border-ink/5" />
+              <div className="-mx-5 -mt-1 border-b border-ink/5" />
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
@@ -482,22 +495,25 @@ export default function OneShotDetailModal({
                 </div>
               ) : (
                 <div className="flex flex-col gap-3">
-                  {cardState.inFlightVideos.map((entry) =>
-                    entry.error ? (
-                      <div key={entry.id} className="flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2">
-                        <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-400 light:text-red-600" />
-                        <p className="min-w-0 flex-1 text-[11px] leading-relaxed text-red-300 light:text-red-700">{entry.error}</p>
-                        <button type="button" title="Retry" onClick={() => onRetryInFlight(entry.id)} className="shrink-0 rounded-full p-1 text-ink-400 hover:bg-ink/10 hover:text-ink-200"><RefreshCw className="h-3.5 w-3.5" /></button>
-                        <button type="button" title="Dismiss" onClick={() => onDismissInFlight(entry.id)} className="shrink-0 rounded-full p-1 text-ink-400 hover:bg-ink/10 hover:text-ink-200"><X className="h-3.5 w-3.5" /></button>
-                      </div>
-                    ) : (
-                      <div key={entry.id} className="flex items-center gap-2 rounded-xl border border-ink/5 bg-ink/[0.02] px-3 py-2.5">
-                        <Loader2 className="h-4 w-4 animate-spin text-broll-300" />
-                        <p className="text-[11px] text-ink-500">Rendering with {getModel(entry.modelId)?.displayName ?? entry.modelId}… survives a refresh.</p>
-                      </div>
-                    ),
-                  )}
+                  {cardState.inFlightVideos.filter((e) => e.error).map((entry) => (
+                    <div key={entry.id} className="flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2">
+                      <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-400 light:text-red-600" />
+                      <p className="min-w-0 flex-1 text-[11px] leading-relaxed text-red-300 light:text-red-700">{entry.error}</p>
+                      <button type="button" title="Retry" onClick={() => onRetryInFlight(entry.id)} className="shrink-0 rounded-full p-1 text-ink-400 hover:bg-ink/10 hover:text-ink-200"><RefreshCw className="h-3.5 w-3.5" /></button>
+                      <button type="button" title="Dismiss" onClick={() => onDismissInFlight(entry.id)} className="shrink-0 rounded-full p-1 text-ink-400 hover:bg-ink/10 hover:text-ink-200"><X className="h-3.5 w-3.5" /></button>
+                    </div>
+                  ))}
                   <div className="grid grid-cols-2 gap-3">
+                    {cardState.inFlightVideos.filter((e) => !e.error).map((entry) => (
+                      <PendingMediaTile
+                        key={entry.id}
+                        kind="video"
+                        prompt={entry.prompt}
+                        modelId={entry.modelId}
+                        aspectRatio={entry.aspectRatio}
+                        messages={['Sending request...', 'Rolling the clip...', 'Cutting the shots...', 'Finalizing the clip...']}
+                      />
+                    ))}
                     {cardState.videos.map((video, i) => (
                       <ModalVideoTile key={`${video.url}-${i}`} video={video} onDelete={() => onDeleteVideo(i)} />
                     ))}

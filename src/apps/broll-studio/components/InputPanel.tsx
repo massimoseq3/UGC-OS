@@ -9,7 +9,7 @@ import ModelSidePanel from '../../../components/ModelSidePanel'
 import ProviderLogo from '../../../components/ProviderLogo'
 import SavingsPill from '../../../components/SavingsPill'
 import { useSettingsStore } from '../../../stores/settingsStore'
-import { ONE_SHOT_MODEL_IDS, estimateSpokenSeconds, planSegments } from '../services/generateOneShot'
+import { ONE_SHOT_MODEL_IDS, ONE_SHOT_ENABLED_MODEL_IDS, estimateSpokenSeconds, planSegments } from '../services/generateOneShot'
 import { CONTINUOUS_STYLES } from '../services/generateContinuous'
 import { estimatePromptCredits } from '../services/promptCost'
 import { getModel, officialSavingsPercent, formatCredits } from '../../../utils/models'
@@ -383,12 +383,13 @@ export default function InputPanel({
                   appId="broll-studio"
                   task="video"
                   allowedModelIds={ONE_SHOT_MODEL_IDS}
+                  enabledModelIds={ONE_SHOT_ENABLED_MODEL_IDS}
                   value={oneShotModelId}
                   onChange={(id) => { useSettingsStore.getState().setAppModel('broll-studio:oneshot:video', id); onOneShotModelChange(id) }}
                   isOpen={modelPanelOpen}
                   onClose={() => setModelPanelOpen(false)}
                   requireMode={hasRefs ? 'reference-to-video' : undefined}
-                  requireModeNote="Dimmed models can't take reference images — your product/character refs would be dropped (text-to-video only)."
+                  requireModeNote="Greyed-out models aren't built for One-Shot's ref + audio multi-cut — they'd drop your refs and render a plain text-to-video clip."
                   costParams={perClipSeconds ? { durationSeconds: perClipSeconds } : undefined}
                 />
               </div>
