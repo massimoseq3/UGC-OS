@@ -405,17 +405,21 @@ export default function CardDetailModal(props: CardDetailModalProps) {
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
               <div className="flex grow flex-col gap-3 px-5 pb-6 pt-3">
                 {/* Image / Video / Animate — slim segmented toggle (h-10 !p-1)
-                    to match the Playground mode toggle. */}
-                <SegmentedToggle<Tab>
-                  className="h-10 !p-1"
-                  value={tab}
-                  onChange={setTab}
-                  options={[
-                    { value: 'image', label: 'Image', icon: ImageIcon },
-                    { value: 'video', label: 'Video', icon: VideoIcon },
-                    { value: 'animate', label: 'Animate', icon: Film },
-                  ]}
-                />
+                    to match the Playground mode toggle. Wrapped in an h-12 row so
+                    its baseline aligns with the stacked identity header opposite,
+                    keeping the two hairlines on one line across the modal. */}
+                <div className="flex h-12 items-center">
+                  <SegmentedToggle<Tab>
+                    className="h-10 !p-1"
+                    value={tab}
+                    onChange={setTab}
+                    options={[
+                      { value: 'image', label: 'Image', icon: ImageIcon },
+                      { value: 'video', label: 'Video', icon: VideoIcon },
+                      { value: 'animate', label: 'Animate', icon: Film },
+                    ]}
+                  />
+                </div>
 
                 {/* Full-width separator between the toggle and the controls
                     below (breaks out of the px-5 column padding). */}
@@ -781,35 +785,41 @@ export default function CardDetailModal(props: CardDetailModalProps) {
               bar) + per-card gallery (Playground masonry). */}
           <div className="col-span-1 flex min-h-0 flex-col overflow-hidden">
             <div className="flex flex-col gap-3 px-5 pt-3">
-              {/* h-10 matches the left column's segmented toggle so this row's
-                  separator lands at the same Y — the two hairlines read as one
-                  line straight across the modal. */}
-              <div className="flex h-10 min-w-0 items-center gap-3">
-                {/* Role + scene as two pills side by side — reads cleaner than
-                    the old stacked chip-over-text block. */}
-                <div className="flex shrink-0 items-center gap-1.5">
-                  {!isManual && (
-                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium leading-none tracking-tight ${tagChipStyle(variation.tag)}`}>
-                      {tagLabel(variation.tag)}
+              {/* Identity header — serif scene number, a vertical rule, then the
+                  role pill stacked over the script line. Mirrors the main
+                  storyboard rows (and the other detail modals) so all four read
+                  the same. h-12 matches the left toggle row so the two hairlines
+                  land on one line across the modal. */}
+              <div className="flex h-12 min-w-0 items-center gap-3.5">
+                <span
+                  className="shrink-0 text-4xl font-normal italic tabular-nums leading-none text-ink-700"
+                  style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
+                >
+                  {String(sceneNumber).padStart(2, '0')}
+                </span>
+                <div className="h-8 w-px shrink-0 bg-ink/10" />
+                <div className="flex min-w-0 flex-col gap-1">
+                  <div className="flex items-center gap-1.5">
+                    {isManual ? (
+                      <span className="w-fit rounded-full border border-ink/15 bg-ink/10 px-2 py-0.5 text-[10px] font-medium leading-none tracking-tight text-ink-300">
+                        Custom
+                      </span>
+                    ) : (
+                      <span className={`w-fit rounded-full border px-2 py-0.5 text-[10px] font-medium leading-none tracking-tight ${tagChipStyle(variation.tag)}`}>
+                        {tagLabel(variation.tag)}
+                      </span>
+                    )}
+                  </div>
+                  {scriptLine && (
+                    <span
+                      className="min-w-0 truncate text-[15px] not-italic leading-tight text-ink-300"
+                      style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
+                      title={scriptLine}
+                    >
+                      &ldquo;{scriptLine}&rdquo;
                     </span>
                   )}
-                  <span className="rounded-full border border-ink/10 bg-ink/[0.04] px-2 py-0.5 text-[10px] font-medium uppercase leading-none tracking-wider text-ink-400">
-                    Scene {sceneNumber}
-                  </span>
                 </div>
-                <div className="h-7 w-px shrink-0 bg-ink/10" />
-                {/* The script line this scene references, so the workspace
-                    always shows which line it's illustrating. Instrument Serif
-                    to match the scene line on the main B-Roll page. */}
-                {scriptLine && (
-                  <span
-                    className="min-w-0 flex-1 truncate text-[15px] not-italic leading-none text-ink-300"
-                    style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
-                    title={scriptLine}
-                  >
-                    &ldquo;{scriptLine}&rdquo;
-                  </span>
-                )}
               </div>
               {/* Full-width separator — aligned with the one under the left
                   toggle (same -mt-1) so the line runs across the whole modal. */}

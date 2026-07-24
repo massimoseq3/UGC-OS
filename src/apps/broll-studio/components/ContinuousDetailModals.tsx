@@ -33,7 +33,7 @@ import SegmentedToggle from '../../../components/SegmentedToggle'
 import ProviderLogo from '../../../components/ProviderLogo'
 import SavingsPill from '../../../components/SavingsPill'
 import ExpandTextModal, { ExpandButton } from '../../../components/ExpandableText'
-import { ReferenceSlotCard, ExtraRefsRow, PendingMediaTile } from './cardDetailParts'
+import { ReferenceSlotCard, ExtraRefsRow, PendingMediaTile, ModalVideoPlayer } from './cardDetailParts'
 import type { ContinuousFrameCardState, ContinuousClipCardState, GeneratedVideo, ReferenceImage } from '../types'
 import type { Product, Model } from '../../../stores/types'
 import { CONTINUOUS_MODEL_IDS } from '../services/generateContinuous'
@@ -240,13 +240,13 @@ export function ContinuousFrameModal({
         {/* LEFT — model + refs + prompt over a pinned Generate footer */}
         <div className="col-span-1 flex min-h-0 flex-col border-b border-ink/5 md:border-b-0 md:border-r">
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-            <div className="flex grow flex-col gap-3 px-5 pb-6 pt-4">
+            <div className="flex grow flex-col gap-3 px-5 pb-6 pt-3">
               {/* Output-type tab — keyframes are images, so this workspace only
                   makes images (no Video / Animate tabs, unlike Line-by-Line).
                   Styled as the Line-by-Line segmented toggle, single option. The
-                  h-14 container + separator mirror the right header so the
+                  h-12 container + separator mirror the right header so the
                   hairline runs straight across the modal. */}
-              <div className="flex h-14 items-center">
+              <div className="flex h-12 items-center">
                 <SegmentedToggle
                   className="h-10 !p-1"
                   value="image"
@@ -420,18 +420,18 @@ export function ContinuousFrameModal({
 
         {/* RIGHT — header + image gallery */}
         <div className="col-span-1 flex min-h-0 flex-col overflow-hidden">
-          <div className="flex flex-col gap-3 px-5 pt-4">
+          <div className="flex flex-col gap-3 px-5 pt-3">
             {/* Serif number + a stacked column (concept pill over the quote),
-                mirroring the main storyboard rows. */}
-            <div className="flex h-14 min-w-0 items-center gap-4">
+                mirroring the main storyboard rows. h-12 keeps the top bar tight. */}
+            <div className="flex h-12 min-w-0 items-center gap-3.5">
               <span
                 className="shrink-0 text-4xl font-normal italic tabular-nums leading-none text-ink-700"
                 style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
               >
                 {String(frameNumber).padStart(2, '0')}
               </span>
-              <div className="h-9 w-px shrink-0 bg-ink/10" />
-              <div className="flex min-w-0 flex-col gap-1.5">
+              <div className="h-8 w-px shrink-0 bg-ink/10" />
+              <div className="flex min-w-0 flex-col gap-1">
                 <span className="inline-flex w-fit rounded-full border border-ink/10 bg-ink/[0.03] px-2.5 py-0.5 text-[10px] font-semibold uppercase leading-none tracking-wider text-ink-400">
                   {conceptLabel}
                 </span>
@@ -543,6 +543,7 @@ function FrameImageTile({ imageRef, isKeyframe, onSelect }: {
 
 interface ContinuousClipModalProps {
   clipLabel: string     // "Clip 2"
+  sceneNumber: number   // the scene index, shown as a serif "01" in the header
   scriptLine: string
   style: string
   cardState: ContinuousClipCardState
@@ -559,6 +560,7 @@ interface ContinuousClipModalProps {
 
 export function ContinuousClipModal({
   clipLabel,
+  sceneNumber,
   scriptLine,
   style,
   cardState,
@@ -615,16 +617,19 @@ export function ContinuousClipModal({
         {/* LEFT — model + endpoints + motion prompt over a pinned Generate footer */}
         <div className="col-span-1 flex min-h-0 flex-col border-b border-ink/5 md:border-b-0 md:border-r">
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-            <div className="flex grow flex-col gap-3 px-5 pb-6 pt-4">
+            <div className="flex grow flex-col gap-3 px-5 pb-6 pt-3">
               {/* Output-type tab — Continuous clips are videos (frames-to-video
                   between two keyframes). Styled as the Line-by-Line toggle,
-                  single option; separator aligns with the right header. */}
-              <SegmentedToggle
-                className="h-10 !p-1"
-                value="video"
-                onChange={() => {}}
-                options={[{ value: 'video', label: 'Video', icon: VideoIcon }]}
-              />
+                  single option; the h-12 wrapper aligns the separator with the
+                  right header so the hairline runs straight across the modal. */}
+              <div className="flex h-12 items-center">
+                <SegmentedToggle
+                  className="h-10 !p-1"
+                  value="video"
+                  onChange={() => {}}
+                  options={[{ value: 'video', label: 'Video', icon: VideoIcon }]}
+                />
+              </div>
               <div className="-mx-5 -mt-1 border-b border-ink/5" />
 
               {/* Video model — picked HERE rather than in the left input panel:
@@ -762,19 +767,29 @@ export function ContinuousClipModal({
 
         {/* RIGHT — header + video gallery */}
         <div className="col-span-1 flex min-h-0 flex-col overflow-hidden">
-          <div className="flex flex-col gap-3 px-5 pt-4">
-            <div className="flex h-10 min-w-0 items-center gap-3">
-              <span className="shrink-0 rounded-full border border-ink/10 bg-ink/[0.03] px-2 py-0.5 text-[10px] font-medium uppercase leading-none tracking-wider text-ink-400">
-                {clipLabel}
-              </span>
-              <div className="h-7 w-px shrink-0 bg-ink/10" />
+          <div className="flex flex-col gap-3 px-5 pt-3">
+            {/* Serif scene number + a stacked column (Clip pill over the quote),
+                matching the frame modal and the main storyboard rows. */}
+            <div className="flex h-12 min-w-0 items-center gap-3.5">
               <span
-                className="min-w-0 flex-1 truncate text-[15px] leading-none text-ink-300"
+                className="shrink-0 text-4xl font-normal italic tabular-nums leading-none text-ink-700"
                 style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
-                title={scriptLine}
               >
-                &ldquo;{scriptLine}&rdquo;
+                {String(sceneNumber).padStart(2, '0')}
               </span>
+              <div className="h-8 w-px shrink-0 bg-ink/10" />
+              <div className="flex min-w-0 flex-col gap-1">
+                <span className="inline-flex w-fit rounded-full border border-ink/10 bg-ink/[0.03] px-2.5 py-0.5 text-[10px] font-semibold uppercase leading-none tracking-wider text-ink-400">
+                  {clipLabel}
+                </span>
+                <span
+                  className="min-w-0 truncate text-[15px] leading-tight text-ink-300"
+                  style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
+                  title={scriptLine}
+                >
+                  &ldquo;{scriptLine}&rdquo;
+                </span>
+              </div>
             </div>
             <div className="-mx-5 -mt-1 border-b border-ink/5" />
           </div>
@@ -860,18 +875,13 @@ function ClipVideoTile({ video, onDelete }: { video: GeneratedVideo; onDelete: (
     if (await copyToClipboard(video.prompt)) { setCopied(true); window.setTimeout(() => setCopied(false), 1600) }
   }
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-ink/10 bg-black">
-      {url ? (
-        <video src={url} controls playsInline preload="metadata" className="aspect-[9/16] w-full object-cover" />
-      ) : (
-        <div className="flex aspect-[9/16] w-full items-center justify-center"><Loader2 className="h-4 w-4 animate-spin text-white/40" /></div>
-      )}
+    <ModalVideoPlayer url={url}>
       <div className="pointer-events-none absolute right-1.5 top-1.5 flex flex-col gap-1 opacity-0 transition-opacity group-hover:opacity-100">
         <button type="button" title="Download" onClick={handleDownload} className="pointer-events-auto flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm hover:bg-black/80"><Download className="h-3.5 w-3.5" /></button>
         <button type="button" title="Copy prompt" onClick={handleCopy} className="pointer-events-auto flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm hover:bg-black/80">{copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}</button>
         <button type="button" title="Delete" onClick={onDelete} className="pointer-events-auto flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm hover:bg-red-500/80"><Trash2 className="h-3.5 w-3.5" /></button>
       </div>
       <span className="pointer-events-none absolute bottom-1.5 left-1.5 rounded-full bg-black/60 px-2 py-0.5 text-[9px] font-medium tabular-nums text-white backdrop-blur-sm">{video.durationSeconds}s</span>
-    </div>
+    </ModalVideoPlayer>
   )
 }

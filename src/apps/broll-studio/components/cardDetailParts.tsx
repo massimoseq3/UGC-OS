@@ -572,6 +572,76 @@ export function PendingMediaTile({
   )
 }
 
+// Shared modal video player — the Line-by-Line playback behaviour (hover
+// autoplay muted; the top-left button plays with sound; a mute toggle appears
+// while playing/unmuted). No native controls, so it reads the same as the
+// Line-by-Line gallery tiles. Children are overlaid (action stack, duration
+// badge). Used by the Continuous clip modal and the One-Shot modal so their
+// video playback matches Line-by-Line.
+export function ModalVideoPlayer({ url, children }: { url: string | null; children?: React.ReactNode }) {
+  const videoElRef = useRef<HTMLVideoElement>(null)
+  const [hovering, setHovering] = useState(false)
+  const [playing, setPlaying] = useState(false)
+  const [unmuted, setUnmuted] = useState(false)
+  const togglePlay = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const v = videoElRef.current
+    if (!v) return
+    if (v.paused) { setUnmuted(true); v.muted = false; v.play().catch(() => {}) }
+    else v.pause()
+  }
+  const toggleMute = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const v = videoElRef.current
+    setUnmuted((prev) => { const next = !prev; if (v) v.muted = !next; return next })
+  }
+  return (
+    <div
+      onMouseEnter={() => setHovering(true)}
+      onMouseLeave={() => setHovering(false)}
+      className="group relative overflow-hidden rounded-2xl border border-ink/10 bg-black"
+    >
+      {url ? (
+        <video
+          ref={videoElRef}
+          src={url}
+          muted={!unmuted}
+          loop
+          playsInline
+          autoPlay={hovering}
+          preload="metadata"
+          onPlay={() => setPlaying(true)}
+          onPause={() => setPlaying(false)}
+          className="aspect-[9/16] w-full object-cover"
+        />
+      ) : (
+        <div className="flex aspect-[9/16] w-full items-center justify-center"><Loader2 className="h-4 w-4 animate-spin text-white/40" /></div>
+      )}
+      {url && (
+        <button
+          type="button"
+          title={playing ? 'Pause' : 'Play with sound'}
+          onClick={togglePlay}
+          className="absolute left-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/80"
+        >
+          {playing ? <Pause className="h-3 w-3 fill-white" /> : <Play className="h-3 w-3 fill-white" />}
+        </button>
+      )}
+      {url && (hovering || unmuted) && (
+        <button
+          type="button"
+          title={unmuted ? 'Mute' : 'Unmute'}
+          onClick={toggleMute}
+          className="absolute left-10 top-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/80"
+        >
+          {unmuted ? <Volume2 className="h-3 w-3" /> : <VolumeX className="h-3 w-3" />}
+        </button>
+      )}
+      {children}
+    </div>
+  )
+}
+
 // A failed generation tile — replaces the perpetual spinner once an in-flight
 // entry carries an `error`. Retry re-fires the same gen; Dismiss drops it.
 function FailedTile({

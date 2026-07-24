@@ -8,10 +8,16 @@ import {
   Sparkles,
   Video as VideoIcon,
   Play,
+  Pause,
+  Volume2,
+  VolumeX,
   Plus,
   Coins,
   X,
   Download,
+  Copy,
+  Check,
+  Film,
 } from 'lucide-react'
 import GenerationProgress from '../../../components/GenerationProgress'
 import GeneratingBackdrop from '../../../components/GeneratingBackdrop'
@@ -35,6 +41,8 @@ import { getModel, snapVideoDurationUp, estimateCredits, formatCredits } from '.
 import { humanizeError } from '../../../utils/friendlyError'
 import { downloadImage } from '../../../utils/downloadImage'
 import { downloadAssetsZip } from '../../../utils/downloadZip'
+import { copyToClipboard } from '../../../utils/clipboard'
+import { sendClipToPlayground } from '../services/sendClipToPlayground'
 
 interface OneShotViewProps {
   result: OneShotResult | null
@@ -590,7 +598,7 @@ export default function OneShotView({
         <OneShotDetailModal
           segment={openSegment}
           conceptAngle={openConcept.angle}
-          conceptLabel={`Variation ${result.concepts.findIndex((c) => c.id === openConcept.id) + 1}`}
+          conceptNumber={result.concepts.findIndex((c) => c.id === openConcept.id) + 1}
           clipLabel={openConcept.segments.length > 1 ? `Clip ${openSegment.index}` : ''}
           delivery={result.delivery}
           cardState={openCard}
@@ -717,6 +725,36 @@ function OSVariationCard({
   const errored = cardState?.inFlightVideos.some((e) => e.error) ?? false
   const duration = cardState?.durationSeconds ?? segment.durationSeconds
 
+  // Inline playback on the card face — mirrors Line-by-Line's VariationCard.
+  // Hover autoplays muted; an explicit Play click plays with sound and keeps
+  // playing after the mouse leaves.
+  const videoElRef = useRef<HTMLVideoElement>(null)
+  const [playing, setPlaying] = useState(false)
+  const [unmuted, setUnmuted] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const controlsExpanded = playing || unmuted
+  const togglePlay = () => {
+    const v = videoElRef.current
+    if (!v) return
+    if (v.paused) { setUnmuted(true); v.muted = false; v.play().catch(() => {}) }
+    else v.pause()
+  }
+  const toggleMute = () => {
+    const v = videoElRef.current
+    setUnmuted((prev) => { const next = !prev; if (v) v.muted = !next; return next })
+  }
+  const handleDownload = async () => {
+    if (!currentVideo) return
+    const resolved = await getUrl(currentVideo.url)
+    if (!resolved) { useAppStore.getState().addToast('Could not load the video.', 'error'); return }
+    await downloadImage(resolved, `oneshot-clip-${segment.index}`, 'mp4')
+  }
+  const handleCopy = async () => {
+    const text = (currentVideo?.prompt ?? '').trim()
+    if (!text) return
+    if (await copyToClipboard(text)) { setCopied(true); window.setTimeout(() => setCopied(false), 1600) }
+  }
+
   return (
     <div className="group flex flex-col gap-1.5">
       <div
@@ -739,16 +777,37 @@ function OSVariationCard({
         ) : currentVideo && videoUrl ? (
           <>
             <video
+              ref={videoElRef}
               src={videoUrl}
-              muted
+              muted={!unmuted}
               loop
               playsInline
               className="absolute inset-0 h-full w-full object-cover"
-              onMouseEnter={(e) => (e.currentTarget as HTMLVideoElement).play().catch(() => {})}
-              onMouseLeave={(e) => { const v = e.currentTarget as HTMLVideoElement; v.pause(); v.currentTime = 0 }}
+              onPlay={() => setPlaying(true)}
+              onPause={() => setPlaying(false)}
+              onMouseEnter={(e) => { if (!unmuted) (e.currentTarget as HTMLVideoElement).play().catch(() => {}) }}
+              onMouseLeave={(e) => { if (!unmuted) { const v = e.currentTarget as HTMLVideoElement; v.pause(); v.currentTime = 0 } }}
             />
             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/70 to-transparent" />
-            <span className="absolute left-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white backdrop-blur"><Play className="h-3.5 w-3.5 fill-white" /></span>
+            {/* Always-visible play/pause — top-left. Plays with audio in place. */}
+            <button
+              type="button"
+              title={playing ? 'Pause' : 'Play with sound'}
+              onClick={(e) => { e.stopPropagation(); togglePlay() }}
+              className="absolute left-2 top-2 z-20 flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white backdrop-blur transition-colors hover:bg-black/70"
+            >
+              {playing ? <Pause className="h-3.5 w-3.5 fill-white" /> : <Play className="h-3.5 w-3.5 fill-white" />}
+            </button>
+            {controlsExpanded && (
+              <button
+                type="button"
+                title={unmuted ? 'Mute' : 'Unmute'}
+                onClick={(e) => { e.stopPropagation(); toggleMute() }}
+                className="absolute left-11 top-2 z-20 flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white backdrop-blur transition-colors hover:bg-black/70"
+              >
+                {unmuted ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
+              </button>
+            )}
             {cardState && cardState.videos.length > 1 && (
               <span className="pointer-events-none absolute right-2 top-2 z-10 rounded-full bg-black/60 px-1.5 py-0.5 text-[9px] font-semibold tabular-nums text-white backdrop-blur transition-opacity group-hover:opacity-0">
                 {Math.min(cardState.currentVideoIndex, cardState.videos.length - 1) + 1}/{cardState.videos.length}
@@ -779,7 +838,7 @@ function OSVariationCard({
         {/* Top-centre pill — which clip this is (always shown, "Clip 1" for a
             single-clip concept). Neutral + small, Line-by-Line pill size. Stays
             visible on hover (the action row is at the bottom). */}
-        <span className="pointer-events-none absolute left-1/2 top-2 z-10 -translate-x-1/2 rounded-full border border-ink/15 bg-ink/10 px-2 py-0.5 text-[10px] font-medium tracking-tight text-ink-300 backdrop-blur">
+        <span className={`pointer-events-none absolute left-1/2 top-2 z-10 -translate-x-1/2 rounded-full border border-ink/15 bg-ink/10 px-2 py-0.5 text-[10px] font-medium tracking-tight text-ink-300 backdrop-blur transition-opacity ${controlsExpanded ? 'opacity-0' : ''}`}>
           Clip {segment.index}
         </span>
 
@@ -789,8 +848,38 @@ function OSVariationCard({
           </span>
         )}
 
-        {/* Hover action row into the workspace — Open, plus Download once a
-            clip is rendered. */}
+        {/* Hover action stack — top-right, app-wide order: download · copy ·
+            send-to-Playground. No save (video) and no trash (structural card). */}
+        {currentVideo && (
+          <div className="absolute right-2 top-2 z-10 flex flex-col items-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+            <button
+              type="button"
+              title="Download video"
+              onClick={(e) => { e.stopPropagation(); void handleDownload() }}
+              className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white backdrop-blur transition-colors hover:bg-black/50"
+            >
+              <Download className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              title={copied ? 'Prompt copied' : 'Copy prompt'}
+              onClick={(e) => { e.stopPropagation(); void handleCopy() }}
+              className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white backdrop-blur transition-colors hover:bg-black/50"
+            >
+              {copied ? <Check className="h-3.5 w-3.5 text-emerald-300" /> : <Copy className="h-3.5 w-3.5" />}
+            </button>
+            <button
+              type="button"
+              title="Use in Playground as Gemini Omni source clip"
+              onClick={(e) => { e.stopPropagation(); void sendClipToPlayground(currentVideo) }}
+              className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white backdrop-blur transition-colors hover:bg-black/50"
+            >
+              <Film className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+
+        {/* Bottom shortcut into the workspace. */}
         <div className="absolute inset-x-2 bottom-2 z-10 flex items-center gap-1.5 opacity-0 transition-opacity group-hover:opacity-100">
           <button
             type="button"
@@ -800,21 +889,6 @@ function OSVariationCard({
             <VideoIcon className="h-3 w-3" />
             {currentVideo ? 'Open' : 'Set up & generate'}
           </button>
-          {currentVideo && (
-            <button
-              type="button"
-              onClick={async (e) => {
-                e.stopPropagation()
-                const resolved = await getUrl(currentVideo.url)
-                if (!resolved) { useAppStore.getState().addToast('Could not load the video.', 'error'); return }
-                await downloadImage(resolved, `oneshot-clip-${segment.index}`, 'mp4')
-              }}
-              title="Download this clip"
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white backdrop-blur transition-colors hover:bg-black/70"
-            >
-              <Download className="h-3 w-3" />
-            </button>
-          )}
         </div>
       </div>
 

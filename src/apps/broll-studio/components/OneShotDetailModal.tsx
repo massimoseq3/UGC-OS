@@ -29,7 +29,7 @@ import SavingsPill from '../../../components/SavingsPill'
 import ConstraintChip from '../../../components/ConstraintChip'
 import AspectIcon from '../../../components/AspectIcon'
 import ExpandTextModal, { ExpandButton } from '../../../components/ExpandableText'
-import { ReferenceSlotCard, ExtraRefsRow, PendingMediaTile } from './cardDetailParts'
+import { ReferenceSlotCard, ExtraRefsRow, PendingMediaTile, ModalVideoPlayer } from './cardDetailParts'
 import type { OneShotSegment, OneShotCardState, GeneratedVideo, ReferenceImage } from '../types'
 import type { Product, Model } from '../../../stores/types'
 import { ONE_SHOT_MODEL_IDS, ONE_SHOT_ENABLED_MODEL_IDS, enhanceOneShotClip, regenerateOneShotClip } from '../services/generateOneShot'
@@ -53,7 +53,7 @@ import { humanizeError } from '../../../utils/friendlyError'
 interface OneShotDetailModalProps {
   segment: OneShotSegment
   conceptAngle: string // the internal angle slug — grounds Enhance / Regenerate
-  conceptLabel: string // display label, e.g. "Variation 1"
+  conceptNumber: number // the variation number, shown as a serif "01" in the header
   clipLabel: string // "Clip 2" for multi-clip concepts, else ""
   delivery: 'dialogue' | 'silent'
   cardState: OneShotCardState
@@ -83,7 +83,7 @@ interface OneShotDetailModalProps {
 export default function OneShotDetailModal({
   segment,
   conceptAngle,
-  conceptLabel,
+  conceptNumber,
   clipLabel,
   delivery,
   cardState,
@@ -221,16 +221,19 @@ export default function OneShotDetailModal({
           {/* LEFT — controls over a pinned Generate footer */}
           <div className="col-span-1 flex min-h-0 flex-col border-b border-ink/5 md:border-b-0 md:border-r">
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-              <div className="flex grow flex-col gap-3 px-5 pb-6 pt-4">
+              <div className="flex grow flex-col gap-3 px-5 pb-6 pt-3">
                 {/* Output-type tab — One-Shot renders a whole clip. Styled as
-                    the Line-by-Line segmented toggle, single option; separator
-                    aligns with the right header. */}
-                <SegmentedToggle
-                  className="h-10 !p-1"
-                  value="video"
-                  onChange={() => {}}
-                  options={[{ value: 'video', label: 'Video', icon: VideoIcon }]}
-                />
+                    the Line-by-Line segmented toggle, single option; the h-12
+                    wrapper aligns the separator with the right header so the
+                    hairline runs straight across the modal. */}
+                <div className="flex h-12 items-center">
+                  <SegmentedToggle
+                    className="h-10 !p-1"
+                    value="video"
+                    onChange={() => {}}
+                    options={[{ value: 'video', label: 'Video', icon: VideoIcon }]}
+                  />
+                </div>
                 <div className="-mx-5 -mt-1 border-b border-ink/5" />
 
                 {/* Model picker — slide-in side panel (like CardDetailModal's
@@ -464,25 +467,29 @@ export default function OneShotDetailModal({
 
           {/* RIGHT — header + gallery */}
           <div className="col-span-1 flex min-h-0 flex-col overflow-hidden">
-            <div className="flex flex-col gap-3 px-5 pt-4">
-              <div className="flex h-10 min-w-0 items-center gap-3">
-                {/* Angle + clip/delivery as two pills side by side. */}
-                <div className="flex shrink-0 items-center gap-1.5">
-                  <span className="rounded-full border border-ink/10 bg-ink/[0.03] px-2 py-0.5 text-[10px] font-medium uppercase leading-none tracking-wider text-ink-400">
-                    {conceptLabel}
-                  </span>
-                  <span className="rounded-full border border-ink/10 bg-ink/[0.03] px-2 py-0.5 text-[10px] font-medium uppercase leading-none tracking-wider text-ink-400">
+            <div className="flex flex-col gap-3 px-5 pt-3">
+              {/* Serif variation number + a stacked column (clip/delivery pill
+                  over the quote), matching the frame modal and storyboard rows. */}
+              <div className="flex h-12 min-w-0 items-center gap-3.5">
+                <span
+                  className="shrink-0 text-4xl font-normal italic tabular-nums leading-none text-ink-700"
+                  style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
+                >
+                  {String(conceptNumber).padStart(2, '0')}
+                </span>
+                <div className="h-8 w-px shrink-0 bg-ink/10" />
+                <div className="flex min-w-0 flex-col gap-1">
+                  <span className="inline-flex w-fit rounded-full border border-ink/10 bg-ink/[0.03] px-2.5 py-0.5 text-[10px] font-semibold uppercase leading-none tracking-wider text-ink-400">
                     {clipLabel || (delivery === 'dialogue' ? 'With Dialogue' : 'B-Roll')}
                   </span>
+                  <span
+                    className="min-w-0 truncate text-[15px] leading-tight text-ink-300"
+                    style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
+                    title={segment.scriptExcerpt}
+                  >
+                    &ldquo;{segment.scriptExcerpt}&rdquo;
+                  </span>
                 </div>
-                <div className="h-7 w-px shrink-0 bg-ink/10" />
-                <span
-                  className="min-w-0 flex-1 truncate text-[15px] leading-none text-ink-300"
-                  style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
-                  title={segment.scriptExcerpt}
-                >
-                  &ldquo;{segment.scriptExcerpt}&rdquo;
-                </span>
               </div>
               <div className="-mx-5 -mt-1 border-b border-ink/5" />
             </div>
@@ -550,18 +557,13 @@ function ModalVideoTile({ video, onDelete }: { video: GeneratedVideo; onDelete: 
     if (await copyToClipboard(video.prompt)) { setCopied(true); window.setTimeout(() => setCopied(false), 1600) }
   }
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-ink/10 bg-black">
-      {url ? (
-        <video src={url} controls playsInline preload="metadata" className="aspect-[9/16] w-full object-cover" />
-      ) : (
-        <div className="flex aspect-[9/16] w-full items-center justify-center"><Loader2 className="h-4 w-4 animate-spin text-white/40" /></div>
-      )}
+    <ModalVideoPlayer url={url}>
       <div className="pointer-events-none absolute right-1.5 top-1.5 flex flex-col gap-1 opacity-0 transition-opacity group-hover:opacity-100">
         <button type="button" title="Download" onClick={handleDownload} className="pointer-events-auto flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm hover:bg-black/80"><Download className="h-3.5 w-3.5" /></button>
         <button type="button" title="Copy prompt" onClick={handleCopy} className="pointer-events-auto flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm hover:bg-black/80">{copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}</button>
         <button type="button" title="Delete" onClick={onDelete} className="pointer-events-auto flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm hover:bg-red-500/80"><Trash2 className="h-3.5 w-3.5" /></button>
       </div>
       <span className="pointer-events-none absolute bottom-1.5 left-1.5 rounded-full bg-black/60 px-2 py-0.5 text-[9px] font-medium tabular-nums text-white backdrop-blur-sm">{video.durationSeconds}s</span>
-    </div>
+    </ModalVideoPlayer>
   )
 }

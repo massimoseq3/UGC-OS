@@ -3,10 +3,10 @@ import { useAppStore } from '../../stores/appStore'
 import { useReportActivity } from '../../stores/activityStore'
 import { useBankStore } from '../../stores/bankStore'
 import type { Product, Model, Script, BrollHistoryItem } from '../../stores/types'
-import type { BrollResult, PromptVariation, ReferenceImage, VariationTag, VariationRefs, CardState, BrollMode, OneShotDelivery, OneShotResult, OneShotCardState, ContinuousResult, ContinuousSelection, ContinuousFrameCardState, ContinuousClipCardState } from './types'
+import type { BrollResult, PromptVariation, ReferenceImage, VariationTag, VariationRefs, CardState, BrollMode, OneShotDelivery, OneShotResult, OneShotCardState, ContinuousResult, ContinuousConcept, ContinuousSelection, ContinuousFrameCardState, ContinuousClipCardState } from './types'
 import { generateBroll } from './services/generateBroll'
 import { generateOneShot, generateOneShotVariation, buildDemoOneShotResult, ONE_SHOT_DEFAULT_MODEL_ID } from './services/generateOneShot'
-import { generateContinuous, generateContinuousConcept, buildDemoContinuousResult, analyzeStyleReferences, CONTINUOUS_DEFAULT_MODEL_ID, CONTINUOUS_STYLES } from './services/generateContinuous'
+import { generateContinuous, buildDemoContinuousResult, analyzeStyleReferences, CONTINUOUS_DEFAULT_MODEL_ID, CONTINUOUS_STYLES } from './services/generateContinuous'
 import InputPanel from './components/InputPanel'
 import RightPanel from './components/RightPanel'
 import { backfillCardState, backfillOneShotCardState, backfillContinuousFrameState, backfillContinuousClipState } from './cardState'
@@ -208,7 +208,6 @@ export default function BrollStudio() {
   )
   const continuousModelId =
     useSettingsStore((s) => s.perAppModel['broll-studio:continuous:video']) ?? CONTINUOUS_DEFAULT_MODEL_ID
-  const [addingConceptFrame, setAddingConceptFrame] = useState<number | null>(null)
 
   const [isGenerating, setIsGenerating] = useState(false)
   const [isAddingVariation, setIsAddingVariation] = useState(false)
@@ -559,31 +558,19 @@ export default function BrollStudio() {
     }
   }
 
-  // One more visual concept for a single keyframe (the frame row's "Add
-  // concept" card).
-  const handleAddContinuousConcept = async (frameIndex: number) => {
-    if (!continuousResult || addingConceptFrame !== null) return
-    if (continuousResult.demo || !useSettingsStore.getState().kieApiKey) {
-      useAppStore.getState().addToast('Add your kie.ai key in Settings to generate more concepts', 'info')
-      return
-    }
-    setAddingConceptFrame(frameIndex)
-    try {
-      const concept = await generateContinuousConcept(continuousResult, frameIndex, { productContext, modelContext })
-      setContinuousResult((prev) => {
-        if (!prev) return prev
-        return {
-          ...prev,
-          frames: prev.frames.map((f) => (f.index === frameIndex ? { ...f, concepts: [...f.concepts, concept] } : f)),
-        }
-      })
-      useAppStore.getState().addToast('Concept added', 'success')
-    } catch (err) {
-      const msg = humanizeError(err, 'Could not add a concept. Try again.')
-      useAppStore.getState().addToast(`Add concept failed: ${msg}`, 'error')
-    } finally {
-      setAddingConceptFrame(null)
-    }
+  // Add one blank concept box to a single keyframe (the frame row's "Add
+  // concept" card). Mirrors Line-by-Line's "Add option": it drops an empty
+  // card the user opens and writes — or generates a prompt in — rather than
+  // firing an LLM call up front.
+  const handleAddContinuousConcept = (frameIndex: number) => {
+    setContinuousResult((prev) => {
+      if (!prev) return prev
+      const blank: ContinuousConcept = { id: `cont-${crypto.randomUUID()}`, label: 'Custom', prompt: '' }
+      return {
+        ...prev,
+        frames: prev.frames.map((f) => (f.index === frameIndex ? { ...f, concepts: [...f.concepts, blank] } : f)),
+      }
+    })
   }
 
   const handleGenerate = async () => {
@@ -745,7 +732,7 @@ export default function BrollStudio() {
           continuousSelections={continuousSelections}
           setContinuousSelections={setContinuousSelections}
           onAddContinuousConcept={handleAddContinuousConcept}
-          addingConceptFrame={addingConceptFrame}
+          addingConceptFrame={null}
           isGenerating={isGenerating}
           error={error}
           onAddVariation={handleAddVariation}
