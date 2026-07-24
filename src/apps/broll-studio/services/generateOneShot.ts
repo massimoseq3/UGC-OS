@@ -12,6 +12,7 @@ import type { OneShotConcept, OneShotDelivery, OneShotResult, OneShotSegment } f
 import { useSettingsStore } from '../../../stores/settingsStore'
 import { kieChatCompletions, type ChatMessage } from '../../../utils/kie'
 import { getChatEndpointPath, getModel, snapVideoDurationUp } from '../../../utils/models'
+import { styleBriefFor, styleUsesRealism } from './generateContinuous'
 
 // Models LISTED in the One Shot picker — every standard B-Roll video model, so
 // the user can see the full lineup. Only ONE_SHOT_ENABLED_MODEL_IDS are
@@ -224,6 +225,11 @@ export interface OneShotInput {
   productContext: string
   modelContext: string
   additionalContext: string
+  // Visual-style pick shared with Continuous mode. `styleBrief` (distilled from
+  // reference frames) overrides the preset `styleId` when present. Appended to
+  // each clip prompt at fire time, not baked into the LLM blueprint.
+  styleId: string
+  styleBrief?: string
 }
 
 const MULTI_CLIP_RULE = `MULTIPLE CLIPS — THESE RENDER SEPARATELY BUT CUT TOGETHER INTO ONE AD. Clip 1 establishes the world; every later clip continues it seamlessly:
@@ -383,6 +389,10 @@ export async function generateOneShot(input: OneShotInput): Promise<OneShotResul
     estimatedSeconds,
     segmentCount: plan.count,
     capped: plan.capped,
+    // Style rides on the result and is appended to each clip's prompt at fire
+    // time (added-variation concepts inherit it from this same result object).
+    style: styleBriefFor({ styleId: input.styleId, styleBrief: input.styleBrief }),
+    realism: styleUsesRealism(input.styleId, !!input.styleBrief?.trim()),
   }
 }
 

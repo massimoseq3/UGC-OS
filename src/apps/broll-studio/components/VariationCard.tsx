@@ -20,6 +20,7 @@ import GeneratingBackdrop from '../../../components/GeneratingBackdrop'
 import type { PromptVariation, CardState, GeneratedImage, ReferenceImage } from '../types'
 import type { VideoHistoryItem, Product, Model, BRoll } from '../../../stores/types'
 import { enhanceVariationPrompt, generateNewVariation, startImageTask, finishImageTask } from '../services/generateBroll'
+import { applyStyleToPrompt } from '../services/generateContinuous'
 import { startVideoTask, finishVideoTask } from '../services/generateVideo'
 import { sendClipToPlayground } from '../services/sendClipToPlayground'
 import { isPollTimeout } from '../../../utils/kie'
@@ -62,6 +63,11 @@ interface VariationCardProps {
   // Settings the active batch run chose (model is global; these override the
   // card's own aspect/resolution for the batched gen only).
   batchImageOverride?: { aspectRatio: string; resolution?: ImageResolution } | null
+  // Visual style resolved on the result. Only a stylized look (realism === false)
+  // appends a STYLE block to the prompt and drops the iPhone-realism stack; UGC
+  // Realism / legacy leave the render untouched. See applyStyleToPrompt.
+  resultStyle?: string
+  resultRealism?: boolean
 }
 
 export default function VariationCard(props: VariationCardProps) {
@@ -86,6 +92,8 @@ export default function VariationCard(props: VariationCardProps) {
     onOpenProductPicker,
     generateImageToken,
     batchImageOverride,
+    resultStyle,
+    resultRealism,
   } = props
 
   const hasImages = cardState.images.length > 0
@@ -300,8 +308,16 @@ export default function VariationCard(props: VariationCardProps) {
     let taskId: string
     let modelId: string
     try {
-      const started = await startImageTask(promptText, refs, imageAspectRatio, imageResolution, {
+      // Restyle at fire time: a stylized pick appends its STYLE block and drops
+      // the iPhone-realism stack; UGC / legacy pass through untouched. The card's
+      // stored prompt stays clean — the style rides outside it, like Continuous.
+      const { prompt: styledPrompt, noRealism } = applyStyleToPrompt(promptText, {
+        style: resultStyle,
+        realism: resultRealism,
+      })
+      const started = await startImageTask(styledPrompt, refs, imageAspectRatio, imageResolution, {
         inheritReference: variation.tag === 'STATIC',
+        noRealism,
       })
       taskId = started.taskId
       modelId = started.modelId
@@ -523,8 +539,14 @@ export default function VariationCard(props: VariationCardProps) {
     }))
 
     try {
+      // Same fire-time restyle as image gen — STYLE block + realism-stack toggle
+      // for a stylized pick; the persisted prompt/history stay unstyled.
+      const { prompt: styledPrompt, noRealism } = applyStyleToPrompt(promptText, {
+        style: resultStyle,
+        realism: resultRealism,
+      })
       const { taskId, videoEndpoint } = await startVideoTask({
-        prompt: promptText,
+        prompt: styledPrompt,
         mode: effectiveMode,
         firstFrameDataUri,
         referenceDataUris,
@@ -533,6 +555,7 @@ export default function VariationCard(props: VariationCardProps) {
         resolution: videoResolution,
         audio: videoAudio,
         modelId: videoModelId,
+        noRealism,
       })
       onUpdateStateFn((prev) => ({
         inFlightVideos: prev.inFlightVideos.map((e) =>

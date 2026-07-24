@@ -11,6 +11,7 @@ import { isAssetRef, getAsBase64 } from '../../../utils/assetStore'
 import { finishImageAssetTask } from '../../../utils/imageTask'
 import { useBankStore } from '../../../stores/bankStore'
 import { withIphoneRealism } from './realism'
+import { styleBriefFor, styleUsesRealism } from './generateContinuous'
 
 function getChatEndpoint(): { apiKey: string; endpoint: string } {
   return {
@@ -199,7 +200,14 @@ export async function generateBroll(input: BrollInput): Promise<BrollResult> {
   ]
   const responseText = await kieChatCompletions(apiKey, endpoint, messages)
 
-  return { scenes: parseScenes(responseText) }
+  // Resolve the visual style once and stamp it on the result. It's appended to
+  // each card's prompt (and the realism stack toggled) at fire time — the scene
+  // prompts themselves stay style-neutral, exactly like Continuous.
+  return {
+    scenes: parseScenes(responseText),
+    style: styleBriefFor({ styleId: input.styleId, styleBrief: input.styleBrief }),
+    realism: styleUsesRealism(input.styleId, !!input.styleBrief?.trim()),
+  }
 }
 
 // Parse the LLM's strict-XML output into Scene records. New schema:

@@ -23,6 +23,7 @@ import { createDefaultOneShotCardState } from '../cardState'
 import { startVideoTask, finishVideoTask } from '../services/generateVideo'
 import { buildReferencePreamble } from '../services/generateBroll'
 import { resolveOneShotTokens } from '../services/generateOneShot'
+import { applyStyleToPrompt } from '../services/generateContinuous'
 import { isPollTimeout } from '../../../utils/kie'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAppStore } from '../../../stores/appStore'
@@ -174,6 +175,13 @@ export default function OneShotView({
       ? `${buildReferencePreamble(refs)}\n\n${card.editablePrompt}`
       : card.editablePrompt
     const promptText = resolveOneShotTokens(rawPrompt, productName)
+    // Restyle at fire time: a stylized pick appends its STYLE block and drops the
+    // iPhone-realism stack; UGC / legacy pass through untouched. The persisted
+    // prompt + history stay unstyled — the style rides outside, like Continuous.
+    const { prompt: styledPrompt, noRealism } = applyStyleToPrompt(promptText, {
+      style: result?.style,
+      realism: result?.realism,
+    })
 
     const inFlightId = crypto.randomUUID()
     updateCard(key, (prev) => ({
@@ -196,7 +204,7 @@ export default function OneShotView({
 
     try {
       const { taskId, videoEndpoint } = await startVideoTask({
-        prompt: promptText,
+        prompt: styledPrompt,
         mode,
         referenceDataUris: effectiveRefs,
         aspectRatio: card.aspectRatio,
@@ -205,6 +213,7 @@ export default function OneShotView({
         audio: card.audio,
         modelId: oneShotModelId,
         multiShots: true,
+        noRealism,
       })
       updateCard(key, (prev) => ({
         inFlightVideos: prev.inFlightVideos.map((e) =>
