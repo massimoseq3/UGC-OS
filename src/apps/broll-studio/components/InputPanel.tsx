@@ -473,7 +473,12 @@ export default function InputPanel({
                   (medium, palette, light, finish) and never their content. */}
               <div className="mt-3 rounded-2xl border border-dashed border-ink/10 bg-ink/[0.02] p-3">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] font-medium text-ink-300">Match a reference style</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-medium text-ink-300">Match a reference style</span>
+                    <span className="rounded-full border border-ink/10 bg-ink/[0.03] px-1.5 py-px text-[9px] font-medium uppercase tracking-wider text-ink-500">
+                      Optional
+                    </span>
+                  </div>
                   {styleRefs.length > 0 && (
                     <button
                       type="button"
