@@ -528,55 +528,6 @@ function frameBriefBlock(ctx: FrameContext, frameIndex: number): string {
 const FRAME_ENVELOPE_NOTE =
   'Respond with ONLY this envelope — no markdown, no commentary, nothing outside the tags:'
 
-// One more concept for a single keyframe (the frame row's "Add concept" card).
-export async function generateContinuousConcept(
-  result: ContinuousResult,
-  frameIndex: number,
-  input: { productContext?: string; modelContext?: string },
-): Promise<ContinuousConcept> {
-  const apiKey = useSettingsStore.getState().getKieApiKey()
-  const endpoint = getChatEndpointPath()
-  const ctx = frameContextFor(result, frameIndex, input)
-
-  // Final-frame concepts carry no motion (nothing leaves the last frame); every
-  // other concept needs its own departure motion so picking it can seed the clip.
-  const motionInstruction = ctx.isFinal
-    ? 'This is the FINAL keyframe, so write NO motion — only the LABEL and PROMPT.'
-    : 'Also write this staging\'s own MOTION — how THIS frame animates forward into the next beat (departure only, never the end state).'
-
-  const user = `Write ONE fresh visual concept for this keyframe — a genuinely different staging from the existing ones, same story state.
-
-${frameBriefBlock(ctx, frameIndex)}
-
-Existing concepts to differ from: ${ctx.existingLabels.join(' · ') || '(none yet)'}
-
-Use a different shot size, camera angle, and visual metaphor from all of them. ${motionInstruction}
-
-${FRAME_ENVELOPE_NOTE}
-<CONCEPT>
-<LABEL>2-4 word slug</LABEL>
-<PROMPT>
-one flowing paragraph
-</PROMPT>${ctx.isFinal ? '' : '\n<MOTION>\none short flowing paragraph — departure motion for this staging\n</MOTION>'}
-</CONCEPT>`
-
-  const messages: ChatMessage[] = [
-    { role: 'system', content: [{ type: 'text', text: CONTINUOUS_SYSTEM }] },
-    { role: 'user', content: [{ type: 'text', text: user }] },
-  ]
-  const responseText = await kieChatCompletions(apiKey, endpoint, messages)
-  const block = extractTag(responseText, 'CONCEPT') ?? responseText
-  const motion = cleanPromptBody(extractTag(block, 'MOTION') ?? '')
-  const prompt = cleanPromptBody(extractTag(block, 'PROMPT') ?? block)
-  if (!prompt) throw new Error('Could not generate another concept')
-  return {
-    id: nextConceptId(),
-    label: extractTag(block, 'LABEL') ?? 'Fresh staging',
-    prompt,
-    ...(motion && !ctx.isFinal ? { motionPrompt: motion } : {}),
-  }
-}
-
 // Rewrite the user's draft keyframe prompt richer, same staging.
 export async function enhanceContinuousFrame(draft: string, ctx: FrameContext, frameIndex: number): Promise<string> {
   const apiKey = useSettingsStore.getState().getKieApiKey()
