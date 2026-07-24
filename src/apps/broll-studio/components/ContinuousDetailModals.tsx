@@ -553,6 +553,10 @@ interface ContinuousClipModalProps {
   onClose: () => void
   onUpdate: (updater: (prev: ContinuousClipCardState) => Partial<ContinuousClipCardState>) => void
   onGenerate: () => void
+  // Motion tools — Enhance rewrites the draft richer (text-only); Regenerate
+  // writes fresh motion from the ACTUAL chosen start keyframe image (vision).
+  onEnhanceMotion: () => Promise<string>
+  onRegenerateMotion: () => Promise<string>
   onDeleteVideo: (index: number) => void
   onRetryInFlight: (id: string) => void
   onDismissInFlight: (id: string) => void
@@ -570,12 +574,15 @@ export function ContinuousClipModal({
   onClose,
   onUpdate,
   onGenerate,
+  onEnhanceMotion,
+  onRegenerateMotion,
   onDeleteVideo,
   onRetryInFlight,
   onDismissInFlight,
 }: ContinuousClipModalProps) {
   const [draft, setDraft] = useState(cardState.editablePrompt)
   const [promptExpanded, setPromptExpanded] = useState(false)
+  const [promptWorking, setPromptWorking] = useState(false)
   // Adjust-during-render sync — same pattern as the frame modal above.
   const [syncedPrompt, setSyncedPrompt] = useState(cardState.editablePrompt)
   if (syncedPrompt !== cardState.editablePrompt) {
@@ -584,6 +591,49 @@ export function ContinuousClipModal({
   }
 
   const [modelPanelOpen, setModelPanelOpen] = useState(false)
+
+  // ── Motion history (Enhance / Regenerate from frame / Undo / Redo) ──
+  // Mirrors the frame modal. Any change here marks the motion user-edited, so the
+  // clip stops auto-syncing to keyframe picks and the user's work is preserved.
+  const history = cardState.promptHistory.length > 0 ? cardState.promptHistory : [cardState.editablePrompt]
+  const historyIndex = Math.max(0, Math.min(cardState.promptHistoryIndex, history.length - 1))
+  const canUndo = historyIndex > 0
+  const canRedo = historyIndex < history.length - 1
+
+  const pushHistory = (next: string) => {
+    const trimmed = history.slice(0, historyIndex + 1)
+    const updated = [...trimmed, next]
+    onUpdate(() => ({ editablePrompt: next, promptHistory: updated, promptHistoryIndex: updated.length - 1, motionEdited: true }))
+    setDraft(next)
+  }
+  const commitDraft = () => {
+    if (draft === history[historyIndex]) return
+    pushHistory(draft)
+  }
+  const handleUndo = () => {
+    if (!canUndo) return
+    const i = historyIndex - 1
+    onUpdate(() => ({ editablePrompt: history[i], promptHistoryIndex: i, motionEdited: true }))
+    setDraft(history[i])
+  }
+  const handleRedo = () => {
+    if (!canRedo) return
+    const i = historyIndex + 1
+    onUpdate(() => ({ editablePrompt: history[i], promptHistoryIndex: i, motionEdited: true }))
+    setDraft(history[i])
+  }
+  const runPromptTool = async (tool: () => Promise<string>, label: string) => {
+    if (promptWorking) return
+    setPromptWorking(true)
+    try {
+      const next = await tool()
+      if (next.trim()) pushHistory(next.trim())
+    } catch (err) {
+      useAppStore.getState().addToast(`${label} failed: ${humanizeError(err, `${label} failed.`)}`, 'error')
+    } finally {
+      setPromptWorking(false)
+    }
+  }
 
   const model = getModel(modelId)
   const constraints = model?.videoConstraints
@@ -687,17 +737,62 @@ export function ContinuousClipModal({
 
               <StyleNote style={style} />
 
-              {/* Motion prompt — the transition between the two keyframes. */}
+              {/* Motion prompt — how the START keyframe animates forward. Written
+                  departure-only (never the end frame, which is a fixed last
+                  image), and auto-filled from the picked keyframe's own motion.
+                  Enhance sharpens it; Regenerate rewrites it from the actual
+                  chosen start image. */}
               <div className="flex grow flex-col">
                 <div className="relative flex grow flex-col overflow-hidden rounded-2xl border border-ink/10 bg-ink/[0.03] transition-colors focus-within:border-ink/20 focus-within:bg-ink/[0.05]">
                   <textarea
                     value={draft}
-                    onChange={(e) => { setDraft(e.target.value); onUpdate(() => ({ editablePrompt: e.target.value })) }}
+                    onChange={(e) => { setDraft(e.target.value); onUpdate(() => ({ editablePrompt: e.target.value, motionEdited: true })) }}
+                    onBlur={commitDraft}
                     rows={8}
-                    placeholder="Describe the motion from the start frame to the end frame, plus the SFX…"
+                    placeholder="Describe how the start frame moves — its motion vector, the camera move, and one sound…"
                     className="relative min-h-[160px] w-full grow resize-none border-0 bg-transparent px-3.5 pb-3 pt-3 text-[13px] leading-relaxed text-ink-200 placeholder-ink-600 outline-none"
                   />
-                  <div className="flex items-center justify-end gap-2 border-t border-ink/10 px-2 py-1.5">
+                  <div className="flex items-center justify-between gap-2 border-t border-ink/10 px-2 py-1.5">
+                    <div className="flex flex-wrap items-center gap-1">
+                      <button
+                        type="button"
+                        title="Enhance — same motion, richer detail"
+                        onClick={() => void runPromptTool(onEnhanceMotion, 'Enhance')}
+                        disabled={promptWorking || !draft.trim()}
+                        className="flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium text-ink-400 transition-colors hover:bg-broll-500/10 hover:text-broll-300 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        {promptWorking ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                        Enhance
+                      </button>
+                      <button
+                        type="button"
+                        title={startImageRef ? 'Regenerate the motion from the chosen start keyframe' : 'Pick a start keyframe first'}
+                        onClick={() => void runPromptTool(onRegenerateMotion, 'Regenerate')}
+                        disabled={promptWorking || !startImageRef}
+                        className="flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <RefreshCw className="h-3 w-3" />
+                        Regenerate from frame
+                      </button>
+                      <button
+                        type="button"
+                        title="Undo"
+                        onClick={handleUndo}
+                        disabled={!canUndo || promptWorking}
+                        className="flex h-6 w-6 items-center justify-center rounded-full text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-30"
+                      >
+                        <Undo2 className="h-3 w-3" />
+                      </button>
+                      <button
+                        type="button"
+                        title="Redo"
+                        onClick={handleRedo}
+                        disabled={!canRedo || promptWorking}
+                        className="flex h-6 w-6 items-center justify-center rounded-full text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-30"
+                      >
+                        <Redo2 className="h-3 w-3" />
+                      </button>
+                    </div>
                     <ExpandButton onClick={() => setPromptExpanded(true)} />
                   </div>
                 </div>
@@ -835,9 +930,9 @@ export function ContinuousClipModal({
         open={promptExpanded}
         onClose={() => setPromptExpanded(false)}
         value={draft}
-        onChange={(v) => { setDraft(v); onUpdate(() => ({ editablePrompt: v })) }}
+        onChange={(v) => { setDraft(v); onUpdate(() => ({ editablePrompt: v, motionEdited: true })) }}
         title={`${clipLabel} — Motion prompt`}
-        placeholder="Describe the motion from the start frame to the end frame…"
+        placeholder="Describe how the start frame moves — never the end frame…"
         accent="broll"
       />
     </ModalShell>
