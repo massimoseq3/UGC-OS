@@ -328,6 +328,12 @@ export interface ContinuousConcept {
   id: string
   label: string
   prompt: string
+  // Departure motion for THIS specific staging — how this concept animates
+  // forward into the next beat. Motion belongs to the start frame's concept,
+  // not the frame pair: picking a concept as the keyframe auto-carries its
+  // motion into the clip that starts on it. Absent on final-frame concepts
+  // (nothing leaves the last frame) and on legacy sessions.
+  motionPrompt?: string
 }
 
 // Keyframe slot N (1-based). frames.length === scenes.length + 1 — the last
@@ -337,8 +343,10 @@ export interface ContinuousFrame {
   concepts: ContinuousConcept[]
 }
 
-// One narration beat: its script slice, the motion that carries keyframe N into
-// keyframe N+1, and the transitional sound effect baked into the clip.
+// One narration beat: its script slice and planned length. Motion now lives on
+// the start frame's concepts (ContinuousConcept.motionPrompt) so it can be
+// staging-specific; `motionPrompt` here survives only as a fallback seed for the
+// clip (the first concept's departure motion) and to keep legacy rows rendering.
 export interface ContinuousScene {
   index: number
   scriptLine: string
@@ -399,6 +407,14 @@ export interface ContinuousFrameCardState {
 // keyframe N → keyframe N+1 with the scene's motion prompt.
 export interface ContinuousClipCardState {
   editablePrompt: string
+  // Linear undo/redo history for the motion prompt (Enhance / Regenerate from
+  // frame / commit-after-edit), same shape as the frame card.
+  promptHistory: string[]
+  promptHistoryIndex: number
+  // True once the user hand-edits the motion. While false, the clip's motion
+  // auto-syncs to its start frame's picked concept; once true, picks stop
+  // clobbering the user's text.
+  motionEdited: boolean
   videos: GeneratedVideo[]
   currentVideoIndex: number
   inFlightVideos: InFlightVideo[]
