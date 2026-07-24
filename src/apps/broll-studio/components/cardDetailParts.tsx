@@ -578,7 +578,7 @@ export function PendingMediaTile({
 // Line-by-Line gallery tiles. Children are overlaid (action stack, duration
 // badge). Used by the Continuous clip modal and the One-Shot modal so their
 // video playback matches Line-by-Line.
-export function ModalVideoPlayer({ url, children }: { url: string | null; children?: React.ReactNode }) {
+export function ModalVideoPlayer({ url, children }: { url: string | null | undefined; children?: React.ReactNode }) {
   const videoElRef = useRef<HTMLVideoElement>(null)
   const [hovering, setHovering] = useState(false)
   const [playing, setPlaying] = useState(false)
