@@ -55,11 +55,18 @@ const VOICE_PROFILE_SPEC = `VOICE — describe, in rich and reproducible detail,
 
 // Short clips drown when the model tries to cram the whole product brief in.
 // This is length-tiered discipline: ≤15s = one idea, longer = room for an arc.
+//
+// The CUT-LINES clause exists because the failure mode of a shorter target is
+// keeping the SAME number of beats and clipping every sentence into fragments —
+// which reads staccato and fake. Fewer full-length lines always beats more
+// truncated ones.
+const CUT_LINES_NOT_LENGTH = `HOW TO HIT THE WORD BUDGET: shorten the script by using FEWER lines, never by squeezing the same number of lines into shorter, clipped sentences. Each line you keep stays a natural, full spoken sentence a real person would say. If the budget is tight, delete whole beats and lines until what remains fits — do not compress every line into a fragment to preserve the line count. A short script is a script with fewer thoughts, not the same thoughts said faster.`
+
 function lengthDiscipline(length: WriteLength): string {
   if (length <= 15) {
-    return `LENGTH DISCIPLINE — THIS IS ONLY ${length}s, SO BE RUTHLESS: a ${length}-second ad has room for exactly ONE idea, not a product tour. Pick ONE angle and ONE benefit (or one pain point) and commit the entire clip to it. Do NOT try to fit the product's full feature list, multiple USPs, the offer, AND the CTA into ${length} seconds — cramming all of it is exactly what makes short scripts feel rushed and disconnected. Almost all the words belong to the hook and its single payoff. Mention the product once. A CTA is optional at this length: if it doesn't land naturally, end on the payoff line instead of forcing one in.`
+    return `LENGTH DISCIPLINE — THIS IS ONLY ${length}s, SO BE RUTHLESS: a ${length}-second ad has room for exactly ONE idea, not a product tour. Pick ONE angle and ONE benefit (or one pain point) and commit the entire clip to it. Do NOT try to fit the product's full feature list, multiple USPs, the offer, AND the CTA into ${length} seconds — cramming all of it is exactly what makes short scripts feel rushed and disconnected. Almost all the words belong to the hook and its single payoff. Mention the product once. Always end on a CTA, but keep it QUICK at this length — a few words folded into or right after the payoff ("link's below", "grab one") — never a full closing pitch.\n\n${CUT_LINES_NOT_LENGTH}`
   }
-  return `LENGTH DISCIPLINE: you have ${length}s — enough for a real arc (hook, tension, payoff, CTA). Still resist listing every feature; choose the 1-2 points that actually sell and let them breathe. Depth on one idea beats a shallow tour of five.`
+  return `LENGTH DISCIPLINE: you have ${length}s — enough for a real arc (hook, tension, payoff, CTA). Still resist listing every feature; choose the 1-2 points that actually sell and let them breathe. Depth on one idea beats a shallow tour of five. Always close with a CTA; it can stay short and casual.\n\n${CUT_LINES_NOT_LENGTH}`
 }
 
 // ── The viral-hook library ──
@@ -525,7 +532,7 @@ async function runWrite(input: GenerateScriptInput, take: number, apiKey: string
   if (format === 'scenes') {
     prompt += `LENGTH: the ad is exactly ${length} seconds. Use as many scenes as the concept needs (${budget.scenes}); a single continuous shot with no cuts should be ONE scene. Keep timestamps contiguous from 00:00 to ${formatEndTimestamp(length)}. Total spoken dialogue across all scenes: ${budget.words} (so it reads aloud in ${length} seconds).\n\nWrite the scene blueprint now.`
   } else {
-    prompt += `LENGTH: the script must read aloud in about ${length} seconds — write ${budget.words}. Count the words before you answer and trim until you're inside the range.\n\nWrite the script now.`
+    prompt += `LENGTH: the script must read aloud in about ${length} seconds — write ${budget.words}. Count the words before you answer; if you're over, cut whole lines (keeping the hook and the CTA) until you're inside the range — never shorten every sentence to keep the line count.\n\nWrite the script now.`
   }
 
   const messages: ChatMessage[] = [
