@@ -254,8 +254,10 @@ export default function OneShotDetailModal({
                   onChange={(id) => useSettingsStore.getState().setAppModel('broll-studio:oneshot:video', id)}
                   isOpen={modelPanelOpen}
                   onClose={() => setModelPanelOpen(false)}
-                  requireMode={hasRefs ? 'reference-to-video' : undefined}
-                  requireModeNote="Dimmed models can't take reference images — your refs would be dropped (text-to-video only)."
+                  requireMode={hasRefs ? 'reference-to-video' : 'text-to-video'}
+                  requireModeNote={hasRefs
+                    ? "Dimmed models can't take reference images — your refs would be dropped (text-to-video only)."
+                    : "Dimmed models need a start image, so they can't generate a One-Shot from the script alone."}
                   costParams={{ durationSeconds: cardState.durationSeconds, resolution: cardState.resolution, audio: cardState.audio }}
                 />
 

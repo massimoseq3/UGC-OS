@@ -22,12 +22,17 @@ import { getChatEndpointPath, getModel, snapVideoDurationUp } from '../../../uti
 // first/last-frame native, and it generates the transitional SFX this style
 // leans on. The picker lives in the CLIP modal, not the left panel: the model
 // only matters once there are keyframes to animate.
+// Kling 2.6 (image-to-video) and Grok (text/image-to-video) are listed but have
+// no frames-to-video mode, so the picker's `requireMode='frames-to-video'`
+// keeps them grayed out — they can't do the keyframe chain.
 export const CONTINUOUS_MODEL_IDS = [
   'bytedance/seedance-2',
   'bytedance/seedance-2-fast',
   'bytedance/seedance-2-mini',
   'bytedance/seedance-1.5-pro',
   'kling-3.0/video',
+  'kling-2.6/image-to-video',
+  'grok-imagine-video-1-5-preview',
 ]
 
 export const CONTINUOUS_DEFAULT_MODEL_ID = 'bytedance/seedance-2'

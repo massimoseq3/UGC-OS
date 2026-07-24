@@ -18,11 +18,16 @@ import { getChatEndpointPath, getModel, snapVideoDurationUp } from '../../../uti
 // and Wan 2.7, which can't do the ref+audio multi-cut combination this mode
 // is built around. Kling 3.0 is deliberately in despite taking no reference
 // images — the UI warns that refs are dropped (prompt-only likeness).
+// Kling 2.6 is image-to-video only (no text-to-video), so it can never run a
+// One-Shot — it's listed but the picker's `requireMode='text-to-video'` keeps
+// it grayed out. Grok does text-to-video (and reference-to-video), so it works.
 export const ONE_SHOT_MODEL_IDS = [
   'bytedance/seedance-2',
   'bytedance/seedance-2-fast',
   'bytedance/seedance-2-mini',
   'kling-3.0/video',
+  'kling-2.6/image-to-video',
+  'grok-imagine-video-1-5-preview',
   'gemini-omni-video',
 ]
 

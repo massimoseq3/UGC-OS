@@ -387,8 +387,10 @@ export default function InputPanel({
                   onChange={(id) => { useSettingsStore.getState().setAppModel('broll-studio:oneshot:video', id); onOneShotModelChange(id) }}
                   isOpen={modelPanelOpen}
                   onClose={() => setModelPanelOpen(false)}
-                  requireMode={hasRefs ? 'reference-to-video' : undefined}
-                  requireModeNote="Dimmed models can't take reference images — your product/character refs would be dropped (text-to-video only)."
+                  requireMode={hasRefs ? 'reference-to-video' : 'text-to-video'}
+                  requireModeNote={hasRefs
+                    ? "Dimmed models can't take reference images — your product/character refs would be dropped (text-to-video only)."
+                    : "Dimmed models need a start image, so they can't generate a One-Shot from the script alone."}
                   costParams={perClipSeconds ? { durationSeconds: perClipSeconds } : undefined}
                 />
               </div>
