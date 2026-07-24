@@ -468,6 +468,8 @@ export default function ScenesView({
                 `Scene ${scene.number}`,
               )
             }
+            resultStyle={result.style}
+            resultRealism={result.realism}
           />
         ))}
       </div>
@@ -625,6 +627,8 @@ const VariationCardRow = memo(function VariationCardRow({
   onOpenProductPicker,
   generateImageToken,
   batchImageOverride,
+  resultStyle,
+  resultRealism,
 }: {
   cardKey: string
   sceneNumber: number
@@ -647,6 +651,8 @@ const VariationCardRow = memo(function VariationCardRow({
   onOpenProductPicker?: () => void
   generateImageToken?: number
   batchImageOverride?: { aspectRatio: string; resolution?: ImageResolution } | null
+  resultStyle?: string
+  resultRealism?: boolean
 }) {
   const variationId = variation.id
   const onUpdateState = useCallback(
@@ -683,6 +689,8 @@ const VariationCardRow = memo(function VariationCardRow({
       onOpenProductPicker={onOpenProductPicker}
       generateImageToken={generateImageToken}
       batchImageOverride={batchImageOverride}
+      resultStyle={resultStyle}
+      resultRealism={resultRealism}
     />
   )
 })
@@ -708,6 +716,8 @@ function SceneSection({
   batchTokens,
   batchImageOverride,
   onGenerateScene,
+  resultStyle,
+  resultRealism,
 }: {
   scene: Scene
   cardStates: Record<string, CardState>
@@ -729,6 +739,8 @@ function SceneSection({
   batchTokens: Record<string, number>
   batchImageOverride?: { aspectRatio: string; resolution?: ImageResolution } | null
   onGenerateScene: () => void
+  resultStyle?: string
+  resultRealism?: boolean
 }) {
   return (
     // `content-visibility: auto` brings paint containment, which clips the
@@ -800,6 +812,8 @@ function SceneSection({
               onOpenProductPicker={onOpenProductPicker}
               generateImageToken={batchTokens[key]}
               batchImageOverride={batchImageOverride}
+              resultStyle={resultStyle}
+              resultRealism={resultRealism}
             />
           )
         })}

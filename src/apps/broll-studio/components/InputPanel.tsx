@@ -442,13 +442,13 @@ export default function InputPanel({
             </div>
           )}
 
-          {/* Continuous mode — visual style. A preset chip seeds the
-              storyboard's STYLE block, or reference frames get reverse-
-              engineered into a custom style brief that outranks the presets.
-              No video model picker here on purpose: the model only matters once
-              there are keyframes to animate, so it lives in the clip modal. */}
-          {isContinuous && (
-            <div>
+          {/* Visual style — shared by all three modes. A preset chip seeds the
+              look, or reference frames get reverse-engineered into a custom
+              style brief that outranks the presets. In every mode a stylized
+              pick restyles the render (STYLE block appended, iPhone-realism
+              stack off); UGC Realism is the default and leaves output untouched.
+              No video model picker here on purpose. */}
+          <div>
               <span className="text-sm font-medium text-ink-200">Visual Style</span>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {CONTINUOUS_STYLES.map((s) => (
@@ -485,7 +485,7 @@ export default function InputPanel({
                   )}
                 </div>
                 <p className="mt-1 text-[11px] leading-relaxed text-ink-600">
-                  Drop in frames of an ad whose look you want. Only the style is read — never the people, products, or scenes in them.
+                  Drop in frames of an ad whose look you want.
                 </p>
 
                 <div className="mt-2.5 flex flex-wrap items-center gap-2">
@@ -550,13 +550,13 @@ export default function InputPanel({
                 )}
               </div>
 
-              {hasScript && (
+              {/* Clip-per-line framing note is Continuous-specific. */}
+              {isContinuous && hasScript && (
                 <p className="mt-2 px-1 text-[11px] leading-relaxed text-ink-600">
                   ≈ {estimateSpokenSeconds(scriptText)}s spoken · one clip per line, each ending on the next clip's first frame
                 </p>
               )}
             </div>
-          )}
 
           {/* Additional instructions */}
           <div>

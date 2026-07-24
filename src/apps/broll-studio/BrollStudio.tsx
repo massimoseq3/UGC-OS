@@ -431,6 +431,8 @@ export default function BrollStudio() {
         productContext,
         modelContext,
         additionalContext,
+        styleId: continuousStyleId,
+        styleBrief: continuousStyleBrief ?? undefined,
       })
       // Same commit discipline as line mode: only rotate the session once we
       // actually have concepts, so a failed call leaves the old ones intact.
@@ -470,6 +472,10 @@ export default function BrollStudio() {
           productContext,
           modelContext,
           additionalContext,
+          // Style is already fixed on oneShotResult; the new concept inherits it
+          // at fire time. Passed only to satisfy the input shape.
+          styleId: continuousStyleId,
+          styleBrief: continuousStyleBrief ?? undefined,
         },
         oneShotResult.concepts.length,
       )
@@ -596,6 +602,8 @@ export default function BrollStudio() {
         productContext,
         modelContext,
         referenceImages,
+        styleId: continuousStyleId,
+        styleBrief: continuousStyleBrief ?? undefined,
       })
       // Only now that we have scenes do we start a fresh session: rotating the
       // id and clearing cardStates up-front meant a failed call left the old

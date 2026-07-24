@@ -68,6 +68,15 @@ export interface Scene {
 
 export interface BrollResult {
   scenes: Scene[]
+  // Visual style resolved at generation time (preset hint or the reference
+  // brief). Appended as a STYLE block to each image/video prompt at fire time —
+  // see applyStyleToPrompt. Optional so rows persisted before styles were wired
+  // into Line-by-Line default to the untouched UGC render.
+  style?: string
+  // True only for the UGC Realism style — the one look that keeps the app's
+  // iPhone-realism suffix on. Every stylized style bypasses it. Undefined on
+  // legacy rows, which are treated as UGC (stack on, no STYLE appended).
+  realism?: boolean
 }
 
 export interface ReferenceImage {
@@ -84,6 +93,10 @@ export interface BrollInput {
   productContext: string
   modelContext: string
   referenceImages: ReferenceImage[]
+  // Visual-style pick shared with Continuous mode. `styleBrief` (distilled from
+  // reference frames) overrides the preset `styleId` when present.
+  styleId: string
+  styleBrief?: string
 }
 
 export interface GeneratedImage {
@@ -256,6 +269,13 @@ export interface OneShotConcept {
 export interface OneShotResult {
   concepts: OneShotConcept[]
   delivery: OneShotDelivery
+  // Visual style resolved at generation time, appended as a STYLE block to each
+  // clip prompt at fire time (see applyStyleToPrompt). Optional — legacy rows
+  // and the demo default to the untouched UGC render.
+  style?: string
+  // True only for UGC Realism (keeps the iPhone-realism stack on). Stylized
+  // looks set false; undefined on legacy rows is treated as UGC.
+  realism?: boolean
   // Model the segment split was computed against. A later model swap shows a
   // stale-plan hint instead of silently re-splitting.
   modelId: string

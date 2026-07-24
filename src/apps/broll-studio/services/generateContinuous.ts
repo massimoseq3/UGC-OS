@@ -179,6 +179,24 @@ export function buildContinuousPrompt(editable: string, style: string): string {
   return `${trimmed}\n\nSTYLE: ${style.trim()}`
 }
 
+// Fire-time style treatment for Line-by-Line and One-Shot results (the shared
+// counterpart of buildContinuousPrompt). Only an explicitly stylized look
+// (realism === false — e.g. 3D Animated, Anime, or a custom brief distilled
+// from reference frames) actually restyles the render: its STYLE block is
+// appended to the prompt and the app's iPhone-realism stack is switched off (the
+// two fight each other). UGC Realism (realism === true) and legacy results
+// (realism undefined) are left exactly as before — same prompt, realism stack on
+// — so today's default output is unchanged until a style is picked. Kept in one
+// place so all three modes stay consistent.
+export function applyStyleToPrompt(
+  editablePrompt: string,
+  style: { style?: string; realism?: boolean } | null | undefined,
+): { prompt: string; noRealism: boolean } {
+  const stylized = !!style && style.realism === false && !!style.style?.trim()
+  if (!stylized) return { prompt: editablePrompt, noRealism: false }
+  return { prompt: `${editablePrompt.trim()}\n\nSTYLE: ${style!.style!.trim()}`, noRealism: true }
+}
+
 // Reference preamble for keyframe image generation. The chain reference (the
 // previous frame's chosen keyframe) is the character-lock protocol: it fixes
 // style/character/environment continuity without inheriting composition.
@@ -315,7 +333,10 @@ export interface ContinuousInput {
   additionalContext: string
 }
 
-function styleBriefFor(input: Pick<ContinuousInput, 'styleId' | 'styleBrief'>): string {
+// The style paragraph a mode fires with: the reverse-engineered reference brief
+// when the user supplied one, otherwise the selected preset's hint. Shared by
+// all three modes (structural type so each mode's own input satisfies it).
+export function styleBriefFor(input: { styleId: string; styleBrief?: string }): string {
   return input.styleBrief?.trim() || getContinuousStyle(input.styleId).hint
 }
 
