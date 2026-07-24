@@ -68,7 +68,12 @@ export default function ModelPicker({ appId, task, mode, value, onChange, requir
   const accent = APP_REGISTRY.find((a) => a.id === appId)?.accent ?? '#38bdf8'
 
   const allModels = listModels({ task, mode })
-  const models = allowedModelIds ? allModels.filter((m) => allowedModelIds.includes(m.id)) : allModels
+  const scopedModels = allowedModelIds ? allModels.filter((m) => allowedModelIds.includes(m.id)) : allModels
+  // Video has the longest lineup, so list it A–Z (by display name) rather than
+  // registry order — otherwise newer entries just pile up at the bottom.
+  const models = task === 'video'
+    ? [...scopedModels].sort((a, b) => a.displayName.localeCompare(b.displayName))
+    : scopedModels
   // Image has only a handful of models — show them as one flat list (no pinned
   // "recommended" group and no divider) so the dropdown reads cleanly. The
   // recommended star still shows inline on the models that earn it.

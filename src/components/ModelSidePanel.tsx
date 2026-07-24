@@ -116,7 +116,12 @@ export default function ModelSidePanel({
   const isDesktop = useIsDesktop()
   const accent = ACCENTS[appId] ?? ACCENTS['broll-studio']
 
-  const models = listModels({ task, mode }).filter((m) => !allowedModelIds || allowedModelIds.includes(m.id))
+  const scopedModels = listModels({ task, mode }).filter((m) => !allowedModelIds || allowedModelIds.includes(m.id))
+  // Video has the longest lineup, so list it A–Z (by display name) rather than
+  // registry order — otherwise newer entries just pile up at the bottom.
+  const models = task === 'video'
+    ? [...scopedModels].sort((a, b) => a.displayName.localeCompare(b.displayName))
+    : scopedModels
   const fallback = getDefaultModel(appId, task, mode)
   const resolved = value ?? getAppModel(persistedKey) ?? fallback?.id
 

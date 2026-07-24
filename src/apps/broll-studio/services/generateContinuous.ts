@@ -19,8 +19,8 @@ import { getChatEndpointPath, getModel, snapVideoDurationUp } from '../../../uti
 // Models LISTED in the Continuous picker. The whole mode is first/last-frame
 // interpolation, so only frames-to-video models are actually selectable — the
 // panel greys the rest via requireMode='frames-to-video' so the user can see
-// (and understand) why they're unavailable. Image-only (Kling Turbo, Kling 2.6)
-// and frame-less (Gemini Omni, Grok) models are listed but land greyed.
+// (and understand) why they're unavailable. Image-only (Kling Turbo) and
+// frame-less (Gemini Omni, Grok) models are listed but land greyed.
 // Seedance 2.0 is the default — cheap, first/last-frame native, and it generates
 // the transitional SFX this style leans on. The picker lives in the CLIP modal,
 // not the left panel: the model only matters once there are keyframes.
@@ -30,7 +30,6 @@ export const CONTINUOUS_MODEL_IDS = [
   'bytedance/seedance-2-mini',
   'bytedance/seedance-1.5-pro',
   'kling-3.0/video',
-  'kling-2.6/image-to-video',
   'grok-imagine-video-1-5-preview',
   'veo3_fast',
   'veo3_lite',
