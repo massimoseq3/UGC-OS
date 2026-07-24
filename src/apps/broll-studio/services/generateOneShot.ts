@@ -16,16 +16,14 @@ import { styleBriefFor, styleUsesRealism } from './generateContinuous'
 
 // Models LISTED in the One Shot picker — every standard B-Roll video model, so
 // the user can see the full lineup. Only ONE_SHOT_ENABLED_MODEL_IDS are
-// actually selectable; the rest (Veo, Wan, Seedance 1.5, Kling 2.6) show greyed
-// because they can't do the ref+audio multi-cut this mode is built around —
-// they'd drop the refs and render a plain clip (Kling 2.6 can't even do that:
-// it's image-to-video only, and One-Shot has no start image).
+// actually selectable; the rest (Veo, Wan, Seedance 1.5) show greyed because
+// they can't do the ref+audio multi-cut this mode is built around — they'd drop
+// the refs and render a plain clip.
 export const ONE_SHOT_MODEL_IDS = [
   'bytedance/seedance-2',
   'bytedance/seedance-2-fast',
   'bytedance/seedance-2-mini',
   'kling-3.0/video',
-  'kling-2.6/image-to-video',
   'grok-imagine-video-1-5-preview',
   'gemini-omni-video',
   'bytedance/seedance-1.5-pro',

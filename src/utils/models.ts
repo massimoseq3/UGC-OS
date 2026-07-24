@@ -554,44 +554,6 @@ export const MODEL_REGISTRY: ModelEntry[] = [
       aspectRatios: [],
     },
   },
-  // Kling 2.6 (image-to-video) — cheaper prior-gen image animator. Required
-  // image_urls[] (a single start frame in our flows) + duration ('5'/'10') +
-  // sound. No text-to-video, no resolution param (HD only), and no aspect_ratio
-  // (aspect inherits from the input image) — so resolutions is the single
-  // '720p' tier and aspectRatios is []. Per-second pricing keyed on audio:
-  // 11/s no-audio, 22/s with audio (5s 55/110 · 10s 110/220 cr, user-supplied).
-  // Docs: kling-2.6/image-to-video on docs.kie.ai.
-  {
-    id: 'kling-2.6/image-to-video',
-    displayName: 'Kling 2.6',
-    provider: 'Kling AI',
-    task: 'video',
-    modes: ['image-to-video'],
-    tags: ['new', 'cheap'],
-    supportsReferenceImages: true,
-    pricing: {
-      unit: 'per-second',
-      credits: 11,
-      priceFor: ({ durationSeconds = 5, audio = false }) =>
-        (audio ? 22 : 11) * durationSeconds,
-    },
-    // kie prices this ~20% below the official rate (kie's own claim), so
-    // official ≈ kie credits / 0.80. No standalone per-second Kling list price
-    // is published for 2.6, so we derive from that ratio (like the TTS entry).
-    official: {
-      usdFor: ({ durationSeconds = 5, audio = false }) =>
-        creditsToUsd((audio ? 22 : 11) * durationSeconds) / 0.8,
-      source: 'https://kie.ai/pricing',
-    },
-    videoEndpoint: 'createTask',
-    videoConstraints: {
-      durations: [5, 10],
-      resolutions: ['720p'],
-      default: '720p',
-      aspectRatios: [],
-      supportsAudio: true,
-    },
-  },
   // Kling Motion Control — character animation by motion transfer. Takes a
   // reference image (the character) + a driving video (the motion) and outputs
   // the character performing that motion. Standard createTask/recordInfo
@@ -1317,22 +1279,6 @@ export function buildVideoInput(modelId: string, opts: VideoGenOptions): Record<
       image_urls: imageUrls,
       duration,
       resolution: resolution === '1080p' ? '1080p' : '720p',
-    }
-  }
-
-  // ── Kling 2.6 (image-to-video) ──
-  // image_urls[] (start frame + any extra refs) + sound + duration ('5'/'10').
-  // No resolution/aspect params (HD only; aspect follows the input image).
-  if (modelId === 'kling-2.6/image-to-video') {
-    const imageUrls: string[] = []
-    if (opts.imageUrl) imageUrls.push(opts.imageUrl)
-    if (opts.firstFrameUrl) imageUrls.push(opts.firstFrameUrl)
-    if (opts.referenceImageUrls?.length) imageUrls.push(...opts.referenceImageUrls)
-    return {
-      prompt: opts.prompt,
-      image_urls: imageUrls,
-      sound: opts.audio ?? false,
-      duration: String(duration),
     }
   }
 
