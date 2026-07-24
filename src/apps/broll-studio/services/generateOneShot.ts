@@ -13,12 +13,29 @@ import { useSettingsStore } from '../../../stores/settingsStore'
 import { kieChatCompletions, type ChatMessage } from '../../../utils/kie'
 import { getChatEndpointPath, getModel, snapVideoDurationUp } from '../../../utils/models'
 
-// Models allowed in the One Shot picker. An explicit allowlist, not a
-// constraints filter: "max duration ≥ 10s" would also admit Seedance 1.5 Pro
-// and Wan 2.7, which can't do the ref+audio multi-cut combination this mode
-// is built around. Kling 3.0 is deliberately in despite taking no reference
-// images — the UI warns that refs are dropped (prompt-only likeness).
+// Models LISTED in the One Shot picker — every standard B-Roll video model, so
+// the user can see the full lineup. Only ONE_SHOT_ENABLED_MODEL_IDS are
+// actually selectable; the rest (Veo, Wan, Seedance 1.5) show greyed because
+// they can't do the ref+audio multi-cut this mode is built around — they'd
+// drop the refs and render a plain text-to-video clip.
 export const ONE_SHOT_MODEL_IDS = [
+  'bytedance/seedance-2',
+  'bytedance/seedance-2-fast',
+  'bytedance/seedance-2-mini',
+  'kling-3.0/video',
+  'gemini-omni-video',
+  'bytedance/seedance-1.5-pro',
+  'veo3_fast',
+  'veo3_lite',
+  'veo3',
+  'wan/2-7',
+]
+
+// The subset actually built for One Shot — selectable in the picker; every
+// other listed model lands greyed. Kling 3.0 is deliberately in despite taking
+// no reference images: the UI warns refs are dropped (prompt-only likeness),
+// and it gets multi_shots:true so the model still bakes the cuts in.
+export const ONE_SHOT_ENABLED_MODEL_IDS = [
   'bytedance/seedance-2',
   'bytedance/seedance-2-fast',
   'bytedance/seedance-2-mini',

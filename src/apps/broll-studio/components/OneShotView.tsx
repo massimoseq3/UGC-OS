@@ -11,6 +11,7 @@ import {
   Plus,
   Coins,
   X,
+  Download,
 } from 'lucide-react'
 import GenerationProgress from '../../../components/GenerationProgress'
 import GeneratingBackdrop from '../../../components/GeneratingBackdrop'
@@ -28,9 +29,11 @@ import { useAppStore } from '../../../stores/appStore'
 import { useCreditsStore } from '../../../stores/creditsStore'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
 import { useCloseOnAppSwitch } from '../../../hooks/useCloseOnAppSwitch'
-import { getAsBase64, isAssetRef } from '../../../utils/assetStore'
+import { getAsBase64, getUrl, isAssetRef } from '../../../utils/assetStore'
 import { getModel, snapVideoDurationUp, estimateCredits, formatCredits } from '../../../utils/models'
 import { humanizeError } from '../../../utils/friendlyError'
+import { downloadImage } from '../../../utils/downloadImage'
+import { downloadAssetsZip } from '../../../utils/downloadZip'
 
 interface OneShotViewProps {
   result: OneShotResult | null
@@ -88,6 +91,7 @@ export default function OneShotView({
   // Pending Generate-all / Generate request awaiting confirmation — video gens
   // are expensive, so a click opens a cost popup before firing.
   const [confirmGen, setConfirmGen] = useState<{ keys: string[]; scope: string } | null>(null)
+  const [downloadingAll, setDownloadingAll] = useState(false)
   const balance = useCreditsStore((s) => s.balance)
   // Portals to body, so dismiss it on a dock switch.
   useCloseOnAppSwitch(!!confirmGen, () => setConfirmGen(null))
@@ -411,6 +415,29 @@ export default function OneShotView({
     setConfirmGen(null)
   }
   const allKeys = result.concepts.flatMap((c) => c.segments.map((s) => cardKey(c.id, s.index)))
+
+  // Every rendered clip across all variations, for "Download all".
+  const allClipEntries = result.concepts.flatMap((c, ci) =>
+    c.segments.flatMap((s) => {
+      const vids = cardStates[cardKey(c.id, s.index)]?.videos ?? []
+      return vids.map((v, vi) => ({
+        ref: v.url,
+        name: `variation${ci + 1}-clip${s.index}${vids.length > 1 ? `-take${vi + 1}` : ''}`,
+      }))
+    }),
+  )
+  const downloadAll = async () => {
+    if (downloadingAll || allClipEntries.length === 0) return
+    setDownloadingAll(true)
+    try {
+      const n = await downloadAssetsZip(allClipEntries, 'oneshot-clips')
+      useAppStore.getState().addToast(`Downloading ${n} clip${n === 1 ? '' : 's'} as a zip`, 'success')
+    } catch (err) {
+      useAppStore.getState().addToast(humanizeError(err, 'Could not download the clips.'), 'error')
+    } finally {
+      setDownloadingAll(false)
+    }
+  }
   // Credits for the pending run — summed per clip at each card's settings.
   const confirmCredits = confirmGen
     ? confirmGen.keys.reduce((sum, k) => {
@@ -460,16 +487,30 @@ export default function OneShotView({
         <span className="text-[11px] font-medium uppercase tracking-wider text-ink-400">
           {result.concepts.length} {result.concepts.length === 1 ? 'style' : 'styles'} · {result.delivery === 'dialogue' ? 'With Dialogue' : 'B-Roll'} · ~{result.estimatedSeconds}s
         </span>
-        <button
-          type="button"
-          onClick={() => requestGenerate(allKeys, 'Every variation')}
-          disabled={anyInFlight}
-          title="Generate the video for every variation"
-          className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/15 bg-broll-500 px-3.5 py-1.5 text-[11px] font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          <VideoIcon className="h-3.5 w-3.5" />
-          Generate all
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => requestGenerate(allKeys, 'Every variation')}
+            disabled={anyInFlight}
+            title="Generate the video for every variation"
+            className="flex items-center gap-1.5 rounded-full border border-white/15 bg-broll-500 px-3.5 py-1.5 text-[11px] font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-colors hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <VideoIcon className="h-3.5 w-3.5" />
+            Generate all
+          </button>
+          {allClipEntries.length > 0 && (
+            <button
+              type="button"
+              onClick={() => void downloadAll()}
+              disabled={downloadingAll}
+              title="Download every rendered clip as a single zip"
+              className="flex items-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.03] px-3 py-1.5 text-[11px] font-medium text-ink-300 transition-colors hover:border-ink/20 hover:bg-ink/[0.06] hover:text-ink-100 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {downloadingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+              {downloadingAll ? 'Zipping…' : `Download all (${allClipEntries.length})`}
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-col gap-10">
@@ -739,7 +780,8 @@ function OSVariationCard({
           </span>
         )}
 
-        {/* Hover action row into the workspace — video-only, one control. */}
+        {/* Hover action row into the workspace — Open, plus Download once a
+            clip is rendered. */}
         <div className="absolute inset-x-2 bottom-2 z-10 flex items-center gap-1.5 opacity-0 transition-opacity group-hover:opacity-100">
           <button
             type="button"
@@ -749,6 +791,21 @@ function OSVariationCard({
             <VideoIcon className="h-3 w-3" />
             {currentVideo ? 'Open' : 'Set up & generate'}
           </button>
+          {currentVideo && (
+            <button
+              type="button"
+              onClick={async (e) => {
+                e.stopPropagation()
+                const resolved = await getUrl(currentVideo.url)
+                if (!resolved) { useAppStore.getState().addToast('Could not load the video.', 'error'); return }
+                await downloadImage(resolved, `oneshot-clip-${segment.index}`, 'mp4')
+              }}
+              title="Download this clip"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white backdrop-blur transition-colors hover:bg-black/70"
+            >
+              <Download className="h-3 w-3" />
+            </button>
+          )}
         </div>
       </div>
 

@@ -29,13 +29,33 @@ function sceneCount(result: BrollResult | null): number {
   return result?.scenes?.length ?? 0
 }
 
+// Mode filter pills — session rows carry `mode` ('line' | 'continuous' |
+// 'oneshot'); legacy rows with no mode read as Line-by-Line.
+type ModeFilter = 'all' | 'line' | 'continuous' | 'oneshot'
+const MODE_FILTERS: { id: ModeFilter; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'line', label: 'Line-by-Line' },
+  { id: 'continuous', label: 'Continuous' },
+  { id: 'oneshot', label: 'One-Shot' },
+]
+function itemMode(it: BrollHistoryItem): Exclude<ModeFilter, 'all'> {
+  return it.mode ?? 'line'
+}
+
 export default function BrollHistoryView({ items, activeId, onSelect, onDelete }: BrollHistoryViewProps) {
   const [query, setQuery] = useState('')
+  const [modeFilter, setModeFilter] = useState<ModeFilter>('all')
+
+  // Which mode pills to show — only offer a filter when more than one mode is
+  // actually present, so a Line-only history isn't cluttered with dead pills.
+  const presentModes = useMemo(() => new Set(items.map(itemMode)), [items])
+  const showModeFilters = presentModes.size > 1
 
   const groups = useMemo(() => {
     const q = query.trim().toLowerCase()
     const filtered = items
       .filter((it) => {
+        if (modeFilter !== 'all' && itemMode(it) !== modeFilter) return false
         if (!q) return true
         return it.inputSummary.toLowerCase().includes(q)
       })
@@ -43,7 +63,7 @@ export default function BrollHistoryView({ items, activeId, onSelect, onDelete }
       .sort((a, b) => b.createdAt - a.createdAt)
 
     return groupByDay(filtered, (it) => it.createdAt)
-  }, [items, query])
+  }, [items, query, modeFilter])
 
   if (items.length === 0) {
     return (
@@ -67,6 +87,29 @@ export default function BrollHistoryView({ items, activeId, onSelect, onDelete }
             className="w-full rounded-full border border-ink/10 bg-transparent py-2 pl-10 pr-3 text-sm text-ink-100 placeholder-ink-500 outline-none transition-colors focus:border-broll-500/40"
           />
         </div>
+
+        {/* Mode filter pills — sort by Line-by-Line / Continuous / One-Shot. */}
+        {showModeFilters && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {MODE_FILTERS.map((f) => {
+              const active = modeFilter === f.id
+              return (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setModeFilter(f.id)}
+                  className={`rounded-full border px-3 py-1 text-[11px] font-medium transition-colors ${
+                    active
+                      ? 'border-broll-500/40 bg-broll-500/15 text-broll-200'
+                      : 'border-ink/10 bg-ink/[0.03] text-ink-400 hover:bg-ink/[0.06] hover:text-ink-200'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto">
@@ -117,9 +160,20 @@ function HistoryRow({
   const result = item.result as BrollResult | null
   const thumbRef = firstImageRef(cardStates)
   const thumbUrl = useAssetUrl(thumbRef ?? '')
-  const isOneShot = item.mode === 'oneshot'
+  const mode = item.mode ?? 'line'
+  const isOneShot = mode === 'oneshot'
+  const isContinuous = mode === 'continuous'
   const oneShotResult = item.oneShotResult as OneShotResult | undefined
-  const count = isOneShot ? (oneShotResult?.concepts?.length ?? 0) : sceneCount(result)
+  const continuousResult = item.continuousResult as BrollResult | null
+  const count = isOneShot
+    ? (oneShotResult?.concepts?.length ?? 0)
+    : isContinuous
+      ? sceneCount(continuousResult)
+      : sceneCount(result)
+  const modeBadge = isOneShot ? 'One Shot' : isContinuous ? 'Continuous' : null
+  const countLabel = isOneShot
+    ? `concept${count === 1 ? '' : 's'}`
+    : `scene${count === 1 ? '' : 's'}`
   const [confirming, setConfirming] = useState(false)
 
   // A clean title built from the linked references: "Product · Influencer ·
@@ -157,12 +211,12 @@ function HistoryRow({
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium leading-snug text-ink-100">{title}</p>
         <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-ink-500">
-          {isOneShot && (
+          {modeBadge && (
             <span className="rounded-full bg-broll-500/10 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-broll-300">
-              One Shot
+              {modeBadge}
             </span>
           )}
-          <span>{count} {isOneShot ? `concept${count === 1 ? '' : 's'}` : `scene${count === 1 ? '' : 's'}`}</span>
+          <span>{count} {countLabel}</span>
           <span>·</span>
           <span className="shrink-0">{formatRelative(item.createdAt)}</span>
         </div>

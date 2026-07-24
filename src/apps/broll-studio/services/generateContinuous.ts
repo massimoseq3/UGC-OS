@@ -16,18 +16,26 @@ import { useSettingsStore } from '../../../stores/settingsStore'
 import { kieChatCompletions, type ChatMessage } from '../../../utils/kie'
 import { getChatEndpointPath, getModel, snapVideoDurationUp } from '../../../utils/models'
 
-// Models allowed in the Continuous picker — frames-to-video capable only (the
-// whole mode is first/last-frame interpolation). Gemini Omni is out: it has no
-// frame-conditioned mode at all. Seedance 2.0 is the default — cheap,
-// first/last-frame native, and it generates the transitional SFX this style
-// leans on. The picker lives in the CLIP modal, not the left panel: the model
-// only matters once there are keyframes to animate.
+// Models LISTED in the Continuous picker. The whole mode is first/last-frame
+// interpolation, so only frames-to-video models are actually selectable — the
+// panel greys the rest via requireMode='frames-to-video' so the user can see
+// (and understand) why they're unavailable. Image-only (Kling Turbo) and
+// frame-less (Gemini Omni) models are listed but land greyed. Seedance 2.0 is
+// the default — cheap, first/last-frame native, and it generates the
+// transitional SFX this style leans on. The picker lives in the CLIP modal,
+// not the left panel: the model only matters once there are keyframes.
 export const CONTINUOUS_MODEL_IDS = [
   'bytedance/seedance-2',
   'bytedance/seedance-2-fast',
   'bytedance/seedance-2-mini',
   'bytedance/seedance-1.5-pro',
   'kling-3.0/video',
+  'veo3_fast',
+  'veo3_lite',
+  'veo3',
+  'wan/2-7',
+  'kling/v3-turbo-image-to-video',
+  'gemini-omni-video',
 ]
 
 export const CONTINUOUS_DEFAULT_MODEL_ID = 'bytedance/seedance-2'

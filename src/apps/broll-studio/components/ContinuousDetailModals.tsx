@@ -29,10 +29,11 @@ import ConstraintChip from '../../../components/ConstraintChip'
 import AspectIcon from '../../../components/AspectIcon'
 import ModelPicker from '../../../components/ModelPicker'
 import ModelSidePanel from '../../../components/ModelSidePanel'
+import SegmentedToggle from '../../../components/SegmentedToggle'
 import ProviderLogo from '../../../components/ProviderLogo'
 import SavingsPill from '../../../components/SavingsPill'
 import ExpandTextModal, { ExpandButton } from '../../../components/ExpandableText'
-import { ReferenceSlotCard, ExtraRefsRow } from './cardDetailParts'
+import { ReferenceSlotCard, ExtraRefsRow, PendingMediaTile } from './cardDetailParts'
 import type { ContinuousFrameCardState, ContinuousClipCardState, GeneratedVideo, ReferenceImage } from '../types'
 import type { Product, Model } from '../../../stores/types'
 import { CONTINUOUS_MODEL_IDS } from '../services/generateContinuous'
@@ -113,6 +114,7 @@ function StyleNote({ style }: { style: string }) {
 
 interface ContinuousFrameModalProps {
   frameLabel: string    // "Frame 3" / "Final Frame"
+  frameNumber: number   // the frame index, shown as a serif "01" in the header
   conceptLabel: string  // the concept's staging slug
   scriptLine: string    // the narration line this frame opens ('' for final)
   style: string
@@ -144,6 +146,7 @@ interface ContinuousFrameModalProps {
 
 export function ContinuousFrameModal({
   frameLabel,
+  frameNumber,
   conceptLabel,
   scriptLine,
   style,
@@ -238,6 +241,21 @@ export function ContinuousFrameModal({
         <div className="col-span-1 flex min-h-0 flex-col border-b border-ink/5 md:border-b-0 md:border-r">
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
             <div className="flex grow flex-col gap-3 px-5 pb-6 pt-4">
+              {/* Output-type tab — keyframes are images, so this workspace only
+                  makes images (no Video / Animate tabs, unlike Line-by-Line).
+                  Styled as the Line-by-Line segmented toggle, single option. The
+                  h-14 container + separator mirror the right header so the
+                  hairline runs straight across the modal. */}
+              <div className="flex h-14 items-center">
+                <SegmentedToggle
+                  className="h-10 !p-1"
+                  value="image"
+                  onChange={() => {}}
+                  options={[{ value: 'image', label: 'Image', icon: ImageIcon }]}
+                />
+              </div>
+              <div className="-mx-5 -mt-1 border-b border-ink/5" />
+
               {/* Image model — the same app-wide picker the Line-by-Line card
                   uses, so a model swap applies across the whole storyboard. */}
               <ModelPicker appId="broll-studio" task="image" mode="text-to-image" />
@@ -403,29 +421,30 @@ export function ContinuousFrameModal({
         {/* RIGHT — header + image gallery */}
         <div className="col-span-1 flex min-h-0 flex-col overflow-hidden">
           <div className="flex flex-col gap-3 px-5 pt-4">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="flex shrink-0 items-center gap-1.5">
-                <span className="rounded-full border border-ink/10 bg-ink/[0.03] px-2 py-0.5 text-[10px] font-medium uppercase leading-none tracking-wider text-ink-400">
-                  {frameLabel}
-                </span>
-                <span className="rounded-full border border-ink/10 bg-ink/[0.03] px-2 py-0.5 text-[10px] font-medium uppercase leading-none tracking-wider text-ink-400">
+            {/* Serif number + a stacked column (concept pill over the quote),
+                mirroring the main storyboard rows. */}
+            <div className="flex h-14 min-w-0 items-center gap-4">
+              <span
+                className="shrink-0 text-4xl font-normal italic tabular-nums leading-none text-ink-700"
+                style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
+              >
+                {String(frameNumber).padStart(2, '0')}
+              </span>
+              <div className="h-9 w-px shrink-0 bg-ink/10" />
+              <div className="flex min-w-0 flex-col gap-1.5">
+                <span className="inline-flex w-fit rounded-full border border-ink/10 bg-ink/[0.03] px-2.5 py-0.5 text-[10px] font-semibold uppercase leading-none tracking-wider text-ink-400">
                   {conceptLabel}
                 </span>
+                <span
+                  className="min-w-0 truncate text-[15px] leading-tight text-ink-300"
+                  style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
+                  title={scriptLine || undefined}
+                >
+                  {scriptLine ? `“${scriptLine}”` : 'Final frame — the end state the last clip lands on'}
+                </span>
               </div>
-              {scriptLine && (
-                <>
-                  <div className="h-7 w-px shrink-0 bg-ink/10" />
-                  <span
-                    className="min-w-0 flex-1 truncate text-[15px] leading-none text-ink-300"
-                    style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
-                    title={scriptLine}
-                  >
-                    &ldquo;{scriptLine}&rdquo;
-                  </span>
-                </>
-              )}
             </div>
-            <div className="-mx-5 border-b border-ink/5" />
+            <div className="-mx-5 -mt-1 border-b border-ink/5" />
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
@@ -436,22 +455,25 @@ export function ContinuousFrameModal({
               </div>
             ) : (
               <div className="flex flex-col gap-3">
-                {cardState.inFlightImages.map((entry) =>
-                  entry.error ? (
-                    <div key={entry.id} className="flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2">
-                      <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-400 light:text-red-600" />
-                      <p className="min-w-0 flex-1 text-[11px] leading-relaxed text-red-300 light:text-red-700">{entry.error}</p>
-                      <button type="button" title="Retry" onClick={() => onRetryInFlight(entry.id)} className="shrink-0 rounded-full p-1 text-ink-400 hover:bg-ink/10 hover:text-ink-200"><RefreshCw className="h-3.5 w-3.5" /></button>
-                      <button type="button" title="Dismiss" onClick={() => onDismissInFlight(entry.id)} className="shrink-0 rounded-full p-1 text-ink-400 hover:bg-ink/10 hover:text-ink-200"><X className="h-3.5 w-3.5" /></button>
-                    </div>
-                  ) : (
-                    <div key={entry.id} className="flex items-center gap-2 rounded-xl border border-ink/5 bg-ink/[0.02] px-3 py-2.5">
-                      <Loader2 className="h-4 w-4 animate-spin text-broll-300" />
-                      <p className="text-[11px] text-ink-500">Generating the keyframe… survives a refresh.</p>
-                    </div>
-                  ),
-                )}
+                {cardState.inFlightImages.filter((e) => e.error).map((entry) => (
+                  <div key={entry.id} className="flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2">
+                    <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-400 light:text-red-600" />
+                    <p className="min-w-0 flex-1 text-[11px] leading-relaxed text-red-300 light:text-red-700">{entry.error}</p>
+                    <button type="button" title="Retry" onClick={() => onRetryInFlight(entry.id)} className="shrink-0 rounded-full p-1 text-ink-400 hover:bg-ink/10 hover:text-ink-200"><RefreshCw className="h-3.5 w-3.5" /></button>
+                    <button type="button" title="Dismiss" onClick={() => onDismissInFlight(entry.id)} className="shrink-0 rounded-full p-1 text-ink-400 hover:bg-ink/10 hover:text-ink-200"><X className="h-3.5 w-3.5" /></button>
+                  </div>
+                ))}
                 <div className="grid grid-cols-2 gap-3">
+                  {cardState.inFlightImages.filter((e) => !e.error).map((entry) => (
+                    <PendingMediaTile
+                      key={entry.id}
+                      kind="image"
+                      prompt={entry.prompt}
+                      modelId={entry.modelId}
+                      aspectRatio={entry.aspectRatio}
+                      messages={['Sending request...', 'Painting the keyframe...', 'Locking the style...', 'Almost there...']}
+                    />
+                  ))}
                   {cardState.images.map((image, i) => (
                     <FrameImageTile
                       key={`${image.imageUrl}-${i}`}
@@ -594,6 +616,17 @@ export function ContinuousClipModal({
         <div className="col-span-1 flex min-h-0 flex-col border-b border-ink/5 md:border-b-0 md:border-r">
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
             <div className="flex grow flex-col gap-3 px-5 pb-6 pt-4">
+              {/* Output-type tab — Continuous clips are videos (frames-to-video
+                  between two keyframes). Styled as the Line-by-Line toggle,
+                  single option; separator aligns with the right header. */}
+              <SegmentedToggle
+                className="h-10 !p-1"
+                value="video"
+                onChange={() => {}}
+                options={[{ value: 'video', label: 'Video', icon: VideoIcon }]}
+              />
+              <div className="-mx-5 -mt-1 border-b border-ink/5" />
+
               {/* Video model — picked HERE rather than in the left input panel:
                   the model only matters once there are keyframes to animate.
                   Frames-to-video capable models only. */}
@@ -730,7 +763,7 @@ export function ContinuousClipModal({
         {/* RIGHT — header + video gallery */}
         <div className="col-span-1 flex min-h-0 flex-col overflow-hidden">
           <div className="flex flex-col gap-3 px-5 pt-4">
-            <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 min-w-0 items-center gap-3">
               <span className="shrink-0 rounded-full border border-ink/10 bg-ink/[0.03] px-2 py-0.5 text-[10px] font-medium uppercase leading-none tracking-wider text-ink-400">
                 {clipLabel}
               </span>
@@ -743,7 +776,7 @@ export function ContinuousClipModal({
                 &ldquo;{scriptLine}&rdquo;
               </span>
             </div>
-            <div className="-mx-5 border-b border-ink/5" />
+            <div className="-mx-5 -mt-1 border-b border-ink/5" />
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
@@ -754,22 +787,25 @@ export function ContinuousClipModal({
               </div>
             ) : (
               <div className="flex flex-col gap-3">
-                {cardState.inFlightVideos.map((entry) =>
-                  entry.error ? (
-                    <div key={entry.id} className="flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2">
-                      <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-400 light:text-red-600" />
-                      <p className="min-w-0 flex-1 text-[11px] leading-relaxed text-red-300 light:text-red-700">{entry.error}</p>
-                      <button type="button" title="Retry" onClick={() => onRetryInFlight(entry.id)} className="shrink-0 rounded-full p-1 text-ink-400 hover:bg-ink/10 hover:text-ink-200"><RefreshCw className="h-3.5 w-3.5" /></button>
-                      <button type="button" title="Dismiss" onClick={() => onDismissInFlight(entry.id)} className="shrink-0 rounded-full p-1 text-ink-400 hover:bg-ink/10 hover:text-ink-200"><X className="h-3.5 w-3.5" /></button>
-                    </div>
-                  ) : (
-                    <div key={entry.id} className="flex items-center gap-2 rounded-xl border border-ink/5 bg-ink/[0.02] px-3 py-2.5">
-                      <Loader2 className="h-4 w-4 animate-spin text-broll-300" />
-                      <p className="text-[11px] text-ink-500">Rendering with {getModel(entry.modelId)?.displayName ?? entry.modelId}… survives a refresh.</p>
-                    </div>
-                  ),
-                )}
+                {cardState.inFlightVideos.filter((e) => e.error).map((entry) => (
+                  <div key={entry.id} className="flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2">
+                    <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-400 light:text-red-600" />
+                    <p className="min-w-0 flex-1 text-[11px] leading-relaxed text-red-300 light:text-red-700">{entry.error}</p>
+                    <button type="button" title="Retry" onClick={() => onRetryInFlight(entry.id)} className="shrink-0 rounded-full p-1 text-ink-400 hover:bg-ink/10 hover:text-ink-200"><RefreshCw className="h-3.5 w-3.5" /></button>
+                    <button type="button" title="Dismiss" onClick={() => onDismissInFlight(entry.id)} className="shrink-0 rounded-full p-1 text-ink-400 hover:bg-ink/10 hover:text-ink-200"><X className="h-3.5 w-3.5" /></button>
+                  </div>
+                ))}
                 <div className="grid grid-cols-2 gap-3">
+                  {cardState.inFlightVideos.filter((e) => !e.error).map((entry) => (
+                    <PendingMediaTile
+                      key={entry.id}
+                      kind="video"
+                      prompt={entry.prompt}
+                      modelId={entry.modelId}
+                      aspectRatio={entry.aspectRatio}
+                      messages={['Sending request...', 'Interpolating frames...', 'Rendering motion...', 'Finalizing the clip...']}
+                    />
+                  ))}
                   {cardState.videos.map((video, i) => (
                     <ClipVideoTile key={`${video.url}-${i}`} video={video} onDelete={() => onDeleteVideo(i)} />
                   ))}
