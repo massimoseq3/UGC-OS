@@ -301,6 +301,9 @@ export function createDefaultContinuousClipState(scene: ContinuousScene, modelId
   const editablePrompt = sfx && !alreadyHasSfx ? `${motion} ${sfx}.` : motion
   return {
     editablePrompt,
+    promptHistory: [editablePrompt],
+    promptHistoryIndex: 0,
+    motionEdited: false,
     videos: [],
     currentVideoIndex: 0,
     inFlightVideos: [],
@@ -345,8 +348,19 @@ export function backfillContinuousClipState(raw: Partial<ContinuousClipCardState
   const STALE_MS = 60 * 60_000
   const videos = Array.isArray(raw.videos) ? (raw.videos as ContinuousClipCardState['videos']) : []
   const inFlight = Array.isArray(raw.inFlightVideos) ? (raw.inFlightVideos as ContinuousClipCardState['inFlightVideos']) : []
+  const editablePrompt = (raw.editablePrompt as string) ?? ''
+  const promptHistory = Array.isArray(raw.promptHistory) && (raw.promptHistory as string[]).length > 0
+    ? (raw.promptHistory as string[])
+    : [editablePrompt]
   return {
-    editablePrompt: (raw.editablePrompt as string) ?? '',
+    editablePrompt,
+    promptHistory,
+    promptHistoryIndex: typeof raw.promptHistoryIndex === 'number'
+      ? Math.max(0, Math.min(raw.promptHistoryIndex, promptHistory.length - 1))
+      : promptHistory.length - 1,
+    // Older rows had no auto-sync; treat them as edited so a hydrate never
+    // rewrites motion the user may have already tuned.
+    motionEdited: raw.motionEdited !== false,
     videos,
     currentVideoIndex: typeof raw.currentVideoIndex === 'number'
       ? Math.max(0, Math.min(raw.currentVideoIndex, Math.max(0, videos.length - 1)))

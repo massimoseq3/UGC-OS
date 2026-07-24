@@ -40,6 +40,8 @@ import {
   frameContextFor,
   enhanceContinuousFrame,
   regenerateContinuousFrame,
+  enhanceContinuousMotion,
+  regenerateContinuousMotion,
 } from '../services/generateContinuous'
 import { isPollTimeout } from '../../../utils/kie'
 import { useBankStore } from '../../../stores/bankStore'
@@ -172,6 +174,50 @@ export default function ContinuousView({
       if (!existing) return prev
       return { ...prev, [key]: { ...existing, ...updater(existing) } }
     })
+  }
+
+  // Auto-sync each clip's motion to its START frame's picked concept, until the
+  // user hand-edits it. Clip N starts on frame N (same index as the scene), so a
+  // keyframe pick on frame N carries THAT staging's departure motion into the
+  // clip. Motion is now a per-concept property, so the right prompt is ready the
+  // moment the keyframe is chosen — no per-pair generation, no stale generic text.
+  useEffect(() => {
+    if (!result) return
+    setClipStates((prev) => {
+      let changed = false
+      const next = { ...prev }
+      for (const scene of result.scenes) {
+        const key = clipKey(scene.index)
+        const clip = next[key]
+        if (!clip || clip.motionEdited) continue
+        const sel = selections[String(scene.index)]
+        if (!sel) continue
+        const concept = result.frames
+          .find((f) => f.index === scene.index)?.concepts
+          .find((c) => c.id === sel.conceptId)
+        const motion = concept?.motionPrompt?.trim()
+        if (!motion || motion === clip.editablePrompt.trim()) continue
+        next[key] = { ...clip, editablePrompt: motion, promptHistory: [motion], promptHistoryIndex: 0 }
+        changed = true
+      }
+      return changed ? next : prev
+    })
+  }, [result, selections, setClipStates])
+
+  // Motion-tool context for a clip: its own narration line + where the story
+  // goes next (direction only — the tools never paint the end frame).
+  const motionContextFor = (sceneIndex: number) => ({
+    scriptLine: result?.scenes.find((s) => s.index === sceneIndex)?.scriptLine ?? '',
+    nextScriptLine: result?.scenes.find((s) => s.index === sceneIndex + 1)?.scriptLine,
+  })
+
+  // Vision regenerate reads the clip's ACTUAL chosen start keyframe image.
+  const regenerateMotionFromFrame = async (sceneIndex: number): Promise<string> => {
+    const startRef = keyframeRef(sceneIndex)
+    if (!startRef) throw new Error('Pick a start keyframe for this clip first.')
+    const dataUri = await toDataUri(startRef)
+    if (!dataUri) throw new Error('Could not load the start keyframe image.')
+    return regenerateContinuousMotion(dataUri, motionContextFor(sceneIndex))
   }
 
   const guardDemo = (): boolean => {
@@ -888,6 +934,11 @@ export default function ContinuousView({
           onClose={() => setOpenClipKey(null)}
           onUpdate={(updater) => updateClip(openClipKey, updater)}
           onGenerate={() => void runClipVideo(openScene.index)}
+          onEnhanceMotion={() => enhanceContinuousMotion(
+            clipStates[openClipKey]?.editablePrompt ?? '',
+            motionContextFor(openScene.index),
+          )}
+          onRegenerateMotion={() => regenerateMotionFromFrame(openScene.index)}
           onDeleteVideo={(i) => updateClip(openClipKey, (prev) => {
             const videos = prev.videos.filter((_, idx) => idx !== i)
             return { videos, currentVideoIndex: Math.max(0, Math.min(prev.currentVideoIndex, videos.length - 1)) }
