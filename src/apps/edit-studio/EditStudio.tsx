@@ -45,6 +45,7 @@ const SKILL_STEPS: ReactNode[] = [
 const BENEFITS = [
   'Cleans up your voiceover',
   'Picks the best B-roll for each line',
+  'Speeds clips up or slows them down to fit the voiceover',
   'Adds smooth zooms and background music',
   'Puts captions on the screen that match every word',
 ]
@@ -64,7 +65,7 @@ export default function EditStudio() {
             <Download className="h-4 w-4" strokeWidth={2} />
             Download Skill
           </button>
-          <p className="text-[11px] text-ink-600">video-editor.skill · 20 KB</p>
+          <p className="text-[11px] text-ink-600">video-editor.skill · 25 KB</p>
         </div>
       </div>
 
