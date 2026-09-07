@@ -153,7 +153,7 @@ export default function Dashboard() {
               fold.
 
               **Three columns, rearranged September 2026 (Massimo's call).**
-              The two figures stack down the LEFT (Time saved over Money
+              The two figures stack down the LEFT (Money saved over Time
               saved, the pair that read as one comparison), Activity heads the
               MIDDLE with the Academy link under it, and What's New takes the
               whole RIGHT column at two rows tall. The Streak ring went with
@@ -177,8 +177,52 @@ export default function Dashboard() {
               earns a half tile by dropping to `PHONE_WEEKS` columns of
               smaller cells (see ActivityHeatmap). */}
           <div className="grid grid-cols-12 gap-3.5 lg:auto-rows-fr">
-            {/* Time saved */}
+            {/* Money saved */}
             <Widget index={slot(0)} className="col-span-6 items-center text-center lg:col-span-4">
+              <WidgetLabel icon={PiggyBank} label="Money Saved" />
+              {/* Centres with no bar under it — see Time saved below. */}
+              <div className={`w-full ${hasSpend ? 'pt-4' : 'flex flex-1 flex-col justify-center'}`}>
+                <WidgetFigure value={formatUsd(metrics.usdSaved)} />
+                <p className="mt-1.5 text-[12px] leading-snug text-ink-500">
+                  vs official APIs
+                  <span className="hidden sm:inline"> &amp; creator platforms</span>
+                </p>
+                {metrics.usdSavedLast7d >= 0.01 && (
+                  <WidgetDelta>{`+${formatUsd(metrics.usdSavedLast7d)} this week`}</WidgetDelta>
+                )}
+              </div>
+              <div className="mt-auto w-full">
+                <SpendBar spent={metrics.kieUsd} elsewhere={metrics.officialUsd} format={formatUsd} />
+              </div>
+            </Widget>
+
+            {/* Activity */}
+            <Widget index={slot(1)} className="col-span-6 items-center text-center lg:col-span-4">
+              <WidgetLabel icon={CalendarCheck} label="Activity" />
+              <div className="mt-auto flex w-full items-end pt-3">
+                <ActivityHeatmap days={usageDays} />
+              </div>
+              {/* The tally reads UNDER the grid it counts, the way Streak's
+                  record reads under its ring — it sat beside the label in the
+                  header until the wall went to six equal centred tiles, where
+                  a note in that row is what knocks the label off centre. Still
+                  gone below `sm`, where the bento can't spare the line.
+                  There is nothing here before there is activity: "Every
+                  generation lights up a day" held the slot on the reasoning
+                  that 26 weeks of blank cells read as a broken widget rather
+                  than a waiting one, and came out because the label already
+                  says Activity and the empty grid says there hasn't been
+                  any. */}
+              {hasActivity && (
+                <p className="mt-2 hidden max-w-full truncate text-[11px] text-ink-500 sm:block">
+                  {`${metrics.totalGenerations.toLocaleString()} generations · ${metrics.activeDays.toLocaleString()} active days${sinceLabel ? ` since ${sinceLabel}` : ''}`}
+                </p>
+              )}
+            </Widget>
+            {/* The right-hand column, two rows tall — see the note above. */}
+            <WhatsNewTile index={slot(3)} className="order-last col-span-12 lg:order-none lg:col-span-4 lg:row-span-2" />
+            {/* Time saved */}
+            <Widget index={slot(2)} className="col-span-6 items-center text-center lg:col-span-4">
               <WidgetLabel icon={Clock} label="Time Saved" />
               {/* NOT `mt-auto`: bottom-aligning this block lands the figure
                   at a different height in each tile, because Money saved's
@@ -214,50 +258,6 @@ export default function Dashboard() {
               </div>
               <div className="mt-auto w-full">
                 <Sparkline values={spark} />
-              </div>
-            </Widget>
-
-            {/* Activity */}
-            <Widget index={slot(1)} className="col-span-6 items-center text-center lg:col-span-4">
-              <WidgetLabel icon={CalendarCheck} label="Activity" />
-              <div className="mt-auto flex w-full items-end pt-3">
-                <ActivityHeatmap days={usageDays} />
-              </div>
-              {/* The tally reads UNDER the grid it counts, the way Streak's
-                  record reads under its ring — it sat beside the label in the
-                  header until the wall went to six equal centred tiles, where
-                  a note in that row is what knocks the label off centre. Still
-                  gone below `sm`, where the bento can't spare the line.
-                  There is nothing here before there is activity: "Every
-                  generation lights up a day" held the slot on the reasoning
-                  that 26 weeks of blank cells read as a broken widget rather
-                  than a waiting one, and came out because the label already
-                  says Activity and the empty grid says there hasn't been
-                  any. */}
-              {hasActivity && (
-                <p className="mt-2 hidden max-w-full truncate text-[11px] text-ink-500 sm:block">
-                  {`${metrics.totalGenerations.toLocaleString()} generations · ${metrics.activeDays.toLocaleString()} active days${sinceLabel ? ` since ${sinceLabel}` : ''}`}
-                </p>
-              )}
-            </Widget>
-            {/* The right-hand column, two rows tall — see the note above. */}
-            <WhatsNewTile index={slot(3)} className="order-last col-span-12 lg:order-none lg:col-span-4 lg:row-span-2" />
-            {/* Money saved */}
-            <Widget index={slot(2)} className="col-span-6 items-center text-center lg:col-span-4">
-              <WidgetLabel icon={PiggyBank} label="Money Saved" />
-              {/* Centres with no bar under it — see Time saved above. */}
-              <div className={`w-full ${hasSpend ? 'pt-4' : 'flex flex-1 flex-col justify-center'}`}>
-                <WidgetFigure value={formatUsd(metrics.usdSaved)} />
-                <p className="mt-1.5 text-[12px] leading-snug text-ink-500">
-                  vs official APIs
-                  <span className="hidden sm:inline"> &amp; creator platforms</span>
-                </p>
-                {metrics.usdSavedLast7d >= 0.01 && (
-                  <WidgetDelta>{`+${formatUsd(metrics.usdSavedLast7d)} this week`}</WidgetDelta>
-                )}
-              </div>
-              <div className="mt-auto w-full">
-                <SpendBar spent={metrics.kieUsd} elsewhere={metrics.officialUsd} format={formatUsd} />
               </div>
             </Widget>
 
