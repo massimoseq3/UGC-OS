@@ -395,10 +395,10 @@ export function isLineMode(mode: BrollMode): boolean {
 }
 
 // Coerces anything read from localStorage or a history row into a live mode.
-// 'broll' / 'dialogue' are the short-lived three-mode split (the delivery is
-// recovered separately, from the same raw value — see readPersistedMode in
-// BrollStudio), 'animated' is Continuous' first name, and 'oneshot' is the
-// retired mode. Everything unrecognised lands on Line-by-Line.
+// 'broll' / 'dialogue' are the short-lived three-mode split (both fold onto
+// Line-by-Line; the delivery is not recovered from them, because the toggle
+// opens on B-Roll Clips every load), 'animated' is Continuous' first name, and
+// 'oneshot' is the retired mode. Everything unrecognised lands on Line-by-Line.
 export function sanitizeBrollMode(raw: unknown): BrollMode {
   if (raw === 'continuous' || raw === 'animated') return 'continuous'
   return 'line'

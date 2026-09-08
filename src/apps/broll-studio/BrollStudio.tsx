@@ -56,20 +56,6 @@ function isAdBlueprint(raw: unknown): raw is AdBlueprintPayload {
   return typeof b.title === 'string' && typeof b.script === 'string' && !!b.staging?.trim()
 }
 
-// The raw mode slot, read straight out of localStorage. `usePersistedState`'s
-// sanitize only sees its OWN value, and the delivery toggle needs this one: a
-// member left mid-session while Dialogue was briefly its own mode has
-// `:mode === 'dialogue'` and a `:lineDelivery` that predates it, so reading the
-// mode back is the only way they reopen in Dialogue Clips rather than silently
-// losing the delivery they were working in.
-function readPersistedMode(baseKey: string): string {
-  try {
-    return String(JSON.parse(localStorage.getItem(`${baseKey}:mode`) ?? '""'))
-  } catch {
-    return ''
-  }
-}
-
 // Map old slash-form tag values onto the new single-word union. Variations
 // generated before iteration 3 carry strings like 'CHARACTER / SPEAKING';
 // after migration they become 'DIALOGUE'. Keys are typed as `string` to
@@ -208,7 +194,8 @@ export default function BrollStudio() {
   // ── Mode ─────────────────────────────────────────────────────
   // 'line' | 'continuous'. Dialogue rode here as a third mode for a while;
   // sanitizeBrollMode folds that value (and the retired 'oneshot') back onto
-  // Line-by-Line, with the delivery recovered by the toggle below.
+  // Line-by-Line. The delivery is not read back out of it — the toggle below
+  // opens on B-Roll Clips on every load.
   const [storedMode, setMode] = usePersistedState<BrollMode>(`${baseKey}:mode`, 'line', {
     sanitize: sanitizeBrollMode,
   })
@@ -224,20 +211,17 @@ export default function BrollStudio() {
   // laid over in the edit — THE DEFAULT since September 2026, Massimo's call)
   // or 'dialogue' (every card the character speaking that line, staged three
   // different ways). Not a mode: both produce the same per-line storyboard.
-  const [lineDelivery, setLineDelivery] = usePersistedState<BrollDelivery>(
-    `${baseKey}:lineDelivery`,
-    'silent',
-    // `sanitize` runs on the fallback too when the slot is empty, so flipping
-    // the default means flipping this — it decides what an ABSENT value means.
-    // Only an explicit stored 'dialogue' opens on dialogue (a member who picked
-    // Dialogue Clips keeps it); anything missing or unrecognised lands on
-    // silent. The mode check still wins: a member sitting in the short-lived
-    // Dialogue *mode* has that in the mode slot and a stale delivery in this one.
-    {
-      sanitize: (raw) =>
-        readPersistedMode(baseKey) === 'dialogue' ? 'dialogue' : raw === 'dialogue' ? 'dialogue' : 'silent',
-    },
-  )
+  //
+  // Deliberately NOT persisted (September 2026, Massimo's call). It was a
+  // `${baseKey}:lineDelivery` slot, which meant one flip of the toggle — or
+  // opening a Dialogue session from History, which sets it to match the row —
+  // made Dialogue the way the app opened from then on, forever. A default is
+  // only worth having if the app actually lands on it: every fresh load of the
+  // workspace opens on B-Roll Clips, and a Dialogue pick lasts as long as the
+  // session it was made for. The app stays mounted behind a dock switch, so
+  // this survives leaving B-Roll and coming back — it resets on a reload, not
+  // on a tab change.
+  const [lineDelivery, setLineDelivery] = useState<BrollDelivery>('silent')
 
   // ── Scene staging ──────────────────────────────────────────────
   // B-Roll had an Ad Format pick (Scripts' Formats + Structures list) that
