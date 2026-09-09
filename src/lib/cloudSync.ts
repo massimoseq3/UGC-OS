@@ -22,7 +22,7 @@ import { useAppStore } from '../stores/appStore'
 import { useBankStore, backfillUsageLedger, persistBanksNow, localBanksReady, markCloudHydrated } from '../stores/bankStore'
 import {
   useSettingsStore,
-  applyProfileMigrations,
+  repairPulledPerAppModel,
   recordProfileMigrations,
   persistSettingsSnapshot,
 } from '../stores/settingsStore'
@@ -469,7 +469,15 @@ async function hydrateFromCloud(userId: string): Promise<boolean> {
     // thrown away, so anything that has to reach a signed-in member has to be
     // applied here too. See PROFILE_MIGRATIONS in settingsStore.
     const pulled = (profile.per_app_model as Record<string, string> | null) ?? {}
-    const { perAppModel: nextPerAppModel, applied } = applyProfileMigrations(pulled, userId)
+    const {
+      perAppModel: nextPerAppModel,
+      appliedMigrations,
+      prunedIds,
+      changed,
+    } = repairPulledPerAppModel(pulled, userId)
+    if (prunedIds.length > 0) {
+      console.warn('Dropped cloud per-app model picks whose model has been removed:', prunedIds.join(', '))
+    }
     useSettingsStore.setState({ perAppModel: nextPerAppModel })
     // kieApiKey and scrapeCreatorsKey are browser-local; preserve whatever
     // loadFromStorage already hydrated. Written through the store's own
@@ -480,10 +488,14 @@ async function hydrateFromCloud(userId: string): Promise<boolean> {
     // Push the corrected profile back, and only record the migration as done
     // once that lands — a failed push must retry at the next sign-in rather
     // than leave the account on the old value with the flip marked applied.
-    if (applied.length > 0) {
+    if (changed) {
       void saveProfile()
-        .then(() => recordProfileMigrations(applied, userId))
-        .catch((e) => console.error('profile migration push failed; will retry next sign-in', e))
+        .then(() => recordProfileMigrations(appliedMigrations, userId))
+        .catch((e) => console.error('profile repair push failed; will retry next sign-in', e))
+    } else {
+      // Nothing to push — but a migration that found nothing to do has still
+      // run, so record it rather than re-applying the same no-op forever.
+      recordProfileMigrations(appliedMigrations, userId)
     }
   }
 
