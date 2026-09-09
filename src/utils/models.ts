@@ -695,6 +695,64 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     },
     imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
   },
+  // GPT Image 2.5 — OpenAI's September 2026 image release, on kie.ai as two
+  // variants of one family. Flare is OpenAI's own default ("start with Flare
+  // for most applications"); Sunburst trades generation time for tighter
+  // control across edits. Each ships as its own text-to-image and
+  // image-to-image kie slug, exactly like GPT Image 2 above, so the
+  // `-image-to-image` sibling the ref-swap logic resolves to is right there in
+  // the family. Body shape is identical to GPT Image 2's (prompt +
+  // aspect_ratio + resolution + input_urls), which is why buildImageInput's
+  // `startsWith('gpt-image-2')` branch already covers all four.
+  //
+  // NO PRICING, DELIBERATELY (2026-09-09). kie.ai/pricing lists all twelve
+  // rows for these two slugs as "To be announced." — there is no credit rate
+  // to declare yet, so `estimateCredits` returns null and the picker rows and
+  // generate buttons simply quote no cost. `official` is left off for the SAME
+  // reason and must not be added on its own: the usage ledger computes savings
+  // as (official − kie), so an official rate with no kie rate would bank the
+  // whole $0.053 as money saved on a generation the member actually paid an
+  // unknown amount for. Add `pricing` and `official` together, in one edit,
+  // once kie publishes — or once a real generation's billing confirms the
+  // per-tier credits, which is how GPT Image 2's 2K=10 was verified.
+  {
+    id: 'gpt-image-2-5-flare-text-to-image',
+    displayName: 'GPT Image 2.5 Flare',
+    provider: 'OpenAI',
+    task: 'image',
+    modes: ['text-to-image'],
+    tags: ['new'],
+    imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
+  },
+  {
+    id: 'gpt-image-2-5-flare-image-to-image',
+    displayName: 'GPT Image 2.5 Flare (Edit)',
+    provider: 'OpenAI',
+    task: 'image',
+    modes: ['image-to-image', 'image-edit'],
+    tags: ['new'],
+    supportsReferenceImages: true,
+    imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
+  },
+  {
+    id: 'gpt-image-2-5-sunburst-text-to-image',
+    displayName: 'GPT Image 2.5 Sunburst',
+    provider: 'OpenAI',
+    task: 'image',
+    modes: ['text-to-image'],
+    tags: ['new'],
+    imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
+  },
+  {
+    id: 'gpt-image-2-5-sunburst-image-to-image',
+    displayName: 'GPT Image 2.5 Sunburst (Edit)',
+    provider: 'OpenAI',
+    task: 'image',
+    modes: ['image-to-image', 'image-edit'],
+    tags: ['new'],
+    supportsReferenceImages: true,
+    imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
+  },
   // Seedream 5.0 Pro — the higher-quality tier. Split across two kie slugs like
   // GPT Image 2: the text-to-image slug is the picker face; the image-to-image
   // slug is the hidden sibling the ref-swap logic resolves to (family
@@ -1925,6 +1983,11 @@ export function buildImageInput(modelId: string, opts: ImageGenOptions): Record<
   const ar = opts.aspectRatio ?? '9:16'
   const resolution = opts.resolution ?? '1K'
 
+  // Covers the GPT Image 2 pair AND the four GPT Image 2.5 slugs (Flare /
+  // Sunburst x text-to-image / image-to-image) — OpenAI's 2.5 docs specify the
+  // identical body, so the prefix is doing real work here rather than matching
+  // by luck. A future 2.x with a different shape needs its own branch ABOVE
+  // this one.
   if (modelId.startsWith('gpt-image-2')) {
     return {
       prompt: opts.prompt,
