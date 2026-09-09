@@ -617,10 +617,151 @@ export const MODEL_REGISTRY: ModelEntry[] = [
 
   // Image models — pricing from kie.ai/{slug} marketing pages. Resolution
   // tiers map to the `resolution` cost param: '1K' (default), '2K', '4K'.
-  // Nano Banana 2 leads the list so it's the app-wide default for both
-  // text-to-image and image-to-image (it's first among `candidates` in
-  // getDefaultModel and first in the picker). Identity-consistent and lets
-  // the prompt own the composition rather than inheriting the reference's framing.
+  //
+  // ORDER IS THE APP-WIDE DEFAULT. `getDefaultModel` falls back to
+  // `candidates[0]`, so whichever entry leads each mode's filtered list is what
+  // an unpicked slot resolves to everywhere — and it is first in the picker for
+  // the same reason. GPT Image 2.5 Sunburst leads for BOTH text-to-image and
+  // image-to-image (its Edit sibling sits directly under it), which is why
+  // there is no `defaultFor` on any image entry any more: Massimo asked for one
+  // answer in every app, and a per-app pin is exactly how the answer quietly
+  // stops being one. Nano Banana 2 held this position until September 2026 and
+  // is one row down.
+  // GPT Image 2.5 — OpenAI's September 2026 image release, on kie.ai as two
+  // variants of one family. Flare is OpenAI's own default ("start with Flare
+  // for most applications"); Sunburst trades generation time for tighter
+  // control across edits. Each ships as its own text-to-image and
+  // image-to-image kie slug, exactly like GPT Image 2 above, so the
+  // `-image-to-image` sibling the ref-swap logic resolves to is right there in
+  // the family. Body shape is identical to GPT Image 2's (prompt +
+  // aspect_ratio + resolution + input_urls), which is why buildImageInput's
+  // `startsWith('gpt-image-2')` branch already covers all four.
+  //
+  // Pricing: 6 / 10 / 16 credits at 1K / 2K / 4K, per image — the SAME rate
+  // card GPT Image 2 sits on, one row up. kie.ai/pricing still printed "To be
+  // announced." on all twelve tier rows when these were registered
+  // (2026-09-09); the numbers here are Massimo's, off real billing, which is
+  // also how GPT Image 2's 2K=10 was confirmed. Re-verify against
+  // kie.ai/pricing once it fills in.
+  //
+  // `official` is the same $0.053 medium-quality 1024² estimate the GPT Image 2
+  // pair carries, and it is NOT borrowed on a hunch: both 2.5 model pages state
+  // the token rates outright ($5/M text in, $8/M image in, $30/M image out) and
+  // then say so in as many words — "Token rates match GPT Image 2." Higher
+  // tiers have no clean flat equivalent, so they return null and count as zero
+  // savings rather than an invented discount.
+  //
+  // The two fields had to land TOGETHER, which is why the first cut shipped
+  // with neither: `foldUsageEvent` computes savings as (official − kie), so an
+  // official rate with no kie rate would have banked the whole $0.053 as money
+  // saved on a generation the member actually paid an unknown amount for.
+  {
+    id: 'gpt-image-2-5-sunburst-text-to-image',
+    displayName: 'GPT Image 2.5 Sunburst',
+    provider: 'OpenAI',
+    task: 'image',
+    modes: ['text-to-image'],
+    tags: ['recommended', 'new'],
+    variantLabel: 'Quality',
+    // The app-wide image default since September 2026 (Massimo's call) — every
+    // surface, not just Characters, which is why it LEADS the section rather
+    // than carrying a `defaultFor`. The lineage holds: a reference-driven run
+    // resolves through resolveImageToImageModel to the `-image-to-image`
+    // sibling directly below, not off to another provider.
+    pricing: {
+      unit: 'per-image',
+      credits: 6,
+      priceFor: ({ imageCount = 1, resolution = '1K' }) => {
+        const perImage = resolution === '4K' ? 16 : resolution === '2K' ? 10 : 6
+        return perImage * imageCount
+      },
+    },
+    official: {
+      usdFor: ({ imageCount = 1, resolution = '1K' }) =>
+        resolution === '1K' ? 0.053 * imageCount : null,
+      source: 'https://developers.openai.com/api/docs/models/gpt-image-2.5-sunburst',
+    },
+    imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
+  },
+  {
+    id: 'gpt-image-2-5-sunburst-image-to-image',
+    displayName: 'GPT Image 2.5 Sunburst (Edit)',
+    provider: 'OpenAI',
+    task: 'image',
+    modes: ['image-to-image', 'image-edit'],
+    tags: ['recommended', 'new'],
+    variantLabel: 'Quality',
+    supportsReferenceImages: true,
+    pricing: {
+      unit: 'per-image',
+      credits: 6,
+      priceFor: ({ imageCount = 1, resolution = '1K' }) => {
+        const perImage = resolution === '4K' ? 16 : resolution === '2K' ? 10 : 6
+        return perImage * imageCount
+      },
+    },
+    official: {
+      usdFor: ({ imageCount = 1, resolution = '1K' }) =>
+        resolution === '1K' ? 0.053 * imageCount : null,
+      source: 'https://developers.openai.com/api/docs/models/gpt-image-2.5-sunburst',
+    },
+    imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
+  },
+  {
+    id: 'gpt-image-2-5-flare-text-to-image',
+    displayName: 'GPT Image 2.5 Flare',
+    provider: 'OpenAI',
+    task: 'image',
+    modes: ['text-to-image'],
+    // Unstarred (Massimo's call): with Sunburst the app-wide default, a star
+    // on the sibling directly under it points members away from the default
+    // for no stated reason. The `Faster` pill is what distinguishes it, and
+    // that is the honest distinction — the two are the same price.
+    tags: ['new'],
+    variantLabel: 'Faster',
+    pricing: {
+      unit: 'per-image',
+      credits: 6,
+      priceFor: ({ imageCount = 1, resolution = '1K' }) => {
+        const perImage = resolution === '4K' ? 16 : resolution === '2K' ? 10 : 6
+        return perImage * imageCount
+      },
+    },
+    official: {
+      usdFor: ({ imageCount = 1, resolution = '1K' }) =>
+        resolution === '1K' ? 0.053 * imageCount : null,
+      source: 'https://developers.openai.com/api/docs/models/gpt-image-2.5-flare',
+    },
+    imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
+  },
+  {
+    id: 'gpt-image-2-5-flare-image-to-image',
+    displayName: 'GPT Image 2.5 Flare (Edit)',
+    provider: 'OpenAI',
+    task: 'image',
+    modes: ['image-to-image', 'image-edit'],
+    // Unstarred (Massimo's call): with Sunburst the app-wide default, a star
+    // on the sibling directly under it points members away from the default
+    // for no stated reason. The `Faster` pill is what distinguishes it, and
+    // that is the honest distinction — the two are the same price.
+    tags: ['new'],
+    variantLabel: 'Faster',
+    supportsReferenceImages: true,
+    pricing: {
+      unit: 'per-image',
+      credits: 6,
+      priceFor: ({ imageCount = 1, resolution = '1K' }) => {
+        const perImage = resolution === '4K' ? 16 : resolution === '2K' ? 10 : 6
+        return perImage * imageCount
+      },
+    },
+    official: {
+      usdFor: ({ imageCount = 1, resolution = '1K' }) =>
+        resolution === '1K' ? 0.053 * imageCount : null,
+      source: 'https://developers.openai.com/api/docs/models/gpt-image-2.5-flare',
+    },
+    imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
+  },
   {
     id: 'nano-banana-2',
     displayName: 'Nano Banana 2',
@@ -629,7 +770,6 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     modes: ['text-to-image', 'image-to-image', 'image-edit'],
     tags: ['recommended', 'new'],
     supportsReferenceImages: true,
-    defaultFor: ['broll-studio'],
     pricing: {
       unit: 'per-image',
       credits: 8,
@@ -715,134 +855,6 @@ export const MODEL_REGISTRY: ModelEntry[] = [
       usdFor: ({ imageCount = 1, resolution = '1K' }) =>
         resolution === '1K' ? 0.053 * imageCount : null,
       source: 'https://developers.openai.com/api/docs/pricing',
-    },
-    imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
-  },
-  // GPT Image 2.5 — OpenAI's September 2026 image release, on kie.ai as two
-  // variants of one family. Flare is OpenAI's own default ("start with Flare
-  // for most applications"); Sunburst trades generation time for tighter
-  // control across edits. Each ships as its own text-to-image and
-  // image-to-image kie slug, exactly like GPT Image 2 above, so the
-  // `-image-to-image` sibling the ref-swap logic resolves to is right there in
-  // the family. Body shape is identical to GPT Image 2's (prompt +
-  // aspect_ratio + resolution + input_urls), which is why buildImageInput's
-  // `startsWith('gpt-image-2')` branch already covers all four.
-  //
-  // Pricing: 6 / 10 / 16 credits at 1K / 2K / 4K, per image — the SAME rate
-  // card GPT Image 2 sits on, one row up. kie.ai/pricing still printed "To be
-  // announced." on all twelve tier rows when these were registered
-  // (2026-09-09); the numbers here are Massimo's, off real billing, which is
-  // also how GPT Image 2's 2K=10 was confirmed. Re-verify against
-  // kie.ai/pricing once it fills in.
-  //
-  // `official` is the same $0.053 medium-quality 1024² estimate the GPT Image 2
-  // pair carries, and it is NOT borrowed on a hunch: both 2.5 model pages state
-  // the token rates outright ($5/M text in, $8/M image in, $30/M image out) and
-  // then say so in as many words — "Token rates match GPT Image 2." Higher
-  // tiers have no clean flat equivalent, so they return null and count as zero
-  // savings rather than an invented discount.
-  //
-  // The two fields had to land TOGETHER, which is why the first cut shipped
-  // with neither: `foldUsageEvent` computes savings as (official − kie), so an
-  // official rate with no kie rate would have banked the whole $0.053 as money
-  // saved on a generation the member actually paid an unknown amount for.
-  {
-    id: 'gpt-image-2-5-flare-text-to-image',
-    displayName: 'GPT Image 2.5 Flare',
-    provider: 'OpenAI',
-    task: 'image',
-    modes: ['text-to-image'],
-    tags: ['recommended', 'new'],
-    variantLabel: 'Faster',
-    pricing: {
-      unit: 'per-image',
-      credits: 6,
-      priceFor: ({ imageCount = 1, resolution = '1K' }) => {
-        const perImage = resolution === '4K' ? 16 : resolution === '2K' ? 10 : 6
-        return perImage * imageCount
-      },
-    },
-    official: {
-      usdFor: ({ imageCount = 1, resolution = '1K' }) =>
-        resolution === '1K' ? 0.053 * imageCount : null,
-      source: 'https://developers.openai.com/api/docs/models/gpt-image-2.5-flare',
-    },
-    imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
-  },
-  {
-    id: 'gpt-image-2-5-flare-image-to-image',
-    displayName: 'GPT Image 2.5 Flare (Edit)',
-    provider: 'OpenAI',
-    task: 'image',
-    modes: ['image-to-image', 'image-edit'],
-    tags: ['recommended', 'new'],
-    variantLabel: 'Faster',
-    supportsReferenceImages: true,
-    pricing: {
-      unit: 'per-image',
-      credits: 6,
-      priceFor: ({ imageCount = 1, resolution = '1K' }) => {
-        const perImage = resolution === '4K' ? 16 : resolution === '2K' ? 10 : 6
-        return perImage * imageCount
-      },
-    },
-    official: {
-      usdFor: ({ imageCount = 1, resolution = '1K' }) =>
-        resolution === '1K' ? 0.053 * imageCount : null,
-      source: 'https://developers.openai.com/api/docs/models/gpt-image-2.5-flare',
-    },
-    imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
-  },
-  {
-    id: 'gpt-image-2-5-sunburst-text-to-image',
-    displayName: 'GPT Image 2.5 Sunburst',
-    provider: 'OpenAI',
-    task: 'image',
-    modes: ['text-to-image'],
-    tags: ['recommended', 'new'],
-    variantLabel: 'Quality',
-    // Influencers' default since September 2026 (Massimo's call), taking the
-    // slot straight off GPT Image 2 — see the migration in settingsStore. The
-    // lineage still holds: a reference-driven Characters run resolves through
-    // resolveImageToImageModel to the `-image-to-image` sibling below, not off
-    // to another provider.
-    defaultFor: ['character-studio'],
-    pricing: {
-      unit: 'per-image',
-      credits: 6,
-      priceFor: ({ imageCount = 1, resolution = '1K' }) => {
-        const perImage = resolution === '4K' ? 16 : resolution === '2K' ? 10 : 6
-        return perImage * imageCount
-      },
-    },
-    official: {
-      usdFor: ({ imageCount = 1, resolution = '1K' }) =>
-        resolution === '1K' ? 0.053 * imageCount : null,
-      source: 'https://developers.openai.com/api/docs/models/gpt-image-2.5-sunburst',
-    },
-    imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
-  },
-  {
-    id: 'gpt-image-2-5-sunburst-image-to-image',
-    displayName: 'GPT Image 2.5 Sunburst (Edit)',
-    provider: 'OpenAI',
-    task: 'image',
-    modes: ['image-to-image', 'image-edit'],
-    tags: ['recommended', 'new'],
-    variantLabel: 'Quality',
-    supportsReferenceImages: true,
-    pricing: {
-      unit: 'per-image',
-      credits: 6,
-      priceFor: ({ imageCount = 1, resolution = '1K' }) => {
-        const perImage = resolution === '4K' ? 16 : resolution === '2K' ? 10 : 6
-        return perImage * imageCount
-      },
-    },
-    official: {
-      usdFor: ({ imageCount = 1, resolution = '1K' }) =>
-        resolution === '1K' ? 0.053 * imageCount : null,
-      source: 'https://developers.openai.com/api/docs/models/gpt-image-2.5-sunburst',
     },
     imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
   },

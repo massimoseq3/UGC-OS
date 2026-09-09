@@ -59,33 +59,51 @@ const MIGRATIONS_KEY = 'ai-ugc-lab-settings-migrations'
 // Shared by the localStorage migration below and the profile migration further
 // down — one function so the two copies of perAppModel can't be migrated to
 // different answers.
-function clearCharacterStudioImageSlot(m: Record<string, string>): void {
-  delete m['character-studio:image:text-to-image']
+//
+// Clears EVERY image slot, in every app, rather than a list of key literals:
+// slots are keyed `${appId}:${task}:${mode}` (see ModelPicker's persistedKey),
+// so testing the TASK segment catches Characters, B-Roll, Playground and any
+// image picker added later, and can't be defeated by a key nobody remembered
+// to add. Matching on the segment rather than a `:image:` substring is what
+// keeps `…:video:image-to-video` out of it.
+function clearImageModelSlots(m: Record<string, string>): void {
+  for (const key of Object.keys(m)) {
+    if (key.split(':')[1] === 'image') delete m[key]
+  }
 }
 
 // One-shot migrations applied to perAppModel. Each runs once per browser, then
 // its name is recorded under MIGRATIONS_KEY so it never runs again.
 const MODEL_MIGRATIONS: Array<{ name: string; apply: (m: Record<string, string>) => void }> = [
   {
-    // Characters' image default moves to GPT Image 2.5 Sunburst, and this one
-    // is UNCONDITIONAL where the two flips below target by value: Massimo
-    // asked for every member on Characters to land on it, not just the ones
-    // still sitting on the outgoing default. So it clears the slot whatever it
-    // holds, and a member who had deliberately picked Seedream or Nano Banana
-    // there moves too. That is the cost, it was the explicit ask, and it is one
-    // click to undo — nothing is deleted and every model is still in the picker.
+    // GPT Image 2.5 Sunburst becomes the image default in EVERY app — Massimo's
+    // call, widening the Characters-only flip that shipped hours earlier. This
+    // supersedes `2026-09-character-studio-gpt-image-2-5-default`, which is
+    // left in the list below: it is already marked as run in members' browsers,
+    // and re-running it would do nothing this one doesn't.
     //
-    // It CLEARS rather than rewrites, so the row falls through to whatever
-    // `defaultFor` says today; that is what keeps the next flip one more of
-    // these instead of a rewrite chain.
+    // UNCONDITIONAL, like its predecessor: it clears every image slot whatever
+    // it holds, so a member who deliberately picked Seedream or Nano Banana in
+    // Playground or B-Roll moves too. That is the cost and it was the explicit
+    // ask ("all of them should be GPT Image 2.5 Sunburst now as the default").
+    // One click to undo, nothing deleted, every model still in the picker.
     //
-    // It is also listed in PROFILE_MIGRATIONS below, and it has to be. This
+    // It CLEARS rather than rewrites, so each slot falls through to whatever
+    // leads the registry today — which is where the app-wide image default now
+    // lives, no `defaultFor` involved. That is what keeps the next flip one
+    // more of these instead of a rewrite chain.
+    //
+    // It is also listed in PROFILE_MIGRATIONS below, and it has to be: this
     // list only ever reaches the localStorage copy, which cloudSync's hydrate
-    // then OVERWRITES wholesale with the account's `per_app_model` — so on its
-    // own this entry is undone at the next sign-in and, its marker already
-    // recorded, never runs again.
+    // then OVERWRITES wholesale with the account's `per_app_model`.
+    name: '2026-09-image-default-gpt-image-2-5-sunburst',
+    apply: clearImageModelSlots,
+  },
+  {
+    // Superseded by the entry above, kept because it is already recorded in
+    // members' browsers. Narrower (Characters only) and idempotent against it.
     name: '2026-09-character-studio-gpt-image-2-5-default',
-    apply: clearCharacterStudioImageSlot,
+    apply: clearImageModelSlots,
   },
   {
     // Three models removed at once (Massimo's call): Gemini 3 Flash, Gemini
@@ -409,10 +427,16 @@ const MODEL_MIGRATIONS: Array<{ name: string; apply: (m: Record<string, string>)
 // is not worth one for a one-off default flip.
 const PROFILE_MIGRATIONS: Array<{ name: string; apply: (m: Record<string, string>) => void }> = [
   {
-    // Every member on Characters lands on GPT Image 2.5 Sunburst at their next
-    // sign-in. See the twin entry in MODEL_MIGRATIONS for the reasoning.
+    // Every member's image slots, in every app, land on GPT Image 2.5 Sunburst
+    // at their next sign-in. See the twin entry in MODEL_MIGRATIONS.
+    name: '2026-09-image-default-gpt-image-2-5-sunburst',
+    apply: clearImageModelSlots,
+  },
+  {
+    // Superseded by the entry above; kept for accounts whose browsers recorded
+    // it in the hours it was live on its own.
     name: '2026-09-character-studio-gpt-image-2-5-default',
-    apply: clearCharacterStudioImageSlot,
+    apply: clearImageModelSlots,
   },
 ]
 
