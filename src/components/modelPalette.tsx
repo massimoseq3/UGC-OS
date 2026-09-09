@@ -21,6 +21,19 @@ export function StarBadge({ className = '' }: { className?: string }) {
   )
 }
 
+// The pill that tells two SIBLING VARIANTS of one family apart — GPT Image
+// 2.5's Flare and Sunburst, which share a provider, a price and every digit of
+// their meta line, so nothing else on the row separates them. Same neutral
+// chrome as ModelPickerModal's meta pills; see ModelEntry.variantLabel for why
+// it carries no colour of its own.
+export function VariantPill({ label }: { label: string }) {
+  return (
+    <span className="shrink-0 rounded-full bg-ink/[0.06] px-1.5 py-[2px] text-[10px] font-medium leading-none text-ink-400">
+      {label}
+    </span>
+  )
+}
+
 interface ProviderRailProps {
   providers: string[]
   // null = every provider. The rail filters a long list; it is never a required

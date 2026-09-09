@@ -60,6 +60,25 @@ const MIGRATIONS_KEY = 'ai-ugc-lab-settings-migrations'
 // its name is recorded under MIGRATIONS_KEY so it never runs again.
 const MODEL_MIGRATIONS: Array<{ name: string; apply: (m: Record<string, string>) => void }> = [
   {
+    // Characters' image default moves from GPT Image 2 to GPT Image 2.5
+    // Sunburst (Massimo's call). Same by-value targeting as the two flips
+    // below and the same accepted trade-off: a member sitting on the outgoing
+    // default moves, a Seedream or Nano Banana pick survives, and someone who
+    // re-picked GPT Image 2 deliberately is indistinguishable from the first
+    // group and moves with them.
+    //
+    // Nothing is removed here — GPT Image 2 is still in the picker, and this
+    // clears the slot rather than rewriting it, so the row falls through to
+    // whatever `defaultFor` says today. That is what makes a future flip one
+    // more of these instead of a rewrite chain.
+    name: '2026-09-character-studio-gpt-image-2-5-default',
+    apply: (m) => {
+      if (m['character-studio:image:text-to-image'] === 'gpt-image-2-text-to-image') {
+        delete m['character-studio:image:text-to-image']
+      }
+    },
+  },
+  {
     // Three models removed at once (Massimo's call): Gemini 3 Flash, Gemini
     // Omni 1.0 and Wan 2.7. Each was superseded rather than merely dropped —
     // CHAT_MODEL_DEFAULT moved to Gemini 3.8 Flash, Omni Flash 1.1 takes
