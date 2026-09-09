@@ -416,6 +416,61 @@ const PROFILE_MIGRATIONS: Array<{ name: string; apply: (m: Record<string, string
   },
 ]
 
+// Drop every slot whose value no longer names a real model. This is the same
+// rule `getAppModel` applies at READ time (`id && getModel(id) ? id : undefined`),
+// applied at rest — so it is safe by construction: an id no registry entry
+// resolves can never be a legitimate pick, and `setAppModel` is the only writer,
+// always from a picker. Mutates, and returns what it removed so the caller can
+// say so in the console.
+//
+// It carries NO marker and runs on EVERY load and every hydrate, deliberately.
+// That is what separates it from a default flip: a flip has to be one-shot or it
+// overrides the member's later pick, whereas this can only ever remove a value
+// that has stopped meaning anything, so re-running it is free and a failed push
+// simply self-heals at the next sign-in.
+//
+// It also makes a REMOVAL migration unnecessary from here on. The three entries
+// in MODEL_MIGRATIONS that clear specific retired ids (Veo, Suno V5, Grok 4.5,
+// Gemini 3 Flash / Omni 1.0 / Wan 2.7) predate this and stay — they are already
+// marked as run in members' browsers — but pulling a model out of the registry
+// now needs no new entry here at all. A hand-kept GONE list only ever knew about
+// the removals someone remembered to write down; this knows about all of them.
+export function pruneUnknownModelIds(m: Record<string, string>): string[] {
+  const removed: string[] = []
+  for (const key of Object.keys(m)) {
+    const id = m[key]
+    if (!id || !getModel(id)) {
+      removed.push(`${key}=${id}`)
+      delete m[key]
+    }
+  }
+  return removed
+}
+
+// Everything hydrate has to do to a per_app_model map pulled from the cloud,
+// in one place so the ordering and the rules live beside each other rather than
+// in the sync layer. Pure — it writes no storage and touches no store, so a
+// caller whose push fails leaves nothing behind.
+//
+// `appliedMigrations` must be recorded ONLY after the corrected profile has
+// actually been pushed (see recordProfileMigrations); `prunedIds` needs no
+// recording at all, per the note above.
+export function repairPulledPerAppModel(
+  pulled: Record<string, string>,
+  userId: string,
+): { perAppModel: Record<string, string>; appliedMigrations: string[]; prunedIds: string[]; changed: boolean } {
+  const next = { ...pulled }
+  const prunedIds = pruneUnknownModelIds(next)
+  const { perAppModel, applied } = applyProfileMigrations(next, userId)
+  // Compared by CONTENT, not by key count: every rule here happens to delete
+  // today, so counting keys would work — and would quietly stop working the
+  // first time one rewrites a value instead, skipping the push that makes the
+  // repair stick.
+  const keys = new Set([...Object.keys(pulled), ...Object.keys(perAppModel)])
+  const changed = [...keys].some((k) => pulled[k] !== perAppModel[k])
+  return { perAppModel, appliedMigrations: applied, prunedIds, changed }
+}
+
 function profileMigrationsKey(userId: string): string {
   return `ugc-lab:profile-migrations:${userId}`
 }
@@ -490,6 +545,15 @@ function loadFromStorage(): PersistedSettings {
       ranMigrations[m.name] = true
       migrated = true
     }
+  }
+  // Then the unmarked repair, on every load: drop any slot whose model has left
+  // the registry. Unlike the list above this needs no marker and no new entry
+  // per removal — see pruneUnknownModelIds. `migrated` is what gates the
+  // write-back below, so a prune with no migration still gets persisted.
+  const pruned = pruneUnknownModelIds(perAppModel)
+  if (pruned.length > 0) {
+    migrated = true
+    console.warn('Dropped per-app model picks whose model has been removed:', pruned.join(', '))
   }
   const next: PersistedSettings = {
     kieApiKey: parsed.kieApiKey ?? '',
