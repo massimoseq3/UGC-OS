@@ -20,7 +20,12 @@
 import { useAuthStore } from '../stores/authStore'
 import { useAppStore } from '../stores/appStore'
 import { useBankStore, backfillUsageLedger, persistBanksNow, localBanksReady, markCloudHydrated } from '../stores/bankStore'
-import { useSettingsStore } from '../stores/settingsStore'
+import {
+  useSettingsStore,
+  applyProfileMigrations,
+  recordProfileMigrations,
+  persistSettingsSnapshot,
+} from '../stores/settingsStore'
 import { getSupabase, isCloudEnabled, ensureFreshSession, selectAllRows } from './supabase'
 import { existingRemoteAssetIds, uploadAssetToR2 } from './r2'
 import { isAssetRef, assetIdFromRef, getBlob } from '../utils/assetStore'
@@ -459,17 +464,27 @@ async function hydrateFromCloud(userId: string): Promise<boolean> {
   const [{ data: profile }, tables] = await Promise.all([profilePromise, tablesPromise])
 
   if (profile) {
-    // kieApiKey is browser-local; preserve whatever loadFromStorage already
-    // hydrated from localStorage. Cloud hydration only refreshes perAppModel.
-    const existingKey = useSettingsStore.getState().kieApiKey
-    const nextPerAppModel = (profile.per_app_model as Record<string, string> | null) ?? {}
+    // This write REPLACES perAppModel, which is why profile migrations exist:
+    // the localStorage copy MODEL_MIGRATIONS just migrated is about to be
+    // thrown away, so anything that has to reach a signed-in member has to be
+    // applied here too. See PROFILE_MIGRATIONS in settingsStore.
+    const pulled = (profile.per_app_model as Record<string, string> | null) ?? {}
+    const { perAppModel: nextPerAppModel, applied } = applyProfileMigrations(pulled, userId)
     useSettingsStore.setState({ perAppModel: nextPerAppModel })
-    try {
-      localStorage.setItem('ai-ugc-lab-settings', JSON.stringify({
-        kieApiKey: existingKey,
-        perAppModel: nextPerAppModel,
-      }))
-    } catch { /* ignore */ }
+    // kieApiKey and scrapeCreatorsKey are browser-local; preserve whatever
+    // loadFromStorage already hydrated. Written through the store's own
+    // snapshot rather than a hand-built literal — the literal that used to be
+    // here listed two fields and silently dropped scrapeCreatorsKey on every
+    // sign-in, which is exactly the failure the snapshot rule was written for.
+    persistSettingsSnapshot()
+    // Push the corrected profile back, and only record the migration as done
+    // once that lands — a failed push must retry at the next sign-in rather
+    // than leave the account on the old value with the flip marked applied.
+    if (applied.length > 0) {
+      void saveProfile()
+        .then(() => recordProfileMigrations(applied, userId))
+        .catch((e) => console.error('profile migration push failed; will retry next sign-in', e))
+    }
   }
 
   const next: Partial<Record<BankKey, unknown[]>> = {}

@@ -56,27 +56,36 @@ type PersistedSettings = Pick<SettingsState, 'kieApiKey' | 'scrapeCreatorsKey' |
 
 const MIGRATIONS_KEY = 'ai-ugc-lab-settings-migrations'
 
+// Shared by the localStorage migration below and the profile migration further
+// down — one function so the two copies of perAppModel can't be migrated to
+// different answers.
+function clearCharacterStudioImageSlot(m: Record<string, string>): void {
+  delete m['character-studio:image:text-to-image']
+}
+
 // One-shot migrations applied to perAppModel. Each runs once per browser, then
 // its name is recorded under MIGRATIONS_KEY so it never runs again.
 const MODEL_MIGRATIONS: Array<{ name: string; apply: (m: Record<string, string>) => void }> = [
   {
-    // Characters' image default moves from GPT Image 2 to GPT Image 2.5
-    // Sunburst (Massimo's call). Same by-value targeting as the two flips
-    // below and the same accepted trade-off: a member sitting on the outgoing
-    // default moves, a Seedream or Nano Banana pick survives, and someone who
-    // re-picked GPT Image 2 deliberately is indistinguishable from the first
-    // group and moves with them.
+    // Characters' image default moves to GPT Image 2.5 Sunburst, and this one
+    // is UNCONDITIONAL where the two flips below target by value: Massimo
+    // asked for every member on Characters to land on it, not just the ones
+    // still sitting on the outgoing default. So it clears the slot whatever it
+    // holds, and a member who had deliberately picked Seedream or Nano Banana
+    // there moves too. That is the cost, it was the explicit ask, and it is one
+    // click to undo — nothing is deleted and every model is still in the picker.
     //
-    // Nothing is removed here — GPT Image 2 is still in the picker, and this
-    // clears the slot rather than rewriting it, so the row falls through to
-    // whatever `defaultFor` says today. That is what makes a future flip one
-    // more of these instead of a rewrite chain.
+    // It CLEARS rather than rewrites, so the row falls through to whatever
+    // `defaultFor` says today; that is what keeps the next flip one more of
+    // these instead of a rewrite chain.
+    //
+    // It is also listed in PROFILE_MIGRATIONS below, and it has to be. This
+    // list only ever reaches the localStorage copy, which cloudSync's hydrate
+    // then OVERWRITES wholesale with the account's `per_app_model` — so on its
+    // own this entry is undone at the next sign-in and, its marker already
+    // recorded, never runs again.
     name: '2026-09-character-studio-gpt-image-2-5-default',
-    apply: (m) => {
-      if (m['character-studio:image:text-to-image'] === 'gpt-image-2-text-to-image') {
-        delete m['character-studio:image:text-to-image']
-      }
-    },
+    apply: clearCharacterStudioImageSlot,
   },
   {
     // Three models removed at once (Massimo's call): Gemini 3 Flash, Gemini
@@ -368,6 +377,87 @@ const MODEL_MIGRATIONS: Array<{ name: string; apply: (m: Record<string, string>)
   },
 ]
 
+// ── Profile migrations ─────────────────────────────────────────────
+//
+// MODEL_MIGRATIONS above only ever touches the localStorage copy of
+// perAppModel, and on a cloud account that copy is not the one that wins:
+// cloudSync's hydrate replaces `perAppModel` wholesale with the account's
+// `per_app_model` column on every sign-in. A default flip written only up
+// there is therefore undone the moment the member signs in — and because its
+// marker was recorded during the same load, it never runs again in that
+// browser. (Sign-out compounds it: resetSettingsStore drops STORAGE_KEY but
+// keeps MIGRATIONS_KEY, so the next sign-in is already marked as migrated.)
+//
+// So a migration that has to reach a signed-in member is listed HERE as well,
+// and cloudSync runs it against the profile it just pulled.
+//
+// Two rules make that safe:
+//   - Every entry must be IDEMPOTENT and value-independent. These run against
+//     a copy this browser has never seen, so "delete the key if it holds the
+//     old default" would re-fire an old flip against a pick the member made
+//     after it. An unconditional clear cannot.
+//   - The marker is per USER as well as per browser (the `ugc-lab:` per-user
+//     flag idiom, same as the usage backfill), and it is recorded only after
+//     the corrected profile has actually been pushed — a failed push leaves it
+//     unset so the next sign-in retries rather than silently keeping the old
+//     value forever.
+//
+// The narrow race left: a member who signs in on device A (migrated, pushed),
+// deliberately re-picks, and then signs in on device B for the FIRST time
+// since the flip loses that re-pick. Closing it properly means recording the
+// applied migrations in the profile row itself, which is a schema change; it
+// is not worth one for a one-off default flip.
+const PROFILE_MIGRATIONS: Array<{ name: string; apply: (m: Record<string, string>) => void }> = [
+  {
+    // Every member on Characters lands on GPT Image 2.5 Sunburst at their next
+    // sign-in. See the twin entry in MODEL_MIGRATIONS for the reasoning.
+    name: '2026-09-character-studio-gpt-image-2-5-default',
+    apply: clearCharacterStudioImageSlot,
+  },
+]
+
+function profileMigrationsKey(userId: string): string {
+  return `ugc-lab:profile-migrations:${userId}`
+}
+
+function ranProfileMigrations(userId: string): Record<string, true> {
+  try {
+    const raw = localStorage.getItem(profileMigrationsKey(userId))
+    return raw ? (JSON.parse(raw) as Record<string, true>) : {}
+  } catch {
+    return {}
+  }
+}
+
+// Apply any profile migration this user hasn't had yet to a per_app_model map
+// pulled from the cloud. Returns the migrated copy plus the names applied —
+// the caller records those (via `recordProfileMigrations`) only once the
+// corrected profile is safely pushed. Pure: it neither writes storage nor
+// touches the store, so a caller that fails to push leaves nothing behind.
+export function applyProfileMigrations(
+  perAppModel: Record<string, string>,
+  userId: string,
+): { perAppModel: Record<string, string>; applied: string[] } {
+  const next = { ...perAppModel }
+  const already = ranProfileMigrations(userId)
+  const applied: string[] = []
+  for (const m of PROFILE_MIGRATIONS) {
+    if (already[m.name]) continue
+    m.apply(next)
+    applied.push(m.name)
+  }
+  return { perAppModel: next, applied }
+}
+
+export function recordProfileMigrations(names: string[], userId: string): void {
+  if (names.length === 0) return
+  try {
+    const already = ranProfileMigrations(userId)
+    for (const n of names) already[n] = true
+    localStorage.setItem(profileMigrationsKey(userId), JSON.stringify(already))
+  } catch { /* quota / unavailable — it retries next sign-in, which is harmless */ }
+}
+
 function loadFromStorage(): PersistedSettings {
   let parsed: PersistedShape = {}
   try {
@@ -434,6 +524,18 @@ function snapshot(s: SettingsState): PersistedSettings {
     scrapeCreatorsKey: s.scrapeCreatorsKey,
     perAppModel: s.perAppModel,
   }
+}
+
+// Write the live store's whole persisted slice to localStorage. For callers
+// that changed settings state directly (cloudSync's hydrate) rather than
+// through a setter — every setter already spreads `snapshot`. Going through
+// `snapshot` is the point: a hand-built literal drops any field added to
+// PersistedSettings later, which is how scrapeCreatorsKey came to be wiped on
+// every sign-in.
+export function persistSettingsSnapshot(): void {
+  try {
+    saveToStorage(snapshot(useSettingsStore.getState()))
+  } catch { /* quota / unavailable — in-memory state still stands */ }
 }
 
 // Wipe the in-memory settings and the localStorage snapshot. Called on
