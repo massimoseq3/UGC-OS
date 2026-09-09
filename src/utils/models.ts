@@ -652,7 +652,14 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     provider: 'OpenAI',
     task: 'image',
     modes: ['text-to-image'],
-    tags: ['recommended'],
+    // Unstarred since September 2026 (Massimo's call), the same edit that moved
+    // Characters' default to GPT Image 2.5 Sunburst: the star is what says
+    // "reach for this one", and it can't say that about a row the newer
+    // OpenAI tier supersedes at the identical price. The row stays — it is
+    // still what every Characters image made before the flip was drawn on,
+    // and it is one click away. BOTH halves of the family lose it together:
+    // a lineage starred in one mode and not the other reads as a bug.
+    tags: [],
     // Held Influencers' default until September 2026, when GPT Image 2.5
     // Sunburst took it (Massimo's call) — same provider, same lineage, same
     // rate card, and OpenAI's own "most capable model for image generation and
@@ -684,7 +691,14 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     provider: 'OpenAI',
     task: 'image',
     modes: ['image-to-image', 'image-edit'],
-    tags: ['recommended'],
+    // Unstarred since September 2026 (Massimo's call), the same edit that moved
+    // Characters' default to GPT Image 2.5 Sunburst: the star is what says
+    // "reach for this one", and it can't say that about a row the newer
+    // OpenAI tier supersedes at the identical price. The row stays — it is
+    // still what every Characters image made before the flip was drawn on,
+    // and it is one click away. BOTH halves of the family lose it together:
+    // a lineage starred in one mode and not the other reads as a bug.
+    tags: [],
     supportsReferenceImages: true,
     pricing: {
       unit: 'per-image',
