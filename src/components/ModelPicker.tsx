@@ -15,6 +15,7 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { APP_REGISTRY } from '../utils/constants'
 import ProviderLogo from './ProviderLogo'
 import SavingsPill from './SavingsPill'
+import { VariantPill } from './modelPalette'
 import ModelTriggerLabel from './ModelTriggerLabel'
 import { MenuSurface } from './Menu'
 
@@ -320,6 +321,11 @@ function ModelRow({ model, active, muted, accent, costParams, noCredits, onClick
           {isRecommended && (
             <Star className="h-3 w-3 shrink-0 fill-yellow-400 text-yellow-400 light:fill-yellow-600 light:text-yellow-600" strokeWidth={1.5} />
           )}
+          {/* Sibling-variant pill (see ModelEntry.variantLabel) — deliberately
+              NEUTRAL, not a third colour beside the star. It is `shrink-0`, so
+              a squeezed row truncates the NAME rather than the one word that
+              separates this row from the identically-named one under it. */}
+          {model.variantLabel && <VariantPill label={model.variantLabel} />}
         </div>
         {/* The "% off" chip rides the META line, beside the credits it is a
             discount ON (Massimo's call, September 2026). On the name line it

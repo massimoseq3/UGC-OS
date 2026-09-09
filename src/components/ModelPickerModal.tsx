@@ -20,7 +20,7 @@ import { useIsDesktop } from '../hooks/useBreakpoint'
 import { useCloseOnAppSwitch } from '../hooks/useCloseOnAppSwitch'
 import ProviderLogo from './ProviderLogo'
 import SavingsPill from './SavingsPill'
-import { ProviderRail, ProviderHeading, StarBadge } from './modelPalette'
+import { ProviderRail, ProviderHeading, StarBadge, VariantPill } from './modelPalette'
 import { providersOf, groupByProvider } from '../utils/providerGroups'
 import useCloseOnEscape from '../hooks/useCloseOnEscape'
 
@@ -436,6 +436,9 @@ function ModelRow({ model, active, muted, credits, accent, onClick }: ModelRowPr
         <div className="flex items-center gap-1.5">
           <span className={`truncate text-[13px] font-semibold leading-snug text-ink-100 ${muted ? 'line-through decoration-ink-400' : ''}`}>{model.displayName}</span>
           {isRecommended && <StarBadge />}
+          {/* Sibling-variant pill (see ModelEntry.variantLabel). Neutral by
+              design — the July 2026 note above is exactly why it isn't a tag. */}
+          {model.variantLabel && <VariantPill label={model.variantLabel} />}
           {textTags.map((t) => (
             <span key={t} className={`shrink-0 text-[11px] font-medium ${TAG_TEXT[t]}`}>
               {TAG_STYLES[t].label}

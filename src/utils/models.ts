@@ -118,6 +118,17 @@ export interface ModelEntry {
   task: Task
   modes?: Mode[]
   tags: Tag[]
+  // A one-word pill beside the name in both pickers, for SIBLING VARIANTS of
+  // one family that share a price, a provider and a name prefix — GPT Image
+  // 2.5's Flare / Sunburst, where the codenames alone tell a member nothing
+  // and the meta line (identical credits, identical % off) can't separate them
+  // either. It is NOT a general badge slot: a claim that ranks a model against
+  // the whole catalog is a `Tag`, and the July 2026 lesson behind TAG_TEXT
+  // applies here too, which is why this renders NEUTRAL. A coloured word on
+  // the name line competes with the star and the "% off" chip; that was tried
+  // with 'Fast' and reverted. Leave it undefined for a model with no sibling —
+  // a pill that appears on every row stops distinguishing anything.
+  variantLabel?: string
   supportsReferenceImages?: boolean
   // How many reference images the model takes in ONE request. Only set from a
   // verified provider cap (see the entry's comment) — an undeclared model falls
@@ -641,15 +652,20 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     provider: 'OpenAI',
     task: 'image',
     modes: ['text-to-image'],
-    tags: ['recommended'],
-    // Influencers' default — its own, not the app-wide one. It held this slot
-    // until August 2026, spent a few weeks on the shared Nano Banana 2 default,
-    // and is back: faces are what this app makes, and it draws the better one.
-    // The family stays consistent across a lineage, since a reference-driven
-    // Characters run resolves through resolveImageToImageModel to the
-    // `gpt-image-2-image-to-image` sibling below rather than off to another
-    // provider. Every OTHER surface still defaults to Nano Banana 2.
-    defaultFor: ['character-studio'],
+    // Unstarred since September 2026 (Massimo's call), the same edit that moved
+    // Characters' default to GPT Image 2.5 Sunburst: the star is what says
+    // "reach for this one", and it can't say that about a row the newer
+    // OpenAI tier supersedes at the identical price. The row stays — it is
+    // still what every Characters image made before the flip was drawn on,
+    // and it is one click away. BOTH halves of the family lose it together:
+    // a lineage starred in one mode and not the other reads as a bug.
+    tags: [],
+    // Held Influencers' default until September 2026, when GPT Image 2.5
+    // Sunburst took it (Massimo's call) — same provider, same lineage, same
+    // rate card, and OpenAI's own "most capable model for image generation and
+    // editing". This row keeps everything else: it is still one click away in
+    // the picker, and it is still the id every Characters run made before the
+    // flip was priced against.
     // kie.ai defaults to GPT Image 2's higher-quality tier on the
     // /text-to-image endpoint — verified by real billing (2K = 10 credits).
     // Source: https://kie.ai/gpt-image-2.
@@ -675,7 +691,14 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     provider: 'OpenAI',
     task: 'image',
     modes: ['image-to-image', 'image-edit'],
-    tags: ['recommended'],
+    // Unstarred since September 2026 (Massimo's call), the same edit that moved
+    // Characters' default to GPT Image 2.5 Sunburst: the star is what says
+    // "reach for this one", and it can't say that about a row the newer
+    // OpenAI tier supersedes at the identical price. The row stays — it is
+    // still what every Characters image made before the flip was drawn on,
+    // and it is one click away. BOTH halves of the family lose it together:
+    // a lineage starred in one mode and not the other reads as a bug.
+    tags: [],
     supportsReferenceImages: true,
     pricing: {
       unit: 'per-image',
@@ -692,6 +715,134 @@ export const MODEL_REGISTRY: ModelEntry[] = [
       usdFor: ({ imageCount = 1, resolution = '1K' }) =>
         resolution === '1K' ? 0.053 * imageCount : null,
       source: 'https://developers.openai.com/api/docs/pricing',
+    },
+    imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
+  },
+  // GPT Image 2.5 — OpenAI's September 2026 image release, on kie.ai as two
+  // variants of one family. Flare is OpenAI's own default ("start with Flare
+  // for most applications"); Sunburst trades generation time for tighter
+  // control across edits. Each ships as its own text-to-image and
+  // image-to-image kie slug, exactly like GPT Image 2 above, so the
+  // `-image-to-image` sibling the ref-swap logic resolves to is right there in
+  // the family. Body shape is identical to GPT Image 2's (prompt +
+  // aspect_ratio + resolution + input_urls), which is why buildImageInput's
+  // `startsWith('gpt-image-2')` branch already covers all four.
+  //
+  // Pricing: 6 / 10 / 16 credits at 1K / 2K / 4K, per image — the SAME rate
+  // card GPT Image 2 sits on, one row up. kie.ai/pricing still printed "To be
+  // announced." on all twelve tier rows when these were registered
+  // (2026-09-09); the numbers here are Massimo's, off real billing, which is
+  // also how GPT Image 2's 2K=10 was confirmed. Re-verify against
+  // kie.ai/pricing once it fills in.
+  //
+  // `official` is the same $0.053 medium-quality 1024² estimate the GPT Image 2
+  // pair carries, and it is NOT borrowed on a hunch: both 2.5 model pages state
+  // the token rates outright ($5/M text in, $8/M image in, $30/M image out) and
+  // then say so in as many words — "Token rates match GPT Image 2." Higher
+  // tiers have no clean flat equivalent, so they return null and count as zero
+  // savings rather than an invented discount.
+  //
+  // The two fields had to land TOGETHER, which is why the first cut shipped
+  // with neither: `foldUsageEvent` computes savings as (official − kie), so an
+  // official rate with no kie rate would have banked the whole $0.053 as money
+  // saved on a generation the member actually paid an unknown amount for.
+  {
+    id: 'gpt-image-2-5-flare-text-to-image',
+    displayName: 'GPT Image 2.5 Flare',
+    provider: 'OpenAI',
+    task: 'image',
+    modes: ['text-to-image'],
+    tags: ['recommended', 'new'],
+    variantLabel: 'Faster',
+    pricing: {
+      unit: 'per-image',
+      credits: 6,
+      priceFor: ({ imageCount = 1, resolution = '1K' }) => {
+        const perImage = resolution === '4K' ? 16 : resolution === '2K' ? 10 : 6
+        return perImage * imageCount
+      },
+    },
+    official: {
+      usdFor: ({ imageCount = 1, resolution = '1K' }) =>
+        resolution === '1K' ? 0.053 * imageCount : null,
+      source: 'https://developers.openai.com/api/docs/models/gpt-image-2.5-flare',
+    },
+    imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
+  },
+  {
+    id: 'gpt-image-2-5-flare-image-to-image',
+    displayName: 'GPT Image 2.5 Flare (Edit)',
+    provider: 'OpenAI',
+    task: 'image',
+    modes: ['image-to-image', 'image-edit'],
+    tags: ['recommended', 'new'],
+    variantLabel: 'Faster',
+    supportsReferenceImages: true,
+    pricing: {
+      unit: 'per-image',
+      credits: 6,
+      priceFor: ({ imageCount = 1, resolution = '1K' }) => {
+        const perImage = resolution === '4K' ? 16 : resolution === '2K' ? 10 : 6
+        return perImage * imageCount
+      },
+    },
+    official: {
+      usdFor: ({ imageCount = 1, resolution = '1K' }) =>
+        resolution === '1K' ? 0.053 * imageCount : null,
+      source: 'https://developers.openai.com/api/docs/models/gpt-image-2.5-flare',
+    },
+    imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
+  },
+  {
+    id: 'gpt-image-2-5-sunburst-text-to-image',
+    displayName: 'GPT Image 2.5 Sunburst',
+    provider: 'OpenAI',
+    task: 'image',
+    modes: ['text-to-image'],
+    tags: ['recommended', 'new'],
+    variantLabel: 'Quality',
+    // Influencers' default since September 2026 (Massimo's call), taking the
+    // slot straight off GPT Image 2 — see the migration in settingsStore. The
+    // lineage still holds: a reference-driven Characters run resolves through
+    // resolveImageToImageModel to the `-image-to-image` sibling below, not off
+    // to another provider.
+    defaultFor: ['character-studio'],
+    pricing: {
+      unit: 'per-image',
+      credits: 6,
+      priceFor: ({ imageCount = 1, resolution = '1K' }) => {
+        const perImage = resolution === '4K' ? 16 : resolution === '2K' ? 10 : 6
+        return perImage * imageCount
+      },
+    },
+    official: {
+      usdFor: ({ imageCount = 1, resolution = '1K' }) =>
+        resolution === '1K' ? 0.053 * imageCount : null,
+      source: 'https://developers.openai.com/api/docs/models/gpt-image-2.5-sunburst',
+    },
+    imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
+  },
+  {
+    id: 'gpt-image-2-5-sunburst-image-to-image',
+    displayName: 'GPT Image 2.5 Sunburst (Edit)',
+    provider: 'OpenAI',
+    task: 'image',
+    modes: ['image-to-image', 'image-edit'],
+    tags: ['recommended', 'new'],
+    variantLabel: 'Quality',
+    supportsReferenceImages: true,
+    pricing: {
+      unit: 'per-image',
+      credits: 6,
+      priceFor: ({ imageCount = 1, resolution = '1K' }) => {
+        const perImage = resolution === '4K' ? 16 : resolution === '2K' ? 10 : 6
+        return perImage * imageCount
+      },
+    },
+    official: {
+      usdFor: ({ imageCount = 1, resolution = '1K' }) =>
+        resolution === '1K' ? 0.053 * imageCount : null,
+      source: 'https://developers.openai.com/api/docs/models/gpt-image-2.5-sunburst',
     },
     imageConstraints: { resolutions: ['1K', '2K', '4K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
   },
@@ -1925,6 +2076,11 @@ export function buildImageInput(modelId: string, opts: ImageGenOptions): Record<
   const ar = opts.aspectRatio ?? '9:16'
   const resolution = opts.resolution ?? '1K'
 
+  // Covers the GPT Image 2 pair AND the four GPT Image 2.5 slugs (Flare /
+  // Sunburst x text-to-image / image-to-image) — OpenAI's 2.5 docs specify the
+  // identical body, so the prefix is doing real work here rather than matching
+  // by luck. A future 2.x with a different shape needs its own branch ABOVE
+  // this one.
   if (modelId.startsWith('gpt-image-2')) {
     return {
       prompt: opts.prompt,
