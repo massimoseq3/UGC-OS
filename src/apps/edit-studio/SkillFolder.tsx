@@ -56,7 +56,7 @@ function AppIcon({ agent, className }: { agent: EditorAgent; className?: string 
   )
 }
 
-// The agent sticker, stuck on the folder the way a laptop wears one: Claude's
+// The agent sticker, stuck on the corner of the app icon: Claude's
 // own mark (the sunburst, not Anthropic's A — the member is installing into
 // Claude Code, not into a company) and ChatGPT's for Codex. Each is the brand
 // mark in its brand colour on a white disc, brand-coloured rather than the
@@ -72,10 +72,11 @@ function AgentSticker({ agent }: { agent: EditorAgent }) {
   const mark = PROVIDER_MARKS[sticker.provider]
   return (
     <span
-      // Top-left, mirroring the version badge across the folder: the two
-      // stickers are the same kind of object (something stuck on), so they read
-      // as a pair rather than as one badge and one stray mark.
-      className="absolute left-[2%] top-[14%] z-30 flex aspect-square w-[14%] -rotate-[8deg] items-center justify-center rounded-full bg-white shadow-md shadow-black/20 ring-1 ring-inset ring-black/[0.07] transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:-rotate-[12deg]"
+      // On the icon's own top-left corner, half on and half off it, the way an
+      // app badge sits. Sized and placed against the ICON (it is absolute
+      // inside the icon's wrapper), so it tracks the tile at every folder width
+      // instead of needing its own set of percentages.
+      className="absolute -left-[20%] -top-[20%] z-10 flex aspect-square w-[54%] -rotate-[8deg] items-center justify-center rounded-full bg-white shadow-md shadow-black/25 ring-1 ring-inset ring-black/[0.07] transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:-rotate-[12deg]"
     >
       <svg
         viewBox={mark.viewBox}
@@ -217,13 +218,15 @@ export default function SkillFolder({
 
         {/* Front pocket (z-20, stays put, no morph). Holds the app icon + label. */}
         <div className="absolute inset-x-[1.5%] bottom-0 top-[24%] z-20 flex flex-col items-center justify-center gap-[5%] rounded-[16px] bg-gradient-to-b from-[#F7F5F0] via-[#EFECE4] to-[#E4DFD4]">
-          <AppIcon agent={agent} className="h-[36%] w-auto aspect-square" />
+          <span className="relative aspect-square h-[36%]">
+            <AppIcon agent={agent} className="h-full w-full" />
+            <AgentSticker agent={agent} />
+          </span>
           <span className="text-[1.55rem] font-extrabold tracking-tight text-zinc-800 sm:text-[1.8rem]">
             {SKILL_NAME}
           </span>
         </div>
 
-        <AgentSticker agent={agent} />
         <VersionBadge fresh={fresh} />
       </div>
     </button>
