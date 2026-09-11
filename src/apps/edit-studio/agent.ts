@@ -15,7 +15,14 @@ export type EditorAgent = 'claude' | 'codex'
 // member edits in is a fact about this machine's setup, not their account.
 export const AGENT_STORAGE_KEY = 'ai-ugc-lab:edit-agent'
 
-// The toggle names the TOOL the skill is installed into.
+// Where a member goes to get the tool. Codex's own path survives the redirect
+// to the docs host; the bare /codex does not.
+export const AGENT_HOME: Record<EditorAgent, string> = {
+  claude: 'https://claude.com/claude-code',
+  codex: 'https://developers.openai.com/codex/cli',
+}
+
+// The toggle names the TOOL the Skill is installed into.
 export const AGENT_LABEL: Record<EditorAgent, string> = {
   claude: 'Claude Code',
   codex: 'Codex',
@@ -28,7 +35,7 @@ export const AGENT_BRAND: Record<EditorAgent, string> = {
   codex: 'Codex',
 }
 
-// The skill's NAME, and what the folder wears in both modes. It is a mark, not
+// The Skill's NAME, and what the folder wears in both modes. It is a mark, not
 // a command line — Massimo's call, and it keeps the art from flickering between
 // two words as the toggle moves.
 export const SKILL_NAME = '/video-editor'

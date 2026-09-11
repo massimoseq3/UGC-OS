@@ -7,6 +7,7 @@ import {
   AGENT_BRAND,
   AGENT_COMMAND,
   AGENT_FILE,
+  AGENT_HOME,
   AGENT_LABEL,
   AGENT_STORAGE_KEY,
   type EditorAgent,
@@ -21,7 +22,7 @@ import { downloadSkill } from './downloadSkill'
 // numbered-steps style as the kie.ai key guide. Copy is kept plain and
 // friendly (roughly 6th-grade reading level) for non-technical members.
 //
-// One skill, two places to run it: Claude Code and Codex. The toggle in the
+// One Skill, two places to run it: Claude Code and Codex. The toggle in the
 // setup card is the whole switch — it re-writes the steps, the folder's tile
 // and command, and the name the file downloads under. See `agent.ts`.
 
@@ -32,59 +33,45 @@ function Ui({ children }: { children: ReactNode }) {
   return <span className="font-semibold text-ink-200">{children}</span>
 }
 
-// One line per step, per agent. Every step is a thing to do — the reassurance
-// and the "what if I've never used Claude Code" link that used to sit around
-// them were read once and then in the way every time after. Codex takes a step
-// more because its skills folder is a place you put a file rather than a
-// dialog you upload one to, and because the model is the member's to pick.
+// One line per step, and every step is a thing to do — the reassurance and the
+// "what if I've never used Claude Code" link that used to sit around them were
+// read once and then in the way every time after.
+//
+// Step 3 hands the install to the agent rather than describing it. It used to
+// be the host's own procedure, which is where the two agents diverged hardest:
+// a menu path in Claude (Settings → Customize → Add) against a folder to unzip
+// into in Codex (`~/.codex/skills`, which a member may not even have yet, and
+// which Finder hides). Both of those are a thing you do TO an assistant that
+// can already do it for you if you ask. So the steps are now one shape with
+// two words swapped, which also means they can't drift apart — they're built
+// from one list rather than written out twice.
+function stepsFor(agent: EditorAgent): ReactNode[] {
+  const tool = AGENT_LABEL[agent]
+  return [
+    <>
+      Get{' '}
+      <a
+        href={AGENT_HOME[agent]}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="font-medium text-ink-200 underline decoration-ink/30 underline-offset-2 hover:text-ink-100"
+      >
+        {tool}
+      </a>
+      .
+    </>,
+    <>Download the Skill.</>,
+    <>Drag the file into a new {tool} chat and ask it to install the Skill.</>,
+    <>
+      Start a chat in a new folder, type <Ui>{AGENT_COMMAND[agent]}</Ui>, and paste in the paths to
+      your B-roll and voiceover.
+    </>,
+  ]
+}
+
 const SKILL_STEPS: Record<EditorAgent, ReactNode[]> = {
-  claude: [
-    <>
-      Get{' '}
-      <a
-        href="https://claude.com/claude-code"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="font-medium text-ink-200 underline decoration-ink/30 underline-offset-2 hover:text-ink-100"
-      >
-        Claude Code
-      </a>
-      .
-    </>,
-    <>Download the Skill.</>,
-    <>
-      In Claude: <Ui>Settings → Customize → Add → Upload a skill</Ui>, and pick the file.
-    </>,
-    <>
-      Start a Claude Code chat in a new folder, type <Ui>{AGENT_COMMAND.claude}</Ui>, and paste in the paths
-      to your B-roll and voiceover.
-    </>,
-  ],
-  codex: [
-    <>
-      Get{' '}
-      <a
-        href="https://developers.openai.com/codex/cli"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="font-medium text-ink-200 underline decoration-ink/30 underline-offset-2 hover:text-ink-100"
-      >
-        Codex
-      </a>
-      .
-    </>,
-    <>Download the Skill.</>,
-    <>
-      Unzip it and drop the <Ui>video-editor</Ui> folder into <Ui>~/.codex/skills</Ui> (create it
-      if it's missing).
-    </>,
-    <>
-      Start a Codex chat in a new folder, then run <Ui>/model</Ui> and pick <Ui>GPT-6 Astra</Ui>.
-    </>,
-    <>
-      Type <Ui>{AGENT_COMMAND.codex}</Ui>, and paste in the paths to your B-roll and voiceover.
-    </>,
-  ],
+  claude: stepsFor('claude'),
+  codex: stepsFor('codex'),
 }
 
 // One benefit per line, each with a small green tick.
@@ -100,14 +87,14 @@ const BENEFITS = [
 // serves both agents, so this number doesn't split by agent either.
 const SKILL_FILE_SIZE = '45 KB'
 
-// What this cut of the skill changed, shown ONLY while the badge is unseen.
+// What this cut of the Skill changed, shown ONLY while the badge is unseen.
 // The standing rule is that the badge is the whole announcement and no
 // what's-new line goes on the page — that rule is about copy a member reads
 // once and steps over on every visit after, and this line can't become that:
 // it is gone the moment Edit has been opened on this version. A member who is
 // already on v4 has no reason to be told what v4 was. Bump it with
 // SKILL_VERSION, or it announces the wrong release.
-const WHATS_NEW = 'New in v4: the skill now works with ChatGPT Codex.'
+const WHATS_NEW = 'New in v4: the Skill now works with ChatGPT Codex.'
 
 const AGENT_OPTIONS = (['claude', 'codex'] as const).map((value) => ({
   value,

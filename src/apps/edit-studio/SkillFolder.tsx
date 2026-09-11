@@ -11,35 +11,59 @@ import { downloadSkill } from './downloadSkill'
 // body itself does NOT morph. Clicking anywhere downloads the .skill file.
 // The folder keeps its literal ivory/orange colors in both themes (it's
 // artwork, like user media); only the page chrome around it is tokenized. The
-// name on the pocket is the skill's, not a command line, so it does NOT follow
+// name on the pocket is the Skill's, not a command line, so it does NOT follow
 // the agent toggle — the setup step is where the exact thing to type lives.
+// The tile and the sticker DO follow it.
 
 const ACCENT = '#F77646'
 
-// The app's own icon tile: the editor crab (Snips) on an orange, sheened
-// rounded square, matching the dock's app-tile look. It does NOT follow the
-// agent toggle — the folder is the Edit app's, in both modes; which assistant
-// the member is setting the skill up in is what the sticker below says.
-function AppIcon({ className }: { className?: string }) {
+// The tile in the folder's pocket. Claude Code gets the Edit app's own icon —
+// the editor crab (Snips) on orange, matching the dock's app-tile look — and
+// Codex gets its own mark on ChatGPT's black, the tile a member already has in
+// their dock. One shell either way (sheen + inset ring), so the swap changes
+// what the folder is holding and not how the art is built.
+const TILE: Record<EditorAgent, { background: string; shadow: string }> = {
+  claude: { background: ACCENT, shadow: 'shadow-orange-900/25' },
+  codex: { background: '#0D0D0D', shadow: 'shadow-black/30' },
+}
+
+function AppIcon({ agent, className }: { agent: EditorAgent; className?: string }) {
+  const tile = TILE[agent]
+  const codex = PROVIDER_MARKS.Codex
   return (
     <span
-      className={`relative flex items-center justify-center overflow-hidden rounded-[24%] shadow-md shadow-orange-900/25 ${className ?? ''}`}
-      style={{ backgroundColor: ACCENT }}
+      className={`relative flex items-center justify-center overflow-hidden rounded-[24%] shadow-md ${tile.shadow} ${className ?? ''}`}
+      style={{ backgroundColor: tile.background }}
     >
       <span className="absolute inset-0 bg-gradient-to-b from-white/35 via-white/5 to-transparent" />
       <span className="absolute inset-0 rounded-[24%] ring-1 ring-inset ring-white/25" />
-      <CrabSprite variant="edit-studio" body="#FFF6F0" className="relative h-auto w-[74%]" />
+      {agent === 'claude' ? (
+        <CrabSprite variant="edit-studio" body="#FFF6F0" className="relative h-auto w-[74%]" />
+      ) : (
+        <svg
+          viewBox={codex.viewBox}
+          className="relative h-auto w-[58%] text-white"
+          fill="currentColor"
+          fillRule={codex.fillRule}
+          aria-hidden
+        >
+          {codex.paths.map((d) => (
+            <path key={d} d={d} />
+          ))}
+        </svg>
+      )}
     </span>
   )
 }
 
-// The agent sticker, stuck on the folder the way a laptop wears one. Each mark
-// is the model picker's own (`providerMarks.ts`) in its brand colour on a white
-// disc — brand-coloured rather than the picker's flat ink because this is one
-// mark on artwork, not a column of a dozen down a panel edge, and a white disc
-// keeps it off the folder's orange instead of blending into it.
+// The agent sticker, stuck on the folder the way a laptop wears one: Claude's
+// own mark (the sunburst, not Anthropic's A — the member is installing into
+// Claude Code, not into a company) and ChatGPT's for Codex. Each is the brand
+// mark in its brand colour on a white disc, brand-coloured rather than the
+// picker's flat ink because this is one mark on artwork, not a column of a
+// dozen down a panel edge, and the disc keeps it off the folder's own orange.
 const STICKER: Record<EditorAgent, { provider: string; color: string }> = {
-  claude: { provider: 'Anthropic', color: '#D97757' },
+  claude: { provider: 'Claude', color: '#D97757' },
   codex: { provider: 'OpenAI', color: '#0D0D0D' },
 }
 
@@ -48,19 +72,21 @@ function AgentSticker({ agent }: { agent: EditorAgent }) {
   const mark = PROVIDER_MARKS[sticker.provider]
   return (
     <span
-      // Bottom-left, the one corner nothing else is using: the version badge
-      // owns the top-right and the pocket's icon + name run down the middle.
-      className="absolute bottom-[5.5%] left-[5%] z-30 flex aspect-square w-[12.5%] -rotate-[8deg] items-center justify-center rounded-full bg-white shadow-md shadow-black/20 ring-1 ring-inset ring-black/[0.07] transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:-rotate-[12deg]"
+      // Top-left, mirroring the version badge across the folder: the two
+      // stickers are the same kind of object (something stuck on), so they read
+      // as a pair rather than as one badge and one stray mark.
+      className="absolute left-[2%] top-[14%] z-30 flex aspect-square w-[14%] -rotate-[8deg] items-center justify-center rounded-full bg-white shadow-md shadow-black/20 ring-1 ring-inset ring-black/[0.07] transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:-rotate-[12deg]"
     >
       <svg
         viewBox={mark.viewBox}
         className="h-auto w-[56%]"
         style={{ color: sticker.color }}
         fill="currentColor"
+        fillRule={mark.fillRule}
         aria-hidden
       >
         {mark.paths.map((d) => (
-          <path key={d} d={d} fillRule={mark.fillRule} />
+          <path key={d} d={d} />
         ))}
       </svg>
     </span>
@@ -108,7 +134,7 @@ function VersionBadge({ fresh }: { fresh: boolean }) {
       }`}
       style={fresh ? { backgroundColor: ACCENT } : undefined}
     >
-      {fresh ? `New update · v${SKILL_VERSION}` : `v${SKILL_VERSION}`}
+      {fresh ? `New Update · v${SKILL_VERSION}` : `v${SKILL_VERSION}`}
     </span>
   )
 }
@@ -125,7 +151,7 @@ export default function SkillFolder({
       type="button"
       onClick={() => downloadSkill(agent)}
       className="group relative mx-auto block w-full max-w-[300px] cursor-pointer select-none outline-none sm:max-w-[340px]"
-      aria-label={`Download the video editor skill for ${AGENT_LABEL[agent]}, version ${SKILL_VERSION}`}
+      aria-label={`Download the video editor Skill for ${AGENT_LABEL[agent]}, version ${SKILL_VERSION}`}
     >
       {/* Orange halo, brightens and widens on hover */}
       <div
@@ -191,7 +217,7 @@ export default function SkillFolder({
 
         {/* Front pocket (z-20, stays put, no morph). Holds the app icon + label. */}
         <div className="absolute inset-x-[1.5%] bottom-0 top-[24%] z-20 flex flex-col items-center justify-center gap-[5%] rounded-[16px] bg-gradient-to-b from-[#F7F5F0] via-[#EFECE4] to-[#E4DFD4]">
-          <AppIcon className="h-[36%] w-auto aspect-square" />
+          <AppIcon agent={agent} className="h-[36%] w-auto aspect-square" />
           <span className="text-[1.55rem] font-extrabold tracking-tight text-zinc-800 sm:text-[1.8rem]">
             {SKILL_NAME}
           </span>
