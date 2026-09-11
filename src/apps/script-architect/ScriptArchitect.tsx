@@ -13,6 +13,7 @@ import { generateScript } from './services/generateScript'
 import { humanizeError } from '../../utils/friendlyError'
 import { WRITE_STYLE_META, HOOK_CATEGORY_META, detectSceneBlueprint, isWriteStyle, isWriteFormat, isWriteLength, isRemixLength, isHookCategoryChoice, isHookCount, isVariationCount, parseHooks, DEFAULT_VARIATION_COUNT, DEFAULT_HOOK_COUNT, DEFAULT_REMIX_LENGTH, type ScriptMode, type ScriptUiMode, type EditableProductContext, type WriteStyle, type WriteFormat, type WriteLength, type RemixLength, type HookCategoryChoice, type HookCount, type VariationCount, type RemixAngle, type PendingScriptRun } from './types'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
+import { useHistoryRailOpen } from '../../hooks/useHistoryRailOpen'
 
 interface ReverseEngineerPayload {
   fullPrompt?: string
@@ -137,8 +138,7 @@ export default function ScriptArchitect() {
   const railIsColumn = useMinWidth(980)
   // Whether the history rail is showing. Persisted, because it is a working
   // preference rather than a per-run state — a member recording their screen
-  // shuts it once, not once per session. It opens by default where it can sit
-  // BESIDE the takes and stays shut where it would cover them: on a phone the
+  // shuts it once, not once per session. It ships SHUT at every width: the
   // first thing this pane should show is the thing you pressed Generate for,
   // not the list of what you pressed it for before. Only ever a default — the
   // stored answer, once there is one, is the member's.
@@ -146,9 +146,10 @@ export default function ScriptArchitect() {
   // The slot is `:historyRail`, not the `:historyOpen` this was built under:
   // renaming it once made every browser that had shut the rail while it was
   // being built re-default rather than carry a stale `false` into the finished
-  // thing. That is free only while a feature is unreleased — after that a
-  // default flip needs the one-shot reset marker `appVisibilityStore` uses.
-  const [historyOpen, setHistoryOpen] = usePersistedState<boolean>(`${baseKey}:historyRail`, railIsColumn)
+  // thing. That was free only while the feature was unreleased; the flip to
+  // shut-by-default came after, so it ships with the one-shot reset marker in
+  // `useHistoryRailOpen` instead.
+  const [historyOpen, setHistoryOpen] = useHistoryRailOpen(`${baseKey}:historyRail`)
   // "Clear the canvas" state. Holds a signature of the output that was cleared,
   // so the next generation (or a history restore) fills the panel again on its
   // own. Nothing is deleted — every take is already a History row; this exists

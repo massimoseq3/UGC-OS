@@ -354,7 +354,10 @@ export default function InputPanel({
               </button>
             }
           >
-            {/* Product and Character.
+            {/* Character and Product. Character leads (Massimo's call,
+                September 2026): the person is who the ad is, the product is
+                what they're holding, and that is also the order the storyboard
+                prompts name them in.
                 COLOUR: empty, they wear the same dashed surface as the Visual
                 Style row below them; filled, each lights up in its own bank's
                 colour — amber for products, pink for influencers — the way the
@@ -369,20 +372,6 @@ export default function InputPanel({
                 alongside the other two, and all four dots answer one question:
                 "have I filled this in?". */}
             <BankCard
-              icon={Package}
-              label="Product"
-              accentClass="bg-gold-500/15 text-gold-400 light:text-gold-600"
-              selectedClass="border-gold-500/30 bg-gold-500/[0.07] hover:border-gold-500/40 hover:bg-gold-500/10"
-              isEmpty={!selectedProduct}
-              required
-              onSelect={onSelectProduct}
-              onClear={selectedProduct ? onClearProduct : undefined}
-            >
-              {selectedProduct && <ProductCard product={selectedProduct} />}
-            </BankCard>
-
-            {/* Character */}
-            <BankCard
               icon={UserRound}
               label="Character"
               accentClass="bg-influencers-500/15 text-influencers-400"
@@ -393,6 +382,20 @@ export default function InputPanel({
               onClear={selectedModel ? onClearModel : undefined}
             >
               {selectedModel && <ModelCard model={selectedModel} />}
+            </BankCard>
+
+            {/* Product */}
+            <BankCard
+              icon={Package}
+              label="Product"
+              accentClass="bg-gold-500/15 text-gold-400 light:text-gold-600"
+              selectedClass="border-gold-500/30 bg-gold-500/[0.07] hover:border-gold-500/40 hover:bg-gold-500/10"
+              isEmpty={!selectedProduct}
+              required
+              onSelect={onSelectProduct}
+              onClear={selectedProduct ? onClearProduct : undefined}
+            >
+              {selectedProduct && <ProductCard product={selectedProduct} />}
             </BankCard>
 
             {/* Script — REQUIRED (half of `canGenerate`), and the only reference

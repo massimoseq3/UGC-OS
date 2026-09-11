@@ -72,9 +72,42 @@ function clearImageModelSlots(m: Record<string, string>): void {
   }
 }
 
+// Same shape, for the prompt-writer slot Scripts and B-Roll each own
+// (`${appId}:chat`, see scriptModelSlot). Clearing lands both apps on whatever
+// `defaultFor` says today rather than rewriting them to a literal id, which is
+// what keeps the next flip one more of these instead of a rewrite chain.
+function clearChatModelSlots(m: Record<string, string>): void {
+  for (const key of Object.keys(m)) {
+    if (key.split(':')[1] === 'chat') delete m[key]
+  }
+}
+
 // One-shot migrations applied to perAppModel. Each runs once per browser, then
 // its name is recorded under MIGRATIONS_KEY so it never runs again.
 const MODEL_MIGRATIONS: Array<{ name: string; apply: (m: Record<string, string>) => void }> = [
+  {
+    // Scripts' and B-Roll's prompt-writer slots clear, so both land on the
+    // registry default — Gemini 3.8 Flash, which has held `defaultFor` on both
+    // apps since September 2026. Massimo's call, after opening the app on a
+    // fresh session and finding Gemini 3.6 Flash still writing.
+    //
+    // The flip itself shipped without a migration, on the reasoning that
+    // nothing writes a resolved default into a slot so an unpicked slot follows
+    // `defaultFor` on its own. That reasoning is sound and it wasn't enough: a
+    // member who opened the picker while 3.6 held the default and clicked the
+    // row already ticked has a stored 3.6 that is indistinguishable from a
+    // deliberate pick, and every default flip since has walked straight past
+    // it. This is what moves them.
+    //
+    // UNCONDITIONAL, like the image flip below, and for the same reason: the
+    // twin entry in PROFILE_MIGRATIONS runs against a copy this browser has
+    // never seen, where "delete it if it holds the old default" would re-fire
+    // an old flip against a pick made after it. So a member who deliberately
+    // chose Claude Opus 5 or GPT 5.6 Terra moves too. One click to undo,
+    // nothing deleted, every model still one row away in the picker.
+    name: '2026-09-chat-default-gemini-3-8-flash',
+    apply: clearChatModelSlots,
+  },
   {
     // GPT Image 2.5 Sunburst becomes the image default in EVERY app — Massimo's
     // call, widening the Characters-only flip that shipped hours earlier. This
@@ -426,6 +459,13 @@ const MODEL_MIGRATIONS: Array<{ name: string; apply: (m: Record<string, string>)
 // applied migrations in the profile row itself, which is a schema change; it
 // is not worth one for a one-off default flip.
 const PROFILE_MIGRATIONS: Array<{ name: string; apply: (m: Record<string, string>) => void }> = [
+  {
+    // Scripts and B-Roll land on the registry chat default at the member's next
+    // sign-in. See the twin entry in MODEL_MIGRATIONS — without this one the
+    // flip is undone by the first hydrate, which replaces perAppModel wholesale.
+    name: '2026-09-chat-default-gemini-3-8-flash',
+    apply: clearChatModelSlots,
+  },
   {
     // Every member's image slots, in every app, land on GPT Image 2.5 Sunburst
     // at their next sign-in. See the twin entry in MODEL_MIGRATIONS.
