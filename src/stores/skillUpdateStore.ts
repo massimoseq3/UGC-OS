@@ -7,8 +7,8 @@ import { create } from 'zustand'
 // until Edit has been opened on the current version.
 //
 // Per browser on purpose (like the theme, never cloud-synced): the skill is
-// installed into a Claude Code setup on THIS machine, so "already got it" is a
-// fact about the machine, not about the account.
+// installed into a Claude Code or Codex setup on THIS machine, so "already got
+// it" is a fact about the machine, not about the account.
 
 // Bump this whenever public/video-editor.skill is replaced, and update
 // SKILL_FILE_SIZE + the changelog line in EditStudio.tsx with it.
