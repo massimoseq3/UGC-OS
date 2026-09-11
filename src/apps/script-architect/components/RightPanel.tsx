@@ -124,7 +124,7 @@ export default function RightPanel({
       </div>
 
       {historyOpen ? (
-        <div className="flex min-h-0 w-full flex-col border-l border-ink/5 min-[980px]:w-[280px] min-[980px]:shrink-0">
+        <div className="rail-pop flex min-h-0 w-full flex-col border-l border-ink/5 min-[980px]:w-[280px] min-[980px]:shrink-0">
           <HistoryRail
             items={history}
             pending={pendingRuns}
