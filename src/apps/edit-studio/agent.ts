@@ -28,9 +28,14 @@ export const AGENT_BRAND: Record<EditorAgent, string> = {
   codex: 'Codex',
 }
 
-// What the member types to run the skill. Claude Code takes a slash command,
-// Codex takes a `$` mention. The folder wears this, and the last setup step
-// repeats it — they must be the same string or one of them is a typo.
+// The skill's NAME, and what the folder wears in both modes. It is a mark, not
+// a command line — Massimo's call, and it keeps the art from flickering between
+// two words as the toggle moves.
+export const SKILL_NAME = '/video-editor'
+
+// What the member actually TYPES, which is not the same thing: Claude Code
+// takes a slash command, Codex takes a `$` mention. Only the last setup step
+// prints this, and it is the one place that has to be exact.
 export const AGENT_COMMAND: Record<EditorAgent, string> = {
   claude: '/video-editor',
   codex: '$video-editor',

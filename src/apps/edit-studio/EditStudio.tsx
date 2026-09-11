@@ -100,6 +100,15 @@ const BENEFITS = [
 // serves both agents, so this number doesn't split by agent either.
 const SKILL_FILE_SIZE = '45 KB'
 
+// What this cut of the skill changed, shown ONLY while the badge is unseen.
+// The standing rule is that the badge is the whole announcement and no
+// what's-new line goes on the page — that rule is about copy a member reads
+// once and steps over on every visit after, and this line can't become that:
+// it is gone the moment Edit has been opened on this version. A member who is
+// already on v4 has no reason to be told what v4 was. Bump it with
+// SKILL_VERSION, or it announces the wrong release.
+const WHATS_NEW = 'New in v4: the skill now works with ChatGPT Codex.'
+
 const AGENT_OPTIONS = (['claude', 'codex'] as const).map((value) => ({
   value,
   label: AGENT_LABEL[value],
@@ -162,6 +171,14 @@ export default function EditStudio() {
             <p className="text-[11px] text-ink-600">
               {AGENT_FILE[agent]} · v{SKILL_VERSION} · {SKILL_FILE_SIZE}
             </p>
+            {fresh && (
+              // Same orange as the folder's "New update" sticker, so the badge
+              // that brought the member here and the line explaining it read
+              // as one announcement rather than two.
+              <p className="max-w-[19rem] text-center text-[11.5px] font-medium leading-snug text-[#F77646]">
+                {WHATS_NEW}
+              </p>
+            )}
           </div>
         </div>
 

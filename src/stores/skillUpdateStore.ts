@@ -11,8 +11,8 @@ import { create } from 'zustand'
 // it" is a fact about the machine, not about the account.
 
 // Bump this whenever public/video-editor.skill is replaced, and update
-// SKILL_FILE_SIZE + the changelog line in EditStudio.tsx with it.
-export const SKILL_VERSION = 3
+// SKILL_FILE_SIZE + WHATS_NEW in EditStudio.tsx with it.
+export const SKILL_VERSION = 4
 
 const STORAGE_KEY = 'ai-ugc-lab-skill-version-seen'
 

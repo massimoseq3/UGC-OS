@@ -1,7 +1,7 @@
 import CrabSprite from '../../components/CrabSprite'
 import { PROVIDER_MARKS } from '../../components/providerMarks'
 import { SKILL_VERSION } from '../../stores/skillUpdateStore'
-import { AGENT_COMMAND, AGENT_LABEL, type EditorAgent } from './agent'
+import { AGENT_LABEL, SKILL_NAME, type EditorAgent } from './agent'
 import { downloadSkill } from './downloadSkill'
 
 // The downloadable video editor skill, drawn as a glowing macOS-style folder
@@ -10,49 +10,59 @@ import { downloadSkill } from './downloadSkill'
 // frame, a caption card, a waveform) rise straight out of the top; the folder
 // body itself does NOT morph. Clicking anywhere downloads the .skill file.
 // The folder keeps its literal ivory/orange colors in both themes (it's
-// artwork, like user media); only the page chrome around it is tokenized. What
-// it HOLDS follows the agent toggle in the setup card: the tile and the
-// command on the pocket are the two things that would otherwise be telling a
-// Codex member to type a Claude slash command.
+// artwork, like user media); only the page chrome around it is tokenized. The
+// name on the pocket is the skill's, not a command line, so it does NOT follow
+// the agent toggle — the setup step is where the exact thing to type lives.
 
 const ACCENT = '#F77646'
 
-// The tile in the folder's pocket: whichever app the member is about to
-// install the skill INTO. Claude Code gets our own icon — the editor crab
-// (Snips) on orange, matching the dock's app-tile look — and Codex gets the
-// OpenAI mark on ChatGPT's black, the tile a member already has in their own
-// dock. One shell either way (sheen + inset ring), so the swap changes what
-// the folder is holding and not how the art is built.
-const TILE: Record<EditorAgent, { background: string; shadow: string }> = {
-  claude: { background: ACCENT, shadow: 'shadow-orange-900/25' },
-  codex: { background: '#0D0D0D', shadow: 'shadow-black/30' },
-}
-
-function AppIcon({ agent, className }: { agent: EditorAgent; className?: string }) {
-  const tile = TILE[agent]
+// The app's own icon tile: the editor crab (Snips) on an orange, sheened
+// rounded square, matching the dock's app-tile look. It does NOT follow the
+// agent toggle — the folder is the Edit app's, in both modes; which assistant
+// the member is setting the skill up in is what the sticker below says.
+function AppIcon({ className }: { className?: string }) {
   return (
     <span
-      className={`relative flex items-center justify-center overflow-hidden rounded-[24%] shadow-md ${tile.shadow} ${className ?? ''}`}
-      style={{ backgroundColor: tile.background }}
+      className={`relative flex items-center justify-center overflow-hidden rounded-[24%] shadow-md shadow-orange-900/25 ${className ?? ''}`}
+      style={{ backgroundColor: ACCENT }}
     >
       <span className="absolute inset-0 bg-gradient-to-b from-white/35 via-white/5 to-transparent" />
       <span className="absolute inset-0 rounded-[24%] ring-1 ring-inset ring-white/25" />
-      {agent === 'claude' ? (
-        <CrabSprite variant="edit-studio" body="#FFF6F0" className="relative h-auto w-[74%]" />
-      ) : (
-        // The picker's own OpenAI glyph, drawn white here rather than in the
-        // monochrome ink a model row uses — this is a brand tile, not a row.
-        <svg
-          viewBox={PROVIDER_MARKS.OpenAI.viewBox}
-          className="relative h-auto w-[58%] text-white"
-          fill="currentColor"
-          aria-hidden
-        >
-          {PROVIDER_MARKS.OpenAI.paths.map((d) => (
-            <path key={d} d={d} />
-          ))}
-        </svg>
-      )}
+      <CrabSprite variant="edit-studio" body="#FFF6F0" className="relative h-auto w-[74%]" />
+    </span>
+  )
+}
+
+// The agent sticker, stuck on the folder the way a laptop wears one. Each mark
+// is the model picker's own (`providerMarks.ts`) in its brand colour on a white
+// disc — brand-coloured rather than the picker's flat ink because this is one
+// mark on artwork, not a column of a dozen down a panel edge, and a white disc
+// keeps it off the folder's orange instead of blending into it.
+const STICKER: Record<EditorAgent, { provider: string; color: string }> = {
+  claude: { provider: 'Anthropic', color: '#D97757' },
+  codex: { provider: 'OpenAI', color: '#0D0D0D' },
+}
+
+function AgentSticker({ agent }: { agent: EditorAgent }) {
+  const sticker = STICKER[agent]
+  const mark = PROVIDER_MARKS[sticker.provider]
+  return (
+    <span
+      // Bottom-left, the one corner nothing else is using: the version badge
+      // owns the top-right and the pocket's icon + name run down the middle.
+      className="absolute bottom-[5.5%] left-[5%] z-30 flex aspect-square w-[12.5%] -rotate-[8deg] items-center justify-center rounded-full bg-white shadow-md shadow-black/20 ring-1 ring-inset ring-black/[0.07] transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:-rotate-[12deg]"
+    >
+      <svg
+        viewBox={mark.viewBox}
+        className="h-auto w-[56%]"
+        style={{ color: sticker.color }}
+        fill="currentColor"
+        aria-hidden
+      >
+        {mark.paths.map((d) => (
+          <path key={d} d={d} fillRule={mark.fillRule} />
+        ))}
+      </svg>
     </span>
   )
 }
@@ -181,12 +191,13 @@ export default function SkillFolder({
 
         {/* Front pocket (z-20, stays put, no morph). Holds the app icon + label. */}
         <div className="absolute inset-x-[1.5%] bottom-0 top-[24%] z-20 flex flex-col items-center justify-center gap-[5%] rounded-[16px] bg-gradient-to-b from-[#F7F5F0] via-[#EFECE4] to-[#E4DFD4]">
-          <AppIcon agent={agent} className="h-[36%] w-auto aspect-square" />
+          <AppIcon className="h-[36%] w-auto aspect-square" />
           <span className="text-[1.55rem] font-extrabold tracking-tight text-zinc-800 sm:text-[1.8rem]">
-            {AGENT_COMMAND[agent]}
+            {SKILL_NAME}
           </span>
         </div>
 
+        <AgentSticker agent={agent} />
         <VersionBadge fresh={fresh} />
       </div>
     </button>
