@@ -531,6 +531,27 @@ textarea,
   .modal-pop, .modal-fade { animation: none; }
 }
 
+/* The same arrival for a panel that is ANCHORED rather than centred: the
+   history rail in Scripts, Voiceovers and B-Roll (Massimo's call, September
+   2026 — "it should feel like the preset picker"). It runs the modal's own
+   keyframe rather than a copy of it, so the two cannot drift apart; the only
+   thing that differs is the origin. A centred modal grows out of its own middle
+   because the middle is where it sits. The rail is hung on the seam it makes
+   with the output column, so it grows out of THAT edge: scaled from the centre,
+   its left border — the one hairline the seam is drawn with — slides across the
+   output column on the way in and the panel reads as drifting in from nowhere.
+   Like the preset picker it unmounts on shut, so there is no closed state to
+   transition FROM and a keyframe that runs on mount is the shape that fits. It
+   leaves no transform behind when it ends, so nothing in the rail is left
+   sitting inside a stray containing block. */
+.rail-pop {
+  animation: modal-pop 200ms ease-out;
+  transform-origin: right center;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rail-pop { animation: none; }
+}
+
 /* Send-to field highlight flash */
 @keyframes field-flash {
   0% { box-shadow: 0 0 0 0 rgba(0, 122, 255, 0.4); }
