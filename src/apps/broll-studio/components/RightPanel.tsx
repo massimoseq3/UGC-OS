@@ -4,7 +4,8 @@ import type { BrollResult, PromptVariation, CardState, ReferenceImage, BrollMode
 import type { Product, Model, BrollHistoryItem } from '../../../stores/types'
 import type { ContinuousStoryboardOp } from '../continuousEdits'
 import { useBankStore } from '../../../stores/bankStore'
-import { usePersistedState, useProjectScopedKey } from '../../../hooks/usePersistedState'
+import { useProjectScopedKey } from '../../../hooks/usePersistedState'
+import { useHistoryRailOpen } from '../../../hooks/useHistoryRailOpen'
 import { useMinWidth } from '../../../hooks/useBreakpoint'
 import ScenesView from './ScenesView'
 import ContinuousView from './ContinuousView'
@@ -116,12 +117,12 @@ export default function RightPanel(props: RightPanelProps) {
   // in step with the `min-[980px]:` classes below — it is Scripts' threshold,
   // and the reasoning is in `HistoryRailHandle`.
   const railIsColumn = useMinWidth(980)
-  // Whether the rail is showing. It opens by default where it can sit BESIDE
-  // the storyboard and stays shut where it would cover it — clicking into this
-  // app should land on the clips, not on the list of the ones you made before.
-  // Its own slot: the old `:rightTab` held 'scenes' | 'history', so a stored
-  // value there means nothing here.
-  const [historyOpen, setHistoryOpen] = usePersistedState<boolean>(`${baseKey}:historyRail`, railIsColumn)
+  // Whether the rail is showing. It ships SHUT — clicking into this app should
+  // land on the clips, not on the list of the ones you made before — and the
+  // stored answer, once there is one, is the member's. Its own slot: the old
+  // `:rightTab` held 'scenes' | 'history', so a stored value there means
+  // nothing here.
+  const [historyOpen, setHistoryOpen] = useHistoryRailOpen(`${baseKey}:historyRail`)
 
   const allHistory = useBankStore((s) => s.brollHistory)
   const deleteBrollHistory = useBankStore((s) => s.deleteBrollHistory)

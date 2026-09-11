@@ -425,9 +425,13 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     // the app-wide default rather than ~2.9× it on the member's own key, and on
     // the same family every prompt in this app was tuned against. The two slots
     // stay INDEPENDENT and have diverged before, so no blurb may name a
-    // default. No migration ships with the flip: nothing writes a resolved
-    // default into a slot, so an unpicked slot follows `defaultFor` on its own
-    // and a stored id is always a deliberate pick that this leaves alone.
+    // default. The flip shipped without a migration, on the reasoning that
+    // nothing writes a resolved default into a slot — so an unpicked slot
+    // follows `defaultFor` on its own and a stored id is always a deliberate
+    // pick. That missed the member who opened the picker while 3.6 held the
+    // default and clicked the row already ticked; migration
+    // `2026-09-chat-default-gemini-3-8-flash` clears the `:chat` slots so they
+    // land here, and it is listed in PROFILE_MIGRATIONS too.
     defaultFor: ['ad-anatomy', 'character-studio', 'broll-studio', 'script-architect'],
     // OpenAI-compatible variant slug on kie.ai. The native 3.8 route speaks
     // Google's own streamGenerateContent shape, which our transport doesn't.

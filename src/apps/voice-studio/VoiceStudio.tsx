@@ -23,7 +23,7 @@ import SidePanel from './components/SidePanel'
 import BottomPlayer from './components/BottomPlayer'
 import BankPicker from '../../components/BankPicker'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
-import { useMinWidth } from '../../hooks/useBreakpoint'
+import { useHistoryRailOpen } from '../../hooks/useHistoryRailOpen'
 
 // Persisted in-flight TTS tasks. Survive a refresh so the user doesn't lose
 // a gen (and the kie credit) when the tab reloads mid-generation. Stale
@@ -105,24 +105,25 @@ export default function VoiceStudio() {
   const [detailsItem, setDetailsItem] = useState<VoiceHistoryItem | null>(null)
   // Phone-only: which of the two panes is on screen (ignored from md up).
   const [pane, setPane] = useState<'editor' | 'settings'>('editor')
-  // Behaviour, not layout: where the rail covers the script, opening a read's
-  // details has to hand the pane back; beside it, it must not. Keep the number
-  // in step with the `min-[980px]:` classes below.
+  // The rail is a column only from 980px up, where the settings column, the
+  // 280px rail and a readable script box all fit; below that it covers the
+  // editor. That threshold lives purely in the `min-[980px]:` classes below —
+  // unlike Scripts and B-Roll, nothing here has to READ it in JS, because the
+  // rail ships shut and opening a read's details doesn't move the pane.
   //
-  // The same 980 Scripts uses, deliberately, even though this app's settings
-  // column is a fixed 460px against Scripts' 380 — so the script box here is
-  // ~240px at the threshold where the takes there get ~320. Two numbers were
-  // tried first and the extra 80px put a 994px window (Safari at half a 1080p
-  // screen) on opposite sides of the line in the two apps, which is the one
-  // thing a member reads as a bug rather than as a tight fit. A narrow script
-  // box is a paste target with a one-click escape; no sidebar at all is not.
-  const railIsColumn = useMinWidth(980)
+  // It is the same 980 Scripts uses, deliberately, even though this app's
+  // settings column is a fixed 460px against Scripts' 380 — so the script box
+  // here is ~240px at the threshold where the takes there get ~320. Two
+  // numbers were tried first and the extra 80px put a 994px window (Safari at
+  // half a 1080p screen) on opposite sides of the line in the two apps, which
+  // is the one thing a member reads as a bug rather than as a tight fit. A
+  // narrow script box is a paste target with a one-click escape; no sidebar at
+  // all is not.
   // Whether the history rail is showing. Persisted, because it is a working
-  // preference rather than a per-run state. It opens by default where it can
-  // sit BESIDE the script and stays shut where it would cover it — on a phone
-  // this pane's job is the script box. Only ever a default; the stored answer,
-  // once there is one, is the member's.
-  const [historyOpen, setHistoryOpen] = usePersistedState<boolean>(`${baseKey}:historyRail`, railIsColumn)
+  // preference rather than a per-run state. It ships SHUT at every width — this
+  // pane's job is the script box and the take you just made. Only ever a
+  // default; the stored answer, once there is one, is the member's.
+  const [historyOpen, setHistoryOpen] = useHistoryRailOpen(`${baseKey}:historyRail`)
 
   const history = useBankStore((s) => s.voiceHistory)
   const activePlayerItem = useMemo<VoiceHistoryItem | null>(
