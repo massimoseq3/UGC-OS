@@ -1,48 +1,78 @@
 import { CheckCircle2, Download } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
+import SegmentedToggle from '../../components/SegmentedToggle'
+import { usePersistedState } from '../../hooks/usePersistedState'
 import { SKILL_VERSION, useSkillUpdateStore } from '../../stores/skillUpdateStore'
+import {
+  AGENT_BRAND,
+  AGENT_COMMAND,
+  AGENT_FILE,
+  AGENT_HOME,
+  AGENT_LABEL,
+  AGENT_STORAGE_KEY,
+  type EditorAgent,
+} from './agent'
 import SkillFolder from './SkillFolder'
 import { downloadSkill } from './downloadSkill'
 
 // Edit is the last stop in the create row. Unlike the other apps it doesn't
-// generate anything in the browser: it hands out the video editor Claude skill
-// (a local Claude Code pipeline that turns a script, voiceover, and B-roll into
-// a finished captioned 9:16 ad) and walks through setting it up, in the same
-// short numbered-steps style as the kie.ai key guide. Copy is kept plain and
+// generate anything in the browser: it hands out the video editor skill (a
+// local pipeline that turns a script, voiceover, and B-roll into a finished
+// captioned 9:16 ad) and walks through setting it up, in the same short
+// numbered-steps style as the kie.ai key guide. Copy is kept plain and
 // friendly (roughly 6th-grade reading level) for non-technical members.
+//
+// One Skill, two places to run it: Claude Code and Codex. The toggle in the
+// setup card is the whole switch — it re-writes the steps, the folder's tile
+// and command, and the name the file downloads under. See `agent.ts`.
 
 const DISPLAY_FONT = { fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }
 
-// A clickable label the member will look for in the Claude UI.
+// A label the member will look for — a menu path, a command, a folder.
 function Ui({ children }: { children: ReactNode }) {
   return <span className="font-semibold text-ink-200">{children}</span>
 }
 
-// Four steps, one line each. Every step is a thing to do — the reassurance and
-// the "what if I've never used Claude Code" link that used to sit around them
-// were read once and then in the way every time after.
-const SKILL_STEPS: ReactNode[] = [
-  <>
-    Get{' '}
-    <a
-      href="https://claude.com/claude-code"
-      target="_blank"
-      rel="noopener noreferrer"
-      className="font-medium text-ink-200 underline decoration-ink/30 underline-offset-2 hover:text-ink-100"
-    >
-      Claude Code
-    </a>
-    .
-  </>,
-  <>Download the Skill.</>,
-  <>
-    In Claude: <Ui>Settings → Customize → Add → Upload a skill</Ui>, and pick the file.
-  </>,
-  <>
-    Start a Claude Code chat in a new folder, type <Ui>/video-editor</Ui>, and paste in the paths to
-    your B-roll and voiceover.
-  </>,
-]
+// One line per step, and every step is a thing to do — the reassurance and the
+// "what if I've never used Claude Code" link that used to sit around them were
+// read once and then in the way every time after.
+//
+// Step 3 hands the install to the agent rather than describing it. It used to
+// be the host's own procedure, which is where the two agents diverged hardest:
+// a menu path in Claude (Settings → Customize → Add) against a folder to unzip
+// into in Codex (`~/.codex/skills`, which a member may not even have yet, and
+// which Finder hides). Both of those are a thing you do TO an assistant that
+// can already do it for you if you ask. So the steps are now one shape with
+// two words swapped, which also means they can't drift apart — they're built
+// from one list rather than written out twice.
+function stepsFor(agent: EditorAgent): ReactNode[] {
+  const tool = AGENT_LABEL[agent]
+  return [
+    <>
+      Get{' '}
+      <a
+        href={AGENT_HOME[agent]}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="font-medium text-ink-200 underline decoration-ink/30 underline-offset-2 hover:text-ink-100"
+      >
+        {tool}
+      </a>
+      .
+    </>,
+    <>Download the Skill.</>,
+    <>Drag the file into a new {tool} chat and ask it to install the Skill.</>,
+    <>
+      Start a chat in a new folder, type <Ui>{AGENT_COMMAND[agent]}</Ui>, and paste in the paths to
+      your B-roll and voiceover.
+    </>,
+  ]
+}
+
+const SKILL_STEPS: Record<EditorAgent, ReactNode[]> = {
+  claude: stepsFor('claude'),
+  codex: stepsFor('codex'),
+}
 
 // One benefit per line, each with a small green tick.
 const BENEFITS = [
@@ -53,11 +83,30 @@ const BENEFITS = [
   'Puts captions on the screen that match every word',
 ]
 
-// Kept next to SKILL_VERSION so the two are edited together.
+// Kept next to SKILL_VERSION so the two are edited together. One archive
+// serves both agents, so this number doesn't split by agent either.
 const SKILL_FILE_SIZE = '45 KB'
+
+// What this cut of the Skill changed, shown ONLY while the badge is unseen.
+// The standing rule is that the badge is the whole announcement and no
+// what's-new line goes on the page — that rule is about copy a member reads
+// once and steps over on every visit after, and this line can't become that:
+// it is gone the moment Edit has been opened on this version. A member who is
+// already on v4 has no reason to be told what v4 was. Bump it with
+// SKILL_VERSION, or it announces the wrong release.
+const WHATS_NEW = 'New in v4: the Skill now works with ChatGPT Codex.'
+
+const AGENT_OPTIONS = (['claude', 'codex'] as const).map((value) => ({
+  value,
+  label: AGENT_LABEL[value],
+}))
 
 export default function EditStudio() {
   const markSeen = useSkillUpdateStore((s) => s.markSeen)
+  // Which assistant the member edits in, remembered per browser: the skill is
+  // installed into one setup on this machine, so re-picking it every visit is
+  // asking the same question twice.
+  const [agent, setAgent] = usePersistedState<EditorAgent>(AGENT_STORAGE_KEY, 'claude')
   // Read once on mount: marking it seen must not pull the badge out from under
   // the member while they're looking at the page it's on.
   const [fresh] = useState(() => useSkillUpdateStore.getState().seenVersion < SKILL_VERSION)
@@ -90,25 +139,33 @@ export default function EditStudio() {
             Your AI Video Editor
           </h1>
           <p className="mt-1.5 max-w-md text-[14px] leading-relaxed text-ink-400">
-            A Claude Skill that edits your videos for you.
+            A {AGENT_BRAND[agent]} Skill that edits your videos for you.
           </p>
         </header>
 
         {/* The folder is the download */}
         <div className="flex flex-col items-center gap-6 md:col-start-1 md:row-span-2 md:row-start-1 md:gap-7 md:self-center">
-          <SkillFolder fresh={fresh} />
+          <SkillFolder agent={agent} fresh={fresh} />
           <div className="flex flex-col items-center gap-2">
             <button
               type="button"
-              onClick={downloadSkill}
+              onClick={() => downloadSkill(agent)}
               className="flex h-11 items-center gap-2 rounded-full bg-ink px-6 text-[14px] font-medium text-paper transition-opacity hover:opacity-90 md:h-10 md:px-5 md:text-[13px]"
             >
               <Download className="h-4 w-4" strokeWidth={2} />
               Download Skill
             </button>
             <p className="text-[11px] text-ink-600">
-              video-editor.skill · v{SKILL_VERSION} · {SKILL_FILE_SIZE}
+              {AGENT_FILE[agent]} · v{SKILL_VERSION} · {SKILL_FILE_SIZE}
             </p>
+            {fresh && (
+              // Same orange as the folder's "New update" sticker, so the badge
+              // that brought the member here and the line explaining it read
+              // as one announcement rather than two.
+              <p className="max-w-[19rem] text-center text-[11.5px] font-medium leading-snug text-[#F77646]">
+                {WHATS_NEW}
+              </p>
+            )}
           </div>
         </div>
 
@@ -129,9 +186,21 @@ export default function EditStudio() {
           {/* Blurred, not just translucent: a flat 60% fill reads as a smudge
               — the blur is what makes it a pane. */}
           <div className="rounded-3xl border border-ink/10 bg-ink/[0.045] p-4 backdrop-blur-2xl backdrop-saturate-150 shadow-lg shadow-black/30 light:border-black/[0.05] light:bg-white/70 light:shadow-black/[0.08] md:p-5">
-            <h2 className="text-[15px] font-semibold tracking-tight text-ink-100">Set it up</h2>
+            {/* The toggle heads the card it rewrites, so the steps underneath
+                are visibly the answer to it. Fit-to-content: two short labels
+                shouldn't stretch across the card and read as a pair of tabs. */}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-[15px] font-semibold tracking-tight text-ink-100">Set it up</h2>
+              <SegmentedToggle
+                options={AGENT_OPTIONS}
+                value={agent}
+                onChange={setAgent}
+                fitContent
+                dense
+              />
+            </div>
             <ol className="mt-3.5 space-y-3.5">
-              {SKILL_STEPS.map((step, i) => (
+              {SKILL_STEPS[agent].map((step, i) => (
                 <li key={i} className="flex items-start gap-3 text-[13px] leading-relaxed text-ink-400">
                   <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink/[0.06] text-[11px] font-semibold text-ink-300">
                     {i + 1}
