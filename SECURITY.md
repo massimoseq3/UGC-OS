@@ -89,8 +89,9 @@ is no longer accurate.
   (`content-length-range`) — tracked below.
 - **CORS.** The bucket's CORS policy must restrict
   `AllowedOrigins` to the production Vercel domain and (optionally)
-  `http://localhost:5173` for development. See
-  [DEPLOYMENT.md](DEPLOYMENT.md) for the exact policy.
+  `http://localhost:5173` for development, and `AllowedMethods` to
+  `PUT`, `GET` and `HEAD` (`PUT` because uploads use a presigned PUT;
+  R2 answers the S3 POST Object operation with `501 Not Implemented`).
 
 ## kie.ai API key handling
 
@@ -196,7 +197,10 @@ These are accepted today and tracked as future work:
    different-typed one (scoped to its own `auth/<userId>/` prefix —
    a storage-cost abuse, not a cross-tenant break). Closing it fully
    means moving uploads to a presigned POST policy with
-   `content-length-range`.
+   `content-length-range`, which R2 does not support — it answers the
+   S3 POST Object operation with `501 Not Implemented`, which the
+   browser surfaces as an opaque CORS failure (tried in PR #111; it
+   broke every upload).
 5. **kie.ai key is browser-visible** — see §"kie.ai API key handling"
    above. A future option is to proxy kie.ai through a server-side
    edge function so the key stays on the server.
