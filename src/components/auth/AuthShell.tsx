@@ -28,15 +28,23 @@ export default function AuthShell({
 
           {children}
 
-          <div className="flex items-center justify-center gap-3 text-[11px] text-ink-600">
-            <a href="/legal/terms" className="transition-colors hover:text-ink-300">Terms</a>
-            <span aria-hidden>·</span>
-            <a href="/legal/privacy" className="transition-colors hover:text-ink-300">Privacy</a>
-            <span aria-hidden>·</span>
-            <a href="/legal/aup" className="transition-colors hover:text-ink-300">AUP</a>
-          </div>
+          <LegalLinks />
         </div>
       </div>
+    </div>
+  )
+}
+
+// The legal row at the foot of every signed-out screen. The landing (see
+// LandingShell) lays its page out differently and still ends on this row.
+export function LegalLinks() {
+  return (
+    <div className="flex items-center justify-center gap-3 text-[11px] text-ink-600">
+      <a href="/legal/terms" className="transition-colors hover:text-ink-300">Terms</a>
+      <span aria-hidden>·</span>
+      <a href="/legal/privacy" className="transition-colors hover:text-ink-300">Privacy</a>
+      <span aria-hidden>·</span>
+      <a href="/legal/aup" className="transition-colors hover:text-ink-300">AUP</a>
     </div>
   )
 }
