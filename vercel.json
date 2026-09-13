@@ -2,6 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "ignoreCommand": "if [ \"$VERCEL_ENV\" = preview ]; then case \"$VERCEL_GIT_COMMIT_REF\" in claude/*) exit 0 ;; esac; fi; exit 1",
   "rewrites": [
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
