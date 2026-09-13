@@ -140,6 +140,13 @@ Reach for these instead of re-implementing. One line each; the reasoning is in `
 
 `sendToApp({ targetApp, targetField, data })`; the consumer reads `interAppPayload` in a `useEffect` keyed on `activeApp`, dispatches on `targetField`, then `consumePayload()`. Wired: Ad Analyzer → Scripts (transcript) / Bank (productId) / B-Roll (`adBlueprint`, the only source of `sceneStaging`); Scripts → Voiceovers (text) and → Playground (`videoPrompt`); B-Roll Bank → Playground (`videoStartFrame`); anywhere → Playground (`prompt`, `imageRef`). Playground still consumes `videoSourceClip` and nothing sends it — kept so re-wiring the redub loop is one button.
 
+## Shipping
+
+- **`main` is protected: CI must be green before a PR merges.** `npm run typecheck` + `npm run lint`, ~90s. `gh pr merge` fails while it is pending — wait for it; `--admin` is the only bypass and it ships unverified code.
+- The required check is the job named `ci` in `.github/workflows/ci.yml`. **Renaming that job renames the check and silently un-protects `main`.**
+- **`vercel.json`'s `ignoreCommand` skips preview builds for `claude/*` branches on purpose** — a missing preview there is expected, not broken. Production (`VERCEL_ENV=production`) always builds; a botched edit to that line stops deploys silently.
+- A merged branch is deleted on GitHub automatically; the worktree that made it is yours to `git worktree remove`.
+
 ## Non-obvious files
 
 One line each; detail in the sub-file named beside it.
