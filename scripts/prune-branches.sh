@@ -42,8 +42,10 @@ printf 'main\n' >> "$TMP/checkedout"
 sort -u -o "$TMP/checkedout" "$TMP/checkedout"
 
 git for-each-ref --format='%(refname:short)' refs/heads | sort -u > "$TMP/local"
-git for-each-ref --format='%(refname:short)' refs/remotes/origin \
-  | sed 's#^origin/##' | grep -v '^HEAD$' | sort -u > "$TMP/remote"
+# %(refname:short) is not usable here: git shortens refs/remotes/origin/HEAD to
+# the bare string "origin", which then survives every filter as a phantom branch.
+git for-each-ref --format='%(refname)' refs/remotes/origin \
+  | sed 's#^refs/remotes/origin/##' | grep -v '^HEAD$' | sort -u > "$TMP/remote"
 
 comm -12 "$TMP/local"  "$TMP/merged" | comm -23 - "$TMP/checkedout" > "$TMP/kill-local"
 comm -12 "$TMP/remote" "$TMP/merged" | comm -23 - "$TMP/checkedout" > "$TMP/kill-remote"
