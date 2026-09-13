@@ -3,6 +3,17 @@ import type { CrabVariant } from '../components/CrabSprite'
 // The crab crew — shared by the Meet the Team intro (full cards) and the
 // dock (hover reveals the persona name). One entry per dock app, dock order.
 
+// The roster caption under a crew row, counted off the roster rather than
+// written out so adding a crew member can't leave it claiming the old number
+// (it said "Eight" for a day after Outliers made nine). Counted at RENDER time,
+// because a member who has switched an optional app off is being introduced to
+// one teammate fewer. Rendered by Meet Your Team and the signed-out landing.
+const TEAM_COUNT_WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten']
+export function defaultCaption(count: number): string {
+  const word = TEAM_COUNT_WORDS[count] ?? String(count)
+  return `${word[0].toUpperCase()}${word.slice(1)} teammates, one workspace, and everything they make lands in the shared Bank.`
+}
+
 export interface TeamMember {
   appId: CrabVariant
   name: string
