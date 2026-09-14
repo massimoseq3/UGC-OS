@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { AlertCircle, CheckCircle2, Lock, ExternalLink, X } from 'lucide-react'
 import Spinner from '../Spinner'
-import { AuthField } from './AuthShell'
-import LandingShell from './LandingShell'
+import AuthShell, { AuthField } from './AuthShell'
 import { useAuthStore } from '../../stores/authStore'
 import { POLICY_VERSION } from '../../legal/version'
 import { SKOOL_ACCESS_CODE_URL, SKOOL_COMMUNITY_URL } from '../../utils/constants'
@@ -88,7 +87,7 @@ export default function AuthScreen() {
   }
 
   return (
-    <LandingShell subtitle={SUBTITLES[mode]}>
+    <AuthShell subtitle={SUBTITLES[mode]}>
       <form
         onSubmit={handleSubmit}
         className="space-y-3 rounded-xl border border-ink/10 bg-ink/[0.03] p-5 backdrop-blur-xl"
@@ -242,8 +241,25 @@ export default function AuthScreen() {
         )}
       </div>
 
+      {/* Access is gated by the Skool allowlist, so a non-member who finds
+          the URL can't sign up — send them to the community instead. */}
+      <div className="flex flex-col items-center gap-2">
+        <p className="text-center text-[11px] text-ink-600">
+          Access is limited to members of the Skool community.
+        </p>
+        <a
+          href={SKOOL_COMMUNITY_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1.5 rounded-full border border-ink/10 bg-ink/5 px-4 py-2 text-[12px] font-medium text-ink-200 transition-colors hover:border-ink/20 hover:bg-ink/10 hover:text-ink"
+        >
+          Join the community
+          <ExternalLink className="h-3 w-3" />
+        </a>
+      </div>
+
       {accessRevoked && <MembersOnlyModal onClose={clearAccessRevoked} />}
-    </LandingShell>
+    </AuthShell>
   )
 }
 
