@@ -4,7 +4,7 @@ import Spinner from './Spinner'
 import { useAppStore } from '../stores/appStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { dockOrderedApps, getAppConfig } from '../utils/constants'
-import { defaultCaption, getTeamMember } from '../utils/team'
+import { getTeamMember } from '../utils/team'
 import { useIsAppVisible } from '../stores/appVisibilityStore'
 import type { TeamMember } from '../utils/team'
 import AppGlassTile, { GlassTile } from './AppGlassTile'
@@ -40,6 +40,16 @@ import { useBackdropClose } from '../hooks/useBackdropClose'
 //      the screen won't pretend the crew is ready until it's filled.
 
 const SERIF = { fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }
+
+// Counted off the roster rather than written out, so adding a crew member can't
+// leave the headline claiming the old number (it said "Eight" for a day after
+// Outliers made nine). Counted at RENDER time, because a member who has
+// switched an optional app off is being introduced to one teammate fewer.
+const TEAM_COUNT_WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten']
+function defaultCaption(count: number): string {
+  const word = TEAM_COUNT_WORDS[count] ?? String(count)
+  return `${word[0].toUpperCase()}${word.slice(1)} teammates, one workspace, and everything they make lands in the shared Bank.`
+}
 
 export default function MeetTheTeam() {
   const open = useAppStore((s) => s.teamIntroOpen)
