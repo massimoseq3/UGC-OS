@@ -15,6 +15,16 @@ import { enqueueAnalysis, resumeAnalysis, retryAnalysis } from './services/analy
 import { useBankStore } from '../../stores/bankStore'
 import { useAppStore } from '../../stores/appStore'
 import { useReportActivity } from '../../stores/activityStore'
+import { isRecordingActive, replayWait, revealNext, useRecordingLoop, useRecordingLoopSince, useVisibleRows } from '../../stores/recordingStore'
+
+// Recording Mode: a row being "analyzed" on camera. The row is a finished one,
+// revealed at the press; this is what it looks like until the wait is over —
+// the file the member just dropped, playing under the scan.
+interface ReplayAnalysis {
+  sourceUrl: string
+  fileName: string
+  mediaKind: 'image' | 'video'
+}
 
 
 export default function AdAnatomy() {
@@ -23,7 +33,22 @@ export default function AdAnatomy() {
   // Phone-only: which of the two panes is on screen (ignored from md up).
   const [pane, setPane] = useState<'history' | 'result'>('result')
 
-  const adAnatomyHistory = useBankStore((s) => s.adAnatomyHistory)
+  const storedHistory = useBankStore((s) => s.adAnatomyHistory)
+  // Recording Mode hides the analyses that existed when it was armed; a replay
+  // brings them back one at a time, dressed as analyzing until its wait ends.
+  const visibleHistory = useVisibleRows(storedHistory, 'ad')
+  const [replays, setReplays] = useState<Record<string, ReplayAnalysis>>({})
+  const recordingLoop = useRecordingLoop()
+  const loopSince = useRecordingLoopSince()
+  const adAnatomyHistory = visibleHistory.map((row): AdAnatomyHistoryItem => {
+    const replay = replays[row.id]
+    if (replay) {
+      return { ...row, status: 'analyzing', compressing: false, fileName: replay.fileName, mediaKind: replay.mediaKind, uploadedRef: replay.sourceUrl }
+    }
+    // Loop holds the open analysis mid-scan for cutaway footage.
+    if (recordingLoop && row.id === selectedId) return { ...row, status: 'analyzing', compressing: false }
+    return row
+  })
 
   const activeApp = useAppStore((s) => s.activeApp)
   const interAppPayload = useAppStore((s) => s.interAppPayload)
@@ -125,9 +150,39 @@ export default function AdAnatomy() {
   // (and a try/finally here would make the React Compiler skip this component).
   const [preparing, setPreparing] = useState(false)
 
+  // Recording Mode: every dropped file takes the oldest hidden analysis and
+  // shows it scanning for the replay length. Nothing is stored, uploaded or
+  // sent — the object URL is the only thing made, and it is released after.
+  const replayAnalyses = (files: File[]) => {
+    let firstId: string | null = null
+    files.forEach((file, index) => {
+      const row = revealNext(useBankStore.getState().adAnatomyHistory, 'ad')
+      if (!row) return
+      if (firstId === null) firstId = row.id
+      const sourceUrl = URL.createObjectURL(file)
+      setReplays((prev) => ({
+        ...prev,
+        [row.id]: { sourceUrl, fileName: file.name, mediaKind: file.type.startsWith('image/') ? 'image' : 'video' },
+      }))
+      void replayWait(index * 700).then(() => {
+        setReplays((prev) => {
+          const next = { ...prev }
+          delete next[row.id]
+          return next
+        })
+        URL.revokeObjectURL(sourceUrl)
+      })
+    })
+    if (firstId) setSelectedId(firstId)
+  }
+
   const handleAnalyze = async (files: File[]) => {
     // On a phone only one pane is on screen — follow the run to the analysis.
     setPane('result')
+    if (isRecordingActive()) {
+      replayAnalyses(files)
+      return
+    }
     setPreparing(true)
     let firstId: string | null = null
     for (const file of files) {
@@ -180,6 +235,11 @@ export default function AdAnatomy() {
   const selected = selectedId
     ? adAnatomyHistory.find((h) => h.id === selectedId) ?? null
     : null
+  // Loop with nothing open still has to show a scan: an empty frame, named
+  // like a fresh upload.
+  const loopItem: AdAnatomyHistoryItem | null = recordingLoop && !selected
+    ? { id: 'replay-loop', createdAt: loopSince, status: 'analyzing', adTitle: '', fileName: '', mediaKind: 'video' }
+    : null
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -204,7 +264,9 @@ export default function AdAnatomy() {
         />
       </div>
       <div className={paneClass(pane === 'result', 'md:min-w-0 md:flex-1')}>
-        {!selected ? (
+        {loopItem ? (
+          <AnalyzingPane item={loopItem} />
+        ) : !selected ? (
           preparing ? <PreparingPane /> : <UploadView onAnalyze={handleAnalyze} />
         ) : selected.status === 'analyzing' ? (
           <AnalyzingPane item={selected} />
@@ -255,7 +317,7 @@ function PreparingPane() {
     <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
       <Spinner className="h-7 w-7 text-[#FF5257]/70" />
       <div className="flex flex-col items-center gap-1">
-        <h2 className="text-lg font-semibold tracking-tight text-ink-100">Getting your ad ready</h2>
+        <h2 className="text-lg font-semibold tracking-tight text-ink-100">Getting Your Ad Ready</h2>
         <p className="text-xs text-ink-500">Storing the clip before the analysis starts.</p>
       </div>
     </div>
@@ -289,7 +351,7 @@ function AnalyzingPane({ item }: { item: AdAnatomyHistoryItem }) {
     <div className="flex h-full flex-col items-center justify-center gap-6 px-6 py-8">
       <div className="flex flex-col items-center gap-1 text-center">
         <h2 className="text-xl font-semibold tracking-tight text-ink-100">
-          {item.compressing ? 'Compressing the ad’s file size' : 'Analyzing the ad'}
+          {item.compressing ? 'Compressing The Ad’s File Size' : 'Analyzing The Ad'}
         </h2>
       </div>
 
@@ -412,7 +474,7 @@ function ErrorPane({ item, onRetry }: { item: AdAnatomyHistoryItem; onRetry: () 
     <div className="flex h-full flex-col items-center justify-center gap-5 px-6">
       <AlertCircle className="h-10 w-10 text-[#FF5257]/70" strokeWidth={1.5} />
       <div className="flex flex-col items-center gap-2 text-center">
-        <h2 className="text-lg font-semibold tracking-tight text-ink-100">Analysis failed</h2>
+        <h2 className="text-lg font-semibold tracking-tight text-ink-100">Analysis Failed</h2>
         <p className="max-w-md text-xs text-ink-500">{item.fileName}</p>
       </div>
       <div className="max-w-md rounded-xl border border-[#FF5257]/20 bg-[#FF5257]/[0.06] px-4 py-3 text-center">

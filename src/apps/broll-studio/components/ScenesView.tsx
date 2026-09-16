@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Film, AlertCircle, Plus, Images, X, Palette, Download, Video as VideoIcon, Clapperboard, Coins, Pencil, Check, ChevronRight, ChevronDown, Sparkle } from 'lucide-react'
 import GenerationProgress from '../../../components/GenerationProgress'
@@ -22,7 +22,6 @@ import ModelPicker from '../../../components/ModelPicker'
 import ConstraintChip from '../../../components/ConstraintChip'
 import AspectIcon from '../../../components/AspectIcon'
 import VariationCard from './VariationCard'
-import CharacterPill from './CharacterPill'
 import { humanizeError } from '../../../utils/friendlyError'
 import ClipDownloadModal, { type ClipDownloadEntry } from '../../../components/ClipDownloadModal'
 import { useCloseOnAppSwitch } from '../../../hooks/useCloseOnAppSwitch'
@@ -30,6 +29,14 @@ import useCloseOnEscape from '../../../hooks/useCloseOnEscape'
 import AnchoredPopover from '../../../components/video/AnchoredPopover'
 import { MenuSurface, MenuItem, MENU_ROW_HEIGHT } from '../../../components/Menu'
 import { useBackdropClose } from '../../../hooks/useBackdropClose'
+import CharacterPill from './CharacterPill'
+import SegmentedToggle from '../../../components/SegmentedToggle'
+import { replayWait, useRecordingActive, useRecordingLoop, useRecordingLoopSince, useRecordingStore } from '../../../stores/recordingStore'
+import {
+  imageRevealKey, nextHiddenImage, nextHiddenVideo, putCard, REPLAY_ID_PREFIX, videoRevealKey, viewCard,
+  type CardFilter, type CardLens, type ReplayEntry,
+} from '../cardLens'
+import type { GeneratedImage, GeneratedVideo } from '../types'
 
 interface ScenesViewProps {
   result: BrollResult | null
@@ -68,6 +75,10 @@ interface ScenesViewProps {
   // In here the bar's own glass runs under it and the storyboard keeps its
   // full width. Outside the scroll port, so it can't be swiped away.
   railToggle?: React.ReactNode
+  // What the cards show: everything, or only their prompts / stills / clips
+  // (see cardLens.ts). The strip's toggle.
+  cardFilter?: CardFilter
+  onCardFilterChange?: (filter: CardFilter) => void
 }
 
 // Defaults for a bulk video run — deliberately the cheap tier. A batch here is
@@ -133,6 +144,78 @@ const columnsIn = (keys: string[]) =>
 // The still a card is currently showing — the user's pick if they made one,
 // otherwise the one on the card face. Used to resolve what the next dialogue
 // card chains from.
+// ─── Prompts Only / Recording Mode helpers (see cardLens.ts) ─────────────
+export type CardReplayKind = 'image' | 'video' | 'animate'
+
+const NO_REVEALS: Record<string, number> = {}
+
+const CARD_FILTER_OPTIONS: Array<{ value: CardFilter; label: string }> = [
+  { value: 'all', label: 'All' },
+  { value: 'prompts', label: 'Prompts' },
+  { value: 'images', label: 'Images' },
+  { value: 'videos', label: 'Videos' },
+]
+
+// One view object per persisted card for as long as neither the card nor the
+// lens inputs that touch it change — the rows are memo'd on it.
+const viewCache = new WeakMap<CardState, { key: string; filter: CardFilter; since: number; revealed: Record<string, number>; replays: ReplayEntry[] | undefined; view: CardState }>()
+function cachedView(key: string, card: CardState, lens: CardLens): CardState {
+  const replays = lens.replays[key]
+  const hit = viewCache.get(card)
+  if (hit && hit.key === key && hit.filter === lens.filter && hit.since === lens.since && hit.revealed === lens.revealed && hit.replays === replays) return hit.view
+  const view = viewCard(key, card, lens)
+  viewCache.set(card, { key, filter: lens.filter, since: lens.since, revealed: lens.revealed, replays, view })
+  return view
+}
+
+function viewOrSelf(key: string, card: CardState, lens: CardLens | null): CardState {
+  return lens ? cachedView(key, card, lens) : card
+}
+
+function mapOrNull<T, R>(value: T | null, fn: (v: T) => R): R | null {
+  return value === null ? null : fn(value)
+}
+
+// Loop's standing tile on every card: an image render that never lands.
+function loopReplayEntry(key: string, since: number): ReplayEntry {
+  return {
+    kind: 'image',
+    entry: { id: `${REPLAY_ID_PREFIX}loop-${key}`, taskId: null, modelId: null, startedAt: since, prompt: '', aspectRatio: '9:16', resolution: '1K' },
+  }
+}
+
+// A fake run's in-flight tile, shaped from the card's own settings so the
+// generating face reads exactly as a real run's would.
+function cardReplayEntry(kind: CardReplayKind, card: CardState | undefined): ReplayEntry {
+  const id = `${REPLAY_ID_PREFIX}${crypto.randomUUID()}`
+  const startedAt = Date.now()
+  if (kind === 'image') {
+    return {
+      kind: 'image',
+      entry: {
+        id, taskId: null, modelId: null, startedAt,
+        prompt: card?.editablePrompt ?? '',
+        aspectRatio: card?.cardImageAspectRatio ?? '9:16',
+        resolution: card?.cardImageResolution ?? '1K',
+      },
+    }
+  }
+  const settings = useSettingsStore.getState()
+  return {
+    kind: 'video',
+    entry: {
+      id, taskId: null, startedAt,
+      modelId: settings.getAppModel('broll-studio:video') ?? getDefaultModel('broll-studio', 'video')?.id ?? '',
+      prompt: (kind === 'animate' ? card?.animateMotion : card?.editablePrompt) ?? '',
+      mode: kind === 'animate' ? 'image-to-video' : 'text-to-video',
+      aspectRatio: card?.cardVideoAspectRatio ?? '9:16',
+      durationSeconds: card?.cardVideoDurationSeconds ?? 5,
+      resolution: card?.cardVideoResolution ?? '720p',
+      audio: card?.cardVideoAudio ?? false,
+    },
+  }
+}
+
 function coverImageRef(card?: CardState): string | undefined {
   if (!card || card.images.length === 0) return undefined
   const picked = card.selected?.kind === 'image' ? card.images[card.selected.index] : undefined
@@ -163,6 +246,8 @@ export default function ScenesView({
   cardStates,
   setCardStates,
   railToggle,
+  cardFilter = 'all',
+  onCardFilterChange,
 }: ScenesViewProps) {
   const handleUpdateCardState = useCallback((key: string, updates: Partial<CardState>) => {
     setCardStates((prev) => {
@@ -171,7 +256,10 @@ export default function ScenesView({
         const placeholder: PromptVariation = { id: key, tag: 'ACTION', label: '', refs: 'both', prompt: '' }
         return { ...prev, [key]: { ...createDefaultCardState(placeholder), ...updates } }
       }
-      return { ...prev, [key]: { ...existing, ...updates } }
+      // A write made through the Prompts Only view carries view-side arrays and
+      // indexes; map them onto the full card so nothing hidden is lost.
+      const lens = lensRef.current
+      return { ...prev, [key]: { ...existing, ...(lens ? putCard(key, existing, updates, lens) : updates) } }
     })
   }, [setCardStates])
 
@@ -188,6 +276,82 @@ export default function ScenesView({
     },
     [setCardStates],
   )
+
+  // ─── Card filter + Recording Mode ──────────────────────────────────────
+  // One lens over every card (cardLens.ts): the strip's filter, the media
+  // Recording Mode's Hide All covers and the takes its replays bring back,
+  // and the fake in-flight tiles those replays and Loop draw. Null when none
+  // of that is live, so a normal session renders the persisted cards untouched. Memoized by hand: this component is outside
+  // the compiler (the resume effect's eslint-disable), and the rows below are
+  // memo'd on their card objects.
+  const recordingActive = useRecordingActive()
+  const recordingLoop = useRecordingLoop()
+  const loopSince = useRecordingLoopSince()
+  const recordingRevealed = useRecordingStore((st) => st.revealed)
+  const recordingHiddenBefore = useRecordingStore((st) => st.hiddenBefore)
+  const hideSince = recordingActive && recordingHiddenBefore != null ? recordingHiddenBefore : null
+  const [replays, setReplays] = useState<Record<string, ReplayEntry[]>>({})
+  const allCardKeys = useMemo(
+    () => (result?.scenes ?? []).flatMap((sc) => sc.variations.map((_, i) => `${sc.number}-${i}`)),
+    [result],
+  )
+  const loopEntries = useMemo<Record<string, ReplayEntry[]>>(
+    () => (recordingLoop
+      ? Object.fromEntries(allCardKeys.map((k) => [k, [loopReplayEntry(k, loopSince)]]))
+      : {}),
+    [recordingLoop, allCardKeys, loopSince],
+  )
+  const lens = useMemo<CardLens | null>(() => {
+    if (cardFilter === 'all' && hideSince == null && !recordingLoop && Object.keys(replays).length === 0) return null
+    return {
+      filter: cardFilter,
+      since: hideSince ?? Number.NEGATIVE_INFINITY,
+      revealed: recordingActive ? recordingRevealed : NO_REVEALS,
+      // A card's own replays win over Loop's standing tile.
+      replays: recordingLoop ? { ...loopEntries, ...replays } : replays,
+    }
+  }, [cardFilter, hideSince, recordingLoop, replays, loopEntries, recordingActive, recordingRevealed])
+  const lensRef = useRef(lens)
+  useEffect(() => { lensRef.current = lens }, [lens])
+  const cardStatesRef = useRef(cardStates)
+  useEffect(() => { cardStatesRef.current = cardStates }, [cardStates])
+  // What every card, batch count and download list reads: the persisted
+  // cards seen through the lens. Unchanged cards keep their view object.
+  const shownCardStates = useMemo(() => {
+    if (!lens) return cardStates
+    const out: Record<string, CardState> = {}
+    for (const [k, card] of Object.entries(cardStates)) out[k] = cachedView(k, card, lens)
+    return out
+  }, [cardStates, lens])
+
+  // Recording Mode: a card "generates" for the replay length, then its hidden
+  // take comes back — the cover first. Nothing reaches kie. A batch fires every
+  // card at once, so each replay waits a little longer than the one before.
+  const replaysRunningRef = useRef(0)
+  const handleReplayCard = useCallback((key: string, kind: 'image' | 'video' | 'animate') => {
+    const stagger = replaysRunningRef.current * 300
+    replaysRunningRef.current += 1
+    const card = cardStatesRef.current[key]
+    const entry = cardReplayEntry(kind, card)
+    setReplays((prev) => ({ ...prev, [key]: [...(prev[key] ?? []), entry] }))
+    void replayWait(stagger).then(() => {
+      replaysRunningRef.current = Math.max(0, replaysRunningRef.current - 1)
+      setReplays((prev) => {
+        const rest = (prev[key] ?? []).filter((r) => r.entry.id !== entry.entry.id)
+        const next = { ...prev }
+        if (rest.length > 0) next[key] = rest
+        else delete next[key]
+        return next
+      })
+      const current = lensRef.current
+      const real = cardStatesRef.current[key]
+      if (!current || !real) return
+      const revealKey = kind === 'image'
+        ? mapOrNull(nextHiddenImage(key, real, current), (img: GeneratedImage) => imageRevealKey(key, img))
+        : mapOrNull(nextHiddenVideo(key, real, current, kind === 'animate'), (vid: GeneratedVideo) => videoRevealKey(key, vid))
+      if (revealKey) useRecordingStore.getState().reveal([revealKey])
+    })
+  }, [])
 
   // ─── Dialogue chain ────────────────────────────────────────────────────
   // In "Dialogue Clips" delivery each scene carries one talking-to-camera card,
@@ -261,7 +425,7 @@ export default function ScenesView({
   // Only cards with a prompt can generate — everything else is skipped
   // silently, here and in the target maths below.
   const promptReady = (key: string) => (cardStates[key]?.editablePrompt ?? '').trim().length > 0
-  const hasImage = (key: string) => (cardStates[key]?.images.length ?? 0) > 0
+  const hasImage = (key: string) => (shownCardStates[key]?.images.length ?? 0) > 0
 
   // The cards this press covers, narrowed to the picked option column.
   const batchColumns = batchConfirm?.columnar ? columnsIn(batchConfirm.keys) : []
@@ -415,7 +579,7 @@ export default function ScenesView({
         batchVideoModelId,
         { spoken: spokenByKey[key] ?? false },
       )
-  const hasVideo = (key: string) => (cardStates[key]?.videos.length ?? 0) > 0
+  const hasVideo = (key: string) => (shownCardStates[key]?.videos.length ?? 0) > 0
   // What makes a card eligible for this run: a still to animate, or (for a
   // plain video batch) just a prompt to render from.
   const videoEligible = videoConfirm?.stillsOnly ? hasImage : promptReady
@@ -431,7 +595,7 @@ export default function ScenesView({
   // How many of this run animate a still they already have. The rest render
   // from the prompt alone — worth saying out loud, since those cost the same
   // but come back as something the member hasn't seen a frame of.
-  const videoAnimateCount = videoTargets.filter((k) => (cardStates[k]?.images.length ?? 0) > 0).length
+  const videoAnimateCount = videoTargets.filter((k) => (shownCardStates[k]?.images.length ?? 0) > 0).length
   const videoSourceNote =
     // Redundant in a stills-only run: the title already says every clip comes
     // off a still.
@@ -780,7 +944,7 @@ export default function ScenesView({
   // otherwise.
   const allClipEntries: ClipDownloadEntry[] = result.scenes.flatMap((s) =>
     s.variations.flatMap((_, i) => {
-      const card = cardStates[`${s.number}-${i}`]
+      const card = shownCardStates[`${s.number}-${i}`]
       const vids = card?.videos ?? []
       const cover = Math.min(
         card?.selected?.kind === 'video' ? card.selected.index : card?.currentVideoIndex ?? 0,
@@ -910,6 +1074,20 @@ export default function ScenesView({
             <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-60" strokeWidth={2.5} />
           </button>
           <CharacterPill model={selectedModel} onClick={onOpenCharacterPicker} />
+          {/* What every card shows. Images keeps a card on its still while
+              the clip it animates into renders; a card with nothing of the
+              picked kind sits on its prompt. Nothing is hidden for good. */}
+          {onCardFilterChange && (
+            <SegmentedToggle
+              options={CARD_FILTER_OPTIONS}
+              value={cardFilter}
+              onChange={onCardFilterChange}
+              fitContent
+              dense
+              accent="broll"
+              className="h-[38px] shrink-0"
+            />
+          )}
           {/* Holds the two ends apart while there is room, and disappears the
               moment there isn't — `flex-1` contributes nothing to `w-max`. */}
           <span className="flex-1" aria-hidden />
@@ -932,7 +1110,7 @@ export default function ScenesView({
             type="button"
             onClick={() => setGenerateAllOpen((v) => !v)}
             title="Run a generation pass across every scene"
-            className="flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-broll-500/50 bg-broll-500/[0.24] px-3.5 text-[11px] font-medium text-broll-200 transition-colors hover:border-broll-500/65 hover:bg-broll-500/[0.32]"
+            className="flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-broll-500/50 bg-broll-500/[0.24] px-3.5 text-[12px] font-medium text-broll-200 transition-colors hover:border-broll-500/65 hover:bg-broll-500/[0.32]"
           >
             <Sparkle className="h-3.5 w-3.5" />
             <span>Generate All</span>
@@ -994,7 +1172,7 @@ export default function ScenesView({
               type="button"
               onClick={() => setDownloadOpen(true)}
               title="Pick which clips to download as a zip"
-              className="flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/[0.18] px-3.5 text-[11px] font-medium text-emerald-200 transition-colors light:text-emerald-700 hover:border-emerald-500/60 hover:bg-emerald-500/[0.26] hover:text-emerald-100 light:hover:text-emerald-800"
+              className="flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/[0.18] px-3.5 text-[12px] font-medium text-emerald-200 transition-colors light:text-emerald-700 hover:border-emerald-500/60 hover:bg-emerald-500/[0.26] hover:text-emerald-100 light:hover:text-emerald-800"
             >
               <Download className="h-3.5 w-3.5" />
               {/* One label at every width now. It carried a short `lg:hidden`
@@ -1041,7 +1219,9 @@ export default function ScenesView({
           <SceneSection
             key={scene.number}
             scene={scene}
-            cardStates={cardStates}
+            cardStates={shownCardStates}
+            cardLens={lens}
+            onReplayCard={recordingActive ? handleReplayCard : undefined}
             onUpdateCardState={handleUpdateCardState}
             onUpdateCardStateFn={handleUpdateCardStateFn}
             onAddVariation={onAddVariation}
@@ -1461,6 +1641,7 @@ const VariationCardRow = memo(function VariationCardRow({
   generateVideoToken,
   batchVideoOverride,
   chainImageRef,
+  onReplayCard,
   resultStyle,
   resultRealism,
   resultVoiceProfile,
@@ -1492,6 +1673,7 @@ const VariationCardRow = memo(function VariationCardRow({
   generateVideoToken?: number
   batchVideoOverride?: BatchVideoSettings | null
   chainImageRef?: string
+  onReplayCard?: (key: string, kind: CardReplayKind) => void
   resultStyle?: string
   resultRealism?: boolean
   resultVoiceProfile?: string
@@ -1510,6 +1692,10 @@ const VariationCardRow = memo(function VariationCardRow({
     () => onDeleteVariation(sceneNumber, variationId),
     [onDeleteVariation, sceneNumber, variationId],
   )
+  const onReplay = useMemo(
+    () => (onReplayCard ? (kind: CardReplayKind) => onReplayCard(cardKey, kind) : undefined),
+    [onReplayCard, cardKey],
+  )
   return (
     <VariationCard
       sceneNumber={sceneNumber}
@@ -1519,6 +1705,7 @@ const VariationCardRow = memo(function VariationCardRow({
       onUpdateState={onUpdateState}
       onUpdateStateFn={onUpdateStateFn}
       onDelete={onDelete}
+      onReplay={onReplay}
       characterRef={characterRef}
       productRef={productRef}
       productPhotos={productPhotos}
@@ -1636,6 +1823,8 @@ function SceneLineEditModal({
 function SceneSection({
   scene,
   cardStates,
+  cardLens,
+  onReplayCard,
   onUpdateCardState,
   onUpdateCardStateFn,
   onAddVariation,
@@ -1668,6 +1857,8 @@ function SceneSection({
 }: {
   scene: Scene
   cardStates: Record<string, CardState>
+  cardLens: CardLens | null
+  onReplayCard?: (key: string, kind: CardReplayKind) => void
   onUpdateCardState: (key: string, updates: Partial<CardState>) => void
   onUpdateCardStateFn: (key: string, updater: (prev: CardState) => Partial<CardState>) => void
   onAddVariation: (sceneNumber: number, variation: PromptVariation) => void
@@ -1816,7 +2007,7 @@ function SceneSection({
         <div className={`grid grid-cols-2 gap-3 @[560px]:grid-cols-3 @[840px]:grid-cols-4 ${scene.variations.length >= 4 ? '@[1040px]:grid-cols-5' : ''}`}>
           {scene.variations.map((variation, i) => {
             const key = `${scene.number}-${i}`
-            const state = cardStates[key] ?? createDefaultCardState(variation, scene.scriptLine)
+            const state = cardStates[key] ?? viewOrSelf(key, createDefaultCardState(variation, scene.scriptLine), cardLens)
             return (
               <VariationCardRow
                 key={variation.id}
@@ -1846,6 +2037,7 @@ function SceneSection({
                 generateVideoToken={videoTokens[key]}
                 batchVideoOverride={batchVideoOverride}
                 chainImageRef={dialogueChainRefs[key]}
+                onReplayCard={onReplayCard}
                 resultStyle={resultStyle}
                 resultRealism={resultRealism}
                 resultVoiceProfile={resultVoiceProfile}

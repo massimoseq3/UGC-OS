@@ -14,6 +14,7 @@ import { humanizeError } from '../../utils/friendlyError'
 import { WRITE_STYLE_META, HOOK_CATEGORY_META, detectSceneBlueprint, isWriteStyle, isWriteFormat, isWriteLength, isRemixLength, isHookCategoryChoice, isHookCount, isVariationCount, parseHooks, DEFAULT_VARIATION_COUNT, DEFAULT_HOOK_COUNT, DEFAULT_REMIX_LENGTH, type ScriptMode, type ScriptUiMode, type EditableProductContext, type WriteStyle, type WriteFormat, type WriteLength, type RemixLength, type HookCategoryChoice, type HookCount, type VariationCount, type RemixAngle, type PendingScriptRun } from './types'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
 import { useHistoryRailOpen } from '../../hooks/useHistoryRailOpen'
+import { isRecordingActive, replayRun, useRecordingLoop, useRecordingLoopSince, useVisibleRows } from '../../stores/recordingStore'
 
 interface ReverseEngineerPayload {
   fullPrompt?: string
@@ -158,14 +159,19 @@ export default function ScriptArchitect() {
   const [highlightField, setHighlightField] = useState<string | null>(null)
 
   // Pulse the dock dot while any script is being written.
-  useReportActivity('script-architect', pendingRuns.length > 0)
+  // Recording Mode's Loop holds a run mid-write; the dock says so too.
+  const recordingLoop = useRecordingLoop()
+  useReportActivity('script-architect', pendingRuns.length > 0 || recordingLoop)
 
   const interAppPayload = useAppStore((s) => s.interAppPayload)
   const consumePayload = useAppStore((s) => s.consumePayload)
   const activeApp = useAppStore((s) => s.activeApp)
   const getProductById = useBankStore((s) => s.getProductById)
   const products = useBankStore((s) => s.products)
-  const scriptHistory = useBankStore((s) => s.scriptHistory)
+  // Recording Mode hides the runs that existed when it was armed; a replay
+  // brings them back one at a time.
+  const scriptHistory = useVisibleRows(useBankStore((s) => s.scriptHistory), 'script')
+  const loopSince = useRecordingLoopSince()
   const addScriptHistory = useBankStore((s) => s.addScriptHistory)
   const deleteScriptHistory = useBankStore((s) => s.deleteScriptHistory)
 
@@ -186,7 +192,24 @@ export default function ScriptArchitect() {
   // The Output pane is a slot addressed by id, so "is it watching something
   // write?" is a lookup, not a flag. Non-null is the one state that draws the
   // writing face.
-  const watchedRun = pendingRuns.find((r) => r.id === activeHistoryId) ?? null
+  // Recording Mode's Loop parks the pane on a run that never lands, built from
+  // the inputs on screen, and lists it in History like any other.
+  const loopRun: PendingScriptRun | null = recordingLoop
+    ? {
+        id: 'replay-loop',
+        mode: resolvedMode,
+        writeStyle,
+        writeFormat,
+        hookCategory,
+        hookCount,
+        variationCount,
+        productName: selectedProduct?.productName,
+        inputSummary: (mode === 'write' ? brief : source).slice(0, 200),
+        startedAt: loopSince,
+      }
+    : null
+  const shownRuns = loopRun ? [loopRun, ...pendingRuns] : pendingRuns
+  const watchedRun = loopRun ?? pendingRuns.find((r) => r.id === activeHistoryId) ?? null
   const outputSig = `${activeHistoryId ?? ''}|${variations.length}|${(variations[0] ?? '').slice(0, 64)}`
   const cleared = !watchedRun && variations.length > 0 && clearedSig === outputSig
 
@@ -285,6 +308,10 @@ export default function ScriptArchitect() {
     // On a phone only one pane is on screen — follow the run to the takes.
     setPane('output')
     showRunEmpty(run)
+    if (isRecordingActive()) {
+      await replayScriptRun(run)
+      return
+    }
     // Route the merged source into the field the resolved pipeline reads.
     const winningTranscript = resolvedMode === 'remix' ? source : ''
     const reversePrompt = resolvedMode === 'reverse-engineer' ? source : ''
@@ -372,18 +399,10 @@ export default function ScriptArchitect() {
     }
   }
 
-  const handleSelectHistory = (item: ScriptHistoryItem) => {
-    // The pane is on finished work now, so a run that lands may take it back.
-    watchedRunIdRef.current = null
-    // A click in History is a request to SEE that run, so it always uncovers
-    // the canvas — including when the run picked is the one that was cleared,
-    // which the signature alone reads as "still the thing I cleared" and left
-    // blank. That was reported as history rows not opening at all.
-    setClearedSig(null)
-    // Where the rail stands in front of the takes, picking a run is a request
-    // to read it — so it hands the pane back. Beside them it stays open.
-    if (!railIsColumn) setHistoryOpen(false)
-    setMode(item.mode === 'write' ? 'write' : 'remix')
+  // Put a finished row's takes in the Output pane, labelled as that row. The
+  // output half of opening a History row, shared with Recording Mode's replay,
+  // which must not touch the inputs the member is typing on camera.
+  const showRowOutput = (item: ScriptHistoryItem) => {
     setVariations(item.variations)
     setActiveHistoryId(item.id)
     setError(null)
@@ -399,6 +418,40 @@ export default function ScriptArchitect() {
     // Rows saved before the voice brief existed carry none, and so do runs
     // whose profile call failed — both restore to no card.
     setOutputVoiceProfile(item.voiceProfile ?? '')
+  }
+
+  // Recording Mode: the run writes for the replay length, then the oldest
+  // hidden row lands in its place — same landing guard as a real run. Nothing
+  // reaches kie or the bank.
+  const replayScriptRun = async (run: PendingScriptRun) => {
+    const row = await replayRun({ rows: () => useBankStore.getState().scriptHistory, prefix: 'script' })
+    setPendingRuns((prev) => prev.filter((r) => r.id !== run.id))
+    const watchingAnotherRun = watchedRunIdRef.current !== null && watchedRunIdRef.current !== run.id
+    if (watchedRunIdRef.current === run.id) watchedRunIdRef.current = null
+    if (!row) return
+    if (!watchingAnotherRun) showRowOutput(row)
+    const n = row.variations.length
+    useAppStore.getState().addToast(
+      row.mode === 'write'
+        ? (row.writeFormat === 'hooks' ? 'Your hooks generated' : row.writeFormat === 'scenes' ? `${n} scene drafts generated` : `${n} scripts generated`)
+        : row.mode === 'remix' ? `${n} script variations generated` : 'Script rewritten',
+      'success',
+    )
+  }
+
+  const handleSelectHistory = (item: ScriptHistoryItem) => {
+    // The pane is on finished work now, so a run that lands may take it back.
+    watchedRunIdRef.current = null
+    // A click in History is a request to SEE that run, so it always uncovers
+    // the canvas — including when the run picked is the one that was cleared,
+    // which the signature alone reads as "still the thing I cleared" and left
+    // blank. That was reported as history rows not opening at all.
+    setClearedSig(null)
+    // Where the rail stands in front of the takes, picking a run is a request
+    // to read it — so it hands the pane back. Beside them it stays open.
+    if (!railIsColumn) setHistoryOpen(false)
+    setMode(item.mode === 'write' ? 'write' : 'remix')
+    showRowOutput(item)
     if (isVariationCount(item.variationCount)) setVariationCount(item.variationCount)
     // Rows saved before Remix had a length carry none — they keep the current
     // pick rather than snapping to 'default'.
@@ -541,7 +594,7 @@ export default function ScriptArchitect() {
           cleared={cleared}
           onClearCanvas={handleNewScript}
           history={scriptHistory}
-          pendingRuns={pendingRuns}
+          pendingRuns={shownRuns}
           onSelectHistory={handleSelectHistory}
           onWatchPending={handleWatchPending}
           onDeleteHistory={handleDeleteHistory}

@@ -54,6 +54,7 @@ These load only under their own folder, and several of their rules govern code e
 Five transports: async task (`createTask` → `pollTask` → `parseResult`), chat completions (streaming SSE), Veo, Suno, synchronous omni creates. Detail in `src/utils/CLAUDE.md`. The rules a new call site breaks by accident:
 
 - **Every call that CREATES a generation goes through `submitToKie`** (`utils/kieSubmitGate.ts`). kie 429s past ~20 new requests per 10s and a rejected one never happens. Polling, uploads and chat are outside the gate.
+- **Every Generate press branches on `isRecordingActive()` before it creates anything** (`stores/recordingStore.ts`). Recording Mode promises the operator that Generate spends nothing; a new generate path that skips the check bills real credits on camera. Its fakes never touch persisted in-flight state (resume would poll them), and hiding is a view filter (`useVisibleRows`), never a row removal (the orphan sweep would delete the assets).
 - **Every response body is read on a deadline.** `fetch()` settles at the headers. Use `fetchWithRetry`, and `fetchGeneratedAsset` for every result download. A bare `fetch` to kie opts out of all of it.
 - **A chat response cut off at the token limit throws `TruncatedResponseError`** on every transport. `xmlBlocks.ts` tolerates a missing close tag, so a truncated answer would otherwise fire paid gens against half a storyboard.
 - **A chat error arrives inside an HTTP 200.** Read kie's `{ code, msg }` envelope before the content. Maintenance windows return `{ code: 5xx }` in a 200.

@@ -64,6 +64,21 @@ import { copyToClipboard } from '../../../utils/clipboard'
 import type { ContinuousStoryboardOp } from '../continuousEdits'
 import { useBackdropClose } from '../../../hooks/useBackdropClose'
 import CharacterPill from './CharacterPill'
+import { isRecordingActive } from '../../../stores/recordingStore'
+
+// Recording Mode replays Line-by-Line only. Continuous has no replay, so while
+// the mode is on its generations refuse rather than spend — the mode's whole
+// promise is that a Generate press costs nothing. One toast per batch, not one
+// per frame.
+let lastRecordingNotice = 0
+function recordingBlocksContinuous(): boolean {
+  if (!isRecordingActive()) return false
+  if (Date.now() - lastRecordingNotice > 3000) {
+    lastRecordingNotice = Date.now()
+    useAppStore.getState().addToast('Recording Mode can’t replay Continuous generations yet, so nothing was generated.', 'info')
+  }
+  return true
+}
 
 // Every clip is silent narration-wise — the voiceover and music land in the
 // edit. Appended to the motion prompt at fire time so hand-edits can't drop it.
@@ -437,6 +452,7 @@ export default function ContinuousView({
       : undefined
     const promptText = buildContinuousPrompt(card.editablePrompt, result.style)
 
+    if (recordingBlocksContinuous()) return null
     const inFlightId = crypto.randomUUID()
     updateFrame(key, (prev) => ({
       inFlightImages: [
@@ -646,6 +662,7 @@ export default function ContinuousView({
 
     const promptText = buildContinuousPrompt(`${clipCard.editablePrompt.trim()}\n\n${CLIP_AUDIO_RULE}`, result.style)
 
+    if (recordingBlocksContinuous()) return
     const inFlightId = crypto.randomUUID()
     updateClip(key, (prev) => ({
       inFlightVideos: [
@@ -784,6 +801,7 @@ export default function ContinuousView({
       : frameCard.aspectRatio
     const promptText = buildContinuousPrompt(`${motion}\n\n${CLIP_AUDIO_RULE}`, result.style)
 
+    if (recordingBlocksContinuous()) return
     const inFlightId = crypto.randomUUID()
     updateFrame(frameKey, (prev) => ({
       inFlightVideos: [
@@ -1292,7 +1310,7 @@ export default function ContinuousView({
             // card rendering on its own doesn't, so the two can overlap.
             disabled={chainRunning}
             title="Generate a keyframe image for every frame that doesn't have one yet"
-            className="flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-broll-500/30 bg-broll-500/[0.12] px-3.5 text-[11px] font-medium text-broll-300 transition-colors hover:border-broll-500/45 hover:bg-broll-500/[0.18] disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-broll-500/30 bg-broll-500/[0.12] px-3.5 text-[12px] font-medium text-broll-300 transition-colors hover:border-broll-500/45 hover:bg-broll-500/[0.18] disabled:cursor-not-allowed disabled:opacity-40"
           >
             {chainRunning ? <Spinner className="h-3.5 w-3.5" /> : <ImageIcon className="h-3.5 w-3.5" />}
             {chainRunning
@@ -1306,7 +1324,7 @@ export default function ContinuousView({
             // stop the member firing the rest.
             disabled={readyClipIndices.length === 0}
             title="Generate every clip whose two keyframes are picked"
-            className="flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-broll-500/50 bg-broll-500/[0.24] px-3.5 text-[11px] font-medium text-broll-200 transition-colors hover:border-broll-500/65 hover:bg-broll-500/[0.32] disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-broll-500/50 bg-broll-500/[0.24] px-3.5 text-[12px] font-medium text-broll-200 transition-colors hover:border-broll-500/65 hover:bg-broll-500/[0.32] disabled:cursor-not-allowed disabled:opacity-40"
           >
             <VideoIcon className="h-3.5 w-3.5" />
             Generate All Videos
@@ -1316,7 +1334,7 @@ export default function ContinuousView({
               type="button"
               onClick={() => setDownloadOpen(true)}
               title="Pick which clips to download as a zip"
-              className="flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/[0.18] px-3.5 text-[11px] font-medium text-emerald-200 transition-colors light:text-emerald-700 hover:border-emerald-500/60 hover:bg-emerald-500/[0.26] hover:text-emerald-100 light:hover:text-emerald-800"
+              className="flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/[0.18] px-3.5 text-[12px] font-medium text-emerald-200 transition-colors light:text-emerald-700 hover:border-emerald-500/60 hover:bg-emerald-500/[0.26] hover:text-emerald-100 light:hover:text-emerald-800"
             >
               <Download className="h-3.5 w-3.5" />
               {/* Count in its own green pill, matching the Line-by-Line

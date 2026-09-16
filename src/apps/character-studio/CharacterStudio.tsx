@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useState } from 'react'
+import { useEffect, useRef, useCallback, useMemo, useState } from 'react'
 import { Dna, Images, SlidersHorizontal } from 'lucide-react'
 import { useAppStore } from '../../stores/appStore'
 import { useReportActivity } from '../../stores/activityStore'
@@ -19,6 +19,7 @@ import { startCharacterTask, startCharacterEditTask, finishCharacterTask, type G
 import { humanizeError } from '../../utils/friendlyError'
 import { useReferenceLibrary } from './useReferenceLibrary'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
+import { isRecordingActive, replayWait, revealNext, useRecordingLoop, useRecordingLoopSince } from '../../stores/recordingStore'
 
 // In-flight character generations older than 30 min are evicted on resume —
 // matches the cap used by Playground so the user's mental model is uniform.
@@ -86,6 +87,13 @@ export default function CharacterStudio() {
   // tab left overnight) are evicted on resume so the gallery doesn't stay
   // stuck on a phantom spinner.
   const [inFlight, setInFlight] = usePersistedState<InFlightCharacterGen[]>(`${baseKey}:in-flight`, [])
+  // Recording Mode's fake generations (stores/recordingStore). Plain state,
+  // never persisted: the resume pass below toasts about every un-started
+  // entry it finds, and a fake one never starts.
+  const [replayInFlight, setReplayInFlight] = useState<InFlightCharacterGen[]>([])
+  const recordingLoop = useRecordingLoop()
+  const loopSince = useRecordingLoopSince()
+  const loopModelId = useSettingsStore((s) => s.getAppModel('character-studio:image:text-to-image'))
   const [error, setError] = useState<string | null>(null)
   // Phone-only: which of the two panes is on screen (ignored from md up).
   const [pane, setPane] = useState<'controls' | 'gallery'>('controls')
@@ -110,7 +118,7 @@ export default function CharacterStudio() {
     : (activeRef?.thumb || null)
 
   // Pulse the dock dot while portraits/sheets generate or DNA extraction runs.
-  useReportActivity('character-studio', inFlight.length > 0 || analyzingCount > 0)
+  useReportActivity('character-studio', inFlight.length > 0 || replayInFlight.length > 0 || analyzingCount > 0)
   const [overlayActive, setOverlayActive] = useState(false)
 
   // Abort controllers keyed by gen id so per-tile Cancel can target one job.
@@ -273,6 +281,36 @@ export default function CharacterStudio() {
       ?? getDefaultModel('character-studio', 'image', 'text-to-image')?.id
       ?? 'unknown'
 
+    // Recording Mode: the tile renders for the replay length, then the oldest
+    // hidden character comes back. Nothing reaches kie. Cancel still works —
+    // the controller is registered like a real gen's.
+    if (isRecordingActive()) {
+      const fakeId = `replay-${crypto.randomUUID()}`
+      const fakeController = new AbortController()
+      abortersRef.current.set(fakeId, fakeController)
+      setReplayInFlight((prev) => [...prev, {
+        id: fakeId,
+        modelId: configuredModel,
+        aspectRatio: opts.aspect,
+        startedAt: Date.now(),
+        resolution: opts.resolution,
+        kind: opts.kind,
+        lineageId: opts.lineageId,
+        batchId: opts.batchId,
+        batchIndex: opts.batchIndex,
+      }])
+      await replayWait((opts.batchIndex ?? 0) * 700)
+      abortersRef.current.delete(fakeId)
+      setReplayInFlight((prev) => prev.filter((g) => g.id !== fakeId))
+      if (fakeController.signal.aborted) return
+      const row = revealNext(useBankStore.getState().characterHistory, 'character')
+      if (row) {
+        const label = opts.kind === 'sheet' ? 'Character sheet generated' : opts.lineageId ? 'Edit generated' : 'Character generated'
+        useAppStore.getState().addToast(label, 'success')
+      }
+      return
+    }
+
     const id = crypto.randomUUID()
     const controller = new AbortController()
     abortersRef.current.set(id, controller)
@@ -368,8 +406,29 @@ export default function CharacterStudio() {
     // Cancelling drops the entry even if the kie task itself can't be cancelled
     // server-side — the user has signalled they don't want this one.
     setInFlight((prev) => prev.filter((g) => g.id !== id))
+    setReplayInFlight((prev) => prev.filter((g) => g.id !== id))
     abortersRef.current.delete(id)
   }, [setInFlight])
+
+  // What the gallery draws as rendering: real gens, Recording Mode's fakes, and
+  // Loop's standing tile (built from the form on screen). Memoized because the
+  // gallery is, and it sits beside a 28-field form.
+  const loopKind: GenerationKind = sheetMode ? 'sheet' : 'portrait'
+  const loopAspect = sheetMode ? sheetAspect : (profile.aspectRatio || '9:16')
+  const shownInFlight = useMemo<InFlightCharacterGen[]>(() => {
+    const rows = [...inFlight, ...replayInFlight]
+    if (recordingLoop && rows.length === 0) {
+      rows.push({
+        id: 'replay-loop',
+        modelId: loopModelId ?? getDefaultModel('character-studio', 'image', 'text-to-image')?.id ?? 'unknown',
+        aspectRatio: loopAspect,
+        startedAt: loopSince,
+        resolution,
+        kind: loopKind,
+      })
+    }
+    return rows
+  }, [inFlight, replayInFlight, recordingLoop, loopModelId, loopAspect, loopSince, resolution, loopKind])
 
   const handleLaunchGen = useCallback((opts: LaunchGenOptions) => { void launchGen(opts) }, [launchGen])
 
@@ -450,14 +509,14 @@ export default function CharacterStudio() {
           onSheetModeChange={setSheetMode}
           batchCount={batchCount}
           onBatchCountChange={setBatchCount}
-          inFlightCount={inFlight.length}
+          inFlightCount={shownInFlight.length}
         />
       </div>
 
       {/* Gallery panel — 50% on desktop */}
       <div className={paneClass(pane === 'gallery', 'md:w-1/2 md:overflow-hidden')}>
         <GalleryPanel
-          inFlight={inFlight}
+          inFlight={shownInFlight}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
           onCancelGen={handleCancelGen}

@@ -14,7 +14,6 @@ import {
   Quote,
   Type,
   Camera,
-  CopyPlus,
 } from 'lucide-react'
 import type {
   AnalysisResult,
@@ -126,26 +125,6 @@ function CardHeader({ icon: Icon, title, accentClass = 'text-[#FF5257]/80', acti
       </span>
       <div className="flex min-w-0 items-center justify-end gap-1">{action}</div>
     </div>
-  )
-}
-
-// The card's headline action, on the title's own line so it is the first thing
-// seen rather than the last thing scrolled to. Same Scripts tint and
-// `text-scripts-text` label as the send button in `ScriptActionRow` (a 400
-// label on that navy reads as disabled). The label drops below `md`, like
-// `MiniButton`: a title and a worded pill don't share a 375px line.
-function HeaderPill({ onClick, icon: Icon, label }: { onClick: () => void; icon: React.ElementType; label: string }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={label}
-      aria-label={label}
-      className="flex shrink-0 items-center gap-1.5 rounded-full border border-scripts-500/20 bg-scripts-500/10 text-[11px] font-medium tracking-tight text-scripts-text transition-colors hover:bg-scripts-500/20 max-md:h-7 max-md:w-7 max-md:justify-center md:px-2.5 md:py-1"
-    >
-      <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
-      <span className="max-md:hidden">{label}</span>
-    </button>
   )
 }
 
@@ -290,7 +269,6 @@ function TranscriptSection({ result, fileName }: { result: AnalysisResult; fileN
         title="Transcript"
         action={
           <>
-          <HeaderPill onClick={handleSendToScripts} icon={PenLine} label="Remix for Your Product" />
           <button
             onClick={() => copy(withoutTimestamps)}
             className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-300"
@@ -311,7 +289,7 @@ function TranscriptSection({ result, fileName }: { result: AnalysisResult; fileN
         ))}
       </div>
 
-      <ScriptActionRow onSave={handleSaveToBank} onSend={handleSendToScripts} sendLabel="Remix for Your Product" />
+      <ScriptActionRow onSave={handleSaveToBank} onSend={handleSendToScripts} sendLabel="Remix For Your Product" />
     </Section>
   )
 }
@@ -675,7 +653,6 @@ function ReverseEngineeredSection({ result, fileName }: { result: AnalysisResult
           // when the copy IS one prompt — with a master block in front of it,
           // or several scenes, it's the whole set.
           <>
-          <HeaderPill onClick={handleSendToScripts} icon={CopyPlus} label="Clone This Ad" />
           <button
             onClick={() => copy(fullPrompt)}
             title={copyLabel}
@@ -720,7 +697,7 @@ function ReverseEngineeredSection({ result, fileName }: { result: AnalysisResult
       <ScriptActionRow
         onSave={handleSaveToBank}
         onSend={handleSendToScripts}
-        sendLabel="Clone For Your Own Product"
+        sendLabel="Clone For Your Product"
       />
     </Section>
   )
@@ -729,8 +706,10 @@ function ReverseEngineeredSection({ result, fileName }: { result: AnalysisResult
 // Shared bottom action row for the Transcript + Scenes sections — the larger,
 // Scripts-styled "Save to Script Bank" (neutral) + remix (scripts accent, with
 // a trailing arrow) buttons, matching the Scripts app. `sendLabel` is the
-// card's handoff ("Remix for Your Product" / "Clone For Your Own Product" —
-// the Scenes pill says "Clone This Ad"): both land in Scripts' Remix box.
+// card's handoff ("Remix For Your Product" / "Clone For Your Product"):
+// both land in Scripts' Remix box. It is the only handoff on either card — the
+// same action as a pill beside each heading came out (September 2026,
+// Massimo's call); twice per card was once too many.
 // The label uses `text-scripts-text`, not `text-scripts-400`: the scripts
 // accent is a dark navy, so a 400 label on its own tint reads as disabled.
 function ScriptActionRow({ onSave, onSend, sendLabel }: { onSave: () => void; onSend: () => void; sendLabel: string }) {

@@ -24,12 +24,22 @@ import BottomPlayer from './components/BottomPlayer'
 import BankPicker from '../../components/BankPicker'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
 import { useHistoryRailOpen } from '../../hooks/useHistoryRailOpen'
+import { isRecordingActive, replayRun, useRecordingLoop, useVisibleRows } from '../../stores/recordingStore'
 
 // Persisted in-flight TTS tasks. Survive a refresh so the user doesn't lose
 // a gen (and the kie credit) when the tab reloads mid-generation. Stale
 // entries (>30 min) are evicted on resume — matches the cap used by other
 // apps so behaviour is uniform. Plural: several voiceovers render at once,
 // like every other generation surface in the app.
+// A pending row in the History rail — the shape the rail draws from, and the
+// whole of a Recording Mode fake read.
+interface ReplayVoice {
+  id: string
+  voiceId: string
+  voiceName: string
+  scriptPreview: string
+}
+
 interface InFlightVoice {
   id: string
   taskId: string
@@ -93,7 +103,12 @@ export default function VoiceStudio() {
   // Clicks that have fired but whose kie taskId hasn't come back yet — they'd
   // otherwise leave the progress bar dark for the first second of a gen.
   const [startingCount, setStartingCount] = useState(0)
-  const isGenerating = startingCount + inFlightVoices.length > 0
+  // Recording Mode's fake reads (stores/recordingStore). Plain state, never
+  // persisted: the mount-time resume below polls every persisted entry, and a
+  // fake one has no kie task to poll.
+  const [replayVoices, setReplayVoices] = useState<ReplayVoice[]>([])
+  const recordingLoop = useRecordingLoop()
+  const isGenerating = startingCount + inFlightVoices.length + replayVoices.length > 0 || recordingLoop
   const [isEnhancing, setIsEnhancing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [scriptPickerOpen, setScriptPickerOpen] = useState(false)
@@ -125,7 +140,9 @@ export default function VoiceStudio() {
   // default; the stored answer, once there is one, is the member's.
   const [historyOpen, setHistoryOpen] = useHistoryRailOpen(`${baseKey}:historyRail`)
 
-  const history = useBankStore((s) => s.voiceHistory)
+  // Recording Mode hides the reads that existed when it was armed; a replay
+  // brings them back one at a time.
+  const history = useVisibleRows(useBankStore((s) => s.voiceHistory), 'voice')
   const activePlayerItem = useMemo<VoiceHistoryItem | null>(
     () => (activePlayerItemId ? history.find((h) => h.id === activePlayerItemId) ?? null : null),
     [activePlayerItemId, history],
@@ -206,7 +223,11 @@ export default function VoiceStudio() {
   // One read. A batch fires several of these at once — each is its own kie
   // task, its own in-flight entry and its own history row, exactly as pressing
   // Generate repeatedly has always produced.
-  const runOneVoice = async () => {
+  const runOneVoice = async (index: number) => {
+    if (isRecordingActive()) {
+      await replayOneVoice(index)
+      return
+    }
     // No single-slot guard — a second click queues another voiceover alongside
     // the first, and each lands in history on its own.
     setStartingCount((c) => c + 1)
@@ -241,10 +262,33 @@ export default function VoiceStudio() {
     await finishVoice(entry)
   }
 
+  // Recording Mode: the read's pending row, the wait, then the oldest hidden
+  // read comes back as if it had just landed. Nothing reaches kie or the bank.
+  // A batch staggers its siblings so they don't all land on one frame.
+  const replayOneVoice = async (index: number) => {
+    const fake: ReplayVoice = {
+      id: `replay-${crypto.randomUUID()}`,
+      voiceId: settings.voiceId,
+      voiceName: settings.voiceName,
+      scriptPreview: scriptText.trim().slice(0, 140),
+    }
+    setReplayVoices((prev) => [...prev, fake])
+    const row = await replayRun({
+      rows: () => useBankStore.getState().voiceHistory,
+      prefix: 'voice',
+      extraMs: index * 700,
+    })
+    setReplayVoices((prev) => prev.filter((f) => f.id !== fake.id))
+    if (row) {
+      setActivePlayerItem(row)
+      useAppStore.getState().addToast('Voiceover generated', 'success')
+    }
+  }
+
   const handleGenerate = () => {
     if (!scriptText.trim()) return
     const count = clampBatchCount(batchCount, VOICE_BATCH_MAX)
-    for (let i = 0; i < count; i++) void runOneVoice()
+    for (let i = 0; i < count; i++) void runOneVoice(i)
     // Show the reads. Generate now sits in the settings pane, which on a
     // phone is the ONLY pane on screen, so without the pane flip a press looks
     // like nothing happened at all; History is where the queue reports itself
@@ -280,16 +324,23 @@ export default function VoiceStudio() {
   // Queue rows for the History tab. Each carries the settings snapshot it was
   // fired with, so a pending row names the right voice even after the picker has
   // moved on.
-  const pendingVoices = useMemo(
-    () =>
-      inFlightVoices.map((e) => ({
+  const pendingVoices = useMemo(() => {
+    const rows: ReplayVoice[] = [
+      ...inFlightVoices.map((e) => ({
         id: e.id,
         voiceId: e.settings.voiceId,
         voiceName: e.settings.voiceName,
         scriptPreview: e.scriptText.trim().slice(0, 140),
       })),
-    [inFlightVoices],
-  )
+      ...replayVoices,
+    ]
+    // Loop keeps one read in progress for cutaway footage, named after the
+    // voice on screen.
+    if (recordingLoop && rows.length === 0) {
+      rows.push({ id: 'replay-loop', voiceId: settings.voiceId, voiceName: settings.voiceName, scriptPreview: scriptText.trim().slice(0, 140) })
+    }
+    return rows
+  }, [inFlightVoices, replayVoices, recordingLoop, settings.voiceId, settings.voiceName, scriptText])
 
   const handleDeleteHistoryItem = (id: string) => {
     deleteVoiceHistory(id)

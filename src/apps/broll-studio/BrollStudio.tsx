@@ -44,6 +44,8 @@ import { humanizeError } from '../../utils/friendlyError'
 import { fileToDataUri } from '../../utils/kie'
 import { getAsBase64, isAssetRef } from '../../utils/assetStore'
 import { swapQuotedLine, swapScriptLine } from './services/scriptLineEdit'
+import type { CardFilter } from './cardLens'
+import { isRecordingActive, replayWait, toMs, useRecordingActive, useRecordingLoop, useRecordingStore } from '../../stores/recordingStore'
 
 type PickerMode = 'products' | 'models' | 'scripts' | 'styleRefs' | null
 
@@ -327,6 +329,11 @@ export default function BrollStudio() {
   // errored row stops counting immediately; the row is written before the id is
   // set, so an id with no row yet is the tick between the two.
   const isGenerating = !!pendingStoryboardId && pendingStoryboardRow?.storyboardStatus !== 'error'
+  // Recording Mode's fake storyboard run (see handleGenerate). Drawn exactly
+  // like the real one, and never written anywhere.
+  const [replayWriting, setReplayWriting] = useState(false)
+  const showWriting = isGenerating || replayWriting
+  const recordingLoop = useRecordingLoop()
   // Deleting the row mid-write cancels it — nothing left to wait for.
   useEffect(() => {
     if (pendingStoryboardId && !pendingStoryboardRow) setPendingStoryboardId('')
@@ -344,7 +351,8 @@ export default function BrollStudio() {
   // Pulse the dock dot while the scene analysis or any card generation runs.
   useReportActivity(
     'broll-studio',
-    isGenerating ||
+    showWriting ||
+    recordingLoop ||
       Object.values(cardStates).some(
         (cs) =>
           cs.inFlightImages.length > 0 ||
@@ -436,7 +444,22 @@ export default function BrollStudio() {
     ? (continuousResult?.scenes.length ?? 0)
     : (result?.scenes.length ?? 0)
   const canvasSig = `${mode}|${sessionId}|${canvasSceneCount}`
-  const canvasCleared = canvasSceneCount > 0 && clearedCanvasSig === canvasSig
+  // Recording Mode's Hide All covers the open storyboard too: while its
+  // session row is hidden the canvas reads "Awaiting Storyboard", and a
+  // replayed Generate is what brings it back.
+  const recordingActive = useRecordingActive()
+  const hiddenBefore = useRecordingStore((st) => st.hiddenBefore)
+  const recordingRevealed = useRecordingStore((st) => st.revealed)
+  const sessionCreatedAt = useBankStore((st) => st.brollHistory.find((r) => r.id === sessionId)?.createdAt)
+  const storyboardHidden = recordingActive && hiddenBefore != null && !!sessionId
+    && sessionCreatedAt !== undefined && toMs(sessionCreatedAt) <= hiddenBefore
+    && recordingRevealed[`broll:${sessionId}`] === undefined
+  const canvasCleared = canvasSceneCount > 0 && (clearedCanvasSig === canvasSig || storyboardHidden)
+
+  // What the storyboard's cards show — the strip's All / Prompts / Images /
+  // Videos toggle (see cardLens.ts). Plain state, not persisted: every load
+  // opens on All, so nobody comes back to a storyboard that looks empty.
+  const [cardFilter, setCardFilter] = useState<CardFilter>('all')
 
   const selectedProduct = useMemo<Product | null>(
     () => (selectedProductId ? products.find((p) => p.id === selectedProductId) ?? null : null),
@@ -1134,12 +1157,34 @@ export default function BrollStudio() {
   // one-take copy living here was a second thing to keep in step with no way to
   // compare what came back. Bring a script; the Ad Format row keeps its real
   // job, which is deciding how the ad gets SHOT.
+  // Recording Mode: the storyboard "writes" for the replay length, then the
+  // session already on the canvas comes back. Its cards are still behind Hide
+  // All, so they land on their prompts — the state a fresh storyboard lands
+  // in. No row, no call, no credits.
+  const replayStoryboard = async () => {
+    setReplayWriting(true)
+    await replayWait()
+    setReplayWriting(false)
+    if (sessionId) useRecordingStore.getState().reveal([`broll:${sessionId}`])
+    setClearedCanvasSig(null)
+    useAppStore.getState().addToast(
+      mode === 'continuous'
+        ? 'Storyboard ready. Pick a keyframe per frame, then animate'
+        : sessionDelivery === 'dialogue' ? 'Dialogue scenes ready' : 'B-roll scenes ready',
+      'success',
+    )
+  }
+
   const handleGenerate = async () => {
-    if (isGenerating || startingStoryboardRef.current) return
+    if (showWriting || startingStoryboardRef.current) return
     const script = scriptText.trim()
     if (!script) return
     // On a phone only one pane is on screen — follow the run to the storyboard.
     setPane('output')
+    if (isRecordingActive()) {
+      await replayStoryboard()
+      return
+    }
     startingStoryboardRef.current = true
     if (mode === 'continuous') await handleGenerateContinuous(script)
     else await handleGenerateLine(script)
@@ -1304,7 +1349,7 @@ export default function BrollStudio() {
           onAdditionalContextChange={setAdditionalContext}
           onGenerate={handleGenerate}
           onImportPrompts={() => setImportModalOpen(true)}
-          isGenerating={isGenerating}
+          isGenerating={showWriting}
           highlightField={highlightField}
           mode={mode}
           onModeChange={setMode}
@@ -1330,7 +1375,7 @@ export default function BrollStudio() {
           setContinuousSelections={setContinuousSelections}
           onAddContinuousConcept={handleAddContinuousConcept}
           onEditContinuousStoryboard={handleEditContinuousStoryboard}
-          isGenerating={isGenerating}
+          isGenerating={showWriting}
           error={error}
           onAddVariation={handleAddVariation}
           onDeleteVariation={handleDeleteVariation}
@@ -1355,6 +1400,8 @@ export default function BrollStudio() {
           onSelectHistory={handleSelectHistory}
           canvasCleared={canvasCleared}
           onClearCanvas={handleNewStoryboard}
+          cardFilter={cardFilter}
+          onCardFilterChange={setCardFilter}
         />
       </div>
 
