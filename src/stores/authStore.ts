@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { Session, User } from '@supabase/supabase-js'
-import { getSupabase, isCloudEnabled } from '../lib/supabase'
+import { ensureFreshSession, getSupabase, isCloudEnabled } from '../lib/supabase'
 import { resetBankStore } from './bankStore'
 import { resetSettingsStore, adoptUserKeys } from './settingsStore'
 import { resetAnnouncementStore } from './announcementStore'
@@ -125,8 +125,7 @@ interface AuthState {
   // Sets the preferred name the app greets the user by (profiles.display_name).
   // Optimistic: updates local state first, then persists; reverts on failure.
   updateDisplayName: (name: string) => Promise<{ ok: true } | { ok: false; error: string }>
-  // Stamps tos/privacy/aup acceptance + policy version. Used on signup and
-  // when an existing user re-accepts after a POLICY_VERSION bump.
+  // Stamps tos/privacy/aup acceptance + policy version. Used on signup.
   acceptPolicies: (version: string) => Promise<{ ok: true } | { ok: false; error: string }>
 }
 
@@ -138,8 +137,7 @@ const PROFILE_COL_TIERS = [
   'id, email, display_name, first_name, last_name, is_admin, disabled_at, lapsed_at, per_app_model, active_project_id, tos_accepted_at, privacy_accepted_at, aup_accepted_at, policy_version_accepted',
   // …without 0023's lapsed status
   'id, email, display_name, first_name, last_name, is_admin, disabled_at, per_app_model, active_project_id, tos_accepted_at, privacy_accepted_at, aup_accepted_at, policy_version_accepted',
-  // …without 0007's legal-acceptance columns either. LegalAcceptModal fires as
-  // soon as that migration eventually runs.
+  // …without 0007's legal-acceptance columns either.
   'id, email, display_name, is_admin, disabled_at, per_app_model, active_project_id',
 ]
 
@@ -402,6 +400,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   acceptPolicies: async (version) => {
     const user = get().user
     if (!isCloudEnabled() || !user) return { ok: false, error: 'Not signed in.' }
+    // Every cloud write waits for a live token — a stale one fails the update.
+    await ensureFreshSession()
     const sb = getSupabase()
     const now = new Date().toISOString()
     const { error } = await sb

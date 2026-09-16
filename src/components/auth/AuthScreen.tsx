@@ -77,7 +77,8 @@ export default function AuthScreen() {
         else {
           // Session was returned immediately — stamp acceptance now. If
           // needsConfirm was true the row isn't reachable yet (RLS sees no
-          // session); LegalAcceptModal will capture consent on first signin.
+          // session), so that sign-up goes unstamped: the re-accept modal that
+          // used to catch it on first sign-in is gone (see legal/version.ts).
           await acceptPolicies(POLICY_VERSION)
         }
       }

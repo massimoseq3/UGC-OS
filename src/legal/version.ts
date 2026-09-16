@@ -1,7 +1,10 @@
-// Bumping POLICY_VERSION forces every existing user to re-accept on next
-// login (LegalAcceptModal compares this to profiles.policy_version_accepted).
-// Use the date of the substantive change as the version — easy to audit,
-// easy to communicate to users.
+// The version stamped on profiles.policy_version_accepted when a member signs
+// up and agrees. Bumping it no longer asks anyone to re-accept: the blocking
+// "Updated Terms" modal that compared the two was removed (September 2026,
+// Massimo's call) after members reported Accept & continue not going through,
+// which left them locked out of the workspace. A policy change now has to be
+// announced some other way. Use the date of the substantive change as the
+// version — easy to audit, easy to communicate.
 export const POLICY_VERSION = '2026-05-27'
 export const LAST_UPDATED = 'May 27, 2026'
 
