@@ -221,6 +221,7 @@ export default function RightPanel(props: RightPanelProps) {
             productRef={productRef}
             productPhotos={productPhotos}
             onChangeStyle={onChangeStyle}
+            onOpenCharacterPicker={onOpenCharacterPicker}
             selectedModel={selectedModel}
             selectedProduct={selectedProduct}
             productContext={productContext}
