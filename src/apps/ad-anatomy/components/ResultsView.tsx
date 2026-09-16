@@ -720,7 +720,7 @@ function ReverseEngineeredSection({ result, fileName }: { result: AnalysisResult
       <ScriptActionRow
         onSave={handleSaveToBank}
         onSend={handleSendToScripts}
-        sendLabel="Clone This Ad"
+        sendLabel="Clone For Your Own Product"
       />
     </Section>
   )
@@ -728,9 +728,9 @@ function ReverseEngineeredSection({ result, fileName }: { result: AnalysisResult
 
 // Shared bottom action row for the Transcript + Scenes sections — the larger,
 // Scripts-styled "Save to Script Bank" (neutral) + remix (scripts accent, with
-// a trailing arrow) buttons, matching the Scripts app. `sendLabel` repeats the
-// card's `HeaderPill` ("Remix for Your Product" / "Clone This Ad") so one
-// action has one name: both land in Scripts' Remix box.
+// a trailing arrow) buttons, matching the Scripts app. `sendLabel` is the
+// card's handoff ("Remix for Your Product" / "Clone For Your Own Product" —
+// the Scenes pill says "Clone This Ad"): both land in Scripts' Remix box.
 // The label uses `text-scripts-text`, not `text-scripts-400`: the scripts
 // accent is a dark navy, so a 400 label on its own tint reads as disabled.
 function ScriptActionRow({ onSave, onSend, sendLabel }: { onSave: () => void; onSend: () => void; sendLabel: string }) {
