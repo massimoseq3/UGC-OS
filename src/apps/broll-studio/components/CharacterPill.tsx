@@ -28,7 +28,7 @@ export default function CharacterPill({ model, onClick }: { model: Model | null 
       ) : (
         <User className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
       )}
-      <span className="max-w-[160px] truncate">{model?.name || 'Add Character'}</span>
+      <span className="max-w-[160px] truncate">{model?.name || 'Consistent Character'}</span>
       <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-60" strokeWidth={2.5} />
     </button>
   )
