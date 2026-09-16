@@ -332,13 +332,13 @@ export default function InputPanel({
 
   // The count keeps its noun ("3 Variations" / "10 Hooks") instead of an icon:
   // a bare "3" beside a duration reads as another measurement, and the word is
-  // what makes the chip self-evident. `xl` — the picker-row height every
-  // control on this band shares — and its menu anchors right, since it's the
-  // rightmost thing in the row and the menu is wider than the chip.
+  // what makes the chip self-evident. `lg` — the house pill height — and its
+  // menu anchors right, since it's the rightmost thing in the row and the menu
+  // is wider than the chip.
   const countChip = (
     <ConstraintChip
       grow
-      size="xl"
+      size="lg"
       align="right"
       openDirection="up"
       value={isHooksFormat ? `${hookCount} Hooks` : `${variationCount} Variations`}
@@ -892,76 +892,64 @@ export default function InputPanel({
             fill the form top to bottom and Generate is where you arrive. It stays
             a footer from `md` up, where the column has the height to spare. */}
         <div className="shrink-0 bg-surface-0 px-5 pb-3 pt-2 md:bg-transparent">
-          {/* ONE row above Generate on a desktop: who writes it, how long it runs,
-              how many come back. The model takes HALF and the two chips a quarter
-              each (`flex-[2]` against `flex-1`, both zero-basis, so the ratio
-              holds whatever is in them). Equal thirds was tried first and the
-              model row is the one control here with something to say — at a third
-              it read "GPT 5.6…" over "The Scrip…", while the chips had spare room
-              around two words. All at 58px, the picker-row height the column's
-              other rows share.
+          {/* Above Generate, top to bottom: how long it runs and how many come
+              back, then who writes it (September 2026, Massimo's call). The two
+              pearls take their own row at the house pill height (48px, the
+              Playground and Characters constraint rows) and split it evenly; the
+              model keeps the 58px picker row, full width, so its name is never
+              the half that gets cut.
 
-              TWO rows once the row itself drops under 440px: the model takes the
-              full width (`basis-full`) and the two pearls sit side by side under
-              it. Half of a 335px column is 167px for a control whose whole job is
-              naming the model that writes your script, and the name is the half
-              that was being cut. The chips take `basis-0` there so they split the
-              second row evenly rather than inheriting the desktop ratio.
+              They shared ONE row before — model at half, a chip a quarter each
+              at 58px — with a container query folding it to two rows under
+              440px. That row read as three equal slabs for one decision and two
+              settings, and the fold put the settings UNDER the model, away from
+              the brief they describe.
 
-              A CONTAINER query, not a viewport one: this column is `w-1/3` over a
-              380px floor, so what decides whether three controls fit is the
-              column's own width and the viewport is only a proxy for it — and it
-              was the wrong proxy. `max-md` put the break at 768px, which is where
-              the column stops being a column at all; from 768 to ~1320 the row is
-              on one line at its 380px floor, which is 162px for the model. That is
-              the reported clip — "GPT 5.6…" over a `$$$$$` spilling out past the
-              chevron, with "3 Variations" wrapping inside its own pearl.
-
-              They were a chip band stacked over the model row, which made two
-              rows out of one decision each. Both chips are pearls rather than
-              fields: the pair was two full-width `SegmentedToggle` slabs, then
-              full-width `Dropdown`s, each costing the brief its height for a
-              control nobody sweeps through. Each hides on its own — Hooks have no
-              duration, the blueprint rewrite has no count. Everything here opens
-              UPWARD: a downward menu covers the button you're heading for. */}
-          <div className="@container mb-2">
-          <div className="flex flex-wrap items-stretch gap-1.5">
-            <ScriptModelRow appId="script-architect" className="min-w-0 flex-[2] @max-[440px]:basis-full" />
-            {showLength && (
-              // The clock carries the meaning the old dim "Length" label did —
-              // "15s" alone doesn't say what it measures, and a chip has no
-              // room for a second word. Remix's list leads with "Default": the
-              // source ad already has a length, and keeping it is usually the
-              // point of remixing a winner. Write New has no source to inherit.
-              // It sits in the MIDDLE of the row, so its menu anchors left and
-              // has room either side; the count on the right is the one that has
-              // to hang its menu off the panel edge.
-              <div className="flex min-w-0 flex-1 @max-[440px]:basis-0">
-                <ConstraintChip
-                  grow
-                  size="xl"
-                  openDirection="up"
-                  value={mode === 'write' ? `${writeLength}s` : remixLength === 'default' ? 'Default' : `${remixLength}s`}
-                  options={
-                    mode === 'write'
-                      ? WRITE_LENGTHS.map((len) => `${len}s`)
-                      : REMIX_LENGTHS.map((len) => (len === 'default' ? 'Default' : `${len}s`))
-                  }
-                  onChange={(v) => {
-                    if (mode === 'write') onWriteLengthChange(Number(v.replace('s', '')) as WriteLength)
-                    else onRemixLengthChange((v === 'Default' ? 'default' : Number(v.replace('s', ''))) as RemixLength)
-                  }}
-                  render={(v) => (
-                    <span className="flex items-center gap-1.5">
-                      <Clock className="h-3.5 w-3.5 shrink-0" />
-                      <span className="truncate">{v}</span>
-                    </span>
-                  )}
-                />
+              Both chips are pearls rather than fields: the pair was two
+              full-width `SegmentedToggle` slabs, then full-width `Dropdown`s,
+              each costing the brief its height for a control nobody sweeps
+              through. Each hides on its own — Hooks have no duration, the
+              blueprint rewrite has no count. Everything here opens UPWARD: a
+              downward menu covers the button you're heading for. */}
+          <div className="mb-2 flex flex-col gap-2">
+            {(showLength || showCount) && (
+              <div className="flex items-stretch gap-2">
+                {showLength && (
+                  // The clock carries the meaning the old dim "Length" label did —
+                  // "15s" alone doesn't say what it measures, and a chip has no
+                  // room for a second word. Remix's list leads with "Default": the
+                  // source ad already has a length, and keeping it is usually the
+                  // point of remixing a winner. Write New has no source to inherit.
+                  // It is the LEFT pearl, so its menu anchors left; the count on the
+                  // right is the one that has to hang its menu off the panel edge.
+                  <div className="flex min-w-0 flex-1">
+                    <ConstraintChip
+                      grow
+                      size="lg"
+                      openDirection="up"
+                      value={mode === 'write' ? `${writeLength}s` : remixLength === 'default' ? 'Default' : `${remixLength}s`}
+                      options={
+                        mode === 'write'
+                          ? WRITE_LENGTHS.map((len) => `${len}s`)
+                          : REMIX_LENGTHS.map((len) => (len === 'default' ? 'Default' : `${len}s`))
+                      }
+                      onChange={(v) => {
+                        if (mode === 'write') onWriteLengthChange(Number(v.replace('s', '')) as WriteLength)
+                        else onRemixLengthChange((v === 'Default' ? 'default' : Number(v.replace('s', ''))) as RemixLength)
+                      }}
+                      render={(v) => (
+                        <span className="flex items-center gap-1.5">
+                          <Clock className="h-3.5 w-3.5 shrink-0" />
+                          <span className="truncate">{v}</span>
+                        </span>
+                      )}
+                    />
+                  </div>
+                )}
+                {showCount && <div className="flex min-w-0 flex-1">{countChip}</div>}
               </div>
             )}
-            {showCount && <div className="flex min-w-0 flex-1 @max-[440px]:basis-0">{countChip}</div>}
-          </div>
+            <ScriptModelRow appId="script-architect" className="min-w-0" />
           </div>
           {/* `disabled:hover:bg-scripts-500` — a disabled button must not answer
               the pointer. `:hover` still matches one, so the blocker state
