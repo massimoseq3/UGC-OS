@@ -37,10 +37,17 @@ interface Persisted {
   hiddenBefore: number | null
   /** Revealed key → when it was revealed. A replayed row is dated then, on screen only. */
   revealed: Record<string, number>
+  /**
+   * A local calendar day ('YYYY-MM-DD'). Replays start from the oldest hidden
+   * output made on or after it, so filming can pick up partway through the
+   * history instead of replaying everything before that day first. Null
+   * replays from the very oldest.
+   */
+  replayFrom: string | null
 }
 
 function load(): Persisted {
-  const fallback: Persisted = { enabled: false, loop: false, replaySeconds: REPLAY_SECONDS_DEFAULT, hiddenBefore: null, revealed: {} }
+  const fallback: Persisted = { enabled: false, loop: false, replaySeconds: REPLAY_SECONDS_DEFAULT, hiddenBefore: null, revealed: {}, replayFrom: null }
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return fallback
@@ -51,6 +58,7 @@ function load(): Persisted {
       replaySeconds: clampSeconds(Number(p.replaySeconds)),
       hiddenBefore: typeof p.hiddenBefore === 'number' ? p.hiddenBefore : null,
       revealed: sanitizeRevealed(p.revealed),
+      replayFrom: typeof p.replayFrom === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(p.replayFrom) ? p.replayFrom : null,
     }
   } catch {
     return fallback
@@ -75,6 +83,7 @@ interface RecordingState extends Persisted {
   setEnabled: (enabled: boolean) => void
   setLoop: (loop: boolean) => void
   setReplaySeconds: (seconds: number) => void
+  setReplayFrom: (day: string | null) => void
   /** Hide every output that exists right now. */
   hideAll: () => void
   /** Bring every hidden output back. */
@@ -90,6 +99,7 @@ function persist(s: Persisted) {
       replaySeconds: s.replaySeconds,
       hiddenBefore: s.hiddenBefore,
       revealed: s.revealed,
+      replayFrom: s.replayFrom,
     } satisfies Persisted))
   } catch { /* a recording rig that can't persist still works for this tab */ }
 }
@@ -110,6 +120,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => {
       update({ loop })
     },
     setReplaySeconds: (seconds) => update({ replaySeconds: clampSeconds(seconds) }),
+    setReplayFrom: (day) => update({ replayFrom: day }),
     hideAll: () => update({ hiddenBefore: Date.now(), revealed: {} }),
     showAll: () => update({ hiddenBefore: null, revealed: {} }),
     reveal: (keys) => {
@@ -187,16 +198,24 @@ export function useVisibleRows<T extends ReplayableRow>(rows: T[], prefix: strin
   return out.sort((a, b) => toMs(b.createdAt) - toMs(a.createdAt))
 }
 
+// Midnight at the START of a 'YYYY-MM-DD' day in the viewer's own timezone —
+// the day the history rails file an output under.
+function localDayStart(day: string): number {
+  const [y, m, d] = day.split('-').map(Number)
+  return new Date(y, m - 1, d).getTime()
+}
+
 /**
- * Reveal the oldest hidden row of this bank right now. Oldest first, so
- * re-performing a session in the order it was made brings its outputs back in
- * that order. Null when nothing is hidden.
+ * Reveal the oldest hidden row of this bank right now, skipping anything made
+ * before `replayFrom`. Oldest first, so re-performing a session in the order it
+ * was made brings its outputs back in that order. Null when nothing is left.
  */
 export function revealNext<T extends ReplayableRow>(rows: T[], prefix: string): T | null {
-  const { hiddenBefore, revealed, reveal } = useRecordingStore.getState()
+  const { hiddenBefore, revealed, reveal, replayFrom } = useRecordingStore.getState()
   if (hiddenBefore == null) return null
+  const fromMs = replayFrom ? localDayStart(replayFrom) : Number.NEGATIVE_INFINITY
   const next = rows
-    .filter((r) => isHidden(r, prefix, hiddenBefore, revealed))
+    .filter((r) => isHidden(r, prefix, hiddenBefore, revealed) && toMs(r.createdAt) >= fromMs)
     .sort((a, b) => toMs(a.createdAt) - toMs(b.createdAt))[0]
   if (!next) return null
   reveal([`${prefix}:${next.id}`])
