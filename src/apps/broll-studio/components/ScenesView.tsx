@@ -22,6 +22,7 @@ import ModelPicker from '../../../components/ModelPicker'
 import ConstraintChip from '../../../components/ConstraintChip'
 import AspectIcon from '../../../components/AspectIcon'
 import VariationCard from './VariationCard'
+import CharacterPill from './CharacterPill'
 import { humanizeError } from '../../../utils/friendlyError'
 import ClipDownloadModal, { type ClipDownloadEntry } from '../../../components/ClipDownloadModal'
 import { useCloseOnAppSwitch } from '../../../hooks/useCloseOnAppSwitch'
@@ -908,6 +909,7 @@ export default function ScenesView({
             <span className="max-w-[180px] truncate">{result.styleBrief ? (result.styleName?.trim() || 'Custom style') : getContinuousStyle(result.styleId ?? 'ugc').label}</span>
             <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-60" strokeWidth={2.5} />
           </button>
+          <CharacterPill model={selectedModel} onClick={onOpenCharacterPicker} />
           {/* Holds the two ends apart while there is room, and disappears the
               moment there isn't — `flex-1` contributes nothing to `w-max`. */}
           <span className="flex-1" aria-hidden />

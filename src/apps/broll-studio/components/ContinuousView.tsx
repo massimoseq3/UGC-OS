@@ -63,6 +63,7 @@ import ClipDownloadModal, { type ClipDownloadEntry } from '../../../components/C
 import { copyToClipboard } from '../../../utils/clipboard'
 import type { ContinuousStoryboardOp } from '../continuousEdits'
 import { useBackdropClose } from '../../../hooks/useBackdropClose'
+import CharacterPill from './CharacterPill'
 
 // Every clip is silent narration-wise — the voiceover and music land in the
 // edit. Appended to the motion prompt at fire time so hand-edits can't drop it.
@@ -83,6 +84,7 @@ interface ContinuousViewProps {
   productRef?: ReferenceImage
   productPhotos?: string[]
   onChangeStyle?: () => void
+  onOpenCharacterPicker?: () => void
   selectedModel?: Model | null
   selectedProduct?: Product | null
   // Plain-text context strings — ground the per-frame Enhance / Regenerate.
@@ -119,6 +121,7 @@ export default function ContinuousView({
   productRef,
   productPhotos,
   onChangeStyle,
+  onOpenCharacterPicker,
   selectedModel,
   selectedProduct,
   productContext,
@@ -1278,6 +1281,7 @@ export default function ContinuousView({
             <span className="max-w-[180px] truncate">{style.label}</span>
             <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-60" strokeWidth={2.5} />
           </button>
+          <CharacterPill model={selectedModel} onClick={onOpenCharacterPicker} />
           {/* Holds the two ends apart while there is room, and disappears the
               moment there isn't — `flex-1` contributes nothing to `w-max`. */}
           <span className="flex-1" aria-hidden />
