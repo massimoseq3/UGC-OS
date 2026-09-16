@@ -14,6 +14,7 @@ import {
   Quote,
   Type,
   Camera,
+  CopyPlus,
 } from 'lucide-react'
 import type {
   AnalysisResult,
@@ -123,8 +124,28 @@ function CardHeader({ icon: Icon, title, accentClass = 'text-[#FF5257]/80', acti
         <Icon className={`h-4 w-4 shrink-0 ${accentClass}`} strokeWidth={1.5} />
         <span className="truncate">{title}</span>
       </span>
-      <div className="flex min-w-0 justify-end">{action}</div>
+      <div className="flex min-w-0 items-center justify-end gap-1">{action}</div>
     </div>
+  )
+}
+
+// The card's headline action, on the title's own line so it is the first thing
+// seen rather than the last thing scrolled to. Same Scripts tint and
+// `text-scripts-text` label as the send button in `ScriptActionRow` (a 400
+// label on that navy reads as disabled). The label drops below `md`, like
+// `MiniButton`: a title and a worded pill don't share a 375px line.
+function HeaderPill({ onClick, icon: Icon, label }: { onClick: () => void; icon: React.ElementType; label: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      className="flex shrink-0 items-center gap-1.5 rounded-full border border-scripts-500/20 bg-scripts-500/10 text-[11px] font-medium tracking-tight text-scripts-text transition-colors hover:bg-scripts-500/20 max-md:h-7 max-md:w-7 max-md:justify-center md:px-2.5 md:py-1"
+    >
+      <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
+      <span className="max-md:hidden">{label}</span>
+    </button>
   )
 }
 
@@ -268,6 +289,8 @@ function TranscriptSection({ result, fileName }: { result: AnalysisResult; fileN
         icon={FileText}
         title="Transcript"
         action={
+          <>
+          <HeaderPill onClick={handleSendToScripts} icon={PenLine} label="Remix for Your Product" />
           <button
             onClick={() => copy(withoutTimestamps)}
             className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-300"
@@ -275,6 +298,7 @@ function TranscriptSection({ result, fileName }: { result: AnalysisResult; fileN
             {copied ? <Check className="h-3 w-3 text-green-400 light:text-green-600" /> : <Copy className="h-3 w-3" />}
             {copied ? 'Copied' : 'Copy'}
           </button>
+          </>
         }
       />
 
@@ -287,7 +311,7 @@ function TranscriptSection({ result, fileName }: { result: AnalysisResult; fileN
         ))}
       </div>
 
-      <ScriptActionRow onSave={handleSaveToBank} onSend={handleSendToScripts} sendLabel="Remix transcript" />
+      <ScriptActionRow onSave={handleSaveToBank} onSend={handleSendToScripts} sendLabel="Remix for Your Product" />
     </Section>
   )
 }
@@ -440,7 +464,7 @@ function VisualStyleBlock({ style, adTitle }: { style: MasterVisualStyle; adTitl
           <MiniButton
             onClick={saved ? () => {} : handleSave}
             icon={saved ? Check : Bookmark}
-            label={saved ? 'Saved' : 'Save style'}
+            label={saved ? 'Saved' : 'Save Style'}
           />
           <MiniButton onClick={() => copy(styleText(style))} icon={copied ? Check : Copy} label={copied ? 'Copied' : 'Copy'} />
         </>
@@ -634,7 +658,7 @@ function ReverseEngineeredSection({ result, fileName }: { result: AnalysisResult
   // scene under its own header — never a bare prompt, which is what the scene's
   // own Copy gives. So the only thing left for the label to say is how many
   // scenes are in it.
-  const copyLabel = copied ? 'Copied' : scenes.length > 1 ? 'Copy all prompts' : 'Copy blueprint'
+  const copyLabel = copied ? 'Copied' : scenes.length > 1 ? 'Copy All Prompts' : 'Copy Blueprint'
 
   return (
     <Section>
@@ -650,6 +674,8 @@ function ReverseEngineeredSection({ result, fileName }: { result: AnalysisResult
           // survives as the tooltip and the accessible name: "Copy Prompt" only
           // when the copy IS one prompt — with a master block in front of it,
           // or several scenes, it's the whole set.
+          <>
+          <HeaderPill onClick={handleSendToScripts} icon={CopyPlus} label="Clone This Ad" />
           <button
             onClick={() => copy(fullPrompt)}
             title={copyLabel}
@@ -660,6 +686,7 @@ function ReverseEngineeredSection({ result, fileName }: { result: AnalysisResult
               ? <Check className="h-3.5 w-3.5 text-green-400 light:text-green-600" />
               : <Copy className="h-3.5 w-3.5" />}
           </button>
+          </>
         }
       />
 
@@ -693,7 +720,7 @@ function ReverseEngineeredSection({ result, fileName }: { result: AnalysisResult
       <ScriptActionRow
         onSave={handleSaveToBank}
         onSend={handleSendToScripts}
-        sendLabel="Remix for your product"
+        sendLabel="Clone This Ad"
       />
     </Section>
   )
@@ -701,10 +728,9 @@ function ReverseEngineeredSection({ result, fileName }: { result: AnalysisResult
 
 // Shared bottom action row for the Transcript + Scenes sections — the larger,
 // Scripts-styled "Save to Script Bank" (neutral) + remix (scripts accent, with
-// a trailing arrow) buttons, matching the Scripts app. `sendLabel` names what
-// is actually handed over ("Remix transcript" / "Remix for your product")
-// rather than the destination app: both land in Scripts' Remix box, and the
-// section already says which one you're looking at.
+// a trailing arrow) buttons, matching the Scripts app. `sendLabel` repeats the
+// card's `HeaderPill` ("Remix for Your Product" / "Clone This Ad") so one
+// action has one name: both land in Scripts' Remix box.
 // The label uses `text-scripts-text`, not `text-scripts-400`: the scripts
 // accent is a dark navy, so a 400 label on its own tint reads as disabled.
 function ScriptActionRow({ onSave, onSend, sendLabel }: { onSave: () => void; onSend: () => void; sendLabel: string }) {
@@ -809,7 +835,7 @@ function FrameGrabButton({
       ) : (
         <Camera className="h-4 w-4" strokeWidth={1.75} />
       )}
-      <span>{done ? 'Frame downloaded' : 'Download this frame'}</span>
+      <span>{done ? 'Frame Downloaded' : 'Download This Frame'}</span>
     </button>
   )
 }

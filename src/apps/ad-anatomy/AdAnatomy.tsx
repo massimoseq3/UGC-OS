@@ -426,7 +426,7 @@ function ErrorPane({ item, onRetry }: { item: AdAnatomyHistoryItem; onRetry: () 
             className="flex items-center gap-2 rounded-full border border-white/15 bg-[#FF5257] px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-[#FF5257]/90 disabled:opacity-60"
           >
             <RotateCcw className={`h-3.5 w-3.5 ${retrying ? 'animate-spin' : ''}`} />
-            {retrying ? 'Restarting…' : 'Retry analysis'}
+            {retrying ? 'Restarting…' : 'Retry Analysis'}
           </button>
         )}
         <button
@@ -434,7 +434,7 @@ function ErrorPane({ item, onRetry }: { item: AdAnatomyHistoryItem; onRetry: () 
           className="flex items-center gap-2 rounded-full border border-[#FF5257]/20 bg-[#FF5257]/10 px-4 py-2 text-sm font-medium text-[#FF5257] transition-colors hover:bg-[#FF5257]/20"
         >
           <Upload className="h-3.5 w-3.5" />
-          Upload another
+          Upload Another
         </button>
       </div>
     </div>
