@@ -16,7 +16,8 @@ import {
 // is filmed on a desktop, and on a phone the dock owns the whole bottom edge.
 //
 // It stays out of the picture on purpose: invisible until the pointer reaches
-// the corner (a 72px hover zone), and it stays up while its panel is open.
+// the corner (a 72px hover zone), and it stays up while its panel is open. Only
+// its red dot is always showing, so the mode being on is never a surprise.
 const PANEL_WIDTH = 288
 
 export default function RecordingControl() {
@@ -50,10 +51,17 @@ export default function RecordingControl() {
         }`}
       >
         <Clapperboard className="h-[18px] w-[18px]" strokeWidth={2} />
-        {/* The one live signal: red while generations are faked, so a glance
-            says whether a Generate press will spend anything. */}
-        <span className={`absolute right-1 top-1 h-2 w-2 rounded-full ${loop ? 'bg-rose-500' : 'bg-rose-500/70'}`} />
       </button>
+      {/* The one live signal, and the one thing here that never fades: a red
+          dot for as long as the mode is on, so a glance says a Generate press
+          will spend nothing even while the button itself is hidden. It sits
+          on the button's top-right corner (the container's 14px padding plus
+          the badge's 4px inset), so on hover it reads as the button's badge.
+          Static on purpose — nothing animates forever on an idle page. */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute right-[18px] top-[18px] h-2 w-2 rounded-full bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.7)]"
+      />
 
       <AnchoredPopover
         anchorRef={anchorRef}
