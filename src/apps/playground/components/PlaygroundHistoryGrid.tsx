@@ -26,6 +26,7 @@ import type { PlaygroundMode, InFlightGen } from '../types'
 import { humanizeError } from '../../../utils/friendlyError'
 import { useBackdropClose } from '../../../hooks/useBackdropClose'
 import useNearViewport from '../../../hooks/useNearViewport'
+import { useVisibleRows } from '../../../stores/recordingStore'
 export type { InFlightGen }
 
 // List-view size-slider bounds. The raw value drives the slider fill % and the
@@ -62,9 +63,11 @@ interface PlaygroundHistoryGridProps {
 //
 // Keep them stable: `onAnimateImage` is wrapped in useCallback by the parent.
 export default memo(function PlaygroundHistoryGrid({ inFlight, filterMode, onAnimateImage, onReusePrompt }: PlaygroundHistoryGridProps) {
-  const imageHistory = useBankStore((s) => s.imageHistory)
-  const videoHistory = useBankStore((s) => s.videoHistory)
-  const musicHistory = useBankStore((s) => s.musicHistory)
+  // Recording Mode hides what existed when it was armed; a replay brings each
+  // output back. The prefixes match the ones Playground replays under.
+  const imageHistory = useVisibleRows(useBankStore((s) => s.imageHistory), 'image')
+  const videoHistory = useVisibleRows(useBankStore((s) => s.videoHistory), 'video')
+  const musicHistory = useVisibleRows(useBankStore((s) => s.musicHistory), 'music')
   const deleteImageHistory = useBankStore((s) => s.deleteImageHistory)
   const deleteVideoHistory = useBankStore((s) => s.deleteVideoHistory)
   const deleteMusicHistory = useBankStore((s) => s.deleteMusicHistory)

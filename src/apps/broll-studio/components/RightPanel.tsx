@@ -14,6 +14,8 @@ import HistoryRailHandle from '../../../components/HistoryRailHandle'
 import HistoryRailToggle, { HistoryRailClosed } from '../../../components/HistoryRailToggle'
 import { brollHistoryMode, isRetiredOneShotRow } from './brollHistoryRows'
 import GridCanvas, { AwaitingBody } from '../../../components/GridCanvas'
+import { useVisibleRows } from '../../../stores/recordingStore'
+import type { CardFilter } from '../cardLens'
 
 interface RightPanelProps {
   mode: BrollMode
@@ -64,6 +66,8 @@ interface RightPanelProps {
   // canvas, which is why the rail's New button arms first.
   canvasCleared: boolean
   onClearCanvas: () => void
+  cardFilter?: CardFilter
+  onCardFilterChange?: (filter: CardFilter) => void
 }
 
 // Right side of the B-Roll workspace. Owns the History rail beside the
@@ -109,6 +113,8 @@ export default function RightPanel(props: RightPanelProps) {
     onSelectHistory,
     canvasCleared,
     onClearCanvas,
+    cardFilter,
+    onCardFilterChange,
   } = props
 
   const baseKey = useProjectScopedKey('broll-studio')
@@ -124,7 +130,9 @@ export default function RightPanel(props: RightPanelProps) {
   // nothing here.
   const [historyOpen, setHistoryOpen] = useHistoryRailOpen(`${baseKey}:historyRail`)
 
-  const allHistory = useBankStore((s) => s.brollHistory)
+  // Recording Mode hides the sessions that existed when it was armed; a
+  // replayed Generate brings the open one back.
+  const allHistory = useVisibleRows(useBankStore((s) => s.brollHistory), 'broll')
   const deleteBrollHistory = useBankStore((s) => s.deleteBrollHistory)
   // Sessions there's no mode left to open stay on disk but aren't listed: the
   // retired One-Shot rows always, and the Continuous ones while that mode is
@@ -178,6 +186,7 @@ export default function RightPanel(props: RightPanelProps) {
         onToggle={() => setHistoryOpen(true)}
         showLabel
         count={brollHistory.length}
+        labelClassName="text-[12px]"
       />
     </div>
   )
@@ -259,6 +268,8 @@ export default function RightPanel(props: RightPanelProps) {
             modelContext={modelContext}
             onOpenCharacterPicker={onOpenCharacterPicker}
             onOpenProductPicker={onOpenProductPicker}
+            cardFilter={cardFilter}
+            onCardFilterChange={onCardFilterChange}
             cardStates={cardStates}
             setCardStates={setCardStates}
             railToggle={railToggle}

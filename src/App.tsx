@@ -13,6 +13,7 @@ import AuthGate from './components/auth/AuthGate'
 import RouterSync from './components/RouterSync'
 import AppErrorBoundary from './components/AppErrorBoundary'
 import UpdateNotice from './components/UpdateNotice'
+import RecordingControl from './components/RecordingControl'
 import { useAppUpdateCheck } from './hooks/useAppUpdateCheck'
 import { useAppStore } from './stores/appStore'
 import { useChromeHidden } from './stores/chromeStore'
@@ -259,6 +260,7 @@ function Workspace() {
         </div>
 
         <UpdateNotice />
+        <RecordingControl />
         <ToastContainer />
         <MeetTheTeam />
         <AnnouncementsHost />

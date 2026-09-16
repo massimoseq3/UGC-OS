@@ -52,6 +52,9 @@ interface VariationCardProps {
   // Used for atomic array updates so parallel Generate clicks don't clobber
   // each other's `inFlightImages` / `inFlightVideos` entries.
   onUpdateStateFn: (updater: (prev: CardState) => Partial<CardState>) => void
+  // Set only while Recording Mode is on: every generate press on this card
+  // becomes a replay (ScenesView) instead of a kie call.
+  onReplay?: (kind: 'image' | 'video' | 'animate') => void
   onDelete: () => void
   characterRef?: ReferenceImage
   productRef?: ReferenceImage
@@ -104,6 +107,7 @@ export default function VariationCard(props: VariationCardProps) {
     cardState,
     onUpdateState,
     onUpdateStateFn,
+    onReplay,
     onDelete,
     characterRef,
     productRef,
@@ -352,6 +356,10 @@ export default function VariationCard(props: VariationCardProps) {
     imageResolution: ImageResolution | undefined,
     refs: ReferenceImage[],
   ) => {
+    if (onReplay) {
+      onReplay('image')
+      return
+    }
     const inFlightId = crypto.randomUUID()
 
     // Push the in-flight entry immediately so the gallery shows the tile.
@@ -552,6 +560,10 @@ export default function VariationCard(props: VariationCardProps) {
     // there is only a frame to hold still when there is a start frame.
     motionPrompt?: string,
   ) => {
+    if (onReplay) {
+      onReplay(motionPrompt !== undefined ? 'animate' : 'video')
+      return
+    }
     if (!videoModelId) {
       useAppStore.getState().addToast('No video model configured.', 'error')
       return
@@ -780,6 +792,11 @@ export default function VariationCard(props: VariationCardProps) {
       useAppStore.getState().addToast('Generate or pick an image to animate first.', 'error')
       return
     }
+    // A replay needs no frame loaded — skip the asset read.
+    if (onReplay) {
+      onReplay('animate')
+      return
+    }
     const dataUri = await toDataUri(startFrameRef)
     if (!dataUri) {
       useAppStore.getState().addToast('Could not load the start frame.', 'error')
@@ -802,6 +819,10 @@ export default function VariationCard(props: VariationCardProps) {
     videoModelId: string | undefined,
     batchSettings?: { resolution: string; durationSeconds?: number },
   ) => {
+    if (onReplay) {
+      onReplay('video')
+      return
+    }
     const refs = buildCardRefs(videoModelId)
     const referenceDataUris: string[] = []
     for (const r of refs) {

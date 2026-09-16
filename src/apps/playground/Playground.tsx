@@ -24,6 +24,8 @@ import type { PlaygroundMode, InFlightGen } from './types'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
 import { humanizeError } from '../../utils/friendlyError'
 import { isPollTimeout } from '../../utils/kie'
+import { isRecordingActive, replayRun, useRecordingLoop, useRecordingLoopSince, type ReplayableRow } from '../../stores/recordingStore'
+import { useBankStore } from '../../stores/bankStore'
 
 // How long an in-flight task stays resumable. A poll timeout no longer drops
 // the tile (the kie task may still be rendering — Seedance 2 can run 15+ min),
@@ -147,6 +149,15 @@ function initialState(): PromptPanelState {
   }
 }
 
+// The rows a Playground tab replays from — what that tab's grid lists. B-Roll's
+// clips share the video bank and never belong here.
+function playgroundRows(mode: PlaygroundMode): ReplayableRow[] {
+  const bank = useBankStore.getState()
+  if (mode === 'image') return bank.imageHistory
+  if (mode === 'music') return bank.musicHistory
+  return bank.videoHistory.filter((v) => v.sourceApp !== 'broll-studio')
+}
+
 export default function Playground() {
   const baseKey = useProjectScopedKey('playground')
   // Phone-only: which of the two panes is on screen (ignored from md up).
@@ -186,6 +197,11 @@ export default function Playground() {
   // leg when the tab died) and tasks older than 30 min are auto-expired on
   // mount — see the resume effect below.
   const [inFlight, setInFlight] = usePersistedState<InFlightGen[]>(`${baseKey}:inflight`, [])
+  // Recording Mode's fake generations (stores/recordingStore). Plain state,
+  // never persisted and never given a taskId, so nothing can try to resume one.
+  const [replayInFlight, setReplayInFlight] = useState<InFlightGen[]>([])
+  const recordingLoop = useRecordingLoop()
+  const loopSince = useRecordingLoopSince()
   // Per-tab prompt + refs. Each mode keeps its own inputs so typing a video
   // prompt and flipping to Image doesn't drag the text along. Persisted so a
   // refresh keeps every tab's draft. The active tab's inputs live in `state`;
@@ -541,7 +557,20 @@ export default function Playground() {
     // all of them; each call here is its own kie task, its own in-flight tile
     // and its own history row — exactly what pressing Generate N times has
     // always produced, minus the N presses.
-    const runOne = async () => {
+    const runOne = async (index: number) => {
+    // Recording Mode: the tile renders for the replay length, then the oldest
+    // hidden output of this tab comes back in its place. Nothing reaches kie.
+    if (isRecordingActive()) {
+      const fake: InFlightGen = {
+        id: `replay-${crypto.randomUUID()}`, mode, modelId, prompt: promptText, startedAt: Date.now(),
+        imageParams, videoParams, musicParams,
+      }
+      setReplayInFlight((prev) => [...prev, fake])
+      const row = await replayRun({ rows: () => playgroundRows(mode), prefix: mode, extraMs: index * 700 })
+      setReplayInFlight((prev) => prev.filter((g) => g.id !== fake.id))
+      if (row) addToast(mode === 'image' ? 'Image ready' : mode === 'video' ? 'Video ready' : 'Track ready', 'success')
+      return
+    }
     const id = crypto.randomUUID()
     // Add to inFlight WITHOUT a taskId yet — covers the createTask leg.
     setInFlight((prev) => [...prev, {
@@ -708,7 +737,7 @@ export default function Playground() {
     // single call, so a count chip there would be billing twice for something
     // the API hands over anyway.
     const count = mode === 'music' ? 1 : clampBatchCount(state.batchCount)
-    for (let i = 0; i < count; i++) void runOne()
+    for (let i = 0; i < count; i++) void runOne(i)
   }
 
   // Switch tabs without bleeding inputs across them: stash the current tab's
@@ -800,7 +829,24 @@ export default function Playground() {
 
   // Submit button no longer disables on in-flight count — users can queue
   // unlimited parallel generations. The prop stays for any future use.
-  const isGenerating = inFlight.length > 0
+  // Loop keeps one tile rendering on the open tab, built from the inputs on
+  // screen, for cutaway footage.
+  const loopGen: InFlightGen | null = recordingLoop && !inFlight.some((g) => g.mode === state.mode)
+    ? {
+        id: 'replay-loop',
+        mode: state.mode,
+        modelId: state.modelId ?? '',
+        prompt: state.prompt,
+        startedAt: loopSince,
+        imageParams: state.mode === 'image' ? { aspectRatio: state.aspectRatio as AspectRatio } : undefined,
+        videoParams: state.mode === 'video'
+          ? { mode: 'text-to-video', aspectRatio: state.aspectRatio, durationSeconds: state.durationSeconds, resolution: state.resolution, audio: state.audio }
+          : undefined,
+        musicParams: state.mode === 'music' ? { instrumental: state.instrumental } : undefined,
+      }
+    : null
+  const shownInFlight = [...inFlight, ...replayInFlight, ...(loopGen ? [loopGen] : [])]
+  const isGenerating = shownInFlight.length > 0
 
   // Pulse the dock dot while any image/video/music generation is in flight.
   useReportActivity('playground', isGenerating)
@@ -830,7 +876,7 @@ export default function Playground() {
         {/* Right — history grid */}
         <div className={paneClass(pane === 'history', 'md:flex-1 md:overflow-hidden')}>
           <PlaygroundHistoryGrid
-            inFlight={inFlight}
+            inFlight={shownInFlight}
             filterMode={filterMode}
             onAnimateImage={handleAnimateImage}
             onReusePrompt={handleReusePrompt}

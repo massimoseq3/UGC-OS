@@ -26,6 +26,7 @@ export default function HistoryRailToggle({
   label = 'history',
   showLabel = false,
   count,
+  labelClassName = 'text-[12.5px]',
 }: {
   open: boolean
   onToggle: () => void
@@ -43,6 +44,9 @@ export default function HistoryRailToggle({
   // How many rows are waiting behind it. Omitted (or 0) draws no pill: an empty
   // history is not a number worth a badge.
   count?: number
+  // The label's type size, for a host bar whose other pills are set smaller
+  // (B-Roll's storyboard strip runs every label at 12px).
+  labelClassName?: string
 }) {
   const title = open ? `Hide ${label}` : `Show ${label}`
   const Icon = open ? PanelRightClose : PanelRightOpen
@@ -72,7 +76,7 @@ export default function HistoryRailToggle({
       <Icon className="h-4 w-4 shrink-0" strokeWidth={2} />
       {showLabel && (
         <>
-          <span className="hidden text-[12.5px] font-medium tracking-tight min-[980px]:inline">{word}</span>
+          <span className={`hidden font-medium tracking-tight min-[980px]:inline ${labelClassName}`}>{word}</span>
           {count ? (
             // The house count pill — same chip B-Roll's Download Clips wears.
             <span className="hidden rounded-full bg-ink/10 px-1.5 py-0.5 text-[10px] font-semibold leading-none tabular-nums text-ink-200 min-[980px]:inline-block">

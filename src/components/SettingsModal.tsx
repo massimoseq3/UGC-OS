@@ -6,6 +6,7 @@ import { useAppStore } from '../stores/appStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useThemeStore, type ThemePref } from '../stores/themeStore'
 import { useGenerationInfoStore } from '../stores/generationInfoStore'
+import { useRecordingStore } from '../stores/recordingStore'
 import { useAppVisible, useAppVisibilityStore, useFeatureEnabled } from '../stores/appVisibilityStore'
 import SegmentedToggle from './SegmentedToggle'
 import useCloseOnEscape from '../hooks/useCloseOnEscape'
@@ -112,6 +113,11 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   // model named on every tile.
   const showGenerationInfo = useGenerationInfoStore((s) => s.show)
   const setShowGenerationInfo = useGenerationInfoStore((s) => s.setShow)
+
+  // Recording Mode — the tutorial rig (stores/recordingStore). Admins only, with
+  // no local-build exception: turning it on puts its control in the corner.
+  const recordingOn = useRecordingStore((s) => s.enabled)
+  const setRecordingOn = useRecordingStore((s) => s.setEnabled)
 
   // Outliers — the one app a member can switch off, and it ships on; B-Roll's
   // Continuous mode is the same deal one level down, and ships off. See
@@ -885,6 +891,17 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     only place it can be turned off — same operator-only gate as
                     the demo tool below, and browser-local, so switching it off
                     to record a clean screen never touches anyone else. */}
+                {profile?.is_admin && (
+                  <Card>
+                    <ToggleRow
+                      label="Recording Mode"
+                      hint="For filming tutorials. Generate spends nothing: it plays the loading state, then brings back an output you already made. The controls sit in the bottom-right corner. Only you see this, in this browser."
+                      checked={recordingOn}
+                      onChange={setRecordingOn}
+                    />
+                  </Card>
+                )}
+
                 {showDemoTool && (
                   <Card>
                     <ToggleRow

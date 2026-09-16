@@ -21,6 +21,7 @@ import GeneratingTile from './GeneratingTile'
 import { buildJsonPrompt, buildImagePrompt } from '../services/generateCharacter'
 import { pickInfluencerName, sheetNameFrom, uniqueBankName, variantNameFrom } from './nameGenerator'
 import { downloadImage } from '../../../utils/downloadImage'
+import { useVisibleRows } from '../../../stores/recordingStore'
 
 // List-view size-slider bounds. The raw value only drives the slider fill % and
 // the media frame's aspect ratio (see `mediaAspect`); it's no longer a pixel
@@ -112,7 +113,9 @@ export default memo(function GalleryPanel({
     }
   }
 
-  const characterHistory = useBankStore((s) => s.characterHistory)
+  // Recording Mode hides what existed when it was armed; a replay brings each
+  // character back. Everything below reads this list, the Single stage included.
+  const characterHistory = useVisibleRows(useBankStore((s) => s.characterHistory), 'character')
   const deleteCharacterHistory = useBankStore((s) => s.deleteCharacterHistory)
 
   const dayGroups = useMemo(
