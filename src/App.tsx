@@ -11,7 +11,6 @@ import AnnouncementsHost from './components/announcements/AnnouncementsHost'
 import ToastContainer from './components/Toast'
 import AuthGate from './components/auth/AuthGate'
 import RouterSync from './components/RouterSync'
-import LegalAcceptModal from './components/LegalAcceptModal'
 import AppErrorBoundary from './components/AppErrorBoundary'
 import UpdateNotice from './components/UpdateNotice'
 import { useAppUpdateCheck } from './hooks/useAppUpdateCheck'
@@ -102,7 +101,6 @@ export default function App() {
             <AuthGate>
               <RouterSync />
               <Workspace />
-              <LegalAcceptModal />
             </AuthGate>
           }
         />
