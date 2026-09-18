@@ -108,11 +108,7 @@ export default function ProjectRail({
       {/* New gets the WHOLE band: the rail is dismissed by clicking away from
           it (`RailOverlay`), so no close needs a slot up here. The band takes
           the app-wide h-[57px] so its hairline lines up with the history header
-          across the seam.
-
-          No `confirm` on this one, unlike B-Roll's: that button clears a
-          storyboard and the setup column that produced it, while this one opens
-          an empty panel and throws away nothing. */}
+          across the seam. */}
       <div className="flex h-[57px] shrink-0 items-center border-b border-ink/5 px-3">
         <RailNewButton
           label="New Project"

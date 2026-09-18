@@ -317,7 +317,6 @@ export default function HistoryRail({ items, activeId, onSelect, onDelete, onNew
           input column's header. */}
       <div className="flex h-[57px] shrink-0 items-center border-b border-ink/5 px-3">
         <RailNewButton
-          confirm
           label="New Storyboard"
           accentClass="bg-broll-500"
           title="Clear the storyboard and the setup column. This session stays here in History"

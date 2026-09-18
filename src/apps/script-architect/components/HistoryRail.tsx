@@ -142,7 +142,6 @@ export default function HistoryRail({ items, pending, activeId, onSelect, onSele
           input column's header. */}
       <div className="flex h-[57px] shrink-0 items-center border-b border-ink/5 px-3">
         <RailNewButton
-          confirm
           label="New Script"
           accentClass="bg-scripts-500"
           title="Clear the takes panel and the setup column. Every take stays here in History"

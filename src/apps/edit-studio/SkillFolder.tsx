@@ -17,6 +17,15 @@ import { downloadSkill } from './downloadSkill'
 
 const ACCENT = '#F77646'
 
+// The "New Update" sticker's fill, and deliberately NOT `ACCENT` (Massimo's
+// call). Orange is the Edit app's own colour — it is the folder, the tile and
+// the dock badge — so an announcement painted in it read as one more piece of
+// the artwork. Green is the one thing this app says in a colour it doesn't use
+// anywhere else, and it is the same "there is something new here" the app
+// speaks everywhere: `emerald-600`, deep enough to hold white bold text at
+// 11px, where `emerald-500` does not.
+const FRESH_ACCENT = '#059669'
+
 // The tile in the folder's pocket. Claude Code gets the Edit app's own icon —
 // the editor crab (Snips) on orange, matching the dock's app-tile look — and
 // Codex gets its own mark on ChatGPT's black, the tile a member already has in
@@ -133,7 +142,7 @@ function VersionBadge({ fresh }: { fresh: boolean }) {
           ? 'text-white ring-1 ring-inset ring-white/30'
           : 'bg-[#F7F5F0] text-zinc-500 ring-1 ring-inset ring-black/10'
       }`}
-      style={fresh ? { backgroundColor: ACCENT } : undefined}
+      style={fresh ? { backgroundColor: FRESH_ACCENT } : undefined}
     >
       {fresh ? `New Update · v${SKILL_VERSION}` : `v${SKILL_VERSION}`}
     </span>
