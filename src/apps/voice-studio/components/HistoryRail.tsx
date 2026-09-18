@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { Search, Volume2, Bookmark, Check, Trash2, Play, Pause, AlignLeft, Download } from 'lucide-react'
 import RailNewButton from '../../../components/RailNewButton'
-import { RailCloseButton } from '../../../components/HistoryRailHandle'
 import { useBankStore } from '../../../stores/bankStore'
 import type { VoiceHistoryItem } from '../../../stores/types'
 import { formatRelative, sectionLabel, groupByDay } from '../../../utils/history'
@@ -38,13 +37,12 @@ interface HistoryRailProps {
   // click — it carried `ClearAllButton`'s two-click arm for a day and lost it
   // in September 2026 (Massimo's call).
   onNew: () => void
-  onCollapse: () => void
 }
 
 // The reads you have made, as the rail beside the script rather than a tab
 // sharing its pane — so the words being read are on screen while you listen
 // back to them.
-export default function HistoryRail({ items, pending, activeId, onSelect, onDelete, onShowDetails, onNew, onCollapse }: HistoryRailProps) {
+export default function HistoryRail({ items, pending, activeId, onSelect, onDelete, onShowDetails, onNew }: HistoryRailProps) {
   const [query, setQuery] = useState('')
   const [saveFormId, setSaveFormId] = useState<string | null>(null)
   const [saveLabel, setSaveLabel] = useState('')
@@ -218,13 +216,11 @@ export default function HistoryRail({ items, pending, activeId, onSelect, onDele
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
-      {/* New leads the rail and gets the whole band: the rail is SHUT from the
-          lip on the seam (`HistoryRailHandle`), a tab on the rail's own edge,
-          so no close needs a slot in here. Below 980px the rail covers the
-          script and that lip goes with it, so a Close does sit here — it is
-          the only way back. The band takes the app-wide h-[57px] so the
-          hairline lines up with the input column's header. */}
-      <div className="flex h-[57px] shrink-0 items-center gap-1.5 border-b border-ink/5 px-3">
+      {/* New gets the WHOLE band: the rail is dismissed by clicking away from
+          it (`components/RailOverlay`), so no close needs a slot in here. The
+          band takes the app-wide h-[57px] so the hairline lines up with the
+          input column's header. */}
+      <div className="flex h-[57px] shrink-0 items-center border-b border-ink/5 px-3">
         <RailNewButton
           label="New Voiceover"
           accentClass="bg-voice-500"
@@ -232,7 +228,6 @@ export default function HistoryRail({ items, pending, activeId, onSelect, onDele
           onClick={onNew}
           className="flex-1"
         />
-        <RailCloseButton onCollapse={onCollapse} />
       </div>
 
       <div className="relative flex shrink-0 items-center border-b border-ink/5 px-3 py-2.5">

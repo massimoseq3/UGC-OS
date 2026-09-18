@@ -15,8 +15,8 @@ import { humanizeError } from '../../utils/friendlyError'
 import EditorArea from './components/EditorArea'
 import { VOICE_BATCH_MAX } from './components/GenerateBar'
 import HistoryRail from './components/HistoryRail'
-import HistoryRailHandle from '../../components/HistoryRailHandle'
-import { HistoryRailClosed } from '../../components/HistoryRailToggle'
+import RailOverlay from '../../components/RailOverlay'
+import HistoryRailToggle from '../../components/HistoryRailToggle'
 import HistoryDetailsModal from './components/HistoryDetailsModal'
 import { clampBatchCount } from '../../utils/batchCount'
 import SidePanel from './components/SidePanel'
@@ -138,7 +138,7 @@ export default function VoiceStudio() {
   // preference rather than a per-run state. It ships SHUT at every width — this
   // pane's job is the script box and the take you just made. Only ever a
   // default; the stored answer, once there is one, is the member's.
-  const [historyOpen, setHistoryOpen] = useHistoryRailOpen(`${baseKey}:historyRail`)
+  const [historyOpen, setHistoryOpen] = useHistoryRailOpen()
 
   // Recording Mode hides the reads that existed when it was armed; a replay
   // brings them back one at a time.
@@ -411,21 +411,27 @@ export default function VoiceStudio() {
             at. */}
         <div className={paneClass(pane === 'editor', 'md:flex-1 md:overflow-hidden')}>
           <div className="flex min-h-0 flex-1 flex-col">
-            <div className="flex min-h-0 flex-1">
-              {/* From 980px the rail is a column beside the script; below it
-                  there is no room for three columns next to a fixed 460px
-                  settings panel, so it stands in FRONT of the script — the
-                  shape the tab had. A read's details open in a centred modal
-                  over both, so nothing here has to stand down to show them. */}
-              <div
-                className={`relative min-h-0 min-w-0 flex-1 overflow-hidden ${
-                  historyOpen ? 'hidden min-[980px]:block' : 'block'
-                }`}
-              >
-                {/* Open, the rail is shut from the LIP on the seam this
-                    column's right edge makes with it. Shut, the way back in is
-                    the labelled History button below. */}
-                {historyOpen && <HistoryRailHandle onCollapse={() => setHistoryOpen(false)} />}
+            {/* `relative` is what `RailOverlay` positions against — without it
+                the rail escapes this pane and lands over the dock. */}
+            <div className="relative flex min-h-0 flex-1">
+              <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+                {/* The output pane's header band, and the way into the rail leads it —
+              the same `h-[57px]` hairline Playground's history header and
+              B-Roll's storyboard bar carry, so every pane answers "where is the
+              list?" in the same corner and the panel's separator line runs the
+              full width (Massimo's call, September 2026). This pane dropped its
+              header when History became a rail and the toggle went with it; a
+              band with one real control in it is exactly the case the app's own
+              rule keeps a header for. It floated over the output for an hour in
+              between and stood on the first card it was above. */}
+                <div className="flex h-[57px] shrink-0 items-center border-b border-ink/5 px-5">
+                  <HistoryRailToggle
+                    open={historyOpen}
+                    onToggle={() => setHistoryOpen(!historyOpen)}
+                    showLabel
+                    count={history.length + pendingVoices.length}
+                  />
+                </div>
 
                 <EditorArea
                   scriptText={scriptText}
@@ -440,25 +446,17 @@ export default function VoiceStudio() {
                 />
               </div>
 
-              {historyOpen ? (
-                <div className="rail-pop flex min-h-0 w-full flex-col border-l border-ink/5 min-[980px]:w-[280px] min-[980px]:shrink-0">
-                  <HistoryRail
-                    items={history}
-                    pending={pendingVoices}
-                    activeId={activePlayerItem?.id ?? null}
-                    onSelect={setActivePlayerItem}
-                    onDelete={handleDeleteHistoryItem}
-                    onShowDetails={setDetailsItem}
-                    onNew={() => { setSelectedScript(null); setScriptText('') }}
-                    onCollapse={() => setHistoryOpen(false)}
-                  />
-                </div>
-              ) : (
-                // Shut, the rail leaves a button's worth of room in its place
-                // rather than nothing — and that button says the word, because
-                // with the rail gone there is no seam for a lip to hang on.
-                <HistoryRailClosed onExpand={() => setHistoryOpen(true)} count={history.length + pendingVoices.length} />
-              )}
+              <RailOverlay open={historyOpen} onClose={() => setHistoryOpen(false)}>
+                <HistoryRail
+                  items={history}
+                  pending={pendingVoices}
+                  activeId={activePlayerItem?.id ?? null}
+                  onSelect={(item) => { setActivePlayerItem(item); setHistoryOpen(false) }}
+                  onDelete={handleDeleteHistoryItem}
+                  onShowDetails={setDetailsItem}
+                  onNew={() => { setSelectedScript(null); setScriptText('') }}
+                />
+              </RailOverlay>
             </div>
 
             {activePlayerItem && (

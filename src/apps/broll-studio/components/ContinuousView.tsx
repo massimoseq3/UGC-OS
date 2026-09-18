@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import useMeasuredHeight from '../../../hooks/useMeasuredHeight'
 import { createPortal } from 'react-dom'
 import { Box, AlertCircle, Sparkle, Image as ImageIcon, Video as VideoIcon, Play, Pause, Volume2, VolumeX, Plus, Coins, Check, X, ArrowRight, Download, Copy, Bookmark, ChevronRight, Link2, Link2Off, RefreshCw, Pencil, SplitSquareVertical, Merge, Trash2, Palette } from 'lucide-react'
 import Spinner from '../../../components/Spinner'
@@ -152,6 +153,10 @@ export default function ContinuousView({
   onEditStoryboard,
   railToggle,
 }: ContinuousViewProps) {
+  // The storyboard bar wraps, so the scroll port under it reserves its MEASURED
+  // height rather than a hard-coded one. 57 is its one-line height, which is
+  // what the first paint uses.
+  const [barRef, barHeight] = useMeasuredHeight<HTMLDivElement>(57)
   // Open modal: a frame concept ("3:cont-xxx") or a clip ("c2").
   const [openFrameKey, setOpenFrameKey] = useState<string | null>(null)
   const [openClipKey, setOpenClipKey] = useState<string | null>(null)
@@ -1252,35 +1257,29 @@ export default function ContinuousView({
           This strip was left as it was because its actions are a different set;
           bringing it across is the obvious follow-up, and until then the two
           tabs of one panel do dress the same job two ways. */}
-      <div className="app-backdrop-frost absolute inset-x-0 top-0 z-20 flex h-[57px] items-center border-b border-ink/5 px-5">
-        {/* One CENTRED line that scrolls when the pills outrun the panel. The
-            `w-max min-w-full` shape is what allows both: at `min-w-full` the row
-            is exactly the port when it fits (so centring does the work) and
-            exactly its content when it doesn't (so centring is a no-op and the
-            scroll starts at pill one). A plain `justify-center` inside a scroll
-            port centres the overflow too, stranding the first pill off the left
-            edge with no way to scroll back to it. */}
-        {/* NOT `w-full` alongside `-mx-5`: `width: 100%` resolves against the
-            strip's CONTENT box, so the port came out 40px narrower than the
-            strip and the negative margin then spent all of it on the left —
-            the row started at the panel's inset and ended 40px shy of it. With
-            the width left `auto` the block fills its container and the two
-            negative margins widen it by exactly the padding they cancel, so the
-            port spans the strip and `px-5` puts both ends back on the panel's
-            own inset. Invisible while the row was centred (it just shifted the
-            centre 20px left); it shows the moment anything is right-aligned. */}
-        {/* With the rail toggle after it the port keeps its LEFT bleed only:
-            `-mr-5` would run the scrolled row 20px under the button. Same as
-            the Line-by-Line strip, which this one now is in every respect. */}
-        <div className={`-ml-5 min-w-0 flex-1 overflow-x-auto scrollbar-hide pl-5 ${railToggle ? '' : '-mr-5 pr-5'}`}>
-        {/* The generate steps are ONE tinted family in graded depths, lightest
-            first. The lighter step is `/[0.12]` rather than the `/[0.05]` it
-            carried: on a 38px pill against a frosted bar that fill was a ghost,
-            which is the other half of "mangled" — a button that looks disabled
-            is a button nobody presses. It still sits a clear step under the
-            videos pass, which is what the ramp is for. Download clips is green
-            (see the note on it): it's the export, not a generate step. */}
-        <div className="flex w-max min-w-full flex-nowrap items-center gap-2 whitespace-nowrap">
+      {/* The pane's header band, carrying the way into the history rail and
+          NOTHING else — the same shape as the Line-by-Line strip, whose note
+          explains why everything that acts on the storyboard moved down into
+          the floating toolbar below. */}
+      <div
+        ref={barRef}
+        className="app-backdrop-frost absolute inset-x-0 top-0 z-20 flex h-[57px] items-center border-b border-ink/5 px-5"
+      >
+        {railToggle}
+      </div>
+      <div className="flex-1 overflow-y-auto px-5 pb-4" style={{ paddingTop: barHeight + 12 }}>
+      {/* The storyboard's own toolbar — centred over the frames and sticky, so
+          it follows you down. See the Line-by-Line strip for the reasoning;
+          this one mirrors it in every respect. */}
+      <div className="sticky top-0 z-10 mb-6 flex justify-center">
+        <div className="flex max-w-full flex-wrap items-center justify-center gap-2 rounded-full border border-ink/10 bg-surface-1/90 p-2 shadow-lg shadow-black/25 backdrop-blur-md">
+        {/* Every button on this bar wears Playground's neutral header pill —
+            an outline that lights up on hover (Massimo's call, September 2026).
+            The two generate steps were a graded broll-tinted family and Download
+            Clips was emerald, which put three saturated pills on a bar whose
+            actual subject is the storyboard underneath. The style pill keeps
+            its tint: it is the one thing on the line that is meta rather than
+            an action, and it is what the storyboard IS. */}
           {/* The look every clip renders in — LEADING the line, exactly as on
               the Line-by-Line strip, at the batch pills' own size. It came up
               out of the meta caption under the separator, where it was the one
@@ -1293,7 +1292,7 @@ export default function ContinuousView({
             type="button"
             onClick={onChangeStyle}
             title="Change the look every clip renders in"
-            className="inline-flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-broll-500/25 bg-broll-500/10 px-3.5 text-[12px] font-semibold tracking-tight text-broll-300 transition-colors hover:border-broll-500/45 hover:bg-broll-500/[0.18]"
+            className="inline-flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-broll-500/25 bg-broll-500/10 px-3.5 text-[13px] font-semibold tracking-tight text-broll-300 transition-colors hover:border-broll-500/45 hover:bg-broll-500/[0.18]"
           >
             <Palette className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
             <span className="max-w-[180px] truncate">{style.label}</span>
@@ -1310,7 +1309,7 @@ export default function ContinuousView({
             // card rendering on its own doesn't, so the two can overlap.
             disabled={chainRunning}
             title="Generate a keyframe image for every frame that doesn't have one yet"
-            className="flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-broll-500/30 bg-broll-500/[0.12] px-3.5 text-[12px] font-medium text-broll-300 transition-colors hover:border-broll-500/45 hover:bg-broll-500/[0.18] disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-ink/10 px-3.5 text-[13px] font-medium text-ink-400 transition-colors hover:bg-ink/5 hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {chainRunning ? <Spinner className="h-3.5 w-3.5" /> : <ImageIcon className="h-3.5 w-3.5" />}
             {chainRunning
@@ -1324,7 +1323,7 @@ export default function ContinuousView({
             // stop the member firing the rest.
             disabled={readyClipIndices.length === 0}
             title="Generate every clip whose two keyframes are picked"
-            className="flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-broll-500/50 bg-broll-500/[0.24] px-3.5 text-[12px] font-medium text-broll-200 transition-colors hover:border-broll-500/65 hover:bg-broll-500/[0.32] disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-ink/10 px-3.5 text-[13px] font-medium text-ink-400 transition-colors hover:bg-ink/5 hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <VideoIcon className="h-3.5 w-3.5" />
             Generate All Videos
@@ -1334,22 +1333,19 @@ export default function ContinuousView({
               type="button"
               onClick={() => setDownloadOpen(true)}
               title="Pick which clips to download as a zip"
-              className="flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/[0.18] px-3.5 text-[12px] font-medium text-emerald-200 transition-colors light:text-emerald-700 hover:border-emerald-500/60 hover:bg-emerald-500/[0.26] hover:text-emerald-100 light:hover:text-emerald-800"
+              className="flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-ink/10 px-3.5 text-[13px] font-medium text-ink-400 transition-colors hover:bg-ink/5 hover:text-ink-200"
             >
               <Download className="h-3.5 w-3.5" />
               {/* Count in its own green pill, matching the Line-by-Line
                   strip's button — see the note there. */}
               <span>Download Clips</span>
-              <span className="rounded-full bg-emerald-500/25 px-1.5 py-0.5 text-[10px] font-semibold leading-none tabular-nums text-emerald-100 light:text-emerald-800">
+              <span className="rounded-full bg-ink/10 px-1.5 py-0.5 text-[10px] font-semibold leading-none tabular-nums text-ink-200">
                 {allClipEntries.length}
               </span>
             </button>
           )}
         </div>
-        </div>
-        {railToggle && <div className="shrink-0 pl-2">{railToggle}</div>}
       </div>
-      <div className="flex-1 overflow-y-auto px-5 pb-4 pt-[77px]">
       {/* The storyboard's caption — scene count, look, running time, and how
           many keyframes are picked. Below the separator rather than in the bar
           above it: up there it was what squeezed the batch buttons off their own
@@ -1573,7 +1569,7 @@ export default function ContinuousView({
               <button
                 type="button"
                 onClick={() => setConfirmGen(null)}
-                className="flex items-center gap-1 rounded-full border border-ink/10 bg-ink/[0.03] px-3.5 py-1.5 text-[12px] font-medium text-ink-300 transition-colors hover:bg-ink/[0.06]"
+                className="flex items-center gap-1 rounded-full border border-ink/10 bg-ink/[0.03] px-3.5 py-1.5 text-[13px] font-medium text-ink-300 transition-colors hover:bg-ink/[0.06]"
               >
                 <X className="h-3.5 w-3.5" />
                 Cancel
@@ -1582,7 +1578,7 @@ export default function ContinuousView({
                 type="button"
                 onClick={confirmGenerate}
                 disabled={confirmGen.kind === 'frames' && frameTargets.length === 0}
-                className="flex items-center gap-2 rounded-full border border-white/15 bg-broll-500 py-1.5 pl-4 pr-2 text-[12px] font-medium text-white transition-colors hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-broll-500"
+                className="flex items-center gap-2 rounded-full border border-white/15 bg-broll-500 py-1.5 pl-4 pr-2 text-[13px] font-medium text-white transition-colors hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-broll-500"
               >
                 {confirmGen.kind === 'clips' ? <VideoIcon className="h-3.5 w-3.5" /> : <ImageIcon className="h-3.5 w-3.5" />}
                 {confirmGen.kind === 'clips'
@@ -2303,7 +2299,7 @@ function FrameConceptCard({
               // text, soft accent border. It only ever sits on an empty card
               // face (no image yet), so the translucent fill stays readable;
               // buttons that overlay real media keep the black/60 chrome.
-              className="flex h-9 flex-1 items-center justify-center gap-2 rounded-full border border-broll-500/20 bg-broll-500/10 text-[12px] font-medium tracking-tight text-broll-400 transition-colors hover:bg-broll-500/20"
+              className="flex h-9 flex-1 items-center justify-center gap-2 rounded-full border border-broll-500/20 bg-broll-500/10 text-[13px] font-medium tracking-tight text-broll-400 transition-colors hover:bg-broll-500/20"
             >
               <ImageIcon className="h-4 w-4" strokeWidth={1.75} />
               Generate image

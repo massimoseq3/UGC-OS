@@ -9,7 +9,6 @@ import AspectIcon from '../../../components/AspectIcon'
 import ConstraintChip from '../../../components/ConstraintChip'
 import BatchCountStepper from '../../../components/BatchCountStepper'
 import { clampBatchCount } from '../../../utils/batchCount'
-import ModelWaitNotice from '../../../components/ModelWaitNotice'
 import {
   getDefaultModel,
   getModel,
@@ -1438,7 +1437,6 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
               </span>
             )}
           </button>
-          {state.mode === 'image' && <ModelWaitNotice modelId={state.modelId} className="mt-2" />}
         </div>
       </div>
     </div>

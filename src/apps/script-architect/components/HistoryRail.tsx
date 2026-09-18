@@ -6,7 +6,6 @@ import { WRITE_STYLE_META, HOOK_CATEGORY_META, isHookCategoryChoice, parseHooks,
 import { TileDeleteButton } from '../../../components/tileActions'
 import DayPill from '../../../components/DayPill'
 import RailNewButton from '../../../components/RailNewButton'
-import { RailCloseButton } from '../../../components/HistoryRailHandle'
 import { GeneratingChip } from '../../../components/GeneratingChip'
 import { SCRIPT_BADGE, SCRIPT_BADGE_SHAPE } from '../../../utils/scriptBadge'
 
@@ -110,7 +109,6 @@ interface HistoryRailProps {
   // deleted: every take is a row in the list directly underneath. The inputs
   // are the half no row holds a copy of, which is why this one arms.
   onNew: () => void
-  onCollapse: () => void
 }
 
 // Scripts' history, as the Ad Analyzer's rail rather than a tab sharing the
@@ -118,7 +116,7 @@ interface HistoryRailProps {
 // takes are on screen while you browse the list, and the list is a column of
 // rows instead of a grid of 272px cards — a run is recognised by its first few
 // lines, which a row carries as well as a card did at a fifth of the width.
-export default function HistoryRail({ items, pending, activeId, onSelect, onSelectPending, onDelete, onNew, onCollapse }: HistoryRailProps) {
+export default function HistoryRail({ items, pending, activeId, onSelect, onSelectPending, onDelete, onNew }: HistoryRailProps) {
   const [query, setQuery] = useState('')
 
   const groups = useMemo(() => {
@@ -138,13 +136,11 @@ export default function HistoryRail({ items, pending, activeId, onSelect, onSele
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col">
-      {/* New leads the rail and gets the whole band: the rail is SHUT from the
-          lip on the seam (`HistoryRailHandle`), a tab on the rail's own edge,
-          so no close needs a slot in here. Below 980px the rail covers the
-          takes and that lip goes with it, so a Close does sit here — it is
-          the only way back. The band takes the app-wide h-[57px] so the
-          hairline lines up with the input column's header. */}
-      <div className="flex h-[57px] shrink-0 items-center gap-1.5 border-b border-ink/5 px-3">
+      {/* New gets the WHOLE band: the rail is dismissed by clicking away from
+          it (`components/RailOverlay`), so no close needs a slot in here. The
+          band takes the app-wide h-[57px] so the hairline lines up with the
+          input column's header. */}
+      <div className="flex h-[57px] shrink-0 items-center border-b border-ink/5 px-3">
         <RailNewButton
           confirm
           label="New Script"
@@ -153,7 +149,6 @@ export default function HistoryRail({ items, pending, activeId, onSelect, onSele
           onClick={onNew}
           className="flex-1"
         />
-        <RailCloseButton onCollapse={onCollapse} />
       </div>
 
       <div className="relative flex shrink-0 items-center border-b border-ink/5 px-3 py-2.5">

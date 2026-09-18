@@ -2,8 +2,8 @@ import type { ScriptHistoryItem } from '../../../stores/types'
 import type { PendingScriptRun, RemixAngle, ScriptMode, WriteFormat } from '../types'
 import OutputPanel from './OutputPanel'
 import HistoryRail from './HistoryRail'
-import HistoryRailHandle from '../../../components/HistoryRailHandle'
-import { HistoryRailClosed } from '../../../components/HistoryRailToggle'
+import RailOverlay from '../../../components/RailOverlay'
+import HistoryRailToggle from '../../../components/HistoryRailToggle'
 
 interface RightPanelProps {
   variations: string[]
@@ -84,22 +84,27 @@ export default function RightPanel({
   // one thing this column is for. The takes start at the top of the pane and
   // the switcher already floats there.
   return (
-    <div className="flex h-full min-h-0">
-      {/* From 980px the rail is a column and the takes keep their own; below
-          that there is no room for three columns beside the input panel (768px
-          would leave the script 128px), so the rail stands in FRONT of the takes
-          instead — the shape the tab had, and picking a run hands the pane back.
-          The number is explained beside `railIsColumn` in ScriptArchitect, which
-          has to agree with it. */}
-      <div
-        className={`relative min-h-0 min-w-0 flex-1 overflow-hidden ${
-          historyOpen ? 'hidden min-[980px]:block' : 'block'
-        }`}
-      >
-        {/* Open, the rail is shut from the LIP on the seam this column's
-            right edge makes with it. Shut, there is no seam to hang one on, so
-            the way back in is the labelled History button below. */}
-        {historyOpen && <HistoryRailHandle onCollapse={onToggleHistory} />}
+    // `relative` is what `RailOverlay` positions against — without it the rail
+    // escapes this pane and lands over the dock.
+    <div className="relative flex h-full min-h-0">
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        {/* The output pane's header band, and the way into the rail leads it —
+            the same `h-[57px]` hairline Playground's history header and
+            B-Roll's storyboard bar carry, so every pane answers "where is the
+            list?" in the same corner and the panel's separator line runs the
+            full width (Massimo's call, September 2026). This pane dropped its
+            header when History became a rail and the toggle went with it; a
+            band with one real control in it is exactly the case the app's own
+            rule keeps a header for. It floated over the output for an hour in
+            between and stood on the first card it was above. */}
+        <div className="flex h-[57px] shrink-0 items-center border-b border-ink/5 px-5">
+          <HistoryRailToggle
+            open={historyOpen}
+            onToggle={onToggleHistory}
+            showLabel
+            count={history.length + pendingRuns.length}
+          />
+        </div>
 
         <OutputPanel
           variations={cleared ? [] : variations}
@@ -123,25 +128,17 @@ export default function RightPanel({
         />
       </div>
 
-      {historyOpen ? (
-        <div className="rail-pop flex min-h-0 w-full flex-col border-l border-ink/5 min-[980px]:w-[280px] min-[980px]:shrink-0">
-          <HistoryRail
-            items={history}
-            pending={pendingRuns}
-            activeId={activeHistoryId}
-            onSelect={onSelectHistory}
-            onSelectPending={onWatchPending}
-            onDelete={onDeleteHistory}
-            onNew={onClearCanvas}
-            onCollapse={onToggleHistory}
-          />
-        </div>
-      ) : (
-        // Shut, the rail leaves a button's worth of room in its place rather
-        // than nothing — and that button says the word, because with the rail
-        // gone there is no seam left for the lip to be a tab of.
-        <HistoryRailClosed onExpand={onToggleHistory} count={history.length + pendingRuns.length} />
-      )}
+      <RailOverlay open={historyOpen} onClose={onToggleHistory}>
+        <HistoryRail
+          items={history}
+          pending={pendingRuns}
+          activeId={activeHistoryId}
+          onSelect={onSelectHistory}
+          onSelectPending={onWatchPending}
+          onDelete={onDeleteHistory}
+          onNew={onClearCanvas}
+        />
+      </RailOverlay>
     </div>
   )
 }

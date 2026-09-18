@@ -126,6 +126,13 @@ export interface PlaygroundImageFinishInput {
   prompt: string
   aspectRatio: AspectRatio
   resolution?: ImageResolution
+  // The project this generation is filed under. Undefined while All
+  // Generations is the active view — see `PlaygroundProject`. It rides on the
+  // FINISH input rather than the start one because that is the leg that writes
+  // the history row, and it is carried on the persisted in-flight entry so a
+  // generation resumed after a reload still lands in the project it was
+  // started from.
+  projectId?: string
 }
 
 export async function finishPlaygroundImageTask(
@@ -142,6 +149,7 @@ export async function finishPlaygroundImageTask(
     aspectRatio: params.aspectRatio,
     resolution: params.resolution,
     imageUrl: assetId,
+    projectId: params.projectId,
     createdAt: Date.now(),
   }
   await useBankStore.getState().addImageHistory(item)
@@ -370,6 +378,8 @@ export interface PlaygroundVideoFinishInput {
   durationSeconds: number
   resolution: string
   audio: boolean
+  // See PlaygroundImageFinishInput.
+  projectId?: string
 }
 
 export async function finishPlaygroundVideoTask(
@@ -391,6 +401,7 @@ export async function finishPlaygroundVideoTask(
     audio: params.audio,
     videoUrl: assetId,
     sourceApp: PLAYGROUND_SOURCE,
+    projectId: params.projectId,
     createdAt: Date.now(),
   }
   await useBankStore.getState().addVideoHistory(historyEntry)
@@ -420,6 +431,8 @@ export async function startPlaygroundMusicTask(
 export interface PlaygroundMusicFinishInput {
   prompt: string
   instrumental: boolean
+  // See PlaygroundImageFinishInput.
+  projectId?: string
 }
 
 export async function finishPlaygroundMusicTask(
@@ -473,6 +486,7 @@ export async function finishPlaygroundMusicTask(
     coverImageRef,
     title: track.title,
     durationSeconds: track.duration,
+    projectId: params.projectId,
     createdAt: Date.now(),
   }
   await useBankStore.getState().addMusicHistory(item)

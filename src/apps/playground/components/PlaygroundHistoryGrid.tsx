@@ -14,8 +14,12 @@ import { usePersistedState } from '../../../hooks/usePersistedState'
 import { sectionLabel, groupByDay } from '../../../utils/history'
 import { downloadImage } from '../../../utils/downloadImage'
 import { downloadAssetsZip } from '../../../utils/downloadZip'
-import type { ImageHistoryItem, VideoHistoryItem, MusicHistoryItem } from '../../../stores/types'
+import type { ImageHistoryItem, VideoHistoryItem } from '../../../stores/types'
 import MusicRow from './MusicRow'
+import ProjectRail, { ProjectRailToggle } from './ProjectRail'
+import { summariseProjects, type HistoryEntry } from '../projectSummary'
+import RailOverlay from '../../../components/RailOverlay'
+import { useHistoryRailOpen } from '../../../hooks/useHistoryRailOpen'
 import GenerationProgress from '../../../components/GenerationProgress'
 import { TileActionStack, TileActionButton, TileDeleteButton } from '../../../components/tileActions'
 import DayPill from '../../../components/DayPill'
@@ -37,22 +41,31 @@ const LIST_CARD_MAX = 560
 
 // A single unified history entry. Image/Video/Music streams flow into this
 // shape so day-bucketing + masonry can stay one code path.
-type HistoryEntry =
-  | { kind: 'image'; createdAt: number; data: ImageHistoryItem }
-  | { kind: 'video'; createdAt: number; data: VideoHistoryItem }
-  | { kind: 'music'; createdAt: number; data: MusicHistoryItem }
 
 interface PlaygroundHistoryGridProps {
   inFlight: InFlightGen[]
-  // Active mode filter — null shows everything.
-  filterMode: PlaygroundMode | null
+  // Which project the panel is showing — `null` is All Generations, which is
+  // everything in every project plus everything never filed under one.
+  //
+  // This REPLACED a mode filter (Massimo's call, September 2026). The list used
+  // to be sliced by the tab the prompt panel was standing on, so flipping Image
+  // → Video swapped the whole right-hand pane for a different list. That is the
+  // wrong cut: one piece of work is the stills AND the clips AND the track for
+  // an ad, and the member wants them in one place — which is also the cut
+  // Google Flow makes with its projects. See `ProjectMenu`.
+  activeProjectId: string | null
+  onChangeProject: (id: string | null) => void
   // Carry a finished still over to the Video tab as its start frame, with the
   // prompt that made it. Omitted → the Animate action is hidden.
   onAnimateImage?: (item: ImageHistoryItem) => void
   // Put this generation's prompt back in the prompt box, replacing what's
   // there. Threaded to every card shape rather than lifted onto one, because
   // the grid, the list and the preview modal are three different action rows.
-  onReusePrompt?: (prompt: string) => void
+  //
+  // It carries the card's MODE because the list is no longer sliced by tab, so
+  // the card is routinely not the tab you're standing in — the prompt panel
+  // follows the card rather than handing a video prompt to an image model.
+  onReusePrompt?: (prompt: string, mode: PlaygroundMode) => void
 }
 
 // Memoized: this grid renders every generation the member has ever made (the
@@ -62,12 +75,16 @@ interface PlaygroundHistoryGridProps {
 // all stable while typing, so the subtree is skipped entirely.
 //
 // Keep them stable: `onAnimateImage` is wrapped in useCallback by the parent.
-export default memo(function PlaygroundHistoryGrid({ inFlight, filterMode, onAnimateImage, onReusePrompt }: PlaygroundHistoryGridProps) {
+export default memo(function PlaygroundHistoryGrid({ inFlight, activeProjectId, onChangeProject, onAnimateImage, onReusePrompt }: PlaygroundHistoryGridProps) {
   // Recording Mode hides what existed when it was armed; a replay brings each
   // output back. The prefixes match the ones Playground replays under.
   const imageHistory = useVisibleRows(useBankStore((s) => s.imageHistory), 'image')
   const videoHistory = useVisibleRows(useBankStore((s) => s.videoHistory), 'video')
   const musicHistory = useVisibleRows(useBankStore((s) => s.musicHistory), 'music')
+  const projects = useBankStore((s) => s.projects)
+  const addProject = useBankStore((s) => s.addProject)
+  const renameProject = useBankStore((s) => s.renameProject)
+  const deleteProject = useBankStore((s) => s.deleteProject)
   const deleteImageHistory = useBankStore((s) => s.deleteImageHistory)
   const deleteVideoHistory = useBankStore((s) => s.deleteVideoHistory)
   const deleteMusicHistory = useBankStore((s) => s.deleteMusicHistory)
@@ -89,6 +106,12 @@ export default memo(function PlaygroundHistoryGrid({ inFlight, filterMode, onAni
   // Grid (masonry) vs List (stacked rows). Persisted globally so the choice
   // sticks across reloads and modes — mirrors the competitor's List/Grid switch.
   const [viewMode, setViewMode] = usePersistedState<'grid' | 'list'>('ai-ugc-lab:playground:history-view', 'grid')
+  // The project rail, in the shape B-Roll's history rail already has: a 280px
+  // column popping out of this pane's right edge, shut by default, remembered
+  // per browser. `useHistoryRailOpen` is shared with the three apps that have
+  // one, so this rail ships shut for the same reason theirs do — opening
+  // Playground should land on what you just made, not on a list of folders.
+  const [railOpen, setRailOpen] = useHistoryRailOpen()
   // List-view card size — the media frame height (px), set by the header slider.
   // Cards are full-width (2/3 media · 1/3 info); the slider grows the media taller
   // so the clip is more watchable. Max ≈ two of the smallest cards stacked.
@@ -100,7 +123,10 @@ export default memo(function PlaygroundHistoryGrid({ inFlight, filterMode, onAni
   // while portraits get bigger. Mirrors the Influencers gallery.
   const mediaAspect = 16 / 9 + (cardPct / 100) * (9 / 16 - 16 / 9)
 
-  const entries = useMemo<HistoryEntry[]>(() => {
+  // Everything this app has ever made, newest first — all three kinds in one
+  // list, with no mode slice. The project filter is applied below rather than
+  // here, because the per-project counts in the switcher are taken off this.
+  const allEntries = useMemo<HistoryEntry[]>(() => {
     const out: HistoryEntry[] = []
     for (const i of imageHistory) out.push({ kind: 'image', createdAt: i.createdAt, data: i })
     // Playground's history grid only shows generations that originated in
@@ -114,13 +140,29 @@ export default memo(function PlaygroundHistoryGrid({ inFlight, filterMode, onAni
     }
     for (const m of musicHistory) out.push({ kind: 'music', createdAt: m.createdAt, data: m })
     out.sort((a, b) => b.createdAt - a.createdAt)
-    if (filterMode) return out.filter((e) => e.kind === filterMode)
     return out
-  }, [imageHistory, videoHistory, musicHistory, filterMode])
+  }, [imageHistory, videoHistory, musicHistory])
+
+  const entries = useMemo<HistoryEntry[]>(
+    () => (activeProjectId ? allEntries.filter((e) => e.data.projectId === activeProjectId) : allEntries),
+    [allEntries, activeProjectId],
+  )
+
+  // What each project's card shows: its cover mosaic, its media tally and when
+  // it was last worked in. Built in ONE pass over the whole list rather than a
+  // filter per project — this runs against every generation the member has ever
+  // made, and it re-runs whenever one lands. The `all` bucket is the All
+  // Generations card, which is also where a deleted project's rows come back
+  // to: an id that no longer resolves lands in no bucket but that one.
+  const projectSummaries = useMemo(() => summariseProjects(allEntries), [allEntries])
 
   const dayGroups = useMemo(() => groupByDay(entries, (e) => e.createdAt), [entries])
 
-  const visibleInFlight = filterMode ? inFlight.filter((g) => g.mode === filterMode) : inFlight
+  // In-flight tiles follow the same filter as finished rows: a generation
+  // started in another project shouldn't appear over this one's wall.
+  const visibleInFlight = activeProjectId
+    ? inFlight.filter((g) => g.projectId === activeProjectId)
+    : inFlight
 
   // The clips this grid is currently showing, newest first — what Download
   // clips works over, and the order they land in the zip.
@@ -130,15 +172,20 @@ export default memo(function PlaygroundHistoryGrid({ inFlight, filterMode, onAni
   )
   // Selecting is a GRID gesture: the tile is the checkbox. A list row is a card
   // you read and play, not a thing you tick, so the control doesn't offer
-  // itself there — and switching views or tabs drops a selection that would
+  // itself there — and switching views or projects drops a selection that would
   // otherwise be invisible while it survived.
   const canSelect = viewMode === 'grid' && videoEntries.length > 0
-  // The Music tab renders one row shape in both views (see MusicRow).
-  const musicOnly = filterMode === 'music'
+  // A track has no thumbnail, so it wears one row shape in both views (see
+  // MusicRow) — neither the Grid/List switch nor the card-size slider has
+  // anything left to change once music is all there is. It used to be a tab
+  // test (`filterMode === 'music'`); with the list unified it is a question
+  // about what's actually on screen, which is the same question and the right
+  // one now that a project can hold nothing but tracks.
+  const musicOnly = entries.length > 0 && entries.every((e) => e.kind === 'music')
   useEffect(() => {
     setSelecting(false)
     setPicked(new Set())
-  }, [filterMode, viewMode])
+  }, [activeProjectId, viewMode])
 
   const pickedCount = videoEntries.reduce((n, e) => n + (picked.has(e.data.id) ? 1 : 0), 0)
   const allPicked = pickedCount === videoEntries.length && videoEntries.length > 0
@@ -198,23 +245,18 @@ export default memo(function PlaygroundHistoryGrid({ inFlight, filterMode, onAni
     }
   }
 
-  if (entries.length === 0 && visibleInFlight.length === 0) {
-    return (
-      <div className="flex h-full flex-col">
-        <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
-          <ImagePlay className="h-9 w-9 text-ink-800" strokeWidth={1.5} />
-          <p className="text-sm text-ink-500">No Generations Yet</p>
-          <p className="max-w-[300px] text-xs leading-relaxed text-ink-600">
-            Pick a preset or type a prompt below and hit Generate.
-            Everything you make lands here, sorted by day.
-          </p>
-        </div>
-      </div>
-    )
-  }
+  // An empty panel is a STATE of this component now, not an early return that
+  // replaces it. The early return took the header with it, and with the project
+  // switcher living up there that meant making a project, landing in it empty,
+  // and having no control left on screen to get back out of it.
+  const isEmpty = entries.length === 0 && visibleInFlight.length === 0
+  const activeProject = activeProjectId ? projects.find((p) => p.id === activeProjectId) ?? null : null
 
   return (
-    <div className="relative flex h-full flex-col">
+    // `relative` is what `RailOverlay` positions against — without it the rail
+    // escapes the pane and lands over the dock.
+    <div className="relative flex h-full min-h-0">
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
       {/* Header — card-size slider (list view only) + view switch (Grid / List).
           Matches the prompt panel's h-[57px] mode-toggle bar so the left/right
           tabs sit on the same line.
@@ -230,6 +272,22 @@ export default memo(function PlaygroundHistoryGrid({ inFlight, filterMode, onAni
           `sticky`: this bar never scrolls away, and the app-wide rule is that
           chrome which doesn't move shouldn't be sticky. */}
       <div className="absolute inset-x-0 top-0 z-20 flex h-[57px] items-center justify-end gap-3 border-b border-ink/5 app-backdrop-frost px-4">
+        {/* The project opener owns the left of this bar — it names what the
+            panel below is showing, which is the one thing a header over a wall
+            of pictures has to say, and it pops the rail out. It stands down
+            while a clip selection is running: that gesture takes the whole bar
+            (see the note below), and switching projects mid-pick would drop the
+            selection anyway. It stays put while the rail is OPEN, behind the
+            catcher: pressing it there dismisses the rail, so the one control
+            reads as a toggle either way. */}
+        {!selecting && (
+          // `min-w-0` down both levels, because a long project name has to
+          // truncate inside the pill rather than push the view switch off the
+          // end of a panel whose width doesn't track the viewport's.
+          <div className="mr-auto flex min-w-0">
+            <ProjectRailToggle activeProject={activeProject} onExpand={() => setRailOpen(true)} />
+          </div>
+        )}
         {/* Selecting takes over the header rather than raising a band under the
             scroll port: the bar is already there, already pinned, and already
             where the gesture was started from — a second strip at the other end
@@ -292,7 +350,16 @@ export default memo(function PlaygroundHistoryGrid({ inFlight, filterMode, onAni
             }`}
           >
             {selecting ? <X className="h-3.5 w-3.5" /> : <Download className="h-3.5 w-3.5" />}
-            {selecting ? 'Cancel' : 'Download Clips'}
+            {/* The label goes below `md`, where this pane IS the viewport and
+                the three controls on this bar don't fit across 375px. What has
+                to survive that squeeze is the project name — it's the only
+                thing here that says what the wall of tiles underneath is — and
+                the app's rule for a bar that won't fit is to shorten a label
+                rather than shrink the control again. The glyph is the one
+                that's already unambiguous on its own, and its `title` stays. */}
+            <span className={selecting ? '' : 'max-md:hidden'}>
+              {selecting ? 'Cancel' : 'Download Clips'}
+            </span>
           </button>
         )}
         {/* Neither control has anything to do in the Music tab: a track has no
@@ -307,6 +374,23 @@ export default memo(function PlaygroundHistoryGrid({ inFlight, filterMode, onAni
           the bar's own 57px plus the 12px the content already stood off by —
           change the bar's height and change this with it. */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 pb-3 pt-[69px]">
+        {isEmpty && (
+          // `min-h` rather than a centred flex fill: this block shares a
+          // scroller with the pinned bar above it, and a `flex-1` child here
+          // would centre against a port that already has 69px spoken for.
+          <div className="flex min-h-[70vh] flex-col items-center justify-center gap-2 px-6 text-center">
+            <ImagePlay className="h-9 w-9 text-ink-800" strokeWidth={1.5} />
+            <p className="text-sm text-ink-500">
+              {activeProject ? `Nothing In ${activeProject.name} Yet` : 'No Generations Yet'}
+            </p>
+            <p className="max-w-[300px] text-xs leading-relaxed text-ink-600">
+              {activeProject
+                ? 'Pick a preset or type a prompt below and hit Generate. Images, clips and tracks made while this project is open all land here.'
+                : 'Pick a preset or type a prompt below and hit Generate. Everything you make lands here, sorted by day.'}
+            </p>
+          </div>
+        )}
+
         {visibleInFlight.length > 0 && (
           <>
             <DayPill label="In Progress" className="my-5" />
@@ -351,7 +435,7 @@ export default memo(function PlaygroundHistoryGrid({ inFlight, filterMode, onAni
                         onSave={() => handleSaveImage(entry.data)}
                         onDelete={() => deleteImageHistory(entry.data.id)}
                         onCopyPrompt={() => handleCopyPrompt(entry.data.prompt)}
-                        onReuse={onReusePrompt && entry.data.prompt ? () => onReusePrompt(entry.data.prompt) : undefined}
+                        onReuse={onReusePrompt && entry.data.prompt ? () => onReusePrompt(entry.data.prompt, 'image') : undefined}
                         onAnimate={onAnimateImage ? () => onAnimateImage(entry.data) : undefined}
                       />
                     )}
@@ -365,7 +449,7 @@ export default memo(function PlaygroundHistoryGrid({ inFlight, filterMode, onAni
                         onClick={() => setPreviewItem(entry)}
                         onDelete={() => deleteVideoHistory(entry.data.id)}
                         onCopyPrompt={() => handleCopyPrompt(entry.data.prompt)}
-                        onReuse={onReusePrompt && entry.data.prompt ? () => onReusePrompt(entry.data.prompt) : undefined}
+                        onReuse={onReusePrompt && entry.data.prompt ? () => onReusePrompt(entry.data.prompt, 'video') : undefined}
                       />
                     )}
                     {entry.kind === 'music' && (
@@ -377,7 +461,7 @@ export default memo(function PlaygroundHistoryGrid({ inFlight, filterMode, onAni
                         }}
                         onDelete={() => deleteMusicHistory(entry.data.id)}
                         onCopyPrompt={() => handleCopyPrompt(entry.data.prompt)}
-                        onReuse={onReusePrompt && entry.data.prompt ? () => onReusePrompt(entry.data.prompt) : undefined}
+                        onReuse={onReusePrompt && entry.data.prompt ? () => onReusePrompt(entry.data.prompt, 'music') : undefined}
                       />
                     )}
                   </div>
@@ -398,7 +482,7 @@ export default memo(function PlaygroundHistoryGrid({ inFlight, filterMode, onAni
                     }}
                     onDelete={() => deleteMusicHistory(entry.data.id)}
                     onCopyPrompt={() => handleCopyPrompt(entry.data.prompt)}
-                    onReuse={onReusePrompt && entry.data.prompt ? () => onReusePrompt(entry.data.prompt) : undefined}
+                    onReuse={onReusePrompt && entry.data.prompt ? () => onReusePrompt(entry.data.prompt, 'music') : undefined}
                   />
                 ) : (
                   <HistoryListRow
@@ -409,7 +493,7 @@ export default memo(function PlaygroundHistoryGrid({ inFlight, filterMode, onAni
                     scrollRoot={scrollRef}
                     onClickImage={entry.kind === 'image' ? () => setPreviewItem(entry) : undefined}
                     onCopyPrompt={() => handleCopyPrompt(entry.data.prompt)}
-                    onReuse={onReusePrompt && entry.data.prompt ? () => onReusePrompt(entry.data.prompt) : undefined}
+                    onReuse={onReusePrompt && entry.data.prompt ? () => onReusePrompt(entry.data.prompt, entry.kind) : undefined}
                     onSave={entry.kind === 'image' ? () => handleSaveImage(entry.data) : undefined}
                     onAnimate={entry.kind === 'image' && onAnimateImage ? () => onAnimateImage(entry.data) : undefined}
                     onDownload={async () => {
@@ -446,9 +530,37 @@ export default memo(function PlaygroundHistoryGrid({ inFlight, filterMode, onAni
               ? () => onAnimateImage(previewItem.data)
               : undefined
           }
-          onReuse={onReusePrompt && previewItem.data.prompt ? () => onReusePrompt(previewItem.data.prompt) : undefined}
+          onReuse={onReusePrompt && previewItem.data.prompt ? () => onReusePrompt(previewItem.data.prompt, previewItem.kind) : undefined}
         />
       )}
+      </div>
+
+      <RailOverlay open={railOpen} onClose={() => setRailOpen(false)}>
+          <ProjectRail
+            projects={projects}
+            activeProjectId={activeProjectId}
+            onChange={(id) => {
+              // The rail covers the grid, so picking a project is a request to
+              // see what's in it.
+              onChangeProject(id)
+              setRailOpen(false)
+            }}
+            summaries={projectSummaries}
+            // A project you just made is a project you are about to work in, so
+            // creating one opens it — the alternative is making a folder and
+            // then having to go and find it.
+            onCreate={(name) => { void addProject(name).then((id) => onChangeProject(id)) }}
+            onRename={(id, name) => { void renameProject(id, name) }}
+            onDelete={(id) => {
+              void deleteProject(id)
+              // Standing in a project that no longer exists would show an empty
+              // grid under a name nothing can select. The derived fallback in
+              // Playground covers this too; saying it here as well keeps the
+              // rail honest on its own.
+              if (id === activeProjectId) onChangeProject(null)
+            }}
+          />
+      </RailOverlay>
     </div>
   )
 })
@@ -465,9 +577,19 @@ function ViewToggle({ value, onChange }: { value: 'grid' | 'list'; onChange: (v:
       className="h-10 !p-1"
       value={value}
       onChange={onChange}
+      // Both labels go below `md`. There are now three controls on a 57px bar
+      // that at phone width IS the viewport, and the one that must keep its
+      // words is the project name — these two icons are a pair read against
+      // each other, which is the case where a glyph alone still says which is
+      // which. `label` takes a ReactNode for exactly this, so it's a span and
+      // no JS media query (docs/mobile.md), and `ariaLabel` carries the name a
+      // hidden label stops providing. `hidden` rather than `sr-only`: an
+      // `sr-only` span is still a flex child, so the segment's gap is laid out
+      // after the icon and the glyph sits half a gap left of centre — the
+      // failure `ariaLabel` was added for. `display: none` leaves no child.
       options={[
-        { value: 'list', label: 'List', icon: List },
-        { value: 'grid', label: 'Grid', icon: LayoutGrid },
+        { value: 'list', label: <span className="max-md:hidden">List</span>, icon: List, ariaLabel: 'List' },
+        { value: 'grid', label: <span className="max-md:hidden">Grid</span>, icon: LayoutGrid, ariaLabel: 'Grid' },
       ]}
     />
   )

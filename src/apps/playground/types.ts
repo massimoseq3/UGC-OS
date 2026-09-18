@@ -14,6 +14,11 @@ export interface InFlightGen {
   // Populated by startX once kie returns a taskId. Until then the job is
   // still in the createTask leg and isn't safely resumable.
   taskId?: string
+  // The project active when Generate was pressed, carried so a generation
+  // resumed after a reload is filed where it was started rather than wherever
+  // the member happens to be standing when it lands. Top-level rather than in
+  // the per-mode params: a project is a property of the run, not of the medium.
+  projectId?: string
   // Mode-specific resume params — kept narrow so the persisted blob stays small.
   imageParams?: {
     aspectRatio: AspectRatio

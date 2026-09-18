@@ -89,11 +89,15 @@ function resolveImageModelForRefs(pickedId: string, hasRefs: boolean): string {
 // — which for Playground means the history grid re-renders on every character
 // typed into the prompt bar.
 async function finishResumedTask(gen: InFlightGen): Promise<void> {
+  // `gen.projectId` is the project that was active when Generate was pressed,
+  // not the one active now — a clip that took twenty minutes still belongs to
+  // the piece of work it was started for.
   if (gen.mode === 'image' && gen.imageParams) {
     await finishPlaygroundImageTask(gen.taskId!, gen.modelId, {
       prompt: gen.prompt,
       aspectRatio: gen.imageParams.aspectRatio,
       resolution: gen.imageParams.resolution,
+      projectId: gen.projectId,
     })
   } else if (gen.mode === 'video' && gen.videoParams) {
     await finishPlaygroundVideoTask(gen.taskId!, gen.modelId, gen.videoParams.videoEndpoint, {
@@ -103,11 +107,13 @@ async function finishResumedTask(gen: InFlightGen): Promise<void> {
       durationSeconds: gen.videoParams.durationSeconds,
       resolution: gen.videoParams.resolution,
       audio: gen.videoParams.audio,
+      projectId: gen.projectId,
     })
   } else if (gen.mode === 'music' && gen.musicParams) {
     await finishPlaygroundMusicTask(gen.taskId!, gen.modelId, {
       prompt: gen.prompt,
       instrumental: gen.musicParams.instrumental,
+      projectId: gen.projectId,
     })
   }
 }
@@ -197,6 +203,23 @@ export default function Playground() {
   // leg when the tab died) and tasks older than 30 min are auto-expired on
   // mount — see the resume effect below.
   const [inFlight, setInFlight] = usePersistedState<InFlightGen[]>(`${baseKey}:inflight`, [])
+  // Which project the history panel is showing and new generations are filed
+  // under. `null` is All Generations — the view a member who has never made a
+  // project stays in forever, and the one anything generated there stays
+  // unfiled in.
+  //
+  // Browser-local rather than synced with the projects themselves: this is
+  // where you are standing, not what you own, and a second device shouldn't be
+  // dragged into the folder the first one happens to have open.
+  const [activeProjectId, setActiveProjectId] = usePersistedState<string | null>(`${baseKey}:project`, null)
+  const projects = useBankStore((s) => s.projects)
+  // A pointer at a project that no longer exists — deleted here, deleted on
+  // another device, or written before a hydrate that hasn't landed yet — falls
+  // back to All Generations rather than showing an empty panel under a name
+  // nothing can select. Derived, not an effect: a deleted project's row is gone
+  // from the bank on the same render that removed it.
+  const activeProject = activeProjectId ? projects.find((p) => p.id === activeProjectId) ?? null : null
+  const projectId = activeProject?.id ?? null
   // Recording Mode's fake generations (stores/recordingStore). Plain state,
   // never persisted and never given a taskId, so nothing can try to resume one.
   const [replayInFlight, setReplayInFlight] = useState<InFlightGen[]>([])
@@ -563,7 +586,7 @@ export default function Playground() {
     if (isRecordingActive()) {
       const fake: InFlightGen = {
         id: `replay-${crypto.randomUUID()}`, mode, modelId, prompt: promptText, startedAt: Date.now(),
-        imageParams, videoParams, musicParams,
+        imageParams, videoParams, musicParams, projectId: projectId ?? undefined,
       }
       setReplayInFlight((prev) => [...prev, fake])
       const row = await replayRun({ rows: () => playgroundRows(mode), prefix: mode, extraMs: index * 700 })
@@ -576,6 +599,9 @@ export default function Playground() {
     setInFlight((prev) => [...prev, {
       id, mode, modelId, prompt: promptText, startedAt: Date.now(),
       imageParams, videoParams, musicParams,
+      // Snapshotted with everything else: a project switch while this renders
+      // must not re-file the generation it was started for.
+      projectId: projectId ?? undefined,
     }])
 
     // Leave the prompt + refs in place so the user can fire off the same (or a
@@ -696,6 +722,7 @@ export default function Playground() {
           prompt: promptText,
           aspectRatio: imageParams!.aspectRatio,
           resolution: imageParams!.resolution,
+          projectId: projectId ?? undefined,
         })
         addToast('Image ready', 'success')
       } else if (mode === 'video') {
@@ -706,12 +733,14 @@ export default function Playground() {
           durationSeconds: videoParams!.durationSeconds,
           resolution: videoParams!.resolution,
           audio: videoParams!.audio,
+          projectId: projectId ?? undefined,
         })
         addToast('Video ready', 'success')
       } else {
         await finishPlaygroundMusicTask(taskId, modelId, {
           prompt: promptText,
           instrumental: musicParams!.instrumental,
+          projectId: projectId ?? undefined,
         })
         addToast('Track ready', 'success')
       }
@@ -778,8 +807,7 @@ export default function Playground() {
     // Read the draft through the ref, not the closure — see stateRef above.
     const draft = stateRef.current
 
-    // Already on Video (the grid is mode-filtered, so this only happens on a
-    // deep link): just swap the start frame and leave the draft alone.
+    // Already on Video: just swap the start frame and leave the draft alone.
     if (draft.mode === 'video') {
       setState((s) => ({ ...s, refs: [...s.refs.filter((r) => r.slot !== 'start'), startRef] }))
       return
@@ -799,11 +827,18 @@ export default function Playground() {
 
   // Put a past generation's prompt back in the box, replacing what's there.
   //
-  // The grid is filtered to the active mode, so a card's prompt always belongs
-  // to the tab it lands in and no mode switch is involved. Everything ELSE on
-  // the draft is left alone — the Voice box, the references, the model — which
-  // is the same contract the Scripts handoff runs on: reusing a prompt swaps
-  // the words and nothing else.
+  // Everything ELSE on the draft is left alone — the Voice box, the references,
+  // the model — which is the same contract the Scripts handoff runs on: reusing
+  // a prompt swaps the words and nothing else.
+  //
+  // It takes the card's own MODE because the history is no longer sliced by
+  // tab: a project holds the stills, the clips and the track for one piece of
+  // work, so the card you press Reuse on is routinely not the tab you are
+  // standing in. Landing a video prompt in the Image box would hand it to a
+  // model that can't make the thing it describes, so the tab follows the card,
+  // through the same stash a manual tab switch uses — the outgoing draft is
+  // kept and the target tab's own refs come back with it. `PromptPanel`'s own
+  // effect snaps the model to the new tab, so nothing here has to.
   //
   // It genuinely REPLACES, with no undo of its own (`PromptPanel`'s stack only
   // tracks changes made inside the box). That's what the button says it does,
@@ -812,20 +847,23 @@ export default function Playground() {
   // `useCallback` is not optional here: the history grid is `memo`'d against
   // hundreds of rows, and a fresh identity per render re-renders the whole list
   // on every keystroke in the prompt box. See the note on `stateRef` above.
-  const handleReusePrompt = useCallback((prompt: string) => {
+  const handleReusePrompt = useCallback((prompt: string, mode: PlaygroundMode) => {
     const text = prompt.trim()
     if (!text) return
-    setState((s) => ({ ...s, prompt: text }))
+    // Read the draft through the ref, not the closure — see stateRef above.
+    const draft = stateRef.current
+    if (draft.mode === mode) {
+      setState((s) => ({ ...s, prompt: text }))
+    } else {
+      setPromptStash((prev) => ({ ...prev, [draft.mode]: { prompt: draft.prompt, refs: draft.refs } }))
+      const restored = promptStashRef.current[mode] ?? { prompt: '', refs: [] }
+      setState((s) => ({ ...s, mode, prompt: text, refs: restored.refs }))
+    }
     // On a phone only one pane is on screen and it's the grid you pressed this
     // from — follow the prompt to the panel that now holds it. No toast: the
     // box visibly changes, which is better feedback than a line of copy.
     setPane('prompt')
-  }, [setState])
-
-  // Filter the history grid to the active mode. Users frequently bounce
-  // between modes and want to see what they just made, not noise from the
-  // other tabs.
-  const filterMode: PlaygroundMode = state.mode
+  }, [setState, setPromptStash])
 
   // Submit button no longer disables on in-flight count — users can queue
   // unlimited parallel generations. The prop stays for any future use.
@@ -838,6 +876,9 @@ export default function Playground() {
         modelId: state.modelId ?? '',
         prompt: state.prompt,
         startedAt: loopSince,
+        // The grid filters in-flight tiles by project like everything else —
+        // without this the loop tile vanishes the moment a project is open.
+        projectId: projectId ?? undefined,
         imageParams: state.mode === 'image' ? { aspectRatio: state.aspectRatio as AspectRatio } : undefined,
         videoParams: state.mode === 'video'
           ? { mode: 'text-to-video', aspectRatio: state.aspectRatio, durationSeconds: state.durationSeconds, resolution: state.resolution, audio: state.audio }
@@ -877,7 +918,8 @@ export default function Playground() {
         <div className={paneClass(pane === 'history', 'md:flex-1 md:overflow-hidden')}>
           <PlaygroundHistoryGrid
             inFlight={shownInFlight}
-            filterMode={filterMode}
+            activeProjectId={projectId}
+            onChangeProject={setActiveProjectId}
             onAnimateImage={handleAnimateImage}
             onReusePrompt={handleReusePrompt}
           />

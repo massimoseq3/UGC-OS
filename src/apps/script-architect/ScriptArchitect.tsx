@@ -5,7 +5,6 @@ import MobilePaneTabs from '../../components/MobilePaneTabs'
 import { paneClass } from '../../components/paneClass'
 import { useReportActivity } from '../../stores/activityStore'
 import { useBankStore } from '../../stores/bankStore'
-import { useMinWidth } from '../../hooks/useBreakpoint'
 import type { Product, ScriptHistoryItem } from '../../stores/types'
 import InputPanel from './components/InputPanel'
 import RightPanel from './components/RightPanel'
@@ -125,18 +124,6 @@ export default function ScriptArchitect() {
   const watchedRunIdRef = useRef<string | null>(null)
   // Phone-only: which of the two panes is on screen (ignored from md up).
   const [pane, setPane] = useState<'input' | 'output'>('input')
-  // Behaviour, not layout: where the rail stands in FRONT of the takes, picking
-  // a run has to hand the pane back; beside them it must not, browsing the list
-  // being the whole point of a rail. The layout itself is pure CSS — this only
-  // has to agree with it, so keep the number in step with the
-  // `min-[980px]:` classes in RightPanel and HistoryRail.
-  //
-  // 980, not Tailwind's `lg`: the threshold is the width at which all three
-  // columns fit — a 380px input panel, the 280px rail, and ~320px of readable
-  // takes. `lg` (1024) is the nearest breakpoint and it is 44px too high, which
-  // put a 994px window (Safari at half a 1080p screen) on the covering side of
-  // a line it clears.
-  const railIsColumn = useMinWidth(980)
   // Whether the history rail is showing. Persisted, because it is a working
   // preference rather than a per-run state — a member recording their screen
   // shuts it once, not once per session. It ships SHUT at every width: the
@@ -150,7 +137,7 @@ export default function ScriptArchitect() {
   // thing. That was free only while the feature was unreleased; the flip to
   // shut-by-default came after, so it ships with the one-shot reset marker in
   // `useHistoryRailOpen` instead.
-  const [historyOpen, setHistoryOpen] = useHistoryRailOpen(`${baseKey}:historyRail`)
+  const [historyOpen, setHistoryOpen] = useHistoryRailOpen()
   // "Clear the canvas" state. Holds a signature of the output that was cleared,
   // so the next generation (or a history restore) fills the panel again on its
   // own. Nothing is deleted — every take is already a History row; this exists
@@ -447,9 +434,9 @@ export default function ScriptArchitect() {
     // which the signature alone reads as "still the thing I cleared" and left
     // blank. That was reported as history rows not opening at all.
     setClearedSig(null)
-    // Where the rail stands in front of the takes, picking a run is a request
-    // to read it — so it hands the pane back. Beside them it stays open.
-    if (!railIsColumn) setHistoryOpen(false)
+    // The rail covers the takes (`components/RailOverlay`), so picking a run is
+    // a request to read it and hands the pane back.
+    setHistoryOpen(false)
     setMode(item.mode === 'write' ? 'write' : 'remix')
     showRowOutput(item)
     if (isVariationCount(item.variationCount)) setVariationCount(item.variationCount)
@@ -490,7 +477,7 @@ export default function ScriptArchitect() {
   // not what clicking a status card asks for.
   const handleWatchPending = (run: PendingScriptRun) => {
     setError(null)
-    if (!railIsColumn) setHistoryOpen(false)
+    setHistoryOpen(false)
     showRunEmpty(run)
   }
 

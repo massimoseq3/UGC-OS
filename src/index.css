@@ -531,25 +531,51 @@ textarea,
   .modal-pop, .modal-fade { animation: none; }
 }
 
-/* The same arrival for a panel that is ANCHORED rather than centred: the
-   history rail in Scripts, Voiceovers and B-Roll (Massimo's call, September
-   2026 — "it should feel like the preset picker"). It runs the modal's own
-   keyframe rather than a copy of it, so the two cannot drift apart; the only
-   thing that differs is the origin. A centred modal grows out of its own middle
-   because the middle is where it sits. The rail is hung on the seam it makes
-   with the output column, so it grows out of THAT edge: scaled from the centre,
-   its left border — the one hairline the seam is drawn with — slides across the
-   output column on the way in and the panel reads as drifting in from nowhere.
-   Like the preset picker it unmounts on shut, so there is no closed state to
-   transition FROM and a keyframe that runs on mount is the shape that fits. It
-   leaves no transform behind when it ends, so nothing in the rail is left
-   sitting inside a stray containing block. */
-.rail-pop {
-  animation: modal-pop 200ms ease-out;
-  transform-origin: right center;
+/* The history rail SLIDES, in both directions (Massimo's call, September 2026).
+   It is the one overlay in the app that comes from an edge rather than from the
+   middle: it is pinned to the pane's right side, it is the width of a drawer,
+   and the gesture it answers is "show me the list beside this". A scale-and-fade
+   — which this wore while it was a `modal-pop` with the origin moved — reads as
+   a panel materialising in place, so there was nothing on screen saying where it
+   came from or where it goes back to. Travel says both.
+
+   Both keyframes are here because the rail animates OUT too, which the scale
+   version never did: it unmounted on shut and simply vanished. The exit is what
+   makes clicking away feel like dismissing something rather than deleting it,
+   and `RailOverlay` holds the panel mounted for the duration to run it.
+
+   The duration is set by `RailOverlay` through `--rail-ms`, so the component's
+   unmount timer and the animation can't drift apart. The easing is the iOS
+   sheet curve: fast off the mark, long settle, no overshoot — a drawer that
+   bounces reads as a toy.
+
+   Reduced motion collapses the duration instead of removing the animation:
+   `animation: none` would leave the exit with no end and the panel mounted
+   (harmlessly, but forever) until the timer caught it. 1ms keeps one code path.
+
+   `both` holds the first frame before the animation starts, so a rail never
+   paints at its final position for one frame and then jumps back to start. */
+@keyframes rail-slide-in {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
 }
+@keyframes rail-slide-out {
+  from { transform: translateX(0); }
+  to   { transform: translateX(100%); }
+}
+.rail-slide-in  { animation: rail-slide-in  var(--rail-ms, 220ms) cubic-bezier(0.32, 0.72, 0, 1) both; }
+.rail-slide-out { animation: rail-slide-out var(--rail-ms, 220ms) cubic-bezier(0.32, 0.72, 0, 1) both; }
+
+/* The scrim under it fades on the same clock. It is a plain ease rather than
+   the sheet curve: the panel's easing is about travel and this one has none to
+   describe, and a dim that eases like a drawer reads as lagging behind it. */
+@keyframes rail-scrim-in  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes rail-scrim-out { from { opacity: 1; } to { opacity: 0; } }
+.rail-scrim-in  { animation: rail-scrim-in  var(--rail-ms, 220ms) ease-out both; }
+.rail-scrim-out { animation: rail-scrim-out var(--rail-ms, 220ms) ease-out both; }
+
 @media (prefers-reduced-motion: reduce) {
-  .rail-pop { animation: none; }
+  .rail-slide-in, .rail-slide-out, .rail-scrim-in, .rail-scrim-out { animation-duration: 1ms; }
 }
 
 /* Send-to field highlight flash */
