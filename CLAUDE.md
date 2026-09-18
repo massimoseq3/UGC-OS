@@ -90,6 +90,7 @@ Defaults (registry order IS the default — `getDefaultModel` falls back to the 
 - Every cloud write awaits `ensureFreshSession()`; the client uses a custom non-blocking `auth.lock`.
 - **The kie.ai and ScrapeCreators keys are browser-local only**, never in Supabase, written through `snapshot(state)`, kept across sign-out in the per-user vault `ai-ugc-lab-keys` and adopted only after any wipe.
 - Signup is blocked by the `enforce_allowlist` trigger with no client bypass; the access code is compared in the trigger and never shipped to the browser. Member status is Active / Lapsed / Disabled; no status deletes anything.
+- **Every member re-enters the access code on a timer** (`access_renewal_days`, default 30). Being due is derived, never stamped, so `is_active()` is the only lock and `my_access_state()` is the only thing the client may render it from — and a blank `signup_code` must never make anyone due, because `redeem_access_code` refuses a blank code and nobody could get back in.
 - `perAppModel` is cloud-synced and hydrate replaces it.
 - Every bank table has a Postgres mirror; **a new bank needs its migration run before deploy** or every hydrate errors and skips the orphan sweep.
 - Announcements are the one synced table that is not a bank (`stores/announcementStore.ts`); `published_at` in the future is the scheduler.

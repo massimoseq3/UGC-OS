@@ -79,20 +79,41 @@ function unverifiedSub(token: string): string | null {
   }
 }
 
-// Fetches the account's `disabled_at`. A valid JWT is not enough on its own: a
-// member removed from the allowlist has their profile stamped but keeps a
-// refreshable token, so a disabled account could otherwise keep minting R2
-// URLs after removal. Fails OPEN on a network/REST hiccup — same philosophy as
-// the storage-cap check, and RLS (migration 0012) backstops the Postgres side.
-async function fetchDisabledAt(supabaseUrl: string, supabaseAnon: string, token: string, userId: string): Promise<string | null> {
+// Asks Postgres whether this account is locked, returning the message to
+// refuse with (or null to let it through). A valid JWT is not enough on its
+// own: a member who was disabled, lapsed or is past their renewal checkpoint
+// keeps a refreshable token, so without this they could go on minting R2 URLs
+// from a workspace the app itself refuses to render.
+//
+// my_access_state() (migration 0025) is the same helper is_active() answers
+// from, so this endpoint and RLS can never disagree about who is locked out.
+// Falls back to the old disabled_at read where that migration hasn't run, and
+// fails OPEN on a network/REST hiccup — same philosophy as the storage-cap
+// check, with RLS (migration 0012) backstopping the Postgres side.
+async function fetchAccessDenial(supabaseUrl: string, supabaseAnon: string, token: string, userId: string): Promise<string | null> {
+  const headers = { apikey: supabaseAnon, Authorization: `Bearer ${token}` }
   try {
-    const res = await fetch(
+    const res = await fetch(`${supabaseUrl}/rest/v1/rpc/my_access_state`, {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: '{}',
+    })
+    if (res.ok) {
+      const state = await res.json() as { locked?: boolean; reason?: string | null }
+      if (!state?.locked) return null
+      return state.reason === 'disabled'
+        ? 'Account access has been revoked.'
+        : 'Your access needs renewing — open the app and enter the current access code.'
+    }
+    // Any non-OK answer (404 = the function isn't deployed here yet) drops to
+    // the pre-0025 check rather than silently letting a disabled member through.
+    const profRes = await fetch(
       `${supabaseUrl}/rest/v1/profiles?select=disabled_at&id=eq.${userId}`,
-      { headers: { apikey: supabaseAnon, Authorization: `Bearer ${token}` } },
+      { headers },
     )
-    if (!res.ok) return null
-    const rows = await res.json() as Array<{ disabled_at: string | null }>
-    return rows[0]?.disabled_at ?? null
+    if (!profRes.ok) return null
+    const rows = await profRes.json() as Array<{ disabled_at: string | null }>
+    return rows[0]?.disabled_at ? 'Account access has been revoked.' : null
   } catch {
     return null
   }
@@ -140,11 +161,11 @@ async function verifyUser(
 
   const guessedId = unverifiedSub(token)
 
-  const [res, guessedDisabledAt, guessedUsedBytes] = await Promise.all([
+  const [res, guessedDenial, guessedUsedBytes] = await Promise.all([
     fetch(`${supabaseUrl}/auth/v1/user`, {
       headers: { Authorization: `Bearer ${token}`, apikey: supabaseAnon },
     }),
-    guessedId ? fetchDisabledAt(supabaseUrl, supabaseAnon, token, guessedId) : Promise.resolve(null),
+    guessedId ? fetchAccessDenial(supabaseUrl, supabaseAnon, token, guessedId) : Promise.resolve(null),
     guessedId && needUsage ? fetchUsedBytes(supabaseUrl, supabaseAnon, token, guessedId) : Promise.resolve(null),
   ])
 
@@ -157,10 +178,10 @@ async function verifyUser(
   // slower path nobody should hit, since a real client's own token always
   // decodes to its own sub.
   const trusted = guessedId === user.id
-  const disabledAt = trusted
-    ? guessedDisabledAt
-    : await fetchDisabledAt(supabaseUrl, supabaseAnon, token, user.id)
-  if (disabledAt) return { error: 'Account access has been revoked.', status: 403 }
+  const denial = trusted
+    ? guessedDenial
+    : await fetchAccessDenial(supabaseUrl, supabaseAnon, token, user.id)
+  if (denial) return { error: denial, status: 403 }
 
   const usedBytes = !needUsage
     ? null

@@ -49,17 +49,39 @@ async function verifyUser(authHeader: string | null): Promise<{ userId: string }
   const user = await res.json() as { id?: string }
   if (!user.id) return { error: 'No user id in session' }
 
-  // Reject members removed from the allowlist (profile stamped disabled_at) so
-  // a revoked-but-still-valid token can't keep deleting R2 objects. Fail open
-  // on a profile-lookup error; RLS (migration 0012) backstops the DB side.
+  // Reject anyone the app itself would lock out — removed from the allowlist
+  // (disabled_at), cancelled (lapsed_at) or past their renewal checkpoint
+  // (migration 0025) — so a locked-but-still-valid token can't keep deleting
+  // R2 objects. my_access_state() is the helper is_active() answers from, so
+  // this endpoint and RLS can never disagree. Falls back to the pre-0025
+  // disabled_at read, and fails open on a lookup error; RLS (migration 0012)
+  // backstops the DB side.
+  const headers = { apikey: supabaseAnon, Authorization: `Bearer ${token}` }
   try {
-    const profRes = await fetch(
-      `${supabaseUrl}/rest/v1/profiles?select=disabled_at&id=eq.${user.id}`,
-      { headers: { apikey: supabaseAnon, Authorization: `Bearer ${token}` } },
-    )
-    if (profRes.ok) {
-      const rows = await profRes.json() as Array<{ disabled_at: string | null }>
-      if (rows[0]?.disabled_at) return { error: 'Account access has been revoked.', status: 403 }
+    const stateRes = await fetch(`${supabaseUrl}/rest/v1/rpc/my_access_state`, {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: '{}',
+    })
+    if (stateRes.ok) {
+      const state = await stateRes.json() as { locked?: boolean; reason?: string | null }
+      if (state?.locked) {
+        return {
+          error: state.reason === 'disabled'
+            ? 'Account access has been revoked.'
+            : 'Your access needs renewing — open the app and enter the current access code.',
+          status: 403,
+        }
+      }
+    } else {
+      const profRes = await fetch(
+        `${supabaseUrl}/rest/v1/profiles?select=disabled_at&id=eq.${user.id}`,
+        { headers },
+      )
+      if (profRes.ok) {
+        const rows = await profRes.json() as Array<{ disabled_at: string | null }>
+        if (rows[0]?.disabled_at) return { error: 'Account access has been revoked.', status: 403 }
+      }
     }
   } catch { /* fail open */ }
 
