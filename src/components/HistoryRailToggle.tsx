@@ -1,32 +1,36 @@
-import { PanelRightClose, PanelRightOpen } from 'lucide-react'
+import { Layers } from 'lucide-react'
 
-// The control that OPENS a shut history rail — a 38px circle in the app's own
+// The control that OPENS a history rail — a 38px circle in the app's own
 // icon-button material, laid out rather than overlaid, and WHERE it sits is the
-// caller's business: B-Roll's rides inside the storyboard bar, Scripts' and
-// Voiceovers' stand in a narrow column where the rail was
-// (`HistoryRailClosed`, below).
+// caller's business, and in every app it now LEADS a `h-[57px]` header band on
+// the output pane — B-Roll's storyboard bar, Playground's history header, and a
+// band of their own in Scripts and Voiceovers. It was a stub COLUMN on the
+// right in those two (a `HistoryRailClosed` wrapper, now deleted), which
+// narrowed the output by ~135px to hold one button and put the way into the
+// list at the far end of the pane; it floated over the output for an hour after
+// that and stood on the first card it was above (Massimo's call, September
+// 2026: "extend that horizontal separator line across the panel and have it in
+// its own little panel, like the Playground tab").
 //
-// It only handles the SHUT state (Massimo's call, September 2026). Shutting an
-// open rail is `HistoryRailHandle`, the lip on the seam — a tab on the rail's
-// own edge, which costs the rail's band nothing and leaves it to its New
-// button. The two are split because the seam only exists in one of the two
-// states: with the rail gone there is nothing for a lip to be a tab of, and a
-// tab on the bare edge of an output column is a mystery button. Shut, this
-// says the word.
+// It no longer has a shutting counterpart. The rail became an overlay that
+// dismisses when you click away from it (September 2026, Massimo's call —
+// `components/RailOverlay`), which took the lip on the seam and the Close in
+// the rail's band with it: pressing this while the rail is open lands on the
+// catcher, so the one control reads as a toggle either way.
 //
-// A pull tab tried to do BOTH jobs for a day and that is what failed: costing
-// no layout is worth nothing if the thing it overlaps is chrome, and every one
-// of these output columns puts a full-width bar across its own top — B-Roll's
-// batch strip, Voiceovers' script picker row — which a shut-state tab pinned to
-// the corner landed on. The version before that was a 40px bordered strip,
-// which read as a second panel.
+// A pull tab tried to do both jobs for a day and failed: costing no layout is
+// worth nothing if the thing it overlaps is chrome, and every one of these
+// output columns puts a full-width bar across its own top — B-Roll's batch
+// strip, Voiceovers' script picker row — which a shut-state tab pinned to the
+// corner landed on. The version before that was a 40px bordered strip, which
+// read as a second panel.
 export default function HistoryRailToggle({
   open,
   onToggle,
   label = 'history',
   showLabel = false,
   count,
-  labelClassName = 'text-[12.5px]',
+  labelClassName = 'text-[13px]',
 }: {
   open: boolean
   onToggle: () => void
@@ -34,8 +38,7 @@ export default function HistoryRailToggle({
   label?: string
   // Shut, the button is the only thing left standing where the rail was, so it
   // says the word as well as drawing the glyph (September 2026, Massimo's
-  // call). Open, the rail underneath it is self-evidently the history and the
-  // label would be repeating it beside the New button.
+  // call). Open, it is behind the rail's catcher and nothing reads it.
   //
   // It gives way below 980px — the width at which the rail stops being a column
   // at all — because there the shut column is a stub against a full-width pane,
@@ -44,12 +47,21 @@ export default function HistoryRailToggle({
   // How many rows are waiting behind it. Omitted (or 0) draws no pill: an empty
   // history is not a number worth a badge.
   count?: number
-  // The label's type size, for a host bar whose other pills are set smaller
-  // (B-Roll's storyboard strip runs every label at 12px).
+  // The label's type size. Every host now runs the app's own 13px control size
+  // (B-Roll's bar was 12px and came up to meet it in September 2026 — one panel
+  // shouldn't set its buttons a point under everything else in the app), so
+  // this survives only for a bar that genuinely needs a different one.
   labelClassName?: string
 }) {
   const title = open ? `Hide ${label}` : `Show ${label}`
-  const Icon = open ? PanelRightClose : PanelRightOpen
+  // The STACK, the same mark Playground's project rail heads All Generations
+  // with (Massimo's call, September 2026). It was a panel-open/panel-close pair
+  // first, which described the chrome — a drawer coming out of the right edge —
+  // and a clock-rewind after that, which described the time. What every one of
+  // these rails actually holds is a pile of work you made, and a stack is what
+  // says that; using the same glyph in both places means the button and the row
+  // it opens onto are recognisably one thing.
+  const Icon = Layers
   // The tooltip's noun is lowercase mid-sentence; the label is a heading.
   const word = label.charAt(0).toUpperCase() + label.slice(1)
   return (
@@ -86,36 +98,5 @@ export default function HistoryRailToggle({
         </>
       )}
     </button>
-  )
-}
-
-// The column that stands in the rail's place while it is shut. No border and no
-// fill — a bordered strip reads as a second panel, which is exactly what the
-// 40px version of this was told off for.
-//
-// The 57px band at the top is what puts the button level with whatever the
-// output column runs across ITS top. It draws NO hairline of its own: Scripts'
-// and Voiceovers' output panes carry no bar for one to continue, so a line here
-// was a stub floating over nothing, and B-Roll — the one pane with a bar —
-// doesn't use this column at those widths any more. Its toggle rides inside
-// that bar instead, so the bar's own glass runs under it and the storyboard
-// isn't narrowed by a column (September 2026, Massimo's call). See
-// `broll-studio/components/RightPanel.tsx`, which keeps this for the two cases
-// the bar can't take it.
-export function HistoryRailClosed({
-  onExpand,
-  label,
-  count,
-}: {
-  onExpand: () => void
-  label?: string
-  count?: number
-}) {
-  return (
-    <div className="flex min-h-0 shrink-0 flex-col">
-      <div className="flex h-[57px] shrink-0 items-center px-2.5">
-        <HistoryRailToggle open={false} onToggle={onExpand} label={label} showLabel count={count} />
-      </div>
-    </div>
   )
 }

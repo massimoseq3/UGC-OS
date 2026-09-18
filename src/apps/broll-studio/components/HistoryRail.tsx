@@ -19,7 +19,6 @@ import { formatRelative, sectionLabel, groupByDay } from '../../../utils/history
 import { TileActionStack, TileDeleteButton } from '../../../components/tileActions'
 import DayPill from '../../../components/DayPill'
 import Dropdown from '../../../components/Dropdown'
-import { RailCloseButton } from '../../../components/HistoryRailHandle'
 import RailNewButton from '../../../components/RailNewButton'
 import { brollHistoryMode } from './brollHistoryRows'
 
@@ -35,7 +34,6 @@ interface HistoryRailProps {
   // the list right underneath, media and all — but the inputs are the half no
   // row hands back until you open it, so this one ARMS before it fires.
   onNew: () => void
-  onCollapse: () => void
 }
 
 // ── Card cover media ─────────────────────────────────────────────────────
@@ -234,7 +232,7 @@ function sortTs(it: BrollHistoryItem, sort: SortId): number {
   return it.createdAt
 }
 
-export default function HistoryRail({ items, activeId, onSelect, onDelete, onNew, onCollapse }: HistoryRailProps) {
+export default function HistoryRail({ items, activeId, onSelect, onDelete, onNew }: HistoryRailProps) {
   const [query, setQuery] = useState('')
   const [modeFilter, setModeFilter] = useState<ModeFilter>('all')
   const [sort, setSort] = usePersistedState<SortId>('broll-studio:historySort', 'newest')
@@ -313,13 +311,11 @@ export default function HistoryRail({ items, activeId, onSelect, onDelete, onNew
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
-      {/* New leads the rail and gets the whole band: the rail is SHUT from the
-          lip on the seam (`HistoryRailHandle`), a tab on the rail's own edge,
-          so no close needs a slot in here. Below 980px the rail covers the
-          storyboard and that lip goes with it, so a Close does sit here — it is
-          the only way back. The band takes the app-wide h-[57px] so the
-          hairline lines up with the input column's header. */}
-      <div className="flex h-[57px] shrink-0 items-center gap-1.5 border-b border-ink/5 px-3">
+      {/* New gets the WHOLE band: the rail is dismissed by clicking away from
+          it (`components/RailOverlay`), so no close needs a slot in here. The
+          band takes the app-wide h-[57px] so the hairline lines up with the
+          input column's header. */}
+      <div className="flex h-[57px] shrink-0 items-center border-b border-ink/5 px-3">
         <RailNewButton
           confirm
           label="New Storyboard"
@@ -328,7 +324,6 @@ export default function HistoryRail({ items, activeId, onSelect, onDelete, onNew
           onClick={onNew}
           className="flex-1"
         />
-        <RailCloseButton onCollapse={onCollapse} />
       </div>
 
       {/* The sort leads the search row, then the mode pills sit centred under

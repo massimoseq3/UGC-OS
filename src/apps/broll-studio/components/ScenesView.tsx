@@ -27,10 +27,11 @@ import ClipDownloadModal, { type ClipDownloadEntry } from '../../../components/C
 import { useCloseOnAppSwitch } from '../../../hooks/useCloseOnAppSwitch'
 import useCloseOnEscape from '../../../hooks/useCloseOnEscape'
 import AnchoredPopover from '../../../components/video/AnchoredPopover'
+import useMeasuredHeight from '../../../hooks/useMeasuredHeight'
 import { MenuSurface, MenuItem, MENU_ROW_HEIGHT } from '../../../components/Menu'
 import { useBackdropClose } from '../../../hooks/useBackdropClose'
 import CharacterPill from './CharacterPill'
-import SegmentedToggle from '../../../components/SegmentedToggle'
+import Dropdown from '../../../components/Dropdown'
 import { replayWait, useRecordingActive, useRecordingLoop, useRecordingLoopSince, useRecordingStore } from '../../../stores/recordingStore'
 import {
   imageRevealKey, nextHiddenImage, nextHiddenVideo, putCard, REPLAY_ID_PREFIX, videoRevealKey, viewCard,
@@ -249,6 +250,10 @@ export default function ScenesView({
   cardFilter = 'all',
   onCardFilterChange,
 }: ScenesViewProps) {
+  // The storyboard bar wraps, so the scroll port under it reserves its MEASURED
+  // height rather than a hard-coded one. 57 is its one-line height, which is
+  // what the first paint uses.
+  const [barRef, barHeight] = useMeasuredHeight<HTMLDivElement>(57)
   const handleUpdateCardState = useCallback((key: string, updates: Partial<CardState>) => {
     setCardStates((prev) => {
       const existing = prev[key]
@@ -1038,20 +1043,54 @@ export default function ScenesView({
           than a width — see the note below, which the flex parent doesn't
           change: with both margins negative the row still resolves to exactly
           the strip's padding box. */}
-      <div className="absolute inset-x-0 top-0 z-20 flex h-[57px] items-center border-b border-ink/5 app-backdrop-frost px-5">
-        {/* NOT `w-full` alongside `-mx-5`: `width: 100%` resolves against the
-            strip's CONTENT box, so the port came out 40px narrower than the
-            strip and the negative margin then spent all of it on the left —
-            the row started at the panel's inset and ended 40px shy of it. With
-            the width left `auto` the block fills its container and the two
-            negative margins widen it by exactly the padding they cancel, so the
-            port spans the strip and `px-5` puts both ends back on the panel's
-            own inset. Invisible while the row was centred (it just shifted the
-            centre 20px left); it shows the moment anything is right-aligned. */}
-        {/* With the rail toggle after it the port keeps its LEFT bleed only:
-            `-mr-5` would run the scrolled row 20px under the button. */}
-        <div className={`-ml-5 min-w-0 flex-1 overflow-x-auto scrollbar-hide pl-5 ${railToggle ? '' : '-mr-5 pr-5'}`}>
-        <div className="flex w-max min-w-full flex-nowrap items-center gap-2 whitespace-nowrap">
+      {/* The pane's header band, and it carries the way into the history rail
+          and NOTHING else (Massimo's call, September 2026). Everything that
+          acts on the storyboard — the look, the character, the card filter,
+          the generate passes, the export — moved down into the floating
+          toolbar below, where it travels WITH the thing it acts on. What is
+          left up here is the one control that is about the pane rather than
+          about the storyboard in it, which is why the band can go back to a
+          flat `h-[57px]`: one button cannot wrap. */}
+      <div
+        ref={barRef}
+        className="absolute inset-x-0 top-0 z-20 flex h-[57px] items-center border-b border-ink/5 app-backdrop-frost px-5"
+      >
+        {railToggle}
+      </div>
+      {/* The scroll port runs the FULL height of the panel, behind the absolute
+          bar, which is what lets cards pass under it blurred. `barHeight` is
+          measured (`useMeasuredHeight`) rather than written down twice, because
+          the sticky toolbar's own offset has to be the same number and two
+          hard-coded copies of one measurement always drift. */}
+      <div className="flex-1 overflow-y-auto px-5 pb-4" style={{ paddingTop: barHeight + 12 }}>
+      {/* The storyboard's own toolbar: CENTRED over the cards and STICKY, so it
+          follows you down the wall instead of being something you scroll back
+          up to (Massimo's call, September 2026). It used to be spread along the
+          header band at the top of the pane — the look and the character pushed
+          left, the actions pushed right — which put the controls for the
+          storyboard as far from it as the pane allows, and made a bar that is
+          mostly about the storyboard read as chrome belonging to the panel.
+
+          It hugs its content and wraps inside itself, so a narrow pane gets a
+          second row of pills rather than a sideways scroll, and the group stays
+          centred at every width.
+
+          Its `top` is **0, not the bar's height**, and that is not a
+          shortcut. A sticky element's view rectangle is the scrollport's
+          padding box REDUCED BY the scroll container's own padding, so a
+          `top` here is measured from where the content starts, not from where
+          the port does — and this port already reserves the bar in its
+          `padding-top`. Setting `top` to the bar's height as well stuck it a
+          full bar-height too low (measured: 174px instead of 105px, exactly one
+          padding lower). At 0 it comes to rest precisely where it starts, so
+          the first scroll moves it not at all.
+
+          Opaque-ish and blurred rather than transparent: it is over a wall of
+          stills, and a row of pills with cards showing between them is
+          unreadable. Small chrome, which is the one thing `backdrop-filter` is
+          for in this app. */}
+      <div className="sticky top-0 z-10 mb-6 flex justify-center">
+        <div className="flex max-w-full flex-wrap items-center justify-center gap-2 rounded-full border border-ink/10 bg-surface-1/90 p-2 shadow-lg shadow-black/25 backdrop-blur-md">
           {/* The look every clip in this storyboard renders in — the one piece
               of meta left on the line. It is CUT TO THE BATCH PILLS' OWN SIZE
               (same padding, same 11px, same 3.5 glyph), because a smaller chip
@@ -1067,7 +1106,7 @@ export default function ScenesView({
             type="button"
             onClick={onChangeStyle}
             title="Change the visual style every clip renders in"
-            className="inline-flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-broll-500/25 bg-broll-500/10 px-3.5 text-[12px] font-semibold tracking-tight text-broll-300 transition-colors hover:border-broll-500/45 hover:bg-broll-500/[0.18]"
+            className="inline-flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-broll-500/25 bg-broll-500/10 px-3.5 text-[13px] font-semibold tracking-tight text-broll-300 transition-colors hover:border-broll-500/45 hover:bg-broll-500/[0.18]"
           >
             <Palette className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
             <span className="max-w-[180px] truncate">{result.styleBrief ? (result.styleName?.trim() || 'Custom style') : getContinuousStyle(result.styleId ?? 'ugc').label}</span>
@@ -1078,19 +1117,23 @@ export default function ScenesView({
               the clip it animates into renders; a card with nothing of the
               picked kind sits on its prompt. Nothing is hidden for good. */}
           {onCardFilterChange && (
-            <SegmentedToggle
-              options={CARD_FILTER_OPTIONS}
+            // A DROPDOWN, not a four-segment toggle (September 2026, Massimo's
+            // call): the toggle spent ~250px of this bar showing three options
+            // nobody had picked, which is most of what made the row overflow in
+            // the first place. One pill naming the current view is the same
+            // control in a fifth of the width, and it is the shape every other
+            // filter in the app already takes.
+            <Dropdown
               value={cardFilter}
-              onChange={onCardFilterChange}
+              options={CARD_FILTER_OPTIONS}
+              onChange={(v: string) => onCardFilterChange(v as CardFilter)}
+              accent="broll"
+              label="Show"
               fitContent
               dense
-              accent="broll"
               className="h-[38px] shrink-0"
             />
           )}
-          {/* Holds the two ends apart while there is room, and disappears the
-              moment there isn't — `flex-1` contributes nothing to `w-max`. */}
-          <span className="flex-1" aria-hidden />
           {/* ONE "Generate all", opening the three passes as a menu (August
               2026, Massimo's call). They were three pills side by side —
               images, the animate pass, videos — tinted as one family in three
@@ -1110,7 +1153,13 @@ export default function ScenesView({
             type="button"
             onClick={() => setGenerateAllOpen((v) => !v)}
             title="Run a generation pass across every scene"
-            className="flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-broll-500/50 bg-broll-500/[0.24] px-3.5 text-[12px] font-medium text-broll-200 transition-colors hover:border-broll-500/65 hover:bg-broll-500/[0.32]"
+            // Playground's own header-pill colours (Massimo's call, September
+            // 2026): a neutral outline that lights up on hover, the same as the
+            // Download Clips beside it. Both were tinted — this one broll, that
+            // one emerald — which put two saturated pills on a bar whose actual
+            // subject is the storyboard underneath, and made the row read as
+            // three competing accents once the style pill is counted.
+            className="flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-ink/10 px-3.5 text-[13px] font-medium text-ink-400 transition-colors hover:bg-ink/5 hover:text-ink-200"
           >
             <Sparkle className="h-3.5 w-3.5" />
             <span>Generate All</span>
@@ -1172,7 +1221,7 @@ export default function ScenesView({
               type="button"
               onClick={() => setDownloadOpen(true)}
               title="Pick which clips to download as a zip"
-              className="flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/[0.18] px-3.5 text-[12px] font-medium text-emerald-200 transition-colors light:text-emerald-700 hover:border-emerald-500/60 hover:bg-emerald-500/[0.26] hover:text-emerald-100 light:hover:text-emerald-800"
+              className="flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-ink/10 px-3.5 text-[13px] font-medium text-ink-400 transition-colors hover:bg-ink/5 hover:text-ink-200"
             >
               <Download className="h-3.5 w-3.5" />
               {/* One label at every width now. It carried a short `lg:hidden`
@@ -1199,21 +1248,13 @@ export default function ScenesView({
                   the same thing it says everywhere else — there is finished
                   work here. `light:` darker in both layers, as every status
                   tint in the app takes. */}
-              <span className="rounded-full bg-emerald-500/25 px-1.5 py-0.5 text-[10px] font-semibold leading-none tabular-nums text-emerald-100 light:text-emerald-800">
+              <span className="rounded-full bg-ink/10 px-1.5 py-0.5 text-[10px] font-semibold leading-none tabular-nums text-ink-200">
                 {allClipEntries.length}
               </span>
             </button>
           )}
         </div>
-        </div>
-        {railToggle && <div className="shrink-0 pl-2">{railToggle}</div>}
       </div>
-      {/* The scroll port runs the FULL height of the panel, behind the
-          absolute bar, which is what lets cards pass under it blurred. Its
-          `pt-[77px]` is the bar's own 57px plus the 20px the content already
-          stood off by, and it is the only thing holding scene one clear of the
-          bar at scroll-top — change the bar's height and change this with it. */}
-      <div className="flex-1 overflow-y-auto px-5 pb-4 pt-[77px]">
       <div className="flex flex-col gap-10">
         {result.scenes.map((scene) => (
           <SceneSection
@@ -1366,7 +1407,7 @@ export default function ScenesView({
               <button
                 type="button"
                 onClick={() => setBatchConfirm(null)}
-                className="flex items-center gap-1 rounded-full border border-ink/10 bg-ink/[0.03] px-3.5 py-1.5 text-[12px] font-medium text-ink-300 transition-colors hover:bg-ink/[0.06]"
+                className="flex items-center gap-1 rounded-full border border-ink/10 bg-ink/[0.03] px-3.5 py-1.5 text-[13px] font-medium text-ink-300 transition-colors hover:bg-ink/[0.06]"
               >
                 <X className="h-3.5 w-3.5" />
                 Cancel
@@ -1375,7 +1416,7 @@ export default function ScenesView({
                 type="button"
                 onClick={confirmBatch}
                 disabled={batchTargets.length === 0}
-                className="flex items-center gap-2 rounded-full border border-white/15 bg-broll-500 py-1.5 pl-4 pr-2 text-[12px] font-medium text-white transition-colors hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-broll-500"
+                className="flex items-center gap-2 rounded-full border border-white/15 bg-broll-500 py-1.5 pl-4 pr-2 text-[13px] font-medium text-white transition-colors hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-broll-500"
               >
                 <Images className="h-3.5 w-3.5" />
                 {batchTargets.length === 0
@@ -1523,7 +1564,7 @@ export default function ScenesView({
               <button
                 type="button"
                 onClick={() => setVideoConfirm(null)}
-                className="flex items-center gap-1 rounded-full border border-ink/10 bg-ink/[0.03] px-3.5 py-1.5 text-[12px] font-medium text-ink-300 transition-colors hover:bg-ink/[0.06]"
+                className="flex items-center gap-1 rounded-full border border-ink/10 bg-ink/[0.03] px-3.5 py-1.5 text-[13px] font-medium text-ink-300 transition-colors hover:bg-ink/[0.06]"
               >
                 <X className="h-3.5 w-3.5" />
                 Cancel
@@ -1532,7 +1573,7 @@ export default function ScenesView({
                 type="button"
                 onClick={confirmVideoBatch}
                 disabled={videoTargets.length === 0 || videoModelCantAnimate}
-                className="flex items-center gap-2 rounded-full border border-white/15 bg-broll-500 py-1.5 pl-4 pr-2 text-[12px] font-medium text-white transition-colors hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-broll-500"
+                className="flex items-center gap-2 rounded-full border border-white/15 bg-broll-500 py-1.5 pl-4 pr-2 text-[13px] font-medium text-white transition-colors hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-broll-500"
               >
                 {videoConfirm.stillsOnly
                   ? <Clapperboard className="h-3.5 w-3.5" />

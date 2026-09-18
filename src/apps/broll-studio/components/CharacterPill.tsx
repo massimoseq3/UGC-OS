@@ -19,7 +19,7 @@ export default function CharacterPill({ model, onClick }: { model: Model | null 
       type="button"
       onClick={onClick}
       title={model ? 'Change the character every card renders' : 'Choose a character for every card'}
-      className="inline-flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-influencers-500/25 bg-influencers-500/10 px-3.5 text-[12px] font-semibold tracking-tight text-influencers-300 transition-colors hover:border-influencers-500/45 hover:bg-influencers-500/[0.18]"
+      className="inline-flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-influencers-500/25 bg-influencers-500/10 px-3.5 text-[13px] font-semibold tracking-tight text-influencers-300 transition-colors hover:border-influencers-500/45 hover:bg-influencers-500/[0.18]"
     >
       {url ? (
         // Bleeds into the pill's left padding so the face sits where the style

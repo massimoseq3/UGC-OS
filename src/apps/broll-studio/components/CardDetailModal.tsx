@@ -24,7 +24,6 @@ import { tagChipStyle, tagLabel } from './variationTags'
 import { humanizeError } from '../../../utils/friendlyError'
 import { resolveImageModelId } from '../services/generateBroll'
 import { productAngleSlots, normalizePhotoSelection } from '../services/productAngles'
-import ModelWaitNotice from '../../../components/ModelWaitNotice'
 import ExpandTextModal from '../../../components/ExpandableText'
 import PromptToolbar from '../../../components/PromptToolbar'
 import useCloseOnEscape from '../../../hooks/useCloseOnEscape'
@@ -1020,7 +1019,6 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                   )}
                 </button>
               )}
-              {tab === 'image' && <ModelWaitNotice modelId={imageModelId} className="mt-2" />}
             </div>
           </div>
 

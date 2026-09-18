@@ -99,7 +99,7 @@ export async function readBanks(): Promise<unknown | null> {
 // shipped missing. This shape fails the build instead.
 const BANK_DATA_KEYS = Object.keys({
   products: true, models: true, scripts: true, voices: true, brolls: true, styles: true,
-  swipes: true, trackedAccounts: true,
+  swipes: true, trackedAccounts: true, projects: true,
   voiceHistory: true, videoHistory: true, imageHistory: true, musicHistory: true,
   scriptHistory: true, brollHistory: true, characterHistory: true, adAnatomyHistory: true,
   usageDays: true,

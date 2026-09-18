@@ -248,6 +248,29 @@ export interface BRoll {
   createdAt: number
 }
 
+
+/**
+ * One Playground project — a named folder of generations.
+ *
+ * Playground's history used to be sliced by the mode tab you were standing on,
+ * so flipping Image → Video swapped the whole right-hand panel for a different
+ * list. That is the wrong cut: a member making one ad generates the stills AND
+ * the clips AND the track for it, and wants to see them together. A project is
+ * the cut that replaced it (Massimo's call, September 2026) — the member's own
+ * grouping of a piece of work, the way Google Flow's projects are.
+ *
+ * It holds nothing but a name: the generations point AT it (`projectId` on each
+ * history row), never the other way round. That keeps a project a few bytes to
+ * sync, makes a rename one row's write rather than hundreds, and means deleting
+ * one can never take a generation with it — the rows keep an id that no longer
+ * resolves, and the panel shows them under All Generations again.
+ */
+export interface PlaygroundProject {
+  id: string
+  name: string
+  createdAt: number
+}
+
 // One generation in B-Roll Videos. Pushed automatically on every successful
 // generate; rendered in the right-hand History panel as a Flow-style grid.
 // `videoUrl` is an asset:// ref (see assetStore) so the blob persists across
@@ -273,6 +296,14 @@ export interface VideoHistoryItem {
   // Which app produced this video. Drives B-Roll's Gallery tab so it ignores
   // Playground video gens. Missing on legacy entries; treated as 'playground'.
   sourceApp?: 'broll-studio' | 'playground'
+  // Which Playground project this generation belongs to (`PlaygroundProject`).
+  // Absent on every row made before projects existed, and on anything generated
+  // while All Generations is the active view — both read as unfiled, which is
+  // what All Generations shows. An id whose project has since been deleted is
+  // left dangling on purpose rather than swept: clearing it would mean
+  // rewriting and re-pushing every row of that project to unfile them, and
+  // unresolved reads as unfiled anyway.
+  projectId?: string
   createdAt: number
 }
 
@@ -311,6 +342,8 @@ export interface ImageHistoryItem {
   resolution?: string
   imageUrl: string
   linkedBRollId?: string
+  // The Playground project this belongs to — see VideoHistoryItem's note.
+  projectId?: string
   createdAt: number
 }
 
@@ -373,6 +406,8 @@ export interface MusicHistoryItem {
   coverImageRef?: string
   title?: string
   durationSeconds?: number
+  // The Playground project this belongs to — see VideoHistoryItem's note.
+  projectId?: string
   createdAt: number
 }
 

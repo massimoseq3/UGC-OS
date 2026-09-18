@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Product, Model, Script, VoicePreset, BRoll, StylePreset, SwipeItem, TrackedAccount, VoiceHistoryItem, VideoHistoryItem, ImageHistoryItem, MusicHistoryItem, ScriptHistoryItem, BrollHistoryItem, CharacterHistoryItem, AdAnatomyHistoryItem, AppUsageStat, UsageDay, UsageKind } from './types'
+import type { Product, Model, Script, VoicePreset, BRoll, StylePreset, SwipeItem, TrackedAccount, PlaygroundProject, VoiceHistoryItem, VideoHistoryItem, ImageHistoryItem, MusicHistoryItem, ScriptHistoryItem, BrollHistoryItem, CharacterHistoryItem, AdAnatomyHistoryItem, AppUsageStat, UsageDay, UsageKind } from './types'
 import { isAssetRef, assetIdFromRef, deleteAsset, saveFromDataUrl } from '../utils/assetStore'
 import { useAuthStore } from './authStore'
 import { isCloudEnabled } from '../lib/supabase'
@@ -24,6 +24,7 @@ interface BankState {
   styles: StylePreset[]
   swipes: SwipeItem[]
   trackedAccounts: TrackedAccount[]
+  projects: PlaygroundProject[]
   voiceHistory: VoiceHistoryItem[]
   videoHistory: VideoHistoryItem[]
   imageHistory: ImageHistoryItem[]
@@ -94,6 +95,12 @@ interface BankState {
   updateTrackedAccount: (id: string, updates: Partial<TrackedAccount>) => Promise<BankActionResult>
   deleteTrackedAccount: (id: string) => Promise<BankActionResult>
   getTrackedAccountByHandle: (platform: TrackedAccount['platform'], handle: string) => TrackedAccount | undefined
+
+  // Playground projects — the member's own grouping of Playground generations.
+  // Deleting one never touches the generations filed under it; see the action.
+  addProject: (name: string) => Promise<string>
+  renameProject: (id: string, name: string) => Promise<BankActionResult>
+  deleteProject: (id: string) => Promise<BankActionResult>
 
   // Star toggle — the starrable banks share one action. Starred items
   // surface first in the bank pickers.
@@ -223,7 +230,7 @@ function generateId(): string {
   return crypto.randomUUID()
 }
 
-export type BankData = Pick<BankState, 'products' | 'models' | 'scripts' | 'voices' | 'brolls' | 'styles' | 'swipes' | 'trackedAccounts' | 'voiceHistory' | 'videoHistory' | 'imageHistory' | 'musicHistory' | 'scriptHistory' | 'brollHistory' | 'characterHistory' | 'adAnatomyHistory' | 'usageDays'>
+export type BankData = Pick<BankState, 'products' | 'models' | 'scripts' | 'voices' | 'brolls' | 'styles' | 'swipes' | 'trackedAccounts' | 'projects' | 'voiceHistory' | 'videoHistory' | 'imageHistory' | 'musicHistory' | 'scriptHistory' | 'brollHistory' | 'characterHistory' | 'adAnatomyHistory' | 'usageDays'>
 
 function migrateVoiceShape<T>(arr: unknown): T[] {
   if (!Array.isArray(arr)) return []
@@ -258,6 +265,7 @@ const EMPTY_BANKS: BankData = {
   styles: [],
   swipes: [],
   trackedAccounts: [],
+  projects: [],
   voiceHistory: [],
   videoHistory: [],
   imageHistory: [],
@@ -331,6 +339,7 @@ function normalizeBanks(source: unknown): BankData {
         styles: dedupeById(Array.isArray(parsed.styles) ? parsed.styles : []),
         swipes: dedupeById(Array.isArray(parsed.swipes) ? parsed.swipes : []),
         trackedAccounts: dedupeById(Array.isArray(parsed.trackedAccounts) ? parsed.trackedAccounts : []),
+        projects: dedupeById(Array.isArray(parsed.projects) ? parsed.projects : []),
         voiceHistory: dedupeById(migrateVoiceShape<VoiceHistoryItem>(parsed.voiceHistory)),
         videoHistory: dedupeById(Array.isArray(parsed.videoHistory) ? parsed.videoHistory : []),
         imageHistory: dedupeById(Array.isArray(parsed.imageHistory) ? parsed.imageHistory : []),
@@ -1021,6 +1030,61 @@ export const useBankStore = create<BankState>((set, get) => ({
   getTrackedAccountByHandle: (platform, handle) => {
     const wanted = handle.replace(/^@/, '').toLowerCase()
     return get().trackedAccounts.find((a) => a.platform === platform && a.handle === wanted)
+  },
+
+  // ── Playground projects ──────────────────────────────────────────
+  // A named folder of Playground generations. The rows point at the project
+  // (`projectId`), so this bank holds nothing but names and stays a few bytes
+  // to sync however many generations are filed under it.
+  addProject: async (name) => {
+    const trimmed = name.trim()
+    // The caller's own guard should have caught this; fall back to a name
+    // rather than filing generations under an empty pill.
+    const project: PlaygroundProject = {
+      id: generateId(),
+      name: trimmed || 'Untitled Project',
+      createdAt: Date.now(),
+    }
+    set((state) => {
+      const next = { projects: [project, ...state.projects] }
+      saveToStorage({ ...state, ...next })
+      return next
+    })
+    pushRow('projects', project)
+    reportSuccess(`Project "${project.name}" created`)
+    return project.id
+  },
+
+  // Silent: the pill the member is looking at changes to the new name, which
+  // says it landed better than a toast over the top of it does.
+  renameProject: async (id, name) => {
+    const trimmed = name.trim()
+    const old = get().projects.find((p) => p.id === id)
+    if (!old || !trimmed || trimmed === old.name) return
+    const updated: PlaygroundProject = { ...old, name: trimmed }
+    set((state) => {
+      const next = { projects: state.projects.map((p) => (p.id === id ? updated : p)) }
+      saveToStorage({ ...state, ...next })
+      return next
+    })
+    pushRow('projects', updated)
+  },
+
+  // Deletes the FOLDER, never what is in it. The generations keep a
+  // `projectId` that no longer resolves, which reads as unfiled, so they come
+  // back under All Generations rather than disappearing with the name. The
+  // alternative — clearing the field off every row — is a rewrite and a cloud
+  // push per generation to reach the same place the dangling id already is.
+  deleteProject: async (id) => {
+    const project = get().projects.find((p) => p.id === id)
+    if (!project) return
+    set((state) => {
+      const next = { projects: state.projects.filter((p) => p.id !== id) }
+      saveToStorage({ ...state, ...next })
+      return next
+    })
+    dropRow('projects', id)
+    reportSuccess(`Project "${project.name}" deleted. Its generations stay in All Generations`)
   },
 
   // ── Star toggle ──────────────────────────────────────────────────
