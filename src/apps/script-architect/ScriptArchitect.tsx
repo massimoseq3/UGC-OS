@@ -559,7 +559,18 @@ export default function ScriptArchitect() {
         />
       </div>
 
-      <div className={paneClass(pane === 'output', 'md:min-w-0 md:flex-1')}>
+      {/* `md:overflow-hidden` is load-bearing, and it is the one thing this
+          pane was missing that B-Roll, Voiceovers and Playground all have. The
+          history rail travels on a `translateX` from outside its host
+          (`components/RailOverlay`), so without a clip on the pane it overflows
+          the app shell — whose wrapper is `overflow-y-auto`, and CSS turns the
+          other axis of that into `auto` too. A horizontal scrollbar therefore
+          appeared for the length of the slide, took ~11px off the shell's
+          height, and every bottom-anchored thing in BOTH columns jumped up and
+          back down: reported as the Generate button jerking whenever History
+          was opened in Remix. Clipping here means the slide never overflows and
+          nothing outside the pane can feel it. */}
+      <div className={paneClass(pane === 'output', 'md:min-w-0 md:flex-1 md:overflow-hidden')}>
         <RightPanel
           variations={variations}
           mode={resolvedMode}

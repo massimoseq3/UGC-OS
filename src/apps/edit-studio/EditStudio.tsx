@@ -159,10 +159,14 @@ export default function EditStudio() {
               {AGENT_FILE[agent]} · v{SKILL_VERSION} · {SKILL_FILE_SIZE}
             </p>
             {fresh && (
-              // Same orange as the folder's "New update" sticker, so the badge
-              // that brought the member here and the line explaining it read
-              // as one announcement rather than two.
-              <p className="max-w-[19rem] text-center text-[11.5px] font-medium leading-snug text-[#F77646]">
+              // Same green as the folder's "New Update" sticker, so the badge
+              // that brought the member here and the line explaining it read as
+              // one announcement rather than two. Both were the app's own
+              // orange (Massimo's call, September 2026), which is also the
+              // folder, the tile and the dock badge — so the one thing on this
+              // page that is news read as more Edit-coloured chrome. `light:`
+              // darker, as every status tint in the app takes.
+              <p className="max-w-[19rem] text-center text-[11.5px] font-medium leading-snug text-emerald-400 light:text-emerald-600">
                 {WHATS_NEW}
               </p>
             )}

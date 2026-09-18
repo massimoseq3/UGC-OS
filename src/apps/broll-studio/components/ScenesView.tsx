@@ -1043,19 +1043,72 @@ export default function ScenesView({
           than a width — see the note below, which the flex parent doesn't
           change: with both margins negative the row still resolves to exactly
           the strip's padding box. */}
-      {/* The pane's header band, and it carries the way into the history rail
-          and NOTHING else (Massimo's call, September 2026). Everything that
-          acts on the storyboard — the look, the character, the card filter,
-          the generate passes, the export — moved down into the floating
-          toolbar below, where it travels WITH the thing it acts on. What is
-          left up here is the one control that is about the pane rather than
-          about the storyboard in it, which is why the band can go back to a
-          flat `h-[57px]`: one button cannot wrap. */}
+      {/* The pane's header band. It carries the way into the history rail on
+          the left, and on the right the two controls that act on the STORYBOARD
+          AS A WHOLE rather than on the shot under your cursor (Massimo's call,
+          September 2026): what the cards show, and the export of everything
+          rendered. Both used to ride the floating toolbar below — they travel
+          with the cards there, which is right for the look, the character and
+          the generate passes, but the card filter and the export are read once
+          and left alone, so following you down a wall of stills bought them
+          nothing and cost the row they were on most of its width.
+
+          Still a flat `h-[57px]` rather than the wrapping band this was before:
+          the toggle, one dropdown and one button are ~380px against a pane that
+          is 70% of the window, and the port below reserves the MEASURED height
+          (`useMeasuredHeight`) either way, so a narrow window that does wrap is
+          already paid for. */}
       <div
         ref={barRef}
-        className="absolute inset-x-0 top-0 z-20 flex h-[57px] items-center border-b border-ink/5 app-backdrop-frost px-5"
+        className="absolute inset-x-0 top-0 z-20 flex h-[57px] items-center gap-2 border-b border-ink/5 app-backdrop-frost px-5"
       >
         {railToggle}
+        <div className="ml-auto flex min-w-0 items-center gap-2">
+          {/* What every card shows. Images keeps a card on its still while
+              the clip it animates into renders; a card with nothing of the
+              picked kind sits on its prompt. Nothing is hidden for good. */}
+          {onCardFilterChange && (
+            // A DROPDOWN, not a four-segment toggle (September 2026, Massimo's
+            // call): the toggle spent ~250px showing three options nobody had
+            // picked. One pill naming the current view is the same control in a
+            // fifth of the width, and it is the shape every other filter in the
+            // app already takes.
+            <Dropdown
+              value={cardFilter}
+              options={CARD_FILTER_OPTIONS}
+              onChange={(v: string) => onCardFilterChange(v as CardFilter)}
+              accent="broll"
+              label="Show"
+              fitContent
+              dense
+              className="h-[38px] shrink-0"
+            />
+          )}
+          {/* Download clips stays its own pill and stays neutral: it's the
+              export, not a generate pass, and it spends nothing. */}
+          {allClipEntries.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setDownloadOpen(true)}
+              title="Pick which clips to download as a zip"
+              className="flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-ink/10 px-3.5 text-[13px] font-medium text-ink-400 transition-colors hover:bg-ink/5 hover:text-ink-200"
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span>Download Clips</span>
+              {/* The count is a PILL, not `(8)` in the label (September 2026,
+                  Massimo's call). Parenthesised it read as part of the button's
+                  name and the one number on the row that changes was the least
+                  visible thing on it; as its own chip it is a count beside a
+                  verb, the way every other tally in the app is written. Same
+                  `rounded-full` as the button around it — `tabular-nums` so the
+                  pill holds its width as clips land rather than twitching the
+                  band's right edge on every completion. */}
+              <span className="rounded-full bg-ink/10 px-1.5 py-0.5 text-[10px] font-semibold leading-none tabular-nums text-ink-200">
+                {allClipEntries.length}
+              </span>
+            </button>
+          )}
+        </div>
       </div>
       {/* The scroll port runs the FULL height of the panel, behind the absolute
           bar, which is what lets cards pass under it blurred. `barHeight` is
@@ -1074,6 +1127,12 @@ export default function ScenesView({
           It hugs its content and wraps inside itself, so a narrow pane gets a
           second row of pills rather than a sideways scroll, and the group stays
           centred at every width.
+
+          What is left ON it is what you reach for WHILE looking at the cards:
+          the look, the character and the generate passes. The card filter and
+          Download Clips went up to the header band (Massimo's call) — you set
+          them once and leave them, so travelling with the storyboard bought
+          them nothing and cost this row most of its width.
 
           Its `top` is **0, not the bar's height**, and that is not a
           shortcut. A sticky element's view rectangle is the scrollport's
@@ -1113,27 +1172,6 @@ export default function ScenesView({
             <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-60" strokeWidth={2.5} />
           </button>
           <CharacterPill model={selectedModel} onClick={onOpenCharacterPicker} />
-          {/* What every card shows. Images keeps a card on its still while
-              the clip it animates into renders; a card with nothing of the
-              picked kind sits on its prompt. Nothing is hidden for good. */}
-          {onCardFilterChange && (
-            // A DROPDOWN, not a four-segment toggle (September 2026, Massimo's
-            // call): the toggle spent ~250px of this bar showing three options
-            // nobody had picked, which is most of what made the row overflow in
-            // the first place. One pill naming the current view is the same
-            // control in a fifth of the width, and it is the shape every other
-            // filter in the app already takes.
-            <Dropdown
-              value={cardFilter}
-              options={CARD_FILTER_OPTIONS}
-              onChange={(v: string) => onCardFilterChange(v as CardFilter)}
-              accent="broll"
-              label="Show"
-              fitContent
-              dense
-              className="h-[38px] shrink-0"
-            />
-          )}
           {/* ONE "Generate all", opening the three passes as a menu (August
               2026, Massimo's call). They were three pills side by side —
               images, the animate pass, videos — tinted as one family in three
@@ -1214,45 +1252,6 @@ export default function ScenesView({
               </MenuItem>
             </MenuSurface>
           </AnchoredPopover>
-          {/* Download clips stays its own pill and stays neutral: it's the
-              export, not a generate pass, and it spends nothing. */}
-          {allClipEntries.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setDownloadOpen(true)}
-              title="Pick which clips to download as a zip"
-              className="flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-ink/10 px-3.5 text-[13px] font-medium text-ink-400 transition-colors hover:bg-ink/5 hover:text-ink-200"
-            >
-              <Download className="h-3.5 w-3.5" />
-              {/* One label at every width now. It carried a short `lg:hidden`
-                  twin back when four long pills shared this line and overflowed
-                  worst just above the phone breakpoint; with the three generate
-                  passes behind one menu, the bar is a style pill and two
-                  buttons and the full label fits. */}
-              <span>Download Clips</span>
-              {/* The count is a PILL, not `(8)` in the label (September 2026,
-                  Massimo's call). Parenthesised it read as part of the button's
-                  name and the one number on the row that changes was the least
-                  visible thing on it; as its own chip it is a count beside a
-                  verb, the way every other tally in the app is written. Same
-                  `rounded-full` as the button around it — `tabular-nums` so the
-                  pill holds its width as clips land rather than twitching the
-                  row's right edge on every completion.
-
-                  The whole pill is GREEN and the chip is a deeper step of the
-                  same emerald, so it still reads as a chip on it (Massimo's
-                  call). Green rather than the app accent on purpose: the two
-                  pills beside it GENERATE, and this one exports what is already
-                  rendered — a second broll-tinted button read as a third
-                  generate pass. It is the app's `recommended` emerald, saying
-                  the same thing it says everywhere else — there is finished
-                  work here. `light:` darker in both layers, as every status
-                  tint in the app takes. */}
-              <span className="rounded-full bg-ink/10 px-1.5 py-0.5 text-[10px] font-semibold leading-none tabular-nums text-ink-200">
-                {allClipEntries.length}
-              </span>
-            </button>
-          )}
         </div>
       </div>
       <div className="flex flex-col gap-10">

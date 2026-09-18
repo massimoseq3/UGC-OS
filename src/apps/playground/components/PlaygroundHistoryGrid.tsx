@@ -18,6 +18,7 @@ import type { ImageHistoryItem, VideoHistoryItem } from '../../../stores/types'
 import MusicRow from './MusicRow'
 import ProjectRail, { ProjectRailToggle } from './ProjectRail'
 import { summariseProjects, type HistoryEntry } from '../projectSummary'
+import GridCanvas from '../../../components/GridCanvas'
 import RailOverlay from '../../../components/RailOverlay'
 import { useHistoryRailOpen } from '../../../hooks/useHistoryRailOpen'
 import GenerationProgress from '../../../components/GenerationProgress'
@@ -373,149 +374,160 @@ export default memo(function PlaygroundHistoryGrid({ inFlight, activeProjectId, 
           bar, which is what lets tiles pass under it blurred. `pt-[69px]` is
           the bar's own 57px plus the 12px the content already stood off by —
           change the bar's height and change this with it. */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 pb-3 pt-[69px]">
-        {isEmpty && (
-          // `min-h` rather than a centred flex fill: this block shares a
-          // scroller with the pinned bar above it, and a `flex-1` child here
-          // would centre against a port that already has 69px spoken for.
-          <div className="flex min-h-[70vh] flex-col items-center justify-center gap-2 px-6 text-center">
-            <ImagePlay className="h-9 w-9 text-ink-800" strokeWidth={1.5} />
-            <p className="text-sm text-ink-500">
-              {activeProject ? `Nothing In ${activeProject.name} Yet` : 'No Generations Yet'}
-            </p>
-            <p className="max-w-[300px] text-xs leading-relaxed text-ink-600">
-              {activeProject
-                ? 'Pick a preset or type a prompt below and hit Generate. Images, clips and tracks made while this project is open all land here.'
-                : 'Pick a preset or type a prompt below and hit Generate. Everything you make lands here, sorted by day.'}
-            </p>
-          </div>
-        )}
+      {/* The graph-paper stage, and ONLY while the pane is empty — the same
+          rule Scripts and B-Roll follow (`components/GridCanvas`): the grid
+          marks a stage with nothing on it yet, and behind a wall of finished
+          tiles it is texture under the reading. This pane used to be the one
+          empty state in the app that sat on bare panel, which read as the
+          Playground being a different KIND of surface from every other output
+          column rather than the same stage before its first generation
+          (Massimo's call, September 2026). The pinned bar above is `z-20`, so
+          the frame's own positioned column still passes underneath it. */}
+      <CanvasFrame active={isEmpty}>
+        <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 pb-3 pt-[69px]">
+          {isEmpty && (
+            // `min-h` rather than a centred flex fill: this block shares a
+            // scroller with the pinned bar above it, and a `flex-1` child here
+            // would centre against a port that already has 69px spoken for.
+            <div className="flex min-h-[70vh] flex-col items-center justify-center gap-2 px-6 text-center">
+              <ImagePlay className="h-9 w-9 text-ink-800" strokeWidth={1.5} />
+              <p className="text-sm text-ink-500">
+                {activeProject ? `Nothing In ${activeProject.name} Yet` : 'No Generations Yet'}
+              </p>
+              <p className="max-w-[300px] text-xs leading-relaxed text-ink-600">
+                {activeProject
+                  ? 'Pick a preset or type a prompt below and hit Generate. Images, clips and tracks made while this project is open all land here.'
+                  : 'Pick a preset or type a prompt below and hit Generate. Everything you make lands here, sorted by day.'}
+              </p>
+            </div>
+          )}
 
-        {visibleInFlight.length > 0 && (
-          <>
-            <DayPill label="In Progress" className="my-5" />
-            {viewMode === 'grid' ? (
-              <div className="grid grid-cols-2 items-start gap-2.5 [grid-auto-flow:dense] lg:grid-cols-3 xl:grid-cols-4">
-                {visibleInFlight.map((gen) => {
-                  const ar = gen.imageParams?.aspectRatio ?? gen.videoParams?.aspectRatio
-                  return (
-                    <div key={gen.id} className={ar && isLandscape(ar) ? 'col-span-2' : ''}>
-                      <InFlightTile gen={gen} />
+          {visibleInFlight.length > 0 && (
+            <>
+              <DayPill label="In Progress" className="my-5" />
+              {viewMode === 'grid' ? (
+                <div className="grid grid-cols-2 items-start gap-2.5 [grid-auto-flow:dense] lg:grid-cols-3 xl:grid-cols-4">
+                  {visibleInFlight.map((gen) => {
+                    const ar = gen.imageParams?.aspectRatio ?? gen.videoParams?.aspectRatio
+                    return (
+                      <div key={gen.id} className={ar && isLandscape(ar) ? 'col-span-2' : ''}>
+                        <InFlightTile gen={gen} />
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {visibleInFlight.map((gen) => <InFlightRow key={gen.id} gen={gen} mediaAspect={mediaAspect} />)}
+                </div>
+              )}
+            </>
+          )}
+
+          {dayGroups.map(([dayTs, dayItems]) => (
+            <div key={dayTs}>
+              <DayPill label={sectionLabel(dayTs)} className="my-5" />
+              {viewMode === 'grid' ? (
+                <div className="grid grid-cols-2 items-start gap-2.5 [grid-auto-flow:dense] lg:grid-cols-3 xl:grid-cols-4">
+                  {dayItems.map((entry) => {
+                    const ar = entry.kind === 'music' ? null : entry.data.aspectRatio
+                    return (
+                    // A track has no thumbnail, so it wears the same row in both
+                    // views and takes the full width to do it — a Voiceovers-shaped
+                    // card squeezed into a quarter-width cell would truncate the
+                    // prompt that is the only thing naming the track.
+                    <div key={`${entry.kind}-${entry.data.id}`} className={entry.kind === 'music' ? 'col-span-full' : ar && isLandscape(ar) ? 'col-span-2' : ''}>
+                      {entry.kind === 'image' && (
+                        <ImageTile
+                          item={entry.data}
+                          isSaving={savingIds.has(entry.data.id)}
+                          scrollRoot={scrollRef}
+                          onClick={() => setPreviewItem(entry)}
+                          onSave={() => handleSaveImage(entry.data)}
+                          onDelete={() => deleteImageHistory(entry.data.id)}
+                          onCopyPrompt={() => handleCopyPrompt(entry.data.prompt)}
+                          onReuse={onReusePrompt && entry.data.prompt ? () => onReusePrompt(entry.data.prompt, 'image') : undefined}
+                          onAnimate={onAnimateImage ? () => onAnimateImage(entry.data) : undefined}
+                        />
+                      )}
+                      {entry.kind === 'video' && (
+                        <VideoTile
+                          item={entry.data}
+                          scrollRoot={scrollRef}
+                          selecting={selecting}
+                          selected={picked.has(entry.data.id)}
+                          onToggleSelect={() => togglePicked(entry.data.id)}
+                          onClick={() => setPreviewItem(entry)}
+                          onDelete={() => deleteVideoHistory(entry.data.id)}
+                          onCopyPrompt={() => handleCopyPrompt(entry.data.prompt)}
+                          onReuse={onReusePrompt && entry.data.prompt ? () => onReusePrompt(entry.data.prompt, 'video') : undefined}
+                        />
+                      )}
+                      {entry.kind === 'music' && (
+                        <MusicRow
+                          item={entry.data}
+                          onDownload={async () => {
+                            const url = await getUrl(entry.data.audioRef)
+                            if (url) downloadImage(url, `playground-${entry.data.id}`, 'mp3')
+                          }}
+                          onDelete={() => deleteMusicHistory(entry.data.id)}
+                          onCopyPrompt={() => handleCopyPrompt(entry.data.prompt)}
+                          onReuse={onReusePrompt && entry.data.prompt ? () => onReusePrompt(entry.data.prompt, 'music') : undefined}
+                        />
+                      )}
                     </div>
-                  )
-                })}
-              </div>
-            ) : (
-              <div className="flex flex-col gap-3">
-                {visibleInFlight.map((gen) => <InFlightRow key={gen.id} gen={gen} mediaAspect={mediaAspect} />)}
-              </div>
-            )}
-          </>
-        )}
-
-        {dayGroups.map(([dayTs, dayItems]) => (
-          <div key={dayTs}>
-            <DayPill label={sectionLabel(dayTs)} className="my-5" />
-            {viewMode === 'grid' ? (
-              <div className="grid grid-cols-2 items-start gap-2.5 [grid-auto-flow:dense] lg:grid-cols-3 xl:grid-cols-4">
-                {dayItems.map((entry) => {
-                  const ar = entry.kind === 'music' ? null : entry.data.aspectRatio
-                  return (
-                  // A track has no thumbnail, so it wears the same row in both
-                  // views and takes the full width to do it — a Voiceovers-shaped
-                  // card squeezed into a quarter-width cell would truncate the
-                  // prompt that is the only thing naming the track.
-                  <div key={`${entry.kind}-${entry.data.id}`} className={entry.kind === 'music' ? 'col-span-full' : ar && isLandscape(ar) ? 'col-span-2' : ''}>
-                    {entry.kind === 'image' && (
-                      <ImageTile
-                        item={entry.data}
-                        isSaving={savingIds.has(entry.data.id)}
-                        scrollRoot={scrollRef}
-                        onClick={() => setPreviewItem(entry)}
-                        onSave={() => handleSaveImage(entry.data)}
-                        onDelete={() => deleteImageHistory(entry.data.id)}
-                        onCopyPrompt={() => handleCopyPrompt(entry.data.prompt)}
-                        onReuse={onReusePrompt && entry.data.prompt ? () => onReusePrompt(entry.data.prompt, 'image') : undefined}
-                        onAnimate={onAnimateImage ? () => onAnimateImage(entry.data) : undefined}
-                      />
-                    )}
-                    {entry.kind === 'video' && (
-                      <VideoTile
-                        item={entry.data}
-                        scrollRoot={scrollRef}
-                        selecting={selecting}
-                        selected={picked.has(entry.data.id)}
-                        onToggleSelect={() => togglePicked(entry.data.id)}
-                        onClick={() => setPreviewItem(entry)}
-                        onDelete={() => deleteVideoHistory(entry.data.id)}
-                        onCopyPrompt={() => handleCopyPrompt(entry.data.prompt)}
-                        onReuse={onReusePrompt && entry.data.prompt ? () => onReusePrompt(entry.data.prompt, 'video') : undefined}
-                      />
-                    )}
-                    {entry.kind === 'music' && (
-                      <MusicRow
-                        item={entry.data}
-                        onDownload={async () => {
-                          const url = await getUrl(entry.data.audioRef)
-                          if (url) downloadImage(url, `playground-${entry.data.id}`, 'mp3')
-                        }}
-                        onDelete={() => deleteMusicHistory(entry.data.id)}
-                        onCopyPrompt={() => handleCopyPrompt(entry.data.prompt)}
-                        onReuse={onReusePrompt && entry.data.prompt ? () => onReusePrompt(entry.data.prompt, 'music') : undefined}
-                      />
-                    )}
-                  </div>
-                  )
-                })}
-              </div>
-            ) : (
-              <div className="flex flex-col gap-3">
-                {dayItems.map((entry) => entry.kind === 'music' ? (
-                  // Same row as the grid draws — audio has no thumbnail, so
-                  // there is no second shape for the list to put it in.
-                  <MusicRow
-                    key={`music-${entry.data.id}`}
-                    item={entry.data}
-                    onDownload={async () => {
-                      const u = await getUrl(entry.data.audioRef)
-                      if (u) downloadImage(u, `playground-${entry.data.id}`, 'mp3')
-                    }}
-                    onDelete={() => deleteMusicHistory(entry.data.id)}
-                    onCopyPrompt={() => handleCopyPrompt(entry.data.prompt)}
-                    onReuse={onReusePrompt && entry.data.prompt ? () => onReusePrompt(entry.data.prompt, 'music') : undefined}
-                  />
-                ) : (
-                  <HistoryListRow
-                    key={`${entry.kind}-${entry.data.id}`}
-                    entry={entry}
-                    mediaAspect={mediaAspect}
-                    isSaving={savingIds.has(entry.data.id)}
-                    scrollRoot={scrollRef}
-                    onClickImage={entry.kind === 'image' ? () => setPreviewItem(entry) : undefined}
-                    onCopyPrompt={() => handleCopyPrompt(entry.data.prompt)}
-                    onReuse={onReusePrompt && entry.data.prompt ? () => onReusePrompt(entry.data.prompt, entry.kind) : undefined}
-                    onSave={entry.kind === 'image' ? () => handleSaveImage(entry.data) : undefined}
-                    onAnimate={entry.kind === 'image' && onAnimateImage ? () => onAnimateImage(entry.data) : undefined}
-                    onDownload={async () => {
-                      if (entry.kind === 'image') {
-                        const u = await getUrl(entry.data.imageUrl)
-                        if (u) downloadImage(u, `playground-${entry.data.id}`)
-                      } else {
-                        const u = await getUrl(entry.data.videoUrl)
-                        if (u) downloadImage(u, `playground-${entry.data.id}`, 'mp4')
-                      }
-                    }}
-                    onDelete={() => {
-                      if (entry.kind === 'image') deleteImageHistory(entry.data.id)
-                      else deleteVideoHistory(entry.data.id)
-                    }}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {dayItems.map((entry) => entry.kind === 'music' ? (
+                    // Same row as the grid draws — audio has no thumbnail, so
+                    // there is no second shape for the list to put it in.
+                    <MusicRow
+                      key={`music-${entry.data.id}`}
+                      item={entry.data}
+                      onDownload={async () => {
+                        const u = await getUrl(entry.data.audioRef)
+                        if (u) downloadImage(u, `playground-${entry.data.id}`, 'mp3')
+                      }}
+                      onDelete={() => deleteMusicHistory(entry.data.id)}
+                      onCopyPrompt={() => handleCopyPrompt(entry.data.prompt)}
+                      onReuse={onReusePrompt && entry.data.prompt ? () => onReusePrompt(entry.data.prompt, 'music') : undefined}
+                    />
+                  ) : (
+                    <HistoryListRow
+                      key={`${entry.kind}-${entry.data.id}`}
+                      entry={entry}
+                      mediaAspect={mediaAspect}
+                      isSaving={savingIds.has(entry.data.id)}
+                      scrollRoot={scrollRef}
+                      onClickImage={entry.kind === 'image' ? () => setPreviewItem(entry) : undefined}
+                      onCopyPrompt={() => handleCopyPrompt(entry.data.prompt)}
+                      onReuse={onReusePrompt && entry.data.prompt ? () => onReusePrompt(entry.data.prompt, entry.kind) : undefined}
+                      onSave={entry.kind === 'image' ? () => handleSaveImage(entry.data) : undefined}
+                      onAnimate={entry.kind === 'image' && onAnimateImage ? () => onAnimateImage(entry.data) : undefined}
+                      onDownload={async () => {
+                        if (entry.kind === 'image') {
+                          const u = await getUrl(entry.data.imageUrl)
+                          if (u) downloadImage(u, `playground-${entry.data.id}`)
+                        } else {
+                          const u = await getUrl(entry.data.videoUrl)
+                          if (u) downloadImage(u, `playground-${entry.data.id}`, 'mp4')
+                        }
+                      }}
+                      onDelete={() => {
+                        if (entry.kind === 'image') deleteImageHistory(entry.data.id)
+                        else deleteVideoHistory(entry.data.id)
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </CanvasFrame>
 
       {previewItem && (
         <PreviewModal
@@ -1499,4 +1511,13 @@ function frameAspectFor(ar: string | null | undefined, mediaAspect: number): num
   const [w, h] = ar.split(':').map(Number)
   if (w && h && w > h) return w / h
   return mediaAspect
+}
+
+// The scroll port with or without the graph-paper stage behind it. Both
+// branches keep the same flex shape, so the grid appearing or going as the
+// first generation lands never reflows the tiles — the same helper B-Roll's
+// storyboard column uses, for the same reason.
+function CanvasFrame({ active, children }: { active: boolean; children: React.ReactNode }) {
+  if (active) return <GridCanvas>{children}</GridCanvas>
+  return <>{children}</>
 }
