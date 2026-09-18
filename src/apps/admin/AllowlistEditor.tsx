@@ -115,6 +115,14 @@ export default function AllowlistEditor() {
   const [codeBusy, setCodeBusy] = useState(false)
   const [codeSupported, setCodeSupported] = useState(true)
 
+  // How often every member re-enters that same code (app_config
+  // .access_renewal_days, migration 0025). 0 = off. `savedDays` is the
+  // database's value; `draftDays` is the input.
+  const [savedDays, setSavedDays] = useState<number | null>(null)
+  const [draftDays, setDraftDays] = useState('')
+  const [renewalBusy, setRenewalBusy] = useState(false)
+  const [renewalSupported, setRenewalSupported] = useState(true)
+
   async function loadConfig() {
     try {
       await readyAdminSession()
@@ -123,12 +131,19 @@ export default function AllowlistEditor() {
         (signal) => sb.from('app_config').select(cols).eq('id', true).abortSignal(signal).maybeSingle(),
         QUERY_TIMEOUT_MS,
         'app_config query',
-      ) as Promise<{ data: { enforce_allowlist: boolean; signup_code?: string | null } | null; error: { message: string; code?: string } | null }>
+      ) as Promise<{ data: { enforce_allowlist: boolean; signup_code?: string | null; access_renewal_days?: number | null } | null; error: { message: string; code?: string } | null }>
 
-      let { data, error } = await run('enforce_allowlist, signup_code')
-      // Migration 0021 not applied here yet — fall back so the enforcement
-      // toggle still loads instead of the whole card reading as broken.
-      if (error && /column .* does not exist|42703/i.test(`${error.message} ${error.code ?? ''}`)) {
+      const missingCol = (e: { message: string; code?: string } | null) =>
+        !!e && /column .* does not exist|42703/i.test(`${e.message} ${e.code ?? ''}`)
+
+      // Widest first, one migration's worth of columns per step: an environment
+      // running behind on SQL loses a card, not the whole panel.
+      let { data, error } = await run('enforce_allowlist, signup_code, access_renewal_days')
+      if (missingCol(error)) {
+        setRenewalSupported(false)
+        ;({ data, error } = await run('enforce_allowlist, signup_code'))
+      }
+      if (missingCol(error)) {
         setCodeSupported(false)
         ;({ data, error } = await run('enforce_allowlist'))
       }
@@ -137,6 +152,9 @@ export default function AllowlistEditor() {
       const code = data?.signup_code ?? null
       setSavedCode(code ?? '')
       setDraftCode(code ?? '')
+      const days = data?.access_renewal_days ?? 0
+      setSavedDays(days)
+      setDraftDays(String(days))
     } catch {
       // Leave as null — the toggle card shows a "couldn't load" hint and the
       // allowlist table below still works.
@@ -167,6 +185,37 @@ export default function AllowlistEditor() {
       alert(e instanceof Error ? e.message : String(e))
     } finally {
       setCodeBusy(false)
+    }
+  }
+
+  // Goes through the RPC rather than a plain update because changing the
+  // cadence also re-baselines every member's next checkpoint — see the note on
+  // set_access_renewal_days. Without that, turning renewal back on after a
+  // spell at 0 would mark the entire community due at once.
+  async function saveRenewal() {
+    if (!renewalSupported) return
+    const next = Math.max(0, Math.min(3650, Math.round(Number(draftDays))))
+    if (!Number.isFinite(next) || next === (savedDays ?? 0)) return
+    const ok = confirm(next === 0
+      ? 'Turn automatic renewal off? Nobody will be asked for the access code again until you turn it back on.'
+      : `Ask every member for the access code every ${next} days? Everyone's clock restarts today, so the first check lands ${next} days from now.`)
+    if (!ok) return
+    setRenewalBusy(true)
+    try {
+      await readyAdminSession()
+      const sb = getSupabase()
+      const { error } = await withTimeout(
+        (signal) => sb.rpc('set_access_renewal_days', { days: next }).abortSignal(signal),
+        QUERY_TIMEOUT_MS,
+        'access renewal update',
+      ) as { error: { message: string } | null }
+      if (error) throw error
+      setSavedDays(next)
+      setDraftDays(String(next))
+    } catch (e) {
+      alert(e instanceof Error ? e.message : String(e))
+    } finally {
+      setRenewalBusy(false)
     }
   }
 
@@ -507,7 +556,49 @@ export default function AllowlistEditor() {
           </div>
         )}
         <p className="mt-2 text-[11px] text-ink-600">
-          Only affects new signups. Members who already have an account sign in as usual.
+          Rotating this code is what makes Access Renewal below worth anything — a member who cancelled but still remembers an old code walks straight through their next check.
+        </p>
+      </div>
+
+      {/* Automatic re-verification. Lives directly under the code because the
+          two are one mechanism: this card decides how often members are asked,
+          the card above decides what they're asked for. */}
+      <div className="rounded-xl border border-ink/10 bg-ink/[0.02] p-4 max-sm:p-3">
+        <div className="text-[13px] font-medium text-ink-100">Access Renewal</div>
+        <p className="mt-0.5 text-[12px] text-ink-500">
+          {!renewalSupported
+            ? 'Not available. Run migration 0025, then refresh.'
+            : !savedDays
+              ? 'Off. Members keep access until you lapse or disable them by hand.'
+              : `Every member re-enters the current access code every ${savedDays} days, counted from signup and reset each time they enter it. Their work is untouched while they're locked out.`}
+        </p>
+        {renewalSupported && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <input
+              type="number"
+              min={0}
+              max={3650}
+              value={draftDays}
+              onChange={(e) => setDraftDays(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') saveRenewal() }}
+              placeholder="30"
+              className="w-24 rounded-lg border border-ink/10 bg-ink/5 px-3 py-2 text-[12px] text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-ink/20 focus:bg-ink/[0.07]"
+            />
+            <span className="text-[12px] text-ink-500">days · 0 turns it off</span>
+            <button
+              onClick={saveRenewal}
+              disabled={renewalBusy || String(Math.max(0, Math.round(Number(draftDays)))) === String(savedDays ?? 0)}
+              className="flex items-center gap-1.5 rounded-lg bg-ink py-2 px-3 text-[12px] font-medium text-ink-900 transition-colors hover:bg-ink-100 disabled:opacity-60"
+            >
+              {renewalBusy && <Spinner className="h-3 w-3" />}
+              Save
+            </button>
+          </div>
+        )}
+        <p className="mt-2 text-[11px] text-ink-600">
+          {renewalSupported && !!savedDays && !savedCode
+            ? 'Paused: no access code is set above, and there would be no way back in. Set one to start the checks.'
+            : 'Admins are never asked. Changing this restarts everyone\u2019s clock from today.'}
         </p>
       </div>
 

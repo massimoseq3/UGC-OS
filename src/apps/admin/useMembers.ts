@@ -24,6 +24,10 @@ export interface MemberRow {
   // Cancelled but not banned (migration 0023). Data intact; the member lets
   // themselves back in with the current access code.
   lapsed_at: string | null
+  // Next automatic access-code checkpoint (migration 0025). null where the
+  // column isn't there yet, or the member has never been stamped — NOT a
+  // reliable "is locked out" signal, which only the server computes.
+  access_renews_at: string | null
   created_at: string
   last_active_at: string | null
   total_bytes: number
@@ -157,6 +161,13 @@ interface DirectoryState {
   load: (opts?: { force?: boolean; userId?: string | null }) => Promise<void>
 }
 
+// What one profiles row looks like once the tier ladder below has settled.
+// The optional pair are the columns a not-yet-migrated environment omits.
+type ProfileQueryRow = Pick<
+  MemberRow,
+  'id' | 'email' | 'display_name' | 'first_name' | 'last_name' | 'is_admin' | 'disabled_at' | 'created_at' | 'last_active_at'
+> & Partial<Pick<MemberRow, 'lapsed_at' | 'access_renews_at'>>
+
 type Setter = (partial: Partial<DirectoryState>) => void
 
 // Module-level rather than store state so a second caller awaits the SAME
@@ -181,15 +192,28 @@ async function fetchDirectory(set: Setter, hadRows: boolean): Promise<void> {
     const [profilesRes, storageRes, activityRes, appUsageRes] = await Promise.allSettled([
       withTimeout(
         async (signal) => {
-          const cols = 'id, email, display_name, first_name, last_name, is_admin, disabled_at, created_at, last_active_at'
-          const res = await sb.from('profiles').select(`${cols}, lapsed_at`).abortSignal(signal)
-          // 42703 — migration 0023 hasn't run in this environment. Losing the
-          // Lapsed column beats blanking the whole members table under the
-          // admin, which is what selecting a missing column would do.
-          const missingCol = /column .* does not exist|42703/i.test(`${res.error?.message ?? ''} ${res.error?.code ?? ''}`)
-          if (!res.error || !missingCol) return res
-          console.warn('[admin] profiles.lapsed_at missing — run migration 0023.')
-          return await sb.from('profiles').select(cols).abortSignal(signal)
+          // Widest first, one migration's worth of columns dropped per step.
+          // 42703 — that migration hasn't run in this environment. Losing a
+          // column beats blanking the whole members table under the admin,
+          // which is what selecting a missing one would do.
+          const base = 'id, email, display_name, first_name, last_name, is_admin, disabled_at, created_at, last_active_at'
+          const tiers = [
+            `${base}, lapsed_at, access_renews_at`,
+            `${base}, lapsed_at`,
+            base,
+          ]
+          // The select list is a runtime string, so supabase-js can't infer a
+          // row type for it — hence the cast, same as authStore's fetchProfile.
+          const run = (cols: string) => sb.from('profiles').select(cols).abortSignal(signal) as unknown as
+            Promise<{ data: ProfileQueryRow[] | null; error: { message: string; code?: string } | null }>
+          let res = await run(tiers[0])
+          for (let tier = 1; tier < tiers.length; tier++) {
+            const missingCol = /column .* does not exist|42703/i.test(`${res.error?.message ?? ''} ${res.error?.code ?? ''}`)
+            if (!res.error || !missingCol) return res
+            console.warn(`[admin] profiles columns missing at tier ${tier - 1} — run the latest migrations (0023, 0025).`)
+            res = await run(tiers[tier])
+          }
+          return res
         },
         QUERY_TIMEOUT_MS,
         'profiles query',
@@ -269,8 +293,9 @@ async function fetchDirectory(set: Setter, hadRows: boolean): Promise<void> {
       const a = activityMap.get(p.id)
       return {
         // Defaulted before the spread so a selected value still wins — the
-        // fallback tier above omits the column entirely.
+        // fallback tiers above omit these columns entirely.
         lapsed_at: null,
+        access_renews_at: null,
         ...p,
         total_bytes: s?.total_bytes ?? 0,
         asset_count: s?.asset_count ?? 0,

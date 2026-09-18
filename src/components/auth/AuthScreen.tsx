@@ -167,7 +167,7 @@ export default function AuthScreen() {
                 rel="noreferrer"
                 className="inline-flex items-center gap-1 text-ink-400 underline transition-colors hover:text-ink-200"
               >
-                Get the code on Skool
+                Get the access code on Skool
                 <ExternalLink className="h-2.5 w-2.5" />
               </a>
             }

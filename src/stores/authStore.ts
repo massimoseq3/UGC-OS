@@ -74,6 +74,12 @@ export interface ProfileRow {
   // disabled_at this is a door they can open themselves, by entering the
   // current shared access code — see redeemAccessCode.
   lapsed_at: string | null
+  // This member's next access-code checkpoint (migration 0025). NULL means
+  // "never stamped", which the server resolves to created_at + the cadence —
+  // so never read this column to decide whether someone is locked out. That
+  // answer comes from my_access_state(), which also knows about the kill
+  // switch, the blank-code guard and the admin exemption.
+  access_renews_at: string | null
   per_app_model: Record<string, string>
   active_project_id: string | null
   tos_accepted_at: string | null
@@ -91,6 +97,11 @@ interface AuthState {
   session: Session | null
   user: User | null
   profile: ProfileRow | null
+
+  // Whether this member may use the workspace at all, as answered by the
+  // server. AuthGate renders LapsedScreen from `access.locked`, never from
+  // profile.lapsed_at — being past a renewal checkpoint sets no flag anywhere.
+  access: AccessState
 
   // True when the last sign-in attempt (or a stale session on load) belonged to
   // a disabled account. AuthScreen reads this to show the "members only" Skool
@@ -118,9 +129,15 @@ interface AuthState {
   // Sets the new password using the session the recovery link established,
   // then drops out of recovery mode.
   completePasswordReset: (password: string) => Promise<{ ok: true } | { ok: false; error: string }>
-  // A lapsed member's own way back in: checked server-side against the current
-  // shared access code (migration 0023), throttled to 5 tries an hour.
+  // A locked-out member's own way back in — cancelled (0023) or past their
+  // renewal checkpoint (0025). Checked server-side against the current shared
+  // access code, case-insensitively, throttled to 10 tries an hour.
   redeemAccessCode: (code: string) => Promise<{ ok: true } | { ok: false; error: string }>
+  // Re-asks the server whether this member is still allowed in. AuthGate calls
+  // it on the checkpoint it can see coming, so a tab left open across the
+  // deadline hands over to the code screen instead of discovering the lock
+  // one failed bank write at a time.
+  refreshAccessState: () => Promise<void>
   refreshProfile: () => Promise<void>
   // Sets the preferred name the app greets the user by (profiles.display_name).
   // Optimistic: updates local state first, then persists; reverts on failure.
@@ -134,6 +151,8 @@ interface AuthState {
 // one migration's worth of columns and retries — an environment running behind
 // on SQL degrades a feature instead of locking every member out of sign-in.
 const PROFILE_COL_TIERS = [
+  'id, email, display_name, first_name, last_name, is_admin, disabled_at, lapsed_at, access_renews_at, per_app_model, active_project_id, tos_accepted_at, privacy_accepted_at, aup_accepted_at, policy_version_accepted',
+  // …without 0025's renewal checkpoint
   'id, email, display_name, first_name, last_name, is_admin, disabled_at, lapsed_at, per_app_model, active_project_id, tos_accepted_at, privacy_accepted_at, aup_accepted_at, policy_version_accepted',
   // …without 0023's lapsed status
   'id, email, display_name, first_name, last_name, is_admin, disabled_at, per_app_model, active_project_id, tos_accepted_at, privacy_accepted_at, aup_accepted_at, policy_version_accepted',
@@ -147,6 +166,7 @@ const MISSING_PROFILE_DEFAULTS = {
   first_name: null,
   last_name: null,
   lapsed_at: null,
+  access_renews_at: null,
   tos_accepted_at: null,
   privacy_accepted_at: null,
   aup_accepted_at: null,
@@ -156,6 +176,59 @@ const MISSING_PROFILE_DEFAULTS = {
 function isMissingColumnError(error: { message: string; code?: string } | null): boolean {
   if (!error) return false
   return /column .* does not exist|42703/i.test(`${error.message} ${error.code ?? ''}`)
+}
+
+// Why the client never works this out for itself: deciding "is this member
+// locked out" needs app_config (the cadence kill-switch and whether a code
+// even exists), and app_config is admin-only by RLS. A client that guessed
+// wrong in the optimistic direction would show a code screen that
+// redeem_access_code answers "ok" to — a loop with no way out. So the server
+// answers, from the same helpers is_active() gates every bank table on.
+export interface AccessState {
+  locked: boolean
+  reason: 'disabled' | 'lapsed' | 'renewal' | null
+  // When this member is next asked for the code. null when they're exempt —
+  // renewal turned off, no code configured, or an admin.
+  renewsAt: string | null
+}
+
+const ACCESS_OPEN: AccessState = { locked: false, reason: null, renewsAt: null }
+
+async function fetchAccessState(profile: ProfileRow | null): Promise<AccessState> {
+  if (!profile) return ACCESS_OPEN
+  // Pre-0025 fallback, used both when the function isn't deployed and when the
+  // call fails outright: the flag we can already see on the profile row. It
+  // degrades this feature instead of locking every member out of sign-in,
+  // which is the same bargain PROFILE_COL_TIERS makes above.
+  const fromProfile: AccessState = profile.lapsed_at
+    ? { locked: true, reason: 'lapsed', renewsAt: null }
+    : ACCESS_OPEN
+  try {
+    const { data, error } = await getSupabase().rpc('my_access_state')
+    if (error) {
+      if (!/could not find the function|42883|PGRST202/i.test(`${error.message} ${error.code ?? ''}`)) {
+        console.error('[auth] my_access_state failed', error)
+      }
+      return fromProfile
+    }
+    const row = data as { locked?: boolean; reason?: string | null; renews_at?: string | null } | null
+    if (!row) return fromProfile
+    return {
+      locked: !!row.locked,
+      reason: (row.reason as AccessState['reason']) ?? null,
+      renewsAt: row.renews_at ?? null,
+    }
+  } catch (e) {
+    console.error('[auth] my_access_state threw', e)
+    return fromProfile
+  }
+}
+
+// The profile and the access state always travel together — every place that
+// sets one has to set the other, or the gate renders against a stale verdict.
+async function fetchAccount(userId: string): Promise<{ profile: ProfileRow | null; access: AccessState }> {
+  const profile = await fetchProfile(userId)
+  return { profile, access: await fetchAccessState(profile) }
 }
 
 async function fetchProfile(userId: string): Promise<ProfileRow | null> {
@@ -187,6 +260,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   session: null,
   user: null,
   profile: null,
+  access: ACCESS_OPEN,
   accessRevoked: false,
   recovery: RECOVERY_ON_LOAD,
 
@@ -200,18 +274,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const session = data.session ?? null
     const user = session?.user ?? null
     let profile: ProfileRow | null = null
+    let access = ACCESS_OPEN
     if (user) {
-      profile = await fetchProfile(user.id)
+      ;({ profile, access } = await fetchAccount(user.id))
       // If admin removed the user from allowlist, sign them out immediately
       // and flag it so AuthScreen shows the "members only" popup.
       if (profile?.disabled_at) {
         await sb.auth.signOut()
         await wipeLocalUserData()
-        set({ session: null, user: null, profile: null, accessRevoked: true, bootstrapping: false })
+        set({ session: null, user: null, profile: null, access: ACCESS_OPEN, accessRevoked: true, bootstrapping: false })
         return
       }
     }
-    set({ session, user, profile, bootstrapping: false })
+    set({ session, user, profile, access, bootstrapping: false })
     // Restore this member's own API keys (see the vault note in settingsStore):
     // they survive the sign-out wipe, so a returning member doesn't re-paste.
     if (user) adoptUserKeys(user.id)
@@ -225,12 +300,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const prevUserId = get().user?.id
       const nextUser = nextSession?.user ?? null
       let nextProfile: ProfileRow | null = null
+      let nextAccess = ACCESS_OPEN
       if (nextUser) {
-        nextProfile = await fetchProfile(nextUser.id)
+        ;({ profile: nextProfile, access: nextAccess } = await fetchAccount(nextUser.id))
         if (nextProfile?.disabled_at) {
           await sb.auth.signOut()
           await wipeLocalUserData()
-          set({ session: null, user: null, profile: null, accessRevoked: true })
+          set({ session: null, user: null, profile: null, access: ACCESS_OPEN, accessRevoked: true })
           return
         }
       }
@@ -240,7 +316,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (prevUserId && prevUserId !== nextUser?.id) {
         await wipeLocalUserData()
       }
-      set({ session: nextSession, user: nextUser, profile: nextProfile })
+      set({ session: nextSession, user: nextUser, profile: nextProfile, access: nextAccess })
       // After any wipe, never before — the incoming member adopts their own
       // vaulted keys, which is also what stops them adopting the outgoing one's.
       if (nextUser) adoptUserKeys(nextUser.id)
@@ -253,13 +329,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const { data, error } = await sb.auth.signInWithPassword({ email: email.trim(), password })
     if (error) return { ok: false, error: error.message }
     if (data.user) {
-      const profile = await fetchProfile(data.user.id)
+      const { profile, access } = await fetchAccount(data.user.id)
       if (profile?.disabled_at) {
         await sb.auth.signOut()
         set({ accessRevoked: true })
         return { ok: false, error: 'Your access has been revoked.', revoked: true }
       }
-      set({ session: data.session, user: data.user, profile, accessRevoked: false })
+      set({ session: data.session, user: data.user, profile, access, accessRevoked: false })
       adoptUserKeys(data.user.id)
     }
     return { ok: true }
@@ -297,8 +373,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const { data } = await sb.auth.getSession()
     const session = data.session ?? null
     const user = session?.user ?? null
-    const profile = user ? await fetchProfile(user.id) : null
-    set({ session, user, profile, recovery: false })
+    const { profile, access } = user ? await fetchAccount(user.id) : { profile: null, access: ACCESS_OPEN }
+    set({ session, user, profile, access, recovery: false })
     if (user) adoptUserKeys(user.id)
     return { ok: true }
   },
@@ -356,8 +432,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // user has to click a link before they can log in.
     const needsConfirm = !data.session
     if (data.session && data.user) {
-      const profile = await fetchProfile(data.user.id)
-      set({ session: data.session, user: data.user, profile })
+      const { profile, access } = await fetchAccount(data.user.id)
+      set({ session: data.session, user: data.user, profile, access })
     }
     return { ok: true, needsConfirm }
   },
@@ -367,14 +443,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const sb = getSupabase()
     await sb.auth.signOut()
     await wipeLocalUserData()
-    set({ session: null, user: null, profile: null })
+    set({ session: null, user: null, profile: null, access: ACCESS_OPEN })
+  },
+
+  refreshAccessState: async () => {
+    if (!isCloudEnabled() || !get().user) return
+    set({ access: await fetchAccessState(get().profile) })
   },
 
   refreshProfile: async () => {
     const user = get().user
     if (!user) return
-    const profile = await fetchProfile(user.id)
-    set({ profile })
+    const { profile, access } = await fetchAccount(user.id)
+    set({ profile, access })
   },
 
   updateDisplayName: async (name) => {

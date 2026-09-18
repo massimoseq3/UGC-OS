@@ -5,10 +5,16 @@ import AuthShell, { AuthField } from './AuthShell'
 import { useAuthStore } from '../../stores/authStore'
 import { SKOOL_ACCESS_CODE_URL } from '../../utils/constants'
 
-// Shown to a member whose account is Lapsed (migration 0023) — cancelled, but
-// not banned. Their workspace is untouched behind RLS; the current shared
-// access code is what opens it again, which is why the code is worth rotating.
-export default function LapsedScreen() {
+// Shown to a member the server has locked out of the workspace — cancelled by
+// hand (migration 0023), or past their renewal checkpoint (migration 0025).
+// Their workspace is untouched behind RLS; the current shared access code is
+// what opens it again, which is why the code is worth rotating.
+//
+// The two read differently on purpose. A cancelled member is coming back from
+// somewhere; a renewing one never left, and telling them "welcome back" for a
+// routine check-in reads as though something went wrong with their account.
+export default function LapsedScreen({ reason }: { reason?: 'disabled' | 'lapsed' | 'renewal' | null }) {
+  const renewing = reason === 'renewal'
   const email = useAuthStore((s) => s.profile?.email ?? s.user?.email ?? '')
   const redeemAccessCode = useAuthStore((s) => s.redeemAccessCode)
   const signOut = useAuthStore((s) => s.signOut)
@@ -33,15 +39,15 @@ export default function LapsedScreen() {
   }
 
   return (
-    <AuthShell subtitle="Welcome back">
+    <AuthShell subtitle={renewing ? 'Quick check-in' : 'Welcome back'}>
       <form
         onSubmit={handleSubmit}
         className="space-y-3 rounded-xl border border-ink/10 bg-ink/[0.03] p-5 backdrop-blur-xl"
       >
-        {/* No explanatory paragraph above the field. "Welcome back" is the
-            heading, the field is labelled Access code and carries its own hint,
-            and the button says Unlock my workspace — a sentence restating all
-            three is the one thing on this screen nobody has to read. */}
+        {/* No explanatory paragraph above the field, and on the renewal pass
+            no hint either. The heading, the Access Code label and the Unlock My
+            Workspace button already say the whole thing; copy reassuring a
+            member their work is safe mostly plants the worry it answers. */}
         <AuthField
           label="Access Code"
           type="text"
@@ -51,7 +57,7 @@ export default function LapsedScreen() {
           onChange={(e) => setCode(e.target.value)}
           required
           placeholder="Code from the community"
-          hint="It changes from time to time, so use the current one."
+          hint={renewing ? undefined : 'It changes from time to time, so use the current one.'}
         />
 
         {error && (
@@ -67,7 +73,7 @@ export default function LapsedScreen() {
           className="flex w-full items-center justify-center gap-2 rounded-lg bg-ink py-2.5 text-sm font-medium text-ink-900 transition-colors hover:bg-ink-100 disabled:opacity-60"
         >
           {busy && <Spinner className="h-4 w-4" />}
-          Unlock my workspace
+          Unlock My Workspace
         </button>
       </form>
 
@@ -78,7 +84,7 @@ export default function LapsedScreen() {
           rel="noreferrer"
           className="inline-flex items-center gap-1.5 rounded-full border border-ink/10 bg-ink/5 px-4 py-2 text-[12px] font-medium text-ink-200 transition-colors hover:border-ink/20 hover:bg-ink/10 hover:text-ink"
         >
-          Get the code on Skool
+          Get the access code on Skool
           <ExternalLink className="h-3 w-3" />
         </a>
         <button

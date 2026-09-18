@@ -17,9 +17,14 @@ export default function AuthGate({ children }: AuthGateProps) {
   const profile = useAuthStore((s) => s.profile)
   const bootstrap = useAuthStore((s) => s.bootstrap)
   const recovery = useAuthStore((s) => s.recovery)
-  // A lapsed member holds a valid session but no data access — RLS locks every
-  // bank table until they redeem the access code (migration 0023).
-  const lapsed = !!profile?.lapsed_at
+  // A locked-out member holds a valid session but no data access — RLS locks
+  // every bank table until they redeem the access code. Two ways to get here:
+  // cancelled by hand (0023) or past the 30-day renewal checkpoint (0025).
+  // The verdict is the server's: being past a checkpoint stamps no flag, so
+  // profile.lapsed_at answers only half the question.
+  const access = useAuthStore((s) => s.access)
+  const refreshAccessState = useAuthStore((s) => s.refreshAccessState)
+  const lapsed = access.locked
   const [syncing, setSyncing] = useState(false)
   const [syncReady, setSyncReady] = useState(!isCloudEnabled())
 
@@ -58,6 +63,33 @@ export default function AuthGate({ children }: AuthGateProps) {
   }, [userId, syncBlocked])
   /* eslint-enable react-hooks/set-state-in-effect */
 
+  // Hand over to the code screen ON the checkpoint rather than discovering it
+  // through failures: at the deadline every bank write starts being refused by
+  // RLS, which would otherwise reach the member as a toast per table and a
+  // workspace that silently stopped saving. Re-checks hourly until the
+  // deadline is close, because a 30-day setTimeout is both unreliable and
+  // dead wrong for a laptop that slept through the moment.
+  const renewsAt = access.renewsAt
+  const [renewalTick, setRenewalTick] = useState(0)
+  useEffect(() => {
+    if (lapsed || !renewsAt) return
+    const due = new Date(renewsAt).getTime() - Date.now()
+    if (Number.isNaN(due)) return
+    const HOUR = 60 * 60_000
+    // Far out, the wake-up only re-arms — asking the server hourly for thirty
+    // days would be a round trip per member per hour to learn nothing. Past
+    // the deadline while the server still says fine (clock skew) this settles
+    // into a harmless once-a-minute re-ask that stops the moment the server
+    // agrees, since a locked member returns above.
+    const dueSoon = due <= HOUR
+    const delay = dueSoon ? Math.max(due + 1_000, 60_000) : HOUR
+    const timer = setTimeout(() => {
+      if (dueSoon) void refreshAccessState()
+      setRenewalTick((n) => n + 1)
+    }, delay)
+    return () => clearTimeout(timer)
+  }, [renewsAt, lapsed, refreshAccessState, renewalTick])
+
   // No Supabase env configured — fall back to local-only mode so the app runs
   // fully client-side without a backend.
   if (!isCloudEnabled()) {
@@ -84,7 +116,7 @@ export default function AuthGate({ children }: AuthGateProps) {
   }
 
   if (lapsed) {
-    return <LapsedScreen />
+    return <LapsedScreen reason={access.reason} />
   }
 
   if (syncing || !syncReady) {

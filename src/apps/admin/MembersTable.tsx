@@ -15,7 +15,7 @@ import {
   type MemberRow, type MemberStatus,
 } from './useMembers'
 
-type SortKey = 'name' | 'email' | 'created_at' | 'last_active_at' | 'total_bytes' | 'assets_last_7d' | 'time_30d'
+type SortKey = 'name' | 'email' | 'created_at' | 'access_renews_at' | 'last_active_at' | 'total_bytes' | 'assets_last_7d' | 'time_30d'
 type SortDir = 'asc' | 'desc'
 type StatusFilter = 'all' | 'active' | 'inactive' | 'unactivated' | 'lapsed' | 'disabled'
 
@@ -24,6 +24,7 @@ type StatusFilter = 'all' | 'active' | 'inactive' | 'unactivated' | 'lapsed' | '
 // few dozen members. Same keys, same default directions.
 const SORT_OPTIONS: Array<{ value: SortKey; label: string }> = [
   { value: 'created_at', label: 'Joined' },
+  { value: 'access_renews_at', label: 'Renews' },
   { value: 'last_active_at', label: 'Last active' },
   { value: 'name', label: 'Name' },
   { value: 'email', label: 'Email' },
@@ -47,6 +48,29 @@ function appLabel(appId: string | undefined): string {
 }
 
 // One CSV field: quote-wrap and escape embedded quotes when needed.
+// When this member is next asked for the access code (migration 0025). Blank
+// for an admin (exempt) and for an environment still running behind on SQL —
+// this column is the checkpoint, never the verdict, so "no date" here means
+// "nothing scheduled", not "locked out".
+function renewalLabel(r: MemberRow): string {
+  if (r.is_admin || !r.access_renews_at) return '—'
+  return formatDate(r.access_renews_at)
+}
+
+// Sort key for the Renews column. Exempt rows (admins, or an environment
+// behind on migrations) have no deadline, so they sort last in both directions.
+function renewalTime(r: MemberRow): number {
+  if (r.is_admin || !r.access_renews_at) return Number.MAX_SAFE_INTEGER
+  return new Date(r.access_renews_at).getTime()
+}
+
+// Amber inside a week, the same "worth your attention" colour Last Active uses
+// for a member drifting toward inactive.
+function renewalDueSoon(r: MemberRow): boolean {
+  const t = renewalTime(r)
+  return t !== Number.MAX_SAFE_INTEGER && t - Date.now() < 7 * 86_400_000
+}
+
 function csvCell(v: string | number): string {
   const s = String(v)
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
@@ -54,7 +78,7 @@ function csvCell(v: string | number): string {
 
 function downloadMembersCsv(rows: MemberRow[]) {
   const header = [
-    'Name', 'Email', 'Status', 'Admin', 'Joined', 'Last active', 'Days inactive',
+    'Name', 'Email', 'Status', 'Admin', 'Joined', 'Renews', 'Last active', 'Days inactive',
     'Storage bytes', 'Assets', 'Products', 'Characters', 'Scripts', 'Voices',
     'B-rolls', 'Voiceovers', 'Videos', 'Assets last 7d',
     'Top app 30d', 'Minutes 30d', 'Minutes all time',
@@ -65,6 +89,7 @@ function downloadMembersCsv(rows: MemberRow[]) {
     STATUS_LABEL[memberStatus(r)],
     r.is_admin ? 'yes' : 'no',
     formatDate(r.created_at),
+    renewalLabel(r),
     r.last_active_at ? formatDate(r.last_active_at) : 'never',
     Number.isFinite(daysSinceActive(r)) ? daysSinceActive(r) : '',
     r.total_bytes,
@@ -179,6 +204,14 @@ export default function MembersTable() {
           break
         case 'created_at':
           cmp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          break
+        case 'access_renews_at': {
+          // Exempt members (no deadline) sort to the end either way, rather
+          // than clustering at 1970 and burying whoever is actually due next.
+          const av = renewalTime(a)
+          const bv = renewalTime(b)
+          cmp = av - bv
+        }
           break
         case 'time_30d':
           cmp = totalSeconds(a, '30d') - totalSeconds(b, '30d')
@@ -436,6 +469,7 @@ export default function MembersTable() {
               <SortableTh label="Name" k="name" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
               <SortableTh label="Email" k="email" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
               <SortableTh label="Joined" k="created_at" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
+              <SortableTh label="Renews" k="access_renews_at" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
               <SortableTh label="Last Active" k="last_active_at" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
               <SortableTh label="Storage" k="total_bytes" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
               <SortableTh label="7-day activity" k="assets_last_7d" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
@@ -447,7 +481,7 @@ export default function MembersTable() {
           <tbody className="divide-y divide-ink/5">
             {sortedRows.length === 0 && (
               <tr>
-                <td colSpan={10} className="px-3 py-6 text-center text-[12px] text-ink-500">
+                <td colSpan={11} className="px-3 py-6 text-center text-[12px] text-ink-500">
                   No members match this filter.
                 </td>
               </tr>
@@ -478,6 +512,9 @@ export default function MembersTable() {
                   </div>
                 </td>
                 <td className="px-3 py-2 align-top text-ink-400">{formatDate(r.created_at)}</td>
+                <td className="px-3 py-2 align-top text-ink-400" title="Next time this member is asked for the access code">
+                  <span className={renewalDueSoon(r) ? 'text-amber-400 light:text-amber-600' : undefined}>{renewalLabel(r)}</span>
+                </td>
                 <td className="px-3 py-2 align-top text-ink-400">
                   <span className={status === 'inactive' ? 'text-amber-400 light:text-amber-600' : undefined}>{formatRelative(r.last_active_at)}</span>
                 </td>
@@ -712,6 +749,7 @@ function MemberCard({
 
       <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2">
         <Meta label="Joined" value={formatDate(row.created_at)} />
+        <Meta label="Renews" value={renewalLabel(row)} />
         <Meta
           label="Last Active"
           value={formatRelative(row.last_active_at)}
