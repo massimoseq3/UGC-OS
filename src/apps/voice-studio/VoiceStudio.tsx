@@ -10,7 +10,6 @@ import type { Script, VoiceHistoryItem } from '../../stores/types'
 import type { VoiceSettings } from './types'
 import { createDefaultSettings, sanitizeVoiceSettings } from './types'
 import { startVoiceTask, finishVoiceTask } from './services/generateVoice'
-import { enhanceScriptWithTags } from './services/enhanceScript'
 import { humanizeError } from '../../utils/friendlyError'
 import EditorArea from './components/EditorArea'
 import { VOICE_BATCH_MAX } from './components/GenerateBar'
@@ -109,7 +108,6 @@ export default function VoiceStudio() {
   const [replayVoices, setReplayVoices] = useState<ReplayVoice[]>([])
   const recordingLoop = useRecordingLoop()
   const isGenerating = startingCount + inFlightVoices.length + replayVoices.length > 0 || recordingLoop
-  const [isEnhancing, setIsEnhancing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [scriptPickerOpen, setScriptPickerOpen] = useState(false)
 
@@ -198,25 +196,6 @@ export default function VoiceStudio() {
     } finally {
       // Drop only this entry — any sibling gen keeps running.
       setInFlightVoices((prev) => prev.filter((e) => e.id !== entry.id))
-    }
-  }
-
-  const handleEnhance = async () => {
-    if (!scriptText.trim() || isEnhancing) return
-    setIsEnhancing(true)
-    setError(null)
-    try {
-      const enhanced = await enhanceScriptWithTags(scriptText)
-      setScriptText(enhanced)
-      setSelectedScript(null)
-      setHighlightField('script')
-      setTimeout(() => setHighlightField(null), 800)
-      useAppStore.getState().addToast('Expression tags added', 'success')
-    } catch (err) {
-      const msg = humanizeError(err, 'Could not enhance the script. Check your API key and try again.')
-      useAppStore.getState().addToast(msg, 'error')
-    } finally {
-      setIsEnhancing(false)
     }
   }
 
@@ -439,9 +418,6 @@ export default function VoiceStudio() {
                   onSelectScript={() => setScriptPickerOpen(true)}
                   selectedScript={selectedScript}
                   onClearScript={() => setSelectedScript(null)}
-                  canGenerate={scriptText.trim().length > 0}
-                  onEnhance={handleEnhance}
-                  isEnhancing={isEnhancing}
                   highlightField={highlightField}
                 />
               </div>

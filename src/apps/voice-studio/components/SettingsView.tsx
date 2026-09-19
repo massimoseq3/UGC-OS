@@ -42,7 +42,15 @@ export default function SettingsView({ settings, onSettingsChange, onOpenVoicePi
           delivery and the direction are all settings OF the model — true, but
           it reads better directly above the button that spends it, which is
           where `GenerateBar` renders it now. */}
-      <div className="flex flex-col gap-3 px-5 pb-6 pt-4">
+      {/* `min-h-full`: the column is at least as tall as its scroller, so the
+          two direction boxes below have leftover height to open into — and on a
+          short window they give it back rather than pushing Scene under the
+          Generate bar, which is what used to slice it in half. `pb-2`, not
+          `pb-6`: the bar carries its own `pt-3`, so 24 here spent 36px of a
+          column that was overflowing on the gap above the thing it overflowed
+          into. `gap-2`, not `gap-3`: 8px between rows is the house rhythm every
+          other input column runs on, and this was the one at 12. */}
+      <div className="flex min-h-full flex-col gap-2 px-5 pb-2 pt-4">
         {/* Who is speaking. The card holds one control on purpose — the header
             is what carries the preset pill, and a preset writes every setting
             in this panel, so it needs a home above the first of them rather
@@ -241,9 +249,21 @@ function DirectionBox({
   placeholder: string
   onChange: (value: string) => void
 }) {
+  // These two are the only things in this column that can give ground, so they
+  // are the only ones that flex. Everything above is a pill, a dropdown or a
+  // slider at a fixed height — there is nothing to take from them.
+  //
+  // 69px floor = the label row + one line; 129px cap = the label row + four.
+  // The cap matters as much as the floor: uncapped, a tall window would hand
+  // two optional steer boxes a third of the column each. `rows={1}` is the
+  // whole trick — `rows` is a textarea's MIN-CONTENT height, and min-content is
+  // the one size a flex column can never shrink past, so `rows={2}` made the
+  // second row a hard floor that propagated all the way up and pushed Scene
+  // under the Generate bar. The height comes from `flex-1` now, between those
+  // two numbers.
   return (
-    <div className="flex flex-col gap-2">
-      <span className="flex items-center gap-1.5">
+    <div className="flex min-h-[69px] max-h-[129px] flex-1 flex-col gap-2">
+      <span className="flex shrink-0 items-center gap-1.5">
         {/* Never `required` — nothing is waiting on either of these, so an
             empty one is neutral. Red is reserved for an input that's actually
             holding a Generate button shut. */}
@@ -254,10 +274,10 @@ function DirectionBox({
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        rows={2}
+        rows={1}
         maxLength={1000}
         placeholder={placeholder}
-        className="resize-none rounded-2xl border border-ink/10 bg-ink/[0.03] px-3.5 py-2.5 text-sm text-ink-100 placeholder-ink-600 outline-none transition-colors focus:border-voice-500/40"
+        className="min-h-0 flex-1 resize-none rounded-2xl border border-ink/10 bg-ink/[0.03] px-3.5 py-2.5 text-sm text-ink-100 placeholder-ink-600 outline-none transition-colors focus:border-voice-500/40"
       />
     </div>
   )
