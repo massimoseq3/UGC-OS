@@ -16,9 +16,9 @@ import { useShowGenerationInfo } from '../stores/generationInfoStore'
 //              than they are: the model is the answer being looked for, the
 //              resolution and aspect are the fine print.
 //   `quiet`  — no pill at all: dim text, for a caption line UNDER a card where
-//              the model rides beside a label of its own (B-Roll's A-Roll /
-//              B-Roll line). A chip there would be a second badge on a row
-//              that is already the card's quiet footnote.
+//              the model rides beside a label of its own (B-Roll's "Option 2"
+//              line). A chip there would be a second badge on a row that is
+//              already the card's quiet footnote.
 //
 // Renders nothing when the model is unknown or the member has turned generation
 // info off.

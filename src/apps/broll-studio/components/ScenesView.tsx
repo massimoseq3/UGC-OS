@@ -125,8 +125,8 @@ type BatchColumn = number | 'all'
 interface BatchRequest {
   // Every card the press covers. The column filter is applied inside the
   // dialog, so switching columns re-scopes without reopening.
+  // (`scope` used to name the run under the title; that line is gone.)
   keys: string[]
-  scope: string
   // Only a multi-scene batch offers columns; a single scene's row is one
   // card per column, where the choice means nothing.
   columnar: boolean
@@ -512,7 +512,7 @@ export default function ScenesView({
     : null
   const batchOverBudget = batchTotalCredits != null && balance !== null && batchTotalCredits > balance
 
-  const requestBatch = (keys: string[], scope: string, columnar = false) => {
+  const requestBatch = (keys: string[], columnar = false) => {
     const targets = keys.filter(promptReady)
     if (targets.length === 0) {
       useAppStore.getState().addToast('No prompts ready to generate.', 'error')
@@ -529,7 +529,7 @@ export default function ScenesView({
     // Every line this press reached, ticked. Same promise as the column chips:
     // the dialog opens on the whole run and narrowing it is a deliberate act.
     setBatchLines(new Set(scenesIn(keys)))
-    setBatchConfirm({ keys, scope, columnar })
+    setBatchConfirm({ keys, columnar })
   }
 
   // Every card in the run is armed in the same tick — the anchor-take cards
@@ -656,16 +656,10 @@ export default function ScenesView({
   const videoDone = videoScoped.filter(hasVideo)
   const videoTargets = includeExistingVideos ? [...videoFresh, ...videoDone] : videoFresh
   // How many of this run animate a still they already have. The rest render
-  // from the prompt alone — worth saying out loud, since those cost the same
-  // but come back as something the member hasn't seen a frame of.
+  // from the prompt alone. It used to be printed as a qualifier under the title
+  // ("from the card stills"); that line is gone, and this survives because it
+  // decides which models the picker greys out and whether the run is held.
   const videoAnimateCount = videoTargets.filter((k) => (shownCardStates[k]?.images.length ?? 0) > 0).length
-  const videoSourceNote =
-    // Redundant in a stills-only run: the title already says every clip comes
-    // off a still.
-    videoTargets.length === 0 || videoConfirm?.stillsOnly ? null
-      : videoAnimateCount === videoTargets.length ? 'from the card stills'
-        : videoAnimateCount === 0 ? 'from the prompts'
-          : `${videoAnimateCount} from a still, ${videoTargets.length - videoAnimateCount} from the prompt`
   const videoBatchCredits = batchVideoModelId
     ? videoTargets.reduce<number | null>((sum, key) => {
         if (sum === null) return null
@@ -703,7 +697,7 @@ export default function ScenesView({
     !videoModelModes.includes('image-to-video') &&
     !videoModelModes.includes('reference-to-video')
 
-  const requestVideoBatch = (keys: string[], scope: string, columnar = false, stillsOnly = false) => {
+  const requestVideoBatch = (keys: string[], columnar = false, stillsOnly = false) => {
     const eligible = stillsOnly ? hasImage : promptReady
     const targets = keys.filter(eligible)
     if (targets.length === 0) {
@@ -721,7 +715,7 @@ export default function ScenesView({
     // not a re-bill of the storyboard.
     setVideoColumn('all')
     setVideoLines(new Set(scenesIn(keys)))
-    setVideoConfirm({ keys, scope, columnar, stillsOnly })
+    setVideoConfirm({ keys, columnar, stillsOnly })
   }
 
   const confirmVideoBatch = () => {
@@ -1265,7 +1259,7 @@ export default function ScenesView({
                     iconClassName="text-broll-300"
                     onClick={() => {
                       setGenerateAllOpen(false)
-                      requestBatch(allKeys, 'All Scenes', true)
+                      requestBatch(allKeys, true)
                     }}
                   >
                     Generate All Images
@@ -1278,7 +1272,7 @@ export default function ScenesView({
                       iconClassName="text-broll-300"
                       onClick={() => {
                         setGenerateAllOpen(false)
-                        requestVideoBatch(allKeys, 'All Stills', true, true)
+                        requestVideoBatch(allKeys, true, true)
                       }}
                     >
                       Animate All Stills
@@ -1289,7 +1283,7 @@ export default function ScenesView({
                     iconClassName="text-broll-300"
                     onClick={() => {
                       setGenerateAllOpen(false)
-                      requestVideoBatch(allKeys, 'All Scenes', true)
+                      requestVideoBatch(allKeys, true)
                     }}
                   >
                     Generate All Videos
@@ -1344,16 +1338,10 @@ export default function ScenesView({
             batchVideoOverride={batchVideoOverride}
             dialogueChainRefs={dialogueChainRefs}
             onGenerateScene={() =>
-              requestBatch(
-                scene.variations.map((_, i) => `${scene.number}-${i}`),
-                `Scene ${scene.number}`,
-              )
+              requestBatch(scene.variations.map((_, i) => `${scene.number}-${i}`))
             }
             onGenerateSceneVideos={() =>
-              requestVideoBatch(
-                scene.variations.map((_, i) => `${scene.number}-${i}`),
-                `Scene ${scene.number}`,
-              )
+              requestVideoBatch(scene.variations.map((_, i) => `${scene.number}-${i}`))
             }
             resultStyle={result.style}
             resultRealism={result.realism}
@@ -1383,25 +1371,16 @@ export default function ScenesView({
                 more: ~30px of blank band. A band centres the two against each
                 other and states the gap once. Same shape and the same hairline
                 as the clip-download modal's header. */}
+            {/* The title alone — NO subtext (September 2026, Massimo's call).
+                The scope, the option and the line count all went first as
+                repeats of the controls below; "from the card stills" went with
+                them. What a run is made of is on the cards and on the button,
+                and a heading band with a second line under it in one dialog and
+                not the other never read as a pair. */}
             <div className="flex items-center justify-between gap-3 border-b border-ink/5 px-5 py-3">
-              <div className="min-w-0">
-                <h3 className="text-sm font-medium text-ink-100">
-                  {batchTargets.length === 0 ? 'Nothing to Generate' : 'Generate Images'}
-                </h3>
-                {/* The scope line, and it only renders when it has something
-                    the controls below don't already say (September 2026,
-                    Massimo's call: *"remove that line ... because it's
-                    redundant"*). It used to read "All Scenes · Option 1 · 2
-                    lines" over a chip row with Option 1 lit and a checklist
-                    headed "2 of 3 Lines" — three statements of what two
-                    controls were already showing. The option and the line
-                    count are gone for good; the SCOPE survives only for a
-                    per-scene press, where there is no checklist under it and
-                    "Scene 2" is the one thing naming the run. */}
-                {batchSceneNumbers.length < 2 && (
-                  <p className="mt-1 text-xs text-ink-500">{batchConfirm.scope}</p>
-                )}
-              </div>
+              <h3 className="min-w-0 truncate text-sm font-medium text-ink-100">
+                {batchTargets.length === 0 ? 'Nothing to Generate' : 'Generate Images'}
+              </h3>
               {/* The way out is the CORNER X, not a Cancel beside Generate
                   (September 2026, Massimo's call). Cancel and Generate were a
                   pair of equal-looking pills at the foot of a dialog whose
@@ -1546,13 +1525,13 @@ export default function ScenesView({
               type="button"
               onClick={confirmBatch}
               disabled={batchTargets.length === 0}
-              className="flex h-[46px] w-full items-center justify-center gap-2 rounded-full border border-white/15 bg-broll-500 px-4 text-[13px] font-medium text-white transition-colors hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-broll-500"
+              className="flex h-[46px] w-full items-center justify-center gap-2 rounded-full border border-white/15 bg-broll-500 px-4 text-[13px] font-bold tracking-tight text-white transition-colors hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-broll-500"
             >
               <Images className="h-3.5 w-3.5" />
               {batchTargets.length === 0
                 ? 'Generate'
                 : `Generate ${batchTargets.length} Image${batchTargets.length === 1 ? '' : 's'}`}
-              <span className="flex items-center gap-1 rounded-full bg-black/25 px-2 py-0.5 text-[11px] tabular-nums">
+              <span className="flex items-center gap-1 rounded-full bg-black/25 px-2 py-0.5 text-[11px] font-semibold tabular-nums">
                 <Coins className="h-3 w-3" strokeWidth={2} />
                 {/* An empty run costs nothing — formatCredits(0) would read
                     "< 1 credit", which looks like a real charge. */}
@@ -1583,27 +1562,11 @@ export default function ScenesView({
                 already said by the controls below. The band and the one-gap
                 body below are the image dialog's — see the notes there. */}
             <div className="flex items-center justify-between gap-3 border-b border-ink/5 px-5 py-3">
-              <div className="min-w-0">
-                <h3 className="text-sm font-medium text-ink-100">
-                  {videoTargets.length === 0
-                    ? (videoConfirm.stillsOnly ? 'Nothing to Animate' : 'Nothing to Generate')
-                    : (videoConfirm.stillsOnly ? 'Animate Stills' : 'Generate Videos')}
-                </h3>
-                {/* Same rule as the image dialog above, plus the one qualifier
-                    that is NOT redundant: where the clips come from. A run that
-                    is half animated stills and half rendered prompts costs the
-                    same either way and comes back looking different, and
-                    nothing else on this dialog says so. */}
-                {(() => {
-                  const parts = [
-                    videoSceneNumbers.length < 2 ? videoConfirm.scope : null,
-                    videoSourceNote,
-                  ].filter(Boolean)
-                  return parts.length > 0 ? (
-                    <p className="mt-1 text-xs text-ink-500">{parts.join(' · ')}</p>
-                  ) : null
-                })()}
-              </div>
+              <h3 className="min-w-0 truncate text-sm font-medium text-ink-100">
+                {videoTargets.length === 0
+                  ? (videoConfirm.stillsOnly ? 'Nothing to Animate' : 'Nothing to Generate')
+                  : (videoConfirm.stillsOnly ? 'Animate Stills' : 'Generate Videos')}
+              </h3>
               {/* The way out is the CORNER X, not a Cancel beside Generate
                   (September 2026, Massimo's call). Cancel and Generate were a
                   pair of equal-looking pills at the foot of a dialog whose
@@ -1749,7 +1712,7 @@ export default function ScenesView({
                 type="button"
                 onClick={confirmVideoBatch}
                 disabled={videoTargets.length === 0 || videoModelCantAnimate}
-                className="flex h-[46px] w-full items-center justify-center gap-2 rounded-full border border-white/15 bg-broll-500 px-4 text-[13px] font-medium text-white transition-colors hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-broll-500"
+                className="flex h-[46px] w-full items-center justify-center gap-2 rounded-full border border-white/15 bg-broll-500 px-4 text-[13px] font-bold tracking-tight text-white transition-colors hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-broll-500"
               >
                 {videoConfirm.stillsOnly
                   ? <Clapperboard className="h-3.5 w-3.5" />
@@ -1760,7 +1723,7 @@ export default function ScenesView({
                     ? `Animate ${videoTargets.length} Still${videoTargets.length === 1 ? '' : 's'}`
                     : `Generate ${videoTargets.length} Video${videoTargets.length === 1 ? '' : 's'}`}
                 {/* The price sits on the button that spends it. */}
-                <span className="flex items-center gap-1 rounded-full bg-black/25 px-2 py-0.5 text-[11px] tabular-nums">
+                <span className="flex items-center gap-1 rounded-full bg-black/25 px-2 py-0.5 text-[11px] font-semibold tabular-nums">
                   <Coins className="h-3 w-3" strokeWidth={2} />
                   {videoTargets.length === 0 ? '—' : formatCredits(videoBatchCredits) ?? '—'}
                 </span>
@@ -1935,6 +1898,7 @@ function LineChecklist({
 const VariationCardRow = memo(function VariationCardRow({
   cardKey,
   sceneNumber,
+  optionNumber,
   scriptLine,
   variation,
   cardState,
@@ -1967,6 +1931,7 @@ const VariationCardRow = memo(function VariationCardRow({
 }: {
   cardKey: string
   sceneNumber: number
+  optionNumber: number
   scriptLine: string
   variation: PromptVariation
   cardState: CardState
@@ -2017,6 +1982,7 @@ const VariationCardRow = memo(function VariationCardRow({
   return (
     <VariationCard
       sceneNumber={sceneNumber}
+      optionNumber={optionNumber}
       scriptLine={scriptLine}
       variation={variation}
       cardState={cardState}
@@ -2355,6 +2321,7 @@ function SceneSection({
                 key={variation.id}
                 cardKey={key}
                 sceneNumber={scene.number}
+                optionNumber={i + 1}
                 scriptLine={scene.scriptLine}
                 variation={variation}
                 cardState={state}

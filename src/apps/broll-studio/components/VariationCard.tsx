@@ -28,7 +28,7 @@ import { getModel, getDefaultModel, type VideoMode, type ImageResolution } from 
 import { useSettingsStore } from '../../../stores/settingsStore'
 import CardDetailModal, { type Tab as DetailTab } from './CardDetailModal'
 import { humanizeError } from '../../../utils/friendlyError'
-import { rollTypeForTag, tagLabel, tagChipStyle } from './variationTags'
+import { tagLabel, tagChipStyle } from './variationTags'
 import { downloadImage } from '../../../utils/downloadImage'
 import { copyToClipboard } from '../../../utils/clipboard'
 
@@ -44,6 +44,14 @@ const DETAIL_SHORTCUTS: Array<{ tab: DetailTab; label: string; icon: typeof Imag
 
 interface VariationCardProps {
   sceneNumber: number
+  // Which option this card is within its scene, 1-based — the caption under the
+  // card. It is the card's POSITION, not anything about its content, so an
+  // option the member adds is simply the next number (September 2026, Massimo's
+  // call). It replaced the A-Roll / B-Roll label, which named the shot's
+  // FUNCTION: true, but the storyboard is a grid of options and the batch
+  // dialogs scope by "Option 1 / Option 2", so the caption a member read under
+  // a card was the one place that grid wasn't numbered.
+  optionNumber: number
   scriptLine: string
   variation: PromptVariation
   cardState: CardState
@@ -102,6 +110,7 @@ interface VariationCardProps {
 export default function VariationCard(props: VariationCardProps) {
   const {
     sceneNumber,
+    optionNumber,
     scriptLine,
     variation,
     cardState,
@@ -1028,11 +1037,10 @@ export default function VariationCard(props: VariationCardProps) {
   // playing after the mouse leaves, so its mute button outlives the hover.
   const videoControlsExpanded = coverKind === 'video' && (cardVideoPlaying || cardVideoUnmuted)
   const tagText = tagLabel(variation.tag)
-  const rollText = rollTypeForTag(variation.tag)
   // Which model drew what the face is showing. `ModelPill` gates itself on the
   // member's generation-info switch, but the caption's separator dot has to
-  // know whether the pill will render at all — a lone "·" after A-Roll is
-  // worse than no dot.
+  // know whether the pill will render at all — a lone "·" after the option
+  // number is worse than no dot.
   const coverModelId = coverKind === 'video' ? coverVideo?.modelId : coverImage?.modelId
   const showCoverModel = showGenerationInfo && !!coverModelId
 
@@ -1318,23 +1326,22 @@ export default function VariationCard(props: VariationCardProps) {
           </div>
         </div>
 
-        {/* Bottom caption — roll type, then which model drew the cover.
-            Centred + small so it reads as a quiet label.
+        {/* Bottom caption — which option this is, then which model drew the
+            cover. Centred + small so it reads as a quiet label. A MANUAL option
+            gets its number too: it is the fourth card in the row, so it reads
+            "Option 4" like the three beside it. (The roll type it replaced was
+            skipped for manual cards, having nothing to say about one.)
             The model used to sit ON the picture as a `media` pill, bottom-left
             over the scrim: a white-on-black chip is the loudest thing on a
             still whose whole job is to be judged, and it had to fade on hover
             anyway because the three-way shortcut row lands on that exact strip.
             Down here it's the `quiet` variant — bare dim text, no pill — beside
             the label it belongs with, and nothing covers the shot. */}
-        {(!isManual || showCoverModel) && (
-          <div className="flex min-w-0 items-center justify-center gap-1.5 px-1">
-            {!isManual && (
-              <span className="shrink-0 text-[10px] font-medium tracking-wider text-ink-500">{rollText}</span>
-            )}
-            {!isManual && showCoverModel && <span aria-hidden className="text-[10px] leading-none text-ink-700">·</span>}
-            <ModelPill variant="quiet" modelId={coverModelId} className="min-w-0" />
-          </div>
-        )}
+        <div className="flex min-w-0 items-center justify-center gap-1.5 px-1">
+          <span className="shrink-0 text-[10px] font-medium tracking-wider text-ink-500">Option {optionNumber}</span>
+          {showCoverModel && <span aria-hidden className="text-[10px] leading-none text-ink-700">·</span>}
+          <ModelPill variant="quiet" modelId={coverModelId} className="min-w-0" />
+        </div>
       </div>
 
       {detailOpen && (
