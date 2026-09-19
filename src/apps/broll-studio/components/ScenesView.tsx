@@ -223,6 +223,22 @@ function coverImageRef(card?: CardState): string | undefined {
   return (picked ?? card.images[card.currentImageIndex] ?? card.images[card.images.length - 1])?.imageUrl
 }
 
+// A label on the pane's header band that SHORTENS before it disappears. Full
+// above the top step, one word between the steps, nothing at all below the
+// bottom one — which leaves the button as its glyph, still the same 38px pill
+// with the same tooltip. Two spans rather than a string picked in JS: the steps
+// are CONTAINER queries on the band (`@container/bar`), so the row answers to
+// the width of the output column and not to the window's, and nothing has to
+// observe a resize to redraw a word. See the note on the band itself.
+function BandLabel({ full, short }: { full: string; short: string }) {
+  return (
+    <>
+      <span className="hidden whitespace-nowrap @[660px]/bar:inline @[860px]/bar:hidden">{short}</span>
+      <span className="hidden whitespace-nowrap @[860px]/bar:inline">{full}</span>
+    </>
+  )
+}
+
 export default function ScenesView({
   result,
   isGenerating,
@@ -1013,247 +1029,240 @@ export default function ScenesView({
           reason: saturating whatever card is underneath is what made that wash
           read as coloured. `z-20` so a card's own positioned hover chrome can't
           paint over it. */}
-      {/* ONE line, at EVERY width: what the storyboard IS on the left, what you
-          can do to it on the right (August 2026, Massimo's call).
+      {/* The pane's header band — and, since September 2026 (Massimo's call),
+          the ONE bar this pane has. It carries the way into the history rail and
+          then what this storyboard IS: the look, the character. On the right,
+          what you can do to it as a whole: what the cards show, the export of
+          everything rendered, and the generate passes.
 
-          That was the old shape and it used to break — the buttons are
-          `shrink-0` (a batch pill you can't read is a batch you won't press), so
-          the meta took every squeeze, and past its own min-content the count and
-          the style pill PAINTED OVER the first button; reported at 900px, where
-          the port is ~590px against 592px of pills. It was answered first by
-          wrapping (a strip two rows tall on some windows and one on others) and
-          then by moving the meta out of the bar entirely, down into the
-          storyboard. What makes it work now is that NOTHING on the line shrinks
-          and the line itself scrolls: every pill is `shrink-0`, the meta
-          included, so the collision it kept losing simply can't be expressed.
+          The look, the character and Generate All rode a FLOATING toolbar until
+          now — a centred, blurred, sticky group of pills that followed you down
+          the wall of stills, which was the point of it. What it cost was a
+          second frosted bar 12px under this one, both of them about the
+          storyboard, saying between them what one line says here.
 
-          `w-max min-w-full` is the whole trick. When the content fits, the row
-          is exactly the port, so the `flex-1` spacer opens up and pushes the
-          buttons to the right edge; when it doesn't, the row is exactly its
-          content, the spacer collapses to nothing, and the meta and buttons sit
-          shoulder to shoulder in one swipeable line that starts at the scene
-          count. `-mx-5 px-5` so it scrolls edge to edge while its first and last
-          pills still sit on the panel's own inset. */}
-      {/* `h-[57px]`, the app-wide panel-header height, NOT vertical padding
-          around the pills: the History rail's own band next door is 57px, so
-          `py-3.5` made this strip 61px and the two hairlines missed each other
-          by 4px across the seam (Massimo's report, September 2026). A stated
-          height is also what keeps them level if a pill on either side ever
-          changes size. The scroll port under it takes `flex-1 min-w-0` rather
-          than a width — see the note below, which the flex parent doesn't
-          change: with both margins negative the row still resolves to exactly
-          the strip's padding box. */}
-      {/* The pane's header band. It carries the way into the history rail on
-          the left, and on the right the two controls that act on the STORYBOARD
-          AS A WHOLE rather than on the shot under your cursor (Massimo's call,
-          September 2026): what the cards show, and the export of everything
-          rendered. Both used to ride the floating toolbar below — they travel
-          with the cards there, which is right for the look, the character and
-          the generate passes, but the card filter and the export are read once
-          and left alone, so following you down a wall of stills bought them
-          nothing and cost the row they were on most of its width.
+          What lets one line hold six controls is that only TWO things on it can
+          shrink, and they shrink in the right order. The style and character
+          NAMES truncate — those two pills are `min-w-0`, not `shrink-0` like
+          everything else on the row — so a long custom style name gives its
+          width back before anything is hidden. Under that the two action labels
+          shorten and then go: "Download Clips" → "Clips" → the glyph and its
+          count, "Generate All" → "Generate" → the sparkle. The names drop last,
+          at the width where they would be two characters and an ellipsis.
 
-          Still a flat `h-[57px]` rather than the wrapping band this was before:
-          the toggle, one dropdown and one button are ~380px against a pane that
-          is 70% of the window, and the port below reserves the MEASURED height
-          (`useMeasuredHeight`) either way, so a narrow window that does wrap is
-          already paid for. */}
+          Those steps are CONTAINER queries on the band, never viewport ones, for
+          the same reason the card grid's column count is: what squeezes this row
+          is the output column, which is ~70% of the window on a desktop and the
+          whole of it on a phone, so a `lg:` here would shorten a label on a pane
+          with 300px to spare. `@container/bar` is on the band and the row inside
+          it does the querying, because a container can't style itself.
+
+          At the bottom of the ladder the row may WRAP onto a second line, and
+          the right-hand group stops being pushed to the far edge at the same
+          step — a wrapped second row hanging right, under a hole, reads as two
+          bars rather than as one that ran out. Wrapping is OFF above that step
+          on purpose: flex breaks lines on an item's UNSHRUNK width, so a row
+          whose pills truncate would wrap while it still had room to truncate
+          instead. That is also why the two ends are held apart by `ml-auto` and
+          not a `flex-1` spacer. Down there the names are already gone, every
+          pill is at its natural size, and the break is honest.
+
+          `min-h-[57px]` is the app-wide panel-header height, so on one line this
+          reads level with the History rail's own band across the seam; on two
+          the port below reserves the MEASURED height (`useMeasuredHeight`) and
+          pays for it. */}
       <div
         ref={barRef}
-        className="absolute inset-x-0 top-0 z-20 flex h-[57px] items-center gap-2 border-b border-ink/5 app-backdrop-frost px-5"
+        className="absolute inset-x-0 top-0 z-20 flex min-h-[57px] border-b border-ink/5 app-backdrop-frost px-5"
       >
-        {railToggle}
-        <div className="ml-auto flex min-w-0 items-center gap-2">
-          {/* What every card shows. Images keeps a card on its still while
-              the clip it animates into renders; a card with nothing of the
-              picked kind sits on its prompt. Nothing is hidden for good. */}
-          {onCardFilterChange && (
-            // A DROPDOWN, not a four-segment toggle (September 2026, Massimo's
-            // call): the toggle spent ~250px showing three options nobody had
-            // picked. One pill naming the current view is the same control in a
-            // fifth of the width, and it is the shape every other filter in the
-            // app already takes.
-            <Dropdown
-              value={cardFilter}
-              options={CARD_FILTER_OPTIONS}
-              onChange={(v: string) => onCardFilterChange(v as CardFilter)}
-              accent="broll"
-              label="Show"
-              fitContent
-              dense
-              className="h-[38px] shrink-0"
-            />
-          )}
-          {/* Download clips stays its own pill and stays neutral: it's the
-              export, not a generate pass, and it spends nothing. */}
-          {allClipEntries.length > 0 && (
+        {/* A box whose ONLY job is to be the query container, and it is separate
+            from the band above it on purpose. `container-type: inline-size`
+            brings layout containment, which makes an element a containing block
+            for fixed-position descendants — and both engines apply that same
+            rule to the element's own `background-attachment: fixed`. Put it on
+            the band and `.app-backdrop-frost`'s viewport-anchored gradient would
+            be squeezed into a 57px box instead of being a 57px window onto a
+            viewport-sized one: a pale strip, and the divider down its left edge
+            losing the contrast it has above and below. `index.css` carries that
+            finding at length, from the time `backdrop-filter` did it.
+
+            The queries therefore measure the band's CONTENT box — the pane less
+            its `px-5` — so every step below is the pane width minus 40. */}
+        <div className="@container/bar flex min-w-0 flex-1">
+          {/* The `min-h` is on the BAND, not on this row: the band carries the
+              hairline, and `border-box` puts that 1px inside a stated height —
+              stating it down here made the band 58px and dropped the seam a
+              pixel below the History rail's own band beside it. */}
+          <div className="flex w-full flex-wrap items-center gap-2 py-2 @[560px]/bar:flex-nowrap">
+            {railToggle}
+            {/* The look every clip in this storyboard renders in. `min-w-0` rather
+                than `shrink-0`: a custom style can be titled anything, and this
+                name is the first width the row asks for back. */}
             <button
               type="button"
-              onClick={() => setDownloadOpen(true)}
-              title="Pick which clips to download as a zip"
-              className="flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-ink/10 px-3.5 text-[13px] font-medium text-ink-400 transition-colors hover:bg-ink/5 hover:text-ink-200"
+              onClick={onChangeStyle}
+              title="Change the visual style every clip renders in"
+              className="inline-flex h-[38px] min-w-0 items-center gap-1.5 rounded-full border border-broll-500/25 bg-broll-500/10 px-3.5 text-[13px] font-semibold tracking-tight text-broll-300 transition-colors hover:border-broll-500/45 hover:bg-broll-500/[0.18]"
             >
-              <Download className="h-3.5 w-3.5" />
-              <span>Download Clips</span>
-              {/* The count is a PILL, not `(8)` in the label (September 2026,
-                  Massimo's call). Parenthesised it read as part of the button's
-                  name and the one number on the row that changes was the least
-                  visible thing on it; as its own chip it is a count beside a
-                  verb, the way every other tally in the app is written. Same
-                  `rounded-full` as the button around it — `tabular-nums` so the
-                  pill holds its width as clips land rather than twitching the
-                  band's right edge on every completion. */}
-              <span className="rounded-full bg-ink/10 px-1.5 py-0.5 text-[10px] font-semibold leading-none tabular-nums text-ink-200">
-                {allClipEntries.length}
+              <Palette className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+              <span className="hidden max-w-[180px] truncate @[600px]/bar:block">
+                {result.styleBrief ? (result.styleName?.trim() || 'Custom style') : getContinuousStyle(result.styleId ?? 'ugc').label}
               </span>
+              <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-60" strokeWidth={2.5} />
             </button>
-          )}
+            <CharacterPill
+              model={selectedModel}
+              onClick={onOpenCharacterPicker}
+              nameClassName="hidden max-w-[160px] truncate @[600px]/bar:block"
+              className="min-w-0"
+            />
+            {/* The split — what the storyboard IS on the left, what you can do to
+                it pushed to the far edge — holds only while the row is ONE line.
+                Below 600 it packs in behind the pills instead: the row is about
+                to wrap there, and a right-aligned second line leaves a hole under
+                the first one and reads as two bars rather than one that ran out
+                of width. Same 600 as the wrap, so there is one number. */}
+            <div className="flex shrink-0 items-center gap-2 @[560px]/bar:ml-auto">
+              {/* What every card shows. Images keeps a card on its still while
+                  the clip it animates into renders; a card with nothing of the
+                  picked kind sits on its prompt. Nothing is hidden for good. */}
+              {onCardFilterChange && (
+                // A DROPDOWN, not a four-segment toggle (September 2026, Massimo's
+                // call): the toggle spent ~250px showing three options nobody had
+                // picked. One pill naming the current view is the same control in a
+                // fifth of the width, and it is the shape every other filter in the
+                // app already takes.
+                <Dropdown
+                  value={cardFilter}
+                  options={CARD_FILTER_OPTIONS}
+                  onChange={(v: string) => onCardFilterChange(v as CardFilter)}
+                  accent="broll"
+                  label="Show"
+                  fitContent
+                  dense
+                  className="h-[38px] shrink-0"
+                />
+              )}
+              {/* Download clips stays its own pill and stays neutral: it's the
+                  export, not a generate pass, and it spends nothing. */}
+              {allClipEntries.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setDownloadOpen(true)}
+                  title="Pick which clips to download as a zip"
+                  className="flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-ink/10 px-3.5 text-[13px] font-medium text-ink-400 transition-colors hover:bg-ink/5 hover:text-ink-200"
+                >
+                  <Download className="h-3.5 w-3.5 shrink-0" />
+                  <BandLabel full="Download Clips" short="Clips" />
+                  {/* The count is a PILL, not `(8)` in the label (September 2026,
+                      Massimo's call). Parenthesised it read as part of the button's
+                      name and the one number on the row that changes was the least
+                      visible thing on it; as its own chip it is a count beside a
+                      verb, the way every other tally in the app is written. Same
+                      `rounded-full` as the button around it — `tabular-nums` so the
+                      pill holds its width as clips land rather than twitching the
+                      band's right edge on every completion. It survives every step
+                      of the ladder: with the label gone it is the only thing left
+                      saying how much there is to export. */}
+                  <span className="shrink-0 rounded-full bg-ink/10 px-1.5 py-0.5 text-[10px] font-semibold leading-none tabular-nums text-ink-200">
+                    {allClipEntries.length}
+                  </span>
+                </button>
+              )}
+              {/* ONE "Generate all", opening the three passes as a menu (August
+                  2026, Massimo's call). They were three pills side by side —
+                  images, the animate pass, videos — tinted as one family in three
+                  depths so the row read as a sequence getting more expensive. What
+                  that cost is the whole bar: three long labels are ~450px, which is
+                  most of the panel at every width the right pane actually gets. The
+                  passes are also mutually exclusive in practice — you run one, wait
+                  for it, then run the next — so they are a choice, not three things
+                  to reach for.
+
+                  The menu is the same anchored popover the constraint chips use, so
+                  it escapes the band's own box and can't be cut off by it. */}
+              <button
+                ref={generateAllRef}
+                type="button"
+                onClick={() => setGenerateAllOpen((v) => !v)}
+                title="Run a generation pass across every scene"
+                // Playground's own header-pill colours (Massimo's call, September
+                // 2026): a neutral outline that lights up on hover, the same as the
+                // Download Clips beside it. Both were tinted — this one broll, that
+                // one emerald — which put two saturated pills on a bar whose actual
+                // subject is the storyboard underneath, and made the row read as
+                // three competing accents once the style pill is counted.
+                className="flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-ink/10 px-3.5 text-[13px] font-medium text-ink-400 transition-colors hover:bg-ink/5 hover:text-ink-200"
+              >
+                <Sparkle className="h-3.5 w-3.5 shrink-0" />
+                <BandLabel full="Generate All" short="Generate" />
+                <ChevronDown
+                  className={`h-3.5 w-3.5 shrink-0 opacity-70 transition-transform duration-200 ${generateAllOpen ? 'rotate-180' : ''}`}
+                  strokeWidth={2.5}
+                />
+              </button>
+              <AnchoredPopover
+                anchorRef={generateAllRef}
+                open={generateAllOpen}
+                onClose={() => setGenerateAllOpen(false)}
+                width={222}
+                estimatedHeight={(animatableKeys.length > 0 ? 3 : 2) * MENU_ROW_HEIGHT + 2}
+              >
+                <MenuSurface className="whitespace-nowrap">
+                  {/* In the order the work happens: stills, then the animate pass
+                      over whatever has one, then clips from the prompts. */}
+                  <MenuItem
+                    icon={Images}
+                    iconClassName="text-broll-300"
+                    onClick={() => {
+                      setGenerateAllOpen(false)
+                      requestBatch(allKeys, 'All scenes', true)
+                    }}
+                  >
+                    Generate All Images
+                  </MenuItem>
+                  {/* Only once there's a still to animate — nothing should render
+                      from a prompt the member hasn't seen a frame of. */}
+                  {animatableKeys.length > 0 && (
+                    <MenuItem
+                      icon={Clapperboard}
+                      iconClassName="text-broll-300"
+                      onClick={() => {
+                        setGenerateAllOpen(false)
+                        requestVideoBatch(allKeys, 'All stills', true, true)
+                      }}
+                    >
+                      Animate All Stills
+                    </MenuItem>
+                  )}
+                  <MenuItem
+                    icon={VideoIcon}
+                    iconClassName="text-broll-300"
+                    onClick={() => {
+                      setGenerateAllOpen(false)
+                      requestVideoBatch(allKeys, 'All scenes', true)
+                    }}
+                  >
+                    Generate All Videos
+                  </MenuItem>
+                </MenuSurface>
+              </AnchoredPopover>
+            </div>
+          </div>
         </div>
       </div>
       {/* The scroll port runs the FULL height of the panel, behind the absolute
           bar, which is what lets cards pass under it blurred. `barHeight` is
-          measured (`useMeasuredHeight`) rather than written down twice, because
-          the sticky toolbar's own offset has to be the same number and two
-          hard-coded copies of one measurement always drift. */}
-      <div className="flex-1 overflow-y-auto px-5 pb-4" style={{ paddingTop: barHeight + 12 }}>
-      {/* The storyboard's own toolbar: CENTRED over the cards and STICKY, so it
-          follows you down the wall instead of being something you scroll back
-          up to (Massimo's call, September 2026). It used to be spread along the
-          header band at the top of the pane — the look and the character pushed
-          left, the actions pushed right — which put the controls for the
-          storyboard as far from it as the pane allows, and made a bar that is
-          mostly about the storyboard read as chrome belonging to the panel.
+          measured (`useMeasuredHeight`) rather than written down twice: the band
+          wraps onto a second line on a narrow pane, and a hard-coded reserve is
+          right on one line and a row short on two — the first scene landing
+          under the bar exactly when the pane can least afford it.
 
-          It hugs its content and wraps inside itself, so a narrow pane gets a
-          second row of pills rather than a sideways scroll, and the group stays
-          centred at every width.
-
-          What is left ON it is what you reach for WHILE looking at the cards:
-          the look, the character and the generate passes. The card filter and
-          Download Clips went up to the header band (Massimo's call) — you set
-          them once and leave them, so travelling with the storyboard bought
-          them nothing and cost this row most of its width.
-
-          Its `top` is **0, not the bar's height**, and that is not a
-          shortcut. A sticky element's view rectangle is the scrollport's
-          padding box REDUCED BY the scroll container's own padding, so a
-          `top` here is measured from where the content starts, not from where
-          the port does — and this port already reserves the bar in its
-          `padding-top`. Setting `top` to the bar's height as well stuck it a
-          full bar-height too low (measured: 174px instead of 105px, exactly one
-          padding lower). At 0 it comes to rest precisely where it starts, so
-          the first scroll moves it not at all.
-
-          Opaque-ish and blurred rather than transparent: it is over a wall of
-          stills, and a row of pills with cards showing between them is
-          unreadable. Small chrome, which is the one thing `backdrop-filter` is
-          for in this app. */}
-      <div className="sticky top-0 z-10 mb-6 flex justify-center">
-        <div className="flex max-w-full flex-wrap items-center justify-center gap-2 rounded-full border border-ink/10 bg-surface-1/90 p-2 shadow-lg shadow-black/25 backdrop-blur-md">
-          {/* The look every clip in this storyboard renders in — the one piece
-              of meta left on the line. It is CUT TO THE BATCH PILLS' OWN SIZE
-              (same padding, same 11px, same 3.5 glyph), because a smaller chip
-              at the head of a row of buttons reads as a fragment of one rather
-              than as the thing the row is about. The scene count stood beside
-              it and came out (August 2026, Massimo's call): the storyboard it
-              counts is directly underneath, numbered.
-
-              `shrink-0` like everything else on the line, with the NAME capped
-              instead — a custom style can be titled anything, and an uncapped
-              one would push the batch buttons off the end of a bar that fits. */}
-          <button
-            type="button"
-            onClick={onChangeStyle}
-            title="Change the visual style every clip renders in"
-            className="inline-flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-broll-500/25 bg-broll-500/10 px-3.5 text-[13px] font-semibold tracking-tight text-broll-300 transition-colors hover:border-broll-500/45 hover:bg-broll-500/[0.18]"
-          >
-            <Palette className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
-            <span className="max-w-[180px] truncate">{result.styleBrief ? (result.styleName?.trim() || 'Custom style') : getContinuousStyle(result.styleId ?? 'ugc').label}</span>
-            <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-60" strokeWidth={2.5} />
-          </button>
-          <CharacterPill model={selectedModel} onClick={onOpenCharacterPicker} />
-          {/* ONE "Generate all", opening the three passes as a menu (August
-              2026, Massimo's call). They were three pills side by side —
-              images, the animate pass, videos — tinted as one family in three
-              depths so the row read as a sequence getting more expensive. What
-              that cost is the whole bar: three long labels are ~450px, which is
-              most of the panel at every width the right pane actually gets, and
-              it is why the labels had to shorten below `lg` and why the row had
-              to scroll on a phone at all. The passes are also mutually
-              exclusive in practice — you run one, wait for it, then run the
-              next — so they are a choice, not four things to reach for.
-
-              The menu is the same anchored popover the constraint chips use, so
-              it escapes the strip's own clip and can't be cut off by the scroll
-              port it sits in. */}
-          <button
-            ref={generateAllRef}
-            type="button"
-            onClick={() => setGenerateAllOpen((v) => !v)}
-            title="Run a generation pass across every scene"
-            // Playground's own header-pill colours (Massimo's call, September
-            // 2026): a neutral outline that lights up on hover, the same as the
-            // Download Clips beside it. Both were tinted — this one broll, that
-            // one emerald — which put two saturated pills on a bar whose actual
-            // subject is the storyboard underneath, and made the row read as
-            // three competing accents once the style pill is counted.
-            className="flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-ink/10 px-3.5 text-[13px] font-medium text-ink-400 transition-colors hover:bg-ink/5 hover:text-ink-200"
-          >
-            <Sparkle className="h-3.5 w-3.5" />
-            <span>Generate All</span>
-            <ChevronDown
-              className={`h-3.5 w-3.5 shrink-0 opacity-70 transition-transform duration-200 ${generateAllOpen ? 'rotate-180' : ''}`}
-              strokeWidth={2.5}
-            />
-          </button>
-          <AnchoredPopover
-            anchorRef={generateAllRef}
-            open={generateAllOpen}
-            onClose={() => setGenerateAllOpen(false)}
-            width={222}
-            estimatedHeight={(animatableKeys.length > 0 ? 3 : 2) * MENU_ROW_HEIGHT + 2}
-          >
-            <MenuSurface className="whitespace-nowrap">
-              {/* In the order the work happens: stills, then the animate pass
-                  over whatever has one, then clips from the prompts. */}
-              <MenuItem
-                icon={Images}
-                iconClassName="text-broll-300"
-                onClick={() => {
-                  setGenerateAllOpen(false)
-                  requestBatch(allKeys, 'All scenes', true)
-                }}
-              >
-                Generate All Images
-              </MenuItem>
-              {/* Only once there's a still to animate — nothing should render
-                  from a prompt the member hasn't seen a frame of. */}
-              {animatableKeys.length > 0 && (
-                <MenuItem
-                  icon={Clapperboard}
-                  iconClassName="text-broll-300"
-                  onClick={() => {
-                    setGenerateAllOpen(false)
-                    requestVideoBatch(allKeys, 'All stills', true, true)
-                  }}
-                >
-                  Animate All Stills
-                </MenuItem>
-              )}
-              <MenuItem
-                icon={VideoIcon}
-                iconClassName="text-broll-300"
-                onClick={() => {
-                  setGenerateAllOpen(false)
-                  requestVideoBatch(allKeys, 'All scenes', true)
-                }}
-              >
-                Generate All Videos
-              </MenuItem>
-            </MenuSurface>
-          </AnchoredPopover>
-        </div>
-      </div>
+          +20, not +12. The floating toolbar used to stand in this gap and carry
+          its own `mb-6`; with it gone, 12px put scene one's 48px numeral hard up
+          against the hairline. 20 is the stand-off every other pinned bar in the
+          app reserves over its content. */}
+      <div className="flex-1 overflow-y-auto px-5 pb-4" style={{ paddingTop: barHeight + 20 }}>
       <div className="flex flex-col gap-10">
         {result.scenes.map((scene) => (
           <SceneSection
@@ -1975,7 +1984,16 @@ function SceneSection({
             {/* The line itself, and the place you retype it. Clicking it opens
                 the editor; saving swaps the quoted words in this scene's
                 prompts, so a dialogue card says the new sentence without a
-                regeneration. Read-only when the host doesn't hand us a handler. */}
+                regeneration. Read-only when the host doesn't hand us a handler.
+
+                `tracking-[-0.035em]`, a step past `tracking-tight` (Massimo's
+                call, September 2026). At 18px light this is display type, not
+                body copy, and Tailwind's -0.025em is a body-copy number: a
+                sentence running most of a 1000px panel read loose. The same
+                value is on every other place a script line is printed — the
+                storyboard header here, both detail modals, Continuous — because
+                they are one voice and a tighter quote in one of them would show
+                up as four different lines. */}
             {onEditSceneLine ? (
               <button
                 type="button"
@@ -1984,7 +2002,7 @@ function SceneSection({
                 className="group/line -mx-1.5 flex w-full items-start justify-center gap-2 rounded-lg px-1.5 py-0.5 text-center transition-colors hover:bg-ink/[0.04]"
               >
                 <p
-                  className="text-center text-lg leading-relaxed text-ink-400 transition-colors group-hover/line:text-ink-200 font-light tracking-tight"
+                  className="text-center text-lg leading-relaxed text-ink-400 transition-colors group-hover/line:text-ink-200 font-light tracking-[-0.035em]"
                 >
                   &ldquo;{scene.scriptLine}&rdquo;
                 </p>
@@ -1992,7 +2010,7 @@ function SceneSection({
               </button>
             ) : (
               <p
-                className="text-center text-lg leading-relaxed text-ink-400 font-light tracking-tight"
+                className="text-center text-lg leading-relaxed text-ink-400 font-light tracking-[-0.035em]"
               >
                 &ldquo;{scene.scriptLine}&rdquo;
               </p>
