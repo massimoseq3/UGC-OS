@@ -142,6 +142,13 @@ const columnOf = (key: string) => Number(key.split('-')[1])
 const columnsIn = (keys: string[]) =>
   [...new Set(keys.map(columnOf))].filter((n) => Number.isFinite(n)).sort((a, b) => a - b)
 
+// The other half of a card key: which SCENE — which line of the script — it
+// belongs to. A batch is scoped along both axes, columns across and lines down.
+const sceneOf = (key: string) => Number(key.split('-')[0])
+
+const scenesIn = (keys: string[]) =>
+  [...new Set(keys.map(sceneOf))].filter((n) => Number.isFinite(n)).sort((a, b) => a - b)
+
 // The still a card is currently showing — the user's pick if they made one,
 // otherwise the one on the card face. Used to resolve what the next dialogue
 // card chains from.
@@ -411,6 +418,12 @@ export default function ScenesView({
   const [batchTokens, setBatchTokens] = useState<Record<string, number>>({})
   const [batchConfirm, setBatchConfirm] = useState<BatchRequest | null>(null)
   const [batchColumn, setBatchColumn] = useState<BatchColumn>('all')
+  // Which LINES of the script this run covers. Every line the press reached is
+  // ticked when the dialog opens — the run is still "all scenes" unless the
+  // member says otherwise — and unticking one drops its whole row from the
+  // targets, the count and the price. Scene numbers, so it survives a storyboard
+  // whose scenes aren't 1..N.
+  const [batchLines, setBatchLines] = useState<Set<number>>(() => new Set())
   const [includeExisting, setIncludeExisting] = useState(false)
   const [downloadOpen, setDownloadOpen] = useState(false)
   // The batch menu: one "Generate all" opening the three passes, rather than
@@ -450,9 +463,13 @@ export default function ScenesView({
 
   // The cards this press covers, narrowed to the picked option column.
   const batchColumns = batchConfirm?.columnar ? columnsIn(batchConfirm.keys) : []
+  const batchSceneNumbers = batchConfirm ? scenesIn(batchConfirm.keys) : []
   const batchScoped = batchConfirm
     ? batchConfirm.keys.filter(
-        (k) => promptReady(k) && (batchColumn === 'all' || columnOf(k) === batchColumn),
+        (k) =>
+          promptReady(k) &&
+          (batchColumn === 'all' || columnOf(k) === batchColumn) &&
+          batchLines.has(sceneOf(k)),
       )
     : []
   // `fresh` = prompt-ready cards with no image yet; `done` = cards already
@@ -498,6 +515,9 @@ export default function ScenesView({
     // image are still held back by the toggle above, so this is "every option
     // that has no still yet", not a re-render of the storyboard.
     setBatchColumn('all')
+    // Every line this press reached, ticked. Same promise as the column chips:
+    // the dialog opens on the whole run and narrowing it is a deliberate act.
+    setBatchLines(new Set(scenesIn(keys)))
     setBatchConfirm({ keys, scope, columnar })
   }
 
@@ -542,6 +562,8 @@ export default function ScenesView({
   const [videoTokens, setVideoTokens] = useState<Record<string, number>>({})
   const [videoConfirm, setVideoConfirm] = useState<BatchRequest | null>(null)
   const [videoColumn, setVideoColumn] = useState<BatchColumn>('all')
+  // The same line scoping the image dialog has — the two are a pair.
+  const [videoLines, setVideoLines] = useState<Set<number>>(() => new Set())
   const [includeExistingVideos, setIncludeExistingVideos] = useState(false)
   const [batchVideoOverride, setBatchVideoOverride] = useState<BatchVideoSettings | null>(null)
   const [batchVideoResolution, setBatchVideoResolution] = useState<string | undefined>(undefined)
@@ -566,7 +588,11 @@ export default function ScenesView({
   // card SPEAKS it, so an Auto run can price each card at its own length.
   const scriptLineByKey: Record<string, string> = {}
   const spokenByKey: Record<string, boolean> = {}
+  // Scene number → its line, for the batch dialogs' line checklist: the rows are
+  // scenes, and the words are what a member recognises one by.
+  const scriptLineByScene: Record<number, string> = {}
   for (const scene of result?.scenes ?? []) {
+    scriptLineByScene[scene.number] = scene.scriptLine
     for (let i = 0; i < scene.variations.length; i++) {
       scriptLineByKey[`${scene.number}-${i}`] = scene.scriptLine
       spokenByKey[`${scene.number}-${i}`] = speaksItsLine(scene.variations[i])
@@ -605,9 +631,13 @@ export default function ScenesView({
   // plain video batch) just a prompt to render from.
   const videoEligible = videoConfirm?.stillsOnly ? hasImage : promptReady
   const videoColumns = videoConfirm?.columnar ? columnsIn(videoConfirm.keys) : []
+  const videoSceneNumbers = videoConfirm ? scenesIn(videoConfirm.keys) : []
   const videoScoped = videoConfirm
     ? videoConfirm.keys.filter(
-        (k) => videoEligible(k) && (videoColumn === 'all' || columnOf(k) === videoColumn),
+        (k) =>
+          videoEligible(k) &&
+          (videoColumn === 'all' || columnOf(k) === videoColumn) &&
+          videoLines.has(sceneOf(k)),
       )
     : []
   const videoFresh = videoScoped.filter((k) => !hasVideo(k))
@@ -678,6 +708,7 @@ export default function ScenesView({
     // are still held back, so this is "every option that has no video yet",
     // not a re-bill of the storyboard.
     setVideoColumn('all')
+    setVideoLines(new Set(scenesIn(keys)))
     setVideoConfirm({ keys, scope, columnar, stillsOnly })
   }
 
@@ -1330,8 +1361,15 @@ export default function ScenesView({
               {batchTargets.length === 0 ? 'Nothing to Generate' : 'Generate Images'}
             </h3>
             <p className="mt-1 text-xs text-ink-500">
-              {[batchConfirm.scope, batchColumn !== 'all' ? `Option ${batchColumn + 1}` : null]
-                .filter(Boolean).join(' · ')}
+              {[
+                batchConfirm.scope,
+                batchColumn !== 'all' ? `Option ${batchColumn + 1}` : null,
+                // Only once the run has been narrowed. At full scope the
+                // checklist below already says "12 of 12".
+                batchLines.size < batchSceneNumbers.length
+                  ? `${batchLines.size} line${batchLines.size === 1 ? '' : 's'}`
+                  : null,
+              ].filter(Boolean).join(' · ')}
             </p>
 
             <ColumnChips
@@ -1342,6 +1380,13 @@ export default function ScenesView({
                 !!batchConfirm.keys.some((k) => columnOf(k) === col && promptReady(k)) &&
                 batchConfirm.keys.every((k) => columnOf(k) !== col || !promptReady(k) || hasImage(k))
               }
+            />
+
+            <LineChecklist
+              scenes={batchSceneNumbers}
+              lineOf={(n) => scriptLineByScene[n] ?? ''}
+              selected={batchLines}
+              onChange={setBatchLines}
             />
 
             {batchDone.length > 0 && (
@@ -1411,11 +1456,18 @@ export default function ScenesView({
                 Not enough credits. Your balance is {balance.toLocaleString()}.
               </p>
             )}
+            {/* `h-[42px]`, up from the ~30px these were (September 2026,
+                Massimo's call). A dialog that spends credits ends on the two
+                controls that decide whether it does, and they were the smallest
+                things on it — under the model picker, under the constraint
+                chips, under the regenerate toggle. 42 puts them a shade above
+                the app's 38px pill, which is the point: these are the footer,
+                not another row of chips. Both dialogs move together. */}
             <div className="mt-4 flex items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setBatchConfirm(null)}
-                className="flex items-center gap-1 rounded-full border border-ink/10 bg-ink/[0.03] px-3.5 py-1.5 text-[13px] font-medium text-ink-300 transition-colors hover:bg-ink/[0.06]"
+                className="flex h-[42px] items-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.03] px-4 text-[13px] font-medium text-ink-300 transition-colors hover:bg-ink/[0.06]"
               >
                 <X className="h-3.5 w-3.5" />
                 Cancel
@@ -1424,7 +1476,7 @@ export default function ScenesView({
                 type="button"
                 onClick={confirmBatch}
                 disabled={batchTargets.length === 0}
-                className="flex items-center gap-2 rounded-full border border-white/15 bg-broll-500 py-1.5 pl-4 pr-2 text-[13px] font-medium text-white transition-colors hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-broll-500"
+                className="flex h-[42px] items-center gap-2 rounded-full border border-white/15 bg-broll-500 pl-4 pr-2.5 text-[13px] font-medium text-white transition-colors hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-broll-500"
               >
                 <Images className="h-3.5 w-3.5" />
                 {batchTargets.length === 0
@@ -1468,6 +1520,9 @@ export default function ScenesView({
               {[
                 videoConfirm.scope,
                 videoColumn !== 'all' ? `Option ${videoColumn + 1}` : null,
+                videoLines.size < videoSceneNumbers.length
+                  ? `${videoLines.size} line${videoLines.size === 1 ? '' : 's'}`
+                  : null,
                 videoSourceNote,
               ].filter(Boolean).join(' · ')}
             </p>
@@ -1480,6 +1535,13 @@ export default function ScenesView({
                 !!videoConfirm.keys.some((k) => columnOf(k) === col && videoEligible(k)) &&
                 videoConfirm.keys.every((k) => columnOf(k) !== col || !videoEligible(k) || hasVideo(k))
               }
+            />
+
+            <LineChecklist
+              scenes={videoSceneNumbers}
+              lineOf={(n) => scriptLineByScene[n] ?? ''}
+              selected={videoLines}
+              onChange={setVideoLines}
             />
 
             {videoDone.length > 0 && (
@@ -1572,7 +1634,7 @@ export default function ScenesView({
               <button
                 type="button"
                 onClick={() => setVideoConfirm(null)}
-                className="flex items-center gap-1 rounded-full border border-ink/10 bg-ink/[0.03] px-3.5 py-1.5 text-[13px] font-medium text-ink-300 transition-colors hover:bg-ink/[0.06]"
+                className="flex h-[42px] items-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.03] px-4 text-[13px] font-medium text-ink-300 transition-colors hover:bg-ink/[0.06]"
               >
                 <X className="h-3.5 w-3.5" />
                 Cancel
@@ -1581,7 +1643,7 @@ export default function ScenesView({
                 type="button"
                 onClick={confirmVideoBatch}
                 disabled={videoTargets.length === 0 || videoModelCantAnimate}
-                className="flex items-center gap-2 rounded-full border border-white/15 bg-broll-500 py-1.5 pl-4 pr-2 text-[13px] font-medium text-white transition-colors hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-broll-500"
+                className="flex h-[42px] items-center gap-2 rounded-full border border-white/15 bg-broll-500 pl-4 pr-2.5 text-[13px] font-medium text-white transition-colors hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-broll-500"
               >
                 {videoConfirm.stillsOnly
                   ? <Clapperboard className="h-3.5 w-3.5" />
@@ -1640,18 +1702,112 @@ function ColumnChips({
   return (
     <div className="mt-3">
       {/* No eyebrow and no hint paragraph: the chips say "Option 1 / All
-          options" in full, and a dialog that has to teach on every open is a
-          dialog nobody reads. */}
+          Options" in full, and a dialog that has to teach on every open is a
+          dialog nobody reads.
+
+          **All Options LEADS the row** (September 2026, Massimo's call). It is
+          the state the dialog opens in and the one you come back to, and it sat
+          at the far end, past a row that grows with the storyboard — so the
+          selected chip was the last thing on the line and the way back to it
+          moved every time the deliveries changed. First, it is where the eye
+          already is. */}
       <div className="flex flex-wrap items-center gap-1.5">
+        <button type="button" onClick={() => onChange('all')} className={chip(value === 'all')}>
+          All Options
+        </button>
         {columns.map((col) => (
           <button key={col} type="button" onClick={() => onChange(col)} className={chip(value === col)}>
             {isDone(col) && <Check className="h-3 w-3 shrink-0" strokeWidth={2.5} />}
             Option {col + 1}
           </button>
         ))}
-        <button type="button" onClick={() => onChange('all')} className={chip(value === 'all')}>
-          All options
+      </div>
+    </div>
+  )
+}
+
+// The other axis of the same scoping: which LINES of the script the run covers.
+// The option chips pick a column across the storyboard; this picks the rows down
+// it. Every line is ticked when the dialog opens, so the default is still the
+// whole run and narrowing it is a deliberate act — the same promise the chips
+// make (September 2026, Massimo's call: *"allow the user to list out all the
+// lines of their script with a checkbox ... they can select which lines they
+// want to generate for"*).
+//
+// A checklist and not more chips: a storyboard is routinely a dozen lines, the
+// picks are not mutually exclusive, and the thing a member recognises a line by
+// is the WORDS — so each row has to be wide enough to print them. The list caps
+// its own height and scrolls; the dialog must not grow with the script.
+//
+// It renders only for a run that spans more than one line. A per-scene press
+// already names its one line in the dialog's subtitle, and a checklist of one
+// is a control with nothing to choose.
+function LineChecklist({
+  scenes,
+  lineOf,
+  selected,
+  onChange,
+}: {
+  scenes: number[]
+  lineOf: (scene: number) => string
+  selected: Set<number>
+  onChange: (next: Set<number>) => void
+}) {
+  if (scenes.length < 2) return null
+  const allOn = scenes.every((n) => selected.has(n))
+  const toggle = (scene: number) => {
+    const next = new Set(selected)
+    if (next.has(scene)) next.delete(scene)
+    else next.add(scene)
+    onChange(next)
+  }
+  return (
+    <div className="mt-3 overflow-hidden rounded-xl border border-ink/10 bg-ink/[0.03]">
+      {/* A count, not a label. "Lines" on its own would be an eyebrow over a
+          list that is self-evidently a list of lines; the count is the one
+          thing here that changes as you tick, and it is what the Generate
+          button's own number is derived from. */}
+      <div className="flex items-center justify-between gap-2 border-b border-ink/5 px-3 py-2">
+        <span className="text-[11px] font-medium text-ink-400">
+          {selected.size} of {scenes.length} Lines
+        </span>
+        <button
+          type="button"
+          onClick={() => onChange(allOn ? new Set() : new Set(scenes))}
+          className="rounded-full px-2 py-0.5 text-[11px] font-medium text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200"
+        >
+          {allOn ? 'Clear' : 'Select All'}
         </button>
+      </div>
+      {/* ~5 rows before it scrolls. Tall enough that a short storyboard never
+          scrolls at all, short enough that a twenty-line one can't push the
+          model picker and the Generate button off a laptop screen. */}
+      <div className="max-h-[188px] overflow-y-auto p-1">
+        {scenes.map((scene) => (
+          <label
+            key={scene}
+            className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-ink/[0.05]"
+          >
+            <input
+              type="checkbox"
+              checked={selected.has(scene)}
+              onChange={() => toggle(scene)}
+              className="h-3.5 w-3.5 shrink-0 accent-broll-500"
+            />
+            <span
+              className="shrink-0 text-base leading-none tabular-nums text-ink-500"
+              style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
+            >
+              {String(scene).padStart(2, '0')}
+            </span>
+            {/* Truncated, never wrapped: the rows have to stay one height or
+                the list's own cap means a different number of lines each time
+                it opens. The full sentence is in the `title`. */}
+            <span className="min-w-0 flex-1 truncate text-xs tracking-[-0.035em] text-ink-300" title={lineOf(scene)}>
+              &ldquo;{lineOf(scene)}&rdquo;
+            </span>
+          </label>
+        ))}
       </div>
     </div>
   )
@@ -1970,7 +2126,7 @@ function SceneSection({
             it wraps only when the words genuinely run out of room. */}
         <div className="flex w-full min-w-0 flex-col items-center gap-1">
           <span
-            className="text-5xl font-normal italic tabular-nums text-ink-700"
+            className="text-5xl font-normal tabular-nums text-ink-700"
             style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
           >
             {String(scene.number).padStart(2, '0')}

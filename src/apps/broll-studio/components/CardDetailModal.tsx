@@ -1033,7 +1033,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                   land on one line across the modal. */}
               <div className="flex h-12 min-w-0 items-center gap-3.5">
                 <span
-                  className="shrink-0 text-4xl font-normal italic tabular-nums leading-none text-ink-700"
+                  className="shrink-0 text-4xl font-normal tabular-nums leading-none text-ink-700"
                   style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
                 >
                   {String(sceneNumber).padStart(2, '0')}

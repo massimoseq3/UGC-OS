@@ -1920,7 +1920,7 @@ function SceneRow({
       <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-4">
         <div className="flex min-w-0 items-center gap-4">
           <span
-            className="text-5xl font-normal italic tabular-nums text-ink-800"
+            className="text-5xl font-normal tabular-nums text-ink-800"
             style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
           >
             {String(scene.index).padStart(2, '0')}
@@ -2043,7 +2043,7 @@ function FinalFrameRow({
       <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-4">
         <div className="flex min-w-0 items-center gap-4">
           <span
-            className="text-5xl font-normal italic tabular-nums text-ink-800"
+            className="text-5xl font-normal tabular-nums text-ink-800"
             style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
           >
             {String(frame.index).padStart(2, '0')}
