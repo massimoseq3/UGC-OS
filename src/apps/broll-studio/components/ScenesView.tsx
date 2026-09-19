@@ -17,8 +17,10 @@ import { useBankStore } from '../../../stores/bankStore'
 import { useAppStore } from '../../../stores/appStore'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import { useCreditsStore } from '../../../stores/creditsStore'
-import { getDefaultModel, getModel, estimateCredits, formatCredits, snapVideoDuration, videoResolutionLabel, type ImageResolution, type Mode } from '../../../utils/models'
-import ModelPicker from '../../../components/ModelPicker'
+import { getDefaultModel, getModel, estimateCredits, formatCredits, officialSavingsPercent, snapVideoDuration, videoResolutionLabel, type ImageResolution, type Mode } from '../../../utils/models'
+import ModelPickerModal from '../../../components/ModelPickerModal'
+import ModelTriggerLabel from '../../../components/ModelTriggerLabel'
+import ProviderLogo from '../../../components/ProviderLogo'
 import ConstraintChip from '../../../components/ConstraintChip'
 import AspectIcon from '../../../components/AspectIcon'
 import VariationCard from './VariationCard'
@@ -425,6 +427,13 @@ export default function ScenesView({
   // whose scenes aren't 1..N.
   const [batchLines, setBatchLines] = useState<Set<number>>(() => new Set())
   const [includeExisting, setIncludeExisting] = useState(false)
+  // The model panel opened from this dialog's trigger. It is a CENTRED modal
+  // (`ModelPickerModal`), not the inline dropdown this used to be (September
+  // 2026, Massimo's call): the dropdown opened a scrolling list inside a dialog
+  // that is itself a scrolling stack, and the picker is the one control here
+  // that wants room — provider rail, search, per-model prices. It writes the
+  // SAME settingsStore key the dropdown did, so nobody's saved pick moved.
+  const [batchModelOpen, setBatchModelOpen] = useState(false)
   const [downloadOpen, setDownloadOpen] = useState(false)
   // The batch menu: one "Generate all" opening the three passes, rather than
   // three pills competing on the bar. See the note where it renders.
@@ -434,7 +443,9 @@ export default function ScenesView({
   // switch — dismiss it when the user docks away.
   useCloseOnAppSwitch(!!batchConfirm, () => setBatchConfirm(null))
   const batchBackdrop = useBackdropClose(() => setBatchConfirm(null))
-  useCloseOnEscape(!!batchConfirm, () => setBatchConfirm(null))
+  // Not while the model panel is over it: that panel closes on Escape too, and
+  // one press would otherwise take the run you were configuring with it.
+  useCloseOnEscape(!!batchConfirm && !batchModelOpen, () => setBatchConfirm(null))
   // Resolution + aspect chosen for the run (model lives in the global setting).
   const [batchResolution, setBatchResolution] = useState<ImageResolution | undefined>(undefined)
   const [batchAspect, setBatchAspect] = useState<string | undefined>(undefined)
@@ -565,12 +576,13 @@ export default function ScenesView({
   // The same line scoping the image dialog has — the two are a pair.
   const [videoLines, setVideoLines] = useState<Set<number>>(() => new Set())
   const [includeExistingVideos, setIncludeExistingVideos] = useState(false)
+  const [videoModelOpen, setVideoModelOpen] = useState(false)
   const [batchVideoOverride, setBatchVideoOverride] = useState<BatchVideoSettings | null>(null)
   const [batchVideoResolution, setBatchVideoResolution] = useState<string | undefined>(undefined)
   // undefined = untouched (→ Auto); a number = a length pinned for the whole run.
   const [batchVideoDuration, setBatchVideoDuration] = useState<number | undefined>(undefined)
   useCloseOnAppSwitch(!!videoConfirm, () => setVideoConfirm(null))
-  useCloseOnEscape(!!videoConfirm, () => setVideoConfirm(null))
+  useCloseOnEscape(!!videoConfirm && !videoModelOpen, () => setVideoConfirm(null))
   const videoBackdrop = useBackdropClose(() => setVideoConfirm(null))
 
   // Clamp resolution + duration to the picked model, so swapping models inside
@@ -1359,11 +1371,19 @@ export default function ScenesView({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg rounded-2xl border border-ink/10 bg-ink-950/95 p-5 shadow-2xl"
+            className="w-full max-w-lg overflow-hidden rounded-2xl border border-ink/10 bg-ink-950/95 shadow-2xl"
           >
             {/* Same shape as the video dialog below — the two open from
                 buttons sitting side by side and must read as a pair. */}
-            <div className="flex items-start justify-between gap-3">
+            {/* The heading is a BAND with its own padding, not a line sitting
+                in the dialog's `p-5` under a bled rule (September 2026,
+                Massimo's call). The rule was `-mx-5 mt-3.5` below a row that
+                `items-start` had top-aligned against a 32px close button, so a
+                20px title left 12px of nothing under it and the margin added 14
+                more: ~30px of blank band. A band centres the two against each
+                other and states the gap once. Same shape and the same hairline
+                as the clip-download modal's header. */}
+            <div className="flex items-center justify-between gap-3 border-b border-ink/5 px-5 py-3">
               <div className="min-w-0">
                 <h3 className="text-sm font-medium text-ink-100">
                   {batchTargets.length === 0 ? 'Nothing to Generate' : 'Generate Images'}
@@ -1400,14 +1420,16 @@ export default function ScenesView({
                 <X className="h-4 w-4" />
               </button>
             </div>
-            {/* A full-width rule under the heading row (September 2026,
-                Massimo's call) — `-mx-5` so it bleeds to the dialog's own edges
-                rather than stopping inside its padding, the same hairline every
-                panel header in the app draws. It gives the title and the corner
-                X a band of their own, which is what the removed Cancel used to
-                do for the footer. */}
-            <div className="-mx-5 mt-3.5 border-b border-ink/5" />
-
+            {/* ONE gap for the whole stack (September 2026, Massimo's call).
+                Every block in here used to bring its own top margin — `mt-3` on
+                the chips, the checklist and the regenerate toggle, `mt-4` on
+                the settings group and again on the footer, `gap-2.5` inside the
+                settings group, `mt-1.5` between the two warnings — so the
+                spacing stepped 12, 12, 12, 16, 10, 16 down a stack of blocks
+                that are all peers. A flex column with one `gap-3` is the whole
+                rule, and it costs nothing when a block renders null. Nothing in
+                here may carry a `mt-`. */}
+            <div className="flex flex-col gap-3 px-5 py-4">
             <ColumnChips
               columns={batchColumns}
               value={batchColumn}
@@ -1426,7 +1448,7 @@ export default function ScenesView({
             />
 
             {batchDone.length > 0 && (
-              <label className="mt-3 flex cursor-pointer items-center gap-2.5 rounded-xl border border-ink/10 bg-ink/[0.03] px-3 py-2.5">
+              <label className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-ink/10 bg-ink/[0.03] px-3 py-2.5">
                 <input
                   type="checkbox"
                   checked={includeExisting}
@@ -1441,54 +1463,76 @@ export default function ScenesView({
             )}
 
             {/* Run settings — model is the shared B-Roll image model; resolution
-                and aspect apply to every card in this batch. */}
-            <div className="mt-4 flex flex-col gap-2.5">
-              <ModelPicker
-                appId="broll-studio"
-                task="image"
-                mode="text-to-image"
-              />
-              {(batchAspectOptions.length > 0 || batchResOptions.length > 0) && (
-                <div className="flex flex-wrap items-center gap-2">
-                  {batchAspectOptions.length > 0 && (
-                    <ConstraintChip
-                      grow
-                      openDirection="up"
-                      options={batchAspectOptions}
-                      value={effectiveBatchAspect ?? batchAspectOptions[0]}
-                      onChange={(v) => setBatchAspect(v)}
-                      render={(v) => (
-                        <span className="flex items-center gap-1.5">
-                          <AspectIcon ratio={v} />
-                          <span>{v}</span>
-                        </span>
-                      )}
-                    />
-                  )}
-                  {batchResOptions.length > 0 && (
-                    <ConstraintChip
-                      grow
-                      openDirection="up"
-                      options={batchResOptions as string[]}
-                      value={(effectiveBatchRes ?? batchResOptions[0]) as string}
-                      onChange={(v) => setBatchResolution(v as ImageResolution)}
-                      renderOption={(v) => {
-                        const credits = formatCredits(estimateCredits(batchImageModelId, { imageCount: 1, resolution: v as ImageResolution }))
-                        return (
-                          <span className="flex w-full items-center justify-between gap-6">
-                            <span>{v}</span>
-                            {credits && <span className="text-ink-500">{credits}</span>}
-                          </span>
-                        )
-                      }}
-                    />
-                  )}
-                </div>
+                and aspect apply to every card in this batch. The trigger is the
+                house one (provider mark, name, star, "% off", chevron), and it
+                opens the centred panel rather than a list inside this dialog. */}
+            <button
+              type="button"
+              onClick={() => setBatchModelOpen(true)}
+              className="flex h-12 w-full items-center gap-2.5 rounded-full border border-ink/10 bg-ink/[0.02] px-3 text-left transition-colors hover:bg-ink/[0.05]"
+            >
+              {batchImageModelId ? (
+                <>
+                  <ProviderLogo provider={getModel(batchImageModelId)?.provider ?? ''} />
+                  <ModelTriggerLabel
+                    name={getModel(batchImageModelId)?.displayName ?? batchImageModelId}
+                    recommended={!!getModel(batchImageModelId)?.tags.includes('recommended')}
+                    savings={officialSavingsPercent(batchImageModelId)}
+                  />
+                </>
+              ) : (
+                <span className="flex-1 truncate text-sm text-ink-400">Select Model</span>
               )}
-            </div>
+              <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" />
+            </button>
+            <ModelPickerModal
+              appId="broll-studio"
+              task="image"
+              mode="text-to-image"
+              isOpen={batchModelOpen}
+              onClose={() => setBatchModelOpen(false)}
+              costParams={{ imageCount: 1, resolution: effectiveBatchRes }}
+            />
+            {(batchAspectOptions.length > 0 || batchResOptions.length > 0) && (
+              <div className="flex flex-wrap items-center gap-2">
+                {batchAspectOptions.length > 0 && (
+                  <ConstraintChip
+                    grow
+                    openDirection="up"
+                    options={batchAspectOptions}
+                    value={effectiveBatchAspect ?? batchAspectOptions[0]}
+                    onChange={(v) => setBatchAspect(v)}
+                    render={(v) => (
+                      <span className="flex items-center gap-1.5">
+                        <AspectIcon ratio={v} />
+                        <span>{v}</span>
+                      </span>
+                    )}
+                  />
+                )}
+                {batchResOptions.length > 0 && (
+                  <ConstraintChip
+                    grow
+                    openDirection="up"
+                    options={batchResOptions as string[]}
+                    value={(effectiveBatchRes ?? batchResOptions[0]) as string}
+                    onChange={(v) => setBatchResolution(v as ImageResolution)}
+                    renderOption={(v) => {
+                      const credits = formatCredits(estimateCredits(batchImageModelId, { imageCount: 1, resolution: v as ImageResolution }))
+                      return (
+                        <span className="flex w-full items-center justify-between gap-6">
+                          <span>{v}</span>
+                          {credits && <span className="text-ink-500">{credits}</span>}
+                        </span>
+                      )
+                    }}
+                  />
+                )}
+              </div>
+            )}
 
             {balance !== null && batchOverBudget && (
-              <p className="mt-3 text-[11px] text-red-400 light:text-red-600">
+              <p className="text-[11px] text-red-400 light:text-red-600">
                 Not enough credits. Your balance is {balance.toLocaleString()}.
               </p>
             )}
@@ -1498,24 +1542,23 @@ export default function ScenesView({
                 is the dialog's whole last line, and the app's own primary CTAs
                 are this tall. Cancel went to the corner X — see the note on the
                 heading. Both dialogs move together. */}
-            <div className="mt-4">
-              <button
-                type="button"
-                onClick={confirmBatch}
-                disabled={batchTargets.length === 0}
-                className="flex h-[46px] w-full items-center justify-center gap-2 rounded-full border border-white/15 bg-broll-500 px-4 text-[13px] font-medium text-white transition-colors hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-broll-500"
-              >
-                <Images className="h-3.5 w-3.5" />
-                {batchTargets.length === 0
-                  ? 'Generate'
-                  : `Generate ${batchTargets.length} Image${batchTargets.length === 1 ? '' : 's'}`}
-                <span className="flex items-center gap-1 rounded-full bg-black/25 px-2 py-0.5 text-[11px] tabular-nums">
-                  <Coins className="h-3 w-3" strokeWidth={2} />
-                  {/* An empty run costs nothing — formatCredits(0) would read
-                      "< 1 credit", which looks like a real charge. */}
-                  {batchTargets.length === 0 ? '—' : formatCredits(batchTotalCredits) ?? '—'}
-                </span>
-              </button>
+            <button
+              type="button"
+              onClick={confirmBatch}
+              disabled={batchTargets.length === 0}
+              className="flex h-[46px] w-full items-center justify-center gap-2 rounded-full border border-white/15 bg-broll-500 px-4 text-[13px] font-medium text-white transition-colors hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-broll-500"
+            >
+              <Images className="h-3.5 w-3.5" />
+              {batchTargets.length === 0
+                ? 'Generate'
+                : `Generate ${batchTargets.length} Image${batchTargets.length === 1 ? '' : 's'}`}
+              <span className="flex items-center gap-1 rounded-full bg-black/25 px-2 py-0.5 text-[11px] tabular-nums">
+                <Coins className="h-3 w-3" strokeWidth={2} />
+                {/* An empty run costs nothing — formatCredits(0) would read
+                    "< 1 credit", which looks like a real charge. */}
+                {batchTargets.length === 0 ? '—' : formatCredits(batchTotalCredits) ?? '—'}
+              </span>
+            </button>
             </div>
           </div>
         </div>,
@@ -1531,14 +1574,15 @@ export default function ScenesView({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg rounded-2xl border border-ink/10 bg-ink-950/95 p-5 shadow-2xl"
+            className="w-full max-w-lg overflow-hidden rounded-2xl border border-ink/10 bg-ink-950/95 shadow-2xl"
           >
             {/* One title, one line of context. The count and the price live on
                 the Generate button — everything else this dialog used to
                 explain (parallel rendering, refresh-safety, why some cards are
                 skipped) is either obvious from the storyboard behind it or
-                already said by the controls below. */}
-            <div className="flex items-start justify-between gap-3">
+                already said by the controls below. The band and the one-gap
+                body below are the image dialog's — see the notes there. */}
+            <div className="flex items-center justify-between gap-3 border-b border-ink/5 px-5 py-3">
               <div className="min-w-0">
                 <h3 className="text-sm font-medium text-ink-100">
                   {videoTargets.length === 0
@@ -1578,14 +1622,7 @@ export default function ScenesView({
                 <X className="h-4 w-4" />
               </button>
             </div>
-            {/* A full-width rule under the heading row (September 2026,
-                Massimo's call) — `-mx-5` so it bleeds to the dialog's own edges
-                rather than stopping inside its padding, the same hairline every
-                panel header in the app draws. It gives the title and the corner
-                X a band of their own, which is what the removed Cancel used to
-                do for the footer. */}
-            <div className="-mx-5 mt-3.5 border-b border-ink/5" />
-
+            <div className="flex flex-col gap-3 px-5 py-4">
             <ColumnChips
               columns={videoColumns}
               value={videoColumn}
@@ -1604,7 +1641,7 @@ export default function ScenesView({
             />
 
             {videoDone.length > 0 && (
-              <label className="mt-3 flex cursor-pointer items-center gap-2.5 rounded-xl border border-ink/10 bg-ink/[0.03] px-3 py-2.5">
+              <label className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-ink/10 bg-ink/[0.03] px-3 py-2.5">
                 <input
                   type="checkbox"
                   checked={includeExistingVideos}
@@ -1621,75 +1658,93 @@ export default function ScenesView({
             {/* Run settings — the shared B-Roll video model (same setting the
                 card modal's picker writes), plus one resolution and one clip
                 length for every video in the batch. */}
-            <div className="mt-4 flex flex-col gap-2.5">
-              <ModelPicker
-                appId="broll-studio"
-                task="video"
-                costParams={{ durationSeconds: representativeSeconds, resolution: effectiveVideoRes }}
-                requireAnyModes={videoAnimateCount > 0 ? STILL_CAPABLE_MODES : undefined}
-                requireModeNote="Greyed-out models can't animate a still. They take neither a start frame nor reference images."
-              />
-              {(batchVideoResOptions.length > 0 || batchVideoDurationOptions.length > 0) && (
-                <div className="flex flex-wrap items-center gap-2">
-                  {batchVideoResOptions.length > 0 && (
-                    <ConstraintChip
-                      grow
-                      openDirection="up"
-                      options={batchVideoResOptions}
-                      value={effectiveVideoRes}
-                      onChange={(v) => setBatchVideoResolution(v)}
-                      render={videoResolutionLabel}
-                    />
-                  )}
-                  {/* Clip length. On a Dialogue Clips storyboard it defaults to
-                      Auto — one length per spoken line rather than one length
-                      for the whole run — and the trigger reads back the run's
-                      real spread ("Auto · 5–10s"), since every one of those
-                      seconds is billed on the button below. A silent b-roll run
-                      has no words to fit, so it's the plain ladder pinned for
-                      the run, as it was before Auto existed. */}
-                  {batchVideoDurationOptions.length > 0 && (
-                    <ConstraintChip
-                      grow
-                      openDirection="up"
-                      options={[
-                        ...(runHasSpokenCard ? [AUTO_DURATION] : []),
-                        ...batchVideoDurationOptions.map(String),
-                      ]}
-                      value={pinnedVideoDuration ? String(pinnedVideoDuration) : AUTO_DURATION}
-                      onChange={(v) => setBatchVideoDuration(v === AUTO_DURATION ? undefined : Number(v))}
-                      render={(v) => (
-                        <span>{v === AUTO_DURATION ? autoDurationLabel : `${v}s`}</span>
-                      )}
-                      renderOption={(v) => (
-                        v === AUTO_DURATION ? (
-                          <span className="flex w-full items-center justify-between gap-6">
-                            <span>Auto</span>
-                            <span className="text-ink-500">fits each line</span>
-                          </span>
-                        ) : (
-                          <span>{v}s</span>
-                        )
-                      )}
-                    />
-                  )}
-                </div>
+            <button
+              type="button"
+              onClick={() => setVideoModelOpen(true)}
+              className="flex h-12 w-full items-center gap-2.5 rounded-full border border-ink/10 bg-ink/[0.02] px-3 text-left transition-colors hover:bg-ink/[0.05]"
+            >
+              {batchVideoModelId ? (
+                <>
+                  <ProviderLogo provider={getModel(batchVideoModelId)?.provider ?? ''} />
+                  <ModelTriggerLabel
+                    name={getModel(batchVideoModelId)?.displayName ?? batchVideoModelId}
+                    recommended={!!getModel(batchVideoModelId)?.tags.includes('recommended')}
+                    savings={officialSavingsPercent(batchVideoModelId)}
+                  />
+                </>
+              ) : (
+                <span className="flex-1 truncate text-sm text-ink-400">Select Model</span>
               )}
-            </div>
+              <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" />
+            </button>
+            <ModelPickerModal
+              appId="broll-studio"
+              task="video"
+              isOpen={videoModelOpen}
+              onClose={() => setVideoModelOpen(false)}
+              costParams={{ durationSeconds: representativeSeconds, resolution: effectiveVideoRes }}
+              requireAnyModes={videoAnimateCount > 0 ? STILL_CAPABLE_MODES : undefined}
+              requireModeNote="Greyed-out models can't animate a still. They take neither a start frame nor reference images."
+            />
+            {(batchVideoResOptions.length > 0 || batchVideoDurationOptions.length > 0) && (
+              <div className="flex flex-wrap items-center gap-2">
+                {batchVideoResOptions.length > 0 && (
+                  <ConstraintChip
+                    grow
+                    openDirection="up"
+                    options={batchVideoResOptions}
+                    value={effectiveVideoRes}
+                    onChange={(v) => setBatchVideoResolution(v)}
+                    render={videoResolutionLabel}
+                  />
+                )}
+                {/* Clip length. On a Dialogue Clips storyboard it defaults to
+                    Auto — one length per spoken line rather than one length
+                    for the whole run — and the trigger reads back the run's
+                    real spread ("Auto · 5–10s"), since every one of those
+                    seconds is billed on the button below. A silent b-roll run
+                    has no words to fit, so it's the plain ladder pinned for
+                    the run, as it was before Auto existed. */}
+                {batchVideoDurationOptions.length > 0 && (
+                  <ConstraintChip
+                    grow
+                    openDirection="up"
+                    options={[
+                      ...(runHasSpokenCard ? [AUTO_DURATION] : []),
+                      ...batchVideoDurationOptions.map(String),
+                    ]}
+                    value={pinnedVideoDuration ? String(pinnedVideoDuration) : AUTO_DURATION}
+                    onChange={(v) => setBatchVideoDuration(v === AUTO_DURATION ? undefined : Number(v))}
+                    render={(v) => (
+                      <span>{v === AUTO_DURATION ? autoDurationLabel : `${v}s`}</span>
+                    )}
+                    renderOption={(v) => (
+                      v === AUTO_DURATION ? (
+                        <span className="flex w-full items-center justify-between gap-6">
+                          <span>Auto</span>
+                          <span className="text-ink-500">fits each line</span>
+                        </span>
+                      ) : (
+                        <span>{v}s</span>
+                      )
+                    )}
+                />
+              )}
+              </div>
+            )}
 
             {/* Balance only when it's in the way — the price itself rides on
                 the button. */}
             {balance !== null && videoOverBudget && (
-              <p className="mt-3 text-[11px] text-red-400 light:text-red-600">
+              <p className="text-[11px] text-red-400 light:text-red-600">
                 Not enough credits. Your balance is {balance.toLocaleString()}.
               </p>
             )}
             {videoModelCantAnimate && (
-              <p className="mt-1.5 text-[11px] text-red-300 light:text-red-700">
+              <p className="text-[11px] text-red-300 light:text-red-700">
                 {getModel(batchVideoModelId ?? '')?.displayName ?? 'This model'} can&rsquo;t animate a still. Every card with an image would fail. Pick a model that takes a start frame or reference images.
               </p>
             )}
-            <div className="mt-4">
               <button
                 type="button"
                 onClick={confirmVideoBatch}
@@ -1751,7 +1806,7 @@ function ColumnChips({
         : 'border-ink/10 bg-ink/[0.03] text-ink-400 hover:border-ink/20 hover:bg-ink/[0.06] hover:text-ink-200'
     }`
   return (
-    <div className="mt-3">
+    <div>
       {/* No eyebrow and no hint paragraph: the chips say "Option 1 / All
           Options" in full, and a dialog that has to teach on every open is a
           dialog nobody reads.
@@ -1812,8 +1867,11 @@ function LineChecklist({
     else next.add(scene)
     onChange(next)
   }
+  // No `mt-` here or on the chips above: both dialogs stack their blocks in a
+  // flex column with one gap, and a block that also brings a margin of its own
+  // is exactly the unevenness that stack exists to stop.
   return (
-    <div className="mt-3 overflow-hidden rounded-xl border border-ink/10 bg-ink/[0.03]">
+    <div className="overflow-hidden rounded-xl border border-ink/10 bg-ink/[0.03]">
       {/* A count, not a label. "Lines" on its own would be an eyebrow over a
           list that is self-evidently a list of lines; the count is the one
           thing here that changes as you tick, and it is what the Generate
