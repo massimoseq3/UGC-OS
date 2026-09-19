@@ -40,8 +40,12 @@ export type ChatTransport = 'openai-chat' | 'claude-messages' | 'openai-response
 export interface ChatRating {
   // 5 = the strongest writer on offer here.
   intelligence: 1 | 2 | 3 | 4 | 5
-  // One sentence on what this model is good for, under the name in the picker.
-  blurb: string
+  // It carried a `blurb` too — one sentence per model, printed under the name
+  // in the picker. Removed September 2026 (Massimo's call): nine of them is a
+  // paragraph in a panel whose answer is the stars and the dollars beside each
+  // name. If one comes back, it comes back as data here and a line in
+  // `ScriptModelRow`'s ModelCard, and the rule that it may never name a default
+  // comes back with it.
 }
 
 export interface Voice {
@@ -206,7 +210,7 @@ export interface ModelEntry {
   // transports whose endpoint doesn't name the model; omitted for 'openai-chat',
   // where the slug is already in the URL.
   chatSlug?: string
-  // Chat-only: star ratings + blurb for the script-model picker.
+  // Chat-only: the star rating for the script-model picker.
   chatRating?: ChatRating
   // Video-only: which kie endpoint family to hit.
   // 'createTask' (default) -> POST /api/v1/jobs/createTask
@@ -341,10 +345,11 @@ export const MODEL_REGISTRY: ModelEntry[] = [
   // the picker now writes on the app-wide default rather than ~2.9× its
   // credits, and every dearer row is one click away in both.
   //
-  // NOTHING in the blurbs may name a default — one picker component serves both
-  // apps, so "the default" was true in one and a lie in the other the moment
-  // these diverged. The panel's tick and the trigger row already say which model
-  // is live where you are.
+  // NOTHING the picker prints may name a default — one picker component serves
+  // both apps, so "the default" was true in one and a lie in the other the
+  // moment these diverged. That rule cost the per-model blurbs nothing when
+  // they existed and still binds whatever replaces them. The panel's tick and
+  // the trigger row already say which model is live where you are.
   //
   // Every prompt in this app was written and tuned against Gemini 3 Flash, and
   // the storyboard parsers expect its tag discipline. That model was removed in
@@ -424,8 +429,8 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     // stays one row away in either picker. That puts Scripts and B-Roll back on
     // the app-wide default rather than ~2.9× it on the member's own key, and on
     // the same family every prompt in this app was tuned against. The two slots
-    // stay INDEPENDENT and have diverged before, so no blurb may name a
-    // default. The flip shipped without a migration, on the reasoning that
+    // stay INDEPENDENT and have diverged before, so nothing the picker prints
+    // may name a default. The flip shipped without a migration, on the reasoning that
     // nothing writes a resolved default into a slot — so an unpicked slot
     // follows `defaultFor` on its own and a stored id is always a deliberate
     // pick. That missed the member who opened the picker while 3.6 held the
@@ -451,8 +456,6 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     // Don't "fix" it by adding the slug — re-test the jobs route first.
     chatRating: {
       intelligence: 4,
-      blurb:
-        'The newest Google row. Holds long, detailed instructions well.',
     },
   },
 
@@ -476,8 +479,6 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     chatEndpoint: '/gemini-3-6-flash-openai/v1/chat/completions',
     chatRating: {
       intelligence: 4,
-      blurb:
-        'Steady on long, detailed prompts. A dependable middle option.',
     },
   },
 
@@ -496,8 +497,6 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     chatSlug: 'claude-sonnet-5',
     chatRating: {
       intelligence: 4,
-      blurb:
-        'Sounds the most like a real person. Best for dialogue.',
     },
   },
 
@@ -514,8 +513,6 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     chatSlug: 'claude-opus-5',
     chatRating: {
       intelligence: 5,
-      blurb:
-        'The finest writing in the list. Slow, and by far the priciest run.',
     },
   },
 
@@ -532,8 +529,6 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     chatSlug: 'gpt-5-6-sol',
     chatRating: {
       intelligence: 5,
-      blurb:
-        'Follows long instructions to the letter. Best for scene blueprints.',
     },
   },
 
@@ -553,11 +548,9 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     // Flash took them at the operator's call. Still one row away in either
     // picker, exactly as every superseded default here is; it holds no
     // `defaultFor` any more. The two slots stay independent and can diverge
-    // again, so no blurb anywhere may name a default.
+    // again, so nothing the picker prints may name a default.
     chatRating: {
       intelligence: 4,
-      blurb:
-        'A safe middle rung, better than the cheap rows and well under the top.',
     },
   },
 
@@ -583,8 +576,6 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     chatSlug: 'gpt-5-6-luna',
     chatRating: {
       intelligence: 4,
-      blurb:
-        'The cheapest run here, and it still writes well.',
     },
   },
 
@@ -612,8 +603,6 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     chatSlug: 'grok-4-6',
     chatRating: {
       intelligence: 5,
-      blurb:
-        'Top-tier writing without the top-tier price. Best all-round pick.',
     },
   },
 
@@ -1888,8 +1877,9 @@ export function getChatTarget(modelId: string = CHAT_MODEL_DEFAULT): ChatTarget 
 }
 
 // The chat models offered in the Scripts / B-Roll picker. A model without a
-// `chatRating` is deliberately not offered — the picker's whole content is the
-// rating and the blurb. Sorted cheapest-first within the caller's grouping.
+// `chatRating` is deliberately not offered — the rating and the cost glyphs
+// derived from it are the picker's whole content. Sorted cheapest-first within
+// the caller's grouping.
 export function listScriptModels(): ModelEntry[] {
   return listModels({ task: 'chat' }).filter((m) => m.chatRating)
 }

@@ -153,11 +153,20 @@ export default function ScriptModelRow({ appId, className = 'mb-3' }: ScriptMode
         open={open}
         onClose={() => setOpen(false)}
         title={copy.title}
-        subtitle="Stars are how strong a writer, dollars are what it costs"
         size="medium"
-        // Nine models behind a search box and a provider rail — the panel holds
-        // its height so filtering doesn't resize it under the pointer.
-        fill
+        // NO `fill`, so the panel is as tall as its list and no taller
+        // (September 2026, Massimo's call). It held `h-[86vh]` on the reasoning
+        // that a fixed height stops the panel resizing under the pointer while
+        // you filter; what that bought once the per-model blurbs came off was
+        // ~300px of empty panel under nine short rows, every time it opens,
+        // against a resize nobody sees unless they type. `max-h-[86vh]` still
+        // catches a longer list and hands it a scroller.
+        //
+        // The subtitle went with the blurbs ("Stars are how strong a writer,
+        // dollars are what it costs"): the meters are five stars and five
+        // dollar signs in cost colours beside every name, which is not a thing
+        // a member needs a sentence to decode, and it is the second line of
+        // explanation this panel opened with.
       >
         <ModelPalette appId={appId} resolvedId={resolvedId} accent={accent} onClose={() => setOpen(false)} />
       </Modal>
@@ -204,8 +213,10 @@ function ModelPalette({
     onClose()
   }
 
+  // No `h-full`: the panel is content-sized now, so a child claiming the full
+  // height of an auto-height parent has nothing to resolve against.
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex flex-col">
       {/* Search */}
       <div className="px-4 pb-2 pt-3">
         <div className="flex h-10 items-center gap-2.5 rounded-full bg-ink/[0.05] px-4 transition-colors focus-within:bg-ink/[0.08]">
@@ -271,17 +282,27 @@ function ModelCard({
     <button
       type="button"
       onClick={onPick}
-      className={`flex w-full items-start gap-2.5 rounded-2xl px-2.5 py-2 text-left transition-colors ${
+      className={`flex w-full items-center gap-2.5 rounded-2xl px-2.5 py-2 text-left transition-colors ${
         active ? accent.bg : 'hover:bg-ink/[0.04]'
       }`}
     >
       {/* The provider's own mark, on the same disc the image/video picker's
           rows wear — the two pickers are one panel with different row detail,
           and only this one was reading as a bare list of words. It rides the
-          first line rather than the block's centre: these rows run three lines
-          deep (name, blurb, rate) and a vertically centred disc floats beside
-          the blurb instead of beside the name it belongs to. */}
-      <div className="mt-px shrink-0">
+          block's CENTRE, which is where a two-line row wants it. It rode the
+          first line (`mt-px`) while these were three lines deep — name, blurb,
+          rate — because a centred disc then floated beside the blurb instead of
+          beside the name it belongs to. With the blurb gone the row is two
+          short lines and a top-aligned mark reads as slipped, which is what
+          made the hover state look skewed (Massimo's report, September 2026).
+
+          The blurb was a one-line description per model ("Sounds the most like
+          a real person. Best for dialogue."), removed on Massimo's call as
+          clutter: nine rows of it is a paragraph in a panel whose answer is the
+          stars and the dollars beside each name, and those two meters say the
+          same thing without being read. `chatRating.blurb` went with it — see
+          utils/models.ts. */}
+      <div className="shrink-0">
         <ProviderLogo provider={model.provider} size="sm" />
       </div>
       <div className="min-w-0 flex-1">
@@ -289,19 +310,27 @@ function ModelCard({
           <span className="text-[13px] font-semibold leading-snug text-ink-100">{model.displayName}</span>
           <StarMeter value={rating.intelligence} tone={accent.star} />
           <CostGlyphs tier={chatCostTier(model.id)} />
-          {active && <Check className={`h-3.5 w-3.5 shrink-0 ${accent.text}`} strokeWidth={2.5} />}
         </div>
-        <p className="mt-0.5 text-[11px] leading-snug text-ink-500">{rating.blurb}</p>
-        <div className="mt-1 flex items-center gap-2">
+        {/* `mt-0.5`, not `mt-1`: the rate belongs to the name above it, and at
+            4px it reads as that name's second line rather than as a third thing
+            on the row. */}
+        <div className="mt-0.5 flex items-center gap-2">
           {/* A rate, not a per-run price: a chat call's size isn't known until
               it answers, and the Generate buttons carry the run estimate.
               Quoted per MILLION tokens because that's the unit kie publishes
               and the only one where these come out as numbers you can compare
               — formatCredits collapses every per-1k rate to "< 1 credit". */}
           <span className="text-[10px] text-ink-600">{ratePerMillion(model.id)}</span>
-          {savings != null && <SavingsPill pct={savings} />}
+          {savings != null && <SavingsPill pct={savings} size="sm" />}
         </div>
       </div>
+      {/* The tick is the row's FAR RIGHT, centred against the whole row
+          (September 2026, Massimo's call). It sat inline after the cost meter,
+          where it was a fourth item on a line that already wraps — it moved
+          with the name's length, and on a wrapped row it landed under the name
+          rather than beside it. On the edge it is in the one place a list can
+          be scanned for "which one is picked" in a single pass down. */}
+      {active && <Check className={`ml-auto h-4 w-4 shrink-0 ${accent.text}`} strokeWidth={2.5} />}
     </button>
   )
 }

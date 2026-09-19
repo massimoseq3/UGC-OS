@@ -1712,7 +1712,6 @@ export default function ContinuousView({
         <ClipDownloadModal
           entries={allClipEntries}
           zipBasename="continuous-clips"
-          subtitle="Every card&rsquo;s cover clip is picked. Tick the extra takes you also want."
           onClose={() => setDownloadOpen(false)}
         />
       )}
@@ -1940,7 +1939,8 @@ function SceneRow({
               className="group/line flex min-w-0 items-center gap-2 text-left"
             >
               <span
-                className="truncate text-lg leading-relaxed text-ink-400 transition-colors group-hover/line:text-ink-200 font-light tracking-tight"
+                className="truncate text-xl leading-relaxed text-ink-400 transition-colors group-hover/line:text-ink-200 font-normal tracking-[-0.015em]"
+                style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
               >
                 &ldquo;{scene.scriptLine}&rdquo;
               </span>
@@ -2054,7 +2054,8 @@ function FinalFrameRow({
               Final Frame
             </span>
             <p
-              className="text-lg leading-relaxed text-ink-400 font-light tracking-tight"
+              className="text-xl leading-relaxed text-ink-400 font-normal tracking-[-0.015em]"
+              style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
             >
               The end state the last clip lands on
             </p>

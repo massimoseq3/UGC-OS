@@ -1,8 +1,10 @@
 import type { PromptVariation } from '../types'
 
-// Tag-driven chip wording + palette. Top-left chip shows what the variation
-// IS (Dialogue / Action / Emotional / Product shot); roll type (A-Roll /
-// B-Roll) moves to the small bottom text so the face stays scannable.
+// Tag-driven chip wording + palette. The top-left chip shows what the variation
+// IS (Dialogue / Action / Emotional / Product shot). It used to have a
+// companion, `rollTypeForTag`, printing A-Roll / B-Roll in the caption under the
+// card; that caption names the card's POSITION now ("Option 2"), so the helper
+// went with it — see VariationCard.
 // Lives in its own module (not VariationCard) so editing the card keeps
 // React Fast Refresh working — a component file may only export components.
 const TAG_LABELS: Record<PromptVariation['tag'], string> = {
@@ -28,9 +30,6 @@ const TAG_CHIP_STYLES: Record<PromptVariation['tag'], string> = {
   ENVIRONMENT: 'bg-teal-500/25 text-teal-100 light:text-teal-900 border-teal-400/40',
   TRANSITION: 'bg-sky-500/25 text-sky-100 light:text-sky-900 border-sky-400/40',
   PROOF: 'bg-orange-500/25 text-orange-100 light:text-orange-900 border-orange-400/40',
-}
-export function rollTypeForTag(tag: PromptVariation['tag']): 'A-Roll' | 'B-Roll' {
-  return tag === 'DIALOGUE' || tag === 'STATIC' ? 'A-Roll' : 'B-Roll'
 }
 export function tagLabel(tag: PromptVariation['tag']): string {
   return TAG_LABELS[tag]

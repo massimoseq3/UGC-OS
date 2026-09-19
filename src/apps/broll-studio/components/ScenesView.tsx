@@ -17,8 +17,10 @@ import { useBankStore } from '../../../stores/bankStore'
 import { useAppStore } from '../../../stores/appStore'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import { useCreditsStore } from '../../../stores/creditsStore'
-import { getDefaultModel, getModel, estimateCredits, formatCredits, snapVideoDuration, videoResolutionLabel, type ImageResolution, type Mode } from '../../../utils/models'
-import ModelPicker from '../../../components/ModelPicker'
+import { getDefaultModel, getModel, estimateCredits, formatCredits, officialSavingsPercent, snapVideoDuration, videoResolutionLabel, type ImageResolution, type Mode } from '../../../utils/models'
+import ModelPickerModal from '../../../components/ModelPickerModal'
+import ModelTriggerLabel from '../../../components/ModelTriggerLabel'
+import ProviderLogo from '../../../components/ProviderLogo'
 import ConstraintChip from '../../../components/ConstraintChip'
 import AspectIcon from '../../../components/AspectIcon'
 import VariationCard from './VariationCard'
@@ -110,24 +112,22 @@ const BATCH_VIDEO_DURATION_FALLBACK = 5
 // use the still at all, which is what greys it out in the batch dialog.
 const STILL_CAPABLE_MODES: Mode[] = ['image-to-video', 'reference-to-video']
 
-// ─── Option columns ──────────────────────────────────────────────────────
-// The storyboard is a grid: one row per script line, one column per option.
-// Both header batches open on ALL options. They used to open on the leftmost
-// column with work left, so that a second press picked up where the first left
-// off — cheaper per press, but a button labelled "Generate all images" that
-// quietly does a third of them is a button that doesn't do what it says, and
-// members read the short run as a bug rather than a saving. The Options chips
-// still scope a run; scoping is the deliberate act now, not the default.
-type BatchColumn = number | 'all'
+// ─── Batch scope ─────────────────────────────────────────────────────────
+// The storyboard is a grid: one row per script line, one column per option, and
+// a batch dialog scopes along BOTH — the Options chips across, the line
+// checklist down. Every press opens on the whole of what it reached, on both
+// axes. They used to open on the leftmost column with work left, so that a
+// second press picked up where the first left off — cheaper per press, but a
+// button labelled "Generate all images" that quietly does a third of them is a
+// button that doesn't do what it says, and members read the short run as a bug
+// rather than a saving. Scoping is the deliberate act now, not the default.
 
 interface BatchRequest {
-  // Every card the press covers. The column filter is applied inside the
-  // dialog, so switching columns re-scopes without reopening.
+  // Every card the press covers. BOTH scope filters are applied inside the
+  // dialog, so re-scoping never reopens it — which is also why a per-scene
+  // press hands over its whole row rather than one column.
+  // (`scope` used to name the run under the title; that line is gone.)
   keys: string[]
-  scope: string
-  // Only a multi-scene batch offers columns; a single scene's row is one
-  // card per column, where the choice means nothing.
-  columnar: boolean
   // Video runs only: animate the stills that exist, and nothing else. A plain
   // video batch also fires cards that have no image yet, rendering those from
   // the prompt alone — which is a different, blinder spend. After a
@@ -141,6 +141,13 @@ const columnOf = (key: string) => Number(key.split('-')[1])
 
 const columnsIn = (keys: string[]) =>
   [...new Set(keys.map(columnOf))].filter((n) => Number.isFinite(n)).sort((a, b) => a - b)
+
+// The other half of a card key: which SCENE — which line of the script — it
+// belongs to. A batch is scoped along both axes, columns across and lines down.
+const sceneOf = (key: string) => Number(key.split('-')[0])
+
+const scenesIn = (keys: string[]) =>
+  [...new Set(keys.map(sceneOf))].filter((n) => Number.isFinite(n)).sort((a, b) => a - b)
 
 // The still a card is currently showing — the user's pick if they made one,
 // otherwise the one on the card face. Used to resolve what the next dialogue
@@ -221,6 +228,22 @@ function coverImageRef(card?: CardState): string | undefined {
   if (!card || card.images.length === 0) return undefined
   const picked = card.selected?.kind === 'image' ? card.images[card.selected.index] : undefined
   return (picked ?? card.images[card.currentImageIndex] ?? card.images[card.images.length - 1])?.imageUrl
+}
+
+// A label on the pane's header band that SHORTENS before it disappears. Full
+// above the top step, one word between the steps, nothing at all below the
+// bottom one — which leaves the button as its glyph, still the same 38px pill
+// with the same tooltip. Two spans rather than a string picked in JS: the steps
+// are CONTAINER queries on the band (`@container/bar`), so the row answers to
+// the width of the output column and not to the window's, and nothing has to
+// observe a resize to redraw a word. See the note on the band itself.
+function BandLabel({ full, short }: { full: string; short: string }) {
+  return (
+    <>
+      <span className="hidden whitespace-nowrap @[660px]/bar:inline @[860px]/bar:hidden">{short}</span>
+      <span className="hidden whitespace-nowrap @[860px]/bar:inline">{full}</span>
+    </>
+  )
 }
 
 export default function ScenesView({
@@ -394,8 +417,23 @@ export default function ScenesView({
     getDefaultModel('broll-studio', 'image', 'text-to-image')?.id
   const [batchTokens, setBatchTokens] = useState<Record<string, number>>({})
   const [batchConfirm, setBatchConfirm] = useState<BatchRequest | null>(null)
-  const [batchColumn, setBatchColumn] = useState<BatchColumn>('all')
+  // Which OPTION columns this run covers — a set, not one pick, and every
+  // option in it on open. See the note on ColumnChips.
+  const [batchColumns, setBatchColumns] = useState<Set<number>>(() => new Set())
+  // Which LINES of the script this run covers. Every line the press reached is
+  // ticked when the dialog opens — the run is still "all scenes" unless the
+  // member says otherwise — and unticking one drops its whole row from the
+  // targets, the count and the price. Scene numbers, so it survives a storyboard
+  // whose scenes aren't 1..N.
+  const [batchLines, setBatchLines] = useState<Set<number>>(() => new Set())
   const [includeExisting, setIncludeExisting] = useState(false)
+  // The model panel opened from this dialog's trigger. It is a CENTRED modal
+  // (`ModelPickerModal`), not the inline dropdown this used to be (September
+  // 2026, Massimo's call): the dropdown opened a scrolling list inside a dialog
+  // that is itself a scrolling stack, and the picker is the one control here
+  // that wants room — provider rail, search, per-model prices. It writes the
+  // SAME settingsStore key the dropdown did, so nobody's saved pick moved.
+  const [batchModelOpen, setBatchModelOpen] = useState(false)
   const [downloadOpen, setDownloadOpen] = useState(false)
   // The batch menu: one "Generate all" opening the three passes, rather than
   // three pills competing on the bar. See the note where it renders.
@@ -405,7 +443,9 @@ export default function ScenesView({
   // switch — dismiss it when the user docks away.
   useCloseOnAppSwitch(!!batchConfirm, () => setBatchConfirm(null))
   const batchBackdrop = useBackdropClose(() => setBatchConfirm(null))
-  useCloseOnEscape(!!batchConfirm, () => setBatchConfirm(null))
+  // Not while the model panel is over it: that panel closes on Escape too, and
+  // one press would otherwise take the run you were configuring with it.
+  useCloseOnEscape(!!batchConfirm && !batchModelOpen, () => setBatchConfirm(null))
   // Resolution + aspect chosen for the run (model lives in the global setting).
   const [batchResolution, setBatchResolution] = useState<ImageResolution | undefined>(undefined)
   const [batchAspect, setBatchAspect] = useState<string | undefined>(undefined)
@@ -433,10 +473,16 @@ export default function ScenesView({
   const hasImage = (key: string) => (shownCardStates[key]?.images.length ?? 0) > 0
 
   // The cards this press covers, narrowed to the picked option column.
-  const batchColumns = batchConfirm?.columnar ? columnsIn(batchConfirm.keys) : []
+  // Every option and every line the press reached — the two axes the dialog
+  // scopes along. Both are offered whenever there is more than one of them, so
+  // a PER-SCENE press gets the option chips too (September 2026, Massimo's
+  // call): one scene is still three deliveries, and picking among them is the
+  // only scoping that dialog has to offer.
+  const batchColumnNumbers = batchConfirm ? columnsIn(batchConfirm.keys) : []
+  const batchSceneNumbers = batchConfirm ? scenesIn(batchConfirm.keys) : []
   const batchScoped = batchConfirm
     ? batchConfirm.keys.filter(
-        (k) => promptReady(k) && (batchColumn === 'all' || columnOf(k) === batchColumn),
+        (k) => promptReady(k) && batchColumns.has(columnOf(k)) && batchLines.has(sceneOf(k)),
       )
     : []
   // `fresh` = prompt-ready cards with no image yet; `done` = cards already
@@ -468,7 +514,7 @@ export default function ScenesView({
     : null
   const batchOverBudget = batchTotalCredits != null && balance !== null && batchTotalCredits > balance
 
-  const requestBatch = (keys: string[], scope: string, columnar = false) => {
+  const requestBatch = (keys: string[]) => {
     const targets = keys.filter(promptReady)
     if (targets.length === 0) {
       useAppStore.getState().addToast('No prompts ready to generate.', 'error')
@@ -478,11 +524,14 @@ export default function ScenesView({
     // dialog still opens — with the toggle as the only way forward — so
     // "regenerate the lot" stays possible but never accidental.
     setIncludeExisting(false)
-    // All options — see the note on BatchColumn. Cards that already hold an
-    // image are still held back by the toggle above, so this is "every option
-    // that has no still yet", not a re-render of the storyboard.
-    setBatchColumn('all')
-    setBatchConfirm({ keys, scope, columnar })
+    // Cards that already hold an image are still held back by the toggle in
+    // the dialog, so an all-options run is "every option that has no still
+    // yet", not a re-render of the storyboard.
+    // Every option and every line this press reached, ticked. The dialog opens
+    // on the whole run; narrowing it is the deliberate act.
+    setBatchColumns(new Set(columnsIn(keys)))
+    setBatchLines(new Set(scenesIn(keys)))
+    setBatchConfirm({ keys })
   }
 
   // Every card in the run is armed in the same tick — the anchor-take cards
@@ -525,14 +574,17 @@ export default function ScenesView({
     getDefaultModel('broll-studio', 'video')?.id
   const [videoTokens, setVideoTokens] = useState<Record<string, number>>({})
   const [videoConfirm, setVideoConfirm] = useState<BatchRequest | null>(null)
-  const [videoColumn, setVideoColumn] = useState<BatchColumn>('all')
+  const [videoColumns, setVideoColumns] = useState<Set<number>>(() => new Set())
+  // The same line scoping the image dialog has — the two are a pair.
+  const [videoLines, setVideoLines] = useState<Set<number>>(() => new Set())
   const [includeExistingVideos, setIncludeExistingVideos] = useState(false)
+  const [videoModelOpen, setVideoModelOpen] = useState(false)
   const [batchVideoOverride, setBatchVideoOverride] = useState<BatchVideoSettings | null>(null)
   const [batchVideoResolution, setBatchVideoResolution] = useState<string | undefined>(undefined)
   // undefined = untouched (→ Auto); a number = a length pinned for the whole run.
   const [batchVideoDuration, setBatchVideoDuration] = useState<number | undefined>(undefined)
   useCloseOnAppSwitch(!!videoConfirm, () => setVideoConfirm(null))
-  useCloseOnEscape(!!videoConfirm, () => setVideoConfirm(null))
+  useCloseOnEscape(!!videoConfirm && !videoModelOpen, () => setVideoConfirm(null))
   const videoBackdrop = useBackdropClose(() => setVideoConfirm(null))
 
   // Clamp resolution + duration to the picked model, so swapping models inside
@@ -550,7 +602,11 @@ export default function ScenesView({
   // card SPEAKS it, so an Auto run can price each card at its own length.
   const scriptLineByKey: Record<string, string> = {}
   const spokenByKey: Record<string, boolean> = {}
+  // Scene number → its line, for the batch dialogs' line checklist: the rows are
+  // scenes, and the words are what a member recognises one by.
+  const scriptLineByScene: Record<number, string> = {}
   for (const scene of result?.scenes ?? []) {
+    scriptLineByScene[scene.number] = scene.scriptLine
     for (let i = 0; i < scene.variations.length; i++) {
       scriptLineByKey[`${scene.number}-${i}`] = scene.scriptLine
       spokenByKey[`${scene.number}-${i}`] = speaksItsLine(scene.variations[i])
@@ -588,26 +644,21 @@ export default function ScenesView({
   // What makes a card eligible for this run: a still to animate, or (for a
   // plain video batch) just a prompt to render from.
   const videoEligible = videoConfirm?.stillsOnly ? hasImage : promptReady
-  const videoColumns = videoConfirm?.columnar ? columnsIn(videoConfirm.keys) : []
+  const videoColumnNumbers = videoConfirm ? columnsIn(videoConfirm.keys) : []
+  const videoSceneNumbers = videoConfirm ? scenesIn(videoConfirm.keys) : []
   const videoScoped = videoConfirm
     ? videoConfirm.keys.filter(
-        (k) => videoEligible(k) && (videoColumn === 'all' || columnOf(k) === videoColumn),
+        (k) => videoEligible(k) && videoColumns.has(columnOf(k)) && videoLines.has(sceneOf(k)),
       )
     : []
   const videoFresh = videoScoped.filter((k) => !hasVideo(k))
   const videoDone = videoScoped.filter(hasVideo)
   const videoTargets = includeExistingVideos ? [...videoFresh, ...videoDone] : videoFresh
   // How many of this run animate a still they already have. The rest render
-  // from the prompt alone — worth saying out loud, since those cost the same
-  // but come back as something the member hasn't seen a frame of.
+  // from the prompt alone. It used to be printed as a qualifier under the title
+  // ("from the card stills"); that line is gone, and this survives because it
+  // decides which models the picker greys out and whether the run is held.
   const videoAnimateCount = videoTargets.filter((k) => (shownCardStates[k]?.images.length ?? 0) > 0).length
-  const videoSourceNote =
-    // Redundant in a stills-only run: the title already says every clip comes
-    // off a still.
-    videoTargets.length === 0 || videoConfirm?.stillsOnly ? null
-      : videoAnimateCount === videoTargets.length ? 'from the card stills'
-        : videoAnimateCount === 0 ? 'from the prompts'
-          : `${videoAnimateCount} from a still, ${videoTargets.length - videoAnimateCount} from the prompt`
   const videoBatchCredits = batchVideoModelId
     ? videoTargets.reduce<number | null>((sum, key) => {
         if (sum === null) return null
@@ -645,7 +696,7 @@ export default function ScenesView({
     !videoModelModes.includes('image-to-video') &&
     !videoModelModes.includes('reference-to-video')
 
-  const requestVideoBatch = (keys: string[], scope: string, columnar = false, stillsOnly = false) => {
+  const requestVideoBatch = (keys: string[], stillsOnly = false) => {
     const eligible = stillsOnly ? hasImage : promptReady
     const targets = keys.filter(eligible)
     if (targets.length === 0) {
@@ -658,11 +709,12 @@ export default function ScenesView({
     // Cards that already have a clip are held back by default — a video is the
     // expensive half of this app, so re-billing one takes an explicit tick.
     setIncludeExistingVideos(false)
-    // All options — see the note on BatchColumn. Cards that already hold a clip
-    // are still held back, so this is "every option that has no video yet",
-    // not a re-bill of the storyboard.
-    setVideoColumn('all')
-    setVideoConfirm({ keys, scope, columnar, stillsOnly })
+    // Cards that already hold a clip are still held back, so an all-options run
+    // is "every option that has no video yet", not a re-bill of the
+    // storyboard.
+    setVideoColumns(new Set(columnsIn(keys)))
+    setVideoLines(new Set(scenesIn(keys)))
+    setVideoConfirm({ keys, stillsOnly })
   }
 
   const confirmVideoBatch = () => {
@@ -1013,247 +1065,246 @@ export default function ScenesView({
           reason: saturating whatever card is underneath is what made that wash
           read as coloured. `z-20` so a card's own positioned hover chrome can't
           paint over it. */}
-      {/* ONE line, at EVERY width: what the storyboard IS on the left, what you
-          can do to it on the right (August 2026, Massimo's call).
+      {/* The pane's header band — and, since September 2026 (Massimo's call),
+          the ONE bar this pane has. It carries the way into the history rail and
+          then what this storyboard IS: the look, the character. On the right,
+          what you can do to it as a whole: what the cards show, the export of
+          everything rendered, and the generate passes.
 
-          That was the old shape and it used to break — the buttons are
-          `shrink-0` (a batch pill you can't read is a batch you won't press), so
-          the meta took every squeeze, and past its own min-content the count and
-          the style pill PAINTED OVER the first button; reported at 900px, where
-          the port is ~590px against 592px of pills. It was answered first by
-          wrapping (a strip two rows tall on some windows and one on others) and
-          then by moving the meta out of the bar entirely, down into the
-          storyboard. What makes it work now is that NOTHING on the line shrinks
-          and the line itself scrolls: every pill is `shrink-0`, the meta
-          included, so the collision it kept losing simply can't be expressed.
+          The look, the character and Generate All rode a FLOATING toolbar until
+          now — a centred, blurred, sticky group of pills that followed you down
+          the wall of stills, which was the point of it. What it cost was a
+          second frosted bar 12px under this one, both of them about the
+          storyboard, saying between them what one line says here.
 
-          `w-max min-w-full` is the whole trick. When the content fits, the row
-          is exactly the port, so the `flex-1` spacer opens up and pushes the
-          buttons to the right edge; when it doesn't, the row is exactly its
-          content, the spacer collapses to nothing, and the meta and buttons sit
-          shoulder to shoulder in one swipeable line that starts at the scene
-          count. `-mx-5 px-5` so it scrolls edge to edge while its first and last
-          pills still sit on the panel's own inset. */}
-      {/* `h-[57px]`, the app-wide panel-header height, NOT vertical padding
-          around the pills: the History rail's own band next door is 57px, so
-          `py-3.5` made this strip 61px and the two hairlines missed each other
-          by 4px across the seam (Massimo's report, September 2026). A stated
-          height is also what keeps them level if a pill on either side ever
-          changes size. The scroll port under it takes `flex-1 min-w-0` rather
-          than a width — see the note below, which the flex parent doesn't
-          change: with both margins negative the row still resolves to exactly
-          the strip's padding box. */}
-      {/* The pane's header band. It carries the way into the history rail on
-          the left, and on the right the two controls that act on the STORYBOARD
-          AS A WHOLE rather than on the shot under your cursor (Massimo's call,
-          September 2026): what the cards show, and the export of everything
-          rendered. Both used to ride the floating toolbar below — they travel
-          with the cards there, which is right for the look, the character and
-          the generate passes, but the card filter and the export are read once
-          and left alone, so following you down a wall of stills bought them
-          nothing and cost the row they were on most of its width.
+          What lets one line hold six controls is that only TWO things on it can
+          shrink, and they shrink in the right order. The style and character
+          NAMES truncate — those two pills are `min-w-0`, not `shrink-0` like
+          everything else on the row — so a long custom style name gives its
+          width back before anything is hidden. Under that the two action labels
+          shorten and then go: "Download Clips" → "Clips" → the glyph and its
+          count, "Generate All" → "Generate" → the sparkle. The names drop last.
 
-          Still a flat `h-[57px]` rather than the wrapping band this was before:
-          the toggle, one dropdown and one button are ~380px against a pane that
-          is 70% of the window, and the port below reserves the MEASURED height
-          (`useMeasuredHeight`) either way, so a narrow window that does wrap is
-          already paid for. */}
+          They drop EARLY, though — at the step where a full pair would still
+          just about fit, not at the step where the pills run out of room. Left
+          to truncate the whole way down they reached "U…" and "M…" on a 745px
+          pane, which is a stump saying less than the palette glyph and the face
+          already beside it. So a name is either near enough to whole to read,
+          or it isn't there.
+
+          Those steps are CONTAINER queries on the band, never viewport ones, for
+          the same reason the card grid's column count is: what squeezes this row
+          is the output column, which is ~70% of the window on a desktop and the
+          whole of it on a phone, so a `lg:` here would shorten a label on a pane
+          with 300px to spare. `@container/bar` is on the band and the row inside
+          it does the querying, because a container can't style itself.
+
+          At the bottom of the ladder the row may WRAP onto a second line, and
+          the right-hand group stops being pushed to the far edge at the same
+          step — a wrapped second row hanging right, under a hole, reads as two
+          bars rather than as one that ran out. Wrapping is OFF above that step
+          on purpose: flex breaks lines on an item's UNSHRUNK width, so a row
+          whose pills truncate would wrap while it still had room to truncate
+          instead. That is also why the two ends are held apart by `ml-auto` and
+          not a `flex-1` spacer. Down there the names are already gone, every
+          pill is at its natural size, and the break is honest.
+
+          `min-h-[57px]` is the app-wide panel-header height, so on one line this
+          reads level with the History rail's own band across the seam; on two
+          the port below reserves the MEASURED height (`useMeasuredHeight`) and
+          pays for it. */}
       <div
         ref={barRef}
-        className="absolute inset-x-0 top-0 z-20 flex h-[57px] items-center gap-2 border-b border-ink/5 app-backdrop-frost px-5"
+        className="absolute inset-x-0 top-0 z-20 flex min-h-[57px] border-b border-ink/5 app-backdrop-frost px-5"
       >
-        {railToggle}
-        <div className="ml-auto flex min-w-0 items-center gap-2">
-          {/* What every card shows. Images keeps a card on its still while
-              the clip it animates into renders; a card with nothing of the
-              picked kind sits on its prompt. Nothing is hidden for good. */}
-          {onCardFilterChange && (
-            // A DROPDOWN, not a four-segment toggle (September 2026, Massimo's
-            // call): the toggle spent ~250px showing three options nobody had
-            // picked. One pill naming the current view is the same control in a
-            // fifth of the width, and it is the shape every other filter in the
-            // app already takes.
-            <Dropdown
-              value={cardFilter}
-              options={CARD_FILTER_OPTIONS}
-              onChange={(v: string) => onCardFilterChange(v as CardFilter)}
-              accent="broll"
-              label="Show"
-              fitContent
-              dense
-              className="h-[38px] shrink-0"
-            />
-          )}
-          {/* Download clips stays its own pill and stays neutral: it's the
-              export, not a generate pass, and it spends nothing. */}
-          {allClipEntries.length > 0 && (
+        {/* A box whose ONLY job is to be the query container, and it is separate
+            from the band above it on purpose. `container-type: inline-size`
+            brings layout containment, which makes an element a containing block
+            for fixed-position descendants — and both engines apply that same
+            rule to the element's own `background-attachment: fixed`. Put it on
+            the band and `.app-backdrop-frost`'s viewport-anchored gradient would
+            be squeezed into a 57px box instead of being a 57px window onto a
+            viewport-sized one: a pale strip, and the divider down its left edge
+            losing the contrast it has above and below. `index.css` carries that
+            finding at length, from the time `backdrop-filter` did it.
+
+            The queries therefore measure the band's CONTENT box — the pane less
+            its `px-5` — so every step below is the pane width minus 40. */}
+        <div className="@container/bar flex min-w-0 flex-1">
+          {/* The `min-h` is on the BAND, not on this row: the band carries the
+              hairline, and `border-box` puts that 1px inside a stated height —
+              stating it down here made the band 58px and dropped the seam a
+              pixel below the History rail's own band beside it. */}
+          <div className="flex w-full flex-wrap items-center gap-2 py-2 @[560px]/bar:flex-nowrap">
+            {railToggle}
+            {/* The look every clip in this storyboard renders in. `min-w-0` rather
+                than `shrink-0`: a custom style can be titled anything, and this
+                name is the first width the row asks for back. */}
             <button
               type="button"
-              onClick={() => setDownloadOpen(true)}
-              title="Pick which clips to download as a zip"
-              className="flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-ink/10 px-3.5 text-[13px] font-medium text-ink-400 transition-colors hover:bg-ink/5 hover:text-ink-200"
+              onClick={onChangeStyle}
+              title="Change the visual style every clip renders in"
+              className="inline-flex h-[38px] min-w-0 items-center gap-1.5 rounded-full border border-broll-500/25 bg-broll-500/10 px-3.5 text-[13px] font-semibold tracking-tight text-broll-300 transition-colors hover:border-broll-500/45 hover:bg-broll-500/[0.18]"
             >
-              <Download className="h-3.5 w-3.5" />
-              <span>Download Clips</span>
-              {/* The count is a PILL, not `(8)` in the label (September 2026,
-                  Massimo's call). Parenthesised it read as part of the button's
-                  name and the one number on the row that changes was the least
-                  visible thing on it; as its own chip it is a count beside a
-                  verb, the way every other tally in the app is written. Same
-                  `rounded-full` as the button around it — `tabular-nums` so the
-                  pill holds its width as clips land rather than twitching the
-                  band's right edge on every completion. */}
-              <span className="rounded-full bg-ink/10 px-1.5 py-0.5 text-[10px] font-semibold leading-none tabular-nums text-ink-200">
-                {allClipEntries.length}
+              <Palette className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+              <span className="hidden max-w-[180px] truncate @[740px]/bar:block">
+                {result.styleBrief ? (result.styleName?.trim() || 'Custom style') : getContinuousStyle(result.styleId ?? 'ugc').label}
               </span>
+              <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-60" strokeWidth={2.5} />
             </button>
-          )}
+            <CharacterPill
+              model={selectedModel}
+              onClick={onOpenCharacterPicker}
+              nameClassName="hidden max-w-[160px] truncate @[740px]/bar:block"
+              className="min-w-0"
+            />
+            {/* The split — what the storyboard IS on the left, what you can do to
+                it pushed to the far edge — holds only while the row is ONE line.
+                Below 600 it packs in behind the pills instead: the row is about
+                to wrap there, and a right-aligned second line leaves a hole under
+                the first one and reads as two bars rather than one that ran out
+                of width. Same 600 as the wrap, so there is one number. */}
+            <div className="flex shrink-0 items-center gap-2 @[560px]/bar:ml-auto">
+              {/* What every card shows. Images keeps a card on its still while
+                  the clip it animates into renders; a card with nothing of the
+                  picked kind sits on its prompt. Nothing is hidden for good. */}
+              {onCardFilterChange && (
+                // A DROPDOWN, not a four-segment toggle (September 2026, Massimo's
+                // call): the toggle spent ~250px showing three options nobody had
+                // picked. One pill naming the current view is the same control in a
+                // fifth of the width, and it is the shape every other filter in the
+                // app already takes.
+                <Dropdown
+                  value={cardFilter}
+                  options={CARD_FILTER_OPTIONS}
+                  onChange={(v: string) => onCardFilterChange(v as CardFilter)}
+                  accent="broll"
+                  label="Show"
+                  fitContent
+                  dense
+                  className="h-[38px] shrink-0"
+                />
+              )}
+              {/* Download clips stays its own pill and stays neutral: it's the
+                  export, not a generate pass, and it spends nothing. */}
+              {allClipEntries.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setDownloadOpen(true)}
+                  title="Pick which clips to download as a zip"
+                  className="flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-ink/10 px-3.5 text-[13px] font-medium text-ink-400 transition-colors hover:bg-ink/5 hover:text-ink-200"
+                >
+                  <Download className="h-3.5 w-3.5 shrink-0" />
+                  <BandLabel full="Download Clips" short="Clips" />
+                  {/* The count is a PILL, not `(8)` in the label (September 2026,
+                      Massimo's call). Parenthesised it read as part of the button's
+                      name and the one number on the row that changes was the least
+                      visible thing on it; as its own chip it is a count beside a
+                      verb, the way every other tally in the app is written. Same
+                      `rounded-full` as the button around it — `tabular-nums` so the
+                      pill holds its width as clips land rather than twitching the
+                      band's right edge on every completion. It survives every step
+                      of the ladder: with the label gone it is the only thing left
+                      saying how much there is to export. */}
+                  <span className="shrink-0 rounded-full bg-ink/10 px-1.5 py-0.5 text-[10px] font-semibold leading-none tabular-nums text-ink-200">
+                    {allClipEntries.length}
+                  </span>
+                </button>
+              )}
+              {/* ONE "Generate all", opening the three passes as a menu (August
+                  2026, Massimo's call). They were three pills side by side —
+                  images, the animate pass, videos — tinted as one family in three
+                  depths so the row read as a sequence getting more expensive. What
+                  that cost is the whole bar: three long labels are ~450px, which is
+                  most of the panel at every width the right pane actually gets. The
+                  passes are also mutually exclusive in practice — you run one, wait
+                  for it, then run the next — so they are a choice, not three things
+                  to reach for.
+
+                  The menu is the same anchored popover the constraint chips use, so
+                  it escapes the band's own box and can't be cut off by it. */}
+              <button
+                ref={generateAllRef}
+                type="button"
+                onClick={() => setGenerateAllOpen((v) => !v)}
+                title="Run a generation pass across every scene"
+                // Playground's own header-pill colours (Massimo's call, September
+                // 2026): a neutral outline that lights up on hover, the same as the
+                // Download Clips beside it. Both were tinted — this one broll, that
+                // one emerald — which put two saturated pills on a bar whose actual
+                // subject is the storyboard underneath, and made the row read as
+                // three competing accents once the style pill is counted.
+                className="flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-ink/10 px-3.5 text-[13px] font-medium text-ink-400 transition-colors hover:bg-ink/5 hover:text-ink-200"
+              >
+                <Sparkle className="h-3.5 w-3.5 shrink-0" />
+                <BandLabel full="Generate All" short="Generate" />
+                <ChevronDown
+                  className={`h-3.5 w-3.5 shrink-0 opacity-70 transition-transform duration-200 ${generateAllOpen ? 'rotate-180' : ''}`}
+                  strokeWidth={2.5}
+                />
+              </button>
+              <AnchoredPopover
+                anchorRef={generateAllRef}
+                open={generateAllOpen}
+                onClose={() => setGenerateAllOpen(false)}
+                width={222}
+                estimatedHeight={(animatableKeys.length > 0 ? 3 : 2) * MENU_ROW_HEIGHT + 2}
+              >
+                <MenuSurface className="whitespace-nowrap">
+                  {/* In the order the work happens: stills, then the animate pass
+                      over whatever has one, then clips from the prompts. */}
+                  <MenuItem
+                    icon={Images}
+                    iconClassName="text-broll-300"
+                    onClick={() => {
+                      setGenerateAllOpen(false)
+                      requestBatch(allKeys)
+                    }}
+                  >
+                    Generate All Images
+                  </MenuItem>
+                  {/* Only once there's a still to animate — nothing should render
+                      from a prompt the member hasn't seen a frame of. */}
+                  {animatableKeys.length > 0 && (
+                    <MenuItem
+                      icon={Clapperboard}
+                      iconClassName="text-broll-300"
+                      onClick={() => {
+                        setGenerateAllOpen(false)
+                        requestVideoBatch(allKeys)
+                      }}
+                    >
+                      Animate All Stills
+                    </MenuItem>
+                  )}
+                  <MenuItem
+                    icon={VideoIcon}
+                    iconClassName="text-broll-300"
+                    onClick={() => {
+                      setGenerateAllOpen(false)
+                      requestVideoBatch(allKeys)
+                    }}
+                  >
+                    Generate All Videos
+                  </MenuItem>
+                </MenuSurface>
+              </AnchoredPopover>
+            </div>
+          </div>
         </div>
       </div>
       {/* The scroll port runs the FULL height of the panel, behind the absolute
           bar, which is what lets cards pass under it blurred. `barHeight` is
-          measured (`useMeasuredHeight`) rather than written down twice, because
-          the sticky toolbar's own offset has to be the same number and two
-          hard-coded copies of one measurement always drift. */}
-      <div className="flex-1 overflow-y-auto px-5 pb-4" style={{ paddingTop: barHeight + 12 }}>
-      {/* The storyboard's own toolbar: CENTRED over the cards and STICKY, so it
-          follows you down the wall instead of being something you scroll back
-          up to (Massimo's call, September 2026). It used to be spread along the
-          header band at the top of the pane — the look and the character pushed
-          left, the actions pushed right — which put the controls for the
-          storyboard as far from it as the pane allows, and made a bar that is
-          mostly about the storyboard read as chrome belonging to the panel.
+          measured (`useMeasuredHeight`) rather than written down twice: the band
+          wraps onto a second line on a narrow pane, and a hard-coded reserve is
+          right on one line and a row short on two — the first scene landing
+          under the bar exactly when the pane can least afford it.
 
-          It hugs its content and wraps inside itself, so a narrow pane gets a
-          second row of pills rather than a sideways scroll, and the group stays
-          centred at every width.
-
-          What is left ON it is what you reach for WHILE looking at the cards:
-          the look, the character and the generate passes. The card filter and
-          Download Clips went up to the header band (Massimo's call) — you set
-          them once and leave them, so travelling with the storyboard bought
-          them nothing and cost this row most of its width.
-
-          Its `top` is **0, not the bar's height**, and that is not a
-          shortcut. A sticky element's view rectangle is the scrollport's
-          padding box REDUCED BY the scroll container's own padding, so a
-          `top` here is measured from where the content starts, not from where
-          the port does — and this port already reserves the bar in its
-          `padding-top`. Setting `top` to the bar's height as well stuck it a
-          full bar-height too low (measured: 174px instead of 105px, exactly one
-          padding lower). At 0 it comes to rest precisely where it starts, so
-          the first scroll moves it not at all.
-
-          Opaque-ish and blurred rather than transparent: it is over a wall of
-          stills, and a row of pills with cards showing between them is
-          unreadable. Small chrome, which is the one thing `backdrop-filter` is
-          for in this app. */}
-      <div className="sticky top-0 z-10 mb-6 flex justify-center">
-        <div className="flex max-w-full flex-wrap items-center justify-center gap-2 rounded-full border border-ink/10 bg-surface-1/90 p-2 shadow-lg shadow-black/25 backdrop-blur-md">
-          {/* The look every clip in this storyboard renders in — the one piece
-              of meta left on the line. It is CUT TO THE BATCH PILLS' OWN SIZE
-              (same padding, same 11px, same 3.5 glyph), because a smaller chip
-              at the head of a row of buttons reads as a fragment of one rather
-              than as the thing the row is about. The scene count stood beside
-              it and came out (August 2026, Massimo's call): the storyboard it
-              counts is directly underneath, numbered.
-
-              `shrink-0` like everything else on the line, with the NAME capped
-              instead — a custom style can be titled anything, and an uncapped
-              one would push the batch buttons off the end of a bar that fits. */}
-          <button
-            type="button"
-            onClick={onChangeStyle}
-            title="Change the visual style every clip renders in"
-            className="inline-flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-broll-500/25 bg-broll-500/10 px-3.5 text-[13px] font-semibold tracking-tight text-broll-300 transition-colors hover:border-broll-500/45 hover:bg-broll-500/[0.18]"
-          >
-            <Palette className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
-            <span className="max-w-[180px] truncate">{result.styleBrief ? (result.styleName?.trim() || 'Custom style') : getContinuousStyle(result.styleId ?? 'ugc').label}</span>
-            <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-60" strokeWidth={2.5} />
-          </button>
-          <CharacterPill model={selectedModel} onClick={onOpenCharacterPicker} />
-          {/* ONE "Generate all", opening the three passes as a menu (August
-              2026, Massimo's call). They were three pills side by side —
-              images, the animate pass, videos — tinted as one family in three
-              depths so the row read as a sequence getting more expensive. What
-              that cost is the whole bar: three long labels are ~450px, which is
-              most of the panel at every width the right pane actually gets, and
-              it is why the labels had to shorten below `lg` and why the row had
-              to scroll on a phone at all. The passes are also mutually
-              exclusive in practice — you run one, wait for it, then run the
-              next — so they are a choice, not four things to reach for.
-
-              The menu is the same anchored popover the constraint chips use, so
-              it escapes the strip's own clip and can't be cut off by the scroll
-              port it sits in. */}
-          <button
-            ref={generateAllRef}
-            type="button"
-            onClick={() => setGenerateAllOpen((v) => !v)}
-            title="Run a generation pass across every scene"
-            // Playground's own header-pill colours (Massimo's call, September
-            // 2026): a neutral outline that lights up on hover, the same as the
-            // Download Clips beside it. Both were tinted — this one broll, that
-            // one emerald — which put two saturated pills on a bar whose actual
-            // subject is the storyboard underneath, and made the row read as
-            // three competing accents once the style pill is counted.
-            className="flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-ink/10 px-3.5 text-[13px] font-medium text-ink-400 transition-colors hover:bg-ink/5 hover:text-ink-200"
-          >
-            <Sparkle className="h-3.5 w-3.5" />
-            <span>Generate All</span>
-            <ChevronDown
-              className={`h-3.5 w-3.5 shrink-0 opacity-70 transition-transform duration-200 ${generateAllOpen ? 'rotate-180' : ''}`}
-              strokeWidth={2.5}
-            />
-          </button>
-          <AnchoredPopover
-            anchorRef={generateAllRef}
-            open={generateAllOpen}
-            onClose={() => setGenerateAllOpen(false)}
-            width={222}
-            estimatedHeight={(animatableKeys.length > 0 ? 3 : 2) * MENU_ROW_HEIGHT + 2}
-          >
-            <MenuSurface className="whitespace-nowrap">
-              {/* In the order the work happens: stills, then the animate pass
-                  over whatever has one, then clips from the prompts. */}
-              <MenuItem
-                icon={Images}
-                iconClassName="text-broll-300"
-                onClick={() => {
-                  setGenerateAllOpen(false)
-                  requestBatch(allKeys, 'All scenes', true)
-                }}
-              >
-                Generate All Images
-              </MenuItem>
-              {/* Only once there's a still to animate — nothing should render
-                  from a prompt the member hasn't seen a frame of. */}
-              {animatableKeys.length > 0 && (
-                <MenuItem
-                  icon={Clapperboard}
-                  iconClassName="text-broll-300"
-                  onClick={() => {
-                    setGenerateAllOpen(false)
-                    requestVideoBatch(allKeys, 'All stills', true, true)
-                  }}
-                >
-                  Animate All Stills
-                </MenuItem>
-              )}
-              <MenuItem
-                icon={VideoIcon}
-                iconClassName="text-broll-300"
-                onClick={() => {
-                  setGenerateAllOpen(false)
-                  requestVideoBatch(allKeys, 'All scenes', true)
-                }}
-              >
-                Generate All Videos
-              </MenuItem>
-            </MenuSurface>
-          </AnchoredPopover>
-        </div>
-      </div>
+          +20, not +12. The floating toolbar used to stand in this gap and carry
+          its own `mb-6`; with it gone, 12px put scene one's 48px numeral hard up
+          against the hairline. 20 is the stand-off every other pinned bar in the
+          app reserves over its content. */}
+      <div className="flex-1 overflow-y-auto px-5 pb-4" style={{ paddingTop: barHeight + 20 }}>
       <div className="flex flex-col gap-10">
         {result.scenes.map((scene) => (
           <SceneSection
@@ -1286,16 +1337,10 @@ export default function ScenesView({
             batchVideoOverride={batchVideoOverride}
             dialogueChainRefs={dialogueChainRefs}
             onGenerateScene={() =>
-              requestBatch(
-                scene.variations.map((_, i) => `${scene.number}-${i}`),
-                `Scene ${scene.number}`,
-              )
+              requestBatch(scene.variations.map((_, i) => `${scene.number}-${i}`))
             }
             onGenerateSceneVideos={() =>
-              requestVideoBatch(
-                scene.variations.map((_, i) => `${scene.number}-${i}`),
-                `Scene ${scene.number}`,
-              )
+              requestVideoBatch(scene.variations.map((_, i) => `${scene.number}-${i}`))
             }
             resultStyle={result.style}
             resultRealism={result.realism}
@@ -1313,30 +1358,92 @@ export default function ScenesView({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md rounded-2xl border border-ink/10 bg-ink-950/95 p-5 shadow-2xl"
+            className="w-full max-w-lg overflow-hidden rounded-2xl border border-ink/10 bg-ink-950/95 shadow-2xl"
           >
             {/* Same shape as the video dialog below — the two open from
                 buttons sitting side by side and must read as a pair. */}
-            <h3 className="text-sm font-medium text-ink-100">
-              {batchTargets.length === 0 ? 'Nothing to Generate' : 'Generate Images'}
-            </h3>
-            <p className="mt-1 text-xs text-ink-500">
-              {[batchConfirm.scope, batchColumn !== 'all' ? `Option ${batchColumn + 1}` : null]
-                .filter(Boolean).join(' · ')}
-            </p>
+            {/* The heading is a BAND with its own padding, not a line sitting
+                in the dialog's `p-5` under a bled rule (September 2026,
+                Massimo's call). The rule was `-mx-5 mt-3.5` below a row that
+                `items-start` had top-aligned against a 32px close button, so a
+                20px title left 12px of nothing under it and the margin added 14
+                more: ~30px of blank band. A band centres the two against each
+                other and states the gap once. Same shape and the same hairline
+                as the clip-download modal's header. */}
+            {/* The title alone — NO subtext (September 2026, Massimo's call).
+                The scope, the option and the line count all went first as
+                repeats of the controls below; "from the card stills" went with
+                them. What a run is made of is on the cards and on the button,
+                and a heading band with a second line under it in one dialog and
+                not the other never read as a pair.
 
+                A PER-SCENE press keeps its one piece of context, and it is the
+                storyboard's own identity header rather than a sentence: the
+                italic serif numeral, a vertical rule, the title. The same three
+                marks a card's detail modal opens with, so "01 │ Generate
+                Videos" reads as the scene you pressed rather than as a line of
+                prose saying so. A run spanning more than one scene draws no
+                numeral — there is a checklist under it naming every line. */}
+            <div className="flex items-center justify-between gap-3 border-b border-ink/5 px-5 py-3">
+              <div className="flex min-w-0 items-center gap-3">
+              {batchSceneNumbers.length === 1 && (
+                <>
+                  <span
+                    className="shrink-0 text-2xl font-normal italic leading-none tabular-nums text-ink-600"
+                    style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
+                  >
+                    {String(batchSceneNumbers[0]).padStart(2, '0')}
+                  </span>
+                  <div className="h-6 w-px shrink-0 bg-ink/10" />
+                </>
+              )}
+                <h3 className="min-w-0 truncate text-sm font-medium text-ink-100">
+                  {batchTargets.length === 0 ? 'Nothing to Generate' : 'Generate Images'}
+                </h3>
+              </div>
+              {/* The way out is the CORNER X, not a Cancel beside Generate
+                  (September 2026, Massimo's call). Cancel and Generate were a
+                  pair of equal-looking pills at the foot of a dialog whose
+                  whole job is one decision — and the dismissive half of that
+                  pair is already on the backdrop and on Escape. Out of the
+                  footer, Generate takes the full width, which is the shape
+                  every primary CTA in this app has. Same corner button the
+                  clip-download modal wears, so the two read as one family. */}
+              <button
+                type="button"
+                onClick={() => setBatchConfirm(null)}
+                title="Close (Esc)"
+                aria-label="Close"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-ink/10 text-ink-400 transition-colors hover:bg-ink/10 hover:text-ink-200"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            {/* ONE gap for the whole stack (September 2026, Massimo's call).
+                Every block in here used to bring its own top margin — `mt-3` on
+                the chips, the checklist and the regenerate toggle, `mt-4` on
+                the settings group and again on the footer, `gap-2.5` inside the
+                settings group, `mt-1.5` between the two warnings — so the
+                spacing stepped 12, 12, 12, 16, 10, 16 down a stack of blocks
+                that are all peers. A flex column with one `gap-3` is the whole
+                rule, and it costs nothing when a block renders null. Nothing in
+                here may carry a `mt-`. */}
+            <div className="flex flex-col gap-3 px-5 py-4">
             <ColumnChips
-              columns={batchColumns}
-              value={batchColumn}
-              onChange={setBatchColumn}
-              isDone={(col) =>
-                !!batchConfirm.keys.some((k) => columnOf(k) === col && promptReady(k)) &&
-                batchConfirm.keys.every((k) => columnOf(k) !== col || !promptReady(k) || hasImage(k))
-              }
+              columns={batchColumnNumbers}
+              selected={batchColumns}
+              onChange={setBatchColumns}
+            />
+
+            <LineChecklist
+              scenes={batchSceneNumbers}
+              lineOf={(n) => scriptLineByScene[n] ?? ''}
+              selected={batchLines}
+              onChange={setBatchLines}
             />
 
             {batchDone.length > 0 && (
-              <label className="mt-3 flex cursor-pointer items-center gap-2.5 rounded-xl border border-ink/10 bg-ink/[0.03] px-3 py-2.5">
+              <label className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-ink/10 bg-ink/[0.03] px-3 py-2.5">
                 <input
                   type="checkbox"
                   checked={includeExisting}
@@ -1351,83 +1458,102 @@ export default function ScenesView({
             )}
 
             {/* Run settings — model is the shared B-Roll image model; resolution
-                and aspect apply to every card in this batch. */}
-            <div className="mt-4 flex flex-col gap-2.5">
-              <ModelPicker
-                appId="broll-studio"
-                task="image"
-                mode="text-to-image"
-              />
-              {(batchAspectOptions.length > 0 || batchResOptions.length > 0) && (
-                <div className="flex flex-wrap items-center gap-2">
-                  {batchAspectOptions.length > 0 && (
-                    <ConstraintChip
-                      grow
-                      openDirection="up"
-                      options={batchAspectOptions}
-                      value={effectiveBatchAspect ?? batchAspectOptions[0]}
-                      onChange={(v) => setBatchAspect(v)}
-                      render={(v) => (
-                        <span className="flex items-center gap-1.5">
-                          <AspectIcon ratio={v} />
-                          <span>{v}</span>
-                        </span>
-                      )}
-                    />
-                  )}
-                  {batchResOptions.length > 0 && (
-                    <ConstraintChip
-                      grow
-                      openDirection="up"
-                      options={batchResOptions as string[]}
-                      value={(effectiveBatchRes ?? batchResOptions[0]) as string}
-                      onChange={(v) => setBatchResolution(v as ImageResolution)}
-                      renderOption={(v) => {
-                        const credits = formatCredits(estimateCredits(batchImageModelId, { imageCount: 1, resolution: v as ImageResolution }))
-                        return (
-                          <span className="flex w-full items-center justify-between gap-6">
-                            <span>{v}</span>
-                            {credits && <span className="text-ink-500">{credits}</span>}
-                          </span>
-                        )
-                      }}
-                    />
-                  )}
-                </div>
+                and aspect apply to every card in this batch. The trigger is the
+                house one (provider mark, name, star, "% off", chevron), and it
+                opens the centred panel rather than a list inside this dialog. */}
+            <button
+              type="button"
+              onClick={() => setBatchModelOpen(true)}
+              className="flex h-12 w-full items-center gap-2.5 rounded-full border border-ink/10 bg-ink/[0.02] px-3 text-left transition-colors hover:bg-ink/[0.05]"
+            >
+              {batchImageModelId ? (
+                <>
+                  <ProviderLogo provider={getModel(batchImageModelId)?.provider ?? ''} />
+                  <ModelTriggerLabel
+                    name={getModel(batchImageModelId)?.displayName ?? batchImageModelId}
+                    recommended={!!getModel(batchImageModelId)?.tags.includes('recommended')}
+                    savings={officialSavingsPercent(batchImageModelId)}
+                  />
+                </>
+              ) : (
+                <span className="flex-1 truncate text-sm text-ink-400">Select Model</span>
               )}
-            </div>
+              <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" />
+            </button>
+            <ModelPickerModal
+              appId="broll-studio"
+              task="image"
+              mode="text-to-image"
+              isOpen={batchModelOpen}
+              onClose={() => setBatchModelOpen(false)}
+              costParams={{ imageCount: 1, resolution: effectiveBatchRes }}
+            />
+            {(batchAspectOptions.length > 0 || batchResOptions.length > 0) && (
+              <div className="flex flex-wrap items-center gap-2">
+                {batchAspectOptions.length > 0 && (
+                  <ConstraintChip
+                    grow
+                    openDirection="up"
+                    options={batchAspectOptions}
+                    value={effectiveBatchAspect ?? batchAspectOptions[0]}
+                    onChange={(v) => setBatchAspect(v)}
+                    render={(v) => (
+                      <span className="flex items-center gap-1.5">
+                        <AspectIcon ratio={v} />
+                        <span>{v}</span>
+                      </span>
+                    )}
+                  />
+                )}
+                {batchResOptions.length > 0 && (
+                  <ConstraintChip
+                    grow
+                    openDirection="up"
+                    options={batchResOptions as string[]}
+                    value={(effectiveBatchRes ?? batchResOptions[0]) as string}
+                    onChange={(v) => setBatchResolution(v as ImageResolution)}
+                    renderOption={(v) => {
+                      const credits = formatCredits(estimateCredits(batchImageModelId, { imageCount: 1, resolution: v as ImageResolution }))
+                      return (
+                        <span className="flex w-full items-center justify-between gap-6">
+                          <span>{v}</span>
+                          {credits && <span className="text-ink-500">{credits}</span>}
+                        </span>
+                      )
+                    }}
+                  />
+                )}
+              </div>
+            )}
 
             {balance !== null && batchOverBudget && (
-              <p className="mt-3 text-[11px] text-red-400 light:text-red-600">
+              <p className="text-[11px] text-red-400 light:text-red-600">
                 Not enough credits. Your balance is {balance.toLocaleString()}.
               </p>
             )}
-            <div className="mt-4 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setBatchConfirm(null)}
-                className="flex items-center gap-1 rounded-full border border-ink/10 bg-ink/[0.03] px-3.5 py-1.5 text-[13px] font-medium text-ink-300 transition-colors hover:bg-ink/[0.06]"
-              >
-                <X className="h-3.5 w-3.5" />
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={confirmBatch}
-                disabled={batchTargets.length === 0}
-                className="flex items-center gap-2 rounded-full border border-white/15 bg-broll-500 py-1.5 pl-4 pr-2 text-[13px] font-medium text-white transition-colors hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-broll-500"
-              >
-                <Images className="h-3.5 w-3.5" />
-                {batchTargets.length === 0
-                  ? 'Generate'
-                  : `Generate ${batchTargets.length} image${batchTargets.length === 1 ? '' : 's'}`}
-                <span className="flex items-center gap-1 rounded-full bg-black/25 px-2 py-0.5 text-[11px] tabular-nums">
-                  <Coins className="h-3 w-3" strokeWidth={2} />
-                  {/* An empty run costs nothing — formatCredits(0) would read
-                      "< 1 credit", which looks like a real charge. */}
-                  {batchTargets.length === 0 ? '—' : formatCredits(batchTotalCredits) ?? '—'}
-                </span>
-              </button>
+            {/* One control, the full width, and it is the one that spends
+                (September 2026, Massimo's call). `h-[46px]`, a step up again
+                from the pair this replaced: with nothing beside it the button
+                is the dialog's whole last line, and the app's own primary CTAs
+                are this tall. Cancel went to the corner X — see the note on the
+                heading. Both dialogs move together. */}
+            <button
+              type="button"
+              onClick={confirmBatch}
+              disabled={batchTargets.length === 0}
+              className="flex h-[46px] w-full items-center justify-center gap-2 rounded-full border border-white/15 bg-broll-500 px-4 text-[13px] font-bold tracking-tight text-white transition-colors hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-broll-500"
+            >
+              <Images className="h-3.5 w-3.5" />
+              {batchTargets.length === 0
+                ? 'Generate'
+                : `Generate ${batchTargets.length} Image${batchTargets.length === 1 ? '' : 's'}`}
+              <span className="flex items-center gap-1 rounded-full bg-black/25 px-2 py-0.5 text-[11px] font-semibold tabular-nums">
+                <Coins className="h-3 w-3" strokeWidth={2} />
+                {/* An empty run costs nothing — formatCredits(0) would read
+                    "< 1 credit", which looks like a real charge. */}
+                {batchTargets.length === 0 ? '—' : formatCredits(batchTotalCredits) ?? '—'}
+              </span>
+            </button>
             </div>
           </div>
         </div>,
@@ -1443,38 +1569,67 @@ export default function ScenesView({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md rounded-2xl border border-ink/10 bg-ink-950/95 p-5 shadow-2xl"
+            className="w-full max-w-lg overflow-hidden rounded-2xl border border-ink/10 bg-ink-950/95 shadow-2xl"
           >
             {/* One title, one line of context. The count and the price live on
                 the Generate button — everything else this dialog used to
                 explain (parallel rendering, refresh-safety, why some cards are
                 skipped) is either obvious from the storyboard behind it or
-                already said by the controls below. */}
-            <h3 className="text-sm font-medium text-ink-100">
-              {videoTargets.length === 0
-                ? (videoConfirm.stillsOnly ? 'Nothing to animate' : 'Nothing to generate')
-                : (videoConfirm.stillsOnly ? 'Animate Stills' : 'Generate Videos')}
-            </h3>
-            <p className="mt-1 text-xs text-ink-500">
-              {[
-                videoConfirm.scope,
-                videoColumn !== 'all' ? `Option ${videoColumn + 1}` : null,
-                videoSourceNote,
-              ].filter(Boolean).join(' · ')}
-            </p>
-
+                already said by the controls below. The band and the one-gap
+                body below are the image dialog's — see the notes there. */}
+            <div className="flex items-center justify-between gap-3 border-b border-ink/5 px-5 py-3">
+              <div className="flex min-w-0 items-center gap-3">
+              {videoSceneNumbers.length === 1 && (
+                <>
+                  <span
+                    className="shrink-0 text-2xl font-normal italic leading-none tabular-nums text-ink-600"
+                    style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
+                  >
+                    {String(videoSceneNumbers[0]).padStart(2, '0')}
+                  </span>
+                  <div className="h-6 w-px shrink-0 bg-ink/10" />
+                </>
+              )}
+                <h3 className="min-w-0 truncate text-sm font-medium text-ink-100">
+                  {videoTargets.length === 0
+                    ? (videoConfirm.stillsOnly ? 'Nothing to Animate' : 'Nothing to Generate')
+                    : (videoConfirm.stillsOnly ? 'Animate Stills' : 'Generate Videos')}
+                </h3>
+              </div>
+              {/* The way out is the CORNER X, not a Cancel beside Generate
+                  (September 2026, Massimo's call). Cancel and Generate were a
+                  pair of equal-looking pills at the foot of a dialog whose
+                  whole job is one decision — and the dismissive half of that
+                  pair is already on the backdrop and on Escape. Out of the
+                  footer, Generate takes the full width, which is the shape
+                  every primary CTA in this app has. Same corner button the
+                  clip-download modal wears, so the two read as one family. */}
+              <button
+                type="button"
+                onClick={() => setVideoConfirm(null)}
+                title="Close (Esc)"
+                aria-label="Close"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-ink/10 text-ink-400 transition-colors hover:bg-ink/10 hover:text-ink-200"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex flex-col gap-3 px-5 py-4">
             <ColumnChips
-              columns={videoColumns}
-              value={videoColumn}
-              onChange={setVideoColumn}
-              isDone={(col) =>
-                !!videoConfirm.keys.some((k) => columnOf(k) === col && videoEligible(k)) &&
-                videoConfirm.keys.every((k) => columnOf(k) !== col || !videoEligible(k) || hasVideo(k))
-              }
+              columns={videoColumnNumbers}
+              selected={videoColumns}
+              onChange={setVideoColumns}
+            />
+
+            <LineChecklist
+              scenes={videoSceneNumbers}
+              lineOf={(n) => scriptLineByScene[n] ?? ''}
+              selected={videoLines}
+              onChange={setVideoLines}
             />
 
             {videoDone.length > 0 && (
-              <label className="mt-3 flex cursor-pointer items-center gap-2.5 rounded-xl border border-ink/10 bg-ink/[0.03] px-3 py-2.5">
+              <label className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-ink/10 bg-ink/[0.03] px-3 py-2.5">
                 <input
                   type="checkbox"
                   checked={includeExistingVideos}
@@ -1491,88 +1646,98 @@ export default function ScenesView({
             {/* Run settings — the shared B-Roll video model (same setting the
                 card modal's picker writes), plus one resolution and one clip
                 length for every video in the batch. */}
-            <div className="mt-4 flex flex-col gap-2.5">
-              <ModelPicker
-                appId="broll-studio"
-                task="video"
-                costParams={{ durationSeconds: representativeSeconds, resolution: effectiveVideoRes }}
-                requireAnyModes={videoAnimateCount > 0 ? STILL_CAPABLE_MODES : undefined}
-                requireModeNote="Greyed-out models can't animate a still. They take neither a start frame nor reference images."
-              />
-              {(batchVideoResOptions.length > 0 || batchVideoDurationOptions.length > 0) && (
-                <div className="flex flex-wrap items-center gap-2">
-                  {batchVideoResOptions.length > 0 && (
-                    <ConstraintChip
-                      grow
-                      openDirection="up"
-                      options={batchVideoResOptions}
-                      value={effectiveVideoRes}
-                      onChange={(v) => setBatchVideoResolution(v)}
-                      render={videoResolutionLabel}
-                    />
-                  )}
-                  {/* Clip length. On a Dialogue Clips storyboard it defaults to
-                      Auto — one length per spoken line rather than one length
-                      for the whole run — and the trigger reads back the run's
-                      real spread ("Auto · 5–10s"), since every one of those
-                      seconds is billed on the button below. A silent b-roll run
-                      has no words to fit, so it's the plain ladder pinned for
-                      the run, as it was before Auto existed. */}
-                  {batchVideoDurationOptions.length > 0 && (
-                    <ConstraintChip
-                      grow
-                      openDirection="up"
-                      options={[
-                        ...(runHasSpokenCard ? [AUTO_DURATION] : []),
-                        ...batchVideoDurationOptions.map(String),
-                      ]}
-                      value={pinnedVideoDuration ? String(pinnedVideoDuration) : AUTO_DURATION}
-                      onChange={(v) => setBatchVideoDuration(v === AUTO_DURATION ? undefined : Number(v))}
-                      render={(v) => (
-                        <span>{v === AUTO_DURATION ? autoDurationLabel : `${v}s`}</span>
-                      )}
-                      renderOption={(v) => (
-                        v === AUTO_DURATION ? (
-                          <span className="flex w-full items-center justify-between gap-6">
-                            <span>Auto</span>
-                            <span className="text-ink-500">fits each line</span>
-                          </span>
-                        ) : (
-                          <span>{v}s</span>
-                        )
-                      )}
-                    />
-                  )}
-                </div>
+            <button
+              type="button"
+              onClick={() => setVideoModelOpen(true)}
+              className="flex h-12 w-full items-center gap-2.5 rounded-full border border-ink/10 bg-ink/[0.02] px-3 text-left transition-colors hover:bg-ink/[0.05]"
+            >
+              {batchVideoModelId ? (
+                <>
+                  <ProviderLogo provider={getModel(batchVideoModelId)?.provider ?? ''} />
+                  <ModelTriggerLabel
+                    name={getModel(batchVideoModelId)?.displayName ?? batchVideoModelId}
+                    recommended={!!getModel(batchVideoModelId)?.tags.includes('recommended')}
+                    savings={officialSavingsPercent(batchVideoModelId)}
+                  />
+                </>
+              ) : (
+                <span className="flex-1 truncate text-sm text-ink-400">Select Model</span>
               )}
-            </div>
+              <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" />
+            </button>
+            <ModelPickerModal
+              appId="broll-studio"
+              task="video"
+              isOpen={videoModelOpen}
+              onClose={() => setVideoModelOpen(false)}
+              costParams={{ durationSeconds: representativeSeconds, resolution: effectiveVideoRes }}
+              requireAnyModes={videoAnimateCount > 0 ? STILL_CAPABLE_MODES : undefined}
+              requireModeNote="Greyed-out models can't animate a still. They take neither a start frame nor reference images."
+            />
+            {(batchVideoResOptions.length > 0 || batchVideoDurationOptions.length > 0) && (
+              <div className="flex flex-wrap items-center gap-2">
+                {batchVideoResOptions.length > 0 && (
+                  <ConstraintChip
+                    grow
+                    openDirection="up"
+                    options={batchVideoResOptions}
+                    value={effectiveVideoRes}
+                    onChange={(v) => setBatchVideoResolution(v)}
+                    render={videoResolutionLabel}
+                  />
+                )}
+                {/* Clip length. On a Dialogue Clips storyboard it defaults to
+                    Auto — one length per spoken line rather than one length
+                    for the whole run — and the trigger reads back the run's
+                    real spread ("Auto · 5–10s"), since every one of those
+                    seconds is billed on the button below. A silent b-roll run
+                    has no words to fit, so it's the plain ladder pinned for
+                    the run, as it was before Auto existed. */}
+                {batchVideoDurationOptions.length > 0 && (
+                  <ConstraintChip
+                    grow
+                    openDirection="up"
+                    options={[
+                      ...(runHasSpokenCard ? [AUTO_DURATION] : []),
+                      ...batchVideoDurationOptions.map(String),
+                    ]}
+                    value={pinnedVideoDuration ? String(pinnedVideoDuration) : AUTO_DURATION}
+                    onChange={(v) => setBatchVideoDuration(v === AUTO_DURATION ? undefined : Number(v))}
+                    render={(v) => (
+                      <span>{v === AUTO_DURATION ? autoDurationLabel : `${v}s`}</span>
+                    )}
+                    renderOption={(v) => (
+                      v === AUTO_DURATION ? (
+                        <span className="flex w-full items-center justify-between gap-6">
+                          <span>Auto</span>
+                          <span className="text-ink-500">fits each line</span>
+                        </span>
+                      ) : (
+                        <span>{v}s</span>
+                      )
+                    )}
+                />
+              )}
+              </div>
+            )}
 
             {/* Balance only when it's in the way — the price itself rides on
                 the button. */}
             {balance !== null && videoOverBudget && (
-              <p className="mt-3 text-[11px] text-red-400 light:text-red-600">
+              <p className="text-[11px] text-red-400 light:text-red-600">
                 Not enough credits. Your balance is {balance.toLocaleString()}.
               </p>
             )}
             {videoModelCantAnimate && (
-              <p className="mt-1.5 text-[11px] text-red-300 light:text-red-700">
+              <p className="text-[11px] text-red-300 light:text-red-700">
                 {getModel(batchVideoModelId ?? '')?.displayName ?? 'This model'} can&rsquo;t animate a still. Every card with an image would fail. Pick a model that takes a start frame or reference images.
               </p>
             )}
-            <div className="mt-4 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setVideoConfirm(null)}
-                className="flex items-center gap-1 rounded-full border border-ink/10 bg-ink/[0.03] px-3.5 py-1.5 text-[13px] font-medium text-ink-300 transition-colors hover:bg-ink/[0.06]"
-              >
-                <X className="h-3.5 w-3.5" />
-                Cancel
-              </button>
               <button
                 type="button"
                 onClick={confirmVideoBatch}
                 disabled={videoTargets.length === 0 || videoModelCantAnimate}
-                className="flex items-center gap-2 rounded-full border border-white/15 bg-broll-500 py-1.5 pl-4 pr-2 text-[13px] font-medium text-white transition-colors hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-broll-500"
+                className="flex h-[46px] w-full items-center justify-center gap-2 rounded-full border border-white/15 bg-broll-500 px-4 text-[13px] font-bold tracking-tight text-white transition-colors hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-broll-500"
               >
                 {videoConfirm.stillsOnly
                   ? <Clapperboard className="h-3.5 w-3.5" />
@@ -1580,10 +1745,10 @@ export default function ScenesView({
                 {videoTargets.length === 0
                   ? (videoConfirm.stillsOnly ? 'Animate' : 'Generate')
                   : videoConfirm.stillsOnly
-                    ? `Animate ${videoTargets.length} still${videoTargets.length === 1 ? '' : 's'}`
-                    : `Generate ${videoTargets.length} video${videoTargets.length === 1 ? '' : 's'}`}
+                    ? `Animate ${videoTargets.length} Still${videoTargets.length === 1 ? '' : 's'}`
+                    : `Generate ${videoTargets.length} Video${videoTargets.length === 1 ? '' : 's'}`}
                 {/* The price sits on the button that spends it. */}
-                <span className="flex items-center gap-1 rounded-full bg-black/25 px-2 py-0.5 text-[11px] tabular-nums">
+                <span className="flex items-center gap-1 rounded-full bg-black/25 px-2 py-0.5 text-[11px] font-semibold tabular-nums">
                   <Coins className="h-3 w-3" strokeWidth={2} />
                   {videoTargets.length === 0 ? '—' : formatCredits(videoBatchCredits) ?? '—'}
                 </span>
@@ -1598,7 +1763,6 @@ export default function ScenesView({
         <ClipDownloadModal
           entries={allClipEntries}
           zipBasename="broll-clips"
-          subtitle="Every card&rsquo;s cover clip is picked. Tick the extra takes you also want."
           onClose={() => setDownloadOpen(false)}
         />
       )}
@@ -1610,18 +1774,21 @@ export default function ScenesView({
 // single-scene batch (one card per column — the choice would be meaningless).
 function ColumnChips({
   columns,
-  value,
+  selected,
   onChange,
-  isDone,
 }: {
   columns: number[]
-  value: BatchColumn
-  onChange: (value: BatchColumn) => void
-  // Column has nothing left to generate — ticked, so a member walking the
-  // columns can see how far they've got.
-  isDone: (col: number) => boolean
+  selected: Set<number>
+  onChange: (next: Set<number>) => void
 }) {
   if (columns.length < 2) return null
+  const allOn = columns.every((c) => selected.has(c))
+  const toggle = (col: number) => {
+    const next = new Set(selected)
+    if (next.has(col)) next.delete(col)
+    else next.add(col)
+    onChange(next)
+  }
   const chip = (active: boolean) =>
     `flex items-center gap-1 rounded-full border px-3 py-1 text-[11px] font-medium transition-colors ${
       active
@@ -1629,20 +1796,143 @@ function ColumnChips({
         : 'border-ink/10 bg-ink/[0.03] text-ink-400 hover:border-ink/20 hover:bg-ink/[0.06] hover:text-ink-200'
     }`
   return (
-    <div className="mt-3">
+    <div>
       {/* No eyebrow and no hint paragraph: the chips say "Option 1 / All
-          options" in full, and a dialog that has to teach on every open is a
-          dialog nobody reads. */}
+          Options" in full, and a dialog that has to teach on every open is a
+          dialog nobody reads.
+
+          **All Options LEADS the row** (September 2026, Massimo's call). It is
+          the state the dialog opens in and the one you come back to, and it sat
+          at the far end, past a row that grows with the storyboard — so the
+          selected chip was the last thing on the line and the way back to it
+          moved every time the deliveries changed. First, it is where the eye
+          already is.
+
+          **They MULTI-SELECT, every option ticked on open** (September 2026,
+          Massimo's call). They were one-of-N — pick Option 2 and you lost
+          Option 1 — so a member wanting two of three deliveries had to run the
+          dialog twice and pay two round trips of attention for one decision.
+          Ticked-by-default is the same promise the line checklist makes: the
+          dialog opens on the whole run, and narrowing it is the deliberate act.
+          "All Options" is the way back to that state and lights only when it IS
+          the state; it never clears, because a run of nothing is not a thing to
+          offer a shortcut to.
+
+          The tick inside a chip means SELECTED now. It used to mean "this
+          column has nothing left to generate", which was already ambiguous
+          beside a filled chip and would be unreadable with every chip ticked on
+          open. What it was telling you is said in words directly below — "Also
+          regenerate the N cards that already have an image" — and in the count
+          on the Generate button. */}
       <div className="flex flex-wrap items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => onChange(new Set(columns))}
+          className={chip(allOn)}
+          title="Cover every option"
+        >
+          All Options
+        </button>
         {columns.map((col) => (
-          <button key={col} type="button" onClick={() => onChange(col)} className={chip(value === col)}>
-            {isDone(col) && <Check className="h-3 w-3 shrink-0" strokeWidth={2.5} />}
+          <button key={col} type="button" onClick={() => toggle(col)} className={chip(selected.has(col))}>
+            {selected.has(col) && <Check className="h-3 w-3 shrink-0" strokeWidth={2.5} />}
             Option {col + 1}
           </button>
         ))}
-        <button type="button" onClick={() => onChange('all')} className={chip(value === 'all')}>
-          All options
+      </div>
+    </div>
+  )
+}
+
+// The other axis of the same scoping: which LINES of the script the run covers.
+// The option chips pick a column across the storyboard; this picks the rows down
+// it. Every line is ticked when the dialog opens, so the default is still the
+// whole run and narrowing it is a deliberate act — the same promise the chips
+// make (September 2026, Massimo's call: *"allow the user to list out all the
+// lines of their script with a checkbox ... they can select which lines they
+// want to generate for"*).
+//
+// A checklist and not more chips: a storyboard is routinely a dozen lines, the
+// picks are not mutually exclusive, and the thing a member recognises a line by
+// is the WORDS — so each row has to be wide enough to print them. The list caps
+// its own height and scrolls; the dialog must not grow with the script.
+//
+// It renders only for a run that spans more than one line. A per-scene press
+// already names its one line in the dialog's subtitle, and a checklist of one
+// is a control with nothing to choose.
+function LineChecklist({
+  scenes,
+  lineOf,
+  selected,
+  onChange,
+}: {
+  scenes: number[]
+  lineOf: (scene: number) => string
+  selected: Set<number>
+  onChange: (next: Set<number>) => void
+}) {
+  if (scenes.length < 2) return null
+  const allOn = scenes.every((n) => selected.has(n))
+  const toggle = (scene: number) => {
+    const next = new Set(selected)
+    if (next.has(scene)) next.delete(scene)
+    else next.add(scene)
+    onChange(next)
+  }
+  // No `mt-` here or on the chips above: both dialogs stack their blocks in a
+  // flex column with one gap, and a block that also brings a margin of its own
+  // is exactly the unevenness that stack exists to stop.
+  return (
+    <div className="overflow-hidden rounded-xl border border-ink/10 bg-ink/[0.03]">
+      {/* A count, not a label. "Lines" on its own would be an eyebrow over a
+          list that is self-evidently a list of lines; the count is the one
+          thing here that changes as you tick, and it is what the Generate
+          button's own number is derived from. */}
+      <div className="flex items-center justify-between gap-2 border-b border-ink/5 px-3 py-2">
+        <span className="text-[11px] font-medium text-ink-400">
+          {selected.size} of {scenes.length} Lines
+        </span>
+        <button
+          type="button"
+          onClick={() => onChange(allOn ? new Set() : new Set(scenes))}
+          className="rounded-full px-2 py-0.5 text-[11px] font-medium text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200"
+        >
+          {allOn ? 'Clear' : 'Select All'}
         </button>
+      </div>
+      {/* ~5 rows before it scrolls. Tall enough that a short storyboard never
+          scrolls at all, short enough that a twenty-line one can't push the
+          model picker and the Generate button off a laptop screen. */}
+      <div className="max-h-[188px] overflow-y-auto p-1">
+        {scenes.map((scene) => (
+          <label
+            key={scene}
+            className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-ink/[0.05]"
+          >
+            <input
+              type="checkbox"
+              checked={selected.has(scene)}
+              onChange={() => toggle(scene)}
+              className="h-3.5 w-3.5 shrink-0 accent-broll-500"
+            />
+            <span
+              className="shrink-0 text-base italic leading-none tabular-nums text-ink-500"
+              style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
+            >
+              {String(scene).padStart(2, '0')}
+            </span>
+            {/* Truncated, never wrapped: the rows have to stay one height or
+                the list's own cap means a different number of lines each time
+                it opens. The full sentence is in the `title`. */}
+            <span
+              className="min-w-0 flex-1 truncate text-sm tracking-[-0.015em] text-ink-300"
+              style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
+              title={lineOf(scene)}
+            >
+              &ldquo;{lineOf(scene)}&rdquo;
+            </span>
+          </label>
+        ))}
       </div>
     </div>
   )
@@ -1657,6 +1947,7 @@ function ColumnChips({
 const VariationCardRow = memo(function VariationCardRow({
   cardKey,
   sceneNumber,
+  optionNumber,
   scriptLine,
   variation,
   cardState,
@@ -1689,6 +1980,7 @@ const VariationCardRow = memo(function VariationCardRow({
 }: {
   cardKey: string
   sceneNumber: number
+  optionNumber: number
   scriptLine: string
   variation: PromptVariation
   cardState: CardState
@@ -1739,6 +2031,7 @@ const VariationCardRow = memo(function VariationCardRow({
   return (
     <VariationCard
       sceneNumber={sceneNumber}
+      optionNumber={optionNumber}
       scriptLine={scriptLine}
       variation={variation}
       cardState={cardState}
@@ -1975,7 +2268,29 @@ function SceneSection({
             {/* The line itself, and the place you retype it. Clicking it opens
                 the editor; saving swaps the quoted words in this scene's
                 prompts, so a dialogue card says the new sentence without a
-                regeneration. Read-only when the host doesn't hand us a handler. */}
+                regeneration. Read-only when the host doesn't hand us a handler.
+
+                **Instrument Serif**, the app's own display face, same as the
+                numeral over it (September 2026, Massimo's call). It is
+                `font-normal` and has to stay there: the face ships ONE weight,
+                so a `font-light` or a `font-bold` only asks the browser to
+                synthesize one — see the Dashboard's masthead, where that was
+                tried and reverted. It is also set a step LARGER than the sans
+                it replaced (20px against 18, 17 against 15 in the detail
+                modals), because a serif's smaller x-height reads a size down at
+                the same number.
+
+                `tracking-[-0.015em]`, and that number walked (Massimo's call,
+                September 2026). It was `tracking-tight` while the line was a
+                sans, went to -0.035em to tighten it, and came BACK past
+                `tracking-tight` when the face changed: Instrument Serif is
+                already tightly set, so a negative meant for Geist crowded it.
+                Tighten the sans, loosen the serif — the number belongs to the
+                face, not to the taste. Face, weight, size and tracking are ONE
+                decision across the five places a script line is printed — the storyboard header here, the batch dialogs' line
+                checklist, both detail modals, Continuous — because they are one
+                voice, and a quote set differently in one of them shows up as
+                five different lines. */}
             {onEditSceneLine ? (
               <button
                 type="button"
@@ -1984,7 +2299,8 @@ function SceneSection({
                 className="group/line -mx-1.5 flex w-full items-start justify-center gap-2 rounded-lg px-1.5 py-0.5 text-center transition-colors hover:bg-ink/[0.04]"
               >
                 <p
-                  className="text-center text-lg leading-relaxed text-ink-400 transition-colors group-hover/line:text-ink-200 font-light tracking-tight"
+                  className="text-center text-xl leading-relaxed text-ink-400 transition-colors group-hover/line:text-ink-200 font-normal tracking-[-0.015em]"
+                  style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
                 >
                   &ldquo;{scene.scriptLine}&rdquo;
                 </p>
@@ -1992,7 +2308,8 @@ function SceneSection({
               </button>
             ) : (
               <p
-                className="text-center text-lg leading-relaxed text-ink-400 font-light tracking-tight"
+                className="text-center text-xl leading-relaxed text-ink-400 font-normal tracking-[-0.015em]"
+                style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
               >
                 &ldquo;{scene.scriptLine}&rdquo;
               </p>
@@ -2053,6 +2370,7 @@ function SceneSection({
                 key={variation.id}
                 cardKey={key}
                 sceneNumber={scene.number}
+                optionNumber={i + 1}
                 scriptLine={scene.scriptLine}
                 variation={variation}
                 cardState={state}

@@ -334,7 +334,10 @@ function ModelRow({ model, active, muted, accent, costParams, noCredits, onClick
         {(meta || savings != null) && (
           <div className="mt-px flex min-w-0 items-center gap-1.5">
             {meta && <p className="truncate text-[11px] leading-tight text-ink-500">{meta}</p>}
-            {savings != null && <SavingsPill pct={savings} />}
+            {/* `sm`, like every other model ROW in the app (the modal picker
+                and the script one). The trigger above keeps the full size — it
+                is one line with room, where a row is four things deep. */}
+            {savings != null && <SavingsPill pct={savings} size="sm" />}
           </div>
         )}
       </div>

@@ -130,10 +130,13 @@ export function appliedStyleNote(
 ): { label: string; text: string } {
   // The no-text guarantee rides on EVERY render, stylized or not (see
   // withNoOnScreenText), so it joins both branches rather than one.
+  // One word each. "(applied automatically)" came off in September 2026
+  // (Massimo's call) — `StyleNote` is a picker row now, and a row that reads
+  // "Style" over the block it appends says the same thing by its shape.
   if (style?.realism === false && style.style?.trim()) {
-    return { label: 'Style (applied automatically)', text: `${style.style.trim()} ${NO_ON_SCREEN_TEXT_SUFFIX}` }
+    return { label: 'Style', text: `${style.style.trim()} ${NO_ON_SCREEN_TEXT_SUFFIX}` }
   }
-  return { label: 'Realism (applied automatically)', text: `${IPHONE_REALISM_SUFFIX} ${NO_ON_SCREEN_TEXT_SUFFIX}` }
+  return { label: 'Realism', text: `${IPHONE_REALISM_SUFFIX} ${NO_ON_SCREEN_TEXT_SUFFIX}` }
 }
 
 // Reference preamble for keyframe image generation. The chain reference (the
