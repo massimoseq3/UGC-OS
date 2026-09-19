@@ -112,24 +112,22 @@ const BATCH_VIDEO_DURATION_FALLBACK = 5
 // use the still at all, which is what greys it out in the batch dialog.
 const STILL_CAPABLE_MODES: Mode[] = ['image-to-video', 'reference-to-video']
 
-// ─── Option columns ──────────────────────────────────────────────────────
-// The storyboard is a grid: one row per script line, one column per option.
-// Both header batches open on ALL options. They used to open on the leftmost
-// column with work left, so that a second press picked up where the first left
-// off — cheaper per press, but a button labelled "Generate all images" that
-// quietly does a third of them is a button that doesn't do what it says, and
-// members read the short run as a bug rather than a saving. The Options chips
-// still scope a run; scoping is the deliberate act now, not the default.
-type BatchColumn = number | 'all'
+// ─── Batch scope ─────────────────────────────────────────────────────────
+// The storyboard is a grid: one row per script line, one column per option, and
+// a batch dialog scopes along BOTH — the Options chips across, the line
+// checklist down. Every press opens on the whole of what it reached, on both
+// axes. They used to open on the leftmost column with work left, so that a
+// second press picked up where the first left off — cheaper per press, but a
+// button labelled "Generate all images" that quietly does a third of them is a
+// button that doesn't do what it says, and members read the short run as a bug
+// rather than a saving. Scoping is the deliberate act now, not the default.
 
 interface BatchRequest {
-  // Every card the press covers. The column filter is applied inside the
-  // dialog, so switching columns re-scopes without reopening.
+  // Every card the press covers. BOTH scope filters are applied inside the
+  // dialog, so re-scoping never reopens it — which is also why a per-scene
+  // press hands over its whole row rather than one column.
   // (`scope` used to name the run under the title; that line is gone.)
   keys: string[]
-  // Only a multi-scene batch offers columns; a single scene's row is one
-  // card per column, where the choice means nothing.
-  columnar: boolean
   // Video runs only: animate the stills that exist, and nothing else. A plain
   // video batch also fires cards that have no image yet, rendering those from
   // the prompt alone — which is a different, blinder spend. After a
@@ -419,7 +417,9 @@ export default function ScenesView({
     getDefaultModel('broll-studio', 'image', 'text-to-image')?.id
   const [batchTokens, setBatchTokens] = useState<Record<string, number>>({})
   const [batchConfirm, setBatchConfirm] = useState<BatchRequest | null>(null)
-  const [batchColumn, setBatchColumn] = useState<BatchColumn>('all')
+  // Which OPTION columns this run covers — a set, not one pick, and every
+  // option in it on open. See the note on ColumnChips.
+  const [batchColumns, setBatchColumns] = useState<Set<number>>(() => new Set())
   // Which LINES of the script this run covers. Every line the press reached is
   // ticked when the dialog opens — the run is still "all scenes" unless the
   // member says otherwise — and unticking one drops its whole row from the
@@ -473,14 +473,16 @@ export default function ScenesView({
   const hasImage = (key: string) => (shownCardStates[key]?.images.length ?? 0) > 0
 
   // The cards this press covers, narrowed to the picked option column.
-  const batchColumns = batchConfirm?.columnar ? columnsIn(batchConfirm.keys) : []
+  // Every option and every line the press reached — the two axes the dialog
+  // scopes along. Both are offered whenever there is more than one of them, so
+  // a PER-SCENE press gets the option chips too (September 2026, Massimo's
+  // call): one scene is still three deliveries, and picking among them is the
+  // only scoping that dialog has to offer.
+  const batchColumnNumbers = batchConfirm ? columnsIn(batchConfirm.keys) : []
   const batchSceneNumbers = batchConfirm ? scenesIn(batchConfirm.keys) : []
   const batchScoped = batchConfirm
     ? batchConfirm.keys.filter(
-        (k) =>
-          promptReady(k) &&
-          (batchColumn === 'all' || columnOf(k) === batchColumn) &&
-          batchLines.has(sceneOf(k)),
+        (k) => promptReady(k) && batchColumns.has(columnOf(k)) && batchLines.has(sceneOf(k)),
       )
     : []
   // `fresh` = prompt-ready cards with no image yet; `done` = cards already
@@ -512,7 +514,7 @@ export default function ScenesView({
     : null
   const batchOverBudget = batchTotalCredits != null && balance !== null && batchTotalCredits > balance
 
-  const requestBatch = (keys: string[], columnar = false) => {
+  const requestBatch = (keys: string[]) => {
     const targets = keys.filter(promptReady)
     if (targets.length === 0) {
       useAppStore.getState().addToast('No prompts ready to generate.', 'error')
@@ -522,14 +524,14 @@ export default function ScenesView({
     // dialog still opens — with the toggle as the only way forward — so
     // "regenerate the lot" stays possible but never accidental.
     setIncludeExisting(false)
-    // All options — see the note on BatchColumn. Cards that already hold an
-    // image are still held back by the toggle above, so this is "every option
-    // that has no still yet", not a re-render of the storyboard.
-    setBatchColumn('all')
-    // Every line this press reached, ticked. Same promise as the column chips:
-    // the dialog opens on the whole run and narrowing it is a deliberate act.
+    // Cards that already hold an image are still held back by the toggle in
+    // the dialog, so an all-options run is "every option that has no still
+    // yet", not a re-render of the storyboard.
+    // Every option and every line this press reached, ticked. The dialog opens
+    // on the whole run; narrowing it is the deliberate act.
+    setBatchColumns(new Set(columnsIn(keys)))
     setBatchLines(new Set(scenesIn(keys)))
-    setBatchConfirm({ keys, columnar })
+    setBatchConfirm({ keys })
   }
 
   // Every card in the run is armed in the same tick — the anchor-take cards
@@ -572,7 +574,7 @@ export default function ScenesView({
     getDefaultModel('broll-studio', 'video')?.id
   const [videoTokens, setVideoTokens] = useState<Record<string, number>>({})
   const [videoConfirm, setVideoConfirm] = useState<BatchRequest | null>(null)
-  const [videoColumn, setVideoColumn] = useState<BatchColumn>('all')
+  const [videoColumns, setVideoColumns] = useState<Set<number>>(() => new Set())
   // The same line scoping the image dialog has — the two are a pair.
   const [videoLines, setVideoLines] = useState<Set<number>>(() => new Set())
   const [includeExistingVideos, setIncludeExistingVideos] = useState(false)
@@ -642,14 +644,11 @@ export default function ScenesView({
   // What makes a card eligible for this run: a still to animate, or (for a
   // plain video batch) just a prompt to render from.
   const videoEligible = videoConfirm?.stillsOnly ? hasImage : promptReady
-  const videoColumns = videoConfirm?.columnar ? columnsIn(videoConfirm.keys) : []
+  const videoColumnNumbers = videoConfirm ? columnsIn(videoConfirm.keys) : []
   const videoSceneNumbers = videoConfirm ? scenesIn(videoConfirm.keys) : []
   const videoScoped = videoConfirm
     ? videoConfirm.keys.filter(
-        (k) =>
-          videoEligible(k) &&
-          (videoColumn === 'all' || columnOf(k) === videoColumn) &&
-          videoLines.has(sceneOf(k)),
+        (k) => videoEligible(k) && videoColumns.has(columnOf(k)) && videoLines.has(sceneOf(k)),
       )
     : []
   const videoFresh = videoScoped.filter((k) => !hasVideo(k))
@@ -697,7 +696,7 @@ export default function ScenesView({
     !videoModelModes.includes('image-to-video') &&
     !videoModelModes.includes('reference-to-video')
 
-  const requestVideoBatch = (keys: string[], columnar = false, stillsOnly = false) => {
+  const requestVideoBatch = (keys: string[], stillsOnly = false) => {
     const eligible = stillsOnly ? hasImage : promptReady
     const targets = keys.filter(eligible)
     if (targets.length === 0) {
@@ -710,12 +709,12 @@ export default function ScenesView({
     // Cards that already have a clip are held back by default — a video is the
     // expensive half of this app, so re-billing one takes an explicit tick.
     setIncludeExistingVideos(false)
-    // All options — see the note on BatchColumn. Cards that already hold a clip
-    // are still held back, so this is "every option that has no video yet",
-    // not a re-bill of the storyboard.
-    setVideoColumn('all')
+    // Cards that already hold a clip are still held back, so an all-options run
+    // is "every option that has no video yet", not a re-bill of the
+    // storyboard.
+    setVideoColumns(new Set(columnsIn(keys)))
     setVideoLines(new Set(scenesIn(keys)))
-    setVideoConfirm({ keys, columnar, stillsOnly })
+    setVideoConfirm({ keys, stillsOnly })
   }
 
   const confirmVideoBatch = () => {
@@ -1259,7 +1258,7 @@ export default function ScenesView({
                     iconClassName="text-broll-300"
                     onClick={() => {
                       setGenerateAllOpen(false)
-                      requestBatch(allKeys, true)
+                      requestBatch(allKeys)
                     }}
                   >
                     Generate All Images
@@ -1272,7 +1271,7 @@ export default function ScenesView({
                       iconClassName="text-broll-300"
                       onClick={() => {
                         setGenerateAllOpen(false)
-                        requestVideoBatch(allKeys, true, true)
+                        requestVideoBatch(allKeys)
                       }}
                     >
                       Animate All Stills
@@ -1283,7 +1282,7 @@ export default function ScenesView({
                     iconClassName="text-broll-300"
                     onClick={() => {
                       setGenerateAllOpen(false)
-                      requestVideoBatch(allKeys, true)
+                      requestVideoBatch(allKeys)
                     }}
                   >
                     Generate All Videos
@@ -1376,11 +1375,32 @@ export default function ScenesView({
                 repeats of the controls below; "from the card stills" went with
                 them. What a run is made of is on the cards and on the button,
                 and a heading band with a second line under it in one dialog and
-                not the other never read as a pair. */}
+                not the other never read as a pair.
+
+                A PER-SCENE press keeps its one piece of context, and it is the
+                storyboard's own identity header rather than a sentence: the
+                italic serif numeral, a vertical rule, the title. The same three
+                marks a card's detail modal opens with, so "01 │ Generate
+                Videos" reads as the scene you pressed rather than as a line of
+                prose saying so. A run spanning more than one scene draws no
+                numeral — there is a checklist under it naming every line. */}
             <div className="flex items-center justify-between gap-3 border-b border-ink/5 px-5 py-3">
-              <h3 className="min-w-0 truncate text-sm font-medium text-ink-100">
-                {batchTargets.length === 0 ? 'Nothing to Generate' : 'Generate Images'}
-              </h3>
+              <div className="flex min-w-0 items-center gap-3">
+              {batchSceneNumbers.length === 1 && (
+                <>
+                  <span
+                    className="shrink-0 text-2xl font-normal italic leading-none tabular-nums text-ink-600"
+                    style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
+                  >
+                    {String(batchSceneNumbers[0]).padStart(2, '0')}
+                  </span>
+                  <div className="h-6 w-px shrink-0 bg-ink/10" />
+                </>
+              )}
+                <h3 className="min-w-0 truncate text-sm font-medium text-ink-100">
+                  {batchTargets.length === 0 ? 'Nothing to Generate' : 'Generate Images'}
+                </h3>
+              </div>
               {/* The way out is the CORNER X, not a Cancel beside Generate
                   (September 2026, Massimo's call). Cancel and Generate were a
                   pair of equal-looking pills at the foot of a dialog whose
@@ -1410,13 +1430,9 @@ export default function ScenesView({
                 here may carry a `mt-`. */}
             <div className="flex flex-col gap-3 px-5 py-4">
             <ColumnChips
-              columns={batchColumns}
-              value={batchColumn}
-              onChange={setBatchColumn}
-              isDone={(col) =>
-                !!batchConfirm.keys.some((k) => columnOf(k) === col && promptReady(k)) &&
-                batchConfirm.keys.every((k) => columnOf(k) !== col || !promptReady(k) || hasImage(k))
-              }
+              columns={batchColumnNumbers}
+              selected={batchColumns}
+              onChange={setBatchColumns}
             />
 
             <LineChecklist
@@ -1562,11 +1578,24 @@ export default function ScenesView({
                 already said by the controls below. The band and the one-gap
                 body below are the image dialog's — see the notes there. */}
             <div className="flex items-center justify-between gap-3 border-b border-ink/5 px-5 py-3">
-              <h3 className="min-w-0 truncate text-sm font-medium text-ink-100">
-                {videoTargets.length === 0
-                  ? (videoConfirm.stillsOnly ? 'Nothing to Animate' : 'Nothing to Generate')
-                  : (videoConfirm.stillsOnly ? 'Animate Stills' : 'Generate Videos')}
-              </h3>
+              <div className="flex min-w-0 items-center gap-3">
+              {videoSceneNumbers.length === 1 && (
+                <>
+                  <span
+                    className="shrink-0 text-2xl font-normal italic leading-none tabular-nums text-ink-600"
+                    style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
+                  >
+                    {String(videoSceneNumbers[0]).padStart(2, '0')}
+                  </span>
+                  <div className="h-6 w-px shrink-0 bg-ink/10" />
+                </>
+              )}
+                <h3 className="min-w-0 truncate text-sm font-medium text-ink-100">
+                  {videoTargets.length === 0
+                    ? (videoConfirm.stillsOnly ? 'Nothing to Animate' : 'Nothing to Generate')
+                    : (videoConfirm.stillsOnly ? 'Animate Stills' : 'Generate Videos')}
+                </h3>
+              </div>
               {/* The way out is the CORNER X, not a Cancel beside Generate
                   (September 2026, Massimo's call). Cancel and Generate were a
                   pair of equal-looking pills at the foot of a dialog whose
@@ -1587,13 +1616,9 @@ export default function ScenesView({
             </div>
             <div className="flex flex-col gap-3 px-5 py-4">
             <ColumnChips
-              columns={videoColumns}
-              value={videoColumn}
-              onChange={setVideoColumn}
-              isDone={(col) =>
-                !!videoConfirm.keys.some((k) => columnOf(k) === col && videoEligible(k)) &&
-                videoConfirm.keys.every((k) => columnOf(k) !== col || !videoEligible(k) || hasVideo(k))
-              }
+              columns={videoColumnNumbers}
+              selected={videoColumns}
+              onChange={setVideoColumns}
             />
 
             <LineChecklist
@@ -1738,7 +1763,6 @@ export default function ScenesView({
         <ClipDownloadModal
           entries={allClipEntries}
           zipBasename="broll-clips"
-          subtitle="Every card&rsquo;s cover clip is picked. Tick the extra takes you also want."
           onClose={() => setDownloadOpen(false)}
         />
       )}
@@ -1750,18 +1774,21 @@ export default function ScenesView({
 // single-scene batch (one card per column — the choice would be meaningless).
 function ColumnChips({
   columns,
-  value,
+  selected,
   onChange,
-  isDone,
 }: {
   columns: number[]
-  value: BatchColumn
-  onChange: (value: BatchColumn) => void
-  // Column has nothing left to generate — ticked, so a member walking the
-  // columns can see how far they've got.
-  isDone: (col: number) => boolean
+  selected: Set<number>
+  onChange: (next: Set<number>) => void
 }) {
   if (columns.length < 2) return null
+  const allOn = columns.every((c) => selected.has(c))
+  const toggle = (col: number) => {
+    const next = new Set(selected)
+    if (next.has(col)) next.delete(col)
+    else next.add(col)
+    onChange(next)
+  }
   const chip = (active: boolean) =>
     `flex items-center gap-1 rounded-full border px-3 py-1 text-[11px] font-medium transition-colors ${
       active
@@ -1779,14 +1806,36 @@ function ColumnChips({
           at the far end, past a row that grows with the storyboard — so the
           selected chip was the last thing on the line and the way back to it
           moved every time the deliveries changed. First, it is where the eye
-          already is. */}
+          already is.
+
+          **They MULTI-SELECT, every option ticked on open** (September 2026,
+          Massimo's call). They were one-of-N — pick Option 2 and you lost
+          Option 1 — so a member wanting two of three deliveries had to run the
+          dialog twice and pay two round trips of attention for one decision.
+          Ticked-by-default is the same promise the line checklist makes: the
+          dialog opens on the whole run, and narrowing it is the deliberate act.
+          "All Options" is the way back to that state and lights only when it IS
+          the state; it never clears, because a run of nothing is not a thing to
+          offer a shortcut to.
+
+          The tick inside a chip means SELECTED now. It used to mean "this
+          column has nothing left to generate", which was already ambiguous
+          beside a filled chip and would be unreadable with every chip ticked on
+          open. What it was telling you is said in words directly below — "Also
+          regenerate the N cards that already have an image" — and in the count
+          on the Generate button. */}
       <div className="flex flex-wrap items-center gap-1.5">
-        <button type="button" onClick={() => onChange('all')} className={chip(value === 'all')}>
+        <button
+          type="button"
+          onClick={() => onChange(new Set(columns))}
+          className={chip(allOn)}
+          title="Cover every option"
+        >
           All Options
         </button>
         {columns.map((col) => (
-          <button key={col} type="button" onClick={() => onChange(col)} className={chip(value === col)}>
-            {isDone(col) && <Check className="h-3 w-3 shrink-0" strokeWidth={2.5} />}
+          <button key={col} type="button" onClick={() => toggle(col)} className={chip(selected.has(col))}>
+            {selected.has(col) && <Check className="h-3 w-3 shrink-0" strokeWidth={2.5} />}
             Option {col + 1}
           </button>
         ))}
@@ -1867,7 +1916,7 @@ function LineChecklist({
               className="h-3.5 w-3.5 shrink-0 accent-broll-500"
             />
             <span
-              className="shrink-0 text-base leading-none tabular-nums text-ink-500"
+              className="shrink-0 text-base italic leading-none tabular-nums text-ink-500"
               style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
             >
               {String(scene).padStart(2, '0')}
@@ -2205,7 +2254,7 @@ function SceneSection({
             it wraps only when the words genuinely run out of room. */}
         <div className="flex w-full min-w-0 flex-col items-center gap-1">
           <span
-            className="text-5xl font-normal tabular-nums text-ink-700"
+            className="text-5xl font-normal italic tabular-nums text-ink-700"
             style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
           >
             {String(scene.number).padStart(2, '0')}

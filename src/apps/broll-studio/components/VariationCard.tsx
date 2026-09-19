@@ -1338,7 +1338,7 @@ export default function VariationCard(props: VariationCardProps) {
             Down here it's the `quiet` variant — bare dim text, no pill — beside
             the label it belongs with, and nothing covers the shot. */}
         <div className="flex min-w-0 items-center justify-center gap-1.5 px-1">
-          <span className="shrink-0 text-[10px] font-medium tracking-wider text-ink-500">Option {optionNumber}</span>
+          <span className="shrink-0 text-[10px] font-medium tracking-tight text-ink-500">Option {optionNumber}</span>
           {showCoverModel && <span aria-hidden className="text-[10px] leading-none text-ink-700">·</span>}
           <ModelPill variant="quiet" modelId={coverModelId} className="min-w-0" />
         </div>

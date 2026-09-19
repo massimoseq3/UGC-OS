@@ -45,7 +45,7 @@ import { downloadImage } from '../../../utils/downloadImage'
 // off (read-only note) wherever no picker is wired.
 export function StyleNote({
   style,
-  label = 'Style (applied automatically)',
+  label = 'Style',
   onChange,
 }: {
   style: string
@@ -53,19 +53,39 @@ export function StyleNote({
   onChange?: () => void
 }) {
   const [open, setOpen] = useState(false)
+  // A PICKER ROW, the same one the References cards above it are (September
+  // 2026, Massimo's call: *"have it how we have it for the characters thing"*).
+  // It was two lines of 11px prose behind a bold "Realism (applied
+  // automatically):" lead-in, with the glyph nudged onto the first line and
+  // Change floating at the top right — a paragraph in a column of pills, and
+  // the only block in that column whose controls didn't line up with the rest.
+  //
+  // Now: a 36px accent disc, the NAME on the first line and what is appended
+  // dimmed under it, everything centred against the row, Change centred on the
+  // right. The name is "Style" or "Realism" and nothing else — the parenthetical
+  // "(applied automatically)" was the sentence the shape is now saying.
+  //
+  // It still expands: this note is the only place the block riding outside the
+  // editable prompt can be READ, so tapping the text opens it in full. Open it
+  // squares off (`rounded-2xl`), because a pill with four lines in it is a
+  // paragraph wearing a pill.
   return (
-    <div className="flex w-full items-start gap-2 rounded-2xl border border-ink/10 bg-ink/[0.02] px-3.5 py-2.5 transition-colors hover:bg-ink/[0.04]">
-      <Palette className="mt-0.5 h-3.5 w-3.5 shrink-0 text-broll-300" />
+    <div
+      className={`flex w-full items-center gap-3 border border-ink/10 bg-ink/[0.02] px-3 py-2 transition-colors hover:bg-ink/[0.04] ${
+        open ? 'rounded-2xl' : 'rounded-full'
+      }`}
+    >
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-broll-500/10">
+        <Palette className="h-[18px] w-[18px] text-broll-300" strokeWidth={1.75} />
+      </div>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="min-w-0 flex-1 text-left"
         title={open ? 'Collapse' : 'Show the full style block'}
       >
-        <span className={`text-[11px] leading-relaxed text-ink-500 ${open ? 'block' : 'line-clamp-2'}`}>
-          <span className="font-semibold text-ink-400">{label}: </span>
-          {style}
-        </span>
+        <div className="truncate text-[13px] font-medium tracking-tight text-ink-200">{label}</div>
+        <div className={`text-[11px] leading-snug text-ink-500 ${open ? '' : 'truncate'}`}>{style}</div>
       </button>
       {onChange && (
         <button

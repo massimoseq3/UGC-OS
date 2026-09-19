@@ -447,9 +447,15 @@ function ModelRow({ model, active, muted, credits, accent, onClick }: ModelRowPr
         </div>
         {/* The "% off" chip rides the META row, beside the credits pill it is a
             discount ON — the same move `ModelPicker`'s own rows made, so the
-            dropdown and this panel still read as one family. */}
+            dropdown and this panel still read as one family.
+
+            `mt-0.5` and a `sm` discount, matching the script-model rows
+            (September 2026, Massimo's call): the meta belongs to the name above
+            it, and at 4px it reads as that name's second line rather than as a
+            second thing on the row. The discount is the least of what is on
+            here and was sized like the most. */}
         {(metaPills.length > 0 || savings != null) && (
-          <div className="mt-1 flex flex-wrap items-center gap-1">
+          <div className="mt-0.5 flex flex-wrap items-center gap-1">
             {metaPills.map((m) => (
               <span
                 key={m}
@@ -458,7 +464,7 @@ function ModelRow({ model, active, muted, credits, accent, onClick }: ModelRowPr
                 {m}
               </span>
             ))}
-            {savings != null && <SavingsPill pct={savings} />}
+            {savings != null && <SavingsPill pct={savings} size="sm" />}
           </div>
         )}
       </div>

@@ -68,13 +68,11 @@ export interface ClipDownloadEntry {
 export default function ClipDownloadModal({
   entries,
   zipBasename,
-  subtitle,
   accent = 'broll',
   onClose,
 }: {
   entries: ClipDownloadEntry[]
   zipBasename: string
-  subtitle: string
   accent?: Accent
   onClose: () => void
 }) {
@@ -129,10 +127,13 @@ export default function ClipDownloadModal({
         className="flex max-h-[85dvh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-ink/10 bg-ink-950/95 shadow-2xl"
       >
         <div className="flex items-center justify-between gap-3 border-b border-ink/5 px-5 py-3.5">
-          <div className="min-w-0">
-            <h3 className="text-sm font-medium text-ink-100">Download Clips</h3>
-            <p className="mt-0.5 text-[11px] text-ink-500">{subtitle}</p>
-          </div>
+          {/* The title alone. It carried a line of instructions under it —
+              "Every card's cover clip is picked. Tick the extra takes you also
+              want." — which is what the ticked covers and the untickeds beside
+              them already show, and it was the only thing making this band two
+              lines deep (September 2026, Massimo's call). The `subtitle` prop
+              went with it; both callers passed their own wording. */}
+          <h3 className="min-w-0 truncate text-sm font-medium text-ink-100">Download Clips</h3>
           <button
             type="button"
             onClick={onClose}
@@ -175,9 +176,14 @@ export default function ClipDownloadModal({
             type="button"
             onClick={() => void download()}
             disabled={zipping || picked.size === 0}
-            className={`flex items-center gap-1.5 glass-fill glass-fill-soft hover:brightness-110 disabled:hover:brightness-100 rounded-full border border-white/15 px-4 py-1.5 text-[11px] font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),inset_0_-1px_0_rgba(255,255,255,0.08)] transition-all disabled:cursor-not-allowed disabled:opacity-40 ${tint.cta}`}
+            // `h-[46px]` and 13px bold — the same footer CTA B-Roll's batch
+            // dialogs end on (September 2026, Massimo's call). It was an 11px
+            // pill the height of the "2 of 2 selected" text beside it, which is
+            // the wrong weight for the one control that actually does the job
+            // this modal exists for.
+            className={`flex h-[46px] items-center gap-2 glass-fill glass-fill-soft hover:brightness-110 disabled:hover:brightness-100 rounded-full border border-white/15 px-6 text-[13px] font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),inset_0_-1px_0_rgba(255,255,255,0.08)] transition-all disabled:cursor-not-allowed disabled:opacity-40 ${tint.cta}`}
           >
-            {zipping ? <Spinner className="h-3.5 w-3.5" /> : <Download className="h-3.5 w-3.5" />}
+            {zipping ? <Spinner className="h-4 w-4" /> : <Download className="h-4 w-4" />}
             {zipping ? 'Zipping…' : `Download ${picked.size} Clip${picked.size === 1 ? '' : 's'}`}
           </button>
         </div>

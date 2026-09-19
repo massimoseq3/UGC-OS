@@ -1712,7 +1712,6 @@ export default function ContinuousView({
         <ClipDownloadModal
           entries={allClipEntries}
           zipBasename="continuous-clips"
-          subtitle="Every card&rsquo;s cover clip is picked. Tick the extra takes you also want."
           onClose={() => setDownloadOpen(false)}
         />
       )}
@@ -1920,7 +1919,7 @@ function SceneRow({
       <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-4">
         <div className="flex min-w-0 items-center gap-4">
           <span
-            className="text-5xl font-normal tabular-nums text-ink-800"
+            className="text-5xl font-normal italic tabular-nums text-ink-800"
             style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
           >
             {String(scene.index).padStart(2, '0')}
@@ -2044,7 +2043,7 @@ function FinalFrameRow({
       <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-4">
         <div className="flex min-w-0 items-center gap-4">
           <span
-            className="text-5xl font-normal tabular-nums text-ink-800"
+            className="text-5xl font-normal italic tabular-nums text-ink-800"
             style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
           >
             {String(frame.index).padStart(2, '0')}
