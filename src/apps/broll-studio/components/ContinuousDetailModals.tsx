@@ -660,7 +660,7 @@ export function ContinuousFrameModal({
                   )}
                 </div>
                 <span
-                  className="min-w-0 truncate text-[17px] leading-tight text-ink-300 font-normal tracking-[-0.035em]"
+                  className="min-w-0 truncate text-[17px] leading-tight text-ink-300 font-normal tracking-[-0.015em]"
                   style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
                   title={scriptLine || undefined}
                 >
@@ -1191,7 +1191,7 @@ export function ContinuousClipModal({
                   {clipLabel}
                 </span>
                 <span
-                  className="min-w-0 truncate text-[17px] leading-tight text-ink-300 font-normal tracking-[-0.035em]"
+                  className="min-w-0 truncate text-[17px] leading-tight text-ink-300 font-normal tracking-[-0.015em]"
                   style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
                   title={scriptLine}
                 >

@@ -1363,21 +1363,50 @@ export default function ScenesView({
           >
             {/* Same shape as the video dialog below — the two open from
                 buttons sitting side by side and must read as a pair. */}
-            <h3 className="text-sm font-medium text-ink-100">
-              {batchTargets.length === 0 ? 'Nothing to Generate' : 'Generate Images'}
-            </h3>
-            {/* The scope line, and it only renders when it has something the
-                controls below don't already say (September 2026, Massimo's
-                call: *"remove that line ... because it's redundant"*). It used
-                to read "All Scenes · Option 1 · 2 lines" over a chip row with
-                Option 1 lit and a checklist headed "2 of 3 Lines" — three
-                statements of what two controls were already showing. The
-                option and the line count are gone for good; the SCOPE survives
-                only for a per-scene press, where there is no checklist under it
-                and "Scene 2" is the one thing naming the run. */}
-            {batchSceneNumbers.length < 2 && (
-              <p className="mt-1 text-xs text-ink-500">{batchConfirm.scope}</p>
-            )}
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="text-sm font-medium text-ink-100">
+                  {batchTargets.length === 0 ? 'Nothing to Generate' : 'Generate Images'}
+                </h3>
+                {/* The scope line, and it only renders when it has something
+                    the controls below don't already say (September 2026,
+                    Massimo's call: *"remove that line ... because it's
+                    redundant"*). It used to read "All Scenes · Option 1 · 2
+                    lines" over a chip row with Option 1 lit and a checklist
+                    headed "2 of 3 Lines" — three statements of what two
+                    controls were already showing. The option and the line
+                    count are gone for good; the SCOPE survives only for a
+                    per-scene press, where there is no checklist under it and
+                    "Scene 2" is the one thing naming the run. */}
+                {batchSceneNumbers.length < 2 && (
+                  <p className="mt-1 text-xs text-ink-500">{batchConfirm.scope}</p>
+                )}
+              </div>
+              {/* The way out is the CORNER X, not a Cancel beside Generate
+                  (September 2026, Massimo's call). Cancel and Generate were a
+                  pair of equal-looking pills at the foot of a dialog whose
+                  whole job is one decision — and the dismissive half of that
+                  pair is already on the backdrop and on Escape. Out of the
+                  footer, Generate takes the full width, which is the shape
+                  every primary CTA in this app has. Same corner button the
+                  clip-download modal wears, so the two read as one family. */}
+              <button
+                type="button"
+                onClick={() => setBatchConfirm(null)}
+                title="Close (Esc)"
+                aria-label="Close"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-ink/10 text-ink-400 transition-colors hover:bg-ink/10 hover:text-ink-200"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            {/* A full-width rule under the heading row (September 2026,
+                Massimo's call) — `-mx-5` so it bleeds to the dialog's own edges
+                rather than stopping inside its padding, the same hairline every
+                panel header in the app draws. It gives the title and the corner
+                X a band of their own, which is what the removed Cancel used to
+                do for the footer. */}
+            <div className="-mx-5 mt-3.5 border-b border-ink/5" />
 
             <ColumnChips
               columns={batchColumns}
@@ -1463,27 +1492,18 @@ export default function ScenesView({
                 Not enough credits. Your balance is {balance.toLocaleString()}.
               </p>
             )}
-            {/* `h-[42px]`, up from the ~30px these were (September 2026,
-                Massimo's call). A dialog that spends credits ends on the two
-                controls that decide whether it does, and they were the smallest
-                things on it — under the model picker, under the constraint
-                chips, under the regenerate toggle. 42 puts them a shade above
-                the app's 38px pill, which is the point: these are the footer,
-                not another row of chips. Both dialogs move together. */}
-            <div className="mt-4 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setBatchConfirm(null)}
-                className="flex h-[42px] items-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.03] px-4 text-[13px] font-medium text-ink-300 transition-colors hover:bg-ink/[0.06]"
-              >
-                <X className="h-3.5 w-3.5" />
-                Cancel
-              </button>
+            {/* One control, the full width, and it is the one that spends
+                (September 2026, Massimo's call). `h-[46px]`, a step up again
+                from the pair this replaced: with nothing beside it the button
+                is the dialog's whole last line, and the app's own primary CTAs
+                are this tall. Cancel went to the corner X — see the note on the
+                heading. Both dialogs move together. */}
+            <div className="mt-4">
               <button
                 type="button"
                 onClick={confirmBatch}
                 disabled={batchTargets.length === 0}
-                className="flex h-[42px] items-center gap-2 rounded-full border border-white/15 bg-broll-500 pl-4 pr-2.5 text-[13px] font-medium text-white transition-colors hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-broll-500"
+                className="flex h-[46px] w-full items-center justify-center gap-2 rounded-full border border-white/15 bg-broll-500 px-4 text-[13px] font-medium text-white transition-colors hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-broll-500"
               >
                 <Images className="h-3.5 w-3.5" />
                 {batchTargets.length === 0
@@ -1518,25 +1538,53 @@ export default function ScenesView({
                 explain (parallel rendering, refresh-safety, why some cards are
                 skipped) is either obvious from the storyboard behind it or
                 already said by the controls below. */}
-            <h3 className="text-sm font-medium text-ink-100">
-              {videoTargets.length === 0
-                ? (videoConfirm.stillsOnly ? 'Nothing to Animate' : 'Nothing to Generate')
-                : (videoConfirm.stillsOnly ? 'Animate Stills' : 'Generate Videos')}
-            </h3>
-            {/* Same rule as the image dialog above, plus the one qualifier
-                that is NOT redundant: where the clips come from. A run that is
-                half animated stills and half rendered prompts costs the same
-                either way and comes back looking different, and nothing else
-                on this dialog says so. */}
-            {(() => {
-              const parts = [
-                videoSceneNumbers.length < 2 ? videoConfirm.scope : null,
-                videoSourceNote,
-              ].filter(Boolean)
-              return parts.length > 0 ? (
-                <p className="mt-1 text-xs text-ink-500">{parts.join(' · ')}</p>
-              ) : null
-            })()}
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="text-sm font-medium text-ink-100">
+                  {videoTargets.length === 0
+                    ? (videoConfirm.stillsOnly ? 'Nothing to Animate' : 'Nothing to Generate')
+                    : (videoConfirm.stillsOnly ? 'Animate Stills' : 'Generate Videos')}
+                </h3>
+                {/* Same rule as the image dialog above, plus the one qualifier
+                    that is NOT redundant: where the clips come from. A run that
+                    is half animated stills and half rendered prompts costs the
+                    same either way and comes back looking different, and
+                    nothing else on this dialog says so. */}
+                {(() => {
+                  const parts = [
+                    videoSceneNumbers.length < 2 ? videoConfirm.scope : null,
+                    videoSourceNote,
+                  ].filter(Boolean)
+                  return parts.length > 0 ? (
+                    <p className="mt-1 text-xs text-ink-500">{parts.join(' · ')}</p>
+                  ) : null
+                })()}
+              </div>
+              {/* The way out is the CORNER X, not a Cancel beside Generate
+                  (September 2026, Massimo's call). Cancel and Generate were a
+                  pair of equal-looking pills at the foot of a dialog whose
+                  whole job is one decision — and the dismissive half of that
+                  pair is already on the backdrop and on Escape. Out of the
+                  footer, Generate takes the full width, which is the shape
+                  every primary CTA in this app has. Same corner button the
+                  clip-download modal wears, so the two read as one family. */}
+              <button
+                type="button"
+                onClick={() => setVideoConfirm(null)}
+                title="Close (Esc)"
+                aria-label="Close"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-ink/10 text-ink-400 transition-colors hover:bg-ink/10 hover:text-ink-200"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            {/* A full-width rule under the heading row (September 2026,
+                Massimo's call) — `-mx-5` so it bleeds to the dialog's own edges
+                rather than stopping inside its padding, the same hairline every
+                panel header in the app draws. It gives the title and the corner
+                X a band of their own, which is what the removed Cancel used to
+                do for the footer. */}
+            <div className="-mx-5 mt-3.5 border-b border-ink/5" />
 
             <ColumnChips
               columns={videoColumns}
@@ -1641,20 +1689,12 @@ export default function ScenesView({
                 {getModel(batchVideoModelId ?? '')?.displayName ?? 'This model'} can&rsquo;t animate a still. Every card with an image would fail. Pick a model that takes a start frame or reference images.
               </p>
             )}
-            <div className="mt-4 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setVideoConfirm(null)}
-                className="flex h-[42px] items-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.03] px-4 text-[13px] font-medium text-ink-300 transition-colors hover:bg-ink/[0.06]"
-              >
-                <X className="h-3.5 w-3.5" />
-                Cancel
-              </button>
+            <div className="mt-4">
               <button
                 type="button"
                 onClick={confirmVideoBatch}
                 disabled={videoTargets.length === 0 || videoModelCantAnimate}
-                className="flex h-[42px] items-center gap-2 rounded-full border border-white/15 bg-broll-500 pl-4 pr-2.5 text-[13px] font-medium text-white transition-colors hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-broll-500"
+                className="flex h-[46px] w-full items-center justify-center gap-2 rounded-full border border-white/15 bg-broll-500 px-4 text-[13px] font-medium text-white transition-colors hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-broll-500"
               >
                 {videoConfirm.stillsOnly
                   ? <Clapperboard className="h-3.5 w-3.5" />
@@ -1815,7 +1855,7 @@ function LineChecklist({
                 the list's own cap means a different number of lines each time
                 it opens. The full sentence is in the `title`. */}
             <span
-              className="min-w-0 flex-1 truncate text-sm tracking-[-0.035em] text-ink-300"
+              className="min-w-0 flex-1 truncate text-sm tracking-[-0.015em] text-ink-300"
               style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
               title={lineOf(scene)}
             >
@@ -2167,12 +2207,14 @@ function SceneSection({
                 modals), because a serif's smaller x-height reads a size down at
                 the same number.
 
-                `tracking-[-0.035em]`, a step past `tracking-tight` (Massimo's
-                call, September 2026). This is display type, not body copy, and
-                Tailwind's -0.025em is a body-copy number: a sentence running
-                most of a 1000px panel read loose. Face, weight, size and
-                tracking are ONE decision across the five places a script line
-                is printed — the storyboard header here, the batch dialogs' line
+                `tracking-[-0.015em]`, and that number walked (Massimo's call,
+                September 2026). It was `tracking-tight` while the line was a
+                sans, went to -0.035em to tighten it, and came BACK past
+                `tracking-tight` when the face changed: Instrument Serif is
+                already tightly set, so a negative meant for Geist crowded it.
+                Tighten the sans, loosen the serif — the number belongs to the
+                face, not to the taste. Face, weight, size and tracking are ONE
+                decision across the five places a script line is printed — the storyboard header here, the batch dialogs' line
                 checklist, both detail modals, Continuous — because they are one
                 voice, and a quote set differently in one of them shows up as
                 five different lines. */}
@@ -2184,7 +2226,7 @@ function SceneSection({
                 className="group/line -mx-1.5 flex w-full items-start justify-center gap-2 rounded-lg px-1.5 py-0.5 text-center transition-colors hover:bg-ink/[0.04]"
               >
                 <p
-                  className="text-center text-xl leading-relaxed text-ink-400 transition-colors group-hover/line:text-ink-200 font-normal tracking-[-0.035em]"
+                  className="text-center text-xl leading-relaxed text-ink-400 transition-colors group-hover/line:text-ink-200 font-normal tracking-[-0.015em]"
                   style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
                 >
                   &ldquo;{scene.scriptLine}&rdquo;
@@ -2193,7 +2235,7 @@ function SceneSection({
               </button>
             ) : (
               <p
-                className="text-center text-xl leading-relaxed text-ink-400 font-normal tracking-[-0.035em]"
+                className="text-center text-xl leading-relaxed text-ink-400 font-normal tracking-[-0.015em]"
                 style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
               >
                 &ldquo;{scene.scriptLine}&rdquo;

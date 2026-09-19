@@ -168,7 +168,7 @@ export default function ClipDownloadModal({
               onClick={() => setPicked(allPicked ? new Set() : new Set(entries.map((e) => e.id)))}
               className="text-[11px] font-medium text-ink-400 underline-offset-2 transition-colors hover:text-ink-200 hover:underline"
             >
-              {allPicked ? 'Clear all' : 'Select all'}
+              {allPicked ? 'Clear All' : 'Select All'}
             </button>
           </div>
           <button
@@ -178,7 +178,7 @@ export default function ClipDownloadModal({
             className={`flex items-center gap-1.5 glass-fill glass-fill-soft hover:brightness-110 disabled:hover:brightness-100 rounded-full border border-white/15 px-4 py-1.5 text-[11px] font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),inset_0_-1px_0_rgba(255,255,255,0.08)] transition-all disabled:cursor-not-allowed disabled:opacity-40 ${tint.cta}`}
           >
             {zipping ? <Spinner className="h-3.5 w-3.5" /> : <Download className="h-3.5 w-3.5" />}
-            {zipping ? 'Zipping…' : `Download ${picked.size} clip${picked.size === 1 ? '' : 's'}`}
+            {zipping ? 'Zipping…' : `Download ${picked.size} Clip${picked.size === 1 ? '' : 's'}`}
           </button>
         </div>
       </div>
