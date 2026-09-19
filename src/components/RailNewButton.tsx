@@ -19,6 +19,10 @@ import { Plus } from 'lucide-react'
 // that — since every output stays in History — costs a re-pick, not data. The
 // `confirm` prop and its monochrome armed state went with it, so there is no
 // switch left for a fourth rail to turn back on by accident.
+//
+// The host shuts the rail on this press. The button stands on a panel
+// covering the surface it just cleared, so a rail left open reads as the
+// press having done nothing at all — the same reason picking a row closes it.
 export default function RailNewButton({
   label,
   onClick,

@@ -279,7 +279,12 @@ export default function RightPanel(props: RightPanelProps) {
             setHistoryOpen(false)
           }}
           onDelete={(id) => { deleteBrollHistory(id) }}
-          onNew={onClearCanvas}
+          onNew={() => {
+            onClearCanvas()
+            // The rail covers the storyboard it just cleared, so New hands the
+            // pane back the same way picking a session does.
+            setHistoryOpen(false)
+          }}
         />
       </RailOverlay>
     </div>

@@ -454,7 +454,10 @@ export default function VoiceStudio() {
                   onSelect={(item) => { setActivePlayerItem(item); setHistoryOpen(false) }}
                   onDelete={handleDeleteHistoryItem}
                   onShowDetails={setDetailsItem}
-                  onNew={() => { setSelectedScript(null); setScriptText('') }}
+                  // The rail covers the script box it just cleared, so New
+                  // hands the pane back the same way picking a read does —
+                  // left open, the press reads as having done nothing.
+                  onNew={() => { setSelectedScript(null); setScriptText(''); setHistoryOpen(false) }}
                 />
               </RailOverlay>
             </div>
