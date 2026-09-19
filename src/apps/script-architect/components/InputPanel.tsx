@@ -753,7 +753,12 @@ export default function InputPanel({
             <SectionCard
               icon={Layers}
               title="References"
-              className="mb-2 flex flex-1 flex-col max-lg:flex-none"
+              /* grow 3 against Additional Instructions' 1: once both boxes
+                 are whole, spare height belongs to the thing you READ. An even
+                 split sent almost all of it to the steer box, which is one or
+                 two lines whatever you give it, and left the pasted source at
+                 its floor on every window. */
+              className="mb-2 flex flex-[3_1_0%] flex-col max-lg:flex-none"
               contentClassName="flex flex-1 flex-col gap-2"
               left={<ClearAllButton label="Clear" onClear={onClearInputs} />}
             >
@@ -781,11 +786,28 @@ export default function InputPanel({
                   className="shrink-0"
                   flat
                 />
-                <div className="relative flex min-h-0 grow flex-col">
+                {/* The floor is HERE, in px, rather than on the textarea's
+                    `rows` — a floor the flex column can read and grow past,
+                    instead of a min-content size it can only be pushed around
+                    by. 72px is ~3 lines of the mono blueprint face: enough to
+                    see what you pasted, small enough that the column still fits
+                    a short window with the Additional Instructions box whole. */}
+                <div className="relative flex min-h-[72px] grow flex-col">
                   <textarea
                     value={source}
                     onChange={(e) => { onSourceChange(e.target.value); setSourceScript(null) }}
-                    rows={6}
+                    // `rows={1}`, not 6. A textarea's `rows` is its MIN-CONTENT
+                    // height, and min-content is the one thing `flex-1` can
+                    // never shrink past — so 6 rows of it propagated up through
+                    // this box, the References card and the column as a floor
+                    // 96px taller than the pane, and the column overflowed with
+                    // every box already at its floor. What overflowed was the
+                    // LAST box (Additional Instructions), sliced through the
+                    // middle with its toolbar under the fold. The height here is
+                    // handed down by `grow` from the box, which is what the
+                    // sharing layout was for; `overflow-y-auto` means a long
+                    // paste scrolls inside this field, where scrolling belongs.
+                    rows={1}
                     placeholder={'…or paste a proven ad transcript, or a scene blueprint from Ad Analyzer. The format is detected automatically.'}
                     className={`w-full min-h-0 grow resize-none overflow-y-auto border-0 bg-transparent px-4 py-3 leading-relaxed text-ink-200 outline-none ${
                       isBlueprint ? 'font-mono text-xs placeholder-ink-700' : 'text-sm placeholder-ink-600'
