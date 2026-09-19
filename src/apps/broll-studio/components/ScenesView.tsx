@@ -1078,8 +1078,14 @@ export default function ScenesView({
           everything else on the row — so a long custom style name gives its
           width back before anything is hidden. Under that the two action labels
           shorten and then go: "Download Clips" → "Clips" → the glyph and its
-          count, "Generate All" → "Generate" → the sparkle. The names drop last,
-          at the width where they would be two characters and an ellipsis.
+          count, "Generate All" → "Generate" → the sparkle. The names drop last.
+
+          They drop EARLY, though — at the step where a full pair would still
+          just about fit, not at the step where the pills run out of room. Left
+          to truncate the whole way down they reached "U…" and "M…" on a 745px
+          pane, which is a stump saying less than the palette glyph and the face
+          already beside it. So a name is either near enough to whole to read,
+          or it isn't there.
 
           Those steps are CONTAINER queries on the band, never viewport ones, for
           the same reason the card grid's column count is: what squeezes this row
@@ -1136,7 +1142,7 @@ export default function ScenesView({
               className="inline-flex h-[38px] min-w-0 items-center gap-1.5 rounded-full border border-broll-500/25 bg-broll-500/10 px-3.5 text-[13px] font-semibold tracking-tight text-broll-300 transition-colors hover:border-broll-500/45 hover:bg-broll-500/[0.18]"
             >
               <Palette className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
-              <span className="hidden max-w-[180px] truncate @[600px]/bar:block">
+              <span className="hidden max-w-[180px] truncate @[740px]/bar:block">
                 {result.styleBrief ? (result.styleName?.trim() || 'Custom style') : getContinuousStyle(result.styleId ?? 'ugc').label}
               </span>
               <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-60" strokeWidth={2.5} />
@@ -1144,7 +1150,7 @@ export default function ScenesView({
             <CharacterPill
               model={selectedModel}
               onClick={onOpenCharacterPicker}
-              nameClassName="hidden max-w-[160px] truncate @[600px]/bar:block"
+              nameClassName="hidden max-w-[160px] truncate @[740px]/bar:block"
               className="min-w-0"
             />
             {/* The split — what the storyboard IS on the left, what you can do to
@@ -1247,7 +1253,7 @@ export default function ScenesView({
                     iconClassName="text-broll-300"
                     onClick={() => {
                       setGenerateAllOpen(false)
-                      requestBatch(allKeys, 'All scenes', true)
+                      requestBatch(allKeys, 'All Scenes', true)
                     }}
                   >
                     Generate All Images
@@ -1260,7 +1266,7 @@ export default function ScenesView({
                       iconClassName="text-broll-300"
                       onClick={() => {
                         setGenerateAllOpen(false)
-                        requestVideoBatch(allKeys, 'All stills', true, true)
+                        requestVideoBatch(allKeys, 'All Stills', true, true)
                       }}
                     >
                       Animate All Stills
@@ -1271,7 +1277,7 @@ export default function ScenesView({
                     iconClassName="text-broll-300"
                     onClick={() => {
                       setGenerateAllOpen(false)
-                      requestVideoBatch(allKeys, 'All scenes', true)
+                      requestVideoBatch(allKeys, 'All Scenes', true)
                     }}
                   >
                     Generate All Videos
@@ -1353,24 +1359,25 @@ export default function ScenesView({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md rounded-2xl border border-ink/10 bg-ink-950/95 p-5 shadow-2xl"
+            className="w-full max-w-lg rounded-2xl border border-ink/10 bg-ink-950/95 p-5 shadow-2xl"
           >
             {/* Same shape as the video dialog below — the two open from
                 buttons sitting side by side and must read as a pair. */}
             <h3 className="text-sm font-medium text-ink-100">
               {batchTargets.length === 0 ? 'Nothing to Generate' : 'Generate Images'}
             </h3>
-            <p className="mt-1 text-xs text-ink-500">
-              {[
-                batchConfirm.scope,
-                batchColumn !== 'all' ? `Option ${batchColumn + 1}` : null,
-                // Only once the run has been narrowed. At full scope the
-                // checklist below already says "12 of 12".
-                batchLines.size < batchSceneNumbers.length
-                  ? `${batchLines.size} line${batchLines.size === 1 ? '' : 's'}`
-                  : null,
-              ].filter(Boolean).join(' · ')}
-            </p>
+            {/* The scope line, and it only renders when it has something the
+                controls below don't already say (September 2026, Massimo's
+                call: *"remove that line ... because it's redundant"*). It used
+                to read "All Scenes · Option 1 · 2 lines" over a chip row with
+                Option 1 lit and a checklist headed "2 of 3 Lines" — three
+                statements of what two controls were already showing. The
+                option and the line count are gone for good; the SCOPE survives
+                only for a per-scene press, where there is no checklist under it
+                and "Scene 2" is the one thing naming the run. */}
+            {batchSceneNumbers.length < 2 && (
+              <p className="mt-1 text-xs text-ink-500">{batchConfirm.scope}</p>
+            )}
 
             <ColumnChips
               columns={batchColumns}
@@ -1481,7 +1488,7 @@ export default function ScenesView({
                 <Images className="h-3.5 w-3.5" />
                 {batchTargets.length === 0
                   ? 'Generate'
-                  : `Generate ${batchTargets.length} image${batchTargets.length === 1 ? '' : 's'}`}
+                  : `Generate ${batchTargets.length} Image${batchTargets.length === 1 ? '' : 's'}`}
                 <span className="flex items-center gap-1 rounded-full bg-black/25 px-2 py-0.5 text-[11px] tabular-nums">
                   <Coins className="h-3 w-3" strokeWidth={2} />
                   {/* An empty run costs nothing — formatCredits(0) would read
@@ -1504,7 +1511,7 @@ export default function ScenesView({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md rounded-2xl border border-ink/10 bg-ink-950/95 p-5 shadow-2xl"
+            className="w-full max-w-lg rounded-2xl border border-ink/10 bg-ink-950/95 p-5 shadow-2xl"
           >
             {/* One title, one line of context. The count and the price live on
                 the Generate button — everything else this dialog used to
@@ -1513,19 +1520,23 @@ export default function ScenesView({
                 already said by the controls below. */}
             <h3 className="text-sm font-medium text-ink-100">
               {videoTargets.length === 0
-                ? (videoConfirm.stillsOnly ? 'Nothing to animate' : 'Nothing to generate')
+                ? (videoConfirm.stillsOnly ? 'Nothing to Animate' : 'Nothing to Generate')
                 : (videoConfirm.stillsOnly ? 'Animate Stills' : 'Generate Videos')}
             </h3>
-            <p className="mt-1 text-xs text-ink-500">
-              {[
-                videoConfirm.scope,
-                videoColumn !== 'all' ? `Option ${videoColumn + 1}` : null,
-                videoLines.size < videoSceneNumbers.length
-                  ? `${videoLines.size} line${videoLines.size === 1 ? '' : 's'}`
-                  : null,
+            {/* Same rule as the image dialog above, plus the one qualifier
+                that is NOT redundant: where the clips come from. A run that is
+                half animated stills and half rendered prompts costs the same
+                either way and comes back looking different, and nothing else
+                on this dialog says so. */}
+            {(() => {
+              const parts = [
+                videoSceneNumbers.length < 2 ? videoConfirm.scope : null,
                 videoSourceNote,
-              ].filter(Boolean).join(' · ')}
-            </p>
+              ].filter(Boolean)
+              return parts.length > 0 ? (
+                <p className="mt-1 text-xs text-ink-500">{parts.join(' · ')}</p>
+              ) : null
+            })()}
 
             <ColumnChips
               columns={videoColumns}
@@ -1651,8 +1662,8 @@ export default function ScenesView({
                 {videoTargets.length === 0
                   ? (videoConfirm.stillsOnly ? 'Animate' : 'Generate')
                   : videoConfirm.stillsOnly
-                    ? `Animate ${videoTargets.length} still${videoTargets.length === 1 ? '' : 's'}`
-                    : `Generate ${videoTargets.length} video${videoTargets.length === 1 ? '' : 's'}`}
+                    ? `Animate ${videoTargets.length} Still${videoTargets.length === 1 ? '' : 's'}`
+                    : `Generate ${videoTargets.length} Video${videoTargets.length === 1 ? '' : 's'}`}
                 {/* The price sits on the button that spends it. */}
                 <span className="flex items-center gap-1 rounded-full bg-black/25 px-2 py-0.5 text-[11px] tabular-nums">
                   <Coins className="h-3 w-3" strokeWidth={2} />
@@ -1803,7 +1814,11 @@ function LineChecklist({
             {/* Truncated, never wrapped: the rows have to stay one height or
                 the list's own cap means a different number of lines each time
                 it opens. The full sentence is in the `title`. */}
-            <span className="min-w-0 flex-1 truncate text-xs tracking-[-0.035em] text-ink-300" title={lineOf(scene)}>
+            <span
+              className="min-w-0 flex-1 truncate text-sm tracking-[-0.035em] text-ink-300"
+              style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
+              title={lineOf(scene)}
+            >
               &ldquo;{lineOf(scene)}&rdquo;
             </span>
           </label>
@@ -2142,14 +2157,25 @@ function SceneSection({
                 prompts, so a dialogue card says the new sentence without a
                 regeneration. Read-only when the host doesn't hand us a handler.
 
+                **Instrument Serif**, the app's own display face, same as the
+                numeral over it (September 2026, Massimo's call). It is
+                `font-normal` and has to stay there: the face ships ONE weight,
+                so a `font-light` or a `font-bold` only asks the browser to
+                synthesize one — see the Dashboard's masthead, where that was
+                tried and reverted. It is also set a step LARGER than the sans
+                it replaced (20px against 18, 17 against 15 in the detail
+                modals), because a serif's smaller x-height reads a size down at
+                the same number.
+
                 `tracking-[-0.035em]`, a step past `tracking-tight` (Massimo's
-                call, September 2026). At 18px light this is display type, not
-                body copy, and Tailwind's -0.025em is a body-copy number: a
-                sentence running most of a 1000px panel read loose. The same
-                value is on every other place a script line is printed — the
-                storyboard header here, both detail modals, Continuous — because
-                they are one voice and a tighter quote in one of them would show
-                up as four different lines. */}
+                call, September 2026). This is display type, not body copy, and
+                Tailwind's -0.025em is a body-copy number: a sentence running
+                most of a 1000px panel read loose. Face, weight, size and
+                tracking are ONE decision across the five places a script line
+                is printed — the storyboard header here, the batch dialogs' line
+                checklist, both detail modals, Continuous — because they are one
+                voice, and a quote set differently in one of them shows up as
+                five different lines. */}
             {onEditSceneLine ? (
               <button
                 type="button"
@@ -2158,7 +2184,8 @@ function SceneSection({
                 className="group/line -mx-1.5 flex w-full items-start justify-center gap-2 rounded-lg px-1.5 py-0.5 text-center transition-colors hover:bg-ink/[0.04]"
               >
                 <p
-                  className="text-center text-lg leading-relaxed text-ink-400 transition-colors group-hover/line:text-ink-200 font-light tracking-[-0.035em]"
+                  className="text-center text-xl leading-relaxed text-ink-400 transition-colors group-hover/line:text-ink-200 font-normal tracking-[-0.035em]"
+                  style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
                 >
                   &ldquo;{scene.scriptLine}&rdquo;
                 </p>
@@ -2166,7 +2193,8 @@ function SceneSection({
               </button>
             ) : (
               <p
-                className="text-center text-lg leading-relaxed text-ink-400 font-light tracking-[-0.035em]"
+                className="text-center text-xl leading-relaxed text-ink-400 font-normal tracking-[-0.035em]"
+                style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
               >
                 &ldquo;{scene.scriptLine}&rdquo;
               </p>

@@ -1940,7 +1940,8 @@ function SceneRow({
               className="group/line flex min-w-0 items-center gap-2 text-left"
             >
               <span
-                className="truncate text-lg leading-relaxed text-ink-400 transition-colors group-hover/line:text-ink-200 font-light tracking-[-0.035em]"
+                className="truncate text-xl leading-relaxed text-ink-400 transition-colors group-hover/line:text-ink-200 font-normal tracking-[-0.035em]"
+                style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
               >
                 &ldquo;{scene.scriptLine}&rdquo;
               </span>
@@ -2054,7 +2055,8 @@ function FinalFrameRow({
               Final Frame
             </span>
             <p
-              className="text-lg leading-relaxed text-ink-400 font-light tracking-[-0.035em]"
+              className="text-xl leading-relaxed text-ink-400 font-normal tracking-[-0.035em]"
+              style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
             >
               The end state the last clip lands on
             </p>
