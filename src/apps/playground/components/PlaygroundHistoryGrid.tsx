@@ -561,7 +561,12 @@ export default memo(function PlaygroundHistoryGrid({ inFlight, activeProjectId, 
             // A project you just made is a project you are about to work in, so
             // creating one opens it — the alternative is making a folder and
             // then having to go and find it.
-            onCreate={(name) => { void addProject(name).then((id) => onChangeProject(id)) }}
+            // … and hands the grid back, the same as picking one: the rail
+            // covers the project it just opened.
+            onCreate={(name) => {
+              void addProject(name).then((id) => onChangeProject(id))
+              setRailOpen(false)
+            }}
             onRename={(id, name) => { void renameProject(id, name) }}
             onDelete={(id) => {
               void deleteProject(id)

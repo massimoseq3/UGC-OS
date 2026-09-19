@@ -510,6 +510,10 @@ export default function ScriptArchitect() {
   const handleNewScript = () => {
     setClearedSig(outputSig)
     handleClearInputs()
+    // New lives INSIDE the rail, and the rail covers the takes it just
+    // cleared — so leaving it open reads as the press having done nothing.
+    // Same rule as picking a row: acting in the rail hands the pane back.
+    setHistoryOpen(false)
   }
 
   return (
