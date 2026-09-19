@@ -2060,24 +2060,62 @@ export default function OutputPanel({ variations, outputAngles, mode, liveMode, 
       : pendingRun.mode === 'remix'
         ? ['Building the angles...', 'Sending parallel requests...', 'Writing variations...', 'Polishing final drafts...']
         : ['Reading scene blueprint...', 'Mapping product into structure...', 'Rewriting scenes...', 'Preserving structure...']
+    // The cards this run is about to land, and what each will be called. Read
+    // off the RUN, never the live selectors — a member browsing History
+    // mid-write moves those, and the pane would relabel a run in flight.
+    // Hooks come back as one card holding N lines; everything else is one card
+    // per variation, and the blueprint rewrite returns a single script.
+    const pendingTitles =
+      pendingRun.mode === 'write' && pendingRun.writeFormat === 'hooks'
+        ? [`Hooks · ${HOOK_CATEGORY_META[pendingRun.hookCategory]?.label ?? 'Best Mix'}`]
+        : pendingRun.mode === 'reverse-engineer'
+          ? ['Scene prompts']
+          : Array.from({ length: Math.max(1, pendingRun.variationCount) }, (_, i) =>
+              pendingRun.mode === 'write' ? `Take ${i + 1}` : `Variation ${i + 1}`)
     return (
       <GridCanvas className="h-full">
         <div className="relative flex h-full flex-col gap-2 p-5">
           <GenerationProgress isActive color="bg-scripts-500" messages={message} showHelper={false} />
-          {/* Accent glow while the words are being written — the same "this is
-              alive" cue the media apps get on a generating frame. */}
-          <div className="flex flex-1 min-h-0 flex-col gap-3 rounded-3xl border border-scripts-500/20 bg-surface-1 p-5 shadow-[0_0_90px_-24px_var(--color-scripts-500)]">
-            {/* One breathe for the block — see `.skeleton-group` in index.css.
-                The wrapper is what animates, not each line. */}
-            <div className="skeleton-group flex flex-col gap-3">
-              <div className="skeleton h-4 w-full" />
-              <div className="skeleton h-4 w-[90%]" />
-              <div className="skeleton h-4 w-[95%]" />
-              <div className="skeleton h-4 w-[70%]" />
-              <div className="mt-2 skeleton h-4 w-full" />
-              <div className="skeleton h-4 w-[85%]" />
-              <div className="skeleton h-4 w-[92%]" />
-            </div>
+          {/* The takes' own scroller and the takes' own card shell, one per
+              card this run will land — so the writing face IS the shape of the
+              finished pane, and a take replacing its placeholder doesn't move
+              anything on screen.
+
+              It was ONE stretched slab wearing a 90px accent halo
+              (`shadow-[0_0_90px_-24px_…]`), which is what Massimo reported as
+              tacky in September 2026: a saturated glow bleeding onto the grid
+              canvas reads as a light leak rather than as a status, and it was
+              the third thing on one box already saying "box" with a border and
+              a raised fill. The rule the skeletons themselves follow applies to
+              it (see `.skeleton` in index.css): the progress bar and the
+              rotating status line above are what say the work is running, and
+              anything added underneath is decoration on a signal that is
+              already there. The header band carries the take's real name
+              instead, which the glow never did. */}
+          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+            {pendingTitles.map((title, i) => (
+              // `VariationCard`'s shell, verbatim — same radius, border, fill
+              // and soft shadow in both themes. Keep the two in step.
+              <div key={i} className="flex shrink-0 flex-col overflow-hidden rounded-3xl border border-ink/10 bg-ink/[0.06] light:bg-[#F1F1F2] card-soft-shadow">
+                <div className="flex select-none items-center justify-center border-b border-ink/5 px-12 py-2.5">
+                  <span className="rounded-full bg-scripts-500/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-tight text-scripts-300">
+                    {title}
+                  </span>
+                </div>
+                {/* One breathe for the block — see `.skeleton-group` in
+                    index.css. The wrapper is what animates, not each line, and
+                    one wrapper per card is one composited layer per card. */}
+                <div className="skeleton-group flex flex-col gap-3 p-5">
+                  <div className="skeleton h-4 w-full" />
+                  <div className="skeleton h-4 w-[90%]" />
+                  <div className="skeleton h-4 w-[95%]" />
+                  <div className="skeleton h-4 w-[70%]" />
+                  <div className="mt-2 skeleton h-4 w-full" />
+                  <div className="skeleton h-4 w-[85%]" />
+                  <div className="skeleton h-4 w-[92%]" />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </GridCanvas>
