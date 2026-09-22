@@ -117,7 +117,11 @@ function CardHeader({ icon: Icon, title, accentClass = 'text-[#FF5257]/80', acti
     // top of it. The absolute version takes no layout space at all, so at 375px
     // "Reverse-Engineered Scenes" ran straight under "Copy All" — the same
     // failure `SectionCard`'s header was rebuilt to avoid.
-    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 border-b border-ink/5 px-4 py-3">
+    //
+    // `min-h-[53px]` is the band WITH its 28px copy button, so the Breakdown
+    // header (which has none) stands as tall as the Transcript and Scenes ones
+    // under it rather than 8px shorter.
+    <div className="grid min-h-[53px] grid-cols-[1fr_auto_1fr] items-center gap-2 border-b border-ink/5 px-4 py-3">
       <span aria-hidden />
       <span className="flex min-w-0 items-center justify-center gap-2 text-sm font-semibold tracking-tight text-ink-200">
         <Icon className={`h-4 w-4 shrink-0 ${accentClass}`} strokeWidth={1.5} />
@@ -125,6 +129,27 @@ function CardHeader({ icon: Icon, title, accentClass = 'text-[#FF5257]/80', acti
       </span>
       <div className="flex min-w-0 items-center justify-end gap-1">{action}</div>
     </div>
+  )
+}
+
+// The copy on a card's own title line. Glyph only at every width, on BOTH
+// cards that carry one: the Scenes card went glyph-only because its title is
+// the longest in the read, and a labelled "Copy" on the Transcript card beside
+// it made the same action two different shapes one card apart. The wording
+// survives as the tooltip and the accessible name.
+function HeaderCopyButton({ copied, label, onCopy }: { copied: boolean; label: string; onCopy: () => void }) {
+  const text = copied ? 'Copied' : label
+  return (
+    <button
+      onClick={onCopy}
+      title={text}
+      aria-label={text}
+      className="flex h-7 w-7 items-center justify-center rounded-full text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-300"
+    >
+      {copied
+        ? <Check className="h-3.5 w-3.5 text-green-400 light:text-green-600" />
+        : <Copy className="h-3.5 w-3.5" />}
+    </button>
   )
 }
 
@@ -151,10 +176,16 @@ function scoreColor(score: number) {
 
 // Scorecard rows + analyst note — lives at the top of the merged Breakdown
 // section (it kept its own card until the two were folded together).
+//
+// The side-by-side split answers to the CARD's width, not the window's: from
+// `md` up the read column is whatever the rail and the ad leave it, so on a
+// portrait tablet the two halves were ~140px each — "Hook / Strength" on two
+// lines beside a note running five words to a line.
 function ScorecardBody({ result }: { result: AnalysisResult }) {
   const { scorecard } = result
   return (
-    <div className="flex flex-col md:flex-row gap-5 p-4">
+    <div className="@container">
+    <div className="flex flex-col gap-5 p-4 @[26rem]:flex-row">
       <div className="flex flex-1 flex-col gap-0.5">
         {scorecard.scores.map((s) => {
           const color = scoreColor(s.score)
@@ -176,6 +207,7 @@ function ScorecardBody({ result }: { result: AnalysisResult }) {
         <span className="text-[11px] font-medium uppercase tracking-tight text-ink-600">Analyst&apos;s Note</span>
         <p className="mt-1.5 text-[13px] font-light leading-relaxed tracking-tight text-ink-200">{scorecard.analystNote}</p>
       </div>
+    </div>
     </div>
   )
 }
@@ -234,6 +266,10 @@ function TranscriptSection({ result, fileName }: { result: AnalysisResult; fileN
   const addScript = useBankStore((s) => s.addScript)
 
   const withoutTimestamps = result.transcript.map((l) => l.text).join('\n')
+  // A still has no timeline: an image ad's lines all come back stamped 00:00,
+  // and a column of identical zeroes down the card reads as a broken clock.
+  // Only show the stamps when they tell the lines apart.
+  const timed = result.transcript.some((l) => l.timestamp !== result.transcript[0].timestamp)
   const adTitle = result.adTitle?.trim() || deriveFallbackTitle(fileName)
   const scriptTitle = `${adTitle} · Transcript`
 
@@ -267,23 +303,15 @@ function TranscriptSection({ result, fileName }: { result: AnalysisResult; fileN
       <CardHeader
         icon={FileText}
         title="Transcript"
-        action={
-          <>
-          <button
-            onClick={() => copy(withoutTimestamps)}
-            className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-300"
-          >
-            {copied ? <Check className="h-3 w-3 text-green-400 light:text-green-600" /> : <Copy className="h-3 w-3" />}
-            {copied ? 'Copied' : 'Copy'}
-          </button>
-          </>
-        }
+        action={<HeaderCopyButton copied={copied} label="Copy Transcript" onCopy={() => copy(withoutTimestamps)} />}
       />
 
       <div className="flex flex-col gap-0.5 p-4">
         {result.transcript.map((line, i) => (
           <div key={i} className="flex gap-3 rounded-full px-3 py-1.5 transition-colors hover:bg-ink/[0.03]">
-            <span className="mt-0.5 shrink-0 tabular-nums text-[11px] text-ink-700">{line.timestamp}</span>
+            {timed && (
+              <span className="mt-0.5 shrink-0 tabular-nums text-[11px] text-ink-600">{line.timestamp}</span>
+            )}
             <span className="text-[13px] font-light leading-relaxed tracking-tight text-ink-200">{line.text}</span>
           </div>
         ))}
@@ -548,9 +576,13 @@ function SceneCard({ scene }: { scene: Scene }) {
             Scene {scene.index}
           </span>
           <span className="text-[11px] font-medium text-ink-300">{scene.label}</span>
-          <span className="shrink-0 rounded-full bg-ink/5 px-2 py-0.5 tabular-nums text-[10px] text-ink-500">
-            {scene.startTime}–{scene.endTime} · {scene.durationSeconds}s
-          </span>
+          {/* Same reason as the card's Total pill: a still's one scene runs
+              "00:00–00:00 · 0s", which is a timeline with nothing on it. */}
+          {scene.durationSeconds > 0 && (
+            <span className="shrink-0 rounded-full bg-ink/5 px-2 py-0.5 tabular-nums text-[10px] text-ink-500">
+              {scene.startTime}–{scene.endTime} · {scene.durationSeconds}s
+            </span>
+          )}
         </div>
         <button
           onClick={() => copy(scene.prompt)}
@@ -636,7 +668,7 @@ function ReverseEngineeredSection({ result, fileName }: { result: AnalysisResult
   // scene under its own header — never a bare prompt, which is what the scene's
   // own Copy gives. So the only thing left for the label to say is how many
   // scenes are in it.
-  const copyLabel = copied ? 'Copied' : scenes.length > 1 ? 'Copy All Prompts' : 'Copy Blueprint'
+  const copyLabel = scenes.length > 1 ? 'Copy All Prompts' : 'Copy Blueprint'
 
   return (
     <Section>
@@ -652,26 +684,19 @@ function ReverseEngineeredSection({ result, fileName }: { result: AnalysisResult
           // survives as the tooltip and the accessible name: "Copy Prompt" only
           // when the copy IS one prompt — with a master block in front of it,
           // or several scenes, it's the whole set.
-          <>
-          <button
-            onClick={() => copy(fullPrompt)}
-            title={copyLabel}
-            aria-label={copyLabel}
-            className="flex h-7 w-7 items-center justify-center rounded-full text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-300"
-          >
-            {copied
-              ? <Check className="h-3.5 w-3.5 text-green-400 light:text-green-600" />
-              : <Copy className="h-3.5 w-3.5" />}
-          </button>
-          </>
+          <HeaderCopyButton copied={copied} label={copyLabel} onCopy={() => copy(fullPrompt)} />
         }
       />
 
       <div className="flex flex-col gap-3 p-4">
+        {/* A still has no runtime, and "Total: 0s" said so as if it were a
+            measurement. The scene count carries the row on its own there. */}
         <div className="flex flex-wrap gap-2 text-[11px] text-ink-500">
-          <span className="rounded-full bg-ink/5 px-2.5 py-0.5">
-            Total: {reverseEngineeredPrompt.totalDurationSeconds}s
-          </span>
+          {reverseEngineeredPrompt.totalDurationSeconds > 0 && (
+            <span className="rounded-full bg-ink/5 px-2.5 py-0.5">
+              Total: {reverseEngineeredPrompt.totalDurationSeconds}s
+            </span>
+          )}
           <span className="rounded-full bg-ink/5 px-2.5 py-0.5">
             {scenes.length === 1 ? '1 scene' : `${scenes.length} scenes (≤15s each)`}
           </span>
@@ -712,19 +737,24 @@ function ReverseEngineeredSection({ result, fileName }: { result: AnalysisResult
 // Massimo's call); twice per card was once too many.
 // The label uses `text-scripts-text`, not `text-scripts-400`: the scripts
 // accent is a dark navy, so a 400 label on its own tint reads as disabled.
+//
+// Each button is `flex-[1_1_13rem]` + `whitespace-nowrap`, not `flex-1 min-w-0`:
+// the pair still splits a wide card evenly, but on a narrow one (a phone, or
+// the read column squeezed between the rail and the ad) the row WRAPS into two
+// full-width buttons instead of squeezing both into two-line labels.
 function ScriptActionRow({ onSave, onSend, sendLabel }: { onSave: () => void; onSend: () => void; sendLabel: string }) {
   return (
     <div className="flex flex-wrap gap-2 border-t border-ink/5 p-3">
       <button
         onClick={onSave}
-        className="flex flex-1 min-w-0 items-center justify-center gap-2 rounded-full border border-ink/15 px-4 py-2.5 text-[12px] font-medium tracking-tight text-ink-300 transition-colors hover:bg-ink/[0.06] hover:text-ink-100"
+        className="flex flex-[1_1_13rem] items-center justify-center gap-2 whitespace-nowrap rounded-full border border-ink/15 px-4 py-2.5 text-[12px] font-medium tracking-tight text-ink-300 transition-colors hover:bg-ink/[0.06] hover:text-ink-100"
       >
         <Bookmark className="h-4 w-4" strokeWidth={1.75} />
         Save to Script Bank
       </button>
       <button
         onClick={onSend}
-        className="flex flex-1 min-w-0 items-center justify-center gap-2 rounded-full border border-scripts-500/20 bg-scripts-500/10 px-4 py-2.5 text-[12px] font-medium tracking-tight text-scripts-text transition-colors hover:bg-scripts-500/20"
+        className="flex flex-[1_1_13rem] items-center justify-center gap-2 whitespace-nowrap rounded-full border border-scripts-500/20 bg-scripts-500/10 px-4 py-2.5 text-[12px] font-medium tracking-tight text-scripts-text transition-colors hover:bg-scripts-500/20"
       >
         <PenLine className="h-4 w-4" strokeWidth={1.75} />
         {sendLabel}
@@ -805,7 +835,7 @@ function FrameGrabButton({
       onClick={handleGrab}
       disabled={busy}
       title="Download the frame showing now · scrub the player to pick your moment"
-      className="flex shrink-0 items-center justify-center gap-2 rounded-full border border-[#FF5257]/20 bg-[#FF5257]/10 px-4 py-2.5 text-[12px] font-medium tracking-tight text-[#FF5257] transition-colors hover:bg-[#FF5257]/20 disabled:cursor-not-allowed disabled:opacity-60"
+      className="flex shrink-0 items-center justify-center gap-2 rounded-full border border-[#FF5257]/20 bg-[#FF5257]/10 px-4 py-2.5 text-[12px] font-medium tracking-tight text-[#FF5257] transition-colors hover:bg-[#FF5257]/20 light:text-[#C4272C] disabled:cursor-not-allowed disabled:opacity-60"
     >
       {busy ? (
         <Spinner className="h-4 w-4" />
@@ -910,7 +940,11 @@ export default function ResultsView({ result, videoSrc, restoredThumbUrl, fileNa
             {/* Media sizes to its own aspect ratio so there are no letterbox
                 black bars. The flex parent centers it within whatever vertical
                 space is left after the frame-grab button. */}
-            <div className="flex flex-1 min-h-0 w-full items-center justify-center">
+            {/* A column, so the saved-still caption (below) sits directly
+                under the picture rather than at the foot of the column — on a
+                square or landscape still that left it ~170px adrift of the
+                image it describes. */}
+            <div className="flex flex-1 min-h-0 w-full flex-col items-center justify-center gap-2">
               {videoSrc && isVideo ? (
                 <video
                   {...sourceVideo}
@@ -936,22 +970,24 @@ export default function ResultsView({ result, videoSrc, restoredThumbUrl, fileNa
                 <img
                   src={videoSrc ?? restoredThumbUrl ?? ''}
                   alt={videoSrc ? 'The analyzed ad' : 'First frame of the analyzed ad'}
-                  className="block max-h-full max-w-full rounded-xl border border-ink/10 transition-all card-soft-shadow"
+                  // The caption's line comes off the still's ceiling, so the
+                  // pair still fits a short column without clipping either.
+                  className={`block max-w-full rounded-xl border border-ink/10 transition-all card-soft-shadow ${videoSrc ? 'max-h-full' : 'max-h-[calc(100%-1.5rem)]'}`}
                 />
               ) : null}
+              {/* When the live source is gone, make it explicit that this is the
+                  saved still — not a broken or missing video. */}
+              {!videoSrc && restoredThumbUrl && (
+                <p className="shrink-0 text-center text-[11px] italic text-ink-500">
+                  Still frame · source ad not retained
+                </p>
+              )}
             </div>
 
             {/* Scrub to a moment in the player above, then take that exact frame
                 at the ad's own resolution instead of screenshotting the app. */}
             {videoSrc && isVideo && (
               <FrameGrabButton videoRef={sourceVideo.ref} fileName={fileName} />
-            )}
-            {/* When the live source is gone, make it explicit that this is the
-                saved still — not a broken or missing video. */}
-            {!videoSrc && restoredThumbUrl && (
-              <p className="-mt-2 shrink-0 text-center text-[11px] italic text-ink-500">
-                Still frame · source ad not retained
-              </p>
             )}
           </div>
         </div>
@@ -962,8 +998,12 @@ export default function ResultsView({ result, videoSrc, restoredThumbUrl, fileNa
           pinned at top-0 from the first pixel and never scrolled away, so
           sticky bought nothing but the chance to come loose from the edge on
           the way back up a long read (the app-wide rule in the root
-          CLAUDE.md). Outside the scroller it can't move by construction. */}
-      <div className="flex min-h-0 flex-1 flex-col max-md:flex-none md:order-1">
+          CLAUDE.md). Outside the scroller it can't move by construction.
+          `min-w-0`: a flex item's floor is its min-content, and the toggle's
+          truncating labels contribute their FULL width to it — so between
+          768 and ~900px the read refused to shrink and shoved the ad's column
+          half off the right edge of the window. */}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col max-md:flex-none md:order-1">
         {/* Sticky on a phone, where this bar really does scroll away and come
             back — the one case the app-wide rule keeps `sticky` for, and the
             reason it has to paint SOMETHING: the read scrolls underneath it, so

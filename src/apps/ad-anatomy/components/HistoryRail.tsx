@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react'
-import { Search, Eye, Plus, AlertCircle } from 'lucide-react'
+import { Search, Eye, AlertCircle } from 'lucide-react'
 import type { AdAnatomyHistoryItem } from '../../../stores/types'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
 import { formatRelative, sectionLabel, groupByDay } from '../../../utils/history'
 import { TileDeleteButton } from '../../../components/tileActions'
+import DayPill from '../../../components/DayPill'
+import RailNewButton from '../../../components/RailNewButton'
 
 interface HistoryRailProps {
   items: AdAnatomyHistoryItem[]
@@ -46,30 +48,34 @@ export default function HistoryRail({ items, selectedId, onSelect, onDelete, onN
           compact row. It stays put on a scroll — nothing inside an app rolls
           away any more (see the root CLAUDE.md); only the dock does. */}
       <div className="flex shrink-0 items-center gap-2 p-3 md:h-[57px] md:border-b md:border-ink/5 md:px-3 md:py-0">
-        <button
+        {/* The shared rail button (it was lifted out of THIS one), so its 38px
+            matches Scripts' and B-Roll's across the app. */}
+        <RailNewButton
+          label="New Analysis"
+          accentClass="bg-[#FF5257]"
+          title="Open the upload screen. Every analysis stays in this list"
           onClick={onNew}
-          className="flex shrink-0 items-center justify-center gap-2 glass-fill glass-fill-soft rounded-full border border-white/15 bg-[#FF5257] px-4 py-2.5 text-[13px] font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),inset_0_-1px_0_rgba(255,255,255,0.08)] btn-soft-shadow transition-all hover:brightness-110 md:w-full md:py-2"
-        >
-          <Plus className="h-4 w-4" strokeWidth={2.5} />
-          New Analysis
-        </button>
+          className="shrink-0 md:w-full"
+        />
+        {/* Phone: shares the button's row, so it takes the button's 38px
+            rather than sitting 6px short of it. */}
         <div className="relative min-w-0 flex-1 md:hidden">
-          <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-500" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-500" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search analyses..."
-            className="w-full rounded-full border border-ink/10 bg-transparent py-1.5 pl-9 pr-3 text-[12px] text-ink-100 placeholder-ink-500 outline-none transition-colors focus:border-[#FF5257]/40"
+            className="h-[38px] w-full rounded-full border border-ink/10 bg-transparent pl-9 pr-3 text-[12.5px] text-ink-100 placeholder-ink-500 outline-none transition-colors focus:border-[#FF5257]/40"
           />
         </div>
       </div>
       <div className="relative hidden shrink-0 border-b border-ink/5 px-3 py-2.5 md:block">
-        <Search className="absolute left-6 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-500" />
+        <Search className="pointer-events-none absolute left-6 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-500" />
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search analyses..."
-          className="w-full rounded-full border border-ink/10 bg-transparent py-1.5 pl-9 pr-3 text-[12px] text-ink-100 placeholder-ink-500 outline-none transition-colors focus:border-[#FF5257]/40"
+          className="w-full rounded-full border border-ink/10 bg-transparent py-2 pl-9 pr-3 text-[12.5px] text-ink-100 placeholder-ink-500 outline-none transition-colors focus:border-[#FF5257]/40"
         />
       </div>
 
@@ -77,7 +83,8 @@ export default function HistoryRail({ items, selectedId, onSelect, onDelete, onN
         {items.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center">
             <Eye className="h-8 w-8 text-ink-800" strokeWidth={1.5} />
-            <p className="text-xs text-ink-500">No Analyses Yet</p>
+            <p className="text-xs text-ink-300">No Analyses Yet</p>
+            <p className="text-[11px] text-ink-500">Your analyzed ads will land here.</p>
           </div>
         ) : groups.length === 0 ? (
           <div className="flex h-full items-center justify-center px-6 py-4 text-center">
@@ -87,11 +94,7 @@ export default function HistoryRail({ items, selectedId, onSelect, onDelete, onN
           <div className="flex flex-col gap-0.5 p-2">
             {groups.map(([dayTs, dayItems]) => (
               <div key={dayTs} className="flex flex-col gap-0.5">
-                <div className="my-1.5 flex items-center justify-center">
-                  <span className="rounded-full bg-ink/[0.06] px-2.5 py-0.5 text-[10px] font-medium tracking-tight text-ink-300">
-                    {sectionLabel(dayTs)}
-                  </span>
-                </div>
+                <DayPill label={sectionLabel(dayTs)} className="my-1.5" />
 
                 {dayItems.map((item) => (
                   <HistoryRow
@@ -151,7 +154,11 @@ function HistoryRow({
           </span>
         )}
         <div className="min-w-0 flex-1">
-          <p className="line-clamp-1 text-[12.5px] font-medium leading-snug text-ink-100">
+          {/* `truncate`, never `line-clamp-1`: a clamp breaks at a WORD, so a
+              title whose next word didn't fit ("Vitamin C Serum | Testimonial")
+              stopped a third of the way across the row and left the rest of
+              it empty. One nowrap line cuts at the row's edge instead. */}
+          <p className="truncate text-[12.5px] font-medium leading-snug text-ink-100">
             {titleText}
           </p>
           <div className="mt-0.5 flex items-center gap-1 text-[10.5px] text-ink-500">

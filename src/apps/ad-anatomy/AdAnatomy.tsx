@@ -485,15 +485,17 @@ function ErrorPane({ item, onRetry }: { item: AdAnatomyHistoryItem; onRetry: () 
           <button
             onClick={handleRerun}
             disabled={!canRerun}
-            className="flex items-center gap-2 rounded-full border border-white/15 bg-[#FF5257] px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-[#FF5257]/90 disabled:opacity-60"
+            // A solid accent CTA lifts on hover (`brightness-110`); a /90 tint
+            // DARKENED it, the one button in the app that dimmed under the pointer.
+            className="flex items-center gap-2 rounded-full border border-white/15 bg-[#FF5257] px-4 py-2 text-sm font-semibold text-white transition-all hover:brightness-110 disabled:opacity-60 disabled:hover:brightness-100"
           >
-            <RotateCcw className={`h-3.5 w-3.5 ${retrying ? 'animate-spin' : ''}`} />
+            {retrying ? <Spinner className="h-3.5 w-3.5" /> : <RotateCcw className="h-3.5 w-3.5" />}
             {retrying ? 'Restarting…' : 'Retry Analysis'}
           </button>
         )}
         <button
           onClick={onRetry}
-          className="flex items-center gap-2 rounded-full border border-[#FF5257]/20 bg-[#FF5257]/10 px-4 py-2 text-sm font-medium text-[#FF5257] transition-colors hover:bg-[#FF5257]/20"
+          className="flex items-center gap-2 rounded-full border border-[#FF5257]/20 bg-[#FF5257]/10 px-4 py-2 text-sm font-medium text-[#FF5257] transition-colors hover:bg-[#FF5257]/20 light:text-[#C4272C]"
         >
           <Upload className="h-3.5 w-3.5" />
           Upload Another
