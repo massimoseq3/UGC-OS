@@ -160,15 +160,23 @@ export default function ChipField({ label, value, onChange, suggestions, placeho
   }, [showDropdown, topSection.length, restSection.length])
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-center gap-1.5">
-        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${isFilled ? 'bg-emerald-500' : 'bg-red-500'}`} />
-        <span className="text-[11px] font-medium uppercase tracking-wider text-ink-300">{label}</span>
+    // `h-full` + a growing label row: when a half-width label wraps (a phone's
+    // "Distinguishing Marks"), its neighbour's one-line label stays at the top
+    // and both INPUTS still land on one line at the foot of the grid row,
+    // instead of one pill sitting a line lower than the pill beside it.
+    <div className="flex h-full flex-col gap-1.5">
+      {/* Top-aligned, with the dot nudged onto the FIRST line of the label
+          (16px line, 6px dot → 5px). Centred, a wrapped label pulled the dot
+          down between its two lines, where it read as a stray mark under the
+          word rather than the status of the field. */}
+      <div className="flex flex-1 items-start gap-1.5">
+        <span className={`mt-[5px] h-1.5 w-1.5 shrink-0 rounded-full ${isFilled ? 'bg-emerald-500' : 'bg-red-500'}`} />
+        <span className="text-[11px] font-medium uppercase leading-4 tracking-wider text-ink-300">{label}</span>
         {defaultLocked && (
           <button
             type="button"
             onClick={() => setLocked((v) => !v)}
-            className="ml-auto flex items-center gap-1 rounded-full border border-ink/[0.06] bg-ink/[0.02] px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-ink-500 transition-colors hover:border-ink/10 hover:bg-ink/[0.04] hover:text-ink-300"
+            className="ml-auto flex items-center gap-1 self-center rounded-full border border-ink/[0.06] bg-ink/[0.02] px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-ink-500 transition-colors hover:border-ink/10 hover:bg-ink/[0.04] hover:text-ink-300"
             title={locked ? 'Click to enable editing' : 'Click to lock the value back'}
           >
             {locked ? <Lock className="h-2.5 w-2.5" /> : <Unlock className="h-2.5 w-2.5" />}

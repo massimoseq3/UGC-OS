@@ -659,7 +659,11 @@ export default function PresetPickerModal({
     // No backdrop-blur on the backdrop: it would make this a backdrop root
     // containing a scrolling grid of a few hundred images, and every scrolled
     // pixel would drag a full-viewport filter recompute behind it.
-    <div className="modal-fade fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4" {...backdrop}>
+    //
+    // `bg-black/50`, the dim `Modal`, `BankPicker` and the history rails all
+    // put behind a picker. It was /70 — a step darker than BankPicker's
+    // Characters bank, the picker this one is built to read as one with.
+    <div className="modal-fade fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" {...backdrop}>
       {/* `modal-pop` is the app's one modal arrival — see index.css. This panel
           unmounts when it closes, so it has no closed state to transition from
           and the keyframe runs on mount instead; `BankPicker` plays the same

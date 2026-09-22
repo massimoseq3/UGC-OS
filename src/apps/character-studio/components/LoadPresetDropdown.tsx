@@ -32,7 +32,12 @@ export default function LoadPresetDropdown({ onLoadProfile }: LoadPresetDropdown
         type="button"
         onClick={() => setOpen(true)}
         title="Load every field from a saved preset: physical, scene and pose"
-        className="flex w-full items-center gap-2.5 rounded-full border border-dashed border-ink/10 bg-ink/[0.02] px-3 py-2 text-left transition-colors hover:bg-ink/[0.05]"
+        // h-12, the house pill height, and the SAME box the Extract row beside
+        // it holds in every state: that row's analyzing and applied faces were
+        // always h-12 while both idle rows were py-2 (46px), so auto-filling
+        // from a photo left the pair 2px out of step and nudged the whole
+        // column below them down.
+        className="flex h-12 w-full items-center gap-2.5 rounded-full border border-dashed border-ink/10 bg-ink/[0.02] px-3 text-left transition-colors hover:bg-ink/[0.05]"
       >
         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-influencers-500/10 text-influencers-400">
           <UserRound className="h-4 w-4" strokeWidth={1.5} />

@@ -72,7 +72,8 @@ export default function PhotoExtractZone({
   }, [onPhotoDrop])
 
   // Analyzing state — fixed h-12 so it stays the exact size of the preset pill
-  // beside it (the bar + message centre within the row rather than growing it).
+  // beside it and of this row's own idle face (the bar + message centre within
+  // the row rather than growing it).
   if (analyzingCount > 0) {
     return (
       <div
@@ -156,7 +157,9 @@ export default function PhotoExtractZone({
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
         onClick={onOpenLibrary}
-        className={`flex cursor-pointer items-center gap-2.5 rounded-full border border-dashed py-2 pl-3 pr-2 transition-all ${dragOver
+        // h-12 like the analyzing and applied faces above and the preset row
+        // beside it, so the row never changes height between states.
+        className={`flex h-12 cursor-pointer items-center gap-2.5 rounded-full border border-dashed pl-3 pr-2 transition-all ${dragOver
             ? 'border-green-400/40 bg-green-400/5'
             : 'border-ink/10 bg-ink/[0.02] hover:border-ink/20 hover:bg-ink/[0.05]'
           }`}
