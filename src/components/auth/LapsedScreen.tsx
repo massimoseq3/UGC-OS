@@ -1,7 +1,6 @@
 import { useState } from 'react'
-import { AlertCircle, ExternalLink } from 'lucide-react'
-import Spinner from '../Spinner'
-import AuthShell, { AuthField } from './AuthShell'
+import { ExternalLink } from 'lucide-react'
+import AuthShell, { AuthField, AuthForm, AuthNotice, AuthSubmit } from './AuthShell'
 import { useAuthStore } from '../../stores/authStore'
 import { SKOOL_ACCESS_CODE_URL } from '../../utils/constants'
 
@@ -40,10 +39,7 @@ export default function LapsedScreen({ reason }: { reason?: 'disabled' | 'lapsed
 
   return (
     <AuthShell subtitle={renewing ? 'Quick check-in' : 'Welcome back'}>
-      <form
-        onSubmit={handleSubmit}
-        className="space-y-3 rounded-xl border border-ink/10 bg-ink/[0.03] p-5 backdrop-blur-xl"
-      >
+      <AuthForm onSubmit={handleSubmit}>
         {/* No explanatory paragraph above the field, and on the renewal pass
             no hint either. The heading, the Access Code label and the Unlock My
             Workspace button already say the whole thing; copy reassuring a
@@ -60,22 +56,12 @@ export default function LapsedScreen({ reason }: { reason?: 'disabled' | 'lapsed
           hint={renewing ? undefined : 'It changes from time to time, so use the current one.'}
         />
 
-        {error && (
-          <div className="flex items-start gap-2 rounded-md border border-red-500/20 bg-red-500/10 px-2.5 py-2 text-[11px] text-red-300 light:text-red-700">
-            <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
+        {error && <AuthNotice tone="error">{error}</AuthNotice>}
 
-        <button
-          type="submit"
-          disabled={busy || !code.trim()}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-ink py-2.5 text-sm font-medium text-ink-900 transition-colors hover:bg-ink-100 disabled:opacity-60"
-        >
-          {busy && <Spinner className="h-4 w-4" />}
+        <AuthSubmit busy={busy} disabled={!code.trim()}>
           Unlock My Workspace
-        </button>
-      </form>
+        </AuthSubmit>
+      </AuthForm>
 
       <div className="flex flex-col items-center gap-2">
         <a
@@ -84,7 +70,7 @@ export default function LapsedScreen({ reason }: { reason?: 'disabled' | 'lapsed
           rel="noreferrer"
           className="inline-flex items-center gap-1.5 rounded-full border border-ink/10 bg-ink/5 px-4 py-2 text-[12px] font-medium text-ink-200 transition-colors hover:border-ink/20 hover:bg-ink/10 hover:text-ink"
         >
-          Get the access code on Skool
+          Get the Access Code on Skool
           <ExternalLink className="h-3 w-3" />
         </a>
         <button

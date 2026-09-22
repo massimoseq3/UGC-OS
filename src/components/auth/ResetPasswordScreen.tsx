@@ -1,7 +1,6 @@
 import { useState } from 'react'
-import { AlertCircle, KeyRound } from 'lucide-react'
-import Spinner from '../Spinner'
-import AuthShell, { AuthField } from './AuthShell'
+import { KeyRound } from 'lucide-react'
+import AuthShell, { AuthField, AuthForm, AuthNotice, AuthSubmit } from './AuthShell'
 import { useAuthStore } from '../../stores/authStore'
 
 const MIN_PASSWORD = 8
@@ -24,18 +23,17 @@ export default function ResetPasswordScreen() {
   if (!session) {
     return (
       <AuthShell subtitle="Reset your password">
-        <div className="space-y-4 rounded-xl border border-ink/10 bg-ink/[0.03] p-5 backdrop-blur-xl">
-          <div className="flex items-start gap-2 rounded-md border border-amber-500/20 bg-amber-500/10 px-2.5 py-2 text-[11px] text-amber-300 light:text-amber-700">
-            <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
-            <span>This reset link has expired or has already been used. Request a new one.</span>
-          </div>
-          <button
-            onClick={exitRecovery}
-            className="w-full rounded-lg bg-ink py-2.5 text-sm font-medium text-ink-900 transition-colors hover:bg-ink-100"
-          >
-            Back to sign in
-          </button>
-        </div>
+        <AuthForm
+          onSubmit={(e) => {
+            e.preventDefault()
+            exitRecovery()
+          }}
+        >
+          <AuthNotice tone="warn">This reset link has expired or has already been used. Request a new one.</AuthNotice>
+          <AuthSubmit busy={false} disabled={false}>
+            Back to Sign In
+          </AuthSubmit>
+        </AuthForm>
       </AuthShell>
     )
   }
@@ -61,10 +59,7 @@ export default function ResetPasswordScreen() {
 
   return (
     <AuthShell subtitle="Choose a new password">
-      <form
-        onSubmit={handleSubmit}
-        className="space-y-3 rounded-xl border border-ink/10 bg-ink/[0.03] p-5 backdrop-blur-xl"
-      >
+      <AuthForm onSubmit={handleSubmit}>
         <div className="flex items-center gap-2 text-[12px] text-ink-400">
           <KeyRound className="h-3.5 w-3.5 shrink-0 text-ink-500" />
           <span className="truncate">{session.user.email}</span>
@@ -92,32 +87,23 @@ export default function ResetPasswordScreen() {
         />
 
         {(error || tooShort || mismatch) && (
-          <div className="flex items-start gap-2 rounded-md border border-red-500/20 bg-red-500/10 px-2.5 py-2 text-[11px] text-red-300 light:text-red-700">
-            <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
-            <span>
-              {error
-                ?? (tooShort ? `Use at least ${MIN_PASSWORD} characters.` : 'Those two passwords don’t match.')}
-            </span>
-          </div>
+          <AuthNotice tone="error">
+            {error ?? (tooShort ? `Use at least ${MIN_PASSWORD} characters.` : 'Those two passwords don’t match.')}
+          </AuthNotice>
         )}
 
-        <button
-          type="submit"
-          disabled={busy || !ready}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-ink py-2.5 text-sm font-medium text-ink-900 transition-colors hover:bg-ink-100 disabled:opacity-60"
-        >
-          {busy && <Spinner className="h-4 w-4" />}
-          Set new password
-        </button>
+        <AuthSubmit busy={busy} disabled={!ready}>
+          Set New Password
+        </AuthSubmit>
 
         <button
           type="button"
           onClick={exitRecovery}
-          className="w-full rounded-lg py-2 text-[12px] text-ink-500 transition-colors hover:text-ink-300"
+          className="w-full rounded-full py-2 text-[12px] text-ink-500 transition-colors hover:text-ink-300"
         >
           Cancel
         </button>
-      </form>
+      </AuthForm>
     </AuthShell>
   )
 }
