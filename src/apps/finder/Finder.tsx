@@ -57,11 +57,13 @@ const newFormScratch = (): FormScratch => ({ rowId: null, images: newImageMemo()
 // Influencers bank sub-filter. An entry is a "sheet" when `sheetImage` is set,
 // otherwise a portrait. Local-only UI state — not persisted.
 export type ModelFilter = 'all' | 'portraits' | 'sheets'
-// Short labels + icons (not "Portraits" / "Influencer Sheets") so the row never
-// clips on narrow screens.
+// Short labels + icons (not "Influencer Sheets") so the row never clips. Below
+// `lg` the two icon segments drop their words entirely (see the header): with
+// them, the toggle beside search, sort and Add pushed Add off the end of the
+// row between 768 and ~1000px, and onto a fourth header row on a phone.
 const MODEL_FILTER_OPTIONS: { value: ModelFilter; label: string; icon?: React.ElementType }[] = [
   { value: 'all', label: 'All' },
-  { value: 'portraits', label: 'Portrait', icon: UserRound },
+  { value: 'portraits', label: 'Portraits', icon: UserRound },
   { value: 'sheets', label: 'Sheets', icon: LayoutGrid },
 ]
 
@@ -343,6 +345,13 @@ export default function Finder() {
 
   const selectBank = (bank: BankType) => { setActiveBank(bank); setQuery(''); closeForm() }
 
+  // Search, the Characters filter and sort only mean something over a grid.
+  const showLenses = counts[activeBank] > 0 && !showForm
+  const showBulkAdd = activeBank === 'products' && !showForm
+  // No Add on the Swipe File: every row in it is filed from Outliers and there
+  // is no form to open, so the button used to blank the pane and strand you.
+  const showAdd = activeBank !== 'swipes'
+
   return (
     // Sidebar + column, Finder's own shape. The banks moved off the top row and
     // down the left in September 2026: the strip and the toolbar were fighting
@@ -359,12 +368,19 @@ export default function Finder() {
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Header — one 57px band from `md` up: the bank's name on the left (the
             sidebar says which one is selected; this says it in words, and gives
-            the row a left edge), actions on the right. On a phone it's two rows,
-            the tab strip and then the actions: the six tabs plus Sort plus Add
-            can't share 390px, and squeezing them left the switcher as a sliver
-            reading "P…". */}
-        <div className="flex shrink-0 flex-col gap-2 border-b border-ink/5 px-3 py-2 md:h-[57px] md:flex-row md:items-center md:justify-between md:gap-3 md:px-5 md:py-0">
-          <h2 className="hidden shrink-0 text-[15px] font-medium tracking-tight text-ink-100 md:block">
+            the row a left edge), then search, then the buttons. On a phone it's
+            three rows — the tab strip, the buttons, then search — because the
+            seven tabs plus Sort plus Add can't share 390px, and squeezing them
+            left the switcher as a sliver reading "P…".
+
+            Between `md` and `lg` the sidebar has already taken 204px of the
+            window and the band can't also hold the name: with it, Characters'
+            row (search, filter, sort, Add) ran ~230px past a 768px window and
+            Add was clipped off the end. There the name gives way — the sidebar
+            row is lit and says it in words too — and search stretches from the
+            left edge instead, which keeps the row's edge where it was. */}
+        <div className="flex shrink-0 flex-col gap-2 border-b border-ink/5 px-3 py-2 md:h-[57px] md:flex-row md:items-center md:gap-3 md:px-5 md:py-0">
+          <h2 className="hidden shrink-0 text-[15px] font-medium tracking-tight text-ink-100 lg:block">
             {BANK_CONFIG[activeBank].label}
           </h2>
           <div className="min-w-0 flex-1 overflow-x-auto scrollbar-hide scroll-fade-r md:hidden">
@@ -381,97 +397,113 @@ export default function Finder() {
               }))}
             />
           </div>
-          {/* The row wraps on a phone rather than squeezing: the search field takes
-              a full row of its own under the buttons (`order-last`), which is the
-              shape the B-Roll history bar already uses. Above `md` it's one 57px
-              band and the field sits inline. */}
-          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 md:flex-nowrap md:gap-3">
-            {/* The search field. On a phone it takes a full row of its own under
-                the buttons (`order-last`) rather than squeezing in beside them,
-                which at 375px pushed Add onto a line of its own on the Products
-                tab: a header of four stacked rows on the screen with the least to
-                give. Above `md` its width is FIXED rather than `flex-1`: what a
-                growing field takes width from is the bank switcher, the one
-                control this screen exists for. Six tabs want ~820px, and a field
-                that ate the leftover scrolled "Visual Styles" off the end of the
-                strip on a 1440px laptop. */}
-              {counts[activeBank] > 0 && !showForm && (
-                <div className="relative shrink-0 max-md:order-last max-md:w-full md:w-[140px] 2xl:w-[230px]">
-                  <Search className="pointer-events-none absolute left-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-500" />
-                  <input
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    // Just "Search": the field is narrow enough at `md` that
-                    // "Search visual styles" clips mid-word, and the tab it sits
-                    // beside already says which bank is being searched.
-                    placeholder="Search"
-                    className="h-10 w-full rounded-full border border-ink/10 bg-ink/[0.04] pl-9 pr-8 text-[13px] font-medium tracking-tight text-ink-200 outline-none transition-colors placeholder:font-normal placeholder:text-ink-500 focus:border-ink/20"
-                  />
-                  {query && (
-                    <button
-                      type="button"
-                      onClick={() => setQuery('')}
-                      title="Clear search"
-                      className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-ink-500 transition-colors hover:bg-ink/[0.08] hover:text-ink-200"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </div>
-            )}
-            {/* Influencers sub-filter — sized to match the main bank toggle
-                (h-10 !p-1). Only the Influencers bank has the portrait/sheet
-                split. */}
-            {activeBank === 'models' && counts.models > 0 && !showForm && (
-              <SegmentedToggle<ModelFilter>
-                fitContent
-                accent="influencers"
-                className="h-10 !p-1 shrink-0"
-                value={modelFilter}
-                onChange={setModelFilter}
-                options={MODEL_FILTER_OPTIONS.map((o) => ({
-                  value: o.value,
-                  label: o.label,
-                  icon: o.icon,
-                }))}
-              />
-            )}
-            {sortOptions && counts[activeBank] > 0 && !showForm && (
-              <SortControl value={sort} onChange={setSort} options={sortOptions} />
-            )}
-            {activeBank === 'products' && !showForm && (
-              <>
+          {/* The two lenses that narrow the grid: search, and Characters'
+              portrait / sheet split beside it (BankPicker's order — search, then
+              what narrows it). On a phone they take the last row together
+              (`order-last`), which is what keeps Characters to three header
+              rows: sharing the button row, the filter pushed Add onto a fourth.
+              Above `md` search stretches, but only to 240px from `lg`, where
+              the name holds the left edge — it was a fixed 140px, sized for
+              the tab strip this row used to share, and clipped a two-word query. */}
+          {showLenses && (
+            <div className="flex min-w-0 items-center gap-2 max-md:order-last md:flex-1 md:justify-end md:gap-3">
+              <div className="relative min-w-0 flex-1 md:min-w-[120px] lg:max-w-[240px]">
+                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-500" />
                 <input
-                  ref={bulkInputRef}
-                  type="file"
-                  accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
-                  multiple
-                  className="hidden"
-                  onChange={(e) => {
-                    const files = Array.from(e.target.files ?? [])
-                    e.target.value = ''
-                    if (files.length > 0) handleBulkFiles(files)
-                  }}
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  // Just "Search": the header already names the bank being
+                  // searched, and the field is at its narrowest at `md`.
+                  placeholder="Search"
+                  className="h-10 w-full rounded-full border border-ink/10 bg-ink/[0.04] pl-9 pr-8 text-[13px] font-medium tracking-tight text-ink-200 outline-none transition-colors placeholder:font-normal placeholder:text-ink-500 focus:border-ink/20"
                 />
+                {query && (
+                  <button
+                    type="button"
+                    onClick={() => setQuery('')}
+                    title="Clear search"
+                    className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-ink-500 transition-colors hover:bg-ink/[0.08] hover:text-ink-200"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+              {/* Characters sub-filter, sized to match the bank toggle (h-10
+                  !p-1). Two copies rather than a label hidden by a class: a
+                  hidden label still leaves its segment's gap behind, which sits
+                  the glyph visibly off-centre. Words from `lg`, glyphs below. */}
+              {activeBank === 'models' && (
+                <>
+                  <div className="shrink-0 lg:hidden">
+                    <SegmentedToggle<ModelFilter>
+                      fitContent
+                      accent="influencers"
+                      className="h-10 !p-1"
+                      value={modelFilter}
+                      onChange={setModelFilter}
+                      options={MODEL_FILTER_OPTIONS.map((o) => ({
+                        value: o.value,
+                        label: o.icon ? '' : o.label,
+                        ariaLabel: o.icon ? o.label : undefined,
+                        icon: o.icon,
+                      }))}
+                    />
+                  </div>
+                  <div className="hidden shrink-0 lg:block">
+                    <SegmentedToggle<ModelFilter>
+                      fitContent
+                      accent="influencers"
+                      className="h-10 !p-1"
+                      value={modelFilter}
+                      onChange={setModelFilter}
+                      options={MODEL_FILTER_OPTIONS}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+          {(showLenses || showBulkAdd || showAdd) && (
+            <div className="flex shrink-0 items-center justify-end gap-2 md:ml-auto md:gap-3">
+              {sortOptions && showLenses && (
+                <SortControl value={sort} onChange={setSort} options={sortOptions} />
+              )}
+              {showBulkAdd && (
+                <>
+                  <input
+                    ref={bulkInputRef}
+                    type="file"
+                    accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files ?? [])
+                      e.target.value = ''
+                      if (files.length > 0) handleBulkFiles(files)
+                    }}
+                  />
+                  <button
+                    onClick={() => bulkInputRef.current?.click()}
+                    title="Bulk add"
+                    className="flex h-10 items-center gap-2 rounded-full border border-ink/10 bg-ink/[0.04] px-3.5 text-[13px] font-medium tracking-tight text-ink-300 transition-colors hover:bg-ink/[0.08] md:px-5"
+                  >
+                    <Upload className="h-4 w-4" />
+                    {/* Icon-only on phones — the label crowded the toolbar. */}
+                    <span className="hidden sm:inline">Bulk Add</span>
+                  </button>
+                </>
+              )}
+              {showAdd && (
                 <button
-                  onClick={() => bulkInputRef.current?.click()}
-                  title="Bulk add"
-                  className="flex h-10 items-center gap-2 rounded-full border border-ink/10 bg-ink/[0.04] px-3.5 text-[13px] font-medium tracking-tight text-ink-300 transition-colors hover:bg-ink/[0.08] md:px-5"
+                  onClick={handleAdd}
+                  className="flex h-10 items-center gap-2 rounded-full bg-ink px-5 text-[13px] font-medium tracking-tight text-ink-900 transition-colors hover:bg-ink-100"
                 >
-                  <Upload className="h-4 w-4" />
-                  {/* Icon-only on phones — the label crowded the toolbar. */}
-                  <span className="hidden sm:inline">Bulk Add</span>
+                  <Plus className="h-4 w-4" />
+                  Add
                 </button>
-              </>
-            )}
-            <button
-              onClick={handleAdd}
-              className="flex h-10 items-center gap-2 rounded-full bg-ink px-5 text-[13px] font-medium tracking-tight text-ink-900 transition-colors hover:bg-ink-100"
-            >
-              <Plus className="h-4 w-4" />
-              Add
-            </button>
-          </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Content area — list or form. Forms render unboxed so they get the
