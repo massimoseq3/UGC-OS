@@ -47,6 +47,11 @@ const STYLE_SECTION = 'style:'
 // the head of the list, where every look is still ahead of you.
 const styleSectionKey = (style: string) => (style ? `${STYLE_SECTION}${style}` : 'bank')
 
+// Every picker in the app is titled "Choose a …" (root CLAUDE.md). The bank
+// names are fixed, but "an" is here so a bank starting with a vowel can't ship
+// reading "Choose a Asset".
+const articleFor = (noun: string) => `${/^[aeiou]/i.test(noun) ? 'an' : 'a'} ${noun}`
+
 interface BankPickerProps {
   bankType: BankType
   isOpen: boolean
@@ -736,7 +741,7 @@ export default function BankPicker({
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-ink/5 px-5 py-3.5">
           <h3 className="text-sm font-semibold tracking-tight text-ink-200">
-            Select {railBanks ? 'from Bank' : label.replace(/s$/, '')}
+            {railBanks ? 'Choose from Bank' : `Choose ${articleFor(label.replace(/s$/, ''))}`}
           </h3>
           <button
             onClick={onClose}

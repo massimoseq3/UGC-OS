@@ -52,10 +52,10 @@ const ACCENTS: Record<string, { selectedBg: string; icon: string; pillActive: st
 // models that accept that input shape (multi-select; none active = show all).
 // Only pills that at least one visible model supports are rendered.
 const VIDEO_CAPABILITY_FILTERS: { mode: Mode; label: string }[] = [
-  { mode: 'frames-to-video', label: 'Start + end frame' },
-  { mode: 'image-to-video', label: 'Start frame' },
-  { mode: 'reference-to-video', label: 'Reference images' },
-  { mode: 'text-to-video', label: 'Text to video' },
+  { mode: 'frames-to-video', label: 'Start + End Frame' },
+  { mode: 'image-to-video', label: 'Start Frame' },
+  { mode: 'reference-to-video', label: 'Reference Images' },
+  { mode: 'text-to-video', label: 'Text to Video' },
 ]
 
 // Non-recommended tags render as small colored words (no pill chrome) — same
@@ -276,7 +276,7 @@ export default function ModelPickerModal({
             visual separating with whitespace alone. */}
         <div className="flex shrink-0 items-start justify-between px-5 pb-2 pt-5">
           <div className="min-w-0">
-            <h3 className="text-[15px] font-semibold tracking-tight text-ink-100">{task === 'image' ? 'Image Model' : task === 'video' ? 'Video Model' : 'Model'}</h3>
+            <h3 className="text-[15px] font-semibold tracking-tight text-ink-100">{task === 'image' ? 'Choose an Image Model' : task === 'video' ? 'Choose a Video Model' : 'Choose a Model'}</h3>
             <p className="mt-0.5 text-[11px] text-ink-600">{filtered.length} of {models.length} models</p>
           </div>
           <button

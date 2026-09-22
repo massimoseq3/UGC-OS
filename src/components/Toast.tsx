@@ -118,7 +118,10 @@ export default function ToastContainer() {
   if (toasts.length === 0) return null
 
   return (
-    <div className="fixed right-4 top-4 z-[100] flex flex-col items-end gap-1.5">
+    // Under the menu bar (h-9), never on it: at top-4 the first toast sat
+    // across Community and the theme toggle for as long as it lingered — ten
+    // seconds for an error — and a stack of them buried the whole right end.
+    <div className="fixed right-4 top-12 z-[100] flex flex-col items-end gap-1.5">
       {toasts.map((toast) => (
         <ToastItem key={toast.id} toast={toast} />
       ))}

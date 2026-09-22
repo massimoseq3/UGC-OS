@@ -295,7 +295,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
     // Two keys live here now (kie.ai + the optional ScrapeCreators one), so the
     // label is plural. The alert dot still tracks kie.ai alone — it's the only
     // one the app can't function without.
-    { id: 'api', label: 'API keys', icon: Key, alert: !hasKey },
+    { id: 'api', label: 'API Keys', icon: Key, alert: !hasKey },
     ...(cloudOn && profile ? [{ id: 'account' as const, label: 'Account', icon: User }] : []),
     { id: 'appearance', label: 'Appearance', icon: Palette },
     // The opt-in apps. Its own pane rather than a card under Appearance: what
@@ -326,9 +326,21 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
       >
         {/* Nav rail — a recessed column on desktop, a scrolling pill row on phones */}
         <nav className="flex shrink-0 flex-col gap-3 border-b border-ink/5 bg-surface-0 p-3 sm:w-[196px] sm:border-b-0 sm:border-r sm:p-4">
-          <h2 id="settings-title" className="px-2 text-sm font-semibold tracking-tight text-ink-100">
-            Settings
-          </h2>
+          <div className="flex items-center justify-between">
+            <h2 id="settings-title" className="px-2 text-sm font-semibold tracking-tight text-ink-100">
+              Settings
+            </h2>
+            {/* Phones close from here: the pill row under it already names the
+                open section, so the pane's own header (which carries the close
+                on a wider screen) would only repeat that pill 57px lower. */}
+            <button
+              onClick={onClose}
+              aria-label="Close settings"
+              className="rounded-full p-1.5 text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-300 sm:hidden"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
           <div className="scrollbar-hide flex gap-1 overflow-x-auto sm:flex-col sm:overflow-visible">
             {sections.map((s) => (
               <RailItem
@@ -345,7 +357,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
 
         {/* Pane */}
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="flex h-[57px] shrink-0 items-center justify-between border-b border-ink/5 px-5">
+          <header className="hidden h-[57px] shrink-0 items-center justify-between border-b border-ink/5 px-5 sm:flex">
             <div className="flex min-w-0 items-center gap-2">
               <active.icon className="h-4 w-4 shrink-0 text-ink-500" />
               <span className="truncate text-sm font-medium text-ink-200">{active.label}</span>
@@ -364,14 +376,14 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
               <Section>
                 <Card>
                   <div className="flex items-center justify-between">
-                    <label className="text-[12px] font-medium text-ink-300">kie.ai API key</label>
+                    <label className="text-[12px] font-medium text-ink-300">kie.ai API Key</label>
                     <a
                       href="https://kie.ai/api-key"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-1 text-[11px] text-ink-500 transition-colors hover:text-ink-300"
                     >
-                      Get key
+                      Get Key
                       <ExternalLink className="h-3 w-3" />
                     </a>
                   </div>
@@ -417,7 +429,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                           className="flex shrink-0 items-center justify-center gap-2 rounded-full border border-ink/10 bg-ink/[0.03] px-4 py-2.5 text-[12px] font-medium text-ink-200 transition-colors hover:border-ink/20 hover:bg-ink/[0.06] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-ink/[0.03]"
                         >
                           {testing ? <Spinner className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5 text-ink-400" />}
-                          {testing ? 'Testing…' : 'Test connection'}
+                          {testing ? 'Testing…' : 'Test Connection'}
                         </button>
                         <button
                           onClick={handleSave}
@@ -463,7 +475,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                   <Card>
                     <div className="flex items-center justify-between">
                       <label className="text-[12px] font-medium text-ink-300">
-                        ScrapeCreators key
+                        ScrapeCreators Key
                         <span className="ml-1.5 text-[11px] font-normal text-ink-600">(for Outliers)</span>
                       </label>
                       <a
@@ -472,7 +484,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                         rel="noopener noreferrer"
                         className="flex items-center gap-1 text-[11px] text-ink-500 transition-colors hover:text-ink-300"
                       >
-                        Get key
+                        Get Key
                         <ExternalLink className="h-3 w-3" />
                       </a>
                     </div>
@@ -516,7 +528,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                             className="flex shrink-0 items-center justify-center gap-2 rounded-full border border-ink/10 bg-ink/[0.03] px-4 py-2.5 text-[12px] font-medium text-ink-200 transition-colors hover:border-ink/20 hover:bg-ink/[0.06] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-ink/[0.03]"
                           >
                             {scTesting ? <Spinner className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5 text-ink-400" />}
-                            {scTesting ? 'Testing…' : 'Test connection'}
+                            {scTesting ? 'Testing…' : 'Test Connection'}
                           </button>
                           <button
                             onClick={handleSaveSc}
@@ -926,7 +938,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                       className="mt-3 flex w-full items-center justify-center gap-2 rounded-full border border-ink/10 py-2 text-[12px] font-medium text-ink-300 transition-colors hover:bg-ink/[0.05] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {demoBusy ? <Spinner className="h-3.5 w-3.5" /> : <FlaskConical className="h-3.5 w-3.5" />}
-                      {demoBusy ? (demoLoaded ? 'Removing…' : 'Loading…') : demoLoaded ? 'Remove demo data' : 'Load demo data'}
+                      {demoBusy ? (demoLoaded ? 'Removing…' : 'Loading…') : demoLoaded ? 'Remove Demo Data' : 'Load Demo Data'}
                     </button>
                   </Card>
                 )}
