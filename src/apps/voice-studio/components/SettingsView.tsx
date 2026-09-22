@@ -236,8 +236,10 @@ function PresetStamp({
   )
 }
 
-// One optional direction box. "optional" rides beside the label as a small
-// pill rather than inline text, so the label itself stays the loudest thing.
+// One optional direction box. It carries no "optional" pill: everything in an
+// input column that isn't marked otherwise is optional (the shared VoiceCard
+// dropped its pill for the same reason), and here the neutral dot and the box
+// sitting bare under the cards already say it twice.
 function DirectionBox({
   label,
   value,
@@ -269,7 +271,6 @@ function DirectionBox({
             holding a Generate button shut. */}
         <StatusDot filled={value.trim() !== ''} />
         <span className={SETTING_LABEL}>{label}</span>
-        <span className="ml-0.5 rounded-full bg-ink/[0.06] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-ink-500">optional</span>
       </span>
       <textarea
         value={value}

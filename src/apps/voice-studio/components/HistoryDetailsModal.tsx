@@ -101,7 +101,7 @@ export default function HistoryDetailsModal({
               <h4 className="truncate text-base font-semibold tracking-tight text-ink-100">
                 {voice ? `${voice.name} · ${voice.description}` : shown.voiceName}
               </h4>
-              <p className="mt-0.5 text-[11.5px] tabular-nums text-ink-500">
+              <p className="mt-0.5 truncate text-[11.5px] tabular-nums text-ink-500">
                 {formatRelative(shown.createdAt)}
                 {clipDuration > 0 && ` · ${formatClock(clipDuration)}`}
                 {` · ${shown.scriptText.length} chars`}
@@ -114,7 +114,11 @@ export default function HistoryDetailsModal({
               title="Download Voiceover"
             >
               <Download className="h-3.5 w-3.5" />
-              Download Voiceover
+              {/* The noun gives way on a phone, where the full label took
+                  ~150px of a ~350px row and squeezed the voice name to
+                  "Sulafat · War…" and the meta line onto a second line. */}
+              <span className="sm:hidden">Download</span>
+              <span className="hidden sm:inline">Download Voiceover</span>
             </button>
           </div>
 

@@ -20,7 +20,13 @@ import { useBackdropClose } from '../../../hooks/useBackdropClose'
  * Geometry is `PresetPickerModal`'s, with one difference: these hold a LIST of
  * rows rather than a wall of pictures, so the panel is `max-w-xl` and sizes to
  * its content under a `max-h-[86vh]` ceiling. A fixed `h-[86vh]` would open a
- * near-empty box on a bank holding three presets.
+ * near-empty box on a bank holding three presets. `fill` is `Modal`'s height
+ * decision for the voice list: thirty rows always reach the ceiling, and a
+ * search box over them that shrank the panel on every keystroke would re-centre
+ * it and move the box you are typing in.
+ *
+ * The backdrop is `bg-black/50`, the dim `Modal`, `BankPicker` and the history
+ * rails all put behind a picker.
  *
  * Tier is `z-[60]` for the reason spelled out in `PresetPickerModal`: every
  * `Dropdown` / `AnchoredPopover` menu portals at that tier over a `z-[55]`
@@ -31,12 +37,16 @@ export default function PickerModal({
   open,
   title,
   subtitle,
+  fill = false,
   onClose,
   children,
 }: {
   open: boolean
   title: string
   subtitle?: string
+  // Hold the full 86vh rather than hugging the content — for a list that
+  // filters itself (see the note above).
+  fill?: boolean
   onClose: () => void
   children: React.ReactNode
 }) {
@@ -50,18 +60,18 @@ export default function PickerModal({
   if (!open || !portalTarget) return null
 
   return createPortal(
-    <div className="modal-fade fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4" {...backdrop}>
+    <div className="modal-fade fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" {...backdrop}>
       {/* `modal-pop` is the app's one modal arrival — see index.css. This
           unmounts on close, so it has no closed state to transition from and
           the keyframe runs on mount. */}
       <div
-        className="modal-pop flex max-h-[86vh] w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-ink/10 bg-surface-0 shadow-2xl"
+        className={`modal-pop flex ${fill ? 'h-[86vh]' : 'max-h-[86vh]'} w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-ink/10 bg-surface-0 shadow-2xl`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex h-[57px] shrink-0 items-center justify-between gap-3 border-b border-ink/5 px-5">
           <div className="min-w-0">
             <h3 className="truncate text-sm font-semibold tracking-tight text-ink-200">{title}</h3>
-            {subtitle && <p className="truncate text-[11px] text-ink-600">{subtitle}</p>}
+            {subtitle && <p className="truncate text-[11px] text-ink-500">{subtitle}</p>}
           </div>
           <button
             type="button"
