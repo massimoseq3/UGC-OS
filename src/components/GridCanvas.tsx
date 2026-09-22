@@ -30,20 +30,25 @@ export default function GridCanvas({
 // header's "+" leaves behind mid-session. Nothing is ever deleted to get here —
 // the copy says so, because a blank panel otherwise reads as data loss. Render
 // it inside a GridCanvas (or use AwaitingCanvas, which brings its own).
+// `children` render under the hint, for the one thing a stage may add below
+// its copy: the last run's error, which belongs on the stage it failed to fill.
 export function AwaitingBody({
   icon: Icon,
-  title = 'Awaiting generation',
+  title = 'Awaiting Generation',
   hint,
+  children,
 }: {
   icon: React.ElementType
   title?: string
   hint: string
+  children?: React.ReactNode
 }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
       <Icon className="h-8 w-8 text-ink-800" strokeWidth={1.5} />
       <p className="text-sm text-ink-500">{title}</p>
       <p className="max-w-[300px] text-xs leading-relaxed text-ink-600">{hint}</p>
+      {children}
     </div>
   )
 }

@@ -821,16 +821,25 @@ export default function InputPanel({
                     as a plain script instead of rewriting its scenes. */}
                 {isBlueprint && (
                   <div className="flex shrink-0 items-center justify-between gap-2 border-t border-ink/10 px-4 py-2">
-                    <span className={`flex min-w-0 items-center gap-1.5 truncate text-[11px] font-medium ${blueprintActive ? 'text-fuchsia-300 light:text-fuchsia-700' : 'text-ink-500'}`}>
+                    {/* The words sit in their OWN span: `truncate` on the flex
+                        row itself clipped the sentence with no ellipsis (a text
+                        run in a flex container is an anonymous item the ellipsis
+                        can't reach), so a half-width column read "Scenes will
+                        be" and stopped. What the rewrite does is already on the
+                        Generate button ("Rewrite Scene Prompts"), so the chip
+                        only has to say what it recognised. */}
+                    <span className={`flex min-w-0 items-center gap-1.5 text-[11px] font-medium ${blueprintActive ? 'text-fuchsia-300 light:text-fuchsia-700' : 'text-ink-500'}`}>
                       {blueprintActive ? <Clapperboard className="h-3 w-3 shrink-0" /> : <FileText className="h-3 w-3 shrink-0" />}
-                      {blueprintActive ? 'Scene blueprint detected. Scenes will be rewritten' : `Remixing as a plain script · ${variationCount} variations`}
+                      <span className="truncate">
+                        {blueprintActive ? 'Scene blueprint detected' : `Remixing as a plain script · ${variationCount} variations`}
+                      </span>
                     </span>
                     <button
                       type="button"
                       onClick={() => onForceTranscriptChange(!forceTranscript)}
                       className="shrink-0 rounded-full border border-ink/10 px-2.5 py-1 text-[11px] font-medium text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200"
                     >
-                      {blueprintActive ? 'Remix as script instead' : 'Rewrite scenes instead'}
+                      {blueprintActive ? 'Remix as Script Instead' : 'Rewrite Scenes Instead'}
                     </button>
                   </div>
                 )}

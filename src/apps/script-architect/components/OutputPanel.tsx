@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Copy, Check, Bookmark, ArrowUpRight, Mic, Film, PenLine, AlertCircle, ImagePlay, Palette, Pencil, X, Undo2, Redo2, Quote, ChevronDown, ChevronRight } from 'lucide-react'
 import GenerationProgress from '../../../components/GenerationProgress'
-import GridCanvas from '../../../components/GridCanvas'
+import GridCanvas, { AwaitingBody } from '../../../components/GridCanvas'
 import AutoGrowTextarea from '../../../components/AutoGrowTextarea'
 import { TileDeleteButton } from '../../../components/tileActions'
 import { rangeDurationLabel } from '../../../utils/timecode'
@@ -2123,22 +2123,27 @@ export default function OutputPanel({ variations, outputAngles, mode, liveMode, 
   }
 
   if (variations.length === 0) {
+    // The house empty stage (`AwaitingBody`): a Title Case title over one line
+    // of prose, at the shared type ramp — the shape B-Roll's storyboard and the
+    // Characters / Playground galleries wear before their first run. It was a
+    // one-off here, a lone sentence at ink-700, dim enough to read as disabled.
+    const [title, hint] = copyMode === 'write'
+      ? writeFormat === 'hooks'
+        ? ['Awaiting Hooks', `Your ${hookCount} hooks land here, each ready to copy or save.`]
+        : ['Awaiting Takes', 'Each take lands here as its own card, ready to edit, save or send on.']
+      : copyMode === 'remix'
+        ? ['Awaiting Variations', 'Each variation lands here as its own card, ready to edit or save.']
+        : ['Awaiting Scene Prompts', 'The rewritten scenes land here, one prompt per scene.']
     return (
       <GridCanvas className="h-full">
-        <div className="relative flex h-full flex-col items-center justify-center gap-3 p-8">
-          <PenLine className="h-8 w-8 text-ink-800" strokeWidth={1.5} />
-          <p className="text-sm text-ink-700">
-            {copyMode === 'write'
-              ? (writeFormat === 'hooks' ? `Your ${hookCount} Hooks will appear here` : 'Your Takes will appear here')
-              : copyMode === 'remix' ? 'Your Script Variations will appear here' : 'Your Scene prompts will appear here'}
-          </p>
+        <AwaitingBody icon={PenLine} title={title} hint={hint}>
           {error && (
-            <div className="mt-2 flex max-w-sm items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2">
+            <div className="mt-2 flex max-w-sm items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-left">
               <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-400 light:text-red-600" />
               <p className="text-xs leading-relaxed text-red-300 light:text-red-700">{error}</p>
             </div>
           )}
-        </div>
+        </AwaitingBody>
       </GridCanvas>
     )
   }
