@@ -168,14 +168,14 @@ export default function Dashboard() {
               Every widget was `col-span-12` there, so a phone got a stack of
               full-width slabs and the Dashboard became a page you scroll
               rather than a desktop you look at. What's New is the one
-              exception — it keeps the full width, because its hero IS a
-              full-width picture — and it takes `order-last` so the phone
-              still ends on it rather than splitting the four figures around
-              it. `auto-rows-fr` is `lg:` only for the same reason: equal rows
-              are what make the desktop read as a wall, and below it they
-              would squeeze the hero into a figure tile's height. Activity
-              earns a half tile by dropping to `PHONE_WEEKS` columns of
-              smaller cells (see ActivityHeatmap). */}
+              exception — it keeps the full width, because its rows are
+              pictures — and it takes `order-last` so the phone still ends on
+              it rather than splitting the four figures around it.
+              `auto-rows-fr` is `lg:` only for the same reason: equal rows are
+              what make the desktop read as a wall, and below it they would
+              squeeze the list into a figure tile's height. Activity fits a
+              half tile because the heatmap sizes its cells to whatever box it
+              is dropped in (see ActivityHeatmap). */}
           <div className="grid grid-cols-12 gap-3.5 lg:auto-rows-fr">
             {/* Money saved */}
             <Widget index={slot(0)} className="col-span-6 items-center text-center lg:col-span-4">
@@ -355,11 +355,23 @@ function SpendBar({ spent, elsewhere, format }: { spent: number; elsewhere: numb
           style={{ width: `${Math.max(2, share * 100)}%` }}
         />
       </div>
-      {/* 10px below `sm`: at half a phone's width the pair wrapped to two lines
-          each, which reads as four numbers instead of a comparison of two. */}
-      <div className="mt-1.5 flex items-center justify-between gap-2 whitespace-nowrap text-[10px] tabular-nums text-ink-600 sm:text-[11px]">
-        <span>{format(spent)} on kie.ai</span>
-        <span>{format(elsewhere)} elsewhere</span>
+      {/* One nowrap line: at half a phone's width the pair wrapped to two lines
+          each, which reads as four numbers instead of a comparison of two. The
+          WORDS are a `hidden sm:inline` tail, like the sub-line above: even at
+          10px "$6.78 on kie.ai  $17 elsewhere" is ~143px against a 134px box on
+          a 390px phone, so it ran past the padding there and over the tile's
+          own border at 375 / 360. A phone reads the bar's two ends as the two
+          numbers; a desktop gets what each one is. ink-500, the same fine print
+          as Activity's tally beside it on this baseline. */}
+      <div className="mt-1.5 flex items-center justify-between gap-2 whitespace-nowrap text-[11px] tabular-nums text-ink-500">
+        <span>
+          {format(spent)}
+          <span className="hidden sm:inline"> on kie.ai</span>
+        </span>
+        <span>
+          {format(elsewhere)}
+          <span className="hidden sm:inline"> elsewhere</span>
+        </span>
       </div>
     </div>
   )
