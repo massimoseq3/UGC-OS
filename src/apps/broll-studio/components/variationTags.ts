@@ -1,7 +1,7 @@
 import type { PromptVariation } from '../types'
 
 // Tag-driven chip wording + palette. The top-left chip shows what the variation
-// IS (Dialogue / Action / Emotional / Product shot). It used to have a
+// IS (Dialogue / Action / Emotional / Product Shot). It used to have a
 // companion, `rollTypeForTag`, printing A-Roll / B-Roll in the caption under the
 // card; that caption names the card's POSITION now ("Option 2"), so the helper
 // went with it — see VariationCard.
@@ -12,7 +12,7 @@ const TAG_LABELS: Record<PromptVariation['tag'], string> = {
   STATIC: 'Static',
   ACTION: 'Action',
   EMOTIONAL: 'Emotional',
-  PRODUCT: 'Product shot',
+  PRODUCT: 'Product Shot',
   POV: 'POV',
   ENVIRONMENT: 'Environment',
   TRANSITION: 'Transition',

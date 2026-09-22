@@ -57,11 +57,14 @@ function ModalShell({ onClose, children }: { onClose: () => void; children: Reac
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm sm:px-6 modal-fade"
       {...backdrop}
     >
+      {/* On a phone it insets into the panel's corner and each modal's first
+          column starts under it (`max-md:pt-14`) — the per-line card modal's
+          placement; see the note there. */}
       <button
         type="button"
         onClick={onClose}
         title="Close (Esc)"
-        className="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-black/40 text-white transition-colors hover:bg-black/60"
+        className="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-black/40 text-white transition-colors hover:bg-black/60 max-md:right-9 max-md:top-5"
       >
         <X className="h-4 w-4" />
       </button>
@@ -281,7 +284,7 @@ export function ContinuousFrameModal({
         {/* LEFT — model + refs + prompt over a pinned Generate footer */}
         <div className="col-span-1 flex min-h-0 flex-col border-b border-ink/5 max-md:shrink-0 md:border-b-0 md:border-r">
           <div className="flex min-h-0 flex-1 flex-col max-md:flex-none md:overflow-y-auto">
-            <div className="flex grow flex-col gap-3 px-5 pb-1 pt-3">
+            <div className="flex grow flex-col gap-3 px-5 pb-1 pt-3 max-md:pt-14">
               {/* Output-type tab — Image builds the keyframe; Animate image-to-
                   video's the chosen still on its own (a standalone clip, not
                   chained into the keyframe sequence). */}
@@ -979,7 +982,7 @@ export function ContinuousClipModal({
         {/* LEFT — model + endpoints + motion prompt over a pinned Generate footer */}
         <div className="col-span-1 flex min-h-0 flex-col border-b border-ink/5 max-md:shrink-0 md:border-b-0 md:border-r">
           <div className="flex min-h-0 flex-1 flex-col max-md:flex-none md:overflow-y-auto">
-            <div className="flex grow flex-col gap-3 px-5 pb-1 pt-3">
+            <div className="flex grow flex-col gap-3 px-5 pb-1 pt-3 max-md:pt-14">
               {/* Output-type tab — Continuous clips are videos (frames-to-video
                   between two keyframes). Styled as the Line-by-Line toggle,
                   single option; the h-12 wrapper aligns the separator with the

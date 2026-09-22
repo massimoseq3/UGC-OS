@@ -159,20 +159,21 @@ export default function RightPanel(props: RightPanelProps) {
   // used to be swapped for a 24px spacer holding the lip's width — the lip went
   // with the column shape; see `components/RailOverlay`.)
   //
-  // Two widths it can't go there, and both fall back to the column below: with
-  // no storyboard there is no bar at all, and under `md` the Continuous strip's
-  // pills wrap, so neither strip is the pinned single row this sits in. The
-  // choice is made in CSS — `hidden md:block` here against `md:hidden` on the
-  // column — so nothing has to read a breakpoint in JS.
+  // It rides the bar at EVERY width, a phone included. It used to stand in a
+  // band of its own under `md` (`hidden md:block` here against `md:hidden` on
+  // the band below), from when neither strip could take one more pill there —
+  // the Continuous strip wrapped and the Line-by-Line one scrolled. Both have
+  // moved on: Continuous is one scrolling line, and Line-by-Line WRAPS, so a
+  // 38px circle leads its first row like any other pill. Kept apart, a phone
+  // spent a whole 57px band on one icon over a two-row bar, and Continuous drew
+  // its own band there EMPTY (it carries nothing but this toggle).
   const railToggle = (
-    <div className="hidden md:block">
-      <HistoryRailToggle
-        open={historyOpen}
-        onToggle={() => setHistoryOpen(!historyOpen)}
-        showLabel
-        count={brollHistory.length}
-      />
-    </div>
+    <HistoryRailToggle
+      open={historyOpen}
+      onToggle={() => setHistoryOpen(!historyOpen)}
+      showLabel
+      count={brollHistory.length}
+    />
   )
 
   return (
@@ -184,23 +185,25 @@ export default function RightPanel(props: RightPanelProps) {
     // escapes this pane and lands over the dock.
     <div className="relative flex h-full min-h-0">
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        {/* The fallback for the two cases the storyboard bar can't take the
-            toggle — see the note on `railToggle`. It is the same `h-[57px]`
-            band that bar is, hairline and all, so the pane reads identically
-            whichever of the two is carrying the button; it stood in a stub
-            column on the right before (which narrowed the storyboard by ~135px
-            to hold one button and put the way into the list at the far end of
-            the pane) and floated over the canvas for an hour after that. With a
-            storyboard up this is phone-only; with none it is the only place the
-            toggle has, at every width. */}
-        <div className={`flex h-[57px] shrink-0 items-center border-b border-ink/5 px-5 ${showCanvas ? '' : 'md:hidden'}`}>
-          <HistoryRailToggle
-            open={historyOpen}
-            onToggle={() => setHistoryOpen(!historyOpen)}
-            showLabel
-            count={brollHistory.length}
-          />
-        </div>
+        {/* The fallback for when there is no storyboard bar to carry the
+            toggle — empty, cleared or still being written. It is the same
+            `h-[57px]` band that bar is, hairline and all, so the pane reads
+            identically whichever of the two is carrying the button; it stood in
+            a stub column on the right before (which narrowed the storyboard by
+            ~135px to hold one button and put the way into the list at the far
+            end of the pane) and floated over the canvas for an hour after that.
+            With a storyboard up the bar has it, at every width — see the note
+            on `railToggle`. */}
+        {showCanvas && (
+          <div className="flex h-[57px] shrink-0 items-center border-b border-ink/5 px-5">
+            <HistoryRailToggle
+              open={historyOpen}
+              onToggle={() => setHistoryOpen(!historyOpen)}
+              showLabel
+              count={brollHistory.length}
+            />
+          </div>
+        )}
         {/* The storyboard works on the same graph-paper canvas as the other
             apps' output panels. History keeps the plain surface — it's the
             reel, not the stage. */}

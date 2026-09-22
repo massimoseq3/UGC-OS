@@ -761,7 +761,7 @@ function FailureActions({
         type="button"
         title={resumable ? 'Picks up the file kie.ai already made, no new generation' : undefined}
         onClick={onRetry}
-        className="flex items-center gap-1 rounded-full border border-white/15 bg-broll-500 px-2.5 py-1 text-[10px] font-medium text-white transition-colors hover:bg-broll-400"
+        className="flex items-center gap-1 rounded-full border border-white/15 bg-broll-500 px-2.5 py-1 text-[10px] font-medium text-white transition-all hover:brightness-110"
       >
         <RefreshCw className="h-3 w-3" />
         Retry

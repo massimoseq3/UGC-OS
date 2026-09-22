@@ -505,8 +505,8 @@ export default function InputPanel({
                 click and a modal between the member and one line of direction;
                 this is a text field, so it should behave like one. The popup is
                 still one tap away on the expand button for anything longer.
-                Doubles as the creative brief when there's no script yet — the
-                product row carries the rest, so blank stays a normal answer. */}
+                Optional — the product row carries the rest, so blank stays a
+                normal answer. */}
             <div className="relative flex min-h-[72px] flex-1 flex-col overflow-hidden rounded-3xl border border-dashed border-ink/10 bg-ink/[0.02] transition-colors focus-within:border-ink/20 max-lg:min-h-[120px] max-lg:flex-none">
               {/* Centred, like every other box header in this column. */}
               <div className="flex items-center justify-center px-4 pt-2.5">
@@ -522,9 +522,12 @@ export default function InputPanel({
                 value={additionalContext}
                 onChange={(e) => onAdditionalContextChange(e.target.value)}
                 rows={1}
-                placeholder={hasScript
-                  ? 'Mood, specific angles, things to avoid…'
-                  : "What's this ad about? The product's own details already drive the script."}
+                // One placeholder, script or not. The empty-script one read
+                // "What's this ad about? The product's own details already
+                // drive the script." — a brief standing in for a script B-Roll
+                // stopped writing in July 2026, over a Generate that stays grey
+                // until a script is in.
+                placeholder="Mood, specific angles, things to avoid…"
                 className="min-h-[46px] w-full grow resize-none border-0 bg-transparent px-4 pb-2.5 pt-1.5 text-[13px] leading-relaxed text-ink-200 placeholder-ink-700 outline-none"
               />
               <ExpandButton onClick={() => setInstructionsExpanded(true)} className="absolute bottom-2 right-2" />
@@ -536,7 +539,9 @@ export default function InputPanel({
             panel, so it's gone and the rows sit straight on the column. Static in
             both layouts — on a desktop it's the column's footer, on a phone it's
             the last thing in the scroll (see the wrapper above). */}
-        <div className="shrink-0 px-5 pb-2.5 pt-2">
+        {/* `@container`: the Generate label below shortens against THIS band's
+            width, not the window's — see the note on it. */}
+        <div className="@container shrink-0 px-5 pb-2.5 pt-2">
           <div className="mb-2 flex flex-col gap-2">
 
 
@@ -573,21 +578,32 @@ export default function InputPanel({
             ) : (
               <>
                 {isContinuous ? (
-                  <Box className="h-4 w-4" strokeWidth={2.5} />
+                  <Box className="h-4 w-4 shrink-0" strokeWidth={2.5} />
                 ) : lineDelivery === 'dialogue' ? (
-                  <MessageSquareQuote className="h-4 w-4" strokeWidth={2.5} />
+                  <MessageSquareQuote className="h-4 w-4 shrink-0" strokeWidth={2.5} />
                 ) : (
-                  <Film className="h-4 w-4" strokeWidth={2.5} />
+                  <Film className="h-4 w-4 shrink-0" strokeWidth={2.5} />
                 )}
                 {/* One label in all three cases. The button made the same thing
                     every time — a storyboard — and named it three ways; the
                     delivery toggle directly above already says which kind, and
-                    the icon carries it too. */}
-                <span>Generate Storyboard</span>
+                    the icon carries it too.
+                    In a column too narrow for the label AND its price (30% of a
+                    ~1100px window and under) it drops "Storyboard" rather than
+                    wrapping: it broke onto two lines there, and the credits pill
+                    beside it stacked "1.1" over "credits". The price is the half
+                    that has to survive — nothing here fires unpriced — so the
+                    noun gives way, the storyboard bar's own `BandLabel` move. A
+                    container query on the band, because what squeezes this is
+                    the column, not the window. */}
+                <span className="whitespace-nowrap">
+                  Generate
+                  <span className="hidden @[330px]:inline">{' Storyboard'}</span>
+                </span>
                 {promptCredits && (
                   <span
                     title="Estimated cost of writing the prompts. Generating the images and videos afterwards is priced separately."
-                    className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight"
+                    className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight"
                   >
                     <Coins className="h-3 w-3" strokeWidth={2} />
                     {promptCredits}
@@ -619,9 +635,7 @@ export default function InputPanel({
         onChange={onAdditionalContextChange}
         title="Additional Instructions"
         accent="broll"
-        placeholder={hasScript
-          ? 'Optional notes for this generation (mood, style preferences, specific angles...)'
-          : "What's this ad about? Optional, the product's own details already drive the script (angle, audience, what to avoid...)"}
+        placeholder="Optional notes for this generation (mood, style preferences, specific angles...)"
       />
 
     </div>
