@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { X, Search, Plus, Check, ChevronDown } from 'lucide-react'
+import { X, Search, Plus, Check } from 'lucide-react'
 import type { BankType } from '../utils/constants'
 import { BANK_CONFIG, getAppConfig } from '../utils/constants'
 import { useBankStore } from '../stores/bankStore'
@@ -849,18 +849,22 @@ export default function BankPicker({
               />
             </div>
           )}
+          {/* The house select, not a native one: a <select> opens the
+              browser's own unstyled popup, which ignores the theme — the one
+              menu in this modal that didn't look like the rest of the app.
+              `tier="panel"` because this panel sits at z-80, above the
+              default menu tier. */}
           {sortOptions && (
-            <div className="relative shrink-0">
-              <select
+            <div className="shrink-0">
+              <Dropdown
                 value={sort}
-                onChange={(e) => setSort(e.target.value as SortOrder)}
-                className="h-10 appearance-none rounded-full border border-ink/10 bg-surface-1 pl-3.5 pr-8 text-xs text-ink-200 outline-none transition-colors hover:border-ink/20 focus:border-ink/20"
-              >
-                {sortOptions.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-500" />
+                onChange={(v) => setSort(v as SortOrder)}
+                options={sortOptions}
+                accent="neutral"
+                tier="panel"
+                fitContent
+                className="h-10"
+              />
             </div>
           )}
           {/* Add New rides the toolbar, in the Bank's own Add position and at
