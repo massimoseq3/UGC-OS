@@ -1934,7 +1934,7 @@ function LineChecklist({
                 the list's own cap means a different number of lines each time
                 it opens. The full sentence is in the `title`. */}
             <span
-              className="min-w-0 flex-1 truncate pr-[0.15em] text-sm italic tracking-normal text-ink-300"
+              className="min-w-0 flex-1 truncate pr-[0.15em] text-sm italic tracking-normal text-ink"
               style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
               title={lineOf(scene)}
             >
@@ -2300,8 +2300,10 @@ function SceneSection({
                 number belongs to the face, not to the taste. `leading-tight`
                 because a quote that wraps should read as one block, not as two
                 lines. A truncated copy takes `pr-[0.15em]` or `overflow:
-                hidden` slices the italic closing quote in half. Face, weight,
-                size and tracking are ONE
+                hidden` slices the italic closing quote in half. Full `text-ink`
+                white, with no hover colour: there is nothing brighter to go to,
+                so the wash and the pencil carry it. Face, weight, size,
+                tracking and colour are ONE
                 decision across the five places a script line is printed — the storyboard header here, the batch dialogs' line
                 checklist, both detail modals, Continuous — because they are one
                 voice, and a quote set differently in one of them shows up as
@@ -2314,7 +2316,7 @@ function SceneSection({
                 className="group/line -mx-1.5 flex w-full items-start justify-center gap-2 rounded-lg px-1.5 py-0.5 text-center transition-colors hover:bg-ink/[0.04]"
               >
                 <p
-                  className="text-center text-xl leading-tight text-ink-400 transition-colors group-hover/line:text-ink-200 font-normal italic tracking-normal"
+                  className="text-center text-xl leading-tight text-ink font-normal italic tracking-normal"
                   style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
                 >
                   &ldquo;{scene.scriptLine}&rdquo;
@@ -2323,7 +2325,7 @@ function SceneSection({
               </button>
             ) : (
               <p
-                className="text-center text-xl leading-tight text-ink-400 font-normal italic tracking-normal"
+                className="text-center text-xl leading-tight text-ink font-normal italic tracking-normal"
                 style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
               >
                 &ldquo;{scene.scriptLine}&rdquo;
