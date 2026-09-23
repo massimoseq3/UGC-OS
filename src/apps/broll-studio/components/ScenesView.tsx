@@ -1934,7 +1934,7 @@ function LineChecklist({
                 the list's own cap means a different number of lines each time
                 it opens. The full sentence is in the `title`. */}
             <span
-              className="min-w-0 flex-1 truncate text-sm tracking-[-0.015em] text-ink-300"
+              className="min-w-0 flex-1 truncate pr-[0.15em] text-sm italic tracking-normal text-ink-300"
               style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
               title={lineOf(scene)}
             >
@@ -2279,9 +2279,10 @@ function SceneSection({
                 prompts, so a dialogue card says the new sentence without a
                 regeneration. Read-only when the host doesn't hand us a handler.
 
-                **Instrument Serif**, the app's own display face, same as the
-                numeral over it (September 2026, Massimo's call). It is
-                `font-normal` and has to stay there: the face ships ONE weight,
+                **Instrument Serif italic**, the app's own display face, same
+                face and slant as the numeral over it (September 2026, Massimo's
+                call). It is `font-normal` and has to stay there: the face ships
+                ONE weight,
                 so a `font-light` or a `font-bold` only asks the browser to
                 synthesize one — see the Dashboard's masthead, where that was
                 tried and reverted. It is also set a step LARGER than the sans
@@ -2289,13 +2290,18 @@ function SceneSection({
                 modals), because a serif's smaller x-height reads a size down at
                 the same number.
 
-                `tracking-[-0.015em]`, and that number walked (Massimo's call,
+                `tracking-normal`, and that number walked (Massimo's call,
                 September 2026). It was `tracking-tight` while the line was a
-                sans, went to -0.035em to tighten it, and came BACK past
-                `tracking-tight` when the face changed: Instrument Serif is
-                already tightly set, so a negative meant for Geist crowded it.
-                Tighten the sans, loosen the serif — the number belongs to the
-                face, not to the taste. Face, weight, size and tracking are ONE
+                sans, went to -0.035em to tighten it, came BACK to -0.015em when
+                the face changed (Instrument Serif is already tightly set, so a
+                negative meant for Geist crowded it), and went to zero when the
+                line went italic. Zero has to be stated: the body's -0.01em for
+                Geist inherits as a fixed -0.16px. Tighten the sans, loosen the serif — the
+                number belongs to the face, not to the taste. `leading-tight`
+                because a quote that wraps should read as one block, not as two
+                lines. A truncated copy takes `pr-[0.15em]` or `overflow:
+                hidden` slices the italic closing quote in half. Face, weight,
+                size and tracking are ONE
                 decision across the five places a script line is printed — the storyboard header here, the batch dialogs' line
                 checklist, both detail modals, Continuous — because they are one
                 voice, and a quote set differently in one of them shows up as
@@ -2308,16 +2314,16 @@ function SceneSection({
                 className="group/line -mx-1.5 flex w-full items-start justify-center gap-2 rounded-lg px-1.5 py-0.5 text-center transition-colors hover:bg-ink/[0.04]"
               >
                 <p
-                  className="text-center text-xl leading-relaxed text-ink-400 transition-colors group-hover/line:text-ink-200 font-normal tracking-[-0.015em]"
+                  className="text-center text-xl leading-tight text-ink-400 transition-colors group-hover/line:text-ink-200 font-normal italic tracking-normal"
                   style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
                 >
                   &ldquo;{scene.scriptLine}&rdquo;
                 </p>
-                <Pencil className="mt-2 h-3 w-3 shrink-0 text-ink-600 opacity-0 transition-opacity group-hover/line:opacity-100" strokeWidth={2} />
+                <Pencil className="mt-1.5 h-3 w-3 shrink-0 text-ink-600 opacity-0 transition-opacity group-hover/line:opacity-100" strokeWidth={2} />
               </button>
             ) : (
               <p
-                className="text-center text-xl leading-relaxed text-ink-400 font-normal tracking-[-0.015em]"
+                className="text-center text-xl leading-tight text-ink-400 font-normal italic tracking-normal"
                 style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
               >
                 &ldquo;{scene.scriptLine}&rdquo;
