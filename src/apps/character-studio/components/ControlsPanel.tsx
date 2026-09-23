@@ -39,21 +39,21 @@ function TabDivider({ center, left, right }: { center: ReactNode; left?: ReactNo
     // grid-cols-[1fr_auto_1fr], not absolute edge slots: the equal gutters keep
     // the centre pill genuinely centred, and a phone-width column squeezes the
     // side pills instead of sliding them underneath the title (which is exactly
-    // what "Copy Physical" did on top of "Physical Presets" at 390px).
+    // what the Physical copy did on top of "Physical Presets" at 390px).
     //
     // Equal gutters also set a floor: each one has to hold the WIDER side, so
-    // the Physical row (Clear All · Physical Presets · All + Copy) needs ~430px
-    // of column even on its short labels, and a phone gives it 335–350. Squeezed
-    // below that, the right pair ran off the column and "Copy" was clipped at
-    // the edge. So under 27rem of COLUMN the pill takes its own line and the
+    // the Physical row (Clear All · Physical Presets · All + Physical) needs
+    // 442px of column, and a phone gives it 335–350. Squeezed below that, the
+    // right pair ran off the column and was clipped at the edge. So under 28rem
+    // of COLUMN the pill takes its own line and the
     // two utilities sit under it at the edges — a wrap, not a scroll, and a
     // container query because what runs out is this column, not the window
     // (the same squeeze hit the half-width column of a 768–910px window).
     <div className="@container">
-      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1 @max-[27rem]:grid-cols-2 @max-[27rem]:gap-y-2">
-        <div className="flex min-w-0 justify-start @max-[27rem]:order-2">{left}</div>
-        <div className="flex min-w-0 justify-center @max-[27rem]:order-1 @max-[27rem]:col-span-2">{center}</div>
-        <div className="flex min-w-0 justify-end @max-[27rem]:order-3">{right}</div>
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1 @max-[28rem]:grid-cols-2 @max-[28rem]:gap-y-2">
+        <div className="flex min-w-0 justify-start @max-[28rem]:order-2">{left}</div>
+        <div className="flex min-w-0 justify-center @max-[28rem]:order-1 @max-[28rem]:col-span-2">{center}</div>
+        <div className="flex min-w-0 justify-end @max-[28rem]:order-3">{right}</div>
       </div>
     </div>
   )
@@ -61,7 +61,7 @@ function TabDivider({ center, left, right }: { center: ReactNode; left?: ReactNo
 
 // Copies a scoped slice of the assembled prompt (physical, or scene & pose) to
 // the clipboard. One sits on the right of each tab divider.
-function CopyPromptButton({ text, label, shortLabel = 'Copy', title }: { text: string; label: string; shortLabel?: string; title: string }) {
+function CopyPromptButton({ text, label, shortLabel, title }: { text: string; label: string; shortLabel?: string; title: string }) {
   const [copied, setCopied] = useState(false)
   const handleCopy = async () => {
     if (await copyToClipboard(text)) {
@@ -78,16 +78,13 @@ function CopyPromptButton({ text, label, shortLabel = 'Copy', title }: { text: s
       className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-ink/10 bg-ink/[0.02] px-2.5 py-1 text-[11px] font-medium text-ink-400 transition-colors hover:border-ink/20 hover:bg-ink/[0.05] hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-40"
     >
       {copied ? <Check className="h-3 w-3 text-emerald-400 light:text-emerald-600" /> : <Copy className="h-3 w-3" />}
-      {/* A one-word label where the divider is narrow. The full label wrapped
-          onto two lines on a phone, which made a 22px pill two rows tall. The
-          divider it sits on already says which tab's fields these are — but
-          the Physical divider now carries TWO of these, so the short form has
-          to stay distinguishable ("All" against "Copy"). The switch reads the
-          DIVIDER's width (its `@container`), not the window's: on `lg:` the
-          full pair came back at a 1024px window, where the column is ~470px
-          and "Copy All" + "Copy Physical" need ~575 of it, so "Copy Physical"
-          ran off the column's edge until the window passed ~1220px. */}
-      {copied ? 'Copied' : <><span className="@min-[36rem]:hidden">{shortLabel}</span><span className="hidden @min-[36rem]:inline">{label}</span></>}
+      {/* No "Copy" in the label — the glyph already says it, so the Physical
+          pair reads "All" / "Physical" at every width. A `shortLabel` is a
+          one-word stand-in where the divider is narrow: the full label wrapped
+          onto two lines on a phone, making a 22px pill two rows tall. The
+          switch reads the DIVIDER's width (its `@container`), not the window's,
+          because what runs out is the column. */}
+      {copied ? 'Copied' : shortLabel ? <><span className="@min-[36rem]:hidden">{shortLabel}</span><span className="hidden @min-[36rem]:inline">{label}</span></> : label}
     </button>
   )
 }
@@ -359,15 +356,15 @@ export default function ControlsPanel({
                       // (September 2026, Massimo's call). Up there it was an
                       // unlabelled button beside a toggle, and the one action
                       // that can't say what its scope is was the one with no
-                      // word on it; down here it is read against "Copy
-                      // Physical" standing next to it, which is what makes
-                      // "All" mean something.
+                      // word on it; down here it is read against "Physical"
+                      // standing next to it, which is what makes "All" mean
+                      // something.
                       <div className="flex min-w-0 items-center gap-1">
-                        <CopyPromptButton text={fullPrompt} label="Copy All" shortLabel="All" title="Copy the full prompt · every field on both tabs" />
-                        <CopyPromptButton text={physicalPrompt} label="Copy Physical" title="Copy the physical fields as a prompt" />
+                        <CopyPromptButton text={fullPrompt} label="All" title="Copy the full prompt · every field on both tabs" />
+                        <CopyPromptButton text={physicalPrompt} label="Physical" title="Copy the physical fields as a prompt" />
                       </div>
                     ) : (
-                      <CopyPromptButton text={scenePrompt} label="Copy Scene & Pose" title="Copy the scene & pose fields as a prompt" />
+                      <CopyPromptButton text={scenePrompt} label="Copy Scene & Pose" shortLabel="Copy" title="Copy the scene & pose fields as a prompt" />
                     )
                   }
                 />

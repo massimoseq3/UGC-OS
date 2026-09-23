@@ -1934,8 +1934,7 @@ function LineChecklist({
                 the list's own cap means a different number of lines each time
                 it opens. The full sentence is in the `title`. */}
             <span
-              className="min-w-0 flex-1 truncate pr-[0.15em] text-sm italic tracking-normal text-ink"
-              style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
+              className="min-w-0 flex-1 truncate text-[13px] font-light tracking-tight text-ink-300"
               title={lineOf(scene)}
             >
               &ldquo;{lineOf(scene)}&rdquo;
@@ -2279,31 +2278,19 @@ function SceneSection({
                 prompts, so a dialogue card says the new sentence without a
                 regeneration. Read-only when the host doesn't hand us a handler.
 
-                **Instrument Serif italic**, the app's own display face, same
-                face and slant as the numeral over it (September 2026, Massimo's
-                call). It is `font-normal` and has to stay there: the face ships
-                ONE weight,
-                so a `font-light` or a `font-bold` only asks the browser to
-                synthesize one — see the Dashboard's masthead, where that was
-                tried and reverted. It is also set a step LARGER than the sans
-                it replaced (20px against 18, 17 against 15 in the detail
-                modals), because a serif's smaller x-height reads a size down at
-                the same number.
+                **Geist Light**, the app's own sans, upright (September 2026,
+                Massimo's call, after a run as Instrument Serif italic). The
+                numeral over it stays the serif: it is the ornament, the line is
+                the words. `font-light` is a real cut here (Geist ships 300), not
+                a synthesized one. 18px here, 15px in the detail modals — the
+                serif sat a step larger only because its x-height reads small.
 
-                `tracking-normal`, and that number walked (Massimo's call,
-                September 2026). It was `tracking-tight` while the line was a
-                sans, went to -0.035em to tighten it, came BACK to -0.015em when
-                the face changed (Instrument Serif is already tightly set, so a
-                negative meant for Geist crowded it), and went to zero when the
-                line went italic. Zero has to be stated: the body's -0.01em for
-                Geist inherits as a fixed -0.16px. Tighten the sans, loosen the serif — the
-                number belongs to the face, not to the taste. `leading-tight`
-                because a quote that wraps should read as one block, not as two
-                lines. A truncated copy takes `pr-[0.15em]` or `overflow:
-                hidden` slices the italic closing quote in half. Full `text-ink`
-                white, with no hover colour: there is nothing brighter to go to,
-                so the wash and the pencil carry it. Face, weight, size,
-                tracking and colour are ONE
+                `tracking-tight`, because Geist wants tightening where the serif
+                wanted loosening — the number belongs to the face, not to the
+                taste. `leading-tight` because a quote that wraps should read as
+                one block, not as two lines. `text-ink-300` (#D4D4D8), with no
+                hover colour: the wash and the pencil say it is editable. Face,
+                weight, size, tracking and colour are ONE
                 decision across the five places a script line is printed — the storyboard header here, the batch dialogs' line
                 checklist, both detail modals, Continuous — because they are one
                 voice, and a quote set differently in one of them shows up as
@@ -2316,8 +2303,7 @@ function SceneSection({
                 className="group/line -mx-1.5 flex w-full items-start justify-center gap-2 rounded-lg px-1.5 py-0.5 text-center transition-colors hover:bg-ink/[0.04]"
               >
                 <p
-                  className="text-center text-xl leading-tight text-ink font-normal italic tracking-normal"
-                  style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
+                  className="text-center text-lg leading-tight text-ink-300 font-light tracking-tight"
                 >
                   &ldquo;{scene.scriptLine}&rdquo;
                 </p>
@@ -2325,8 +2311,7 @@ function SceneSection({
               </button>
             ) : (
               <p
-                className="text-center text-xl leading-tight text-ink font-normal italic tracking-normal"
-                style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
+                className="text-center text-lg leading-tight text-ink-300 font-light tracking-tight"
               >
                 &ldquo;{scene.scriptLine}&rdquo;
               </p>
