@@ -32,7 +32,9 @@ export interface BlockRunner<Input, Task, Output> {
   estimate(input: Input): number | null
   // Submits one run and resolves as soon as kie has accepted it. The task is
   // plain JSON: the caller persists it BEFORE awaiting `finish`, or a reload
-  // mid-generation loses a result that was already paid for.
+  // mid-generation loses a result that was already paid for. A runner whose
+  // generation is streamed chat (Scripts) has no task to persist, so its
+  // `start` does the whole job and its task carries the result.
   start(input: Input, ctx?: RunContext): Promise<Task>
   // Waits for a submitted task, saves the result and writes its history row.
   // The same call resumes a task persisted by an earlier page load.

@@ -8,12 +8,12 @@ import { useBankStore } from '../../stores/bankStore'
 import type { Product, ScriptHistoryItem } from '../../stores/types'
 import InputPanel from './components/InputPanel'
 import RightPanel from './components/RightPanel'
-import { generateScript } from './services/generateScript'
-import { humanizeError } from '../../utils/friendlyError'
+import { scriptRunner, type ScriptRunInput } from './runner'
+import { lineageOf } from '../../utils/blockRunner'
 import { WRITE_STYLE_META, HOOK_CATEGORY_META, detectSceneBlueprint, isWriteStyle, isWriteFormat, isWriteLength, isRemixLength, isHookCategoryChoice, isHookCount, isVariationCount, parseHooks, DEFAULT_VARIATION_COUNT, DEFAULT_HOOK_COUNT, DEFAULT_REMIX_LENGTH, type ScriptMode, type ScriptUiMode, type EditableProductContext, type WriteStyle, type WriteFormat, type WriteLength, type RemixLength, type HookCategoryChoice, type HookCount, type VariationCount, type RemixAngle, type PendingScriptRun } from './types'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
 import { useHistoryRailOpen } from '../../hooks/useHistoryRailOpen'
-import { isRecordingActive, replayRun, useRecordingLoop, useRecordingLoopSince, useVisibleRows } from '../../stores/recordingStore'
+import { isRecordingActive, useRecordingLoop, useRecordingLoopSince, useVisibleRows } from '../../stores/recordingStore'
 
 interface ReverseEngineerPayload {
   fullPrompt?: string
@@ -22,7 +22,6 @@ interface ReverseEngineerPayload {
 
 // Substituted for an empty Write New brief so the model takes creative license
 // instead of the user hitting a hard "brief required" wall.
-const OPEN_BRIEF = "I'm open to seeing what you can come up with."
 
 // One-time draft migration: the merged Remix source box replaced the two
 // per-mode fields (transcript / reversePrompt). Seed the new slot from
@@ -159,7 +158,6 @@ export default function ScriptArchitect() {
   // brings them back one at a time.
   const scriptHistory = useVisibleRows(useBankStore((s) => s.scriptHistory), 'script')
   const loopSince = useRecordingLoopSince()
-  const addScriptHistory = useBankStore((s) => s.addScriptHistory)
   const deleteScriptHistory = useBankStore((s) => s.deleteScriptHistory)
 
   const selectedProduct = useMemo<Product | null>(
@@ -259,17 +257,15 @@ export default function ScriptArchitect() {
     setOutputVoiceProfile('')
   }
 
-  const handleGenerate = async (productContext: EditableProductContext | null) => {
-    // Write New's brief is optional: an empty brief hands the model creative
-    // license rather than blocking generation (avoids decision paralysis for
-    // users who don't know what to write).
-    const effectiveBrief = mode === 'write' && !brief.trim() ? OPEN_BRIEF : brief
+  // `sourceScriptId` is the Scripts bank row the source box was filled from,
+  // while it's still unedited — a parent of whatever this run writes.
+  const handleGenerate = async (productContext: EditableProductContext | null, sourceScriptId: string | null = null) => {
     const sourceFilled = mode === 'write' ? true : source.trim()
     // A product is OPTIONAL in both modes — a member describing the product in
     // the brief or the instructions shouldn't have to bank it first. What each
     // mode still needs is a subject from SOMEWHERE: Remix has its source
     // script, and Write New needs the product or the brief (with neither, the
-    // OPEN_BRIEF stand-in would be asking for an ad about nothing).
+    // runner's open-brief stand-in would be asking for an ad about nothing).
     if (!sourceFilled) return
     if (mode === 'write' && !selectedProduct && !brief.trim()) return
 
@@ -295,56 +291,40 @@ export default function ScriptArchitect() {
     // On a phone only one pane is on screen — follow the run to the takes.
     setPane('output')
     showRunEmpty(run)
+    // Everything the run reads, snapshotted now: the member can keep typing.
+    const input: ScriptRunInput = {
+      id: run.id,
+      mode: resolvedMode,
+      source,
+      brief,
+      writeStyle,
+      writeFormat,
+      writeLength,
+      remixLength,
+      hookCategory,
+      hookCount,
+      variationCount,
+      productId: selectedProduct?.id ?? null,
+      productName: selectedProduct?.productName,
+      productContext,
+      additionalContext,
+    }
     if (isRecordingActive()) {
-      await replayScriptRun(run)
+      await replayScriptRun(run, input)
       return
     }
-    // Route the merged source into the field the resolved pipeline reads.
-    const winningTranscript = resolvedMode === 'remix' ? source : ''
-    const reversePrompt = resolvedMode === 'reverse-engineer' ? source : ''
     try {
-      const result = await generateScript({
-        mode: resolvedMode,
-        winningTranscript,
-        reversePrompt,
-        brief: effectiveBrief,
-        writeStyle,
-        writeFormat,
-        writeLength,
-        // 'default' → omitted, which is what tells the remix to keep the
-        // source ad's own length.
-        remixLength: remixLength === 'default' ? undefined : remixLength,
-        hookCategory,
-        hookCount,
-        variationCount,
-        productId: selectedProduct?.id ?? null,
-        productName: selectedProduct?.productName,
-        productContext,
-        additionalContext,
+      // The runner writes the history row, under the run's own id.
+      const task = await scriptRunner.start(input, {
+        provenance: {
+          parents: lineageOf(
+            selectedProduct ? { bank: 'products', id: selectedProduct.id } : null,
+            mode === 'remix' && sourceScriptId ? { bank: 'scripts', id: sourceScriptId } : null,
+          ),
+        },
       })
-      const item: ScriptHistoryItem = {
-        id: run.id,
-        mode: resolvedMode,
-        variations: result.variations,
-        inputSummary: inputSource.slice(0, 200),
-        linkedProductId: selectedProduct?.id,
-        productName: selectedProduct?.productName,
-        winningTranscript,
-        reversePrompt,
-        additionalContext,
-        brief,
-        writeStyle,
-        writeFormat,
-        writeLength,
-        remixLength,
-        hookCategory,
-        hookCount,
-        variationCount,
-        remixAngles: result.angles,
-        voiceProfile: result.voiceProfile,
-        createdAt: Date.now(),
-      }
-      addScriptHistory(item)
+      await scriptRunner.finish(task)
+      const { result } = task
       // The finished run takes the pane, even if the member wandered off into a
       // finished row while it wrote — that is what they pressed Generate for.
       // The one thing it will not do is steal the pane from ANOTHER run still
@@ -371,7 +351,7 @@ export default function ScriptArchitect() {
         'success',
       )
     } catch (err) {
-      const msg = humanizeError(err, 'Script generation failed. Check your API key and try again.')
+      const msg = scriptRunner.describeError(err)
       // Only the pane parked on THIS run should turn into its error; anyone
       // reading something else gets the toast and keeps their page. The pane
       // the run was fired into is already empty, which is the state OutputPanel
@@ -410,8 +390,8 @@ export default function ScriptArchitect() {
   // Recording Mode: the run writes for the replay length, then the oldest
   // hidden row lands in its place — same landing guard as a real run. Nothing
   // reaches kie or the bank.
-  const replayScriptRun = async (run: PendingScriptRun) => {
-    const row = await replayRun({ rows: () => useBankStore.getState().scriptHistory, prefix: 'script' })
+  const replayScriptRun = async (run: PendingScriptRun, input: ScriptRunInput) => {
+    const row = await scriptRunner.replay(input)
     setPendingRuns((prev) => prev.filter((r) => r.id !== run.id))
     const watchingAnotherRun = watchedRunIdRef.current !== null && watchedRunIdRef.current !== run.id
     if (watchedRunIdRef.current === run.id) watchedRunIdRef.current = null
