@@ -92,10 +92,15 @@ export default function SidePanel({
         error={error}
       />
 
+      {/* House picker titles: "Choose a …", Title Case. The voice list has no
+          subtitle — the play glyph on each disc already says a tap there is a
+          sample. The preset one keeps its line because it says what the rows
+          can't: picking one overwrites the whole panel, the typed Tone and
+          Scene included. */}
       <PickerModal
         open={voicePickerOpen}
-        title="Select a voice"
-        subtitle="Click a voice to hear a sample"
+        title="Choose a Voice"
+        fill
         onClose={() => setVoicePickerOpen(false)}
       >
         <VoicePickerView selectedId={settings.voiceId} onSelect={handleSelectVoice} />
@@ -103,7 +108,7 @@ export default function SidePanel({
 
       <PickerModal
         open={presetPickerOpen}
-        title="Select a preset"
+        title="Choose a Voice Preset"
         subtitle="Loads the voice, delivery, scene and tone"
         onClose={() => setPresetPickerOpen(false)}
       >

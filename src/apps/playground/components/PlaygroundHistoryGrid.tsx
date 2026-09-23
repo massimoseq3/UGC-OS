@@ -22,7 +22,7 @@ import GridCanvas from '../../../components/GridCanvas'
 import RailOverlay from '../../../components/RailOverlay'
 import { useHistoryRailOpen } from '../../../hooks/useHistoryRailOpen'
 import GenerationProgress from '../../../components/GenerationProgress'
-import { TileActionStack, TileActionButton, TileDeleteButton } from '../../../components/tileActions'
+import { TileActionStack, TileActionButton, TileDeleteButton, TileMenuButton, TileMenuItem } from '../../../components/tileActions'
 import DayPill from '../../../components/DayPill'
 import ModelPill from '../../../components/ModelPill'
 import GeneratingBackdrop from '../../../components/GeneratingBackdrop'
@@ -272,7 +272,15 @@ export default memo(function PlaygroundHistoryGrid({ inFlight, activeProjectId, 
           viewport (see the note beside it in index.css). `absolute` rather than
           `sticky`: this bar never scrolls away, and the app-wide rule is that
           chrome which doesn't move shouldn't be sticky. */}
-      <div className="absolute inset-x-0 top-0 z-20 flex h-[57px] items-center justify-end gap-3 border-b border-ink/5 app-backdrop-frost px-4">
+      <div className="absolute inset-x-0 top-0 z-20 flex h-[57px] items-center border-b border-ink/5 app-backdrop-frost px-4">
+        {/* The row is a CONTAINER (`/bar`), and the labels below give way to
+            ITS width rather than the viewport's: this pane is ~390px on a phone
+            and on an 820px window alike, and keyed to `md` the labels stayed up
+            on the window and squeezed the project name to "A…". Below 520px
+            the slider shortens, Download Clips and Grid / List go to their
+            glyphs, and the name keeps its room. On an inner row rather than on
+            the frosted band itself, as on B-Roll's storyboard bar. */}
+        <div className="@container/bar flex min-w-0 flex-1 items-center justify-end gap-3">
         {/* The project opener owns the left of this bar — it names what the
             panel below is showing, which is the one thing a header over a wall
             of pictures has to say, and it pops the rail out. It stands down
@@ -303,7 +311,7 @@ export default memo(function PlaygroundHistoryGrid({ inFlight, activeProjectId, 
             onClick={() => setPicked(allPicked ? new Set() : new Set(videoEntries.map((e) => e.data.id)))}
             className="mr-auto shrink-0 text-[11px] font-medium text-ink-400 underline-offset-2 transition-colors hover:text-ink-200 hover:underline"
           >
-            {allPicked ? 'Clear all' : 'Select all'}
+            {allPicked ? 'Clear All' : 'Select All'}
           </button>
         )}
         {selecting && (
@@ -314,26 +322,34 @@ export default memo(function PlaygroundHistoryGrid({ inFlight, activeProjectId, 
             className="flex h-10 shrink-0 items-center gap-1.5 glass-fill glass-fill-soft rounded-full border border-white/15 bg-playground-500 px-4 text-xs font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),inset_0_-1px_0_rgba(255,255,255,0.08)] transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:brightness-100"
           >
             {zipping ? <Spinner className="h-3.5 w-3.5" /> : <Download className="h-3.5 w-3.5" />}
-            {zipping ? 'Zipping…' : `Download ${pickedCount} clip${pickedCount === 1 ? '' : 's'}`}
+            {zipping ? 'Zipping…' : `Download ${pickedCount} Clip${pickedCount === 1 ? '' : 's'}`}
           </button>
         )}
         {viewMode === 'list' && !musicOnly && (
-          <div className="flex items-center gap-2.5" title="Card size">
-            <Maximize2 className="h-3.5 w-3.5 text-ink-500" />
-            <input
-              type="range"
-              min={LIST_CARD_MIN}
-              max={LIST_CARD_MAX}
-              step={10}
-              value={listCardHeight}
-              onChange={(e) => setListCardHeight(Number(e.target.value))}
-              className="slider-thin w-28"
-              style={{
-                ['--slider-pct' as string]: `${cardPct}%`,
-                ['--slider-fill' as string]: 'var(--color-playground-500)',
-              }}
-              aria-label="List Card Size"
-            />
+          // Shorter on a narrow bar (`/bar`, above): at full width the slider
+          // took the room the project name needs and cut it to "All Ge…" —
+          // the one label on this bar that has to survive. The width sits on
+          // a WRAPPER: `.slider-thin` is unlayered CSS carrying
+          // `width: 100%`, which beats any width utility on the input itself
+          // (the `w-28` it wore never applied).
+          <div className="flex shrink-0 items-center gap-2.5" title="Card size">
+            <Maximize2 className="h-3.5 w-3.5 text-ink-500 @max-[520px]/bar:hidden" />
+            <div className="flex w-28 @max-[520px]/bar:w-16">
+              <input
+                type="range"
+                min={LIST_CARD_MIN}
+                max={LIST_CARD_MAX}
+                step={10}
+                value={listCardHeight}
+                onChange={(e) => setListCardHeight(Number(e.target.value))}
+                className="slider-thin"
+                style={{
+                  ['--slider-pct' as string]: `${cardPct}%`,
+                  ['--slider-fill' as string]: 'var(--color-playground-500)',
+                }}
+                aria-label="List Card Size"
+              />
+            </div>
           </div>
         )}
         {canSelect && (
@@ -351,14 +367,14 @@ export default memo(function PlaygroundHistoryGrid({ inFlight, activeProjectId, 
             }`}
           >
             {selecting ? <X className="h-3.5 w-3.5" /> : <Download className="h-3.5 w-3.5" />}
-            {/* The label goes below `md`, where this pane IS the viewport and
-                the three controls on this bar don't fit across 375px. What has
+            {/* The label goes on a bar under 520px (`/bar`, above), where the
+                three controls on it don't fit with their words. What has
                 to survive that squeeze is the project name — it's the only
                 thing here that says what the wall of tiles underneath is — and
                 the app's rule for a bar that won't fit is to shorten a label
                 rather than shrink the control again. The glyph is the one
                 that's already unambiguous on its own, and its `title` stays. */}
-            <span className={selecting ? '' : 'max-md:hidden'}>
+            <span className={selecting ? '' : '@max-[520px]/bar:hidden'}>
               {selecting ? 'Cancel' : 'Download Clips'}
             </span>
           </button>
@@ -366,8 +382,13 @@ export default memo(function PlaygroundHistoryGrid({ inFlight, activeProjectId, 
         {/* Neither control has anything to do in the Music tab: a track has no
             thumbnail, so it wears the same row in both views and the size
             slider drives a media frame it doesn't have. A switch that changes
-            nothing is worse than no switch. */}
-        {!musicOnly && <ViewToggle value={viewMode} onChange={setViewMode} />}
+            nothing is worse than no switch.
+            It also stands down while clips are being picked, for the reason
+            the project opener does: flipping the view drops the selection, and
+            at phone width the bar can't hold it beside Select All, Download
+            and Cancel — Select All was pushed off the left edge. */}
+        {!musicOnly && !selecting && <ViewToggle value={viewMode} onChange={setViewMode} />}
+        </div>
       </div>
 
       {/* The scroll port runs the FULL height of the pane, behind the absolute
@@ -417,26 +438,37 @@ export default memo(function PlaygroundHistoryGrid({ inFlight, activeProjectId, 
                   })}
                 </div>
               ) : (
-                <div className="flex flex-col gap-3">
+                <div className="@container/list flex flex-col gap-3">
                   {visibleInFlight.map((gen) => <InFlightRow key={gen.id} gen={gen} mediaAspect={mediaAspect} />)}
                 </div>
               )}
             </>
           )}
 
-          {dayGroups.map(([dayTs, dayItems]) => (
+          {dayGroups.map(([dayTs, dayItems]) => {
+            // In the grid a day is its wall of pictures and then its tracks,
+            // never the two shuffled together. A track has no thumbnail, so it
+            // wears the same full-width row in both views — and dropped between
+            // tiles in time order, each one cut the wall in two, so a day with a
+            // track in the middle read as two walls with a list wedged between
+            // them. The dense grid had already given up strict time order among
+            // the tiles themselves (it backfills holes left by landscape tiles),
+            // so keeping the tracks together costs nothing it wasn't already
+            // paying. The LIST view stays one column in time order: every row
+            // there is a row, and nothing is interrupted.
+            const tiles = viewMode === 'grid' ? dayItems.filter((e): e is Exclude<HistoryEntry, { kind: 'music' }> => e.kind !== 'music') : []
+            const tracks = viewMode === 'grid' ? dayItems.filter((e): e is Extract<HistoryEntry, { kind: 'music' }> => e.kind === 'music') : []
+            return (
             <div key={dayTs}>
               <DayPill label={sectionLabel(dayTs)} className="my-5" />
               {viewMode === 'grid' ? (
+                <>
+                {tiles.length > 0 && (
                 <div className="grid grid-cols-2 items-start gap-2.5 [grid-auto-flow:dense] lg:grid-cols-3 xl:grid-cols-4">
-                  {dayItems.map((entry) => {
-                    const ar = entry.kind === 'music' ? null : entry.data.aspectRatio
+                  {tiles.map((entry) => {
+                    const ar = entry.data.aspectRatio
                     return (
-                    // A track has no thumbnail, so it wears the same row in both
-                    // views and takes the full width to do it — a Voiceovers-shaped
-                    // card squeezed into a quarter-width cell would truncate the
-                    // prompt that is the only thing naming the track.
-                    <div key={`${entry.kind}-${entry.data.id}`} className={entry.kind === 'music' ? 'col-span-full' : ar && isLandscape(ar) ? 'col-span-2' : ''}>
+                    <div key={`${entry.kind}-${entry.data.id}`} className={ar && isLandscape(ar) ? 'col-span-2' : ''}>
                       {entry.kind === 'image' && (
                         <ImageTile
                           item={entry.data}
@@ -463,24 +495,35 @@ export default memo(function PlaygroundHistoryGrid({ inFlight, activeProjectId, 
                           onReuse={onReusePrompt && entry.data.prompt ? () => onReusePrompt(entry.data.prompt, 'video') : undefined}
                         />
                       )}
-                      {entry.kind === 'music' && (
-                        <MusicRow
-                          item={entry.data}
-                          onDownload={async () => {
-                            const url = await getUrl(entry.data.audioRef)
-                            if (url) downloadImage(url, `playground-${entry.data.id}`, 'mp3')
-                          }}
-                          onDelete={() => deleteMusicHistory(entry.data.id)}
-                          onCopyPrompt={() => handleCopyPrompt(entry.data.prompt)}
-                          onReuse={onReusePrompt && entry.data.prompt ? () => onReusePrompt(entry.data.prompt, 'music') : undefined}
-                        />
-                      )}
                     </div>
                     )
                   })}
                 </div>
+                )}
+                {tracks.length > 0 && (
+                  // The grid's own 10px rhythm, so the rows read as the end of
+                  // the same day rather than as a section of their own.
+                  <div className={`flex flex-col gap-2.5 ${tiles.length > 0 ? 'mt-2.5' : ''}`}>
+                    {tracks.map((entry) => (
+                      <MusicRow
+                        key={`music-${entry.data.id}`}
+                        item={entry.data}
+                        onDownload={async () => {
+                          const url = await getUrl(entry.data.audioRef)
+                          if (url) downloadImage(url, `playground-${entry.data.id}`, 'mp3')
+                        }}
+                        onDelete={() => deleteMusicHistory(entry.data.id)}
+                        onCopyPrompt={() => handleCopyPrompt(entry.data.prompt)}
+                        onReuse={onReusePrompt && entry.data.prompt ? () => onReusePrompt(entry.data.prompt, 'music') : undefined}
+                      />
+                    ))}
+                  </div>
+                )}
+                </>
               ) : (
-                <div className="flex flex-col gap-3">
+                // A container, so a row can stack its media over its details
+                // when the PANE is narrow — see HistoryListRow.
+                <div className="@container/list flex flex-col gap-3">
                   {dayItems.map((entry) => entry.kind === 'music' ? (
                     // Same row as the grid draws — audio has no thumbnail, so
                     // there is no second shape for the list to put it in.
@@ -525,7 +568,8 @@ export default memo(function PlaygroundHistoryGrid({ inFlight, activeProjectId, 
                 </div>
               )}
             </div>
-          ))}
+            )
+          })}
         </div>
       </CanvasFrame>
 
@@ -594,19 +638,20 @@ function ViewToggle({ value, onChange }: { value: 'grid' | 'list'; onChange: (v:
       className="h-10 !p-1"
       value={value}
       onChange={onChange}
-      // Both labels go below `md`. There are now three controls on a 57px bar
-      // that at phone width IS the viewport, and the one that must keep its
-      // words is the project name — these two icons are a pair read against
+      // Both labels go on a bar under 520px (`@container/bar` in the history
+      // header — the pane's width, not the viewport's). There are three
+      // controls on it, and the one that must keep its words is the project
+      // name — these two icons are a pair read against
       // each other, which is the case where a glyph alone still says which is
       // which. `label` takes a ReactNode for exactly this, so it's a span and
-      // no JS media query (docs/mobile.md), and `ariaLabel` carries the name a
+      // no JS measurement (docs/mobile.md), and `ariaLabel` carries the name a
       // hidden label stops providing. `hidden` rather than `sr-only`: an
       // `sr-only` span is still a flex child, so the segment's gap is laid out
       // after the icon and the glyph sits half a gap left of centre — the
       // failure `ariaLabel` was added for. `display: none` leaves no child.
       options={[
-        { value: 'list', label: <span className="max-md:hidden">List</span>, icon: List, ariaLabel: 'List' },
-        { value: 'grid', label: <span className="max-md:hidden">Grid</span>, icon: LayoutGrid, ariaLabel: 'Grid' },
+        { value: 'list', label: <span className="@max-[520px]/bar:hidden">List</span>, icon: List, ariaLabel: 'List' },
+        { value: 'grid', label: <span className="@max-[520px]/bar:hidden">Grid</span>, icon: LayoutGrid, ariaLabel: 'Grid' },
       ]}
     />
   )
@@ -664,6 +709,8 @@ function HistoryListRow({
   const rowVideo = useExclusiveVideo()
   const prompt = entry.data.prompt
   const isSaved = entry.kind === 'image' ? !!entry.data.linkedBRollId : false
+  const [menuOpen, setMenuOpen] = useState(false)
+  const closeMenu = () => setMenuOpen(false)
 
   const frameAspect = frameAspectFor(entry.data.aspectRatio, mediaAspect)
 
@@ -678,12 +725,17 @@ function HistoryListRow({
   }
 
   return (
-    <div ref={rowRef} className="flex w-full items-stretch gap-3 overflow-hidden rounded-2xl border border-ink/10 bg-ink/[0.02] card-soft-shadow">
+    // Below a 560px LIST (a container query — this pane's width doesn't track
+    // the viewport's: it is ~390px on a phone and on a 768px window alike) the
+    // row stacks, media over details. Side by side at that width the details
+    // were a ~90px strip: the model name cut to "Nano Bana…", the prompt two
+    // words to a line, and the action row sliced off by the card's clip.
+    <div ref={rowRef} className={`${LIST_ROW_SHELL} border-ink/10 bg-ink/[0.02]`}>
       {/* Media — fixed-width column (the larger share of the row). Landscape
           outputs keep their own 16:9-style frame (no letterbox bars) at any slider
           position; portraits follow the slider-driven aspect, growing taller as it
           moves right. */}
-      <div className="relative min-w-0 flex-[3] bg-black light:bg-[#EAEAEC]" style={{ aspectRatio: frameAspect }}>
+      <div className={`relative ${LIST_ROW_MEDIA} bg-black light:bg-[#EAEAEC]`} style={{ aspectRatio: frameAspect }}>
         {status === 'ready' && url ? (
           entry.kind === 'video' ? (
             // `preload="none"` wearing its poster (posterVideoProps), like the
@@ -728,15 +780,21 @@ function HistoryListRow({
       {/* Side panel — the remaining quarter: model, prompt, meta, actions. Its
           content is absolutely filled so the panel contributes no intrinsic
           height — the media's aspect ratio alone drives the row height. The
-          prompt scrolls within the stretched panel. */}
-      <div className="relative min-w-0 flex-[1]">
-        <div className="absolute inset-0 flex flex-col gap-2 py-3 pr-3">
+          prompt scrolls within the stretched panel. Stacked, it's an ordinary
+          block under the media and takes its own height. */}
+      <div className={`relative ${LIST_ROW_SIDE}`}>
+        <div className={`absolute inset-0 flex flex-col gap-2 py-3 pr-3 ${LIST_ROW_SIDE_INNER}`}>
         {/* Which model made this, on its own line above the meta pills — the
             same reading order Characters' list row uses, so a row looks the
             same across the two apps. Hidden when generation info is off. */}
-        <ModelPill modelId={entry.data.modelId} className="self-start" />
+        {/* `shrink-0` on everything but the prompt: this column is a fixed
+            height, and ModelPill is `truncate` (overflow hidden), whose
+            automatic min-height is 0 — on an over-full row it would be the
+            first thing squeezed to nothing. The prompt is the one box that
+            gives, and it scrolls. */}
+        <ModelPill modelId={entry.data.modelId} className="shrink-0 self-start" />
         {meta.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex shrink-0 flex-wrap items-center gap-1.5">
             {meta.map((m) => (
               <span key={m} className="rounded-full bg-ink/[0.06] px-1.5 py-0.5 text-[9px] font-medium text-ink-400">{m}</span>
             ))}
@@ -747,8 +805,13 @@ function HistoryListRow({
             {prompt}
           </div>
         )}
-        {/* Canonical action order: download · save · copy · [reuse] · [animate] · delete. */}
-        <div className="flex items-center gap-1">
+        {/* The grid tile's set, in the grid tile's order: download · save ·
+            [animate] · delete, then the prompt pair behind the ⋮ (see
+            ImageTile). Six loose circles was a line this quarter-width panel
+            couldn't hold under a ~1350px window — the row's clip took the last
+            of them. It still WRAPS rather than clips, as the backstop for a
+            narrower panel than that. */}
+        <div className="flex shrink-0 flex-wrap items-center gap-1">
           <ListRowButton title="Download" onClick={onDownload}>
             <Download className="h-4 w-4" />
           </ListRowButton>
@@ -761,28 +824,32 @@ function HistoryListRow({
               {isSaved ? <Check className="h-4 w-4" /> : isSaving ? <Spinner className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
             </ListRowButton>
           )}
-          {prompt && (
-            <ListRowButton title="Copy prompt" onClick={onCopyPrompt}>
-              <Copy className="h-4 w-4" />
-            </ListRowButton>
-          )}
-          {onReuse && (
-            <ListRowButton title="Reuse this prompt" onClick={onReuse}>
-              <CornerDownLeft className="h-4 w-4" />
-            </ListRowButton>
-          )}
           {onAnimate && (
             <ListRowButton title="Animate in Video" onClick={onAnimate}>
               <ImagePlay className="h-4 w-4" />
             </ListRowButton>
           )}
-          <TileDeleteButton variant="chrome" onDelete={onDelete} />
+          {/* `alwaysVisible`, because this row is NOT a `group`: the default
+              hover fade left the delete invisible here at every width — the
+              same bug Characters' list row had. */}
+          <TileDeleteButton alwaysVisible variant="chrome" onDelete={onDelete} />
+          <PromptMenu chrome open={menuOpen} onToggle={() => setMenuOpen((v) => !v)} onClose={closeMenu} onCopyPrompt={prompt ? onCopyPrompt : undefined} onReuse={onReuse} />
         </div>
         </div>
       </div>
     </div>
   )
 }
+
+// The list row's two-column shape and its stacked fallback, shared by the
+// finished row and the in-flight one so a result landing never changes shape.
+// `@max-[560px]/list` answers to the list's own width (`@container/list`), not
+// the viewport's. Written out in full: Tailwind only generates a class it can
+// find spelled whole in the source.
+const LIST_ROW_SHELL = 'flex w-full items-stretch gap-3 overflow-hidden rounded-2xl border card-soft-shadow @max-[560px]/list:flex-col @max-[560px]/list:gap-0'
+const LIST_ROW_MEDIA = 'min-w-0 flex-[3] @max-[560px]/list:flex-none'
+const LIST_ROW_SIDE = 'min-w-0 flex-[1] @max-[560px]/list:flex-none'
+const LIST_ROW_SIDE_INNER = '@max-[560px]/list:static @max-[560px]/list:px-3'
 
 // In-flight generation as a list row — placeholder + progress, matching the
 // finished-row layout (2/3 media · 1/3 info) so the feed doesn't jump.
@@ -793,8 +860,8 @@ function InFlightRow({ gen, mediaAspect }: { gen: InFlightGen; mediaAspect: numb
   // slider so the placeholder doesn't jump when the result lands.
   const frameAspect = frameAspectFor(gen.imageParams?.aspectRatio ?? gen.videoParams?.aspectRatio, mediaAspect)
   return (
-    <div className="flex w-full items-stretch gap-3 overflow-hidden rounded-2xl border border-playground-500/20 bg-playground-500/[0.04] card-soft-shadow">
-      <div className="relative min-w-0 flex-[3]" style={{ aspectRatio: frameAspect }}>
+    <div className={`${LIST_ROW_SHELL} border-playground-500/20 bg-playground-500/[0.04]`}>
+      <div className={`relative ${LIST_ROW_MEDIA}`} style={{ aspectRatio: frameAspect }}>
         <GeneratingBackdrop family="playground" />
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
           <Icon className="h-7 w-7 text-playground-100" />
@@ -808,11 +875,40 @@ function InFlightRow({ gen, mediaAspect }: { gen: InFlightGen; mediaAspect: numb
           />
         </div>
       </div>
-      <div className="flex min-w-0 flex-[1] flex-col justify-center gap-2 py-3 pr-3">
+      <div className={`flex flex-col justify-center gap-2 py-3 pr-3 ${LIST_ROW_SIDE} ${LIST_ROW_SIDE_INNER}`}>
         <span className="text-[12px] font-semibold tracking-wide text-playground-200">{modelLabel}</span>
         {gen.prompt && <p className="line-clamp-4 text-[12px] leading-relaxed text-ink-400">{gen.prompt}</p>}
       </div>
     </div>
+  )
+}
+
+// The ⋮ that closes every tile's and list row's action line: Copy Prompt and
+// Reuse Prompt, spelled out and side by side — the two are siblings (one hands
+// the words to the clipboard, the other straight back to the field), so they
+// travel together. `chrome` for a list row's panel surface, the default for a
+// stack over media. Renders nothing when there is no prompt to act on.
+function PromptMenu({
+  open,
+  onToggle,
+  onClose,
+  onCopyPrompt,
+  onReuse,
+  chrome = false,
+}: {
+  open: boolean
+  onToggle: () => void
+  onClose: () => void
+  onCopyPrompt?: () => void
+  onReuse?: () => void
+  chrome?: boolean
+}) {
+  if (!onCopyPrompt && !onReuse) return null
+  return (
+    <TileMenuButton chrome={chrome} open={open} onToggle={onToggle} onClose={onClose} count={onCopyPrompt && onReuse ? 2 : 1}>
+      {onCopyPrompt && <TileMenuItem icon={Copy} label="Copy Prompt" onClick={onCopyPrompt} onClose={onClose} />}
+      {onReuse && <TileMenuItem icon={CornerDownLeft} label="Reuse Prompt" onClick={onReuse} onClose={onClose} />}
+    </TileMenuButton>
   )
 }
 
@@ -875,6 +971,10 @@ function ImageTile({
   const { ref: tileRef, near } = useNearViewport<HTMLDivElement>(scrollRoot)
   const { url, status } = useAssetThumb(near ? item.imageUrl : null)
   const isSaved = !!item.linkedBRollId
+  // The ⋮ menu's open state lives here, because the stack has to be held
+  // visible while the pointer is over the menu rather than the tile.
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   return (
       <div
@@ -894,9 +994,14 @@ function ImageTile({
               : <ImageIcon className="h-6 w-6 text-ink-700" />}
           </div>
         )}
-        {/* Hover action stack — top-right vertical column, app-wide standard
-            order: download · save · copy · [animate] · delete. */}
-        <TileActionStack>
+        {/* Hover action stack — top-right vertical column, the app-wide
+            order: Download · Save · Animate · Delete · ⋮. Past four circles a
+            tile gets a doorway, not a longer column (components/tileActions,
+            Massimo's call): this one had six, and Copy / Reuse are the pair
+            that goes behind the ⋮, named in words and still side by side —
+            the same split Characters' tile makes. Animate keeps its circle:
+            still → clip is the loop this app is for, and it stays one click. */}
+        <TileActionStack forceVisible={menuOpen || confirmingDelete}>
           <TileActionButton
             title="Download"
             onClick={async (e) => {
@@ -914,22 +1019,6 @@ function ImageTile({
           >
             {isSaved ? <Check className="h-4 w-4" /> : isSaving ? <Spinner className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
           </TileActionButton>
-          {item.prompt && (
-            <TileActionButton title="Copy prompt" onClick={(e) => { e.stopPropagation(); onCopyPrompt() }}>
-              <Copy className="h-4 w-4" />
-            </TileActionButton>
-          )}
-          {/* Reuse — put this prompt back in the box, replacing what's
-              there. It sits right after Copy prompt because the two are
-              siblings: one hands the words to the clipboard, the other hands
-              them straight back to the field, which is what you actually
-              wanted every time you copied one. The arrow points LEFT, at the
-              panel the prompt is going to. */}
-          {onReuse && (
-            <TileActionButton title="Reuse this prompt" onClick={(e) => { e.stopPropagation(); onReuse() }}>
-              <CornerDownLeft className="h-4 w-4" />
-            </TileActionButton>
-          )}
           {onAnimate && (
             <TileActionButton
               title="Animate in Video"
@@ -938,7 +1027,14 @@ function ImageTile({
               <ImagePlay className="h-4 w-4" />
             </TileActionButton>
           )}
-          <TileDeleteButton onDelete={onDelete} />
+          <TileDeleteButton onDelete={onDelete} onArmedChange={setConfirmingDelete} />
+          <PromptMenu
+            open={menuOpen}
+            onToggle={() => setMenuOpen((v) => !v)}
+            onClose={() => setMenuOpen(false)}
+            onCopyPrompt={item.prompt ? onCopyPrompt : undefined}
+            onReuse={onReuse}
+          />
         </TileActionStack>
       </div>
   )
@@ -989,6 +1085,8 @@ function VideoTile({
   const inline = useInlineVideo()
   const { hovering, unmuted, togglePlay, toggleMute } = inline
   const ratio = aspectStyle(item.aspectRatio)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   return (
       <div
@@ -1047,13 +1145,17 @@ function VideoTile({
         {/* Click-to-play overlay (top-left) — always on the tile, so a clip
             playing with sound can still be paused once the pointer has moved
             off it. stopPropagation lets the user watch the clip in place
-            without opening the lightbox. */}
+            without opening the lightbox. A flat scrim, no backdrop-blur: this
+            sits over a clip that plays on hover, and a backdrop-filter
+            re-blurs its patch every frame the picture under it moves
+            (docs/performance.md) — the tile's own action circles dropped
+            theirs for the same reason. */}
         {url && (
           <button
             type="button"
             title={inline.watching ? 'Pause' : 'Play with sound'}
             onClick={togglePlay}
-            className="absolute left-1.5 top-1.5 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur transition-colors hover:bg-black/80"
+            className="absolute left-1.5 top-1.5 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white transition-colors hover:bg-black/80"
           >
             {inline.watching ? <Pause className="h-3.5 w-3.5 fill-white text-white" /> : <Play className="h-3.5 w-3.5 fill-white text-white" />}
           </button>
@@ -1063,22 +1165,25 @@ function VideoTile({
             type="button"
             title={unmuted ? 'Mute' : 'Unmute'}
             onClick={toggleMute}
-            className="absolute left-11 top-1.5 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur transition-colors hover:bg-black/80"
+            className="absolute left-11 top-1.5 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white transition-colors hover:bg-black/80"
           >
             {unmuted ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
           </button>
         )}
 
         {/* Hover action stack — top-right vertical column, app-wide standard
-            order: download · copy · delete (video has no save-to-bank). It
+            order: Download · Delete · ⋮ (video has no save-to-bank). It
             deliberately does NOT step aside while the clip plays with sound:
             watching a take is exactly when you decide to keep it, and having
-            Download / Copy prompt / Delete vanish under the pointer meant
-            pausing first to reach them. It sits top-right, clear of the
-            play/pause and mute buttons on the left, and only fades in on
-            hover — so it never covers a clip you're just watching. */}
+            Download / Delete vanish under the pointer meant pausing first to
+            reach them. It sits top-right, clear of the play/pause and mute
+            buttons on the left, and only fades in on hover — so it never
+            covers a clip you're just watching.
+            Copy and Reuse sit behind the ⋮ here too, although this stack would
+            fit them: a still and a clip share one wall, and the same pair of
+            actions belongs in the same place on both. */}
         {!selecting && (
-          <TileActionStack>
+          <TileActionStack forceVisible={menuOpen || confirmingDelete}>
             <TileActionButton
               title="Download"
               onClick={async (e) => {
@@ -1089,17 +1194,14 @@ function VideoTile({
             >
               <Download className="h-4 w-4" />
             </TileActionButton>
-            {item.prompt && (
-              <TileActionButton title="Copy prompt" onClick={(e) => { e.stopPropagation(); onCopyPrompt() }}>
-                <Copy className="h-4 w-4" />
-              </TileActionButton>
-            )}
-            {onReuse && (
-              <TileActionButton title="Reuse this prompt" onClick={(e) => { e.stopPropagation(); onReuse() }}>
-                <CornerDownLeft className="h-4 w-4" />
-              </TileActionButton>
-            )}
-            <TileDeleteButton onDelete={onDelete} />
+            <TileDeleteButton onDelete={onDelete} onArmedChange={setConfirmingDelete} />
+            <PromptMenu
+              open={menuOpen}
+              onToggle={() => setMenuOpen((v) => !v)}
+              onClose={() => setMenuOpen(false)}
+              onCopyPrompt={item.prompt ? onCopyPrompt : undefined}
+              onReuse={onReuse}
+            />
           </TileActionStack>
         )}
 
@@ -1324,7 +1426,10 @@ function PreviewModal({
           className={
             isVideo
               ? 'flex w-full shrink-0 flex-col items-center gap-4 md:h-full md:w-[380px] md:justify-center md:overflow-y-auto md:py-4'
-              : 'flex w-full max-w-2xl shrink-0 flex-col items-center gap-3'
+              // `max-w-3xl`, which is what a still's FIVE labelled actions need
+              // to sit on one line. At `2xl` the row broke four-and-one, and
+              // Download Image sat alone under the rest like an afterthought.
+              : 'flex w-full max-w-3xl shrink-0 flex-col items-center gap-3'
           }
         >
           {/* Frame grabs sit at the top of the side column — pull the first/last

@@ -8,15 +8,15 @@ import { usePersistedState } from '../../hooks/usePersistedState'
 export type SortOrder = 'newest' | 'oldest' | 'name-asc' | 'name-desc'
 
 export const SORT_OPTIONS_WITH_NAME: { value: SortOrder; label: string }[] = [
-  { value: 'newest', label: 'Newest first' },
-  { value: 'oldest', label: 'Oldest first' },
+  { value: 'newest', label: 'Newest First' },
+  { value: 'oldest', label: 'Oldest First' },
   { value: 'name-asc', label: 'Name A → Z' },
   { value: 'name-desc', label: 'Name Z → A' },
 ]
 
 export const SORT_OPTIONS_DATE_ONLY: { value: SortOrder; label: string }[] = [
-  { value: 'newest', label: 'Newest first' },
-  { value: 'oldest', label: 'Oldest first' },
+  { value: 'newest', label: 'Newest First' },
+  { value: 'oldest', label: 'Oldest First' },
 ]
 
 export function sortByOrder<T extends { createdAt: number }>(items: T[], order: SortOrder, nameOf?: (item: T) => string): T[] {

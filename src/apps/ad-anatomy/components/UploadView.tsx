@@ -205,7 +205,7 @@ export default function UploadView({ onAnalyze }: UploadViewProps) {
                   className="flex shrink-0 items-center gap-1 rounded-full bg-ink/[0.06] px-2 py-0.5 text-[10px] font-medium text-ink-400"
                 >
                   <Minimize2 className="h-2.5 w-2.5" strokeWidth={2.25} />
-                  Compress first
+                  Compress First
                 </span>
               )}
               {s.durationSec != null && (

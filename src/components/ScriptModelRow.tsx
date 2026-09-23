@@ -65,12 +65,12 @@ const COPY: Record<ScriptModelApp, { label: string; hint: string; title: string 
   'script-architect': {
     label: 'Script Model',
     hint: 'The Scriptwriter',
-    title: 'Script Model',
+    title: 'Choose a Script Model',
   },
   'broll-studio': {
     label: 'Prompt Model',
     hint: 'The Prompt Writer',
-    title: 'Prompt Model',
+    title: 'Choose a Prompt Model',
   },
 }
 

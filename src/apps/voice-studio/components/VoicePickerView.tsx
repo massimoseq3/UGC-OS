@@ -1,7 +1,10 @@
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { Search, Play, Pause, Check } from 'lucide-react'
 import type { Gender, VoiceOption } from '../types'
 import { VOICES } from '../types'
+import SegmentedToggle from '../../../components/SegmentedToggle'
+import CountSlot from '../../../components/CountSlot'
+import { GallerySectionHeading } from '../../../components/SectionRail'
 
 import { seedColor } from './seedColor'
 import { useVoicePreview } from './useVoicePreview'
@@ -11,7 +14,7 @@ interface VoicePickerViewProps {
   onSelect: (voice: VoiceOption) => void
 }
 
-// Filter chips, and the headings the list is grouped under: All, then the two
+// The toggle's segments, and the headings the list is grouped under: All, then the two
 // genders. It was Google's four published PITCH bands (higher / middle /
 // lower-middle / lower) until September 2026 (Massimo's call). Pitch is real
 // data and it stays on the row's type, but it isn't the question anyone opens
@@ -23,31 +26,30 @@ type GenderFilter = 'All' | Gender
 const GENDER_FILTERS: GenderFilter[] = ['All', 'Female', 'Male']
 const GENDER_ORDER: Gender[] = ['Female', 'Male']
 
-// The BODY of the voice picker — search, pitch chips and the grouped list.
-// `PickerModal` supplies the shell and the title; `PresetPickerView` fills the
-// same shell with the same row shape.
+// The BODY of the voice picker — the toolbar (search + gender toggle) and the
+// grouped list. `PickerModal` supplies the shell and the title;
+// `PresetPickerView` fills the same shell with the same row shape.
 export default function VoicePickerView({ selectedId, onSelect }: VoicePickerViewProps) {
   const [query, setQuery] = useState('')
   const [genderFilter, setGenderFilter] = useState<GenderFilter>('All')
   const { previewingId, loadingId, toggle } = useVoicePreview()
 
-  // Filter by query + gender, then group by gender with a header per group, so
-  // the list reads as the two casts it is.
-  const groups = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    const filtered = VOICES.filter((v) => {
-      if (genderFilter !== 'All' && v.gender !== genderFilter) return false
-      if (!q) return true
-      return (
+  // Search first, so the toggle's counts are what each segment would actually
+  // show (BankPicker's rule); then the gender filter; then group by gender with
+  // a heading per group, so the list reads as the two casts it is.
+  const q = query.trim().toLowerCase()
+  const searched = q
+    ? VOICES.filter((v) =>
         v.name.toLowerCase().includes(q) ||
         v.description.toLowerCase().includes(q) ||
-        v.category.toLowerCase().includes(q)
+        v.category.toLowerCase().includes(q),
       )
-    })
-    return GENDER_ORDER
-      .map((g) => [g, filtered.filter((v) => v.gender === g)] as const)
-      .filter(([, list]) => list.length > 0)
-  }, [query, genderFilter])
+    : VOICES
+  const countFor = (g: GenderFilter) => (g === 'All' ? searched.length : searched.filter((v) => v.gender === g).length)
+  const filtered = genderFilter === 'All' ? searched : searched.filter((v) => v.gender === genderFilter)
+  const groups = GENDER_ORDER
+    .map((g) => [g, filtered.filter((v) => v.gender === g)] as const)
+    .filter(([, list]) => list.length > 0)
 
   const totalCount = groups.reduce((n, [, list]) => n + list.length, 0)
 
@@ -81,9 +83,13 @@ export default function VoicePickerView({ selectedId, onSelect }: VoicePickerVie
             <span className="absolute -inset-[3px] rounded-full border-2 border-ink/10 border-t-ink animate-spin" />
           )}
           {isPlaying && <span className="absolute -inset-[3px] rounded-full border-2 border-voice-400" />}
+          {/* `touch:opacity-100`: a phone has no hover to reveal the glyph,
+              and it is the only thing saying a tap on the disc is a sample.
+              Its resting scrim is lighter there (`/15`), since it shows on all
+              thirty discs at once and the metal is what says whose voice. */}
           <span
             className={`relative flex h-full w-full items-center justify-center rounded-full bg-black/40 text-white transition-opacity ${
-              isPlaying || isLoading ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+              isPlaying || isLoading ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 touch:bg-black/15 touch:opacity-100'
             }`}
           >
             {isPlaying ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 translate-x-px fill-current" />}
@@ -110,9 +116,15 @@ export default function VoicePickerView({ selectedId, onSelect }: VoicePickerVie
 
   return (
     <>
-      {/* Search */}
-      <div className="border-b border-ink/5 px-5 py-4">
-        <div className="relative">
+      {/* ONE toolbar row, BankPicker's shape: search, then the filter that
+          narrows it. The gender pair is the house `SegmentedToggle` with its
+          counts in a `CountSlot`, the same control the character picker and
+          Playground's Choose a Voice filter by — it was a row of loose chips
+          of its own, left-aligned on a line under the search. `fitContent='md'`:
+          on a phone the row wraps and the toggle takes its own line at full
+          width rather than stopping short of the edge. */}
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-ink/5 px-5 py-3">
+        <div className="relative min-w-[180px] flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-500" />
           <input
             value={query}
@@ -121,44 +133,34 @@ export default function VoicePickerView({ selectedId, onSelect }: VoicePickerVie
             className="w-full rounded-full border border-ink/10 bg-transparent py-2 pl-10 pr-3 text-sm text-ink-100 placeholder-ink-500 outline-none transition-colors focus:border-voice-500/40"
           />
         </div>
-
-        {/* Gender filter chips — All, then the two casts */}
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {GENDER_FILTERS.map((p) => {
-            const active = genderFilter === p
-            return (
-              <button
-                key={p}
-                onClick={() => setGenderFilter(p)}
-                className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-                  active
-                    ? 'bg-voice-500/25 text-voice-200'
-                    : 'bg-ink/[0.05] text-ink-300 hover:bg-ink/[0.08] hover:text-ink-100'
-                }`}
-              >
-                {p}
-              </button>
-            )
-          })}
-        </div>
+        <SegmentedToggle
+          value={genderFilter}
+          onChange={setGenderFilter}
+          accent="voice"
+          dense
+          fitContent="md"
+          className="md:shrink-0"
+          options={GENDER_FILTERS.map((g) => ({ value: g, label: g, badge: <CountSlot value={countFor(g)} /> }))}
+        />
       </div>
 
-      {/* Voice list — grouped by gender with a header per group. It sizes
-          the modal up to the panel's max-height and scrolls past it; the empty
-          state pads rather than filling, since `h-full` inside a content-sized
-          panel collapses. */}
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      {/* Voice list — grouped by gender, each group under the house section
+          pill (`GallerySectionHeading`, i.e. `DayPill`) every other gallery
+          picker heads its sections with; the count moved to the toggle above.
+          The panel holds its full height (`fill`), so the empty state simply
+          pads. `scrollbar-gutter: stable`, as in `Modal`'s body: a filter that
+          stops the list overflowing would otherwise hand the 11px track back
+          to the content box and slide every centred pill sideways. */}
+      <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]">
         {totalCount === 0 ? (
           <div className="px-6 py-16 text-center">
             <span className="text-sm text-ink-500">No voices match these filters.</span>
           </div>
         ) : (
           <div className="flex flex-col gap-0.5 p-2">
-            {groups.map(([p, list]) => (
-              <div key={p} className="flex flex-col gap-0.5">
-                <div className="px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wider text-ink-500">
-                  {p} <span className="text-ink-600">· {list.length}</span>
-                </div>
+            {groups.map(([g, list], i) => (
+              <div key={g} className="flex flex-col gap-0.5">
+                <GallerySectionHeading label={g} className={i === 0 ? 'mb-1.5 mt-2' : 'mb-1.5 mt-4'} />
                 {list.map(renderRow)}
               </div>
             ))}

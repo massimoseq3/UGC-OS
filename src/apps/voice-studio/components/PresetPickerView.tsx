@@ -58,9 +58,11 @@ export default function PresetPickerView({ selectedId, onSelect }: PresetPickerV
             <span className="absolute -inset-[3px] rounded-full border-2 border-ink/10 border-t-ink animate-spin" />
           )}
           {isPlaying && <span className="absolute -inset-[3px] rounded-full border-2 border-voice-400" />}
+          {/* The touch glyph and its lighter scrim, as in the voice list: no
+              hover on a phone. */}
           <span
             className={`relative flex h-full w-full items-center justify-center rounded-full bg-black/40 text-white transition-opacity ${
-              isPlaying || isLoading ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+              isPlaying || isLoading ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 touch:bg-black/15 touch:opacity-100'
             }`}
           >
             {isPlaying ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 translate-x-px fill-current" />}
@@ -88,7 +90,7 @@ export default function PresetPickerView({ selectedId, onSelect }: PresetPickerV
     <>
       {/* Search — hidden when the bank is empty, there'd be nothing to search */}
       {presets.length > 0 && (
-        <div className="border-b border-ink/5 px-5 py-4">
+        <div className="shrink-0 border-b border-ink/5 px-5 py-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-500" />
             <input

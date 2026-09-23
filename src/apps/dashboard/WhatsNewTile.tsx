@@ -162,8 +162,12 @@ export default function WhatsNewTile({ index, className = '' }: { index: number;
 // is what lets the NEW badge take a line of its own above the title without
 // making the rows it appears on taller than the rest: a badge plus two clamped
 // lines is 50px inside a 70px row, and so is a bare title.
+//
+// `rounded-xl` on the row against the block's `rounded-lg`: the hover wash sits
+// 4px outside the thumbnail (`p-1`), so its corner is the block's 8px plus that
+// 4px — the same radius at both edges drew two corners that didn't nest.
 const ROW =
-  'group flex w-full items-center gap-2.5 rounded-lg p-1 text-left transition-colors hover:bg-ink/[0.06]'
+  'group flex w-full items-center gap-2.5 rounded-xl p-1 text-left transition-colors hover:bg-ink/[0.06]'
 const BLOCK = 'relative h-[70px] w-[124px] shrink-0 overflow-hidden rounded-lg'
 // NO `block` here, deliberately: `line-clamp-2` works by setting
 // `display: -webkit-box`, and a `block` alongside it wins on stylesheet order

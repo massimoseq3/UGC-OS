@@ -123,8 +123,11 @@ function ResultCardImpl({ result, onAnalyze, onRemix, onSave, onDownload, onOpen
         )}
 
         {/* Badge: an outlier multiple where we have one, days-running where we
-            don't. Never both, and never an invented score on a Meta card. */}
-        <div className="pointer-events-none absolute left-2 top-2 flex flex-col gap-1">
+            don't. Never both, and never an invented score on a Meta card.
+            `items-start` so each pill hugs its own label — a flex column
+            stretches its children by default, which drew "Inactive" as a bar
+            the width of "87d running" above it. */}
+        <div className="pointer-events-none absolute left-2 top-2 flex flex-col items-start gap-1">
           {result.outlier && (
             <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[11px] font-semibold text-black shadow-sm">
               {formatMultiple(result.outlier.multiple)}
@@ -261,7 +264,9 @@ function ResultCardImpl({ result, onAnalyze, onRemix, onSave, onDownload, onOpen
         </TileActionStack>
       </div>
 
-      <div className="flex flex-col gap-2 p-2.5">
+      {/* A size container, so the engagement row can answer to the CARD's
+          width rather than the window's — see `NARROW_HIDE`. */}
+      <div className="@container/meta flex flex-col gap-2 p-2.5">
         {/* Author leads: whose video this is frames every number under it. */}
         <div className="flex items-center gap-1.5">
           {result.author.avatarUrl && (
@@ -278,9 +283,13 @@ function ResultCardImpl({ result, onAnalyze, onRemix, onSave, onDownload, onOpen
             the creator's following — context for the score above it, and dim on
             purpose — while on Meta it's page likes, the only audience figure the
             Ad Library gives at all, so it takes a pill. As dim text beside a dim
-            glyph it was the easiest thing on the card to miss. */}
+            glyph it was the easiest thing on the card to miss. The indent
+            lines it up under the NAME, so it only applies when there's an
+            avatar to clear: an Accounts reel never carries one (its author is
+            stamped from the tracked account), and indented under nothing the
+            line sat 26px in from the handle it belongs to. */}
         <span
-          className={`-mt-1.5 flex items-center gap-1 pl-[26px] ${
+          className={`-mt-1.5 flex items-center gap-1 ${result.author.avatarUrl ? 'pl-[26px]' : ''} ${
             isMeta ? 'h-[18px]' : 'h-[14px] text-[10px] text-ink-600'
           }`}
         >
@@ -319,8 +328,15 @@ function ResultCardImpl({ result, onAnalyze, onRemix, onSave, onDownload, onOpen
               statCells.length >= 4 ? 'justify-between gap-1' : 'gap-4'
             }`}
           >
-            {statCells.map(({ key, icon, value, title, strong }) => (
-              <Stat key={key} icon={icon} value={value} title={title} strong={strong} />
+            {statCells.map(({ key, icon, value, title, strong, droppable }) => (
+              <Stat
+                key={key}
+                icon={icon}
+                value={value}
+                title={title}
+                strong={strong}
+                className={droppable ? NARROW_HIDE : 'flex'}
+              />
             ))}
           </div>
         )}
@@ -345,13 +361,27 @@ function ResultCardImpl({ result, onAnalyze, onRemix, onSave, onDownload, onOpen
  */
 function presentStats(stats: NonNullable<DiscoverResult['stats']>) {
   return ([
-    { key: 'views', icon: Eye, value: stats.views, title: 'Views', strong: true },
-    { key: 'likes', icon: Heart, value: stats.likes, title: 'Likes', strong: false },
-    { key: 'comments', icon: MessageCircle, value: stats.comments, title: 'Comments', strong: false },
-    { key: 'shares', icon: Share2, value: stats.shares, title: 'Shares', strong: false },
-    { key: 'saves', icon: Bookmark, value: stats.saves, title: 'Saves', strong: false },
+    { key: 'views', icon: Eye, value: stats.views, title: 'Views', strong: true, droppable: false },
+    { key: 'likes', icon: Heart, value: stats.likes, title: 'Likes', strong: false, droppable: false },
+    { key: 'comments', icon: MessageCircle, value: stats.comments, title: 'Comments', strong: false, droppable: false },
+    { key: 'shares', icon: Share2, value: stats.shares, title: 'Shares', strong: false, droppable: true },
+    { key: 'saves', icon: Bookmark, value: stats.saves, title: 'Saves', strong: false, droppable: true },
   ] as const).flatMap((cell) => (cell.value == null ? [] : [{ ...cell, value: cell.value }]))
 }
+
+/**
+ * Shares and saves step out of the row on a card too narrow for all five.
+ *
+ * Five glyph-led figures need 197px at their widest (every one four
+ * characters), and a two-up phone grid gives the row ~150 — so it ran off the
+ * card's right edge and clipped Saves mid-number.
+ * The last two go rather than the row wrapping (which would break reading it
+ * ACROSS the grid) or shrinking type that is already 10px. They are the two a
+ * member can live without on a phone, and the detail modal still shows all
+ * five. A CONTAINER query on the card's own width, not a viewport one: a
+ * three-up grid at 640px is just as tight as the phone.
+ */
+const NARROW_HIDE = 'hidden @[12.5rem]/meta:flex'
 
 /** One glyph-led figure in the engagement row. */
 function Stat({
@@ -359,14 +389,17 @@ function Stat({
   value,
   title,
   strong = false,
+  className = 'flex',
 }: {
   icon: ElementType
   value: number
   title: string
   strong?: boolean
+  /** Carries the display, so a droppable cell never holds `flex` AND `hidden`. */
+  className?: string
 }) {
   return (
-    <span className={`flex items-center gap-0.5 ${strong ? 'text-ink-200' : ''}`} title={title}>
+    <span className={`items-center gap-0.5 ${strong ? 'text-ink-200' : ''} ${className}`} title={title}>
       <Icon className="h-3 w-3 shrink-0" />
       <span className="tabular-nums">{formatCount(value)}</span>
     </span>

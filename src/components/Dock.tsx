@@ -195,11 +195,13 @@ function DockAppTile({
       <AppGlassTile
         app={app}
         overlay={
-          // Top-LEFT, because the crab peeks out of the top-right on hover.
+          // Top-right, where a notification badge sits on every dock a member
+          // has used. It was top-left while a crab peeked out of that corner on
+          // hover; the crab is gone, so the badge goes back to the convention.
           // Ringed in the dock's own fill so it reads as a badge on the tile.
           badge ? (
             <span
-              className="absolute -left-0.5 -top-0.5 z-20 h-3 w-3 rounded-full border-2 border-surface-1 bg-red-500"
+              className="absolute -right-0.5 -top-0.5 z-20 h-3 w-3 rounded-full border-2 border-surface-1 bg-red-500"
               aria-hidden
             />
           ) : null

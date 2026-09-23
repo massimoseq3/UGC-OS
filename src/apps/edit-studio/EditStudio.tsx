@@ -29,8 +29,10 @@ import { downloadSkill } from './downloadSkill'
 const DISPLAY_FONT = { fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }
 
 // A label the member will look for — a menu path, a command, a folder.
+// `whitespace-nowrap`: it is typed exactly as printed, and at a two-column
+// width just past `md` the step broke `/video-editor` at its hyphen.
 function Ui({ children }: { children: ReactNode }) {
-  return <span className="font-semibold text-ink-200">{children}</span>
+  return <span className="whitespace-nowrap font-semibold text-ink-200">{children}</span>
 }
 
 // One line per step, and every step is a thing to do — the reassurance and the
@@ -175,7 +177,10 @@ export default function EditStudio() {
 
         {/* What it does + how to set it up */}
         <div className="flex flex-col gap-5 md:col-start-2 md:row-start-2">
-          <ul className="space-y-1.5">
+          {/* `text-pretty` here and on the steps: a one-word last line
+              ("voiceover" on a phone, "Skill." on the desktop card) read as a
+              stray fragment under a full line. */}
+          <ul className="space-y-1.5 text-pretty">
             {BENEFITS.map((benefit) => (
               <li key={benefit} className="flex items-start gap-2 text-[13.5px] leading-snug text-ink-300">
                 <CheckCircle2
@@ -194,7 +199,7 @@ export default function EditStudio() {
                 are visibly the answer to it. Fit-to-content: two short labels
                 shouldn't stretch across the card and read as a pair of tabs. */}
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-[15px] font-semibold tracking-tight text-ink-100">Set it up</h2>
+              <h2 className="text-[15px] font-semibold tracking-tight text-ink-100">Set It Up</h2>
               <SegmentedToggle
                 options={AGENT_OPTIONS}
                 value={agent}
@@ -203,16 +208,32 @@ export default function EditStudio() {
                 dense
               />
             </div>
-            <ol className="mt-3.5 space-y-3.5">
-              {SKILL_STEPS[agent].map((step, i) => (
-                <li key={i} className="flex items-start gap-3 text-[13px] leading-relaxed text-ink-400">
-                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink/[0.06] text-[11px] font-semibold text-ink-300">
-                    {i + 1}
-                  </span>
-                  <span>{step}</span>
-                </li>
+            {/* BOTH agents' steps, stacked in one grid cell with the other one
+                `invisible`, so the card is always the height of the taller
+                list. With only the picked list rendered, Claude Code's step 3
+                wraps where Codex's doesn't, so every switch changed the card's
+                height — and the desktop centres the column vertically, so the
+                whole page re-centred and the toggle jumped 10px under the
+                pointer that had just pressed it. `invisible` also takes the
+                hidden list's link out of the tab order and the a11y tree.
+                `grid-cols-1`, never a bare `grid` (docs/mobile.md). */}
+            <div className="mt-3.5 grid grid-cols-1">
+              {AGENT_OPTIONS.map(({ value }) => (
+                <ol
+                  key={value}
+                  className={`col-start-1 row-start-1 space-y-3.5 text-pretty ${value === agent ? '' : 'invisible'}`}
+                >
+                  {SKILL_STEPS[value].map((step, i) => (
+                    <li key={i} className="flex items-start gap-3 text-[13px] leading-relaxed text-ink-400">
+                      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink/[0.06] text-[11px] font-semibold text-ink-300">
+                        {i + 1}
+                      </span>
+                      <span>{step}</span>
+                    </li>
+                  ))}
+                </ol>
               ))}
-            </ol>
+            </div>
           </div>
         </div>
       </div>

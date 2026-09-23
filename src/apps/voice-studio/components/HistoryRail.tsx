@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
-import { Search, Volume2, Bookmark, Check, Trash2, Play, Pause, AlignLeft, Download } from 'lucide-react'
+import { Search, Volume2, Bookmark, Check, Play, Pause, AlignLeft, Download } from 'lucide-react'
 import RailNewButton from '../../../components/RailNewButton'
+import { TileDeleteButton } from '../../../components/tileActions'
 import { useBankStore } from '../../../stores/bankStore'
 import type { VoiceHistoryItem } from '../../../stores/types'
 import { formatRelative, sectionLabel, groupByDay } from '../../../utils/history'
@@ -429,20 +430,18 @@ export default function HistoryRail({ items, pending, activeId, onSelect, onDele
                               {isSaved ? (
                                 <><Check className="h-3 w-3" /> Saved</>
                               ) : (
-                                <><Bookmark className="h-3 w-3" /> Save preset</>
+                                <><Bookmark className="h-3 w-3" /> Save Preset</>
                               )}
                             </button>
                           )}
 
                           <div className="flex-1" />
 
-                          <button
-                            onClick={() => onDelete(item.id)}
-                            className="flex h-6 w-6 items-center justify-center rounded-full text-ink-500 transition-colors hover:bg-red-500/10 hover:text-red-400 light:hover:text-red-600"
-                            title="Delete"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </button>
+                          {/* The house delete: two clicks, reverting after 3s —
+                              the one delete idiom every other history rail
+                              uses. This was a bare trash icon that deleted on
+                              the first click. */}
+                          <TileDeleteButton variant="chrome" size="sm" alwaysVisible onDelete={() => onDelete(item.id)} />
                         </div>
                       )}
                     </div>

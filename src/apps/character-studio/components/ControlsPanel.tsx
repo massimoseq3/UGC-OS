@@ -22,6 +22,7 @@ import PhotoExtractZone from './PhotoExtractZone'
 import { buildImagePrompt, buildPhysicalPrompt, buildScenePrompt } from '../services/generateCharacter'
 import { copyToClipboard } from '../../../utils/clipboard'
 import { suspendChromeAutoHide } from '../../../hooks/useChromeAutoHide'
+import { useIsDesktop } from '../../../hooks/useBreakpoint'
 
 // Field keys owned by each tab, derived from the tab config so the scoped
 // preset pickers stay in sync with the form. Physical = identity/physical/
@@ -39,10 +40,21 @@ function TabDivider({ center, left, right }: { center: ReactNode; left?: ReactNo
     // the centre pill genuinely centred, and a phone-width column squeezes the
     // side pills instead of sliding them underneath the title (which is exactly
     // what "Copy Physical" did on top of "Physical Presets" at 390px).
-    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1">
-      <div className="flex min-w-0 justify-start">{left}</div>
-      <div className="flex min-w-0 justify-center">{center}</div>
-      <div className="flex min-w-0 justify-end">{right}</div>
+    //
+    // Equal gutters also set a floor: each one has to hold the WIDER side, so
+    // the Physical row (Clear All · Physical Presets · All + Copy) needs ~430px
+    // of column even on its short labels, and a phone gives it 335–350. Squeezed
+    // below that, the right pair ran off the column and "Copy" was clipped at
+    // the edge. So under 27rem of COLUMN the pill takes its own line and the
+    // two utilities sit under it at the edges — a wrap, not a scroll, and a
+    // container query because what runs out is this column, not the window
+    // (the same squeeze hit the half-width column of a 768–910px window).
+    <div className="@container">
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1 @max-[27rem]:grid-cols-2 @max-[27rem]:gap-y-2">
+        <div className="flex min-w-0 justify-start @max-[27rem]:order-2">{left}</div>
+        <div className="flex min-w-0 justify-center @max-[27rem]:order-1 @max-[27rem]:col-span-2">{center}</div>
+        <div className="flex min-w-0 justify-end @max-[27rem]:order-3">{right}</div>
+      </div>
     </div>
   )
 }
@@ -70,8 +82,12 @@ function CopyPromptButton({ text, label, shortLabel = 'Copy', title }: { text: s
           onto two lines on a phone, which made a 22px pill two rows tall. The
           divider it sits on already says which tab's fields these are — but
           the Physical divider now carries TWO of these, so the short form has
-          to stay distinguishable ("All" against "Copy"). */}
-      {copied ? 'Copied' : <><span className="lg:hidden">{shortLabel}</span><span className="hidden lg:inline">{label}</span></>}
+          to stay distinguishable ("All" against "Copy"). The switch reads the
+          DIVIDER's width (its `@container`), not the window's: on `lg:` the
+          full pair came back at a 1024px window, where the column is ~470px
+          and "Copy All" + "Copy Physical" need ~575 of it, so "Copy Physical"
+          ran off the column's edge until the window passed ~1220px. */}
+      {copied ? 'Copied' : <><span className="@min-[36rem]:hidden">{shortLabel}</span><span className="hidden @min-[36rem]:inline">{label}</span></>}
     </button>
   )
 }
@@ -162,6 +178,11 @@ export default function ControlsPanel({
   // swapping the panel. Refs anchor each tab's block; a scroll-spy keeps the
   // toggle in sync with whichever block sits near the top of the viewport.
   const scrollRef = useRef<HTMLDivElement>(null)
+  // The phone's scroller — the wrapper around the fields AND the Generate bar
+  // (see below). Below `md` the fields column stops scrolling itself, so this
+  // is the box the spy has to watch there.
+  const phoneScrollRef = useRef<HTMLDivElement>(null)
+  const isDesktop = useIsDesktop()
   const tabRefs = useRef<Record<string, HTMLDivElement | null>>({})
   // Latest onActiveTabChange in a ref so the observer (set up once) never holds
   // a stale closure.
@@ -174,8 +195,13 @@ export default function ControlsPanel({
     tabRefs.current[id]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
+  // Rooted on whichever box actually SCROLLS at this width. It was always the
+  // fields column, which on a phone is `overflow-visible` and simply grows —
+  // an observer rooted on a box that doesn't scroll sees its targets move WITH
+  // it, never reports a change, and the toggle sat on "Physical" all the way
+  // down to the Setting card.
   useEffect(() => {
-    const root = scrollRef.current
+    const root = isDesktop ? scrollRef.current : phoneScrollRef.current
     if (!root) return
     const els = Object.values(tabRefs.current).filter(Boolean) as HTMLElement[]
     if (els.length === 0) return
@@ -191,7 +217,7 @@ export default function ControlsPanel({
     )
     els.forEach((el) => obs.observe(el))
     return () => obs.disconnect()
-  }, [])
+  }, [isDesktop])
 
   // Scoped prompt slices for the per-divider Copy buttons. Physical = identity/
   // physical/wardrobe (valid in both portrait + sheet modes); Scene & Pose =
@@ -270,7 +296,7 @@ export default function ControlsPanel({
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col max-md:overflow-y-auto">
+      <div ref={phoneScrollRef} className="flex min-h-0 flex-1 flex-col max-md:overflow-y-auto">
         {/* Scrollable parameter fields. Every
             tab's groups render on one page — each group sits in its own card, and
             the top toggle scroll-jumps between tab blocks (Ad Analyzer pattern).
@@ -297,8 +323,8 @@ export default function ControlsPanel({
                     (mirrors the History date pills), marking each tab's block. The
                     centered button doubles as the scoped preset picker; Clear all
                     sits on the left and the scoped Copy on the right of every
-                    divider. The scoped Copy carries one TAB's fields; the whole
-                    prompt is the circle on the panel header above. */}
+                    divider. The scoped Copy carries one TAB's fields; Copy All,
+                    beside it on the Physical divider, carries the whole prompt. */}
                 <TabDivider
                   /* "Clear all", not "New" (September 2026, Massimo's call).
                      It is the same ClearAllButton every other input panel

@@ -30,7 +30,7 @@ function announcementCta(a: Announcement): CtaTarget | null {
     if (app) return { label: a.ctaLabel?.trim() || `Open ${app.name}`, kind: 'app', target: a.ctaApp }
   }
   if (isSafeHttpUrl(a.ctaUrl)) {
-    return { label: a.ctaLabel?.trim() || 'Learn more', kind: 'url', target: a.ctaUrl!.trim() }
+    return { label: a.ctaLabel?.trim() || 'Learn More', kind: 'url', target: a.ctaUrl!.trim() }
   }
   if (isSafeHttpUrl(a.videoUrl)) {
     return {

@@ -32,7 +32,11 @@ export default function EditorArea({
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-5 pb-5 pt-5 md:px-8 md:pb-6 md:pt-6">
+      {/* `px-5` at every width — the inset the header band above takes, so the
+          History toggle, the script row and the text share one left edge. It
+          was `md:px-8`, which stood the whole body 12px in from the button
+          heading it. */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-5 pb-5 pt-5 md:pb-6 md:pt-6">
         {/* Pull from Script bank — dashed "click to select" when empty; a
             filled pill with a hover refresh icon / X-clear once a bank script
             is loaded. Editing the textarea below reverts it to the empty state. */}

@@ -365,7 +365,7 @@ export default function OmniInputsSection({ refs, onChangeRefs }: OmniInputsSect
               toneClassName="text-playground-300 hover:bg-ink/[0.06] hover:text-playground-200"
               onClick={() => { setDesignerOpen(true); setVoiceMenuOpen(false) }}
             >
-              Design new voice…
+              Design New Voice…
             </MenuItem>
           </MenuSurface>
         </AnchoredPopover>

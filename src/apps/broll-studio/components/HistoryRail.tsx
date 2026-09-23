@@ -434,6 +434,7 @@ export default function HistoryRail({ items, activeId, onSelect, onDelete, onNew
                       title={titles.get(item.id) ?? 'B-Roll session'}
                       activity={activity.get(item.id)}
                       isActive={activeId === item.id}
+                      showModeBadge={showModeFilters}
                       onSelect={() => onSelect(item)}
                       onDelete={() => onDelete(item.id)}
                     />
@@ -516,6 +517,7 @@ function HistoryCard({
   title,
   activity,
   isActive,
+  showModeBadge,
   onSelect,
   onDelete,
 }: {
@@ -528,6 +530,12 @@ function HistoryCard({
   // In-flight / failed counts for this session, tallied by the parent.
   activity?: RowActivity
   isActive: boolean
+  // Whether the list holds more than one mode — the same test that shows the
+  // mode filter pills, and for the same reason. A badge on every card saying
+  // the one mode they all share names nothing; with Continuous switched off
+  // (the default) every card read LINE-BY-LINE, a name the rest of the app
+  // never shows, since that switch hides the mode toggle too.
+  showModeBadge: boolean
   onSelect: () => void
   onDelete: () => void
 }) {
@@ -563,13 +571,17 @@ function HistoryCard({
         <CardCover covers={covers} />
 
         {/* Scrim only where text sits, so the media stays the loudest thing on
-            the card. */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-14 bg-gradient-to-b from-black/60 to-transparent" />
+            the card — the top one goes with the badge it sits under. */}
+        {showModeBadge && (
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-14 bg-gradient-to-b from-black/60 to-transparent" />
+        )}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-black/70 to-transparent" />
 
-        <span className="absolute left-2.5 top-2.5 rounded-full bg-black/55 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">
-          {MODE_BADGE[mode]}
-        </span>
+        {showModeBadge && (
+          <span className="absolute left-2.5 top-2.5 rounded-full bg-black/55 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">
+            {MODE_BADGE[mode]}
+          </span>
+        )}
 
         <div className="absolute inset-x-2.5 bottom-2.5 flex items-center gap-1.5 overflow-hidden">
           {/* A session being written has no scenes yet — "0 scenes" reads as a

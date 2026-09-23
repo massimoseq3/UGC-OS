@@ -190,7 +190,7 @@ export default function ModelPicker({ appId, task, mode, value, onChange, requir
             </>
           )
         ) : (
-          <span className="flex-1 truncate text-sm text-ink-400">Select model</span>
+          <span className="flex-1 truncate text-sm text-ink-400">Choose a Model</span>
         )}
         <ChevronDown className={`h-4 w-4 shrink-0 text-ink-500 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>

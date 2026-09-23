@@ -123,8 +123,10 @@ export default function MotionControlSection({
       </RefGroup>
 
       {/* Orientation — its own group, so it stops queueing in the run of
-          attachments as though it were one. No dot: it always holds a value. */}
-      <RefGroup label="Follow the">
+          attachments as though it were one. No dot: it always holds a value.
+          Labelled by what it sets: it read "Follow the" over a "Follow video"
+          segment, a sentence fragment that then said "follow" twice. */}
+      <RefGroup label="Orientation">
         <div className="flex h-9 w-fit items-center rounded-full border border-ink/10 bg-ink/[0.02] p-0.5">
           <button
             type="button"
@@ -135,7 +137,7 @@ export default function MotionControlSection({
                 : 'text-ink-400 hover:text-ink-200'
             }`}
           >
-            Follow video
+            Follow Video
           </button>
           <button
             type="button"
@@ -146,7 +148,7 @@ export default function MotionControlSection({
                 : 'text-ink-400 hover:text-ink-200'
             }`}
           >
-            Match photo
+            Match Photo
           </button>
         </div>
       </RefGroup>

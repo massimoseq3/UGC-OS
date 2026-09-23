@@ -534,7 +534,9 @@ export default function InfluencerEditModal({
 
   const modal = (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+      // `modal-fade` / `modal-pop` (below): how a centred modal arrives, the
+      // same move B-Roll's card workspace makes. This one used to snap in.
+      className="modal-fade fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
       {...backdrop}
     >
       {/* Floating close — anchored to the screen corner (like every other
@@ -543,13 +545,16 @@ export default function InfluencerEditModal({
         type="button"
         onClick={onClose}
         title="Close (Esc)"
-        className="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-black/40 text-white transition-colors hover:bg-black/60"
+        // On a phone the panel fills the screen and this lands inside it, so it
+        // steps in to sit 12px off the panel's own corner rather than on its
+        // rounded border (the panel is inset 16px at the sides, 8px at the top).
+        className="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-black/40 text-white transition-colors hover:bg-black/60 max-md:right-7 max-md:top-5"
       >
         <X className="h-4 w-4" />
       </button>
 
       <div
-        className="flex h-[92dvh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-ink/10 bg-surface-0 shadow-2xl max-md:h-[calc(100dvh-1rem)]"
+        className="modal-pop flex h-[92dvh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-ink/10 bg-surface-0 shadow-2xl max-md:h-[calc(100dvh-1rem)]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Body — 50/50 grid; each column scrolls. */}
@@ -567,7 +572,12 @@ export default function InfluencerEditModal({
                 gets generated — an edited portrait or a character sheet — it
                 does not swap the panel, so the references, visual style, and
                 instruction you set up carry across either way. */}
-            <div className="flex grow flex-col gap-3 px-5 pb-1 pt-5">
+            {/* `max-md:pt-15`: on a phone the panel fills the screen, so the
+                floating close above lands INSIDE it — at `pt-5` it sat on the
+                References card's top-right corner, over the card's own Clear
+                pill. The extra band is the room a sheet's title bar would take,
+                and leaves the card 12px under the close. */}
+            <div className="flex grow flex-col gap-3 px-5 pb-1 pt-5 max-md:pt-15">
                 <>
                   {/* Everything this render is built FROM, in the References
                       card the controls column three metres to the left has worn

@@ -1048,12 +1048,15 @@ export default function ContinuousView({
 
   if (!result) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 p-8">
-        <Box className="h-10 w-10 text-ink-800" strokeWidth={1.5} />
-        <p className="text-sm text-ink-700">Storyboard the script as one continuous shot</p>
-        <p className="text-xs text-ink-800">Keyframes chain into each other: every clip ends on the next clip's first frame</p>
+      // Line-by-Line's empty stage, in this mode's words — see the note there.
+      <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
+        <Box className="h-8 w-8 text-ink-800" strokeWidth={1.5} />
+        <p className="text-sm text-ink-500">Awaiting Storyboard</p>
+        <p className="max-w-[300px] text-xs leading-relaxed text-ink-600">
+          The script as one continuous shot. Keyframes chain into each other, so every clip ends on the next clip&rsquo;s first frame.
+        </p>
         {error && (
-          <div className="mt-2 flex max-w-sm items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2">
+          <div className="mt-2 flex max-w-sm items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-left">
             <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-400 light:text-red-600" />
             <p className="text-xs leading-relaxed text-red-300 light:text-red-700">{error}</p>
           </div>
@@ -1447,12 +1450,12 @@ export default function ContinuousView({
           confirm so a 12-frame chain never fires on a stray click. */}
       {confirmGen && createPortal(
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm modal-fade"
           {...confirmBackdrop}
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md rounded-2xl border border-ink/10 bg-ink-950/95 p-5 shadow-2xl"
+            className="w-full max-w-md rounded-2xl border border-ink/10 bg-ink-950/95 p-5 shadow-2xl modal-pop"
           >
             {confirmGen.kind === 'clips' ? (
               <>
@@ -1494,7 +1497,7 @@ export default function ContinuousView({
             ) : (
               <>
                 <h3 className="text-sm font-medium text-ink-100">
-                  {frameTargets.length === 0 ? 'Nothing to generate' : 'Generate keyframes'}
+                  {frameTargets.length === 0 ? 'Nothing to Generate' : 'Generate Keyframes'}
                 </h3>
                 <p className="mt-1 text-xs text-ink-500">
                   {frameTargets.length > 0 && `${frameTargets.length} frame${frameTargets.length === 1 ? '' : 's'} · every concept renders, and the first one that lands becomes the keyframe until you pick another.`}
@@ -1578,7 +1581,7 @@ export default function ContinuousView({
                 type="button"
                 onClick={confirmGenerate}
                 disabled={confirmGen.kind === 'frames' && frameTargets.length === 0}
-                className="flex items-center gap-2 rounded-full border border-white/15 bg-broll-500 py-1.5 pl-4 pr-2 text-[13px] font-medium text-white transition-colors hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-broll-500"
+                className="flex items-center gap-2 rounded-full border border-white/15 bg-broll-500 py-1.5 pl-4 pr-2 text-[13px] font-medium text-white transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:brightness-100"
               >
                 {confirmGen.kind === 'clips' ? <VideoIcon className="h-3.5 w-3.5" /> : <ImageIcon className="h-3.5 w-3.5" />}
                 {confirmGen.kind === 'clips'
@@ -1757,8 +1760,8 @@ function SceneEditModal({
   const syncCaret = () => setCaret(textRef.current?.selectionStart ?? line.length)
 
   return createPortal(
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm" {...sceneBackdrop}>
-      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-lg rounded-2xl border border-ink/10 bg-ink-950/95 p-5 shadow-2xl">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm modal-fade" {...sceneBackdrop}>
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-lg rounded-2xl border border-ink/10 bg-ink-950/95 p-5 shadow-2xl modal-pop">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h3 className="text-sm font-medium text-ink-100">Scene {scene.index}</h3>
@@ -1797,7 +1800,7 @@ function SceneEditModal({
             className="flex items-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.03] px-3 py-1.5 text-[11px] font-medium text-ink-300 transition-colors hover:border-ink/20 hover:bg-ink/[0.06] hover:text-ink-100 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <SplitSquareVertical className="h-3.5 w-3.5" />
-            Split here
+            Split Here
           </button>
           <button
             type="button"
@@ -1807,7 +1810,7 @@ function SceneEditModal({
             className="flex items-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.03] px-3 py-1.5 text-[11px] font-medium text-ink-300 transition-colors hover:border-ink/20 hover:bg-ink/[0.06] hover:text-ink-100 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Merge className="h-3.5 w-3.5" />
-            Merge with next
+            Merge with Next
           </button>
           {/* Two-click arm rather than a nested confirm dialog — the house
               delete idiom, and this one throws away rendered keyframes. */}
@@ -1828,15 +1831,15 @@ function SceneEditModal({
             }`}
           >
             <Trash2 className="h-3.5 w-3.5" />
-            {armedDelete ? 'Confirm delete' : 'Delete scene'}
+            {armedDelete ? 'Confirm Delete' : 'Delete Scene'}
           </button>
           <button
             type="button"
             disabled={!dirty || !trimmed}
             onClick={() => { onApply({ kind: 'edit', sceneIndex: scene.index, line }); onClose() }}
-            className="ml-auto rounded-full bg-broll-500 px-4 py-1.5 text-[11px] font-medium text-white transition-colors hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40"
+            className="ml-auto rounded-full bg-broll-500 px-4 py-1.5 text-[11px] font-medium text-white transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:brightness-100"
           >
-            Save line
+            Save Line
           </button>
         </div>
       </div>
@@ -1960,7 +1963,7 @@ function SceneRow({
             className="flex shrink-0 items-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.03] px-3 py-1.5 text-[11px] font-medium text-ink-300 transition-colors hover:border-ink/20 hover:bg-ink/[0.06] hover:text-ink-100 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {framePicked ? <RefreshCw className="h-3.5 w-3.5" /> : <ImageIcon className="h-3.5 w-3.5" />}
-            {framePicked ? 'Regenerate frame' : 'Generate frame'}
+            {framePicked ? 'Regenerate Frame' : 'Generate Frame'}
           </button>
         </div>
       </div>
@@ -2073,7 +2076,7 @@ function FinalFrameRow({
             className="flex shrink-0 items-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.03] px-3 py-1.5 text-[11px] font-medium text-ink-300 transition-colors hover:border-ink/20 hover:bg-ink/[0.06] hover:text-ink-100 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {framePicked ? <RefreshCw className="h-3.5 w-3.5" /> : <ImageIcon className="h-3.5 w-3.5" />}
-            {framePicked ? 'Regenerate frame' : 'Generate frame'}
+            {framePicked ? 'Regenerate Frame' : 'Generate Frame'}
           </button>
         </div>
       </div>
@@ -2303,7 +2306,7 @@ function FrameConceptCard({
               className="flex h-9 flex-1 items-center justify-center gap-2 rounded-full border border-broll-500/20 bg-broll-500/10 text-[13px] font-medium tracking-tight text-broll-400 transition-colors hover:bg-broll-500/20"
             >
               <ImageIcon className="h-4 w-4" strokeWidth={1.75} />
-              Generate image
+              Generate Image
             </button>
           ) : !isKeyframe ? (
             <button
@@ -2313,7 +2316,7 @@ function FrameConceptCard({
               className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full border border-white/25 bg-broll-500/85 text-[11px] font-semibold text-white transition-colors hover:border-broll-300/70 hover:bg-broll-400"
             >
               <Check className="h-3.5 w-3.5" />
-              Use as keyframe
+              Use as Keyframe
             </button>
           ) : null}
         </div>

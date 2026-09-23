@@ -108,11 +108,11 @@ export default function ImportPromptsModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm modal-fade"
       {...backdrop}
     >
       <div
-        className="flex max-h-[88dvh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-ink/10 bg-surface-1 shadow-2xl"
+        className="flex max-h-[88dvh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-ink/10 bg-surface-1 shadow-2xl modal-pop"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -150,10 +150,10 @@ export default function ImportPromptsModal({
               <button
                 type="button"
                 onClick={handleCopyBrief}
-                className="flex items-center gap-1.5 rounded-full bg-broll-500 px-3.5 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-broll-400"
+                className="flex items-center gap-1.5 rounded-full bg-broll-500 px-3.5 py-2 text-[12px] font-semibold text-white transition-all hover:brightness-110"
               >
                 {copied ? <Check className="h-3.5 w-3.5" /> : <ClipboardCopy className="h-3.5 w-3.5" />}
-                {copied ? 'Copied' : 'Copy brief'}
+                {copied ? 'Copied' : 'Copy Brief'}
               </button>
               <button
                 type="button"
@@ -161,7 +161,7 @@ export default function ImportPromptsModal({
                 className="flex items-center gap-1.5 rounded-full border border-ink/10 px-3.5 py-2 text-[12px] font-medium text-ink-300 transition-colors hover:bg-ink/5 hover:text-ink-100"
               >
                 <FileDown className="h-3.5 w-3.5" />
-                Download as file
+                Download as File
               </button>
               {!ctx.scriptText.trim() && (
                 <span className="flex items-center gap-1.5 text-[11px] text-amber-300 light:text-amber-700">
@@ -207,7 +207,7 @@ export default function ImportPromptsModal({
                 className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium text-ink-400 transition-colors hover:bg-ink/5 hover:text-ink-100"
               >
                 <Upload className="h-3 w-3" />
-                Upload a file
+                Upload a File
               </button>
               {text.trim() && (
                 <button
@@ -280,10 +280,10 @@ export default function ImportPromptsModal({
             type="button"
             onClick={handleImport}
             disabled={!outcome?.ok}
-            className="flex items-center gap-1.5 rounded-full bg-broll-500 px-5 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex items-center gap-1.5 rounded-full bg-broll-500 px-5 py-2 text-[12px] font-semibold text-white transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:brightness-100"
           >
             <Download className="h-3.5 w-3.5" />
-            Import prompts
+            Import Prompts
           </button>
         </div>
       </div>

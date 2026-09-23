@@ -484,11 +484,17 @@ export default function CardDetailModal(props: CardDetailModalProps) {
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm sm:px-6 modal-fade"
       {...backdrop}
     >
+      {/* Outside the panel's corner on a desktop. On a phone the panel fills
+          the screen, so that corner is INSIDE it — it sat on the end of the tab
+          strip, over "Animate". There it sits on the column's own `px-5` edge
+          and the tab strip starts under it (`max-md:pt-14` on the header
+          below). Sharing the tab row was tried: the toggle then had
+          ~270px for three segments and "Animate" truncated. */}
       <button
         type="button"
         onClick={onClose}
         title="Close (Esc)"
-        className="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-black/40 text-white transition-colors hover:bg-black/60"
+        className="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-black/40 text-white transition-colors hover:bg-black/60 max-md:right-9 max-md:top-5"
       >
         <X className="h-4 w-4" />
       </button>
@@ -514,7 +520,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                 the right panel's identity header (same px-5 pt-3, h-12 row, and
                 hairline) so the two line up across the modal. Image leads: the
                 still comes first, and it's the landing tab. */}
-            <div className="flex flex-col gap-2 px-5 pt-3">
+            <div className="flex flex-col gap-2 px-5 pt-3 max-md:pt-14">
               <div className="flex h-12 items-center">
                 <SegmentedToggle<Tab>
                   className="h-10 !p-1"

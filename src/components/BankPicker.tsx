@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { X, Search, Plus, Check, ChevronDown } from 'lucide-react'
+import { X, Search, Plus, Check } from 'lucide-react'
 import type { BankType } from '../utils/constants'
 import { BANK_CONFIG, getAppConfig } from '../utils/constants'
 import { useBankStore } from '../stores/bankStore'
@@ -46,6 +46,11 @@ const STYLE_SECTION = 'style:'
 // The section a style row points at. "All Styles" (an empty value) points at
 // the head of the list, where every look is still ahead of you.
 const styleSectionKey = (style: string) => (style ? `${STYLE_SECTION}${style}` : 'bank')
+
+// Every picker in the app is titled "Choose a …" (root CLAUDE.md). The bank
+// names are fixed, but "an" is here so a bank starting with a vowel can't ship
+// reading "Choose a Asset".
+const articleFor = (noun: string) => `${/^[aeiou]/i.test(noun) ? 'an' : 'a'} ${noun}`
 
 interface BankPickerProps {
   bankType: BankType
@@ -736,7 +741,7 @@ export default function BankPicker({
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-ink/5 px-5 py-3.5">
           <h3 className="text-sm font-semibold tracking-tight text-ink-200">
-            Select {railBanks ? 'from Bank' : label.replace(/s$/, '')}
+            {railBanks ? 'Choose from Bank' : `Choose ${articleFor(label.replace(/s$/, ''))}`}
           </h3>
           <button
             onClick={onClose}
@@ -844,18 +849,22 @@ export default function BankPicker({
               />
             </div>
           )}
+          {/* The house select, not a native one: a <select> opens the
+              browser's own unstyled popup, which ignores the theme — the one
+              menu in this modal that didn't look like the rest of the app.
+              `tier="panel"` because this panel sits at z-80, above the
+              default menu tier. */}
           {sortOptions && (
-            <div className="relative shrink-0">
-              <select
+            <div className="shrink-0">
+              <Dropdown
                 value={sort}
-                onChange={(e) => setSort(e.target.value as SortOrder)}
-                className="h-10 appearance-none rounded-full border border-ink/10 bg-surface-1 pl-3.5 pr-8 text-xs text-ink-200 outline-none transition-colors hover:border-ink/20 focus:border-ink/20"
-              >
-                {sortOptions.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-500" />
+                onChange={(v) => setSort(v as SortOrder)}
+                options={sortOptions}
+                accent="neutral"
+                tier="panel"
+                fitContent
+                className="h-10"
+              />
             </div>
           )}
           {/* Add New rides the toolbar, in the Bank's own Add position and at

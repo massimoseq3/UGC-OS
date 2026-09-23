@@ -8,6 +8,9 @@ import type { Product, Model as Character, BRoll, Script } from '../../../stores
 interface MentionPopoverProps {
   query: string  // text after the @ that should narrow results
   onSelect: (ref: BankReference) => void
+  // Ceiling for the scrolling list, in px. The parent measures the room above
+  // the prompt box inside the column that clips it — see PromptPanel.
+  maxHeight?: number
   // Positioning is owned by the parent (it wraps this in a positioned box so
   // the list floats ABOVE the prompt field and never covers what's typed).
 }
@@ -20,7 +23,7 @@ interface MentionPopoverProps {
 // rest.
 const EMPTY_QUERY_CAP = 50
 
-export default function MentionPopover({ query, onSelect }: MentionPopoverProps) {
+export default function MentionPopover({ query, onSelect, maxHeight = 280 }: MentionPopoverProps) {
   const products = useBankStore((s) => s.products)
   const characters = useBankStore((s) => s.models)
   const brolls = useBankStore((s) => s.brolls)
@@ -57,13 +60,16 @@ export default function MentionPopover({ query, onSelect }: MentionPopoverProps)
     matchedProducts.length + matchedCharacters.length + matchedBrolls.length + matchedScripts.length
 
   return (
-    <div className="w-full overflow-hidden rounded-2xl border border-ink/10 bg-surface-2/95 shadow-2xl backdrop-blur-xl">
+    // Opaque, the house `MenuSurface` material: a popup is never
+    // `backdrop-blur` (components/Menu.tsx) — at 95% over a panel the blur
+    // bought no picture and made the list a backdrop root.
+    <div className="w-full overflow-hidden rounded-2xl border border-ink/10 bg-surface-2 shadow-xl shadow-black/30">
       {total === 0 ? (
         <div className="px-3 py-4 text-center text-[12px] text-ink-500">
           {q ? `No matches for "${query}"` : 'No bank items yet.'}
         </div>
       ) : (
-        <div className="max-h-[280px] overflow-y-auto p-1">
+        <div className="overflow-y-auto p-1" style={{ maxHeight }}>
           {matchedProducts.length > 0 && (
             <Section label="Products" icon={Package}>
               {matchedProducts.map((p) => (

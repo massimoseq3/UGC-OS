@@ -367,7 +367,7 @@ export default function Discover() {
   // Onboarding pops up the first time Outliers is opened without a key. Seeded
   // from the store at mount and never re-armed, so dismissing it is respected
   // for as long as the app stays open — the empty state behind it keeps a
-  // "Connect key" button, so closing this is never a dead end.
+  // "Connect Key" button, so closing this is never a dead end.
   // Armed only for the paid tabs. The vault is where a fresh member lands and
   // it needs no key at all, so popping a credentials dialog over it would put
   // a paywall-shaped thing in front of the one part of Outliers that is free.
@@ -840,9 +840,14 @@ export default function Discover() {
         )}
       </header>
 
+      {/* Every select here is `dense` (36px), the height of the vault's and
+          the accounts tab's filter controls, so this row measures the same
+          57px band as theirs and as the header above it — at 38px it stood
+          2px taller, and the grid under it shifted on every tab flip. */}
       {!isLibrary && apiKey && (
         <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-ink/5 px-4 py-2.5">
           <FilterSelect
+            dense
             label="Sort"
             value={activeSort}
             options={sortOptions}
@@ -851,12 +856,14 @@ export default function Discover() {
           {isTikTok ? (
             <>
               <FilterSelect
+                dense
                 label="Posted"
                 value={filters.datePosted}
                 options={DATE_OPTIONS}
                 onChange={(datePosted) => setFilters((f) => ({ ...f, datePosted }))}
               />
               <FilterSelect
+                dense
                 label="Min Views"
                 value={String(filters.minViews)}
                 options={MIN_VIEW_OPTIONS.map((v) => ({
@@ -871,6 +878,7 @@ export default function Discover() {
             // date window. No Min views (the payload carries no view count),
             // and no media filter (a reel is a video by definition).
             <FilterSelect
+              dense
               label="Posted"
               value={filters.instagramDatePosted}
               options={IG_DATE_OPTIONS}
@@ -879,6 +887,7 @@ export default function Discover() {
           ) : (
             <>
               <FilterSelect
+                dense
                 label="Country"
                 value={filters.country}
                 options={[
@@ -891,6 +900,7 @@ export default function Discover() {
                 onChange={(country) => setFilters((f) => ({ ...f, country }))}
               />
               <FilterSelect
+                dense
                 label="Media"
                 value={filters.mediaType}
                 options={[
@@ -901,6 +911,7 @@ export default function Discover() {
                 onChange={(mediaType) => setFilters((f) => ({ ...f, mediaType }))}
               />
               <FilterSelect
+                dense
                 label="Status"
                 value={filters.activeOnly ? 'active' : 'all'}
                 options={[
@@ -913,6 +924,7 @@ export default function Discover() {
                   by default it scores relevance its own way and matches
                   advertiser names, so a product search returns unrelated ads. */}
               <FilterSelect
+                dense
                 label="Match"
                 value={filters.exactPhrase ? 'exact' : 'broad'}
                 options={[
@@ -981,7 +993,7 @@ export default function Discover() {
                   // The search DID return — the floor ate all of it. Telling
                   // this member to try a broader keyword would send them to
                   // spend another credit on the same outcome.
-                  ? `All ${hiddenByMinViews} results are under ${minViewsLabel(filters.minViews)} views. Lower Min views to see them.`
+                  ? `All ${hiddenByMinViews} results are under ${minViewsLabel(filters.minViews)} views. Lower Min Views to see them.`
                   : 'Nothing came back for that phrase. Try a broader keyword, or widen the date range.'
                 : isTikTok
                   ? 'Search a phrase and Outliers ranks what comes back by views against each creator’s own following.'
@@ -1036,7 +1048,7 @@ export default function Discover() {
                     credits chip in the header, which is live. Quoting a guess
                     on a button that spends money is worse than quoting
                     nothing. */}
-                {loadingMore ? 'Loading…' : isInstagram ? 'Load more' : 'Load more · 1 credit'}
+                {loadingMore ? 'Loading…' : isInstagram ? 'Load More' : 'Load More · 1 credit'}
               </button>
             </div>
           )}
@@ -1082,7 +1094,7 @@ function ConnectKeyPanel({ onConnect }: { onConnect: () => void }) {
           onClick={onConnect}
           className="rounded-full bg-ink px-4 py-2 text-[12px] font-medium text-paper transition-opacity hover:opacity-90"
         >
-          Connect key
+          Connect Key
         </button>
       </div>
     </GridCanvas>

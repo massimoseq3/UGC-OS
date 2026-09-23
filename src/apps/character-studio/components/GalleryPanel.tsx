@@ -1456,7 +1456,9 @@ function HistoryListRow({
   if (item.aspectRatio) meta.push(item.aspectRatio)
 
   return (
-    <div ref={rowRef} className="flex w-full items-stretch gap-3 overflow-hidden rounded-2xl border border-ink/10 bg-ink/[0.02] card-soft-shadow">
+    // `@container` so the side panel can drop the prompt preview off the ROW's
+    // width — see the note on the preview below.
+    <div ref={rowRef} className="@container flex w-full items-stretch gap-3 overflow-hidden rounded-2xl border border-ink/10 bg-ink/[0.02] card-soft-shadow">
       {/* Media — fixed-width column whose height is the slider-driven aspect
           ratio. At the slider minimum it's 16:9 so landscape fills with no bars;
           taller frames letterbox landscape on black and grow portraits. The
@@ -1489,28 +1491,44 @@ function HistoryListRow({
       <div className="relative min-w-0 flex-[2]">
         <div className="absolute inset-0 flex flex-col gap-2 py-3 pr-3">
         {/* Model name over the meta pills, the same shape InFlightRow uses, so a
-            row reads identically whether it's still rendering or finished. */}
-        <p className="truncate text-[11px] font-medium text-ink-200">{modelLabel}</p>
+            row reads identically whether it's still rendering or finished.
+            Everything but the prompt is `shrink-0`: the panel is a fixed
+            height (the media sets it), and `truncate`'s overflow-hidden lets a
+            flex item shrink to NOTHING — on a short 16:9 row in a narrow pane
+            the model name was the first thing squeezed out, while the prompt
+            it sat above is the one box built to give height up. */}
+        <p className="shrink-0 truncate text-[11px] font-medium text-ink-200">{modelLabel}</p>
         {meta.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex shrink-0 flex-wrap items-center gap-1.5">
             {meta.map((m) => (
               <span key={m} className="rounded-full bg-ink/[0.06] px-1.5 py-0.5 text-[9px] font-medium text-ink-400">{m}</span>
             ))}
           </div>
         )}
+        {/* Faded at its foot so a clipped last line reads as "more below"
+            rather than as text cut through the middle. Dropped entirely on a
+            narrow row (under 30rem — a phone, or the half-pane of a window
+            under 1024px):
+            the panel is then ~90px wide, the preview is a column of eight
+            characters of JSON, and the room is worth more to the actions,
+            which wrap to two lines there. Copy Prompt is still in the ⋮. */}
         {prompt && (
-          <div className="min-h-0 flex-1 overflow-y-auto rounded-lg bg-ink/[0.03] px-3 py-2 text-[12px] leading-relaxed text-ink-300">
+          <div className="min-h-0 flex-1 overflow-y-auto rounded-lg bg-ink/[0.03] px-3 py-2 text-[12px] leading-relaxed text-ink-300 [mask-image:linear-gradient(to_bottom,black_calc(100%-1.5rem),transparent)] @max-[30rem]:hidden">
             {prompt}
           </div>
         )}
+        {/* `mt-auto` keeps the controls on the panel's foot whether or not
+            the prompt above is there to push them down. */}
         {a.nameDraft !== null ? (
-          <NameEditor
-            nameDraft={a.nameDraft}
-            setNameDraft={a.setNameDraft}
-            onCommit={a.commitSave}
-            onCancel={() => a.setNameDraft(null)}
-            saving={a.savingToBank}
-          />
+          <div className="mt-auto shrink-0">
+            <NameEditor
+              nameDraft={a.nameDraft}
+              setNameDraft={a.setNameDraft}
+              onCommit={a.commitSave}
+              onCancel={() => a.setNameDraft(null)}
+              saving={a.savingToBank}
+            />
+          </div>
         ) : (
           // Download · Save · Delete · ⋮ — FOUR, which is what this line fits.
           //
@@ -1526,7 +1544,7 @@ function HistoryListRow({
           // panel's own bottom edge, where the same clip eats it. Which is why
           // the grid tile's fifth circle (Edit) is a menu row here. The wrap
           // stays as the backstop for a narrower panel than we've measured.
-          <div className="flex flex-wrap items-center justify-center gap-1">
+          <div className="mt-auto flex shrink-0 flex-wrap items-center justify-center gap-1">
             <ListRowButton title="Download image" onClick={a.handleDownload}>
               <Download className="h-3.5 w-3.5" />
             </ListRowButton>

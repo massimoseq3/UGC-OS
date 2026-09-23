@@ -144,7 +144,9 @@ function ProductCard({ item, onEdit, onDelete, inFlight }: { item: Product; onEd
       ) : null}
       {/* Bottom info overlay — product name wraps to two centered lines. */}
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/55 to-transparent px-3 pb-2.5 pt-10 text-center">
-        <span className="block line-clamp-2 text-[13px] font-semibold leading-tight tracking-tight text-zinc-100">{item.productName}</span>
+        {/* No `block` beside `line-clamp-2`: the clamp is a `display` of its
+            own, and `block` won on stylesheet order and switched it off. */}
+        <span className="line-clamp-2 text-[13px] font-semibold leading-tight tracking-tight text-zinc-100">{item.productName}</span>
         {/* Extra angles are only visible inside the form and the ref pickers —
             this line is what tells you a product carries more than one shot. */}
         {photoCount > 1 && (
@@ -293,10 +295,14 @@ function ScriptCard({ item, onEdit, onDelete, showDate = true }: { item: Script;
         </span>
         <span className="line-clamp-2 text-sm font-semibold leading-snug tracking-tight text-ink-100">{item.title}</span>
       </div>
-      {/* Full script preview — fills the card, fades out at the bottom */}
-      <div className="relative mt-3 flex-1 overflow-hidden">
+      {/* Full script preview — fills the card, fades out at the bottom. The
+          fade is a MASK on the text, not a gradient laid over it: the overlay
+          was painted in `surface-1`, which isn't the card's own translucent
+          fill over the page, so it drew a visible darker box across the last
+          lines — brightest on the hovered card. A mask fades to whatever is
+          behind it, in either theme. */}
+      <div className="mt-3 flex-1 overflow-hidden [mask-image:linear-gradient(to_bottom,black_calc(100%-3rem),transparent)]">
         <p className="whitespace-pre-wrap text-[11px] leading-relaxed text-ink-400">{item.scriptText || 'Empty script'}</p>
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-surface-1 to-transparent" />
       </div>
       {/* Footer: linked product + date. The date drops out under a day-grouped
           grid — the pill above the row already says which day this is, and
@@ -308,15 +314,17 @@ function ScriptCard({ item, onEdit, onDelete, showDate = true }: { item: Script;
         </div>
       )}
       {/* Hover action stack — star · delete. Text-card styling (ink chrome, not
-          the image cards' white-on-black pills); star stays visible once set. */}
+          the image cards' white-on-black pills); star stays visible once set,
+          and only then — unset, it fades in with the hover like the star on
+          every other card (it was on screen on every script at rest). */}
       <TileActionStack forceVisible={confirm}>
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); toggleStar('scripts', item.id) }}
           title={item.starred ? 'Unstar' : 'Star · starred items show first when picking from banks'}
           aria-pressed={item.starred}
-          className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-ink/5 ${
-            item.starred ? 'text-amber-400' : 'text-ink-700 hover:text-amber-400'
+          className={`flex h-8 w-8 items-center justify-center rounded-full transition-all hover:bg-ink/5 ${
+            item.starred ? 'text-amber-400' : 'text-ink-700 opacity-0 hover:text-amber-400 group-hover:opacity-100'
           }`}
         >
           <Star className={`h-4 w-4 ${item.starred ? 'fill-current' : ''}`} />
@@ -442,13 +450,16 @@ function BRollCard({ item, onEdit, onDelete }: { item: BRoll; onEdit: () => void
           <TileDeleteButton onDelete={onDelete} onArmedChange={setConfirm} />
         </TileActionStack>
         {/* Animate in Playground — rounded pill (matching the Send-to buttons),
-            floats over the card bottom on hover, image cards only. */}
+            floats over the card bottom on hover, image cards only. No
+            backdrop-blur: it fades in with the hover, and a backdrop-filter
+            under an opacity transition re-samples the still every frame
+            (docs/performance.md) — at 90% fill there was nothing to see of it. */}
         {hasImage && (
           <div className="absolute inset-x-0 bottom-0 z-20 flex justify-center p-2.5 opacity-0 transition-all group-hover:opacity-100 touch:opacity-100">
             <button
               onClick={handleAnimate}
               title="Open Playground in video mode with this image as the start frame"
-              className="flex items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-playground-500/40 bg-playground-500/90 px-3.5 py-1.5 text-[11px] font-semibold text-white backdrop-blur-sm transition-colors hover:bg-playground-500"
+              className="flex items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-playground-500/40 bg-playground-500/90 px-3.5 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-playground-500"
             >
               <Film className="h-3.5 w-3.5" />
               Animate in Playground
@@ -514,7 +525,9 @@ function StyleCard({ item, onEdit, onDelete }: { item: StylePreset; onEdit: () =
       <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent p-3 pt-12">
         <span className="block truncate text-[13px] font-semibold tracking-tight text-zinc-100">{item.name}</span>
         {thumbs.length > 0 && (
-          <span className="mt-0.5 block line-clamp-2 text-[10px] leading-snug text-zinc-400">{item.brief}</span>
+          // `line-clamp-2` alone — with `block` beside it the clamp lost on
+          // stylesheet order and the whole brief ran up over the frames.
+          <span className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-zinc-400">{item.brief}</span>
         )}
       </div>
       {/* Hover action stack — star · copy · delete. */}
@@ -774,14 +787,7 @@ export default function BankList({ bankType, onEdit, onAdd, sort, query, modelFi
     const filtered = shown as Model[]
     if (filtered.length === 0) {
       const label = modelFilter === 'sheets' ? 'character sheets' : 'portraits'
-      return (
-        <div className="flex flex-col items-center justify-center gap-2 py-20 text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-ink/[0.04]">
-            <UserRound className="h-7 w-7 text-ink-700" strokeWidth={1.5} />
-          </div>
-          <p className="text-sm font-medium text-ink-500">No {label} yet</p>
-        </div>
-      )
+      return <EmptyState icon={modelFilter === 'sheets' ? LayoutGrid : UserRound} label={label} />
     }
     return <ModelsList items={filtered} onEdit={onEdit} onDelete={deleteModel} sort={sort} />
   }
@@ -793,8 +799,11 @@ export default function BankList({ bankType, onEdit, onAdd, sort, query, modelFi
 
   if (bankType === 'voices') {
     if (voices.length === 0) return <EmptyState icon={Mic} label="voice presets" singular="voice preset" onAdd={onAdd} />
+    // Two across from `lg`, three from `2xl`: one column stretched each row
+    // ~1200px wide on a laptop, the name at the far left and its delete at
+    // the far right with nothing between them.
     return (
-      <div className="flex flex-col gap-2">
+      <div className="grid grid-cols-1 gap-2 lg:grid-cols-2 2xl:grid-cols-3">
         {sortByOrder(shown as VoicePreset[], sort, (v) => v.label).map((v) => (
           <VoiceCard key={v.id} item={v} onEdit={() => onEdit(v.id)} onDelete={() => deleteVoice(v.id)} />
         ))}
@@ -811,14 +820,11 @@ export default function BankList({ bankType, onEdit, onAdd, sort, query, modelFi
     // No `onAdd`: a swipe file is filled from Outliers, never typed in here.
     if (swipes.length === 0) {
       return (
-        <div className="flex flex-1 flex-col items-center justify-center gap-2 py-16 text-center">
-          <Bookmark className="h-8 w-8 text-ink-700" strokeWidth={1.5} />
-          <p className="text-sm text-ink-500">No Saved Ads Yet</p>
-          <p className="max-w-[300px] text-xs leading-relaxed text-ink-600">
-            Save an ad from Outliers and it lands here: thumbnail, numbers and
-            transcript kept, so it's still readable long after the links expire.
-          </p>
-        </div>
+        <EmptyState
+          icon={Bookmark}
+          label="saved ads"
+          hint="Save an ad from Outliers and it lands here: thumbnail, numbers and transcript kept, so it's still readable long after the links expire."
+        />
       )
     }
     return <SwipesList items={shown as SwipeItem[]} onDelete={deleteSwipe} sort={sort} />
@@ -846,7 +852,7 @@ function NoResults({ query }: { query: string }) {
         <Search className="h-7 w-7 text-ink-700" strokeWidth={1.5} />
       </div>
       <p className="text-sm font-medium text-ink-500">No matches for "{query}"</p>
-      <p className="text-xs text-ink-700">Try fewer words, or clear the search.</p>
+      <p className="text-xs text-ink-600">Try fewer words, or clear the search.</p>
     </div>
   )
 }
@@ -990,23 +996,38 @@ function BRollsList({ items, onEdit, onDelete, sort }: { items: BRoll[]; onEdit:
   )
 }
 
-function EmptyState({ icon: Icon, label, singular, onAdd }: { icon: React.ElementType; label: string; singular: string; onAdd: () => void }) {
+const titleCase = (s: string) => s.replace(/\b\w/g, (c) => c.toUpperCase())
+
+// One empty state for every bank, the filtered Characters grid and the Swipe
+// File — which used to be three shapes (a boxed glyph, the same without a line
+// under it, a bare glyph) with two casings. The heading is Title Case like
+// every other app's "No … Yet"; the hint under it is prose.
+function EmptyState({ icon: Icon, label, singular, hint, onAdd }: {
+  icon: React.ElementType
+  label: string
+  singular?: string
+  hint?: string
+  onAdd?: () => void
+}) {
+  const line = hint ?? (singular && onAdd ? `Add your first ${singular} to get started.` : null)
   return (
     <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
       <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-ink/[0.04]">
         <Icon className="h-7 w-7 text-ink-700" strokeWidth={1.5} />
       </div>
-      <div className="flex flex-col gap-1">
-        <p className="text-sm font-medium text-ink-500">No {label} yet</p>
-        <p className="text-xs text-ink-700">Add your first {singular} to get started</p>
+      <div className="flex max-w-[320px] flex-col gap-1">
+        <p className="text-sm font-medium text-ink-500">No {titleCase(label)} Yet</p>
+        {line && <p className="text-xs leading-relaxed text-ink-600">{line}</p>}
       </div>
-      <button
-        onClick={onAdd}
-        className="flex items-center gap-1.5 rounded-full bg-ink/[0.07] px-4 py-2 text-sm font-medium text-ink-300 transition-colors hover:bg-ink/10"
-      >
-        <Plus className="h-4 w-4" />
-        Add Your First {singular.replace(/\b\w/g, (c) => c.toUpperCase())}
-      </button>
+      {onAdd && singular && (
+        <button
+          onClick={onAdd}
+          className="flex items-center gap-1.5 rounded-full bg-ink/[0.07] px-4 py-2 text-sm font-medium text-ink-300 transition-colors hover:bg-ink/10"
+        >
+          <Plus className="h-4 w-4" />
+          Add Your First {titleCase(singular)}
+        </button>
+      )}
     </div>
   )
 }

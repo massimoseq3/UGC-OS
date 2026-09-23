@@ -972,13 +972,22 @@ export default function ScenesView({
   }
 
   if (!result) {
+    // The never-generated stage wears the SAME face as the cleared one (the
+    // `AwaitingBody` RightPanel shows after New Storyboard): one title, one
+    // hint, the shared type ramp. It was a shape of its own — a bigger glyph
+    // over two lines at ink-700 / ink-800, dim enough to read as disabled —
+    // and it still called the output "B-Roll prompts" beside a button that
+    // says Generate Storyboard. Written out rather than the component only
+    // because the error has to sit under the hint.
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 p-8">
-        <Film className="h-10 w-10 text-ink-800" strokeWidth={1.5} />
-        <p className="text-sm text-ink-700">Select your inputs and generate</p>
-        <p className="text-xs text-ink-800">B-Roll prompts will appear here</p>
+      <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
+        <Film className="h-8 w-8 text-ink-800" strokeWidth={1.5} />
+        <p className="text-sm text-ink-500">Awaiting Storyboard</p>
+        <p className="max-w-[300px] text-xs leading-relaxed text-ink-600">
+          Your storyboard lands here. Pick a character, a product and a script, then press Generate Storyboard.
+        </p>
         {error && (
-          <div className="mt-2 flex max-w-sm items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2">
+          <div className="mt-2 flex max-w-sm items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-left">
             <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-400 light:text-red-600" />
             <p className="text-xs leading-relaxed text-red-300 light:text-red-700">{error}</p>
           </div>
@@ -1353,12 +1362,12 @@ export default function ScenesView({
 
       {batchConfirm && createPortal(
         <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm modal-fade"
           {...batchBackdrop}
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg overflow-hidden rounded-2xl border border-ink/10 bg-ink-950/95 shadow-2xl"
+            className="w-full max-w-lg overflow-hidden rounded-2xl border border-ink/10 bg-ink-950/95 shadow-2xl modal-pop"
           >
             {/* Same shape as the video dialog below — the two open from
                 buttons sitting side by side and must read as a pair. */}
@@ -1541,7 +1550,7 @@ export default function ScenesView({
               type="button"
               onClick={confirmBatch}
               disabled={batchTargets.length === 0}
-              className="flex h-[46px] w-full items-center justify-center gap-2 rounded-full border border-white/15 bg-broll-500 px-4 text-[13px] font-bold tracking-tight text-white transition-colors hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-broll-500"
+              className="flex h-[46px] w-full items-center justify-center gap-2 rounded-full border border-white/15 bg-broll-500 px-4 text-[13px] font-bold tracking-tight text-white transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:brightness-100"
             >
               <Images className="h-3.5 w-3.5" />
               {batchTargets.length === 0
@@ -1564,12 +1573,12 @@ export default function ScenesView({
           run is priced, counted and settled here before a single task fires. */}
       {videoConfirm && createPortal(
         <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm modal-fade"
           {...videoBackdrop}
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg overflow-hidden rounded-2xl border border-ink/10 bg-ink-950/95 shadow-2xl"
+            className="w-full max-w-lg overflow-hidden rounded-2xl border border-ink/10 bg-ink-950/95 shadow-2xl modal-pop"
           >
             {/* One title, one line of context. The count and the price live on
                 the Generate button — everything else this dialog used to
@@ -1737,7 +1746,7 @@ export default function ScenesView({
                 type="button"
                 onClick={confirmVideoBatch}
                 disabled={videoTargets.length === 0 || videoModelCantAnimate}
-                className="flex h-[46px] w-full items-center justify-center gap-2 rounded-full border border-white/15 bg-broll-500 px-4 text-[13px] font-bold tracking-tight text-white transition-colors hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-broll-500"
+                className="flex h-[46px] w-full items-center justify-center gap-2 rounded-full border border-white/15 bg-broll-500 px-4 text-[13px] font-bold tracking-tight text-white transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:brightness-100"
               >
                 {videoConfirm.stillsOnly
                   ? <Clapperboard className="h-3.5 w-3.5" />
@@ -2100,8 +2109,8 @@ function SceneLineEditModal({
   const dirty = trimmed !== scriptLine.trim()
 
   return createPortal(
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm" {...backdrop}>
-      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-lg rounded-2xl border border-ink/10 bg-ink-950/95 p-5 shadow-2xl">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm modal-fade" {...backdrop}>
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-lg rounded-2xl border border-ink/10 bg-ink-950/95 p-5 shadow-2xl modal-pop">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h3 className="text-sm font-medium text-ink-100">Line {sceneNumber}</h3>
@@ -2142,9 +2151,9 @@ function SceneLineEditModal({
             type="button"
             disabled={!dirty || !trimmed}
             onClick={() => { onSave(trimmed); onClose() }}
-            className="rounded-full bg-broll-500 px-4 py-1.5 text-[11px] font-medium text-white transition-colors hover:bg-broll-400 disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-full bg-broll-500 px-4 py-1.5 text-[11px] font-medium text-white transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:brightness-100"
           >
-            Save line
+            Save Line
           </button>
         </div>
       </div>
@@ -2456,14 +2465,22 @@ function AddNewCard({
   )
 }
 
+// The storyboard in outline, at the shape it will land in. The header is the
+// scene masthead's own — numeral over the line over the two per-scene pills,
+// CENTRED — because that is what replaces it; it was still the left-aligned
+// number-beside-two-lines the masthead gave up in August 2026, so the landing
+// storyboard jumped sideways out of its own placeholder.
 function SkeletonScene() {
   return (
     <div>
-      <div className="mb-3 flex items-center gap-3">
-        <div className="skeleton h-8 w-10" />
-        <div className="flex flex-col gap-1">
-          <div className="skeleton h-4 w-28" />
-          <div className="skeleton h-3 w-48" />
+      <div className="mb-5 flex flex-col items-center gap-3">
+        <div className="flex w-full flex-col items-center gap-2">
+          <div className="skeleton h-11 w-14" />
+          <div className="skeleton h-5 w-full max-w-[420px]" />
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="skeleton h-7 w-[124px]" style={{ borderRadius: 9999 }} />
+          <div className="skeleton h-7 w-[124px]" style={{ borderRadius: 9999 }} />
         </div>
       </div>
       <div className="@container">

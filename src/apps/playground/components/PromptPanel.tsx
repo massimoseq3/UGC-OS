@@ -141,6 +141,27 @@ interface PromptPanelProps {
   isGenerating: boolean
 }
 
+// How tall the @-mention list may be. It floats ABOVE the prompt box, inside a
+// column that scrolls and therefore clips — and above the box sits the
+// References card, which in Image mode leaves ~170px to a list that wants 280.
+// Uncapped, the list's first rows were cut off behind the column's top edge,
+// where no scrolling could reach them (the column is already at its top). So
+// the list takes whatever room is actually there: the distance from the box's
+// top to the top of the nearest ancestor that clips, less the popover's own
+// 8px margin and its 2px of border. Measured on open rather than in render —
+// it's layout, read once per @.
+const MENTION_LIST_MAX = 280
+const MENTION_LIST_MIN = 120
+function mentionListRoom(anchor: HTMLElement): number {
+  let clipTop = 0
+  for (let p = anchor.parentElement; p; p = p.parentElement) {
+    const overflow = getComputedStyle(p).overflowY
+    if (overflow !== 'visible') { clipTop = p.getBoundingClientRect().top; break }
+  }
+  const room = anchor.getBoundingClientRect().top - clipTop - 10
+  return Math.max(MENTION_LIST_MIN, Math.min(MENTION_LIST_MAX, Math.floor(room)))
+}
+
 const MODE_TABS: Array<{ id: PlaygroundMode; label: string; icon: React.ComponentType<{ className?: string }> }> = [
   // Image leads: the common loop is making a still and then animating it, so
   // the tab you start in sits first and the Animate handoff reads left→right.
@@ -156,6 +177,9 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
   // followed by a space. `mentionQuery` is what follows the most recent @.
   const [mentionOpen, setMentionOpen] = useState(false)
   const [mentionQuery, setMentionQuery] = useState('')
+  // The list's height ceiling, measured each time it opens (mentionListRoom).
+  const [mentionRoom, setMentionRoom] = useState(MENTION_LIST_MAX)
+  const mentionAnchorRef = useRef<HTMLDivElement>(null)
   // Drag-over visual hint.
   const [dragOver, setDragOver] = useState(false)
   // Preset picker overlay.
@@ -458,6 +482,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
       const after = left.slice(at + 1)
       if (!/\s/.test(after) && after.length <= 30) {
         setMentionQuery(after)
+        if (!mentionOpen && mentionAnchorRef.current) setMentionRoom(mentionListRoom(mentionAnchorRef.current))
         setMentionOpen(true)
         return
       }
@@ -967,7 +992,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
                     textarea (bottom-full) instead of overlaying the text being
                     typed. The popover sits outside the overflow-hidden box below
                     so it isn't clipped. */}
-                <div className="relative flex min-h-0 grow flex-col">
+                <div ref={mentionAnchorRef} className="relative flex min-h-0 grow flex-col">
                   <div className="relative flex min-h-0 grow flex-col overflow-hidden rounded-3xl border border-ink/10 bg-ink/[0.03] transition-colors focus-within:border-ink/20 focus-within:bg-ink/[0.05]">
                     {/* `grow` with no basis-0: the field's base size is its own
                         content and grow only tops it up to the free space. It's
@@ -1028,6 +1053,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
                       <MentionPopover
                         query={mentionQuery}
                         onSelect={handleMentionSelect}
+                        maxHeight={mentionRoom}
                       />
                     </div>
                   )}
