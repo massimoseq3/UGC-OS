@@ -42,18 +42,18 @@ interface ProductFormProps {
 }
 
 const FIELD_META: Record<string, { label: string; type: 'text' | 'textarea'; required?: boolean; hint?: string }> = {
-  productName: { label: 'Product name', type: 'text', required: true },
+  productName: { label: 'Product Name', type: 'text', required: true },
   productDescription: { label: 'Description', type: 'textarea' },
-  uniqueMechanism: { label: 'Unique mechanism', type: 'textarea', hint: 'Why it works' },
-  targetMarket: { label: 'Target market', type: 'textarea' },
-  painPoints: { label: 'Pain points', type: 'textarea' },
-  currentAlternatives: { label: 'Current alternatives', type: 'textarea', hint: 'What they do instead' },
+  uniqueMechanism: { label: 'Unique Mechanism', type: 'textarea', hint: 'Why it works' },
+  targetMarket: { label: 'Target Market', type: 'textarea' },
+  painPoints: { label: 'Pain Points', type: 'textarea' },
+  currentAlternatives: { label: 'Current Alternatives', type: 'textarea', hint: 'What they do instead' },
   objections: { label: 'Objections', type: 'textarea', hint: 'What stops them buying' },
-  notFor: { label: 'Not for', type: 'textarea', hint: 'Who should skip it' },
+  notFor: { label: 'Not For', type: 'textarea', hint: 'Who should skip it' },
   usps: { label: 'USPs', type: 'textarea' },
   benefits: { label: 'Benefits', type: 'textarea' },
   proof: { label: 'Proof', type: 'textarea', hint: 'And how strong it is' },
-  beforeAfter: { label: 'Before / after', type: 'textarea', hint: 'Their day, then with it' },
+  beforeAfter: { label: 'Before / After', type: 'textarea', hint: 'Their day, then with it' },
   offer: { label: 'Offer', type: 'textarea' },
   cta: { label: 'CTA', type: 'text' },
 }
@@ -660,7 +660,7 @@ export default function ProductForm({ item, onSave, onAutosave, onCancel, onDeta
       onDrop={handleDrop}
       className="relative flex flex-col gap-4 lg:min-h-0 lg:flex-1"
     >
-      {overlayActive && <DropOverlay icon={Sparkle} label="Drop image to Auto-fill Product Info" accent="emerald" />}
+      {overlayActive && <DropOverlay icon={Sparkle} label="Drop Image to Auto-Fill Product Info" accent="emerald" />}
       {/* Header — the title and the way out. Embedded in a modal there is
           already a title bar above carrying both, so the row goes. */}
       <div className={`shrink-0 items-center justify-between gap-3 ${embedded ? 'hidden' : 'flex'}`}>
@@ -707,7 +707,7 @@ export default function ProductForm({ item, onSave, onAutosave, onCancel, onDeta
                 onClick={() => fileRef.current?.click()}
                 className="absolute left-2 top-2 z-10 rounded-full bg-black/60 px-3 py-1.5 text-[10px] font-medium text-zinc-300 opacity-0 backdrop-blur-sm transition-all hover:bg-black/80 group-hover/img:opacity-100"
               >
-                Change image
+                Change Image
               </button>
             </div>
           ) : (
@@ -718,7 +718,7 @@ export default function ProductForm({ item, onSave, onAutosave, onCancel, onDeta
             >
               <ImagePlus className="h-6 w-6 text-ink-600 transition-colors group-hover:text-ink-400" />
               <span className="text-[10px] font-medium uppercase tracking-wider text-ink-600 transition-colors group-hover:text-ink-500">
-                Drop to auto-fill
+                Drop to Auto-Fill
               </span>
             </button>
           )}
@@ -734,7 +734,7 @@ export default function ProductForm({ item, onSave, onAutosave, onCancel, onDeta
               {isExtracting ? <Spinner className="h-3.5 w-3.5" /> : <Sparkle className="h-3.5 w-3.5" />}
               {isExtracting
                 ? 'Extracting…'
-                : `Auto-fill from ${form.extraImages.length > 0 ? `${form.extraImages.length + 1} photos` : 'image'}${listingText.trim() ? ' + copy' : ''}`}
+                : `Auto-Fill from ${form.extraImages.length > 0 ? `${form.extraImages.length + 1} Photos` : 'Image'}${listingText.trim() ? ' + Copy' : ''}`}
             </button>
           )}
 
@@ -744,7 +744,7 @@ export default function ProductForm({ item, onSave, onAutosave, onCancel, onDeta
           <div className="flex shrink-0 flex-col gap-1.5">
             <div className="flex items-baseline justify-between gap-2">
               <span className="text-[12px] font-medium text-ink-300">
-                More angles <span className="text-ink-600">(optional)</span>
+                More Angles <span className="text-ink-600">(optional)</span>
               </span>
               <span className="text-[11px] font-medium tabular-nums text-ink-600">
                 {form.extraImages.length}/{MAX_EXTRA_IMAGES}
@@ -771,7 +771,7 @@ export default function ProductForm({ item, onSave, onAutosave, onCancel, onDeta
               the product page carries the claims/specs/offer a photo can't. */}
           <label className="flex shrink-0 flex-col gap-1.5">
             <span className="text-[12px] font-medium text-ink-300">
-              Listing copy <span className="text-ink-600">(optional)</span>
+              Listing Copy <span className="text-ink-600">(optional)</span>
             </span>
             {/* Grows with the paste, but capped — a whole Amazon listing would
                 otherwise push the photo and the Auto-fill button off the top of

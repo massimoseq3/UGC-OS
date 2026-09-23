@@ -385,16 +385,16 @@ export interface GeneratedScript {
 }
 
 export const REMIX_ANGLE_LABEL: Record<RemixAngle, string> = {
-  'hook-led': 'Hook-led',
-  'pain-point-led': 'Pain-point-led',
-  'curiosity-led': 'Curiosity-led',
-  'story-led': 'Story-led',
-  'proof-led': 'Proof-led',
-  'objection-led': 'Objection-led',
-  'comparison-led': 'Comparison-led',
-  'mistake-led': 'Mistake-led',
-  'social-proof-led': 'Social-proof-led',
-  'routine-led': 'Routine-led',
+  'hook-led': 'Hook-Led',
+  'pain-point-led': 'Pain-Point-Led',
+  'curiosity-led': 'Curiosity-Led',
+  'story-led': 'Story-Led',
+  'proof-led': 'Proof-Led',
+  'objection-led': 'Objection-Led',
+  'comparison-led': 'Comparison-Led',
+  'mistake-led': 'Mistake-Led',
+  'social-proof-led': 'Social-Proof-Led',
+  'routine-led': 'Routine-Led',
 }
 
 // Remix angles in card order, STRONGEST FIRST — a remix takes the first N.

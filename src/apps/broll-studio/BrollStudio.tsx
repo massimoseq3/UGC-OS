@@ -1033,7 +1033,7 @@ export default function BrollStudio() {
 
   // What the storyboard's caption pill and the import popup call the look.
   const styleLabel = continuousStyleBrief?.trim()
-    ? continuousStyleName?.trim() || 'Custom style'
+    ? continuousStyleName?.trim() || 'Custom Style'
     : getContinuousStyle(resolvedStyleId).label
 
   // Add one blank concept box to a single keyframe (the frame row's "Add

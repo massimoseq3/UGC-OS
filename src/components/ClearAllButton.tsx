@@ -20,7 +20,7 @@ interface ClearAllButtonProps {
 // or when the pointer leaves, so a stray first click is harmless. Framed as
 // "New" (not "Clear") because it clears *inputs only* — generated outputs
 // stay on screen and in the history banks.
-export default function ClearAllButton({ onClear, className = '', label = 'Create new', iconOnly = false }: ClearAllButtonProps) {
+export default function ClearAllButton({ onClear, className = '', label = 'Create New', iconOnly = false }: ClearAllButtonProps) {
   const [armed, setArmed] = useState(false)
   const timer = useRef<number | null>(null)
 

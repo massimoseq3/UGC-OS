@@ -899,7 +899,7 @@ export default function BankPicker({
           {sorted.length === 0 && templateGroups.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
               <span className="text-sm text-ink-600">
-                {search ? 'No matches found' : `No ${label.toLowerCase()} yet`}
+                {search ? 'No Matches Found' : `No ${label} Yet`}
               </span>
               <span className="text-xs text-ink-700">
                 {search ? 'Try a different search' : supportsCreate ? 'Add one above to get started' : 'Save one from the app that makes them'}
@@ -962,7 +962,7 @@ export default function BankPicker({
               className="flex w-full items-center justify-center gap-2 rounded-full bg-ink px-4 py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-ink/90 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {adding && <Spinner className="h-4 w-4" />}
-              Add {selectedIds.length || ''} {selectedIds.length === 1 ? 'item' : 'items'}
+              Add {selectedIds.length || ''} {selectedIds.length === 1 ? 'Item' : 'Items'}
             </button>
           </div>
         )}

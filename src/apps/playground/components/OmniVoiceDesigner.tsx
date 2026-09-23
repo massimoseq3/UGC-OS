@@ -144,7 +144,7 @@ export default function OmniVoiceDesigner({ open, onClose, onCreated }: OmniVoic
 
           <div>
             <label className="mb-1.5 block text-[10px] font-medium uppercase tracking-wider text-ink-500">
-              Base voice <span className="normal-case text-ink-700">· tap ▸ to hear a sample</span>
+              Base Voice <span className="normal-case text-ink-700">· tap ▸ to hear a sample</span>
             </label>
             <div className="relative">
               <button
@@ -201,7 +201,7 @@ export default function OmniVoiceDesigner({ open, onClose, onCreated }: OmniVoic
 
           <div>
             <label className="mb-1.5 block text-[10px] font-medium uppercase tracking-wider text-ink-500">
-              Voice description <span className="normal-case text-ink-700">· optional</span>
+              Voice Description <span className="normal-case text-ink-700">· optional</span>
             </label>
             <textarea
               value={description}
@@ -214,7 +214,7 @@ export default function OmniVoiceDesigner({ open, onClose, onCreated }: OmniVoic
 
           <div>
             <label className="mb-1.5 block text-[10px] font-medium uppercase tracking-wider text-ink-500">
-              Example line <span className="normal-case text-ink-700">· optional, max 120 chars</span>
+              Example Line <span className="normal-case text-ink-700">· optional, max 120 chars</span>
             </label>
             <input
               value={exampleDialogue}
@@ -238,7 +238,7 @@ export default function OmniVoiceDesigner({ open, onClose, onCreated }: OmniVoic
           className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-playground-500 py-2.5 text-[13px] font-bold tracking-tight text-white transition-all hover:bg-playground-400 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {busy && <Spinner className="h-4 w-4" />}
-          Create voice
+          Create Voice
         </button>
       </div>
     </div>,

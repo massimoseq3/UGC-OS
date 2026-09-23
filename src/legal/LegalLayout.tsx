@@ -39,7 +39,7 @@ export default function LegalLayout({ title, children }: LegalLayoutProps) {
             <span className="text-base font-semibold tracking-tight">UGC OS</span>
           </Link>
           <Link to="/" className="text-[12px] text-ink-500 transition-colors hover:text-ink-200">
-            ← Back to app
+            ← Back to App
           </Link>
         </header>
 

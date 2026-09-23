@@ -648,7 +648,7 @@ export default function AllowlistEditor() {
         <div className="space-y-2">
           <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-[12px] text-red-300 light:text-red-700">{error}</div>
           <button onClick={load} className="flex items-center gap-1.5 rounded-md border border-ink/10 px-2.5 py-1 text-[11px] text-ink-300 transition-colors hover:bg-ink/[0.05]">
-            <RefreshCw className="h-3 w-3" /> Try again
+            <RefreshCw className="h-3 w-3" /> Try Again
           </button>
         </div>
       )}
@@ -765,12 +765,12 @@ function ImportPreviewModal({
   const willUpdate = preview.nameUpdates.length
 
   let cta: string
-  if (willAdd === 0 && willUpdate === 0 && willRemove === 0) cta = 'Nothing to do'
+  if (willAdd === 0 && willUpdate === 0 && willRemove === 0) cta = 'Nothing to Do'
   else {
     const bits: string[] = []
-    if (willAdd > 0) bits.push(`add ${willAdd}`)
-    if (willUpdate > 0) bits.push(`update ${willUpdate}`)
-    if (willRemove > 0) bits.push(`remove ${willRemove}`)
+    if (willAdd > 0) bits.push(`Add ${willAdd}`)
+    if (willUpdate > 0) bits.push(`Update ${willUpdate}`)
+    if (willRemove > 0) bits.push(`Remove ${willRemove}`)
     cta = bits.map((b, i) => i === 0 ? b[0].toUpperCase() + b.slice(1) : b).join(' & ')
   }
 
@@ -804,7 +804,7 @@ function ImportPreviewModal({
         {preview.newEntries.length > 0 && (
           <details className="mt-3" open>
             <summary className="cursor-pointer text-[11px] text-ink-400 hover:text-ink-200">
-              New emails ({preview.newEntries.length})
+              New Emails ({preview.newEntries.length})
             </summary>
             <div className="mt-1 max-h-32 overflow-y-auto rounded-lg border border-ink/10 bg-ink/[0.02] p-2 text-[11px] text-ink-400">
               {preview.newEntries.map((e) => {
@@ -822,7 +822,7 @@ function ImportPreviewModal({
 
         {preview.invalid.length > 0 && (
           <details className="mt-2 text-[11px] text-ink-500">
-            <summary className="cursor-pointer hover:text-ink-300">Show invalid rows ({preview.invalid.length})</summary>
+            <summary className="cursor-pointer hover:text-ink-300">Show Invalid Rows ({preview.invalid.length})</summary>
             <div className="mt-1 max-h-24 overflow-y-auto rounded-lg border border-amber-500/20 bg-amber-500/5 p-2 font-mono text-[10px] text-amber-200/90 light:text-amber-800/90">
               {preview.invalid.map((e, i) => <div key={i} className="truncate">{e || '<empty>'}</div>)}
             </div>
@@ -840,7 +840,7 @@ function ImportPreviewModal({
               />
               <div className="flex-1">
                 <div className="text-[12px] font-medium text-red-200 light:text-red-800">
-                  Sync mode · also remove {preview.removable.length} {preview.removable.length === 1 ? 'email' : 'emails'} not in this CSV
+                  Sync Mode · also remove {preview.removable.length} {preview.removable.length === 1 ? 'email' : 'emails'} not in this CSV
                 </div>
                 <div className="mt-0.5 text-[11px] text-red-300/70 light:text-red-700/70">
                   Removed members are signed out and disabled. Admin-seeded entries are protected.
@@ -850,7 +850,7 @@ function ImportPreviewModal({
             {syncMode && (
               <details>
                 <summary className="cursor-pointer text-[11px] text-red-300/80 light:text-red-700/80 hover:text-red-200 light:hover:text-red-800">
-                  Show {preview.removable.length} that would be removed
+                  Show {preview.removable.length} That Would Be Removed
                 </summary>
                 <div className="mt-1 max-h-32 overflow-y-auto rounded-lg border border-red-500/20 bg-red-500/[0.04] p-2 text-[11px] text-red-200/80 light:text-red-800/80">
                   {preview.removable.map((e) => <div key={e} className="truncate">{e}</div>)}

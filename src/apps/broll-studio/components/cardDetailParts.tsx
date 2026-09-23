@@ -841,7 +841,7 @@ function FailedTile({
           resumable ? 'bg-amber-500/30 text-amber-100 light:text-amber-900' : 'bg-red-500/30 text-red-100 light:text-red-900'
         }`}
       >
-        {resumable ? 'Not saved' : 'Failed'}
+        {resumable ? 'Not Saved' : 'Failed'}
       </div>
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-3 text-center">
         <AlertCircle className={`h-5 w-5 ${resumable ? 'text-amber-300 light:text-amber-700' : 'text-red-300 light:text-red-700'}`} />
@@ -933,7 +933,7 @@ export function ReferenceSlotCard({
         )}
         <div className="flex min-w-0 flex-1 flex-col pr-6">
           <span className={`truncate text-[13px] font-medium ${name ? 'text-ink-100' : 'text-ink-600'}`}>
-            {name || `Select ${kind.toLowerCase()}`}
+            {name || `Select ${kind}`}
           </span>
           <span className="truncate text-[11px] font-medium tracking-tight text-ink-400">
             {kind}

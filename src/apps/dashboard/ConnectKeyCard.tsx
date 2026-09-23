@@ -32,7 +32,7 @@ export default function ConnectKeyCard() {
         <GlassTile icon={Zap} accent="#F2B231" size={36} />
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[13px] font-semibold tracking-tight text-ink-100">
-            Connect your kie.ai API key
+            Connect Your kie.ai API Key
           </span>
           <span className="block truncate text-[12px] text-ink-500">
             Every generation runs through your own kie.ai account.

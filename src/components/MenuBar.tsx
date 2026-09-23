@@ -171,7 +171,7 @@ function CreditsItem() {
             <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
           </span>
           {/* Phones get just the pulsing dot — the tooltip + popup carry the message. */}
-          <span className="hidden sm:inline">Connect your kie.ai API key</span>
+          <span className="hidden sm:inline">Connect Your kie.ai API Key</span>
         </button>
         {guideOpen &&
           createPortal(

@@ -58,7 +58,7 @@ export default function UserMenu({ collapsed }: UserMenuProps) {
           <div className="flex items-center gap-2 border-b border-ink/5 px-3 py-2.5">
             <User className="h-3.5 w-3.5 text-ink-500" />
             <div className="min-w-0">
-              <div className="text-[10px] uppercase tracking-wider text-ink-500">Signed in as</div>
+              <div className="text-[10px] uppercase tracking-wider text-ink-500">Signed In as</div>
               <div className="truncate text-[12px] font-medium text-ink-200">{profile.email}</div>
             </div>
           </div>
@@ -67,7 +67,7 @@ export default function UserMenu({ collapsed }: UserMenuProps) {
             className="mt-1 flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-[12px] text-ink-300 transition-colors hover:bg-ink/[0.06]"
           >
             <LogOut className="h-3.5 w-3.5" />
-            Sign out
+            Sign Out
           </button>
         </div>
       )}

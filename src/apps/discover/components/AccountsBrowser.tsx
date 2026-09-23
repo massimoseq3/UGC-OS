@@ -38,8 +38,8 @@ const CACHED_ACCOUNTS = 4
 const CACHED_REELS = 40
 
 const SORT_OPTIONS: Array<{ value: AccountSort; label: string }> = [
-  { value: 'score', label: 'Biggest outliers' },
-  { value: 'plays', label: 'Most played' },
+  { value: 'score', label: 'Biggest Outliers' },
+  { value: 'plays', label: 'Most Played' },
   { value: 'recent', label: 'Newest' },
 ]
 
@@ -52,11 +52,11 @@ const MIN_MULTIPLE_OPTIONS: Array<{ value: string; label: string }> = [
 ]
 
 const POSTED_OPTIONS: Array<{ value: AccountFilters['posted']; label: string }> = [
-  { value: 'all', label: 'All time' },
-  { value: '1m', label: 'Last month' },
-  { value: '3m', label: '3 months' },
-  { value: '6m', label: '6 months' },
-  { value: '12m', label: '12 months' },
+  { value: 'all', label: 'All Time' },
+  { value: '1m', label: 'Last Month' },
+  { value: '3m', label: '3 Months' },
+  { value: '6m', label: '6 Months' },
+  { value: '12m', label: '12 Months' },
 ]
 
 /** One account's reels as last fetched. */
@@ -446,7 +446,7 @@ export default function AccountsBrowser({
                   className="flex items-center gap-2 rounded-full border border-ink/10 px-5 py-2.5 text-[13px] font-medium text-ink-200 transition-colors hover:border-ink/20 hover:bg-ink/5 disabled:opacity-50"
                 >
                   {loadingMore && <Spinner className="h-3.5 w-3.5" />}
-                  {loadingMore ? 'Loading…' : 'Load more · 1 credit'}
+                  {loadingMore ? 'Loading…' : 'Load More · 1 credit'}
                 </button>
               </div>
             )}

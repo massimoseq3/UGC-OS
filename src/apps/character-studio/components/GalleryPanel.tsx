@@ -329,7 +329,7 @@ export default memo(function GalleryPanel({
           <div ref={galleryScrollRef} className="min-w-0 flex-1 overflow-y-auto px-4 pb-3 pt-[69px]">
             {inFlight.length > 0 && (
               <>
-                <DayPill label={inFlight.length === 1 ? 'In progress' : `In progress · ${inFlight.length}`} />
+                <DayPill label={inFlight.length === 1 ? 'In Progress' : `In Progress · ${inFlight.length}`} />
                 {viewMode === 'grid' ? (
                   <div className="grid grid-cols-2 gap-2 [grid-auto-flow:dense] lg:grid-cols-3">
                     {inFlight.map((gen) => (
@@ -1600,7 +1600,7 @@ function InFlightRow({ gen, mediaAspect, onCancel, onClick }: { gen: InFlightCha
         <span className="text-[12px] font-semibold tracking-wide text-influencers-200">
           {getModel(gen.modelId)?.displayName ?? gen.modelId}
         </span>
-        <span className="text-[11px] text-ink-500">{gen.kind === 'sheet' ? 'Character sheet' : 'Character'}</span>
+        <span className="text-[11px] text-ink-500">{gen.kind === 'sheet' ? 'Character Sheet' : 'Character'}</span>
       </div>
     </div>
   )

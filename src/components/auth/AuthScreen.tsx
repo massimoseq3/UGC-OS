@@ -8,9 +8,9 @@ import { SKOOL_ACCESS_CODE_URL, SKOOL_COMMUNITY_URL } from '../../utils/constant
 type Mode = 'login' | 'signup' | 'forgot'
 
 const SUBTITLES: Record<Mode, string> = {
-  login: 'Sign in to your workspace',
-  signup: 'Create your account',
-  forgot: 'Reset your password',
+  login: 'Sign In to Your Workspace',
+  signup: 'Create Your Account',
+  forgot: 'Reset Your Password',
 }
 
 export default function AuthScreen() {
@@ -163,7 +163,7 @@ export default function AuthScreen() {
                 rel="noreferrer"
                 className="inline-flex items-center gap-1 text-ink-400 underline transition-colors hover:text-ink-200"
               >
-                Get the access code on Skool
+                Get the Access Code on Skool
                 <ExternalLink className="h-2.5 w-2.5" />
               </a>
             }
@@ -203,7 +203,7 @@ export default function AuthScreen() {
               onClick={() => switchMode('signup')}
               className="text-ink-300 transition-colors hover:text-ink"
             >
-              Create an account
+              Create an Account
             </button>
           </>
         ) : (
@@ -214,7 +214,7 @@ export default function AuthScreen() {
               onClick={() => switchMode('login')}
               className="text-ink-300 transition-colors hover:text-ink"
             >
-              Sign in
+              Sign In
             </button>
           </>
         )}

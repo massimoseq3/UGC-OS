@@ -2069,7 +2069,7 @@ export default function OutputPanel({ variations, outputAngles, mode, liveMode, 
       pendingRun.mode === 'write' && pendingRun.writeFormat === 'hooks'
         ? [`Hooks · ${HOOK_CATEGORY_META[pendingRun.hookCategory]?.label ?? 'Best Mix'}`]
         : pendingRun.mode === 'reverse-engineer'
-          ? ['Scene prompts']
+          ? ['Scene Prompts']
           : Array.from({ length: Math.max(1, pendingRun.variationCount) }, (_, i) =>
               pendingRun.mode === 'write' ? `Take ${i + 1}` : `Variation ${i + 1}`)
     return (
@@ -2219,7 +2219,7 @@ export default function OutputPanel({ variations, outputAngles, mode, liveMode, 
                 ? `Variation ${i + 1}: ${angleLabel}`
                 : isRemix
                   ? `Variation ${i + 1}`
-                  : 'Scene prompts'
+                  : 'Scene Prompts'
           const defaultSaveTitle = isHooks
             ? (productName ? `${productName} · Hooks (${hookCategoryLabel ?? 'Best Mix'})` : `Hooks · ${hookCategoryLabel ?? 'Best Mix'}`)
             : isWrite && productName
@@ -2228,7 +2228,7 @@ export default function OutputPanel({ variations, outputAngles, mode, liveMode, 
                 ? `${productName} · ${angleLabel ?? `Variation ${i + 1}`} Script`
                 : deriveTitleFromContent(
                       text,
-                      mode === 'reverse-engineer' ? 'Reverse-engineered prompts' : 'Untitled script',
+                      mode === 'reverse-engineer' ? 'Reverse-Engineered Prompts' : 'Untitled Script',
                     )
           return (
             <VariationCard
@@ -2252,7 +2252,7 @@ export default function OutputPanel({ variations, outputAngles, mode, liveMode, 
 // Derive a human-readable title from reverse-engineered prompt content.
 // Strategy: skip scene dividers and label lines, find the first prose
 // sentence, take ~6 words, Title Case. Falls back to a sensible default.
-function deriveTitleFromContent(text: string, fallback = 'Untitled script'): string {
+function deriveTitleFromContent(text: string, fallback = 'Untitled Script'): string {
   const lines = text.split('\n').map((l) => l.trim()).filter(Boolean)
   for (const line of lines) {
     // Skip scene dividers ("--- Scene 1: HOOK ---") and short ALL-CAPS labels

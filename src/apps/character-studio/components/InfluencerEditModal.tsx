@@ -219,7 +219,7 @@ export default function InfluencerEditModal({
   // there is nothing to add to the instruction.
   const styleDirective = styleBriefForStill({ styleId, styleBrief: styleBrief ?? undefined })
   const styleActive = !!styleDirective
-  const styleLabel = styleBrief ? (styleName ?? 'Custom style') : getContinuousStyle(styleId).label
+  const styleLabel = styleBrief ? (styleName ?? 'Custom Style') : getContinuousStyle(styleId).label
 
   const handlePickPresetStyle = (id: string) => {
     setStyleId(id); setStyleBrief(null); setStyleBankId(null); setStyleName(null)
@@ -643,7 +643,7 @@ export default function InfluencerEditModal({
                                     icon={Upload}
                                     onClick={() => { setRefMenuOpen(false); fileInputRef.current?.click() }}
                                   >
-                                    Upload image
+                                    Upload Image
                                   </MenuItem>
                                   <MenuItem
                                     icon={FolderOpen}
@@ -896,7 +896,7 @@ export default function InfluencerEditModal({
             <div className="px-4 py-4">
               {lineageInFlight.length > 0 && (
                 <>
-                  <DayPill label={lineageInFlight.length === 1 ? 'In progress' : `In progress · ${lineageInFlight.length}`} />
+                  <DayPill label={lineageInFlight.length === 1 ? 'In Progress' : `In Progress · ${lineageInFlight.length}`} />
                   <div className="grid grid-cols-2 gap-2 [grid-auto-flow:dense]">
                     {lineageInFlight.map((gen) => (
                       <div key={gen.id} className={gen.aspectRatio.includes('16:9') ? 'col-span-2' : ''}>
@@ -960,7 +960,7 @@ export default function InfluencerEditModal({
         onClose={() => { commitPromptDraft(); setPromptExpanded(false) }}
         value={prompt}
         onChange={setPrompt}
-        title="Edit instruction"
+        title="Edit Instruction"
         placeholder="Describe the change, e.g. 'change the top to a red hoodie', 'add round glasses', 'softer warm lighting'…"
         accent="ink"
       />

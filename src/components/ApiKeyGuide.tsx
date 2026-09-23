@@ -59,7 +59,7 @@ export default function ApiKeyGuide({ onClose, onOpenSettings }: { onClose: () =
               set, since nothing in that row generates anything without it. */}
           <GlassTile icon={Zap} accent="#F2B231" size={44} />
           <h2 className="mt-3 text-lg font-semibold tracking-tight text-ink-100">
-            {connected ? 'You’re connected' : 'Connect your kie.ai API key'}
+            {connected ? 'You’re Connected' : 'Connect Your kie.ai API Key'}
           </h2>
           <p className="mt-1 text-[12px] leading-relaxed text-ink-500">
             {connected
@@ -72,7 +72,7 @@ export default function ApiKeyGuide({ onClose, onOpenSettings }: { onClose: () =
           <ol className="relative mt-5 space-y-4">
             <span aria-hidden className="absolute bottom-3 left-[11px] top-3 w-px bg-ink/10" />
 
-            <Step index={1} done={visitedKie || connected} label="Grab your API key from kie.ai">
+            <Step index={1} done={visitedKie || connected} label="Grab Your API Key from kie.ai">
               <a
                 href="https://kie.ai/api-key"
                 target="_blank"
@@ -85,7 +85,7 @@ export default function ApiKeyGuide({ onClose, onOpenSettings }: { onClose: () =
               </a>
             </Step>
 
-            <Step index={2} done={connected} label={connected ? 'Key saved to this browser' : 'Paste it here'}>
+            <Step index={2} done={connected} label={connected ? 'Key Saved to This Browser' : 'Paste It Here'}>
               {connected ? (
                 <p className="mt-1 text-[12px] text-ink-500">
                   <span className="tabular-nums text-dashboard-400">{status.phase === 'connected' ? status.credits.toLocaleString() : ''}</span> credits on
@@ -138,7 +138,7 @@ export default function ApiKeyGuide({ onClose, onOpenSettings }: { onClose: () =
                 onClick={onClose}
                 className="flex h-9 items-center rounded-full bg-ink px-5 text-[13px] font-medium text-paper transition-opacity hover:opacity-90"
               >
-                Start creating
+                Start Creating
               </button>
             ) : (
               <button

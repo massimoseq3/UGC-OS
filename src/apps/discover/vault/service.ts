@@ -75,15 +75,30 @@ export function thumbUrl(item: VaultItem): string {
   return `${import.meta.env.BASE_URL}vault/thumbs/${item.id}.webp`
 }
 
-/** "big_number" → "Big number". The corpus tags in the words on a chip. */
-export function patternLabel(pattern: string): string {
-  const words = pattern.replace(/_/g, ' ')
-  return words.charAt(0).toUpperCase() + words.slice(1)
+// Title Case for a label a member reads (folders, chips, the Hook menu): minor
+// words stay lowercase unless first or last, and an acronym stays whole.
+const MINOR_WORDS = new Set(['a', 'an', 'the', 'and', 'but', 'or', 'nor', 'for', 'to', 'of', 'in', 'on', 'at', 'by', 'as', 'per', 'via', 'vs'])
+const ACRONYMS = new Set(['pov'])
+
+function titleCase(phrase: string): string {
+  const words = phrase.toLowerCase().split(' ')
+  return words
+    .map((w, i) => {
+      if (ACRONYMS.has(w)) return w.toUpperCase()
+      if (i > 0 && i < words.length - 1 && MINOR_WORDS.has(w)) return w
+      return w.charAt(0).toUpperCase() + w.slice(1)
+    })
+    .join(' ')
 }
 
-/** "MYTH BUSTING" → "Myth busting". The corpus shouts; the UI doesn't. */
+/** "big_number" → "Big Number". The corpus tags in the words on a chip. */
+export function patternLabel(pattern: string): string {
+  return titleCase(pattern.replace(/_/g, ' '))
+}
+
+/** "DAY IN THE LIFE" → "Day in the Life". The corpus shouts; the UI doesn't. */
 export function categoryLabel(category: string): string {
-  return category.charAt(0) + category.slice(1).toLowerCase()
+  return titleCase(category)
 }
 
 

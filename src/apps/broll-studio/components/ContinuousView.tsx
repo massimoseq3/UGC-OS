@@ -1316,7 +1316,7 @@ export default function ContinuousView({
           >
             {chainRunning ? <Spinner className="h-3.5 w-3.5" /> : <ImageIcon className="h-3.5 w-3.5" />}
             {chainRunning
-              ? chainAt ? `Frame ${chainAt.step} of ${chainAt.of}…` : 'Generating frames…'
+              ? chainAt ? `Frame ${chainAt.step} of ${chainAt.of}…` : 'Generating Frames…'
               : 'Generate Frames'}
           </button>
           <button
@@ -1482,7 +1482,7 @@ export default function ContinuousView({
                         />
                       </>
                     ) : (
-                      <span className="flex-1 truncate text-sm text-ink-400">Select model</span>
+                      <span className="flex-1 truncate text-sm text-ink-400">Select Model</span>
                     )}
                     <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" />
                   </button>
@@ -1585,10 +1585,10 @@ export default function ContinuousView({
               >
                 {confirmGen.kind === 'clips' ? <VideoIcon className="h-3.5 w-3.5" /> : <ImageIcon className="h-3.5 w-3.5" />}
                 {confirmGen.kind === 'clips'
-                  ? `Generate ${confirmGen.sceneIndices.length} video${confirmGen.sceneIndices.length === 1 ? '' : 's'}`
+                  ? `Generate ${confirmGen.sceneIndices.length} Video${confirmGen.sceneIndices.length === 1 ? '' : 's'}`
                   : frameTargets.length === 0
                     ? 'Generate'
-                    : `Generate ${frameImageCount} image${frameImageCount === 1 ? '' : 's'}`}
+                    : `Generate ${frameImageCount} Image${frameImageCount === 1 ? '' : 's'}`}
                 {/* The price sits on the button that spends it. */}
                 <span className="flex items-center gap-1 rounded-full bg-black/25 px-2 py-0.5 text-[11px] tabular-nums">
                   <Coins className="h-3 w-3" strokeWidth={2} />

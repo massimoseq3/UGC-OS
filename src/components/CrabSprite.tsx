@@ -1,10 +1,10 @@
 import type { CSSProperties } from 'react'
 
-// Pixel-art crab mascot, one costume per app — the "team member" avatars for
+// Pixel-art crab mascot, one costume per app, drawn for
 // the Meet the Team screen. Drawn as unit rects on a 16×12 grid so it stays
 // crisp at any size (shape-rendering: crispEdges). The base crab is identical
-// across variants; only the costume rects differ, so the crew reads as one
-// mascot with seven jobs.
+// across variants; only the costume rects differ, so the set reads as one
+// mascot in different costumes.
 
 export type CrabVariant =
   | 'plain'
@@ -52,19 +52,19 @@ function baseRects(body: string): Px[] {
 const COSTUMES: Record<CrabVariant, Px[]> = {
   plain: [],
 
-  // Studio Manager — classic bank-teller green visor.
+  // Bank — classic bank-teller green visor.
   finder: [
     { x: 2, y: 4, w: 12, h: 1, fill: '#3F9142' }, // brim
     { x: 4, y: 3, w: 8, h: 1, fill: '#2F6B33' }, // band
   ],
 
-  // Casting Director — wraparound shades with a pink glint.
+  // Characters — wraparound shades with a pink glint.
   'character-studio': [
     { x: 4, y: 5, w: 8, h: 1, fill: DARK },
     { x: 5, y: 5, w: 1, h: 1, fill: '#F74F9E' },
   ],
 
-  // Copywriter — pencil tucked over the ear. White eyes overdraw the base
+  // Scripts — pencil tucked over the ear. White eyes overdraw the base
   // dark eyes so they stay visible on the navy body.
   'script-architect': [
     { x: 8, y: 3, w: 4, h: 1, fill: '#E8A33D' }, // shaft
@@ -74,7 +74,7 @@ const COSTUMES: Record<CrabVariant, Px[]> = {
     { x: 9, y: 5, w: 1, h: 1, fill: '#FFFFFF' },
   ],
 
-  // Voice Talent — headphones, cups in a deep Voiceovers blue. Cups and cap
+  // Voiceovers — headphones, cups in a deep Voiceovers blue. Cups and cap
   // sit outside the body silhouette, so they must be darker than their app's
   // accent or they vanish into the dock tile on hover.
   'voice-studio': [
@@ -85,14 +85,14 @@ const COSTUMES: Record<CrabVariant, Px[]> = {
     { x: 12, y: 5, w: 1, h: 2, fill: '#0553BE' },
   ],
 
-  // Videographer — backwards cap in a deep B-Roll indigo (see cups note).
+  // B-Roll — backwards cap in a deep B-Roll indigo (see cups note).
   'broll-studio': [
     { x: 4, y: 2, w: 8, h: 1, fill: '#4E42DE' },
     { x: 4, y: 3, w: 8, h: 1, fill: '#4034C4' },
     { x: 12, y: 3, w: 3, h: 1, fill: '#4034C4' }, // bill, worn backwards
   ],
 
-  // Creative Director — tilted beret + paint on the shell. The beret is teal
+  // Playground — tilted beret + paint on the shell. The beret is teal
   // (not the classic black) so it stays visible on dark surfaces; the splats
   // are mixed colors because paint sells "creative" better than any hat.
   playground: [
@@ -103,7 +103,7 @@ const COSTUMES: Record<CrabVariant, Px[]> = {
     { x: 10, y: 7, w: 1, h: 1, fill: '#FFD84D' },
   ],
 
-  // Editor — a film clapperboard raised in the right claw. Big striped hinge
+  // Edit — a film clapperboard raised in the right claw. Big striped hinge
   // bar on top, a slate with a chalk line below, its base sitting right over
   // the raised claw so it reads as "held up". The light "chalk"-tint stripes
   // (same glass tint as the magnifier lens) keep the slate legible on the dark
@@ -117,7 +117,7 @@ const COSTUMES: Record<CrabVariant, Px[]> = {
     { x: 11, y: 3, w: 4, h: 1, fill: '#EAF1F4' }, // chalk line
   ],
 
-  // Strategist — magnifying glass held over the right eye. Dark rim so the
+  // Ad Analyzer — magnifying glass held over the right eye. Dark rim so the
   // lens reads on any body color (the card tints the body its app accent —
   // a red rim would vanish into Ad Analyzer's own red). The lens interior is
   // painted light "glass" so the eye behind it stays visible instead of
@@ -133,7 +133,7 @@ const COSTUMES: Record<CrabVariant, Px[]> = {
     { x: 12, y: 8, w: 1, h: 1, fill: DARK },
   ],
 
-  // Trend Spotter — a radar dish on a mast, sweeping. The dish is drawn in the
+  // Outliers — a radar dish on a mast, sweeping. The dish is drawn in the
   // gold app accent rather than DARK: unlike Ad Analyzer's magnifier it sits
   // clear of the eyes on open shell, so it needs to read as an instrument
   // rather than as a silhouette, and gold is what separates the two scouts at

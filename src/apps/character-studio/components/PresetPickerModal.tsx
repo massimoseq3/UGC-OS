@@ -815,7 +815,7 @@ export default function PresetPickerModal({
                   onClick={() => { setLoadError(null); setReloadKey((n) => n + 1) }}
                   className="rounded-full border border-ink/10 bg-ink/[0.03] px-4 py-1.5 text-[13px] font-medium text-ink-300 transition-colors hover:bg-ink/[0.06]"
                 >
-                  Try again
+                  Try Again
                 </button>
               </div>
             ) : !starters && bankEntries.length === 0 ? (

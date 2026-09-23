@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { create } from 'zustand'
 
 // Tracks which apps currently have a generation in flight, so the dock can
-// pulse their running dot ("Bubbles is out shooting"). Apps report via
+// pulse their running dot. Apps report via
 // useReportActivity below; counts (not booleans) so overlapping reporters
 // in one app can't stomp each other.
 //

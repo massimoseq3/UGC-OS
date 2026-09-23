@@ -27,7 +27,7 @@ const ACCENT = '#F77646'
 const FRESH_ACCENT = '#059669'
 
 // The tile in the folder's pocket. Claude Code gets the Edit app's own icon —
-// the editor crab (Snips) on orange, matching the dock's app-tile look — and
+// the editor crab on orange, matching the dock's app-tile look — and
 // Codex gets its own mark on ChatGPT's black, the tile a member already has in
 // their dock. One shell either way (sheen + inset ring), so the swap changes
 // what the folder is holding and not how the art is built.

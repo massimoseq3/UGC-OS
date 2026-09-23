@@ -603,8 +603,8 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                         <ReferenceSlotCard
                           icon={<Link2 className="h-4 w-4 text-broll-300" />}
                           accentClass="bg-broll-500/15 text-broll-300"
-                          kind="Previous cut"
-                          name="Chain link"
+                          kind="Previous Cut"
+                          name="Chain Link"
                           imageRef={chainImageRef}
                           onClick={() => onUpdateState({ chainLink: cardState.chainLink === false })}
                           active={cardState.chainLink !== false}
@@ -797,7 +797,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                           />
                         </>
                       ) : (
-                        <span className="flex-1 truncate text-sm text-ink-400">Select model</span>
+                        <span className="flex-1 truncate text-sm text-ink-400">Select Model</span>
                       )}
                       {/* Chevron signals the picker modal; no credits badge
                           here — costs show per-model in the panel. */}

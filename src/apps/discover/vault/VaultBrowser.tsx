@@ -30,8 +30,8 @@ import type { ResolvedVideo, VaultFilters, VaultItem, VaultSort } from './types'
 const PAGE = 60
 
 const SORT_OPTIONS: Array<{ value: VaultSort; label: string }> = [
-  { value: 'outlier', label: 'Biggest outliers' },
-  { value: 'likes', label: 'Most liked' },
+  { value: 'outlier', label: 'Biggest Outliers' },
+  { value: 'likes', label: 'Most Liked' },
   { value: 'recent', label: 'Newest' },
 ]
 
@@ -251,7 +251,7 @@ export default function VaultBrowser({
       <GridCanvas>
         <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
           <Library className="h-8 w-8 text-ink-800" strokeWidth={1.5} />
-          <p className="text-sm text-ink-500">The vault didn’t load</p>
+          <p className="text-sm text-ink-500">The Vault Didn’t Load</p>
           <p className="max-w-[340px] text-xs leading-relaxed text-ink-600">{loadError}</p>
           <button
             type="button"
@@ -259,7 +259,7 @@ export default function VaultBrowser({
             className="flex items-center gap-2 rounded-full border border-ink/10 px-4 py-2 text-[12px] font-medium text-ink-200 transition-colors hover:border-ink/20 hover:bg-ink/5"
           >
             <RotateCw className="h-3.5 w-3.5" />
-            Try again
+            Try Again
           </button>
         </div>
       </GridCanvas>
@@ -514,7 +514,7 @@ export default function VaultBrowser({
                 onClick={() => setShown((n) => n + PAGE)}
                 className="rounded-full border border-ink/10 px-5 py-2.5 text-[13px] font-medium text-ink-200 transition-colors hover:border-ink/20 hover:bg-ink/5"
               >
-                Show more · {matches.length - shown} left
+                Show More · {matches.length - shown} left
               </button>
             </div>
           )}

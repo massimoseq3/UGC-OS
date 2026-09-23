@@ -126,7 +126,7 @@ function HistoryRow({
   onDelete: () => void
 }) {
   const thumbUrl = useAssetUrl(item.thumbnailRef ?? '')
-  const titleText = item.adTitle?.trim() || item.fileName || 'Untitled analysis'
+  const titleText = item.adTitle?.trim() || item.fileName || 'Untitled Analysis'
 
   return (
     <div

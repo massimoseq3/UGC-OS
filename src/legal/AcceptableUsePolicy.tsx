@@ -10,7 +10,7 @@ export default function AcceptableUsePolicy() {
         account, removal of content, and, where appropriate, reporting to law enforcement.
       </P>
 
-      <H2>Absolutely prohibited</H2>
+      <H2>Absolutely Prohibited</H2>
       <P>You may not use the Service to create, store, distribute, or attempt to generate:</P>
       <UL>
         <li>Child sexual abuse material (CSAM) or any sexual content depicting minors.</li>
@@ -24,14 +24,14 @@ export default function AcceptableUsePolicy() {
         <li>Content that violates the terms of any underlying model provider (OpenAI, Google, ElevenLabs, Suno, etc.).</li>
       </UL>
 
-      <H2>Likeness &amp; voice</H2>
+      <H2>Likeness &amp; Voice</H2>
       <UL>
         <li>Do not generate images, video, or voice clones of a real, identifiable person without their consent, and never of a private person.</li>
         <li>Voiceovers must use voices you have the right to use. If using ElevenLabs Voice Cloning or similar, you are responsible for securing consent.</li>
         <li>Public figures may be depicted only in clearly satirical, news, or commentary contexts that comply with applicable law and platform terms.</li>
       </UL>
 
-      <H2>Synthetic media disclosure</H2>
+      <H2>Synthetic Media Disclosure</H2>
       <P>
         When distributing AI-generated or AI-modified media, especially video, voice, or
         photorealistic imagery of people, you must comply with all applicable disclosure
@@ -39,14 +39,14 @@ export default function AcceptableUsePolicy() {
         synthetic-media laws, and the policies of the platform you publish to.
       </P>
 
-      <H2>API key &amp; abuse</H2>
+      <H2>API Key &amp; Abuse</H2>
       <UL>
         <li>Do not share your account or API key with people outside your community membership.</li>
         <li>Do not attempt to bypass the access list, rate limits, billing, or content filters.</li>
         <li>Do not use the Service to power a re-sale or wrapper product without our prior written consent.</li>
       </UL>
 
-      <H2>Your responsibility for outputs</H2>
+      <H2>Your Responsibility for Outputs</H2>
       <P>
         AI outputs can be inaccurate or unsafe. You are solely responsible for reviewing
         outputs before publishing or distributing them, and for any consequences arising from

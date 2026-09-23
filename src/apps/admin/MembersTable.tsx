@@ -25,12 +25,12 @@ type StatusFilter = 'all' | 'active' | 'inactive' | 'unactivated' | 'lapsed' | '
 const SORT_OPTIONS: Array<{ value: SortKey; label: string }> = [
   { value: 'created_at', label: 'Joined' },
   { value: 'access_renews_at', label: 'Renews' },
-  { value: 'last_active_at', label: 'Last active' },
+  { value: 'last_active_at', label: 'Last Active' },
   { value: 'name', label: 'Name' },
   { value: 'email', label: 'Email' },
   { value: 'total_bytes', label: 'Storage' },
-  { value: 'assets_last_7d', label: '7-day activity' },
-  { value: 'time_30d', label: 'Top app / 30d' },
+  { value: 'assets_last_7d', label: '7-Day Activity' },
+  { value: 'time_30d', label: 'Top App / 30d' },
 ]
 
 const STATUS_LABEL: Record<MemberStatus, string> = {
@@ -294,7 +294,7 @@ export default function MembersTable() {
           {profilesError}
         </div>
         <button onClick={reload} className="flex items-center gap-1.5 rounded-md border border-ink/10 px-2.5 py-1 text-[11px] text-ink-300 transition-colors hover:bg-ink/[0.05]">
-          <RefreshCw className="h-3 w-3" /> Try again
+          <RefreshCw className="h-3 w-3" /> Try Again
         </button>
       </div>
     )
@@ -345,7 +345,7 @@ export default function MembersTable() {
             ['all', 'All', counts.all],
             ['active', 'Active', counts.active],
             ['inactive', `Inactive ${INACTIVE_DAYS}d+`, counts.inactive],
-            ['unactivated', 'Never used', counts.unactivated],
+            ['unactivated', 'Never Used', counts.unactivated],
             ['lapsed', 'Lapsed', counts.lapsed],
             ['disabled', 'Disabled', counts.disabled],
           ] as Array<[StatusFilter, string, number]>).map(([key, label, count]) => (
@@ -472,7 +472,7 @@ export default function MembersTable() {
               <SortableTh label="Renews" k="access_renews_at" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
               <SortableTh label="Last Active" k="last_active_at" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
               <SortableTh label="Storage" k="total_bytes" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
-              <SortableTh label="7-day activity" k="assets_last_7d" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
+              <SortableTh label="7-Day Activity" k="assets_last_7d" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
               <SortableTh label="Top App / 30d" k="time_30d" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
               <th className="px-3 py-2 text-left font-medium">Status</th>
               <th className="px-3 py-2 text-right font-medium"></th>
@@ -626,7 +626,7 @@ function DeleteMembersModal({
         <div className="flex items-start justify-between">
           <div>
             <h3 className="text-sm font-semibold text-ink-100">
-              Delete {members.length} {members.length === 1 ? 'member' : 'members'}?
+              Delete {members.length} {members.length === 1 ? 'Member' : 'Members'}?
             </h3>
             <p className="mt-0.5 text-[11px] text-ink-500">
               Their account and everything in it: banks, history, {formatBytes(totalBytes)} of storage. Not reversible.
@@ -662,7 +662,7 @@ function DeleteMembersModal({
             className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-red-400"
           />
           <span>
-            Also remove from the allowlist{' '}
+            Also Remove from the Allowlist{' '}
             <span className="text-ink-600">otherwise they can sign up again</span>
           </span>
         </label>
@@ -756,7 +756,7 @@ function MemberCard({
           accent={status === 'inactive' ? 'text-amber-400 light:text-amber-600' : undefined}
         />
         <Meta label="Storage" value={`${formatBytes(row.total_bytes)} (${row.asset_count})`} />
-        <Meta label="7-day activity" value={String(row.assets_last_7d)} />
+        <Meta label="7-Day Activity" value={String(row.assets_last_7d)} />
         <Meta label="Top App / 30d" value={appLabel(top?.appId)} glyph={top?.appId} />
         <Meta label="Time / 30d" value={top ? formatDuration(totalSeconds(row, '30d')) : '—'} />
       </dl>
@@ -811,7 +811,7 @@ function StatusActions({
           title="Give this account its access back"
           className={btnClass}
         >
-          Re-enable
+          Re-Enable
         </button>
       ) : (
         <>

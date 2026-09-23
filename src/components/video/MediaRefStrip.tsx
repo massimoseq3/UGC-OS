@@ -79,7 +79,7 @@ export default function MediaRefStrip({
         {values.length < max && (
           <MediaAddCard
             icon={Icon}
-            label={`Upload ${kind}`}
+            label={kind === 'audio' ? 'Upload Audio' : 'Upload Video'}
             helper={maxTotalSeconds ? `≤ ${maxTotalSeconds}s total` : undefined}
             onClick={() => fileInputRef.current?.click()}
           />

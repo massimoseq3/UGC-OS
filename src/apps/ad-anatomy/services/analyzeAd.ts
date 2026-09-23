@@ -293,7 +293,7 @@ function normalizeVisualStyle(raw: unknown): MasterVisualStyle | undefined {
         // Unstated: a matched family already knows whether it's live action.
         : known && getContinuousStyle(styleId).realism === true
   const label =
-    (typeof o.label === 'string' && o.label.trim()) || (known ? getContinuousStyle(styleId).label : 'Custom look')
+    (typeof o.label === 'string' && o.label.trim()) || (known ? getContinuousStyle(styleId).label : 'Custom Look')
   return { styleId, label, liveAction, brief }
 }
 
@@ -306,7 +306,7 @@ function normalizeVoiceProfile(raw: unknown): MasterVoiceProfile | undefined {
     ? o.traits.filter((t): t is string => typeof t === 'string' && t.trim().length > 0).map((t) => t.trim()).slice(0, 8)
     : []
   return {
-    label: (typeof o.label === 'string' && o.label.trim()) || 'Ad voice',
+    label: (typeof o.label === 'string' && o.label.trim()) || 'Ad Voice',
     traits,
     delivery: typeof o.delivery === 'string' ? o.delivery.trim() : '',
     profile,

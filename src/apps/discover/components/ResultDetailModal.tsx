@@ -147,17 +147,17 @@ export default function ResultDetailModal({
             <div className="flex flex-wrap items-center gap-2">
               {result.outlier && (
                 <span className="rounded-full bg-amber-400 px-2.5 py-1 text-[12px] font-semibold text-black">
-                  {formatMultiple(result.outlier.multiple)} outlier
+                  {formatMultiple(result.outlier.multiple)} Outlier
                 </span>
               )}
               {er !== null && (
                 <span className="rounded-full bg-ink/10 px-2.5 py-1 text-[12px] font-medium text-ink-200">
-                  {formatRate(er)} engagement
+                  {formatRate(er)} Engagement
                 </span>
               )}
               {result.ad?.daysRunning != null && (
                 <span className="rounded-full bg-ink/10 px-2.5 py-1 text-[12px] font-medium text-ink-200">
-                  Running {result.ad.daysRunning} days
+                  Running {result.ad.daysRunning} Days
                 </span>
               )}
               {result.ad?.platforms.map((p) => (
@@ -182,7 +182,7 @@ export default function ResultDetailModal({
               </div>
             )}
 
-            <Section label={isMeta ? 'Ad copy' : 'Caption'}>
+            <Section label={isMeta ? 'Ad Copy' : 'Caption'}>
               <p className="text-[13px] leading-relaxed whitespace-pre-wrap text-ink-300">
                 {result.caption || 'No caption'}
               </p>
@@ -217,7 +217,7 @@ export default function ResultDetailModal({
                   className="inline-flex items-center gap-1.5 rounded-full border border-ink/10 px-3 py-1.5 text-[12px] font-medium text-ink-200 transition-colors hover:border-ink/20 hover:bg-ink/5"
                 >
                   {isInstagram ? <Sparkle className="h-3.5 w-3.5" /> : <FileText className="h-3.5 w-3.5" />}
-                  {isInstagram ? 'Transcribe with AI · 10-30s' : 'Get transcript · 1 credit'}
+                  {isInstagram ? 'Transcribe with AI · 10-30s' : 'Get Transcript · 1 credit'}
                 </button>
               )}
               {transcript.phase === 'loading' && (
@@ -269,7 +269,7 @@ export default function ResultDetailModal({
                     className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-ink/10 px-3 py-1.5 text-[12px] font-medium text-ink-200 transition-colors hover:border-ink/20 hover:bg-ink/5"
                   >
                     <RotateCw className="h-3.5 w-3.5" />
-                    Try again
+                    Try Again
                   </button>
                 </div>
               )}
@@ -372,7 +372,7 @@ export default function ResultDetailModal({
               {busy === 'download'
                 ? <Spinner className="h-4 w-4" />
                 : <Download className="h-4 w-4" />}
-              {busy === 'download' ? downloadLabel(downloadProgress) : 'Download video'}
+              {busy === 'download' ? downloadLabel(downloadProgress) : 'Download Video'}
             </button>
           </footer>
         </div>

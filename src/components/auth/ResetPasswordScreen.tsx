@@ -22,7 +22,7 @@ export default function ResetPasswordScreen() {
   // opened in a browser that mangled it. Nothing to do here but start again.
   if (!session) {
     return (
-      <AuthShell subtitle="Reset your password">
+      <AuthShell subtitle="Reset Your Password">
         <AuthForm
           onSubmit={(e) => {
             e.preventDefault()
@@ -58,7 +58,7 @@ export default function ResetPasswordScreen() {
   }
 
   return (
-    <AuthShell subtitle="Choose a new password">
+    <AuthShell subtitle="Choose a New Password">
       <AuthForm onSubmit={handleSubmit}>
         <div className="flex items-center gap-2 text-[12px] text-ink-400">
           <KeyRound className="h-3.5 w-3.5 shrink-0 text-ink-500" />

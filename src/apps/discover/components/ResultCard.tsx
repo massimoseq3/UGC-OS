@@ -159,7 +159,7 @@ function ResultCardImpl({ result, onAnalyze, onRemix, onSave, onDownload, onOpen
               "this is good" affordance (the saved/connected states). */}
           {result.ad?.daysRunning != null && (
             <span className="rounded-full bg-emerald-500 px-2 py-0.5 text-[11px] font-semibold text-white shadow-sm">
-              {result.ad.daysRunning}d running
+              {result.ad.daysRunning}d Running
             </span>
           )}
           {result.ad && !result.ad.isActive && (
@@ -316,7 +316,7 @@ function ResultCardImpl({ result, onAnalyze, onRemix, onSave, onDownload, onOpen
             isMeta ? (
               <span className="flex items-center gap-1 rounded-full bg-ink/[0.07] px-2 py-0.5 text-[10px] font-medium text-ink-300">
                 <Heart className="h-2.5 w-2.5 shrink-0" />
-                {formatCount(result.author.followerCount)} likes
+                {formatCount(result.author.followerCount)} Likes
               </span>
             ) : (
               <>{formatCount(result.author.followerCount)} followers</>

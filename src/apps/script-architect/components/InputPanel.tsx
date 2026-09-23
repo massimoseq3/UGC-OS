@@ -311,9 +311,9 @@ export default function InputPanel({
   // Write New needs the product or the brief, since with neither the empty-brief
   // stand-in would be asking for an ad about nothing.
   const blocker = !sourceFilled
-    ? { label: 'Paste a script to remix', icon: FileText }
+    ? { label: 'Paste a Script to Remix', icon: FileText }
     : mode === 'write' && !selectedProduct && !brief.trim()
-      ? { label: 'Pick a product or write a brief', icon: Package }
+      ? { label: 'Pick a Product or Write a Brief', icon: Package }
       : null
   const canGenerate = blocker === null
 
@@ -468,7 +468,7 @@ export default function InputPanel({
                   onClick={handleOpenFinder}
                   className="text-left text-[11px] text-scripts-text transition-colors hover:text-ink-100"
                 >
-                  Add one in Bank
+                  Add One in Bank
                 </button>
               </div>
             </div>

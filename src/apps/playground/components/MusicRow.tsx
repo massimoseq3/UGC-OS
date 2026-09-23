@@ -90,7 +90,7 @@ export default function MusicRow({
 
         <div className="min-w-0 flex-1">
           <p className="truncate text-[13px] font-semibold text-ink-100" title={item.title || undefined}>
-            {item.title || 'Untitled track'}
+            {item.title || 'Untitled Track'}
           </p>
           <p className="truncate text-[11px] text-ink-500">{meta}</p>
         </div>

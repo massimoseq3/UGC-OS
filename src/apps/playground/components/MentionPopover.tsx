@@ -102,8 +102,8 @@ export default function MentionPopover({ query, onSelect, maxHeight = 280 }: Men
                 <MentionRow
                   key={b.id}
                   imageRef={b.imageUrl}
-                  title={b.prompt.slice(0, 40) || 'Untitled b-roll'}
-                  subtitle="B-roll"
+                  title={b.prompt.slice(0, 40) || 'Untitled B-Roll'}
+                  subtitle="B-Roll"
                   onClick={() => onSelect({ kind: 'broll', item: b as BRoll })}
                 />
               ))}
@@ -115,7 +115,7 @@ export default function MentionPopover({ query, onSelect, maxHeight = 280 }: Men
                 <MentionRow
                   key={s.id}
                   fallbackIcon={FileText}
-                  title={s.title || s.scriptText.slice(0, 40) || 'Untitled script'}
+                  title={s.title || s.scriptText.slice(0, 40) || 'Untitled Script'}
                   subtitle="Inserts script text"
                   onClick={() => onSelect({ kind: 'script', item: s as Script })}
                 />

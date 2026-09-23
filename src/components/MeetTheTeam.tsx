@@ -129,7 +129,7 @@ export default function MeetTheTeam() {
               onClick={close}
               className="rounded-full bg-ink px-6 py-2.5 text-sm font-medium text-paper transition-colors hover:bg-ink-100"
             >
-              Let's get to work
+              Let's Get to Work
             </button>
           </div>
         </div>
@@ -178,15 +178,14 @@ function Crew({ onVisit }: { onVisit: (appId: string) => void }) {
         </div>
       </div>
 
-      {/* The caption slot: it now carries the ROLE as well as the blurb, because
-          the role came off the cards. Eight names on one line leave ~78px each,
-          which is enough for "Ad Analyzer" and not for "Casting Director" under
-          it — and a job title that truncates names no job. Fixed height so a
-          hover never nudges the layout. */}
+      {/* The caption slot: the hovered app's name and blurb. The apps used to
+          carry persona names and job titles; those are gone (September 2026,
+          Massimo's call), so the caption leads with the app's own name. Fixed
+          height so a hover never nudges the layout. */}
       <p className="mt-3 flex min-h-[38px] items-center justify-center px-4 text-center text-[12.5px] leading-snug text-ink-400">
         {hovered ? (
           <span>
-            <span className="font-medium text-ink-200">{hovered.role}</span>
+            <span className="font-medium text-ink-200">{getAppConfig(hovered.appId)?.name}</span>
             <span className="px-1.5 text-ink-600">·</span>
             {hovered.blurb}
           </span>
@@ -232,11 +231,8 @@ function CrewCard({
       <span className="relative flex h-12 items-center rounded-2xl bg-surface-1 px-1 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:-translate-y-1">
         <AppGlassTile app={app} />
       </span>
-      {/* The name alone. The JOB it does moved into the caption slot under the
-          row when the two groups became one chain: eight cards on one line
-          leave ~78px each, and "Creative Director" clipped to "Creative Dir…"
-          names no job. The caption already followed the cursor, so the role is
-          one hover away rather than gone. */}
+      {/* The name alone; what the app does is in the caption slot under the
+          row, one hover away. */}
       <span className="w-full min-w-0">
         <span className="block truncate text-[12.5px] font-semibold tracking-tight text-ink-100">{app.name}</span>
       </span>
@@ -265,7 +261,7 @@ function KeyBlock() {
         <div className="min-w-0 flex-1">
           <p className="flex items-center gap-1.5 text-[12.5px] font-semibold tracking-tight text-ink-100">
             {done && <Check className="h-3.5 w-3.5 text-dashboard-400" strokeWidth={3} />}
-            {done ? 'Your crew is fuelled' : 'Fuel the crew with a kie.ai key'}
+            {done ? 'Your Crew Is Fuelled' : 'Fuel the Crew with a kie.ai Key'}
           </p>
           <p className="mt-0.5 text-[11.5px] leading-snug text-ink-500">
             {done
@@ -280,7 +276,7 @@ function KeyBlock() {
             rel="noopener noreferrer"
             className="hidden h-8 shrink-0 items-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.03] px-3.5 text-[12px] font-medium text-ink-200 transition-colors hover:border-ink/20 hover:bg-ink/[0.06] sm:flex"
           >
-            Get a key
+            Get a Key
             <ArrowUpRight className="h-3.5 w-3.5 text-ink-500" strokeWidth={2} />
           </a>
         )}

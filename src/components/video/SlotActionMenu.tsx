@@ -25,7 +25,7 @@ export default function SlotActionMenu({ anchorRef, open, onClose, onUpload, onP
     >
       <MenuSurface className="whitespace-nowrap">
         <MenuItem icon={Upload} onClick={() => { onClose(); onUpload() }}>
-          Upload image
+          Upload Image
         </MenuItem>
         <MenuItem icon={Bookmark} onClick={() => { onClose(); onPickFromBank() }}>
           Pick from Bank
