@@ -8,7 +8,7 @@
 
 import type { DiscoverFilters, DiscoverPlatform, DiscoverResult } from './types'
 import { runSearch, type DiscoverPage } from './services/search'
-import { fetchResultTranscript } from './services/handoff'
+import { downloadResultVideo, fetchResultTranscript, type DownloadProgress } from './services/handoff'
 import { useSettingsStore } from '../../stores/settingsStore'
 
 export interface OutliersSearchInput {
@@ -51,4 +51,34 @@ export async function transcriptForAd(
   const fetched = await fetchResultTranscript(apiKey, result, useAi)
   transcripts.set(key, fetched.text)
   return fetched
+}
+
+/**
+ * Fetches the ad's video, re-resolving the link once if it has expired.
+ *
+ * A saved row's `mediaUrl` is a signed CDN link with hours (TikTok) or days
+ * (Meta) on it, so the first attempt is free and usually fails. `refresh` costs
+ * a ScrapeCreators credit, which is why it only ever runs off the back of a
+ * real failure — never speculatively, and never on opening a card.
+ *
+ * The Swipe File's Analyze button and Flow's Ad Analyzer block both fetch a
+ * saved ad through this. Module scope on purpose: a `try`/`finally` inside a
+ * component makes the React Compiler skip the whole thing.
+ */
+export async function downloadAdVideo(
+  result: DiscoverResult,
+  refresh: () => Promise<string | null>,
+  onProgress?: (p: DownloadProgress) => void,
+): Promise<File> {
+  try {
+    if (result.videoUrl) return await downloadResultVideo(result, onProgress)
+  } catch {
+    // Expired, pulled, or region-blocked — indistinguishable from here, and the
+    // answer is the same either way: ask the platform for a current link.
+  }
+  const fresh = await refresh()
+  if (!fresh) throw new Error('This ad’s video could not be reached.')
+  // Restarts the count: the first attempt's bytes are not part of this file.
+  onProgress?.({ received: 0, total: null })
+  return await downloadResultVideo({ ...result, videoUrl: fresh }, onProgress)
 }

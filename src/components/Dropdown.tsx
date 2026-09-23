@@ -11,6 +11,7 @@ const ACCENTS = {
   broll: { border: 'border-broll-500/40', selected: 'bg-broll-500/15', check: 'text-broll-300' },
   influencers: { border: 'border-influencers-500/40', selected: 'bg-influencers-500/15', check: 'text-influencers-300' },
   playground: { border: 'border-playground-500/40', selected: 'bg-playground-500/15', check: 'text-playground-300' },
+  flow: { border: 'border-flow-500/40', selected: 'bg-flow-500/15', check: 'text-flow-300' },
   // For chrome that belongs to no app accent — Outliers' filter row sits above
   // a results grid, alongside a monochrome search field and Search button.
   neutral: { border: 'border-ink/25', selected: 'bg-ink/10', check: 'text-ink-200' },

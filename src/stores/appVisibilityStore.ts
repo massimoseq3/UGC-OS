@@ -52,8 +52,12 @@ const RESETS: Array<{ id: string; marker: string }> = [
   { id: 'discover', marker: 'ai-ugc-lab-optional-apps:reset:discover-on-2026-09' },
 ]
 
+// Flow is here while it is Experimental, and ships OFF: it is a canvas that
+// spends credits on every block at once, so a member meets it by choosing to,
+// from Settings, rather than by finding a new tile in the dock.
 export const OPTIONAL_APPS: Array<{ id: string; defaultOn: boolean }> = [
   { id: 'discover', defaultOn: true },
+  { id: 'flow', defaultOn: false },
 ]
 
 /** Optional features — not apps, so they have no dock tile or route to hide. */

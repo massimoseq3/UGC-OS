@@ -123,6 +123,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   // Continuous mode is the same deal one level down, and ships off. See
   // stores/appVisibilityStore for what each switch actually moves.
   const outliersOn = useAppVisible('discover')
+  const flowOn = useAppVisible('flow')
   const continuousOn = useFeatureEnabled('broll-continuous')
   const setOptionalEnabled = useAppVisibilityStore((s) => s.setOptionalEnabled)
 
@@ -590,6 +591,14 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     hint="Ad research: the Outlier Vault, plus TikTok and Meta Ad Library search. Off hides the Bank's Swipe File tab too. Nothing is deleted."
                     checked={outliersOn}
                     onChange={(next) => setOptionalEnabled('discover', next)}
+                  />
+                </Card>
+                <Card>
+                  <ToggleRow
+                    label="Flow"
+                    hint="Wire your apps into one run on a canvas: scripts, voiceovers and B-Roll for a batch of ads in one press. Runs while UGC OS is open. Off hides its dock tile. Nothing is deleted."
+                    checked={flowOn}
+                    onChange={(next) => setOptionalEnabled('flow', next)}
                   />
                 </Card>
                 <Card>

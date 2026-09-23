@@ -34,6 +34,7 @@ const ACCENTS = {
   green: { frame: 'border-green-400/60 bg-green-500/10', pill: 'text-green-200' },
   emerald: { frame: 'border-emerald-400/60 bg-emerald-500/10', pill: 'text-emerald-200' },
   analyzer: { frame: 'border-[#FF5257]/60 bg-[#FF5257]/10', pill: 'text-[#FF5257]' },
+  flow: { frame: 'border-flow-400/60 bg-flow-500/10', pill: 'text-flow-200' },
 } as const
 
 export type DropOverlayAccent = keyof typeof ACCENTS

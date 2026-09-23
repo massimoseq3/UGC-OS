@@ -17,6 +17,7 @@ export type CrabVariant =
   | 'edit-studio'
   | 'ad-anatomy'
   | 'discover'
+  | 'flow'
 
 interface Px {
   x: number
@@ -143,6 +144,16 @@ const COSTUMES: Record<CrabVariant, Px[]> = {
     { x: 5, y: 2, w: 5, h: 1, fill: '#D9A404' }, // dish rim
     { x: 6, y: 1, w: 3, h: 1, fill: '#D9A404' }, // dish bowl
     { x: 11, y: 0, w: 1, h: 1, fill: '#FFD84D' }, // the ping it just caught
+  ],
+
+  // Flow — a conductor's cap with a wire running out of it to a node, in a
+  // deep Flow cyan (see the Voiceovers cups note on why hat colours sit darker
+  // than their accent).
+  flow: [
+    { x: 4, y: 2, w: 8, h: 1, fill: '#0E7490' }, // crown
+    { x: 3, y: 3, w: 10, h: 1, fill: '#155E75' }, // brim
+    { x: 12, y: 1, w: 1, h: 1, fill: '#0E7490' }, // wire
+    { x: 13, y: 0, w: 2, h: 1, fill: '#22D3EE' }, // the node it runs to
   ],
 
 }

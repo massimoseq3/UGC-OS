@@ -12,6 +12,16 @@ const EXT_BY_MIME: Record<string, string> = {
   'image/png': 'png',
   'image/jpeg': 'jpg',
   'image/webp': 'webp',
+  // Voiceovers and music — Flow's Edit Pack zips both beside the clips.
+  'audio/mpeg': 'mp3',
+  'audio/mp3': 'mp3',
+  'audio/wav': 'wav',
+  'audio/x-wav': 'wav',
+  'audio/wave': 'wav',
+  'audio/mp4': 'm4a',
+  'audio/aac': 'aac',
+  'audio/ogg': 'ogg',
+  'audio/webm': 'webm',
 }
 
 function extFor(blob: Blob, fallback: string): string {
@@ -19,13 +29,23 @@ function extFor(blob: Blob, fallback: string): string {
   return EXT_BY_MIME[base] ?? fallback
 }
 
-export interface ZipEntry {
-  // Asset ref (`asset://…` or bare id) resolved through the asset store.
-  ref: string
-  // File name inside the zip, WITHOUT extension — the real extension is picked
-  // from the blob's mime type. Kept unique by the caller (add an index).
-  name: string
-}
+export type ZipEntry =
+  | {
+      // Asset ref (`asset://…` or bare id) resolved through the asset store.
+      ref: string
+      // File name inside the zip, WITHOUT extension — the real extension is
+      // picked from the blob's mime type. Kept unique by the caller (add an
+      // index). A `/` in it makes a folder.
+      name: string
+      // The extension when the blob's type names none this file knows.
+      fallbackExt?: string
+    }
+  | {
+      // A text file written as it is — Flow's Edit Pack script. Its `name`
+      // carries its own extension.
+      text: string
+      name: string
+    }
 
 // Zips every resolvable entry and triggers a download. Returns the count that
 // actually made it in — the caller can warn when some assets couldn't load
@@ -44,9 +64,14 @@ export async function downloadAssetsZip(
   const zip = new JSZip()
   let added = 0
   for (const entry of entries) {
+    if ('text' in entry) {
+      zip.file(entry.name, entry.text)
+      added += 1
+      continue
+    }
     const blob = await getBlob(entry.ref)
     if (!blob) continue
-    zip.file(`${entry.name}.${extFor(blob, fallbackExt)}`, blob)
+    zip.file(`${entry.name}.${extFor(blob, entry.fallbackExt ?? fallbackExt)}`, blob)
     added += 1
   }
   if (added === 0) throw new Error('None of the clips could be loaded to download.')

@@ -26,6 +26,12 @@ interface GenerateBarProps {
   batchCount: number
   onBatchCountChange: (value: number) => void
   inFlightCount: number
+  // Flow's Characters block carries a model of its own and runs rather than
+  // generates: a controlled model that isn't saved to the app, and the
+  // button's own words. Characters passes neither.
+  modelId?: string
+  onModelChange?: (modelId: string) => void
+  actionLabel?: string
 }
 
 // Aspect options offered by the dropdown. Stored values may be legacy verbose
@@ -62,9 +68,12 @@ export default function GenerateBar({
   batchCount,
   onBatchCountChange,
   inFlightCount,
+  modelId,
+  onModelChange,
+  actionLabel,
 }: GenerateBarProps) {
   const persistedModel = useSettingsStore((s) => s.getAppModel('character-studio:image:text-to-image'))
-  const selectedModelId = persistedModel ?? getDefaultModel('character-studio', 'image', 'text-to-image')?.id
+  const selectedModelId = modelId ?? persistedModel ?? getDefaultModel('character-studio', 'image', 'text-to-image')?.id
   const count = clampBatchCount(batchCount)
   // Every image model's priceFor already multiplies by imageCount, so the
   // button's figure is the real cost of the whole run rather than one tile's.
@@ -125,6 +134,9 @@ export default function GenerateBar({
             mode="text-to-image"
             large
             costParams={{ imageCount: 1, resolution }}
+            value={modelId}
+            onChange={onModelChange}
+            persist={!onModelChange}
           />
         </div>
         <div className="flex min-w-0 flex-1 items-center gap-2 @max-[520px]:basis-full">
@@ -212,9 +224,9 @@ export default function GenerateBar({
       >
         {sheetMode ? <LayoutGrid className="h-4 w-4" strokeWidth={2.5} /> : <UserRound className="h-4 w-4" strokeWidth={2.5} />}
         <span>
-          {sheetMode
+          {actionLabel ?? (sheetMode
             ? (count === 1 ? 'Generate Character Sheet' : `Generate ${count} Character Sheets`)
-            : (count === 1 ? 'Generate Character' : `Generate ${count} Characters`)}
+            : (count === 1 ? 'Generate Character' : `Generate ${count} Characters`))}
           {inFlightCount > 0 && ` · ${inFlightCount} running`}
         </span>
         {creditsLabel && (

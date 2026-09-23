@@ -43,7 +43,7 @@ interface SegmentedToggleProps<T extends string> {
 
 // 'products' maps to the gold family (sky blue #0EA5E9, the product accent);
 // 'voice'/'broll' map to their app families. Keyed by intent, not family name.
-export type SegmentedAccent = 'ink' | 'scripts' | 'influencers' | 'products' | 'voice' | 'broll' | 'playground' | 'outliers'
+export type SegmentedAccent = 'ink' | 'scripts' | 'influencers' | 'products' | 'voice' | 'broll' | 'playground' | 'outliers' | 'flow'
 
 // Active-pill fill + the active label color that reads on top of it. Literal
 // class strings (Tailwind can't build names from props at runtime).
@@ -62,6 +62,7 @@ const ACCENT_INDICATOR: Record<SegmentedAccent, string> = {
   // family kept its name when the hex moved off the original gold; renaming it
   // would touch every product-tinted class in the app for no behaviour change.
   outliers: 'bg-[#D9A404]/10 ring-1 ring-inset ring-[#D9A404]/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]',
+  flow: 'bg-flow-500/10 ring-1 ring-inset ring-flow-500/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]',
 }
 const ACCENT_ACTIVE_TEXT: Record<SegmentedAccent, string> = {
   ink: 'text-ink-100',
@@ -76,6 +77,7 @@ const ACCENT_ACTIVE_TEXT: Record<SegmentedAccent, string> = {
   // #D9A404 is 2.32:1 on a white surface — fine as a fill, unreadable as a
   // label, so light mode takes a darker gold (5.07:1).
   outliers: 'text-[#D9A404] light:text-[#8A6A00]',
+  flow: 'text-flow-300',
 }
 
 // Rounded pill segmented control — the house replacement for the old

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Product, Model, Script, VoicePreset, BRoll, StylePreset, SwipeItem, TrackedAccount, PlaygroundProject, VoiceHistoryItem, VideoHistoryItem, ImageHistoryItem, MusicHistoryItem, ScriptHistoryItem, BrollHistoryItem, CharacterHistoryItem, AdAnatomyHistoryItem, AppUsageStat, UsageDay, UsageKind } from './types'
+import type { Product, Model, Script, VoicePreset, BRoll, StylePreset, SwipeItem, TrackedAccount, PlaygroundProject, FlowRow, VoiceHistoryItem, VideoHistoryItem, ImageHistoryItem, MusicHistoryItem, ScriptHistoryItem, BrollHistoryItem, CharacterHistoryItem, AdAnatomyHistoryItem, AppUsageStat, UsageDay, UsageKind } from './types'
 import { isAssetRef, assetIdFromRef, deleteAsset, saveFromDataUrl } from '../utils/assetStore'
 import { useAuthStore } from './authStore'
 import { isCloudEnabled } from '../lib/supabase'
@@ -25,6 +25,7 @@ interface BankState {
   swipes: SwipeItem[]
   trackedAccounts: TrackedAccount[]
   projects: PlaygroundProject[]
+  flows: FlowRow[]
   voiceHistory: VoiceHistoryItem[]
   videoHistory: VideoHistoryItem[]
   imageHistory: ImageHistoryItem[]
@@ -101,6 +102,13 @@ interface BankState {
   addProject: (name: string) => Promise<string>
   renameProject: (id: string, name: string) => Promise<BankActionResult>
   deleteProject: (id: string) => Promise<BankActionResult>
+
+  // Flow's canvases (apps/flow). One action writes a whole row — the editor
+  // debounces its saves, since every push sends the row entire. Deleting a
+  // flow never touches what its runs made; see the action.
+  saveFlow: (row: FlowRow) => void
+  deleteFlow: (id: string) => void
+  getFlowById: (id: string) => FlowRow | undefined
 
   // Star toggle — the starrable banks share one action. Starred items
   // surface first in the bank pickers.
@@ -230,7 +238,7 @@ function generateId(): string {
   return crypto.randomUUID()
 }
 
-export type BankData = Pick<BankState, 'products' | 'models' | 'scripts' | 'voices' | 'brolls' | 'styles' | 'swipes' | 'trackedAccounts' | 'projects' | 'voiceHistory' | 'videoHistory' | 'imageHistory' | 'musicHistory' | 'scriptHistory' | 'brollHistory' | 'characterHistory' | 'adAnatomyHistory' | 'usageDays'>
+export type BankData = Pick<BankState, 'products' | 'models' | 'scripts' | 'voices' | 'brolls' | 'styles' | 'swipes' | 'trackedAccounts' | 'projects' | 'flows' | 'voiceHistory' | 'videoHistory' | 'imageHistory' | 'musicHistory' | 'scriptHistory' | 'brollHistory' | 'characterHistory' | 'adAnatomyHistory' | 'usageDays'>
 
 function migrateVoiceShape<T>(arr: unknown): T[] {
   if (!Array.isArray(arr)) return []
@@ -266,6 +274,7 @@ const EMPTY_BANKS: BankData = {
   swipes: [],
   trackedAccounts: [],
   projects: [],
+  flows: [],
   voiceHistory: [],
   videoHistory: [],
   imageHistory: [],
@@ -340,6 +349,7 @@ function normalizeBanks(source: unknown): BankData {
         swipes: dedupeById(Array.isArray(parsed.swipes) ? parsed.swipes : []),
         trackedAccounts: dedupeById(Array.isArray(parsed.trackedAccounts) ? parsed.trackedAccounts : []),
         projects: dedupeById(Array.isArray(parsed.projects) ? parsed.projects : []),
+        flows: dedupeById(Array.isArray(parsed.flows) ? parsed.flows : []),
         voiceHistory: dedupeById(migrateVoiceShape<VoiceHistoryItem>(parsed.voiceHistory)),
         videoHistory: dedupeById(Array.isArray(parsed.videoHistory) ? parsed.videoHistory : []),
         imageHistory: dedupeById(Array.isArray(parsed.imageHistory) ? parsed.imageHistory : []),
@@ -1086,6 +1096,39 @@ export const useBankStore = create<BankState>((set, get) => ({
     dropRow('projects', id)
     reportSuccess(`Project "${project.name}" deleted. Its generations stay in All Generations`)
   },
+
+  // ── Flows ────────────────────────────────────────────────────────
+  // Silent, both ways: the editor autosaves as the member works, and the
+  // canvas they're looking at is the confirmation. A save keeps the row's
+  // place in the list (newest-first by createdAt), so a flow being edited
+  // doesn't jump to the top of Your Flows on every keystroke.
+  saveFlow: (row) => {
+    set((state) => {
+      const exists = state.flows.some((f) => f.id === row.id)
+      const next = { flows: exists ? state.flows.map((f) => (f.id === row.id ? row : f)) : prependRow(row, state.flows) }
+      saveToStorage({ ...state, ...next })
+      return next
+    })
+    pushRow('flows', row)
+  },
+
+  // Deletes the CANVAS, never what its runs made: the history rows keep a
+  // `flowId` that no longer resolves. Assets only the flow referenced (images
+  // dropped onto it) are left for the orphan sweep, which knows they're
+  // unreferenced once this row is gone.
+  deleteFlow: (id) => {
+    const flow = get().flows.find((f) => f.id === id)
+    if (!flow) return
+    set((state) => {
+      const next = { flows: state.flows.filter((f) => f.id !== id) }
+      saveToStorage({ ...state, ...next })
+      return next
+    })
+    dropRow('flows', id)
+    reportSuccess(`Flow "${flow.name}" deleted. What it made stays in each app's history`)
+  },
+
+  getFlowById: (id) => get().flows.find((f) => f.id === id),
 
   // ── Star toggle ──────────────────────────────────────────────────
   // Deliberately silent (no toast): starring is a lightweight pin, not a

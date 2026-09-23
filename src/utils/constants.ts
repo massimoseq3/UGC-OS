@@ -13,6 +13,7 @@ import {
   Scissors,
   Palette,
   Radar,
+  Workflow,
 } from 'lucide-react'
 import type { ElementType } from 'react'
 
@@ -32,8 +33,9 @@ export const SKOOL_ACCESS_CODE_URL = 'https://www.skool.com/ugcos/classroom/b354
 export const AI_UGC_ACADEMY_URL = 'https://www.skool.com/ugcos/classroom/bd64d8bd?md=667c539f37fb4b11a832c3ad705cd4c8'
 
 // 'system' is the Dashboard's own leading dock group (its divider separates it
-// from Bank); admin never renders in the dock.
-export type AppCategory = 'library' | 'create' | 'deliver' | 'tools' | 'admin' | 'system'
+// from Bank); admin never renders in the dock. 'automate' is Flow's group: it
+// wires the whole row into one run, so it sits after Edit, where the row ends.
+export type AppCategory = 'library' | 'create' | 'deliver' | 'automate' | 'tools' | 'admin' | 'system'
 
 export interface AppConfig {
   id: string
@@ -64,6 +66,11 @@ export const APP_REGISTRY: AppConfig[] = [
   // runs locally. Its position in the row is unchanged; the hairline is the
   // only thing the group adds.
   { id: 'edit-studio', name: 'Edit', icon: Scissors, accent: '#F77646', category: 'deliver' },
+  // Flow runs the apps to its left as blocks on a canvas, so its group comes
+  // last: it is the production line automated, not another stop on it. Cyan
+  // is the one hue the dock didn't already use. Experimental, and off until a
+  // member switches it on (stores/appVisibilityStore).
+  { id: 'flow', name: 'Flow', icon: Workflow, accent: '#0891B2', category: 'automate' },
   // Tools sit in their own fenced group between Bank and the Create row — a
   // divider on each side — because research is what happens before the
   // production line, not after it. Outliers leads the group because the loop
@@ -80,6 +87,7 @@ export const CATEGORY_LABELS: Record<AppCategory, string> = {
   library: 'Library',
   create: 'Create',
   deliver: 'Deliver',
+  automate: 'Automate',
   tools: 'Tools',
   admin: 'Admin',
   system: 'System',
@@ -104,7 +112,7 @@ export const BANK_CONFIG: Record<BankType, { label: string; icon: ElementType; a
 // the crew out as ONE chain, and the intro promising an order the dock doesn't
 // keep is exactly the drift this prevents. `admin` is absent on purpose: it
 // never renders in the dock.
-export const SECTION_ORDER: AppCategory[] = ['system', 'library', 'tools', 'create', 'deliver']
+export const SECTION_ORDER: AppCategory[] = ['system', 'library', 'tools', 'create', 'deliver', 'automate']
 
 /** Every dock app, flattened into the exact left-to-right order the dock lays out. */
 export function dockOrderedApps(): AppConfig[] {

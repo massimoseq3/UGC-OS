@@ -12,17 +12,16 @@ import { GeneratingMediaFill } from '../../../components/GeneratingMedia'
 import { ANIMATE_MESSAGES } from '../../../components/generatingMessages'
 import type { PromptVariation, CardState, GeneratedImage, ReferenceImage, BatchVideoSettings } from '../types'
 import type { Product, Model, BRoll } from '../../../stores/types'
-import { enhanceVariationPrompt, generateNewVariation, resolveImageModelId } from '../services/generateBroll'
-import { attachProductAngles, productRefsForSelection } from '../services/productAngles'
-import { brollStillRunner, brollClipRunner, planBrollClip, type BrollClipInput, type BrollClipTask } from '../runner'
+import { enhanceVariationPrompt, generateNewVariation } from '../services/generateBroll'
+import { animateMode, brollStillRunner, brollClipRunner, cardStillRefs, planBrollClip, stillDataUri, type BrollClipInput, type BrollClipTask } from '../runner'
 import { cardClipSeconds } from '../services/clipDuration'
 import { claimTask, releaseTask } from '../services/taskRegistry'
 import { isPollTimeout } from '../../../utils/kie'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAppStore } from '../../../stores/appStore'
 import { useAssetUrl, useAssetPoster, posterVideoProps, posterPending } from '../../../hooks/useAssetUrl'
-import { getAsBase64, getUrl, isAssetRef } from '../../../utils/assetStore'
-import { getModel, getDefaultModel, type VideoMode, type ImageResolution } from '../../../utils/models'
+import { getUrl } from '../../../utils/assetStore'
+import { getDefaultModel, type VideoMode, type ImageResolution } from '../../../utils/models'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import CardDetailModal, { type Tab as DetailTab } from './CardDetailModal'
 import { humanizeError } from '../../../utils/friendlyError'
@@ -233,33 +232,19 @@ export default function VariationCard(props: VariationCardProps) {
   // (cardState.refsCharacter / refsProduct), which the user controls via
   // the tick-circle button in each ReferenceSlotCard.
   //
-  // Which of the product's photos this card sends. The storyboard picked the
-  // state the shot is in (sealed wrapper / unwrapped / open box); the member can
-  // re-tick it in the modal's photo strip. First pick is THE product reference,
-  // any others ride behind it as angles.
-  const { product: pickedProductRef, angles: pickedAngles } = productRefsForSelection(
-    productPhotos ?? [],
-    cardState.productPhotos,
-  )
-
   // `modelId` is the model the request will really run on — it decides how many
   // of the extra angles fit. Omitted (image gens) → the resolved image model.
-  // Nothing the user chose is ever dropped; only the auto angles are clamped.
-  const buildCardRefs = (modelId?: string): ReferenceImage[] => {
-    const out: ReferenceImage[] = []
-    const productOn = !!productRef && cardState.refsProduct !== false
-    if (characterRef && cardState.refsCharacter !== false) out.push(characterRef)
-    if (productOn && pickedProductRef) out.push(pickedProductRef)
-    // Any extra references the user attached in the modal ride along too.
-    out.push(...extraRefs)
-    return attachProductAngles({
-      manual: out,
-      angles: productOn ? pickedAngles : [],
-      modelId: modelId ?? resolveImageModelId(true),
-      // A chained DIALOGUE card prepends the previous cut at fire time.
-      reserved: chainRef ? 1 : 0,
+  // What a card attaches is decided in the runner (cardStillRefs), so Flow's
+  // B-Roll block attaches the same.
+  const buildCardRefs = (modelId?: string): ReferenceImage[] =>
+    cardStillRefs({
+      characterRef,
+      productPhotos: productRef ? productPhotos ?? [] : [],
+      card: cardState,
+      extraRefs,
+      modelId,
+      chained: !!chainRef,
     })
-  }
 
   // Push a new entry onto the prompt undo/redo stack, trimming any forward
   // redo branch. Reads the card's LIVE history rather than this render's copy:
@@ -533,12 +518,7 @@ export default function VariationCard(props: VariationCardProps) {
     }
   }
 
-  const toDataUri = async (ref: string): Promise<string | null> => {
-    if (!isAssetRef(ref)) return ref
-    const asset = await getAsBase64(ref)
-    if (!asset) return null
-    return `data:${asset.mimeType};base64,${asset.base64}`
-  }
+  const toDataUri = stillDataUri
 
   // Non-blocking parallel video generation. Same shape as image gen — push
   // to `inFlightVideos`, fire-and-forget, completion appends to `videos`.
@@ -718,10 +698,10 @@ export default function VariationCard(props: VariationCardProps) {
     // Use the image however the picked model can: as a true start frame when it
     // supports image-to-video, otherwise as a reference image for a
     // reference-to-video model. Either way the chosen still drives the clip.
-    const modes = (videoModelId ? getModel(videoModelId)?.modes : undefined) ?? []
-    if (modes.includes('image-to-video')) {
+    const mode = animateMode(videoModelId)
+    if (mode === 'image-to-video') {
       await runVideoTask('image-to-video', dataUri, undefined, videoModelId, startFrameRef, batchSettings, animatePrompt)
-    } else if (modes.includes('reference-to-video')) {
+    } else if (mode === 'reference-to-video') {
       await runVideoTask('reference-to-video', undefined, [dataUri], videoModelId, startFrameRef, batchSettings, animatePrompt)
     } else {
       useAppStore.getState().addToast("This model can't animate a still. Pick one that takes a start frame or reference images.", 'error')

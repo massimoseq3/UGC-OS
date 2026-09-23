@@ -39,6 +39,10 @@ export const TEAM: TeamMember[] = [
     blurb: 'Cuts your script, voiceover and B-roll into a finished captioned ad.',
   },
   {
+    appId: 'flow',
+    blurb: 'Wires the whole team into one run, so a single press makes a batch of finished ads.',
+  },
+  {
     appId: 'discover',
     blurb: 'Finds the ads already winning and files them in your swipe file.',
   },
