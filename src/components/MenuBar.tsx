@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ArrowUpRight, Coins, Flame, Moon, RefreshCw, Sun } from 'lucide-react'
 import { useAppStore } from '../stores/appStore'
@@ -11,8 +11,7 @@ import { getAppConfig, SKOOL_COMMUNITY_URL } from '../utils/constants'
 import { computeUsageMetrics } from '../utils/usage'
 import { creditsToUsd } from '../utils/models'
 import AppLogo from './AppLogo'
-import SettingsModal from './SettingsModal'
-import ApiKeyGuide from './ApiKeyGuide'
+import { ApiKeyGuide, MountOnce, SettingsModal } from './LazyOverlays'
 
 // Thin macOS-style menu bar: branding + the active app's name on the left,
 // credits balance + external quick links + the theme toggle on the right. Pure chrome —
@@ -176,17 +175,21 @@ function CreditsItem() {
         </button>
         {guideOpen &&
           createPortal(
-            <ApiKeyGuide
-              onClose={() => setGuideOpen(false)}
-              onOpenSettings={() => {
-                setGuideOpen(false)
-                setSettingsOpen(true)
-              }}
-            />,
+            <Suspense fallback={null}>
+              <ApiKeyGuide
+                onClose={() => setGuideOpen(false)}
+                onOpenSettings={() => {
+                  setGuideOpen(false)
+                  setSettingsOpen(true)
+                }}
+              />
+            </Suspense>,
             document.body,
           )}
         {createPortal(
-          <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />,
+          <MountOnce when={settingsOpen}>
+            <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+          </MountOnce>,
           document.body,
         )}
       </>

@@ -3,7 +3,6 @@
 // files. Blobs come from the IndexedDB asset store (mirrored to R2), so this
 // works offline once the assets are cached.
 
-import JSZip from 'jszip'
 import { getBlob } from './assetStore'
 
 const EXT_BY_MIME: Record<string, string> = {
@@ -37,6 +36,11 @@ export async function downloadAssetsZip(
   zipBasename: string,
   fallbackExt = 'mp4',
 ): Promise<number> {
+  // Fetched on the press, not imported at the top: this module rides in the
+  // chunk B-Roll and Playground share with the model picker and the lightbox,
+  // so a static import put ~95 KB of zip library on the first open of both
+  // for a button most sessions never press.
+  const { default: JSZip } = await import('jszip')
   const zip = new JSZip()
   let added = 0
   for (const entry of entries) {

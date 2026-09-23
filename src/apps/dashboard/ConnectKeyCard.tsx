@@ -1,8 +1,7 @@
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { ChevronRight, Zap } from 'lucide-react'
-import SettingsModal from '../../components/SettingsModal'
 import { GlassTile } from '../../components/AppGlassTile'
-import ApiKeyGuide from '../../components/ApiKeyGuide'
+import { ApiKeyGuide, MountOnce, SettingsModal } from '../../components/LazyOverlays'
 import { WIDGET_SHELL, WIDGET_INTERACTIVE, riseStyle } from './widgetStyles'
 
 // The first step, staged as a macOS notification banner across the top of the
@@ -46,15 +45,19 @@ export default function ConnectKeyCard() {
       </button>
 
       {guideOpen && (
-        <ApiKeyGuide
-          onClose={() => setGuideOpen(false)}
-          onOpenSettings={() => {
-            setGuideOpen(false)
-            setSettingsOpen(true)
-          }}
-        />
+        <Suspense fallback={null}>
+          <ApiKeyGuide
+            onClose={() => setGuideOpen(false)}
+            onOpenSettings={() => {
+              setGuideOpen(false)
+              setSettingsOpen(true)
+            }}
+          />
+        </Suspense>
       )}
-      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <MountOnce when={settingsOpen}>
+        <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      </MountOnce>
     </>
   )
 }
