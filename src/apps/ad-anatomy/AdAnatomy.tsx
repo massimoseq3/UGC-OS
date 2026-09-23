@@ -10,8 +10,9 @@ import type { AnalysisResult } from './types'
 import type { AdAnatomyHistoryItem, DiscoverVideoPayload } from '../../stores/types'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
 import { useAssetUrl } from '../../hooks/useAssetUrl'
-import { saveAsset, deleteAsset } from '../../utils/assetStore'
-import { enqueueAnalysis, resumeAnalysis, retryAnalysis } from './services/analysisQueue'
+import { deleteAsset } from '../../utils/assetStore'
+import { resumeAnalysis, retryAnalysis } from './services/analysisQueue'
+import { adAnalysisRunner } from './runner'
 import { useBankStore } from '../../stores/bankStore'
 import { useAppStore } from '../../stores/appStore'
 import { useReportActivity } from '../../stores/activityStore'
@@ -57,7 +58,6 @@ export default function AdAnatomy() {
   // Pulse the dock dot while any analysis row is still working.
   useReportActivity('ad-anatomy', adAnatomyHistory.some((h) => h.status === 'analyzing'))
 
-  const addAdAnatomyHistory = useBankStore((s) => s.addAdAnatomyHistory)
   const updateAdAnatomyHistory = useBankStore((s) => s.updateAdAnatomyHistory)
   const deleteAdAnatomyHistory = useBankStore((s) => s.deleteAdAnatomyHistory)
 
@@ -187,22 +187,10 @@ export default function AdAnatomy() {
     let firstId: string | null = null
     for (const file of files) {
       try {
-        // Source ad blob is local-only: kept in IndexedDB for playback, never
-        // mirrored to R2. Evicted by the mount-time TTL sweep after 14 days.
-        const uploadedRef = await saveAsset(file, file.type, { skipCloud: true })
-        const id = crypto.randomUUID()
-        const item: AdAnatomyHistoryItem = {
-          id,
-          createdAt: Date.now(),
-          status: 'analyzing',
-          adTitle: '',
-          fileName: file.name,
-          mediaKind: file.type.startsWith('image/') ? 'image' : 'video',
-          uploadedRef,
-        }
-        await addAdAnatomyHistory(item)
-        enqueueAnalysis(id, file)
-        if (firstId === null) firstId = id
+        // The runner writes the 'analyzing' row and queues the job; the row is
+        // what this pane watches from here on.
+        const { rowId } = await adAnalysisRunner.start({ file })
+        if (firstId === null) firstId = rowId
       } catch (e) {
         console.warn('[ad-anatomy] failed to enqueue analysis for', file.name, e)
       }

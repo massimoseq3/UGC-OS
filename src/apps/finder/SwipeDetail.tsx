@@ -14,10 +14,10 @@ import { swipeToResult } from '../discover/services/swipe'
 import { refreshResultMedia } from '../discover/services/search'
 import {
   downloadResultVideo,
-  fetchResultTranscript,
   saveVideoFileToDisk,
   type DownloadProgress,
 } from '../discover/services/handoff'
+import { transcriptForAd } from '../discover/runner'
 import { useAssetUrl } from '../../hooks/useAssetUrl'
 import { useAppStore } from '../../stores/appStore'
 import { useBankStore } from '../../stores/bankStore'
@@ -170,7 +170,7 @@ export default function SwipeDetail({ item, onClose }: SwipeDetailProps) {
     }
     setTranscript({ phase: 'loading' })
     try {
-      const { text } = await fetchResultTranscript(apiKey, result, useAi)
+      const { text } = await transcriptForAd(result, useAi, apiKey)
       setTranscript(text.trim() ? { phase: 'ready', text } : { phase: 'empty' })
       // Kept on the row, so this is paid for once and not once a visit.
       if (text.trim()) void updateSwipe(item.id, { transcript: text })
