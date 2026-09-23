@@ -126,7 +126,7 @@ export default function Dashboard() {
                 they need — connecting it — takes the instrument's place rather
                 than adding a row that pushes the page under the dock. */}
             {needsKey ? (
-              <div className="w-full lg:w-[620px] lg:shrink-0">
+              <div className="flex w-full lg:w-auto lg:shrink-0">
                 <ConnectKeyCard />
               </div>
             ) : (
