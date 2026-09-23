@@ -2278,14 +2278,14 @@ function SceneSection({
                 prompts, so a dialogue card says the new sentence without a
                 regeneration. Read-only when the host doesn't hand us a handler.
 
-                **Geist Light**, the app's own sans, upright (September 2026,
+                **The system sans, Light**, the app's own face, upright (September 2026,
                 Massimo's call, after a run as Instrument Serif italic). The
                 numeral over it stays the serif: it is the ornament, the line is
-                the words. `font-light` is a real cut here (Geist ships 300), not
-                a synthesized one. 18px here, 15px in the detail modals — the
+                the words. `font-light` is a real cut here (SF Pro and Segoe UI both
+                ship 300), not a synthesized one. 18px here, 15px in the detail modals — the
                 serif sat a step larger only because its x-height reads small.
 
-                `tracking-tight`, because Geist wants tightening where the serif
+                `tracking-tight`, because the sans wants tightening where the serif
                 wanted loosening — the number belongs to the face, not to the
                 taste. `leading-tight` because a quote that wraps should read as
                 one block, not as two lines. `text-ink-300` (#D4D4D8), with no
