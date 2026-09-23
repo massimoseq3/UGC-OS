@@ -15,7 +15,8 @@ import { getUrl } from '../../../utils/assetStore'
 import { downloadImage } from '../../../utils/downloadImage'
 import { copyToClipboard } from '../../../utils/clipboard'
 import { humanizeError } from '../../../utils/friendlyError'
-import type { CharacterHistoryItem, BRoll, AnyBankItem } from '../../../stores/types'
+import type { CharacterHistoryItem, BRoll, AnyBankItem, Lineage } from '../../../stores/types'
+import { lineageOf } from '../../../utils/blockRunner'
 import {
   getModel,
   getDefaultModel,
@@ -95,6 +96,8 @@ interface UploadedRef {
   // is ephemeral anyway).
   url: string
   name: string
+  // The Bank row a picked reference came from; uploads have none.
+  parent?: Lineage
 }
 
 interface InfluencerEditModalProps {
@@ -358,10 +361,21 @@ export default function InfluencerEditModal({
   function handlePickFromBank(item: AnyBankItem) {
     let url: string | undefined
     let name = 'Reference'
-    if ('productImage' in item) { url = item.productImage; name = item.productName }
-    else if ('characterImage' in item) { url = item.sheetImage || item.characterImage; name = item.name }
-    else if ('imageUrl' in item) { url = (item as BRoll).imageUrl; name = (item as BRoll).prompt || 'B-Roll' }
-    if (url) setRefs((prev) => (prev.length >= MAX_REFS ? prev : [...prev, { url: url as string, name }]))
+    let parent: Lineage | undefined
+    if ('productImage' in item) { url = item.productImage; name = item.productName; parent = { bank: 'products', id: item.id } }
+    else if ('characterImage' in item) { url = item.sheetImage || item.characterImage; name = item.name; parent = { bank: 'models', id: item.id } }
+    else if ('imageUrl' in item) { url = (item as BRoll).imageUrl; name = (item as BRoll).prompt || 'B-Roll'; parent = { bank: 'brolls', id: item.id } }
+    if (url) setRefs((prev) => (prev.length >= MAX_REFS ? prev : [...prev, { url: url as string, name, parent }]))
+  }
+
+  // What a gen launched from here is made from: the output it starts from,
+  // the saved style it's rendered in, and any Bank references.
+  function launchParents(base: SessionOutput): Lineage[] | undefined {
+    return lineageOf(
+      { bank: 'characterHistory', id: base.id },
+      styleActive && styleBrief && styleBankId ? { bank: 'styles', id: styleBankId } : null,
+      refs.map((r) => r.parent),
+    )
   }
 
   // A finished gen does NOT become the new cover. It lands at the head of the
@@ -434,6 +448,7 @@ export default function InfluencerEditModal({
         baseImageRef: selected.imageRef,
         referenceUrls: refs.map((r) => r.url),
       },
+      parents: launchParents(selected),
     })
     // Clear the box for the next instruction, but park the fired one in history
     // so Undo brings it straight back.
@@ -461,6 +476,7 @@ export default function InfluencerEditModal({
       styleName: styleActive ? styleLabel : undefined,
       direction,
       extraReferenceUrls: refs.map((r) => r.url),
+      parents: launchParents(selected),
     })
   }
 

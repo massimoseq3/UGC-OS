@@ -1,6 +1,7 @@
 import type { ElementType } from 'react'
 import { IdCard, Eye, Scissors, Smile, Shirt, MapPin, PersonStanding, Camera } from 'lucide-react'
 import type { ImageResolution } from '../../utils/models'
+import type { Lineage, Provenance } from '../../stores/types'
 
 export type TabId = 'physical' | 'scene' | 'camera'
 
@@ -38,6 +39,9 @@ export interface InFlightCharacterGen {
   // characterHistory, and both carry the stamp.
   batchId?: string
   batchIndex?: number
+  // What the gen was made from (see Lineage in stores/types.ts), carried so a
+  // gen resumed after a reload still stamps its history row.
+  provenance?: Provenance
 }
 
 // Everything a caller needs to kick off a generation through CharacterStudio's
@@ -66,6 +70,9 @@ export interface LaunchGenOptions {
     baseImageRef: string
     referenceUrls: string[]
   }
+  // The rows this gen is made from — the portrait an edit or sheet starts
+  // from, a saved style, Bank references — stamped on the finished row.
+  parents?: Lineage[]
 }
 
 // The single style string used for Camera Device — keeps every generated

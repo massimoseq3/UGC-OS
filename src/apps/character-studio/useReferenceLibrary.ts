@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { usePersistedState } from '../../hooks/usePersistedState'
 import { humanizeError } from '../../utils/friendlyError'
-import { analyzeImage } from './services/analyzeImage'
-import { flattenDna, profileFromFlat, type CharacterRefItem } from './types'
+import { extractCharacterProfile } from './runner'
+import type { CharacterRefItem } from './types'
 import { makeThumbnail } from './utils/thumbnail'
 
 export const ACCEPTED_REF_TYPES = ['image/jpeg', 'image/png', 'image/webp']
@@ -72,7 +72,7 @@ export function useReferenceLibrary(
   const analyze = useCallback(async (id: string, file: File) => {
     setAnalyzingIds((prev) => (prev.includes(id) ? prev : [...prev, id]))
     try {
-      const profile = profileFromFlat(flattenDna(await analyzeImage(file)))
+      const profile = await extractCharacterProfile(file)
       setItems((prev) => prev.map((it) => (it.id === id ? { ...it, profile, error: undefined } : it)))
       return profile
     } catch (err) {

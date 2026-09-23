@@ -39,8 +39,9 @@ export interface BlockRunner<Input, Task, Output> {
   finish(task: Task, ctx?: Pick<RunContext, 'signal'>): Promise<Output>
   // Recording Mode's stand-in for start + finish: wait out the replay length,
   // then reveal the oldest hidden row of the bank this input would have
-  // landed in. Spends nothing. `extraMs` staggers a batch.
-  replay(input: Input, opts?: { extraMs?: number }): Promise<Output | null>
+  // landed in. Spends nothing. `extraMs` staggers a batch; a runner whose app
+  // can cancel a tile honours `signal` by revealing nothing.
+  replay(input: Input, opts?: { extraMs?: number; signal?: AbortSignal }): Promise<Output | null>
   // The sentence a member reads when this runner throws.
   describeError(err: unknown): string
 }
