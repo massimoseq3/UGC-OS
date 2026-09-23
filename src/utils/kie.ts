@@ -579,7 +579,8 @@ export async function fetchGeneratedAsset(
 //                      system prompt is hoisted to a top-level `system` field
 //                      (Anthropic rejects role:'system' inside messages), and
 //                      the answer comes back as content[] blocks.
-//   'openai-responses' POST /codex/v1/responses, /grok/v1/responses
+//   'openai-responses' POST /codex/v1/responses, /grok/v1/responses,
+//                      /openai/v1/responses (DeepSeek)
 //                      Model is in the body. `input` instead of `messages`,
 //                      part types are input_text/input_image, and the answer is
 //                      output[].content[].output_text.
