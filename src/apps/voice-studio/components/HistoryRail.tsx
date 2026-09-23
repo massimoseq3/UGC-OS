@@ -255,7 +255,7 @@ export default function HistoryRail({ items, pending, activeId, onSelect, onDele
             hiding the thing you just fired is the opposite of a queue. */}
         {pending.length > 0 && (
           <div className="flex flex-col gap-2 p-2">
-            <DayPill label={pending.length === 1 ? 'In progress' : `In progress · ${pending.length}`} className="mb-0" />
+            <DayPill label={pending.length === 1 ? 'In Progress' : `In Progress · ${pending.length}`} className="mb-0" />
             {pending.map((p) => (
               <div key={p.id} className="rounded-2xl border border-ink/10 bg-ink/[0.02] p-3">
                 <div className="flex items-center gap-2.5">

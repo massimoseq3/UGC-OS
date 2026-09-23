@@ -38,7 +38,7 @@ export default function LapsedScreen({ reason }: { reason?: 'disabled' | 'lapsed
   }
 
   return (
-    <AuthShell subtitle={renewing ? 'Quick check-in' : 'Welcome back'}>
+    <AuthShell subtitle={renewing ? 'Quick Check-In' : 'Welcome Back'}>
       <AuthForm onSubmit={handleSubmit}>
         {/* No explanatory paragraph above the field, and on the renewal pass
             no hint either. The heading, the Access Code label and the Unlock My
@@ -77,7 +77,7 @@ export default function LapsedScreen({ reason }: { reason?: 'disabled' | 'lapsed
           onClick={() => void signOut()}
           className="text-[11px] text-ink-600 transition-colors hover:text-ink-300"
         >
-          {email ? `Sign out of ${email}` : 'Sign out'}
+          {email ? `Sign Out of ${email}` : 'Sign Out'}
         </button>
       </div>
     </AuthShell>

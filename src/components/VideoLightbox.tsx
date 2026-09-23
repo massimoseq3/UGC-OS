@@ -278,7 +278,7 @@ export function CurrentFrameButton({
       ) : (
         <Camera className="h-4 w-4" strokeWidth={1.75} />
       )}
-      <span>{done ? 'Frame Downloaded' : 'Download this Frame'}</span>
+      <span>{done ? 'Frame Downloaded' : 'Download This Frame'}</span>
     </button>
   )
 }

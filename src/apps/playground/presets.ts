@@ -83,7 +83,7 @@ const STYLE_PRESETS: StyleDef[] = [
   },
   {
     id: 'day-in-a-life',
-    title: 'Day In A Life',
+    title: 'Day in a Life',
     prompt: `Vertical "make it with me" lifestyle shot, camera locked off on a tripod at counter height with hands working in frame [the task being demonstrated, e.g. making a drink, applying a product]. Static, stable framing at a slight high angle, observational vlog energy. ${UGC_STYLE_TRAILER}`,
     thumbnailUrl: dayInLifeThumb,
     duration: 8,

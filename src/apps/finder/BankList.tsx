@@ -433,7 +433,7 @@ function BRollCard({ item, onEdit, onDelete }: { item: BRoll; onEdit: () => void
         {videoCount > 0 && (
           <span className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-medium text-emerald-400 backdrop-blur-sm">
             <Video className="h-2.5 w-2.5" />
-            {videoCount} {videoCount === 1 ? 'video' : 'videos'}
+            {videoCount} {videoCount === 1 ? 'Video' : 'Videos'}
           </span>
         )}
         {/* Hover action stack — star · download · copy · delete. */}
@@ -612,7 +612,7 @@ function SwipeCard({ item, onDelete }: { item: SwipeItem; onDelete: () => void }
           )}
           {item.daysRunning != null && (
             <span className="rounded-full bg-emerald-500 px-2 py-0.5 text-[11px] font-semibold text-white shadow-sm">
-              {item.daysRunning}d running
+              {item.daysRunning}d Running
             </span>
           )}
         </div>
@@ -851,7 +851,7 @@ function NoResults({ query }: { query: string }) {
       <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-ink/[0.04]">
         <Search className="h-7 w-7 text-ink-700" strokeWidth={1.5} />
       </div>
-      <p className="text-sm font-medium text-ink-500">No matches for "{query}"</p>
+      <p className="text-sm font-medium text-ink-500">No Matches for "{query}"</p>
       <p className="text-xs text-ink-600">Try fewer words, or clear the search.</p>
     </div>
   )
@@ -882,7 +882,7 @@ function ProductsBankZone({ children, onBulkFiles }: { children: React.ReactNode
         if (files.length > 0) onBulkFiles(files)
       }}
     >
-      {overlay && <DropOverlay icon={Sparkle} label="Drop image(s) to Bulk-add Products" accent="emerald" />}
+      {overlay && <DropOverlay icon={Sparkle} label="Drop Image(s) to Bulk-Add Products" accent="emerald" />}
       {children}
     </div>
   )

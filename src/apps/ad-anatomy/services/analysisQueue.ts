@@ -85,7 +85,7 @@ async function fitForUpload(historyId: string, file: File): Promise<File> {
 function deriveFallbackTitle(fileName: string): string {
   const stem = fileName.replace(/\.[^.]+$/, '')
   const cleaned = stem.replace(/[_-]+/g, ' ').trim()
-  return cleaned || 'Untitled ad'
+  return cleaned || 'Untitled Ad'
 }
 
 async function applySuccess(historyId: string, analysis: AnalysisResult, fileName: string) {

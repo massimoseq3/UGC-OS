@@ -282,7 +282,7 @@ export default function StyleModal({
               onClick={handleUseOnce}
               className="rounded-full px-4 py-2 text-[12px] font-medium text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-200"
             >
-              Use without saving
+              Use Without Saving
             </button>
             <button
               type="button"
@@ -292,7 +292,7 @@ export default function StyleModal({
               className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-[12px] font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${accent.button}`}
             >
               {saving ? <Spinner className="h-3.5 w-3.5" /> : <Bookmark className="h-3.5 w-3.5" />}
-              Save to bank & use
+              Save to Bank & Use
             </button>
           </div>
         ) : undefined
@@ -311,7 +311,7 @@ export default function StyleModal({
                   onClick={() => { setDraftBrief(styleBrief ?? ''); setDraftName(''); setView('create') }}
                   className="shrink-0 rounded-full bg-ink/10 px-2.5 py-0.5 text-[11px] font-medium text-ink-200 transition-colors hover:bg-ink/[0.16]"
                 >
-                  Name & save it
+                  Name & Save It
                 </button>
               </div>
               <p className="mt-1.5 line-clamp-3 text-[11px] leading-relaxed text-ink-400">{styleBrief}</p>
@@ -401,7 +401,7 @@ export default function StyleModal({
                 <div className="flex flex-wrap items-center justify-center gap-2">
                   <label className="flex cursor-pointer items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-[12px] font-semibold text-paper transition-colors hover:bg-ink/90">
                     <ImagePlus className="h-3.5 w-3.5" />
-                    Upload images
+                    Upload Images
                     <input
                       type="file"
                       accept="image/*"
@@ -432,7 +432,7 @@ export default function StyleModal({
                     below is the only button competing for attention. */}
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-[11px] font-medium uppercase tracking-wider text-ink-600">
-                    Reference frames · {styleRefs.length} of {MAX_REFS}
+                    Reference Frames · {styleRefs.length} of {MAX_REFS}
                   </span>
                   <div className="flex shrink-0 items-center gap-1">
                     {onPickStyleRefsFromBank && (
@@ -495,7 +495,7 @@ export default function StyleModal({
                     className={`flex w-full items-center justify-center gap-2 rounded-full px-4 py-2.5 text-[12px] font-semibold tracking-tight text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${accent.button}`}
                   >
                     {isAnalyzing ? <Spinner className="h-3.5 w-3.5" /> : <Sparkle className="h-3.5 w-3.5" />}
-                    {isAnalyzing ? 'Reading the style…' : draftBrief ? 'Re-read the style' : `Read the style from ${styleRefs.length} image${styleRefs.length === 1 ? '' : 's'}`}
+                    {isAnalyzing ? 'Reading the Style…' : draftBrief ? 'Re-Read the Style' : `Read the Style from ${styleRefs.length} Image${styleRefs.length === 1 ? '' : 's'}`}
                   </button>
                 </div>
               </div>

@@ -130,7 +130,7 @@ export default function VaultDetailModal({
                   title={MULTIPLE_TITLE}
                   className="rounded-full bg-amber-400 px-2.5 py-1 text-[12px] font-semibold text-black"
                 >
-                  {formatMultiple(item.multiple)} the library median
+                  {formatMultiple(item.multiple)} the Library Median
                 </span>
               )}
               {item.percentile != null && (
@@ -275,7 +275,7 @@ export default function VaultDetailModal({
               {busy === 'download' ? <Spinner className="h-4 w-4" /> : <Download className="h-4 w-4" />}
               {busy === 'download'
                 ? downloadLabel(downloadProgress)
-                : video ? 'Download video' : 'Download video · 1 credit'}
+                : video ? 'Download Video' : 'Download Video · 1 credit'}
             </button>
 
             {/* Visible before the press, not just in a tooltip after it. Only

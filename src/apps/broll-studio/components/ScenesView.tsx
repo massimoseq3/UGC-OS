@@ -1157,7 +1157,7 @@ export default function ScenesView({
             >
               <Palette className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
               <span className="hidden max-w-[180px] truncate @[740px]/bar:block">
-                {result.styleBrief ? (result.styleName?.trim() || 'Custom style') : getContinuousStyle(result.styleId ?? 'ugc').label}
+                {result.styleBrief ? (result.styleName?.trim() || 'Custom Style') : getContinuousStyle(result.styleId ?? 'ugc').label}
               </span>
               <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-60" strokeWidth={2.5} />
             </button>

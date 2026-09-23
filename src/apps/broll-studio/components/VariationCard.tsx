@@ -1190,7 +1190,7 @@ export default function VariationCard(props: VariationCardProps) {
           {showVideoBadge && (
             <span className="pointer-events-none absolute right-2 top-2 flex items-center gap-1 rounded-full border border-purple-400/30 bg-purple-500/30 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-purple-100 transition-opacity group-hover:opacity-0">
               <Play className="h-2.5 w-2.5 fill-current" />
-              {cardState.videos.length > 1 ? `${cardState.videos.length} videos` : 'Video'}
+              {cardState.videos.length > 1 ? `${cardState.videos.length} Videos` : 'Video'}
             </span>
           )}
           {hasFailedInFlight && !isGeneratingVideo && !isGeneratingImageInFlight && !cardState.isGeneratingImage && (
@@ -1202,7 +1202,7 @@ export default function VariationCard(props: VariationCardProps) {
           {cardState.videoStatus === 'error' && (
             <span className="pointer-events-none absolute right-2 top-2 flex items-center gap-1 rounded-full border border-red-400/40 bg-red-500/30 px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-red-100 transition-opacity group-hover:opacity-0">
               <AlertCircle className="h-2.5 w-2.5" />
-              Video error
+              Video Error
             </span>
           )}
 

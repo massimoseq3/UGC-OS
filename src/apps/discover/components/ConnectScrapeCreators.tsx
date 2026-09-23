@@ -78,7 +78,7 @@ export default function ConnectScrapeCreators({ onClose }: { onClose: () => void
           </span>
 
           <h2 className="mt-3 text-lg font-semibold tracking-tight text-ink-100">
-            {connected ? 'You’re connected' : 'Connect ScrapeCreators'}
+            {connected ? 'You’re Connected' : 'Connect ScrapeCreators'}
           </h2>
           <p className="mt-1 text-[12px] leading-relaxed text-ink-500">
             {connected
@@ -101,7 +101,7 @@ export default function ConnectScrapeCreators({ onClose }: { onClose: () => void
                 rel="noopener noreferrer"
                 className="mt-4 inline-flex h-8 items-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.03] px-3.5 text-[12px] font-medium text-ink-200 transition-colors hover:border-ink/20 hover:bg-ink/[0.06]"
               >
-                Get a free key
+                Get a Free Key
                 <ArrowUpRight className="h-3.5 w-3.5 text-ink-500" strokeWidth={2} />
               </a>
 
@@ -161,7 +161,7 @@ export default function ConnectScrapeCreators({ onClose }: { onClose: () => void
               className="flex h-9 items-center gap-2 rounded-full bg-ink px-5 text-[13px] font-medium text-paper transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {status.phase === 'checking' && <Spinner className="h-3.5 w-3.5" />}
-              {connected ? 'Start searching' : status.phase === 'checking' ? 'Checking…' : 'Connect'}
+              {connected ? 'Start Searching' : status.phase === 'checking' ? 'Checking…' : 'Connect'}
             </button>
           </div>
         </div>

@@ -11,7 +11,7 @@ export default function DMCAPolicy() {
         ("DMCA"). We will respond to valid notices in accordance with applicable law.
       </P>
 
-      <H2>Designated agent</H2>
+      <H2>Designated Agent</H2>
       <P>Send DMCA notices to our designated agent:</P>
       <UL>
         <li><strong>Name:</strong> {DMCA_AGENT_NAME}</li>
@@ -19,7 +19,7 @@ export default function DMCAPolicy() {
         <li><strong>Email:</strong> <a className="text-ink-100 underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a></li>
       </UL>
 
-      <H2>What to include in a notice</H2>
+      <H2>What to Include in a Notice</H2>
       <P>A valid DMCA takedown notice must include:</P>
       <UL>
         <li>A physical or electronic signature of the copyright owner or authorized agent.</li>
@@ -30,20 +30,20 @@ export default function DMCAPolicy() {
         <li>A statement, under penalty of perjury, that the information in the notice is accurate and that you are the copyright owner or are authorized to act on the owner's behalf.</li>
       </UL>
 
-      <H2>Counter-notice</H2>
+      <H2>Counter-Notice</H2>
       <P>
         If you believe your content was removed in error, you may submit a counter-notice
         containing the elements required by 17 U.S.C. § 512(g)(3). We will forward valid
         counter-notices to the original complainant.
       </P>
 
-      <H2>Repeat infringers</H2>
+      <H2>Repeat Infringers</H2>
       <P>
         We will terminate, in appropriate circumstances, the accounts of users who are
         repeat infringers.
       </P>
 
-      <H2>Other jurisdictions</H2>
+      <H2>Other Jurisdictions</H2>
       <P>
         For copyright complaints arising in the European Union, the United Kingdom, or other
         jurisdictions, please use the contact above.

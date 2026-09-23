@@ -324,8 +324,8 @@ export function ContinuousFrameModal({
                     <ReferenceSlotCard
                       icon={<Link2 className="h-4 w-4 text-broll-300" />}
                       accentClass="bg-broll-500/15 text-broll-300"
-                      kind="Previous frame"
-                      name="Chain link"
+                      kind="Previous Frame"
+                      name="Chain Link"
                       imageRef={chainImageRef}
                       onClick={() => onUpdate((p) => ({ chainLink: !p.chainLink }))}
                       active={cardState.chainLink}
@@ -543,7 +543,7 @@ export function ContinuousFrameModal({
                         />
                       </>
                     ) : (
-                      <span className="flex-1 truncate text-sm text-ink-400">Select model</span>
+                      <span className="flex-1 truncate text-sm text-ink-400">Select Model</span>
                     )}
                     <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" />
                   </button>
@@ -666,7 +666,7 @@ export function ContinuousFrameModal({
                   className="min-w-0 truncate text-[15px] leading-tight text-ink-300 font-light tracking-tight"
                   title={scriptLine || undefined}
                 >
-                  {scriptLine ? `“${scriptLine}”` : 'Final frame · the end state the last clip lands on'}
+                  {scriptLine ? `“${scriptLine}”` : 'Final Frame · the end state the last clip lands on'}
                 </span>
               </div>
             </div>
@@ -759,7 +759,7 @@ export function ContinuousFrameModal({
         onClose={() => setPromptExpanded(false)}
         value={draft}
         onChange={(v) => { setDraft(v); onUpdate(() => ({ editablePrompt: v })) }}
-        title={`${frameLabel} · Keyframe prompt`}
+        title={`${frameLabel} · Keyframe Prompt`}
         placeholder="Describe this keyframe…"
         accent="broll"
       />
@@ -1049,7 +1049,7 @@ export function ContinuousClipModal({
                     // The one place the label carries more than the verb: this
                     // Regenerate re-reads the rendered keyframes, and how many it
                     // can see changes what comes back.
-                    regenerateLabel={framesReady ? 'From frames' : 'From frame'}
+                    regenerateLabel={framesReady ? 'From Frames' : 'From Frame'}
                     regenerateTitle={
                       !startImageRef
                         ? 'Pick a start keyframe first'
@@ -1087,7 +1087,7 @@ export function ContinuousClipModal({
                   />
                 </>
               ) : (
-                <span className="flex-1 truncate text-sm text-ink-400">Select model</span>
+                <span className="flex-1 truncate text-sm text-ink-400">Select Model</span>
               )}
               <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" />
             </button>
@@ -1252,7 +1252,7 @@ export function ContinuousClipModal({
         onClose={() => setPromptExpanded(false)}
         value={draft}
         onChange={(v) => { setDraft(v); onUpdate(() => ({ editablePrompt: v, motionEdited: true })) }}
-        title={`${clipLabel} · Motion prompt`}
+        title={`${clipLabel} · Motion Prompt`}
         placeholder="Describe how the start frame moves, never the end frame…"
         accent="broll"
       />

@@ -277,7 +277,7 @@ function AnnouncementList({
                   {seen}
                   <span className="text-ink-600">{audience > 0 ? ` / ${audience}` : ''}</span>
                 </p>
-                <p className="text-[10px] uppercase tracking-[0.06em] text-ink-600">seen</p>
+                <p className="text-[10px] uppercase tracking-[0.06em] text-ink-600">Seen</p>
               </div>
             )}
 
@@ -333,7 +333,7 @@ const PUBLISH_OPTIONS = [
 
 const NO_APP = '—'
 const APP_OPTIONS = [
-  { value: NO_APP, label: 'No app' },
+  { value: NO_APP, label: 'No App' },
   ...APP_REGISTRY.filter((a) => a.category !== 'admin').map((a) => ({ value: a.id, label: a.name })),
 ]
 
@@ -392,9 +392,9 @@ function Editor({
   // Publishing reaches every member, so the button arms first — same two-click
   // contract as delete, for the same reason: it can't be taken back quietly.
   const primaryLabel = !goingLive
-    ? 'Save draft'
+    ? 'Save Draft'
     : armedPublish
-      ? mode === 'schedule' ? 'Confirm schedule' : 'Confirm publish'
+      ? mode === 'schedule' ? 'Confirm Schedule' : 'Confirm Publish'
       : mode === 'schedule' ? 'Schedule' : 'Publish'
 
   function primary(): void {
@@ -511,7 +511,7 @@ function Editor({
                 onChange={(e) => set({ pinned: e.target.checked })}
                 className="h-3.5 w-3.5 accent-emerald-500"
               />
-              Pin to top
+              Pin to Top
             </label>
           </div>
           <div className="mt-2.5 flex flex-wrap items-center gap-2">
@@ -527,7 +527,7 @@ function Editor({
                 onClick={() => set({ expiresAt: null })}
                 className="text-[12px] text-ink-500 underline underline-offset-2 hover:text-ink-200"
               >
-                clear
+                Clear
               </button>
             )}
           </div>
@@ -566,8 +566,8 @@ function Editor({
           <Eye className="h-3.5 w-3.5 text-ink-500" />
           <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-500">Preview</span>
           <div className="ml-auto flex gap-1">
-            <PreviewChip active={previewAs === 'log'} onClick={() => setPreviewAs('log')}>In the log</PreviewChip>
-            <PreviewChip active={previewAs === 'alert'} onClick={() => setPreviewAs('alert')}>As an alert</PreviewChip>
+            <PreviewChip active={previewAs === 'log'} onClick={() => setPreviewAs('log')}>In the Log</PreviewChip>
+            <PreviewChip active={previewAs === 'alert'} onClick={() => setPreviewAs('alert')}>As an Alert</PreviewChip>
           </div>
         </div>
 

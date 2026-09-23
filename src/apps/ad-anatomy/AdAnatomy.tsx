@@ -351,7 +351,7 @@ function AnalyzingPane({ item }: { item: AdAnatomyHistoryItem }) {
     <div className="flex h-full flex-col items-center justify-center gap-6 px-6 py-8">
       <div className="flex flex-col items-center gap-1 text-center">
         <h2 className="text-xl font-semibold tracking-tight text-ink-100">
-          {item.compressing ? 'Compressing The Ad’s File Size' : 'Analyzing The Ad'}
+          {item.compressing ? 'Compressing the Ad’s File Size' : 'Analyzing the Ad'}
         </h2>
       </div>
 

@@ -42,13 +42,13 @@ export default function AnnouncementAlert() {
             onClick={() => { dismiss(); openPanel() }}
             className="h-9 rounded-full px-3.5 text-[12px] font-medium text-ink-400 transition-colors hover:bg-ink/5 hover:text-ink-100"
           >
-            See all
+            See All
           </button>
           <button
             onClick={dismiss}
             className="ml-auto h-9 rounded-full bg-ink px-5 text-[12px] font-semibold text-paper transition-colors hover:bg-ink/90"
           >
-            Got it
+            Got It
           </button>
         </div>
       </div>

@@ -177,7 +177,7 @@ function activityLabel(a: RowActivity): string {
 function historyStyleLabel(item: BrollHistoryItem, mode: BrollMode): string | null {
   // A named custom style (one saved to the Styles bank) shows its own name
   // wherever a brief is in play; an unnamed one-off still reads "Custom style".
-  const customLabel = item.styleName?.trim() || 'Custom style'
+  const customLabel = item.styleName?.trim() || 'Custom Style'
   if (mode === 'continuous') {
     // ContinuousResult stamps `styleId` unconditionally and has no brief field,
     // so the row-level snapshot is the only place a custom look survives — it

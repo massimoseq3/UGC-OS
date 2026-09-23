@@ -669,7 +669,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                   className="flex w-full items-center justify-center gap-2 rounded-full border border-ink/10 py-2.5 text-[12px] font-medium text-ink-300 transition-colors hover:bg-ink/[0.05]"
                 >
                   <LogOut className="h-3.5 w-3.5" />
-                  Sign out
+                  Sign Out
                 </button>
               </Section>
             )}
@@ -720,7 +720,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                       onClick={() => setStorage({ phase: 'confirming' })}
                       className="mt-3 flex w-full items-center justify-center gap-2 rounded-full border border-ink/10 py-2 text-[12px] font-medium text-ink-300 transition-colors hover:bg-ink/[0.05]"
                     >
-                      Clean up storage
+                      Clean Up Storage
                     </button>
                   )}
 
@@ -791,7 +791,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                             onClick={() => setShowOrphanList((v) => !v)}
                             className="text-[10px] text-ink-400 transition-colors hover:text-ink-200"
                           >
-                            {showOrphanList ? 'Hide' : 'Show'} details
+                            {showOrphanList ? 'Hide' : 'Show'} Details
                           </button>
                           {showOrphanList && (
                             <div className="max-h-24 overflow-y-auto rounded-lg border border-ink/10 bg-ink/[0.02] p-1.5 text-[9px] font-mono text-ink-500">
@@ -872,7 +872,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                         onClick={() => setStorage({ phase: 'idle' })}
                         className="text-[10px] text-ink-400 transition-colors hover:text-ink-200"
                       >
-                        Try again
+                        Try Again
                       </button>
                     </div>
                   )}

@@ -55,7 +55,7 @@ interface ResultsViewProps {
 function deriveFallbackTitle(fileName: string): string {
   const stem = fileName.replace(/\.[^.]+$/, '')
   const cleaned = stem.replace(/[_-]+/g, ' ').trim()
-  return cleaned || 'Untitled ad'
+  return cleaned || 'Untitled Ad'
 }
 
 function useCopy() {
@@ -462,7 +462,7 @@ function VisualStyleBlock({ style, adTitle }: { style: MasterVisualStyle; adTitl
               : 'bg-violet-500/10 text-violet-300 light:text-violet-700'
           }`}
         >
-          {style.liveAction ? 'Live action' : 'Animated'}
+          {style.liveAction ? 'Live Action' : 'Animated'}
         </span>
       }
       actions={
@@ -546,7 +546,7 @@ function QuoteBlock({ segment }: { segment: Extract<SceneSegment, { kind: 'quote
         {/* An unattributed line still gets a label — which kind of quote it is
             is the thing the box is claiming, and a bare quote with no header
             reads as a styling accident. */}
-        {segment.speaker || (speech ? 'Spoken line' : 'On-screen text')}
+        {segment.speaker || (speech ? 'Spoken Line' : 'On-Screen Text')}
       </div>
       <p className="text-[14px] font-light leading-snug tracking-tight text-ink-100">“{segment.text}”</p>
       <button
@@ -698,7 +698,7 @@ function ReverseEngineeredSection({ result, fileName }: { result: AnalysisResult
             </span>
           )}
           <span className="rounded-full bg-ink/5 px-2.5 py-0.5">
-            {scenes.length === 1 ? '1 scene' : `${scenes.length} scenes (≤15s each)`}
+            {scenes.length === 1 ? '1 Scene' : `${scenes.length} Scenes (≤15s each)`}
           </span>
         </div>
 
@@ -1044,7 +1044,7 @@ export default function ResultsView({ result, videoSrc, restoredThumbUrl, fileNa
               <div className="flex items-center gap-3 rounded-xl border border-ink/5 bg-ink/[0.02] px-4 py-3">
                 <div className="flex min-w-0 items-center gap-2">
                   <Film className="h-3.5 w-3.5 shrink-0 text-ink-600" />
-                  <span className="truncate text-xs text-ink-500">{fileName || 'Untitled analysis'}</span>
+                  <span className="truncate text-xs text-ink-500">{fileName || 'Untitled Analysis'}</span>
                 </div>
               </div>
             )}

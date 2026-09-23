@@ -1242,7 +1242,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
                       />
                     </>
                   ) : (
-                    <span className="flex-1 truncate text-sm text-ink-400">Select model</span>
+                    <span className="flex-1 truncate text-sm text-ink-400">Select Model</span>
                   )}
                   <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" />
                 </button>

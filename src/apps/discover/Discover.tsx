@@ -33,11 +33,11 @@ import { DEFAULT_ACCOUNT_FILTERS, DEFAULT_FILTERS, type AccountFilters, type Dis
 const PLATFORMS: DiscoverPlatform[] = ['tiktok', 'instagram', 'meta']
 
 const DATE_OPTIONS: Array<{ value: DiscoverFilters['datePosted']; label: string }> = [
-  { value: 'this-week', label: 'This week' },
-  { value: 'this-month', label: 'This month' },
-  { value: 'last-3-months', label: '3 months' },
-  { value: 'last-6-months', label: '6 months' },
-  { value: 'all-time', label: 'All time' },
+  { value: 'this-week', label: 'This Week' },
+  { value: 'this-month', label: 'This Month' },
+  { value: 'last-3-months', label: '3 Months' },
+  { value: 'last-6-months', label: '6 Months' },
+  { value: 'all-time', label: 'All Time' },
 ]
 
 // Instagram's own three windows and nothing finer — its search reads Google's
@@ -46,10 +46,10 @@ const DATE_OPTIONS: Array<{ value: DiscoverFilters['datePosted']; label: string 
 // windows they are rather than borrowed from the list above, which would offer
 // "3 months" and quietly search a year.
 const IG_DATE_OPTIONS: Array<{ value: DiscoverFilters['instagramDatePosted']; label: string }> = [
-  { value: 'last-week', label: 'Last week' },
-  { value: 'last-month', label: 'Last month' },
-  { value: 'last-year', label: 'Last year' },
-  { value: 'all-time', label: 'All time' },
+  { value: 'last-week', label: 'Last Week' },
+  { value: 'last-month', label: 'Last Month' },
+  { value: 'last-year', label: 'Last Year' },
+  { value: 'all-time', label: 'All Time' },
 ]
 
 // Sort labels are platform-specific because the underlying signal is. The
@@ -60,8 +60,8 @@ const IG_DATE_OPTIONS: Array<{ value: DiscoverFilters['instagramDatePosted']; la
 // all for the same reason.
 const SORT_OPTIONS: Record<DiscoverPlatform, Array<{ value: DiscoverSort; label: string }>> = {
   tiktok: [
-    { value: 'outlier', label: 'Outlier score' },
-    { value: 'views', label: 'Most viewed' },
+    { value: 'outlier', label: 'Outlier Score' },
+    { value: 'views', label: 'Most Viewed' },
     { value: 'recent', label: 'Newest' },
   ],
   // Instagram's reel search publishes no view count, so there is no multiple
@@ -71,11 +71,11 @@ const SORT_OPTIONS: Record<DiscoverPlatform, Array<{ value: DiscoverSort; label:
   // thing (views against a creator's own audience) and a second ratio wearing
   // it would make the number unreadable across tabs.
   instagram: [
-    { value: 'likes', label: 'Most liked' },
+    { value: 'likes', label: 'Most Liked' },
     { value: 'recent', label: 'Newest' },
   ],
   meta: [
-    { value: 'outlier', label: 'Longest running' },
+    { value: 'outlier', label: 'Longest Running' },
     { value: 'recent', label: 'Newest' },
   ],
 }
@@ -918,8 +918,8 @@ export default function Discover() {
                 label="Status"
                 value={filters.activeOnly ? 'active' : 'all'}
                 options={[
-                  { value: 'active', label: 'Active only' },
-                  { value: 'all', label: 'All ads' },
+                  { value: 'active', label: 'Active Only' },
+                  { value: 'all', label: 'All Ads' },
                 ]}
                 onChange={(v) => setFilters((f) => ({ ...f, activeOnly: v === 'active' }))}
               />
@@ -932,7 +932,7 @@ export default function Discover() {
                 value={filters.exactPhrase ? 'exact' : 'broad'}
                 options={[
                   { value: 'broad', label: 'Broad' },
-                  { value: 'exact', label: 'Exact phrase' },
+                  { value: 'exact', label: 'Exact Phrase' },
                 ]}
                 onChange={(v) => setFilters((f) => ({ ...f, exactPhrase: v === 'exact' }))}
               />

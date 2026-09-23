@@ -174,7 +174,7 @@ export default function PhotoExtractZone({
             button beside it. No hint line: the title says it. */}
         <div className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink-300">
           {dragOver ? (
-            'Drop to extract DNA'
+            'Drop to Extract DNA'
           ) : (
             <>
               {/* See the note on the preset row beside this one: three tiers,

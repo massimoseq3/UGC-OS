@@ -172,7 +172,7 @@ export default function HistoryRail({ items, pending, activeId, onSelect, onSele
             {pending.length > 0 && (
               <>
                 <DayPill
-                  label={pending.length === 1 ? 'In progress' : `In progress · ${pending.length}`}
+                  label={pending.length === 1 ? 'In Progress' : `In Progress · ${pending.length}`}
                   className="my-1.5"
                 />
                 {pending.map((run) => (

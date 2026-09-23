@@ -39,7 +39,7 @@ export default function AnnouncementsPanel() {
             onClick={markAllRead}
             className="h-9 w-full rounded-full bg-ink/5 text-[12px] font-semibold text-ink-300 transition-colors hover:bg-ink/10 hover:text-ink-100"
           >
-            Mark all as read
+            Mark All as Read
           </button>
         ) : undefined
       }

@@ -195,7 +195,7 @@ function DockAppTile({
 }) {
   return (
     // No title attr: the native tooltip popping over the dock on hover was
-    // distracting — the persona introduction lives in Meet your team.
+    // distracting — what each app does is in Meet Your Team.
     <DockItem
       label={app.name}
       appId={app.id}

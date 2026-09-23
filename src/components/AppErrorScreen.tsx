@@ -24,7 +24,7 @@ export default function AppErrorScreen({ stale, className }: { stale: boolean; c
       />
       <div className="space-y-1">
         <h2 className="text-base font-semibold tracking-tight text-ink-100">
-          {stale ? 'UGC OS was updated' : 'Something went wrong'}
+          {stale ? 'UGC OS Was Updated' : 'Something Went Wrong'}
         </h2>
         <p className="text-[13px] text-ink-500">
           {stale

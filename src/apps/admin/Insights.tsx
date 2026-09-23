@@ -177,7 +177,7 @@ export default function Insights() {
       <div className="space-y-3">
         <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-[12px] text-red-300 light:text-red-700">{profilesError}</div>
         <button onClick={reload} className="flex items-center gap-1.5 rounded-md border border-ink/10 px-2.5 py-1 text-[11px] text-ink-300 transition-colors hover:bg-ink/[0.05]">
-          <RefreshCw className="h-3 w-3" /> Try again
+          <RefreshCw className="h-3 w-3" /> Try Again
         </button>
       </div>
     )
@@ -222,7 +222,7 @@ export default function Insights() {
             side, and the caveat that matters ("this is attention time, not
             tabs left open") is said in full under the chart rather than
             truncated into a half-width header. */}
-        <Panel title="Time per app" action={<WindowToggle value={usageWindow} onChange={setUsageWindow} />}>
+        <Panel title="Time per App" action={<WindowToggle value={usageWindow} onChange={setUsageWindow} />}>
           <AppUsageBars items={appUsage} />
           <p className="pt-2.5 text-[10px] text-ink-600">
             {usageCoverage.seconds > 0
@@ -230,28 +230,28 @@ export default function Insights() {
               : 'Nothing recorded yet. Usage is measured from the moment app tracking shipped. Earlier sessions left no trace.'}
           </p>
         </Panel>
-        <Panel title="Top tool per member" hint="where each member spends most of their time">
+        <Panel title="Top Tool per Member" hint="where each member spends most of their time">
           <PerMemberUsage items={perMember} />
         </Panel>
       </div>
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-        <Panel title="Activation funnel" hint="joined → created → active">
+        <Panel title="Activation Funnel" hint="joined → created → active">
           <ActivationFunnel funnel={funnel} />
         </Panel>
-        <Panel title="Churn risk" hint="productive but going quiet">
+        <Panel title="Churn Risk" hint="productive but going quiet">
           <AtRiskList rows={atRisk} />
         </Panel>
-        <Panel title="Members over time" hint="cumulative signups by month">
+        <Panel title="Members Over Time" hint="cumulative signups by month">
           <SignupsChart data={signups} />
         </Panel>
-        <Panel title="Status mix" hint="share of all members">
+        <Panel title="Status Mix" hint="share of all members">
           <StatusDonut active={stats.active - stats.inactive} inactive={stats.inactive} lapsed={stats.lapsed} disabled={stats.disabled} />
         </Panel>
-        <Panel title="Bank usage" hint="total assets created across all members">
+        <Panel title="Bank Usage" hint="total assets created across all members">
           <BarList items={bankTotals.map((b) => ({ label: b.label, value: b.value, color: b.color }))} />
         </Panel>
-        <Panel title="Top storage" hint="largest 8 members by stored bytes">
+        <Panel title="Top Storage" hint="largest 8 members by stored bytes">
           {topStorage.length === 0 ? (
             <p className="py-6 text-center text-[12px] text-ink-500">No stored assets yet.</p>
           ) : (
@@ -278,7 +278,7 @@ function GrowthStrip({ growth }: { growth: { newThisWeek: number; newLastWeek: n
   return (
     <div className="grid grid-cols-3 gap-3 rounded-xl border border-ink/10 bg-ink/[0.02] p-4 max-sm:gap-2 max-sm:p-3">
       <div>
-        <div className="flex items-center gap-1.5 text-[11px] text-ink-500"><UserPlus className="h-3.5 w-3.5" /> New this week</div>
+        <div className="flex items-center gap-1.5 text-[11px] text-ink-500"><UserPlus className="h-3.5 w-3.5" /> New This Week</div>
         {/* The delta wraps under the figure on a phone rather than squeezing
             it: three columns of ~100px can't hold "12  +3 vs last wk" on one
             line, and the number is the half that has to stay legible. */}
@@ -291,7 +291,7 @@ function GrowthStrip({ growth }: { growth: { newThisWeek: number; newLastWeek: n
         </div>
       </div>
       <div>
-        <div className="flex items-center gap-1.5 text-[11px] text-ink-500"><Ban className="h-3.5 w-3.5" /> Lost this week</div>
+        <div className="flex items-center gap-1.5 text-[11px] text-ink-500"><Ban className="h-3.5 w-3.5" /> Lost This Week</div>
         <div className="mt-1 text-xl font-semibold tracking-tight text-ink-100 sm:text-2xl">{growth.lostThisWeek}</div>
       </div>
       <div>
@@ -311,8 +311,8 @@ function ActivationFunnel({ funnel }: { funnel: { joined: number; activated: num
   const pct = (n: number) => (joined > 0 ? Math.round((n / joined) * 100) : 0)
   const stages = [
     { label: 'Joined', value: joined, color: '#6366f1' },
-    { label: 'Created ≥1 asset', value: activated, color: '#10b981' },
-    { label: 'Active this week', value: active7d, color: '#f59e0b' },
+    { label: 'Created ≥1 Asset', value: activated, color: '#10b981' },
+    { label: 'Active This Week', value: active7d, color: '#f59e0b' },
   ]
   return (
     <div className="space-y-2.5">
@@ -392,7 +392,7 @@ function Panel({ title, hint, action, children }: { title: string; hint?: string
 // 30 days / all time, for the two app-usage panels. Both read the same state,
 // so a comparison between them is always over the same window.
 function WindowToggle({ value, onChange }: { value: UsageWindow; onChange: (v: UsageWindow) => void }) {
-  const options: Array<[UsageWindow, string]> = [['30d', '30 days'], ['all', 'All time']]
+  const options: Array<[UsageWindow, string]> = [['30d', '30 Days'], ['all', 'All Time']]
   return (
     <div className="flex shrink-0 items-center gap-0.5 rounded-full border border-ink/10 p-0.5">
       {options.map(([v, label]) => (
