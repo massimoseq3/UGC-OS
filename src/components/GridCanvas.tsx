@@ -47,7 +47,8 @@ export function AwaitingBody({
     <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
       <Icon className="h-8 w-8 text-ink-800" strokeWidth={1.5} />
       <p className="text-sm text-ink-500">{title}</p>
-      <p className="max-w-[300px] text-xs leading-relaxed text-ink-600">{hint}</p>
+      {/* Balanced, so a two-line hint never ends on one stranded word. */}
+      <p className="max-w-[300px] text-balance text-xs leading-relaxed text-ink-600">{hint}</p>
       {children}
     </div>
   )
