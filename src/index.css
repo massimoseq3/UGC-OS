@@ -19,6 +19,14 @@
    input, not of the viewport, which is also why this is NOT `max-md:`. */
 @custom-variant touch (@media (hover: none));
 
+/* A window with room for the Dashboard's wall at full size: `2xl` wide AND
+   900px tall. From `lg` the wall's rows take their height from the window
+   (apps/dashboard), so its type steps up with the tiles only where they have
+   actually grown. On a window that is wide but SHORT (a 1080p display at 125%
+   scaling is ~1536×730) the rows sit near their floor, and bigger type there
+   would raise the floor and put the wall's second row back under the dock. */
+@custom-variant roomy (@media (width >= 96rem) and (min-height: 900px));
+
 /* The shared soft drop shadow — tuned for light mode where elements need to
    lift off the page. Used by cards and primary CTAs so they stay in sync. */
 :root {

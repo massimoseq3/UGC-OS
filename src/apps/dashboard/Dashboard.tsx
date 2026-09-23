@@ -5,8 +5,9 @@ import { useSettingsStore } from '../../stores/settingsStore'
 import { useBankStore, backfillUsageLedger } from '../../stores/bankStore'
 import { isCloudEnabled } from '../../lib/supabase'
 import { creditsToUsd } from '../../utils/models'
-import { computeUsageMetrics, dailyMinutesSaved, usageDayStart } from '../../utils/usage'
+import { ALL_USAGE_KINDS, computeUsageMetrics, usageDayStart } from '../../utils/usage'
 import { AI_UGC_ACADEMY_URL } from '../../utils/constants'
+import type { UsageKind } from '../../stores/types'
 import AppLogo from '../../components/AppLogo'
 import ActivityHeatmap from './ActivityHeatmap'
 import WhatsNewTile from './WhatsNewTile'
@@ -29,8 +30,6 @@ import { WIDGET_SHELL, WIDGET_INTERACTIVE, DISPLAY_FONT, riseStyle } from './wid
 // call): it was a permanent animation on the app's DEFAULT landing page, and
 // permanent motion under a wall of backdrop-blurred widgets is the one shape
 // docs/performance.md tells you not to build. The dock is the launcher.
-
-const SPARK_DAYS = 14
 
 // Title Case: this is the page's masthead, not a sentence, and it reads as one
 // beside the member's own name in the display face.
@@ -55,6 +54,21 @@ function formatUsd(usd: number): string {
   return `$${usd.toFixed(2)}`
 }
 
+// Money saved's three dollar figures — the hero and the bar's two ends — share
+// ONE precision, picked by the hero. They are a sum a member checks at a glance
+// (paid + saved = elsewhere), and `formatUsd` on each printed "$6.48" and
+// "$9.36" over a far end of "$16" that was really $15.84.
+type UsdDigits = 0 | 2
+
+function roundUsd(usd: number, digits: UsdDigits): number {
+  const scale = 10 ** digits
+  return Math.round(usd * scale) / scale
+}
+
+function formatUsdAt(usd: number, digits: UsdDigits): string {
+  return digits === 2 ? `$${usd.toFixed(2)}` : `$${Math.round(usd).toLocaleString()}`
+}
+
 export default function Dashboard() {
   const profile = useAuthStore((s) => s.profile)
   const usageDays = useBankStore((s) => s.usageDays)
@@ -68,7 +82,6 @@ export default function Dashboard() {
   }, [])
 
   const metrics = useMemo(() => computeUsageMetrics(usageDays, creditsToUsd), [usageDays])
-  const spark = useMemo(() => dailyMinutesSaved(usageDays, SPARK_DAYS), [usageDays])
 
   // Prefer the name the user set in Settings ("What should we call you?"),
   // falling back to their sign-up first name.
@@ -84,13 +97,23 @@ export default function Dashboard() {
 
   const hasActivity = metrics.totalGenerations > 0
 
-  // Whether each figure tile has floor art under its number. Both charts render
-  // NOTHING before there is data (Sparkline bails on a flat zero peak, SpendBar
-  // on nothing spent elsewhere), which used to leave the figure hanging off the
+  // Whether each figure tile has floor art under its number. Both floors render
+  // NOTHING before there is data (MadeRow bails with nothing made, SpendBar on
+  // nothing spent elsewhere), which used to leave the figure hanging off the
   // label with the whole bottom half of the tile empty under it. Mirrors each
-  // chart's own bail condition, so the tile and its floor can't disagree.
-  const hasSpark = spark.some((minutes) => minutes > 0)
+  // floor's own bail condition, so the tile and its floor can't disagree.
+  const hasMade = hasActivity
   const hasSpend = metrics.officialUsd > 0
+
+  // Money saved, rounded ONCE to the hero's precision (see formatUsdAt). The
+  // far end is the sum of the two figures on screen rather than the ledger's
+  // own total rounded separately: rounding the three independently lands the
+  // total a cent (or a dollar) off paid + saved about a quarter of the time.
+  // Past the floor at 0 (kie.ai dearer than elsewhere) there is no sum to keep.
+  const usdDigits: UsdDigits = metrics.usdSaved < 10 ? 2 : 0
+  const paidUsd = roundUsd(metrics.kieUsd, usdDigits)
+  const savedUsd = roundUsd(metrics.usdSaved, usdDigits)
+  const elsewhereUsd = metrics.usdSaved > 0 ? paidUsd + savedUsd : roundUsd(metrics.officialUsd, usdDigits)
 
   // Widgets rise in reading order; the banner (when shown) takes slot 0.
   const slot = (n: number) => (needsKey ? n + 1 : n)
@@ -98,12 +121,18 @@ export default function Dashboard() {
   return (
     <div className="relative flex min-h-full flex-col">
       {/* `safe center` centres the desktop on a tall window without ever
-          clipping the greeting off the top when the content outgrows it. */}
+          clipping the greeting off the top when the content outgrows it.
+          The width cap steps up at `2xl`: at 1240px a 1920 monitor showed the
+          wall as an island covering a quarter of the screen. */}
       <div
-        className="relative mx-auto flex w-full max-w-[1240px] flex-1 flex-col px-5 py-4 md:px-8"
+        className="relative mx-auto flex w-full max-w-[1240px] flex-1 flex-col px-5 py-4 md:px-8 2xl:max-w-[1480px]"
         style={{ justifyContent: 'safe center' }}
       >
-        <div className="flex flex-col gap-3.5">
+        {/* From `lg` this column FILLS the window so the wall under it can grow
+            into the height (see the wall's note), and centres what it holds
+            once the wall reaches its ceiling. Below `lg` it keeps its content
+            height and the container above does the centring. */}
+        <div className="flex flex-col gap-3.5 lg:flex-1" style={{ justifyContent: 'safe center' }}>
           {/* Centred at EVERY width (Massimo's call, September 2026) — the
               brand mark sits over the greeting, and a logo aligned left over a
               wall of centred tiles reads as a page header rather than as the
@@ -111,7 +140,18 @@ export default function Dashboard() {
               edge from `sm` up, like every other page in the app; this one
               isn't a working surface, it's the landing page. */}
           <header className="flex flex-col items-center text-center">
-            <AppLogo className="mb-1.5 h-12 w-12 md:h-14 md:w-14" />
+            {/* On a SHORT window the mark steps aside for the wall (September
+                2026): it costs 62px, the menu bar already carries it, and at a
+                laptop's ~780px the wall's second row sat under the dock with
+                it in place. The cut-off is the height at which the rows would
+                hit their floor with the logo shown, which the connect banner's
+                78px moves up. `lg` only — below it the wall is a bento that
+                scrolls on to What's New by design. */}
+            <AppLogo
+              className={`mb-1.5 h-12 w-12 md:h-14 md:w-14 ${
+                needsKey ? 'lg:[@media(max-height:880px)]:hidden' : 'lg:[@media(max-height:800px)]:hidden'
+              }`}
+            />
             {/* ONE face for the whole line — `DISPLAY_FONT`, italic,
                 `tracking-tighter` (Massimo's call, August 2026). It was two
                 for a while, Geist for the salutation and the serif for the
@@ -124,7 +164,7 @@ export default function Dashboard() {
                 can't gain a second line and push the bento's last row under
                 the fold. */}
             <h1
-              className="text-[30px] leading-tight font-normal italic tracking-tighter text-ink-50 sm:text-4xl sm:leading-normal md:text-[46px] md:leading-[1.1]"
+              className="text-[30px] leading-tight font-normal italic tracking-tighter text-ink-50 sm:text-4xl sm:leading-normal md:text-[46px] md:leading-[1.1] roomy:text-[54px]"
               style={DISPLAY_FONT}
             >
               {salutation}
@@ -152,6 +192,19 @@ export default function Dashboard() {
               dock, so nothing here is allowed to push the heatmap below the
               fold.
 
+              **From `lg` the two rows take their height from the WINDOW, not
+              their content** (September 2026). They used to be as tall as the
+              tallest tile's content at every window size, so the wall was a
+              fixed 484px: under the dock on a ~780px laptop, a small island on
+              a 1080p monitor. Now the wall is `flex-1` in a column that fills
+              the window, `auto-rows-fr` splits it into two equal rows, and it
+              stops growing at a ceiling (`max-h`, one step taller at `2xl`)
+              past which the column centres it. The floor is still the
+              content: a flex item can't shrink below its own min-content, so
+              on a window too short for the rows the page scrolls rather than
+              the tiles clipping. The heatmap no longer sets that floor — it
+              sizes itself to the height it is handed (see ActivityHeatmap).
+
               **Three columns, rearranged September 2026 (Massimo's call).**
               The two figures stack down the LEFT (Money saved over Time
               saved, the pair that read as one comparison), Activity heads the
@@ -176,13 +229,13 @@ export default function Dashboard() {
               squeeze the list into a figure tile's height. Activity fits a
               half tile because the heatmap sizes its cells to whatever box it
               is dropped in (see ActivityHeatmap). */}
-          <div className="grid grid-cols-12 gap-3.5 lg:auto-rows-fr">
+          <div className="grid grid-cols-12 gap-3.5 lg:max-h-[554px] lg:flex-1 lg:auto-rows-fr 2xl:max-h-[614px]">
             {/* Money saved */}
             <Widget index={slot(0)} className="col-span-6 items-center text-center lg:col-span-4">
               <WidgetLabel icon={PiggyBank} label="Money Saved" />
               {/* Centres with no bar under it — see Time saved below. */}
               <div className={`w-full ${hasSpend ? 'pt-4' : 'flex flex-1 flex-col justify-center'}`}>
-                <WidgetFigure value={formatUsd(metrics.usdSaved)} />
+                <WidgetFigure value={formatUsdAt(savedUsd, usdDigits)} />
                 <p className="mt-1.5 text-[12px] leading-snug text-ink-500">
                   vs official APIs
                   <span className="hidden sm:inline"> &amp; creator platforms</span>
@@ -192,14 +245,26 @@ export default function Dashboard() {
                 )}
               </div>
               <div className="mt-auto w-full">
-                <SpendBar spent={metrics.kieUsd} elsewhere={metrics.officialUsd} format={formatUsd} />
+                <SpendBar
+                  paid={metrics.kieUsd}
+                  elsewhere={metrics.officialUsd}
+                  paidLabel={formatUsdAt(paidUsd, usdDigits)}
+                  elsewhereLabel={formatUsdAt(elsewhereUsd, usdDigits)}
+                />
               </div>
             </Widget>
 
             {/* Activity */}
             <Widget index={slot(1)} className="col-span-6 items-center text-center lg:col-span-4">
               <WidgetLabel icon={CalendarCheck} label="Activity" />
-              <div className="mt-auto flex w-full items-end pt-3">
+              {/* From `lg` this box takes whatever height the row leaves and is
+                  a SIZE container, so the heatmap inside can size its cells to
+                  the height as well as the width. Size containment also means
+                  its content no longer counts toward the row's floor — the
+                  heatmap used to be the tallest thing on the wall, and with
+                  18px cells it held both rows at 234px on any window. Below
+                  `lg` the rows are content-sized, so it stays a plain box. */}
+              <div className="mt-auto flex w-full items-end pt-3 lg:mt-0 lg:min-h-0 lg:flex-1 lg:[container-type:size]">
                 <ActivityHeatmap days={usageDays} />
               </div>
               {/* The tally reads UNDER the grid it counts, the way Streak's
@@ -225,11 +290,12 @@ export default function Dashboard() {
             <Widget index={slot(2)} className="col-span-6 items-center text-center lg:col-span-4">
               <WidgetLabel icon={Clock} label="Time Saved" />
               {/* NOT `mt-auto`: bottom-aligning this block lands the figure
-                  at a different height in each tile, because Money saved's
-                  floor art (a bar plus two captions) is taller than a
-                  sparkline and pushes its block further up. The text stacks
-                  from the label down in both, so hero / caption / delta line
-                  up across the pair, and only the CHART takes `mt-auto`.
+                  at a different height in each tile, because the two floors
+                  (Money saved's bar plus captions, the made row here) are
+                  different heights and push their blocks up by different
+                  amounts. The text stacks from the label down in both, so
+                  hero / caption / delta line up across the pair, and only the
+                  FLOOR takes `mt-auto`.
 
                   With no floor art yet it CENTRES instead (Massimo's call,
                   September 2026): a "0 min" pinned under the label left the
@@ -238,7 +304,7 @@ export default function Dashboard() {
                   generation. The pair still line up with each other, because
                   neither has a chart to be pushed up by — which is exactly
                   the condition the rule above is about. */}
-              <div className={`w-full ${hasSpark ? 'pt-4' : 'flex flex-1 flex-col justify-center'}`}>
+              <div className={`w-full ${hasMade ? 'pt-4' : 'flex flex-1 flex-col justify-center'}`}>
                 <WidgetFigure value={formatTimeSaved(metrics.minutesSaved)} />
                 {/* The workdays line is the figure in a second unit and
                     nothing else — "≈ 7.6 workdays of production and
@@ -257,7 +323,7 @@ export default function Dashboard() {
                 )}
               </div>
               <div className="mt-auto w-full">
-                <Sparkline values={spark} />
+                <MadeRow counts={metrics.countsByKind} />
               </div>
             </Widget>
 
@@ -310,50 +376,105 @@ export default function Dashboard() {
   )
 }
 
-// Last 14 days of time saved, as a bar per day. It answers a question the
-// running total can't: whether this week looked like the ones before it.
-function Sparkline({ values }: { values: number[] }) {
-  const peak = Math.max(...values)
-  if (peak === 0) return null
+// What the hours above were saved ON: the member's own output, by kind, as the
+// Time saved tile's floor. It replaced a 14-day sparkline of minutes saved
+// (September 2026), which drew the same days the Activity heatmap beside it
+// already draws, in the same green, from what is a per-kind weighting of the
+// same count — two charts of one signal, while what a member has actually MADE
+// appeared nowhere on the page. It is the one figure on this wall that isn't an
+// estimate.
+//
+// Numbers, not a chart: a handful of counts is a row of figures, and a stacked
+// bar of seven kinds would need seven hues to tell apart on a page that is ink
+// and one green. Top three by count; a phone keeps two, since three columns of
+// "voiceovers" don't fit half its width and nothing in a half tile may wrap.
+const MADE_NOUNS: Record<UsageKind, [one: string, many: string]> = {
+  video: ['clip', 'clips'],
+  image: ['image', 'images'],
+  voice: ['voiceover', 'voiceovers'],
+  script: ['script', 'scripts'],
+  character: ['character', 'characters'],
+  analysis: ['analysis', 'analyses'],
+  music: ['track', 'tracks'],
+}
+
+function madeNoun(kind: UsageKind, count: number): string {
+  return MADE_NOUNS[kind][count === 1 ? 0 : 1]
+}
+
+function MadeRow({ counts }: { counts: Record<UsageKind, number> }) {
+  // `sort` is stable, so kinds on the same count keep ALL_USAGE_KINDS order
+  // rather than trading places between renders.
+  const made = ALL_USAGE_KINDS.filter((kind) => counts[kind] > 0).sort((a, b) => counts[b] - counts[a])
+  if (made.length === 0) return null
   return (
-    <div className="mt-2.5 flex h-6 items-end gap-[3px]" aria-hidden>
-      {values.map((minutes, i) => {
-        const last = i === values.length - 1
-        return (
+    <div
+      className="mt-3 flex w-full justify-evenly"
+      // The kinds past the third still count toward the hours above; the
+      // tooltip is where they're named, so none of them is simply missing.
+      title={made.map((kind) => `${counts[kind].toLocaleString()} ${madeNoun(kind, counts[kind])}`).join(' · ')}
+    >
+      {made.slice(0, 3).map((kind, i) => (
+        <span key={kind} className={`min-w-0 flex-col items-center ${i === 2 ? 'hidden sm:flex' : 'flex'}`}>
+          {/* The hero's own face, a size down the scale — these are figures,
+              the same kind of thing as the number above them. Kept to ~50px
+              with the label so this tile never becomes the tallest on the
+              row: from `lg` the tallest tile's content is the wall's floor. */}
           <span
-            key={i}
-            className={`flex-1 rounded-[2px] ${
-              minutes === 0
-                ? 'bg-ink/[0.08] light:bg-black/[0.07]'
-                : last
-                  ? 'bg-dashboard-400'
-                  : 'bg-dashboard-500/70'
-            }`}
-            // 3px floor so a quiet day still reads as a day, not a gap.
-            style={{ height: `${Math.max(3, Math.round((minutes / peak) * 24))}px` }}
-          />
-        )
-      })}
+            className="text-[18px] italic leading-none tracking-tight text-ink-200 sm:text-[20px] roomy:text-[22px]"
+            style={DISPLAY_FONT}
+          >
+            {counts[kind].toLocaleString()}
+          </span>
+          <span className="mt-1 whitespace-nowrap text-[10px] leading-tight text-ink-500 sm:text-[11px]">
+            {madeNoun(kind, counts[kind])}
+          </span>
+        </span>
+      ))}
     </div>
   )
 }
 
-// What the same generations cost here versus on the providers' own APIs. The
-// filled sliver is what you actually paid — the widget's number is the rest.
-function SpendBar({ spent, elsewhere, format }: { spent: number; elsewhere: number; format: (usd: number) => string }) {
+// What the same generations cost here against what they would cost elsewhere,
+// as ONE bar the length of the elsewhere price: the grey run is what you paid on
+// kie.ai and the green run is the saving — the hero number above it. It drew
+// the paid sliver in green on an empty track until September 2026, so the figure
+// the tile exists for was the empty part of its own chart, and a green fill
+// reads as progress: the bar looked 40% of the way to something.
+//
+// The two labels arrive formatted (see `formatUsdAt`) so they share the hero's
+// precision; the proportions use the unrounded amounts.
+function SpendBar({
+  paid,
+  elsewhere,
+  paidLabel,
+  elsewhereLabel,
+}: {
+  paid: number
+  elsewhere: number
+  paidLabel: string
+  elsewhereLabel: string
+}) {
   if (elsewhere <= 0) return null
-  const share = Math.min(1, spent / elsewhere)
+  const share = Math.min(1, paid / elsewhere)
   return (
     // `justify-between` survives the phone's centring: these two figures label
     // the two ENDS of the bar above them, so centring them would detach each
     // number from the thing it measures. `w-full` because a centred widget's
     // `items-center` shrinks every child to its content.
     <div className="mt-3 w-full" aria-hidden>
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink/[0.08] light:bg-black/[0.07]">
-        <div
-          className="h-full rounded-full bg-dashboard-500 transition-[width] duration-700 ease-out"
-          style={{ width: `${Math.max(2, share * 100)}%` }}
-        />
+      {/* The runs are parted by a 2px gap of the tile's own surface, not a
+          stroke, and the outer ends are rounded by the clip — so where they
+          meet, each run ends square against the gap. */}
+      <div className="flex h-1.5 w-full gap-[2px] overflow-hidden rounded-full">
+        {paid > 0 && (
+          <div
+            className="h-full shrink-0 bg-ink/25 transition-[width] duration-700 ease-out"
+            // 2% floor so a sliver of spend still reads as a run, not a notch.
+            style={{ width: `${Math.max(2, share * 100)}%` }}
+          />
+        )}
+        {share < 1 && <div className="h-full min-w-0 flex-1 bg-dashboard-500" />}
       </div>
       {/* One nowrap line: at half a phone's width the pair wrapped to two lines
           each, which reads as four numbers instead of a comparison of two. The
@@ -365,11 +486,11 @@ function SpendBar({ spent, elsewhere, format }: { spent: number; elsewhere: numb
           as Activity's tally beside it on this baseline. */}
       <div className="mt-1.5 flex items-center justify-between gap-2 whitespace-nowrap text-[11px] tabular-nums text-ink-500">
         <span>
-          {format(spent)}
+          {paidLabel}
           <span className="hidden sm:inline"> on kie.ai</span>
         </span>
         <span>
-          {format(elsewhere)}
+          {elsewhereLabel}
           <span className="hidden sm:inline"> elsewhere</span>
         </span>
       </div>

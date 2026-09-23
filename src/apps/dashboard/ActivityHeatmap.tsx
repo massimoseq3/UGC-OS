@@ -93,6 +93,15 @@ export default function ActivityHeatmap({ days }: { days: UsageDay[] }) {
   // centres the grid instead — even margins, which read as placement where a
   // one-sided margin reads as a gap.
   //
+  // From `lg` the cap reads the HEIGHT too (September 2026). There the wall's
+  // rows take their height from the window, and Dashboard hands this grid a
+  // box that is a size container, so a column is capped at whichever is
+  // smaller: 24px, or a seventh of the box's height less the gaps (six 3px gaps
+  // plus the 4px `pb-1` = 22px). The grid fills the tile on a tall window and
+  // gives way on a short one, instead of holding both rows at the 234px its
+  // fixed 18px cells used to need. `cqh` resolves against that box only; below
+  // `lg` it is not a container and the 18px cap stands.
+  //
   // There are no month labels. They were a 9px row over the grid, and at
   // thirteen columns the picture is a quarter and reads as "the recent run"
   // rather than as a calendar to find a date in.
@@ -100,7 +109,10 @@ export default function ActivityHeatmap({ days }: { days: UsageDay[] }) {
     <div className="w-full min-w-0 pb-1">
       <div className="flex justify-center gap-[2px] sm:gap-[3px]">
         {weeks.map((week, i) => (
-          <div key={i} className="flex min-w-0 max-w-[18px] flex-1 flex-col gap-[2px] sm:gap-[3px]">
+          <div
+            key={i}
+            className="flex min-w-0 max-w-[18px] flex-1 flex-col gap-[2px] sm:gap-[3px] lg:max-w-[min(24px,calc((100cqh_-_22px)/7))]"
+          >
             {week.map((day) =>
               day.future ? (
                 <span key={day.id} className="aspect-square w-full rounded-[2px] sm:rounded-[3px]" />
