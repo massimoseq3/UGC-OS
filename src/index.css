@@ -109,12 +109,12 @@
    chrome). Shades are derived from the base with color-mix so the ramp
    stays consistent. */
 @theme {
-  /* Geist is the app typeface. Define --font-sans so the Tailwind `font-sans`
-     utility (and the framework default) resolves to Geist instead of falling
-     back to the system sans stack — otherwise elements that opt into
-     `font-sans` (e.g. the Ad Analyzer scene-prompt <pre>) render in the system
-     font while the rest of the app uses Geist. */
-  --font-sans: 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  /* The app is set in the platform's own UI face — SF Pro on Apple, Segoe UI
+     on Windows, Roboto on Android — so it reads like the OS it imitates and
+     ships no webfont. Defined once here; the body and field rules below read
+     it through var(--font-sans), so the Tailwind `font-sans` utility (e.g. the
+     Ad Analyzer scene-prompt <pre>) and the inherited face can't drift. */
+  --font-sans: -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 
   /* ---- Semantic theme tokens (dark values are the defaults; light-mode
      overrides live in the [data-theme="light"] block below). ----
@@ -319,7 +319,7 @@ body,
   padding: 0;
   overflow: hidden;
   overscroll-behavior: none;
-  font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
   letter-spacing: -0.01em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -329,7 +329,7 @@ body,
 input,
 textarea,
 select {
-  font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
   font-weight: 300;
   letter-spacing: -0.025em;
 }

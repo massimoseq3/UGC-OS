@@ -1257,8 +1257,8 @@ function VariationCard({
         ) : (
           // Each source line is its own paragraph: normal line-height within a
           // (wrapped) sentence, a slight gap between sentences, and a wider one
-          // where the model left a blank line. No `font-sans` — that falls back
-          // to system-ui; we want the inherited Geist.
+          // where the model left a blank line. The face is inherited from the
+          // body (the system sans).
           // Each one is also the field that edits it — the line IS the editor,
           // and the span it writes back is its own position in the take, so a
           // sentence repeated twice in a script can't overwrite its twin.
@@ -1832,7 +1832,7 @@ function SceneChunkCard({
         // No quoted line in this scene (a silent beat, or an Ad Analyzer
         // blueprint whose scenes are pure direction) — the whole body is one
         // block, and editing it writes back the whole body span.
-        // Body matches the Write/Remix script output: inherited Geist + white.
+        // Body matches the Write/Remix script output: inherited system sans + white.
         <TokenField
           value={chunk.body}
           onCommit={onEditRange ? (next) => onEditRange(chunk.bodyStart, chunk.bodyEnd, next) : undefined}
