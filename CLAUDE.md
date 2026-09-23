@@ -21,9 +21,9 @@ Built for a private Skool community of solo creators and small teams. Access is 
 
 Each app's own `CLAUDE.md` loads automatically under its folder. Read it before changing that app.
 
-- Dock group order is `SECTION_ORDER` in `utils/constants.ts`; membership is by `category`. Meet Your Team reads the same order, so the two can't drift.
+- Dock group order is `SECTION_ORDER` in `utils/constants.ts`; membership is by `category`. Meet Your Workspace reads the same order, so the two can't drift.
 - **Folder names and the `id` strings in `constants.ts` are stable** — they key per-app model picks in localStorage. Never rename them.
-- Outliers is the one app a member can switch off (`stores/appVisibilityStore.ts`, browser-local, Settings → Experimental). Hiding it takes its dock tile, planet, Team card, route, Swipe File tab and ScrapeCreators field together; nothing is deleted. `OPTIONAL_FEATURES` in the same store holds B-Roll's Continuous mode, which ships OFF.
+- Outliers is the one app a member can switch off (`stores/appVisibilityStore.ts`, browser-local, Settings → Experimental). Hiding it takes its dock tile, planet, Meet Your Workspace card, route, Swipe File tab and ScrapeCreators field together; nothing is deleted. `OPTIONAL_FEATURES` in the same store holds B-Roll's Continuous mode, which ships OFF.
 
 ## Role
 

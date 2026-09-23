@@ -48,7 +48,7 @@ const SERIF = { fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', ser
 const TEAM_COUNT_WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten']
 function defaultCaption(count: number): string {
   const word = TEAM_COUNT_WORDS[count] ?? String(count)
-  return `${word[0].toUpperCase()}${word.slice(1)} teammates, one workspace, and everything they make lands in the shared Bank.`
+  return `${word[0].toUpperCase()}${word.slice(1)} apps, one workspace, and everything they make lands in the shared Bank.`
 }
 
 export default function MeetTheTeam() {
@@ -112,7 +112,7 @@ export default function MeetTheTeam() {
             <h2 id="team-intro-title" className="text-[26px] font-bold tracking-tight text-ink-100">
               Meet Your{' '}
               <span className="font-normal italic" style={SERIF}>
-                Team
+                Workspace
               </span>
             </h2>
           </div>
@@ -261,7 +261,7 @@ function KeyBlock() {
         <div className="min-w-0 flex-1">
           <p className="flex items-center gap-1.5 text-[12.5px] font-semibold tracking-tight text-ink-100">
             {done && <Check className="h-3.5 w-3.5 text-dashboard-400" strokeWidth={3} />}
-            {done ? 'Your Crew Is Fuelled' : 'Fuel the Crew with a kie.ai Key'}
+            {done ? 'You’re Connected' : 'Connect Your kie.ai Key'}
           </p>
           <p className="mt-0.5 text-[11.5px] leading-snug text-ink-500">
             {done

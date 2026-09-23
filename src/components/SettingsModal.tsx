@@ -958,7 +958,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                   }}
                   className="flex w-full items-center gap-3 rounded-2xl border border-ink/5 bg-ink/[0.02] px-4 py-3 text-left transition-colors hover:bg-ink/[0.05]"
                 >
-                  <span className="min-w-0 flex-1 text-[12px] font-medium text-ink-200">Meet Your Team</span>
+                  <span className="min-w-0 flex-1 text-[12px] font-medium text-ink-200">Meet Your Workspace</span>
                   <ChevronRight className="h-3.5 w-3.5 shrink-0 text-ink-500" />
                 </button>
                 <div className="overflow-hidden rounded-2xl border border-ink/5 bg-ink/[0.02]">
