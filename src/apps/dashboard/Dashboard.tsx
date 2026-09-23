@@ -1,18 +1,18 @@
 import { useEffect, useMemo } from 'react'
-import { Clock, PiggyBank, CalendarCheck, GraduationCap, ArrowUpRight } from 'lucide-react'
+import { Clock, PiggyBank, CalendarCheck, Sparkles } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useBankStore, backfillUsageLedger } from '../../stores/bankStore'
 import { isCloudEnabled } from '../../lib/supabase'
 import { creditsToUsd } from '../../utils/models'
 import { computeUsageMetrics, dailyMinutesSaved, usageDayStart } from '../../utils/usage'
-import { AI_UGC_ACADEMY_URL } from '../../utils/constants'
 import AppLogo from '../../components/AppLogo'
 import ActivityHeatmap from './ActivityHeatmap'
 import WhatsNewTile from './WhatsNewTile'
 import ConnectKeyCard from './ConnectKeyCard'
-import Widget, { WidgetLabel, WidgetFigure, WidgetDelta } from './Widget'
-import { WIDGET_SHELL, WIDGET_INTERACTIVE, DISPLAY_FONT, riseStyle } from './widgetStyles'
+import StudioLine from './StudioLine'
+import RecentStrip from './RecentStrip'
+import { WIDGET_SHELL, DISPLAY_FONT, riseStyle } from './widgetStyles'
 
 // Dashboard — the workspace's "what you're getting out of this" screen and the
 // default landing page: the value widgets laid across the same `AppBackground`
@@ -84,228 +84,128 @@ export default function Dashboard() {
 
   const hasActivity = metrics.totalGenerations > 0
 
-  // Whether each figure tile has floor art under its number. Both charts render
-  // NOTHING before there is data (Sparkline bails on a flat zero peak, SpendBar
-  // on nothing spent elsewhere), which used to leave the figure hanging off the
-  // label with the whole bottom half of the tile empty under it. Mirrors each
-  // chart's own bail condition, so the tile and its floor can't disagree.
-  const hasSpark = spark.some((minutes) => minutes > 0)
-  const hasSpend = metrics.officialUsd > 0
-
   // Widgets rise in reading order; the banner (when shown) takes slot 0.
   const slot = (n: number) => (needsKey ? n + 1 : n)
 
   return (
+    // Studio Home. The landing page leads with the member (a masthead with
+    // their numbers in it), then the work itself: the production line as the
+    // launcher, and the newest things they made one click from where they were
+    // made. It reads left-aligned, like an editorial front page, rather than as
+    // a centred wall of equal tiles.
     <div className="relative flex min-h-full flex-col">
-      {/* `safe center` centres the desktop on a tall window without ever
-          clipping the greeting off the top when the content outgrows it. */}
       <div
-        className="relative mx-auto flex w-full max-w-[1240px] flex-1 flex-col px-5 py-4 md:px-8"
+        className="relative mx-auto flex w-full max-w-[1240px] flex-1 flex-col px-5 py-5 md:px-8"
         style={{ justifyContent: 'safe center' }}
       >
-        <div className="flex flex-col gap-3.5">
-          {/* Centred at EVERY width (Massimo's call, September 2026) — the
-              brand mark sits over the greeting, and a logo aligned left over a
-              wall of centred tiles reads as a page header rather than as the
-              masthead of the desktop under it. It used to read from the left
-              edge from `sm` up, like every other page in the app; this one
-              isn't a working surface, it's the landing page. */}
-          <header className="flex flex-col items-center text-center">
-            <AppLogo className="mb-1.5 h-12 w-12 md:h-14 md:w-14" />
-            {/* ONE face for the whole line — `DISPLAY_FONT`, italic,
-                `tracking-tighter` (Massimo's call, August 2026). It was two
-                for a while, Geist for the salutation and the serif for the
-                name alone; the masthead reads better as a single mark.
-                `font-normal` and it stays that way: Instrument Serif ships a
-                single weight, so `font-bold` here only asks the browser to
-                synthesize one, which thickens the strokes without the face
-                ever drawing a real bold.
-                30px on a phone rather than 36 so "Good afternoon, <name>"
-                can't gain a second line and push the bento's last row under
-                the fold. */}
-            <h1
-              className="text-[30px] leading-tight font-normal italic tracking-tighter text-ink-50 sm:text-4xl sm:leading-normal md:text-[46px] md:leading-[1.1]"
-              style={DISPLAY_FONT}
-            >
-              {salutation}
-              {displayName && <>, {displayName}</>}
-            </h1>
-            {/* The date, and — for a member with nothing yet — the one line
-                that says where the numbers come from. "Here's what UGC OS has
-                saved you so far" rode here for every OTHER member and said
-                nothing the four widgets underneath don't say themselves. */}
-            <p className="mt-1 text-[13px] text-ink-400">
-              {today}
+        <div className="flex flex-col gap-4">
+          <header className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2.5 text-[12px] text-ink-400">
+                <AppLogo className="h-6 w-6" />
+                <span>{today}</span>
+                {metrics.currentStreak > 0 && (
+                  <span className="rounded-full bg-dashboard-500/15 px-2 py-0.5 text-[11px] font-semibold text-dashboard-400">
+                    {metrics.currentStreak} day streak
+                  </span>
+                )}
+              </div>
+              <h1
+                className="mt-2 text-[40px] font-normal italic leading-[1.02] tracking-tighter text-ink-50 md:text-[60px]"
+                style={DISPLAY_FONT}
+              >
+                {salutation}
+                {displayName && <>, {displayName}</>}
+              </h1>
               {!hasActivity && (
-                <>
-                  <span className="mx-1.5 text-ink-700">·</span>
-                  Generate your first asset and your savings start counting.
-                </>
+                <p className="mt-1 text-[13px] text-ink-400">Generate your first asset and your savings start counting.</p>
               )}
-            </p>
+            </div>
+
+            {/* A member with no key yet has no numbers either, so the one thing
+                they need — connecting it — takes the instrument's place rather
+                than adding a row that pushes the page under the dock. */}
+            {needsKey ? (
+              <div className="w-full lg:w-[620px] lg:shrink-0">
+                <ConnectKeyCard />
+              </div>
+            ) : (
+            // The member's numbers, as one glass instrument rather than four
+            // tiles: the figures are read together, so they sit together.
+            <div
+              className={`widget-rise grid shrink-0 grid-cols-2 overflow-hidden sm:grid-cols-4 ${WIDGET_SHELL}`}
+              style={riseStyle(slot(0))}
+            >
+              <Figure label="Money Saved" icon={PiggyBank} value={formatUsd(metrics.usdSaved)} sub="vs official APIs">
+                <SpendBar spent={metrics.kieUsd} elsewhere={metrics.officialUsd} format={formatUsd} />
+              </Figure>
+              <Figure
+                label="Time Saved"
+                icon={Clock}
+                value={formatTimeSaved(metrics.minutesSaved)}
+                sub={workdays >= 1 ? `${workdays < 10 ? Math.round(workdays * 10) / 10 : Math.round(workdays)} workdays` : 'vs doing it by hand'}
+              >
+                <Sparkline values={spark} />
+              </Figure>
+              <Figure
+                label="Generations"
+                icon={Sparkles}
+                value={metrics.totalGenerations.toLocaleString()}
+                sub={sinceLabel ? `since ${sinceLabel}` : 'generations'}
+              />
+              <div className="flex flex-col border-ink/10 px-5 py-4 max-sm:border-t sm:border-l">
+                <span className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.07em] text-ink-300">
+                  <CalendarCheck className="h-[13px] w-[13px]" strokeWidth={1.75} />
+                  Activity
+                </span>
+                <div className="mt-3 w-[150px]">
+                  <ActivityHeatmap days={usageDays} />
+                </div>
+              </div>
+            </div>
+            )}
           </header>
 
-          {needsKey && <ConnectKeyCard />}
+          <StudioLine index={slot(1)} />
 
-          {/* The widget wall — two rows on a desktop, and deliberately no
-              more: the whole desktop has to sit inside one screen with the
-              dock, so nothing here is allowed to push the heatmap below the
-              fold.
-
-              **Three columns, rearranged September 2026 (Massimo's call).**
-              The two figures stack down the LEFT (Money saved over Time
-              saved, the pair that read as one comparison), Activity heads the
-              MIDDLE with the Academy link under it, and What's New takes the
-              whole RIGHT column at two rows tall. The Streak ring went with
-              that rearrangement — the menu bar's flame chip still carries the
-              number, and the ledger still feeds it.
-
-              What the tall column bought is the point of it: a full-width
-              16:9 hero is 196px, which does not fit in a 233px tile with a
-              label, a title and a button. See WhatsNewTile.
-
-              **Below `lg` it is a bento, two tiles across** (August 2026).
-              Every widget was `col-span-12` there, so a phone got a stack of
-              full-width slabs and the Dashboard became a page you scroll
-              rather than a desktop you look at. What's New is the one
-              exception — it keeps the full width, because its rows are
-              pictures — and it takes `order-last` so the phone still ends on
-              it rather than splitting the four figures around it.
-              `auto-rows-fr` is `lg:` only for the same reason: equal rows are
-              what make the desktop read as a wall, and below it they would
-              squeeze the list into a figure tile's height. Activity fits a
-              half tile because the heatmap sizes its cells to whatever box it
-              is dropped in (see ActivityHeatmap). */}
-          <div className="grid grid-cols-12 gap-3.5 lg:auto-rows-fr">
-            {/* Money saved */}
-            <Widget index={slot(0)} className="col-span-6 items-center text-center lg:col-span-4">
-              <WidgetLabel icon={PiggyBank} label="Money Saved" />
-              {/* Centres with no bar under it — see Time saved below. */}
-              <div className={`w-full ${hasSpend ? 'pt-4' : 'flex flex-1 flex-col justify-center'}`}>
-                <WidgetFigure value={formatUsd(metrics.usdSaved)} />
-                <p className="mt-1.5 text-[12px] leading-snug text-ink-500">
-                  vs official APIs
-                  <span className="hidden sm:inline"> &amp; creator platforms</span>
-                </p>
-                {metrics.usdSavedLast7d >= 0.01 && (
-                  <WidgetDelta>{`+${formatUsd(metrics.usdSavedLast7d)} this week`}</WidgetDelta>
-                )}
-              </div>
-              <div className="mt-auto w-full">
-                <SpendBar spent={metrics.kieUsd} elsewhere={metrics.officialUsd} format={formatUsd} />
-              </div>
-            </Widget>
-
-            {/* Activity */}
-            <Widget index={slot(1)} className="col-span-6 items-center text-center lg:col-span-4">
-              <WidgetLabel icon={CalendarCheck} label="Activity" />
-              <div className="mt-auto flex w-full items-end pt-3">
-                <ActivityHeatmap days={usageDays} />
-              </div>
-              {/* The tally reads UNDER the grid it counts, the way Streak's
-                  record reads under its ring — it sat beside the label in the
-                  header until the wall went to six equal centred tiles, where
-                  a note in that row is what knocks the label off centre. Still
-                  gone below `sm`, where the bento can't spare the line.
-                  There is nothing here before there is activity: "Every
-                  generation lights up a day" held the slot on the reasoning
-                  that 26 weeks of blank cells read as a broken widget rather
-                  than a waiting one, and came out because the label already
-                  says Activity and the empty grid says there hasn't been
-                  any. */}
-              {hasActivity && (
-                <p className="mt-2 hidden max-w-full truncate text-[11px] text-ink-500 sm:block">
-                  {`${metrics.totalGenerations.toLocaleString()} generations · ${metrics.activeDays.toLocaleString()} active days${sinceLabel ? ` since ${sinceLabel}` : ''}`}
-                </p>
-              )}
-            </Widget>
-            {/* The right-hand column, two rows tall — see the note above. */}
-            <WhatsNewTile index={slot(3)} className="order-last col-span-12 lg:order-none lg:col-span-4 lg:row-span-2" />
-            {/* Time saved */}
-            <Widget index={slot(2)} className="col-span-6 items-center text-center lg:col-span-4">
-              <WidgetLabel icon={Clock} label="Time Saved" />
-              {/* NOT `mt-auto`: bottom-aligning this block lands the figure
-                  at a different height in each tile, because Money saved's
-                  floor art (a bar plus two captions) is taller than a
-                  sparkline and pushes its block further up. The text stacks
-                  from the label down in both, so hero / caption / delta line
-                  up across the pair, and only the CHART takes `mt-auto`.
-
-                  With no floor art yet it CENTRES instead (Massimo's call,
-                  September 2026): a "0 min" pinned under the label left the
-                  bottom half of the tile visibly empty, which reads as a
-                  widget missing a piece rather than one waiting for its first
-                  generation. The pair still line up with each other, because
-                  neither has a chart to be pushed up by — which is exactly
-                  the condition the rule above is about. */}
-              <div className={`w-full ${hasSpark ? 'pt-4' : 'flex flex-1 flex-col justify-center'}`}>
-                <WidgetFigure value={formatTimeSaved(metrics.minutesSaved)} />
-                {/* The workdays line is the figure in a second unit and
-                    nothing else — "≈ 7.6 workdays of production and
-                    tool-hopping" was a sentence explaining a number that
-                    doesn't need explaining, and the ≈ hedged a figure the
-                    widget above it already states exactly. */}
-                <p className="mt-1.5 text-[12px] leading-snug text-ink-500">
-                  {workdays >= 1
-                    ? `${workdays < 10 ? Math.round(workdays * 10) / 10 : Math.round(workdays)} workdays`
-                    : hasActivity
-                      ? `across ${metrics.totalGenerations.toLocaleString()} generation${metrics.totalGenerations === 1 ? '' : 's'}`
-                      : 'vs doing it by hand'}
-                </p>
-                {metrics.minutesSavedLast7d > 0 && (
-                  <WidgetDelta>{`+${formatTimeSaved(metrics.minutesSavedLast7d)} this week`}</WidgetDelta>
-                )}
-              </div>
-              <div className="mt-auto w-full">
-                <Sparkline values={spark} />
-              </div>
-            </Widget>
-
-            {/* Academy — the wall's one pure LINK, and the one tile with
-                nothing of the member's own in it, so it keeps the centred
-                disc-over-title card rather than taking a WidgetLabel header
-                like the figures that report something. What's New wore this
-                same shape until it became a log; the shape lived in
-                Widget.tsx as a shared constant for exactly as long as two
-                cards wore it. It sits under Activity in the middle column. */}
-            <a
-              href={AI_UGC_ACADEMY_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={riseStyle(slot(4))}
-              className={`widget-rise group relative col-span-6 flex flex-col items-center justify-center gap-3 p-4 text-center lg:col-span-4 ${WIDGET_SHELL} ${WIDGET_INTERACTIVE}`}
-            >
-              {/* Disc and title step up from `sm` (Massimo's call, September
-                  2026): this tile carries two short words where the other
-                  five carry a figure, so at the five's supporting sizes it
-                  read as the quietest thing on a wall of equal squares. The
-                  phone keeps the smaller pair — the tile is half a screen
-                  wide there and "AI UGC Academy" is one line by a hair. */}
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[15px] bg-dashboard-500/15 sm:h-[52px] sm:w-[52px] sm:rounded-[17px]">
-                <GraduationCap className="h-6 w-6 text-dashboard-400 sm:h-7 sm:w-7" strokeWidth={1.75} />
-              </span>
-              <span>
-                <span
-                  className="block text-[15px] italic font-normal leading-tight tracking-tight text-ink-50 sm:text-[18px]"
-                  style={DISPLAY_FONT}
-                >
-                  AI UGC Academy
-                </span>
-                <span className="mt-0.5 block text-[11px] leading-snug text-ink-500 sm:text-[12px]">Trainings</span>
-              </span>
-              {/* Out of flow — in it, the arrow costs the title 28px it
-                  doesn't have. Gone entirely below `sm`, where the tile is
-                  half a phone's width: out of flow it doesn't reserve the
-                  space either, so it simply landed on the last letter of
-                  the title. The card is the link with or without it. */}
-              <ArrowUpRight
-                className="absolute right-3 top-3 hidden h-3.5 w-3.5 text-ink-600 transition-colors group-hover:text-dashboard-400 sm:block"
-                strokeWidth={2}
-              />
-            </a>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+            <div className="flex lg:col-span-8">
+              <RecentStrip index={slot(2)} />
+            </div>
+            <WhatsNewTile index={slot(3)} rows={3} className="lg:col-span-4" />
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+// One figure in the masthead instrument: eyebrow, the number in the display
+// face, what it is measured against, and its chart underneath.
+function Figure({
+  label,
+  icon: Icon,
+  value,
+  sub,
+  children,
+}: {
+  label: string
+  icon: React.ElementType
+  value: string
+  sub: string
+  children?: React.ReactNode
+}) {
+  return (
+    <div className="flex min-w-[150px] flex-col border-ink/10 px-5 py-4 [&:nth-child(2)]:border-l [&:nth-child(3)]:max-sm:border-t [&:nth-child(3)]:sm:border-l">
+      <span className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.07em] text-ink-300">
+        <Icon className="h-[13px] w-[13px]" strokeWidth={1.75} />
+        {label}
+      </span>
+      <span className="mt-1 text-[40px] font-normal italic leading-none tracking-tight text-ink-50" style={DISPLAY_FONT}>
+        {value}
+      </span>
+      <span className="mt-1 text-[11.5px] text-ink-500">{sub}</span>
+      <div className="mt-auto">{children}</div>
     </div>
   )
 }

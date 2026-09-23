@@ -72,7 +72,7 @@ function announcementRow(a: Announcement): FeedRow {
  * everything in it. It takes the LAST slot rather than the first, so it
  * displaces the oldest thing on the tile instead of the newest.
  */
-function buildFeed(announcements: Announcement[]): FeedRow[] {
+function buildFeed(announcements: Announcement[], count: number): FeedRow[] {
   const videos: FeedRow[] = videosByRecency().map((v) => ({
     key: `v:${v.id}`,
     at: v.published,
@@ -82,7 +82,7 @@ function buildFeed(announcements: Announcement[]): FeedRow[] {
   }))
   const rows = [...videos, ...announcements.map(announcementRow)]
     .sort(byRecency)
-    .slice(0, LOG_ROWS)
+    .slice(0, count)
 
   // `announcements` arrives sorted by the store (pinned first, then newest),
   // so its head is the one the panel itself leads with.
@@ -92,14 +92,14 @@ function buildFeed(announcements: Announcement[]): FeedRow[] {
   return rows
 }
 
-export default function WhatsNewTile({ index, className = '' }: { index: number; className?: string }) {
+export default function WhatsNewTile({ index, className = '', rows = LOG_ROWS }: { index: number; className?: string; rows?: number }) {
   const items = useAnnouncementStore((s) => s.items)
   const readIds = useAnnouncementStore((s) => s.readIds)
   const openPanel = useAnnouncementStore((s) => s.openPanel)
   const seenIds = useVideoLogStore((s) => s.seenIds)
   const markSeen = useVideoLogStore((s) => s.markSeen)
 
-  const feed = buildFeed(items)
+  const feed = buildFeed(items, rows)
   const hasAlert = items.some((a) => a.level === 'alert' && !readIds.includes(a.id))
   // One dot for the whole tile: the corner is the "something happened while
   // you were away" light, and a member doesn't need two of them to know to
