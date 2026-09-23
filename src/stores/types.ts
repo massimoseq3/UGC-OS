@@ -657,6 +657,10 @@ export interface InterAppPayload {
   targetApp: string
   targetField: string
   data: unknown
+  // The rows `data` came from, when it came from some — the Scripts run a
+  // script was sent out of, the swipe an ad was analyzed from. The receiving
+  // app keeps them with the input and stamps them on what it makes from it.
+  parents?: Lineage[]
 }
 
 // Payload for the "use a generated video as a source clip"

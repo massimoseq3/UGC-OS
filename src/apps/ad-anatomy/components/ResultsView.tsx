@@ -48,6 +48,8 @@ interface ResultsViewProps {
   // Legacy rows predate the field; a missing kind is a video, which is what
   // every analysis was when they were written.
   mediaKind?: 'video' | 'image'
+  // The history row being shown — the parent of anything sent out of it.
+  analysisId?: string
 }
 
 // Pull a 3-6 word descriptor out of the file name if the LLM didn't return
@@ -259,7 +261,7 @@ function BreakdownSection({ result }: { result: AnalysisResult }) {
 }
 
 /* ─── 2. Transcript ─── */
-function TranscriptSection({ result, fileName }: { result: AnalysisResult; fileName: string }) {
+function TranscriptSection({ result, fileName, analysisId }: { result: AnalysisResult; fileName: string; analysisId?: string }) {
   const { copied, copy } = useCopy()
   const addToast = useAppStore((s) => s.addToast)
   const sendToApp = useAppStore((s) => s.sendToApp)
@@ -294,6 +296,7 @@ function TranscriptSection({ result, fileName }: { result: AnalysisResult; fileN
       targetApp: 'script-architect',
       targetField: 'winningTranscript',
       data: withoutTimestamps,
+      parents: analysisId ? [{ bank: 'adAnatomyHistory', id: analysisId }] : undefined,
     })
     addToast('Sent to Scripts + saved to bank')
   }
@@ -614,7 +617,7 @@ function SceneCard({ scene }: { scene: Scene }) {
   )
 }
 
-function ReverseEngineeredSection({ result, fileName }: { result: AnalysisResult; fileName: string }) {
+function ReverseEngineeredSection({ result, fileName, analysisId }: { result: AnalysisResult; fileName: string; analysisId?: string }) {
   const { copied, copy } = useCopy()
   const { reverseEngineeredPrompt } = result
   const scenes = reverseEngineeredPrompt.scenes
@@ -653,6 +656,7 @@ function ReverseEngineeredSection({ result, fileName }: { result: AnalysisResult
         totalDurationSeconds: reverseEngineeredPrompt.totalDurationSeconds,
         fullPrompt,
       },
+      parents: analysisId ? [{ bank: 'adAnatomyHistory', id: analysisId }] : undefined,
     })
     addToast('Sent to Scripts + saved to bank')
   }
@@ -853,7 +857,7 @@ function FrameGrabButton({
 type SectionKey = 'breakdown' | 'transcript' | 'scenes'
 
 /* ─── Main ResultsView ─── */
-export default function ResultsView({ result, videoSrc, restoredThumbUrl, fileName, mediaKind = 'video' }: ResultsViewProps) {
+export default function ResultsView({ result, videoSrc, restoredThumbUrl, fileName, mediaKind = 'video', analysisId }: ResultsViewProps) {
   // Hide the media column entirely when neither a video nor a saved
   // still is available (e.g. restored from a history row whose thumbnail
   // capture had failed). Results panels then take the full width.
@@ -1061,10 +1065,10 @@ export default function ResultsView({ result, videoSrc, restoredThumbUrl, fileNa
               <BreakdownSection result={result} />
             </div>
             <div ref={transcriptRef} data-section="transcript" className="scroll-mt-5 max-md:scroll-mt-[73px]">
-              <TranscriptSection result={result} fileName={fileName} />
+              <TranscriptSection result={result} fileName={fileName} analysisId={analysisId} />
             </div>
             <div ref={scenesRef} data-section="scenes" className="scroll-mt-5 max-md:scroll-mt-[73px]">
-              <ReverseEngineeredSection result={result} fileName={fileName} />
+              <ReverseEngineeredSection result={result} fileName={fileName} analysisId={analysisId} />
             </div>
           </div>
         </div>

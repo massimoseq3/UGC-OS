@@ -138,6 +138,7 @@ export default function SwipeDetail({ item, onClose }: SwipeDetailProps) {
         targetApp: 'ad-anatomy',
         targetField: 'adVideo',
         data: { file, sourceUrl: item.postUrl, caption: item.caption },
+        parents: [{ bank: 'swipes', id: item.id }],
       })
       openApp('ad-anatomy')
       onClose()
@@ -146,7 +147,7 @@ export default function SwipeDetail({ item, onClose }: SwipeDetailProps) {
     } finally {
       setBusy(null)
     }
-  }, [result, refresh, sendToApp, openApp, onClose, item.postUrl, item.caption, addToast])
+  }, [result, refresh, sendToApp, openApp, onClose, item.id, item.postUrl, item.caption, addToast])
 
   const handleDownload = useCallback(async () => {
     setBusy('download')
@@ -181,10 +182,15 @@ export default function SwipeDetail({ item, onClose }: SwipeDetailProps) {
 
   const handleRemix = useCallback(async () => {
     if (transcript.phase !== 'ready') return
-    sendToApp({ targetApp: 'script-architect', targetField: 'winningTranscript', data: transcript.text })
+    sendToApp({
+      targetApp: 'script-architect',
+      targetField: 'winningTranscript',
+      data: transcript.text,
+      parents: [{ bank: 'swipes', id: item.id }],
+    })
     openApp('script-architect')
     onClose()
-  }, [transcript, sendToApp, openApp, onClose])
+  }, [transcript, sendToApp, openApp, onClose, item.id])
 
   // Offered only once the player has actually failed, or when the row never had
   // a link to begin with. The credit is named on the button for the same reason

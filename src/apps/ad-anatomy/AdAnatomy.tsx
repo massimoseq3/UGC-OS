@@ -7,7 +7,7 @@ import UploadView from './components/UploadView'
 import ResultsView from './components/ResultsView'
 import HistoryRail from './components/HistoryRail'
 import type { AnalysisResult } from './types'
-import type { AdAnatomyHistoryItem, DiscoverVideoPayload } from '../../stores/types'
+import type { AdAnatomyHistoryItem, DiscoverVideoPayload, Lineage } from '../../stores/types'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
 import { useAssetUrl } from '../../hooks/useAssetUrl'
 import { deleteAsset } from '../../utils/assetStore'
@@ -176,7 +176,8 @@ export default function AdAnatomy() {
     if (firstId) setSelectedId(firstId)
   }
 
-  const handleAnalyze = async (files: File[]) => {
+  // `parents` are the rows a handed-over ad came from (a swipe).
+  const handleAnalyze = async (files: File[], parents?: Lineage[]) => {
     // On a phone only one pane is on screen — follow the run to the analysis.
     setPane('result')
     if (isRecordingActive()) {
@@ -189,7 +190,7 @@ export default function AdAnatomy() {
       try {
         // The runner writes the 'analyzing' row and queues the job; the row is
         // what this pane watches from here on.
-        const { rowId } = await adAnalysisRunner.start({ file })
+        const { rowId } = await adAnalysisRunner.start({ file }, { provenance: { parents } })
         if (firstId === null) firstId = rowId
       } catch (e) {
         console.warn('[ad-anatomy] failed to enqueue analysis for', file.name, e)
@@ -209,7 +210,7 @@ export default function AdAnatomy() {
 
     const payload = interAppPayload.data as DiscoverVideoPayload
     consumePayload()
-    if (payload?.file) void handleAnalyze([payload.file])
+    if (payload?.file) void handleAnalyze([payload.file], interAppPayload.parents)
     // handleAnalyze is redefined every render; keying on the payload is what
     // makes this fire once per handoff.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -292,6 +293,7 @@ function CompletePane({ item, onReset }: { item: AdAnatomyHistoryItem; onReset: 
       restoredThumbUrl={thumbUrl}
       fileName={item.fileName}
       mediaKind={item.mediaKind}
+      analysisId={item.id}
     />
   )
 }

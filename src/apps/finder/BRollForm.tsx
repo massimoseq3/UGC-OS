@@ -79,6 +79,7 @@ export default function BRollForm({ item, onSave, onCancel }: BRollFormProps) {
       targetApp: 'playground',
       targetField: 'videoStartFrame',
       data: { imageUrl: dataUri, prompt },
+      parents: item ? [{ bank: 'brolls', id: item.id }] : undefined,
     })
   }
 

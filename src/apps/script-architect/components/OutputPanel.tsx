@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Copy, Check, Bookmark, ArrowUpRight, Mic, Film, PenLine, AlertCircle, ImagePlay, Palette, Pencil, X, Undo2, Redo2, Quote, ChevronDown, ChevronRight } from 'lucide-react'
 import GenerationProgress from '../../../components/GenerationProgress'
 import GridCanvas, { AwaitingBody } from '../../../components/GridCanvas'
@@ -10,6 +10,18 @@ import { useBankStore } from '../../../stores/bankStore'
 import { useAppStore } from '../../../stores/appStore'
 import { REMIX_ANGLE_LABEL, remixAnglesForCount, HOOK_CATEGORY_META, DEFAULT_HOOK_COUNT, parseHooks, hooksPlainText, hooksToText, spokenLinesOnly, type ParsedHook, type PendingScriptRun, type RemixAngle, type ScriptMode, type WriteFormat } from '../types'
 import { suspendChromeAutoHide } from '../../../hooks/useChromeAutoHide'
+import type { Lineage } from '../../../stores/types'
+
+// The Scripts run the takes on screen came from, or null while nothing
+// finished is on screen. A take, scene or shot sent out of here names it as the
+// parent of whatever the other app makes (see Lineage in stores/types.ts), so
+// every send button reads it here rather than taking it as a prop.
+const ShownRunContext = createContext<string | null>(null)
+
+function useSentFrom(): Lineage[] | undefined {
+  const runId = useContext(ShownRunContext)
+  return runId ? [{ bank: 'scriptHistory', id: runId }] : undefined
+}
 import { groupSceneBeats, liftAudioNote, renumberScenes, spliceOut, splitHeaderTime, splitScenes, splitSpokenLines, splitVisualStyle, splitVoiceProfile, type SceneChunk, type SceneBeat } from '../sceneParsing'
 
 interface OutputPanelProps {
@@ -94,8 +106,9 @@ function IconPillButton({
 function SendToPlaygroundButton({ text, unit }: { text: string; unit: 'shot' | 'scene' }) {
   const sendToApp = useAppStore((s) => s.sendToApp)
   const addToast = useAppStore((s) => s.addToast)
+  const parents = useSentFrom()
   const send = () => {
-    sendToApp({ targetApp: 'playground', targetField: 'videoPrompt', data: text })
+    sendToApp({ targetApp: 'playground', targetField: 'videoPrompt', data: text, parents })
     addToast(`${unit === 'shot' ? 'Shot' : 'Scene'} sent to Playground`)
   }
   return (
@@ -223,6 +236,7 @@ function VariationCard({
   const addScript = useBankStore((s) => s.addScript)
   const sendToApp = useAppStore((s) => s.sendToApp)
   const addToast = useAppStore((s) => s.addToast)
+  const parents = useSentFrom()
 
   // Pull the voice-profile block (wherever it sits) out FIRST, then split the
   // remaining text into scenes — otherwise the appended profile gets merged into
@@ -479,19 +493,19 @@ function VariationCard({
     // reading one blob and would otherwise say "HOST colon" and read the comment
     // card aloud (see spokenLinesOnly).
     const spoken = spokenLinesOnly(text)
-    sendToApp({ targetApp: 'voice-studio', targetField: 'scriptText', data: spoken })
+    sendToApp({ targetApp: 'voice-studio', targetField: 'scriptText', data: spoken, parents })
     addToast(autoSaved ? 'Script saved to bank · sent to Voiceovers' : 'Script sent to Voiceovers')
   }
 
   const handleSendToBrollStudio = () => {
     const autoSaved = !savedOnce
     if (autoSaved) saveToBank(defaultSaveTitle)
-    sendToApp({ targetApp: 'broll-studio', targetField: 'scriptText', data: text })
+    sendToApp({ targetApp: 'broll-studio', targetField: 'scriptText', data: text, parents })
     addToast(autoSaved ? 'Script saved to bank · sent to B-Roll' : 'Script sent to B-Roll')
   }
 
   const handleSendToPlayground = () => {
-    sendToApp({ targetApp: 'playground', targetField: 'videoPrompt', data: text })
+    sendToApp({ targetApp: 'playground', targetField: 'videoPrompt', data: text, parents })
     addToast('Prompt sent to Playground')
   }
 
@@ -1545,6 +1559,7 @@ export default function OutputPanel({ variations, outputAngles, mode, liveMode, 
   // No canvas once the takes are in: the grid marks an empty stage waiting for
   // work, and behind finished output it's just texture under the reading.
   return (
+    <ShownRunContext.Provider value={pendingRun ? null : runId ?? null}>
     <div className="relative flex h-full flex-col overflow-hidden" onMouseDown={clearSelectionOnChrome}>
       {/* Floats OVER the scroll port rather than sitting above it, so the takes
           slide under its frosted glass as you read. Absolute, not `sticky`: it
@@ -1633,6 +1648,7 @@ export default function OutputPanel({ variations, outputAngles, mode, liveMode, 
         })}
       </div>
     </div>
+    </ShownRunContext.Provider>
   )
 }
 
