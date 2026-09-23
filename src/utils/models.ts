@@ -29,7 +29,7 @@ export type Tag = 'recommended' | 'new' | 'fast' | 'cheap'
 // two, which is why `chatSlug` exists — Opus 5 and Sonnet 5 share one endpoint.
 //   'openai-chat'      POST /<slug>/v1/chat/completions   (Gemini family)
 //   'claude-messages'  POST /claude/v1/messages           (Claude family)
-//   'openai-responses' POST /codex|grok/v1/responses      (GPT 5.6, Grok)
+//   'openai-responses' POST /codex|grok|openai/v1/responses (GPT 5.6, Grok, DeepSeek)
 export type ChatTransport = 'openai-chat' | 'claude-messages' | 'openai-responses'
 
 // What the script-model picker shows beside a chat model. `intelligence` is
@@ -373,6 +373,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
   //
   //   model            in cr/M   out cr/M   blended cr/1k
   //   GPT 5.6 Luna        11.2       67.2      0.0392
+  //   DeepSeek V4.1 Flash   24         95      0.0595  (2026-09-23)
   //   Gemini 3.8 Flash      45        225      0.135   (promo, see the entry)
   //   Gemini 3.6 Flash      90        450      0.27
   //   Grok 4.6             160        480      0.32
@@ -603,6 +604,33 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     chatSlug: 'grok-4-6',
     chatRating: {
       intelligence: 5,
+    },
+  },
+
+  {
+    id: 'deepseek-v4-1-flash',
+    displayName: 'DeepSeek V4.1 Flash',
+    provider: 'DeepSeek',
+    task: 'chat',
+    tags: ['new', 'cheap'],
+    // 24 in / 95 out credits per million (kie.ai/deepseek-v4-1-Flash, verified
+    // 2026-09-23) -> 0.0595 blended per 1k: the second-cheapest row, between
+    // GPT 5.6 Luna and Gemini 3.8 Flash. No `official` on purpose — kie's page
+    // publishes no DeepSeek list price to compare against, so the row carries
+    // no "% off" chip and adds nothing to the Dashboard's savings line.
+    pricing: { unit: 'per-1k-tokens', credits: 0.0595 },
+    // kie's UNIFIED Responses route — not a DeepSeek-specific path — so the
+    // model is named only by `chatSlug` in the body. Two things on this route
+    // differ from GPT and Grok (docs.kie.ai/market/deepseek-v4-1-flash): it
+    // thinks by default, and our `reasoning.effort` ('low' unless a caller
+    // asks for more) is what keeps that cheap; and `max_output_tokens` is
+    // ignored, which costs nothing here because no call sends it. Images go
+    // in as `input_image`, so the vision calls work; a video does not.
+    chatEndpoint: '/openai/v1/responses',
+    chatTransport: 'openai-responses',
+    chatSlug: 'deepseek-v4-1-flash',
+    chatRating: {
+      intelligence: 3,
     },
   },
 
