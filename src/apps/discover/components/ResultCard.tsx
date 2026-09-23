@@ -1,10 +1,11 @@
-import { memo, useState, type ElementType } from 'react'
+import { memo, useState, type ElementType, type RefObject } from 'react'
 import {
   Bookmark, BookmarkCheck, Download, Eye, ExternalLink, Heart, ImageOff, MessageCircle, Pause, PenLine, Play, Share2, Volume2, VolumeX,
 } from 'lucide-react'
 import Spinner from '../../../components/Spinner'
 import { TileActionStack, TileActionButton } from '../../../components/tileActions'
 import { useInlineVideo } from '../../../hooks/useInlineVideo'
+import useNearViewport from '../../../hooks/useNearViewport'
 import { engagementRate, formatCount, formatMultiple, formatRate } from '../services/scoring'
 import type { DiscoverAction } from '../Discover'
 import type { DiscoverResult } from '../types'
@@ -25,11 +26,28 @@ interface ResultCardProps {
   saved?: boolean
   /** Which action is mid-flight, so its button shows a spinner. */
   busy?: DiscoverAction | null
+  /** The grid's scroller — what each card measures "near the window" against. */
+  scrollRoot?: RefObject<HTMLElement | null>
 }
 
-function ResultCardImpl({ result, onAnalyze, onRemix, onSave, onDownload, onOpen, saved = false, busy = null }: ResultCardProps) {
+// A card handed no scroller measures against the viewport instead.
+const VIEWPORT_ROOT: RefObject<HTMLElement | null> = { current: null }
+
+function ResultCardImpl({ result, onAnalyze, onRemix, onSave, onDownload, onOpen, saved = false, busy = null, scrollRoot }: ResultCardProps) {
   const video = useInlineVideo()
   const hasVideo = !!result.videoUrl
+  // The <video> exists only while the card is near the window. Every card used
+  // to mount one on render, each `preload="metadata"` — so a page of results
+  // opened a range request and a decoder per card at once, and a grid that
+  // had been scrolled through held one for every card in it. Safari runs a
+  // handful and PARKS the rest, and a parked element never paints: on a
+  // poster-less card that is a black tile (docs/performance.md, the grid
+  // <video> rule). The frame is a fixed 4:5, so nothing moves when the
+  // element comes and goes, and a clip that is PLAYING is never taken away
+  // mid-watch — releasing it would also strand `playing`, since a detached
+  // element's pause event never reaches React.
+  const { ref: tileRef, near } = useNearViewport<HTMLDivElement>(scrollRoot ?? VIEWPORT_ROOT, undefined, { release: true })
+  const mountVideo = hasVideo && (near || video.playing)
   const isMeta = result.platform === 'meta'
   const er = result.stats ? engagementRate(result.stats) : null
   // Whatever this platform published, in the canonical order. Instagram gives
@@ -55,6 +73,7 @@ function ResultCardImpl({ result, onAnalyze, onRemix, onSave, onDownload, onOpen
 
   return (
     <div
+      ref={tileRef}
       {...video.hoverProps}
       onClick={() => onOpen(result)}
       className="group relative flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-ink/5 bg-ink/[0.02] transition-colors hover:border-ink/15"
@@ -79,7 +98,7 @@ function ResultCardImpl({ result, onAnalyze, onRemix, onSave, onDownload, onOpen
             className="absolute inset-0 h-full w-full object-contain"
           />
         )}
-        {hasVideo && (
+        {mountVideo && (
           <video
             {...video.videoProps}
             // `#t=0.1` asks the browser to seek a tenth of a second in, which

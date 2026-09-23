@@ -160,6 +160,8 @@ export default function AccountsBrowser({
   // The live cache, read by `load` without closing over it — otherwise every
   // landed page would hand the memoized card grid a fresh handler identity.
   const cacheRef = useRef(cache)
+  // The reels grid's scroller: each card mounts its <video> only near it.
+  const gridScrollRef = useRef<HTMLDivElement>(null)
   cacheRef.current = cache
 
   /**
@@ -412,7 +414,7 @@ export default function AccountsBrowser({
             />
           </GridCanvas>
         ) : (
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+          <div ref={gridScrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
             {hiddenByFilters > 0 && (
               <p className="mb-3 text-[11px] text-ink-600">
                 {hiddenByFilters} more hidden by the filters.
@@ -430,6 +432,7 @@ export default function AccountsBrowser({
                   onOpen={onOpen}
                   saved={savedKeys.has(`instagram:${result.id}`)}
                   busy={busyId === result.id ? busyKind : null}
+                  scrollRoot={gridScrollRef}
                 />
               ))}
             </div>

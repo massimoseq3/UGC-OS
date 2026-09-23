@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from 'react'
+import { lazy, Suspense, use, useEffect } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 
 import AppLogo from './components/AppLogo'
@@ -6,7 +6,7 @@ import AppBackground from './components/AppBackground'
 
 import Dock from './components/Dock'
 import MenuBar from './components/MenuBar'
-import MeetTheTeam from './components/MeetTheTeam'
+import { MeetTheTeam, MountOnce } from './components/LazyOverlays'
 import AnnouncementsHost from './components/announcements/AnnouncementsHost'
 import ToastContainer from './components/Toast'
 import AuthGate from './components/auth/AuthGate'
@@ -19,41 +19,51 @@ import { useAppStore } from './stores/appStore'
 import { useChromeHidden } from './stores/chromeStore'
 import { useChromeAutoHide } from './hooks/useChromeAutoHide'
 import { useAuthStore } from './stores/authStore'
-import { getAppConfig } from './utils/constants'
+import { isAppVisible } from './stores/appVisibilityStore'
+import { dockOrderedApps, getAppConfig } from './utils/constants'
+import { DEFAULT_SLUG, getAppIdForSlug, getSlugFromPath } from './utils/routing'
 import { startAppUsageTracking, stopAppUsageTracking } from './utils/appUsageTracker'
+import { hasApp, loadApp, loadMeetTheTeam, loadSettingsModal, preloadApp, warmChunks } from './appChunks'
 
-// Apps are code-split: each chunk loads on first activation, not at startup.
-// They stay mounted after first open (see runningApps below), so switching
-// back to an already-opened app is instant.
-const Finder = lazy(() => import('./apps/finder/Finder'))
-const AdAnatomy = lazy(() => import('./apps/ad-anatomy/AdAnatomy'))
-const ScriptArchitect = lazy(() => import('./apps/script-architect/ScriptArchitect'))
-const CharacterStudio = lazy(() => import('./apps/character-studio/CharacterStudio'))
-const VoiceStudio = lazy(() => import('./apps/voice-studio/VoiceStudio'))
-const BrollStudio = lazy(() => import('./apps/broll-studio/BrollStudio'))
-const Playground = lazy(() => import('./apps/playground/Playground'))
-const EditStudio = lazy(() => import('./apps/edit-studio/EditStudio'))
-const Discover = lazy(() => import('./apps/discover/Discover'))
-const Dashboard = lazy(() => import('./apps/dashboard/Dashboard'))
-const AdminPanel = lazy(() => import('./apps/admin/AdminPanel'))
+// Apps are code-split: each chunk loads on first activation, not at startup
+// (appChunks.ts holds the imports). They stay mounted after first open (see
+// runningApps below), so switching back to an already-opened app is instant.
 
-import TermsOfService from './legal/TermsOfService'
-import PrivacyPolicy from './legal/PrivacyPolicy'
-import AcceptableUsePolicy from './legal/AcceptableUsePolicy'
-import DMCAPolicy from './legal/DMCAPolicy'
+// Read at startup, before AuthGate has decided anything: the app in the URL is
+// the one the workspace opens first, and its chunk used to be requested only
+// once the workspace rendered — which, signed in, is after the session check
+// AND the cloud hydrate. Asking now overlaps the download with both. A path
+// that isn't an app is headed for the Dashboard (RouterSync redirects it);
+// the legal pages render no workspace at all.
+const bootSlug = getSlugFromPath(window.location.pathname)
+if (bootSlug !== 'legal') {
+  preloadApp(getAppIdForSlug(bootSlug) ?? getAppIdForSlug(DEFAULT_SLUG) ?? '')
+  // A first visit opens Meet Your Team over it, so that screen is on the
+  // critical path too.
+  if (useAppStore.getState().teamIntroOpen) loadMeetTheTeam().catch(() => {})
+}
 
-const APP_COMPONENTS: Record<string, React.ComponentType> = {
-  'finder': Finder,
-  'ad-anatomy': AdAnatomy,
-  'script-architect': ScriptArchitect,
-  'character-studio': CharacterStudio,
-  'voice-studio': VoiceStudio,
-  'broll-studio': BrollStudio,
-  'playground': Playground,
-  'discover': Discover,
-  'edit-studio': EditStudio,
-  'dashboard': Dashboard,
-  'admin': AdminPanel,
+// Only ever reached from a footer link, so never worth a byte of the startup
+// bundle.
+const TermsOfService = lazy(() => import('./legal/TermsOfService'))
+const PrivacyPolicy = lazy(() => import('./legal/PrivacyPolicy'))
+const AcceptableUsePolicy = lazy(() => import('./legal/AcceptableUsePolicy'))
+const DMCAPolicy = lazy(() => import('./legal/DMCAPolicy'))
+
+// `use()` rather than `React.lazy`: an app whose chunk was warmed (hover
+// intent, the idle warm-up, the startup preload above) renders on the spot.
+// `lazy()` suspends once even for code that's already in memory, and React
+// holds a revealed fallback for up to 300ms, so every first open used to show
+// the placeholder below whether the chunk was here or not.
+function AppPaneContent({ appId }: { appId: string }) {
+  return <LoadedApp component={use(loadApp(appId))} />
+}
+
+// Handed over as a prop because it IS a stable component — one module's
+// default export, behind one cached promise per app — which the
+// static-components lint can't see through a `use()` call.
+function LoadedApp({ component: App }: { component: React.ComponentType }) {
+  return <App />
 }
 
 function AppPlaceholder({ appId }: { appId: string }) {
@@ -92,10 +102,10 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         {/* Legal pages render outside AuthGate so signed-out visitors can read */}
-        <Route path="/legal/terms" element={<TermsOfService />} />
-        <Route path="/legal/privacy" element={<PrivacyPolicy />} />
-        <Route path="/legal/aup" element={<AcceptableUsePolicy />} />
-        <Route path="/legal/dmca" element={<DMCAPolicy />} />
+        <Route path="/legal/terms" element={<Suspense fallback={null}><TermsOfService /></Suspense>} />
+        <Route path="/legal/privacy" element={<Suspense fallback={null}><PrivacyPolicy /></Suspense>} />
+        <Route path="/legal/aup" element={<Suspense fallback={null}><AcceptableUsePolicy /></Suspense>} />
+        <Route path="/legal/dmca" element={<Suspense fallback={null}><DMCAPolicy /></Suspense>} />
         <Route
           path="*"
           element={
@@ -114,6 +124,7 @@ function Workspace() {
   const activeApp = useAppStore((s) => s.activeApp)
   const runningApps = useAppStore((s) => s.runningApps)
   const userId = useAuthStore((s) => s.user?.id)
+  const teamIntroOpen = useAppStore((s) => s.teamIntroOpen)
   // Phone only: scrolling down inside an app rolls the DOCK away and hands the
   // pane its ~98px. The menu bar stays — see the pane's own note below.
   const chromeHidden = useChromeHidden()
@@ -131,6 +142,17 @@ function Workspace() {
     startAppUsageTracking()
     return stopAppUsageTracking
   }, [])
+
+  // Once the landing app has settled, fetch the rest in dock order while the
+  // page is idle, so the first press of each tile opens the app rather than
+  // its placeholder. Admin is left out (members never open it, and the
+  // operator lands there by URL); so is an app the member has switched off.
+  useEffect(() => warmChunks([
+    ...dockOrderedApps()
+      .filter((app) => isAppVisible(app.id))
+      .map((app) => () => loadApp(app.id)),
+    loadSettingsModal,
+  ]), [])
 
   return (
     // h-dvh (not h-screen): 100vh overflows behind mobile browser URL bars,
@@ -209,7 +231,6 @@ function Workspace() {
 
           {/* Running apps */}
           {runningApps.map((appId) => {
-            const Component = APP_COMPONENTS[appId]
             const isActive = activeApp === appId
             return (
               // data-app-pane is what index.css hangs the "stop painting"
@@ -240,14 +261,14 @@ function Workspace() {
                     between. Pinned chrome that actually stays pinned is worth
                     more than a graceful 450px viewport. */}
                 <div className="h-full overflow-y-auto bg-transparent">
-                  {Component ? (
+                  {hasApp(appId) ? (
                     // Per PANE, not around the whole workspace: the error this
                     // catches is nearly always a lazy chunk that a deploy
                     // renamed, and one app failing to load is no reason to
                     // unmount the ones already open with work in them.
                     <AppErrorBoundary>
                       <Suspense fallback={<AppPlaceholder appId={appId} />}>
-                        <Component />
+                        <AppPaneContent appId={appId} />
                       </Suspense>
                     </AppErrorBoundary>
                   ) : (
@@ -262,7 +283,9 @@ function Workspace() {
         <UpdateNotice />
         <RecordingControl />
         <ToastContainer />
-        <MeetTheTeam />
+        <MountOnce when={teamIntroOpen}>
+          <MeetTheTeam />
+        </MountOnce>
         <AnnouncementsHost />
       </div>
     </div>

@@ -390,6 +390,9 @@ export default function Discover() {
   // back out of localStorage.
   const transcriptCache = useRef<Record<string, string>>(transcriptTexts(transcripts))
 
+  // The results grid's scroller: each card mounts its <video> only near it.
+  const gridScrollRef = useRef<HTMLDivElement>(null)
+
   const search = useCallback(async (nextCursor?: string | number) => {
     const q = queryRef.current.trim()
     if (!q || !apiKey) return
@@ -1009,7 +1012,7 @@ export default function Discover() {
           />
         </GridCanvas>
       ) : (
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+        <div ref={gridScrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
           {hiddenByMinViews > 0 && (
             <p className="mb-3 text-[11px] text-ink-600">
               {hiddenByMinViews} more hidden under {minViewsLabel(filters.minViews)} views.
@@ -1028,6 +1031,7 @@ export default function Discover() {
                 onOpen={openCard}
                 saved={savedKeys.has(`${result.platform}:${result.id}`)}
                 busy={busyId === result.id ? busyKind : null}
+                scrollRoot={gridScrollRef}
               />
             ))}
           </div>

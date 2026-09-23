@@ -7,7 +7,8 @@ import { useSkillUpdateUnseen } from '../stores/skillUpdateStore'
 import { useIsAppVisible } from '../stores/appVisibilityStore'
 import { APP_REGISTRY, SECTION_ORDER, type AppConfig } from '../utils/constants'
 import AppGlassTile from './AppGlassTile'
-import SettingsModal from './SettingsModal'
+import { MountOnce, SettingsModal } from './LazyOverlays'
+import { loadSettingsModal, preloadApp } from '../appChunks'
 
 // macOS-style bottom dock — the sidebar's replacement for this experiment.
 // Every icon carries its label underneath (no hover-only tooltips), app tiles
@@ -88,14 +89,21 @@ export default function Dock() {
           ))}
 
           <DockDivider />
-          <DockItem label="Settings" title="Settings" onClick={() => setSettingsOpen(true)}>
+          <DockItem
+            label="Settings"
+            title="Settings"
+            onClick={() => setSettingsOpen(true)}
+            onIntent={() => { loadSettingsModal().catch(() => {}) }}
+          >
             <UtilityTile>
               <Settings className="h-[22px] w-[22px] text-ink-200" strokeWidth={1.75} />
             </UtilityTile>
           </DockItem>
         </nav>
       </div>
-      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <MountOnce when={settingsOpen}>
+        <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      </MountOnce>
     </>
   )
 }
@@ -118,16 +126,21 @@ interface DockItemProps {
   busy?: boolean
   accent?: string
   onClick: () => void
+  // The pointer arrived, or focus did: the press is probably a few hundred ms
+  // away, which is time enough to have fetched what it opens.
+  onIntent?: () => void
   children: ReactNode
 }
 
 // Shared item chrome: tile on top, always-visible label under it, and a
 // macOS-style running/active dot below the label. Hover gives a slow eased
 // lift (no scale — that's what felt clunky); no click press, it felt slow.
-function DockItem({ label, title, appId, active, running, busy, accent, onClick, children }: DockItemProps) {
+function DockItem({ label, title, appId, active, running, busy, accent, onClick, onIntent, children }: DockItemProps) {
   return (
     <button
       onClick={onClick}
+      onPointerEnter={onIntent}
+      onFocus={onIntent}
       title={title}
       data-dock-app={appId}
       className="group flex w-[3.4rem] shrink-0 select-none flex-col items-center gap-1 pt-0.5 md:w-16"
@@ -191,6 +204,7 @@ function DockAppTile({
       busy={busy}
       accent={app.accent}
       onClick={onClick}
+      onIntent={() => preloadApp(app.id)}
     >
       <AppGlassTile
         app={app}
