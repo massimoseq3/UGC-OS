@@ -80,8 +80,9 @@ export function WidgetFigure({ value, size = 'hero' }: { value: string; size?: '
   return (
     <p
       // The hero shrinks below `sm`, where the tile is half a phone's width:
-      // "459 hrs" at 48px is wider than the box it sits in.
-      className={`italic font-normal tracking-tight text-ink-50 ${size === 'hero' ? 'text-[34px] leading-none sm:text-5xl sm:leading-normal lg:text-[56px] lg:leading-[1.05]' : 'text-[32px] leading-none'}`}
+      // "459 hrs" at 48px is wider than the box it sits in. It grows on a
+      // `roomy` window, where the wall's tiles have grown ~20% around it.
+      className={`italic font-normal tracking-tight text-ink-50 ${size === 'hero' ? 'text-[34px] leading-none sm:text-5xl sm:leading-normal lg:text-[56px] lg:leading-[1.05] roomy:text-[64px]' : 'text-[32px] leading-none'}`}
       style={DISPLAY_FONT}
     >
       {value}
