@@ -11,12 +11,10 @@ import { useInlineVideo } from '../../../hooks/useInlineVideo'
 import { GeneratingMediaFill } from '../../../components/GeneratingMedia'
 import { ANIMATE_MESSAGES } from '../../../components/generatingMessages'
 import type { PromptVariation, CardState, GeneratedImage, ReferenceImage, BatchVideoSettings } from '../types'
-import type { VideoHistoryItem, Product, Model, BRoll } from '../../../stores/types'
-import { enhanceVariationPrompt, generateNewVariation, startImageTask, finishImageTask, buildDialogueChainPreamble, resolveImageModelId } from '../services/generateBroll'
-import { withLockedCamera } from '../services/realism'
+import type { Product, Model, BRoll } from '../../../stores/types'
+import { enhanceVariationPrompt, generateNewVariation, resolveImageModelId } from '../services/generateBroll'
 import { attachProductAngles, productRefsForSelection } from '../services/productAngles'
-import { applyStyleToPrompt } from '../services/generateContinuous'
-import { startVideoTask, finishVideoTask } from '../services/generateVideo'
+import { brollStillRunner, brollClipRunner, planBrollClip, type BrollClipInput, type BrollClipTask } from '../runner'
 import { cardClipSeconds } from '../services/clipDuration'
 import { claimTask, releaseTask } from '../services/taskRegistry'
 import { isPollTimeout } from '../../../utils/kie'
@@ -105,6 +103,9 @@ interface VariationCardProps {
   // holds the same character, room and camera setup. Undefined on the ad's first
   // dialogue card and on any card generated before an earlier one has an image.
   chainImageRef?: string
+  // The session this storyboard is — stamped as the parent of every clip the
+  // card makes, so a clip in videoHistory knows which session it came from.
+  sessionId?: string
 }
 
 export default function VariationCard(props: VariationCardProps) {
@@ -140,6 +141,7 @@ export default function VariationCard(props: VariationCardProps) {
     voiceProfile,
     onUpdateVoiceProfile,
     chainImageRef,
+    sessionId,
   } = props
 
   // Is this card chaining off the previous scene's talking-head still? Only a
@@ -390,21 +392,18 @@ export default function VariationCard(props: VariationCardProps) {
     let taskId: string
     let modelId: string
     try {
-      // Restyle at fire time: a stylized pick appends its STYLE block and drops
-      // the iPhone-realism stack; UGC / legacy pass through untouched. The card's
-      // stored prompt stays clean — the style rides outside it, like Continuous.
-      const { prompt: styledPrompt, noRealism } = applyStyleToPrompt(promptText, {
+      // The runner adds everything that rides outside the card's prompt — the
+      // session's look, and on a chained DIALOGUE card the previous cut with the
+      // preamble that KEEPS its staging. The stored prompt stays clean.
+      const started = await brollStillRunner.start({
+        prompt: promptText,
+        aspectRatio: imageAspectRatio,
+        resolution: imageResolution,
+        refs,
+        chainRef,
+        tag: variation.tag,
         style: resultStyle,
         realism: resultRealism,
-      })
-      // A chained DIALOGUE card leads with the previous scene's talking-head
-      // still and swaps in the preamble that tells the model to KEEP its staging
-      // — the opposite of the identity-only scoping every other card gets.
-      const finalRefs = chainRef ? [chainRef, ...refs] : refs
-      const started = await startImageTask(styledPrompt, finalRefs, imageAspectRatio, imageResolution, {
-        inheritReference: variation.tag === 'STATIC',
-        noRealism,
-        ...(chainRef ? { preambleOverride: buildDialogueChainPreamble(finalRefs) } : {}),
       })
       taskId = started.taskId
       modelId = started.modelId
@@ -414,7 +413,7 @@ export default function VariationCard(props: VariationCardProps) {
         ),
       }))
     } catch (err) {
-      const msg = humanizeError(err, 'Image generation failed. Try again.')
+      const msg = brollStillRunner.describeError(err)
       onUpdateStateFn((prev) => ({
         inFlightImages: prev.inFlightImages.map((e) =>
           e.id === inFlightId ? { ...e, error: msg } : e,
@@ -428,8 +427,7 @@ export default function VariationCard(props: VariationCardProps) {
     // walker on a remounted view can't start a second poll for the same task.
     if (!claimTask('image', taskId)) return
     try {
-      const imageUrl = await finishImageTask(taskId, modelId, imageResolution)
-      const newImage: GeneratedImage = { imageUrl, prompt: promptText, modelId, createdAt: Date.now() }
+      const newImage: GeneratedImage = await brollStillRunner.finish({ taskId, modelId, prompt: promptText, resolution: imageResolution })
       onUpdateStateFn((prev) => {
         const newImages = [...prev.images, newImage]
         return {
@@ -440,7 +438,7 @@ export default function VariationCard(props: VariationCardProps) {
         }
       })
     } catch (err) {
-      const msg = humanizeError(err, 'Image generation failed. Try again.')
+      const msg = brollStillRunner.describeError(err)
       onUpdateStateFn((prev) => ({
         inFlightImages: prev.inFlightImages.map((e) =>
           e.id === inFlightId ? { ...e, error: msg } : e,
@@ -573,95 +571,59 @@ export default function VariationCard(props: VariationCardProps) {
       onReplay(motionPrompt !== undefined ? 'animate' : 'video')
       return
     }
-    if (!videoModelId) {
-      useAppStore.getState().addToast('No video model configured.', 'error')
-      return
-    }
-    const model = getModel(videoModelId)
-    if (!model) {
-      useAppStore.getState().addToast(`Unknown video model: ${videoModelId}`, 'error')
-      return
-    }
-
-    let effectiveMode = mode
-    if (!model.modes?.includes(effectiveMode)) {
-      // The model can't honour the requested mode. We deliberately do NOT
-      // promote the reference image into a first-frame seed (that hijack
-      // produced distorted clips) and we don't silently swap models. When the
-      // chosen model can't take refs as refs, drop them and run text-to-video
-      // — the picker greys these models out and the Reference Images note
-      // tells the user this will be text-to-video only.
-      // model.modes is the broader Mode union (also includes image modes);
-      // narrow to VideoMode before consuming.
-      const VIDEO_MODES: VideoMode[] = ['text-to-video', 'image-to-video', 'frames-to-video', 'reference-to-video']
-      const videoModes = (model.modes ?? []).filter((m): m is VideoMode =>
-        (VIDEO_MODES as string[]).includes(m),
-      )
-      const fallback: VideoMode | undefined = videoModes.includes('text-to-video')
-        ? 'text-to-video'
-        : videoModes[0]
-      if (!fallback) {
-        useAppStore.getState().addToast('Video model has no supported modes.', 'error')
-        return
-      }
-      if (effectiveMode === 'reference-to-video' && referenceDataUris?.length) {
-        useAppStore.getState().addToast(
-          `${model.displayName} doesn't support reference images. Generating text-to-video only.`,
-          'error',
-        )
-      }
-      if (effectiveMode === 'image-to-video' && firstFrameDataUri) {
-        // Animate on a model with no image-to-video mode. Without this the
-        // still is dropped and the clip renders from the prompt alone — a
-        // text-to-video that silently ignores the frame the user picked to
-        // animate.
-        //
-        // No model named in the copy: this used to send members to "Seedance
-        // 2.0 or Gemini Omni", and Gemini Omni is one of the models that CAN'T
-        // take a start frame (it has no image-to-video mode — it's how a still
-        // reaches it as a reference instead). The picker greys the ones that
-        // can't, which is a list that stays true as models come and go.
-        useAppStore.getState().addToast(
-          `${model.displayName} can't animate a still. Open the model picker. The ones that can't take a still are greyed out.`,
-          'error',
-        )
-        return
-      }
-      referenceDataUris = undefined
-      firstFrameDataUri = undefined
-      effectiveMode = fallback
-    }
-
-    const inFlightId = crypto.randomUUID()
     const isAnimating = motionPrompt !== undefined
-    const promptText = motionPrompt ?? cardState.editablePrompt
-    const videoAspectRatio = cardState.cardVideoAspectRatio
     // A talking card's clip has to hold its spoken line: unless the run pins one
     // length for everything, the length is derived per card (the line's own
     // estimate while it's Auto, the member's pick otherwise) and snapped onto
     // THIS model's ladder — the card may have been seeded against a different
     // one. A silent card has no words to fit and keeps the flat default.
-    const videoDurationSeconds = batchSettings?.durationSeconds
-      ?? cardClipSeconds(cardState, scriptLine, videoModelId, { spoken: isDialogue })
-    const videoResolution = batchSettings?.resolution ?? cardState.cardVideoResolution
-    const videoAudio = cardState.cardVideoAudio
-    const sourceBRollId = cardState.videoSourceBRollId
+    const clip: BrollClipInput = {
+      mode,
+      modelId: videoModelId,
+      prompt: motionPrompt ?? cardState.editablePrompt,
+      animating: isAnimating,
+      firstFrameDataUri,
+      referenceDataUris,
+      startFrameRef,
+      aspectRatio: cardState.cardVideoAspectRatio,
+      durationSeconds: batchSettings?.durationSeconds
+        ?? (videoModelId ? cardClipSeconds(cardState, scriptLine, videoModelId, { spoken: isDialogue }) : cardState.cardVideoDurationSeconds),
+      resolution: batchSettings?.resolution ?? cardState.cardVideoResolution,
+      audio: cardState.cardVideoAudio,
+      tag: variation.tag,
+      voiceProfile,
+      style: resultStyle,
+      realism: resultRealism,
+      sourceBRollId: cardState.videoSourceBRollId,
+    }
+    // Which mode the picked model can really run — refused outright when it
+    // can't run the clip at all, and said out loud when the references have to
+    // be dropped for it.
+    let plan: ReturnType<typeof planBrollClip>
+    try {
+      plan = planBrollClip(clip)
+    } catch (err) {
+      useAppStore.getState().addToast(brollClipRunner.describeError(err), 'error')
+      return
+    }
+    if (plan.warning) useAppStore.getState().addToast(plan.warning, 'error')
 
+    const inFlightId = crypto.randomUUID()
     onUpdateStateFn((prev) => ({
       inFlightVideos: [
         ...prev.inFlightVideos,
         {
           id: inFlightId,
           taskId: null,
-          modelId: videoModelId,
+          modelId: plan.modelId,
           startedAt: Date.now(),
-          prompt: promptText,
-          mode: effectiveMode,
-          aspectRatio: videoAspectRatio,
-          durationSeconds: videoDurationSeconds,
-          resolution: videoResolution,
-          audio: videoAudio,
-          sourceBRollId,
+          prompt: clip.prompt,
+          mode: plan.mode,
+          aspectRatio: clip.aspectRatio,
+          durationSeconds: clip.durationSeconds,
+          resolution: clip.resolution,
+          audio: clip.audio,
+          sourceBRollId: clip.sourceBRollId,
           startFrameRef,
         },
       ],
@@ -669,67 +631,25 @@ export default function VariationCard(props: VariationCardProps) {
 
     let claimedTaskId: string | null = null
     try {
-      // Same fire-time restyle as image gen — STYLE block + realism-stack toggle
-      // for a stylized pick; the persisted prompt/history stay unstyled.
-      const { prompt: styledPrompt, noRealism } = applyStyleToPrompt(promptText, {
-        style: resultStyle,
-        realism: resultRealism,
-      })
-      // A DIALOGUE card gets the shared voice profile appended at fire time so
-      // every talking clip is read by the same voice. Like the STYLE block, it
-      // rides outside the persisted prompt (promptText stays clean).
-      const withVoice = variation.tag === 'DIALOGUE' && voiceProfile?.trim()
-        ? `${styledPrompt}\n\n=== VOICE PROFILE (same voice in every dialogue clip) ===\n${voiceProfile.trim()}`
-        : styledPrompt
-      // Animating a still holds the frame it opens on — appended here rather
-      // than written into the motion, so the box stays about what MOVES and the
-      // persisted prompt (promptText) stays clean. See realism.ts.
-      const finalPrompt = isAnimating ? withLockedCamera(withVoice) : withVoice
-      const { taskId, videoEndpoint } = await startVideoTask({
-        prompt: finalPrompt,
-        mode: effectiveMode,
-        firstFrameDataUri,
-        referenceDataUris,
-        aspectRatio: videoAspectRatio,
-        durationSeconds: videoDurationSeconds,
-        resolution: videoResolution,
-        audio: videoAudio,
-        modelId: videoModelId,
-        noRealism,
+      // The runner adds the look, the voice profile and the locked camera at
+      // fire time; the persisted prompt stays what the member wrote.
+      const task = await brollClipRunner.start(clip, {
+        provenance: sessionId ? { parents: [{ bank: 'brollHistory', id: sessionId }] } : undefined,
       })
       onUpdateStateFn((prev) => ({
         inFlightVideos: prev.inFlightVideos.map((e) =>
-          e.id === inFlightId ? { ...e, taskId, endpoint: videoEndpoint } : e,
+          e.id === inFlightId ? { ...e, taskId: task.taskId, endpoint: task.endpoint, provenance: task.provenance } : e,
         ),
       }))
 
       // Own this poll before the taskId is persisted — see taskRegistry.
-      if (!claimTask('video', taskId)) return
-      claimedTaskId = taskId
+      if (!claimTask('video', task.taskId)) return
+      claimedTaskId = task.taskId
 
-      const res = await finishVideoTask(
-        taskId,
-        videoModelId,
-        videoEndpoint,
-        videoDurationSeconds,
-        videoAspectRatio,
-      )
-
-      const assetRef = `asset://${res.assetId}`
-      const newVideo = {
-        url: assetRef,
-        modelId: videoModelId,
-        prompt: promptText,
-        aspectRatio: res.aspectRatio,
-        durationSeconds: res.durationSeconds,
-        resolution: videoResolution,
-        audio: videoAudio,
-        mode: effectiveMode,
-        sourceBRollId,
-        createdAt: Date.now(),
-      }
+      // The runner writes the clip's videoHistory row; the card takes the take.
+      const { video } = await brollClipRunner.finish(task)
       onUpdateStateFn((prev) => {
-        const newVideos = [...prev.videos, newVideo]
+        const newVideos = [...prev.videos, video]
         return {
           videos: newVideos,
           currentVideoIndex: newVideos.length - 1,
@@ -737,22 +657,6 @@ export default function VariationCard(props: VariationCardProps) {
           inFlightVideos: prev.inFlightVideos.filter((e) => e.id !== inFlightId),
         }
       })
-
-      const historyEntry: VideoHistoryItem = {
-        id: crypto.randomUUID(),
-        modelId: videoModelId,
-        prompt: promptText,
-        mode: effectiveMode,
-        aspectRatio: res.aspectRatio,
-        durationSeconds: res.durationSeconds,
-        resolution: videoResolution,
-        audio: videoAudio,
-        videoUrl: assetRef,
-        sourceBRollId,
-        sourceApp: 'broll-studio',
-        createdAt: Date.now(),
-      }
-      await useBankStore.getState().addVideoHistory(historyEntry)
       useAppStore.getState().addToast('B-Roll video ready', 'success')
     } catch (err) {
       if (isPollTimeout(err)) {
@@ -769,7 +673,7 @@ export default function VariationCard(props: VariationCardProps) {
       // download, a blob the browser wouldn't decode, a dead connection) — is
       // gone, and every one of those reads the same on the tile.
       console.error('[broll] video generation failed', err)
-      const msg = humanizeError(err, 'Video generation failed.')
+      const msg = brollClipRunner.describeError(err)
       onUpdateStateFn((prev) => ({
         inFlightVideos: prev.inFlightVideos.map((e) =>
           e.id === inFlightId ? { ...e, error: msg } : e,
@@ -890,22 +794,10 @@ export default function VariationCard(props: VariationCardProps) {
     // Whoever already owns this poll is doing the same work — don't double it.
     if (!claimTask('video', taskId)) return
     try {
-      const res = await finishVideoTask(taskId, entry.modelId, entry.endpoint, entry.durationSeconds, entry.aspectRatio)
-      const assetRef = `asset://${res.assetId}`
-      const newVideo = {
-        url: assetRef,
-        modelId: entry.modelId,
-        prompt: entry.prompt,
-        aspectRatio: res.aspectRatio,
-        durationSeconds: res.durationSeconds,
-        resolution: entry.resolution,
-        audio: entry.audio,
-        mode: entry.mode,
-        sourceBRollId: entry.sourceBRollId,
-        createdAt: Date.now(),
-      }
+      const task: BrollClipTask = { ...entry, taskId }
+      const { video } = await brollClipRunner.finish(task)
       onUpdateStateFn((prev) => {
-        const newVideos = [...prev.videos, newVideo]
+        const newVideos = [...prev.videos, video]
         return {
           videos: newVideos,
           currentVideoIndex: newVideos.length - 1,
@@ -913,28 +805,13 @@ export default function VariationCard(props: VariationCardProps) {
           inFlightVideos: prev.inFlightVideos.filter((e) => e.id !== entry.id),
         }
       })
-      const historyEntry: VideoHistoryItem = {
-        id: crypto.randomUUID(),
-        modelId: entry.modelId,
-        prompt: entry.prompt,
-        mode: entry.mode,
-        aspectRatio: res.aspectRatio,
-        durationSeconds: res.durationSeconds,
-        resolution: entry.resolution,
-        audio: entry.audio,
-        videoUrl: assetRef,
-        sourceBRollId: entry.sourceBRollId,
-        sourceApp: 'broll-studio',
-        createdAt: Date.now(),
-      }
-      await useBankStore.getState().addVideoHistory(historyEntry)
       useAppStore.getState().addToast('B-Roll video ready', 'success')
     } catch (err) {
       // Same rule as the generate path: a poll timeout means it's STILL
       // rendering, so leave the entry in flight rather than offering a retry.
       if (isPollTimeout(err)) return
       console.error('[broll] video resume failed', err)
-      const msg = humanizeError(err, 'Video generation failed.')
+      const msg = brollClipRunner.describeError(err)
       onUpdateStateFn((prev) => ({
         inFlightVideos: prev.inFlightVideos.map((e) => (e.id === entry.id ? { ...e, error: msg } : e)),
       }))
@@ -954,8 +831,12 @@ export default function VariationCard(props: VariationCardProps) {
     }))
     if (!claimTask('image', taskId)) return
     try {
-      const imageUrl = await finishImageTask(taskId, modelId, entry.resolution || undefined)
-      const newImage = { imageUrl, prompt: entry.prompt, modelId, createdAt: Date.now() }
+      const newImage = await brollStillRunner.finish({
+        taskId,
+        modelId,
+        prompt: entry.prompt,
+        resolution: (entry.resolution || undefined) as ImageResolution | undefined,
+      })
       onUpdateStateFn((prev) => {
         const newImages = [...prev.images, newImage]
         return {
@@ -967,7 +848,7 @@ export default function VariationCard(props: VariationCardProps) {
       })
     } catch (err) {
       if (isPollTimeout(err)) return
-      const msg = humanizeError(err, 'Image generation failed. Try again.')
+      const msg = brollStillRunner.describeError(err)
       onUpdateStateFn((prev) => ({
         inFlightImages: prev.inFlightImages.map((e) => (e.id === entry.id ? { ...e, error: msg } : e)),
       }))

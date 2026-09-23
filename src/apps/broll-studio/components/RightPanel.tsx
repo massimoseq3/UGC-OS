@@ -66,6 +66,9 @@ interface RightPanelProps {
   onClearCanvas: () => void
   cardFilter?: CardFilter
   onCardFilterChange?: (filter: CardFilter) => void
+  // The open session's history row id, passed down so a card's clips can name
+  // the session they came from.
+  sessionId?: string
 }
 
 // Right side of the B-Roll workspace. Owns the History rail beside the
@@ -113,6 +116,7 @@ export default function RightPanel(props: RightPanelProps) {
     onClearCanvas,
     cardFilter,
     onCardFilterChange,
+    sessionId,
   } = props
 
   // Whether the rail is showing. Always shut on arrival, and never stored —
@@ -248,6 +252,7 @@ export default function RightPanel(props: RightPanelProps) {
             onDeleteVariation={onDeleteVariation}
             onEditSceneLine={onEditSceneLine}
             onUpdateVoiceProfile={onUpdateVoiceProfile}
+            sessionId={sessionId}
             characterRef={characterRef}
             productRef={productRef}
             productPhotos={productPhotos}

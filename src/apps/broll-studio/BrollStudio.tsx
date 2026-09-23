@@ -1402,6 +1402,7 @@ export default function BrollStudio() {
           onClearCanvas={handleNewStoryboard}
           cardFilter={cardFilter}
           onCardFilterChange={setCardFilter}
+          sessionId={sessionId || undefined}
         />
       </div>
 

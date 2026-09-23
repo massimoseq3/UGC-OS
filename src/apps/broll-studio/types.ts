@@ -1,5 +1,6 @@
 import { isWriteStyle, type WriteStyle } from '../script-architect/types'
 import type { VideoMode, ImageResolution } from '../../utils/models'
+import type { Provenance } from '../../stores/types'
 
 export type SceneType =
   | 'A-ROLL CHARACTER'
@@ -222,6 +223,9 @@ export interface InFlightVideo {
   // only so Retry can replay the SAME generation instead of silently falling
   // back to text-to-video.
   startFrameRef?: string
+  // What the clip was made from (the session it was generated in), stamped on
+  // its videoHistory row — carried here so a resumed clip stamps it too.
+  provenance?: Provenance
   error?: string | null
 }
 

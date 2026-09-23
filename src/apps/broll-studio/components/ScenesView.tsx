@@ -6,14 +6,12 @@ import type { BrollResult, Scene, PromptVariation, CardState, ReferenceImage, Ba
 import type { Product, Model } from '../../../stores/types'
 import { createDefaultCardState } from '../cardState'
 import { cardClipSeconds, speaksItsLine } from '../services/clipDuration'
-import type { VideoHistoryItem } from '../../../stores/types'
-import { finishImageTask, resolveImageModelId } from '../services/generateBroll'
+import { resolveImageModelId } from '../services/generateBroll'
 import { getContinuousStyle } from '../services/generateContinuous'
-import { finishVideoTask } from '../services/generateVideo'
+import { brollStillRunner, brollClipRunner } from '../runner'
 import { claimTask, releaseTask } from '../services/taskRegistry'
 import { useReconnectTick } from '../../../hooks/useReconnectTick'
 import { isPollTimeout } from '../../../utils/kie'
-import { useBankStore } from '../../../stores/bankStore'
 import { useAppStore } from '../../../stores/appStore'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import { useCreditsStore } from '../../../stores/creditsStore'
@@ -82,6 +80,9 @@ interface ScenesViewProps {
   // (see cardLens.ts). The strip's toggle.
   cardFilter?: CardFilter
   onCardFilterChange?: (filter: CardFilter) => void
+  // The open session's history row — every clip made here names it as its
+  // parent (see Lineage in stores/types.ts).
+  sessionId?: string
 }
 
 // Defaults for a bulk video run — deliberately the cheap tier. A batch here is
@@ -272,6 +273,7 @@ export default function ScenesView({
   railToggle,
   cardFilter = 'all',
   onCardFilterChange,
+  sessionId,
 }: ScenesViewProps) {
   // The storyboard bar wraps, so the scroll port under it reserves its MEASURED
   // height rather than a hard-coded one. 57 is its one-line height, which is
@@ -812,11 +814,10 @@ export default function ScenesView({
         const taskId = entry.taskId
         const modelId = entry.modelId
         const prompt = entry.prompt
-        const resolution = entry.resolution || undefined
+        const resolution = (entry.resolution || undefined) as ImageResolution | undefined
         ;(async () => {
           try {
-            const imageUrl = await finishImageTask(taskId, modelId, resolution)
-            const newImage = { imageUrl, prompt, modelId, createdAt: Date.now() }
+            const newImage = await brollStillRunner.finish({ taskId, modelId, prompt, resolution })
             setCardStates((prev) => {
               const existing = prev[key]
               if (!existing) return prev
@@ -833,7 +834,7 @@ export default function ScenesView({
               }
             })
           } catch (err) {
-            const msg = humanizeError(err, 'Image generation failed. Try again.')
+            const msg = brollStillRunner.describeError(err)
             setCardStates((prev) => {
               const existing = prev[key]
               if (!existing) return prev
@@ -859,31 +860,11 @@ export default function ScenesView({
         if (!claimTask('video', entry.taskId)) continue
         const inFlightId = entry.id
         const taskId = entry.taskId
-        const modelId = entry.modelId
-        const endpoint = entry.endpoint
-        const duration = entry.durationSeconds
-        const aspect = entry.aspectRatio
-        const resolution = entry.resolution
-        const audio = entry.audio
-        const promptText = entry.prompt
-        const mode = entry.mode
-        const sourceBRollId = entry.sourceBRollId
+        const task = { ...entry, taskId }
         ;(async () => {
           try {
-            const res = await finishVideoTask(taskId, modelId, endpoint, duration, aspect)
-            const assetRef = `asset://${res.assetId}`
-            const newVideo = {
-              url: assetRef,
-              modelId,
-              prompt: promptText,
-              aspectRatio: res.aspectRatio,
-              durationSeconds: res.durationSeconds,
-              resolution,
-              audio,
-              mode,
-              sourceBRollId,
-              createdAt: Date.now(),
-            }
+            // The runner writes the clip's videoHistory row; the card takes it.
+            const { video: newVideo } = await brollClipRunner.finish(task)
             setCardStates((prev) => {
               const existing = prev[key]
               if (!existing) return prev
@@ -899,21 +880,6 @@ export default function ScenesView({
                 },
               }
             })
-            const historyEntry: VideoHistoryItem = {
-              id: crypto.randomUUID(),
-              modelId,
-              prompt: promptText,
-              mode,
-              aspectRatio: res.aspectRatio,
-              durationSeconds: res.durationSeconds,
-              resolution,
-              audio,
-              videoUrl: assetRef,
-              sourceBRollId,
-              sourceApp: 'broll-studio',
-              createdAt: Date.now(),
-            }
-            await useBankStore.getState().addVideoHistory(historyEntry)
             useAppStore.getState().addToast('B-Roll video ready', 'success')
           } catch (err) {
             if (isPollTimeout(err)) {
@@ -1354,6 +1320,7 @@ export default function ScenesView({
             resultStyle={result.style}
             resultRealism={result.realism}
             resultVoiceProfile={result.voiceProfile}
+            sessionId={sessionId}
             onUpdateVoiceProfile={onUpdateVoiceProfile}
           />
         ))}
@@ -1984,6 +1951,7 @@ const VariationCardRow = memo(function VariationCardRow({
   resultStyle,
   resultRealism,
   resultVoiceProfile,
+  sessionId,
   onUpdateVoiceProfile,
 }: {
   cardKey: string
@@ -2017,6 +1985,7 @@ const VariationCardRow = memo(function VariationCardRow({
   resultStyle?: string
   resultRealism?: boolean
   resultVoiceProfile?: string
+  sessionId?: string
   onUpdateVoiceProfile?: (text: string) => void
 }) {
   const variationId = variation.id
@@ -2068,6 +2037,7 @@ const VariationCardRow = memo(function VariationCardRow({
       resultStyle={resultStyle}
       resultRealism={resultRealism}
       voiceProfile={resultVoiceProfile}
+      sessionId={sessionId}
       onUpdateVoiceProfile={onUpdateVoiceProfile}
     />
   )
@@ -2194,6 +2164,7 @@ function SceneSection({
   resultStyle,
   resultRealism,
   resultVoiceProfile,
+  sessionId,
   onUpdateVoiceProfile,
 }: {
   scene: Scene
@@ -2230,6 +2201,7 @@ function SceneSection({
   resultStyle?: string
   resultRealism?: boolean
   resultVoiceProfile?: string
+  sessionId?: string
   onUpdateVoiceProfile?: (text: string) => void
 }) {
   const [lineEditorOpen, setLineEditorOpen] = useState(false)
@@ -2401,6 +2373,7 @@ function SceneSection({
                 resultStyle={resultStyle}
                 resultRealism={resultRealism}
                 resultVoiceProfile={resultVoiceProfile}
+                sessionId={sessionId}
                 onUpdateVoiceProfile={onUpdateVoiceProfile}
               />
             )
