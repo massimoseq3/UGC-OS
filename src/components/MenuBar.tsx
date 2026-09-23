@@ -28,7 +28,7 @@ export default function MenuBar() {
           the Team intro (macOS: Apple menu → About This Mac). */}
       <button
         onClick={openTeamIntro}
-        title="Meet Your Team"
+        title="Meet Your Workspace"
         className="-mx-1.5 flex shrink-0 items-center gap-1.5 rounded-md px-1.5 py-0.5 transition-colors hover:bg-ink/[0.06]"
       >
         <AppLogo className="h-5 w-5" />

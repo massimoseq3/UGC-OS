@@ -2,7 +2,7 @@
 
 Tools section of UGC OS. This file loads when Claude works with files under `src/apps/discover/`; the app-wide rules stay in the root [CLAUDE.md](../../../CLAUDE.md).
 
-**This app ships switched ON and can be switched off** in Settings → Experimental — see the `appVisibilityStore` note in the root file for everything that hides with it (the dock tile, the Dashboard planet, its link in the Meet Your Team chain, the `/outliers` route, the Bank's Swipe File tab, the ScrapeCreators key field). It shipped off and flipped in September 2026; nothing below changes either way, it is the same app it always was.
+**This app ships switched ON and can be switched off** in Settings → Experimental — see the `appVisibilityStore` note in the root file for everything that hides with it (the dock tile, the Dashboard planet, its link in the Meet Your Workspace chain, the `/outliers` route, the Bank's Swipe File tab, the ScrapeCreators key field). It shipped off and flipped in September 2026; nothing below changes either way, it is the same app it always was.
 
 ## Job
 

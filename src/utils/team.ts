@@ -16,7 +16,7 @@ export const TEAM: TeamMember[] = [
   },
   {
     appId: 'character-studio',
-    blurb: 'Casts consistent characters you can book again and again.',
+    blurb: 'Builds consistent characters you can reuse in every ad.',
   },
   {
     appId: 'script-architect',
@@ -32,7 +32,7 @@ export const TEAM: TeamMember[] = [
   },
   {
     appId: 'playground',
-    blurb: 'The do-anything senior for freeform images, video and music on demand.',
+    blurb: 'Makes freeform images, video and music on demand.',
   },
   {
     appId: 'edit-studio',
