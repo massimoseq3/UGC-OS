@@ -38,8 +38,9 @@ export interface BlockRunner<Input, Task, Output> {
   // The same call resumes a task persisted by an earlier page load.
   finish(task: Task, ctx?: Pick<RunContext, 'signal'>): Promise<Output>
   // Recording Mode's stand-in for start + finish: wait out the replay length,
-  // then reveal the oldest hidden row of this runner's bank. Spends nothing.
-  replay(opts?: { extraMs?: number }): Promise<Output | null>
+  // then reveal the oldest hidden row of the bank this input would have
+  // landed in. Spends nothing. `extraMs` staggers a batch.
+  replay(input: Input, opts?: { extraMs?: number }): Promise<Output | null>
   // The sentence a member reads when this runner throws.
   describeError(err: unknown): string
 }
@@ -58,13 +59,16 @@ export function refuseWhileRecording(): void {
 
 // One entry per row, in first-seen order; undefined when there are none, so a
 // row with no parents doesn't carry an empty array into its cloud copy.
-export function lineageOf(...sources: Array<Lineage | Lineage[] | null | undefined>): Lineage[] | undefined {
+type LineageSource = Lineage | null | undefined
+
+export function lineageOf(...sources: Array<LineageSource | LineageSource[]>): Lineage[] | undefined {
   const out: Lineage[] = []
   const seen = new Set<string>()
   for (const source of sources) {
-    for (const parent of Array.isArray(source) ? source : source ? [source] : []) {
+    for (const parent of Array.isArray(source) ? source : [source]) {
+      if (!parent?.id) continue
       const key = `${parent.bank}:${parent.id}`
-      if (!parent.id || seen.has(key)) continue
+      if (seen.has(key)) continue
       seen.add(key)
       out.push(parent)
     }

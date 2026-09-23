@@ -1,4 +1,4 @@
-import type { Product, Model as Character, BRoll, Script } from '../../stores/types'
+import type { Product, Model as Character, BRoll, Script, Provenance } from '../../stores/types'
 import type { AspectRatio, ImageResolution, VideoMode } from '../../utils/models'
 
 // One in-flight Playground generation. Persisted via usePersistedState so
@@ -37,6 +37,9 @@ export interface InFlightGen {
   musicParams?: {
     instrumental: boolean
   }
+  // What the run was made from (see Lineage in stores/types.ts), carried so a
+  // generation resumed after a reload still stamps its history row.
+  provenance?: Provenance
 }
 
 // One inline mention inserted into the prompt. We track the kind + the bank

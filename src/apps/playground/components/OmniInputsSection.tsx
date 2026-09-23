@@ -70,7 +70,10 @@ export default function OmniInputsSection({ refs, onChangeRefs }: OmniInputsSect
           if (!asset) continue
           url = `data:${asset.mimeType};base64,${asset.base64}`
         }
-        additions.push({ url, label: item.name, source: 'character', slot: 'omni-character', bankModelId: item.id })
+        additions.push({
+          url, label: item.name, source: 'character', slot: 'omni-character', bankModelId: item.id,
+          parent: { bank: 'models', id: item.id },
+        })
       }
       if (additions.length > 0) onChangeRefs([...refs, ...additions])
     })()

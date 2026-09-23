@@ -35,7 +35,7 @@ import { OMNI_SLOT_QUOTA, omniImageCapacity, omniQuotaUsed } from '../omniQuota'
 import MotionControlSection from './MotionControlSection'
 import { useAppStore } from '../../../stores/appStore'
 import type { BankType } from '../../../utils/constants'
-import type { BRoll } from '../../../stores/types'
+import type { BRoll, Lineage } from '../../../stores/types'
 import PresetCard from './PresetCard'
 import { StyleTile } from '../../../components/StyleModal'
 import { STYLE_PREVIEWS, PLAYGROUND_STYLE_ACCENT } from '../../../components/styleArt'
@@ -96,6 +96,10 @@ export interface PromptRef {
   // omni-clip: trim window in seconds (ends − start ≤ 10).
   clipStart?: number
   clipEnds?: number
+  // The Bank or History row this picture came from, when it came from one —
+  // stamped as a parent on whatever the run makes (see Lineage in
+  // stores/types.ts). Uploads have none.
+  parent?: Lineage
 }
 
 export interface PromptPanelState {
@@ -301,7 +305,14 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
 
   function setRefStrip(values: VideoInputValue[]) {
     const nonRefs = state.refs.filter((r) => r.slot !== 'ref')
-    const refs = values.map((v) => ({ url: v.dataUri, label: 'ref', source: 'upload' as const, slot: 'ref' as const }))
+    // The strip hands back bare URLs, so a picture that was already attached
+    // keeps the row it came from — only lineage survives, the chip still reads
+    // as an upload the way it always has.
+    const before = state.refs.filter((r) => r.slot === 'ref')
+    const refs = values.map((v) => ({
+      url: v.dataUri, label: 'ref', source: 'upload' as const, slot: 'ref' as const,
+      parent: before.find((r) => r.url === v.dataUri)?.parent,
+    }))
     onChange({ ...state, refs: [...nonRefs, ...refs] })
   }
 
@@ -536,8 +547,12 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
 
     // Skip refs for music mode (Suno doesn't accept them).
     const acceptsRefs = state.mode !== 'music' && !!imageSource
+    const parent: Lineage = {
+      bank: ref.kind === 'product' ? 'products' : ref.kind === 'character' ? 'models' : 'brolls',
+      id: ref.item.id,
+    }
     const nextRefs = acceptsRefs
-      ? [...state.refs, { url: imageSource, label, source: ref.kind, slot: 'ref' as const }]
+      ? [...state.refs, { url: imageSource, label, source: ref.kind, slot: 'ref' as const, parent }]
       : state.refs
 
     onChange({ ...state, prompt: nextPrompt, refs: nextRefs })

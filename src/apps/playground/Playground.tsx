@@ -8,23 +8,16 @@ import { useReportActivity } from '../../stores/activityStore'
 import type { VideoSourceClipPayload, ImageHistoryItem } from '../../stores/types'
 import { isAssetRef, getAsBase64 } from '../../utils/assetStore'
 import { useSettingsStore } from '../../stores/settingsStore'
-import {
-  startPlaygroundImageTask,
-  finishPlaygroundImageTask,
-  startPlaygroundVideoTask,
-  finishPlaygroundVideoTask,
-  startPlaygroundMusicTask,
-  finishPlaygroundMusicTask,
-} from './service'
+import { playgroundRunner, planPlaygroundRun, isMotionControlRun, type PlaygroundPlan, type PlaygroundRunInput } from './runner'
 import PromptPanel, { type PromptPanelState, type PromptRef } from './components/PromptPanel'
 import { composePlaygroundPrompt } from './composePrompt'
 import PlaygroundHistoryGrid from './components/PlaygroundHistoryGrid'
-import { getDefaultModel, getModel, mixedImageInputPolicy, type AspectRatio, type ImageResolution, type VideoMode } from '../../utils/models'
+import { getDefaultModel, getModel, type AspectRatio } from '../../utils/models'
 import type { PlaygroundMode, InFlightGen } from './types'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
 import { humanizeError } from '../../utils/friendlyError'
 import { isPollTimeout } from '../../utils/kie'
-import { isRecordingActive, replayRun, useRecordingLoop, useRecordingLoopSince, type ReplayableRow } from '../../stores/recordingStore'
+import { isRecordingActive, useRecordingLoop, useRecordingLoopSince } from '../../stores/recordingStore'
 import { useBankStore } from '../../stores/bankStore'
 
 // How long an in-flight task stays resumable. A poll timeout no longer drops
@@ -34,20 +27,6 @@ import { useBankStore } from '../../stores/bankStore'
 // comfortably larger than the poll budget (VIDEO_POLL_ATTEMPTS ≈ 20 min) so a
 // refresh after kie finishes still has a window to download the result.
 const STALE_TASK_MS = 60 * 60 * 1000 // 60 minutes
-
-// Infer the video mode from which ref slots the user filled. Only image
-// slots participate — audio/video reference clips and the Omni inputs are
-// orthogonal extras that don't change the kie request family.
-function inferVideoMode(refs: PromptRef[]): VideoMode {
-  const startCount = refs.filter((r) => r.slot === 'start').length
-  const endCount = refs.filter((r) => r.slot === 'end').length
-  const refCount = refs.filter((r) => r.slot === 'ref').length
-  if (refCount > 0 && startCount === 0 && endCount === 0) return 'reference-to-video'
-  if (startCount > 0 && endCount > 0) return 'frames-to-video'
-  if (startCount > 0) return 'image-to-video'
-  if (refCount > 0) return 'reference-to-video'
-  return 'text-to-video'
-}
 
 // Uploaded audio/video clips are data URIs far beyond the localStorage quota
 // (a 15MB clip is ~20MB of JSON), so they're kept in memory only — the
@@ -60,78 +39,6 @@ function pruneHeavyRefs(refs: PromptRef[]): PromptRef[] {
       r.url.startsWith('data:')
     ),
   )
-}
-
-// When the user picks a text-to-image model but attaches reference images,
-// kie silently runs a text-only generation and ignores the refs — burning
-// credits for nothing. Mirror the B-Roll Studio swap (`startImageTask` in
-// `generateBroll.ts`): prefer the picked model's own i2i mode, fall back to
-// a same-family `-image-to-image` sibling, then the registry default i2i.
-function resolveImageModelForRefs(pickedId: string, hasRefs: boolean): string {
-  const targetMode = hasRefs ? 'image-to-image' : 'text-to-image'
-  const picked = getModel(pickedId)
-  if (picked?.modes?.includes(targetMode)) return picked.id
-  if (hasRefs && picked) {
-    const family = picked.id.replace(/-(text-to-image|image-to-image|image-edit).*$/, '')
-    const sibling = getModel(`${family}-image-to-image`)
-    if (sibling) return sibling.id
-  }
-  return useSettingsStore.getState().getAppModel(`playground:image:${targetMode}`)
-    ?? getDefaultModel('playground', 'image', targetMode)?.id
-    ?? pickedId
-}
-
-// Finish one persisted in-flight task (the resume-on-mount walk below).
-//
-// Module scope on purpose: this lives outside the component so the component
-// itself stays compilable. The React Compiler cannot lower a `try`/`finally`,
-// and one anywhere inside a component makes it skip optimizing the whole thing
-// — which for Playground means the history grid re-renders on every character
-// typed into the prompt bar.
-async function finishResumedTask(gen: InFlightGen): Promise<void> {
-  // `gen.projectId` is the project that was active when Generate was pressed,
-  // not the one active now — a clip that took twenty minutes still belongs to
-  // the piece of work it was started for.
-  if (gen.mode === 'image' && gen.imageParams) {
-    await finishPlaygroundImageTask(gen.taskId!, gen.modelId, {
-      prompt: gen.prompt,
-      aspectRatio: gen.imageParams.aspectRatio,
-      resolution: gen.imageParams.resolution,
-      projectId: gen.projectId,
-    })
-  } else if (gen.mode === 'video' && gen.videoParams) {
-    await finishPlaygroundVideoTask(gen.taskId!, gen.modelId, gen.videoParams.videoEndpoint, {
-      prompt: gen.prompt,
-      mode: gen.videoParams.mode,
-      aspectRatio: gen.videoParams.aspectRatio,
-      durationSeconds: gen.videoParams.durationSeconds,
-      resolution: gen.videoParams.resolution,
-      audio: gen.videoParams.audio,
-      projectId: gen.projectId,
-    })
-  } else if (gen.mode === 'music' && gen.musicParams) {
-    await finishPlaygroundMusicTask(gen.taskId!, gen.modelId, {
-      prompt: gen.prompt,
-      instrumental: gen.musicParams.instrumental,
-      projectId: gen.projectId,
-    })
-  }
-}
-
-// For video, a silent ref-drop is harder to recover from — duration / aspect
-// / audio caps differ per model, so substituting a different model family
-// risks changing what the user expects. Try only a same-family sibling that
-// declares the inferred mode; otherwise return null so the caller surfaces a
-// toast and aborts. (No registry-default fallback — too lossy across families.)
-function resolveVideoModelForMode(pickedId: string, inferred: VideoMode): string | null {
-  const picked = getModel(pickedId)
-  if (picked?.modes?.includes(inferred)) return picked.id
-  if (picked) {
-    const family = picked.id.replace(/-(text-to-video|image-to-video|frames-to-video|reference-to-video).*$/, '')
-    const sibling = getModel(`${family}-${inferred}`)
-    if (sibling?.modes?.includes(inferred)) return sibling.id
-  }
-  return null
 }
 
 function initialState(): PromptPanelState {
@@ -153,15 +60,6 @@ function initialState(): PromptPanelState {
     refs: [],
     batchCount: 1,
   }
-}
-
-// The rows a Playground tab replays from — what that tab's grid lists. B-Roll's
-// clips share the video bank and never belong here.
-function playgroundRows(mode: PlaygroundMode): ReplayableRow[] {
-  const bank = useBankStore.getState()
-  if (mode === 'image') return bank.imageHistory
-  if (mode === 'music') return bank.musicHistory
-  return bank.videoHistory.filter((v) => v.sourceApp !== 'broll-studio')
 }
 
 export default function Playground() {
@@ -381,7 +279,7 @@ export default function Playground() {
         continue
       }
       resuming.current.add(gen.id)
-      void finishResumedTask(gen)
+      void playgroundRunner.finish({ ...gen, taskId: gen.taskId })
         .then(() => {
           addToast(`${gen.mode} resumed and ready`, 'success')
           setInFlight((prev) => prev.filter((g) => g.id !== gen.id))
@@ -409,172 +307,57 @@ export default function Playground() {
     setPane('history')
 
     const mode = state.mode
-
-    // Snapshot every input synchronously so subsequent prompt-bar edits don't
-    // mutate this job's params while it runs.
-    const refsSnapshot = state.refs.slice()
-    const hasRefs = refsSnapshot.length > 0
-    // Motion Control fixes the video mode (it doesn't infer from frame slots)
-    // and makes the prompt optional but the character image + driving video
-    // required. Everything else infers the mode from the attached frames.
-    const isMotionControl = mode === 'video' && !!getModel(state.modelId)?.motionControl
-    // The prompt as the model will actually see it — the member's text with the
-    // Voice box's profile on the end. Composed here rather than folded into
-    // `state.prompt` so the box keeps holding it across a Clear, an Enhance and
-    // the next idea, and read from `promptText` everywhere below so the tile,
-    // the history row and Copy prompt all show the string that was sent.
-    const promptText = composePlaygroundPrompt(state, isMotionControl)
-    let inferredVideoMode: VideoMode = isMotionControl ? 'motion-control' : inferVideoMode(refsSnapshot)
-    // Reconcile the inferred mode with what the picked model actually declares,
-    // in BOTH directions, because the pictures reach the model either way:
-    //
-    //   ref → image: an image-to-video-only model (Kling 3.0 Turbo) can't take
-    //     a reference image but CAN animate it as a start frame.
-    //   frame → ref: a frame-less model (Seedance 2.5, Gemini Omni) has no
-    //     first_frame_url/last_frame_url at all and folds every attached image
-    //     into its reference array — see the per-model branches in
-    //     buildVideoInput, which do exactly that with a stray frame.
-    //
-    // The second direction is why this exists. Attaching a start frame AND a
-    // reference image made inferVideoMode return 'image-to-video', which
-    // Seedance 2.5 doesn't declare, so the run was refused with a toast naming
-    // a limitation the model doesn't have — on a generation it would have run
-    // fine. Downgrade instead, and send the frames as references below.
-    if (!isMotionControl && mode === 'video') {
-      const picked = getModel(state.modelId)
-      const modes = picked?.modes ?? []
-      if (picked && !modes.includes(inferredVideoMode)) {
-        if (inferredVideoMode === 'reference-to-video' && modes.includes('image-to-video')) {
-          inferredVideoMode = 'image-to-video'
-        } else if (modes.includes('reference-to-video')) {
-          inferredVideoMode = 'reference-to-video'
-        } else if (inferredVideoMode === 'frames-to-video' && modes.includes('image-to-video')) {
-          // Start frame only — the end frame has nowhere to go on this model.
-          inferredVideoMode = 'image-to-video'
-        }
-      }
-      // A frame and a reference attached together, on a model that re-routes
-      // for references (MiniMax H3, Kling 3.0 Omni): take the reference route,
-      // which carries BOTH — the frame rides as a reference image. Dropping the
-      // character to keep frame-one is the worse half of that trade, and it's
-      // the one the request builders already make for themselves further down
-      // (minimaxH3Route / klingOmniRoute pick 'reference' the moment a
-      // reference is present, so this only makes the mode agree with the body).
-      if (
-        mixedImageInputPolicy(picked?.id) === 'reference' &&
-        inferredVideoMode !== 'reference-to-video' &&
-        refsSnapshot.some((r) => r.slot === 'ref')
-      ) {
-        inferredVideoMode = 'reference-to-video'
-      }
-    }
+    // Motion Control makes the prompt optional; everything else needs one.
+    const isMotionControl = isMotionControlRun(mode, state.modelId)
     // The member's own text, not the composed string: a voice profile with no
     // prompt in front of it isn't a generation (and the button is already grey).
     if (!isMotionControl && !state.prompt.trim()) return
-    if (isMotionControl) {
-      const hasImg = refsSnapshot.some((r) => r.slot === 'motion-image')
-      const hasVid = refsSnapshot.some((r) => r.slot === 'motion-video')
-      if (!hasImg || !hasVid) {
-        addToast('Motion Control needs a character image and a driving video.', 'error')
-        return
-      }
-    }
-    const motionOrientation = state.characterOrientation ?? 'video'
-    const motionDuration = Math.min(
-      refsSnapshot.find((r) => r.slot === 'motion-video')?.durationSeconds ?? 5,
-      motionOrientation === 'image' ? 10 : 30,
-    )
 
-    // Auto-swap the model to match what the user actually attached.
-    // Image: text-to-image → image-to-image sibling when refs are present.
-    // Video: abort if the picked model can't run the inferred mode (refs
-    // would be silently dropped by the body builder otherwise).
-    let modelId = state.modelId
-    if (mode === 'image') {
-      modelId = resolveImageModelForRefs(state.modelId, hasRefs)
-    } else if (mode === 'video' && !isMotionControl) {
-      const resolved = resolveVideoModelForMode(state.modelId, inferredVideoMode)
-      if (!resolved) {
-        // Everything the model COULD do with the attached pictures has already
-        // been tried above, so reaching here means it takes no images at all.
-        // Say that, rather than naming an internal mode ("image to video") the
-        // member never picked and can't see.
-        const pickedLabel = getModel(state.modelId)?.displayName ?? state.modelId
-        addToast(
-          `${pickedLabel} generates from the prompt only. It takes no images. Remove the attached images, or pick a model that accepts them.`,
-          'error',
-        )
-        return
-      }
-      modelId = resolved
+    // Snapshot every input synchronously so subsequent prompt-bar edits don't
+    // mutate this job's params while it runs. The prompt is the one the model
+    // will actually see — the member's text with the Voice box's profile on the
+    // end. Composed here rather than folded into `state.prompt` so the box
+    // keeps holding it across a Clear, an Enhance and the next idea, and every
+    // tile, history row and Copy prompt shows the string that was sent.
+    const input: PlaygroundRunInput = {
+      mode,
+      modelId: state.modelId,
+      prompt: composePlaygroundPrompt(state, isMotionControl),
+      refs: state.refs.slice(),
+      aspectRatio: state.aspectRatio,
+      resolution: state.resolution,
+      durationSeconds: state.durationSeconds,
+      audio: state.audio,
+      instrumental: state.instrumental,
+      characterOrientation: state.characterOrientation,
+      // Snapshotted with everything else: a project switch while this renders
+      // must not re-file the generation it was started for.
+      projectId: projectId ?? undefined,
     }
 
-    // What this run does with a frame and a reference attached together, and
-    // whether anything is left behind — decided per model, and said out loud
-    // before the credits go. Every branch here used to be one silent drop: the
-    // tile generated, the clip came back without the character in it, and
-    // nothing on screen had mentioned it.
-    const mixedPolicy = mixedImageInputPolicy(modelId)
-    const hasPlainRefs = refsSnapshot.some((r) => r.slot === 'ref')
-    const hasFrames = refsSnapshot.some((r) => r.slot === 'start' || r.slot === 'end')
-    // 'merged' models take both in one flat array and nothing is dropped, so
-    // they deliberately say nothing. 'reference' models were re-routed above and
-    // carry both too — but the start frame is a reference there, not frame one,
-    // which changes what the member gets and has to be named.
-    if (mode === 'video' && !isMotionControl && hasPlainRefs && hasFrames && mixedPolicy === 'reference') {
-      const label = getModel(modelId)?.displayName ?? modelId
-      addToast(
-        `${label} can't hold a start frame and reference images apart. Everything attached is sent as a reference, so the frame guides this clip rather than opening it.`,
-        'info',
-      )
+    // The runner decides what this press sends — the inferred video mode, the
+    // model the attached pictures need — and refuses a run that can't go.
+    // What it trades away with a frame and a reference attached together is
+    // said here, once per press, before the credits go.
+    let plan: PlaygroundPlan
+    try {
+      plan = planPlaygroundRun(input)
+    } catch (err) {
+      addToast(playgroundRunner.describeError(err), 'error')
+      return
     }
-    // 'exclusive' is the provider forbidding the combination outright (the whole
-    // Seedance family documents frames and multimodal references as mutually
-    // exclusive scenarios). Sending both is a 400, so the frames win — they're
-    // the more specific instruction, and the frame slot is a deliberate act
-    // rather than somewhere pictures land by default — and the references are
-    // dropped and named, with the way to get them honoured instead.
-    if (mode === 'video' && !isMotionControl && hasPlainRefs && mixedPolicy === 'exclusive'
-      && inferredVideoMode !== 'reference-to-video') {
-      const label = getModel(modelId)?.displayName ?? modelId
-      addToast(
-        `${label} takes either frames or reference images, not both. Rendering from the frames. Clear the start frame to use your references instead.`,
-        'info',
-      )
-    }
-    // No reference input on this model at all, and an end frame with nowhere to
-    // go on an image-to-video-only one.
-    if (mode === 'video' && !isMotionControl && inferredVideoMode !== 'reference-to-video') {
-      const dropped: string[] = []
-      if (hasPlainRefs && mixedPolicy === 'frames-only') dropped.push('reference images')
-      if (inferredVideoMode === 'image-to-video' && refsSnapshot.some((r) => r.slot === 'end')) {
-        dropped.push('the end frame')
-      }
-      if (dropped.length > 0) {
-        const label = getModel(modelId)?.displayName ?? modelId
-        addToast(
-          `${label} takes only a start frame here, so ${dropped.join(' and ')} won't be sent with this clip.`,
-          'info',
-        )
-      }
-    }
+    for (const notice of plan.notices) addToast(notice, 'info')
 
-    const imageParams = mode === 'image'
-      ? { aspectRatio: state.aspectRatio as AspectRatio, resolution: state.resolution as ImageResolution }
-      : undefined
-    const videoParams = mode === 'video'
-      ? {
-          mode: inferredVideoMode,
-          aspectRatio: state.aspectRatio,
-          durationSeconds: isMotionControl ? motionDuration : state.durationSeconds,
-          resolution: state.resolution,
-          audio: isMotionControl ? false : state.audio,
-          videoEndpoint: getModel(modelId)?.videoEndpoint === 'veo' ? ('veo' as const) : undefined,
-        }
-      : undefined
-    const musicParams = mode === 'music'
-      ? { instrumental: state.instrumental }
-      : undefined
+    // What the in-flight tile shows while the run renders.
+    const tile = {
+      mode,
+      modelId: plan.modelId,
+      prompt: input.prompt,
+      imageParams: plan.imageParams,
+      videoParams: plan.videoParams,
+      musicParams: plan.musicParams,
+      projectId: input.projectId,
+    }
 
     // One member of the run. Everything above is snapshotted once and shared by
     // all of them; each call here is its own kie task, its own in-flight tile
@@ -584,167 +367,30 @@ export default function Playground() {
     // Recording Mode: the tile renders for the replay length, then the oldest
     // hidden output of this tab comes back in its place. Nothing reaches kie.
     if (isRecordingActive()) {
-      const fake: InFlightGen = {
-        id: `replay-${crypto.randomUUID()}`, mode, modelId, prompt: promptText, startedAt: Date.now(),
-        imageParams, videoParams, musicParams, projectId: projectId ?? undefined,
-      }
+      const fake: InFlightGen = { id: `replay-${crypto.randomUUID()}`, startedAt: Date.now(), ...tile }
       setReplayInFlight((prev) => [...prev, fake])
-      const row = await replayRun({ rows: () => playgroundRows(mode), prefix: mode, extraMs: index * 700 })
+      const row = await playgroundRunner.replay(input, { extraMs: index * 700 })
       setReplayInFlight((prev) => prev.filter((g) => g.id !== fake.id))
       if (row) addToast(mode === 'image' ? 'Image ready' : mode === 'video' ? 'Video ready' : 'Track ready', 'success')
       return
     }
     const id = crypto.randomUUID()
     // Add to inFlight WITHOUT a taskId yet — covers the createTask leg.
-    setInFlight((prev) => [...prev, {
-      id, mode, modelId, prompt: promptText, startedAt: Date.now(),
-      imageParams, videoParams, musicParams,
-      // Snapshotted with everything else: a project switch while this renders
-      // must not re-file the generation it was started for.
-      projectId: projectId ?? undefined,
-    }])
+    setInFlight((prev) => [...prev, { id, startedAt: Date.now(), ...tile }])
 
     // Leave the prompt + refs in place so the user can fire off the same (or a
     // tweaked) generation again immediately — gens run in parallel, each job
     // already snapshotted its own inputs above.
 
     try {
-      let taskId: string
-      let videoEndpoint: 'veo' | undefined
-
-      if (mode === 'image') {
-        const started = await startPlaygroundImageTask({
-          prompt: promptText,
-          modelId,
-          aspectRatio: imageParams!.aspectRatio,
-          resolution: imageParams!.resolution,
-          referenceUrls: refsSnapshot.map((r) => r.url),
-        })
-        taskId = started.taskId
-      } else if (mode === 'video' && isMotionControl) {
-        const started = await startPlaygroundVideoTask({
-          prompt: promptText,
-          modelId,
-          mode: 'motion-control',
-          aspectRatio: videoParams!.aspectRatio,
-          durationSeconds: videoParams!.durationSeconds,
-          resolution: videoParams!.resolution,
-          audio: false,
-          motionImageUrl: refsSnapshot.find((r) => r.slot === 'motion-image')?.url,
-          motionVideoUrl: refsSnapshot.find((r) => r.slot === 'motion-video')?.url,
-          characterOrientation: motionOrientation,
-        })
-        taskId = started.taskId
-        videoEndpoint = started.videoEndpoint
-      } else if (mode === 'video') {
-        const first = refsSnapshot.find((r) => r.slot === 'start')?.url
-          ?? (inferredVideoMode === 'reference-to-video' ? undefined : refsSnapshot.find((r) => r.slot === 'ref')?.url)
-        const last = refsSnapshot.find((r) => r.slot === 'end')?.url
-        // In reference mode the frame slots have nowhere else to go — the model
-        // either has no frame fields at all, or the mode was downgraded to this
-        // one above precisely because it hasn't. Send them AS references, in
-        // shot order ahead of the explicit ones, which is what every ref-capable
-        // model's body builder does with a stray frame.
-        const frameRefs = inferredVideoMode === 'reference-to-video'
-          ? [refsSnapshot.find((r) => r.slot === 'start')?.url, last].filter((u): u is string => !!u)
-          : []
-        const references = [
-          ...frameRefs,
-          ...refsSnapshot.filter((r) => r.slot === 'ref').map((r) => r.url),
-        ]
-        const referenceAudioUrls = refsSnapshot.filter((r) => r.slot === 'audio').map((r) => r.url)
-        const referenceVideoUrls = refsSnapshot.filter((r) => r.slot === 'video').map((r) => r.url)
-        const omniCharacterBankIds = refsSnapshot
-          .filter((r) => r.slot === 'omni-character' && r.bankModelId)
-          .map((r) => r.bankModelId!)
-        // Uploaded characters carry a pre-minted kie character id in `omniId`.
-        const omniCharacterIds = refsSnapshot
-          .filter((r) => r.slot === 'omni-character' && !r.bankModelId && r.omniId)
-          .map((r) => r.omniId!)
-        const omniAudioIds = refsSnapshot
-          .filter((r) => r.slot === 'omni-voice' && r.omniId)
-          .map((r) => r.omniId!)
-        const clip = refsSnapshot.find((r) => r.slot === 'omni-clip')
-        const started = await startPlaygroundVideoTask({
-          prompt: promptText,
-          modelId,
-          mode: inferredVideoMode,
-          aspectRatio: videoParams!.aspectRatio,
-          durationSeconds: videoParams!.durationSeconds,
-          resolution: videoParams!.resolution,
-          audio: videoParams!.audio,
-          firstFrameUrl: inferredVideoMode === 'image-to-video' || inferredVideoMode === 'frames-to-video' ? first : undefined,
-          lastFrameUrl: last,
-          // Reference mode carries everything. A frame mode carries the
-          // references too on a 'merged' model, whose body is one flat image
-          // array with no frame/reference distinction to violate; the other two
-          // policies must not send both (see the toasts above) — 'exclusive'
-          // because the provider rejects the pair outright, 'frames-only'
-          // because there is no field to put them in.
-          referenceImageUrls: inferredVideoMode === 'reference-to-video' || mixedPolicy === 'merged'
-            ? (references.length > 0 ? references : undefined)
-            : undefined,
-          referenceAudioUrls: referenceAudioUrls.length > 0 ? referenceAudioUrls : undefined,
-          referenceVideoUrls: referenceVideoUrls.length > 0 ? referenceVideoUrls : undefined,
-          omniCharacterBankIds: omniCharacterBankIds.length > 0 ? omniCharacterBankIds : undefined,
-          omniCharacterIds: omniCharacterIds.length > 0 ? omniCharacterIds : undefined,
-          omniAudioIds: omniAudioIds.length > 0 ? omniAudioIds : undefined,
-          videoClip: clip
-            ? { url: clip.url, start: clip.clipStart ?? 0, ends: clip.clipEnds ?? Math.min(10, clip.durationSeconds ?? 10) }
-            : undefined,
-        })
-        taskId = started.taskId
-        videoEndpoint = started.videoEndpoint
-      } else {
-        const started = await startPlaygroundMusicTask({
-          prompt: promptText,
-          modelId,
-          instrumental: musicParams!.instrumental,
-        })
-        taskId = started.taskId
-      }
-
-      // Patch the in-flight entry with the taskId so a refresh from this
-      // point on resumes correctly. For video, also persist the endpoint
-      // identifier in case the model registry changes between sessions.
-      setInFlight((prev) => prev.map((g) => g.id === id
-        ? {
-            ...g,
-            taskId,
-            videoParams: g.videoParams && videoEndpoint !== undefined
-              ? { ...g.videoParams, videoEndpoint }
-              : g.videoParams,
-          }
-        : g))
-
-      if (mode === 'image') {
-        await finishPlaygroundImageTask(taskId, modelId, {
-          prompt: promptText,
-          aspectRatio: imageParams!.aspectRatio,
-          resolution: imageParams!.resolution,
-          projectId: projectId ?? undefined,
-        })
-        addToast('Image ready', 'success')
-      } else if (mode === 'video') {
-        await finishPlaygroundVideoTask(taskId, modelId, videoEndpoint, {
-          prompt: promptText,
-          mode: inferredVideoMode,
-          aspectRatio: videoParams!.aspectRatio,
-          durationSeconds: videoParams!.durationSeconds,
-          resolution: videoParams!.resolution,
-          audio: videoParams!.audio,
-          projectId: projectId ?? undefined,
-        })
-        addToast('Video ready', 'success')
-      } else {
-        await finishPlaygroundMusicTask(taskId, modelId, {
-          prompt: promptText,
-          instrumental: musicParams!.instrumental,
-          projectId: projectId ?? undefined,
-        })
-        addToast('Track ready', 'success')
-      }
-      // Success — the result is now a history row, so drop the in-flight tile.
+      const task = await playgroundRunner.start(input)
+      // Patch the in-flight entry with the task so a refresh from this point
+      // on resumes correctly — its taskId, the endpoint kie took it on, and
+      // what it was made from.
+      setInFlight((prev) => prev.map((g) => g.id === id ? { ...g, ...task } : g))
+      // The runner writes the history row, which is what replaces the tile.
+      await playgroundRunner.finish(task)
+      addToast(mode === 'image' ? 'Image ready' : mode === 'video' ? 'Video ready' : 'Track ready', 'success')
       setInFlight((prev) => prev.filter((g) => g.id !== id))
     } catch (err) {
       if (isPollTimeout(err)) {
@@ -756,7 +402,7 @@ export default function Playground() {
         const noun = mode === 'image' ? 'Image' : mode === 'music' ? 'Track' : 'Video'
         addToast(`${noun} is still rendering on kie. Refresh in a bit and it'll appear here once it's ready.`, 'info')
       } else {
-        addToast(humanizeError(err, 'Generation failed.'), 'error')
+        addToast(playgroundRunner.describeError(err), 'error')
         setInFlight((prev) => prev.filter((g) => g.id !== id))
       }
     }
@@ -801,7 +447,10 @@ export default function Playground() {
       }
       url = `data:${asset.mimeType};base64,${asset.base64}`
     }
-    const startRef: PromptRef = { url, label: 'start', source: 'upload', slot: 'start' }
+    const startRef: PromptRef = {
+      url, label: 'start', source: 'upload', slot: 'start',
+      parent: { bank: 'imageHistory', id: item.id },
+    }
     const seedPrompt = item.prompt?.trim()
 
     // Read the draft through the ref, not the closure — see stateRef above.
