@@ -8,9 +8,9 @@ import { create } from 'zustand'
 // call): it shipped off on the reasoning that ad research is a side quest next
 // to the production line, and enough members went looking for it that the tile
 // is worth more than the row it costs. It stays in this list — switching it off
-// takes the whole app, not just the tile: its dock entry, its planet on the
-// Dashboard, its teammate in the intro, and the Bank's Swipe File tab, which is
-// Outliers' own bank and points at an app that isn't there without it.
+// takes the whole app, not just the tile: its dock entry, its card in
+// Meet Your Workspace, and the Bank's Swipe File tab, which is Outliers' own
+// bank and points at an app that isn't there without it.
 //
 // A default here is only the fallback for a member who has never touched the
 // switch, so flipping it moves everyone who never opted out and nobody who did

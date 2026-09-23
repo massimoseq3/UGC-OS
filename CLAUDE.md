@@ -23,7 +23,7 @@ Each app's own `CLAUDE.md` loads automatically under its folder. Read it before 
 
 - Dock group order is `SECTION_ORDER` in `utils/constants.ts`; membership is by `category`. Meet Your Workspace reads the same order, so the two can't drift.
 - **Folder names and the `id` strings in `constants.ts` are stable** — they key per-app model picks in localStorage. Never rename them.
-- Outliers is the one app a member can switch off (`stores/appVisibilityStore.ts`, browser-local, Settings → Experimental). Hiding it takes its dock tile, planet, Meet Your Workspace card, route, Swipe File tab and ScrapeCreators field together; nothing is deleted. `OPTIONAL_FEATURES` in the same store holds B-Roll's Continuous mode, which ships OFF.
+- Outliers is the one app a member can switch off (`stores/appVisibilityStore.ts`, browser-local, Settings → Experimental). Hiding it takes its dock tile, Meet Your Workspace card, route, Swipe File tab and ScrapeCreators field together; nothing is deleted. `OPTIONAL_FEATURES` in the same store holds B-Roll's Continuous mode, which ships OFF.
 
 ## Role
 
@@ -141,7 +141,7 @@ Reach for these instead of re-implementing. One line each; the reasoning is in `
 
 ## Inter-app payloads
 
-`sendToApp({ targetApp, targetField, data })`; the consumer reads `interAppPayload` in a `useEffect` keyed on `activeApp`, dispatches on `targetField`, then `consumePayload()`. Wired: Ad Analyzer → Scripts (transcript) / Bank (productId) / B-Roll (`adBlueprint`, the only source of `sceneStaging`); Scripts → Voiceovers (text) and → Playground (`videoPrompt`); B-Roll Bank → Playground (`videoStartFrame`); anywhere → Playground (`prompt`, `imageRef`). Playground still consumes `videoSourceClip` and nothing sends it — kept so re-wiring the redub loop is one button.
+`sendToApp({ targetApp, targetField, data })`; the consumer reads `interAppPayload` in a `useEffect` keyed on `activeApp`, dispatches on `targetField`, then `consumePayload()`. Wired: Outliers and the Swipe File → Ad Analyzer (`adVideo`) / Scripts (`winningTranscript`); Ad Analyzer → Scripts (`winningTranscript`, `reverseEngineerPrompt`); Scripts → Voiceovers and B-Roll (`scriptText`) / Playground (`videoPrompt`) / Bank (`activeBank`); B-Roll Bank → Playground (`videoStartFrame`); `BankPicker` → Bank (`openCreate`). Every other consumer branch has no sender. Playground still consumes `videoSourceClip` and nothing sends it — kept so re-wiring the redub loop is one button; B-Roll's `adBlueprint` consumer, the only source of `sceneStaging`, is kept the same way with its Ad Analyzer sender removed.
 
 ## Shipping
 
