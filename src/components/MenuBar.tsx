@@ -11,6 +11,7 @@ import { getAppConfig, SKOOL_COMMUNITY_URL } from '../utils/constants'
 import { computeUsageMetrics } from '../utils/usage'
 import { creditsToUsd } from '../utils/models'
 import AppLogo from './AppLogo'
+import AppGlassTile from './AppGlassTile'
 import SettingsModal from './SettingsModal'
 import ApiKeyGuide from './ApiKeyGuide'
 
@@ -21,7 +22,8 @@ import ApiKeyGuide from './ApiKeyGuide'
 export default function MenuBar() {
   const activeApp = useAppStore((s) => s.activeApp)
   const openTeamIntro = useAppStore((s) => s.openTeamIntro)
-  const appName = activeApp ? getAppConfig(activeApp)?.name : null
+  const activeConfig = activeApp ? getAppConfig(activeApp) : undefined
+  const appName = activeConfig?.name ?? null
 
   return (
     <header className="fixed inset-x-0 top-0 z-40 flex h-9 select-none items-center gap-2 border-b border-ink/5 bg-surface-1/75 px-3 backdrop-blur-2xl light:bg-white/75">
@@ -50,7 +52,10 @@ export default function MenuBar() {
           <span className="text-[12px] font-light leading-none text-ink-500/40" aria-hidden>
             /
           </span>
-          <span className="truncate text-[13px] font-medium text-ink-400">{appName}</span>
+          {/* The frontmost app wears its own dock tile here, so the colour you
+              clicked is the colour the bar answers with. */}
+          {activeConfig && <AppGlassTile app={activeConfig} size={18} />}
+          <span className="truncate text-[13px] font-medium text-ink-200">{appName}</span>
         </>
       )}
 

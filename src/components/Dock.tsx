@@ -150,8 +150,12 @@ function DockItem({ label, title, appId, active, running, busy, accent, onClick,
           />
         ) : (
           (active || running) && (
+            // The active app is marked by a short bar in ITS OWN accent, the
+            // colour that follows the member into the window (the pane's top
+            // rim, the menu bar tile); a running app keeps the quiet dot.
             <span
-              className={`h-1 w-1 rounded-full ${active ? 'bg-ink-200' : 'bg-ink-500/60'}`}
+              className={`h-1 rounded-full transition-[width,background-color] duration-300 ${active ? 'w-4' : 'w-1 bg-ink-500/60'}`}
+              style={active ? { backgroundColor: accent ?? 'var(--color-ink-200)' } : undefined}
             />
           )
         )}

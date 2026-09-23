@@ -71,6 +71,27 @@ function AppPlaceholder({ appId }: { appId: string }) {
   )
 }
 
+function AppAura({ appId }: { appId: string }) {
+  const accent = getAppConfig(appId)?.accent
+  // Admin's accent is near-white and the Dashboard is the landing page, not a
+  // room: neither gets one.
+  if (!accent || appId === 'admin' || appId === 'dashboard') return null
+  return (
+    <>
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-56"
+        style={{ background: `radial-gradient(55% 100% at 50% 0%, color-mix(in oklab, color-mix(in oklab, ${accent} 70%, white) 20%, transparent), transparent 75%)` }}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 z-30 h-px"
+        style={{ background: `linear-gradient(90deg, transparent, color-mix(in oklab, ${accent} 80%, transparent) 50%, transparent)` }}
+      />
+    </>
+  )
+}
+
 function EmptyState() {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
@@ -239,6 +260,14 @@ function Workspace() {
                     panel, and the two ports rubber-band against each other in
                     between. Pinned chrome that actually stays pinned is worth
                     more than a graceful 450px viewport. */}
+                {/* The app's own light: a soft wash of its accent off the top
+                    edge and a hairline rim of it along the seam under the menu
+                    bar, so each app reads as its own room in the one workspace.
+                    Static (nothing here animates — docs/performance.md), and
+                    `-z-10` rather than lifting the app above it: a z-index on
+                    the app would make it a stacking context, and an inline
+                    fixed overlay inside one could no longer cover the dock. */}
+                <AppAura appId={appId} />
                 <div className="h-full overflow-y-auto bg-transparent">
                   {Component ? (
                     // Per PANE, not around the whole workspace: the error this
