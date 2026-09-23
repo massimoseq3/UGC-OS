@@ -18,7 +18,7 @@ import type { ImageHistoryItem, VideoHistoryItem } from '../../../stores/types'
 import MusicRow from './MusicRow'
 import ProjectRail, { ProjectRailToggle } from './ProjectRail'
 import { summariseProjects, type HistoryEntry } from '../projectSummary'
-import GridCanvas from '../../../components/GridCanvas'
+import GridCanvas, { AwaitingBody } from '../../../components/GridCanvas'
 import RailOverlay from '../../../components/RailOverlay'
 import { useHistoryRailOpen } from '../../../hooks/useHistoryRailOpen'
 import GenerationProgress from '../../../components/GenerationProgress'
@@ -410,16 +410,15 @@ export default memo(function PlaygroundHistoryGrid({ inFlight, activeProjectId, 
             // `min-h` rather than a centred flex fill: this block shares a
             // scroller with the pinned bar above it, and a `flex-1` child here
             // would centre against a port that already has 69px spoken for.
-            <div className="flex min-h-[70vh] flex-col items-center justify-center gap-2 px-6 text-center">
-              <ImagePlay className="h-9 w-9 text-ink-800" strokeWidth={1.5} />
-              <p className="text-sm text-ink-500">
-                {activeProject ? `Nothing In ${activeProject.name} Yet` : 'No Generations Yet'}
-              </p>
-              <p className="max-w-[300px] text-xs leading-relaxed text-ink-600">
-                {activeProject
-                  ? 'Pick a preset or type a prompt below and hit Generate. Images, clips and tracks made while this project is open all land here.'
-                  : 'Pick a preset or type a prompt below and hit Generate. Everything you make lands here, sorted by day.'}
-              </p>
+            <div className="flex min-h-[70vh] flex-col">
+              <AwaitingBody
+                app="playground"
+                icon={ImagePlay}
+                title={activeProject ? `Nothing In ${activeProject.name} Yet` : 'No Generations Yet'}
+                hint={activeProject
+                  ? 'Pick a preset or type a prompt and hit Generate. Images, clips and tracks made while this project is open all land here.'
+                  : 'Pick a preset or type a prompt and hit Generate. Everything you make lands here, sorted by day.'}
+              />
             </div>
           )}
 

@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { AwaitingBody } from '../../../components/GridCanvas'
 import { createPortal } from 'react-dom'
 import { Film, AlertCircle, Plus, Images, X, Palette, Download, Video as VideoIcon, Clapperboard, Coins, Pencil, Check, ChevronRight, ChevronDown, Sparkle } from 'lucide-react'
 import GenerationProgress from '../../../components/GenerationProgress'
@@ -980,19 +981,19 @@ export default function ScenesView({
     // says Generate Storyboard. Written out rather than the component only
     // because the error has to sit under the hint.
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
-        <Film className="h-8 w-8 text-ink-800" strokeWidth={1.5} />
-        <p className="text-sm text-ink-500">Awaiting Storyboard</p>
-        <p className="max-w-[300px] text-xs leading-relaxed text-ink-600">
-          Your storyboard lands here. Pick a character, a product and a script, then press Generate Storyboard.
-        </p>
+      <AwaitingBody
+        app="broll-studio"
+        icon={Film}
+        title="Awaiting Storyboard"
+        hint="Your storyboard lands here. Pick a character, a product and a script, then press Generate Storyboard."
+      >
         {error && (
           <div className="mt-2 flex max-w-sm items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-left">
             <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-400 light:text-red-600" />
             <p className="text-xs leading-relaxed text-red-300 light:text-red-700">{error}</p>
           </div>
         )}
-      </div>
+      </AwaitingBody>
     )
   }
 

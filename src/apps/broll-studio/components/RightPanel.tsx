@@ -210,6 +210,7 @@ export default function RightPanel(props: RightPanelProps) {
         <CanvasFrame active={showCanvas}>
         {cleared ? (
           <AwaitingBody
+            app="broll-studio"
             icon={Film}
             title="Awaiting Storyboard"
             hint="Your next storyboard lands here. Nothing was deleted. This session is saved in History."

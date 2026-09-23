@@ -1,4 +1,5 @@
 import { useRef, useCallback, useEffect, useState } from 'react'
+import { GlassTile } from '../../../components/AppGlassTile'
 import { Upload, Eye, Coins, X, Film, Minimize2 } from 'lucide-react'
 import { formatCredits } from '../../../utils/models'
 import { readMediaDuration } from '../../../utils/media'
@@ -154,11 +155,22 @@ export default function UploadView({ onAnalyze }: UploadViewProps) {
 
   return (
     <div ref={panelRef} className="relative flex h-full flex-col items-center justify-center gap-6 p-8">
-      <div className="flex flex-col items-center gap-2 text-center">
-        <Eye className="h-8 w-8 text-[#FF5257]/60" strokeWidth={1.5} />
-        {/* No blurb under it: the drop zone below already says what to do, and
-            the line it replaced only restated the heading. */}
-        <h2 className="text-lg font-semibold tracking-tight text-ink-200">
+      {/* The app's own tile over the display serif — the same introduction
+          every empty stage makes (components/GridCanvas, AwaitingBody). No
+          blurb under it: the drop zone below already says what to do. */}
+      <div className="flex flex-col items-center gap-3 text-center">
+        <span className="relative mb-1">
+          <span
+            aria-hidden
+            className="pointer-events-none absolute -inset-10 rounded-full"
+            style={{ background: 'radial-gradient(closest-side, color-mix(in oklab, #FF5257 30%, transparent), transparent)' }}
+          />
+          <GlassTile icon={Eye} accent="#FF5257" size={60} />
+        </span>
+        <h2
+          className="text-[34px] font-normal italic leading-none tracking-tight text-ink-100"
+          style={{ fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }}
+        >
           Reverse Engineer Any Ad
         </h2>
       </div>

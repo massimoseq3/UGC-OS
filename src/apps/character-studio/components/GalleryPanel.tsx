@@ -292,6 +292,7 @@ export default memo(function GalleryPanel({
         // panels use while they hold nothing — an empty column reads as a
         // waiting stage rather than a dead panel.
         <AwaitingCanvas
+          app="character-studio"
           icon={UserRound}
           title="No Generations Yet"
           // No "on the left" — on a phone the controls are the other tab, not a

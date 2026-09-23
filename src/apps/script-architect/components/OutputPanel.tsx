@@ -2136,7 +2136,7 @@ export default function OutputPanel({ variations, outputAngles, mode, liveMode, 
         : ['Awaiting Scene Prompts', 'The rewritten scenes land here, one prompt per scene.']
     return (
       <GridCanvas className="h-full">
-        <AwaitingBody icon={PenLine} title={title} hint={hint}>
+        <AwaitingBody icon={PenLine} title={title} hint={hint} app="script-architect">
           {error && (
             <div className="mt-2 flex max-w-sm items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-left">
               <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-400 light:text-red-600" />
