@@ -148,7 +148,8 @@ export default function VoiceStudio() {
 
     if (targetField === 'scriptText' && typeof data === 'string') {
       setScriptText(data)
-      setScriptSource(null)
+      // The Scripts run it was sent out of, when it came from one.
+      setScriptSource(interAppPayload.parents?.[0] ?? null)
       setHighlightField('script')
       setTimeout(() => setHighlightField(null), 800)
     }

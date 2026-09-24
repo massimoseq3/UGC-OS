@@ -387,6 +387,7 @@ function BRollCard({ item, onEdit, onDelete }: { item: BRoll; onEdit: () => void
       targetApp: 'playground',
       targetField: 'videoStartFrame',
       data: { imageUrl: dataUri, prompt: item.prompt },
+      parents: [{ bank: 'brolls', id: item.id }],
     })
   }
 

@@ -5,7 +5,7 @@ import MobilePaneTabs from '../../components/MobilePaneTabs'
 import { paneClass } from '../../components/paneClass'
 import { useReportActivity } from '../../stores/activityStore'
 import { useBankStore } from '../../stores/bankStore'
-import type { Product, ScriptHistoryItem } from '../../stores/types'
+import type { Lineage, Product, ScriptHistoryItem } from '../../stores/types'
 import InputPanel from './components/InputPanel'
 import RightPanel from './components/RightPanel'
 import { scriptRunner, type ScriptRunInput } from './runner'
@@ -46,6 +46,15 @@ export default function ScriptArchitect() {
     sanitize: (v) => ((v as string) === 'reverse-engineer' ? 'remix' : v),
   })
   const [source, setSource] = usePersistedState(`${baseKey}:source`, readLegacySource(baseKey))
+  // The rows the source box was handed from — the analysis or swipe an
+  // inter-app send came out of — stamped as parents of the run it feeds. Any
+  // other write to the box drops them, hand edits included: an edited source
+  // is the member's own (the rule the picked-script chip follows too).
+  const [sourceParents, setSourceParents] = usePersistedState<Lineage[] | null>(`${baseKey}:sourceParents`, null)
+  const replaceSource = (text: string, parents: Lineage[] | null = null) => {
+    setSource(text)
+    setSourceParents(parents)
+  }
   // Override for the blueprint auto-detect: remix the pasted blueprint as a
   // plain script (a batch of variations) instead of rewriting its scene prompts.
   const [forceTranscript, setForceTranscript] = useState(false)
@@ -216,12 +225,14 @@ export default function ScriptArchitect() {
       setMode('remix')
       setForceTranscript(false)
       setSource(full)
+      setSourceParents(interAppPayload.parents ?? null)
       setHighlightField('source')
       setTimeout(() => setHighlightField(null), 800)
     } else if (targetField === 'winningTranscript' || targetField === 'reconstructionPrompt') {
       setMode('remix')
       setForceTranscript(false)
       setSource(data as string)
+      setSourceParents(interAppPayload.parents ?? null)
       setHighlightField('source')
       setTimeout(() => setHighlightField(null), 800)
     } else if (targetField === 'productId') {
@@ -230,7 +241,7 @@ export default function ScriptArchitect() {
     }
 
     consumePayload()
-  }, [interAppPayload, activeApp, consumePayload, getProductById, setMode, setSource, setSelectedProductId])
+  }, [interAppPayload, activeApp, consumePayload, getProductById, setMode, setSource, setSourceParents, setSelectedProductId])
 
   // Park the Output pane on `run` and pin the labels the cards read off. Both
   // the moment a run is fired and the moment it lands go through this, so the
@@ -320,6 +331,7 @@ export default function ScriptArchitect() {
           parents: lineageOf(
             selectedProduct ? { bank: 'products', id: selectedProduct.id } : null,
             mode === 'remix' && sourceScriptId ? { bank: 'scripts', id: sourceScriptId } : null,
+            mode === 'remix' ? sourceParents : null,
           ),
         },
       })
@@ -431,7 +443,7 @@ export default function ScriptArchitect() {
       : item.mode === 'remix'
         ? (item.winningTranscript ?? item.inputSummary)
         : (item.winningTranscript || item.reversePrompt || '')
-    setSource(restoredSource)
+    replaceSource(restoredSource)
     // Keep a regenerate faithful to the restored run: if this row remixed a
     // blueprint-shaped source as a plain script, restore that override too.
     setForceTranscript(item.mode === 'remix' && detectSceneBlueprint(restoredSource))
@@ -466,7 +478,7 @@ export default function ScriptArchitect() {
   // and the output labels are pinned to their own snapshots, so the shown cards
   // keep their wording as the live selectors reset.
   const handleClearInputs = () => {
-    setSource('')
+    replaceSource('')
     setBrief('')
     setAdditionalContext('')
     setSelectedProductId(null)
@@ -514,7 +526,7 @@ export default function ScriptArchitect() {
           onModeChange={setMode}
           onClearInputs={handleClearInputs}
           source={source}
-          onSourceChange={setSource}
+          onSourceChange={replaceSource}
           isBlueprint={isBlueprint}
           forceTranscript={forceTranscript}
           onForceTranscriptChange={setForceTranscript}

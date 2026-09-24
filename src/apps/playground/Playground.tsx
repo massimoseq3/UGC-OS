@@ -5,7 +5,7 @@ import MobilePaneTabs from '../../components/MobilePaneTabs'
 import { paneClass } from '../../components/paneClass'
 import { clampBatchCount } from '../../utils/batchCount'
 import { useReportActivity } from '../../stores/activityStore'
-import type { VideoSourceClipPayload, ImageHistoryItem } from '../../stores/types'
+import type { VideoSourceClipPayload, ImageHistoryItem, Lineage } from '../../stores/types'
 import { isAssetRef, getAsBase64 } from '../../utils/assetStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { playgroundRunner, planPlaygroundRun, isMotionControlRun, type PlaygroundPlan, type PlaygroundRunInput } from './runner'
@@ -101,6 +101,14 @@ export default function Playground() {
   // leg when the tab died) and tasks older than 30 min are auto-expired on
   // mount — see the resume effect below.
   const [inFlight, setInFlight] = usePersistedState<InFlightGen[]>(`${baseKey}:inflight`, [])
+  // The rows the prompt box was handed from (the Scripts run a shot was sent
+  // out of), kept WITH the exact prompt they arrived with: they are a run's
+  // parents only while the box still holds those words, so an edit, a tab
+  // switch or the next handoff retires them on its own.
+  const [promptHandoff, setPromptHandoff] = usePersistedState<{ prompt: string; parents: Lineage[] } | null>(
+    `${baseKey}:promptHandoff`,
+    null,
+  )
   // Which project the history panel is showing and new generations are filed
   // under. `null` is All Generations — the view a member who has never made a
   // project stays in forever, and the one anything generated there stays
@@ -175,6 +183,7 @@ export default function Playground() {
       // video prompt carrying the Image tab's attachments. Read through
       // `stateRef`, which this effect's sibling above has already refreshed.
       const draft = stateRef.current
+      setPromptHandoff(interAppPayload.parents?.length ? { prompt: data, parents: interAppPayload.parents } : null)
       if (draft.mode === 'video') {
         setState((s) => ({ ...s, prompt: data }))
       } else {
@@ -201,11 +210,14 @@ export default function Playground() {
         incomingPrompt = obj.prompt
       }
       if (imageUrl) {
+        // The Bank still it came from rides on the frame, and is a parent of
+        // whatever the run makes from it.
+        const parent = interAppPayload.parents?.[0]
         setState((s) => ({
           ...s,
           mode: 'video',
           prompt: incomingPrompt?.trim() ? incomingPrompt : s.prompt,
-          refs: [...s.refs.filter((r) => r.slot !== 'start'), { url: imageUrl!, label: 'start', source: 'upload', slot: 'start' }],
+          refs: [...s.refs.filter((r) => r.slot !== 'start'), { url: imageUrl!, label: 'start', source: 'upload', slot: 'start', parent }],
         }))
       }
     } else if (targetField === 'videoSourceClip' && data && typeof data === 'object' && 'videoRef' in data) {
@@ -348,6 +360,10 @@ export default function Playground() {
     }
     for (const notice of plan.notices) addToast(notice, 'info')
 
+    // A prompt still exactly as a handoff left it is made from that handoff's
+    // rows; the attachments' own parents the runner adds itself.
+    const sentFrom = promptHandoff?.prompt === state.prompt ? promptHandoff.parents : undefined
+
     // What the in-flight tile shows while the run renders.
     const tile = {
       mode,
@@ -383,7 +399,7 @@ export default function Playground() {
     // already snapshotted its own inputs above.
 
     try {
-      const task = await playgroundRunner.start(input)
+      const task = await playgroundRunner.start(input, { provenance: { parents: sentFrom } })
       // Patch the in-flight entry with the task so a refresh from this point
       // on resumes correctly — its taskId, the endpoint kie took it on, and
       // what it was made from.

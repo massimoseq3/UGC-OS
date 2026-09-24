@@ -5,7 +5,8 @@ import MobilePaneTabs from '../../components/MobilePaneTabs'
 import { paneClass } from '../../components/paneClass'
 import { useReportActivity } from '../../stores/activityStore'
 import { useBankStore } from '../../stores/bankStore'
-import type { AdBlueprintPayload, Product, Model, Script, BRoll, BrollHistoryItem } from '../../stores/types'
+import type { AdBlueprintPayload, Product, Model, Script, BRoll, BrollHistoryItem, Lineage } from '../../stores/types'
+import { lineageOf } from '../../utils/blockRunner'
 import { isLineMode, sanitizeBrollMode, type BrollResult, type PromptVariation, type ReferenceImage, type VariationTag, type VariationRefs, type CardState, type BrollMode, type BrollDelivery, type ContinuousResult, type ContinuousConcept, type ContinuousSelection, type ContinuousFrameCardState, type ContinuousClipCardState } from './types'
 import { productPhotosOf, buildProductContext } from './services/productAngles'
 import { buildDemoContinuousResult, analyzeStyleReferences, getContinuousStyle, styleBriefFor, styleUsesRealism, CONTINUOUS_DEFAULT_MODEL_ID } from './services/generateContinuous'
@@ -128,6 +129,14 @@ export default function BrollStudio() {
   const [selectedModelId, setSelectedModelId] = usePersistedState<string | null>(`${baseKey}:modelId`, null)
   const [selectedScriptId, setSelectedScriptId] = usePersistedState<string | null>(`${baseKey}:scriptId`, null)
   const [scriptText, setScriptText] = usePersistedState(`${baseKey}:scriptText`, '')
+  // The rows the script box was handed from (the Scripts run it was sent out
+  // of), kept WITH the exact text they arrived with: they are a new session's
+  // parents only while the box still holds those words, so any edit, pick or
+  // restore retires them without every write having to remember to.
+  const [scriptHandoff, setScriptHandoff] = usePersistedState<{ text: string; parents: Lineage[] } | null>(
+    `${baseKey}:scriptHandoff`,
+    null,
+  )
   const [additionalContext, setAdditionalContext] = usePersistedState(`${baseKey}:context`, '')
 
   const [result, setResult] = usePersistedState<BrollResult | null>(
@@ -483,6 +492,7 @@ export default function BrollStudio() {
 
     if (targetField === 'scriptText' && typeof data === 'string') {
       setScriptText(data)
+      setScriptHandoff(interAppPayload.parents?.length ? { text: data, parents: interAppPayload.parents } : null)
       setSelectedScriptId(null)
       setHighlightField('script')
       setTimeout(() => setHighlightField(null), 800)
@@ -494,6 +504,7 @@ export default function BrollStudio() {
     if (targetField === 'adBlueprint' && isAdBlueprint(data)) {
       setAdBlueprint(data)
       setScriptText(data.script)
+      setScriptHandoff(interAppPayload.parents?.length ? { text: data.script, parents: interAppPayload.parents } : null)
       setSelectedScriptId(null)
       setHighlightField('script')
       setTimeout(() => setHighlightField(null), 800)
@@ -539,6 +550,9 @@ export default function BrollStudio() {
         // Candidate creation time — only applied to a brand-new row; the store
         // preserves the original `createdAt` on every subsequent save.
         createdAt: Date.now(),
+        // Stamped when the storyboard was fired, and a snapshot never has a
+        // reason to change it: the upsert replaces the row wholesale.
+        parents: prev?.parents,
         // Row-level style snapshot for the history pill (works across both
         // modes), stamped at generation time so a later mode-toggle can't
         // rewrite it.
@@ -770,6 +784,14 @@ export default function BrollStudio() {
   const buildPendingRow = (id: string, rowMode: BrollMode): BrollHistoryItem => ({
     id,
     createdAt: Date.now(),
+    // What the session is made from (see Lineage in stores/types.ts). The
+    // snapshot below carries it forward; nothing rewrites it after Generate.
+    parents: lineageOf(
+      selectedProductId ? { bank: 'products', id: selectedProductId } : null,
+      selectedModelId ? { bank: 'models', id: selectedModelId } : null,
+      selectedScriptId ? { bank: 'scripts', id: selectedScriptId } : null,
+      scriptHandoff?.text === scriptText ? scriptHandoff.parents : null,
+    ),
     inputSummary: buildInputSummary(selectedProduct?.productName, scriptText),
     productId: selectedProductId ?? undefined,
     modelId: selectedModelId ?? undefined,
