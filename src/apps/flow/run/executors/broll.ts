@@ -16,7 +16,7 @@ import type { HeldValue } from '../../engine/plan'
 import type { BrollHistoryItem } from '../../../../stores/types'
 import type { BrollInput, BrollResult, CardState, GeneratedImage, ReferenceImage } from '../../../broll-studio/types'
 import { useBankStore } from '../../../../stores/bankStore'
-import { replayRun } from '../../../../stores/recordingStore'
+import { replayRun, replayWait } from '../../../../stores/recordingStore'
 import { FriendlyError } from '../../../../utils/friendlyError'
 import { lineageOf, withProvenance } from '../../../../utils/blockRunner'
 import { getModel } from '../../../../utils/models'
@@ -335,11 +335,18 @@ export const brollExecutor: Executor = {
   },
 
   // Recording Mode brings back a hidden session whole — its storyboard,
-  // stills and clips — after the replay wait.
-  async replay() {
+  // stills and clips — after the replay wait. It names the session, so a
+  // review stop shows that session's stills, and the clips phase after the
+  // review carries on in it rather than revealing another one.
+  async replay(ctx) {
+    const revealed = ctx.prior?.rows?.find((r) => r.bank === 'brollHistory')?.id
+    if (ctx.phase === 'clips' && revealed && session(revealed)) {
+      await replayWait()
+      return outputsOf(revealed, ctx.prior?.keep)
+    }
     const row = await replayRun({ rows: () => useBankStore.getState().brollHistory, prefix: 'broll' })
     if (!row) return null
-    return { outputs: brollSessionValues(row) as Record<string, HeldValue[]> }
+    return outputsOf(row.id)
   },
 }
 

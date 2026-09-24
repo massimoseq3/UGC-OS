@@ -24,17 +24,19 @@ export default function Flow() {
   const openFlow = useFlowStore((s) => s.openFlow)
   const setView = useFlowStore((s) => s.setView)
 
-  // A pinned flow's dock tile opens it as an app, in Run View.
+  // A pinned flow's dock tile opens it as an app, in Run View. Keyed on the
+  // payload as well as the app: the tile is pressed while Flow is already
+  // open as often as not, and then only the payload changes.
+  const payload = useAppStore((s) => s.interAppPayload)
   useEffect(() => {
     if (activeApp !== 'flow') return
-    const payload = useAppStore.getState().interAppPayload
     if (payload?.targetApp !== 'flow' || payload.targetField !== 'openFlow') return
     useAppStore.getState().consumePayload()
     const data = payload.data as { flowId?: string; view?: 'edit' | 'run' }
     if (!data.flowId) return
     openFlow(data.flowId)
     setView(data.view ?? 'run')
-  }, [activeApp, openFlow, setView])
+  }, [activeApp, payload, openFlow, setView])
 
   // A run the last page load left going picks up where it was, whether or
   // not the flow it belongs to is the one on screen.

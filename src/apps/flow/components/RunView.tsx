@@ -4,7 +4,7 @@
 // this is the whole of Flow: editing the canvas stays on a computer.
 
 import { useState } from 'react'
-import { Download, Layers, Pause, Play, Workflow } from 'lucide-react'
+import { ArrowLeft, Download, Layers, Pause, Play, Workflow } from 'lucide-react'
 import type { EditPack, FlowBlock, FlowDoc, FlowValue } from '../types'
 import type { FlowPlan } from '../engine/plan'
 import type { LiveRun } from '../run/runtime'
@@ -12,6 +12,7 @@ import { KINDS, sourceOf, titleOf } from '../engine/catalog'
 import { wiresOutOf } from '../engine/graph'
 import { downloadEditPacks } from '../run/editPack'
 import FlowPanel from './panels/FlowPanel'
+import PinButton from './PinButton'
 import MobilePaneTabs from '../../../components/MobilePaneTabs'
 import { paneClass } from '../../../components/paneClass'
 import GridCanvas from '../../../components/GridCanvas'
@@ -57,6 +58,7 @@ export default function RunView({
   balance,
   onRun,
   onEdit,
+  onBack,
 }: {
   flowId: string
   doc: FlowDoc
@@ -66,6 +68,7 @@ export default function RunView({
   balance: number | null
   onRun: (req: RunRequest) => void
   onEdit: () => void
+  onBack: () => void
 }) {
   const isDesktop = useIsDesktop()
   const [pane, setPane] = useState<'inputs' | 'results'>('inputs')
@@ -88,13 +91,24 @@ export default function RunView({
         </div>
         <div className={paneClass(pane === 'results', 'md:flex-1 md:overflow-hidden')}>
           <div className="flex h-[57px] shrink-0 items-center gap-3 border-b border-ink/5 px-5">
-            <span className="text-sm font-semibold text-ink-100">{doc.name}</span>
-            <span className="text-xs text-ink-500">{cards.length} {cards.length === 1 ? 'result' : 'results'}</span>
-            {isDesktop && (
-              <button type="button" onClick={onEdit} className="ml-auto rounded-full border border-ink/10 px-3.5 py-1.5 text-xs font-medium text-ink-300 transition-colors hover:border-ink/20 hover:text-ink-100">
-                Open Canvas
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={onBack}
+              title="All Flows"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-ink/10 text-ink-400 transition-colors hover:border-ink/20 hover:text-ink-100"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+            <span className="min-w-0 truncate text-sm font-semibold text-ink-100">{doc.name}</span>
+            <span className="shrink-0 text-xs text-ink-500">{cards.length} {cards.length === 1 ? 'result' : 'results'}</span>
+            <div className="ml-auto flex shrink-0 items-center gap-2">
+              <PinButton flowId={flowId} pinned={!!doc.pinned} />
+              {isDesktop && (
+                <button type="button" onClick={onEdit} className="rounded-full border border-ink/10 px-3.5 py-1.5 text-xs font-medium text-ink-300 transition-colors hover:border-ink/20 hover:text-ink-100">
+                  Open Canvas
+                </button>
+              )}
+            </div>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
             {cards.length === 0 ? (
@@ -116,6 +130,10 @@ export default function RunView({
   )
 }
 
+function clipsLabel(n: number): string {
+  return `${n} ${n === 1 ? 'clip' : 'clips'}`
+}
+
 function Card({ card, flowName }: { card: AdCard; flowName: string }) {
   if (card.pack) return <PackCard pack={card.pack} flowName={flowName} />
   const v = card.value!
@@ -128,7 +146,7 @@ function Card({ card, flowName }: { card: AdCard; flowName: string }) {
       {ref && <CardThumb refId={ref} />}
       {v.type === 'audio' && <AudioRow refId={v.payload.ref} duration={v.payload.durationSeconds} />}
       <div className="flex flex-col gap-1 p-3">
-        <span className="text-[11px] text-ink-500">{titleOf(card.block)}{v.type === 'video' ? ` · ${v.payload.clips.length} clips` : ''}</span>
+        <span className="text-[11px] text-ink-500">{titleOf(card.block)}{v.type === 'video' ? ` · ${clipsLabel(v.payload.clips.length)}` : ''}</span>
         <span className="line-clamp-3 text-[12.5px] leading-snug text-ink-100">{v.label}</span>
       </div>
     </div>
@@ -145,7 +163,7 @@ function AudioRow({ refId, duration }: { refId: string; duration: number }) {
   return (
     <button type="button" onClick={player.toggle} className="flex items-center gap-2 px-3 pt-3 text-[12px] text-voice-300">
       {player.isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-      {Math.round(duration)}s voiceover
+      {duration > 0 ? `${Math.round(duration)}s voiceover` : 'Voiceover'}
     </button>
   )
 }
@@ -154,10 +172,10 @@ function PackCard({ pack, flowName }: { pack: EditPack; flowName: string }) {
   const cover = pack.cover ?? pack.stills[0]
   return (
     <div className="flex flex-col overflow-hidden rounded-2xl border border-ink/5 bg-ink/[0.02]">
-      {cover ? <CardThumb refId={cover} /> : <div className="flex aspect-[4/5] w-full items-center justify-center bg-gradient-to-br from-[#F77646]/20 to-transparent text-[12px] text-ink-400">{pack.clips.length} clips</div>}
+      {cover ? <CardThumb refId={cover} /> : <div className="flex aspect-[4/5] w-full items-center justify-center bg-gradient-to-br from-[#F77646]/20 to-transparent text-[12px] text-ink-400">{clipsLabel(pack.clips.length)}</div>}
       <div className="flex flex-col gap-2 p-3">
         <span className="line-clamp-2 text-[12.5px] leading-snug text-ink-100">{pack.title}</span>
-        <span className="text-[11px] text-ink-500">{pack.clips.length} clips{pack.voiceover ? ' · voiceover' : ''}{pack.script ? ' · script' : ''}</span>
+        <span className="text-[11px] text-ink-500">{clipsLabel(pack.clips.length)}{pack.voiceover ? ' · voiceover' : ''}{pack.script ? ' · script' : ''}</span>
         {pack.voiceover && <AudioRow refId={pack.voiceover} duration={0} />}
         <button
           type="button"

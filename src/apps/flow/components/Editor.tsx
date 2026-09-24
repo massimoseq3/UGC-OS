@@ -23,6 +23,7 @@ import BlockPanel from './panels/BlockPanel'
 import ReviewModal from './ReviewModal'
 import RunHistory from './RunHistory'
 import RunView from './RunView'
+import PinButton from './PinButton'
 import { titleOf } from '../engine/catalog'
 import { exportTemplate } from '../templates/io'
 import SegmentedToggle from '../../../components/SegmentedToggle'
@@ -115,7 +116,7 @@ export default function Editor({ flowId }: { flowId: string }) {
     <ReactFlowProvider>
       <div className="relative flex h-full flex-col">
         {view === 'run' ? (
-          <RunView flowId={flowId} doc={doc} plan={plan} test={test} run={run} balance={balance} onRun={requestRun} onEdit={() => setView('edit')} />
+          <RunView flowId={flowId} doc={doc} plan={plan} test={test} run={run} balance={balance} onRun={requestRun} onEdit={() => setView('edit')} onBack={() => openFlow(null)} />
         ) : (
         <>
         <MobilePaneTabs
@@ -163,6 +164,7 @@ export default function Editor({ flowId }: { flowId: string }) {
                     accent="flow"
                   />
                   <div className="ml-auto flex items-center gap-2">
+                    <PinButton flowId={flowId} pinned={!!doc.pinned} />
                     <button
                       type="button"
                       onClick={() => void exportTemplate(doc)}

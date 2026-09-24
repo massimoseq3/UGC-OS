@@ -51,4 +51,9 @@ export interface Executor {
   // the rows the operator hid before filming. Spends nothing, and never
   // touches persisted state.
   replay?: (ctx: ExecContext) => Promise<ExecOutput | null>
+  // A block that spends nothing on kie.ai runs for real in a replay: Edit
+  // Pack only gathers, and Outliers searches on ScrapeCreators the way the
+  // Outliers app does while recording. Anything else with no replay refuses,
+  // so a new executor can't bill on camera by forgetting one.
+  realInReplay?: true
 }

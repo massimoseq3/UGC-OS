@@ -203,7 +203,11 @@ function sanitizeSettings(settings: unknown, changes: string[], title: string): 
   return out
 }
 
-export function validateTemplate(raw: unknown): { file: FlowTemplateFile; changes: string[] } {
+// A file from a newer build keeps the blocks this one can't run and skips
+// them. A flow Describe It drafted is different: a block kind that doesn't
+// exist is one the model made up, so it's left out, and each dropped wire
+// says why.
+export function validateTemplate(raw: unknown, opts: { described?: boolean } = {}): { file: FlowTemplateFile; changes: string[] } {
   if (!isObject(raw) || raw.format !== FORMAT) throw new FriendlyError("That isn't a UGC OS flow file.")
   if (typeof raw.formatVersion === 'number' && raw.formatVersion > FORMAT_VERSION) {
     throw new FriendlyError('This flow was made with a newer UGC OS. Reload the app to update, then import it again.')
@@ -218,6 +222,10 @@ export function validateTemplate(raw: unknown): { file: FlowTemplateFile; change
     seen.add(rb.id)
     const kind = rb.kind as FlowBlock['kind']
     if (!isKnownKind(kind)) {
+      if (opts.described) {
+        changes.push(`Left out a block Flow doesn't have (${String(rb.kind).slice(0, 40)}).`)
+        continue
+      }
       changes.push('A block needs a newer UGC OS. It stays on the canvas and is skipped when the flow runs.')
     }
     const title = typeof rb.label === 'string' ? rb.label : isKnownKind(kind) ? KINDS[kind].title : 'A block'
@@ -247,7 +255,12 @@ export function validateTemplate(raw: unknown): { file: FlowTemplateFile; change
     const wire = { from: String(rw.from), fromPort: String(rw.fromPort), to: String(rw.to), toPort: String(rw.toPort) }
     const known = blocks.find((b) => b.id === wire.from && isKnownKind(b.kind)) && blocks.find((b) => b.id === wire.to && isKnownKind(b.kind))
     if (!known) continue
-    if (canConnect(graph, wire).ok) graph.wires.push({ ...wire, id: typeof rw.id === 'string' ? rw.id : crypto.randomUUID() })
+    const check = canConnect(graph, wire)
+    if (check.ok) graph.wires.push({ ...wire, id: typeof rw.id === 'string' ? rw.id : crypto.randomUUID() })
+    else if (opts.described) {
+      const to = blocks.find((b) => b.id === wire.to)
+      changes.push(`Left out a wire into ${to ? titleOf(to) : 'a block'}: ${check.reason}`)
+    }
     else dropped += 1
   }
   if (dropped) changes.push(`${dropped} ${dropped === 1 ? 'wire that no longer fits was' : 'wires that no longer fit were'} left out.`)

@@ -10,9 +10,9 @@
 // at the token limit throws TruncatedResponseError and applies nothing.
 
 import type { FlowBlock, FlowDoc, FlowGraph, FlowWire } from '../types'
-import { ACCEPTS, BANK_ORDER, BANK_TYPE, KINDS, PRODUCTION_ORDER, TYPE_META, blockWidth, isKnownKind } from '../engine/catalog'
+import { ACCEPTS, BANK_ORDER, BANK_TYPE, KINDS, PRODUCTION_ORDER, TYPE_META, blockWidth, isKnownKind, titleOf } from '../engine/catalog'
 import { canConnect } from '../engine/graph'
-import { tidyLayout } from '../engine/layout'
+import { COLUMN_GAP, ROW_GAP, tidyLayout } from '../engine/layout'
 import { validateTemplate, FORMAT, type FlowTemplateFile } from './io'
 import { withSlots, shortId } from '../store/blocks'
 import { useBankStore } from '../../../stores/bankStore'
@@ -99,15 +99,44 @@ async function ask(system: string, user: string): Promise<unknown> {
   }
 }
 
+type SizeOf = (id: string) => { width: number; height: number } | undefined
+
+// A block's size before the canvas has measured it: its width is fixed by
+// kind, its height grows with its ports (and a batch's item rows).
+function estimatedSize(block: FlowBlock): { width: number; height: number } {
+  const rows = isKnownKind(block.kind) ? Math.max(KINDS[block.kind].ins.length, KINDS[block.kind].outs.length) : 1
+  return { width: blockWidth(block.kind), height: 110 + rows * 22 + (block.items?.length ?? 0) * 22 }
+}
+
 // Lays a freshly built graph out left to right, since the model doesn't place
 // blocks.
 function laidOut(graph: FlowGraph): FlowGraph {
   const positions = tidyLayout(graph, (id) => {
     const b = graph.blocks.find((x) => x.id === id)
-    const rows = b && isKnownKind(b.kind) ? Math.max(KINDS[b.kind].ins.length, KINDS[b.kind].outs.length) : 1
-    return { width: b ? blockWidth(b.kind) : 240, height: 110 + rows * 22 + (b?.kind === 'scripts' ? 120 : 0) }
+    return b ? estimatedSize(b) : { width: 240, height: 160 }
   })
   return { ...graph, blocks: graph.blocks.map((b) => ({ ...b, ...(positions[b.id] ?? {}) })) }
+}
+
+// A block Ask Flow added goes one column right of whatever feeds it, below
+// anything already in that column, so it lands beside the work it belongs to
+// rather than off past the end of the flow.
+function placeBeside(graph: FlowGraph, id: string, sizeOf: SizeOf): FlowBlock[] {
+  const size = (b: FlowBlock) => sizeOf(b.id) ?? estimatedSize(b)
+  const block = graph.blocks.find((b) => b.id === id)
+  const feed = graph.wires.find((w) => w.to === id)
+  const upstream = feed && graph.blocks.find((b) => b.id === feed.from)
+  if (!block || !upstream) return graph.blocks
+  const x = upstream.x + size(upstream).width + COLUMN_GAP
+  const own = size(block)
+  let y = upstream.y
+  const column = graph.blocks
+    .filter((b) => b.id !== id && b.x < x + own.width && b.x + size(b).width > x)
+    .sort((a, b) => a.y - b.y)
+  for (const b of column) {
+    if (y < b.y + size(b).height + ROW_GAP && y + own.height + ROW_GAP > b.y) y = b.y + size(b).height + ROW_GAP
+  }
+  return graph.blocks.map((b) => (b.id === id ? { ...b, x, y } : b))
 }
 
 // Bank picks the model made up, or that point at a row that isn't there,
@@ -142,7 +171,7 @@ Rules:
 
 export async function describeFlow(request: string): Promise<{ file: FlowTemplateFile; changes: string[] }> {
   const raw = await ask(DESCRIBE_SYSTEM(), `The member's bank:\n${banksText()}\n\nWhat they want:\n${request.trim()}`)
-  const parsed = validateTemplate({ ...(raw as object), format: FORMAT, formatVersion: 1, template: { id: 'described', version: 1 }, fields: [] })
+  const parsed = validateTemplate({ ...(raw as object), format: FORMAT, formatVersion: 1, template: { id: 'described', version: 1 }, fields: [] }, { described: true })
   const changes = [...parsed.changes]
   // The validator strips picks (a template never carries one); a described
   // flow is the member's own, so its picks go back on, then get checked.
@@ -185,7 +214,15 @@ Operations:
 
 To try something on one item of a batch (one hook), add a block and wire it from that item's port "item:<slot id>" — the slot ids are in the flow's "items". To make more of something, set its count setting (hookCount, variationCount, count).`
 
-export async function askFlow(doc: FlowDoc, request: string): Promise<{ graph: FlowGraph; summary: string; changes: string[] }> {
+export interface AskResult {
+  graph: FlowGraph
+  summary: string
+  changes: string[]
+  // The blocks the edit added or changed, for the canvas to bring into view.
+  touched: string[]
+}
+
+export async function askFlow(doc: FlowDoc, request: string, sizeOf: SizeOf = () => undefined): Promise<AskResult> {
   const raw = await ask(ASK_SYSTEM(), `The member's bank:\n${banksText()}\n\nThe flow:\n${graphText(doc)}\n\nWhat they want:\n${request.trim()}`) as { summary?: unknown; ops?: unknown }
   const ops = Array.isArray(raw.ops) ? (raw.ops as Op[]) : []
   const changes: string[] = []
@@ -194,7 +231,8 @@ export async function askFlow(doc: FlowDoc, request: string): Promise<{ graph: F
   const ids = new Map<string, string>()
   const idOf = (id: string) => ids.get(id) ?? id
   const rightmost = blocks.reduce((m, b) => Math.max(m, b.x + blockWidth(b.kind)), 0)
-  let added = 0
+  const added: string[] = []
+  const touched = new Set<string>()
 
   for (const op of ops) {
     if (!op || typeof op !== 'object') continue
@@ -206,20 +244,21 @@ export async function askFlow(doc: FlowDoc, request: string): Promise<{ graph: F
         }
         const id = shortId(op.kind)
         ids.set(op.id, id)
+        touched.add(id)
         const spec = KINDS[op.kind]
         blocks.push(withSlots({
           id,
           kind: op.kind,
           label: typeof op.label === 'string' ? op.label.slice(0, 80) : undefined,
-          x: rightmost + 96,
-          y: added * 240,
+          x: rightmost + COLUMN_GAP,
+          y: added.length * 240,
           settings: { ...spec.defaults(), ...(op.settings && typeof op.settings === 'object' ? op.settings : {}) },
           source: spec.sources[0],
           pick: typeof op.pick === 'string' ? op.pick : undefined,
           review: op.review === true || undefined,
           field: op.field === true || undefined,
         }))
-        added += 1
+        added.push(id)
         break
       }
       case 'remove_block': {
@@ -231,8 +270,13 @@ export async function askFlow(doc: FlowDoc, request: string): Promise<{ graph: F
       case 'wire': {
         const wire = { from: idOf(op.from), fromPort: String(op.fromPort), to: idOf(op.to), toPort: String(op.toPort) }
         const check = canConnect({ blocks, wires }, wire)
-        if (check.ok) wires.push({ ...wire, id: shortId('w') })
-        else changes.push(`Left out a wire: ${check.reason}`)
+        if (check.ok) {
+          wires.push({ ...wire, id: shortId('w') })
+          touched.add(wire.from).add(wire.to)
+        } else {
+          const target = blocks.find((b) => b.id === wire.to)
+          changes.push(`Left out a wire into ${target ? titleOf(target) : 'a block'}: ${check.reason}`)
+        }
         break
       }
       case 'unwire': {
@@ -243,27 +287,33 @@ export async function askFlow(doc: FlowDoc, request: string): Promise<{ graph: F
       }
       case 'set_setting': {
         const id = idOf(op.block)
+        touched.add(id)
         blocks = blocks.map((b) => (b.id === id && typeof op.key === 'string' ? withSlots({ ...b, settings: { ...b.settings, [op.key]: op.value } }) : b))
         break
       }
       case 'set_review': {
         const id = idOf(op.block)
+        touched.add(id)
         blocks = blocks.map((b) => (b.id === id ? { ...b, review: op.on === true || undefined } : b))
         break
       }
       case 'set_label': {
         const id = idOf(op.block)
+        touched.add(id)
         blocks = blocks.map((b) => (b.id === id ? { ...b, label: String(op.label).slice(0, 80) } : b))
         break
       }
       case 'set_off': {
         const id = idOf(op.block)
+        touched.add(id)
         blocks = blocks.map((b) => (b.id === id ? { ...b, off: op.off === true || undefined } : b))
         break
       }
     }
   }
   blocks = checkPicks(blocks, changes)
+  for (const id of added) blocks = placeBeside({ blocks, wires }, id, sizeOf)
   const summary = typeof raw.summary === 'string' && raw.summary.trim() ? raw.summary.trim() : ops.length ? 'Done.' : 'Nothing to change.'
-  return { graph: { blocks, wires }, summary, changes }
+  const live = new Set(blocks.map((b) => b.id))
+  return { graph: { blocks, wires }, summary, changes, touched: [...touched].filter((id) => live.has(id)) }
 }

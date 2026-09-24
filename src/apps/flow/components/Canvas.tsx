@@ -438,7 +438,15 @@ export default function Canvas({
 
           {real.length > 0 && (
             <Panel position="top-left" className="!ml-3 !mt-3">
-              <AskFlow doc={doc} />
+              <AskFlow
+                doc={doc}
+                sizeOf={(id) => measured[id]}
+                onApplied={(touched) => {
+                  if (!touched.length) return
+                  // After the new blocks have rendered and been measured.
+                  setTimeout(() => void rf.fitView({ nodes: touched.map((id) => ({ id })), padding: 0.35, maxZoom: 1, duration: 300 }), 60)
+                }}
+              />
             </Panel>
           )}
 

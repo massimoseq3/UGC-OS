@@ -214,7 +214,7 @@ function TemplateCard({ entry, onUse }: { entry: GalleryEntry; onUse: () => void
           <div className="flex h-full items-center justify-center"><Sparkles className="h-8 w-8 text-flow-300/60" /></div>
         )}
         <span className="absolute bottom-2 left-2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-medium text-white">
-          {entry.blocks} blocks{entry.estimate ? ` · ${creditsLabel(entry.estimate)}` : ''}
+          {entry.blocks} {entry.blocks === 1 ? 'block' : 'blocks'}{entry.estimate ? ` · ${creditsLabel(entry.estimate)}` : ''}
         </span>
       </div>
       <div className="flex flex-1 flex-col gap-2 p-4">

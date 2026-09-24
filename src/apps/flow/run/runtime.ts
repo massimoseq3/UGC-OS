@@ -33,7 +33,7 @@ import { useAppStore } from '../../../stores/appStore'
 import { useActivityStore } from '../../../stores/activityStore'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import { localBanksReady } from '../../../stores/bankStore'
-import { humanizeError } from '../../../utils/friendlyError'
+import { FriendlyError, humanizeError } from '../../../utils/friendlyError'
 import { lineageOf } from '../../../utils/blockRunner'
 
 export const PLAN_DEPS: PlanDeps = { held: heldValues, cost: blockCost }
@@ -291,6 +291,9 @@ async function runBlock(flowId: string, block: FlowBlock, instances: PlannedInst
 
   let finished = 0
   let failed = 0
+  // Replays that found nothing hidden to bring back: done, but nothing to
+  // review.
+  let emptyReplays = 0
   let firstError: string | undefined
   const phases = new Set<RunPhase>()
 
@@ -330,8 +333,13 @@ async function runBlock(flowId: string, block: FlowBlock, instances: PlannedInst
       let out: ExecOutput | null
       if (!executor) throw new Error(`No executor for ${block.kind}`)
       if (run.replay) {
-        out = executor.replay ? await executor.replay(ctx) : await executor.run(ctx)
-        if (!out) out = {}
+        if (executor.replay) out = await executor.replay(ctx)
+        else if (executor.realInReplay) out = await executor.run(ctx)
+        else throw new FriendlyError(`${titleOf(block)} can't replay in Recording Mode, so it was skipped.`)
+        if (!out) {
+          emptyReplays += 1
+          out = {}
+        }
       } else {
         out = await executor.run(ctx)
       }
@@ -368,7 +376,7 @@ async function runBlock(flowId: string, block: FlowBlock, instances: PlannedInst
 
   if (finished === 0 && failed > 0) {
     patchBlock(flowId, block.id, { status: 'error', reason: firstError, endedAt: Date.now() })
-  } else if (reviewing && finished > 0 && (block.kind !== 'broll' || phases.has('stills'))) {
+  } else if (reviewing && finished > emptyReplays && (block.kind !== 'broll' || phases.has('stills'))) {
     patchBlock(flowId, block.id, { status: 'review', reason: failed ? `${failed} of ${instances.length} failed` : undefined })
     patchRun(flowId, (r) => ({ ...r, reviews: r.reviews.includes(block.id) ? r.reviews : [...r.reviews, block.id] }))
     say(`${titleOf(block)} is waiting for your review.`, 'info')

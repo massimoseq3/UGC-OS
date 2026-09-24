@@ -371,6 +371,7 @@ export function adValue(r: DiscoverResult): HeldValue {
 }
 
 export const outliersExecutor: Executor = {
+  realInReplay: true,
   async run(ctx) {
     const s = ctx.block.settings
     const query = String(s.query ?? '').trim()
@@ -396,6 +397,7 @@ export const outliersExecutor: Executor = {
 // Gathers one ad's folder — nothing to generate, so it's done at once. The
 // block's Download button zips every pack the run made.
 export const editExecutor: Executor = {
+  realInReplay: true,
   async run(ctx) {
     const clips = one(ctx.inst.inputs.clips, 'video')
     if (!clips?.payload.clips.length) throw new FriendlyError('Edit Pack got no clips. Check the block that makes them.')
