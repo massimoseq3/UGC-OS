@@ -4,7 +4,7 @@
 // template without opening one.
 
 import { useEffect, useRef, useState } from 'react'
-import { FileUp, Pin, Plus, Sparkles, Workflow } from 'lucide-react'
+import { Check, FileUp, Link2, Pin, Plus, Sparkles, Workflow } from 'lucide-react'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAppStore } from '../../../stores/appStore'
 import { useFlowStore } from '../store/flowStore'
@@ -17,9 +17,10 @@ import { formatRelative } from '../../../utils/history'
 import { humanizeError } from '../../../utils/friendlyError'
 import { loadGallery, type GalleryEntry } from '../templates/gallery'
 import { readTemplateFile } from '../templates/io'
-import TemplateSetup, { type SetupSource } from './TemplateSetup'
+import TemplateSetup from './TemplateSetup'
 import DescribeIt from './DescribeIt'
 import FromYourWork from './FromYourWork'
+import { publicTemplateUrl } from '../share'
 import { creditsLabel } from '../hooks/useFlowPlan'
 import { GlassTile } from '../../../components/AppGlassTile'
 
@@ -32,7 +33,9 @@ export default function FlowHome() {
   const runs = useFlowRunStore((s) => s.runs)
   const addToast = useAppStore((s) => s.addToast)
   const [gallery, setGallery] = useState<GalleryEntry[] | null>(null)
-  const [setup, setSetup] = useState<SetupSource | null>(null)
+  const setup = useFlowStore((s) => s.setup)
+  const openSetup = useFlowStore((s) => s.openSetup)
+  const closeSetup = useFlowStore((s) => s.closeSetup)
   const [dragging, setDragging] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -47,7 +50,7 @@ export default function FlowHome() {
   const importFile = async (file: File) => {
     try {
       const template = await readTemplateFile(file)
-      setSetup({ kind: 'file', template })
+      openSetup({ kind: 'file', template })
     } catch (err) {
       addToast(humanizeError(err, "That file isn't a flow UGC OS can open."), 'error')
     }
@@ -112,7 +115,7 @@ export default function FlowHome() {
             ) : (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {gallery.map((entry) => (
-                  <TemplateCard key={entry.slug} entry={entry} onUse={() => setSetup({ kind: 'gallery', entry })} />
+                  <TemplateCard key={entry.slug} entry={entry} onUse={() => openSetup({ kind: 'gallery', entry })} />
                 ))}
               </div>
             )}
@@ -192,7 +195,7 @@ export default function FlowHome() {
       </div>
 
       {dragging && <DropOverlay icon={FileUp} label="Import This Flow" accent="flow" className="z-30" />}
-      {setup && <TemplateSetup source={setup} onClose={() => setSetup(null)} />}
+      {setup && <TemplateSetup source={setup} onClose={closeSetup} />}
     </div>
   )
 }
@@ -240,8 +243,34 @@ function TemplateCard({ entry, onUse }: { entry: GalleryEntry; onUse: () => void
               Watch the Video
             </a>
           )}
+          <CopyLinkButton slug={entry.slug} />
         </div>
       </div>
     </div>
+  )
+}
+
+// The template's public page, for a YouTube description or a Skool post: it
+// reads for anyone, and a member's Open in UGC OS lands in Template Setup.
+function CopyLinkButton({ slug }: { slug: string }) {
+  const addToast = useAppStore((s) => s.addToast)
+  const [copied, setCopied] = useState(false)
+  return (
+    <button
+      type="button"
+      title="Copy Link · a page anyone can open, with Open in UGC OS for members"
+      onClick={() => {
+        navigator.clipboard.writeText(publicTemplateUrl(slug)).then(
+          () => {
+            setCopied(true)
+            setTimeout(() => setCopied(false), 1500)
+          },
+          () => addToast("Couldn't copy the link. Your browser blocked the clipboard.", 'error'),
+        )
+      }}
+      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-ink/10 text-ink-400 transition-colors hover:border-ink/20 hover:text-ink-100"
+    >
+      {copied ? <Check className="h-3.5 w-3.5 text-flow-300" /> : <Link2 className="h-3.5 w-3.5" />}
+    </button>
   )
 }

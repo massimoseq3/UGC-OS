@@ -10,6 +10,7 @@ import { create } from 'zustand'
 import type { BlockKind, FlowBlock, FlowDoc, FlowGraph, FlowWire, InstanceResult } from '../types'
 import { useBankStore } from '../../../stores/bankStore'
 import type { Lineage } from '../../../stores/types'
+import type { SetupSource } from '../components/TemplateSetup'
 import { sourceOf } from '../engine/catalog'
 import { canConnect, downstreamOf, itemPort, pruneWires, type ConnectCheck } from '../engine/graph'
 import { tidyLayout } from '../engine/layout'
@@ -35,9 +36,13 @@ const UNDO_LIMIT = 80
 // into a prompt undoes as a sentence, not a letter.
 const COALESCE_MS = 1_200
 
+// An undo step: the graph, and which template version it was — so undoing a
+// template update puts the old version's number back with its blocks.
+type Snapshot = FlowGraph & { template?: FlowDoc['template'] }
+
 interface History {
-  past: FlowGraph[]
-  future: FlowGraph[]
+  past: Snapshot[]
+  future: Snapshot[]
   // The field the last step was for, and when, for coalescing.
   lastKey?: string
   lastAt?: number
@@ -61,6 +66,11 @@ interface FlowStoreState {
   lineage: { ref: Lineage; view: 'how' | 'save' } | null
   openLineage: (ref: Lineage, view: 'how' | 'save') => void
   closeLineage: () => void
+  // Template Setup, open over Flow Home — from a gallery card, an imported
+  // file, or a share link. Never persisted, for the same reason.
+  setup: SetupSource | null
+  openSetup: (source: SetupSource) => void
+  closeSetup: () => void
   docs: Record<string, FlowDoc>
   selection: string[]
   history: Record<string, History>
@@ -71,6 +81,11 @@ interface FlowStoreState {
   createFlow: (init?: { name?: string; graph?: FlowGraph; template?: FlowDoc['template'] }) => string
   renameFlow: (id: string, name: string) => void
   setPinned: (id: string, pinned: boolean) => void
+  // A newer version of the gallery template the open flow came from, applied
+  // as one undo step (the member's field picks already carried into `graph`).
+  updateTemplate: (graph: FlowGraph, template: NonNullable<FlowDoc['template']>) => void
+  // "Not Now" on a template update: that version stops being offered.
+  skipTemplateVersion: (id: string, version: number) => void
   removeFlow: (id: string) => void
 
   addBlock: (kind: BlockKind, at: { x: number; y: number }, extra?: Partial<FlowBlock>) => string
@@ -125,8 +140,17 @@ if (typeof window !== 'undefined') {
   window.addEventListener('beforeunload', flushSaves)
 }
 
-function snapshot(doc: FlowDoc): FlowGraph {
-  return { blocks: doc.blocks, wires: doc.wires }
+function snapshot(doc: FlowDoc): Snapshot {
+  return { blocks: doc.blocks, wires: doc.wires, template: doc.template }
+}
+
+// A step taken back or forward over the doc. A version the member has said
+// Not Now to stays dismissed, whichever step that was on.
+function restore(doc: FlowDoc, step: Snapshot): FlowDoc {
+  const template = step.template && doc.template && step.template.id === doc.template.id
+    ? { ...step.template, skipped: doc.template.skipped }
+    : step.template
+  return { ...doc, blocks: step.blocks, wires: step.wires, ...('template' in step ? { template } : {}), updatedAt: Date.now() }
 }
 
 // Results of blocks no longer on the canvas go with them.
@@ -175,6 +199,9 @@ export const useFlowStore = create<FlowStoreState>((set, get) => {
     lineage: null,
     openLineage: (ref, view) => set({ lineage: { ref, view } }),
     closeLineage: () => set({ lineage: null }),
+    setup: null,
+    openSetup: (source) => set({ setup: source }),
+    closeSetup: () => set({ setup: null }),
     docs: {},
     selection: [],
     history: {},
@@ -217,6 +244,24 @@ export const useFlowStore = create<FlowStoreState>((set, get) => {
       const trimmed = name.trim()
       if (!doc || !trimmed || trimmed === doc.name) return
       const next = { ...doc, name: trimmed, updatedAt: Date.now() }
+      set((s) => ({ docs: { ...s.docs, [id]: next } }))
+      scheduleSave(next)
+    },
+
+    updateTemplate: (graph, template) => {
+      edit(() => graph)
+      const { openId, docs } = get()
+      const doc = openId ? docs[openId] : undefined
+      if (!doc) return
+      const next = { ...doc, template, updatedAt: Date.now() }
+      set({ docs: { ...docs, [doc.id]: next } })
+      scheduleSave(next)
+    },
+
+    skipTemplateVersion: (id, version) => {
+      const doc = get().ensureDoc(id)
+      if (!doc?.template) return
+      const next = { ...doc, template: { ...doc.template, skipped: version }, updatedAt: Date.now() }
       set((s) => ({ docs: { ...s.docs, [id]: next } }))
       scheduleSave(next)
     },
@@ -437,7 +482,7 @@ export const useFlowStore = create<FlowStoreState>((set, get) => {
       const doc = docs[openId]
       if (!h?.past.length || !doc) return
       const prev = h.past[h.past.length - 1]
-      const nextDoc = { ...doc, ...prev, updatedAt: Date.now() }
+      const nextDoc = restore(doc, prev)
       set({
         docs: { ...docs, [openId]: nextDoc },
         history: { ...history, [openId]: { past: h.past.slice(0, -1), future: [snapshot(doc), ...h.future] } },
@@ -452,7 +497,7 @@ export const useFlowStore = create<FlowStoreState>((set, get) => {
       const doc = docs[openId]
       if (!h?.future.length || !doc) return
       const [next, ...rest] = h.future
-      const nextDoc = { ...doc, ...next, updatedAt: Date.now() }
+      const nextDoc = restore(doc, next)
       set({
         docs: { ...docs, [openId]: nextDoc },
         history: { ...history, [openId]: { past: [...h.past, snapshot(doc)], future: rest } },

@@ -19,12 +19,13 @@ import { useAppStore } from './stores/appStore'
 import { useChromeHidden } from './stores/chromeStore'
 import { useChromeAutoHide } from './hooks/useChromeAutoHide'
 import { useAuthStore } from './stores/authStore'
-import { isAppVisible } from './stores/appVisibilityStore'
+import { isAppVisible, useAppVisibilityStore } from './stores/appVisibilityStore'
 import { dockOrderedApps, getAppConfig } from './utils/constants'
 import { DEFAULT_SLUG, getAppIdForSlug, getSlugFromPath } from './utils/routing'
 import { startAppUsageTracking, stopAppUsageTracking } from './utils/appUsageTracker'
 import { hasApp, loadApp, loadMeetTheTeam, loadSettingsModal, preloadApp, warmChunks } from './appChunks'
 import { hasFlowRunsToResume, resumeFlowRuns } from './apps/flow/resumeBoot'
+import { captureShareLink, takeShareLink } from './apps/flow/share'
 import { localBanksReady } from './stores/bankStore'
 
 // Apps are code-split: each chunk loads on first activation, not at startup
@@ -38,7 +39,10 @@ import { localBanksReady } from './stores/bankStore'
 // that isn't an app is headed for the Dashboard (RouterSync redirects it);
 // the legal pages render no workspace at all.
 const bootSlug = getSlugFromPath(window.location.pathname)
-if (bootSlug !== 'legal') {
+// A member's template link has to be read before RouterSync rewrites it.
+captureShareLink()
+// The public template page (/t/<slug>) renders no workspace either.
+if (bootSlug !== 'legal' && bootSlug !== 't') {
   preloadApp(getAppIdForSlug(bootSlug) ?? getAppIdForSlug(DEFAULT_SLUG) ?? '')
   // A first visit opens Meet Your Team over it, so that screen is on the
   // critical path too.
@@ -51,6 +55,7 @@ const TermsOfService = lazy(() => import('./legal/TermsOfService'))
 const PrivacyPolicy = lazy(() => import('./legal/PrivacyPolicy'))
 const AcceptableUsePolicy = lazy(() => import('./legal/AcceptableUsePolicy'))
 const DMCAPolicy = lazy(() => import('./legal/DMCAPolicy'))
+const TemplatePage = lazy(() => import('./apps/flow/public/TemplatePage'))
 
 // `use()` rather than `React.lazy`: an app whose chunk was warmed (hover
 // intent, the idle warm-up, the startup preload above) renders on the spot.
@@ -108,6 +113,9 @@ export default function App() {
         <Route path="/legal/privacy" element={<Suspense fallback={null}><PrivacyPolicy /></Suspense>} />
         <Route path="/legal/aup" element={<Suspense fallback={null}><AcceptableUsePolicy /></Suspense>} />
         <Route path="/legal/dmca" element={<Suspense fallback={null}><DMCAPolicy /></Suspense>} />
+        {/* A Flow template's public page — the link a YouTube description
+            carries, readable before anyone signs in. */}
+        <Route path="/t/:slug" element={<Suspense fallback={null}><TemplatePage /></Suspense>} />
         <Route
           path="*"
           element={
@@ -149,6 +157,13 @@ function Workspace() {
   // page is idle, so the first press of each tile opens the app rather than
   // its placeholder. Admin is left out (members never open it, and the
   // operator lands there by URL); so is an app the member has switched off.
+  useEffect(() => warmChunks([
+    ...dockOrderedApps()
+      .filter((app) => isAppVisible(app.id))
+      .map((app) => () => loadApp(app.id)),
+    loadSettingsModal,
+  ]), [])
+
   // A Flow run the last page load left going resumes from here, whichever app
   // this one lands on — kie finished what was already submitted, and the
   // polls pick those results up rather than paying for them again. After the
@@ -165,12 +180,22 @@ function Workspace() {
     }
   }, [])
 
-  useEffect(() => warmChunks([
-    ...dockOrderedApps()
-      .filter((app) => isAppVisible(app.id))
-      .map((app) => () => loadApp(app.id)),
-    loadSettingsModal,
-  ]), [])
+  // A member's template link (/flow/t/<slug>, captured at startup) opens that
+  // template's setup once the workspace is in — after the sign-in screen, if
+  // the link was what brought them to it.
+  useEffect(() => {
+    const link = takeShareLink()
+    if (!link) return
+    // Flow is in private beta: for a member the link opens nothing, and the
+    // switch it turned on at startup goes back the way it was.
+    if (!isAppVisible('flow')) {
+      if (link.switchedOn) useAppVisibilityStore.getState().setOptionalEnabled('flow', false)
+      useAppStore.getState().addToast("That link opens a Flow template, and Flow isn't open to members yet.", 'info')
+      return
+    }
+    if (link.switchedOn) useAppStore.getState().addToast('Flow is on now. Switch it off any time in Settings → Experimental.', 'info')
+    useAppStore.getState().sendToApp({ targetApp: 'flow', targetField: 'openTemplate', data: { slug: link.slug } })
+  }, [])
 
   return (
     // h-dvh (not h-screen): 100vh overflows behind mobile browser URL bars,

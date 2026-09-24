@@ -241,7 +241,7 @@ export interface FlowDoc extends FlowGraph {
   id: string
   name: string
   outputs: FlowOutputs
-  template?: { id: string; version: number; sourceUrl?: string }
+  template?: { id: string; version: number; sourceUrl?: string; skipped?: number }
   pinned?: boolean
   createdAt: number
   updatedAt: number

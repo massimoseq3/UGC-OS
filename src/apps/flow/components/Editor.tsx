@@ -24,6 +24,7 @@ import ReviewModal from './ReviewModal'
 import RunHistory from './RunHistory'
 import RunView from './RunView'
 import PinButton from './PinButton'
+import TemplateUpdateBar from './TemplateUpdateBar'
 import { titleOf } from '../engine/catalog'
 import { exportTemplate } from '../templates/io'
 import SegmentedToggle from '../../../components/SegmentedToggle'
@@ -177,6 +178,7 @@ export default function Editor({ flowId }: { flowId: string }) {
                     <HistoryRailToggle open={historyOpen} onToggle={() => setHistoryOpen(!historyOpen)} label="runs" count={log?.length} />
                   </div>
                 </div>
+                <TemplateUpdateBar doc={doc} />
                 <Canvas flowId={flowId} doc={doc} plan={plan} run={run} onReview={setReviewing} onRunBlock={(id) => requestRun({ only: id })} />
               </div>
               <RailOverlay open={historyOpen} onClose={() => setHistoryOpen(false)}>

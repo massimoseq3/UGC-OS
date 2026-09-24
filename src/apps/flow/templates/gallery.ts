@@ -7,6 +7,8 @@ import { FriendlyError } from '../../../utils/friendlyError'
 import { validateTemplate, type LoadedTemplate } from './io'
 
 export interface GalleryEntry {
+  // Also the template's own `template.id`: a flow made from this entry is
+  // matched back to it by that id, for the version check.
   slug: string
   name: string
   description: string
@@ -14,6 +16,10 @@ export interface GalleryEntry {
   estimate?: number
   videoUrl?: string
   cover?: string
+  // The version the gallery ships now, and what changed in it — the flows
+  // made from an older one offer the update with these lines.
+  version?: number
+  changes?: string[]
 }
 
 let cached: Promise<GalleryEntry[]> | null = null
