@@ -1,7 +1,7 @@
 # The only gate between a merge and production.
 #
 # Nothing else verifies a change before it ships — the only unit tests are
-# Flow's graph engine (src/apps/flow/engine) — and the
+# Flow's planner and lineage walk (src/apps/flow) — and the
 # agent worktrees under .claude/worktrees/ have no node_modules of their own, so
 # typecheck and lint cannot run on the machine where the code is written. That
 # work has to happen here. Without it the first build of a change is Vercel's
