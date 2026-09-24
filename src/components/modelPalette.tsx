@@ -55,8 +55,10 @@ export function ProviderRail({ providers, value, onChange, activeClass, starred,
   const hasStarFilter = !!onStarredChange
   const topActive = hasStarFilter ? !!starred : value === null
 
+  // `overflow-y-auto` so a short window scrolls the rail rather than pushing
+  // the panel's list out of its fixed-height body.
   return (
-    <div className="flex shrink-0 flex-col items-center gap-1 border-r border-ink/5 px-2 py-3">
+    <div className="flex shrink-0 flex-col items-center gap-1 overflow-y-auto border-r border-ink/5 px-2 py-3">
       <button
         type="button"
         onClick={() => {

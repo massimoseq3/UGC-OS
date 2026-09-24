@@ -86,8 +86,16 @@ function clearChatModelSlots(m: Record<string, string>): void {
 // its name is recorded under MIGRATIONS_KEY so it never runs again.
 const MODEL_MIGRATIONS: Array<{ name: string; apply: (m: Record<string, string>) => void }> = [
   {
+    // Scripts' and B-Roll's writer slots clear onto DeepSeek V4.1 Flash, which
+    // took `defaultFor` on both apps from Gemini 3.8 Flash (Massimo's call).
+    // Unconditional for the reason spelled out on the Gemini entry below; it
+    // also clears any Kimi K3 pick, removed in the same change.
+    name: '2026-09-chat-default-deepseek-v4-1-flash',
+    apply: clearChatModelSlots,
+  },
+  {
     // Scripts' and B-Roll's prompt-writer slots clear, so both land on the
-    // registry default — Gemini 3.8 Flash, which has held `defaultFor` on both
+    // registry default — Gemini 3.8 Flash, which then held `defaultFor` on both
     // apps since September 2026. Massimo's call, after opening the app on a
     // fresh session and finding Gemini 3.6 Flash still writing.
     //
@@ -460,6 +468,12 @@ const MODEL_MIGRATIONS: Array<{ name: string; apply: (m: Record<string, string>)
 // is not worth one for a one-off default flip.
 const PROFILE_MIGRATIONS: Array<{ name: string; apply: (m: Record<string, string>) => void }> = [
   {
+    // Scripts and B-Roll land on DeepSeek V4.1 Flash at the member's next
+    // sign-in. See the twin entry in MODEL_MIGRATIONS.
+    name: '2026-09-chat-default-deepseek-v4-1-flash',
+    apply: clearChatModelSlots,
+  },
+  {
     // Scripts and B-Roll land on the registry chat default at the member's next
     // sign-in. See the twin entry in MODEL_MIGRATIONS — without this one the
     // flip is undone by the first hydrate, which replaces perAppModel wholesale.
@@ -799,7 +813,7 @@ export function scriptModelSlot(appId: ScriptModelApp): string {
 }
 
 // Which chat model writes this app's scripts and prompts. Falls back to the
-// app's OWN registry default — both on Gemini 3.8 Flash since September 2026,
+// app's OWN registry default — both on DeepSeek V4.1 Flash since September 2026,
 // though the two are free to differ and have before, which is why each app
 // resolves through `defaultFor` rather than through one shared constant.
 export function resolveScriptModel(appId: ScriptModelApp): string {

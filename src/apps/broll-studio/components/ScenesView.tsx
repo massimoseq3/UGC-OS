@@ -1901,7 +1901,7 @@ function LineChecklist({
                 the list's own cap means a different number of lines each time
                 it opens. The full sentence is in the `title`. */}
             <span
-              className="min-w-0 flex-1 truncate text-[13px] font-light tracking-tight text-ink-300"
+              className="min-w-0 flex-1 truncate text-[13px] font-normal tracking-tight text-ink-300"
               title={lineOf(scene)}
             >
               &ldquo;{lineOf(scene)}&rdquo;
@@ -2250,11 +2250,11 @@ function SceneSection({
                 prompts, so a dialogue card says the new sentence without a
                 regeneration. Read-only when the host doesn't hand us a handler.
 
-                **The system sans, Light**, the app's own face, upright (September 2026,
+                **The system sans, Regular**, the app's own face, upright (September 2026,
                 Massimo's call, after a run as Instrument Serif italic). The
                 numeral over it stays the serif: it is the ornament, the line is
-                the words. `font-light` is a real cut here (SF Pro and Segoe UI both
-                ship 300), not a synthesized one. 18px here, 15px in the detail modals — the
+                the words. It was Light (`font-light`) until September 2026, when
+                Massimo asked for regular weight. 16px here, 15px in the detail modals — the
                 serif sat a step larger only because its x-height reads small.
 
                 `tracking-tight`, because the sans wants tightening where the serif
@@ -2275,15 +2275,15 @@ function SceneSection({
                 className="group/line -mx-1.5 flex w-full items-start justify-center gap-2 rounded-lg px-1.5 py-0.5 text-center transition-colors hover:bg-ink/[0.04]"
               >
                 <p
-                  className="text-center text-lg leading-tight text-ink-300 font-light tracking-tight"
+                  className="text-center text-base leading-tight text-ink-300 font-normal tracking-tight"
                 >
                   &ldquo;{scene.scriptLine}&rdquo;
                 </p>
-                <Pencil className="mt-1.5 h-3 w-3 shrink-0 text-ink-600 opacity-0 transition-opacity group-hover/line:opacity-100" strokeWidth={2} />
+                <Pencil className="mt-1 h-3 w-3 shrink-0 text-ink-600 opacity-0 transition-opacity group-hover/line:opacity-100" strokeWidth={2} />
               </button>
             ) : (
               <p
-                className="text-center text-lg leading-tight text-ink-300 font-light tracking-tight"
+                className="text-center text-base leading-tight text-ink-300 font-normal tracking-tight"
               >
                 &ldquo;{scene.scriptLine}&rdquo;
               </p>

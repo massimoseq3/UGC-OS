@@ -115,7 +115,7 @@ function StreakItem() {
       <Flame className="h-3.5 w-3.5 text-dashboard-400" strokeWidth={1.75} />
       <span className="tabular-nums">{streak}</span>
       {/* Phones get flame + number; the suffix would crowd the bar. */}
-      <span className="hidden text-ink-500 sm:inline"> day streak</span>
+      <span className="hidden text-ink-500 sm:inline"> Day Streak</span>
     </button>
   )
 }

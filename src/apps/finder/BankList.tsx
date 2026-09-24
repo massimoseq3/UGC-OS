@@ -275,14 +275,12 @@ function ScriptCard({ item, onEdit, onDelete, showDate = true }: { item: Script;
   const getProductById = useBankStore((s) => s.getProductById)
   const linked = item.linkedProductId ? getProductById(item.linkedProductId) : null
   // Legacy items predate `kind` — treat them as scripts.
-  // Same pill Scripts' history rail draws — see `utils/scriptBadge.ts`. It was
-  // a tinted wash with a border here and a solid fill there, which made one
-  // run read as two different things depending on where you met it.
+  // Same pill Scripts' history rail draws — see `utils/scriptBadge.ts`.
   const badge = item.kind === 'reverse-engineer'
-    ? { label: 'SCENES', className: SCRIPT_BADGE.scenes }
+    ? { label: 'Scenes', className: SCRIPT_BADGE.scenes }
     : item.kind === 'style'
-      ? { label: 'STYLE', className: SCRIPT_BADGE.style }
-      : { label: 'SCRIPT', className: SCRIPT_BADGE.script }
+      ? { label: 'Style', className: SCRIPT_BADGE.style }
+      : { label: 'Script', className: SCRIPT_BADGE.script }
   return (
     <div
       onClick={onEdit}

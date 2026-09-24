@@ -519,79 +519,82 @@ function VariationCard({
     // inside a selection as a drag-start, and the click's re-render then
     // interrupts the collapse). Prose stays selectable — it's what gets copied.
     <div ref={cardRef} className="flex shrink-0 flex-col rounded-3xl border border-ink/10 bg-ink/[0.06] light:bg-[#F1F1F2] overflow-hidden card-soft-shadow">
-      <div className="relative flex select-none items-center justify-center border-b border-ink/5 px-12 py-2.5">
-        <div className="flex items-center gap-2">
-          <span className="rounded-full bg-scripts-500/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-tight text-scripts-300">
-            {cardTitle}
-          </span>
+      {/* The title is the card's centred heading at 15px Title Case
+          (September 2026, Massimo's call) — it was a 10px all-caps pill, the
+          hardest thing on the card to read. A three-column grid rather than
+          absolute side groups: the two `1fr` columns hold the edit tools and
+          the copy glyph and stay equal while there's room, which is what
+          keeps the title centred, and the middle track is `minmax(0, …)` so a
+          long style name truncates instead of running under the controls. */}
+      <div className="grid h-12 select-none grid-cols-[1fr_minmax(0,max-content)_1fr] items-center gap-2 border-b border-ink/5 px-2">
+        <div className="flex items-center gap-0.5">
+          {onEdit && !editing && (
+            <>
+              {/* The whole script in one box. No longer how you fix a typo
+                  (every block on the card below is its own field), nor how you
+                  remove a line or a scene (clear the block, or use the scene's
+                  own delete). What's left is ADDING: a new scene, a line, a
+                  paragraph. It read "Raw" until September 2026 — accurate about
+                  the textarea and meaningless about the job. */}
+              <button
+                onClick={startEdit}
+                title="Edit the whole script in one box · for adding scenes and lines"
+                className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-300"
+              >
+                <Pencil className="h-3 w-3" />
+                Edit
+              </button>
+              <button
+                onClick={handleUndo}
+                disabled={!canUndo}
+                title="Undo"
+                className="flex h-6 w-6 items-center justify-center rounded-full text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-300 disabled:cursor-not-allowed disabled:opacity-30"
+              >
+                <Undo2 className="h-3 w-3" />
+              </button>
+              <button
+                onClick={handleRedo}
+                disabled={!canRedo}
+                title="Redo"
+                className="flex h-6 w-6 items-center justify-center rounded-full text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-300 disabled:cursor-not-allowed disabled:opacity-30"
+              >
+                <Redo2 className="h-3 w-3" />
+              </button>
+            </>
+          )}
+        </div>
+        <div className="flex min-w-0 items-center justify-center gap-2">
+          <CardTitle title={cardTitle} />
           {scenes && !editing && (
-            <span className="rounded-full bg-ink/5 px-2.5 py-0.5 text-[10px] text-ink-500">
+            <span className="shrink-0 rounded-full bg-ink/5 px-2.5 py-0.5 text-[11px] text-ink-500 max-md:hidden">
               {scenes.length} scene{scenes.length === 1 ? '' : 's'}
             </span>
           )}
           {hooks && !editing && (
-            <span className="rounded-full bg-ink/5 px-2.5 py-0.5 text-[10px] text-ink-500">
+            <span className="shrink-0 rounded-full bg-ink/5 px-2.5 py-0.5 text-[11px] text-ink-500 max-md:hidden">
               {hooks.length} hook{hooks.length === 1 ? '' : 's'}
             </span>
           )}
         </div>
-        {onEdit && !editing && (
-          <div className="absolute left-2 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
-            {/* The whole take in one box. No longer how you fix a typo (every
-                block on the card below is its own field), nor how you remove a
-                line or a scene (clear the block, or use the scene's own delete).
-                What's left is ADDING: a new scene, a line, a paragraph. It read
-                "Raw" until September 2026 — accurate about the textarea and
-                meaningless about the job, since what a member wants from it is
-                to edit the take. */}
+        <div className="flex items-center justify-end">
+          {!editing && (
+            // Glyph only, at every width (Massimo's call, September 2026): the
+            // copy icon already says it, and "Copy Full Script" was the longest
+            // label on the row. The wording survives as the tooltip and the
+            // accessible name, and the tick is the feedback either way.
             <button
-              onClick={startEdit}
-              title="Edit the whole take in one box · for adding scenes and lines"
-              className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-300"
+              onClick={handleCopyAll}
+              title={copyAllLabel}
+              aria-label={copyAllLabel}
+              className="flex h-7 w-7 items-center justify-center rounded-full text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-300"
             >
-              <Pencil className="h-3 w-3" />
-              Edit
+              {copied ? <Check className="h-3.5 w-3.5 text-green-400 light:text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
             </button>
-            <button
-              onClick={handleUndo}
-              disabled={!canUndo}
-              title="Undo"
-              className="flex h-6 w-6 items-center justify-center rounded-full text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-300 disabled:cursor-not-allowed disabled:opacity-30"
-            >
-              <Undo2 className="h-3 w-3" />
-            </button>
-            <button
-              onClick={handleRedo}
-              disabled={!canRedo}
-              title="Redo"
-              className="flex h-6 w-6 items-center justify-center rounded-full text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-300 disabled:cursor-not-allowed disabled:opacity-30"
-            >
-              <Redo2 className="h-3 w-3" />
-            </button>
-          </div>
-        )}
-        {!editing && (
-          // Glyph only on a phone (Massimo's call, August 2026). This row also
-          // carries the Edit / undo / redo controls and the scene count, and
-          // "Copy Full Script" is the longest label on it — at 375px the three
-          // ran into each other. The copy icon says what the button does
-          // without being read; the wording survives as the tooltip and the
-          // accessible name, and the tick is the same feedback either way.
-          <button
-            onClick={handleCopyAll}
-            title={copyAllLabel}
-            aria-label={copyAllLabel}
-            className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-300"
-          >
-            {copied ? <Check className="h-3 w-3 text-green-400 light:text-green-600" /> : <Copy className="h-3 w-3" />}
-            <span className="max-md:hidden">{copyAllLabel}</span>
-          </button>
-        )}
-        {editing && (
-          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold uppercase tracking-tight text-scripts-300">
-            Editing
-          </span>
-        )}
+          )}
+          {editing && (
+            <span className="px-2.5 text-[11px] font-medium text-scripts-300">Editing</span>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-col gap-3 p-4">
@@ -1457,7 +1460,7 @@ export default function OutputPanel({ variations, outputAngles, mode, liveMode, 
     const message = pendingRun.mode === 'write'
       ? (pendingRun.writeFormat === 'hooks'
           ? ['Reading your brief...', 'Digging through the hook library...', `Writing ${pendingRun.hookCount} hooks...`, 'Cutting the weak ones...']
-          : ['Reading your brief...', 'Writing the takes...', 'Making it sound human...', 'Tightening the hooks...'])
+          : ['Reading your brief...', 'Writing the scripts...', 'Making it sound human...', 'Tightening the hooks...'])
       : pendingRun.mode === 'remix'
         ? ['Building the angles...', 'Sending parallel requests...', 'Writing variations...', 'Polishing final drafts...']
         : ['Reading scene blueprint...', 'Mapping product into structure...', 'Rewriting scenes...', 'Preserving structure...']
@@ -1472,7 +1475,7 @@ export default function OutputPanel({ variations, outputAngles, mode, liveMode, 
         : pendingRun.mode === 'reverse-engineer'
           ? ['Scene Prompts']
           : Array.from({ length: Math.max(1, pendingRun.variationCount) }, (_, i) =>
-              pendingRun.mode === 'write' ? `Take ${i + 1}` : `Variation ${i + 1}`)
+              pendingRun.mode === 'write' ? `Script ${i + 1}` : `Variation ${i + 1}`)
     return (
       <GridCanvas className="h-full">
         <div className="relative flex h-full flex-col gap-2 p-5">
@@ -1498,10 +1501,8 @@ export default function OutputPanel({ variations, outputAngles, mode, liveMode, 
               // `VariationCard`'s shell, verbatim — same radius, border, fill
               // and soft shadow in both themes. Keep the two in step.
               <div key={i} className="flex shrink-0 flex-col overflow-hidden rounded-3xl border border-ink/10 bg-ink/[0.06] light:bg-[#F1F1F2] card-soft-shadow">
-                <div className="flex select-none items-center justify-center border-b border-ink/5 px-12 py-2.5">
-                  <span className="rounded-full bg-scripts-500/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-tight text-scripts-300">
-                    {title}
-                  </span>
+                <div className="flex h-12 select-none items-center justify-center border-b border-ink/5 px-12">
+                  <CardTitle title={title} />
                 </div>
                 {/* One breathe for the block — see `.skeleton-group` in
                     index.css. The wrapper is what animates, not each line, and
@@ -1531,7 +1532,7 @@ export default function OutputPanel({ variations, outputAngles, mode, liveMode, 
     const [title, hint] = copyMode === 'write'
       ? writeFormat === 'hooks'
         ? ['Awaiting Hooks', `Your ${hookCount} hooks land here, each ready to copy or save.`]
-        : ['Awaiting Takes', 'Each take lands here as its own card, ready to edit, save or send on.']
+        : ['Awaiting Scripts', 'Each script lands here as its own card, ready to edit, save or send on.']
       : copyMode === 'remix'
         ? ['Awaiting Variations', 'Each variation lands here as its own card, ready to edit or save.']
         : ['Awaiting Scene Prompts', 'The rewritten scenes land here, one prompt per scene.']
@@ -1554,7 +1555,7 @@ export default function OutputPanel({ variations, outputAngles, mode, liveMode, 
   const angles = outputAngles?.length === variations.length
     ? outputAngles
     : remixAnglesForCount(variations.length)
-  const takeUnit = mode === 'remix' ? 'Variation' : 'Take'
+  const takeUnit = mode === 'remix' ? 'Variation' : 'Script'
 
   // No canvas once the takes are in: the grid marks an empty stage waiting for
   // work, and behind finished output it's just texture under the reading.
@@ -1616,16 +1617,16 @@ export default function OutputPanel({ variations, outputAngles, mode, liveMode, 
           const cardTitle = isHooks
             ? `Hooks · ${hookCategoryLabel ?? 'Best Mix'}`
             : isWrite
-              ? `Take ${i + 1}${writeStyleLabel ? ` · ${writeStyleLabel}` : ''}`
+              ? `Script ${i + 1}${writeStyleLabel ? ` · ${writeStyleLabel}` : ''}`
               : angleLabel
-                ? `Variation ${i + 1}: ${angleLabel}`
+                ? `Variation ${i + 1} · ${angleLabel}`
                 : isRemix
                   ? `Variation ${i + 1}`
                   : 'Scene Prompts'
           const defaultSaveTitle = isHooks
             ? (productName ? `${productName} · Hooks (${hookCategoryLabel ?? 'Best Mix'})` : `Hooks · ${hookCategoryLabel ?? 'Best Mix'}`)
             : isWrite && productName
-              ? `${productName} · ${writeStyleLabel ?? 'New'} Take ${i + 1}`
+              ? `${productName} · ${writeStyleLabel ?? 'New'} Script ${i + 1}`
               : isRemix && productName
                 ? `${productName} · ${angleLabel ?? `Variation ${i + 1}`} Script`
                 : deriveTitleFromContent(
@@ -1649,6 +1650,18 @@ export default function OutputPanel({ variations, outputAngles, mode, liveMode, 
       </div>
     </div>
     </ShownRunContext.Provider>
+  )
+}
+
+// A card's heading: 15px, Title Case, never all caps. "Script 1 · Problem–Agitate–Solution" splits at the first middot so
+// the number stays whole and the style name is what truncates on a narrow pane.
+function CardTitle({ title }: { title: string }) {
+  const [head, ...rest] = title.split(' · ')
+  return (
+    <h3 className="flex min-w-0 items-baseline gap-1.5 text-[15px] font-semibold tracking-tight text-ink-100">
+      <span className="shrink-0">{head}</span>
+      {rest.length > 0 && <span className="truncate font-medium text-ink-500">· {rest.join(' · ')}</span>}
+    </h3>
   )
 }
 

@@ -111,7 +111,7 @@ function useHistoryRows(block: FlowBlock): HistoryRow[] {
         id: r.id,
         createdAt: at(r.createdAt),
         title: r.productName ? `${r.productName} · ${r.writeFormat === 'hooks' ? 'Hooks' : r.mode === 'remix' ? 'Remix' : 'Scripts'}` : r.inputSummary.slice(0, 60) || 'Scripts',
-        meta: r.writeFormat === 'hooks' ? `${r.hookCount ?? 10} hooks` : `${r.variations.length} ${r.variations.length === 1 ? 'take' : 'takes'}`,
+        meta: r.writeFormat === 'hooks' ? `${r.hookCount ?? 10} hooks` : `${r.variations.length} ${r.variations.length === 1 ? 'script' : 'scripts'}`,
       }))
     case 'characters':
       return s.characterHistory.map((r) => ({ id: r.id, createdAt: at(r.createdAt), title: r.kind === 'sheet' ? 'Character Sheet' : 'Portrait', meta: r.styleName, thumb: r.imageRef }))

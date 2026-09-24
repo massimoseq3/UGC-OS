@@ -29,7 +29,7 @@ export type Tag = 'recommended' | 'new' | 'fast' | 'cheap'
 // two, which is why `chatSlug` exists — Opus 5 and Sonnet 5 share one endpoint.
 //   'openai-chat'      POST /<slug>/v1/chat/completions   (Gemini family)
 //   'claude-messages'  POST /claude/v1/messages           (Claude family)
-//   'openai-responses' POST /codex|grok|openai/v1/responses (GPT 5.6, Grok, DeepSeek, Kimi)
+//   'openai-responses' POST /codex|grok|openai/v1/responses (GPT 5.6, Grok, DeepSeek)
 export type ChatTransport = 'openai-chat' | 'claude-messages' | 'openai-responses'
 
 // What the script-model picker shows beside a chat model. `intelligence` is
@@ -342,11 +342,10 @@ export const MODEL_REGISTRY: ModelEntry[] = [
   // Order matters: Gemini 3.8 Flash is FIRST so it stays getDefaultModel's
   // candidates[0] fallback for any chat consumer without an explicit defaultFor.
   // The two PICKER apps hold INDEPENDENT slots and both currently default to
-  // Gemini 3.8 Flash too (September 2026, the operator's call, taking the slots
-  // from GPT 5.6 Terra) — see that entry. They have diverged before and can
-  // again, which is the reason the slots are separate. A member who never opens
-  // the picker now writes on the app-wide default rather than ~2.9× its
-  // credits, and every dearer row is one click away in both.
+  // DeepSeek V4.1 Flash (September 2026, the operator's call, taking the slots
+  // from Gemini 3.8 Flash) — see that entry. They have diverged before and can
+  // again, which is the reason the slots are separate. Every dearer row is one
+  // click away in both.
   //
   // NOTHING the picker prints may name a default — one picker component serves
   // both apps, so "the default" was true in one and a lie in the other the
@@ -385,7 +384,6 @@ export const MODEL_REGISTRY: ModelEntry[] = [
   //   Claude Sonnet 5      170        855      0.5125
   //   GPT 5.6 Sol          280       1680      0.98
   //   Claude Opus 5        400       2000      1.20
-  //   Kimi K3              480       2400      1.44    (2026-09-24)
   //
   // `official` is kie's own "Official / Fal Price" column, blended the same way
   // — which is what makes the picker's "% off" chip real (−85% on the 3.8 row
@@ -430,20 +428,11 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     // that a change to this row is a change to every chat call in the app.
     // `character-studio` is here because Gemini 3 Flash carried it.
     //
-    // It also holds the unpicked default in BOTH picker apps as of September
-    // 2026 (the operator's call), taking the slots from GPT 5.6 Terra, which
-    // stays one row away in either picker. That puts Scripts and B-Roll back on
-    // the app-wide default rather than ~2.9× it on the member's own key, and on
-    // the same family every prompt in this app was tuned against. The two slots
-    // stay INDEPENDENT and have diverged before, so nothing the picker prints
-    // may name a default. The flip shipped without a migration, on the reasoning that
-    // nothing writes a resolved default into a slot — so an unpicked slot
-    // follows `defaultFor` on its own and a stored id is always a deliberate
-    // pick. That missed the member who opened the picker while 3.6 held the
-    // default and clicked the row already ticked; migration
-    // `2026-09-chat-default-gemini-3-8-flash` clears the `:chat` slots so they
-    // land here, and it is listed in PROFILE_MIGRATIONS too.
-    defaultFor: ['ad-anatomy', 'character-studio', 'broll-studio', 'script-architect'],
+    // It held the unpicked default in BOTH picker apps for a stint in
+    // September 2026 (taking the slots from GPT 5.6 Terra) and handed them to
+    // DeepSeek V4.1 Flash — see that entry. Still one row away in either
+    // picker, exactly as every superseded default here is.
+    defaultFor: ['ad-anatomy', 'character-studio'],
     // OpenAI-compatible variant slug on kie.ai. The native 3.8 route speaks
     // Google's own streamGenerateContent shape, which our transport doesn't.
     chatEndpoint: '/gemini-3-8-flash-openai/v1/chat/completions',
@@ -663,33 +652,15 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     chatEndpoint: '/openai/v1/responses',
     chatTransport: 'openai-responses',
     chatSlug: 'deepseek-v4-1-flash',
-    chatRating: {
-      intelligence: 3,
-    },
-  },
-
-  {
-    id: 'kimi-k3',
-    displayName: 'Kimi K3',
-    provider: 'Moonshot AI',
-    task: 'chat',
-    tags: ['new'],
-    // 480 in / 2400 out credits per million (kie.ai/kimi-k3, 2026-09-24) ->
-    // 1.44 blended per 1k: the DEAREST row in either picker, above Claude
-    // Opus 5's 1.20. No `official` — the dollar figures on kie's page ($2.40 /
-    // $12.00) are kie's own credits converted, not Moonshot's list price, so
-    // there is nothing verified to compare against and the row carries no
-    // "% off" chip. The cached-input tier (48/M) is ignored like every other.
-    pricing: { unit: 'per-1k-tokens', credits: 1.44 },
-    // Same unified Responses route as DeepSeek above, named by `chatSlug`
-    // (docs.kie.ai, "Kimi K3"). It reasons by default and bills reasoning as
-    // OUTPUT tokens — at this output rate that is the whole cost story, so
-    // our `reasoning.effort` ('low' unless a caller asks for more) matters
-    // more here than on any other row. Images go in as `input_image`; a video
-    // does not, so keep it off CHAT_MODEL_STRONG for the same reason as Grok.
-    chatEndpoint: '/openai/v1/responses',
-    chatTransport: 'openai-responses',
-    chatSlug: 'kimi-k3',
+    // The unpicked default in BOTH picker apps since September 2026 (Massimo's
+    // call), taking the slots from Gemini 3.8 Flash at under half its rate.
+    // Only the two writer slots: every other chat surface stays on
+    // CHAT_MODEL_DEFAULT / STRONG, which have a `chatFallback` this row lacks
+    // and — for the Ad Analyzer — take a video this route can't. Migration
+    // `2026-09-chat-default-deepseek-v4-1-flash` clears the `:chat` slots so
+    // members land here, and it is listed in PROFILE_MIGRATIONS too.
+    defaultFor: ['broll-studio', 'script-architect'],
+    // 4, up from 3, at the operator's call when it took the writer slots.
     chatRating: {
       intelligence: 4,
     },

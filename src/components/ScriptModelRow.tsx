@@ -154,13 +154,16 @@ export default function ScriptModelRow({ appId, className = 'mb-3' }: ScriptMode
         onClose={() => setOpen(false)}
         title={copy.title}
         size="medium"
-        // NO `fill`, so the panel is as tall as its list and no taller
-        // (September 2026, Massimo's call). It held `h-[86vh]` on the reasoning
-        // that a fixed height stops the panel resizing under the pointer while
-        // you filter; what that bought once the per-model blurbs came off was
-        // ~300px of empty panel under nine short rows, every time it opens,
-        // against a resize nobody sees unless they type. `max-h-[86vh]` still
-        // catches a longer list and hands it a scroller.
+        // `fill`: the panel holds 86vh whatever the rail or search shows — the
+        // image/video picker's geometry. It was content-sized for a stint
+        // (September 2026), which broke twice: picking a provider shrank the
+        // panel under the pointer, and on "All" the list could not be scrolled
+        // at all. The overflow landed on Modal's body while the wheel went to
+        // the list's own `overflow-y-auto`, which didn't overflow — and
+        // index.css's `overscroll-behavior: none` stops a nested scroller
+        // chaining into its parent. A fixed panel makes the list the one box
+        // that overflows, so it is the one that scrolls.
+        fill
         //
         // The subtitle went with the blurbs ("Stars are how strong a writer,
         // dollars are what it costs"): the meters are five stars and five
@@ -213,12 +216,12 @@ function ModelPalette({
     onClose()
   }
 
-  // No `h-full`: the panel is content-sized now, so a child claiming the full
-  // height of an auto-height parent has nothing to resolve against.
+  // `h-full` against Modal's fixed-height body, so the search stays put and the
+  // grouped list below it is the only scroller.
   return (
-    <div className="flex flex-col">
+    <div className="flex h-full flex-col">
       {/* Search */}
-      <div className="px-4 pb-2 pt-3">
+      <div className="shrink-0 px-4 pb-2 pt-3">
         <div className="flex h-10 items-center gap-2.5 rounded-full bg-ink/[0.05] px-4 transition-colors focus-within:bg-ink/[0.08]">
           <Search className="h-3.5 w-3.5 shrink-0 text-ink-600" />
           <input
