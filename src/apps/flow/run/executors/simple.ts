@@ -38,6 +38,7 @@ import { DEFAULT_FILTERS, type DiscoverPlatform, type DiscoverResult } from '../
 import { analysisValues } from '../../engine/held'
 import { playgroundInput, refOfPicture } from '../../engine/cost'
 import { liveItems } from '../../engine/graph'
+import { taskIsDead } from '../errors'
 import { useAppStore } from '../../../../stores/appStore'
 import type { ImageResolution } from '../../../../utils/models'
 
@@ -228,6 +229,10 @@ export const charactersExecutor: Executor = {
         const r = await characterRunner.finish(tasks[slot], { signal: ctx.signal })
         items[slot] = characterValue(r)
       } catch (err) {
+        if (taskIsDead(err) && tasks[slot]) {
+          delete tasks[slot]
+          ctx.save({ tasks })
+        }
         errors.push(err)
       }
     }))

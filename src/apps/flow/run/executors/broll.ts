@@ -37,6 +37,7 @@ import { brollClipSeconds, brollVideoModel, brollVideoResolution } from '../../e
 import { brollSessionValues } from '../../engine/held'
 import { cardKey, sessionMedia } from '../../engine/brollSession'
 import { textOf } from './simple'
+import { taskIsDead } from '../errors'
 
 interface BrollResume {
   storyboardTaskId?: string
@@ -218,6 +219,10 @@ async function stillsPhase(ctx: ExecContext, wired: Wired, resume: BrollResume, 
       done += 1
       ctx.progress(`Stills · ${done} of ${cards.length}`)
     } catch (err) {
+      if (taskIsDead(err) && resume.stills?.[c.key]) {
+        delete resume.stills[c.key]
+        ctx.save({ ...resume })
+      }
       errors.push(err)
     }
   }))
@@ -279,6 +284,10 @@ async function clipsPhase(ctx: ExecContext, resume: BrollResume, sessionId: stri
       done += 1
       ctx.progress(`Clips · ${done} of ${withStill.length}`)
     } catch (err) {
+      if (taskIsDead(err) && resume.clips?.[c.key]) {
+        delete resume.clips[c.key]
+        ctx.save({ ...resume })
+      }
       errors.push(err)
     }
   }))
@@ -312,6 +321,10 @@ function outputsOf(sessionId: string, keep?: string[]): ExecOutput {
 export const brollExecutor: Executor = {
   async run(ctx) {
     const resume: BrollResume = { ...((ctx.resume as BrollResume | undefined) ?? {}) }
+    // A run picking up after its review carries on in the session its stills
+    // phase wrote — the task state is cleared once a phase lands, so the
+    // session is found through the rows that phase recorded.
+    resume.sessionId ??= ctx.prior?.rows?.find((r) => r.bank === 'brollHistory')?.id
     const wired = wiredInput(ctx)
     const { sessionId, result } = await storyboard(ctx, wired, resume)
     if (ctx.phase !== 'clips') await stillsPhase(ctx, wired, resume, sessionId, result)

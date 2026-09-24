@@ -24,6 +24,8 @@ import { dockOrderedApps, getAppConfig } from './utils/constants'
 import { DEFAULT_SLUG, getAppIdForSlug, getSlugFromPath } from './utils/routing'
 import { startAppUsageTracking, stopAppUsageTracking } from './utils/appUsageTracker'
 import { hasApp, loadApp, loadMeetTheTeam, loadSettingsModal, preloadApp, warmChunks } from './appChunks'
+import { hasFlowRunsToResume, resumeFlowRuns } from './apps/flow/resumeBoot'
+import { localBanksReady } from './stores/bankStore'
 
 // Apps are code-split: each chunk loads on first activation, not at startup
 // (appChunks.ts holds the imports). They stay mounted after first open (see
@@ -147,6 +149,22 @@ function Workspace() {
   // page is idle, so the first press of each tile opens the app rather than
   // its placeholder. Admin is left out (members never open it, and the
   // operator lands there by URL); so is an app the member has switched off.
+  // A Flow run the last page load left going resumes from here, whichever app
+  // this one lands on — kie finished what was already submitted, and the
+  // polls pick those results up rather than paying for them again. After the
+  // landing app has settled, and once the banks the run reads are loaded.
+  useEffect(() => {
+    if (!isAppVisible('flow') || !hasFlowRunsToResume()) return
+    let live = true
+    const timer = setTimeout(() => {
+      void localBanksReady.then(() => { if (live) resumeFlowRuns() })
+    }, 2_500)
+    return () => {
+      live = false
+      clearTimeout(timer)
+    }
+  }, [])
+
   useEffect(() => warmChunks([
     ...dockOrderedApps()
       .filter((app) => isAppVisible(app.id))

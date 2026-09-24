@@ -25,12 +25,14 @@ import { blockCost } from '../engine/cost'
 import { isBatch, KINDS, titleOf } from '../engine/catalog'
 import { liveItems, upstreamOf } from '../engine/graph'
 import { EXECUTORS } from './executors'
+import { taskIsDead } from './errors'
 import { useFlowStore } from '../store/flowStore'
 import { knownGraph } from '../store/blocks'
 import { isRecordingActive } from '../../../stores/recordingStore'
 import { useAppStore } from '../../../stores/appStore'
 import { useActivityStore } from '../../../stores/activityStore'
 import { useSettingsStore } from '../../../stores/settingsStore'
+import { localBanksReady } from '../../../stores/bankStore'
 import { humanizeError } from '../../../utils/friendlyError'
 import { lineageOf } from '../../../utils/blockRunner'
 
@@ -343,10 +345,9 @@ async function runBlock(flowId: string, block: FlowBlock, instances: PlannedInst
       if (signal.aborted) return
       console.error(`[flow] ${block.kind} run failed`, err)
       const message = humanizeError(err, `${titleOf(block)} failed.`)
-      // A task we resumed and still couldn't finish is dead on kie's side, so
-      // its handle goes and the next try submits fresh. A first failure keeps
-      // it: kie probably made the thing and only the download failed.
-      if (resume !== undefined) setTaskState(flowId, block.id, inst.key, undefined)
+      // Only a task kie itself failed loses its handle (run/errors.ts); a bad
+      // key or a stalled download keeps it, so Run again fetches the result.
+      if (taskIsDead(err)) setTaskState(flowId, block.id, inst.key, undefined)
       failed += 1
       firstError ??= message
       patchInstance(flowId, block.id, inst.key, { status: 'error', error: message, note: undefined })
@@ -530,9 +531,11 @@ let resumed = false
 
 // A page load picks up every run the last one left going: blocks that were
 // running go back in the queue, and their runs find their saved task handles.
-export function resumeRuns() {
+// Waits for the banks' local copy, since a run reads its flow from there.
+export async function resumeRuns() {
   if (resumed) return
   resumed = true
+  await localBanksReady
   const { runs } = useFlowRunStore.getState()
   for (const [flowId, run] of Object.entries(runs)) {
     if (run.status !== 'running') continue

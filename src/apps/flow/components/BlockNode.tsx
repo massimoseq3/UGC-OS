@@ -323,11 +323,14 @@ function MediaStrip({ values }: { values: FlowValue[] }) {
     if (v.type === 'image') refs.push(v.payload.ref)
     else if (v.type === 'video' && v.payload.cover) refs.push(v.payload.cover)
   }
-  if (!refs.length) return null
+  // A B-Roll run hands on its stills AND a clip set whose cover is the first
+  // of them; one tile per picture.
+  const unique = [...new Set(refs)]
+  if (!unique.length) return null
   return (
     <div className="flex gap-1 px-3 pb-2.5">
-      {refs.slice(0, 5).map((ref, i) => <Thumb key={`${ref}:${i}`} refId={ref} />)}
-      {refs.length > 5 && <span className="flex h-12 w-8 items-center justify-center rounded-lg bg-ink/5 text-[10px] text-ink-400">+{refs.length - 5}</span>}
+      {unique.slice(0, 5).map((ref) => <Thumb key={ref} refId={ref} />)}
+      {unique.length > 5 && <span className="flex h-12 w-8 items-center justify-center rounded-lg bg-ink/5 text-[10px] text-ink-400">+{unique.length - 5}</span>}
     </div>
   )
 }

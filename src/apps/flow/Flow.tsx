@@ -39,7 +39,7 @@ export default function Flow() {
   // A run the last page load left going picks up where it was, whether or
   // not the flow it belongs to is the one on screen.
   useEffect(() => {
-    resumeRuns()
+    void resumeRuns()
   }, [])
 
   useEffect(() => {

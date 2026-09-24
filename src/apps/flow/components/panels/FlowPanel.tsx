@@ -148,19 +148,23 @@ export default function FlowPanel({
               <span className="text-[10px] tabular-nums text-ink-500">{creditsPill(test?.credits ?? 0, test?.unpriced)}</span>
             </button>
           )}
+          {/* The label says what the press does and the line under it what it
+              costs — two lines, so neither is ever truncated to fit the other. */}
           <button
             type="button"
             onClick={() => onRun({})}
-            className="glass-fill glass-fill-soft flex h-[52px] min-w-0 flex-1 items-center justify-center gap-2 rounded-full border border-white/15 bg-flow-500 px-5 text-sm font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),inset_0_-1px_0_rgba(255,255,255,0.08)] btn-soft-shadow transition-all hover:brightness-110"
+            className="glass-fill glass-fill-soft flex h-[52px] min-w-0 flex-1 items-center justify-center gap-2.5 rounded-full border border-white/15 bg-flow-500 px-5 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),inset_0_-1px_0_rgba(255,255,255,0.08)] btn-soft-shadow transition-all hover:brightness-110"
           >
             <Play className="h-4 w-4 shrink-0" strokeWidth={2.5} />
-            <span className="truncate">{runLabel}</span>
-            {!active && next > 0 && (
-              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold">
-                <Coins className="h-3 w-3" />
-                {creditsPill(next, plan?.unpriced)}
-              </span>
-            )}
+            <span className="flex min-w-0 flex-col items-start leading-tight">
+              <span className="truncate text-sm font-bold tracking-tight">{runLabel}</span>
+              {!active && next > 0 && (
+                <span className="flex items-center gap-1 text-[10.5px] font-medium text-white/80">
+                  <Coins className="h-2.5 w-2.5" />
+                  {creditsPill(next, plan?.unpriced)}
+                </span>
+              )}
+            </span>
           </button>
           {active && run && <StopButton flowId={run.flowId} />}
         </div>
