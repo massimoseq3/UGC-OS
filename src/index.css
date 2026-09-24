@@ -234,6 +234,14 @@
   /* Ad Analyzer — red #FF5257 (used as literal hex in ad-anatomy) */
   --color-analyzer-500: #FF5257;
 
+  /* Flow — cyan #0891B2, the one hue the dock didn't already use */
+  --color-flow-100: color-mix(in oklab, #0891B2 25%, white);
+  --color-flow-200: color-mix(in oklab, #0891B2 40%, white);
+  --color-flow-300: color-mix(in oklab, #0891B2 60%, white);
+  --color-flow-400: color-mix(in oklab, #0891B2 80%, white);
+  --color-flow-500: #0891B2;
+  --color-flow-600: color-mix(in oklab, #0891B2 85%, black);
+
   /* Dashboard — green #059669 */
   --color-dashboard-100: color-mix(in oklab, #059669 25%, white);
   --color-dashboard-200: color-mix(in oklab, #059669 40%, white);
@@ -311,6 +319,12 @@
   --color-gold-300: color-mix(in oklab, #0EA5E9 70%, black);
   --color-gold-400: color-mix(in oklab, #0EA5E9 95%, black);
   --color-gold-600: color-mix(in oklab, #0EA5E9 85%, black);
+
+  --color-flow-100: color-mix(in oklab, #0891B2 35%, black);
+  --color-flow-200: color-mix(in oklab, #0891B2 50%, black);
+  --color-flow-300: color-mix(in oklab, #0891B2 70%, black);
+  --color-flow-400: color-mix(in oklab, #0891B2 95%, black);
+  --color-flow-600: color-mix(in oklab, #0891B2 85%, black);
 
   --color-dashboard-100: color-mix(in oklab, #059669 35%, black);
   --color-dashboard-200: color-mix(in oklab, #059669 50%, black);

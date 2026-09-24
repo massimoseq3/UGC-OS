@@ -19,6 +19,7 @@ const LOADERS: Record<string, () => Promise<{ default: ComponentType }>> = {
   'playground': () => import('./apps/playground/Playground'),
   'discover': () => import('./apps/discover/Discover'),
   'edit-studio': () => import('./apps/edit-studio/EditStudio'),
+  'flow': () => import('./apps/flow/Flow'),
   'dashboard': () => import('./apps/dashboard/Dashboard'),
   'admin': () => import('./apps/admin/AdminPanel'),
 }

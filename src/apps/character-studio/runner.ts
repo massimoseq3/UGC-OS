@@ -93,7 +93,7 @@ export const characterRunner = {
       styleName: input.styleName,
       batchId: input.batchId,
       batchIndex: input.batchIndex,
-      provenance: { parents: lineageOf(ctx?.provenance?.parents, input.parents) },
+      provenance: { ...ctx?.provenance, parents: lineageOf(ctx?.provenance?.parents, input.parents) },
     }
   },
 

@@ -455,7 +455,7 @@ export const playgroundRunner = {
         ? { ...plan.videoParams, videoEndpoint }
         : plan.videoParams,
       musicParams: plan.musicParams,
-      provenance: { parents: lineageOf(ctx?.provenance?.parents, plan.sent.map((r) => r.parent)) },
+      provenance: { ...ctx?.provenance, parents: lineageOf(ctx?.provenance?.parents, plan.sent.map((r) => r.parent)) },
     }
   },
 

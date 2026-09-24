@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { Search, Volume2, Bookmark, Check, Play, Pause, AlignLeft, Download } from 'lucide-react'
 import RailNewButton from '../../../components/RailNewButton'
 import { TileDeleteButton } from '../../../components/tileActions'
+import { FlowLineageMenu } from '../../../components/FlowLineageItems'
 import { useBankStore } from '../../../stores/bankStore'
 import type { VoiceHistoryItem } from '../../../stores/types'
 import { formatRelative, sectionLabel, groupByDay } from '../../../utils/history'
@@ -442,6 +443,7 @@ export default function HistoryRail({ items, pending, activeId, onSelect, onDele
                               uses. This was a bare trash icon that deleted on
                               the first click. */}
                           <TileDeleteButton variant="chrome" size="sm" alwaysVisible onDelete={() => onDelete(item.id)} />
+                          <FlowLineageMenu row={{ bank: 'voiceHistory', id: item.id }} />
                         </div>
                       )}
                     </div>

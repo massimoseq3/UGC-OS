@@ -1,0 +1,222 @@
+{
+  "format": "ugcflow",
+  "formatVersion": 1,
+  "template": {
+    "id": "clone-a-winner",
+    "version": 1
+  },
+  "name": "Clone a Winner",
+  "description": "Pick an ad from your Swipe File. Flow tears it down, rewrites it for your product, and shoots your version on the same beats with your own character.",
+  "author": "UGC OS",
+  "blocks": [
+    {
+      "id": "ad",
+      "kind": "bank",
+      "label": "The Winning Ad",
+      "x": 0,
+      "y": 0,
+      "settings": {
+        "bank": "swipes"
+      },
+      "source": "bank",
+      "field": true
+    },
+    {
+      "id": "product",
+      "kind": "bank",
+      "label": "Your Product",
+      "x": 0,
+      "y": 220,
+      "settings": {
+        "bank": "products"
+      },
+      "source": "bank",
+      "field": true
+    },
+    {
+      "id": "character",
+      "kind": "bank",
+      "label": "Your Character",
+      "x": 0,
+      "y": 440,
+      "settings": {
+        "bank": "models"
+      },
+      "source": "bank",
+      "field": true
+    },
+    {
+      "id": "analyzer",
+      "kind": "analyzer",
+      "x": 340,
+      "y": 0,
+      "settings": {},
+      "source": "generate"
+    },
+    {
+      "id": "remix",
+      "kind": "scripts",
+      "x": 680,
+      "y": 40,
+      "settings": {
+        "mode": "remix",
+        "writeFormat": "script",
+        "writeStyle": "pas",
+        "writeLength": 30,
+        "remixLength": "default",
+        "hookCategory": "auto",
+        "hookCount": 10,
+        "variationCount": 3,
+        "brief": "",
+        "source": "",
+        "additionalContext": ""
+      },
+      "source": "generate",
+      "review": true
+    },
+    {
+      "id": "voice",
+      "kind": "voice",
+      "x": 1040,
+      "y": 0,
+      "settings": {
+        "voiceId": "Sulafat",
+        "voiceName": "Sulafat",
+        "gender": "Female",
+        "style": "Empathetic",
+        "pace": "Natural",
+        "accent": "Neutral",
+        "temperature": 1,
+        "scene": "",
+        "sampleContext": "Creator talks at a normal tempo."
+      },
+      "source": "generate"
+    },
+    {
+      "id": "broll",
+      "kind": "broll",
+      "x": 1040,
+      "y": 260,
+      "settings": {
+        "delivery": "silent",
+        "aspectRatio": "9:16",
+        "animate": true,
+        "takes": 1,
+        "context": "",
+        "styleId": "ugc"
+      },
+      "source": "generate",
+      "review": true
+    },
+    {
+      "id": "edit",
+      "kind": "edit",
+      "x": 1400,
+      "y": 120,
+      "settings": {},
+      "source": "generate"
+    }
+  ],
+  "wires": [
+    {
+      "id": "w1",
+      "from": "ad",
+      "fromPort": "out",
+      "to": "analyzer",
+      "toPort": "ad"
+    },
+    {
+      "id": "w2",
+      "from": "analyzer",
+      "fromPort": "transcript",
+      "to": "remix",
+      "toPort": "source"
+    },
+    {
+      "id": "w3",
+      "from": "product",
+      "fromPort": "out",
+      "to": "remix",
+      "toPort": "product"
+    },
+    {
+      "id": "w4",
+      "from": "remix",
+      "fromPort": "all",
+      "to": "voice",
+      "toPort": "script"
+    },
+    {
+      "id": "w5",
+      "from": "remix",
+      "fromPort": "all",
+      "to": "broll",
+      "toPort": "script"
+    },
+    {
+      "id": "w6",
+      "from": "character",
+      "fromPort": "out",
+      "to": "broll",
+      "toPort": "character"
+    },
+    {
+      "id": "w7",
+      "from": "product",
+      "fromPort": "out",
+      "to": "broll",
+      "toPort": "product"
+    },
+    {
+      "id": "w8",
+      "from": "voice",
+      "fromPort": "audio",
+      "to": "edit",
+      "toPort": "audio"
+    },
+    {
+      "id": "w9",
+      "from": "broll",
+      "fromPort": "clips",
+      "to": "edit",
+      "toPort": "clips"
+    },
+    {
+      "id": "w10",
+      "from": "remix",
+      "fromPort": "all",
+      "to": "edit",
+      "toPort": "script"
+    }
+  ],
+  "fields": [
+    {
+      "blockId": "ad",
+      "title": "The Winning Ad",
+      "kind": {
+        "bank": "swipes"
+      },
+      "required": true
+    },
+    {
+      "blockId": "product",
+      "title": "Your Product",
+      "kind": {
+        "bank": "products"
+      },
+      "required": true
+    },
+    {
+      "blockId": "character",
+      "title": "Your Character",
+      "kind": {
+        "bank": "models"
+      },
+      "required": true
+    }
+  ],
+  "notes": [
+    "The remix keeps the winning ad's beats and staging. Your version is shot with your character and your product, never theirs."
+  ],
+  "estimate": 700
+}

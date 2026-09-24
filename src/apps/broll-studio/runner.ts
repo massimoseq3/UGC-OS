@@ -15,17 +15,72 @@
 // was made for, which the storyboard owns. A clip also writes its
 // `videoHistory` row here, like every other generated clip in the app.
 
-import type { GeneratedImage, GeneratedVideo, InFlightVideo, ReferenceImage, VariationTag } from './types'
+import type { CardState, GeneratedImage, GeneratedVideo, InFlightVideo, ReferenceImage, VariationTag } from './types'
 import { startImageTask, finishImageTask, buildDialogueChainPreamble, resolveImageModelId } from './services/generateBroll'
 import { startVideoTask, finishVideoTask } from './services/generateVideo'
 import { applyStyleToPrompt } from './services/generateContinuous'
 import { withLockedCamera } from './services/realism'
+import { attachProductAngles, productRefsForSelection } from './services/productAngles'
 import type { VideoHistoryItem } from '../../stores/types'
 import { useBankStore } from '../../stores/bankStore'
 import { replayWait } from '../../stores/recordingStore'
 import { estimateCredits, getModel, type ImageResolution, type VideoMode } from '../../utils/models'
+import { getAsBase64, isAssetRef } from '../../utils/assetStore'
 import { FriendlyError, humanizeError } from '../../utils/friendlyError'
 import { refuseWhileRecording, withProvenance, type BlockRunner } from '../../utils/blockRunner'
+
+// ── A card's inputs ───────────────────────────────────────────────────────
+// What a storyboard card attaches and how it animates, decided here so a
+// card's own Generate and Flow's B-Roll block make the same request.
+
+// The references a card's still (or reference-to-video clip) sends: the
+// character and the product photo the storyboard picked for this shot, when
+// the card's toggles leave them on, then any the member attached by hand,
+// then the product's other angles for as many slots as the model has left.
+// Nothing the member chose is ever dropped; only the automatic angles are.
+export function cardStillRefs(opts: {
+  characterRef?: ReferenceImage
+  // productPhotosOf(product) — hero packshot first. Empty with no product.
+  productPhotos: string[]
+  card: Pick<CardState, 'refsCharacter' | 'refsProduct' | 'productPhotos'>
+  extraRefs?: ReferenceImage[]
+  // The model the request will really run on — it decides how many angles
+  // fit. Absent → the resolved image model.
+  modelId?: string
+  // A chained dialogue card prepends the previous cut at fire time.
+  chained?: boolean
+}): ReferenceImage[] {
+  const { product, angles } = productRefsForSelection(opts.productPhotos, opts.card.productPhotos)
+  const productOn = opts.productPhotos.length > 0 && opts.card.refsProduct !== false
+  const out: ReferenceImage[] = []
+  if (opts.characterRef && opts.card.refsCharacter !== false) out.push(opts.characterRef)
+  if (productOn && product) out.push(product)
+  out.push(...(opts.extraRefs ?? []))
+  return attachProductAngles({
+    manual: out,
+    angles: productOn ? angles : [],
+    modelId: opts.modelId ?? resolveImageModelId(true),
+    reserved: opts.chained ? 1 : 0,
+  })
+}
+
+// How a model animates a still: as a true start frame when it takes one,
+// otherwise as a reference image. Null when it can do neither.
+export function animateMode(modelId: string | undefined): 'image-to-video' | 'reference-to-video' | null {
+  const modes = (modelId ? getModel(modelId)?.modes : undefined) ?? []
+  if (modes.includes('image-to-video')) return 'image-to-video'
+  if (modes.includes('reference-to-video')) return 'reference-to-video'
+  return null
+}
+
+// A still as the data URI a video model seeds from. kie's file host takes a
+// data URI or a URL, never one of our asset refs.
+export async function stillDataUri(ref: string): Promise<string | null> {
+  if (!isAssetRef(ref)) return ref
+  const asset = await getAsBase64(ref)
+  if (!asset) return null
+  return `data:${asset.mimeType};base64,${asset.base64}`
+}
 
 // ── Still ─────────────────────────────────────────────────────────────────
 

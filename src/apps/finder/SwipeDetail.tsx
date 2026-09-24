@@ -12,12 +12,8 @@ import Spinner from '../../components/Spinner'
 import ResultDetailModal from '../discover/components/ResultDetailModal'
 import { swipeToResult } from '../discover/services/swipe'
 import { refreshResultMedia } from '../discover/services/search'
-import {
-  downloadResultVideo,
-  saveVideoFileToDisk,
-  type DownloadProgress,
-} from '../discover/services/handoff'
-import { transcriptForAd } from '../discover/runner'
+import { saveVideoFileToDisk, type DownloadProgress } from '../discover/services/handoff'
+import { downloadAdVideo, transcriptForAd } from '../discover/runner'
 import { useAssetUrl } from '../../hooks/useAssetUrl'
 import { useAppStore } from '../../stores/appStore'
 import { useBankStore } from '../../stores/bankStore'
@@ -26,35 +22,6 @@ import { humanizeError } from '../../utils/friendlyError'
 import type { DiscoverAction, TranscriptState } from '../discover/Discover'
 import type { DiscoverResult } from '../discover/types'
 import type { SwipeItem } from '../../stores/types'
-
-/**
- * Fetches the ad's video, re-resolving the link once if it has expired.
- *
- * A saved row's `mediaUrl` is a signed CDN link with hours (TikTok) or days
- * (Meta) on it, so the first attempt is free and usually fails. `refresh` costs
- * a ScrapeCreators credit, which is why it only ever runs off the back of a
- * real failure — never speculatively, and never on opening a card.
- *
- * Module scope on purpose: a `try`/`finally` inside a component makes the React
- * Compiler skip the whole thing.
- */
-async function downloadWithRefresh(
-  result: DiscoverResult,
-  refresh: () => Promise<string | null>,
-  onProgress?: (p: DownloadProgress) => void,
-): Promise<File> {
-  try {
-    if (result.videoUrl) return await downloadResultVideo(result, onProgress)
-  } catch {
-    // Expired, pulled, or region-blocked — indistinguishable from here, and the
-    // answer is the same either way: ask the platform for a current link.
-  }
-  const fresh = await refresh()
-  if (!fresh) throw new Error('This ad’s video could not be reached.')
-  // Restarts the count: the first attempt's bytes are not part of this file.
-  onProgress?.({ received: 0, total: null })
-  return await downloadResultVideo({ ...result, videoUrl: fresh }, onProgress)
-}
 
 interface SwipeDetailProps {
   item: SwipeItem
@@ -133,7 +100,7 @@ export default function SwipeDetail({ item, onClose }: SwipeDetailProps) {
   const handleAnalyze = useCallback(async () => {
     setBusy('analyze')
     try {
-      const file = await downloadWithRefresh(result, refresh, setDownloadProgress)
+      const file = await downloadAdVideo(result, refresh, setDownloadProgress)
       sendToApp({
         targetApp: 'ad-anatomy',
         targetField: 'adVideo',
@@ -155,7 +122,7 @@ export default function SwipeDetail({ item, onClose }: SwipeDetailProps) {
     try {
       // Re-resolves first so the saved-to-disk path gets the same second chance
       // Analyze does, rather than failing on a link that expired weeks ago.
-      saveVideoFileToDisk(await downloadWithRefresh(result, refresh, setDownloadProgress), result)
+      saveVideoFileToDisk(await downloadAdVideo(result, refresh, setDownloadProgress), result)
     } catch (e) {
       addToast(humanizeError(e, "Couldn't download that video. Try opening the original instead."), 'error')
     } finally {

@@ -63,9 +63,13 @@ interface ModelPickerProps {
   // key is derived from appId+task — which would collide with another picker
   // in the same app using the same task (B-Roll's per-card video picker).
   persistKey?: string
+  // False keeps a pick off the app's own saved model. Flow's blocks carry
+  // their own model each, controlled through `value`/`onChange`; saving it to
+  // the app would also change what that app generates with next time.
+  persist?: boolean
 }
 
-export default function ModelPicker({ appId, task, mode, value, onChange, requireMode, requireAnyModes, requireModeNote, compact, large, row, costParams, allowedModelIds, persistKey }: ModelPickerProps) {
+export default function ModelPicker({ appId, task, mode, value, onChange, requireMode, requireAnyModes, requireModeNote, compact, large, row, costParams, allowedModelIds, persistKey, persist = true }: ModelPickerProps) {
   const setAppModel = useSettingsStore((s) => s.setAppModel)
   const persistedKey = persistKey ?? `${appId}:${task}${mode ? `:${mode}` : ''}`
   // Read the pick THROUGH the selector, never by calling a getter pulled out of
@@ -128,7 +132,7 @@ export default function ModelPicker({ appId, task, mode, value, onChange, requir
   }, [open])
 
   function pick(modelId: string) {
-    setAppModel(persistedKey, modelId)
+    if (persist) setAppModel(persistedKey, modelId)
     onChange?.(modelId)
     setOpen(false)
   }

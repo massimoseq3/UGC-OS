@@ -18,12 +18,13 @@ Built for a private Skool community of solo creators and small teams. Access is 
 | Create | B-Roll | `broll-studio/` | Script → storyboard → stills → clips, Line-by-Line or opt-in Continuous. → [`src/apps/broll-studio/CLAUDE.md`](src/apps/broll-studio/CLAUDE.md) |
 | Create | Playground | `playground/` | Free-form Image / Video / Music with reference slots and @-mentions. → [`src/apps/playground/CLAUDE.md`](src/apps/playground/CLAUDE.md) |
 | Deliver | Edit | `edit-studio/` | Download + setup page for the `/video-editor` skill. → [`src/apps/edit-studio/CLAUDE.md`](src/apps/edit-studio/CLAUDE.md) |
+| Automate | Flow | `flow/` | The apps as blocks on a canvas, wired into one run: templates, Run View, Describe It, Save as Flow. → [`src/apps/flow/CLAUDE.md`](src/apps/flow/CLAUDE.md) |
 
 Each app's own `CLAUDE.md` loads automatically under its folder. Read it before changing that app.
 
 - Dock group order is `SECTION_ORDER` in `utils/constants.ts`; membership is by `category`. Meet Your Workspace reads the same order, so the two can't drift.
 - **Folder names and the `id` strings in `constants.ts` are stable** — they key per-app model picks in localStorage. Never rename them.
-- Outliers is the one app a member can switch off (`stores/appVisibilityStore.ts`, browser-local, Settings → Experimental). Hiding it takes its dock tile, Meet Your Workspace card, route, Swipe File tab and ScrapeCreators field together; nothing is deleted. `OPTIONAL_FEATURES` in the same store holds B-Roll's Continuous mode, which ships OFF.
+- Outliers and Flow are the apps a member can switch off (`stores/appVisibilityStore.ts`, browser-local, Settings → Experimental); Flow ships OFF and is in private beta — `BETA_APPS` shows it, and its switch, only to an admin (or a build with no accounts), so members don't have it at all. Hiding Outliers takes its dock tile, Meet Your Workspace card, route, Swipe File tab and ScrapeCreators field together; hiding Flow takes its pinned flows and every tile's Save as Flow entry with it. Nothing is deleted. `OPTIONAL_FEATURES` in the same store holds B-Roll's Continuous mode, which ships OFF.
 
 ## Role
 
@@ -98,7 +99,7 @@ Defaults (registry order IS the default — `getDefaultModel` falls back to the 
 
 ## Banks (`stores/bankStore.ts`, types in `stores/types.ts`)
 
-`products`, `models`, `scripts`, `voices`, `brolls`, `styles`, `swipes`, `trackedAccounts`, `projects`, the history banks (`voiceHistory`, `videoHistory`, `imageHistory`, `musicHistory`, `scriptHistory`, `brollHistory`, `characterHistory`, `adAnatomyHistory`) and the `usageDays` ledger. Rows hold `asset://<id>` refs; `useAssetUrl(ref)` resolves one.
+`products`, `models`, `scripts`, `voices`, `brolls`, `styles`, `swipes`, `trackedAccounts`, `projects`, `flows`, the history banks (`voiceHistory`, `videoHistory`, `imageHistory`, `musicHistory`, `scriptHistory`, `brollHistory`, `characterHistory`, `adAnatomyHistory`) and the `usageDays` ledger. Rows hold `asset://<id>` refs; `useAssetUrl(ref)` resolves one.
 
 - **No bank may hold two rows with one id.** `add*History` goes through `prependRow`; `normalizeBanks` dedupes on load. A collision shows up as a React key collision, not a duplicate row.
 - **Which banks reach the boot cache and the orphan sweep is a compile-time `satisfies Record<…, true>` guard** (`BANK_DATA_KEYS`, `orphanCleanup`). A bank missing from the sweep's list has its live assets deleted.
@@ -141,11 +142,11 @@ Reach for these instead of re-implementing. One line each; the reasoning is in `
 
 ## Inter-app payloads
 
-`sendToApp({ targetApp, targetField, data })`; the consumer reads `interAppPayload` in a `useEffect` keyed on `activeApp`, dispatches on `targetField`, then `consumePayload()`. Wired: Outliers and the Swipe File → Ad Analyzer (`adVideo`) / Scripts (`winningTranscript`); Ad Analyzer → Scripts (`winningTranscript`, `reverseEngineerPrompt`); Scripts → Voiceovers and B-Roll (`scriptText`) / Playground (`videoPrompt`) / Bank (`activeBank`); B-Roll Bank → Playground (`videoStartFrame`); `BankPicker` → Bank (`openCreate`). Every other consumer branch has no sender. Playground still consumes `videoSourceClip` and nothing sends it — kept so re-wiring the redub loop is one button; B-Roll's `adBlueprint` consumer, the only source of `sceneStaging`, is kept the same way with its Ad Analyzer sender removed.
+`sendToApp({ targetApp, targetField, data })`; the consumer reads `interAppPayload` in a `useEffect` keyed on `activeApp`, dispatches on `targetField`, then `consumePayload()`. Wired: Outliers and the Swipe File → Ad Analyzer (`adVideo`) / Scripts (`winningTranscript`); Ad Analyzer → Scripts (`winningTranscript`, `reverseEngineerPrompt`); Scripts → Voiceovers and B-Roll (`scriptText`) / Playground (`videoPrompt`) / Bank (`activeBank`); B-Roll Bank → Playground (`videoStartFrame`); `BankPicker` → Bank (`openCreate`); anywhere → Flow (`openFlow` from a pinned flow's dock tile, `lineage` from a tile's How It Was Made / Save as Flow). Every other consumer branch has no sender. Playground still consumes `videoSourceClip` and nothing sends it — kept so re-wiring the redub loop is one button; B-Roll's `adBlueprint` consumer, the only source of `sceneStaging`, is kept the same way with its Ad Analyzer sender removed.
 
 ## Shipping
 
-- **`main` is protected: CI must be green before a PR merges.** `npm run typecheck` + `npm run lint`, ~90s. `gh pr merge` fails while it is pending — wait for it; `--admin` is the only bypass and it ships unverified code.
+- **`main` is protected: CI must be green before a PR merges.** `npm run typecheck` + `npm run lint` + `npm test`, ~90s. `gh pr merge` fails while it is pending — wait for it; `--admin` is the only bypass and it ships unverified code.
 - The required check is the job named `ci` in `.github/workflows/ci.yml`. **Renaming that job renames the check and silently un-protects `main`.**
 - **`vercel.json`'s `ignoreCommand` skips preview builds for `claude/*` branches on purpose** — a missing preview there is expected, not broken. Production (`VERCEL_ENV=production`) always builds; a botched edit to that line stops deploys silently.
 - A merged branch is deleted on GitHub automatically; the worktree that made it is yours to `git worktree remove`.

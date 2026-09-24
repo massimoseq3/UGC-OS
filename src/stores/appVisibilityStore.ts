@@ -1,4 +1,6 @@
 import { create } from 'zustand'
+import { isCloudEnabled } from '../lib/supabase'
+import { useAuthStore } from './authStore'
 
 // What a member can switch OFF in Settings → Experimental — whole apps, and
 // single features inside an app. One map, one localStorage blob, because it is
@@ -52,9 +54,41 @@ const RESETS: Array<{ id: string; marker: string }> = [
   { id: 'discover', marker: 'ai-ugc-lab-optional-apps:reset:discover-on-2026-09' },
 ]
 
+// Flow is here while it is Experimental, and ships OFF: it is a canvas that
+// spends credits on every block at once, so a member meets it by choosing to,
+// from Settings, rather than by finding a new tile in the dock. It is also in
+// private beta (BETA_APPS below), so today only the operator has the switch.
 export const OPTIONAL_APPS: Array<{ id: string; defaultOn: boolean }> = [
   { id: 'discover', defaultOn: true },
+  { id: 'flow', defaultOn: false },
 ]
+
+// Apps in private beta: on screen only for the operator — an admin, or a
+// build with no accounts at all (local development, where there is nobody
+// else) — whatever the switch says. A member gets no tile, no route, no
+// Settings row and no entry on any other app's tile, because every one of
+// those reads visibility through the three functions at the bottom of this
+// file. Opening an app to members is taking its id out of this set.
+//
+// This is a view gate, not a lock: a member who faked `is_admin` in their own
+// browser would reach a canvas that spends their own kie key and writes their
+// own rows (RLS still holds every table to its owner). Nothing of anyone
+// else's is behind it.
+export const BETA_APPS: ReadonlySet<string> = new Set(['flow'])
+
+function operator(isAdmin: boolean): boolean {
+  return !isCloudEnabled() || isAdmin
+}
+
+/** The operator — an admin, or a build with no accounts. Non-reactive. */
+export function isOperator(): boolean {
+  return operator(useAuthStore.getState().profile?.is_admin === true)
+}
+
+/** Subscribe to whether the viewer is the operator. */
+export function useIsOperator(): boolean {
+  return operator(useAuthStore((s) => s.profile?.is_admin === true))
+}
 
 /** Optional features — not apps, so they have no dock tile or route to hide. */
 export const OPTIONAL_FEATURES: Array<{ id: string; defaultOn: boolean }> = [
@@ -127,18 +161,27 @@ export const useAppVisibilityStore = create<AppVisibilityState>((set, get) => ({
  * and still reads through here, so the `?? true` default lives in one place.
  */
 export function isAppVisible(appId: string): boolean {
-  return useAppVisibilityStore.getState().visible[appId] ?? true
+  const on = useAppVisibilityStore.getState().visible[appId] ?? true
+  return on && (!BETA_APPS.has(appId) || isOperator())
 }
 
 /** Subscribe to one app's visibility. */
 export function useAppVisible(appId: string): boolean {
-  return useAppVisibilityStore((s) => s.visible[appId] ?? true)
+  const on = useAppVisibilityStore((s) => s.visible[appId] ?? true)
+  const isOp = useIsOperator()
+  return on && (!BETA_APPS.has(appId) || isOp)
 }
 
 /** Subscribe to the whole map, as a predicate — for a surface filtering a list. */
 export function useIsAppVisible(): (appId: string) => boolean {
   const visible = useAppVisibilityStore((s) => s.visible)
-  return (appId: string) => visible[appId] ?? true
+  const isOp = useIsOperator()
+  return (appId: string) => (visible[appId] ?? true) && (!BETA_APPS.has(appId) || isOp)
+}
+
+/** The switch as the viewer set it, before any beta gate — for the switch itself. */
+export function useAppSwitchedOn(appId: string): boolean {
+  return useAppVisibilityStore((s) => s.visible[appId] ?? true)
 }
 
 /** Subscribe to one optional feature. Same map as the apps, different word. */

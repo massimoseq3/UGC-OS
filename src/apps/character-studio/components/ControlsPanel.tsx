@@ -114,6 +114,10 @@ interface ControlsPanelProps {
   batchCount: number
   onBatchCountChange: (value: number) => void
   inFlightCount: number
+  // Flow's Characters block — see GenerateBar.
+  modelId?: string
+  onModelChange?: (modelId: string) => void
+  actionLabel?: string
 }
 
 export default function ControlsPanel({
@@ -139,6 +143,9 @@ export default function ControlsPanel({
   batchCount,
   onBatchCountChange,
   inFlightCount,
+  modelId,
+  onModelChange,
+  actionLabel,
 }: ControlsPanelProps) {
   const setField = (key: string, value: string) => {
     onProfileChange({ ...profile, [key]: value })
@@ -436,6 +443,9 @@ export default function ControlsPanel({
           batchCount={batchCount}
           onBatchCountChange={onBatchCountChange}
           inFlightCount={inFlightCount}
+          modelId={modelId}
+          onModelChange={onModelChange}
+          actionLabel={actionLabel}
         />
 
         {/* Scoped preset pickers — same modal as the footer's full picker,

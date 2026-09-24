@@ -1,12 +1,13 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
-import { Settings } from 'lucide-react'
+import { Settings, Workflow } from 'lucide-react'
 import { useAppStore } from '../stores/appStore'
 import { useActivityStore } from '../stores/activityStore'
 import { useChromeHidden } from '../stores/chromeStore'
 import { useSkillUpdateUnseen } from '../stores/skillUpdateStore'
 import { useIsAppVisible } from '../stores/appVisibilityStore'
 import { APP_REGISTRY, SECTION_ORDER, type AppConfig } from '../utils/constants'
-import AppGlassTile from './AppGlassTile'
+import AppGlassTile, { GlassTile } from './AppGlassTile'
+import { useBankStore } from '../stores/bankStore'
 import { MountOnce, SettingsModal } from './LazyOverlays'
 import { loadSettingsModal, preloadApp } from '../appChunks'
 
@@ -39,6 +40,12 @@ export default function Dock() {
   // below, so its divider goes with it.
   const isVisible = useIsAppVisible()
   const [settingsOpen, setSettingsOpen] = useState(false)
+  // Flows pinned to the dock open as apps of their own, beside Flow. The whole
+  // bank list is read and filtered here: a selector returning a fresh array
+  // re-renders the dock on every store change.
+  const flows = useBankStore((s) => s.flows)
+  const pinnedFlows = isVisible('flow') ? flows.filter((f) => f.pinned) : []
+  const sendToApp = useAppStore((s) => s.sendToApp)
 
   // On a phone the dock is wider than the screen and scrolls, so the running
   // app's tile is often off to one side — including right after a handoff moved
@@ -84,6 +91,18 @@ export default function Dock() {
                   badge={app.id === 'edit-studio' && skillUpdate}
                   onClick={() => openApp(app.id)}
                 />
+              ))}
+              {apps[0].category === 'automate' && pinnedFlows.map((f) => (
+                <DockItem
+                  key={f.id}
+                  label={f.name}
+                  title={f.name}
+                  accent="#0891B2"
+                  onClick={() => sendToApp({ targetApp: 'flow', targetField: 'openFlow', data: { flowId: f.id, view: 'run' } })}
+                  onIntent={() => preloadApp('flow')}
+                >
+                  <GlassTile icon={Workflow} accent="#0E7490" />
+                </DockItem>
               ))}
             </Fragment>
           ))}

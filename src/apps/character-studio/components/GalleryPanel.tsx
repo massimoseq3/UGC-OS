@@ -14,6 +14,8 @@ import { createEmptyProfile, type CharacterProfile, type InFlightCharacterGen, t
 import { getModel } from '../../../utils/models'
 import SegmentedToggle from '../../../components/SegmentedToggle'
 import { TileActionStack, TileActionButton, TileDeleteButton, TileMenuButton, TileMenuItem } from '../../../components/tileActions'
+import FlowLineageItems from '../../../components/FlowLineageItems'
+import { useAppVisible } from '../../../stores/appVisibilityStore'
 import DayPill from '../../../components/DayPill'
 import { AwaitingCanvas } from '../../../components/GridCanvas'
 import InfluencerEditModal from './InfluencerEditModal'
@@ -1270,6 +1272,8 @@ function HistoryTile({
   // tile is one of hundreds: the thumbnail.
   const a = useHistoryTileActions(item, onDelete, scrollRoot ? near : true, fitted)
   const [menuOpen, setMenuOpen] = useState(false)
+  // Flow's How It Was Made and Save as Flow join the ⋮ while Flow is on.
+  const flowRows = useAppVisible('flow') ? 2 : 0
   const closeMenu = () => setMenuOpen(false)
 
   return (
@@ -1349,7 +1353,7 @@ function HistoryTile({
             open={menuOpen}
             onToggle={() => setMenuOpen((v) => !v)}
             onClose={() => setMenuOpen(false)}
-            count={a.isSheet ? 3 : 4}
+            count={(a.isSheet ? 3 : 4) + flowRows}
           >
             <TileMenuItem icon={Copy} label="Copy Prompt" onClick={onCopyPrompt} onClose={closeMenu} />
             <TileMenuItem icon={CornerDownLeft} label="Reuse Prompt" onClick={onReuse} onClose={closeMenu} />
@@ -1357,6 +1361,7 @@ function HistoryTile({
             {!a.isSheet && (
               <TileMenuItem icon={LayoutGrid} label="Make Character Sheet" onClick={onMakeSheet} onClose={closeMenu} />
             )}
+            <FlowLineageItems row={{ bank: 'characterHistory', id: item.id }} onClose={closeMenu} />
           </TileMenuButton>
         </TileActionStack>
       )}
@@ -1441,6 +1446,8 @@ function HistoryListRow({
   const { ref: rowRef, near } = useNearViewport<HTMLDivElement>(scrollRoot ?? ownRoot)
   const a = useHistoryTileActions(item, onDelete, scrollRoot ? near : true)
   const [menuOpen, setMenuOpen] = useState(false)
+  // Flow's How It Was Made and Save as Flow join the ⋮ while Flow is on.
+  const flowRows = useAppVisible('flow') ? 2 : 0
   const closeMenu = () => setMenuOpen(false)
   const prompt = buildImagePrompt(item.profile).trim()
 
@@ -1564,7 +1571,7 @@ function HistoryListRow({
               open={menuOpen}
               onToggle={() => setMenuOpen((v) => !v)}
               onClose={closeMenu}
-              count={a.isSheet ? 4 : 5}
+              count={(a.isSheet ? 4 : 5) + flowRows}
             >
               {/* Edit leads the menu here rather than taking a circle of its
                   own as it does on the grid tile: four is what this line fits,
@@ -1576,6 +1583,7 @@ function HistoryListRow({
               {!a.isSheet && (
                 <TileMenuItem icon={LayoutGrid} label="Make Character Sheet" onClick={onMakeSheet} onClose={closeMenu} />
               )}
+              <FlowLineageItems row={{ bank: 'characterHistory', id: item.id }} onClose={closeMenu} />
             </TileMenuButton>
           </div>
         )}

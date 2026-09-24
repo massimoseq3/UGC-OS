@@ -7,7 +7,7 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { useThemeStore, type ThemePref } from '../stores/themeStore'
 import { useGenerationInfoStore } from '../stores/generationInfoStore'
 import { useRecordingStore } from '../stores/recordingStore'
-import { useAppVisible, useAppVisibilityStore, useFeatureEnabled } from '../stores/appVisibilityStore'
+import { useAppSwitchedOn, useAppVisible, useAppVisibilityStore, useFeatureEnabled, useIsOperator } from '../stores/appVisibilityStore'
 import SegmentedToggle from './SegmentedToggle'
 import useCloseOnEscape from '../hooks/useCloseOnEscape'
 import { useCloseOnAppSwitch } from '../hooks/useCloseOnAppSwitch'
@@ -123,6 +123,10 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   // Continuous mode is the same deal one level down, and ships off. See
   // stores/appVisibilityStore for what each switch actually moves.
   const outliersOn = useAppVisible('discover')
+  // Flow is in private beta: its switch is the operator's alone, and reads
+  // the switch as set rather than through the beta gate.
+  const flowOn = useAppSwitchedOn('flow')
+  const showFlowSwitch = useIsOperator()
   const continuousOn = useFeatureEnabled('broll-continuous')
   const setOptionalEnabled = useAppVisibilityStore((s) => s.setOptionalEnabled)
 
@@ -592,6 +596,16 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     onChange={(next) => setOptionalEnabled('discover', next)}
                   />
                 </Card>
+                {showFlowSwitch && (
+                  <Card>
+                    <ToggleRow
+                      label="Flow · Beta"
+                      hint="Wire your apps into one run on a canvas: scripts, voiceovers and B-Roll for a batch of ads in one press. Private beta: only admins see this switch, and members don't have Flow yet. Off hides its dock tile. Nothing is deleted."
+                      checked={flowOn}
+                      onChange={(next) => setOptionalEnabled('flow', next)}
+                    />
+                  </Card>
+                )}
                 <Card>
                   <ToggleRow
                     label="Continuous B-Roll"

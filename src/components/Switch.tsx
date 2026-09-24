@@ -5,6 +5,7 @@
 const TRACK_ON = {
   broll: 'bg-broll-500',
   rose: 'bg-rose-500',
+  flow: 'bg-flow-500',
 } as const
 
 export default function Switch({

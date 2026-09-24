@@ -82,6 +82,11 @@ export function lineageOf(...sources: Array<LineageSource | LineageSource[]>): L
 // The history row with its provenance stamped on. Only fields that hold
 // something are written, so an unstamped run leaves the row exactly as it was.
 export function withProvenance<T extends Provenance>(row: T, provenance: Provenance | undefined): T {
+  const stamped: T = { ...row }
   const parents = lineageOf(provenance?.parents)
-  return parents ? { ...row, parents } : row
+  if (parents) stamped.parents = parents
+  if (provenance?.flowId) stamped.flowId = provenance.flowId
+  if (provenance?.flowRunId) stamped.flowRunId = provenance.flowRunId
+  if (provenance?.flowBlockId) stamped.flowBlockId = provenance.flowBlockId
+  return stamped
 }

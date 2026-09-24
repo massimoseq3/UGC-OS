@@ -295,6 +295,14 @@ export interface Lineage {
 // no row written before the runners existed carries any of it.
 export interface Provenance {
   parents?: Lineage[]
+  // The Flow that made this row, when a Flow block ran it (apps/flow): the
+  // flow, the run and the block. The `projectId` rule again — generations
+  // point at the flow, never the reverse, so deleting a flow can't take a
+  // generation with it; the ids are left dangling and read as "made in a
+  // flow that's gone".
+  flowId?: string
+  flowRunId?: string
+  flowBlockId?: string
 }
 
 // One generation in B-Roll Videos. Pushed automatically on every successful
@@ -644,6 +652,32 @@ export interface UsageDay {
   officialUsd: number
   createdAt: number
   apps?: Record<string, AppUsageStat>
+}
+
+// One Flow — a canvas of app blocks wired into one run (apps/flow). The row is
+// the flow's LAYOUT and SETTINGS, plus each block's latest results so a flow
+// reopens as it was left and a run can skip every block nothing changed. What
+// the blocks make lands in the history banks like any other generation,
+// stamped with the flow that made it (`Provenance.flowId`), so this row never
+// owns a generation and deleting it can't take one with it.
+//
+// `blocks`, `wires` and `outputs` are opaque here, the brollHistory rule: this
+// file stays decoupled from the app's own types (apps/flow/types.ts). Images a
+// member drops onto a canvas are `asset://` refs inside `blocks`, never base64,
+// which also keeps them off the orphan sweep's list.
+export interface FlowRow {
+  id: string
+  name: string
+  blocks: unknown[]
+  wires: unknown[]
+  outputs?: unknown
+  // Set on a flow imported from a template file, so a newer version of the
+  // same template can be offered later.
+  template?: { id: string; version: number; sourceUrl?: string }
+  // Shown in the dock beside Flow's own tile.
+  pinned?: boolean
+  createdAt: number
+  updatedAt: number
 }
 
 // Anything the bank picker can hand back. Declared once here because the same
