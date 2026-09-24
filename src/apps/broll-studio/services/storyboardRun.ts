@@ -23,6 +23,12 @@
 // Module-level, so switching apps mid-write doesn't kill the run — the same
 // property analysisQueue.ts has. Unlike that one there's no concurrency cap:
 // the panel already refuses a second storyboard while one is in flight.
+//
+// The writing and the parsing are ROW-FREE (`writeStoryboardText`,
+// `resumeStoryboardText`, `parseStoryboardText`), so something with no
+// history row to write into — Flow's B-Roll block — produces a storyboard the
+// same way. The job below is B-Roll's own use of them: it persists the taskId
+// on the row and lands the parse there.
 
 import {
   createTask,
@@ -40,7 +46,7 @@ import { useSettingsStore, resolveScriptModel } from '../../../stores/settingsSt
 import { useBankStore } from '../../../stores/bankStore'
 import type { BrollHistoryItem } from '../../../stores/types'
 import { humanizeError } from '../../../utils/friendlyError'
-import type { BrollInput } from '../types'
+import type { BrollDelivery, BrollInput, BrollResult, ContinuousResult } from '../types'
 import { buildBrollMessages, buildBrollResult } from './generateBroll'
 import {
   isStoryboardShort,
@@ -180,15 +186,21 @@ async function streamChatText(apiKey: string, modelId: string, messages: ChatMes
   }
 }
 
-async function produceText(rowId: string, messages: ChatMessage[]): Promise<ProducedText> {
+export interface WriteStoryboardOptions {
+  // The writer model. Absent means B-Roll's own pick (`broll-studio:chat`).
+  modelId?: string
+  // Where the caller persists the job's taskId. Awaited BEFORE the poll
+  // starts: that write is the entire resume story, and the window it closes is
+  // the one where a reload lands seconds after the click. Never called for a
+  // streamed run, which has no task to go back to.
+  onTaskId?: (taskId: string) => unknown
+}
+
+async function produceText(messages: ChatMessage[], modelId: string, onTaskId?: WriteStoryboardOptions['onTaskId']): Promise<ProducedText> {
   const apiKey = useSettingsStore.getState().getKieApiKey()
-  const modelId = resolveScriptModel('broll-studio')
   const taskId = await startChatTask(apiKey, modelId, messages)
   if (taskId) {
-    // Persisted BEFORE the poll starts: that write is the entire resume story,
-    // and the window it closes is the one where a reload lands seconds after
-    // the click.
-    await patchRow(rowId, { storyboardTaskId: taskId })
+    await onTaskId?.(taskId)
     return pollChatText(taskId)
   }
   return streamChatText(apiKey, modelId, messages)
@@ -201,9 +213,8 @@ async function produceText(rowId: string, messages: ChatMessage[]): Promise<Prod
  * the row means a reload resumes what it always did — the opening run — which
  * is short but coherent, and says so.
  */
-async function continueText(messages: ChatMessage[]): Promise<ProducedText> {
+async function continueText(messages: ChatMessage[], modelId: string): Promise<ProducedText> {
   const apiKey = useSettingsStore.getState().getKieApiKey()
-  const modelId = resolveScriptModel('broll-studio')
   const taskId = await startChatTask(apiKey, modelId, messages)
   return taskId ? pollChatText(taskId) : streamChatText(apiKey, modelId, messages)
 }
@@ -219,12 +230,14 @@ async function continueText(messages: ChatMessage[]): Promise<ProducedText> {
  * the member what the previous round already wrote.
  */
 async function produceStoryboardText(
-  rowId: string,
   mode: StoryboardMode,
   scriptText: string,
   messages: ChatMessage[],
-): Promise<{ text: string; complete: boolean }> {
-  let { text, truncated } = await produceText(rowId, messages)
+  opts: WriteStoryboardOptions,
+): Promise<StoryboardText> {
+  // One writer for the whole run, continuations included.
+  const modelId = opts.modelId ?? resolveScriptModel('broll-studio')
+  let { text, truncated } = await produceText(messages, modelId, opts.onTaskId)
   const done = () => !truncated && !isStoryboardShort(scriptText, text)
 
   for (let attempt = 0; attempt < MAX_STORYBOARD_CONTINUATIONS && !done(); attempt++) {
@@ -240,7 +253,7 @@ async function produceStoryboardText(
     // settles with the scenes in hand, plus the warning saying they stop short.
     let more: ProducedText
     try {
-      more = await continueText(continuationMessages(messages, head, mode))
+      more = await continueText(continuationMessages(messages, head, mode), modelId)
     } catch (err) {
       console.warn('[broll] storyboard continuation failed — keeping what landed', err)
       break
@@ -254,43 +267,105 @@ async function produceStoryboardText(
   return { text, complete: done() }
 }
 
+// A storyboard's text, and whether it reaches the end of the script.
+export interface StoryboardText {
+  text: string
+  complete: boolean
+}
+
+/**
+ * Write a storyboard all the way to the end of its script — row-free. The
+ * messages are built here from the request, so the caller hands over what the
+ * panel would have.
+ */
+export async function writeStoryboardText(req: StoryboardRequest, opts: WriteStoryboardOptions = {}): Promise<StoryboardText> {
+  const messages = req.mode === 'line'
+    ? await buildBrollMessages(req.input)
+    : await buildContinuousMessages(req.input)
+  return produceStoryboardText(req.mode, req.input.scriptText, messages, opts)
+}
+
+/**
+ * Re-attach to a storyboard task a previous page load started. A resumed run
+ * cannot be continued: the messages that produced it went down with that page,
+ * and rebuilding them would drop the product and character context the
+ * storyboard was written against. So it is checked against the script and
+ * reported rather than repaired.
+ */
+export async function resumeStoryboardText(taskId: string, scriptText: string): Promise<StoryboardText> {
+  const { text, truncated } = await pollChatText(taskId)
+  return { text, complete: !truncated && !isStoryboardShort(scriptText, text) }
+}
+
 // ── Parsing ──────────────────────────────────────────────────────────────
 
-// The response is read against the ROW, never against live panel state: the row
-// stamped the delivery, style and video model at Generate, so a storyboard that
-// finishes after a reload — or after the member has changed the panel while
-// waiting — parses exactly as it would have at the moment it was fired.
-function parseStoryboard(row: BrollHistoryItem, text: string): Partial<BrollHistoryItem> {
-  if (row.mode === 'continuous') {
+// Everything a storyboard's text is read against, snapshotted when it was
+// fired — never read off the live panel, which may have moved since.
+export interface StoryboardParseContext {
+  mode: StoryboardMode
+  scriptText: string
+  delivery?: BrollDelivery
+  styleId: string
+  styleBrief?: string
+  styleName?: string
+  // Continuous only: the video model whose ladder scene lengths snap to.
+  continuousModelId?: string
+}
+
+export type ParsedStoryboard =
+  | { mode: 'line'; result: BrollResult }
+  | { mode: 'continuous'; result: ContinuousResult }
+
+export function parseStoryboardText(text: string, ctx: StoryboardParseContext): ParsedStoryboard {
+  if (ctx.mode === 'continuous') {
     const result = parseContinuousResult(text, {
-      scriptText: row.scriptText ?? '',
-      styleId: row.styleId ?? '',
-      styleBrief: row.styleBrief,
-      modelId: row.continuousModelId ?? CONTINUOUS_DEFAULT_MODEL_ID,
+      scriptText: ctx.scriptText,
+      styleId: ctx.styleId,
+      styleBrief: ctx.styleBrief,
+      modelId: ctx.continuousModelId ?? CONTINUOUS_DEFAULT_MODEL_ID,
       // Prompt-only fields: the messages were built and sent long before this.
       productContext: '',
       modelContext: '',
       additionalContext: '',
     })
     if (!result) throw new Error('The storyboard came back empty. Try again.')
-    return { continuousResult: result }
+    return { mode: 'continuous', result }
   }
   return {
+    mode: 'line',
     result: buildBrollResult(text, {
-      delivery: row.lineDelivery ?? 'silent',
-      styleId: row.styleId ?? '',
-      styleBrief: row.styleBrief,
-      styleName: row.styleName,
+      delivery: ctx.delivery ?? 'silent',
+      styleId: ctx.styleId,
+      styleBrief: ctx.styleBrief,
+      styleName: ctx.styleName,
     }),
-    cardStates: {},
   }
+}
+
+// B-Roll reads the response against the ROW: it stamped the delivery, style and
+// video model at Generate, so a storyboard that finishes after a reload — or
+// after the member changed the panel while waiting — parses exactly as it would
+// have at the moment it was fired.
+function parseStoryboard(row: BrollHistoryItem, text: string): Partial<BrollHistoryItem> {
+  const parsed = parseStoryboardText(text, {
+    mode: row.mode === 'continuous' ? 'continuous' : 'line',
+    scriptText: row.scriptText ?? '',
+    delivery: row.lineDelivery,
+    styleId: row.styleId ?? '',
+    styleBrief: row.styleBrief,
+    styleName: row.styleName,
+    continuousModelId: row.continuousModelId,
+  })
+  return parsed.mode === 'continuous'
+    ? { continuousResult: parsed.result }
+    : { result: parsed.result, cardStates: {} }
 }
 
 // ── Running ──────────────────────────────────────────────────────────────
 
 async function runJob(
   rowId: string,
-  produce: () => Promise<{ text: string; complete: boolean }>,
+  produce: () => Promise<StoryboardText>,
 ): Promise<void> {
   if (running.has(rowId)) return
   running.add(rowId)
@@ -326,12 +401,9 @@ async function runJob(
 
 /** Fire a storyboard for a row already written in the 'writing' state. */
 export function startStoryboard(rowId: string, req: StoryboardRequest): void {
-  void runJob(rowId, async () => {
-    const messages = req.mode === 'line'
-      ? await buildBrollMessages(req.input)
-      : await buildContinuousMessages(req.input)
-    return produceStoryboardText(rowId, req.mode, req.input.scriptText, messages)
-  })
+  void runJob(rowId, () => writeStoryboardText(req, {
+    onTaskId: (taskId) => patchRow(rowId, { storyboardTaskId: taskId }),
+  }))
 }
 
 /**
@@ -343,15 +415,9 @@ export function resumeStoryboard(row: BrollHistoryItem): boolean {
   const taskId = row.storyboardTaskId
   if (row.storyboardStatus !== 'writing' || !taskId || running.has(row.id)) return false
   console.info(`[broll] resuming storyboard task ${taskId}`)
-  // A resumed run cannot be continued: the messages that produced it went down
-  // with the previous page, and rebuilding them from the row would drop the
-  // product and character context the storyboard was written against. So it is
-  // checked and reported rather than repaired — the member is told it stopped
-  // short instead of finding out by scrolling.
-  void runJob(row.id, async () => {
-    const { text, truncated } = await pollChatText(taskId)
-    return { text, complete: !truncated && !isStoryboardShort(row.scriptText ?? '', text) }
-  })
+  // Checked and reported rather than continued — the member is told it stopped
+  // short instead of finding out by scrolling. See resumeStoryboardText.
+  void runJob(row.id, () => resumeStoryboardText(taskId, row.scriptText ?? ''))
   return true
 }
 

@@ -2,13 +2,12 @@ import type { BrollInput, BrollResult, Scene, PromptVariation, ReferenceImage, V
 import { useSettingsStore, resolveScriptModel } from '../../../stores/settingsStore'
 import {
   kieChatCompletions,
-  ensureHostedUrl,
   createTask,
   LONG_CHAT_TIMEOUT_MS,
   type ChatMessage,
 } from '../../../utils/kie'
 import { getDefaultModel, getChatTarget, buildImageInput, getModel, type ChatTarget, type AspectRatio, type ImageResolution } from '../../../utils/models'
-import { isAssetRef, getAsBase64 } from '../../../utils/assetStore'
+import { hostedUrlFor } from '../../../utils/hostedUrl'
 import { finishImageAssetTask } from '../../../utils/imageTask'
 import { useBankStore } from '../../../stores/bankStore'
 import { withIphoneRealism, withNoOnScreenText, withSingleFrame } from './realism'
@@ -771,7 +770,7 @@ export async function startImageTask(
   // rather than stripped — flips which preamble scopes the refs.
   // Continuous mode passes noRealism (the stylized-3D aesthetic is the opposite
   // of the iPhone stack) and its own chain-continuity preamble.
-  opts?: { inheritReference?: boolean; noRealism?: boolean; preambleOverride?: string },
+  opts?: { inheritReference?: boolean; noRealism?: boolean; preambleOverride?: string; signal?: AbortSignal },
 ): Promise<{ taskId: string; modelId: string }> {
   const apiKey = useSettingsStore.getState().getKieApiKey()
   const hasRefs = !!referenceImages?.length
@@ -780,18 +779,13 @@ export async function startImageTask(
   const modelId = resolveImageModelId(hasRefs)
   if (!modelId) throw new Error(`No image model configured for B-Roll (${mode}).`)
 
-  // Convert each reference (asset ref or data URL) to a kie-hosted URL.
+  // Convert each reference (asset ref or data URL) to a kie-hosted URL. One
+  // whose asset has gone is skipped, not fatal.
   const inputUrls: string[] = []
   if (hasRefs) {
     for (const ref of referenceImages!) {
-      let dataUri = ref.dataUrl
-      if (isAssetRef(ref.dataUrl)) {
-        const asset = await getAsBase64(ref.dataUrl)
-        if (!asset) continue
-        dataUri = `data:${asset.mimeType};base64,${asset.base64}`
-      }
-      const hosted = await ensureHostedUrl(apiKey, dataUri)
-      inputUrls.push(hosted)
+      const hosted = await hostedUrlFor(apiKey, ref.dataUrl)
+      if (hosted) inputUrls.push(hosted)
     }
   }
 
@@ -816,7 +810,7 @@ export async function startImageTask(
     resolution,
     inputUrls: inputUrls.length > 0 ? inputUrls : undefined,
   })
-  const taskId = await createTask(apiKey, modelId, body)
+  const taskId = await createTask(apiKey, modelId, body, opts?.signal)
   return { taskId, modelId }
 }
 
@@ -827,8 +821,13 @@ export async function startImageTask(
  * `resolution` only feeds the usage ledger's credit estimate (callers persist
  * it on the in-flight entry); omitted → base-tier estimate.
  */
-export async function finishImageTask(taskId: string, modelId: string, resolution?: string): Promise<string> {
-  const assetRef = await finishImageAssetTask(taskId, modelId)
+export async function finishImageTask(
+  taskId: string,
+  modelId: string,
+  resolution?: string,
+  signal?: AbortSignal,
+): Promise<string> {
+  const assetRef = await finishImageAssetTask(taskId, modelId, { signal })
   // B-Roll stills don't push an imageHistory row (card state lives in the
   // session snapshot), so this is their usage-ledger hook.
   useBankStore.getState().recordUsage({ kind: 'image', modelId, params: { resolution, imageCount: 1 } })
