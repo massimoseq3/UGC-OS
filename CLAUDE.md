@@ -24,7 +24,7 @@ Each app's own `CLAUDE.md` loads automatically under its folder. Read it before 
 
 - Dock group order is `SECTION_ORDER` in `utils/constants.ts`; membership is by `category`. Meet Your Workspace reads the same order, so the two can't drift.
 - **Folder names and the `id` strings in `constants.ts` are stable** — they key per-app model picks in localStorage. Never rename them.
-- Outliers and Flow are the apps a member can switch off (`stores/appVisibilityStore.ts`, browser-local, Settings → Experimental); Flow ships OFF. Hiding Outliers takes its dock tile, Meet Your Workspace card, route, Swipe File tab and ScrapeCreators field together; hiding Flow takes its pinned flows and every tile's Save as Flow entry with it. Nothing is deleted. `OPTIONAL_FEATURES` in the same store holds B-Roll's Continuous mode, which ships OFF.
+- Outliers and Flow are the apps a member can switch off (`stores/appVisibilityStore.ts`, browser-local, Settings → Experimental); Flow ships OFF and is in private beta — `BETA_APPS` shows it, and its switch, only to an admin (or a build with no accounts), so members don't have it at all. Hiding Outliers takes its dock tile, Meet Your Workspace card, route, Swipe File tab and ScrapeCreators field together; hiding Flow takes its pinned flows and every tile's Save as Flow entry with it. Nothing is deleted. `OPTIONAL_FEATURES` in the same store holds B-Roll's Continuous mode, which ships OFF.
 
 ## Role
 
