@@ -29,7 +29,7 @@ export type Tag = 'recommended' | 'new' | 'fast' | 'cheap'
 // two, which is why `chatSlug` exists — Opus 5 and Sonnet 5 share one endpoint.
 //   'openai-chat'      POST /<slug>/v1/chat/completions   (Gemini family)
 //   'claude-messages'  POST /claude/v1/messages           (Claude family)
-//   'openai-responses' POST /codex|grok|openai/v1/responses (GPT 5.6, Grok, DeepSeek)
+//   'openai-responses' POST /codex|grok|openai/v1/responses (GPT 5.6, Grok, DeepSeek, Kimi)
 export type ChatTransport = 'openai-chat' | 'claude-messages' | 'openai-responses'
 
 // What the script-model picker shows beside a chat model. `intelligence` is
@@ -381,6 +381,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
   //   Claude Sonnet 5      170        855      0.5125
   //   GPT 5.6 Sol          280       1680      0.98
   //   Claude Opus 5        400       2000      1.20
+  //   Kimi K3              480       2400      1.44    (2026-09-24)
   //
   // `official` is kie's own "Official / Fal Price" column, blended the same way
   // — which is what makes the picker's "% off" chip real (−85% on the 3.8 row
@@ -631,6 +632,33 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     chatSlug: 'deepseek-v4-1-flash',
     chatRating: {
       intelligence: 3,
+    },
+  },
+
+  {
+    id: 'kimi-k3',
+    displayName: 'Kimi K3',
+    provider: 'Moonshot AI',
+    task: 'chat',
+    tags: ['new'],
+    // 480 in / 2400 out credits per million (kie.ai/kimi-k3, 2026-09-24) ->
+    // 1.44 blended per 1k: the DEAREST row in either picker, above Claude
+    // Opus 5's 1.20. No `official` — the dollar figures on kie's page ($2.40 /
+    // $12.00) are kie's own credits converted, not Moonshot's list price, so
+    // there is nothing verified to compare against and the row carries no
+    // "% off" chip. The cached-input tier (48/M) is ignored like every other.
+    pricing: { unit: 'per-1k-tokens', credits: 1.44 },
+    // Same unified Responses route as DeepSeek above, named by `chatSlug`
+    // (docs.kie.ai, "Kimi K3"). It reasons by default and bills reasoning as
+    // OUTPUT tokens — at this output rate that is the whole cost story, so
+    // our `reasoning.effort` ('low' unless a caller asks for more) matters
+    // more here than on any other row. Images go in as `input_image`; a video
+    // does not, so keep it off CHAT_MODEL_STRONG for the same reason as Grok.
+    chatEndpoint: '/openai/v1/responses',
+    chatTransport: 'openai-responses',
+    chatSlug: 'kimi-k3',
+    chatRating: {
+      intelligence: 4,
     },
   },
 
