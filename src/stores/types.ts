@@ -673,7 +673,7 @@ export interface FlowRow {
   outputs?: unknown
   // Set on a flow imported from a template file, so a newer version of the
   // same template can be offered later.
-  template?: { id: string; version: number; sourceUrl?: string }
+  template?: { id: string; version: number; sourceUrl?: string; skipped?: number }
   // Shown in the dock beside Flow's own tile.
   pinned?: boolean
   createdAt: number

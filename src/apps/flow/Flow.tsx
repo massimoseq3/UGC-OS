@@ -11,6 +11,7 @@ import { useBankStore } from '../../stores/bankStore'
 import FlowHome from './components/FlowHome'
 import Editor from './components/Editor'
 import LineageModal from './components/LineageModal'
+import { loadGallery } from './templates/gallery'
 import type { LineageBank } from '../../stores/types'
 import '@xyflow/react/dist/style.css'
 import './flow.css'
@@ -26,6 +27,7 @@ export default function Flow() {
   const openFlow = useFlowStore((s) => s.openFlow)
   const setView = useFlowStore((s) => s.setView)
   const openLineage = useFlowStore((s) => s.openLineage)
+  const openSetup = useFlowStore((s) => s.openSetup)
 
   // A pinned flow's dock tile opens it as an app, in Run View; an app tile's
   // How It Was Made or Save as Flow opens that window over whatever Flow
@@ -44,8 +46,22 @@ export default function Flow() {
       useAppStore.getState().consumePayload()
       const data = payload.data as { bank?: LineageBank; id?: string; view?: 'how' | 'save' }
       if (data.bank && data.id) openLineage({ bank: data.bank, id: data.id }, data.view ?? 'how')
+    } else if (payload.targetField === 'openTemplate') {
+      // A share link: that gallery template's setup, over Flow Home.
+      useAppStore.getState().consumePayload()
+      const slug = (payload.data as { slug?: string }).slug
+      if (!slug) return
+      void loadGallery().then((entries) => {
+        const entry = entries.find((e) => e.slug === slug)
+        if (!entry) {
+          useAppStore.getState().addToast("That template isn't in the gallery any more. Flow Home has the current ones.", 'info')
+          return
+        }
+        openFlow(null)
+        openSetup({ kind: 'gallery', entry })
+      })
     }
-  }, [activeApp, payload, openFlow, setView, openLineage])
+  }, [activeApp, payload, openFlow, setView, openLineage, openSetup])
 
   // A run the last page load left going picks up where it was, whether or
   // not the flow it belongs to is the one on screen.

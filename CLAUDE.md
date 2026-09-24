@@ -85,7 +85,7 @@ Defaults (registry order IS the default — `getDefaultModel` falls back to the 
 
 ## Auth + cloud sync
 
-- `AuthGate` order is load-bearing: bootstrapping → recovery → signed-out → lapsed → workspace. `syncBlocked` stops sync in recovery and lapsed.
+- `AuthGate` order is load-bearing: bootstrapping → recovery → signed-out → lapsed → workspace. `syncBlocked` stops sync in recovery and lapsed. The routes outside it — `/legal/*` and Flow's public template page `/t/<slug>` — read static files only, never a bank, a synced store or a key.
 - **The UI never `await`s a cloud round-trip.** Local write first, push in the background; durability is the synchronous localStorage outbox replayed by `drainOutbox()`.
 - **Hydrate is non-destructive** — a per-table error keeps local rows. **Every whole-table read is paged** through `selectAllRows`.
 - Every cloud write awaits `ensureFreshSession()`; the client uses a custom non-blocking `auth.lock`.
@@ -142,7 +142,7 @@ Reach for these instead of re-implementing. One line each; the reasoning is in `
 
 ## Inter-app payloads
 
-`sendToApp({ targetApp, targetField, data })`; the consumer reads `interAppPayload` in a `useEffect` keyed on `activeApp`, dispatches on `targetField`, then `consumePayload()`. Wired: Outliers and the Swipe File → Ad Analyzer (`adVideo`) / Scripts (`winningTranscript`); Ad Analyzer → Scripts (`winningTranscript`, `reverseEngineerPrompt`); Scripts → Voiceovers and B-Roll (`scriptText`) / Playground (`videoPrompt`) / Bank (`activeBank`); B-Roll Bank → Playground (`videoStartFrame`); `BankPicker` → Bank (`openCreate`); anywhere → Flow (`openFlow` from a pinned flow's dock tile, `lineage` from a tile's How It Was Made / Save as Flow). Every other consumer branch has no sender. Playground still consumes `videoSourceClip` and nothing sends it — kept so re-wiring the redub loop is one button; B-Roll's `adBlueprint` consumer, the only source of `sceneStaging`, is kept the same way with its Ad Analyzer sender removed.
+`sendToApp({ targetApp, targetField, data })`; the consumer reads `interAppPayload` in a `useEffect` keyed on `activeApp`, dispatches on `targetField`, then `consumePayload()`. Wired: Outliers and the Swipe File → Ad Analyzer (`adVideo`) / Scripts (`winningTranscript`); Ad Analyzer → Scripts (`winningTranscript`, `reverseEngineerPrompt`); Scripts → Voiceovers and B-Roll (`scriptText`) / Playground (`videoPrompt`) / Bank (`activeBank`); B-Roll Bank → Playground (`videoStartFrame`); `BankPicker` → Bank (`openCreate`); anywhere → Flow (`openFlow` from a pinned flow's dock tile, `lineage` from a tile's How It Was Made / Save as Flow, `openTemplate` from a template share link). Every other consumer branch has no sender. Playground still consumes `videoSourceClip` and nothing sends it — kept so re-wiring the redub loop is one button; B-Roll's `adBlueprint` consumer, the only source of `sceneStaging`, is kept the same way with its Ad Analyzer sender removed.
 
 ## Shipping
 

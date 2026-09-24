@@ -13,6 +13,7 @@ import { wiresOutOf } from '../engine/graph'
 import { downloadEditPacks } from '../run/editPack'
 import FlowPanel from './panels/FlowPanel'
 import PinButton from './PinButton'
+import TemplateUpdateBar from './TemplateUpdateBar'
 import MobilePaneTabs from '../../../components/MobilePaneTabs'
 import { paneClass } from '../../../components/paneClass'
 import GridCanvas from '../../../components/GridCanvas'
@@ -110,6 +111,7 @@ export default function RunView({
               )}
             </div>
           </div>
+          <TemplateUpdateBar doc={doc} />
           <div className="min-h-0 flex-1 overflow-y-auto">
             {cards.length === 0 ? (
               <GridCanvas>

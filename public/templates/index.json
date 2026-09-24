@@ -5,21 +5,24 @@
       "name": "Product → 5 UGC Ads",
       "description": "Five 30-second scripts for your product, each read by a voice and shot as B-Roll, packed as five folders ready for the /video-editor skill.",
       "blocks": 7,
-      "estimate": 1170
+      "estimate": 1170,
+      "version": 1
     },
     {
       "slug": "10-hook-machine",
       "name": "10-Hook Machine",
       "description": "Ten scroll-stopping hooks for your product. You keep the best, and each one gets a voiceover and its own shot, so you can test openers side by side.",
       "blocks": 7,
-      "estimate": 300
+      "estimate": 300,
+      "version": 1
     },
     {
       "slug": "clone-a-winner",
       "name": "Clone a Winner",
       "description": "Pick an ad from your Swipe File. Flow tears it down, rewrites it for your product, and shoots your version on the same beats with your own character.",
       "blocks": 8,
-      "estimate": 700
+      "estimate": 700,
+      "version": 1
     }
   ]
 }
