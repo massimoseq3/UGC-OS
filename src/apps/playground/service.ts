@@ -32,10 +32,11 @@ import {
   type ImageResolution,
   type VideoMode,
 } from '../../utils/models'
-import { isAssetRef, getAsBase64 } from '../../utils/assetStore'
+import { hostedUrlFor } from '../../utils/hostedUrl'
+import { withProvenance } from '../../utils/blockRunner'
 import { kieChatCompletions, type ChatMessage } from '../../utils/kie'
 import { getChatTarget } from '../../utils/models'
-import type { ImageHistoryItem, MusicHistoryItem, VideoHistoryItem } from '../../stores/types'
+import type { ImageHistoryItem, MusicHistoryItem, Provenance, VideoHistoryItem } from '../../stores/types'
 import type { PlaygroundMode } from './types'
 
 // ── Prompt enhance ─────────────────────────────────────────────────
@@ -103,13 +104,9 @@ export async function startPlaygroundImageTask(
 
   const inputUrls: string[] = []
   for (const ref of input.referenceUrls ?? []) {
-    let source = ref
-    if (isAssetRef(ref)) {
-      const asset = await getAsBase64(ref)
-      if (!asset) continue
-      source = `data:${asset.mimeType};base64,${asset.base64}`
-    }
-    inputUrls.push(await ensureHostedUrl(apiKey, source))
+    // A reference whose asset has gone is skipped, not fatal.
+    const url = await hostedUrlFor(apiKey, ref)
+    if (url) inputUrls.push(url)
   }
 
   const body = buildImageInput(input.modelId, {
@@ -133,16 +130,19 @@ export interface PlaygroundImageFinishInput {
   // generation resumed after a reload still lands in the project it was
   // started from.
   projectId?: string
+  // What the run was made from — see Lineage in stores/types.ts.
+  provenance?: Provenance
 }
 
 export async function finishPlaygroundImageTask(
   taskId: string,
   modelId: string,
   params: PlaygroundImageFinishInput,
+  signal?: AbortSignal,
 ): Promise<ImageHistoryItem> {
-  const assetId = await finishImageAssetTask(taskId, modelId)
+  const assetId = await finishImageAssetTask(taskId, modelId, { signal })
 
-  const item: ImageHistoryItem = {
+  const item = withProvenance<ImageHistoryItem>({
     id: crypto.randomUUID(),
     modelId,
     prompt: params.prompt,
@@ -151,7 +151,7 @@ export async function finishPlaygroundImageTask(
     imageUrl: assetId,
     projectId: params.projectId,
     createdAt: Date.now(),
-  }
+  }, params.provenance)
   await useBankStore.getState().addImageHistory(item)
   return item
 }
@@ -173,13 +173,8 @@ export async function ensureOmniCharacterId(bankModelId: string): Promise<string
 
   const apiKey = useSettingsStore.getState().getKieApiKey()
 
-  let source = model.characterImage
-  if (isAssetRef(source)) {
-    const asset = await getAsBase64(source)
-    if (!asset) throw new Error(`Couldn't load the image for "${model.name}". Its asset is missing.`)
-    source = `data:${asset.mimeType};base64,${asset.base64}`
-  }
-  const imageUrl = await ensureHostedUrl(apiKey, source)
+  const imageUrl = await hostedUrlFor(apiKey, model.characterImage)
+  if (!imageUrl) throw new Error(`Couldn't load the image for "${model.name}". Its asset is missing.`)
 
   // Character description: name + notes + the DNA profile JSON, clamped to
   // kie's 20k-char limit. The profile is the richest signal we have.
@@ -258,13 +253,7 @@ export async function startPlaygroundVideoTask(
 
   async function hosted(ref: string | undefined): Promise<string | undefined> {
     if (!ref) return undefined
-    let source = ref
-    if (isAssetRef(ref)) {
-      const asset = await getAsBase64(ref)
-      if (!asset) return undefined
-      source = `data:${asset.mimeType};base64,${asset.base64}`
-    }
-    return ensureHostedUrl(apiKey, source)
+    return (await hostedUrlFor(apiKey, ref)) ?? undefined
   }
 
   let imageUrl: string | undefined
@@ -380,6 +369,7 @@ export interface PlaygroundVideoFinishInput {
   audio: boolean
   // See PlaygroundImageFinishInput.
   projectId?: string
+  provenance?: Provenance
 }
 
 export async function finishPlaygroundVideoTask(
@@ -387,10 +377,11 @@ export async function finishPlaygroundVideoTask(
   modelId: string,
   videoEndpoint: 'veo' | undefined,
   params: PlaygroundVideoFinishInput,
+  signal?: AbortSignal,
 ): Promise<VideoHistoryItem> {
-  const assetId = await finishVideoAssetTask(taskId, modelId, videoEndpoint)
+  const assetId = await finishVideoAssetTask(taskId, modelId, videoEndpoint, { signal })
 
-  const historyEntry: VideoHistoryItem = {
+  const historyEntry = withProvenance<VideoHistoryItem>({
     id: crypto.randomUUID(),
     modelId,
     prompt: params.prompt,
@@ -403,7 +394,7 @@ export async function finishPlaygroundVideoTask(
     sourceApp: PLAYGROUND_SOURCE,
     projectId: params.projectId,
     createdAt: Date.now(),
-  }
+  }, params.provenance)
   await useBankStore.getState().addVideoHistory(historyEntry)
   return historyEntry
 }
@@ -433,17 +424,19 @@ export interface PlaygroundMusicFinishInput {
   instrumental: boolean
   // See PlaygroundImageFinishInput.
   projectId?: string
+  provenance?: Provenance
 }
 
 export async function finishPlaygroundMusicTask(
   taskId: string,
   modelId: string,
   params: PlaygroundMusicFinishInput,
+  signal?: AbortSignal,
 ): Promise<MusicHistoryItem> {
   // Suno hands back a pair of tracks; the shared tail keeps the first.
-  const track = await finishAudioAssetTask(taskId, modelId, 'suno')
+  const track = await finishAudioAssetTask(taskId, modelId, 'suno', { signal })
 
-  const item: MusicHistoryItem = {
+  const item = withProvenance<MusicHistoryItem>({
     id: crypto.randomUUID(),
     modelId,
     prompt: params.prompt,
@@ -454,7 +447,7 @@ export async function finishPlaygroundMusicTask(
     durationSeconds: track.durationSeconds,
     projectId: params.projectId,
     createdAt: Date.now(),
-  }
+  }, params.provenance)
   await useBankStore.getState().addMusicHistory(item)
   return item
 }

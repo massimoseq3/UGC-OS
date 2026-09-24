@@ -232,7 +232,7 @@ export default function VoiceStudio() {
       scriptPreview: scriptText.trim().slice(0, 140),
     }
     setReplayVoices((prev) => [...prev, fake])
-    const row = await voiceRunner.replay({ extraMs: index * 700 })
+    const row = await voiceRunner.replay({ settings, scriptText }, { extraMs: index * 700 })
     setReplayVoices((prev) => prev.filter((f) => f.id !== fake.id))
     if (row) {
       setActivePlayerItem(row)

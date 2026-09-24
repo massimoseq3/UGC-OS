@@ -112,7 +112,7 @@ export const voiceRunner = {
     return item
   },
 
-  replay(opts?) {
+  replay(_input, opts?) {
     return replayRun({ rows: () => useBankStore.getState().voiceHistory, prefix: 'voice', extraMs: opts?.extraMs })
   },
 
