@@ -271,12 +271,38 @@ export interface PlaygroundProject {
   createdAt: number
 }
 
+// Which rows an output was made FROM: the bank rows a member picked (a
+// product, a character, a voice preset) and the history rows an earlier
+// generation wrote (the script a voiceover reads). A runner stamps it on the
+// history row it writes (see utils/blockRunner.ts). Nothing reads it yet — it
+// is recorded now so Flow's Save as Flow and How Was This Made have a history
+// to trace when they ship.
+//
+// Children point at parents, never the reverse — the `projectId` rule — so
+// deleting a parent can never take a child with it. A parent deleted since is
+// left dangling on purpose, and reads as made from something no longer kept.
+export type LineageBank =
+  | 'products' | 'models' | 'scripts' | 'voices' | 'brolls' | 'styles' | 'swipes'
+  | 'voiceHistory' | 'videoHistory' | 'imageHistory' | 'musicHistory'
+  | 'scriptHistory' | 'brollHistory' | 'characterHistory' | 'adAnatomyHistory'
+
+export interface Lineage {
+  bank: LineageBank
+  id: string
+}
+
+// What a runner stamps on every history row it writes. Optional throughout:
+// no row written before the runners existed carries any of it.
+export interface Provenance {
+  parents?: Lineage[]
+}
+
 // One generation in B-Roll Videos. Pushed automatically on every successful
 // generate; rendered in the right-hand History panel as a Flow-style grid.
 // `videoUrl` is an asset:// ref (see assetStore) so the blob persists across
 // reloads. `linkedBRollId` is set if the user has saved the entry to the
 // B-Roll bank — kept so the saved-state UI survives reloads.
-export interface VideoHistoryItem {
+export interface VideoHistoryItem extends Provenance {
   id: string
   modelId: string
   prompt: string
@@ -307,7 +333,7 @@ export interface VideoHistoryItem {
   createdAt: number
 }
 
-export interface VoiceHistoryItem {
+export interface VoiceHistoryItem extends Provenance {
   id: string
   // Which TTS model read it. Optional because rows written before Voiceovers
   // had a model picker carry none — those are all Gemini 3.1 Flash TTS, which
@@ -334,7 +360,7 @@ export interface VoiceHistoryItem {
 // successful image generation. `linkedBRollId` is set if the user has saved
 // the image to the B-Rolls bank — kept so the saved badge survives reloads
 // and so cleanup leaves the asset alone when the entry is deleted.
-export interface ImageHistoryItem {
+export interface ImageHistoryItem extends Provenance {
   id: string
   modelId: string
   prompt: string
@@ -350,7 +376,7 @@ export interface ImageHistoryItem {
 // One script generation in the Scripts tab — auto-pushed on every successful
 // generateScript run. Holds 1 variation (reverse-engineer mode) or 3
 // variations (write / remix modes). Local-only (no cloud sync yet).
-export interface ScriptHistoryItem {
+export interface ScriptHistoryItem extends Provenance {
   id: string
   mode: 'write' | 'remix' | 'reverse-engineer'
   variations: string[]
@@ -397,7 +423,7 @@ export interface ScriptHistoryItem {
 // One generation in the Playground music tab. Pushed automatically on every
 // successful Suno generation. audioRef is an asset:// id so the audio blob
 // persists across reloads (IndexedDB + R2 mirror when cloud is active).
-export interface MusicHistoryItem {
+export interface MusicHistoryItem extends Provenance {
   id: string
   modelId: string
   prompt: string
@@ -418,7 +444,7 @@ export interface MusicHistoryItem {
 // `linkedModelId` is written when the user saves the entry to the Characters
 // bank — kept so the saved-state badge survives reloads and the cleanup pass
 // leaves the asset blob alone when the row is deleted.
-export interface CharacterHistoryItem {
+export interface CharacterHistoryItem extends Provenance {
   id: string
   imageRef: string
   // The form values used to generate this image. Profile snapshot is loose
@@ -455,7 +481,7 @@ export interface CharacterHistoryItem {
 // state it was in when the snapshot was last saved. Images/videos are
 // `asset://` refs so the blobs live in IndexedDB (or R2 mirror) and the row
 // stays small.
-export interface BrollHistoryItem {
+export interface BrollHistoryItem extends Provenance {
   id: string
   // When the session was first generated — stable across re-saves so a row
   // never jumps around when it's merely reopened or edited. `upsertBrollHistory`
@@ -529,7 +555,7 @@ export interface BrollHistoryItem {
 // source ad blob long-term — `uploadedRef` is held only while status is
 // 'analyzing', then deleted on success or error. `thumbnailRef` is the
 // first-frame still that persists for the row's lifetime.
-export interface AdAnatomyHistoryItem {
+export interface AdAnatomyHistoryItem extends Provenance {
   id: string
   createdAt: number
   // 'analyzing' → request in flight (or queued); 'complete' → result set;

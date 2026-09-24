@@ -16,12 +16,12 @@ import {
   createTask,
   kieVeoCreate,
   kieMusicGenerate,
-  pollMusicTask,
   kieOmniCharacterCreate,
   ensureHostedUrl,
 } from '../../utils/kie'
 import { finishImageAssetTask } from '../../utils/imageTask'
 import { finishVideoAssetTask } from '../../utils/videoTask'
+import { finishAudioAssetTask } from '../../utils/audioTask'
 import {
   buildImageInput,
   buildVideoInput,
@@ -32,8 +32,8 @@ import {
   type ImageResolution,
   type VideoMode,
 } from '../../utils/models'
-import { saveAsset, isAssetRef, getAsBase64 } from '../../utils/assetStore'
-import { kieChatCompletions, fetchGeneratedAsset, type ChatMessage } from '../../utils/kie'
+import { isAssetRef, getAsBase64 } from '../../utils/assetStore'
+import { kieChatCompletions, type ChatMessage } from '../../utils/kie'
 import { getChatTarget } from '../../utils/models'
 import type { ImageHistoryItem, MusicHistoryItem, VideoHistoryItem } from '../../stores/types'
 import type { PlaygroundMode } from './types'
@@ -440,52 +440,18 @@ export async function finishPlaygroundMusicTask(
   modelId: string,
   params: PlaygroundMusicFinishInput,
 ): Promise<MusicHistoryItem> {
-  const apiKey = useSettingsStore.getState().getKieApiKey()
-  const record = await pollMusicTask(apiKey, taskId)
-
-  // sunoData[] holds up to two tracks. We grab the first track here; future
-  // could split into a stereo "pair tile". The streamUrl is preferred when
-  // present because the regular audioUrl can lag a few seconds for v5 tracks.
-  const track = record.response?.sunoData?.[0]
-  if (!track?.audioUrl) {
-    throw new Error(
-      `${modelId}: Suno returned SUCCESS but no audioUrl. record=${JSON.stringify(record).slice(0, 400)}`,
-    )
-  }
-
-  const dlUrl = track.audioUrl
-  const res = await fetchGeneratedAsset(dlUrl)
-  if (!res.ok) {
-    const body = await res.text().catch(() => '')
-    throw new Error(
-      `Failed to download generated audio (${res.status} ${res.statusText}). url=${dlUrl} body=${body.slice(0, 200)}`,
-    )
-  }
-  const blob = await res.blob()
-  const audioRef = await saveAsset(blob, blob.type || 'audio/mpeg')
-
-  let coverImageRef: string | undefined
-  if (track.imageUrl) {
-    try {
-      const coverRes = await fetchGeneratedAsset(track.imageUrl)
-      if (coverRes.ok) {
-        const coverBlob = await coverRes.blob()
-        coverImageRef = await saveAsset(coverBlob, coverBlob.type || 'image/jpeg')
-      }
-    } catch {
-      // Cover is optional — never block the track on it.
-    }
-  }
+  // Suno hands back a pair of tracks; the shared tail keeps the first.
+  const track = await finishAudioAssetTask(taskId, modelId, 'suno')
 
   const item: MusicHistoryItem = {
     id: crypto.randomUUID(),
     modelId,
     prompt: params.prompt,
     instrumental: params.instrumental,
-    audioRef,
-    coverImageRef,
+    audioRef: track.assetId,
+    coverImageRef: track.coverImageRef,
     title: track.title,
-    durationSeconds: track.duration,
+    durationSeconds: track.durationSeconds,
     projectId: params.projectId,
     createdAt: Date.now(),
   }

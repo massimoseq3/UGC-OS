@@ -3,8 +3,9 @@ import GenerationProgress from '../../../components/GenerationProgress'
 import BatchCountStepper from '../../../components/BatchCountStepper'
 import { clampBatchCount } from '../../../utils/batchCount'
 import ModelPicker from '../../../components/ModelPicker'
-import { estimateCredits, formatCredits, getDefaultModel, TTS_MODEL_PRO, TTS_MODEL_SLOT } from '../../../utils/models'
+import { formatCredits, getDefaultModel, TTS_MODEL_PRO, TTS_MODEL_SLOT } from '../../../utils/models'
 import { useSettingsStore } from '../../../stores/settingsStore'
+import { estimateVoiceCredits } from '../runner'
 
 export const MAX_CHARACTERS = 5000
 
@@ -56,11 +57,11 @@ export default function GenerateBar({
   const pickedModel = useSettingsStore((s) => s.getAppModel(TTS_MODEL_SLOT))
   const modelId = pickedModel ?? getDefaultModel('voice-studio', 'tts')?.id ?? TTS_MODEL_PRO
   const count = clampBatchCount(batchCount, VOICE_BATCH_MAX)
-  // Gemini TTS bills by tokens; we estimate from the script's char count (see
-  // geminiTtsCredits in models.ts). TTS is billed per call, so a run of N is N
+  // Priced by the runner that will make the read, so the button can't quote a
+  // different number from the run. TTS is billed per call, so a run of N is N
   // times one read.
   const creditsFor = (n: number) => {
-    const one = estimateCredits(modelId, { charCount })
+    const one = estimateVoiceCredits(scriptText, modelId)
     return one === null ? null : one * n
   }
   const creditsLabel = charCount > 0 ? formatCredits(creditsFor(count)) : null

@@ -6,11 +6,11 @@ import { paneClass } from '../../components/paneClass'
 import { useReportActivity } from '../../stores/activityStore'
 import { useBankStore } from '../../stores/bankStore'
 import { useCreditsStore } from '../../stores/creditsStore'
-import type { Script, VoiceHistoryItem } from '../../stores/types'
+import type { Lineage, Script, VoiceHistoryItem } from '../../stores/types'
 import type { VoiceSettings } from './types'
 import { createDefaultSettings, sanitizeVoiceSettings } from './types'
-import { startVoiceTask, finishVoiceTask } from './services/generateVoice'
-import { humanizeError } from '../../utils/friendlyError'
+import { voiceRunner, type VoiceTask } from './runner'
+import { lineageOf } from '../../utils/blockRunner'
 import EditorArea from './components/EditorArea'
 import { VOICE_BATCH_MAX } from './components/GenerateBar'
 import HistoryRail from './components/HistoryRail'
@@ -23,7 +23,7 @@ import BottomPlayer from './components/BottomPlayer'
 import BankPicker from '../../components/BankPicker'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
 import { useHistoryRailOpen } from '../../hooks/useHistoryRailOpen'
-import { isRecordingActive, replayRun, useRecordingLoop, useVisibleRows } from '../../stores/recordingStore'
+import { isRecordingActive, useRecordingLoop, useVisibleRows } from '../../stores/recordingStore'
 
 // Persisted in-flight TTS tasks. Survive a refresh so the user doesn't lose
 // a gen (and the kie credit) when the tab reloads mid-generation. Stale
@@ -39,17 +39,10 @@ interface ReplayVoice {
   scriptPreview: string
 }
 
-interface InFlightVoice {
+// The runner's task plus this app's own bookkeeping. Flat on purpose: entries
+// persisted before the runner existed have exactly these fields.
+interface InFlightVoice extends VoiceTask {
   id: string
-  taskId: string
-  // The TTS model this task was submitted against — snapshotted rather than
-  // re-resolved on resume, so a task that outlives a model swap still finishes
-  // (and is priced) as the model that actually ran it. Optional: entries
-  // persisted before the picker shipped carry none, and finishVoiceTask defaults
-  // those to the model they were all fired with.
-  modelId?: string
-  settings: VoiceSettings
-  scriptText: string
   startedAt: number
 }
 const INFLIGHT_TTL_MS = 30 * 60 * 1000
@@ -75,6 +68,15 @@ export default function VoiceStudio() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   const [scriptText, setScriptText] = usePersistedState(`${baseKey}:scriptText`, '')
+  // Which row the script in the box came from, stamped as a parent on every
+  // read made from it (see Lineage in stores/types). Any hand edit drops it —
+  // the rule the picked-script chip already follows: an edited script is the
+  // member's own, and a parent it no longer matches would be a false claim.
+  const [scriptSource, setScriptSource] = usePersistedState<Lineage | null>(`${baseKey}:scriptSource`, null)
+  const replaceScript = (text: string, source: Lineage | null = null) => {
+    setScriptText(text)
+    setScriptSource(source)
+  }
   const [activePlayerItemId, setActivePlayerItemId] = usePersistedState<string | null>(`${baseKey}:playerId`, null)
   // Persisted so a refresh between createTask and the audio download still
   // resumes polling. We store the kie taskId + the original settings/script
@@ -131,7 +133,6 @@ export default function VoiceStudio() {
     [activePlayerItemId, history],
   )
   const setActivePlayerItem = (item: VoiceHistoryItem | null) => setActivePlayerItemId(item?.id ?? null)
-  const addVoiceHistory = useBankStore((s) => s.addVoiceHistory)
   const deleteVoiceHistory = useBankStore((s) => s.deleteVoiceHistory)
 
   const interAppPayload = useAppStore((s) => s.interAppPayload)
@@ -147,6 +148,7 @@ export default function VoiceStudio() {
 
     if (targetField === 'scriptText' && typeof data === 'string') {
       setScriptText(data)
+      setScriptSource(null)
       setHighlightField('script')
       setTimeout(() => setHighlightField(null), 800)
     }
@@ -156,7 +158,7 @@ export default function VoiceStudio() {
 
   const handleLoadScript = (item: unknown) => {
     const script = item as Script
-    setScriptText(script.scriptText)
+    replaceScript(script.scriptText, { bank: 'scripts', id: script.id })
     setSelectedScript(script)
     setScriptPickerOpen(false)
   }
@@ -169,13 +171,13 @@ export default function VoiceStudio() {
   const finishVoice = async (entry: InFlightVoice) => {
     setError(null)
     try {
-      const item = await finishVoiceTask(entry.taskId, entry.settings, entry.scriptText, entry.modelId)
-      addVoiceHistory(item)
+      // The runner writes the history row; what's left here is the UI.
+      const item = await voiceRunner.finish(entry)
       setActivePlayerItem(item)
       refreshCredits()
       useAppStore.getState().addToast('Voiceover generated', 'success')
     } catch (err) {
-      const msg = humanizeError(err, 'Audio generation failed. Check your API key and try again.')
+      const msg = voiceRunner.describeError(err)
       setError(msg)
       useAppStore.getState().addToast(msg, 'error')
     } finally {
@@ -197,28 +199,21 @@ export default function VoiceStudio() {
     setStartingCount((c) => c + 1)
     setError(null)
 
-    let taskId: string
-    let modelId: string
+    let task: VoiceTask
     try {
-      const start = await startVoiceTask(settings, scriptText)
-      taskId = start.taskId
-      modelId = start.modelId
+      task = await voiceRunner.start(
+        { settings, scriptText },
+        { provenance: { parents: lineageOf(scriptSource, settings.presetId ? { bank: 'voices', id: settings.presetId } : null) } },
+      )
     } catch (err) {
-      const msg = humanizeError(err, 'Audio generation failed. Check your API key and try again.')
+      const msg = voiceRunner.describeError(err)
       setError(msg)
       useAppStore.getState().addToast(msg, 'error')
       setStartingCount((c) => c - 1)
       return
     }
 
-    const entry: InFlightVoice = {
-      id: crypto.randomUUID(),
-      taskId,
-      modelId,
-      settings,
-      scriptText,
-      startedAt: Date.now(),
-    }
+    const entry: InFlightVoice = { ...task, id: crypto.randomUUID(), startedAt: Date.now() }
     // Persist BEFORE we start the poll so a tab refresh during the poll can
     // resume rather than burning the kie credit.
     setInFlightVoices((prev) => [...prev, entry])
@@ -237,11 +232,7 @@ export default function VoiceStudio() {
       scriptPreview: scriptText.trim().slice(0, 140),
     }
     setReplayVoices((prev) => [...prev, fake])
-    const row = await replayRun({
-      rows: () => useBankStore.getState().voiceHistory,
-      prefix: 'voice',
-      extraMs: index * 700,
-    })
+    const row = await voiceRunner.replay({ extraMs: index * 700 })
     setReplayVoices((prev) => prev.filter((f) => f.id !== fake.id))
     if (row) {
       setActivePlayerItem(row)
@@ -313,7 +304,7 @@ export default function VoiceStudio() {
   }
 
   const handleRestoreText = (text: string) => {
-    setScriptText(text)
+    replaceScript(text)
     setSelectedScript(null)
     setHighlightField('script')
     setTimeout(() => setHighlightField(null), 800)
@@ -399,10 +390,10 @@ export default function VoiceStudio() {
 
                 <EditorArea
                   scriptText={scriptText}
-                  onScriptChange={(v) => { setScriptText(v); setSelectedScript(null) }}
+                  onScriptChange={(v) => { replaceScript(v); setSelectedScript(null) }}
                   onSelectScript={() => setScriptPickerOpen(true)}
                   selectedScript={selectedScript}
-                  onClearScript={() => setSelectedScript(null)}
+                  onClearScript={() => { setSelectedScript(null); setScriptSource(null) }}
                   highlightField={highlightField}
                 />
               </div>
@@ -418,7 +409,7 @@ export default function VoiceStudio() {
                   // The rail covers the script box it just cleared, so New
                   // hands the pane back the same way picking a read does —
                   // left open, the press reads as having done nothing.
-                  onNew={() => { setSelectedScript(null); setScriptText(''); setHistoryOpen(false) }}
+                  onNew={() => { setSelectedScript(null); replaceScript(''); setHistoryOpen(false) }}
                 />
               </RailOverlay>
             </div>
