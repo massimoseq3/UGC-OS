@@ -102,7 +102,7 @@ const SYSTEM_INSTRUCTION = `You are an elite UGC ad analyst. You dissect social 
 
 You must respond with ONLY valid JSON matching this exact structure (no markdown, no code fences):
 
-SCORECARD RULE: Be brutally honest. Do not inflate scores. Most ads are average (5/10). If a hook is boring, give it a 2 or 3. If the visuals are static, penalize it. A 9/10 or 10/10 should be reserved for big direct-to-consumer brands level.
+SCORECARD RULE: Be brutally honest. Do not inflate scores. Most ads are average (5/10). If a hook is boring, give it a 2 or 3. If the visuals are static, penalize it. A 9/10 or 10/10 should be reserved for big direct-to-consumer brands level. Score to ONE decimal place (e.g. 6.4, 8.7): use the decimal to separate ads that would land on the same whole number, and don't default to a round .0.
 
 CREATIVE BREAKDOWN RULE: This is a marketing-strategy dissection of WHY the ad works — not shot description. Write for a DTC media buyer who wants to steal the mechanics:
 
@@ -176,11 +176,11 @@ HONESTY: describe only what is actually visible or audible. Never invent details
   "adTitle": "<3-6 word Title Case descriptor>",
   "scorecard": {
     "scores": [
-      { "label": "Hook Strength", "score": <1-10> },
-      { "label": "Structure Clarity", "score": <1-10> },
-      { "label": "Visual Variety", "score": <1-10> },
-      { "label": "Persuasion Depth", "score": <1-10> },
-      { "label": "Overall Execution", "score": <1-10> }
+      { "label": "Hook Strength", "score": <1.0-10.0, one decimal> },
+      { "label": "Structure Clarity", "score": <1.0-10.0, one decimal> },
+      { "label": "Visual Variety", "score": <1.0-10.0, one decimal> },
+      { "label": "Persuasion Depth", "score": <1.0-10.0, one decimal> },
+      { "label": "Overall Execution", "score": <1.0-10.0, one decimal> }
     ],
     "analystNote": "<2-3 sentence analyst summary>"
   },
