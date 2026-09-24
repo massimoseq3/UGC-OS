@@ -134,7 +134,7 @@ export function VoiceBody({ block, bp }: { block: FlowBlock; bp: BlockPlan | und
             const seconds = audio?.type === 'audio' ? audio.payload.durationSeconds : 0
             const status = live[inst.key]?.status
             const done = !!audio && !inst.run
-            const label = inst.inputs.script?.[0]?.label || `Take ${i + 1}`
+            const label = inst.inputs.script?.[0]?.label || `Script ${i + 1}`
             return (
               <span key={inst.key} className="flex h-[18px] items-center gap-2 text-[10.5px] text-ink-300">
                 <span className="flex h-3 w-3 shrink-0 items-center justify-center">

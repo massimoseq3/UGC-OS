@@ -188,7 +188,7 @@ function Output({ block, runs, startedAt }: { block: FlowBlock; runs: BlockRun[]
             title={shown?.status === 'failed' ? 'That run failed' : 'Nothing written yet'}
             hint={shown?.error ?? (block.settings.mode === 'write' && block.settings.writeFormat === 'hooks'
               ? 'Generate writes every hook in one go. Each one has its own dot on the block, so one hook can go down its own path.'
-              : 'Generate writes every take in one go. Each one has its own dot on the block, so one take can go down its own path.')}
+              : 'Generate writes every script in one go. Each one has its own dot on the block, so one script can go down its own path.')}
           />
         </GridCanvas>
       )}

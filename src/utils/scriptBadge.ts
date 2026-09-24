@@ -3,36 +3,38 @@
 //
 // Three surfaces show the same badge and they must not drift: Scripts' history
 // rail, the Bank's Scripts tab, and the Select Script picker. They were three
-// hand-written class strings — the rail's a SOLID accent with white text, the
-// other two a 15%-alpha wash with tinted text and a border — so the same run
-// read as two different things depending on where you met it (Massimo's call,
-// September 2026: "update those pills to match how we have it in the scripts
-// tab, do the same in the bank").
+// hand-written class strings, so the same run read as two different things
+// depending on where you met it (Massimo's call, September 2026).
 //
-// SOLID and opaque is the half that matters. A 9px label over a 15%-alpha wash
-// takes its colour from whatever is behind it, so one badge read three ways
-// across a hovered card, a selected one and a plain one; white on a solid
-// accent is the same badge everywhere, in both themes.
+// It is the house chip (September 2026, Massimo's call — "how we have them in
+// the rest of the app"): a tinted wash with a matching hairline and tinted
+// text in Title Case, the shape `SavingsPill` and every other status chip
+// wears. It was a SOLID fill with a white, bold, all-caps label for a stint,
+// on the reasoning that a 9px label over a 15%-alpha wash takes its colour
+// from what's behind it; at 11px with the border to hold its edge, the wash
+// reads the same on a plain, hovered or selected row, and the all-caps slab
+// was the one pill in the app that shouted.
 //
 // The hues are the app's own and one of them is load-bearing beyond this file:
 // **fuchsia Scenes is also the Ad Analyzer's Reverse-Engineered Scenes
 // heading**, so a scene blueprint reads as the same thing in the app that
 // reverse-engineers one, the app that rewrites it and the bank that stores it.
 // Change it here and change it there (`ad-anatomy/components/ResultsView.tsx`).
+// The raw Tailwind hues carry a `light:` text shade; Remix uses `scripts-text`,
+// the brand ramp's own readable shade (its 300 is a grey at this size), which
+// flips itself.
 export const SCRIPT_BADGE = {
-  hooks: 'bg-amber-600 text-white',
-  remix: 'bg-scripts-500 text-white',
-  scenes: 'bg-fuchsia-600 text-white',
-  cinematic: 'bg-sky-600 text-white',
-  style: 'bg-sky-600 text-white',
-  script: 'bg-emerald-600 text-white',
+  hooks: 'border-amber-500/25 bg-amber-500/15 text-amber-300 light:text-amber-700',
+  remix: 'border-scripts-500/25 bg-scripts-500/15 text-scripts-text',
+  scenes: 'border-fuchsia-500/25 bg-fuchsia-500/15 text-fuchsia-300 light:text-fuchsia-700',
+  cinematic: 'border-sky-500/25 bg-sky-500/15 text-sky-300 light:text-sky-700',
+  style: 'border-sky-500/25 bg-sky-500/15 text-sky-300 light:text-sky-700',
+  script: 'border-emerald-500/25 bg-emerald-500/15 text-emerald-300 light:text-emerald-700',
 } as const
 
 export type ScriptBadgeKind = keyof typeof SCRIPT_BADGE
 
-// The pill itself. `tracking-[0.04em]`, not `tracking-widest`: on a 9.5px
-// uppercase label the wider setting spends most of the pill's width on air
-// between letters. No border — a solid fill needs no outline, and the two
-// bank surfaces were drawing one over a wash that had nothing to separate.
+// The pill itself. Labels are passed in Title Case and rendered as given —
+// never `uppercase`.
 export const SCRIPT_BADGE_SHAPE =
-  'w-fit max-w-full truncate rounded-full px-2 py-[3px] text-[9.5px] font-bold uppercase leading-none tracking-[0.04em]'
+  'w-fit max-w-full truncate rounded-full border px-2 py-0.5 text-[11px] font-medium leading-tight'

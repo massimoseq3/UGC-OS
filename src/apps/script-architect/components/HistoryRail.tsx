@@ -22,7 +22,7 @@ const isHooksItem = (item: ScriptHistoryItem) => item.mode === 'write' && item.w
 // The palette and the pill's shape live in `utils/scriptBadge.ts`, because the
 // Bank's Scripts tab and the Select Script picker draw the same badge and the
 // three had already drifted into two different materials. The reasoning for
-// the solid fill — and for fuchsia Scenes in particular — is there.
+// the chip's shape — and for fuchsia Scenes in particular — is there.
 function historyBadge(item: ScriptHistoryItem): { label: string; className: string } {
   if (isHooksItem(item)) {
     const family = isHookCategoryChoice(item.hookCategory) && item.hookCategory !== 'auto'
@@ -63,7 +63,7 @@ function countLabel(item: ScriptHistoryItem): string {
     return `${n} hook${n === 1 ? '' : 's'}`
   }
   const n = item.variations.length
-  if (item.mode === 'write') return `${n} take${n === 1 ? '' : 's'}`
+  if (item.mode === 'write') return `${n} script${n === 1 ? '' : 's'}`
   return `${n} variation${n === 1 ? '' : 's'}`
 }
 
@@ -144,7 +144,7 @@ export default function HistoryRail({ items, pending, activeId, onSelect, onSele
         <RailNewButton
           label="New Script"
           accentClass="bg-scripts-500"
-          title="Clear the takes panel and the setup column. Every take stays here in History"
+          title="Clear the scripts panel and the setup column. Every script stays here in History"
           onClick={onNew}
           className="flex-1"
         />
