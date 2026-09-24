@@ -92,6 +92,17 @@ function brollCost(block: FlowBlock, inputs: Record<string, FlowValue[]>): numbe
   return total
 }
 
+// Generations one run starts, for the big-run confirmation. Most runs are
+// one, or one per slot of a batch. A B-Roll run is its storyboard, a still
+// for every take of every scene and, animated, a clip for each — counted
+// the same way brollCost prices it.
+export function generationsOf(block: FlowBlock, inputs: Record<string, FlowValue[]>, slots: number): number {
+  if (block.kind !== 'broll') return Math.max(1, slots)
+  const scenes = sceneCount(textOf(inputs.script))
+  const takes = Math.min(3, Math.max(1, Number(block.settings.takes) || 1))
+  return 1 + scenes * takes * (block.settings.animate !== false ? 2 : 1)
+}
+
 export function playgroundInput(block: FlowBlock, inputs: Record<string, FlowValue[]>): PlaygroundRunInput {
   const s = block.settings
   const mode = s.mode === 'video' || s.mode === 'music' ? s.mode : 'image'

@@ -28,10 +28,12 @@ const FIELD = 'nodrag nowheel w-full resize-none rounded-xl border border-ink/10
 
 // Synthetic events from a portaled picker still bubble through the React
 // tree — into the node, which would take a click in the picker for a click
-// on the block. The picker's clicks stop here.
+// on the block, and an arrow key in it for a nudge. The picker's clicks and
+// keys stop here.
 function Contained({ children }: { children: React.ReactNode }) {
   return (
     <div
+      onKeyDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
       onDoubleClick={(e) => e.stopPropagation()}
       onPointerDown={(e) => e.stopPropagation()}

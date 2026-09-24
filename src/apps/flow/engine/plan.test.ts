@@ -395,4 +395,33 @@ describe('new inputs', () => {
     g.blocks[1].settings = { ...g.blocks[1].settings, mode: 'image' }
     expect(canConnect(g, { from: 'chr', fromPort: 'all', to: 'pg', toPort: 'start' }).ok).toBe(false)
   })
+  it("keeps a Music block's References wire, so switching to Music never re-keys a made track", () => {
+    const g: FlowGraph = {
+      blocks: [
+        block('chr', 'characters', { source: 'bank', pick: 'maya' }),
+        block('pg', 'playground', { settings: { mode: 'music' } }),
+      ],
+      wires: [],
+    }
+    expect(canConnect(g, { from: 'chr', fromPort: 'all', to: 'pg', toPort: 'refs' }).ok).toBe(true)
+  })
+})
+
+describe('generations', () => {
+  const g = (): FlowGraph => ({
+    blocks: [
+      block('sc', 'scripts', { items: slots('h', 3) }),
+      block('br', 'broll'),
+    ],
+    wires: [wire('sc', 'all', 'br', 'script')],
+  })
+
+  it('counts one per run, or one per slot of a batch, by default', () => {
+    expect(planFlow(g(), {}, deps).generations).toBe(3 + 3)
+  })
+
+  it('counts what a run really starts when the deps say so', () => {
+    const counted: PlanDeps = { ...deps, generations: (b, _inputs, n) => (b.kind === 'broll' ? 9 : Math.max(1, n)) }
+    expect(planFlow(g(), {}, counted).generations).toBe(3 + 3 * 9)
+  })
 })

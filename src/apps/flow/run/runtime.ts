@@ -21,7 +21,7 @@ import type { ExecContext, ExecOutput, RunPhase } from './types'
 import type { PlannedInstance, PlanDeps } from '../engine/plan'
 import { planFlow, traceFor } from '../engine/plan'
 import { heldValues } from '../engine/held'
-import { blockCost } from '../engine/cost'
+import { blockCost, generationsOf } from '../engine/cost'
 import { isBatch, KINDS, titleOf } from '../engine/catalog'
 import { liveItems, upstreamOf } from '../engine/graph'
 import { EXECUTORS } from './executors'
@@ -36,7 +36,7 @@ import { localBanksReady } from '../../../stores/bankStore'
 import { FriendlyError, humanizeError } from '../../../utils/friendlyError'
 import { lineageOf } from '../../../utils/blockRunner'
 
-export const PLAN_DEPS: PlanDeps = { held: heldValues, cost: blockCost }
+export const PLAN_DEPS: PlanDeps = { held: heldValues, cost: blockCost, generations: generationsOf }
 
 const RUNS_KEY = 'ai-ugc-lab:draft:flow:runs'
 const TASKS_KEY = 'ai-ugc-lab:draft:flow:tasks'

@@ -264,7 +264,7 @@ export function OutliersWindow({ doc, block, plan, run, onRun, onReview }: Windo
               )
             ) : (
               <div className="flex flex-col gap-6 px-6 py-6">
-                {runs.map((r) => <FoundAds key={r.key} run={r} blockId={block.id} slots={liveItems(block).map((it) => it.id)} />)}
+                {runs.map((r) => <FoundAds key={r.key} run={r} blockId={block.id} slots={liveItems(block).map((it) => it.id)} several={runs.length > 1} />)}
               </div>
             )}
           </div>
@@ -277,7 +277,7 @@ export function OutliersWindow({ doc, block, plan, run, onRun, onReview }: Windo
 // One search's ads, on Outliers' own cards. Analyze and Remix answer in the
 // flow — an Ad Analyzer (and a Scripts remix after it) lands on the canvas
 // wired to that ad — and Save, Download and Open do what they do in Outliers.
-function FoundAds({ run, blockId, slots }: { run: BlockRun; blockId: string; slots: string[] }) {
+function FoundAds({ run, blockId, slots, several }: { run: BlockRun; blockId: string; slots: string[]; several: boolean }) {
   const doc = useFlowStore((s) => (s.openId ? s.docs[s.openId] : undefined))
   const addBlock = useFlowStore((s) => s.addBlock)
   const connect = useFlowStore((s) => s.connect)
@@ -290,20 +290,40 @@ function FoundAds({ run, blockId, slots }: { run: BlockRun; blockId: string; slo
     .filter((f): f is { slot: string; value: FlowValue } => f.value?.type === 'ad' && !!f.value.payload.result)
   if (!found.length) return null
   const host = doc?.blocks.find((b) => b.id === blockId)
+  const graphNow = () => useFlowStore.getState().docs[useFlowStore.getState().openId ?? ''] ?? { blocks: [], wires: [] }
 
-  const analyze = (slot: string, remix: boolean) => {
+  // Wires that one ad into a new Ad Analyzer (and a Scripts remix after it).
+  // With one search, the ad's own item output is that ad. With several — a
+  // List feeding Search — the same slot holds that position from EVERY
+  // search, so wiring it would analyze each of them; the ad goes to the
+  // Swipe File instead and a Bank block holding just it feeds the analyzer.
+  const analyze = async (slot: string, result: DiscoverResult, remix: boolean) => {
     if (!host) return
-    const graph = useFlowStore.getState().docs[useFlowStore.getState().openId ?? ''] ?? { blocks: [], wires: [] }
-    const an = addBlock('analyzer', freeSpot(graph, { x: host.x + blockWidth('outliers') + 96, y: host.y }, 'analyzer'))
-    connect({ from: blockId, fromPort: itemPort(slot), to: an, toPort: 'ad' })
+    let from = { block: blockId, port: itemPort(slot) }
+    let x = host.x + blockWidth('outliers') + 96
+    if (several) {
+      setBusy(result.id)
+      const saved = useBankStore.getState().getSwipeBySource(result.platform, result.id)?.id
+        ?? await saveSwipe(result).catch((err: unknown) => {
+          addToast(humanizeError(err, "Couldn't save that ad to your swipe file, so it wasn't wired."), 'error')
+          return null
+        })
+      setBusy(null)
+      if (!saved) return
+      const bank = addBlock('bank', freeSpot(graphNow(), { x, y: host.y }, 'bank'), { settings: { bank: 'swipes' }, pick: saved })
+      from = { block: bank, port: 'out' }
+      x += blockWidth('bank') + 96
+    }
+    const an = addBlock('analyzer', freeSpot(graphNow(), { x, y: host.y }, 'analyzer'))
+    connect({ from: from.block, fromPort: from.port, to: an, toPort: 'ad' })
     if (remix) {
-      const placed = useFlowStore.getState().docs[useFlowStore.getState().openId ?? '']?.blocks.find((b) => b.id === an)
-      const after = useFlowStore.getState().docs[useFlowStore.getState().openId ?? ''] ?? graph
-      const sc = addBlock('scripts', freeSpot(after, { x: (placed?.x ?? host.x) + blockWidth('analyzer') + 96, y: placed?.y ?? host.y }, 'scripts'), { settings: { mode: 'remix', writeFormat: 'script' } })
+      const placed = graphNow().blocks.find((b) => b.id === an)
+      const sc = addBlock('scripts', freeSpot(graphNow(), { x: (placed?.x ?? x) + blockWidth('analyzer') + 96, y: placed?.y ?? host.y }, 'scripts'), { settings: { mode: 'remix', writeFormat: 'script' } })
       connect({ from: an, fromPort: 'transcript', to: sc, toPort: 'source' })
     }
     setSelection([blockId])
-    addToast(remix ? 'An Ad Analyzer and a Scripts remix are on the canvas, wired to that ad.' : 'An Ad Analyzer is on the canvas, wired to that ad.', 'success')
+    const added = remix ? 'An Ad Analyzer and a Scripts remix are on the canvas, wired to that ad.' : 'An Ad Analyzer is on the canvas, wired to that ad.'
+    addToast(several ? `${added} It's saved to your Swipe File, so only that ad is analyzed.` : added, 'success')
   }
 
   const save = async (result: DiscoverResult) => {
@@ -330,8 +350,8 @@ function FoundAds({ run, blockId, slots }: { run: BlockRun; blockId: string; slo
             <ResultCard
               key={slot}
               result={result}
-              onAnalyze={() => analyze(slot, false)}
-              onRemix={() => analyze(slot, true)}
+              onAnalyze={(r) => void analyze(slot, r, false)}
+              onRemix={(r) => void analyze(slot, r, true)}
               onSave={(r) => void save(r)}
               onDownload={(r) => void saveResultVideoToDisk(r, () => undefined).catch((err: unknown) => addToast(humanizeError(err, "Couldn't download that video. Try opening the original instead."), 'error'))}
               onOpen={(r) => window.open(r.postUrl, '_blank', 'noopener')}
@@ -347,9 +367,9 @@ function FoundAds({ run, blockId, slots }: { run: BlockRun; blockId: string; slo
 
 // Files an ad in the Swipe File the way Outliers' own Save does: its numbers
 // as they are today, its thumbnail copied into our storage.
-async function saveSwipe(result: DiscoverResult): Promise<void> {
+async function saveSwipe(result: DiscoverResult): Promise<string> {
   const thumbRef = await saveThumbnail(result)
-  await useBankStore.getState().addSwipe({
+  return useBankStore.getState().addSwipe({
     platform: result.platform,
     sourceId: result.id,
     postUrl: result.postUrl,

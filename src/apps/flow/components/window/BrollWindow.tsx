@@ -101,7 +101,9 @@ export default function BrollWindow({ doc, block, plan, run, onRun, onReview }: 
               instructions: wiredCard('instructions', 'The instructions come in on their wire. A List wired here shoots once per item.'),
             },
             settings: <StillsAndClips doc={doc} block={block} />,
-            actionLabel: runCount > 1 ? `Generate ${runCount} Storyboards` : 'Generate Storyboard',
+            // In B-Roll this button writes a storyboard. Here it runs the
+            // whole block — storyboard, every still and, animated, every clip.
+            actionLabel: `${block.settings.animate !== false ? 'Generate Stills and Clips' : 'Generate Stills'}${runCount > 1 ? ` · ${runCount} runs` : ''}`,
             credits: bp?.creditsAll ? creditsPill(bp.creditsAll, bp.unpriced) : null,
             hideImport: true,
           }}

@@ -315,7 +315,8 @@ export function isRunnable(block: FlowBlock): boolean {
 
 // Playground's video tab also takes a start and an end frame — a B-Roll still,
 // a character, any picture — the two frame slots its own Video tab has. Music
-// takes no pictures at all.
+// keeps References although it reads no pictures: dropping the input would
+// re-key a Music block that has one wired, and pay for its track again.
 const PLAYGROUND_FRAMES: PortSpec[] = [port('start', 'Start Frame', 'image'), port('end', 'End Frame', 'image')]
 
 export function insOf(block: FlowBlock): PortSpec[] {
@@ -325,7 +326,6 @@ export function insOf(block: FlowBlock): PortSpec[] {
   if (block.kind === 'playground') {
     const ins = KINDS.playground.ins
     if (block.settings.mode === 'video') return [...ins, ...PLAYGROUND_FRAMES]
-    if (block.settings.mode === 'music') return ins.filter((p) => p.key === 'prompt')
     return ins
   }
   return KINDS[block.kind].ins

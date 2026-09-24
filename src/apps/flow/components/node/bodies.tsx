@@ -13,6 +13,7 @@ import { itemPort, liveItems, wiresInto, wiresOutOf } from '../../engine/graph'
 import { brollVideoModel } from '../../engine/cost'
 import { useFlowStore } from '../../store/flowStore'
 import { useBankStore } from '../../../../stores/bankStore'
+import { useSettingsStore } from '../../../../stores/settingsStore'
 import { useAssetThumb } from '../../../../hooks/useAssetUrl'
 import Spinner from '../../../../components/Spinner'
 import { getModel } from '../../../../utils/models'
@@ -162,6 +163,7 @@ function clock(seconds: number): string {
 // ── B-Roll ─────────────────────────────────────────────────────────────────
 
 export function BrollBody({ block, bp }: { block: FlowBlock; bp: BlockPlan | undefined }) {
+  const pickedStill = useSettingsStore((s) => s.getAppModel('broll-studio:image:text-to-image'))
   const made = madeValues(bp)
   const refs: string[] = []
   for (const v of made) {
@@ -174,7 +176,7 @@ export function BrollBody({ block, bp }: { block: FlowBlock; bp: BlockPlan | und
   const takes = Math.min(3, Math.max(1, Number(block.settings.takes) || 1))
   const planned = bp?.instances.length ?? 0
   const empty = Math.max(0, Math.min(5, planned * 4) - unique.length)
-  const stillModel = getModel(resolveImageModelId(true) ?? '')?.displayName
+  const stillModel = getModel(resolveImageModelId(true, pickedStill) ?? '')?.displayName
   const clipModel = animate ? getModel(brollVideoModel(block) ?? '')?.displayName : undefined
   return (
     <div className="px-3 pb-2.5">
