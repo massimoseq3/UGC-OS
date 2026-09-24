@@ -68,7 +68,7 @@ Defaults (registry order IS the default — `getDefaultModel` falls back to the 
 
 | Capability | Default |
 |---|---|
-| Text + vision, both tiers | Gemini 3.8 Flash — keep `CHAT_MODEL_DEFAULT` and `CHAT_MODEL_STRONG` as two names |
+| Text + vision, both tiers | Gemini 3.8 Flash, a failed call retried once on 3.5 Flash (`chatFallback`) — keep `CHAT_MODEL_DEFAULT` and `CHAT_MODEL_STRONG` as two names |
 | Script / prompt writing | member's pick, two independent slots (`script-architect:chat`, `broll-studio:chat`) — nothing the picker prints may name a default |
 | Image, text→image and image→image | GPT Image 2.5 Sunburst (+ `-image-to-image` sibling via `resolveImageToImageModel`) |
 | Video | Grok Imagine Video 1.5 in B-Roll and Playground; Continuous keeps Seedance 1.5 Pro |
