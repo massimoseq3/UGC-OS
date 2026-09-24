@@ -181,7 +181,8 @@ export const scriptsExecutor: Executor = {
   },
   async replay(ctx) {
     const r = await scriptRunner.replay(scriptInput(ctx))
-    return r ? { items: scriptItems(r, slotIds(ctx), stagingOf(ctx)) } : null
+    // The row the replay brought back, so the block's window shows it too.
+    return r ? { items: scriptItems(r, slotIds(ctx), stagingOf(ctx)), rows: row('scriptHistory', r.id) } : null
   },
 }
 
@@ -344,7 +345,7 @@ export const analyzerExecutor: Executor = {
   async replay() {
     const r = await adAnalysisRunner.replay({ file: new File([], 'ad.mp4') })
     const values = r ? analysisValues(r) : null
-    return values ? { outputs: values } : null
+    return values && r ? { outputs: values, rows: row('adAnatomyHistory', r.id) } : null
   },
 }
 

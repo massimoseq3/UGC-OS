@@ -96,6 +96,13 @@ export default function PlaygroundWindow({ doc, block, plan, run, onRun, onRevie
 
   // What a run of it sends, fitted to the model — what the chips show.
   const fitted = playgroundInput(block, {})
+  // The chips show what runs — the saved setting fitted to the model — so a
+  // saved value the model can't take shows as its fit. Picking the value
+  // already shown saves nothing: saving it would change the block's key and
+  // pay to make the same thing again.
+  const keep = (picked: string, shown: string, patch: Record<string, unknown>) => {
+    if (picked !== shown) set(patch)
+  }
   const setMode = (next: PlaygroundMode) => set({ mode: next, modelId: undefined, resolution: undefined, durationSeconds: undefined })
 
   return (
@@ -164,19 +171,19 @@ export default function PlaygroundWindow({ doc, block, plan, run, onRun, onRevie
           <ModelPicker appId="playground" task={mode} mode={modelMode} row value={modelId} onChange={(id) => set({ modelId: id })} persist={false} />
           {mode === 'image' && (
             <div className="flex flex-wrap items-center gap-1.5">
-              <ConstraintChip grow size="lg" openDirection="up" options={modelId ? imageResolutionsFor(modelId) : ['1K']} value={fitted.resolution} onChange={(v) => set({ resolution: v })} />
-              <ConstraintChip grow size="lg" openDirection="up" options={model?.imageConstraints?.aspectRatios ?? ['9:16', '16:9', '1:1']} value={fitted.aspectRatio} onChange={(v) => set({ aspectRatio: v })} />
+              <ConstraintChip grow size="lg" openDirection="up" options={modelId ? imageResolutionsFor(modelId) : ['1K']} value={fitted.resolution} onChange={(v) => keep(v, fitted.resolution, { resolution: v })} />
+              <ConstraintChip grow size="lg" openDirection="up" options={model?.imageConstraints?.aspectRatios ?? ['9:16', '16:9', '1:1']} value={fitted.aspectRatio} onChange={(v) => keep(v, fitted.aspectRatio, { aspectRatio: v })} />
             </div>
           )}
           {mode === 'video' && video && (
             <div className="flex flex-wrap items-center gap-1.5">
-              {video.resolutions.length > 0 && <ConstraintChip grow size="lg" openDirection="up" options={video.resolutions} value={fitted.resolution} onChange={(v) => set({ resolution: v })} />}
-              {video.aspectRatios.length > 0 && <ConstraintChip grow size="lg" openDirection="up" options={video.aspectRatios} value={fitted.aspectRatio} onChange={(v) => set({ aspectRatio: v })} />}
+              {video.resolutions.length > 0 && <ConstraintChip grow size="lg" openDirection="up" options={video.resolutions} value={fitted.resolution} onChange={(v) => keep(v, fitted.resolution, { resolution: v })} />}
+              {video.aspectRatios.length > 0 && <ConstraintChip grow size="lg" openDirection="up" options={video.aspectRatios} value={fitted.aspectRatio} onChange={(v) => keep(v, fitted.aspectRatio, { aspectRatio: v })} />}
               {video.durations.length > 0 && (
-                <ConstraintChip grow size="lg" openDirection="up" options={video.durations.map(String)} value={String(fitted.durationSeconds)} onChange={(v) => set({ durationSeconds: Number(v) })} render={(v) => <span>{v}s</span>} />
+                <ConstraintChip grow size="lg" openDirection="up" options={video.durations.map(String)} value={String(fitted.durationSeconds)} onChange={(v) => keep(v, String(fitted.durationSeconds), { durationSeconds: Number(v) })} render={(v) => <span>{v}s</span>} />
               )}
               {video.supportsAudio && (
-                <ConstraintChip grow size="lg" openDirection="up" options={['Audio', 'Mute']} value={fitted.audio ? 'Audio' : 'Mute'} onChange={(v) => set({ audio: v === 'Audio' })} />
+                <ConstraintChip grow size="lg" openDirection="up" options={['Audio', 'Mute']} value={fitted.audio ? 'Audio' : 'Mute'} onChange={(v) => keep(v, fitted.audio ? 'Audio' : 'Mute', { audio: v === 'Audio' })} />
               )}
             </div>
           )}

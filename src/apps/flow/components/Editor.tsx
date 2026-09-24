@@ -22,6 +22,7 @@ import RunHistory from './RunHistory'
 import RunView from './RunView'
 import TemplateUpdateBar from './TemplateUpdateBar'
 import { titleOf } from '../engine/catalog'
+import { generationsOf } from '../engine/cost'
 import { useIsDesktop } from '../../../hooks/useBreakpoint'
 
 // Past either, Run asks first and shows what it'll spend.
@@ -85,8 +86,12 @@ export default function Editor({ flowId }: { flowId: string }) {
       go(req)
       return
     }
-    // Run Block is priced off its own plan.
-    const priced = p ?? (plan ? { ...plan, credits: plan.blocks[req.only!]?.creditsAll ?? 0, generations: plan.blocks[req.only!]?.instances.length ?? 0 } : null)
+    // Run Block is priced off its own plan, and makes every run of it again.
+    const onlyBlock = req.only ? doc.blocks.find((b) => b.id === req.only) : undefined
+    const onlyGenerations = onlyBlock && plan
+      ? (plan.blocks[onlyBlock.id]?.instances ?? []).reduce((n, i) => n + generationsOf(onlyBlock, i.inputs, i.slots?.length ?? 1), 0)
+      : 0
+    const priced = p ?? (plan ? { ...plan, credits: plan.blocks[req.only!]?.creditsAll ?? 0, generations: onlyGenerations } : null)
     const credits = priced?.credits ?? 0
     const generations = priced?.generations ?? 0
     if (balance !== null && credits > balance) {

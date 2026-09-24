@@ -27,9 +27,9 @@ import {
   type XYPosition,
 } from '@xyflow/react'
 import { Copy, CopyPlus, FormInput, Maximize2, Minus, Play, Plus, Power, Trash2, Wand2 } from 'lucide-react'
-import type { BlockKind, FlowBlock, FlowDoc, PortType } from '../types'
+import type { BlockKind, FlowBlock, FlowDoc, PortSpec, PortType } from '../types'
 import type { FlowPlan } from '../engine/plan'
-import { accepts, insOf, isRunnable, outsOf, suggestNext, TYPE_META, KINDS, titleOf } from '../engine/catalog'
+import { accepts, inlineText, insOf, isRunnable, outsOf, suggestNext, TYPE_META, KINDS, titleOf } from '../engine/catalog'
 import { canConnect, inputSpec, outputType, topoOrder, wiresInto } from '../engine/graph'
 import { useFlowStore } from '../store/flowStore'
 import { newBlock } from '../store/blocks'
@@ -60,6 +60,9 @@ interface WhatNextState {
   type: PortType
   // The dragged end: an output looking for an input, or the reverse.
   from: { blockId: string; port: string; side: 'out' | 'in' }
+  // Dropped on a block with more than one input that could take it: which of
+  // THAT block's inputs, instead of which new block.
+  into?: { blockId: string; options: WhatNextOption[] }
 }
 
 // Clipboard for copy/paste inside the tab; the system clipboard gets the same
@@ -218,30 +221,45 @@ export default function Canvas({
     if (!check.ok) say(check.reason, 'error')
   }
 
-  // A wire let go over another block's body wires into the first of its
-  // inputs that takes it — an empty one first, then one that takes several —
-  // so a member never has to hit a 11px dot. Dragged out of an input, the
-  // same, the other way round.
-  const wireInto = (from: { blockId: string; port: string; side: 'out' | 'in' }, type: PortType, target: FlowBlock): boolean => {
+  // A wire let go over another block's body wires into the one input that
+  // plainly takes it, so a member never has to hit an 11px dot. "Plainly"
+  // is strict, because a wrong guess spends: an input that already holds
+  // something — a wire, or a script typed into the block — is never quietly
+  // replaced, and a looser fit (a transcript into a Brief) never wins over
+  // the input made for it. Anything less clear-cut asks which input.
+  // Dragged out of an input, the same, the other way round.
+  const wireInto = (from: { blockId: string; port: string; side: 'out' | 'in' }, type: PortType, target: FlowBlock, clientX: number, clientY: number): boolean => {
     if (from.side === 'out') {
       const fits = insOf(target).filter((p) => accepts(p.type, type))
-      const ordered = [
-        ...fits.filter((p) => !wiresInto(doc, target.id, p.key).length),
-        ...fits.filter((p) => p.many && wiresInto(doc, target.id, p.key).length),
-        ...fits.filter((p) => !p.many && wiresInto(doc, target.id, p.key).length),
-      ]
-      let reason = ordered.length ? '' : `${titleOf(target)} has no input that takes ${TYPE_META[type].label}.`
-      for (const p of ordered) {
-        const check = connect({ from: from.blockId, fromPort: from.port, to: target.id, toPort: p.key })
-        if (check.ok) return true
-        reason ||= check.reason
+      if (!fits.length) {
+        say(`${titleOf(target)} has no input that takes ${TYPE_META[type].label}.`, 'error')
+        return false
       }
-      say(reason, 'error')
-      return false
+      const filled = (p: PortSpec) => wiresInto(doc, target.id, p.key).length > 0 || inlineText(target, p.key) !== null
+      const open = (p: PortSpec) => !filled(p) || !!p.many
+      const exact = fits.filter((p) => p.type === type)
+      const exactOpen = exact.filter(open)
+      const looseOpen = fits.filter((p) => p.type !== type && open(p))
+      const sure = exactOpen.length === 1 ? exactOpen[0] : !exact.length && looseOpen.length === 1 ? looseOpen[0] : undefined
+      if (sure) {
+        const check = connect({ from: from.blockId, fromPort: from.port, to: target.id, toPort: sure.key })
+        if (check.ok) return true
+      }
+      askAt(from.blockId, from.port, from.side, type, clientX, clientY, {
+        blockId: target.id,
+        options: fits.map((p) => ({
+          kind: target.kind,
+          port: p.key,
+          label: p.label,
+          detail: wiresInto(doc, target.id, p.key).length ? (p.many ? 'Adds to It' : 'Replaces Its Wire') : inlineText(target, p.key) !== null ? 'Replaces Typed' : '',
+        })),
+      })
+      return true
     }
     const fits = outsOf(target).filter((o) => accepts(type, o.type))
-    let reason = fits.length ? '' : `${titleOf(target)} makes nothing that goes there.`
-    for (const o of fits) {
+    const ordered = [...fits.filter((o) => o.type === type), ...fits.filter((o) => o.type !== type)]
+    let reason = ordered.length ? '' : `${titleOf(target)} makes nothing that goes there.`
+    for (const o of ordered) {
       const check = connect({ from: target.id, fromPort: o.key, to: from.blockId, toPort: from.port })
       if (check.ok) return true
       reason ||= check.reason
@@ -263,13 +281,13 @@ export default function Canvas({
     const over = nodeIdAt(point.clientX, point.clientY) ?? state.toNode?.id ?? null
     const target = over && over !== block.id ? real.find((b) => b.id === over) : undefined
     if (target) {
-      wireInto({ blockId: block.id, port, side }, type, target)
+      wireInto({ blockId: block.id, port, side }, type, target, point.clientX, point.clientY)
       return
     }
     askAt(block.id, port, side, type, point.clientX, point.clientY)
   }
 
-  const askAt = (blockId: string, port: string, side: 'in' | 'out', type: PortType, clientX: number, clientY: number) => {
+  const askAt = (blockId: string, port: string, side: 'in' | 'out', type: PortType, clientX: number, clientY: number, into?: WhatNextState['into']) => {
     const rect = wrapRef.current?.getBoundingClientRect()
     setMenu({
       x: clientX - (rect?.left ?? 0),
@@ -277,6 +295,7 @@ export default function Canvas({
       at: rf.screenToFlowPosition({ x: clientX, y: clientY }),
       type,
       from: { blockId, port, side },
+      into,
     })
   }
 
@@ -289,6 +308,12 @@ export default function Canvas({
 
   const pickWhatNext = (o: WhatNextOption) => {
     if (!menu) return
+    if (menu.into) {
+      const check = connect({ from: menu.from.blockId, fromPort: menu.from.port, to: menu.into.blockId, toPort: o.port })
+      if (!check.ok) say(check.reason, 'error')
+      setMenu(null)
+      return
+    }
     // A wire's length clear of the dot it came from, so the new block never
     // lands on top of the one it's wired to.
     const at = menu.from.side === 'out'
@@ -414,6 +439,11 @@ export default function Canvas({
     const onKey = (e: KeyboardEvent) => {
       const el = document.activeElement as HTMLElement | null
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
+      // A key pressed inside something portaled over the canvas — a picker a
+      // block opened, a modal — is that thing's, even when the canvas doesn't
+      // know it's open: Backspace there must never delete the block behind it.
+      const target = e.target as Node | null
+      if (target && target !== document.body && !document.getElementById('root')?.contains(target)) return
       const mod = e.metaKey || e.ctrlKey
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (selection.length) removeBlocks(selection)
@@ -599,7 +629,8 @@ export default function Canvas({
             y={menu.y}
             type={menu.type}
             side={menu.from.side}
-            options={menu.from.side === 'out' ? optionsForOutput(menu.type) : optionsForInput(menu.type)}
+            into={!!menu.into}
+            options={menu.into?.options ?? (menu.from.side === 'out' ? optionsForOutput(menu.type) : optionsForInput(menu.type))}
             onPick={pickWhatNext}
             onClose={() => setMenu(null)}
           />

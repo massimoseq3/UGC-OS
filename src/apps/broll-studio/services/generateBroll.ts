@@ -740,9 +740,13 @@ function buildStaticReferencePreamble(refs: ReferenceImage[]): string {
  * quoting the t2i pick while an i2i sibling gets billed is how a confirm dialog
  * lies about the price.
  */
-export function resolveImageModelId(hasRefs: boolean): string | undefined {
+// `pickedId` is for a component: it reads the pick through the store's
+// selector and passes it in, so a new pick re-renders the model it shows.
+export function resolveImageModelId(
+  hasRefs: boolean,
+  pickedId = useSettingsStore.getState().getAppModel('broll-studio:image:text-to-image'),
+): string | undefined {
   const mode = hasRefs ? 'image-to-image' : 'text-to-image'
-  const pickedId = useSettingsStore.getState().getAppModel('broll-studio:image:text-to-image')
   const picked = pickedId ? getModel(pickedId) : undefined
 
   if (picked && picked.modes?.includes(mode)) return picked.id

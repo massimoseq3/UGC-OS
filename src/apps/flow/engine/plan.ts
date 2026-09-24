@@ -49,6 +49,9 @@ export interface PlanDeps {
   // Credits one run of a block is expected to cost, for `slots` new items
   // when it's a batch, or null when it can't be priced ahead.
   cost(block: FlowBlock, inputs: Record<string, FlowValue[]>, slots: number): number | null
+  // Generations one run starts, for the big-run confirmation; one, or one
+  // per slot, when left out.
+  generations?(block: FlowBlock, inputs: Record<string, FlowValue[]>, slots: number): number
 }
 
 export interface PlanOptions {
@@ -188,7 +191,8 @@ export function planFlow(graph: FlowGraph, outputs: FlowOutputs, deps: PlanDeps,
     if (bp.runs > 0) {
       planned.push(id)
       credits += bp.credits
-      generations += bp.instances.filter((i) => i.run).reduce((n, i) => n + Math.max(1, i.slots?.length ?? 1), 0)
+      const count = deps.generations ?? ((_b, _i, slots: number) => Math.max(1, slots))
+      generations += bp.instances.filter((i) => i.run).reduce((n, i) => n + count(block, i.inputs, i.slots?.length ?? 1), 0)
       unpriced ||= bp.unpriced
     }
     creditsAll += bp.creditsAll
