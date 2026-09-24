@@ -9,6 +9,7 @@
 import { create } from 'zustand'
 import type { BlockKind, FlowBlock, FlowDoc, FlowGraph, FlowWire, InstanceResult } from '../types'
 import { useBankStore } from '../../../stores/bankStore'
+import type { Lineage } from '../../../stores/types'
 import { sourceOf } from '../engine/catalog'
 import { canConnect, downstreamOf, itemPort, pruneWires, type ConnectCheck } from '../engine/graph'
 import { tidyLayout } from '../engine/layout'
@@ -54,6 +55,12 @@ interface FlowStoreState {
   // The open flow as a canvas, or as an app (Run View).
   view: 'edit' | 'run'
   setView: (view: 'edit' | 'run') => void
+  // How Was This Made or Save as Flow, open on one finished row — from Flow
+  // Home, or from any app's tile through the inter-app payload. Never
+  // persisted: a reload lands on the flow, not on a window over it.
+  lineage: { ref: Lineage; view: 'how' | 'save' } | null
+  openLineage: (ref: Lineage, view: 'how' | 'save') => void
+  closeLineage: () => void
   docs: Record<string, FlowDoc>
   selection: string[]
   history: Record<string, History>
@@ -165,6 +172,9 @@ export const useFlowStore = create<FlowStoreState>((set, get) => {
     openId: readOpen(),
     view: 'edit',
     setView: (view) => set({ view }),
+    lineage: null,
+    openLineage: (ref, view) => set({ lineage: { ref, view } }),
+    closeLineage: () => set({ lineage: null }),
     docs: {},
     selection: [],
     history: {},

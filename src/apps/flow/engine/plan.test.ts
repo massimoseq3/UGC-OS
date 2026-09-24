@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { FlowBlock, FlowGraph, FlowOutputs, FlowValue, InstanceResult } from '../types'
-import { KINDS, outsOf } from './catalog'
+import { KINDS, desiredSlots, outsOf } from './catalog'
 import { canConnect } from './graph'
 import { planFlow, type FlowPlan, type Held, type HeldValue, type PlanDeps } from './plan'
 
@@ -327,5 +327,13 @@ describe('wiring', () => {
   it('takes a transcript where a script goes', () => {
     const g: FlowGraph = { blocks: [block('an', 'analyzer'), block('voc', 'voice')], wires: [] }
     expect(canConnect(g, { from: 'an', fromPort: 'transcript', to: 'voc', toPort: 'script' }).ok).toBe(true)
+  })
+})
+
+describe('slots', () => {
+  it('follow the counts Scripts accepts, so the plan matches what a run makes', () => {
+    expect(desiredSlots(block('s', 'scripts', { settings: { mode: 'write', writeFormat: 'hooks', hookCount: 5 } }))).toBe(10)
+    expect(desiredSlots(block('s', 'scripts', { settings: { mode: 'write', writeFormat: 'hooks', hookCount: 20 } }))).toBe(20)
+    expect(desiredSlots(block('s', 'scripts', { settings: { mode: 'write', writeFormat: 'script', variationCount: 4 } }))).toBe(3)
   })
 })

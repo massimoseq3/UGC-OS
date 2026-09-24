@@ -14,7 +14,9 @@ import { usePersistedState } from '../../../hooks/usePersistedState'
 import { sectionLabel, groupByDay } from '../../../utils/history'
 import { downloadImage } from '../../../utils/downloadImage'
 import { downloadAssetsZip } from '../../../utils/downloadZip'
-import type { ImageHistoryItem, VideoHistoryItem } from '../../../stores/types'
+import type { ImageHistoryItem, Lineage, VideoHistoryItem } from '../../../stores/types'
+import FlowLineageItems from '../../../components/FlowLineageItems'
+import { useAppVisible } from '../../../stores/appVisibilityStore'
 import MusicRow from './MusicRow'
 import ProjectRail, { ProjectRailToggle } from './ProjectRail'
 import { summariseProjects, type HistoryEntry } from '../projectSummary'
@@ -833,7 +835,15 @@ function HistoryListRow({
               hover fade left the delete invisible here at every width — the
               same bug Characters' list row had. */}
           <TileDeleteButton alwaysVisible variant="chrome" onDelete={onDelete} />
-          <PromptMenu chrome open={menuOpen} onToggle={() => setMenuOpen((v) => !v)} onClose={closeMenu} onCopyPrompt={prompt ? onCopyPrompt : undefined} onReuse={onReuse} />
+          <PromptMenu
+            chrome
+            open={menuOpen}
+            onToggle={() => setMenuOpen((v) => !v)}
+            onClose={closeMenu}
+            onCopyPrompt={prompt ? onCopyPrompt : undefined}
+            onReuse={onReuse}
+            lineage={{ bank: entry.kind === 'image' ? 'imageHistory' : 'videoHistory', id: entry.data.id }}
+          />
         </div>
         </div>
       </div>
@@ -886,14 +896,16 @@ function InFlightRow({ gen, mediaAspect }: { gen: InFlightGen; mediaAspect: numb
 // The ⋮ that closes every tile's and list row's action line: Copy Prompt and
 // Reuse Prompt, spelled out and side by side — the two are siblings (one hands
 // the words to the clipboard, the other straight back to the field), so they
-// travel together. `chrome` for a list row's panel surface, the default for a
-// stack over media. Renders nothing when there is no prompt to act on.
+// travel together — then Flow's How It Was Made and Save as Flow while Flow
+// is on. `chrome` for a list row's panel surface, the default for a stack
+// over media. Renders nothing when there is nothing to act on.
 function PromptMenu({
   open,
   onToggle,
   onClose,
   onCopyPrompt,
   onReuse,
+  lineage,
   chrome = false,
 }: {
   open: boolean
@@ -901,13 +913,16 @@ function PromptMenu({
   onClose: () => void
   onCopyPrompt?: () => void
   onReuse?: () => void
+  lineage?: Lineage
   chrome?: boolean
 }) {
-  if (!onCopyPrompt && !onReuse) return null
+  const flowRows = useAppVisible('flow') && lineage ? 2 : 0
+  if (!onCopyPrompt && !onReuse && !flowRows) return null
   return (
-    <TileMenuButton chrome={chrome} open={open} onToggle={onToggle} onClose={onClose} count={onCopyPrompt && onReuse ? 2 : 1}>
+    <TileMenuButton chrome={chrome} open={open} onToggle={onToggle} onClose={onClose} count={(onCopyPrompt ? 1 : 0) + (onReuse ? 1 : 0) + flowRows}>
       {onCopyPrompt && <TileMenuItem icon={Copy} label="Copy Prompt" onClick={onCopyPrompt} onClose={onClose} />}
       {onReuse && <TileMenuItem icon={CornerDownLeft} label="Reuse Prompt" onClick={onReuse} onClose={onClose} />}
+      {lineage && <FlowLineageItems row={lineage} onClose={onClose} />}
     </TileMenuButton>
   )
 }
@@ -1034,6 +1049,7 @@ function ImageTile({
             onClose={() => setMenuOpen(false)}
             onCopyPrompt={item.prompt ? onCopyPrompt : undefined}
             onReuse={onReuse}
+            lineage={{ bank: 'imageHistory', id: item.id }}
           />
         </TileActionStack>
       </div>
@@ -1201,6 +1217,7 @@ function VideoTile({
               onClose={() => setMenuOpen(false)}
               onCopyPrompt={item.prompt ? onCopyPrompt : undefined}
               onReuse={onReuse}
+              lineage={{ bank: 'videoHistory', id: item.id }}
             />
           </TileActionStack>
         )}

@@ -16,7 +16,9 @@ import { useBankStore } from '../../../stores/bankStore'
 import { usePersistedState } from '../../../hooks/usePersistedState'
 import { getContinuousStyle } from '../services/generateContinuous'
 import { formatRelative, sectionLabel, groupByDay } from '../../../utils/history'
-import { TileActionStack, TileDeleteButton } from '../../../components/tileActions'
+import { TileActionStack, TileDeleteButton, TileMenuButton } from '../../../components/tileActions'
+import FlowLineageItems from '../../../components/FlowLineageItems'
+import { useAppVisible } from '../../../stores/appVisibilityStore'
 import DayPill from '../../../components/DayPill'
 import Dropdown from '../../../components/Dropdown'
 import RailNewButton from '../../../components/RailNewButton'
@@ -539,6 +541,10 @@ function HistoryCard({
   onSelect: () => void
   onDelete: () => void
 }) {
+  // Flow's How It Was Made and Save as Flow, behind a ⋮ while Flow is on.
+  // Its open state lives here so the stack holds still while the menu is up.
+  const flowOn = useAppVisible('flow')
+  const [menuOpen, setMenuOpen] = useState(false)
   const result = item.result as BrollResult | null
   const covers = useMemo(() => historyCovers(item), [item])
   const tally = useMemo(() => mediaTally(item), [item])
@@ -598,8 +604,13 @@ function HistoryCard({
           )}
         </div>
 
-        <TileActionStack forceVisible={isActive}>
+        <TileActionStack forceVisible={isActive || menuOpen}>
           <TileDeleteButton variant="media" size="sm" onDelete={onDelete} />
+          {flowOn && openable && (
+            <TileMenuButton open={menuOpen} onToggle={() => setMenuOpen((v) => !v)} onClose={() => setMenuOpen(false)} count={2}>
+              <FlowLineageItems row={{ bank: 'brollHistory', id: item.id }} onClose={() => setMenuOpen(false)} />
+            </TileMenuButton>
+          )}
         </TileActionStack>
 
         {generating > 0 && <GeneratingPulseRing family="broll" shape="rect" />}

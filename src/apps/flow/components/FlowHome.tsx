@@ -19,6 +19,7 @@ import { loadGallery, type GalleryEntry } from '../templates/gallery'
 import { readTemplateFile } from '../templates/io'
 import TemplateSetup, { type SetupSource } from './TemplateSetup'
 import DescribeIt from './DescribeIt'
+import FromYourWork from './FromYourWork'
 import { creditsLabel } from '../hooks/useFlowPlan'
 import { GlassTile } from '../../../components/AppGlassTile'
 
@@ -173,7 +174,8 @@ export default function FlowHome() {
           </section>
 
           <section>
-            <SectionTitle title="Make a Flow From Your Work" hint="Open any finished result in its app and press Save as Flow: Flow traces what made it and lays it out as blocks." />
+            <SectionTitle title="Make a Flow From Your Work" hint="Save as Flow traces what made a result and lays it out as blocks, so it runs again for any product." />
+            <FromYourWork />
           </section>
 
           <div className="flex justify-center pb-6">

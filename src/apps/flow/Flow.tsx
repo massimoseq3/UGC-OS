@@ -10,6 +10,8 @@ import { resumeRuns } from './run/runtime'
 import { useBankStore } from '../../stores/bankStore'
 import FlowHome from './components/FlowHome'
 import Editor from './components/Editor'
+import LineageModal from './components/LineageModal'
+import type { LineageBank } from '../../stores/types'
 import '@xyflow/react/dist/style.css'
 import './flow.css'
 
@@ -23,20 +25,27 @@ export default function Flow() {
   const activeApp = useAppStore((s) => s.activeApp)
   const openFlow = useFlowStore((s) => s.openFlow)
   const setView = useFlowStore((s) => s.setView)
+  const openLineage = useFlowStore((s) => s.openLineage)
 
-  // A pinned flow's dock tile opens it as an app, in Run View. Keyed on the
-  // payload as well as the app: the tile is pressed while Flow is already
-  // open as often as not, and then only the payload changes.
+  // A pinned flow's dock tile opens it as an app, in Run View; an app tile's
+  // How It Was Made or Save as Flow opens that window over whatever Flow
+  // shows. Keyed on the payload as well as the app: both are pressed while
+  // Flow is already open as often as not, and then only the payload changes.
   const payload = useAppStore((s) => s.interAppPayload)
   useEffect(() => {
-    if (activeApp !== 'flow') return
-    if (payload?.targetApp !== 'flow' || payload.targetField !== 'openFlow') return
-    useAppStore.getState().consumePayload()
-    const data = payload.data as { flowId?: string; view?: 'edit' | 'run' }
-    if (!data.flowId) return
-    openFlow(data.flowId)
-    setView(data.view ?? 'run')
-  }, [activeApp, payload, openFlow, setView])
+    if (activeApp !== 'flow' || payload?.targetApp !== 'flow') return
+    if (payload.targetField === 'openFlow') {
+      useAppStore.getState().consumePayload()
+      const data = payload.data as { flowId?: string; view?: 'edit' | 'run' }
+      if (!data.flowId) return
+      openFlow(data.flowId)
+      setView(data.view ?? 'run')
+    } else if (payload.targetField === 'lineage') {
+      useAppStore.getState().consumePayload()
+      const data = payload.data as { bank?: LineageBank; id?: string; view?: 'how' | 'save' }
+      if (data.bank && data.id) openLineage({ bank: data.bank, id: data.id }, data.view ?? 'how')
+    }
+  }, [activeApp, payload, openFlow, setView, openLineage])
 
   // A run the last page load left going picks up where it was, whether or
   // not the flow it belongs to is the one on screen.
@@ -48,6 +57,10 @@ export default function Flow() {
     if (openId && !doc && rowLoaded) ensureDoc(openId)
   }, [openId, doc, rowLoaded, ensureDoc])
 
-  if (openId && doc) return <Editor flowId={openId} />
-  return <FlowHome />
+  return (
+    <>
+      {openId && doc ? <Editor flowId={openId} /> : <FlowHome />}
+      <LineageModal />
+    </>
+  )
 }

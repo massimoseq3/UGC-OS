@@ -5,6 +5,7 @@
 
 import type { BlockKind, BlockSource, FlowBlock, PortSpec, PortType } from '../types'
 import type { BankType } from '../../../utils/constants'
+import { DEFAULT_HOOK_COUNT, DEFAULT_VARIATION_COUNT, isHookCount, isVariationCount } from '../../script-architect/types'
 
 // ── Port types ─────────────────────────────────────────────────────────────
 
@@ -361,8 +362,12 @@ export function titleOf(block: FlowBlock): string {
 export function desiredSlots(block: FlowBlock): number {
   const s = block.settings
   switch (block.kind) {
+    // The counts Scripts itself accepts: anything else (an old flow, a
+    // described one) runs at the default, so the slots have to agree.
     case 'scripts':
-      return scriptsFormat(block) === 'hooks' ? Number(s.hookCount) || 10 : Number(s.variationCount) || 3
+      return scriptsFormat(block) === 'hooks'
+        ? (isHookCount(s.hookCount) ? s.hookCount : DEFAULT_HOOK_COUNT)
+        : (isVariationCount(s.variationCount) ? s.variationCount : DEFAULT_VARIATION_COUNT)
     case 'characters':
       return Math.min(4, Math.max(1, Number(s.count) || 1))
     case 'outliers':

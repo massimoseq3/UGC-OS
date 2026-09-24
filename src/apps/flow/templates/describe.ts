@@ -12,7 +12,7 @@
 import type { FlowBlock, FlowDoc, FlowGraph, FlowWire } from '../types'
 import { ACCEPTS, BANK_ORDER, BANK_TYPE, KINDS, PRODUCTION_ORDER, TYPE_META, blockWidth, isKnownKind, titleOf } from '../engine/catalog'
 import { canConnect } from '../engine/graph'
-import { COLUMN_GAP, ROW_GAP, tidyLayout } from '../engine/layout'
+import { COLUMN_GAP, ROW_GAP, estimatedSize, laidOut } from '../engine/layout'
 import { validateTemplate, FORMAT, type FlowTemplateFile } from './io'
 import { withSlots, shortId } from '../store/blocks'
 import { useBankStore } from '../../../stores/bankStore'
@@ -101,22 +101,6 @@ async function ask(system: string, user: string): Promise<unknown> {
 
 type SizeOf = (id: string) => { width: number; height: number } | undefined
 
-// A block's size before the canvas has measured it: its width is fixed by
-// kind, its height grows with its ports (and a batch's item rows).
-function estimatedSize(block: FlowBlock): { width: number; height: number } {
-  const rows = isKnownKind(block.kind) ? Math.max(KINDS[block.kind].ins.length, KINDS[block.kind].outs.length) : 1
-  return { width: blockWidth(block.kind), height: 110 + rows * 22 + (block.items?.length ?? 0) * 22 }
-}
-
-// Lays a freshly built graph out left to right, since the model doesn't place
-// blocks.
-function laidOut(graph: FlowGraph): FlowGraph {
-  const positions = tidyLayout(graph, (id) => {
-    const b = graph.blocks.find((x) => x.id === id)
-    return b ? estimatedSize(b) : { width: 240, height: 160 }
-  })
-  return { ...graph, blocks: graph.blocks.map((b) => ({ ...b, ...(positions[b.id] ?? {}) })) }
-}
 
 // A block Ask Flow added goes one column right of whatever feeds it, below
 // anything already in that column, so it lands beside the work it belongs to

@@ -2,8 +2,8 @@
 // column is how far down the chain it sits; within a column, blocks keep the
 // dock's production order, then their current top-to-bottom order.
 
-import type { FlowGraph } from '../types'
-import { PRODUCTION_ORDER } from './catalog'
+import type { FlowBlock, FlowGraph } from '../types'
+import { blockWidth, isKnownKind, KINDS, PRODUCTION_ORDER } from './catalog'
 
 export const COLUMN_GAP = 96
 export const ROW_GAP = 32
@@ -50,4 +50,21 @@ export function tidyLayout(
     x += width + COLUMN_GAP
   }
   return positions
+}
+
+// A block's size before the canvas has measured it: its width is fixed by
+// kind, its height grows with its ports (and a batch's item rows).
+export function estimatedSize(block: FlowBlock): { width: number; height: number } {
+  const rows = isKnownKind(block.kind) ? Math.max(KINDS[block.kind].ins.length, KINDS[block.kind].outs.length) : 1
+  return { width: blockWidth(block.kind), height: 110 + rows * 22 + (block.items?.length ?? 0) * 22 }
+}
+
+// A graph nobody placed — one Describe It drafted, one Save as Flow traced —
+// laid out left to right before it reaches the canvas.
+export function laidOut(graph: FlowGraph): FlowGraph {
+  const positions = tidyLayout(graph, (id) => {
+    const b = graph.blocks.find((x) => x.id === id)
+    return b ? estimatedSize(b) : { width: 240, height: 160 }
+  })
+  return { ...graph, blocks: graph.blocks.map((b) => ({ ...b, ...(positions[b.id] ?? {}) })) }
 }

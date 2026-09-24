@@ -4,7 +4,7 @@
 // running anything.
 
 import { useState } from 'react'
-import { ArrowRight, Sparkles } from 'lucide-react'
+import { Sparkles } from 'lucide-react'
 import AutoGrowTextarea from '../../../components/AutoGrowTextarea'
 import Spinner from '../../../components/Spinner'
 import { useAppStore } from '../../../stores/appStore'
@@ -14,9 +14,10 @@ import { describeFlow } from '../templates/describe'
 import type { FlowTemplateFile } from '../templates/io'
 import { planFlow } from '../engine/plan'
 import { PLAN_DEPS } from '../run/runtime'
-import { KINDS, isKnownKind, titleOf } from '../engine/catalog'
+import { isKnownKind } from '../engine/catalog'
 import { useFlowStore } from '../store/flowStore'
 import { creditsLabel } from '../hooks/useFlowPlan'
+import PlanChips from './PlanChips'
 
 const EXAMPLES = [
   '5 hooks for my serum, a female voice, B-Roll for each',
@@ -85,16 +86,7 @@ export default function DescribeIt() {
             <span className="text-[14px] font-semibold text-ink-100">{draft.file.name}</span>
             <span className="text-[12px] tabular-nums text-ink-400">{creditsLabel(plan?.creditsAll ?? 0, plan?.unpriced)} a run</span>
           </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            {draft.file.blocks.filter((b) => isKnownKind(b.kind) && b.kind !== 'note').map((b, i, all) => (
-              <span key={b.id} className="flex items-center gap-1.5">
-                <span className="rounded-full bg-ink/[0.06] px-2.5 py-1 text-[11.5px] text-ink-200">
-                  {titleOf(b)}{b.review ? ' · Review' : ''}{plan?.blocks[b.id]?.instances.length && plan.blocks[b.id].instances.length > 1 ? ` ×${plan.blocks[b.id].instances.length}` : ''}
-                </span>
-                {i < all.length - 1 && KINDS[b.kind] && <ArrowRight className="h-3 w-3 text-ink-600" />}
-              </span>
-            ))}
-          </div>
+          <PlanChips blocks={draft.file.blocks} plan={plan} />
           {(draft.file.notes?.length ?? 0) > 0 && <p className="text-[12px] leading-relaxed text-ink-400">{draft.file.notes!.join(' ')}</p>}
           {draft.changes.map((c, i) => <p key={i} className="text-[11.5px] text-amber-400/90">{c}</p>)}
           <div className="flex justify-end gap-2">
