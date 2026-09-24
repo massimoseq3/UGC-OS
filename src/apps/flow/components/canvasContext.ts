@@ -18,6 +18,11 @@ export interface CanvasContextValue {
   openReview: (blockId: string) => void
   runBlock: (blockId: string) => void
   acceptSuggestion: () => void
+  // Open a block in its app's own window.
+  openBlock: (blockId: string) => void
+  // A dot clicked: what could go into it (an input) or come out of it (an
+  // output), as the What Next? menu at the pointer.
+  askAtPort: (blockId: string, port: string, side: 'in' | 'out', clientX: number, clientY: number) => void
 }
 
 export const CanvasContext = createContext<CanvasContextValue | null>(null)

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Package, UserRound, FileText, RefreshCw, Film, X, ChevronRight, Rows3, Box, Coins, Pencil, FileInput, MessageSquareQuote, Layers } from 'lucide-react'
 import Spinner from '../../../components/Spinner'
 import type { Product, Model, Script } from '../../../stores/types'
@@ -47,6 +47,10 @@ interface InputPanelProps {
   // the same per-line storyboard, so it rides in the settings band.
   lineDelivery: BrollDelivery
   onLineDeliveryChange: (delivery: BrollDelivery) => void
+  // Flow's B-Roll block renders this same panel over the block's settings
+  // instead of this app's draft (flow/components/window/BrollWindow). Absent
+  // in the app itself, where nothing below changes.
+  flow?: BrollFlowSlots
   // Visual Style is NOT picked here (August 2026). It was a required row at the
   // bottom of this card, which made a look something you had to decide before
   // you could see a single shot — and the honest default (UGC Realism) was
@@ -56,6 +60,21 @@ interface InputPanelProps {
   // prompts), so moving it there costs nothing and takes a decision off the
   // way to Generate. The video model isn't picked here either: it only matters
   // once there are keyframes to animate, so that picker lives in the clip modal.
+}
+
+export interface BrollFlowSlots {
+  // A reference a wire feeds in the flow, shown in place of its card here —
+  // and the script counts as filled, since the wire brings one per run.
+  wired?: { character?: ReactNode; product?: ReactNode; script?: ReactNode; instructions?: ReactNode }
+  // What a flow run needs decided up front that this app decides later, on
+  // the storyboard (the look) and in the clip modal (the clip model).
+  settings?: ReactNode
+  // What Generate says and costs there: a whole run of the block — the
+  // storyboard, its stills and its clips — not the prompt-writing call alone.
+  actionLabel?: string
+  credits?: string | null
+  // Import pastes prompts into this app's own storyboard, which a block has none of.
+  hideImport?: boolean
 }
 
 function BankCard({
@@ -256,8 +275,10 @@ export default function InputPanel({
   showModeToggle,
   lineDelivery,
   onLineDeliveryChange,
+  flow,
 }: InputPanelProps) {
-  const hasScript = scriptText.trim().length > 0
+  const wired = flow?.wired ?? {}
+  const hasScript = scriptText.trim().length > 0 || !!wired.script
   // The script is the whole gate now that B-Roll no longer writes one. The look
   // used to be the other half and isn't any more — it folds to UGC Realism and
   // is changed on the storyboard itself. The ad format was never in the gate
@@ -273,7 +294,9 @@ export default function InputPanel({
   // nothing ever fires unpriced, not because the number is large. Two ways it
   // comes back null and hides: no script to measure yet, or a picked chat model
   // with no verified per-token rate (see the registry's "NO CREDIT FIGURES").
-  const promptCredits = hasScript ? formatCredits(estimatePromptCredits(mode, scriptText, lineDelivery)) : null
+  const promptCredits = flow && flow.credits !== undefined
+    ? flow.credits
+    : hasScript ? formatCredits(estimatePromptCredits(mode, scriptText, lineDelivery)) : null
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -334,7 +357,7 @@ export default function InputPanel({
             title="References"
             className="mb-2 flex flex-[5] flex-col max-lg:flex-none"
             contentClassName="flex flex-1 flex-col gap-2"
-            right={
+            right={flow?.hideImport ? undefined :
               /* Bring your own prompts — write them in Claude (or anywhere) and
                  paste them in, instead of paying for the prompt-writing call.
                  Named with ONE word because it sits in a card header's gutter
@@ -371,6 +394,7 @@ export default function InputPanel({
                 its character isn't a storyboard you'd ship — so they're `required`
                 alongside the other two, and all four dots answer one question:
                 "have I filled this in?". */}
+            {wired.character ?? (
             <BankCard
               icon={UserRound}
               label="Character"
@@ -383,8 +407,10 @@ export default function InputPanel({
             >
               {selectedModel && <ModelCard model={selectedModel} />}
             </BankCard>
+            )}
 
             {/* Product */}
+            {wired.product ?? (
             <BankCard
               icon={Package}
               label="Product"
@@ -397,6 +423,7 @@ export default function InputPanel({
             >
               {selectedProduct && <ProductCard product={selectedProduct} />}
             </BankCard>
+            )}
 
             {/* Script — REQUIRED (half of `canGenerate`), and the only reference
                 here that GROWS as you paste, which is why it sits under the two
@@ -411,6 +438,7 @@ export default function InputPanel({
                 between them. With basis-0 they were always an even split whatever
                 was in them — a matched pair on an empty panel, and a script fighting
                 for room the moment one was pasted in. */}
+            {wired.script ?? (
             <div className={`flex min-h-[140px] flex-1 flex-col overflow-hidden rounded-3xl border transition-colors max-lg:min-h-[220px] max-lg:flex-none ${selectedScript ? 'border-scripts-500/30 bg-scripts-500/[0.06] focus-within:border-scripts-500/50' : 'border-dashed border-ink/10 bg-ink/[0.02] focus-within:border-ink/20'} ${highlightField === 'script' ? 'animate-field-flash' : ''}`}>
               <BankCard
                 icon={FileText}
@@ -446,6 +474,7 @@ export default function InputPanel({
                 <ExpandButton onClick={() => setScriptExpanded(true)} className="absolute bottom-2 right-2" />
               </div>
             </div>
+            )}
 
             {/* Two rows left this card in August 2026. The Visual Style row is
                 REMOVED outright — the look is picked on the storyboard's caption
@@ -507,6 +536,7 @@ export default function InputPanel({
                 still one tap away on the expand button for anything longer.
                 Optional — the product row carries the rest, so blank stays a
                 normal answer. */}
+            {wired.instructions ?? (
             <div className="relative flex min-h-[72px] flex-1 flex-col overflow-hidden rounded-3xl border border-dashed border-ink/10 bg-ink/[0.02] transition-colors focus-within:border-ink/20 max-lg:min-h-[120px] max-lg:flex-none">
               {/* Centred, like every other box header in this column. */}
               <div className="flex items-center justify-center px-4 pt-2.5">
@@ -532,6 +562,8 @@ export default function InputPanel({
               />
               <ExpandButton onClick={() => setInstructionsExpanded(true)} className="absolute bottom-2 right-2" />
             </div>
+            )}
+            {flow?.settings}
         </div>
 
         {/* Render-settings + Generate band. It used to be a tinted, bordered card
@@ -596,13 +628,17 @@ export default function InputPanel({
                     noun gives way, the storyboard bar's own `BandLabel` move. A
                     container query on the band, because what squeezes this is
                     the column, not the window. */}
-                <span className="whitespace-nowrap">
-                  Generate
-                  <span className="hidden @[330px]:inline">{' Storyboard'}</span>
-                </span>
+                {flow?.actionLabel ? (
+                  <span className="truncate">{flow.actionLabel}</span>
+                ) : (
+                  <span className="whitespace-nowrap">
+                    Generate
+                    <span className="hidden @[330px]:inline">{' Storyboard'}</span>
+                  </span>
+                )}
                 {promptCredits && (
                   <span
-                    title="Estimated cost of writing the prompts. Generating the images and videos afterwards is priced separately."
+                    title={flow ? 'Estimated cost of the whole run: the storyboard, its stills and its clips.' : 'Estimated cost of writing the prompts. Generating the images and videos afterwards is priced separately.'}
                     className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight"
                   >
                     <Coins className="h-3 w-3" strokeWidth={2} />

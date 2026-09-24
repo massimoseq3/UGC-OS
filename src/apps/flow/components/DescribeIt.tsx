@@ -1,11 +1,10 @@
-// Describe It, on Flow Home: say what you want made, and Flow lays out the
-// blocks. The plan — the blocks, what they'll cost, anything the validator
-// changed — shows before Accept, and accepting opens the canvas without
-// running anything.
+// Describe It, the bar under Flow Home's title: say what you want made, and
+// Flow lays out the blocks. The plan — the blocks, what they'll cost, anything
+// the validator changed — shows in the bar before anything opens, and opening
+// it runs nothing.
 
 import { useState } from 'react'
-import { Sparkles } from 'lucide-react'
-import AutoGrowTextarea from '../../../components/AutoGrowTextarea'
+import { ArrowRight, Sparkles } from 'lucide-react'
 import Spinner from '../../../components/Spinner'
 import { useAppStore } from '../../../stores/appStore'
 import { useBankStore } from '../../../stores/bankStore'
@@ -20,9 +19,9 @@ import { creditsLabel } from '../hooks/useFlowPlan'
 import PlanChips from './PlanChips'
 
 const EXAMPLES = [
-  '5 hooks for my serum, a female voice, B-Roll for each',
+  'Five hooks for my serum, a female voice, B-Roll for each',
   'Remix my saved ad for my product and shoot it with my character',
-  'Three 30-second scripts, each voiced by Kore, packed for editing',
+  'Ten lifestyle stills of my product',
 ]
 
 export default function DescribeIt() {
@@ -38,65 +37,85 @@ export default function DescribeIt() {
     if (!text.trim() || busy) return
     setBusy(true)
     setDraft(null)
-    try {
-      setDraft(await describeFlow(text))
-    } catch (err) {
+    const made = await describeFlow(text).catch((err: unknown) => {
       addToast(humanizeError(err, "Flow couldn't build that. Try saying it another way."), 'error')
-    }
+      return null
+    })
+    setDraft(made)
     setBusy(false)
   }
 
   const plan = draft && banks ? planFlow({ blocks: draft.file.blocks.filter((b) => isKnownKind(b.kind)), wires: draft.file.wires }, {}, PLAN_DEPS) : null
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-3">
-      <div className="relative">
-        <AutoGrowTextarea
+    <div className="flex flex-col gap-3 rounded-[24px] border border-ink/[0.08] bg-ink/[0.03] p-3.5 shadow-[0_24px_60px_-30px_color-mix(in_oklab,var(--color-flow-500)_45%,transparent)]">
+      <div className="flex items-center gap-3 pl-2.5 pr-1">
+        <Sparkles className="h-4 w-4 shrink-0 text-flow-300" />
+        <input
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void build()
+            if (e.key === 'Enter') void build()
           }}
-          placeholder="Describe the ads you want made…"
-          className="w-full resize-none rounded-2xl border border-ink/10 bg-ink/[0.03] py-3.5 pl-4 pr-28 text-[13.5px] text-ink-100 placeholder-ink-600 outline-none transition-colors focus:border-flow-500/40"
-          rows={2}
+          placeholder="Describe the flow you want"
+          aria-label="Describe the flow you want"
+          className="h-12 min-w-0 flex-1 bg-transparent text-[13px] tracking-tight text-ink-100 placeholder-ink-500 outline-none md:text-[15px]"
         />
-        <button
-          type="button"
-          onClick={() => void build()}
-          disabled={!text.trim() || busy}
-          className="absolute bottom-2.5 right-2.5 flex items-center gap-1.5 rounded-full bg-flow-500 px-3.5 py-2 text-xs font-semibold text-white transition-all hover:brightness-110 disabled:opacity-40"
-        >
-          {busy ? <Spinner className="h-3.5 w-3.5" /> : <Sparkles className="h-3.5 w-3.5" />}
-          Build It
-        </button>
+        {busy ? (
+          <span className="flex h-11 shrink-0 items-center gap-2 rounded-full border border-flow-500/40 px-4 text-[13px] text-flow-200">
+            <Spinner className="h-3.5 w-3.5" />
+            Laying Out Blocks
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => void build()}
+            disabled={!text.trim()}
+            aria-label="Build Flow"
+            className="glass-fill glass-fill-soft flex h-11 shrink-0 items-center gap-2 rounded-full border border-white/15 bg-flow-500 px-3.5 text-[13px] font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),inset_0_-1px_0_rgba(255,255,255,0.08)] btn-soft-shadow transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:brightness-100 sm:px-5"
+          >
+            <Sparkles className="h-4 w-4" />
+            <span className="hidden sm:inline">Build Flow</span>
+          </button>
+        )}
       </div>
+
       {!draft && !busy && (
-        <div className="flex flex-wrap justify-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-2 px-1.5 pb-0.5">
+          <span className="text-[11.5px] text-ink-500">Try</span>
           {EXAMPLES.map((ex) => (
-            <button key={ex} type="button" onClick={() => setText(ex)} className="rounded-full border border-ink/10 px-3 py-1 text-[11px] text-ink-400 transition-colors hover:border-ink/20 hover:text-ink-200">
+            <button
+              key={ex}
+              type="button"
+              onClick={() => setText(ex)}
+              title={ex}
+              className="h-[30px] max-w-full truncate rounded-full border border-ink/[0.08] bg-ink/[0.03] px-3 text-[12px] text-ink-300 transition-colors hover:bg-ink/[0.07] hover:text-ink-100"
+            >
               {ex}
             </button>
           ))}
         </div>
       )}
+
       {draft && (
-        <div className="flex flex-col gap-3 rounded-2xl border border-flow-500/25 bg-flow-500/[0.05] p-4">
-          <div className="flex items-baseline justify-between gap-3">
-            <span className="text-[14px] font-semibold text-ink-100">{draft.file.name}</span>
-            <span className="text-[12px] tabular-nums text-ink-400">{creditsLabel(plan?.creditsAll ?? 0, plan?.unpriced)} a run</span>
+        <div className="modal-pop flex flex-col gap-3 rounded-2xl border border-flow-500/30 bg-flow-500/[0.06] p-3.5">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="rounded-full bg-flow-500/20 px-2.5 py-0.5 text-[11px] font-medium text-flow-200">Here's the Flow</span>
+            <span className="text-[13px] font-semibold text-ink-100">{draft.file.name}</span>
           </div>
           <PlanChips blocks={draft.file.blocks} plan={plan} />
           {(draft.file.notes?.length ?? 0) > 0 && <p className="text-[12px] leading-relaxed text-ink-400">{draft.file.notes!.join(' ')}</p>}
-          {draft.changes.map((c, i) => <p key={i} className="text-[11.5px] text-amber-400/90">{c}</p>)}
-          <div className="flex justify-end gap-2">
-            <button type="button" onClick={() => setDraft(null)} className="rounded-full px-4 py-2 text-sm text-ink-300 hover:text-ink-100">Adjust</button>
+          {draft.changes.map((c, i) => <p key={i} className="text-[11.5px] text-amber-400/90 light:text-amber-700">{c}</p>)}
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <span className="mr-auto text-[12px] tabular-nums text-ink-400">{creditsLabel(plan?.creditsAll ?? 0, plan?.unpriced)} per run</span>
+            <button type="button" onClick={() => setDraft(null)} className="h-8 rounded-full border border-ink/10 px-3.5 text-[12px] text-ink-300 transition-colors hover:border-ink/20 hover:text-ink-100">Adjust</button>
             <button
               type="button"
               onClick={() => openFlow(createFlow({ name: draft.file.name, graph: { blocks: draft.file.blocks, wires: draft.file.wires } }))}
-              className="glass-fill glass-fill-soft rounded-full border border-white/15 bg-flow-500 px-5 py-2 text-sm font-semibold text-white btn-soft-shadow transition-all hover:brightness-110"
+              className="flex h-8 items-center gap-1.5 rounded-full border border-white/15 bg-flow-500 px-3.5 text-[12.5px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] transition-all hover:brightness-110"
             >
-              Accept and Open
+              Open in Editor
+              <ArrowRight className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>

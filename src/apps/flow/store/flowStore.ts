@@ -74,6 +74,11 @@ interface FlowStoreState {
   docs: Record<string, FlowDoc>
   selection: string[]
   history: Record<string, History>
+  // The block open in its app's own window over the canvas. Never persisted:
+  // a reload lands on the canvas, not on a window over it.
+  windowId: string | null
+  openWindow: (blockId: string) => void
+  closeWindow: () => void
 
   openFlow: (id: string | null) => void
   // The working copy of a flow, loaded from the bank on first ask.
@@ -205,11 +210,14 @@ export const useFlowStore = create<FlowStoreState>((set, get) => {
     docs: {},
     selection: [],
     history: {},
+    windowId: null,
+    openWindow: (blockId) => set({ windowId: blockId, selection: [blockId] }),
+    closeWindow: () => set({ windowId: null }),
 
     openFlow: (id) => {
       if (id) get().ensureDoc(id)
       writeOpen(id)
-      set({ openId: id, selection: [] })
+      set({ openId: id, selection: [], windowId: null })
     },
 
     ensureDoc: (id) => {
@@ -340,7 +348,7 @@ export const useFlowStore = create<FlowStoreState>((set, get) => {
         blocks: doc.blocks.filter((b) => !gone.has(b.id)),
         wires: doc.wires.filter((w) => !gone.has(w.from) && !gone.has(w.to)),
       }))
-      set((s) => ({ selection: s.selection.filter((x) => !gone.has(x)) }))
+      set((s) => ({ selection: s.selection.filter((x) => !gone.has(x)), windowId: s.windowId && gone.has(s.windowId) ? null : s.windowId }))
     },
 
     // A copy keeps the originals' INPUT wires, so trying a second voice on the

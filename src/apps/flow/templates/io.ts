@@ -114,6 +114,16 @@ export async function buildTemplate(doc: FlowDoc): Promise<{ file: FlowTemplateF
       // their own with the same settings.
       b.source = 'generate'
     }
+    // A product or character picked inside an app block (Scripts' product
+    // row, B-Roll's Character and Product cards) is a bank pick like any
+    // other: it names a row only the author has. The importer picks their own
+    // in the block, or wires one in.
+    if (KINDS[b.kind]?.runnable) {
+      const settings = { ...b.settings }
+      delete settings.productId
+      delete settings.characterId
+      b.settings = settings
+    }
     if (b.kind === 'image') {
       const ref = String(source.settings.ref ?? '')
       const settings = { ...b.settings }

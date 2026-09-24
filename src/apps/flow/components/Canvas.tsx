@@ -3,6 +3,10 @@
 // render; the only state held here is what's mid-gesture — a drag in progress
 // (committed on release, so a drag is one undo step and one save, not sixty)
 // and the sizes React Flow measures.
+//
+// A block opens in its app's own window (double-click, Enter, or Open on its
+// toolbar); the helpers — Text, List, Note, Image, a Bank pick — are edited
+// right on the canvas.
 
 import { useEffect, useRef, useState } from 'react'
 import {
@@ -13,6 +17,7 @@ import {
   Position,
   ReactFlow,
   useReactFlow,
+  useViewport,
   type Connection,
   type Dimensions,
   type Edge,
@@ -21,11 +26,11 @@ import {
   type NodeChange,
   type XYPosition,
 } from '@xyflow/react'
-import { Copy, CopyPlus, Maximize2, Minus, Play, Plus, Power, Trash2, Wand2 } from 'lucide-react'
+import { Copy, CopyPlus, FormInput, Maximize2, Minus, Play, Plus, Power, Trash2, Wand2 } from 'lucide-react'
 import type { BlockKind, FlowBlock, FlowDoc, PortType } from '../types'
 import type { FlowPlan } from '../engine/plan'
-import { accepts, insOf, isRunnable, outsOf, suggestNext, TYPE_META, KINDS } from '../engine/catalog'
-import { canConnect, inputSpec, outputType, topoOrder } from '../engine/graph'
+import { accepts, insOf, isRunnable, outsOf, suggestNext, TYPE_META, KINDS, titleOf } from '../engine/catalog'
+import { canConnect, inputSpec, outputType, topoOrder, wiresInto } from '../engine/graph'
 import { useFlowStore } from '../store/flowStore'
 import { newBlock } from '../store/blocks'
 import { useFlowRunStore, type LiveRun } from '../run/runtime'
@@ -39,9 +44,10 @@ import Palette, { PALETTE_DRAG_TYPE } from './Palette'
 import WhatNextMenu from './WhatNextMenu'
 import { optionsForInput, optionsForOutput, type WhatNextOption } from './whatNext'
 import { CanvasContext, type CanvasContextValue } from './canvasContext'
-import { blockWidth } from './blockMeta'
+import { blockWidth, isFieldable, opensWindow } from './blockMeta'
 import { clipFromSelection, parseFlowJson } from '../templates/io'
 import AskFlow from './AskFlow'
+import { estimatedSize, freeSpot } from '../engine/layout'
 
 const NODE_TYPES = { block: BlockNode }
 const EDGE_TYPES = { wire: WireEdge }
@@ -60,6 +66,13 @@ interface WhatNextState {
 // JSON, so a paste into another tab (or another member's canvas) works too.
 let memoryClip: string | null = null
 
+// The block under a point, read off the DOM — a wire let go over a block's
+// body lands nowhere React Flow can see, since only the dots are targets.
+function nodeIdAt(x: number, y: number): string | null {
+  const el = document.elementFromPoint(x, y) as HTMLElement | null
+  return el?.closest('.react-flow__node')?.getAttribute('data-id') ?? null
+}
+
 export default function Canvas({
   flowId,
   doc,
@@ -67,6 +80,7 @@ export default function Canvas({
   run,
   onReview,
   onRunBlock,
+  keysActive,
 }: {
   flowId: string
   doc: FlowDoc
@@ -74,8 +88,10 @@ export default function Canvas({
   run: LiveRun | undefined
   onReview: (blockId: string) => void
   onRunBlock: (blockId: string) => void
+  keysActive: boolean
 }) {
   const rf = useReactFlow()
+  const { zoom } = useViewport()
   const selection = useFlowStore((s) => s.selection)
   const setSelection = useFlowStore((s) => s.setSelection)
   const addBlock = useFlowStore((s) => s.addBlock)
@@ -86,7 +102,9 @@ export default function Canvas({
   const removeBlocks = useFlowStore((s) => s.removeBlocks)
   const duplicateBlocks = useFlowStore((s) => s.duplicateBlocks)
   const toggleOff = useFlowStore((s) => s.toggleOff)
+  const patchBlock = useFlowStore((s) => s.patchBlock)
   const insertGraph = useFlowStore((s) => s.insertGraph)
+  const openWindow = useFlowStore((s) => s.openWindow)
   const tidy = useFlowStore((s) => s.tidy)
   const undo = useFlowStore((s) => s.undo)
   const redo = useFlowStore((s) => s.redo)
@@ -200,29 +218,83 @@ export default function Canvas({
     if (!check.ok) say(check.reason, 'error')
   }
 
-  // A wire let go over empty canvas asks what comes next.
+  // A wire let go over another block's body wires into the first of its
+  // inputs that takes it — an empty one first, then one that takes several —
+  // so a member never has to hit a 11px dot. Dragged out of an input, the
+  // same, the other way round.
+  const wireInto = (from: { blockId: string; port: string; side: 'out' | 'in' }, type: PortType, target: FlowBlock): boolean => {
+    if (from.side === 'out') {
+      const fits = insOf(target).filter((p) => accepts(p.type, type))
+      const ordered = [
+        ...fits.filter((p) => !wiresInto(doc, target.id, p.key).length),
+        ...fits.filter((p) => p.many && wiresInto(doc, target.id, p.key).length),
+        ...fits.filter((p) => !p.many && wiresInto(doc, target.id, p.key).length),
+      ]
+      let reason = ordered.length ? '' : `${titleOf(target)} has no input that takes ${TYPE_META[type].label}.`
+      for (const p of ordered) {
+        const check = connect({ from: from.blockId, fromPort: from.port, to: target.id, toPort: p.key })
+        if (check.ok) return true
+        reason ||= check.reason
+      }
+      say(reason, 'error')
+      return false
+    }
+    const fits = outsOf(target).filter((o) => accepts(type, o.type))
+    let reason = fits.length ? '' : `${titleOf(target)} makes nothing that goes there.`
+    for (const o of fits) {
+      const check = connect({ from: target.id, fromPort: o.key, to: from.blockId, toPort: from.port })
+      if (check.ok) return true
+      reason ||= check.reason
+    }
+    say(reason, 'error')
+    return false
+  }
+
+  // A wire let go over empty canvas — or a dot clicked — asks what comes next.
   const onConnectEnd = (e: MouseEvent | TouchEvent, state: FinalConnectionState) => {
-    if (state.isValid || state.toNode || !state.fromNode || !state.fromHandle) return
+    if (state.isValid || !state.fromNode || !state.fromHandle) return
     const block = real.find((b) => b.id === state.fromNode!.id)
     if (!block) return
     const point = 'changedTouches' in e ? e.changedTouches[0] : e
     const side = state.fromHandle.type === 'source' ? 'out' : 'in'
-    const type = side === 'out' ? outputType(block, state.fromHandle.id ?? '') : inputSpec(block, state.fromHandle.id ?? '')?.type
+    const port = state.fromHandle.id ?? ''
+    const type = side === 'out' ? outputType(block, port) : inputSpec(block, port)?.type
     if (!type) return
+    const over = nodeIdAt(point.clientX, point.clientY) ?? state.toNode?.id ?? null
+    const target = over && over !== block.id ? real.find((b) => b.id === over) : undefined
+    if (target) {
+      wireInto({ blockId: block.id, port, side }, type, target)
+      return
+    }
+    askAt(block.id, port, side, type, point.clientX, point.clientY)
+  }
+
+  const askAt = (blockId: string, port: string, side: 'in' | 'out', type: PortType, clientX: number, clientY: number) => {
     const rect = wrapRef.current?.getBoundingClientRect()
     setMenu({
-      x: point.clientX - (rect?.left ?? 0),
-      y: point.clientY - (rect?.top ?? 0),
-      at: rf.screenToFlowPosition({ x: point.clientX, y: point.clientY }),
+      x: clientX - (rect?.left ?? 0),
+      y: clientY - (rect?.top ?? 0),
+      at: rf.screenToFlowPosition({ x: clientX, y: clientY }),
       type,
-      from: { blockId: block.id, port: state.fromHandle.id ?? '', side },
+      from: { blockId, port, side },
     })
+  }
+
+  const askAtPort = (blockId: string, port: string, side: 'in' | 'out', clientX: number, clientY: number) => {
+    const block = real.find((b) => b.id === blockId)
+    if (!block) return
+    const type = side === 'out' ? outputType(block, port) : inputSpec(block, port)?.type
+    if (type) askAt(blockId, port, side, type, clientX, clientY)
   }
 
   const pickWhatNext = (o: WhatNextOption) => {
     if (!menu) return
-    const at = menu.from.side === 'out' ? menu.at : { x: menu.at.x - blockWidth(o.kind), y: menu.at.y }
-    const id = addBlock(o.kind, at, o.bank ? { settings: { bank: o.bank } } : undefined)
+    // A wire's length clear of the dot it came from, so the new block never
+    // lands on top of the one it's wired to.
+    const at = menu.from.side === 'out'
+      ? { x: menu.at.x + 72, y: menu.at.y - 22 }
+      : { x: menu.at.x - blockWidth(o.kind) - 72, y: menu.at.y - 22 }
+    const id = addBlock(o.kind, freeSpot({ blocks: real, wires: doc.wires }, at, o.kind, (b) => measured[b.id] ?? estimatedSize(b)), o.bank ? { settings: { bank: o.bank } } : undefined)
     const check = menu.from.side === 'out'
       ? connect({ from: menu.from.blockId, fromPort: menu.from.port, to: id, toPort: o.port })
       : connect({ from: id, fromPort: o.port, to: menu.from.blockId, toPort: menu.from.port })
@@ -252,7 +324,10 @@ export default function Canvas({
   }
 
   const add = (kind: BlockKind, bank?: BankType, at?: XYPosition) => {
-    addBlock(kind, at ?? placeFor(kind), bank ? { settings: { bank } } : undefined)
+    // Dropped: where it was dropped. Clicked: beside the selection, on a spot
+    // that covers nothing.
+    const place = at ?? freeSpot({ blocks: real, wires: doc.wires }, placeFor(kind), kind, (b) => measured[b.id] ?? estimatedSize(b))
+    addBlock(kind, place, bank ? { settings: { bank } } : undefined)
   }
 
   // The suggested block, wired: each of its inputs takes the latest output
@@ -284,9 +359,15 @@ export default function Canvas({
     const files = Array.from(e.dataTransfer.files ?? []).filter((f) => f.type.startsWith('image/'))
     if (!files.length) return
     // Dropped onto a block that takes pictures: each becomes an Image block
-    // wired into it. Anywhere else: Image blocks where they fell.
-    const target = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null)?.closest('.react-flow__node')?.getAttribute('data-id')
+    // wired into it. Dropped onto an Image block: it replaces that picture.
+    // Anywhere else: Image blocks where they fell.
+    const target = nodeIdAt(e.clientX, e.clientY)
     const host = target ? real.find((b) => b.id === target) : undefined
+    if (host?.kind === 'image') {
+      const ref = await saveAsset(files[0], files[0].type)
+      patchBlock(host.id, { settings: { ...host.settings, ref, name: files[0].name.replace(/\.[^.]+$/, '') } })
+      return
+    }
     const port = host ? insOf(host).find((p) => p.type === 'image') : undefined
     let offset = 0
     for (const file of files.slice(0, 8)) {
@@ -326,8 +407,10 @@ export default function Canvas({
     if (parsed.notes.length) say(parsed.notes[0], 'info')
   }
 
+  const one = selection.length === 1 ? real.find((b) => b.id === selection[0]) : undefined
+
   useEffect(() => {
-    if (activeApp !== 'flow') return
+    if (activeApp !== 'flow' || !keysActive) return
     const onKey = (e: KeyboardEvent) => {
       const el = document.activeElement as HTMLElement | null
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
@@ -336,6 +419,11 @@ export default function Canvas({
         if (selection.length) removeBlocks(selection)
         else if (selectedWire) removeWire(selectedWire)
         else return
+      } else if (e.key === 'Enter' && !mod) {
+        // A focused button's Enter is that button's.
+        if (el?.closest('button, a, [role="button"]')) return
+        if (!one || !opensWindow(one)) return
+        openWindow(one.id)
       } else if (mod && e.key.toLowerCase() === 'z') {
         if (e.shiftKey) redo()
         else undo()
@@ -365,11 +453,10 @@ export default function Canvas({
 
   // ── Toolbar actions ──────────────────────────────────────────────────────
 
-  const one = selection.length === 1 ? real.find((b) => b.id === selection[0]) : undefined
   const allOff = selection.length > 0 && selection.every((id) => real.find((b) => b.id === id)?.off)
 
   const doTidy = () => {
-    tidy((id) => measured[id] ?? { width: 260, height: 180 })
+    tidy((id) => measured[id] ?? { width: 280, height: 180 })
     setTimeout(() => void rf.fitView({ padding: 0.2, duration: 300 }), 30)
   }
 
@@ -382,6 +469,8 @@ export default function Canvas({
     openReview: onReview,
     runBlock: onRunBlock,
     acceptSuggestion,
+    openBlock: openWindow,
+    askAtPort,
   }
 
   return (
@@ -407,6 +496,12 @@ export default function Canvas({
           isValidConnection={isValidConnection}
           onReconnect={onReconnect}
           onReconnectEnd={onReconnectEnd}
+          onNodeDoubleClick={(e, node) => {
+            // A field typed into on the canvas keeps its own double-click.
+            if ((e.target as HTMLElement).closest('input, textarea, button')) return
+            const b = real.find((x) => x.id === node.id)
+            if (b && opensWindow(b)) openWindow(b.id)
+          }}
           onPaneClick={() => {
             setSelection([])
             setSelectedWire(null)
@@ -414,6 +509,10 @@ export default function Canvas({
           deleteKeyCode={null}
           selectionKeyCode="Shift"
           multiSelectionKeyCode="Shift"
+          // A click on a dot asks what goes there (onConnectEnd); it never arms
+          // a click-to-connect that the next click somewhere else completes.
+          connectOnClick={false}
+          zoomOnDoubleClick={false}
           fitView
           fitViewOptions={{ padding: 0.25, maxZoom: 1 }}
           minZoom={0.2}
@@ -425,19 +524,33 @@ export default function Canvas({
           <Background variant={BackgroundVariant.Dots} gap={22} size={1.2} />
 
           <NodeToolbar nodeId={selection} isVisible={selection.length > 0 && !dragging} position={Position.Top} offset={10}>
-            <div className="flex items-center gap-0.5 rounded-full border border-ink/10 bg-surface-2 p-1 shadow-xl shadow-black/30">
+            <div className="flex items-center gap-0.5 rounded-xl border border-ink/10 bg-surface-2 p-1 shadow-xl shadow-black/30">
+              {one && opensWindow(one) && (
+                <ToolButton icon={Maximize2} label={`Open ${KINDS[one.kind].title}`} onClick={() => openWindow(one.id)} />
+              )}
               {one && isRunnable(one) && (
                 <ToolButton icon={Play} label="Run" accent onClick={() => onRunBlock(one.id)} disabled={running} />
               )}
+              {one && isFieldable(one) && (
+                <ToolButton
+                  icon={FormInput}
+                  label={one.field ? 'Run Field · On' : 'Run Field'}
+                  active={!!one.field}
+                  title="Show as a field in Run: whoever runs this flow picks their own"
+                  onClick={() => patchBlock(one.id, { field: !one.field || undefined })}
+                />
+              )}
+              {one && (opensWindow(one) || isRunnable(one) || isFieldable(one)) && <span className="mx-0.5 h-4 w-px bg-ink/10" />}
               <ToolButton icon={CopyPlus} label="Duplicate" onClick={() => duplicateBlocks(selection)} />
               <ToolButton icon={Copy} label="Copy" onClick={() => void copySelection()} />
               <ToolButton icon={Power} label={allOff ? 'Turn On' : 'Turn Off'} onClick={() => toggleOff(selection)} />
+              <span className="mx-0.5 h-4 w-px bg-ink/10" />
               <ToolButton icon={Trash2} label="Delete" danger onClick={() => removeBlocks(selection)} />
             </div>
           </NodeToolbar>
 
           {real.length > 0 && (
-            <Panel position="top-left" className="!ml-3 !mt-3">
+            <Panel position="top-left" className="!ml-4 !mt-3.5">
               <AskFlow
                 doc={doc}
                 sizeOf={(id) => measured[id]}
@@ -450,17 +563,22 @@ export default function Canvas({
             </Panel>
           )}
 
-          <Panel position="bottom-center" className="!mb-3">
-            <Palette onAdd={(kind, bank) => add(kind, bank)} />
+          <Panel position="top-right" className="!mr-4 !mt-3.5">
+            <div className="flex h-[34px] items-center gap-0.5 rounded-full border border-ink/10 bg-surface-1 px-1 text-[11.5px] text-ink-300 shadow-lg shadow-black/20">
+              <ZoomButton title="Zoom Out" onClick={() => void rf.zoomOut({ duration: 150 })}><Minus className="h-3.5 w-3.5" /></ZoomButton>
+              <span className="min-w-[40px] text-center tabular-nums">{Math.round(zoom * 100)}%</span>
+              <ZoomButton title="Zoom In" onClick={() => void rf.zoomIn({ duration: 150 })}><Plus className="h-3.5 w-3.5" /></ZoomButton>
+              <ZoomButton title="Fit to Screen" onClick={() => void rf.fitView({ padding: 0.2, duration: 300 })}>Fit</ZoomButton>
+              <span className="mx-0.5 h-4 w-px bg-ink/10" />
+              <ZoomButton title="Tidy · lays the flow out left to right, in the order it runs" onClick={doTidy}>
+                <Wand2 className="h-3.5 w-3.5" />
+                <span>Tidy</span>
+              </ZoomButton>
+            </div>
           </Panel>
 
-          <Panel position="bottom-right" className="!mb-3 !mr-3">
-            <div className="flex flex-col items-center gap-0.5 rounded-2xl border border-ink/10 bg-surface-1 p-1 shadow-lg">
-              <IconButton icon={Plus} title="Zoom In" onClick={() => void rf.zoomIn({ duration: 150 })} />
-              <IconButton icon={Minus} title="Zoom Out" onClick={() => void rf.zoomOut({ duration: 150 })} />
-              <IconButton icon={Maximize2} title="Fit to Screen" onClick={() => void rf.fitView({ padding: 0.2, duration: 300 })} />
-              <IconButton icon={Wand2} title="Tidy · lays the flow out in dock order" onClick={doTidy} />
-            </div>
+          <Panel position="bottom-center" className="!mb-3.5">
+            <Palette onAdd={(kind, bank) => add(kind, bank)} />
           </Panel>
 
           {real.length === 0 && (
@@ -468,7 +586,7 @@ export default function Canvas({
               <div className="max-w-sm text-center">
                 <p className="text-sm font-medium text-ink-200">An empty flow</p>
                 <p className="mt-1 text-xs leading-relaxed text-ink-500">
-                  Add blocks from the bar below, or drag them onto the canvas. Wire an output dot into an input dot. Drop images anywhere.
+                  Add blocks from the bar below, or drag them onto the canvas. Double-click a block to open it in its app. Wire an output dot into an input dot, or drop the wire on the block. Drop images anywhere.
                 </p>
               </div>
             </Panel>
@@ -480,6 +598,7 @@ export default function Canvas({
             x={menu.x}
             y={menu.y}
             type={menu.type}
+            side={menu.from.side}
             options={menu.from.side === 'out' ? optionsForOutput(menu.type) : optionsForInput(menu.type)}
             onPick={pickWhatNext}
             onClose={() => setMenu(null)}
@@ -496,23 +615,30 @@ function ToolButton({
   onClick,
   accent,
   danger,
+  active,
   disabled,
+  title,
 }: {
   icon: React.ElementType
   label: string
   onClick: () => void
   accent?: boolean
   danger?: boolean
+  active?: boolean
   disabled?: boolean
+  title?: string
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      title={disabled ? 'The flow is already running' : label}
-      className={`flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[11px] font-medium transition-colors disabled:opacity-40 ${
-        accent ? 'bg-flow-500 text-white hover:brightness-110' : danger ? 'text-ink-300 hover:bg-red-500/15 hover:text-red-300' : 'text-ink-300 hover:bg-ink/[0.06] hover:text-ink-100'
+      title={disabled ? 'The flow is already running' : title ?? label}
+      className={`flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-[11.5px] font-medium transition-colors disabled:opacity-40 ${
+        accent ? 'bg-flow-500 text-white hover:brightness-110'
+          : danger ? 'text-ink-300 hover:bg-red-500/15 hover:text-red-300'
+          : active ? 'bg-flow-500/15 text-flow-300 hover:bg-flow-500/20'
+          : 'text-ink-300 hover:bg-ink/[0.06] hover:text-ink-100'
       }`}
     >
       <Icon className="h-3.5 w-3.5" />
@@ -521,10 +647,15 @@ function ToolButton({
   )
 }
 
-function IconButton({ icon: Icon, title, onClick }: { icon: React.ElementType; title: string; onClick: () => void }) {
+function ZoomButton({ title, onClick, children }: { title: string; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button type="button" onClick={onClick} title={title} className="flex h-8 w-8 items-center justify-center rounded-xl text-ink-400 transition-colors hover:bg-ink/[0.06] hover:text-ink-100">
-      <Icon className="h-4 w-4" />
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      className="flex h-[26px] min-w-[26px] items-center justify-center gap-1 rounded-full px-2 text-ink-300 transition-colors hover:bg-ink/[0.07] hover:text-ink-100"
+    >
+      {children}
     </button>
   )
 }

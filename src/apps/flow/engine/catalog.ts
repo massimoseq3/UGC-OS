@@ -152,6 +152,9 @@ export const KINDS: Record<BlockKind, KindSpec> = {
       port('character', 'Character', 'character'),
       port('product', 'Product', 'product'),
       port('style', 'Visual Style', 'style'),
+      // B-Roll's Additional Instructions, from a wire: a List of settings
+      // shoots the same script once per setting.
+      port('instructions', 'Instructions', 'text'),
     ],
     outs: [port('clips', 'Clips', 'video'), port('stills', 'Stills', 'image')],
     sources: ['generate', 'history'],
@@ -188,7 +191,9 @@ export const KINDS: Record<BlockKind, KindSpec> = {
     title: 'Outliers',
     appId: 'discover',
     accent: '#D9A404',
-    ins: [],
+    // What to search for, from a wire: a List of searches runs one per item.
+    // Unwired, the search typed into the block runs.
+    ins: [port('query', 'Search', 'text')],
     outs: [port('all', 'All Ads', 'ad')],
     sources: ['generate'],
     runnable: true,
@@ -308,11 +313,35 @@ export function isRunnable(block: FlowBlock): boolean {
   return sourceOf(block) === 'generate'
 }
 
+// Playground's video tab also takes a start and an end frame — a B-Roll still,
+// a character, any picture — the two frame slots its own Video tab has. Music
+// takes no pictures at all.
+const PLAYGROUND_FRAMES: PortSpec[] = [port('start', 'Start Frame', 'image'), port('end', 'End Frame', 'image')]
+
 export function insOf(block: FlowBlock): PortSpec[] {
   if (!KINDS[block.kind]) return []
   // A block reusing a past result has nothing to wire in: it was made already.
   if (KINDS[block.kind].runnable && sourceOf(block) !== 'generate') return []
+  if (block.kind === 'playground') {
+    const ins = KINDS.playground.ins
+    if (block.settings.mode === 'video') return [...ins, ...PLAYGROUND_FRAMES]
+    if (block.settings.mode === 'music') return ins.filter((p) => p.key === 'prompt')
+    return ins
+  }
   return KINDS[block.kind].ins
+}
+
+// An input a block takes typed into it when nothing is wired there — the
+// script Voiceovers reads and B-Roll shoots, pasted the way each app takes
+// one. A wire always wins: this is what the input holds with none.
+export function takesTyped(block: Pick<FlowBlock, 'kind'>, portKey: string): boolean {
+  return (block.kind === 'voice' || block.kind === 'broll') && portKey === 'script'
+}
+
+export function inlineText(block: FlowBlock, portKey: string): string | null {
+  if (!takesTyped(block, portKey)) return null
+  const text = String(block.settings.scriptText ?? '').trim()
+  return text || null
 }
 
 export function scriptsFormat(block: FlowBlock): 'hooks' | 'takes' {
@@ -380,12 +409,15 @@ export function desiredSlots(block: FlowBlock): number {
 }
 
 // Settings a run doesn't read: how many slots there are (a slot is filled or
-// not; changing the count never invalidates the slots already made) and
-// what's only on screen.
+// not; changing the count never invalidates the slots already made), what's
+// only on screen, and a typed-in script — that reaches the run as an input
+// value (inlineText), so it counts only while nothing is wired in its place.
 const NOT_GENERATION: Partial<Record<BlockKind, string[]>> = {
   characters: ['count', 'tab'],
   outliers: ['count'],
   list: ['entries'],
+  voice: ['scriptText'],
+  broll: ['scriptText'],
 }
 
 export function generationSettings(block: FlowBlock): Record<string, unknown> {
@@ -410,5 +442,5 @@ export function suggestNext(kinds: BlockKind[]): BlockKind | null {
 // A block's width on the canvas. App blocks are the wide ones: they carry
 // ports, items and results. Layout reads it too, so it lives with the kinds.
 export function blockWidth(kind: BlockKind): number {
-  return KINDS[kind]?.runnable ? 264 : kind === 'note' ? 232 : 220
+  return KINDS[kind]?.runnable ? 272 : kind === 'note' ? 240 : 236
 }

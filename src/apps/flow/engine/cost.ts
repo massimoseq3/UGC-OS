@@ -5,7 +5,7 @@
 // to be written) is priced at a typical size and the figure says "about".
 
 import type { FlowBlock, FlowValue } from '../types'
-import { estimateCredits, getDefaultModel, getModel, snapVideoDuration } from '../../../utils/models'
+import { estimateCredits, getDefaultModel, getModel, imageResolutionsFor, snapVideoDuration } from '../../../utils/models'
 import { resolveScriptModel, resolveTtsModel, useSettingsStore } from '../../../stores/settingsStore'
 import { useBankStore } from '../../../stores/bankStore'
 import { estimateVoiceCredits } from '../../voice-studio/runner'
@@ -107,17 +107,48 @@ export function playgroundInput(block: FlowBlock, inputs: Record<string, FlowVal
     slot: 'ref' as const,
     parent: v.lineage?.[0],
   })).filter((r) => r.url)
+  // The video tab's frame slots: one picture each, which is what makes the
+  // run image-to-video (a start frame) or frames-to-video (both) — the same
+  // inference Playground's own Video tab makes from its filled slots.
+  const frame = (slot: 'start' | 'end') => (inputs[slot] ?? []).slice(0, 1).map((v) => ({
+    url: refOfPicture(v),
+    label: v.label,
+    source: 'upload' as const,
+    slot,
+    parent: v.lineage?.[0],
+  })).filter((r) => r.url)
+  // What the block asked for, fitted to what its model takes — a quality or
+  // length left over from another mode or model is the model's own default
+  // here, exactly as the block's window shows it, so the run never sends a
+  // value its model would refuse.
+  const model = modelId ? getModel(modelId) : undefined
+  const video = mode === 'video' ? model?.videoConstraints : undefined
+  const resolution = mode === 'video'
+    ? fitTo(String(s.resolution ?? video?.default ?? '720p'), video?.resolutions, video?.default)
+    : mode === 'image' && modelId ? fitTo(String(s.resolution ?? '1K'), imageResolutionsFor(modelId), '1K') : String(s.resolution ?? '1K')
+  const aspectRatio = mode === 'video'
+    ? fitTo(String(s.aspectRatio ?? '9:16'), video?.aspectRatios, '9:16')
+    : mode === 'image' ? fitTo(String(s.aspectRatio ?? '9:16'), model?.imageConstraints?.aspectRatios, '9:16') : String(s.aspectRatio ?? '9:16')
+  const durationSeconds = video?.durations?.length ? snapVideoDuration(Number(s.durationSeconds) || 6, video.durations) : Number(s.durationSeconds) || 6
   return {
     mode,
     modelId,
     prompt,
-    refs,
-    aspectRatio: String(s.aspectRatio ?? '9:16'),
-    resolution: String(s.resolution ?? '1K'),
-    durationSeconds: Number(s.durationSeconds) || 6,
-    audio: !!s.audio,
+    refs: mode === 'video' ? [...refs, ...frame('start'), ...frame('end')] : refs,
+    aspectRatio,
+    resolution,
+    durationSeconds,
+    audio: !!s.audio && (mode !== 'video' || !!video?.supportsAudio),
     instrumental: !!s.instrumental,
   }
+}
+
+// `value` when the model takes it; else the fallback it names, else its first.
+// A model that declares no list takes whatever it's given.
+function fitTo(value: string, allowed: readonly string[] | undefined, fallback?: string): string {
+  if (!allowed?.length) return value
+  if (allowed.includes(value)) return value
+  return fallback && allowed.includes(fallback) ? fallback : allowed[0]
 }
 
 // The picture a value IS, for an input that takes pictures: an image, a

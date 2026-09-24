@@ -27,7 +27,7 @@ import type {
   PortType,
   Trace,
 } from '../types'
-import { generationSettings, insOf, isBatch, isRunnable, KINDS, outsOf, sourceOf } from './catalog'
+import { generationSettings, inlineText, insOf, isBatch, isRunnable, KINDS, outsOf, sourceOf, takesTyped } from './catalog'
 import { blockById, enabledItems, itemIdOf, topoOrder, wiresInto } from './graph'
 import { fingerprint } from './hash'
 
@@ -197,17 +197,32 @@ export function planFlow(graph: FlowGraph, outputs: FlowOutputs, deps: PlanDeps,
 }
 
 // The values wired into each of a block's inputs, from the plans of the
-// blocks upstream of it.
+// blocks upstream of it. An input with nothing wired in holds what was typed
+// into the block instead, when it takes that (catalog.ts inlineText).
 export function inputValues(graph: FlowGraph, block: FlowBlock, upstream: Record<string, BlockPlan>): Record<string, FlowValue[]> {
   const out: Record<string, FlowValue[]> = {}
   for (const p of insOf(block)) {
     const vals: FlowValue[] = []
-    for (const w of wiresInto(graph, block.id, p.key)) {
+    const wires = wiresInto(graph, block.id, p.key)
+    for (const w of wires) {
       vals.push(...(upstream[w.from]?.values[w.fromPort] ?? []))
     }
+    const typed = wires.length ? null : inlineText(block, p.key)
+    if (typed !== null) vals.push(typedValue(p.type, typed))
     out[p.key] = vals
   }
   return out
+}
+
+// A typed-in input as a value. It comes from no block, so its trace is empty
+// and it pairs with anything; its key is its text, so editing the text is
+// what makes the block run again.
+function typedValue(type: PortType, text: string): FlowValue {
+  const key = `typed:${fingerprint(text)}`
+  const label = text.slice(0, 60)
+  if (type === 'script') return { type: 'script', key, label, trace: {}, payload: { text } }
+  if (type === 'transcript') return { type: 'transcript', key, label, trace: {}, payload: { text } }
+  return { type: 'text', key, label, trace: {}, payload: { text } }
 }
 
 export function planBlock(
@@ -237,7 +252,11 @@ export function planBlock(
   for (const p of ins) {
     if (!p.required || (values[p.key]?.length ?? 0) > 0) continue
     const wires = wiresInto(graph, block.id, p.key)
-    if (wires.length === 0) return empty(`Needs ${article(p.label)} ${p.label.toLowerCase()} wired in`)
+    if (wires.length === 0) {
+      return empty(takesTyped(block, p.key)
+        ? `Needs ${article(p.label)} ${p.label.toLowerCase()}. Wire one in, or type one into it`
+        : `Needs ${article(p.label)} ${p.label.toLowerCase()} wired in`)
+    }
     const from = upstream[wires[0].from]
     return empty(from?.blocked ? `Nothing came in to ${p.label}` : `Its ${p.label.toLowerCase()} input is turned off`)
   }

@@ -374,8 +374,9 @@ export const outliersExecutor: Executor = {
   realInReplay: true,
   async run(ctx) {
     const s = ctx.block.settings
-    const query = String(s.query ?? '').trim()
-    if (!query) throw new FriendlyError('Type what Outliers should search for.')
+    // A search wired in (a Text, or one item of a List) wins over the typed one.
+    const query = (textOf(ctx.inst.inputs.query) ?? String(s.query ?? '')).trim()
+    if (!query) throw new FriendlyError('Type what Outliers should search for, or wire a search in.')
     if (!useSettingsStore.getState().scrapeCreatorsKey) {
       throw new FriendlyError('Outliers searches with your ScrapeCreators key. Add it in Settings first.')
     }

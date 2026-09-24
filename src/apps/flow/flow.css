@@ -69,3 +69,16 @@
 .flow-canvas .flow-node-live {
   box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-flow-400) 55%, transparent), 0 8px 24px -12px rgb(0 0 0 / 0.5);
 }
+
+/* A block turned off: dimmed and hatched, so it reads as parked rather than
+   broken. Nothing downstream runs from it. */
+.flow-canvas .flow-node-off {
+  opacity: 0.45;
+  background-image: repeating-linear-gradient(135deg, color-mix(in oklab, var(--color-ink) 4%, transparent) 0 8px, transparent 8px 16px);
+}
+
+/* Item dots sit on the item's own row, nearer the edge than a port's. */
+.flow-canvas .flow-port-item {
+  width: 9px;
+  height: 9px;
+}

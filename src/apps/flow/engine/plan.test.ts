@@ -292,8 +292,8 @@ describe('Test With 1', () => {
 
 describe('blocked blocks', () => {
   it('names the missing required input', () => {
-    const g: FlowGraph = { blocks: [block('voc', 'voice')], wires: [] }
-    expect(planFlow(g, {}, deps).blocks.voc.blocked).toBe('Needs a script wired in')
+    const g: FlowGraph = { blocks: [block('an', 'analyzer')], wires: [] }
+    expect(planFlow(g, {}, deps).blocks.an.blocked).toBe('Needs an ad wired in')
   })
 
   it('names a Bank block with nothing picked', () => {
@@ -335,5 +335,64 @@ describe('slots', () => {
     expect(desiredSlots(block('s', 'scripts', { settings: { mode: 'write', writeFormat: 'hooks', hookCount: 5 } }))).toBe(10)
     expect(desiredSlots(block('s', 'scripts', { settings: { mode: 'write', writeFormat: 'hooks', hookCount: 20 } }))).toBe(20)
     expect(desiredSlots(block('s', 'scripts', { settings: { mode: 'write', writeFormat: 'script', variationCount: 4 } }))).toBe(3)
+  })
+})
+
+describe('typed-in inputs', () => {
+  it('runs a Voiceovers block off a script typed into it', () => {
+    const g: FlowGraph = { blocks: [block('voc', 'voice', { settings: { scriptText: 'Three weeks in and my skin is calmer.' } })], wires: [] }
+    const plan = planFlow(g, {}, deps)
+    expect(plan.blocks.voc.blocked).toBeUndefined()
+    expect(plan.blocks.voc.runs).toBe(1)
+    expect(plan.blocks.voc.instances[0].inputs.script[0].payload).toEqual({ text: 'Three weeks in and my skin is calmer.' })
+  })
+
+  it('says a script can be typed in when there is none', () => {
+    const g: FlowGraph = { blocks: [block('voc', 'voice')], wires: [] }
+    expect(planFlow(g, {}, deps).blocks.voc.blocked).toBe('Needs a script. Wire one in, or type one into it')
+  })
+
+  it('lets a wired script win over the typed one', () => {
+    const g = serumLaunch(3)
+    const voc = g.blocks.find((b) => b.id === 'voc')!
+    voc.settings = { ...voc.settings, scriptText: 'A typed script nobody reads.' }
+    const plan = planFlow(g, {}, deps)
+    expect(plan.blocks.voc.runs).toBe(3)
+    expect(plan.blocks.voc.instances.every((i) => i.inputs.script.length === 1 && i.inputs.script[0].pending)).toBe(true)
+  })
+
+  it('re-runs when the typed script changes, and only then', () => {
+    const g: FlowGraph = { blocks: [block('voc', 'voice', { settings: { scriptText: 'First take.' } })], wires: [] }
+    const { outputs } = runAll(g, {})
+    expect(planFlow(g, outputs, deps).planned).toEqual([])
+    g.blocks[0].settings = { ...g.blocks[0].settings, scriptText: 'Second take.' }
+    expect(planFlow(g, outputs, deps).planned).toEqual(['voc'])
+  })
+})
+
+describe('new inputs', () => {
+  it('runs Outliers once per search a List wires in', () => {
+    const g: FlowGraph = {
+      blocks: [
+        block('list', 'list', { items: slots('l', 2), settings: { entries: ['vitamin c serum', 'retinol cream'] } }),
+        block('out', 'outliers', { items: slots('a', 5) }),
+      ],
+      wires: [wire('list', 'all', 'out', 'query')],
+    }
+    const plan = planFlow(g, {}, deps)
+    expect(plan.blocks.out.runs).toBe(2)
+  })
+
+  it("gives Playground's video tab a start and an end frame, and takes them away with it", () => {
+    const g: FlowGraph = {
+      blocks: [
+        block('chr', 'characters', { source: 'bank', pick: 'maya' }),
+        block('pg', 'playground', { settings: { mode: 'video' } }),
+      ],
+      wires: [],
+    }
+    expect(canConnect(g, { from: 'chr', fromPort: 'all', to: 'pg', toPort: 'start' }).ok).toBe(true)
+    g.blocks[1].settings = { ...g.blocks[1].settings, mode: 'image' }
+    expect(canConnect(g, { from: 'chr', fromPort: 'all', to: 'pg', toPort: 'start' }).ok).toBe(false)
   })
 })
