@@ -371,7 +371,7 @@ export default function ControlsPanel({
                         <CopyPromptButton text={physicalPrompt} label="Physical" title="Copy the physical fields as a prompt" />
                       </div>
                     ) : (
-                      <CopyPromptButton text={scenePrompt} label="Copy Scene & Pose" shortLabel="Copy" title="Copy the scene & pose fields as a prompt" />
+                      <CopyPromptButton text={scenePrompt} label="Scene & Pose" shortLabel="Scene" title="Copy the scene & pose fields as a prompt" />
                     )
                   }
                 />
