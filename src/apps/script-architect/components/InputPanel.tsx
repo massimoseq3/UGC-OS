@@ -63,7 +63,9 @@ interface InputPanelProps {
   onProductSelect: (product: Product | null) => void
   additionalContext: string
   onAdditionalContextChange: (value: string) => void
-  onGenerate: (context: EditableProductContext | null) => void
+  // The second argument is the Scripts bank row the source box was filled
+  // from, while it's still unedited — what the run is made from.
+  onGenerate: (context: EditableProductContext | null, sourceScriptId: string | null) => void
   highlightField?: string | null
 }
 
@@ -991,7 +993,7 @@ export default function InputPanel({
               writing face in the Output pane, so the button is free to queue
               the next one. The only thing that greys it is a missing input. */}
           <button
-            onClick={() => onGenerate(editableContext)}
+            onClick={() => onGenerate(editableContext, sourceScript?.id ?? null)}
             disabled={!canGenerate}
             className="flex w-full items-center justify-center gap-2.5 glass-fill glass-fill-soft rounded-full border border-white/15 bg-scripts-500 px-7 py-4 text-sm font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),inset_0_-1px_0_rgba(255,255,255,0.08)] btn-soft-shadow transition-all hover:brightness-110 disabled:hover:brightness-100 disabled:cursor-not-allowed disabled:opacity-40 disabled:"
           >
