@@ -16,8 +16,9 @@ import { useSettingsStore } from '../../stores/settingsStore'
 import { useAppStore } from '../../stores/appStore'
 import { useBankStore } from '../../stores/bankStore'
 import { humanizeError } from '../../utils/friendlyError'
-import { applyMinViews, isPreviewable, mergeResults, runSearch, sortResults } from './services/search'
-import { downloadResultVideo, fetchResultTranscript, saveRemoteImage, saveResultVideoToDisk, saveThumbnail, type DownloadProgress } from './services/handoff'
+import { applyMinViews, isPreviewable, mergeResults, sortResults } from './services/search'
+import { downloadResultVideo, saveRemoteImage, saveResultVideoToDisk, saveThumbnail, type DownloadProgress } from './services/handoff'
+import { searchOutliers, transcriptForAd } from './runner'
 import { resolveAccount } from './services/accounts'
 import { DEFAULT_ACCOUNT_FILTERS, DEFAULT_FILTERS, type AccountFilters, type DiscoverFilters, type DiscoverPlatform, type DiscoverResult, type DiscoverSort, type DiscoverView } from './types'
 
@@ -408,7 +409,7 @@ export default function Discover() {
     else { setSearching(true); patchSearch(target, { results: [], fetchedAt: null }) }
 
     try {
-      const page = await runSearch(apiKey, target, q, filters, nextCursor)
+      const page = await searchOutliers({ platform: target, query: q, filters, cursor: nextCursor }, apiKey)
       patchSearch(target, (s) => ({
         results: more ? mergeResults(s.results, page.results) : page.results,
         cursor: page.cursor,
@@ -528,7 +529,7 @@ export default function Discover() {
 
     setTranscripts((t) => ({ ...t, [cacheKey]: { phase: 'loading' } }))
     try {
-      const { text, creditsRemaining } = await fetchResultTranscript(apiKey, result, useAi)
+      const { text, creditsRemaining } = await transcriptForAd(result, useAi, apiKey)
       if (creditsRemaining !== null) setCredits(creditsRemaining)
       transcriptCache.current[cacheKey] = text
       setTranscripts((t) => ({
