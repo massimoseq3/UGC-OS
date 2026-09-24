@@ -15,9 +15,13 @@
 // and switching it on after RouterSync had already bounced the path would
 // start the URL and the dock chasing each other (see RouterSync's own note).
 //
+// While Flow is in private beta (BETA_APPS), who the viewer is isn't known yet
+// at startup, so the capture reads the SWITCH as set, never the beta gate; the
+// workspace then turns a member's switch back and tells them Flow isn't open.
+//
 // App.tsx imports this at startup, so it stays free of the Flow chunk.
 
-import { isAppVisible, useAppVisibilityStore } from '../../stores/appVisibilityStore'
+import { useAppVisibilityStore } from '../../stores/appVisibilityStore'
 
 const KEY = 'ugc-os:flow:share'
 const SLUG = '[a-z0-9][a-z0-9-]{0,79}'
@@ -33,8 +37,9 @@ export function captureShareLink(): void {
   const m = MEMBER_PATH.exec(window.location.pathname)
   if (!m) return
   const pending: Pending = { slug: m[1] }
-  if (!isAppVisible('flow')) {
-    useAppVisibilityStore.getState().setOptionalEnabled('flow', true)
+  const switches = useAppVisibilityStore.getState()
+  if (!switches.visible.flow) {
+    switches.setOptionalEnabled('flow', true)
     pending.switchedOn = true
   }
   try {

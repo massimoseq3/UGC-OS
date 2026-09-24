@@ -19,7 +19,7 @@ import { useAppStore } from './stores/appStore'
 import { useChromeHidden } from './stores/chromeStore'
 import { useChromeAutoHide } from './hooks/useChromeAutoHide'
 import { useAuthStore } from './stores/authStore'
-import { isAppVisible } from './stores/appVisibilityStore'
+import { isAppVisible, useAppVisibilityStore } from './stores/appVisibilityStore'
 import { dockOrderedApps, getAppConfig } from './utils/constants'
 import { DEFAULT_SLUG, getAppIdForSlug, getSlugFromPath } from './utils/routing'
 import { startAppUsageTracking, stopAppUsageTracking } from './utils/appUsageTracker'
@@ -186,6 +186,13 @@ function Workspace() {
   useEffect(() => {
     const link = takeShareLink()
     if (!link) return
+    // Flow is in private beta: for a member the link opens nothing, and the
+    // switch it turned on at startup goes back the way it was.
+    if (!isAppVisible('flow')) {
+      if (link.switchedOn) useAppVisibilityStore.getState().setOptionalEnabled('flow', false)
+      useAppStore.getState().addToast("That link opens a Flow template, and Flow isn't open to members yet.", 'info')
+      return
+    }
     if (link.switchedOn) useAppStore.getState().addToast('Flow is on now. Switch it off any time in Settings → Experimental.', 'info')
     useAppStore.getState().sendToApp({ targetApp: 'flow', targetField: 'openTemplate', data: { slug: link.slug } })
   }, [])
