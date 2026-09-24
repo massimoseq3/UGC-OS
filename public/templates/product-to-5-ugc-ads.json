@@ -14,7 +14,7 @@
       "kind": "bank",
       "label": "Your Product",
       "x": 0,
-      "y": 40,
+      "y": 0,
       "settings": {
         "bank": "products"
       },
@@ -26,7 +26,7 @@
       "kind": "bank",
       "label": "Your Character",
       "x": 0,
-      "y": 260,
+      "y": 240,
       "settings": {
         "bank": "models"
       },
@@ -36,7 +36,7 @@
     {
       "id": "scripts",
       "kind": "scripts",
-      "x": 340,
+      "x": 360,
       "y": 0,
       "settings": {
         "mode": "write",
@@ -57,7 +57,7 @@
     {
       "id": "voice",
       "kind": "voice",
-      "x": 720,
+      "x": 740,
       "y": 0,
       "settings": {
         "voiceId": "Puck",
@@ -75,8 +75,8 @@
     {
       "id": "broll",
       "kind": "broll",
-      "x": 720,
-      "y": 250,
+      "x": 740,
+      "y": 300,
       "settings": {
         "delivery": "silent",
         "aspectRatio": "9:16",
@@ -91,8 +91,8 @@
     {
       "id": "edit",
       "kind": "edit",
-      "x": 1100,
-      "y": 120,
+      "x": 1120,
+      "y": 160,
       "settings": {},
       "source": "generate"
     },
@@ -100,7 +100,7 @@
       "id": "note",
       "kind": "note",
       "x": 0,
-      "y": 470,
+      "y": 480,
       "settings": {
         "text": "Pick your product and your character, then Test With 1 before the full run. Scripts pauses so you can keep only the takes you like, and B-Roll pauses after the stills so you only pay to animate the good ones."
       }

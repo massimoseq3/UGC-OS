@@ -6,7 +6,7 @@ import type { ElementType } from 'react'
 import { Image as ImageIcon, List, StickyNote, Type } from 'lucide-react'
 import type { BlockKind, FlowBlock } from '../types'
 import { BANK_CONFIG, getAppConfig, type BankType } from '../../../utils/constants'
-import { KINDS } from '../engine/catalog'
+import { KINDS, sourceOf } from '../engine/catalog'
 
 const HELPER_ICONS: Partial<Record<BlockKind, ElementType>> = {
   image: ImageIcon,
@@ -43,6 +43,17 @@ export function blockAccent(block: Pick<FlowBlock, 'kind' | 'settings'>): string
 export function kindFace(kind: BlockKind, bank?: BankType): { icon: ElementType; accent: string } {
   const probe = { kind, settings: bank ? { bank } : {} }
   return { icon: blockIcon(probe), accent: blockAccent(probe) }
+}
+
+// An app block opens in its app's own window; the helpers are edited on the
+// canvas itself.
+export function opensWindow(block: Pick<FlowBlock, 'kind' | 'suggested'>): boolean {
+  return !!KINDS[block.kind]?.runnable && !block.suggested
+}
+
+// A block whoever runs the flow can fill in themselves, in Run.
+export function isFieldable(block: FlowBlock): boolean {
+  return block.kind === 'bank' || block.kind === 'image' || block.kind === 'text' || (!!KINDS[block.kind]?.runnable && sourceOf(block) === 'bank')
 }
 
 export { blockWidth } from '../engine/catalog'

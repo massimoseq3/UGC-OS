@@ -65,7 +65,7 @@ export function BankPick({ block, bank }: { block: FlowBlock; bank: BankType }) 
   )
 }
 
-function SwipePicker({ open, onClose, onPick }: { open: boolean; onClose: () => void; onPick: (id: string) => void }) {
+export function SwipePicker({ open, onClose, onPick }: { open: boolean; onClose: () => void; onPick: (id: string) => void }) {
   const swipes = useBankStore((s) => s.swipes)
   return (
     <Modal open={open} onClose={onClose} title="Choose a Saved Ad" size="medium" fill>

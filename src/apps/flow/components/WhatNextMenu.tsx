@@ -1,6 +1,7 @@
-// What Next?: a wire dropped on empty canvas asks where it should go, listing
-// only the blocks that could take it and which of their inputs it would feed.
-// Picking one adds that block where the wire was dropped, already wired.
+// What Next?: a wire dropped on empty canvas — or a dot clicked — asks where
+// it should go, listing only the blocks that could take it and which of their
+// inputs it would feed. From an input it's the other way round: the blocks
+// that could feed it. Picking one adds that block there, already wired.
 
 import type { LucideIcon } from 'lucide-react'
 import type { PortType } from '../types'
@@ -13,6 +14,7 @@ export default function WhatNextMenu({
   x,
   y,
   type,
+  side = 'out',
   options,
   onPick,
   onClose,
@@ -20,6 +22,7 @@ export default function WhatNextMenu({
   x: number
   y: number
   type: PortType
+  side?: 'out' | 'in'
   options: WhatNextOption[]
   onPick: (option: WhatNextOption) => void
   onClose: () => void
@@ -30,7 +33,7 @@ export default function WhatNextMenu({
       <div className="absolute z-40" style={{ left: x, top: y }}>
         <MenuSurface className="w-60">
           <div className="border-b border-ink/5 px-3.5 py-2 text-[11px] font-medium text-ink-500">
-            What Next? · <span style={{ color: TYPE_META[type].color }}>{TYPE_META[type].label}</span>
+            {side === 'out' ? 'What Next?' : 'What Feeds This?'} · <span style={{ color: TYPE_META[type].color }}>{TYPE_META[type].label}</span>
           </div>
           <div className="menu-scroll max-h-[320px] overflow-y-auto">
             {options.length === 0 && <p className="px-3.5 py-3 text-xs text-ink-500">Nothing takes that yet.</p>}

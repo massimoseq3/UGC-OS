@@ -68,3 +68,29 @@ export function laidOut(graph: FlowGraph): FlowGraph {
   })
   return { ...graph, blocks: graph.blocks.map((b) => ({ ...b, ...(positions[b.id] ?? {}) })) }
 }
+
+// Where a new block can go near `at` without covering one already there:
+// `at` itself when it's clear, else the first clear spot below it. What a
+// block added from the palette or a window lands on, so adding never hides
+// part of the flow under the new block.
+export function freeSpot(
+  graph: FlowGraph,
+  at: { x: number; y: number },
+  kind: FlowBlock['kind'],
+  sizeOf: (block: FlowBlock) => { width: number; height: number } = estimatedSize,
+): { x: number; y: number } {
+  const width = blockWidth(kind)
+  const height = 180
+  const margin = 24
+  let y = at.y
+  for (let i = 0; i < 60; i++) {
+    const hit = graph.blocks.some((b) => {
+      if (b.suggested) return false
+      const size = sizeOf(b)
+      return at.x < b.x + size.width + margin && at.x + width + margin > b.x && y < b.y + size.height + margin && y + height + margin > b.y
+    })
+    if (!hit) return { x: Math.round(at.x), y: Math.round(y) }
+    y += 40
+  }
+  return { x: Math.round(at.x), y: Math.round(y) }
+}

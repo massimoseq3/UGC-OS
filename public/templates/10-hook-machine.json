@@ -14,7 +14,7 @@
       "kind": "bank",
       "label": "Your Product",
       "x": 0,
-      "y": 40,
+      "y": 0,
       "settings": {
         "bank": "products"
       },
@@ -26,7 +26,7 @@
       "kind": "bank",
       "label": "Your Character",
       "x": 0,
-      "y": 260,
+      "y": 240,
       "settings": {
         "bank": "models"
       },
@@ -36,7 +36,7 @@
     {
       "id": "hooks",
       "kind": "scripts",
-      "x": 340,
+      "x": 360,
       "y": 0,
       "settings": {
         "mode": "write",
@@ -57,7 +57,7 @@
     {
       "id": "voice",
       "kind": "voice",
-      "x": 720,
+      "x": 740,
       "y": 0,
       "settings": {
         "voiceId": "Kore",
@@ -75,8 +75,8 @@
     {
       "id": "broll",
       "kind": "broll",
-      "x": 720,
-      "y": 250,
+      "x": 740,
+      "y": 300,
       "settings": {
         "delivery": "silent",
         "aspectRatio": "9:16",
@@ -90,8 +90,8 @@
     {
       "id": "edit",
       "kind": "edit",
-      "x": 1100,
-      "y": 120,
+      "x": 1120,
+      "y": 160,
       "settings": {},
       "source": "generate"
     },
@@ -99,7 +99,7 @@
       "id": "note",
       "kind": "note",
       "x": 0,
-      "y": 470,
+      "y": 480,
       "settings": {
         "text": "Scripts pauses after writing: keep the three or four hooks you'd actually post. Only those get a voiceover and a shot."
       }

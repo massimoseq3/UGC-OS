@@ -1,33 +1,27 @@
-// A flow open for editing: the selected block's own panel on the left (or,
-// with nothing selected, the flow's — its run fields, its estimate and Run),
-// and the canvas on the right under a 57px header band.
+// A flow open for editing: the canvas, the whole width of the window, under a
+// 57px header band that carries the run controls. A block's settings open in
+// its app's own window over the canvas (BlockWindow) — the same panels a
+// member already knows from the app itself, plus what only a flow has.
 
 import { useEffect, useState } from 'react'
 import { ReactFlowProvider } from '@xyflow/react'
-import { ArrowLeft, Layers, Share2, Workflow } from 'lucide-react'
 import { useFlowStore } from '../store/flowStore'
 import { useFlowRunStore, isRunActive, startRun, type StartResult } from '../run/runtime'
 import { useFlowPlans, creditsLabel } from '../hooks/useFlowPlan'
 import { useAppStore } from '../../../stores/appStore'
 import { useCreditsStore } from '../../../stores/creditsStore'
 import { isRecordingActive } from '../../../stores/recordingStore'
-import MobilePaneTabs from '../../../components/MobilePaneTabs'
-import { paneClass } from '../../../components/paneClass'
 import RailOverlay from '../../../components/RailOverlay'
-import HistoryRailToggle from '../../../components/HistoryRailToggle'
 import { useHistoryRailOpen } from '../../../hooks/useHistoryRailOpen'
 import Modal from '../../../components/Modal'
 import Canvas from './Canvas'
-import FlowPanel from './panels/FlowPanel'
-import BlockPanel from './panels/BlockPanel'
+import EditorHeader from './EditorHeader'
+import BlockWindow from './window/BlockWindow'
 import ReviewModal from './ReviewModal'
 import RunHistory from './RunHistory'
 import RunView from './RunView'
-import PinButton from './PinButton'
 import TemplateUpdateBar from './TemplateUpdateBar'
 import { titleOf } from '../engine/catalog'
-import { exportTemplate } from '../templates/io'
-import SegmentedToggle from '../../../components/SegmentedToggle'
 import { useIsDesktop } from '../../../hooks/useBreakpoint'
 
 // Past either, Run asks first and shows what it'll spend.
@@ -41,16 +35,15 @@ export interface RunRequest {
 
 export default function Editor({ flowId }: { flowId: string }) {
   const doc = useFlowStore((s) => s.docs[flowId])
-  const selection = useFlowStore((s) => s.selection)
   const openFlow = useFlowStore((s) => s.openFlow)
-  const renameFlow = useFlowStore((s) => s.renameFlow)
+  const windowId = useFlowStore((s) => s.windowId)
+  const closeWindow = useFlowStore((s) => s.closeWindow)
   const run = useFlowRunStore((s) => s.runs[flowId])
   const log = useFlowRunStore((s) => s.log[flowId])
   const addToast = useAppStore((s) => s.addToast)
   const balance = useCreditsStore((s) => s.balance)
   const refreshBalance = useCreditsStore((s) => s.refresh)
   const { plan, test } = useFlowPlans(doc)
-  const [pane, setPane] = useState<'canvas' | 'panel'>('canvas')
   const storedView = useFlowStore((s) => s.view)
   const setView = useFlowStore((s) => s.setView)
   // Phones get Run View: editing the canvas stays on a computer.
@@ -71,7 +64,6 @@ export default function Editor({ flowId }: { flowId: string }) {
   const reviewId = reviewing ?? pendingReview
 
   if (!doc) return null
-  const selected = selection.length === 1 ? doc.blocks.find((b) => b.id === selection[0]) : undefined
   const active = isRunActive(run)
 
   const go = (req: RunRequest): StartResult => {
@@ -112,6 +104,7 @@ export default function Editor({ flowId }: { flowId: string }) {
   }
 
   const reviewBlock = reviewId ? doc.blocks.find((b) => b.id === reviewId) : undefined
+  const windowBlock = windowId ? doc.blocks.find((b) => b.id === windowId && !b.suggested) : undefined
 
   return (
     <ReactFlowProvider>
@@ -119,77 +112,56 @@ export default function Editor({ flowId }: { flowId: string }) {
         {view === 'run' ? (
           <RunView flowId={flowId} doc={doc} plan={plan} test={test} run={run} balance={balance} onRun={requestRun} onEdit={() => setView('edit')} onBack={() => openFlow(null)} />
         ) : (
-        <>
-        <MobilePaneTabs
-          options={[
-            { value: 'canvas', label: 'Canvas', icon: Workflow },
-            { value: 'panel', label: selected ? titleOf(selected) : 'Run', icon: Layers },
-          ]}
-          value={pane}
-          onChange={setPane}
-          accent="flow"
-        />
-        <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-          <div className={paneClass(pane === 'panel', 'md:w-[400px] md:shrink-0 md:border-r md:border-ink/5')}>
-            {selected ? (
-              <BlockPanel key={selected.id} flowId={flowId} block={selected} doc={doc} plan={plan} run={run} onRun={requestRun} />
-            ) : (
-              <FlowPanel flowId={flowId} doc={doc} plan={plan} test={test} run={run} balance={balance} onRun={requestRun} />
-            )}
-          </div>
-
-          <div className={paneClass(pane === 'canvas', 'md:flex-1 md:overflow-hidden')}>
-            <div className="relative flex min-h-0 flex-1 md:overflow-hidden">
-              <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-                <div className="flex h-[57px] shrink-0 items-center gap-2 border-b border-ink/5 px-5">
-                  <button
-                    type="button"
-                    onClick={() => openFlow(null)}
-                    title="All Flows"
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-ink/10 text-ink-400 transition-colors hover:border-ink/20 hover:text-ink-100"
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                  </button>
-                  <input
-                    value={doc.name}
-                    onChange={(e) => renameFlow(flowId, e.target.value)}
-                    className="min-w-0 max-w-[260px] flex-1 rounded-full bg-transparent px-2 py-1 text-sm font-semibold tracking-tight text-ink-100 outline-none hover:bg-ink/[0.04] focus:bg-ink/[0.06]"
-                    aria-label="Flow Name"
-                  />
-                  <SegmentedToggle
-                    options={[{ value: 'edit', label: 'Edit' }, { value: 'run', label: 'Run' }]}
-                    value={view}
-                    onChange={setView}
-                    fitContent
-                    dense
-                    accent="flow"
-                  />
-                  <div className="ml-auto flex items-center gap-2">
-                    <PinButton flowId={flowId} pinned={!!doc.pinned} />
-                    <button
-                      type="button"
-                      onClick={() => void exportTemplate(doc)}
-                      title="Share · downloads this flow as a template file. Your product and character become fields for whoever imports it."
-                      className="flex items-center gap-1.5 rounded-full border border-ink/10 px-3 py-1.5 text-xs font-medium text-ink-300 transition-colors hover:border-ink/20 hover:text-ink-100"
-                    >
-                      <Share2 className="h-3.5 w-3.5" />
-                      <span className="hidden lg:inline">Share</span>
-                    </button>
-                    <HistoryRailToggle open={historyOpen} onToggle={() => setHistoryOpen(!historyOpen)} label="runs" count={log?.length} />
-                  </div>
-                </div>
-                <TemplateUpdateBar doc={doc} />
-                <Canvas flowId={flowId} doc={doc} plan={plan} run={run} onReview={setReviewing} onRunBlock={(id) => requestRun({ only: id })} />
-              </div>
+          <>
+            <EditorHeader
+              flowId={flowId}
+              doc={doc}
+              plan={plan}
+              test={test}
+              run={run}
+              balance={balance}
+              onRun={requestRun}
+              view={view}
+              onView={setView}
+              historyOpen={historyOpen}
+              onToggleHistory={() => setHistoryOpen(!historyOpen)}
+              runCount={log?.length}
+            />
+            <TemplateUpdateBar doc={doc} />
+            {/* `relative` is what the history rail positions against, and
+                `overflow-hidden` keeps its slide from widening the shell. */}
+            <div className="relative flex min-h-0 flex-1 overflow-hidden">
+              <Canvas
+                flowId={flowId}
+                doc={doc}
+                plan={plan}
+                run={run}
+                onReview={setReviewing}
+                onRunBlock={(id) => requestRun({ only: id })}
+                // The canvas's own keys stand down while anything is open over it.
+                keysActive={!windowBlock && !reviewBlock && !confirm && !historyOpen}
+              />
               <RailOverlay open={historyOpen} onClose={() => setHistoryOpen(false)}>
                 <RunHistory flowId={flowId} onDone={() => setHistoryOpen(false)} />
               </RailOverlay>
             </div>
-          </div>
-        </div>
-        </>
+          </>
         )}
       </div>
+
+      {view === 'edit' && windowBlock && (
+        <BlockWindow
+          key={windowBlock.id}
+          flowId={flowId}
+          doc={doc}
+          block={windowBlock}
+          plan={plan}
+          run={run}
+          onRun={requestRun}
+          onReview={setReviewing}
+          onClose={closeWindow}
+        />
+      )}
 
       {reviewBlock && run && (
         <ReviewModal

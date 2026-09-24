@@ -68,9 +68,12 @@ function wiredInput(ctx: ExecContext): Wired {
   const productId = one(ctx.inst.inputs.product, 'product')?.payload.productId ?? (s.productId as string | undefined)
   const product = productId ? bank.products.find((p) => p.id === productId) : undefined
 
+  // A character wired in wins; with none, the one picked in the block's own
+  // Character card — the pick B-Roll's panel makes.
   const character = one(ctx.inst.inputs.character, 'character')
-  const model = character?.payload.modelRowId ? bank.models.find((m) => m.id === character.payload.modelRowId) : undefined
-  const characterImage = character?.payload.imageRef
+  const picked = !character && typeof s.characterId === 'string' ? bank.models.find((m) => m.id === s.characterId) : undefined
+  const model = character?.payload.modelRowId ? bank.models.find((m) => m.id === character.payload.modelRowId) : picked
+  const characterImage = character?.payload.imageRef ?? picked?.characterImage
   const name = model?.name ?? character?.payload.name ?? 'Character'
   const modelContext = characterImage
     ? `Model/Character: ${name}.${model?.notes ? ` ${model.notes}.` : ''}${model?.jsonProfile ? ` Profile: ${JSON.stringify(model.jsonProfile)}` : ''}`
@@ -90,7 +93,7 @@ function wiredInput(ctx: ExecContext): Wired {
       modelId: model?.id ?? null,
       scriptId: null,
       scriptText,
-      additionalContext: String(s.context ?? ''),
+      additionalContext: textOf(ctx.inst.inputs.instructions) ?? String(s.context ?? ''),
       productContext: buildProductContext(product),
       modelContext,
       referenceImages: [],

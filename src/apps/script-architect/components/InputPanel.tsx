@@ -1,4 +1,4 @@
-import { useState, type ComponentType } from 'react'
+import { useState, type ComponentType, type ReactNode } from 'react'
 import { Package, PenLine, ChevronRight, FileText, Clapperboard, RefreshCw, X, Sparkle, Shuffle, FishingHook, Video, Clock, Layers } from 'lucide-react'
 import type { Product, Script } from '../../../stores/types'
 import { WRITE_LENGTHS, REMIX_LENGTHS, WRITE_STYLE_META, writeStylesInGroup, HOOK_CATEGORY_META, HOOK_COUNTS, VARIATION_COUNTS, createEditableContext, type EditableProductContext, type ScriptUiMode, type WriteStyle, type WriteFormat, type WriteLength, type RemixLength, type HookCategoryChoice, type HookCount, type VariationCount } from '../types'
@@ -67,6 +67,19 @@ interface InputPanelProps {
   // from, while it's still unedited — what the run is made from.
   onGenerate: (context: EditableProductContext | null, sourceScriptId: string | null) => void
   highlightField?: string | null
+  // Flow's Scripts block renders this same panel over the block's settings
+  // instead of this app's draft (flow/components/window/ScriptsWindow). Absent
+  // in the app itself, where nothing below changes.
+  flow?: ScriptsFlowSlots
+}
+
+export interface ScriptsFlowSlots {
+  // A field a wire feeds in the flow — the product, the brief, the winning
+  // ad — shown in place of this panel's own control for it, and counted as
+  // filled, since the wire brings it at run time.
+  wired?: { product?: ReactNode; brief?: ReactNode; source?: ReactNode }
+  // What Generate says there: it runs the block, once per thing wired in.
+  actionLabel?: string
 }
 
 export default function InputPanel({
@@ -100,6 +113,7 @@ export default function InputPanel({
   onAdditionalContextChange,
   onGenerate,
   highlightField,
+  flow,
 }: InputPanelProps) {
   const [productPickerOpen, setProductPickerOpen] = useState(false)
   const [scriptPickerOpen, setScriptPickerOpen] = useState(false)
@@ -301,7 +315,8 @@ export default function InputPanel({
     }
   }
 
-  const sourceFilled = mode === 'write' ? true : source.trim().length > 0
+  const wired = flow?.wired ?? {}
+  const sourceFilled = mode === 'write' ? true : source.trim().length > 0 || !!wired.source
   // What's still missing, in the order the column asks for it. A greyed
   // Generate is supposed to say what it wants on its own — but this form has
   // several rows and only these gate the run, so an unexplained grey-out reads
@@ -314,7 +329,7 @@ export default function InputPanel({
   // stand-in would be asking for an ad about nothing.
   const blocker = !sourceFilled
     ? { label: 'Paste a Script to Remix', icon: FileText }
-    : mode === 'write' && !selectedProduct && !brief.trim()
+    : mode === 'write' && !selectedProduct && !wired.product && !brief.trim() && !wired.brief
       ? { label: 'Pick a Product or Write a Brief', icon: Package }
       : null
   const canGenerate = blocker === null
@@ -357,9 +372,9 @@ export default function InputPanel({
     />
   )
 
-  const generateLabel = mode === 'write'
+  const generateLabel = flow?.actionLabel ?? (mode === 'write'
     ? (writeFormat === 'scenes' ? `Generate ${variationCount} Scene Drafts` : writeFormat === 'hooks' ? `Generate ${hookCount} Hooks` : `Generate ${variationCount} Scripts`)
-    : blueprintActive ? 'Rewrite Scene Prompts' : `Generate ${variationCount} Script Variations`
+    : blueprintActive ? 'Rewrite Scene Prompts' : `Generate ${variationCount} Script Variations`)
 
   // Product picker — the same row in both modes, and in both it CLOSES the
   // References card: under Script Style / Hook Style in Write New, under the
@@ -685,7 +700,7 @@ export default function InputPanel({
               </div>
               )}
 
-              {productSection}
+              {wired.product ?? productSection}
               </SectionCard>
 
               {/* The brief — the SAME box the remix modes get, header and all:
@@ -712,6 +727,9 @@ export default function InputPanel({
                   breakpoint that relieved it. The column's own `overflow-y-auto`
                   and the pinned Generate band are untouched — only which of them
                   gives up height changes. */}
+              {wired.brief ? (
+                <div className="flex flex-1 flex-col">{wired.brief}</div>
+              ) : (
               <div className="flex min-h-[160px] flex-1 basis-0 flex-col max-lg:min-h-[220px] max-lg:flex-none max-lg:basis-auto">
                 <div className="relative flex min-h-0 grow flex-col overflow-hidden rounded-3xl border border-ink/10 bg-ink/[0.02] transition-colors focus-within:border-scripts-500/30">
                   {/* Centred, like every other box header in this column. */}
@@ -744,6 +762,7 @@ export default function InputPanel({
                   />
                 </div>
               </div>
+              )}
             </>
           ) : (
             // Same References card as Write New, holding the source the remix is
@@ -764,6 +783,9 @@ export default function InputPanel({
               contentClassName="flex flex-1 flex-col gap-2"
               left={<ClearAllButton label="Clear" onClear={onClearInputs} />}
             >
+            {wired.source ? (
+              <div className="flex flex-1 flex-col">{wired.source}</div>
+            ) : (
             <div className="flex min-h-[140px] flex-1 flex-col max-lg:min-h-[240px] max-lg:flex-none">
               {/* Select from bank (header) + paste manually (textarea) merged into
                   one rounded box so the two sources read as a single input. One
@@ -847,7 +869,8 @@ export default function InputPanel({
                 )}
               </div>
             </div>
-            {productSection}
+            )}
+            {wired.product ?? productSection}
             </SectionCard>
           )}
 
