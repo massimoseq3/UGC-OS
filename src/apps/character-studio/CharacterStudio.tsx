@@ -2,11 +2,10 @@ import { useEffect, useRef, useCallback, useMemo, useState } from 'react'
 import { Dna, Images, SlidersHorizontal } from 'lucide-react'
 import { useAppStore } from '../../stores/appStore'
 import { useReportActivity } from '../../stores/activityStore'
-import { useBankStore } from '../../stores/bankStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import type { CharacterProfile, CharacterRefItem, InFlightCharacterGen, LaunchGenOptions, TabId } from './types'
 import { createEmptyProfile, profileFromFlat } from './types'
-import type { AspectRatio, ImageResolution } from '../../utils/models'
+import type { ImageResolution } from '../../utils/models'
 import { getDefaultModel, clampImageResolution } from '../../utils/models'
 import DropOverlay from '../../components/DropOverlay'
 import MobilePaneTabs from '../../components/MobilePaneTabs'
@@ -15,11 +14,11 @@ import { clampBatchCount, DEFAULT_BATCH_COUNT } from '../../utils/batchCount'
 import ControlsPanel from './components/ControlsPanel'
 import GalleryPanel, { type GalleryViewMode } from './components/GalleryPanel'
 import ReferenceLibraryModal from './components/ReferenceLibraryModal'
-import { startCharacterTask, startCharacterEditTask, finishCharacterTask, type GenerationKind } from './services/generateCharacter'
-import { humanizeError } from '../../utils/friendlyError'
+import type { GenerationKind } from './services/generateCharacter'
+import { characterRunner, characterModelFor, type CharacterTask } from './runner'
 import { useReferenceLibrary } from './useReferenceLibrary'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
-import { isRecordingActive, replayWait, revealNext, useRecordingLoop, useRecordingLoopSince } from '../../stores/recordingStore'
+import { isRecordingActive, useRecordingLoop, useRecordingLoopSince } from '../../stores/recordingStore'
 
 // In-flight character generations older than 30 min are evicted on resume —
 // matches the cap used by Playground so the user's mental model is uniform.
@@ -129,8 +128,6 @@ export default function CharacterStudio() {
   const consumePayload = useAppStore((s) => s.consumePayload)
   const activeApp = useAppStore((s) => s.activeApp)
 
-  const addCharacterHistory = useBankStore((s) => s.addCharacterHistory)
-
   // Consume inter-app payload (kept for cross-app handoffs into the form)
   useEffect(() => {
     if (activeApp !== 'character-studio') return
@@ -223,32 +220,12 @@ export default function CharacterStudio() {
 
   // Finish an already-started task (poll → save asset → write history → drop
   // the in-flight entry). Shared by handleGenerate (foreground) and the
-  // mount-time resume effect (background).
-  const finishGen = useCallback(async (gen: InFlightCharacterGen, controller: AbortController) => {
-    if (!gen.taskId) return
+  // mount-time resume effect (background). The runner writes the row, under
+  // the GENERATION's id, so anything anchored to the in-flight tile — the
+  // editor opened by clicking it — resolves to the finished row on arrival.
+  const finishGen = useCallback(async (gen: CharacterTask, controller: AbortController) => {
     try {
-      const assetId = await finishCharacterTask(gen.taskId, gen.modelId, controller.signal)
-      addCharacterHistory({
-        // The row keeps the GENERATION's id rather than a fresh one, so anything
-        // anchored to the in-flight tile — the editor opened by clicking it —
-        // resolves to the finished row the moment it lands, with nothing to
-        // re-target. Gen ids are already uuids, so this is as unique as before.
-        id: gen.id,
-        imageRef: assetId,
-        profile: (gen.profile as CharacterProfile | undefined) ?? createEmptyProfile(),
-        modelId: gen.modelId,
-        aspectRatio: gen.aspectRatio,
-        resolution: gen.resolution,
-        kind: gen.kind ?? 'portrait',
-        // Derived gens (edit modal) rejoin their source's lineage strip.
-        lineageId: gen.lineageId,
-        styleName: gen.styleName,
-        // Carried onto the finished row so a batch stays one group on the
-        // Single stage after its members stop being in-flight entries.
-        batchId: gen.batchId,
-        batchIndex: gen.batchIndex,
-        createdAt: Date.now(),
-      })
+      await characterRunner.finish(gen, { signal: controller.signal })
       // A lineage'd portrait can only have come from the modal's Edit tab —
       // the form and "Make Sheet" never set one.
       const label = gen.kind === 'sheet'
@@ -257,7 +234,7 @@ export default function CharacterStudio() {
       useAppStore.getState().addToast(label, 'success')
     } catch (err) {
       if (!controller.signal.aborted) {
-        const msg = humanizeError(err, 'Image generation failed. Check your API key and try again.')
+        const msg = characterRunner.describeError(err)
         setError(msg)
         useAppStore.getState().addToast(msg, 'error')
       }
@@ -265,21 +242,19 @@ export default function CharacterStudio() {
       abortersRef.current.delete(gen.id)
       setInFlight((prev) => prev.filter((g) => g.id !== gen.id))
     }
-  }, [addCharacterHistory, setInFlight])
+  }, [setInFlight])
 
   // Core launcher shared by the form's Generate button, the "Make Sheet from
   // portrait" gallery action, and the edit modal's Generate. Stamps an in-flight
   // tile, starts the task, persists the taskId, then polls to completion. The
-  // model recorded is the one actually used — startCharacterTask swaps to an
+  // model recorded is the one actually used — the runner swaps to an
   // image-to-image sibling when a reference portrait is supplied.
   //
   // Owning modal generations here (rather than inside the modal) is what makes
   // them survive a close + reopen: the tile and the poll live with the app, not
   // with the pop-up.
   const launchGen = useCallback(async (opts: LaunchGenOptions) => {
-    const configuredModel = useSettingsStore.getState().getAppModel('character-studio:image:text-to-image')
-      ?? getDefaultModel('character-studio', 'image', 'text-to-image')?.id
-      ?? 'unknown'
+    const configuredModel = characterModelFor({})
 
     // Recording Mode: the tile renders for the replay length, then the oldest
     // hidden character comes back. Nothing reaches kie. Cancel still works —
@@ -299,11 +274,12 @@ export default function CharacterStudio() {
         batchId: opts.batchId,
         batchIndex: opts.batchIndex,
       }])
-      await replayWait((opts.batchIndex ?? 0) * 700)
+      const row = await characterRunner.replay(opts, {
+        extraMs: (opts.batchIndex ?? 0) * 700,
+        signal: fakeController.signal,
+      })
       abortersRef.current.delete(fakeId)
       setReplayInFlight((prev) => prev.filter((g) => g.id !== fakeId))
-      if (fakeController.signal.aborted) return
-      const row = revealNext(useBankStore.getState().characterHistory, 'character')
       if (row) {
         const label = opts.kind === 'sheet' ? 'Character sheet generated' : opts.lineageId ? 'Edit generated' : 'Character generated'
         useAppStore.getState().addToast(label, 'success')
@@ -332,33 +308,27 @@ export default function CharacterStudio() {
     setInFlight((prev) => [...prev, placeholder])
     setError(null)
 
-    let started: { taskId: string; modelId: string }
+    let task: CharacterTask
     try {
-      started = opts.edit
-        ? await startCharacterEditTask({
-            prompt: opts.edit.instruction,
-            baseImageRef: opts.edit.baseImageRef,
-            referenceRefs: opts.edit.referenceUrls,
-            aspectRatio: opts.aspect as AspectRatio,
-            resolution: opts.resolution,
-            signal: controller.signal,
-          })
-        : await startCharacterTask(opts.profile, undefined, opts.resolution, controller.signal, opts.kind, opts.aspect, opts.referenceUrl, { direction: opts.direction, extraReferenceUrls: opts.extraReferenceUrls })
+      task = await characterRunner.start({ ...opts, id }, { signal: controller.signal })
     } catch (err) {
       abortersRef.current.delete(id)
       setInFlight((prev) => prev.filter((g) => g.id !== id))
       if (!controller.signal.aborted) {
-        const msg = humanizeError(err, 'Image generation failed. Check your API key and try again.')
+        const msg = characterRunner.describeError(err)
         setError(msg)
         useAppStore.getState().addToast(msg, 'error')
       }
       return
     }
 
-    // Persist taskId (resume-safe) and the actual model used so the history row
-    // and tile caption reflect any image-to-image swap.
-    setInFlight((prev) => prev.map((g) => g.id === id ? { ...g, taskId: started.taskId, modelId: started.modelId } : g))
-    await finishGen({ ...placeholder, taskId: started.taskId, modelId: started.modelId }, controller)
+    // Persist the taskId (resume-safe), the actual model used — so the history
+    // row and tile caption reflect any image-to-image swap — and what it was
+    // made from.
+    setInFlight((prev) => prev.map((g) => g.id === id
+      ? { ...g, taskId: task.taskId, modelId: task.modelId, provenance: task.provenance }
+      : g))
+    await finishGen(task, controller)
   }, [finishGen, setInFlight])
 
   const handleGenerate = () => {
@@ -440,14 +410,14 @@ export default function CharacterStudio() {
     if (didResumeRef.current) return
     didResumeRef.current = true
     const now = Date.now()
-    const toResume: InFlightCharacterGen[] = []
+    const toResume: CharacterTask[] = []
     const toEvict: string[] = []
     for (const gen of inFlight) {
       const stale = now - gen.startedAt > INFLIGHT_TTL_MS
       if (stale || !gen.taskId) {
         toEvict.push(gen.id)
       } else if (!abortersRef.current.has(gen.id)) {
-        toResume.push(gen)
+        toResume.push({ ...gen, taskId: gen.taskId })
       }
     }
     if (toEvict.length > 0) {

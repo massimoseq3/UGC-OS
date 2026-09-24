@@ -1,10 +1,10 @@
 import type { CharacterProfile } from '../types'
 import { ALL_FIELD_KEYS } from '../types'
 import { useSettingsStore } from '../../../stores/settingsStore'
-import { createTask, ensureHostedUrl, kieChatCompletions, type ChatMessage } from '../../../utils/kie'
+import { createTask, kieChatCompletions, type ChatMessage } from '../../../utils/kie'
 import { finishImageAssetTask } from '../../../utils/imageTask'
 import { getDefaultModel, getModel, buildImageInput, getChatTarget, type AspectRatio, type ImageResolution } from '../../../utils/models'
-import { isAssetRef, getAsBase64 } from '../../../utils/assetStore'
+import { hostedUrlFor } from '../../../utils/hostedUrl'
 
 export interface GenerationResult {
   imageUrl: string
@@ -233,17 +233,12 @@ export function buildSheetPrompt(profile: CharacterProfile, aspect = '16:9', dir
 
 export type GenerationKind = 'portrait' | 'sheet'
 
-// Resolve a bank asset / data / http(s) ref to a kie-hosted public URL that
-// image-to-image models can read (asset:// refs and data: URIs aren't fetchable
-// by kie — they must be uploaded first).
+// Every reference here is a face or a look the result is built FROM, so a
+// missing one fails the run rather than quietly drawing someone else.
 async function hostReference(apiKey: string, ref: string): Promise<string> {
-  let source = ref
-  if (isAssetRef(ref)) {
-    const asset = await getAsBase64(ref)
-    if (!asset) throw new Error('Reference image could not be loaded.')
-    source = `data:${asset.mimeType};base64,${asset.base64}`
-  }
-  return ensureHostedUrl(apiKey, source)
+  const url = await hostedUrlFor(apiKey, ref)
+  if (!url) throw new Error('Reference image could not be loaded.')
+  return url
 }
 
 // When a reference image is supplied the model MUST run image-to-image, or kie
@@ -251,7 +246,7 @@ async function hostReference(apiKey: string, ref: string): Promise<string> {
 // configured model's own i2i mode, then a same-family `-image-to-image`
 // sibling, then the registry's default i2i model. Mirrors the Playground/B-Roll
 // swap so the house behaviour stays uniform.
-function resolveImageToImageModel(pickedId: string): string {
+export function resolveImageToImageModel(pickedId: string): string {
   const picked = getModel(pickedId)
   if (picked?.modes?.includes('image-to-image')) return picked.id
   if (picked) {
