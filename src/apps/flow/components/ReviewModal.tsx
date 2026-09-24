@@ -71,10 +71,12 @@ function ItemsReview({ flowId, block, results, onLater, onDone }: {
   onLater: () => void
   onDone: () => void
 }) {
-  const slots = liveItems(block).filter((it) => !it.off)
+  const valueOf = (slot: string) => results.map((r) => r.items?.[slot]).find(Boolean)
+  // Only what the run actually made: a model that wrote nine hooks for ten
+  // slots leaves one with nothing to keep.
+  const slots = liveItems(block).filter((it) => !it.off && valueOf(it.id))
   const [keep, setKeep] = useState<string[]>(slots.map((it) => it.id))
   const noun = itemNoun(block)
-  const valueOf = (slot: string) => results.map((r) => r.items?.[slot]).find(Boolean)
   const toggle = (id: string) => setKeep((k) => (k.includes(id) ? k.filter((x) => x !== id) : [...k, id]))
   const faces = block.kind === 'characters'
   return (

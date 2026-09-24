@@ -231,6 +231,26 @@ describe('what re-runs', () => {
     expect(plan.blocks.scr.instances[0].slots).toHaveLength(20)
   })
 
+  it('does not rewrite hooks when the model wrote fewer than asked', () => {
+    const g: FlowGraph = { blocks: [block('scr', 'scripts', { items: slots('h', 10) })], wires: [] }
+    const { outputs } = runAll(g, {})
+    const inst = Object.values(outputs.scr.instances)[0]
+    // The call was asked for all ten and wrote nine.
+    inst.slots = slots('h', 10).map((x) => x.id)
+    delete inst.items!.h10
+    expect(planFlow(g, outputs, deps).planned).toEqual([])
+  })
+
+  it('prices a script not written yet at its likely size', () => {
+    const g = serumLaunch(3)
+    const seen: string[] = []
+    const sized: PlanDeps = { ...deps, cost: (b, inputs, n) => { if (b.kind === 'voice') seen.push((inputs.script?.[0]?.payload as { text?: string }).text ?? ''); return deps.cost(b, inputs, n) } }
+    planFlow(g, {}, sized)
+    // A hook is one line, not an empty string.
+    expect(seen.length).toBeGreaterThan(0)
+    expect(seen.every((t) => t.length > 10 && t.length < 80)).toBe(true)
+  })
+
   it('Run Block remakes just that block', () => {
     const g = serumLaunch(3)
     const { outputs } = runAll(g, {})

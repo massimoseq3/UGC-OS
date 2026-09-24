@@ -1,33 +1,189 @@
 {
   "format": "ugcflow",
   "formatVersion": 1,
-  "template": { "id": "product-to-5-ugc-ads", "version": 1 },
+  "template": {
+    "id": "product-to-5-ugc-ads",
+    "version": 1
+  },
   "name": "Product → 5 UGC Ads",
   "description": "Five 30-second scripts for your product, each read by a voice and shot as B-Roll, packed as five folders ready for the /video-editor skill.",
   "author": "UGC OS",
   "blocks": [
-    { "id": "product", "kind": "bank", "label": "Your Product", "x": 0, "y": 40, "settings": { "bank": "products" }, "source": "bank", "field": true },
-    { "id": "character", "kind": "bank", "label": "Your Character", "x": 0, "y": 260, "settings": { "bank": "models" }, "source": "bank", "field": true },
-    { "id": "scripts", "kind": "scripts", "x": 340, "y": 0, "settings": { "mode": "write", "writeFormat": "script", "writeStyle": "pas", "writeLength": 30, "remixLength": "default", "hookCategory": "auto", "hookCount": 10, "variationCount": 5, "brief": "", "source": "", "additionalContext": "" }, "source": "generate", "review": true },
-    { "id": "voice", "kind": "voice", "x": 720, "y": 0, "settings": { "voiceId": "Puck", "voiceName": "Puck", "gender": "Male", "style": "Empathetic", "pace": "Rapid Fire", "accent": "Neutral", "temperature": 1, "scene": "", "sampleContext": "Creator talks at a normal tempo." }, "source": "generate" },
-    { "id": "broll", "kind": "broll", "x": 720, "y": 250, "settings": { "delivery": "silent", "aspectRatio": "9:16", "animate": true, "takes": 1, "context": "", "styleId": "ugc" }, "source": "generate", "review": true },
-    { "id": "edit", "kind": "edit", "x": 1100, "y": 120, "settings": {}, "source": "generate" },
-    { "id": "note", "kind": "note", "x": 0, "y": 470, "settings": { "text": "Pick your product and your character, then Test With 1 before the full run. Scripts pauses so you can keep only the takes you like, and B-Roll pauses after the stills so you only pay to animate the good ones." } }
+    {
+      "id": "product",
+      "kind": "bank",
+      "label": "Your Product",
+      "x": 0,
+      "y": 40,
+      "settings": {
+        "bank": "products"
+      },
+      "source": "bank",
+      "field": true
+    },
+    {
+      "id": "character",
+      "kind": "bank",
+      "label": "Your Character",
+      "x": 0,
+      "y": 260,
+      "settings": {
+        "bank": "models"
+      },
+      "source": "bank",
+      "field": true
+    },
+    {
+      "id": "scripts",
+      "kind": "scripts",
+      "x": 340,
+      "y": 0,
+      "settings": {
+        "mode": "write",
+        "writeFormat": "script",
+        "writeStyle": "pas",
+        "writeLength": 30,
+        "remixLength": "default",
+        "hookCategory": "auto",
+        "hookCount": 10,
+        "variationCount": 5,
+        "brief": "",
+        "source": "",
+        "additionalContext": ""
+      },
+      "source": "generate",
+      "review": true
+    },
+    {
+      "id": "voice",
+      "kind": "voice",
+      "x": 720,
+      "y": 0,
+      "settings": {
+        "voiceId": "Puck",
+        "voiceName": "Puck",
+        "gender": "Male",
+        "style": "Empathetic",
+        "pace": "Rapid Fire",
+        "accent": "Neutral",
+        "temperature": 1,
+        "scene": "",
+        "sampleContext": "Creator talks at a normal tempo."
+      },
+      "source": "generate"
+    },
+    {
+      "id": "broll",
+      "kind": "broll",
+      "x": 720,
+      "y": 250,
+      "settings": {
+        "delivery": "silent",
+        "aspectRatio": "9:16",
+        "animate": true,
+        "takes": 1,
+        "context": "",
+        "styleId": "ugc"
+      },
+      "source": "generate",
+      "review": true
+    },
+    {
+      "id": "edit",
+      "kind": "edit",
+      "x": 1100,
+      "y": 120,
+      "settings": {},
+      "source": "generate"
+    },
+    {
+      "id": "note",
+      "kind": "note",
+      "x": 0,
+      "y": 470,
+      "settings": {
+        "text": "Pick your product and your character, then Test With 1 before the full run. Scripts pauses so you can keep only the takes you like, and B-Roll pauses after the stills so you only pay to animate the good ones."
+      }
+    }
   ],
   "wires": [
-    { "id": "w1", "from": "product", "fromPort": "out", "to": "scripts", "toPort": "product" },
-    { "id": "w2", "from": "scripts", "fromPort": "all", "to": "voice", "toPort": "script" },
-    { "id": "w3", "from": "scripts", "fromPort": "all", "to": "broll", "toPort": "script" },
-    { "id": "w4", "from": "character", "fromPort": "out", "to": "broll", "toPort": "character" },
-    { "id": "w5", "from": "product", "fromPort": "out", "to": "broll", "toPort": "product" },
-    { "id": "w6", "from": "voice", "fromPort": "audio", "to": "edit", "toPort": "audio" },
-    { "id": "w7", "from": "broll", "fromPort": "clips", "to": "edit", "toPort": "clips" },
-    { "id": "w8", "from": "scripts", "fromPort": "all", "to": "edit", "toPort": "script" }
+    {
+      "id": "w1",
+      "from": "product",
+      "fromPort": "out",
+      "to": "scripts",
+      "toPort": "product"
+    },
+    {
+      "id": "w2",
+      "from": "scripts",
+      "fromPort": "all",
+      "to": "voice",
+      "toPort": "script"
+    },
+    {
+      "id": "w3",
+      "from": "scripts",
+      "fromPort": "all",
+      "to": "broll",
+      "toPort": "script"
+    },
+    {
+      "id": "w4",
+      "from": "character",
+      "fromPort": "out",
+      "to": "broll",
+      "toPort": "character"
+    },
+    {
+      "id": "w5",
+      "from": "product",
+      "fromPort": "out",
+      "to": "broll",
+      "toPort": "product"
+    },
+    {
+      "id": "w6",
+      "from": "voice",
+      "fromPort": "audio",
+      "to": "edit",
+      "toPort": "audio"
+    },
+    {
+      "id": "w7",
+      "from": "broll",
+      "fromPort": "clips",
+      "to": "edit",
+      "toPort": "clips"
+    },
+    {
+      "id": "w8",
+      "from": "scripts",
+      "fromPort": "all",
+      "to": "edit",
+      "toPort": "script"
+    }
   ],
   "fields": [
-    { "blockId": "product", "title": "Your Product", "kind": { "bank": "products" }, "required": true },
-    { "blockId": "character", "title": "Your Character", "kind": { "bank": "models" }, "required": true }
+    {
+      "blockId": "product",
+      "title": "Your Product",
+      "kind": {
+        "bank": "products"
+      },
+      "required": true
+    },
+    {
+      "blockId": "character",
+      "title": "Your Character",
+      "kind": {
+        "bank": "models"
+      },
+      "required": true
+    }
   ],
-  "notes": ["Pick your product and your character, then Test With 1 before the full run."],
-  "estimate": 850
+  "notes": [
+    "Pick your product and your character, then Test With 1 before the full run."
+  ],
+  "estimate": 1170
 }

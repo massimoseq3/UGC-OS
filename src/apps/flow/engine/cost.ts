@@ -22,11 +22,13 @@ import type { ImageResolution } from '../../../utils/models'
 const TYPICAL_SCRIPT = 'x'.repeat(450)
 const TYPICAL_SCENES = 4
 
+// The text a script input will read. A value not made yet carries a stand-in
+// of its likely size (plan.ts sizeHint), which is all a price needs.
 function textOf(values: FlowValue[] | undefined): string | null {
   const v = values?.[0]
-  if (!v || v.pending) return null
+  if (!v) return null
   const p = v.payload as { text?: string }
-  return typeof p.text === 'string' ? p.text : null
+  return typeof p.text === 'string' && p.text ? p.text : null
 }
 
 // Scripts writes on tokens; the run's size is its format's typical answer.

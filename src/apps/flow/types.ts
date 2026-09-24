@@ -194,6 +194,10 @@ export interface InstanceResult {
   outputs: Record<string, FlowValue[]>
   // A batch block's slot id → its item.
   items?: Record<string, FlowValue>
+  // The slots the run was asked to fill. A call that writes every hook at
+  // once is done even when the model wrote one fewer than asked — without
+  // this, one missing hook would re-run the block on every Run Flow.
+  slots?: string[]
   // Made during Test With 1, with every batch cut to one item.
   test?: boolean
   at: number

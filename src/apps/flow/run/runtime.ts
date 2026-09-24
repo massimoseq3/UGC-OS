@@ -403,11 +403,14 @@ function writeResult(flowId: string, block: FlowBlock, inst: PlannedInstance, ou
       result.outputs[port] = vals.map((v) => ({ ...v, trace: traceFor(block, inst) }) as InstanceResult['outputs'][string][number])
     }
     if (isBatch(block)) {
-      const carry = KINDS[block.kind].perSlot ? { ...(before?.items ?? {}) } : {}
+      const perSlot = !!KINDS[block.kind].perSlot
+      const carry = perSlot ? { ...(before?.items ?? {}) } : {}
       for (const [slot, v] of Object.entries(out.items ?? {})) {
         carry[slot] = { ...v, trace: traceFor(block, inst, slot) } as NonNullable<InstanceResult['items']>[string]
       }
       result.items = carry
+      // One call fills every slot the block shows (executors' slotIds).
+      if (!perSlot) result.slots = liveItems(block).map((it) => it.id)
     }
     return { ...prev, [inst.key]: result }
   })

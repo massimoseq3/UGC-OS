@@ -266,7 +266,10 @@ export function planBlock(
       run = true
       slots = batch ? wantSlots : undefined
     } else if (batch) {
-      const missing = wantSlots.filter((s) => !cached?.items?.[s])
+      // A slot made one at a time is missing until it has an item; one filled
+      // by a single call is missing only if that call wasn't asked for it.
+      const asked = perSlot ? null : cached?.slots
+      const missing = wantSlots.filter((s) => (asked ? !asked.includes(s) : !cached?.items?.[s]))
       run = pending || !cached || missing.length > 0
       // A block that fills every slot in one call remakes them all.
       slots = run ? (perSlot ? (cached ? missing : wantSlots) : wantSlots) : []
@@ -371,8 +374,19 @@ function placeholder(block: FlowBlock, type: PortType, suffix: string, trace: Tr
     label: '',
     trace,
     pending: true,
-    payload: emptyPayload(type),
+    payload: { ...emptyPayload(type), ...sizeHint(block) },
   } as FlowValue
+}
+
+// What a script not written yet will probably look like, so what it feeds is
+// priced on its likely size: a hook is one line, a take runs its length at
+// about 2.5 words a second. Stand-in text, never shown and never sent.
+function sizeHint(block: FlowBlock): { text?: string } {
+  if (block.kind !== 'scripts') return {}
+  const s = block.settings
+  if (s.mode === 'write' && s.writeFormat === 'hooks') return { text: 'This is one opening line of about this length.' }
+  const seconds = Number(s.writeLength) || 30
+  return { text: 'A sentence of a typical spoken ad, about six words. '.repeat(Math.max(1, Math.round((seconds * 2.5) / 9))) }
 }
 
 function emptyPayload(type: PortType): FlowValue['payload'] {

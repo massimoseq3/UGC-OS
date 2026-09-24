@@ -1,33 +1,188 @@
 {
   "format": "ugcflow",
   "formatVersion": 1,
-  "template": { "id": "10-hook-machine", "version": 1 },
+  "template": {
+    "id": "10-hook-machine",
+    "version": 1
+  },
   "name": "10-Hook Machine",
   "description": "Ten scroll-stopping hooks for your product. You keep the best, and each one gets a voiceover and its own shot, so you can test openers side by side.",
   "author": "UGC OS",
   "blocks": [
-    { "id": "product", "kind": "bank", "label": "Your Product", "x": 0, "y": 40, "settings": { "bank": "products" }, "source": "bank", "field": true },
-    { "id": "character", "kind": "bank", "label": "Your Character", "x": 0, "y": 260, "settings": { "bank": "models" }, "source": "bank", "field": true },
-    { "id": "hooks", "kind": "scripts", "x": 340, "y": 0, "settings": { "mode": "write", "writeFormat": "hooks", "writeStyle": "pas", "writeLength": 30, "remixLength": "default", "hookCategory": "auto", "hookCount": 10, "variationCount": 3, "brief": "", "source": "", "additionalContext": "" }, "source": "generate", "review": true },
-    { "id": "voice", "kind": "voice", "x": 720, "y": 0, "settings": { "voiceId": "Kore", "voiceName": "Kore", "gender": "Female", "style": "Empathetic", "pace": "Rapid Fire", "accent": "Neutral", "temperature": 1, "scene": "", "sampleContext": "Creator talks at a normal tempo." }, "source": "generate" },
-    { "id": "broll", "kind": "broll", "x": 720, "y": 250, "settings": { "delivery": "silent", "aspectRatio": "9:16", "animate": true, "takes": 1, "context": "This is the opening shot of an ad: it has to stop the scroll.", "styleId": "ugc" }, "source": "generate" },
-    { "id": "edit", "kind": "edit", "x": 1100, "y": 120, "settings": {}, "source": "generate" },
-    { "id": "note", "kind": "note", "x": 0, "y": 470, "settings": { "text": "Scripts pauses after writing: keep the three or four hooks you'd actually post. Only those get a voiceover and a shot." } }
+    {
+      "id": "product",
+      "kind": "bank",
+      "label": "Your Product",
+      "x": 0,
+      "y": 40,
+      "settings": {
+        "bank": "products"
+      },
+      "source": "bank",
+      "field": true
+    },
+    {
+      "id": "character",
+      "kind": "bank",
+      "label": "Your Character",
+      "x": 0,
+      "y": 260,
+      "settings": {
+        "bank": "models"
+      },
+      "source": "bank",
+      "field": true
+    },
+    {
+      "id": "hooks",
+      "kind": "scripts",
+      "x": 340,
+      "y": 0,
+      "settings": {
+        "mode": "write",
+        "writeFormat": "hooks",
+        "writeStyle": "pas",
+        "writeLength": 30,
+        "remixLength": "default",
+        "hookCategory": "auto",
+        "hookCount": 10,
+        "variationCount": 3,
+        "brief": "",
+        "source": "",
+        "additionalContext": ""
+      },
+      "source": "generate",
+      "review": true
+    },
+    {
+      "id": "voice",
+      "kind": "voice",
+      "x": 720,
+      "y": 0,
+      "settings": {
+        "voiceId": "Kore",
+        "voiceName": "Kore",
+        "gender": "Female",
+        "style": "Empathetic",
+        "pace": "Rapid Fire",
+        "accent": "Neutral",
+        "temperature": 1,
+        "scene": "",
+        "sampleContext": "Creator talks at a normal tempo."
+      },
+      "source": "generate"
+    },
+    {
+      "id": "broll",
+      "kind": "broll",
+      "x": 720,
+      "y": 250,
+      "settings": {
+        "delivery": "silent",
+        "aspectRatio": "9:16",
+        "animate": true,
+        "takes": 1,
+        "context": "This is the opening shot of an ad: it has to stop the scroll.",
+        "styleId": "ugc"
+      },
+      "source": "generate"
+    },
+    {
+      "id": "edit",
+      "kind": "edit",
+      "x": 1100,
+      "y": 120,
+      "settings": {},
+      "source": "generate"
+    },
+    {
+      "id": "note",
+      "kind": "note",
+      "x": 0,
+      "y": 470,
+      "settings": {
+        "text": "Scripts pauses after writing: keep the three or four hooks you'd actually post. Only those get a voiceover and a shot."
+      }
+    }
   ],
   "wires": [
-    { "id": "w1", "from": "product", "fromPort": "out", "to": "hooks", "toPort": "product" },
-    { "id": "w2", "from": "hooks", "fromPort": "all", "to": "voice", "toPort": "script" },
-    { "id": "w3", "from": "hooks", "fromPort": "all", "to": "broll", "toPort": "script" },
-    { "id": "w4", "from": "character", "fromPort": "out", "to": "broll", "toPort": "character" },
-    { "id": "w5", "from": "product", "fromPort": "out", "to": "broll", "toPort": "product" },
-    { "id": "w6", "from": "voice", "fromPort": "audio", "to": "edit", "toPort": "audio" },
-    { "id": "w7", "from": "broll", "fromPort": "clips", "to": "edit", "toPort": "clips" },
-    { "id": "w8", "from": "hooks", "fromPort": "all", "to": "edit", "toPort": "script" }
+    {
+      "id": "w1",
+      "from": "product",
+      "fromPort": "out",
+      "to": "hooks",
+      "toPort": "product"
+    },
+    {
+      "id": "w2",
+      "from": "hooks",
+      "fromPort": "all",
+      "to": "voice",
+      "toPort": "script"
+    },
+    {
+      "id": "w3",
+      "from": "hooks",
+      "fromPort": "all",
+      "to": "broll",
+      "toPort": "script"
+    },
+    {
+      "id": "w4",
+      "from": "character",
+      "fromPort": "out",
+      "to": "broll",
+      "toPort": "character"
+    },
+    {
+      "id": "w5",
+      "from": "product",
+      "fromPort": "out",
+      "to": "broll",
+      "toPort": "product"
+    },
+    {
+      "id": "w6",
+      "from": "voice",
+      "fromPort": "audio",
+      "to": "edit",
+      "toPort": "audio"
+    },
+    {
+      "id": "w7",
+      "from": "broll",
+      "fromPort": "clips",
+      "to": "edit",
+      "toPort": "clips"
+    },
+    {
+      "id": "w8",
+      "from": "hooks",
+      "fromPort": "all",
+      "to": "edit",
+      "toPort": "script"
+    }
   ],
   "fields": [
-    { "blockId": "product", "title": "Your Product", "kind": { "bank": "products" }, "required": true },
-    { "blockId": "character", "title": "Your Character", "kind": { "bank": "models" }, "required": true }
+    {
+      "blockId": "product",
+      "title": "Your Product",
+      "kind": {
+        "bank": "products"
+      },
+      "required": true
+    },
+    {
+      "blockId": "character",
+      "title": "Your Character",
+      "kind": {
+        "bank": "models"
+      },
+      "required": true
+    }
   ],
-  "notes": ["Scripts pauses after writing: keep the hooks you'd actually post."],
-  "estimate": 310
+  "notes": [
+    "Scripts pauses after writing: keep the hooks you'd actually post."
+  ],
+  "estimate": 300
 }
