@@ -212,6 +212,9 @@ export interface ModelEntry {
   chatSlug?: string
   // Chat-only: the star rating for the script-model picker.
   chatRating?: ChatRating
+  // Chat-only: the registry id a failed call on this model is retried on,
+  // once. See `kieChatCompletions` for which failures qualify.
+  chatFallback?: string
   // Video-only: which kie endpoint family to hit.
   // 'createTask' (default) -> POST /api/v1/jobs/createTask
   // 'veo'                  -> POST /api/v1/veo/generate
@@ -376,6 +379,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
   //   DeepSeek V4.1 Flash   24         95      0.0595  (2026-09-23)
   //   Gemini 3.8 Flash      45        225      0.135   (promo, see the entry)
   //   Gemini 3.6 Flash      90        450      0.27
+  //   Gemini 3.5 Flash      90        540      0.315   (3.8's fallback)
   //   Grok 4.6             160        480      0.32
   //   GPT 5.6 Terra        112        672      0.392
   //   Claude Sonnet 5      170        855      0.5125
@@ -442,6 +446,12 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     // OpenAI-compatible variant slug on kie.ai. The native 3.8 route speaks
     // Google's own streamGenerateContent shape, which our transport doesn't.
     chatEndpoint: '/gemini-3-8-flash-openai/v1/chat/completions',
+    // 3.8 is the better writer but the flakier route (September 2026: enough
+    // 5xx, empty streams and hangs that members were seeing errors daily), and
+    // it is every chat role at once. So a failed call retries once on 3.5
+    // Flash — older, steadier, about 2.3x the credits while 3.8's promo runs.
+    // The member only pays that on a call 3.8 already dropped.
+    chatFallback: 'gemini-3-5-flash',
     // NO `chatSlug`, deliberately — this is a trap, not an oversight. kie's
     // JOBS route (createTask, what makes the Ad Analyzer's run survive a
     // reload) has no chat route for the Gemini rows: the bare id 422s with
@@ -480,6 +490,29 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     chatEndpoint: '/gemini-3-6-flash-openai/v1/chat/completions',
     chatRating: {
       intelligence: 4,
+    },
+  },
+
+  {
+    id: 'gemini-3-5-flash',
+    displayName: 'Gemini 3.5 Flash',
+    provider: 'Google',
+    task: 'chat',
+    tags: [],
+    // 90 in / 540 out credits per million (kie.ai/gemini-3-5-flash, 2026-09-24)
+    // -> 0.315 blended per 1k. kie quotes that as ~30% of Google's list price,
+    // and 90 credits ≈ $0.45 / 540 ≈ $2.70 puts the list at $1.50 / $9.00.
+    pricing: { unit: 'per-1k-tokens', credits: 0.315 },
+    official: chatOfficial(1.5, 9, 'https://kie.ai/gemini-3-5-flash'),
+    // Gemini 3.8 Flash's `chatFallback`: every chat call 3.8 drops is retried
+    // here once, so this row carries real traffic without holding a
+    // `defaultFor`. Also offered in both pickers for a member who would rather
+    // pin the steady model outright.
+    chatEndpoint: '/gemini-3-5-flash-openai/v1/chat/completions',
+    // No `chatSlug`, for the same reason as the 3.8 row — re-test the jobs
+    // route before adding one.
+    chatRating: {
+      intelligence: 3,
     },
   },
 
@@ -1888,11 +1921,20 @@ export interface ChatTarget {
   transport: ChatTransport
   // Body-level `model` field. Undefined for 'openai-chat', where the URL names it.
   slug?: string
+  // The entry's `chatFallback`, resolved. One level only — a fallback carries
+  // no fallback of its own, so a failure costs at most two calls.
+  fallback?: ChatTarget
 }
 
 // Convenience for chat-using services. Resolves the configured chat model to a
 // call target, throwing if misconfigured.
 export function getChatTarget(modelId: string = CHAT_MODEL_DEFAULT): ChatTarget {
+  const target = resolveChatTarget(modelId)
+  const fallbackId = getModel(modelId)?.chatFallback
+  return fallbackId ? { ...target, fallback: resolveChatTarget(fallbackId) } : target
+}
+
+function resolveChatTarget(modelId: string): ChatTarget {
   const m = getModel(modelId)
   if (!m?.chatEndpoint) {
     throw new Error(`Chat model ${modelId} is missing a chatEndpoint. Check src/utils/models.ts.`)
@@ -1918,7 +1960,7 @@ export function listScriptModels(): ModelEntry[] {
 // to be a general-purpose scale:
 //   1  ≤0.05   Luna
 //   2  ≤0.15   Gemini 3.8 Flash (while its promo runs)
-//   3  ≤0.45   Gemini 3.6, Grok 4.6, Terra
+//   3  ≤0.45   Gemini 3.6, Gemini 3.5, Grok 4.6, Terra
 //   4  ≤1.00   Sonnet 5, Sol
 //   5  >1.00   Opus 5
 // Null when the model has no pricing — the picker then shows no glyphs rather

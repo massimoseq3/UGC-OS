@@ -690,6 +690,7 @@ export interface ChatCallTarget {
   endpoint: string
   transport?: 'openai-chat' | 'claude-messages' | 'openai-responses'
   slug?: string
+  fallback?: ChatCallTarget
 }
 
 // Anthropic caps output explicitly and defaults low. Our longest chat outputs
@@ -773,11 +774,52 @@ function emptyStreamError(raw: string, endpoint: string): Error {
   return new Error(`Chat model produced empty SSE stream. First 200 chars: ${raw.slice(0, 200)}`)
 }
 
+// A failure the fallback model can't fix: the member cancelled, the key or the
+// balance is the problem (the fallback bills the same account), or the model
+// answered and simply ran out of room — a second model would bill a second
+// answer that likely stops in the same place.
+function isAccountOrCallerFailure(err: unknown, signal?: AbortSignal): boolean {
+  if (signal?.aborted) return true
+  if (err instanceof DOMException && err.name === 'AbortError') return true
+  if (err instanceof TruncatedResponseError) return true
+  return err instanceof KieHttpError && [401, 402, 403].includes(err.status)
+}
+
+// Tries `target`, and on any other failure retries once on `target.fallback`
+// when the model declares one (`chatFallback` in models.ts). Everything else —
+// 5xx, maintenance, a hang past the timeout, an empty stream, a 400 the model
+// alone rejects — is what an unstable route looks like, so it is worth the
+// second call. When the fallback fails too, the PRIMARY's error is what the
+// member reads: it names what actually went wrong first.
 export async function kieChatCompletions(
   apiKey: string,
   target: ChatCallTarget,
   messages: ChatMessage[],
   opts: ChatCompletionsOptions = {},
+): Promise<string> {
+  const { fallback } = target
+  if (!fallback) return chatOnce(apiKey, target, messages, opts)
+  let primaryError: unknown
+  try {
+    return await chatOnce(apiKey, target, messages, opts)
+  } catch (err) {
+    if (isAccountOrCallerFailure(err, opts.signal)) throw err
+    primaryError = err
+  }
+  console.warn(`[kie] ${target.endpoint} failed, retrying on ${fallback.endpoint}:`, primaryError)
+  try {
+    return await chatOnce(apiKey, fallback, messages, opts)
+  } catch (err) {
+    if (isAccountOrCallerFailure(err, opts.signal)) throw err
+    throw primaryError
+  }
+}
+
+async function chatOnce(
+  apiKey: string,
+  target: ChatCallTarget,
+  messages: ChatMessage[],
+  opts: ChatCompletionsOptions,
 ): Promise<string> {
   const { signal, reasoningEffort = 'low', includeThoughts = false, timeoutMs = 120_000 } = opts
   const transport = target.transport ?? 'openai-chat'
