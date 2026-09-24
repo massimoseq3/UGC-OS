@@ -15,11 +15,10 @@
 // reads the same on a plain, hovered or selected row, and the all-caps slab
 // was the one pill in the app that shouted.
 //
-// The hues are the app's own and one of them is load-bearing beyond this file:
-// **fuchsia Scenes is also the Ad Analyzer's Reverse-Engineered Scenes
-// heading**, so a scene blueprint reads as the same thing in the app that
-// reverse-engineers one, the app that rewrites it and the bank that stores it.
-// Change it here and change it there (`ad-anatomy/components/ResultsView.tsx`).
+// The hues are the app's own. Fuchsia Scenes also tints the Ad Analyzer's
+// spoken-line boxes, so a scene blueprint still carries the same colour in the
+// app that reverse-engineers one; its section heading icon went monochrome in
+// September 2026 (Massimo's call).
 // The raw Tailwind hues carry a `light:` text shade; Remix uses `scripts-text`,
 // the brand ramp's own readable shade (its 300 is a grey at this size), which
 // flips itself.

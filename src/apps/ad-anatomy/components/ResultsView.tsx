@@ -27,6 +27,7 @@ import { useAppStore } from '../../../stores/appStore'
 import { useBankStore } from '../../../stores/bankStore'
 import SegmentedToggle from '../../../components/SegmentedToggle'
 import { useExclusiveVideo } from '../../../hooks/useInlineVideo'
+import { titleCaseLabel } from '../../../utils/titleCaseLabel'
 import { rangeDurationLabel } from '../../../utils/timecode'
 import { captureFrameFromElement, frameTimeStamp } from '../../../utils/videoFrames'
 import { downloadImage } from '../../../utils/downloadImage'
@@ -101,17 +102,15 @@ function Section({ children, className = '' }: { children: React.ReactNode; clas
   )
 }
 
-// Left-aligned card heading with a full-width bottom separator. The accent
-// color lives on the icon; the title stays neutral. An optional action (e.g.
-// Copy) sits at the right of the band.
+// Centred card heading with a full-width bottom separator. An optional action
+// (e.g. Copy) sits at the right of the band.
 //
-// The glyphs went monochrome for a day and the colour came back (September
-// 2026, Massimo's call). Fuchsia Scenes is not decoration: the same fuchsia
-// marks a Scenes run in Scripts' history rail, so a scene blueprint reads as
-// the same thing in the app that reverse-engineers one and the app that
-// rewrites it. Losing it broke that pairing, which was the only place these
-// hues were doing work.
-function CardHeader({ icon: Icon, title, accentClass = 'text-[#FF5257]/80', action }: { icon: React.ElementType; title: string; accentClass?: string; action?: React.ReactNode }) {
+// The glyphs are MONOCHROME (September 2026, Massimo's call — the second time;
+// they went monochrome for a day once before and the colour came back). They
+// were amber Breakdown, red Transcript and fuchsia Scenes, the fuchsia pairing
+// with the Scenes badge in Scripts' history rail; three hues on three headings
+// read as decoration, and the badge still carries that pairing on its own.
+function CardHeader({ icon: Icon, title, action }: { icon: React.ElementType; title: string; action?: React.ReactNode }) {
   return (
     // A 3-column grid, not an absolutely-positioned action slot: the two 1fr
     // gutters are equal, so the title is genuinely centred, and a pane too
@@ -126,7 +125,7 @@ function CardHeader({ icon: Icon, title, accentClass = 'text-[#FF5257]/80', acti
     <div className="grid min-h-[53px] grid-cols-[1fr_auto_1fr] items-center gap-2 border-b border-ink/5 px-4 py-3">
       <span aria-hidden />
       <span className="flex min-w-0 items-center justify-center gap-2 text-sm font-semibold tracking-tight text-ink-200">
-        <Icon className={`h-4 w-4 shrink-0 ${accentClass}`} strokeWidth={1.5} />
+        <Icon className="h-4 w-4 shrink-0 text-ink-400" strokeWidth={1.5} />
         <span className="truncate">{title}</span>
       </span>
       <div className="flex min-w-0 items-center justify-end gap-1">{action}</div>
@@ -156,24 +155,15 @@ function HeaderCopyButton({ copied, label, onCopy }: { copied: boolean; label: s
 }
 
 /* ─── 1. Breakdown — scorecard + creative breakdown in one card ─── */
-// One distinct hue per score, stepping across the spectrum from red (1) to
-// light blue (10) so adjacent scores never read as the same color.
-const SCORE_COLORS: Record<number, { text: string; bg: string }> = {
-  1: { text: 'text-red-500 light:text-red-600', bg: 'bg-red-500/10' },
-  2: { text: 'text-orange-500 light:text-orange-600', bg: 'bg-orange-500/10' },
-  3: { text: 'text-amber-500 light:text-amber-600', bg: 'bg-amber-500/10' },
-  4: { text: 'text-yellow-400 light:text-yellow-600', bg: 'bg-yellow-400/10' },
-  5: { text: 'text-lime-400 light:text-lime-600', bg: 'bg-lime-400/10' },
-  6: { text: 'text-green-500 light:text-green-600', bg: 'bg-green-500/10' },
-  7: { text: 'text-emerald-400 light:text-emerald-600', bg: 'bg-emerald-400/10' },
-  8: { text: 'text-teal-400 light:text-teal-600', bg: 'bg-teal-400/10' },
-  9: { text: 'text-cyan-400 light:text-cyan-600', bg: 'bg-cyan-400/10' },
-  10: { text: 'text-sky-400 light:text-sky-600', bg: 'bg-sky-400/10' },
-}
-
-function scoreColor(score: number) {
-  const step = Math.max(1, Math.min(10, Math.round(score)))
-  return SCORE_COLORS[step]
+// A score as a number over a bar (September 2026, Massimo's call): "9.1" read
+// as a measurement where a coloured circle round a whole number read as a
+// grade someone picked. The model scores to one decimal since the same change;
+// rows analysed before it hold whole numbers and print as "8.0". The bar is
+// the Ad Analyzer's own red at every score — its LENGTH says how good, so a
+// second colour scale on top of it would be saying the same thing twice.
+function scoreValue(raw: unknown): number {
+  const n = typeof raw === 'number' ? raw : Number(raw)
+  return Number.isFinite(n) ? Math.max(0, Math.min(10, n)) : 0
 }
 
 // Scorecard rows + analyst note — lives at the top of the merged Breakdown
@@ -188,25 +178,37 @@ function ScorecardBody({ result }: { result: AnalysisResult }) {
   return (
     <div className="@container">
     <div className="flex flex-col gap-5 p-4 @[26rem]:flex-row">
-      <div className="flex flex-1 flex-col gap-0.5">
+      <div className="flex flex-1 flex-col gap-1">
         {scorecard.scores.map((s) => {
-          const color = scoreColor(s.score)
+          const value = scoreValue(s.score)
           const isOverall = s.label === 'Overall Execution'
           return (
             <div key={s.label}>
-              {isOverall && <div className="mb-1.5 mt-1 h-px w-full bg-ink/10" />}
-              <div className="flex items-center gap-2.5 rounded-full px-1 py-0.5 transition-colors hover:bg-ink/[0.04]">
-                <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[12px] font-semibold tabular-nums tracking-tight ${color.bg} ${color.text}`}>
-                  {s.score}
-                </span>
-                <span className={`text-[13px] ${isOverall ? 'font-bold text-ink-200' : 'text-ink-400'}`}>{s.label}</span>
+              {isOverall && <div className="mb-2 mt-1 h-px w-full bg-ink/10" />}
+              <div className="px-1 py-1.5">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className={`text-[13px] tracking-tight ${isOverall ? 'font-semibold text-ink-100' : 'text-ink-300'}`}>{s.label}</span>
+                  <span className={`tabular-nums tracking-tight ${isOverall ? 'text-[15px] font-semibold text-ink-100' : 'text-[13px] font-medium text-ink-200'}`}>
+                    {value.toFixed(1)}
+                  </span>
+                </div>
+                <div
+                  className={`mt-1.5 w-full overflow-hidden rounded-full bg-ink/[0.08] ${isOverall ? 'h-1.5' : 'h-1'}`}
+                  role="meter"
+                  aria-label={`${s.label}: ${value.toFixed(1)} out of 10`}
+                  aria-valuemin={0}
+                  aria-valuemax={10}
+                  aria-valuenow={value}
+                >
+                  <div className="h-full rounded-full bg-[#FF5257]" style={{ width: `${value * 10}%` }} />
+                </div>
               </div>
             </div>
           )
         })}
       </div>
       <div className="flex-1 rounded-xl bg-surface-0 px-4 py-3">
-        <span className="text-[11px] font-medium uppercase tracking-tight text-ink-600">Analyst&apos;s Note</span>
+        <span className="text-[13px] font-semibold tracking-tight text-ink-100">Analyst&apos;s Note</span>
         <p className="mt-1.5 text-[13px] font-light leading-relaxed tracking-tight text-ink-200">{scorecard.analystNote}</p>
       </div>
     </div>
@@ -219,7 +221,7 @@ function ScorecardBody({ result }: { result: AnalysisResult }) {
 function BreakdownBlock({ label, text, pre = false }: { label: string; text: string; pre?: boolean }) {
   return (
     <div className="rounded-xl bg-surface-0 px-4 py-3">
-      <span className="text-[11px] font-medium uppercase tracking-tight text-ink-600">{label}</span>
+      <span className="text-[13px] font-semibold tracking-tight text-ink-100">{label}</span>
       <p className={`mt-1.5 text-[13px] font-light leading-relaxed tracking-tight text-ink-200 ${pre ? 'whitespace-pre-wrap' : ''}`}>
         {text}
       </p>
@@ -240,7 +242,6 @@ function BreakdownSection({ result }: { result: AnalysisResult }) {
       <CardHeader
         icon={Lightbulb}
         title="Breakdown"
-        accentClass="text-amber-400/90 light:text-amber-600"
       />
 
       <ScorecardBody result={result} />
@@ -348,14 +349,22 @@ function MasterBlock({
 }) {
   return (
     <div className="rounded-xl bg-surface-0 px-4 py-3">
-      <div className="flex items-start justify-between gap-3">
-        <span className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-tight text-ink-600">
-          <Icon className="h-3.5 w-3.5" strokeWidth={1.75} />
-          {label}
+      {/* Heading over a hairline run to the block's edges (`-mx-4` cancels its
+          padding) — the seam Scripts' Visual Style / Voice Profile and scene
+          cards wear. The heading was an 11px all-caps grey label, the hardest
+          text in the block to read (September 2026, Massimo's call). */}
+      {/* Centred on a three-column grid (Scripts' card-title shape): the two
+          `1fr` sides stay equal while there's room, which is what centres the
+          heading, and the actions ride the right one. */}
+      <div className="-mx-4 grid min-h-[28px] grid-cols-[1fr_minmax(0,max-content)_1fr] items-center gap-2 border-b border-ink/5 px-4 pb-2.5">
+        <span aria-hidden />
+        <span className="flex min-w-0 items-center justify-center gap-1.5 text-[13px] font-semibold tracking-tight text-ink-100">
+          <Icon className="h-3.5 w-3.5 shrink-0 text-ink-400" strokeWidth={1.75} />
+          <span className="truncate">{label}</span>
         </span>
-        {actions && <div className="flex shrink-0 items-center gap-1">{actions}</div>}
+        <div className="flex items-center justify-end gap-1">{actions}</div>
       </div>
-      <div className="mt-1.5 flex flex-wrap items-center gap-2">
+      <div className="mt-2.5 flex flex-wrap items-center gap-2">
         <span className="text-[13px] font-medium tracking-tight text-ink-100">{title}</span>
         {pills}
       </div>
@@ -364,24 +373,20 @@ function MasterBlock({
   )
 }
 
-// The utility beside a master block's title — Save style, Copy.
-//
-// **Glyph only below `md`** (Massimo's call, August 2026): these sit on the
-// title's own line inside a card that is already inset twice, so at 375px
-// "Save style" and "Copy" were two labels competing with the block's heading
-// for a line none of the three fit on. The glyph says what the button does,
-// the wording survives as the tooltip and the accessible name, and the 28px
-// square it takes there is a better tap target than the 20px pill was.
+// The utility beside a master block's heading — Save Style, Copy. **Glyph
+// only at every width** (September 2026, Massimo's call; below `md` since
+// August): the bookmark and copy glyphs already say what they do, the same rule
+// Scripts' copies follow. The wording rides the tooltip and the accessible
+// name, and the 28px square is a better tap target than the 20px pill was.
 function MiniButton({ onClick, icon: Icon, label }: { onClick: () => void; icon: React.ElementType; label: string }) {
   return (
     <button
       onClick={onClick}
       title={label}
       aria-label={label}
-      className="flex shrink-0 items-center gap-1 rounded-full text-[10px] font-medium text-ink-600 transition-colors hover:bg-ink/5 hover:text-ink-300 max-md:h-7 max-md:w-7 max-md:justify-center max-md:gap-0 md:px-2 md:py-0.5"
+      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-300"
     >
-      <Icon className="h-3 w-3 shrink-0" strokeWidth={1.75} />
-      <span className="max-md:hidden">{label}</span>
+      <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
     </button>
   )
 }
@@ -411,7 +416,7 @@ function VisualStyleBlock({ style, adTitle }: { style: MasterVisualStyle; adTitl
       title={style.label}
       pills={
         <span
-          className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-tight ${
+          className={`rounded-full px-2 py-0.5 text-[11px] font-medium tracking-tight ${
             style.liveAction
               ? 'bg-emerald-500/10 text-emerald-300 light:text-emerald-700'
               : 'bg-violet-500/10 text-violet-300 light:text-violet-700'
@@ -425,9 +430,9 @@ function VisualStyleBlock({ style, adTitle }: { style: MasterVisualStyle; adTitl
           <MiniButton
             onClick={saved ? () => {} : handleSave}
             icon={saved ? Check : Bookmark}
-            label={saved ? 'Saved' : 'Save Style'}
+            label={saved ? 'Saved to Styles' : 'Save to Styles bank'}
           />
-          <MiniButton onClick={() => copy(styleText(style))} icon={copied ? Check : Copy} label={copied ? 'Copied' : 'Copy'} />
+          <MiniButton onClick={() => copy(styleText(style))} icon={copied ? Check : Copy} label={copied ? 'Copied' : 'Copy visual style'} />
         </>
       }
     >
@@ -449,7 +454,7 @@ function VoiceProfileBlock({ voice }: { voice: MasterVoiceProfile }) {
         </span>
       ))}
       actions={
-        <MiniButton onClick={() => copy(voiceText(voice))} icon={copied ? Check : Copy} label={copied ? 'Copied' : 'Copy'} />
+        <MiniButton onClick={() => copy(voiceText(voice))} icon={copied ? Check : Copy} label={copied ? 'Copied' : 'Copy voice profile'} />
       }
     >
       {voice.delivery && (
@@ -461,7 +466,7 @@ function VoiceProfileBlock({ voice }: { voice: MasterVoiceProfile }) {
 }
 
 // The `[0:00–0:03]` marker a beat opens with. Red, in its own brackets, on its
-// own line: it's the one thing in a scene prompt you navigate by, and inline in
+// own line, centred over the beat like the scene heading above it: it's the one thing in a scene prompt you navigate by, and inline in
 // the prose it was indistinguishable from the sentence around it.
 //
 // It's followed by how long the beat RUNS, because that's the number the beat is
@@ -470,7 +475,7 @@ function VoiceProfileBlock({ voice }: { voice: MasterVoiceProfile }) {
 function BeatTime({ time }: { time: string }) {
   const duration = rangeDurationLabel(time)
   return (
-    <span className="w-fit select-none rounded-full bg-[#FF5257]/10 px-2.5 py-0.5 text-[11px] font-semibold tabular-nums tracking-tight text-[#FF5257] light:text-[#C4272C]">
+    <span className="w-fit self-center select-none rounded-full bg-[#FF5257]/10 px-2.5 py-0.5 text-[11px] font-semibold tabular-nums tracking-tight text-[#FF5257] light:text-[#C4272C]">
       [{time}]
       {duration && <span className="opacity-60"> · {duration}</span>}
     </span>
@@ -493,15 +498,15 @@ function QuoteBlock({ segment }: { segment: Extract<SceneSegment, { kind: 'quote
       }`}
     >
       <div
-        className={`mb-1 flex select-none items-center gap-1.5 text-[10px] font-semibold uppercase tracking-tight ${
-          speech ? 'text-fuchsia-300/90 light:text-fuchsia-700' : 'text-ink-500'
+        className={`mb-1 flex select-none items-center gap-1.5 text-[12px] font-semibold tracking-tight ${
+          speech ? 'text-fuchsia-300 light:text-fuchsia-700' : 'text-ink-400'
         }`}
       >
-        <Icon className="h-2.5 w-2.5" strokeWidth={2.5} />
+        <Icon className="h-3 w-3" strokeWidth={2.5} />
         {/* An unattributed line still gets a label — which kind of quote it is
             is the thing the box is claiming, and a bare quote with no header
             reads as a styling accident. */}
-        {segment.speaker || (speech ? 'Spoken Line' : 'On-Screen Text')}
+        {segment.speaker ? titleCaseLabel(segment.speaker) : speech ? 'Spoken Line' : 'On-Screen Text'}
       </div>
       <p className="text-[14px] font-light leading-snug tracking-tight text-ink-100">“{segment.text}”</p>
       <button
@@ -525,26 +530,29 @@ function SceneCard({ scene }: { scene: Scene }) {
   const beats = parseScenePrompt(scene.prompt)
   return (
     <div className="rounded-2xl border border-ink/5 bg-ink/[0.02] p-3 card-soft-shadow">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <span className="shrink-0 rounded-full bg-fuchsia-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-tight text-fuchsia-300 light:text-fuchsia-700">
-            Scene {scene.index}
+      {/* "Scene 1: Static Hero" at 13px over a card-width hairline — Scripts'
+          scene-card heading. It was a 10px all-caps pill beside an 11px label. */}
+      <div className="-mx-3 mb-2.5 grid grid-cols-[1fr_minmax(0,max-content)_1fr] items-center gap-2 border-b border-ink/5 px-1.5 pb-2.5">
+        <span aria-hidden />
+        <div className="flex min-w-0 flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center">
+          <span className="text-[13px] font-semibold tracking-tight text-ink-100">
+            Scene {scene.index}{scene.label && `: ${titleCaseLabel(scene.label)}`}
           </span>
-          <span className="text-[11px] font-medium text-ink-300">{scene.label}</span>
           {/* Same reason as the card's Total pill: a still's one scene runs
               "00:00–00:00 · 0s", which is a timeline with nothing on it. */}
           {scene.durationSeconds > 0 && (
-            <span className="shrink-0 rounded-full bg-ink/5 px-2 py-0.5 tabular-nums text-[10px] text-ink-500">
+            <span className="shrink-0 rounded-full bg-ink/5 px-2 py-0.5 tabular-nums text-[11px] text-ink-400">
               {scene.startTime}–{scene.endTime} · {scene.durationSeconds}s
             </span>
           )}
         </div>
         <button
           onClick={() => copy(scene.prompt)}
-          className="flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium text-ink-600 transition-colors hover:bg-ink/5 hover:text-ink-300"
+          title={copied ? 'Copied' : 'Copy this scene'}
+          aria-label={copied ? 'Copied' : 'Copy this scene'}
+          className="flex h-7 w-7 shrink-0 justify-self-end items-center justify-center rounded-full text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-300"
         >
-          {copied ? <Check className="h-3 w-3 text-green-400 light:text-green-600" /> : <Copy className="h-3 w-3" />}
-          {copied ? 'Copied' : 'Copy'}
+          {copied ? <Check className="h-3.5 w-3.5 text-green-400 light:text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
         </button>
       </div>
       {/* Beats are spaced, not ruled: a hairline between them read as a divider
@@ -631,7 +639,6 @@ function ReverseEngineeredSection({ result, fileName, analysisId }: { result: An
       <CardHeader
         icon={Clapperboard}
         title="Reverse-Engineered Scenes"
-        accentClass="text-fuchsia-400/90 light:text-fuchsia-700"
         action={
           // Glyph only (Massimo's call, August 2026). This is the longest title
           // in the read and it sits beside the longest label — "Reverse-

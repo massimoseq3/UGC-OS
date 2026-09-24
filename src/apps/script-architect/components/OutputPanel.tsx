@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Copy, Check, Bookmark, ArrowUpRight, Mic, Film, PenLine, AlertCircle, ImagePlay, Palette, Pencil, X, Undo2, Redo2, Quote, ChevronDown, ChevronRight } from 'lucide-react'
+import { titleCaseLabel } from '../../../utils/titleCaseLabel'
 import GenerationProgress from '../../../components/GenerationProgress'
 import GridCanvas, { AwaitingBody } from '../../../components/GridCanvas'
 import AutoGrowTextarea from '../../../components/AutoGrowTextarea'
@@ -139,9 +140,9 @@ function SpokenLine({ speaker, text, onChange, onDelete }: { speaker: string | n
   return (
     <div className="relative rounded-xl border border-scripts-500/15 bg-scripts-500/[0.05] py-2.5 pl-3.5 pr-10">
       {speaker && (
-        <div className="mb-1 flex select-none items-center gap-1.5 text-[10px] font-semibold uppercase tracking-tight text-scripts-300/80">
-          <Quote className="h-2.5 w-2.5" strokeWidth={2.5} />
-          {speaker.replace(/^\[|\]$/g, '').toLowerCase()}
+        <div className="mb-1 flex select-none items-center gap-1.5 text-[12px] font-semibold tracking-tight text-scripts-text">
+          <Quote className="h-3 w-3" strokeWidth={2.5} />
+          {titleCaseLabel(speaker.replace(/^\[|\]$/g, ''))}
         </div>
       )}
       {/* The quote marks sit OUTSIDE the field, and the span the edit writes
@@ -567,12 +568,12 @@ function VariationCard({
           <CardTitle title={cardTitle} />
           {scenes && !editing && (
             <span className="shrink-0 rounded-full bg-ink/5 px-2.5 py-0.5 text-[11px] text-ink-500 max-md:hidden">
-              {scenes.length} scene{scenes.length === 1 ? '' : 's'}
+              {scenes.length} Scene{scenes.length === 1 ? '' : 's'}
             </span>
           )}
           {hooks && !editing && (
             <span className="shrink-0 rounded-full bg-ink/5 px-2.5 py-0.5 text-[11px] text-ink-500 max-md:hidden">
-              {hooks.length} hook{hooks.length === 1 ? '' : 's'}
+              {hooks.length} Hook{hooks.length === 1 ? '' : 's'}
             </span>
           )}
         </div>
@@ -626,7 +627,7 @@ function VariationCard({
             {visualStyle && (
               <BlueprintBlockCard
                 icon={Palette}
-                label="Visual Style · same in every scene"
+                label="Visual Style"
                 body={visualStyle}
                 ariaLabel="Visual style"
                 copyToast="Visual style copied to clipboard"
@@ -842,11 +843,8 @@ function BlueprintBlockCard({
   }
   return (
     <div className="rounded-2xl border border-scripts-500/15 bg-scripts-500/[0.04] p-3 card-soft-shadow">
-      <div className="relative mb-2 flex select-none items-center justify-center gap-2 px-8">
-        <span className="flex items-center gap-1.5 text-center text-[10px] font-semibold uppercase tracking-tight text-scripts-300">
-          <Icon className="h-3 w-3 text-scripts-300" strokeWidth={2} />
-          {label}
-        </span>
+      <div className="relative mb-2.5 flex select-none items-center justify-center gap-2 px-8">
+        <BlockHeading icon={Icon} label={label} />
         <div className="absolute right-0 top-1/2 -translate-y-1/2">
           <IconPillButton
             onClick={handleCopy}
@@ -857,6 +855,9 @@ function BlueprintBlockCard({
           />
         </div>
       </div>
+      {/* A hairline under the heading, run to the card's edges (`-mx-3`
+          cancels its padding) — the same seam every scene card wears. */}
+      <div className="-mx-3 mb-2.5 border-b border-ink/5" />
       {/* Always-on field, not click-to-edit: this block is plain prose with
           nothing tinted in it, so a textarea styled as the paragraph looks
           identical and costs nothing — the same rule a spoken line and a script
@@ -881,7 +882,7 @@ function BlueprintBlockCard({
 // the card for its own brief, which arrives from its own call rather than out
 // of a take (see `runRemixVoiceProfile`) — hence `label`, since nothing there
 // has scenes and the profile is attached to no variation.
-function VoiceProfileCard({ body, label = 'Voice Profile · same in every scene', onChange, onDelete }: { body: string; label?: string; onChange?: (next: string) => void; onDelete?: () => void }) {
+function VoiceProfileCard({ body, label = 'Voice Profile', onChange, onDelete }: { body: string; label?: string; onChange?: (next: string) => void; onDelete?: () => void }) {
   return (
     <BlueprintBlockCard
       icon={Mic}
@@ -1144,7 +1145,7 @@ function SceneChunkCard({
           came here to read. Symmetric padding on a row whose chrome is pinned
           to both edges: the label centres on the CARD, not on whatever is left
           over between the buttons. */}
-      <div className={`relative flex select-none flex-wrap items-center justify-center gap-x-2 gap-y-1 px-16 ${collapsed ? 'mb-1.5' : 'mb-2'}`}>
+      <div className="relative mb-2.5 flex select-none flex-wrap items-center justify-center gap-x-2 gap-y-1 px-16">
         {/* Fold, not delete — a scene you're done with gets out of the way of
             the one you're working on, and the take text is untouched. */}
         {onToggleCollapsed && (
@@ -1158,8 +1159,8 @@ function SceneChunkCard({
             {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
           </button>
         )}
-        <span className="text-center text-[10px] font-semibold uppercase tracking-tight text-scripts-300">
-          {label}
+        <span className="text-center text-[13px] font-semibold tracking-tight text-ink-100">
+          {titleCaseLabel(label)}
         </span>
         {/* The timecode as its own pill: tabular figures so a column of scenes
             lines up digit for digit, and one step brighter than the label,
@@ -1168,9 +1169,9 @@ function SceneChunkCard({
             clock times to subtract, and the answer is what the scene gets shot
             and generated at. */}
         {time && (
-          <span className="shrink-0 rounded-full bg-scripts-500/[0.14] px-2 py-0.5 text-[10px] font-semibold tabular-nums tracking-tight text-scripts-200">
+          <span className="shrink-0 rounded-full bg-scripts-500/[0.14] px-2 py-0.5 text-[11px] font-semibold tabular-nums tracking-tight text-scripts-text">
             {time}
-            {duration && <span className="text-scripts-200/60"> · {duration}</span>}
+            {duration && <span className="opacity-60"> · {duration}</span>}
           </span>
         )}
         <div className="absolute right-0 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
@@ -1199,6 +1200,8 @@ function SceneChunkCard({
           )}
         </div>
       </div>
+      {/* The heading's hairline, as on the Visual Style / Voice Profile cards. */}
+      <div className="-mx-3 mb-2.5 border-b border-ink/5" />
       {collapsed ? (
         // One dim line of the body, so a folded scene is still findable — the
         // point is to get it out of the way, not to hide which one it is.
@@ -1650,6 +1653,21 @@ export default function OutputPanel({ variations, outputAngles, mode, liveMode, 
       </div>
     </div>
     </ShownRunContext.Provider>
+  )
+}
+
+// The heading over a block that governs every scene (Visual Style, Voice
+// Profile): 13px Title Case with its icon, the qualifier after the middot a
+// dimmer sentence-case tail. It was a 10px all-caps accent label, the hardest
+// text on the card to read (September 2026, Massimo's call).
+function BlockHeading({ icon: Icon, label }: { icon: typeof Copy; label: string }) {
+  const [head, ...rest] = label.split(' · ')
+  return (
+    <span className="flex items-center gap-1.5 text-center text-[13px] font-semibold tracking-tight text-ink-100">
+      <Icon className="h-3.5 w-3.5 shrink-0 text-scripts-text" strokeWidth={2} />
+      {head}
+      {rest.length > 0 && <span className="font-medium text-ink-500">· {rest.join(' · ')}</span>}
+    </span>
   )
 }
 

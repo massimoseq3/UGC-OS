@@ -384,7 +384,15 @@ export type SceneSegment =
 // same reason — `the label states clearly: "10g collagen"` is packaging, and
 // nothing writes `[CHARACTER] states:` often enough to pay for that.
 const SPEECH_VERB_SRC =
-  'says?|said|saying|speaks?|spoke|speaking|tells?|told|explains?|explained|adds?|continues?|whispers?|shouts?|asks?|replies|replied'
+  'says?|said|saying|speaks?|spoke|speaking|tells?|told|explains?|explained|adds?|continues?|whispers?|shouts?|asks?|replies|replied|' +
+  // The answering half of a two-hander, and the delivery verbs a model reaches
+  // for once it stages a second voice (September 2026): `[CHARACTER] responds:
+  // "…"` fell through as direction, so the answer to an interviewer's tinted
+  // line printed as plain prose with its closing quote stranded on the audio
+  // note below it.
+  'responds?|responded|answers?|answered|admits?|admitted|confesses|confessed|exclaims?|exclaimed|' +
+  'murmurs?|murmured|mutters?|muttered|laughs?|laughed|jokes?|joked|insists?|insisted|repeats?|repeated|' +
+  'interjects?|interjected|narrates?|narrated|calls?\\s+out|called\\s+out'
 // A word that can never be the speaker: it means the cue is prose running into
 // the verb ("…and says:", "the sign that says") rather than someone talking.
 const NOT_A_SPEAKER_SRC = 'and|then|or|but|as|while|that|which|who'
