@@ -219,6 +219,10 @@ export interface InstanceResult {
   pack?: EditPack
   // Where a run stopped between its phases (B-Roll, waiting on a review).
   phase?: 'stills'
+  // Scripts: takes the member rewrote by hand in the flow, by the take's
+  // index in its history row. The row keeps what the model wrote; the flow
+  // runs on these (run/edits.ts).
+  edits?: Record<string, string>
 }
 
 // One ad's folder in an Edit Pack, in the /video-editor skill's input layout.
@@ -274,6 +278,8 @@ export interface RunRecord {
   test: boolean
   // Run Block: the one block the member asked for.
   onlyBlockId?: string
+  // Run Again: everything made afresh.
+  fresh?: boolean
   startedAt: number
   endedAt?: number
   status: 'running' | 'done' | 'stopped' | 'error'

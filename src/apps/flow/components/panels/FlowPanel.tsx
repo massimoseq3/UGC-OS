@@ -7,7 +7,7 @@ import type { FlowDoc } from '../../types'
 import type { FlowPlan } from '../../engine/plan'
 import { KINDS, titleOf } from '../../engine/catalog'
 import type { LiveRun } from '../../run/runtime'
-import { creditsLabel, creditsPill } from '../../hooks/useFlowPlan'
+import { creditsLabel, creditsPill, runButton } from '../../hooks/useFlowPlan'
 import { useFlowStore } from '../../store/flowStore'
 import { BankPick } from './Picks'
 import { StopButton } from './common'
@@ -19,6 +19,7 @@ export default function FlowPanel({
   doc,
   plan,
   test,
+  again,
   run,
   balance,
   onRun,
@@ -27,6 +28,7 @@ export default function FlowPanel({
   doc: FlowDoc
   plan: FlowPlan | null
   test: FlowPlan | null
+  again: FlowPlan | null
   run: LiveRun | undefined
   balance: number | null
   onRun: (req: RunRequest) => void
@@ -34,21 +36,12 @@ export default function FlowPanel({
   const setSelection = useFlowStore((s) => s.setSelection)
   const recording = useRecordingActive()
   const active = run?.status === 'running'
+  const button = runButton(doc, plan, again, run)
   const fields = doc.blocks.filter((b) => b.field && !b.suggested)
   const blocked = doc.blocks.filter((b) => plan?.blocks[b.id]?.blocked && plan.blocks[b.id].blocked !== 'Turned off' && KINDS[b.kind]?.runnable)
-  const next = plan?.credits ?? 0
+  const next = button.credits
   const all = plan?.creditsAll ?? 0
   const short = balance !== null && next > balance
-  const states = run ? Object.values(run.blocks) : []
-  const done = states.filter((b) => b.status === 'done' || b.status === 'skipped' || b.status === 'error').length
-  const waiting = states.some((b) => b.status === 'review')
-
-  const runLabel = active
-    ? waiting ? 'Waiting for Your Review' : `Running · ${done} of ${states.length}`
-    : !plan?.planned.length ? 'Nothing to Run'
-    : plan.planned.length < doc.blocks.filter((b) => KINDS[b.kind]?.runnable).length && Object.keys(doc.outputs).length
-      ? `Re-run ${plan.planned.length} ${plan.planned.length === 1 ? 'Block' : 'Blocks'}`
-      : 'Run Flow'
 
   return (
     <div className="flex h-full flex-col">
@@ -152,16 +145,16 @@ export default function FlowPanel({
               costs — two lines, so neither is ever truncated to fit the other. */}
           <button
             type="button"
-            onClick={() => onRun({})}
+            onClick={() => onRun(button.again ? { fresh: true } : {})}
             className="glass-fill glass-fill-soft flex h-[52px] min-w-0 flex-1 items-center justify-center gap-2.5 rounded-full border border-white/15 bg-flow-500 px-5 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),inset_0_-1px_0_rgba(255,255,255,0.08)] btn-soft-shadow transition-all hover:brightness-110"
           >
             <Play className="h-4 w-4 shrink-0" strokeWidth={2.5} />
             <span className="flex min-w-0 flex-col items-start leading-tight">
-              <span className="truncate text-sm font-bold tracking-tight">{runLabel}</span>
+              <span className="truncate text-sm font-bold tracking-tight">{button.label}</span>
               {!active && next > 0 && (
                 <span className="flex items-center gap-1 text-[10.5px] font-medium text-white/80">
                   <Coins className="h-2.5 w-2.5" />
-                  {creditsPill(next, plan?.unpriced)}
+                  {creditsPill(next, button.unpriced)}{button.again ? ' · new takes' : ''}
                 </span>
               )}
             </span>

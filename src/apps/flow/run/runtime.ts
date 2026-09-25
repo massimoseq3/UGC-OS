@@ -186,7 +186,7 @@ export function isRunActive(run: LiveRun | undefined): boolean {
 
 export type StartResult = { ok: true } | { ok: false; reason: string }
 
-export function startRun(flowId: string, opts: { test?: boolean; only?: string } = {}): StartResult {
+export function startRun(flowId: string, opts: { test?: boolean; only?: string; fresh?: boolean } = {}): StartResult {
   const existing = useFlowRunStore.getState().runs[flowId]
   if (isRunActive(existing)) return { ok: false, reason: 'This flow is already running.' }
   const doc = useFlowStore.getState().ensureDoc(flowId)
@@ -196,7 +196,7 @@ export function startRun(flowId: string, opts: { test?: boolean; only?: string }
     return { ok: false, reason: 'Add your kie.ai API key in Settings to run a flow.' }
   }
   const graph = knownGraph(doc)
-  const plan = planFlow(graph, doc.outputs, PLAN_DEPS, { test: opts.test, only: opts.only })
+  const plan = planFlow(graph, doc.outputs, PLAN_DEPS, { test: opts.test, only: opts.only, fresh: opts.fresh })
   if (!plan.planned.length) return { ok: false, reason: nothingToRun(graph, plan, opts.only) }
   const blocks: Record<string, BlockRunState> = {}
   for (const id of plan.planned) blocks[id] = { status: 'queued', total: plan.blocks[id].runs, finished: 0, failed: 0 }
@@ -205,6 +205,7 @@ export function startRun(flowId: string, opts: { test?: boolean; only?: string }
     flowId,
     test: !!opts.test,
     onlyBlockId: opts.only,
+    fresh: opts.fresh || undefined,
     startedAt: Date.now(),
     status: 'running',
     blocks,
@@ -267,7 +268,7 @@ function pump(flowId: string) {
   }
   const graph = knownGraph(doc)
   const settled = new Set(Object.entries(run.blocks).filter(([, b]) => SETTLED.includes(b.status)).map(([id]) => id))
-  const plan = planFlow(graph, doc.outputs, PLAN_DEPS, { test: run.test, only: run.onlyBlockId, settled })
+  const plan = planFlow(graph, doc.outputs, PLAN_DEPS, { test: run.test, only: run.onlyBlockId, settled, fresh: run.fresh })
 
   for (const [blockId, state] of Object.entries(run.blocks)) {
     if (state.status !== 'queued' || activeBlocks.has(`${flowId}:${blockId}`)) continue
@@ -346,7 +347,7 @@ async function runBlock(flowId: string, block: FlowBlock, instances: PlannedInst
         flowBlockId: block.id,
       },
       prior,
-      fresh: run.onlyBlockId === block.id || undefined,
+      fresh: run.fresh || run.onlyBlockId === block.id || undefined,
     }
     phases.add(phase)
     patchInstance(flowId, block.id, inst.key, { status: 'running' })

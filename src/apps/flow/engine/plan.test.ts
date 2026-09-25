@@ -268,6 +268,15 @@ describe('what re-runs', () => {
     expect(plan.credits).toBe(1 + 3 * 2)
   })
 
+  it('Run Again remakes everything, even with nothing changed', () => {
+    const g = serumLaunch(3)
+    const { outputs } = runAll(g, {})
+    expect(planFlow(g, outputs, deps).planned).toEqual([])
+    const again = planFlow(g, outputs, deps, { fresh: true })
+    expect(again.planned).toEqual(['scr', 'voc', 'brl', 'edit'])
+    expect(again.credits).toBe(1 + 3 * 2 + 3 * 100)
+  })
+
   it('Run Block remakes only what is missing upstream, and the block itself whole', () => {
     const g = serumLaunch(3)
     const { outputs } = runAll(g, {})

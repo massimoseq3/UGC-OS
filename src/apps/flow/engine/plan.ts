@@ -65,6 +65,10 @@ export interface PlanOptions {
   // Blocks a live run has finished with: whatever they didn't make (a run
   // that failed) hands on nothing, rather than a stand-in for later.
   settled?: Set<string>
+  // Run Again: every block makes everything afresh, whatever's already made —
+  // new takes of a flow that has nothing left to run. What the last run made
+  // stays in each app's history.
+  fresh?: boolean
 }
 
 // ── The plan ───────────────────────────────────────────────────────────────
@@ -191,7 +195,7 @@ export function planFlow(graph: FlowGraph, outputs: FlowOutputs, deps: PlanDeps,
 
   for (const id of order) {
     const block = blockById(graph, id)!
-    const bp = planBlock(graph, block, blocks, outputs, deps, { test, only: opts.only, scope, settled: opts.settled })
+    const bp = planBlock(graph, block, blocks, outputs, deps, { test, only: opts.only, scope, settled: opts.settled, fresh: opts.fresh })
     blocks[id] = bp
     if (bp.runs > 0) {
       planned.push(id)
@@ -240,7 +244,7 @@ export function planBlock(
   upstream: Record<string, BlockPlan>,
   outputs: FlowOutputs,
   deps: PlanDeps,
-  opts: { test: boolean; only?: string; scope?: Set<string>; settled?: Set<string> },
+  opts: { test: boolean; only?: string; scope?: Set<string>; settled?: Set<string>; fresh?: boolean },
 ): BlockPlan {
   const empty = (blocked?: string): BlockPlan => ({
     blockId: block.id, blocked, instances: [], values: {}, runs: 0, credits: 0, unpriced: false, creditsAll: 0,
@@ -280,8 +284,8 @@ export function planBlock(
   const slotsOn = enabledItems(block).map((it) => it.id)
   const wantSlots = opts.test ? slotsOn.slice(0, 1) : slotsOn
   // Run Block remakes its own block whole; what it reads from runs only what
-  // isn't made yet, the way Run Flow would.
-  const onlyThis = opts.only === block.id
+  // isn't made yet, the way Run Flow would. Run Again remakes every block.
+  const onlyThis = opts.only === block.id || !!opts.fresh
   const inScope = !opts.settled?.has(block.id) && (!opts.scope || opts.scope.has(block.id))
 
   const instances: PlannedInstance[] = combos.map((c) => {

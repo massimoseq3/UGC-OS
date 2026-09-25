@@ -33,8 +33,9 @@ import {
 import GridCanvas from '../../../../components/GridCanvas'
 import { InputsBand, NothingYet, RunChip, WiredCard } from './parts'
 import { arrivingLabels, blockRuns, blockTitle, type BlockRun, type WindowProps } from './runs'
+import { editedTakes, editTake } from '../../run/edits'
 
-export default function ScriptsWindow({ doc, block, plan, run, onRun, onReview }: WindowProps) {
+export default function ScriptsWindow({ flowId, doc, block, plan, run, onRun, onReview }: WindowProps) {
   const patchSettings = useFlowStore((s) => s.patchSettings)
   const s = block.settings
   const set = (patch: Record<string, unknown>, coalesce?: string) => patchSettings(block.id, patch, coalesce ? { coalesce: `${coalesce}:${block.id}` } : undefined)
@@ -118,14 +119,16 @@ export default function ScriptsWindow({ doc, block, plan, run, onRun, onReview }
 
       <div className="flex min-w-0 flex-1 flex-col">
         <InputsBand doc={doc} block={block} plan={plan} run={run} onReview={onReview} />
-        <Output block={block} runs={runs} startedAt={run?.blocks[block.id]?.startedAt ?? 0} />
+        <Output flowId={flowId} block={block} runs={runs} startedAt={run?.blocks[block.id]?.startedAt ?? 0} />
       </div>
     </>
   )
 }
 
-// The takes of one run at a time, on Scripts' own cards.
-function Output({ block, runs, startedAt }: { block: FlowBlock; runs: BlockRun[]; startedAt: number }) {
+// The takes of one run at a time, on Scripts' own cards — editable in place,
+// the way Scripts' own are. An edit is the flow's (run/edits.ts): what was
+// made from the old words runs again, and the history row keeps the original.
+function Output({ flowId, block, runs, startedAt }: { flowId: string; block: FlowBlock; runs: BlockRun[]; startedAt: number }) {
   const [picked, setPicked] = useState<string | null>(null)
   const history = useBankStore((st) => st.scriptHistory)
   const shown = runs.find((r) => r.key === picked) ?? runs.find((r) => r.result) ?? runs[0]
@@ -151,7 +154,8 @@ function Output({ block, runs, startedAt }: { block: FlowBlock; runs: BlockRun[]
       )}
       {row ? (
         <OutputPanel
-          variations={row.variations}
+          variations={editedTakes(shown?.result, row.variations)}
+          onEditVariation={shown ? (index, text) => editTake(flowId, block.id, shown.key, index, text) : undefined}
           outputAngles={(row.remixAngles as RemixAngle[] | undefined) ?? null}
           mode={row.mode as ScriptMode}
           writeFormat={isWriteFormat(row.writeFormat) ? row.writeFormat : 'script'}

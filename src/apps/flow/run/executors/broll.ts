@@ -326,8 +326,11 @@ export const brollExecutor: Executor = {
     const resume: BrollResume = { ...((ctx.resume as BrollResume | undefined) ?? {}) }
     // A run picking up after its review carries on in the session its stills
     // phase wrote — the task state is cleared once a phase lands, so the
-    // session is found through the rows that phase recorded.
-    resume.sessionId ??= ctx.prior?.rows?.find((r) => r.bank === 'brollHistory')?.id
+    // session is found through the rows that phase recorded. Only then: a
+    // FINISHED session is what Run Block and Run Again are asked to replace,
+    // and carrying on in it would hand the old stills and clips straight back.
+    const carryOn = ctx.phase === 'clips' || (!ctx.fresh && ctx.prior?.phase === 'stills')
+    if (carryOn) resume.sessionId ??= ctx.prior?.rows?.find((r) => r.bank === 'brollHistory')?.id
     const wired = wiredInput(ctx)
     const { sessionId, result } = await storyboard(ctx, wired, resume)
     if (ctx.phase !== 'clips') await stillsPhase(ctx, wired, resume, sessionId, result)
