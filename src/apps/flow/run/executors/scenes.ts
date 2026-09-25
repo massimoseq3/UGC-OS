@@ -20,7 +20,7 @@ import { playgroundRunner, planPlaygroundRun, type PlaygroundTask } from '../../
 import { FriendlyError, humanizeError } from '../../../../utils/friendlyError'
 import { getBlob, saveAsset } from '../../../../utils/assetStore'
 import { extractVideoFrame } from '../../../../utils/videoFrames'
-import { sceneClipInput, sceneRefs, scriptTextOf } from '../../engine/sceneClips'
+import { matchTextOf, sceneClipInput, sceneRefs, scriptTextOf } from '../../engine/sceneClips'
 import { sceneKey, sceneTakes, scenesToFilm, type SceneShot } from '../../engine/sceneShots'
 import { taskIsDead } from '../errors'
 
@@ -63,7 +63,7 @@ export const scenesExecutor: Executor = {
   async run(ctx) {
     const text = scriptTextOf(ctx.inst.inputs).trim()
     if (!text) throw new FriendlyError('The script wired into Scene Clips is empty. Check the block that writes it.')
-    const { script, shots } = scenesToFilm(ctx.block, text, ctx.test)
+    const { script, shots } = scenesToFilm(ctx.block, text, ctx.test, matchTextOf(ctx.inst.inputs))
     if (!shots.length) throw new FriendlyError('Scene Clips found no scenes in that script. Write it in Scripts as scenes, or turn on One Clip.')
     const takes = sceneTakes(ctx.block, ctx.test)
     const r: ScenesResume = { ...((ctx.resume as ScenesResume | undefined) ?? {}) }

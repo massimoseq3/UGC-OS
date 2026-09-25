@@ -53,11 +53,19 @@ describe('readSceneScript', () => {
     expect(readSceneScript(plain).shots.every((x) => x.showsProduct)).toBe(true)
   })
 
-  it('reads a plain script as one shot of the whole thing', () => {
+  it('reads a plain script as one shot of the whole thing, said to camera', () => {
     const s = readSceneScript('Okay so I almost returned this. Then I tried it for a week.')
     expect(s.scenes).toBe(false)
     expect(s.shots).toHaveLength(1)
     expect(s.shots[0].seconds).toBeGreaterThanOrEqual(4)
+    expect(s.shots[0].body).toContain('[CHARACTER]')
+    expect(s.shots[0].body).toContain('"Okay so I almost returned this. Then I tried it for a week."')
+    expect(s.shots[0].spoken).toBe('Okay so I almost returned this. Then I tried it for a week.')
+  })
+
+  it('leaves a plain script that already directs its character alone', () => {
+    const text = '[CHARACTER] holds up the bottle and says: "This one."'
+    expect(readSceneScript(text).shots[0].body).toBe(text)
   })
 })
 

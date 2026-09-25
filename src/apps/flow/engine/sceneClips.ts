@@ -29,6 +29,12 @@ export function scriptTextOf(inputs: Record<string, FlowValue[]>): string {
   return textOf(inputs.script)
 }
 
+// The scene script wired into Match Voice & Look, when one is.
+export function matchTextOf(inputs: Record<string, FlowValue[]>): string | undefined {
+  const v = inputs.match?.[0]
+  return v && !v.pending ? textOf(inputs.match) || undefined : undefined
+}
+
 function productPhoto(productId: string): string {
   return useBankStore.getState().products.find((p) => p.id === productId)?.productImage ?? ''
 }

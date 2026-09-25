@@ -12,7 +12,7 @@ import type { ClipRef, FlowBlock } from '../../types'
 import { wiresInto } from '../../engine/graph'
 import { useFlowStore } from '../../store/flowStore'
 import { sceneKey, sceneTakes, scenesToFilm, type SceneShot } from '../../engine/sceneShots'
-import { sceneClipInput, sceneOverrun, sceneRefs, scenesVideoModel, scriptTextOf } from '../../engine/sceneClips'
+import { matchTextOf, sceneClipInput, sceneOverrun, sceneRefs, scenesVideoModel, scriptTextOf } from '../../engine/sceneClips'
 import { getModel } from '../../../../utils/models'
 import SegmentedToggle from '../../../../components/SegmentedToggle'
 import SectionCard from '../../../../components/SectionCard'
@@ -168,7 +168,7 @@ function Output({ block, runs }: { block: FlowBlock; runs: BlockRun[] }) {
   const shown = runs.find((r) => r.key === picked) ?? runs.find((r) => r.result) ?? runs[0]
   const text = shown ? scriptTextOf(shown.inputs) : String(block.settings.scriptText ?? '')
   const waiting = !!shown?.inputs.script?.[0]?.pending
-  const { script, shots } = text && !waiting ? scenesToFilm(block, text) : { script: null, shots: [] as SceneShot[] }
+  const { script, shots } = text && !waiting ? scenesToFilm(block, text, false, shown ? matchTextOf(shown.inputs) : undefined) : { script: null, shots: [] as SceneShot[] }
   const made = shown?.result?.outputs.clips?.[0]
   const clips = made?.type === 'video' ? made.payload.clips : []
 

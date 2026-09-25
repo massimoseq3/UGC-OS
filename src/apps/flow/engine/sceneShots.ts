@@ -83,10 +83,15 @@ export function readSceneScript(text: string): SceneScript {
   const style = splitVisualStyle(text)?.body ?? ''
   const chunks = splitScenes(voice.rest)
   if (!chunks?.length) {
-    const body = withoutMasters(text)
-    const spoken = spokenOf(body) || body
+    const plain = withoutMasters(text)
+    const spoken = spokenOf(plain) || plain
+    // Plain words — a hook, a spoken script — carry no direction, and a video
+    // model handed a bare sentence films anything. Said to camera by the
+    // character is what a talking-head clip of them is.
+    const directed = /\[CHARACTER\]|@CHARACTER\b|\bsays?\s*:/i.test(plain)
+    const body = directed ? plain : `[CHARACTER] talks straight to the camera, handheld, like a friend telling a friend, and says: "${plain.replace(/\s*\n+\s*/g, ' ')}"`
     return {
-      shots: body ? [{ number: 1, label: 'The Whole Script', body, spoken, seconds: Math.max(MIN_CLIP_SECONDS, secondsToSay(spoken)), showsProduct: true }] : [],
+      shots: plain ? [{ number: 1, label: 'One Clip', body, spoken, seconds: Math.max(MIN_CLIP_SECONDS, secondsToSay(spoken)), showsProduct: true }] : [],
       voice: voice.body,
       style,
       scenes: false,
@@ -167,8 +172,12 @@ export function sceneTakes(block: FlowBlock, test = false): number {
 // The script's scenes as this block films them: one shot per scene, or the
 // whole thing as one clip. Test With 1 films the first scene only — the
 // cheapest look at the character, the voice and the look together.
-export function scenesToFilm(block: FlowBlock, text: string, test = false): { script: SceneScript; shots: SceneShot[] } {
-  const script = readSceneScript(text)
+export function scenesToFilm(block: FlowBlock, text: string, test = false, match?: string): { script: SceneScript; shots: SceneShot[] } {
+  const own = readSceneScript(text)
+  // A script with no voice profile or look of its own (a hook) borrows the
+  // ones of the script it's matched to.
+  const matched = match ? readSceneScript(match) : null
+  const script = matched ? { ...own, voice: own.voice || matched.voice, style: own.style || matched.style } : own
   const one = block.settings.shape === 'one' ? oneShot(script, text) : null
   const shots = one ? [one] : script.shots
   return { script, shots: test ? shots.slice(0, 1) : shots }

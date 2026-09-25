@@ -27,7 +27,7 @@ import type {
   PortType,
   Trace,
 } from '../types'
-import { generationSettings, inlineText, insOf, isBatch, isRunnable, itemNoun, KINDS, outsOf, sourceOf, takesTyped } from './catalog'
+import { generationSettings, inlineText, insOf, isBatch, isRunnable, itemNoun, KINDS, outsOf, rebuildsScenes, sourceOf, takesTyped } from './catalog'
 import { blockById, enabledItems, itemIdOf, topoOrder, upstreamOf, wiresInto } from './graph'
 import { fingerprint } from './hash'
 import { missingClips, wantedClips } from './sceneShots'
@@ -434,6 +434,17 @@ function sizeHint(block: FlowBlock): { text?: string } {
   const s = block.settings
   if (s.mode === 'write' && s.writeFormat === 'hooks') return { text: 'This is one opening line of about this length.' }
   const seconds = Number(s.writeLength) || 30
+  // A script written in scenes is priced as scenes — Scene Clips films one
+  // clip per scene, so a stand-in with no scenes would price one long clip.
+  if ((s.mode === 'write' && s.writeFormat === 'scenes') || rebuildsScenes(block)) {
+    const count = Math.max(2, Math.round(seconds / 8))
+    const each = seconds / count
+    const clock = (t: number) => `00:${String(Math.round(t)).padStart(2, '0')}`
+    const line = 'Word '.repeat(Math.max(3, Math.round(each * 2.2))).trim()
+    return {
+      text: Array.from({ length: count }, (_, i) => `--- Scene ${i + 1}: A SCENE (${clock(i * each)}-${clock((i + 1) * each)}) ---\n[CHARACTER] says: "${line}."`).join('\n\n'),
+    }
+  }
   return { text: 'A sentence of a typical spoken ad, about six words. '.repeat(Math.max(1, Math.round((seconds * 2.5) / 9))) }
 }
 

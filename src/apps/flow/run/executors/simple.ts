@@ -424,9 +424,12 @@ export const editExecutor: Executor = {
   async run(ctx) {
     const clips = one(ctx.inst.inputs.clips, 'video')
     if (!clips?.payload.clips.length) throw new FriendlyError('Edit Pack got no clips. Check the block that makes them.')
+    // The shared body, after this ad's own clips.
+    const body = one(ctx.inst.inputs.body, 'video')
     const audio = one(ctx.inst.inputs.audio, 'audio')
     const music = one(ctx.inst.inputs.music, 'music')
-    const script = textOf(ctx.inst.inputs.script) ?? clips.payload.scriptText
+    const script = textOf(ctx.inst.inputs.script)
+      ?? ([clips.payload.scriptText, body?.payload.scriptText].filter(Boolean).join('\n') || undefined)
     return {
       pack: {
         title: clips.label || 'Ad',
@@ -434,8 +437,8 @@ export const editExecutor: Executor = {
         script: script ? saidIn(script) : undefined,
         voiceover: audio?.payload.ref,
         music: music?.payload.ref,
-        clips: clips.payload.clips.map((c) => c.ref),
-        stills: clips.payload.stills ?? [],
+        clips: [...clips.payload.clips, ...(body?.payload.clips ?? [])].map((c) => c.ref),
+        stills: [...(clips.payload.stills ?? []), ...(body?.payload.stills ?? [])],
       },
     }
   },

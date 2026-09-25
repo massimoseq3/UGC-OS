@@ -24,7 +24,7 @@ import { downloadEditPacks } from '../../run/editPack'
 import { useCanvas } from '../canvasContext'
 import { latestItems, madeValues } from './made'
 import { scenesToFilm, sceneTakes } from '../../engine/sceneShots'
-import { scenesVideoModel, scriptTextOf } from '../../engine/sceneClips'
+import { matchTextOf, scenesVideoModel, scriptTextOf } from '../../engine/sceneClips'
 import { scenesAdvice } from '../scenesAdvice'
 
 // ── Batches: hooks, faces, ads ─────────────────────────────────────────────
@@ -246,7 +246,7 @@ export function ScenesBody({ block, bp }: { block: FlowBlock; bp: BlockPlan | un
   const inst = bp?.instances[0]
   const text = inst ? scriptTextOf(inst.inputs) : ''
   const waiting = !!inst?.inputs.script?.[0]?.pending
-  const shots = text && !waiting ? scenesToFilm(block, text).shots : []
+  const shots = text && !waiting ? scenesToFilm(block, text, false, inst ? matchTextOf(inst.inputs) : undefined).shots : []
   const made = madeValues(bp).flatMap((v) => (v.type === 'video' ? v.payload.clips : []))
   const filmed = new Set(made.map((c) => c.scene))
   const { doc, run } = useCanvas()
@@ -287,7 +287,7 @@ export function ScenesBody({ block, bp }: { block: FlowBlock; bp: BlockPlan | un
       <div className="mt-1.5 flex flex-wrap gap-1">
         {model && <ModelTag label={model} />}
         {takes > 1 && <ModelTag label={`${takes} takes each`} />}
-        {block.settings.shape === 'one' ? <ModelTag label="One Clip" /> : block.settings.continuity !== false && <ModelTag label="Continuity" />}
+        {block.settings.shape === 'one' ? <ModelTag label="One Clip" /> : block.settings.continuity !== false && shots.length !== 1 && <ModelTag label="Continuity" />}
         {ads > 1 && <ModelTag label={`${ads} ads`} />}
       </div>
     </div>

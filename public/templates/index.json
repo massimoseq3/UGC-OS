@@ -35,6 +35,15 @@
       "version": 1
     },
     {
+      "slug": "many-hooks-one-body",
+      "name": "Many Hooks, One Body",
+      "description": "Ten hooks, each filmed as its own talking-head clip, cut in front of one shared body filmed once. Every hook speaks in the body's voice, so each pack plays as one ad.",
+      "blocks": 8,
+      "estimate": 550,
+      "videoUrl": "https://www.youtube.com/watch?v=ek-vqW_TPd8",
+      "version": 1
+    },
+    {
       "slug": "same-ad-new-faces",
       "name": "Same Ad, Three Faces",
       "description": "One approved script filmed scene by scene with three different characters, so each audience sees someone like them. The scenes, the voice profile and the product shots stay the same; only the face changes.",

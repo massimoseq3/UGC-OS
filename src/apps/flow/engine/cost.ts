@@ -18,7 +18,7 @@ import { autoClipSeconds, DEFAULT_CLIP_SECONDS } from '../../broll-studio/servic
 import { estimateAnalysisCredits } from '../../ad-anatomy/services/analysisCost'
 import type { ImageResolution } from '../../../utils/models'
 import { isBatch, KINDS } from './catalog'
-import { sceneClipInput, sceneRefs, scriptTextOf } from './sceneClips'
+import { matchTextOf, sceneClipInput, sceneRefs, scriptTextOf } from './sceneClips'
 import { sceneTakes, scenesToFilm, type SceneShot } from './sceneShots'
 
 // A 30-second read: what an unwritten script is priced as.
@@ -188,9 +188,10 @@ function productPhoto(productId: string): string {
 // The scenes a Scene Clips run films. A script not written yet is priced as
 // a typical ad: four scenes of about eight seconds.
 function scenesShots(block: FlowBlock, inputs: Record<string, FlowValue[]>, test: boolean): SceneShot[] {
+  // A script not written yet carries a stand-in of its likely shape (plan.ts
+  // sizeHint): scenes for a scene script, one line for a hook.
   const text = scriptTextOf(inputs)
-  const pending = inputs.script?.[0]?.pending
-  if (text && !pending) return scenesToFilm(block, text, test).shots
+  if (text) return scenesToFilm(block, text, test).shots
   const typical: SceneShot[] = Array.from({ length: test ? 1 : TYPICAL_SCENES }, (_, i) => ({
     number: i + 1, label: `Scene ${i + 1}`, body: '', spoken: '', seconds: 8, showsProduct: true,
   }))
@@ -200,7 +201,7 @@ function scenesShots(block: FlowBlock, inputs: Record<string, FlowValue[]>, test
 
 function scenesCost(block: FlowBlock, inputs: Record<string, FlowValue[]>, test: boolean): number | null {
   const text = scriptTextOf(inputs)
-  const { script } = scenesToFilm(block, text, test)
+  const { script } = scenesToFilm(block, text, test, matchTextOf(inputs))
   let total = 0
   for (const shot of scenesShots(block, inputs, test)) {
     const one = playgroundRunner.estimate(sceneClipInput(block, script, shot, sceneRefs(block, inputs, shot)))

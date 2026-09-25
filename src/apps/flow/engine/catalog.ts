@@ -187,6 +187,11 @@ export const KINDS: Record<BlockKind, KindSpec> = {
       port('script', 'Scene Script', 'script', { required: true }),
       port('character', 'Character', 'character'),
       port('product', 'Product', 'product'),
+      // Another scene script whose voice profile and look these clips take
+      // on when their own script has none — the hooks filmed to match the
+      // body they'll be cut in front of. It rides with every run rather than
+      // multiplying them: ten hooks are ten clips, whichever body is kept.
+      port('match', 'Match Voice & Look', 'script', { many: true }),
       port('refs', 'More References', 'image', { many: true }),
     ],
     outs: [port('clips', 'Clips', 'video')],
@@ -240,6 +245,9 @@ export const KINDS: Record<BlockKind, KindSpec> = {
     ins: [
       port('audio', 'Voiceover', 'audio'),
       port('clips', 'Clips', 'video', { required: true }),
+      // Clips every pack ends with: the body shared by many hooks — "the
+      // hook fifty times, the meat of the video once".
+      port('body', 'Body Clips', 'video'),
       port('script', 'Script', 'script'),
       port('music', 'Music', 'music'),
     ],
