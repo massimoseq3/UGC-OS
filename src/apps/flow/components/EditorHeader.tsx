@@ -114,7 +114,9 @@ export default function EditorHeader({
 
         <span className="mx-1 h-6 w-px bg-ink/10" />
 
-        {!active && (
+        {/* Nothing left to test once a test's been made and nothing changed:
+            the button would only say so in a toast. */}
+        {!active && !!test?.planned.length && (
           <button
             type="button"
             onClick={() => onRun({ test: true })}

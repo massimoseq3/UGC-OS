@@ -146,7 +146,7 @@ export default function FlowPanel({
       <div className="shrink-0 border-t border-ink/5 px-5 pb-3 pt-3">
         {recording && <p className="mb-2 text-[11px] text-rose-300">Recording Mode is on: runs replay what you hid, and spend nothing.</p>}
         <div className="flex items-center gap-2">
-          {!active && (
+          {!active && !!test?.planned.length && (
             <button
               type="button"
               onClick={() => onRun({ test: true })}

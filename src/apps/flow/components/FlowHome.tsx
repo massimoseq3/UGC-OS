@@ -5,7 +5,7 @@
 // without opening one.
 
 import { useEffect, useRef, useState } from 'react'
-import { Check, FileUp, Link2, Pin, Plus, Youtube } from 'lucide-react'
+import { Check, CopyPlus, FileUp, Link2, Pin, Plus, Youtube } from 'lucide-react'
 import type { FlowGraph } from '../types'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAppStore } from '../../../stores/appStore'
@@ -246,6 +246,8 @@ function FlowCard({ flowId, name, graph, pinned, updatedAt }: { flowId: string; 
   const openFlow = useFlowStore((s) => s.openFlow)
   const removeFlow = useFlowStore((s) => s.removeFlow)
   const setPinned = useFlowStore((s) => s.setPinned)
+  const createFlow = useFlowStore((s) => s.createFlow)
+  const addToast = useAppStore((s) => s.addToast)
   const running = useFlowRunStore((s) => s.runs[flowId]?.status === 'running')
   const ranTimes = useFlowRunStore((s) => s.log[flowId]?.length ?? 0)
   return (
@@ -273,6 +275,20 @@ function FlowCard({ flowId, name, graph, pinned, updatedAt }: { flowId: string; 
         </span>
       </div>
       <div className="absolute right-2 top-2 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+        <button
+          type="button"
+          title="Duplicate · a copy to change without touching this one"
+          aria-label="Duplicate Flow"
+          onClick={() => {
+            // The blocks and wires, not the results: a copy is for trying
+            // something different.
+            createFlow({ name: `${name} Copy`, graph })
+            addToast(`Made "${name} Copy". It's first in Your Flows.`, 'success')
+          }}
+          className="flex h-7 w-7 items-center justify-center rounded-full bg-black/40 text-white opacity-0 transition-opacity hover:bg-black/60 group-hover:opacity-100 touch:opacity-100"
+        >
+          <CopyPlus className="h-3.5 w-3.5" />
+        </button>
         <button
           type="button"
           title={pinned ? 'Unpin From the Dock' : 'Pin to the Dock'}
