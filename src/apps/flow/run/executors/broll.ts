@@ -190,6 +190,15 @@ async function storyboard(ctx: ExecContext, wired: Wired, resume: BrollResume): 
 
 async function stillsPhase(ctx: ExecContext, wired: Wired, resume: BrollResume, sessionId: string, result: BrollResult): Promise<void> {
   const cards = cardsToRender(result, takesOf(ctx))
+  // A session a Test With 1 started has cards for one take a line. A run that
+  // asks for more adds theirs first: a still lands only on a card that exists
+  // (patchCard), so without them it would be paid for and dropped.
+  const row = session(sessionId)
+  const missing = cards.filter((c) => !row?.cardStates[c.key])
+  if (row && missing.length) {
+    const added = Object.fromEntries(missing.map((c) => [c.key, createDefaultCardState(c.scene.variations[c.index], c.scene.scriptLine)]))
+    await useBankStore.getState().upsertBrollHistory({ ...row, cardStates: { ...row.cardStates, ...added } })
+  }
   const todo = cards.filter((c) => !((session(sessionId)?.cardStates[c.key] as CardState | undefined)?.images?.length))
   let done = cards.length - todo.length
   const errors: unknown[] = []
@@ -326,8 +335,10 @@ export const brollExecutor: Executor = {
     const resume: BrollResume = { ...((ctx.resume as BrollResume | undefined) ?? {}) }
     // A run picking up after its review carries on in the session its stills
     // phase wrote — the task state is cleared once a phase lands, so the
-    // session is found through the rows that phase recorded.
-    resume.sessionId ??= ctx.prior?.rows?.find((r) => r.bank === 'brollHistory')?.id
+    // session is found through the rows that phase recorded. Only then: a
+    // finished session (Run Block, a Test With 1 run again in full) is made
+    // afresh, since continuing one makes nothing new.
+    if (ctx.prior?.phase === 'stills') resume.sessionId ??= ctx.prior.rows?.find((r) => r.bank === 'brollHistory')?.id
     const wired = wiredInput(ctx)
     const { sessionId, result } = await storyboard(ctx, wired, resume)
     if (ctx.phase !== 'clips') await stillsPhase(ctx, wired, resume, sessionId, result)
