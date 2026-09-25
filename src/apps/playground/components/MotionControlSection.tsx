@@ -28,7 +28,9 @@ const MAX_DRIVING_SECONDS = 30
 
 interface MotionControlSectionProps {
   refs: PromptRef[]
-  onChangeRefs: (next: PromptRef[]) => void
+  // `handleVideoFile` lands after a file read and passes an updater, so it
+  // builds on the live refs rather than the ones from before the await.
+  onChangeRefs: (next: PromptRef[] | ((prev: PromptRef[]) => PromptRef[])) => void
   orientation: 'image' | 'video'
   onChangeOrientation: (next: 'image' | 'video') => void
   onError: (message: string) => void
@@ -68,8 +70,8 @@ export default function MotionControlSection({
       onError(`The driving video can't exceed ${MAX_DRIVING_SECONDS}s. This one is ${Math.ceil(durationSeconds)}s.`)
       return
     }
-    onChangeRefs([
-      ...refs.filter((r) => r.slot !== 'motion-video'),
+    onChangeRefs((prev) => [
+      ...prev.filter((r) => r.slot !== 'motion-video'),
       { url: dataUri, label: file.name, source: 'upload', slot: 'motion-video', durationSeconds },
     ])
   }

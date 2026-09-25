@@ -11,12 +11,32 @@
 // whole storyboard at once. See utils/kieSubmitGate.ts.
 
 import { submitToKie, noteRateLimited } from './kieSubmitGate'
+import { FriendlyError } from './friendlyError'
 
 const BASE_URL = 'https://api.kie.ai/api/v1'
 
 const DEFAULT_TIMEOUT_MS = 90_000
 const MAX_RETRIES = 3
 const RETRYABLE_HTTP = new Set([429, 500, 502, 503, 504, 455])
+
+// Answers that say nothing about whether kie ACTED on the request. A 500/502/504
+// can come from a gateway after the origin already accepted it, and a network
+// TypeError can land after the body was sent — iOS kills in-flight requests
+// when a member switches away mid-batch. For a poll or a chat call a retry is
+// harmless; for a request that CREATES a generation it can start a second one,
+// billed, whose taskId we never learn. So those calls (`creates: true`) retry
+// only the answers that mean "not done": 429, 503, 455.
+const AMBIGUOUS_CREATE_HTTP = new Set([500, 502, 504])
+
+const CREATE_MAY_HAVE_STARTED =
+  'so the generation may have started anyway. Check kie.ai before generating it again, or you may pay for it twice.'
+
+// Stands the whole submit queue down on a rate limit kie reported INSIDE a 200
+// envelope — the same signal fetchWithRetry acts on for an HTTP 429, arriving
+// the way kie reports most of its errors.
+function noteEnvelopeRateLimit(code: number): void {
+  if (code === 429) noteRateLimited()
+}
 
 const POLL_INTERVAL_MS = 5_000
 const POLL_TIMEOUT_MS = 30_000
@@ -207,9 +227,11 @@ function armBodyTimeout(res: Response, controller: AbortController, timeoutMs: n
 async function fetchWithRetry(
   url: string,
   init: RequestInit,
-  options: { timeoutMs?: number; signal?: AbortSignal } = {},
+  // `creates`: this request starts a billed generation — see
+  // AMBIGUOUS_CREATE_HTTP. Only the create call sites pass it.
+  options: { timeoutMs?: number; signal?: AbortSignal; creates?: boolean } = {},
 ): Promise<Response> {
-  const { timeoutMs = DEFAULT_TIMEOUT_MS, signal } = options
+  const { timeoutMs = DEFAULT_TIMEOUT_MS, signal, creates = false } = options
   let lastError: Error = new Error('Request failed')
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -262,6 +284,12 @@ async function fetchWithRetry(
       // instead of each card walking into the same wall in turn.
       const retryAfterMs = res.status === 429 ? parseRetryAfterMs(res.headers.get('Retry-After')) : null
       if (res.status === 429) noteRateLimited(retryAfterMs ?? undefined)
+      if (creates && AMBIGUOUS_CREATE_HTTP.has(res.status)) {
+        // Raw answer kept for the operator; the member gets the one sentence
+        // that is true here — the rule table's 5xx copy says "try again".
+        console.warn(`[kie] ${tag} answered ${res.status} — not retried, it may have started:`, msg)
+        throw new FriendlyError(`kie.ai answered with a server error (${res.status}), ${CREATE_MAY_HAVE_STARTED}`)
+      }
       if (RETRYABLE_HTTP.has(res.status) && attempt < MAX_RETRIES) {
         if (retryAfterMs !== null) {
           lastError = new KieHttpError(res.status, friendlyHttpError(res.status, msg, tag))
@@ -283,6 +311,11 @@ async function fetchWithRetry(
 
       if (err instanceof Error && !(err instanceof TypeError)) throw err
 
+      if (creates) {
+        console.warn(`[kie] ${endpointTag(init.method, url)} lost its connection — not retried, it may have started:`, err)
+        throw new FriendlyError(`The connection dropped while sending this to kie.ai, ${CREATE_MAY_HAVE_STARTED}`)
+      }
+
       if (attempt === MAX_RETRIES) {
         throw new Error('Connection failed. Check your internet connection and try again.')
       }
@@ -301,7 +334,7 @@ async function authedFetch<T>(
   apiKey: string,
   path: string,
   init: RequestInit,
-  options: { timeoutMs?: number; signal?: AbortSignal } = {},
+  options: { timeoutMs?: number; signal?: AbortSignal; creates?: boolean } = {},
 ): Promise<T> {
   const res = await fetchWithRetry(
     `${BASE_URL}${path}`,
@@ -317,6 +350,7 @@ async function authedFetch<T>(
   )
   const json = (await res.json()) as KieEnvelope<T>
   if (json.code !== 200) {
+    noteEnvelopeRateLimit(json.code)
     throw new KieHttpError(json.code, friendlyHttpError(json.code, json.msg, endpointTag(init.method, `${BASE_URL}${path}`)))
   }
   return json.data
@@ -334,7 +368,7 @@ export async function createTask(
         apiKey,
         '/jobs/createTask',
         { method: 'POST', body: JSON.stringify({ model, input }) },
-        { signal },
+        { signal, creates: true },
       ),
     signal,
   )
@@ -724,6 +758,7 @@ function chatEnvelopeError(body: unknown, endpoint: string): Error | null {
   const tag = `POST ${endpoint}`
 
   if (typeof b.code === 'number' && b.code !== 200) {
+    noteEnvelopeRateLimit(b.code)
     const msg =
       (typeof b.msg === 'string' && b.msg) || (typeof b.message === 'string' && b.message) || ''
     return new KieHttpError(b.code, friendlyHttpError(b.code, msg, tag))
@@ -1108,12 +1143,15 @@ export async function kieVeoCreate(
           },
           body: JSON.stringify(body),
         },
-        { signal },
+        { signal, creates: true },
       ),
     signal,
   )
   const createJson = (await createRes.json()) as KieEnvelope<VeoCreateData>
-  if (createJson.code !== 200) throw new Error(friendlyHttpError(createJson.code, createJson.msg, 'POST /api/v1/veo/generate'))
+  if (createJson.code !== 200) {
+    noteEnvelopeRateLimit(createJson.code)
+    throw new Error(friendlyHttpError(createJson.code, createJson.msg, 'POST /api/v1/veo/generate'))
+  }
   return createJson.data.taskId
 }
 
@@ -1143,6 +1181,7 @@ export async function kieVeoPoll(
       )
       const env = (await res.json()) as KieEnvelope<VeoRecordData>
       if (env.code !== 200) {
+        noteEnvelopeRateLimit(env.code)
         if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
         if (TERMINAL_POLL_STATUS.has(env.code)) {
           throw new KieHttpError(env.code, friendlyHttpError(env.code, env.msg, 'GET /veo/record-info'))
@@ -1248,12 +1287,15 @@ export async function kieMusicGenerate(
           },
           body: JSON.stringify(body),
         },
-        { signal },
+        { signal, creates: true },
       ),
     signal,
   )
   const json = (await res.json()) as KieEnvelope<{ taskId: string }>
-  if (json.code !== 200) throw new Error(friendlyHttpError(json.code, json.msg, 'POST /api/v1/generate'))
+  if (json.code !== 200) {
+    noteEnvelopeRateLimit(json.code)
+    throw new Error(friendlyHttpError(json.code, json.msg, 'POST /api/v1/generate'))
+  }
   return json.data.taskId
 }
 
@@ -1271,7 +1313,10 @@ export async function kieMusicPoll(
     { signal, timeoutMs: POLL_TIMEOUT_MS },
   )
   const env = (await res.json()) as KieEnvelope<SunoRecordData>
-  if (env.code !== 200) throw new Error(friendlyHttpError(env.code, env.msg, 'GET /api/v1/generate/record-info'))
+  if (env.code !== 200) {
+    noteEnvelopeRateLimit(env.code)
+    throw new Error(friendlyHttpError(env.code, env.msg, 'GET /api/v1/generate/record-info'))
+  }
   return env.data
 }
 
@@ -1358,11 +1403,12 @@ async function omniFetch<T>(apiKey: string, path: string, body: Record<string, u
         },
         body: JSON.stringify(body),
       },
-      {},
+      { creates: true },
     ),
   )
   const json = (await res.json()) as KieEnvelope<T>
   if (json.code !== 200 && json.code !== 0) {
+    noteEnvelopeRateLimit(json.code)
     throw new KieHttpError(json.code, friendlyHttpError(json.code, json.msg, `POST ${path}`))
   }
   return json.data

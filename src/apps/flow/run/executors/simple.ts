@@ -30,7 +30,7 @@ import { characterRunner, type CharacterTask } from '../../../character-studio/r
 import { createEmptyProfile, type CharacterProfile } from '../../../character-studio/types'
 import { playgroundRunner, planPlaygroundRun, type PlaygroundTask } from '../../../playground/runner'
 import { adAnalysisRunner } from '../../../ad-anatomy/runner'
-import { resumeAnalysis } from '../../../ad-anatomy/services/analysisQueue'
+import { resumeAnalysis, retryAnalysis } from '../../../ad-anatomy/services/analysisQueue'
 import { downloadAdVideo, searchOutliers } from '../../../discover/runner'
 import { refreshResultMedia } from '../../../discover/services/search'
 import { swipeToResult } from '../../../discover/services/swipe'
@@ -319,15 +319,36 @@ function swipeFromBank(id: string): DiscoverResult | undefined {
   return item ? swipeToResult(item) : undefined
 }
 
+// Rows this page load queued an analysis for. One still 'analyzing' with no
+// taskId that isn't here (and that the Ad Analyzer, closed, isn't running)
+// was cut off by a reload before kie took the job: nothing will settle it.
+const queuedHere = new Set<string>()
+
 export const analyzerExecutor: Executor = {
   async run(ctx) {
     let rowId = (ctx.resume as { rowId?: string } | undefined)?.rowId
-    if (rowId) {
-      // The Ad Analyzer resumes its own rows when it's open; when it isn't,
-      // nothing would, so the block re-attaches the poll itself.
-      const held = useBankStore.getState().getAdAnatomyHistoryById(rowId)
-      if (held?.status === 'analyzing' && !useAppStore.getState().runningApps.includes('ad-anatomy')) resumeAnalysis(held)
-    } else {
+    const held = rowId ? useBankStore.getState().getAdAnatomyHistoryById(rowId) : undefined
+    if (rowId && !held) {
+      // Deleted in the Ad Analyzer: there's nothing to wait on, so the ad is
+      // analyzed afresh rather than failing the same way every run.
+      rowId = undefined
+    } else if (held) {
+      const owned = useAppStore.getState().runningApps.includes('ad-anatomy')
+      const stranded = held.status === 'analyzing' && !held.taskId && !owned && !queuedHere.has(held.id)
+      if (held.status === 'error' || stranded) {
+        // Waiting on a failed or stranded row only reads the same failure
+        // back, so it runs again from the ad it kept — or, with that gone,
+        // from the ad on the wire.
+        if (await retryAnalysis(held)) queuedHere.add(held.id)
+        else rowId = undefined
+      } else if (held.status === 'analyzing' && !owned && !queuedHere.has(held.id)) {
+        // The Ad Analyzer resumes its own rows when it's open; when it isn't,
+        // nothing would, so the block re-attaches the poll itself.
+        resumeAnalysis(held)
+        queuedHere.add(held.id)
+      }
+    }
+    if (!rowId) {
       const ad = one(ctx.inst.inputs.ad, 'ad')
       if (!ad) throw new FriendlyError('Wire an ad into the Ad Analyzer.')
       ctx.progress('Fetching the ad')
@@ -335,6 +356,7 @@ export const analyzerExecutor: Executor = {
       ctx.progress('Analyzing')
       const task = await adAnalysisRunner.start({ file, durationSeconds }, { provenance: ctx.provenance })
       rowId = task.rowId
+      queuedHere.add(rowId)
       ctx.save({ rowId })
     }
     const r = await adAnalysisRunner.finish({ rowId }, { signal: ctx.signal })

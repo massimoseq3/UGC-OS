@@ -23,7 +23,7 @@ function useSentFrom(): Lineage[] | undefined {
   const runId = useContext(ShownRunContext)
   return runId ? [{ bank: 'scriptHistory', id: runId }] : undefined
 }
-import { groupSceneBeats, liftAudioNote, renumberScenes, spliceOut, splitHeaderTime, splitScenes, splitSpokenLines, splitVisualStyle, splitVoiceProfile, type SceneChunk, type SceneBeat } from '../sceneParsing'
+import { groupSceneBeats, liftAudioNote, renumberScenes, shotSource, spliceOut, splitHeaderTime, splitScenes, splitSpokenLines, splitVisualStyle, splitVoiceProfile, type SceneChunk, type SceneBeat } from '../sceneParsing'
 
 interface OutputPanelProps {
   variations: string[]
@@ -218,6 +218,9 @@ function VariationCard({
   // Which scenes are folded shut, by their index in the parsed list. Purely a
   // view state — a folded scene is still in the take, still copied, still sent.
   const [collapsed, setCollapsed] = useState<Set<number>>(() => new Set())
+  // Sticky "already in the bank" flag — `saved` is only the 3s visual flash.
+  // Send-to-app auto-saves use this to avoid writing duplicate bank rows.
+  const [savedOnce, setSavedOnce] = useState(false)
   if (text !== textSync) {
     setTextSync(text)
     setHistory([text])
@@ -227,12 +230,18 @@ function VariationCard({
     // scenes entirely, and folds kept from the last one would land on them by
     // index alone.
     if (collapsed.size) setCollapsed(new Set())
+    // The card is keyed by position, so it outlives the take it was showing.
+    // Nothing about that take may carry over: a stale `savedOnce` skipped the
+    // new take's auto-save on Send, the save form offered the last run's
+    // title, and an open whole-take editor committed the old text over this one.
+    setSavedOnce(false)
+    setSaveTitle(defaultSaveTitle)
+    setShowSaveForm(false)
+    setEditing(false)
+    setDraft(text)
   }
   const canUndo = histIndex > 0
   const canRedo = histIndex < history.length - 1
-  // Sticky "already in the bank" flag — `saved` is only the 3s visual flash.
-  // Send-to-app auto-saves use this to avoid writing duplicate bank rows.
-  const [savedOnce, setSavedOnce] = useState(false)
 
   const addScript = useBankStore((s) => s.addScript)
   const sendToApp = useAppStore((s) => s.sendToApp)
@@ -1318,14 +1327,11 @@ function SceneBeatBlock({
   )
   if (!beat.time) return <div className="flex flex-col gap-2">{rendered}</div>
 
-  const first = beat.segments[0]
-  const last = beat.segments[beat.segments.length - 1]
   // A line's span is the WORDS INSIDE its quote marks — that's what keeps an
   // edit from deleting the quotes the scene parser finds the line by — so a
-  // shot ending on dialogue has to take its closing mark back, or every copy of
-  // it hands over an unclosed quote.
-  const closes = last.kind === 'line' && /["”]/.test(body[last.end] ?? '') ? 1 : 0
-  const source = body.slice(first.start, last.end + closes)
+  // shot that opens or ends on dialogue reaches out to the line's cue and
+  // marks, or every copy of it hands over a half-quoted line (`shotSource`).
+  const source = shotSource(beat, body)
   // The marker itself stays behind: what gets pasted is one clip's prompt, and
   // a timecode inside it is a direction the video model tries to render.
   const text = audioNote && !source.includes(audioNote) ? `${source}\n\n${audioNote}` : source

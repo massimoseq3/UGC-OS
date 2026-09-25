@@ -62,13 +62,20 @@ export default function TemplateSetup({ source, onClose }: { source: SetupSource
   const fields = file?.fields ?? []
   const missing = fields.filter((f) => f.required && !filled(f, picks[f.blockId]))
 
-  // The price, planned on the template as it would run with these picks.
+  // The price, planned on the template as it would run with these picks —
+  // typed text and uploads included, or a field that feeds a required input
+  // would leave everything after it out of the price.
   const preview: FlowGraph | null = file
     ? {
         blocks: file.blocks.map((b) => withSlots({
           ...b,
           pick: picks[b.id]?.pick ?? b.pick,
-          settings: b.kind === 'image' && typeof b.settings.asset === 'string' ? { ...b.settings, ref: `embedded:${b.settings.asset}` } : b.settings,
+          settings: {
+            ...b.settings,
+            ...(b.kind === 'image' && typeof b.settings.asset === 'string' ? { ref: `embedded:${b.settings.asset}` } : {}),
+            ...(b.kind === 'image' && picks[b.id]?.ref ? { ref: picks[b.id].ref } : {}),
+            ...(b.kind === 'text' && picks[b.id]?.text !== undefined ? { text: picks[b.id].text } : {}),
+          },
         })),
         wires: file.wires,
       }
@@ -151,7 +158,13 @@ export default function TemplateSetup({ source, onClose }: { source: SetupSource
           {fields.length > 0 && (
             <section className="flex flex-col gap-3">
               {fields.map((f) => (
-                <FieldInput key={f.blockId} field={f} value={picks[f.blockId]} onChange={(p) => setPicks((cur) => ({ ...cur, [f.blockId]: p }))} />
+                <FieldInput
+                  key={f.blockId}
+                  field={f}
+                  text={file.blocks.find((b) => b.id === f.blockId)?.settings.text}
+                  value={picks[f.blockId]}
+                  onChange={(p) => setPicks((cur) => ({ ...cur, [f.blockId]: p }))}
+                />
               ))}
             </section>
           )}
@@ -182,7 +195,10 @@ function filled(f: TemplateField, p: Pick | undefined): boolean {
   return !!p?.pick
 }
 
-function FieldInput({ field, value, onChange }: { field: TemplateField; value: Pick | undefined; onChange: (p: Pick) => void }) {
+// `text` is a Text field's block as the template has it: the field's example
+// is cut short for display, so editing from it would replace the whole text
+// with its opening.
+function FieldInput({ field, text, value, onChange }: { field: TemplateField; text: unknown; value: Pick | undefined; onChange: (p: Pick) => void }) {
   const [open, setOpen] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const thumb = useAssetThumb(value?.ref)
@@ -195,7 +211,7 @@ function FieldInput({ field, value, onChange }: { field: TemplateField; value: P
       <div className="flex flex-col gap-1.5">
         <span className="text-[12.5px] font-medium text-ink-200">{field.title}</span>
         <AutoGrowTextarea
-          value={value?.text ?? field.example ?? ''}
+          value={value?.text ?? (typeof text === 'string' ? text : field.example ?? '')}
           onChange={(e) => onChange({ text: e.target.value })}
           className="w-full resize-none rounded-2xl border border-ink/10 bg-ink/[0.03] px-4 py-3 text-[13px] text-ink-100 outline-none focus:border-ink/20"
           rows={3}

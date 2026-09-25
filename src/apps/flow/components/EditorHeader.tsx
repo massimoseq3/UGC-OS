@@ -52,6 +52,7 @@ export default function EditorHeader({
   const openFlow = useFlowStore((s) => s.openFlow)
   const renameFlow = useFlowStore((s) => s.renameFlow)
   const [summaryOpen, setSummaryOpen] = useState(false)
+  const [nameDraft, setNameDraft] = useState<string | null>(null)
   const active = run?.status === 'running'
   const states = run ? Object.values(run.blocks) : []
   const done = states.filter((b) => b.status === 'done' || b.status === 'skipped' || b.status === 'error').length
@@ -86,9 +87,15 @@ export default function EditorHeader({
         dense
         accent="flow"
       />
+      {/* A draft while typing, saved on blur: the store trims a name, so
+          saving every keystroke swallowed each space as it was typed. */}
       <input
-        value={doc.name}
-        onChange={(e) => renameFlow(flowId, e.target.value)}
+        value={nameDraft ?? doc.name}
+        onChange={(e) => setNameDraft(e.target.value)}
+        onBlur={() => {
+          if (nameDraft !== null) renameFlow(flowId, nameDraft)
+          setNameDraft(null)
+        }}
         className="min-w-0 max-w-[280px] flex-1 rounded-full bg-transparent px-2 py-1 text-sm font-semibold tracking-tight text-ink-100 outline-none hover:bg-ink/[0.04] focus:bg-ink/[0.06]"
         aria-label="Flow Name"
       />

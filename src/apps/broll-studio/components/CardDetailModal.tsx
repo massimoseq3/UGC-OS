@@ -481,7 +481,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
 
   return createPortal((
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm sm:px-6 modal-fade"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-4 sm:px-6 modal-fade"
       {...backdrop}
     >
       {/* Outside the panel's corner on a desktop. On a phone the panel fills

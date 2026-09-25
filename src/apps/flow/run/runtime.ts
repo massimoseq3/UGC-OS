@@ -242,18 +242,26 @@ function pump(flowId: string) {
   if (!isRunActive(run)) return
   const doc = useFlowStore.getState().ensureDoc(flowId)
   if (!doc) {
-    finishRun(flowId, 'error')
+    // The member deleted the flow mid-run: stopped, not failed — no block
+    // failed, and a "finished with 0 blocks that failed" toast would say so.
+    finishRun(flowId, 'stopped')
     return
   }
   const graph = knownGraph(doc)
   const settled = new Set(Object.entries(run.blocks).filter(([, b]) => SETTLED.includes(b.status)).map(([id]) => id))
   const plan = planFlow(graph, doc.outputs, PLAN_DEPS, { test: run.test, only: run.onlyBlockId, settled })
+  // A block settled right here (skipped, or nothing left to make) is still
+  // 'queued' in `run` for the blocks after it, and nothing else would pump
+  // again — so the loop goes round once more, re-planned. Each extra pass
+  // settles at least one more block, so it ends.
+  let settledHere = false
 
   for (const [blockId, state] of Object.entries(run.blocks)) {
     if (state.status !== 'queued' || activeBlocks.has(`${flowId}:${blockId}`)) continue
     const block = graph.blocks.find((b) => b.id === blockId)
     if (!block) {
       patchBlock(flowId, blockId, { status: 'skipped', reason: 'Removed from the flow' })
+      settledHere = true
       continue
     }
     const waiting = [...upstreamOf(graph, blockId)].some((id) => run.blocks[id] && !SETTLED.includes(run.blocks[id].status))
@@ -261,14 +269,21 @@ function pump(flowId: string) {
     const bp = plan.blocks[blockId]
     if (!bp || bp.blocked) {
       patchBlock(flowId, blockId, { status: 'skipped', reason: bp?.blocked ?? 'Nothing to run', endedAt: Date.now() })
+      settledHere = true
       continue
     }
     const toRun = bp.instances.filter((i) => i.run)
     if (!toRun.length) {
       patchBlock(flowId, blockId, { status: 'done', total: 0, endedAt: Date.now() })
+      settledHere = true
       continue
     }
     void runBlock(flowId, block, toRun)
+  }
+
+  if (settledHere) {
+    pump(flowId)
+    return
   }
 
   const after = useFlowRunStore.getState().runs[flowId]

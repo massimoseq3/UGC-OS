@@ -11,11 +11,12 @@ import type { AdAnatomyHistoryItem, DiscoverVideoPayload, Lineage } from '../../
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
 import { useAssetUrl } from '../../hooks/useAssetUrl'
 import { deleteAsset } from '../../utils/assetStore'
-import { resumeAnalysis, retryAnalysis } from './services/analysisQueue'
+import { isAnalysisInFlight, resumeAnalysis, retryAnalysis } from './services/analysisQueue'
 import { adAnalysisRunner } from './runner'
 import { useBankStore } from '../../stores/bankStore'
 import { useAppStore } from '../../stores/appStore'
 import { useReportActivity } from '../../stores/activityStore'
+import { humanizeError } from '../../utils/friendlyError'
 import { isRecordingActive, replayWait, revealNext, useRecordingLoop, useRecordingLoopSince, useVisibleRows } from '../../stores/recordingStore'
 
 // Recording Mode: a row being "analyzed" on camera. The row is a finished one,
@@ -60,6 +61,7 @@ export default function AdAnatomy() {
 
   const updateAdAnatomyHistory = useBankStore((s) => s.updateAdAnatomyHistory)
   const deleteAdAnatomyHistory = useBankStore((s) => s.deleteAdAnatomyHistory)
+  const addToast = useAppStore((s) => s.addToast)
 
   // Mount-time reconciler. Two passes:
   //  1. Resume any 'analyzing' row carrying a kie taskId (createTask
@@ -74,6 +76,10 @@ export default function AdAnatomy() {
     // Pass 1: resume / fail in-flight rows
     for (const item of items) {
       if (item.status !== 'analyzing') continue
+      // This mount is the app's first OPEN, not the page load: a row the queue
+      // is already working on (Flow's Ad Analyzer block starts them without
+      // this app open) is live, not interrupted.
+      if (isAnalysisInFlight(item.id)) continue
       if (item.taskId) {
         resumeAnalysis(item)
       } else {
@@ -194,6 +200,11 @@ export default function AdAnatomy() {
         if (firstId === null) firstId = rowId
       } catch (e) {
         console.warn('[ad-anatomy] failed to enqueue analysis for', file.name, e)
+        // The staged list is already cleared and no row exists, so without this
+        // the click lands back on an empty upload zone with nothing said —
+        // storing the clip is what fails here (a full browser store, an empty
+        // file from a handoff).
+        addToast(humanizeError(e, `Could not store ${file.name}, so its analysis never started. Add it again to retry.`), 'error')
       }
     }
     if (firstId) setSelectedId(firstId)
@@ -442,9 +453,21 @@ function AnalyzingPane({ item }: { item: AdAnatomyHistoryItem }) {
 function ErrorPane({ item, onRetry }: { item: AdAnatomyHistoryItem; onRetry: () => void }) {
   const [retrying, setRetrying] = useState(false)
   const addToast = useAppStore((s) => s.addToast)
-  const canRerun = !!item.uploadedRef && !retrying
+  // A row still holding its taskId timed out while kie kept going, so the
+  // button RESUMES that task — no source needed, no second charge — and says
+  // so, or "check kie.ai before generating it again" above it reads as a
+  // warning that the button costs another run.
+  const resumes = !!item.taskId
+  const canRerun = (resumes || !!item.uploadedRef) && !retrying
 
   const handleRerun = () => {
+    // Retry is a Generate press, and Recording Mode promises those spend
+    // nothing: a replay can reveal a hidden row that failed, and this button
+    // re-ran it for real on camera. Same copy as the runners' own refusal.
+    if (isRecordingActive()) {
+      addToast('Recording Mode is on, so nothing was generated. Switch it off from the button beside the dock to generate for real.', 'info')
+      return
+    }
     setRetrying(true)
     retryAnalysis(item)
       .then((ok) => {
@@ -471,16 +494,17 @@ function ErrorPane({ item, onRetry }: { item: AdAnatomyHistoryItem; onRetry: () 
         <p className="text-sm text-ink-300">{item.errorMessage || 'Something went wrong.'}</p>
       </div>
       <div className="flex items-center gap-2">
-        {item.uploadedRef && (
+        {(resumes || item.uploadedRef) && (
           <button
             onClick={handleRerun}
             disabled={!canRerun}
+            title={resumes ? 'Picks the running analysis back up. Costs no extra credits.' : undefined}
             // A solid accent CTA lifts on hover (`brightness-110`); a /90 tint
             // DARKENED it, the one button in the app that dimmed under the pointer.
             className="flex items-center gap-2 rounded-full border border-white/15 bg-[#FF5257] px-4 py-2 text-sm font-semibold text-white transition-all hover:brightness-110 disabled:opacity-60 disabled:hover:brightness-100"
           >
             {retrying ? <Spinner className="h-3.5 w-3.5" /> : <RotateCcw className="h-3.5 w-3.5" />}
-            {retrying ? 'Restarting…' : 'Retry Analysis'}
+            {retrying ? 'Restarting…' : resumes ? 'Resume Analysis' : 'Retry Analysis'}
           </button>
         )}
         <button

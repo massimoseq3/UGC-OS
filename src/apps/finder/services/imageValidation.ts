@@ -55,7 +55,10 @@ export function partitionImageFiles(files: File[]): { accepted: File[]; rejectio
   if (reasons.length === 0) return { accepted, rejection: null }
   const allSame = reasons.every((r) => r === reasons[0])
   if (reasons.length === 1 || allSame) {
-    return { accepted, rejection: reasons.length === 1 ? reasons[0] : `Skipped ${reasons.length} files — ${reasons[0][0].toLowerCase()}${reasons[0].slice(1)}` }
+    // The shared reason goes in as its own sentence rather than lowercased into
+    // this one: it usually OPENS with the format's name, and lowercasing that
+    // printed "hEIC isn't a supported image format".
+    return { accepted, rejection: reasons.length === 1 ? reasons[0] : `Skipped ${reasons.length} files. ${reasons[0]}` }
   }
   return { accepted, rejection: `Skipped ${reasons.length} files — use ${ACCEPTED_IMAGE_LABEL} under ${MAX_IMAGE_SIZE / 1024 / 1024} MB.` }
 }

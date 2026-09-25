@@ -29,7 +29,10 @@ const MAX_CLIP_WINDOW_S = 10
 
 interface OmniInputsSectionProps {
   refs: PromptRef[]
-  onChangeRefs: (next: PromptRef[]) => void
+  // The three attach paths below that await something (a bank image read, a
+  // file read, an Omni character mint) pass an updater: `refs` is the list from
+  // before the await, and building on it dropped anything attached meanwhile.
+  onChangeRefs: (next: PromptRef[] | ((prev: PromptRef[]) => PromptRef[])) => void
 }
 
 export default function OmniInputsSection({ refs, onChangeRefs }: OmniInputsSectionProps) {
@@ -75,7 +78,7 @@ export default function OmniInputsSection({ refs, onChangeRefs }: OmniInputsSect
           parent: { bank: 'models', id: item.id },
         })
       }
-      if (additions.length > 0) onChangeRefs([...refs, ...additions])
+      if (additions.length > 0) onChangeRefs((prev) => [...prev, ...additions])
     })()
   }
 
@@ -97,8 +100,8 @@ export default function OmniInputsSection({ refs, onChangeRefs }: OmniInputsSect
       const dataUri = await fileToDataUri(file)
       const name = file.name.replace(/\.[^.]+$/, '') || 'Uploaded character'
       const characterId = await createOmniCharacterFromImage(dataUri, name)
-      onChangeRefs([
-        ...refs,
+      onChangeRefs((prev) => [
+        ...prev,
         { url: dataUri, label: name, source: 'upload', slot: 'omni-character', omniId: characterId },
       ])
     } catch (err) {
@@ -130,8 +133,8 @@ export default function OmniInputsSection({ refs, onChangeRefs }: OmniInputsSect
       return
     }
     const ends = Math.min(MAX_CLIP_WINDOW_S, duration ?? MAX_CLIP_WINDOW_S)
-    onChangeRefs([
-      ...refs.filter((r) => r.slot !== 'omni-clip'),
+    onChangeRefs((prev) => [
+      ...prev.filter((r) => r.slot !== 'omni-clip'),
       { url: dataUri, label: file.name, source: 'upload', slot: 'omni-clip', clipStart: 0, clipEnds: Math.round(ends * 10) / 10, durationSeconds: duration },
     ])
   }

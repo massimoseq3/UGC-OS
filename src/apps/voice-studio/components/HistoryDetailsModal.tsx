@@ -19,7 +19,10 @@ interface HistoryDetailsModalProps {
   item: VoiceHistoryItem | null
   onClose: () => void
   onRestoreText: (text: string) => void
-  onRestoreSettings: (settings: Partial<VoiceSettings>) => void
+  // `modelId` rides alongside: the model is one of the read's settings (it is
+  // listed under them below), but it lives in the TTS picker, not in
+  // VoiceSettings.
+  onRestoreSettings: (settings: Partial<VoiceSettings>, modelId: string) => void
 }
 
 // A row written before the TTS picker shipped carries no modelId — those are
@@ -173,7 +176,7 @@ export default function HistoryDetailsModal({
                   temperature: shown.temperature,
                   scene: shown.scene ?? '',
                   sampleContext: shown.sampleContext ?? '',
-                })}
+                }, shown.modelId ?? TTS_MODEL_FLASH)}
               />
             }
             contentClassName="grid grid-cols-2 gap-2"

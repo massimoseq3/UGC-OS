@@ -394,14 +394,27 @@ export default function Discover() {
   // The results grid's scroller: each card mounts its <video> only near it.
   const gridScrollRef = useRef<HTMLDivElement>(null)
 
+  // The live searches, so a failed search can put back the grid it cleared
+  // without `search` taking the whole record as a dependency.
+  const searchesRef = useRef(searches)
+  searchesRef.current = searches
+
+  // One search at a time, fresh or Load more. Enter in the field reaches
+  // `search` without going through the disabled Search button, so the guard
+  // has to live here: two pages in flight spent two credits, and a Load more
+  // landing after a fresh search merged the OLD query's page into the new grid.
+  const searchInFlight = useRef(false)
+
   const search = useCallback(async (nextCursor?: string | number) => {
     const q = queryRef.current.trim()
-    if (!q || !apiKey) return
+    if (!q || !apiKey || searchInFlight.current) return
+    searchInFlight.current = true
 
     // Pinned for the whole call: the member can flip tabs while a page is in
     // flight, and the results belong to the tab that asked for them.
     const target = platform
     const more = nextCursor !== undefined
+    const previous = searchesRef.current[target]
     if (more) setLoadingMore(true)
     // Clearing `fetchedAt` alongside the rows is what keeps a refresh taken
     // mid-search from restoring an empty grid as "No results" — with no stamp
@@ -421,8 +434,21 @@ export default function Discover() {
       }))
       if (page.creditsRemaining !== null) setCredits(page.creditsRemaining)
     } catch (e) {
+      // A fresh search that failed hands back the grid it cleared. Left empty,
+      // it threw away a page already paid for and the empty state then said
+      // "Nothing came back for that phrase", sending the member to spend
+      // another credit on a search that never ran. The query stays as typed.
+      if (!more) {
+        patchSearch(target, {
+          results: previous.results,
+          cursor: previous.cursor,
+          searched: previous.searched,
+          fetchedAt: previous.fetchedAt,
+        })
+      }
       addToast(humanizeError(e, 'That search failed. Try again in a moment.'), 'error')
     } finally {
+      searchInFlight.current = false
       setSearching(false)
       setLoadingMore(false)
     }
@@ -553,7 +579,12 @@ export default function Discover() {
       const text = await ensureTranscript(result, useAi)
       if (!text.trim()) {
         addToast(
-          'This video has no captions to pull. Open it and try AI transcription.',
+          // Only TikTok has a cheaper caption track to miss and an AI retry
+          // behind it. Instagram is already speech-to-text, so an empty answer
+          // there means nobody spoke or the reel runs long — nothing to retry.
+          result.platform === 'instagram'
+            ? 'No speech came back for this reel. Reels over two minutes can’t be transcribed.'
+            : 'This video has no captions to pull. Open it and try AI transcription.',
           'info',
         )
         return

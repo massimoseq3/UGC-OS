@@ -552,7 +552,7 @@ export default function InfluencerEditModal({
     <div
       // `modal-fade` / `modal-pop` (below): how a centred modal arrives, the
       // same move B-Roll's card workspace makes. This one used to snap in.
-      className="modal-fade fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+      className="modal-fade fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4"
       {...backdrop}
     >
       {/* Floating close — anchored to the screen corner (like every other

@@ -87,6 +87,10 @@ interface VariationCardProps {
   // off the prompt. Undefined = no batch.
   generateVideoToken?: number
   batchVideoOverride?: BatchVideoSettings | null
+  // The still a video batch animates — the card's cover still read WITHOUT the
+  // storyboard's Show filter (the parent owns that read; `cardState` here is
+  // the filtered view). Undefined → the batch renders from the prompt.
+  batchStartFrame?: string
   // Visual style resolved on the result. Only a stylized look (realism === false)
   // appends a STYLE block to the prompt and drops the iPhone-realism stack; UGC
   // Realism / legacy leave the render untouched. See applyStyleToPrompt.
@@ -135,6 +139,7 @@ export default function VariationCard(props: VariationCardProps) {
     batchImageOverride,
     generateVideoToken,
     batchVideoOverride,
+    batchStartFrame,
     resultStyle,
     resultRealism,
     voiceProfile,
@@ -414,6 +419,14 @@ export default function VariationCard(props: VariationCardProps) {
     try {
       const newImage: GeneratedImage = await brollStillRunner.finish({ taskId, modelId, prompt: promptText, resolution: imageResolution })
       onUpdateStateFn((prev) => {
+        // Only the card that fired this may take it. Card state is keyed by
+        // POSITION (`${scene}-${index}`), and every session starts at `1-0`: a
+        // take landing after a new storyboard, a History pick or an import used
+        // to be appended to whatever card now held that key, and made its
+        // cover. The in-flight entry is the identity check — a card that
+        // doesn't hold it isn't the one that asked. The session that did still
+        // holds the entry and its taskId, so the take resumes there.
+        if (!prev.inFlightImages.some((e) => e.id === inFlightId)) return {}
         const newImages = [...prev.images, newImage]
         return {
           images: newImages,
@@ -629,6 +642,8 @@ export default function VariationCard(props: VariationCardProps) {
       // The runner writes the clip's videoHistory row; the card takes the take.
       const { video } = await brollClipRunner.finish(task)
       onUpdateStateFn((prev) => {
+        // Only the card that fired it — see runImageGen.
+        if (!prev.inFlightVideos.some((e) => e.id === inFlightId)) return {}
         const newVideos = [...prev.videos, video]
         return {
           videos: newVideos,
@@ -743,8 +758,10 @@ export default function VariationCard(props: VariationCardProps) {
     if (tok === lastVideoTokenRef.current) return
     lastVideoTokenRef.current = tok
     // A card with a still animates and a card without renders from its prompt,
-    // so the gate is whichever of the two this card is about to send.
-    const startFrame = coverKind === 'image' ? coverImage?.imageUrl : undefined
+    // so the gate is whichever of the two this card is about to send. The still
+    // comes from the parent, unfiltered: this card's own cover follows the Show
+    // filter, and under Videos or Prompts it hid a still the run was priced on.
+    const startFrame = batchStartFrame
     if (!(startFrame ? animatePrompt : cardState.editablePrompt).trim()) return
     const batchSettings = batchVideoOverride
       ? { resolution: batchVideoOverride.resolution, durationSeconds: batchVideoOverride.durationSeconds }
@@ -777,6 +794,8 @@ export default function VariationCard(props: VariationCardProps) {
       const task: BrollClipTask = { ...entry, taskId }
       const { video } = await brollClipRunner.finish(task)
       onUpdateStateFn((prev) => {
+        // Only the card that holds the entry — see runImageGen.
+        if (!prev.inFlightVideos.some((e) => e.id === entry.id)) return {}
         const newVideos = [...prev.videos, video]
         return {
           videos: newVideos,
@@ -818,6 +837,8 @@ export default function VariationCard(props: VariationCardProps) {
         resolution: (entry.resolution || undefined) as ImageResolution | undefined,
       })
       onUpdateStateFn((prev) => {
+        // Only the card that holds the entry — see runImageGen.
+        if (!prev.inFlightImages.some((e) => e.id === entry.id)) return {}
         const newImages = [...prev.images, newImage]
         return {
           images: newImages,
@@ -852,10 +873,14 @@ export default function VariationCard(props: VariationCardProps) {
       if (!failed) return
       if (failed.taskId) { void resumeInFlightVideo(failed); return }
       onUpdateStateFn((prev) => ({ inFlightVideos: prev.inFlightVideos.filter((e) => e.id !== id) }))
+      // The entry's own resolution and length, not the card's: a batch clip
+      // was priced at the run's tier (480p by default) in its dialog, and a
+      // retry at the card's own 720p/1080p billed a different number.
+      const settings = { resolution: failed.resolution, durationSeconds: failed.durationSeconds }
       if (failed.startFrameRef) {
-        void handleAnimate(failed.startFrameRef, failed.modelId)
+        void handleAnimate(failed.startFrameRef, failed.modelId, settings)
       } else {
-        void handleGenerateVideo(failed.modelId)
+        void handleGenerateVideo(failed.modelId, settings)
       }
     } else {
       const failed = cardState.inFlightImages.find((e) => e.id === id)

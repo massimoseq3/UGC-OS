@@ -4,8 +4,10 @@ import './index.css'
 import App from './App.tsx'
 import AppErrorBoundary from './components/AppErrorBoundary'
 import { initAutoHideScrollbars } from './utils/autoHideScrollbars'
+import { initPinchZoomGuard } from './utils/pinchZoomGuard'
 
 initAutoHideScrollbars()
+initPinchZoomGuard()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
