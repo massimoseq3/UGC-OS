@@ -123,8 +123,8 @@ function ItemsReview({ flowId, block, results, labels, onLater, onDone }: {
       onClose={onLater}
       title={`Review ${titleOf(block)}`}
       subtitle={faces
-        ? `Keep the ${noun.toLowerCase()}s worth making more from. The rest are left out, and nothing downstream runs for them.`
-        : `Keep the ${noun.toLowerCase()}s worth making, and fix any line that doesn't sound like a person. The rest are left out, and nothing downstream runs for them.`}
+        ? `Keep the ${noun.toLowerCase()}s worth making more from. Nothing after this runs for the rest.`
+        : `Keep the ${noun.toLowerCase()}s worth making and fix any line that doesn't sound real. The rest are left out.`}
       size={faces ? 'wide' : 'medium'}
       footer={<Footer onLater={onLater} label={`Keep ${keep.length}${changed.length ? `, ${changed.length} Edited,` : ''} and Continue`} disabled={!keep.length} onGo={go} />}
     >
