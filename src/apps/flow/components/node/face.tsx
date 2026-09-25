@@ -28,8 +28,11 @@ import { CHIP, clock, PLATFORM } from './chips'
 
 const SQUARE = 'relative aspect-square w-full overflow-hidden rounded-2xl'
 // A character's shape: Characters makes 9:16 portraits, and one cropped to a
-// square lost the outfit and half the look, so a face fills a 9:16 card.
-const PORTRAIT = 'relative aspect-[9/16] w-full overflow-hidden rounded-2xl'
+// square lost the outfit and half the look. So a face is a 9:16 card, centred
+// on the block's own ground — never letterboxed on black — and as tall as the
+// square every other pick fills (9/16 of the width), so a column of picks
+// stays one height. Full width, it stood nearly twice as tall as the rest.
+const PORTRAIT = 'relative mx-auto aspect-[9/16] w-[56.25%] overflow-hidden rounded-2xl'
 
 // ── The frame ──────────────────────────────────────────────────────────────
 
@@ -298,13 +301,16 @@ export function ItemDot({ block, itemId, name, color, right, top, quiet }: {
 // stand-in until then (spinning while it's being made), Turn Off and Delete
 // on hover, and its quiet dot: on the block's edge for the last column (past
 // the grid's 12px inset), in the 10px gutter for the others.
-export function GridTile({ block, itemId, name, off, editable, portrait, picture, glyph: Glyph, busy, caption, color, edge, children }: {
+export function GridTile({ block, itemId, name, off, editable, portrait, narrow, picture, glyph: Glyph, busy, caption, color, edge, children }: {
   block: FlowBlock
   itemId: string
   name: string
   off: boolean
   editable: boolean
   portrait: boolean
+  // A lone face: the 9:16 card centred at a square's height (PORTRAIT), its
+  // dot still on the block's edge.
+  narrow?: boolean
   picture: ReactNode
   glyph: ElementType
   busy: boolean
@@ -315,19 +321,21 @@ export function GridTile({ block, itemId, name, off, editable, portrait, picture
 }) {
   return (
     <div className="group/item relative">
-      <div className={`relative w-full overflow-hidden rounded-2xl ${portrait ? 'aspect-[9/16]' : 'aspect-square'} ${picture ? 'bg-black' : 'border border-dashed border-ink/15'} ${off ? 'opacity-40' : ''}`}>
-        {picture ?? (
-          <span className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-ink-500">
-            {busy && !off ? <Spinner className="h-4 w-4" /> : <Glyph className="h-5 w-5" />}
-            <span className="text-[10.5px]">{name}</span>
-          </span>
-        )}
-        {picture && caption && (
-          <span className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/70 to-transparent px-2 pb-1.5 pt-5 text-[10.5px] font-medium text-white">{caption}</span>
-        )}
-        {picture && children}
+      <div className={`relative mx-auto ${narrow ? 'w-[56.25%]' : 'w-full'}`}>
+        <div className={`relative w-full overflow-hidden rounded-2xl ${portrait ? 'aspect-[9/16]' : 'aspect-square'} ${picture ? 'bg-ink/[0.05]' : 'border border-dashed border-ink/15'} ${off ? 'opacity-40' : ''}`}>
+          {picture ?? (
+            <span className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-ink-500">
+              {busy && !off ? <Spinner className="h-4 w-4" /> : <Glyph className="h-5 w-5" />}
+              <span className="text-[10.5px]">{name}</span>
+            </span>
+          )}
+          {picture && caption && (
+            <span className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/70 to-transparent px-2 pb-1.5 pt-5 text-[10.5px] font-medium text-white">{caption}</span>
+          )}
+          {picture && children}
+        </div>
+        <ItemActions block={block} itemId={itemId} name={name} off={off} editable={editable} onMedia className="absolute right-1.5 top-1.5" />
       </div>
-      <ItemActions block={block} itemId={itemId} name={name} off={off} editable={editable} onMedia className="absolute right-1.5 top-1.5" />
       <ItemDot block={block} itemId={itemId} name={name} color={color} right={edge ? -12 : -5} quiet />
     </div>
   )
@@ -335,8 +343,9 @@ export function GridTile({ block, itemId, name, off, editable, portrait, picture
 
 // ── Characters: the faces as a grid ────────────────────────────────────────
 
-// Each face is a 9:16 portrait, the shape Characters makes them: one fills
-// the block's width, two or more sit two across. Each fills in as it's made.
+// Each face is a 9:16 portrait, the shape Characters makes them: one sits
+// centred like a picked character, two or more sit two across. Each fills in
+// as it's made.
 export function CharacterGrid({ block, bp }: { block: FlowBlock; bp: BlockPlan | undefined }) {
   const { run, openBlock } = useCanvas()
   const items = liveItems(block)
@@ -365,6 +374,7 @@ export function CharacterGrid({ block, bp }: { block: FlowBlock; bp: BlockPlan |
               off={!!it.off}
               editable
               portrait
+              narrow={!two}
               picture={value?.type === 'character' ? <TileImage refId={value.payload.imageRef} /> : null}
               glyph={UserRound}
               busy={writing}

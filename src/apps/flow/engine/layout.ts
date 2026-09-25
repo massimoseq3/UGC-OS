@@ -86,19 +86,16 @@ export function estimatedSize(block: FlowBlock): { width: number; height: number
   const width = blockWidth(block.kind)
   if (!isKnownKind(block.kind)) return { width, height: 56 + 22 + 40 }
   const tags = block.field || (KINDS[block.kind].runnable && sourceOf(block) !== 'generate') ? TAGS : 0
-  if (wearsSquare(block)) {
-    // A character's face is a 9:16 card, everything else a square.
-    const portrait = (block.kind === 'bank' && block.settings.bank === 'models') || block.kind === 'characters'
-    return { width, height: Math.round(HEADER + PILL + (width - INSET) * (portrait ? 16 / 9 : 1) + 12 + tags) }
-  }
+  // A character's 9:16 card is as tall as the square every other pick fills.
+  if (wearsSquare(block)) return { width, height: HEADER + PILL + (width - INSET) + 12 + tags }
   const rows = Math.max(KINDS[block.kind].ins.length, KINDS[block.kind].outs.length)
   const top = 56 + rows * 22
   const items = Math.max(1, block.items?.length ?? 1)
   // The Characters block's faces: 9:16 portraits, two across once there's
-  // more than one.
+  // more than one; a lone one as tall as a square (face.tsx PORTRAIT).
   if (block.kind === 'characters') {
     const across = items > 1 ? 2 : 1
-    const tile = ((width - INSET - (across - 1) * FACE_GAP) / across) * (16 / 9)
+    const tile = across > 1 ? ((width - INSET - FACE_GAP) / 2) * (16 / 9) : width - INSET
     const lines = Math.ceil(items / across)
     return { width, height: Math.round(top + FACE_GAP + PILL + lines * tile + (lines - 1) * FACE_GAP + 12) }
   }
