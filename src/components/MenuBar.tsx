@@ -158,6 +158,35 @@ function CreditsItem() {
     }
   }
 
+  // Rendered in BOTH branches below, never inside the no-key one: the guide
+  // saves the key itself (useKeyConnect), which flips this item to its balance
+  // face — and when these lived in the no-key branch, that flip unmounted the
+  // guide before its "You're Connected" state could show, and shut a Settings
+  // opened from it the moment Save was pressed.
+  const overlays = (
+    <>
+      {guideOpen &&
+        createPortal(
+          <Suspense fallback={null}>
+            <ApiKeyGuide
+              onClose={() => setGuideOpen(false)}
+              onOpenSettings={() => {
+                setGuideOpen(false)
+                setSettingsOpen(true)
+              }}
+            />
+          </Suspense>,
+          document.body,
+        )}
+      {createPortal(
+        <MountOnce when={settingsOpen}>
+          <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+        </MountOnce>,
+        document.body,
+      )}
+    </>
+  )
+
   if (!apiKey) {
     return (
       <>
@@ -173,53 +202,38 @@ function CreditsItem() {
           {/* Phones get just the pulsing dot — the tooltip + popup carry the message. */}
           <span className="hidden sm:inline">Connect Your kie.ai API Key</span>
         </button>
-        {guideOpen &&
-          createPortal(
-            <Suspense fallback={null}>
-              <ApiKeyGuide
-                onClose={() => setGuideOpen(false)}
-                onOpenSettings={() => {
-                  setGuideOpen(false)
-                  setSettingsOpen(true)
-                }}
-              />
-            </Suspense>,
-            document.body,
-          )}
-        {createPortal(
-          <MountOnce when={settingsOpen}>
-            <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-          </MountOnce>,
-          document.body,
-        )}
+        {overlays}
       </>
     )
   }
 
   return (
-    <button
-      onClick={handleRefresh}
-      disabled={refreshing}
-      title="kie.ai credits remaining · click to refresh"
-      aria-label="Refresh credits balance"
-      className="group flex h-6 shrink-0 items-center gap-1.5 rounded-md px-2 text-[12px] text-ink-300 transition-colors hover:bg-ink/[0.06] hover:text-ink-100 disabled:opacity-60"
-    >
-      <span className="relative flex h-3.5 w-3.5 items-center justify-center">
-        {refreshing ? (
-          <RefreshCw className="h-3.5 w-3.5 animate-spin text-ink-400" strokeWidth={1.75} />
-        ) : (
-          <>
-            <Coins className="h-3.5 w-3.5 text-ink-400 group-hover:opacity-0" strokeWidth={1.75} />
-            <RefreshCw className="absolute h-3.5 w-3.5 text-ink-300 opacity-0 group-hover:opacity-100" strokeWidth={1.75} />
-          </>
-        )}
-      </span>
-      <span>
-        <span className="tabular-nums">{balance !== null ? balance.toLocaleString() : '—'}</span>
-        {/* On phones the coin glyph + number is enough — the suffix overflowed. */}
-        <span className="hidden text-ink-500 sm:inline"> credits left</span>
-      </span>
-    </button>
+    <>
+      <button
+        onClick={handleRefresh}
+        disabled={refreshing}
+        title="kie.ai credits remaining · click to refresh"
+        aria-label="Refresh credits balance"
+        className="group flex h-6 shrink-0 items-center gap-1.5 rounded-md px-2 text-[12px] text-ink-300 transition-colors hover:bg-ink/[0.06] hover:text-ink-100 disabled:opacity-60"
+      >
+        <span className="relative flex h-3.5 w-3.5 items-center justify-center">
+          {refreshing ? (
+            <RefreshCw className="h-3.5 w-3.5 animate-spin text-ink-400" strokeWidth={1.75} />
+          ) : (
+            <>
+              <Coins className="h-3.5 w-3.5 text-ink-400 group-hover:opacity-0" strokeWidth={1.75} />
+              <RefreshCw className="absolute h-3.5 w-3.5 text-ink-300 opacity-0 group-hover:opacity-100" strokeWidth={1.75} />
+            </>
+          )}
+        </span>
+        <span>
+          <span className="tabular-nums">{balance !== null ? balance.toLocaleString() : '—'}</span>
+          {/* On phones the coin glyph + number is enough — the suffix overflowed. */}
+          <span className="hidden text-ink-500 sm:inline"> credits left</span>
+        </span>
+      </button>
+      {overlays}
+    </>
   )
 }
 

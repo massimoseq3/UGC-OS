@@ -33,8 +33,14 @@ export function releaseVideoPlayback(el: HTMLVideoElement) {
 }
 
 /** True while some OTHER clip owns playback — silent hover previews stand
- *  down rather than animating over the clip the user is actually watching. */
+ *  down rather than animating over the clip the user is actually watching.
+ *  A holder no longer in the document is free: a tile that renders its
+ *  <video> only once the clip resolves, or releases it off screen, takes the
+ *  element away without ever calling `releaseVideoPlayback`, and a stale
+ *  holder used to switch off every hover preview in the app until something
+ *  else was played on purpose. */
 export function videoPlaybackHeldByOther(el: HTMLVideoElement | null) {
+  if (holder && !holder.el.isConnected) holder = null
   return !!holder && holder.el !== el
 }
 
@@ -53,14 +59,20 @@ export function useInlineVideo() {
   const [playing, setPlaying] = useState(false)
   const [unmuted, setUnmuted] = useState(false)
 
+  // The element this tile last CLAIMED the slot with. Not `videoRef` read at
+  // mount: tiles render their <video> only once the clip resolves, so the
+  // mount-time read was null and the unmount release never ran.
+  const claimed = useRef<HTMLVideoElement | null>(null)
+
   // Hand the slot back if the tile unmounts mid-playback (gallery re-render,
   // modal close) — otherwise a stale holder blocks every hover preview.
   useEffect(() => {
-    const el = videoRef.current
-    return () => { if (el) releaseVideoPlayback(el) }
+    const slot = claimed
+    return () => { if (slot.current) releaseVideoPlayback(slot.current) }
   }, [])
 
   const claim = useCallback((v: HTMLVideoElement) => {
+    claimed.current = v
     claimVideoPlayback(v, () => { v.muted = true; setUnmuted(false) })
   }, [])
 
@@ -139,17 +151,22 @@ export function useInlineVideo() {
  */
 export function useExclusiveVideo() {
   const videoRef = useRef<HTMLVideoElement>(null)
+  // Same reason as useInlineVideo's: release what was claimed, not what the
+  // ref held at mount.
+  const claimed = useRef<HTMLVideoElement | null>(null)
 
   useEffect(() => {
-    const el = videoRef.current
-    return () => { if (el) releaseVideoPlayback(el) }
+    const slot = claimed
+    return () => { if (slot.current) releaseVideoPlayback(slot.current) }
   }, [])
 
   return {
     ref: videoRef,
     onPlay: () => {
       const v = videoRef.current
-      if (v) claimVideoPlayback(v, () => {})
+      if (!v) return
+      claimed.current = v
+      claimVideoPlayback(v, () => {})
     },
     onPause: () => {
       const v = videoRef.current

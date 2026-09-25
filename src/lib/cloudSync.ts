@@ -159,6 +159,22 @@ export function recordPendingUpsert(table: BankKey, row: { id: string }): number
   return token
 }
 
+// Bulk twin of recordPendingUpsert for a whole table's worth of rows: one
+// outbox read and one write, rather than one of each per row.
+function recordPendingUpserts(table: BankKey, rows: Array<{ id: string }>): void {
+  if (rows.length === 0) return
+  const ob = readOutbox()
+  const bucket = (ob.upserts[table] ??= {})
+  const ids = new Set<string>()
+  for (const row of rows) {
+    bucket[row.id] = row
+    ids.add(row.id)
+    markerTokens.set(`${table}:${row.id}`, ++markerSeq)
+  }
+  if (ob.deletes[table]) ob.deletes[table] = ob.deletes[table]!.filter((d) => !ids.has(d))
+  writeOutbox(ob)
+}
+
 export function recordPendingDelete(table: BankKey, id: string): number {
   const ob = readOutbox()
   if (ob.upserts[table]) delete ob.upserts[table]![id]
@@ -231,16 +247,26 @@ export async function drainOutbox(): Promise<void> {
   draining = true
   try {
     for (const key of BANK_KEYS) {
-      for (const row of Object.values(ob.upserts[key] ?? {})) {
-        // Capture the marker token before replaying: if the user touches the
-        // row while our write is in flight, the token changes and our
-        // clearPending becomes a no-op — the fresh marker survives.
-        const token = pendingToken(key, row.id)
-        try { await saveRow(key, row); clearPending(key, row.id, token) }
-        catch (e) { console.warn(`[cloudSync] outbox upsert ${key}/${row.id} still failing`, e) }
+      // `ob` only says WHICH rows to visit. Each one is re-read from the outbox
+      // at replay time, because a drain awaits a round trip per row and the
+      // member keeps working meanwhile: replaying the start-of-drain copy
+      // overwrote an edit made mid-drain, re-inserted a row deleted mid-drain
+      // (its delete had already cleared the marker, so nothing corrected it),
+      // and after an account swap wrote the old user's rows under the new id.
+      // The fresh read returns nothing in all three cases and the row is skipped.
+      for (const id of Object.keys(ob.upserts[key] ?? {})) {
+        // Token and row are read together, before the write is queued: if the
+        // user touches the row while our write is in flight, the token changes
+        // and our clearPending becomes a no-op — the fresh marker survives.
+        const token = pendingToken(key, id)
+        const row = readOutbox().upserts[key]?.[id]
+        if (!row) continue
+        try { await saveRow(key, row); clearPending(key, id, token) }
+        catch (e) { console.warn(`[cloudSync] outbox upsert ${key}/${id} still failing`, e) }
       }
       for (const id of [...(ob.deletes[key] ?? [])]) {
         const token = pendingToken(key, id)
+        if (!readOutbox().deletes[key]?.includes(id)) continue
         try { await deleteRow(key, id); clearPending(key, id, token) }
         catch (e) { console.warn(`[cloudSync] outbox delete ${key}/${id} still failing`, e) }
       }
@@ -438,16 +464,23 @@ async function hydrateFromCloud(userId: string): Promise<boolean> {
       // crosses PostgREST's row ceiling and an unpaged read would hand back
       // only the first page — silently dropping the rest of their work here
       // AND from the local cache persistBanksNow writes below.
+      // Ordered, because LIMIT/OFFSET without an ORDER BY lets Postgres pick a
+      // different plan per page — pages then overlap and skip rows, and a
+      // skipped row's assets look orphaned to the sweep below.
       const { data, error } = await selectAllRows<{ id: string; data: unknown }>((from, to) =>
-        sb.from(table).select('id, data', { count: 'exact' }).eq('user_id', userId).range(from, to),
+        sb.from(table).select('id, data', { count: 'exact' }).eq('user_id', userId).order('id').range(from, to),
       )
       // On a fetch error, keep whatever loadFromStorage already gave us for this
       // bank — never replace good local rows with an empty array just because
       // the cloud was momentarily unreachable.
       if (error) anyError = true
+      // Deduped by id as well: a row written between two page reads can still
+      // shift the offsets, and a bank may never hold one id twice.
+      const pulled = new Map<string, unknown>()
+      for (const row of data ?? []) if (!pulled.has(row.id)) pulled.set(row.id, row.data)
       const base = error
         ? (reportError(`hydrate ${table}`, error), (localState[key] as unknown[]) ?? [])
-        : (data ?? []).map((row) => row.data as unknown)
+        : [...pulled.values()]
       // Overlay the outbox so a row that was created locally but never synced
       // (push failed/timed out) survives the pull instead of vanishing.
       const overlaid = applyOutbox(key, base)
@@ -580,20 +613,32 @@ async function uploadEntireSnapshot(userId: string) {
   }
 
   // Now push all bank rows.
+  let allUploaded = true
   for (const key of BANK_KEYS) {
     const items = state[key] as Array<{ id: string }>
     if (items.length === 0) continue
     try {
       await saveRows(key, items)
-    } catch (e) { reportError(`initial upload of ${BANK_TO_TABLE[key]}`, e) }
+    } catch (e) {
+      // The hydrate that follows REPLACES local state with the cloud's, so a
+      // table whose upload failed would come back empty and its rows would
+      // exist nowhere. Queued in the outbox instead: hydrate overlays them and
+      // the post-hydrate drain pushes them, the same path as any unsynced row.
+      allUploaded = false
+      recordPendingUpserts(key, items)
+      reportError(`initial upload of ${BANK_TO_TABLE[key]}`, e)
+    }
   }
 
   try { await saveProfile() } catch (e) { reportError('initial profile upload', e) }
 
-  localStorage.setItem(`ugc-lab:cloud-migrated:${userId}`, '1')
-  // The full snapshot already covered scriptHistory + brollHistory, so the
-  // targeted seed below is a no-op for first-time cloud users.
+  // The full snapshot already covered scriptHistory + brollHistory (uploaded,
+  // or queued above), so the targeted seed below is a no-op for first-time
+  // cloud users.
   localStorage.setItem(`ugc-lab:history-cloud-seeded:${userId}`, '1')
+  // Marked done only when every table landed, so a partial first upload is
+  // looked at again on the next sign-in rather than recorded as finished.
+  if (allUploaded) localStorage.setItem(`ugc-lab:cloud-migrated:${userId}`, '1')
 }
 
 // One-time rescue for users who migrated to cloud BEFORE scriptHistory and
