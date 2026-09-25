@@ -35,7 +35,14 @@ export class FriendlyError extends Error {
 
 // Each rule matches case-insensitively against the raw error message. Order
 // matters: most specific first, generic codes last. The first match wins.
-const RULES: Array<{ test: (m: string) => boolean; message: string }> = [
+//
+// `member: true` marks a failure that is the member's own situation rather than
+// something broken — no key, a wrong key, an empty balance, the content filter.
+// The error reporter (utils/errorReporter.ts) skips those, so Admin → Errors
+// lists bugs rather than every member who ran out of credits. A new rule for a
+// cause only the member can fix takes the flag; anything that might be ours
+// (a 422 is as often our request shape as their input) does not.
+const RULES: Array<{ test: (m: string) => boolean; message: string; member?: true }> = [
   // ── ScrapeCreators (Outliers search) ──
   //
   // These MUST stay above the kie.ai rules below: both services use 401 and
@@ -47,6 +54,7 @@ const RULES: Array<{ test: (m: string) => boolean; message: string }> = [
     test: (m) => m.includes('scrapecreators') && m.includes('401'),
     message:
       "That ScrapeCreators API key isn't valid. Open Settings, paste a fresh key from scrapecreators.com, and try again.",
+    member: true,
   },
   {
     // ScrapeCreators answers an UNRECOGNISED key with 402 "out of credits",
@@ -56,6 +64,7 @@ const RULES: Array<{ test: (m: string) => boolean; message: string }> = [
     test: (m) => m.includes('scrapecreators') && (m.includes('402') || m.includes('credit')),
     message:
       "ScrapeCreators turned that search down. Either the key is wrong or you're out of credits. Check the key in Settings, then top up at scrapecreators.com if it's correct.",
+    member: true,
   },
   {
     test: (m) => m.includes('scrapecreators') && m.includes('429'),
@@ -112,6 +121,7 @@ const RULES: Array<{ test: (m: string) => boolean; message: string }> = [
       m.includes('risk control'),
     message:
       "The model's content filter turned this down. It's the wording of the prompt or a reference image, not your account. Rewrite the line and try again.",
+    member: true,
   },
 
   // ── Auth / billing on the kie.ai key ──
@@ -126,21 +136,25 @@ const RULES: Array<{ test: (m: string) => boolean; message: string }> = [
     test: (m) => m.includes('no kie.ai api key'),
     message:
       'No kie.ai API key yet. Open Settings, paste a key from kie.ai, and try again.',
+    member: true,
   },
   {
     test: (m) => m.includes('401') || (m.includes('invalid') && m.includes('key')) || (m.includes('expired') && m.includes('key')),
     message:
       'Your kie.ai API key looks invalid or expired. Open Settings, paste a fresh key from kie.ai, and try again.',
+    member: true,
   },
   {
     test: (m) => m.includes('402') || m.includes('insufficient credit') || m.includes('not enough credit'),
     message:
       "You're out of kie.ai credits. Top up your balance at kie.ai, then try again.",
+    member: true,
   },
   {
     test: (m) => m.includes('433') || (m.includes('usage limit') || m.includes('limit exceeded')),
     message:
       'Your kie.ai key has hit its usage limit. Check your plan limits at kie.ai, then try again.',
+    member: true,
   },
   {
     test: (m) => m.includes('429') || m.includes('rate limit') || m.includes('too many request'),
@@ -294,6 +308,31 @@ const RULES: Array<{ test: (m: string) => boolean; message: string }> = [
 const GENERIC_FALLBACK =
   'Something went wrong while generating. Please try again in a moment. If it keeps failing, the model may be temporarily down on kie.ai.'
 
+/** What `humanizeError` tells its listener about each failure it translates. */
+export interface ShownError {
+  /** The value that was thrown. */
+  err: unknown
+  /** The sentence the member reads. */
+  shown: string
+  /** The call site's own fallback — it names the operation. Null for the generic one. */
+  fallback: string | null
+  /** A rule marked this as the member's own situation (key, credits, filter). */
+  member: boolean
+}
+
+// One listener, registered by the error reporter. A hook rather than an import
+// so this module stays dependency-free: nearly every app imports it, and the
+// reporter pulls in the stores and the Supabase client.
+let shownListener: ((e: ShownError) => void) | null = null
+
+/** Hear about every failure `humanizeError` translates. Returns the unsubscribe. */
+export function onErrorShown(listener: (e: ShownError) => void): () => void {
+  shownListener = listener
+  return () => {
+    if (shownListener === listener) shownListener = null
+  }
+}
+
 /**
  * Turn any thrown value into one friendly, plain-English sentence for end users.
  * Pass an optional `fallback` to override the generic message for unrecognized
@@ -322,18 +361,32 @@ const GENERIC_FALLBACK =
 // deliberately NOT in the list — it only ever follows a `size=`/`url=` that
 // already cuts, and including it would truncate at `content-type=` and throw
 // away the sentence that names the failure.
-const DEBUG_TAIL = /(?:^|[^a-z0-9])(?:taskid|url|record|body|size|endpoint|response shape|response tail|first \d+ chars)\s*[=:]/i
+export const DEBUG_TAIL = /(?:^|[^a-z0-9])(?:taskid|url|record|body|size|endpoint|response shape|response tail|first \d+ chars)\s*[=:]/i
 
 export function humanizeError(err: unknown, fallback: string = GENERIC_FALLBACK): string {
+  const { message, member } = translate(err, fallback)
+  // Every call is a failure a member is about to read, which is the moment the
+  // error reporter wants. Never allowed to break the copy it rides on.
+  if (shownListener) {
+    try {
+      shownListener({ err, shown: message, fallback: fallback === GENERIC_FALLBACK ? null : fallback, member })
+    } catch (e) {
+      console.warn('[friendlyError] error listener threw', e)
+    }
+  }
+  return message
+}
+
+function translate(err: unknown, fallback: string): { message: string; member: boolean } {
   // Already written for the member — see FriendlyError above.
-  if (err instanceof FriendlyError && err.message.trim()) return err.message
+  if (err instanceof FriendlyError && err.message.trim()) return { message: err.message, member: false }
   const raw = err instanceof Error ? err.message : typeof err === 'string' ? err : ''
-  if (!raw) return fallback
+  if (!raw) return { message: fallback, member: false }
   const cut = raw.search(DEBUG_TAIL)
   const lower = (cut === -1 ? raw : raw.slice(0, cut)).toLowerCase()
-  if (!lower.trim()) return fallback
+  if (!lower.trim()) return { message: fallback, member: false }
   for (const rule of RULES) {
-    if (rule.test(lower)) return rule.message
+    if (rule.test(lower)) return { message: rule.message, member: rule.member === true }
   }
-  return fallback
+  return { message: fallback, member: false }
 }

@@ -4,8 +4,11 @@ import './index.css'
 import App from './App.tsx'
 import AppErrorBoundary from './components/AppErrorBoundary'
 import { initAutoHideScrollbars } from './utils/autoHideScrollbars'
+import { startErrorReporting } from './utils/errorReporter'
 
 initAutoHideScrollbars()
+// Before the first render, so an error thrown while the app boots is heard.
+startErrorReporting()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

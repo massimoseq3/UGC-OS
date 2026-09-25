@@ -4,19 +4,23 @@ import MembersTable from './MembersTable'
 import AllowlistEditor from './AllowlistEditor'
 import Insights from './Insights'
 import Announcements from './Announcements'
+import ErrorReports from './ErrorReports'
 import { useAuthStore } from '../../stores/authStore'
+import { useNewErrorCount } from '../../stores/errorInboxStore'
 
-type Tab = 'members' | 'insights' | 'announcements' | 'allowlist'
+type Tab = 'members' | 'insights' | 'errors' | 'announcements' | 'allowlist'
 
 const TABS: Array<{ id: Tab; label: string }> = [
   { id: 'members', label: 'Members' },
   { id: 'insights', label: 'Insights' },
+  { id: 'errors', label: 'Errors' },
   { id: 'announcements', label: 'Announcements' },
   { id: 'allowlist', label: 'Allowlist' },
 ]
 
 export default function AdminPanel() {
   const isAdmin = useAuthStore((s) => s.profile?.is_admin === true)
+  const newErrors = useNewErrorCount()
   const [tab, setTab] = useState<Tab>('members')
   // A tab is mounted on first visit and then STAYS mounted, hidden behind the
   // active one. Unmounting used to throw away each pane's fetched data, sort,
@@ -40,21 +44,28 @@ export default function AdminPanel() {
 
   return (
     <div className="flex h-full flex-col">
-      {/* On a phone the four tabs alone are wider than the screen, so the title
+      {/* On a phone the five tabs alone are wider than the screen, so the title
           keeps the first row and the strip takes its own, scrolling sideways
           rather than wrapping into a two-row slab. The strip never scrolls
-          AWAY: it's how you reach the other three panes. */}
+          AWAY: it's how you reach the other four panes. */}
       <header className="flex items-center justify-between gap-4 border-b border-ink/5 px-6 py-4 max-md:px-4 max-md:py-2.5">
         {/* The title row is `md`-only: the menu bar already reads "UGC OS /
             Admin", and a phone can't spend 48px of pinned chrome saying it
-            twice above four tabs it also has to keep on screen. */}
+            twice above five tabs it also has to keep on screen. */}
         <div className="flex items-center gap-2 max-md:hidden">
           <Shield className="h-5 w-5 text-ink-300" />
           <h1 className="text-lg font-semibold tracking-tight text-ink-100">Admin</h1>
         </div>
         <div className="flex gap-1 overflow-x-auto scrollbar-hide rounded-lg border border-ink/10 bg-ink/[0.03] p-0.5 max-md:w-full md:overflow-visible">
           {TABS.map((t) => (
-            <TabButton key={t.id} active={tab === t.id} onClick={() => open(t.id)}>{t.label}</TabButton>
+            <TabButton key={t.id} active={tab === t.id} onClick={() => open(t.id)}>
+              {t.label}
+              {/* Bugs reported since the last look — the same count that dots
+                  the dock's Settings tile. */}
+              {t.id === 'errors' && newErrors > 0 && (
+                <span className="ml-1.5 rounded-full bg-red-500 px-1.5 py-px text-[10px] font-semibold tabular-nums text-white">{newErrors}</span>
+              )}
+            </TabButton>
           ))}
         </div>
       </header>
@@ -71,6 +82,8 @@ export default function AdminPanel() {
               <MembersTable />
             ) : t.id === 'insights' ? (
               <Insights />
+            ) : t.id === 'errors' ? (
+              <ErrorReports active={tab === 'errors'} />
             ) : t.id === 'announcements' ? (
               <Announcements />
             ) : (

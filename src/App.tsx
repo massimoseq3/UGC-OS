@@ -23,6 +23,7 @@ import { isAppVisible, useAppVisibilityStore } from './stores/appVisibilityStore
 import { dockOrderedApps, getAppConfig } from './utils/constants'
 import { DEFAULT_SLUG, getAppIdForSlug, getSlugFromPath } from './utils/routing'
 import { startAppUsageTracking, stopAppUsageTracking } from './utils/appUsageTracker'
+import { useErrorInboxWatch } from './stores/errorInboxStore'
 import { hasApp, loadApp, loadMeetTheTeam, loadSettingsModal, preloadApp, warmChunks } from './appChunks'
 import { hasFlowRunsToResume, resumeFlowRuns } from './apps/flow/resumeBoot'
 import { captureShareLink, takeShareLink } from './apps/flow/share'
@@ -152,6 +153,11 @@ function Workspace() {
     startAppUsageTracking()
     return stopAppUsageTracking
   }, [])
+
+  // Admin only: checks for newly reported errors in the background, so the
+  // dock's Settings tile can dot when something breaks for a member. Inert for
+  // everyone else.
+  useErrorInboxWatch()
 
   // Once the landing app has settled, fetch the rest in dock order while the
   // page is idle, so the first press of each tile opens the app rather than
