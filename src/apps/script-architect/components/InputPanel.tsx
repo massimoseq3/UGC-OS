@@ -25,6 +25,10 @@ import SectionRail from '../../../components/SectionRail'
 import { useSectionSpy } from '../../../components/sectionSpy'
 import { humanizeError } from '../../../utils/friendlyError'
 
+// The style an unpicked Script Style row runs — the app's `:writeStyle` slot
+// default and the service's own fallback.
+const DEFAULT_WRITE_STYLE: WriteStyle = 'pas'
+
 interface InputPanelProps {
   mode: ScriptUiMode
   onModeChange: (mode: ScriptUiMode) => void
@@ -134,9 +138,25 @@ export default function InputPanel({
   // The script picked from the bank for the remix source. Editing the textarea
   // clears it (reverts to the dashed picker), mirroring the B-Roll ref cards.
   const [sourceScript, setSourceScript] = useState<Script | null>(null)
+  // ANY write to the source drops the pick, not just typing in the box: Clear,
+  // New Script, a History restore and an inter-app send all replace the text
+  // from outside, and the chip used to survive them — naming a script that was
+  // no longer in the box and stamping it as the next run's parent.
+  if (sourceScript && source !== sourceScript.scriptText) setSourceScript(null)
   // True once the user has actively picked a Script Style — flips the trigger
   // from a dashed "click to choose" affordance to a solid, accented outline.
-  const [styleChosen, setStyleChosen] = useState(false)
+  //
+  // Seeded from, and re-synced to, the style that will actually RUN: this was a
+  // bare `false` and nothing else set it, so after a reload or a History restore
+  // the row read unpicked while a persisted Podcast Clip went on writing
+  // two-handers. The invariant is that the dashed row always means PAS, the
+  // default an unpicked row runs — hence X resets the style, not just the look.
+  const [styleChosen, setStyleChosen] = useState(writeStyle !== DEFAULT_WRITE_STYLE)
+  const [styleSync, setStyleSync] = useState(writeStyle)
+  if (writeStyle !== styleSync) {
+    setStyleSync(writeStyle)
+    if (writeStyle !== DEFAULT_WRITE_STYLE) setStyleChosen(true)
+  }
   // Brief enhance + undo/redo (mirrors Playground's prompt controls). History
   // is local; `briefSync` tracks the value we last set so a render-time check
   // can tell an external change (Create-new clears it, a history item loads)
@@ -685,7 +705,7 @@ export default function InputPanel({
                       </span>
                       <button
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); setStyleChosen(false) }}
+                        onClick={(e) => { e.stopPropagation(); onWriteStyleChange(DEFAULT_WRITE_STYLE); setStyleChosen(false) }}
                         title="Clear style"
                         aria-label="Clear style"
                         className="flex h-6 w-6 items-center justify-center rounded-full text-ink-500 transition-colors hover:bg-ink/5 hover:text-red-400 light:hover:text-red-600"

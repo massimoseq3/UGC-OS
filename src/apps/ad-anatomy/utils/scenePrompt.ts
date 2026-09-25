@@ -121,6 +121,11 @@ function splitQuotes(body: string): SceneSegment[] {
     const open = match.index + match[0].length
     // A cue whose quote sits inside one we already lifted isn't an attribution.
     if (open <= cursor) continue
+    // An apostrophe glued to the word in front of it is a possessive or a
+    // contraction, never an opening quote: the noun cues match on their own, so
+    // "The narrator's tone…" opened a "quote" that ran to the next closing
+    // mark and swallowed the real line with it.
+    if ((body[open] === "'" || body[open] === '’') && /\p{L}/u.test(body[open - 1] ?? '')) continue
     const close = closingQuote(body, open)
     if (close === null) continue
     const quoted = body.slice(open + 1, close).trim()
