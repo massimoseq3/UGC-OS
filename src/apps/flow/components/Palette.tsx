@@ -29,7 +29,7 @@ export default function Palette({ onAdd }: { onAdd: (kind: BlockKind, bank?: Ban
   const [bankOpen, setBankOpen] = useState(false)
   // The tile under the pointer, described above the bar: what the block is
   // for, what it takes and what it makes — a tile's name alone doesn't tell a
-  // List from a Text.
+  // Batch from a Text.
   const [hover, setHover] = useState<BlockKind | null>(null)
   return (
     <div className="relative" onMouseLeave={() => setHover(null)}>
@@ -54,7 +54,6 @@ export default function Palette({ onAdd }: { onAdd: (kind: BlockKind, bank?: Ban
         </>
       )}
       <div className="flex items-end gap-0.5 rounded-[22px] border border-ink/10 bg-surface-1 px-2 pb-1 pt-1.5 shadow-[0_18px_40px_-16px_rgba(0,0,0,0.55)]">
-        <span className="mb-[22px] self-center px-1.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-ink-500">Add</span>
         {GROUPS.map((group, i) => (
           <div key={group.join()} className="flex items-end gap-0.5">
             {i > 0 && <span className="mx-1 mb-6 h-7 w-px self-center bg-ink/10" />}

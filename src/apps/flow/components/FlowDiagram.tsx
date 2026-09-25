@@ -35,7 +35,7 @@ function chipLabel(b: FlowBlock): string {
     case 'outliers': return 'Find Ads'
     case 'image': return 'Image'
     case 'text': return 'Text'
-    case 'list': return `List ×${Array.isArray(s.entries) ? s.entries.length : 0}`
+    case 'list': return `Batch ×${Array.isArray(s.entries) ? s.entries.length : 0}`
     default: return b.kind
   }
 }
