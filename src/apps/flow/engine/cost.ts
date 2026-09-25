@@ -191,7 +191,8 @@ function scenesShots(block: FlowBlock, inputs: Record<string, FlowValue[]>, test
   const typical: SceneShot[] = Array.from({ length: test ? 1 : TYPICAL_SCENES }, (_, i) => ({
     number: i + 1, label: `Scene ${i + 1}`, body: '', spoken: '', seconds: 8, showsProduct: true,
   }))
-  return block.settings.shape === 'one' && !test ? [{ ...typical[0], seconds: 8 * TYPICAL_SCENES }] : typical
+  // One Clip is the whole script however it's run: a test films all of it.
+  return block.settings.shape === 'one' ? [{ ...typical[0], seconds: 8 * TYPICAL_SCENES }] : typical
 }
 
 function scenesCost(block: FlowBlock, inputs: Record<string, FlowValue[]>, test: boolean): number | null {

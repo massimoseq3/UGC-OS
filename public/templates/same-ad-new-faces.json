@@ -1,0 +1,247 @@
+{
+  "format": "ugcflow",
+  "formatVersion": 1,
+  "template": {
+    "id": "same-ad-new-faces",
+    "version": 1
+  },
+  "name": "Same Ad, Three Faces",
+  "description": "One approved script filmed scene by scene with three different characters, so each audience sees someone like them. The scenes, the voice profile and the product shots stay the same; only the face changes.",
+  "author": "UGC OS",
+  "blocks": [
+    {
+      "id": "ad",
+      "kind": "bank",
+      "label": "The Winning Ad",
+      "x": 0,
+      "y": 0,
+      "settings": {
+        "bank": "swipes"
+      },
+      "source": "bank",
+      "field": true
+    },
+    {
+      "id": "product",
+      "kind": "bank",
+      "label": "Your Product",
+      "x": 0,
+      "y": 230,
+      "settings": {
+        "bank": "products"
+      },
+      "source": "bank",
+      "field": true
+    },
+    {
+      "id": "face1",
+      "kind": "bank",
+      "label": "Character 1",
+      "x": 0,
+      "y": 460,
+      "settings": {
+        "bank": "models"
+      },
+      "source": "bank",
+      "field": true
+    },
+    {
+      "id": "face2",
+      "kind": "bank",
+      "label": "Character 2",
+      "x": 0,
+      "y": 670,
+      "settings": {
+        "bank": "models"
+      },
+      "source": "bank",
+      "field": true
+    },
+    {
+      "id": "face3",
+      "kind": "bank",
+      "label": "Character 3",
+      "x": 0,
+      "y": 880,
+      "settings": {
+        "bank": "models"
+      },
+      "source": "bank",
+      "field": true
+    },
+    {
+      "id": "analyzer",
+      "kind": "analyzer",
+      "x": 340,
+      "y": 0,
+      "settings": {},
+      "source": "generate"
+    },
+    {
+      "id": "remix",
+      "kind": "scripts",
+      "x": 700,
+      "y": 0,
+      "settings": {
+        "mode": "remix",
+        "writeFormat": "script",
+        "writeStyle": "pas",
+        "writeLength": 30,
+        "remixLength": "default",
+        "hookCategory": "auto",
+        "hookCount": 10,
+        "variationCount": 3,
+        "brief": "",
+        "source": "",
+        "additionalContext": "No captions or text on screen. Keep it in one location, the way the original is shot."
+      },
+      "source": "generate",
+      "review": true
+    },
+    {
+      "id": "scenes",
+      "kind": "scenes",
+      "x": 1080,
+      "y": 300,
+      "settings": {
+        "shape": "scenes",
+        "takes": 1,
+        "aspectRatio": "9:16",
+        "audio": true,
+        "voice": true,
+        "style": true,
+        "productWhenShown": true,
+        "continuity": true,
+        "rules": "No captions, subtitles or text on screen."
+      },
+      "source": "generate"
+    },
+    {
+      "id": "edit",
+      "kind": "edit",
+      "x": 1460,
+      "y": 340,
+      "settings": {},
+      "source": "generate"
+    },
+    {
+      "id": "note",
+      "kind": "note",
+      "x": 340,
+      "y": 460,
+      "settings": {
+        "text": "Make the ad once, then again with every face: Scripts pauses so you keep the one take you like, and Scene Clips films that same script with each character. Nothing is rewritten per face, so every version says exactly the same thing."
+      }
+    }
+  ],
+  "wires": [
+    {
+      "id": "w1",
+      "from": "ad",
+      "fromPort": "out",
+      "to": "analyzer",
+      "toPort": "ad"
+    },
+    {
+      "id": "w2",
+      "from": "analyzer",
+      "fromPort": "scenes",
+      "to": "remix",
+      "toPort": "source"
+    },
+    {
+      "id": "w3",
+      "from": "product",
+      "fromPort": "out",
+      "to": "remix",
+      "toPort": "product"
+    },
+    {
+      "id": "w4",
+      "from": "remix",
+      "fromPort": "all",
+      "to": "scenes",
+      "toPort": "script"
+    },
+    {
+      "id": "w5",
+      "from": "face1",
+      "fromPort": "out",
+      "to": "scenes",
+      "toPort": "character"
+    },
+    {
+      "id": "w6",
+      "from": "face2",
+      "fromPort": "out",
+      "to": "scenes",
+      "toPort": "character"
+    },
+    {
+      "id": "w7",
+      "from": "face3",
+      "fromPort": "out",
+      "to": "scenes",
+      "toPort": "character"
+    },
+    {
+      "id": "w8",
+      "from": "product",
+      "fromPort": "out",
+      "to": "scenes",
+      "toPort": "product"
+    },
+    {
+      "id": "w9",
+      "from": "scenes",
+      "fromPort": "clips",
+      "to": "edit",
+      "toPort": "clips"
+    }
+  ],
+  "fields": [
+    {
+      "blockId": "ad",
+      "title": "The Winning Ad",
+      "kind": {
+        "bank": "swipes"
+      },
+      "required": true
+    },
+    {
+      "blockId": "product",
+      "title": "Your Product",
+      "kind": {
+        "bank": "products"
+      },
+      "required": true
+    },
+    {
+      "blockId": "face1",
+      "title": "Character 1",
+      "kind": {
+        "bank": "models"
+      },
+      "required": true
+    },
+    {
+      "blockId": "face2",
+      "title": "Character 2",
+      "kind": {
+        "bank": "models"
+      },
+      "required": true
+    },
+    {
+      "blockId": "face3",
+      "title": "Character 3",
+      "kind": {
+        "bank": "models"
+      },
+      "required": true
+    }
+  ],
+  "notes": [
+    "Make the ad once, then again with every face: Scripts pauses so you keep the one take you like, and Scene Clips films that same script with each character. Nothing is rewritten per face, so every version says exactly the same thing."
+  ]
+}

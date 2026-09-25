@@ -1,0 +1,193 @@
+{
+  "format": "ugcflow",
+  "formatVersion": 1,
+  "template": {
+    "id": "talking-head-clone",
+    "version": 1
+  },
+  "name": "Talking Head Ad, Scene by Scene",
+  "description": "A winning ad torn down and rewritten for your product, then filmed one clip per scene with your character: the voice profile in every clip, the product only where it's shown, scene 1's frame carried through. No voiceover, no B-roll: the character says it.",
+  "author": "UGC OS",
+  "blocks": [
+    {
+      "id": "ad",
+      "kind": "bank",
+      "label": "The Winning Ad",
+      "x": 0,
+      "y": 0,
+      "settings": {
+        "bank": "swipes"
+      },
+      "source": "bank",
+      "field": true
+    },
+    {
+      "id": "product",
+      "kind": "bank",
+      "label": "Your Product",
+      "x": 0,
+      "y": 230,
+      "settings": {
+        "bank": "products"
+      },
+      "source": "bank",
+      "field": true
+    },
+    {
+      "id": "character",
+      "kind": "bank",
+      "label": "Your Character",
+      "x": 0,
+      "y": 460,
+      "settings": {
+        "bank": "models"
+      },
+      "source": "bank",
+      "field": true
+    },
+    {
+      "id": "analyzer",
+      "kind": "analyzer",
+      "x": 340,
+      "y": 0,
+      "settings": {},
+      "source": "generate"
+    },
+    {
+      "id": "remix",
+      "kind": "scripts",
+      "x": 700,
+      "y": 0,
+      "settings": {
+        "mode": "remix",
+        "writeFormat": "script",
+        "writeStyle": "pas",
+        "writeLength": 30,
+        "remixLength": "default",
+        "hookCategory": "auto",
+        "hookCount": 10,
+        "variationCount": 3,
+        "brief": "",
+        "source": "",
+        "additionalContext": "No captions or text on screen. Keep it in one location, the way the original is shot."
+      },
+      "source": "generate",
+      "review": true
+    },
+    {
+      "id": "scenes",
+      "kind": "scenes",
+      "x": 1080,
+      "y": 150,
+      "settings": {
+        "shape": "scenes",
+        "takes": 1,
+        "aspectRatio": "9:16",
+        "audio": true,
+        "voice": true,
+        "style": true,
+        "productWhenShown": true,
+        "continuity": true,
+        "rules": "No captions, subtitles or text on screen."
+      },
+      "source": "generate"
+    },
+    {
+      "id": "edit",
+      "kind": "edit",
+      "x": 1460,
+      "y": 190,
+      "settings": {},
+      "source": "generate"
+    },
+    {
+      "id": "note",
+      "kind": "note",
+      "x": 0,
+      "y": 700,
+      "settings": {
+        "text": "Pick a winning ad, your product and your character. Scripts rewrites the ad's scenes for your product and pauses so you can fix any line that doesn't sound like a person. Scene Clips then films every scene with your character and the same voice, each clip as long as its scene. Test With 1 films scene 1 only, so you can check the face and the voice for a few cents."
+      }
+    }
+  ],
+  "wires": [
+    {
+      "id": "w1",
+      "from": "ad",
+      "fromPort": "out",
+      "to": "analyzer",
+      "toPort": "ad"
+    },
+    {
+      "id": "w2",
+      "from": "analyzer",
+      "fromPort": "scenes",
+      "to": "remix",
+      "toPort": "source"
+    },
+    {
+      "id": "w3",
+      "from": "product",
+      "fromPort": "out",
+      "to": "remix",
+      "toPort": "product"
+    },
+    {
+      "id": "w4",
+      "from": "remix",
+      "fromPort": "all",
+      "to": "scenes",
+      "toPort": "script"
+    },
+    {
+      "id": "w5",
+      "from": "character",
+      "fromPort": "out",
+      "to": "scenes",
+      "toPort": "character"
+    },
+    {
+      "id": "w6",
+      "from": "product",
+      "fromPort": "out",
+      "to": "scenes",
+      "toPort": "product"
+    },
+    {
+      "id": "w7",
+      "from": "scenes",
+      "fromPort": "clips",
+      "to": "edit",
+      "toPort": "clips"
+    }
+  ],
+  "fields": [
+    {
+      "blockId": "ad",
+      "title": "The Winning Ad",
+      "kind": {
+        "bank": "swipes"
+      },
+      "required": true
+    },
+    {
+      "blockId": "product",
+      "title": "Your Product",
+      "kind": {
+        "bank": "products"
+      },
+      "required": true
+    },
+    {
+      "blockId": "character",
+      "title": "Your Character",
+      "kind": {
+        "bank": "models"
+      },
+      "required": true
+    }
+  ],
+  "notes": [
+    "Pick a winning ad, your product and your character. Scripts rewrites the ad's scenes for your product and pauses so you can fix any line that doesn't sound like a person. Scene Clips then films every scene with your character and the same voice, each clip as long as its scene. Test With 1 films scene 1 only, so you can check the face and the voice for a few cents."
+  ]
+}
