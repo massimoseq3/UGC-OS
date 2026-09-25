@@ -96,7 +96,8 @@ export function blockTitle(doc: FlowDoc, id: string): string {
 function runLabel(inputs: Record<string, FlowValue[]>, lead: PortSpec | undefined, index: number): string {
   if (!lead) return `Run ${index + 1}`
   const v = inputs[lead.key]?.[0]
-  if (v && !v.pending && v.label) return v.label
+  // A value not made yet still has a name when it's a batch's slot ("Hook 3").
+  if (v?.label) return v.label
   return `${lead.label} ${index + 1}`
 }
 

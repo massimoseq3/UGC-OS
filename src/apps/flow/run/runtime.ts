@@ -493,8 +493,10 @@ function logRun(run: LiveRun) {
 // ── Reviews ────────────────────────────────────────────────────────────────
 
 export type ReviewPicks =
-  // Scripts, Characters: the items to keep. The rest turn off.
-  | { kind: 'items'; keep: string[] }
+  // Scripts, Characters: the items to keep, of the ones the review showed.
+  // The shown ones not kept turn off; anything the run didn't make (a Test
+  // With 1 makes one face of four) is left as it was, for the full run.
+  | { kind: 'items'; keep: string[]; shown?: string[] }
   // Voiceovers, Playground: the runs to keep. The rest are left out.
   | { kind: 'runs'; keep: string[] }
   // B-Roll: per run, the cards whose stills get animated.
@@ -509,7 +511,10 @@ export function approveReview(flowId: string, blockId: string, picks: ReviewPick
   if (!doc || !block) return
 
   if (picks.kind === 'items') {
-    const off = liveItems(block).map((it) => it.id).filter((id) => !picks.keep.includes(id))
+    const shown = picks.shown ?? liveItems(block).map((it) => it.id)
+    const off = liveItems(block)
+      .filter((it) => (shown.includes(it.id) ? !picks.keep.includes(it.id) : !!it.off))
+      .map((it) => it.id)
     if (store.openId !== flowId) store.openFlow(flowId)
     useFlowStore.getState().setItemsOff(blockId, off)
   } else if (picks.kind === 'runs') {

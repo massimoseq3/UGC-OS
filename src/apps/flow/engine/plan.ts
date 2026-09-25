@@ -27,7 +27,7 @@ import type {
   PortType,
   Trace,
 } from '../types'
-import { generationSettings, inlineText, insOf, isBatch, isRunnable, KINDS, outsOf, sourceOf, takesTyped } from './catalog'
+import { generationSettings, inlineText, insOf, isBatch, isRunnable, itemNoun, KINDS, outsOf, sourceOf, takesTyped } from './catalog'
 import { blockById, enabledItems, itemIdOf, topoOrder, upstreamOf, wiresInto } from './graph'
 import { fingerprint } from './hash'
 import { missingClips, wantedClips } from './sceneShots'
@@ -361,7 +361,7 @@ function valuesOut(block: FlowBlock, instances: PlannedInstance[], test: boolean
           const v = made.items?.[slot]
           return v ? { ...v, trace } : undefined
         }
-        return placeholder(block, type, `${inst.key}:${slot}`, trace)
+        return placeholder(block, type, `${inst.key}:${slot}`, trace, slotName(block, slot))
       }
       const firstMade = test ? slotsOn.map(itemValue).find(Boolean) : undefined
       const allSlots = test ? slotsOn.slice(0, 1) : slotsOn
@@ -408,11 +408,18 @@ function heldPlan(block: FlowBlock, held: Exclude<Held, { missing: string }>, te
   return { blockId: block.id, instances: [], values, runs: 0, credits: 0, unpriced: false, creditsAll: 0 }
 }
 
-function placeholder(block: FlowBlock, type: PortType, suffix: string, trace: Trace): FlowValue {
+// "Hook 3": what a slot not made yet is called downstream — a Voiceovers
+// block fed by hooks lists "Hook 1, Hook 2", not "Script 1".
+function slotName(block: FlowBlock, slot: string): string {
+  const index = (block.items ?? []).filter((it) => !it.deleted).findIndex((it) => it.id === slot)
+  return index < 0 ? '' : `${itemNoun(block)} ${index + 1}`
+}
+
+function placeholder(block: FlowBlock, type: PortType, suffix: string, trace: Trace, label = ''): FlowValue {
   return {
     type,
     key: `pending:${block.id}:${suffix}`,
-    label: '',
+    label,
     trace,
     pending: true,
     payload: { ...emptyPayload(type), ...sizeHint(block) },

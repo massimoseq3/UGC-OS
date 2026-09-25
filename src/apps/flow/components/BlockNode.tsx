@@ -70,7 +70,7 @@ function NodeHeader({ block, bp, live, selected }: { block: FlowBlock; bp: Block
       {renaming === block.id ? (
         <RenameField block={block} onDone={() => setRenaming(null)} />
       ) : (
-        <span className="min-w-0 truncate text-[13px] font-semibold tracking-tight text-ink-100">{titleOf(block)}</span>
+        <span className="min-w-[3.5rem] truncate text-[13px] font-semibold tracking-tight text-ink-100" title={titleOf(block)}>{titleOf(block)}</span>
       )}
       {makes && runs > 1 && (
         <span className="shrink-0 rounded-full bg-ink/[0.08] px-1.5 py-px text-[10px] font-semibold tabular-nums text-ink-200" title={`Runs ${runs} times, once per combination of what's wired in`}>
@@ -160,12 +160,15 @@ function Status({ block, bp, live }: { block: FlowBlock; bp: BlockPlan | undefin
   const madeBefore = Object.keys(doc.outputs[block.id]?.instances ?? {}).length > 0
   return (
     <span className="flex items-center gap-1.5">
-      {madeBefore && (
-        <span className="rounded-full bg-amber-500/15 px-1.5 py-px text-[10px] font-semibold text-amber-300 light:text-amber-700" title={`Something it reads changed. ${bp.runs} of its ${bp.instances.length} runs make again.`}>
-          Changed
-        </span>
-      )}
-      <span className="text-[10.5px] tabular-nums text-ink-400">{bp.unpriced ? '—' : creditsShort(bp.credits)}</span>
+      {/* Changed: a dot and an amber price, not a word — a word pushed the
+          block's own name down to "Voi…" in the width a block has. */}
+      {madeBefore && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" aria-hidden />}
+      <span
+        className={`text-[10.5px] tabular-nums ${madeBefore ? 'text-amber-300 light:text-amber-700' : 'text-ink-400'}`}
+        title={madeBefore ? `Changed: something it reads is different. ${bp.runs} of its ${bp.instances.length} runs make again.` : undefined}
+      >
+        {bp.unpriced ? '—' : creditsShort(bp.credits)}
+      </span>
     </span>
   )
 }

@@ -17,7 +17,7 @@ import type { BrollHistoryItem } from '../../../../stores/types'
 import type { BrollInput, BrollResult, CardState, GeneratedImage, ReferenceImage } from '../../../broll-studio/types'
 import { useBankStore } from '../../../../stores/bankStore'
 import { replayRun, replayWait } from '../../../../stores/recordingStore'
-import { FriendlyError } from '../../../../utils/friendlyError'
+import { FriendlyError, humanizeError } from '../../../../utils/friendlyError'
 import { lineageOf, withProvenance } from '../../../../utils/blockRunner'
 import { getModel } from '../../../../utils/models'
 import { writeStoryboardText, resumeStoryboardText, parseStoryboardText } from '../../../broll-studio/services/storyboardRun'
@@ -137,6 +137,18 @@ function patchCard(sessionId: string, key: string, fn: (card: CardState) => Card
   void useBankStore.getState().upsertBrollHistory({ ...row, cardStates: { ...row.cardStates, [key]: fn(card) } })
 }
 
+// Some cards of a phase didn't come back. The run can't call the ad made —
+// its pack would ship short with nothing on screen saying so — so it fails
+// with the count, and the session it was building keeps every card that did
+// land: Run Flow again renders only the missing ones (the handle state and
+// the session survive, since this isn't a task kie itself reported dead).
+function partialFailure(errors: unknown[], total: number, noun: 'still' | 'clip'): FriendlyError {
+  const why = humanizeError(errors[0], `a ${noun} failed.`).replace(/\.$/, '')
+  return new FriendlyError(
+    `${errors.length} of ${total} ${noun}s didn't come back (${why}). Run Flow again to retry ${errors.length === 1 ? 'it' : 'them'}. The ones that finished are kept.`,
+  )
+}
+
 async function storyboard(ctx: ExecContext, wired: Wired, resume: BrollResume): Promise<{ sessionId: string; result: BrollResult }> {
   const held = resume.sessionId ? session(resume.sessionId) : undefined
   if (held?.result && (held.result as BrollResult).scenes?.length) {
@@ -230,6 +242,7 @@ async function stillsPhase(ctx: ExecContext, wired: Wired, resume: BrollResume, 
     }
   }))
   if (done === 0 && errors.length) throw errors[0]
+  if (errors.length) throw partialFailure(errors, cards.length, 'still')
 }
 
 async function clipsPhase(ctx: ExecContext, resume: BrollResume, sessionId: string, result: BrollResult, keep: string[] | undefined): Promise<void> {
@@ -295,6 +308,7 @@ async function clipsPhase(ctx: ExecContext, resume: BrollResume, sessionId: stri
     }
   }))
   if (done === 0 && errors.length) throw errors[0]
+  if (errors.length) throw partialFailure(errors, withStill.length, 'clip')
 }
 
 // What the run hands on: one set of clips (this ad's), and every still.

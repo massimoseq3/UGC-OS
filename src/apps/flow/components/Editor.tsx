@@ -64,7 +64,11 @@ export default function Editor({ flowId }: { flowId: string }) {
 
   // A block that stops for review opens its window, once — Review Later
   // leaves it waiting on the block.
-  const pendingReview = run?.reviews.find((id) => !dismissed.includes(id)) ?? null
+  // Only while Flow is the app on screen: the editor stays mounted behind
+  // other apps, and a review that opened over Scripts would be closed as
+  // Review Later the moment the member came back.
+  const flowOnScreen = useAppStore((s) => s.activeApp === 'flow')
+  const pendingReview = flowOnScreen ? run?.reviews.find((id) => !dismissed.includes(id)) ?? null : null
   const reviewId = reviewing ?? pendingReview
 
   if (!doc) return null
@@ -173,6 +177,8 @@ export default function Editor({ flowId }: { flowId: string }) {
 
       {reviewBlock && run && (
         <ReviewModal
+          // One review's picks never carry into the next block's.
+          key={reviewBlock.id}
           flowId={flowId}
           block={reviewBlock}
           run={run}

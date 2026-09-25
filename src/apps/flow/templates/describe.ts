@@ -103,18 +103,24 @@ async function ask(system: string, user: string): Promise<unknown> {
 type SizeOf = (id: string) => { width: number; height: number } | undefined
 
 
-// A block Ask Flow added goes one column right of whatever feeds it, below
-// anything already in that column, so it lands beside the work it belongs to
-// rather than off past the end of the flow.
+// A block Ask Flow added goes one column right of whatever feeds it — or
+// left of what it feeds, when nothing feeds it — below anything already in
+// that column, so it lands beside the work it belongs to rather than off past
+// the end of the flow.
 function placeBeside(graph: FlowGraph, id: string, sizeOf: SizeOf): FlowBlock[] {
   const size = (b: FlowBlock) => sizeOf(b.id) ?? estimatedSize(b)
   const block = graph.blocks.find((b) => b.id === id)
   const feed = graph.wires.find((w) => w.to === id)
   const upstream = feed && graph.blocks.find((b) => b.id === feed.from)
-  if (!block || !upstream) return graph.blocks
-  const x = upstream.x + size(upstream).width + COLUMN_GAP
+  // A block that only FEEDS something (a new voice preset, a list of
+  // searches) goes one column LEFT of what it feeds, so its wire runs
+  // forwards like every other one.
+  const out = !upstream ? graph.wires.find((w) => w.from === id) : undefined
+  const downstream = out && graph.blocks.find((b) => b.id === out.to)
+  if (!block || (!upstream && !downstream)) return graph.blocks
   const own = size(block)
-  let y = upstream.y
+  const x = upstream ? upstream.x + size(upstream).width + COLUMN_GAP : downstream!.x - own.width - COLUMN_GAP
+  let y = (upstream ?? downstream)!.y
   const column = graph.blocks
     .filter((b) => b.id !== id && b.x < x + own.width && b.x + size(b).width > x)
     .sort((a, b) => a.y - b.y)

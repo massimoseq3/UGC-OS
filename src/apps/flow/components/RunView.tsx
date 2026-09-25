@@ -119,7 +119,7 @@ export default function RunView({
               <GridCanvas>
                 <div className="flex h-full flex-col items-center justify-center gap-2 px-6 py-24 text-center">
                   <p className="text-sm font-medium text-ink-200">{run?.status === 'running' ? 'Making your ads…' : 'Nothing made yet'}</p>
-                  <p className="max-w-xs text-xs text-ink-500">Fill the fields, then Run. Each finished ad lands here as its own card.</p>
+                  <p className="max-w-xs text-xs text-ink-500">{run?.status === 'running' ? 'Each finished ad lands here as its own card, as soon as it’s made.' : 'Fill the fields, then Run. Each finished ad lands here as its own card.'}</p>
                 </div>
               </GridCanvas>
             ) : (

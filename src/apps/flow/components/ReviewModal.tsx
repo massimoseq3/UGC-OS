@@ -89,7 +89,7 @@ function ItemsReview({ flowId, block, results, onLater, onDone }: {
     for (const [slot, text] of Object.entries(edits)) {
       if (text.trim() && text !== textOf(valueOf(slot))) editItem(flowId, block.id, slot, text.trim())
     }
-    approveReview(flowId, block.id, { kind: 'items', keep })
+    approveReview(flowId, block.id, { kind: 'items', keep, shown: slots.map((it) => it.id) })
     onDone()
   }
   const edited = Object.entries(edits).filter(([slot, text]) => text.trim() && text !== textOf(valueOf(slot))).length

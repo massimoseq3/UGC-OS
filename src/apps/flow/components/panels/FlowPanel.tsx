@@ -6,7 +6,7 @@ import { AlertCircle, Coins, FlaskConical, Play } from 'lucide-react'
 import type { FlowDoc } from '../../types'
 import type { FlowPlan } from '../../engine/plan'
 import { KINDS, titleOf } from '../../engine/catalog'
-import type { LiveRun } from '../../run/runtime'
+import { blockStatusLine, type LiveRun } from '../../run/runtime'
 import { creditsLabel, creditsPill, runButton } from '../../hooks/useFlowPlan'
 import { useFlowStore } from '../../store/flowStore'
 import { BankPick } from './Picks'
@@ -72,10 +72,26 @@ export default function FlowPanel({
 
           <section className="flex flex-col gap-2 rounded-2xl border border-ink/5 bg-ink/[0.02] p-4">
             <div className="flex items-baseline justify-between">
-              <span className="text-[12px] text-ink-400">Next Run</span>
-              <span className="text-[15px] font-semibold tabular-nums text-ink-100">{creditsLabel(next, plan?.unpriced)}</span>
+              <span className="text-[12px] text-ink-400">{active ? 'This Run' : button.again ? 'Run Again' : 'Next Run'}</span>
+              <span className="text-[15px] font-semibold tabular-nums text-ink-100">{creditsLabel(active && run ? run.estimate : next, active ? false : button.unpriced)}</span>
             </div>
-            {plan && plan.planned.length > 0 && (
+            {/* While it runs: where each block of THIS run stands, not what
+                a next run would still make. */}
+            {active && run && (
+              <div className="flex flex-col gap-0.5">
+                {Object.entries(run.blocks).map(([id, state]) => {
+                  const b = doc.blocks.find((x) => x.id === id)
+                  if (!b) return null
+                  return (
+                    <button key={id} type="button" onClick={() => setSelection([id])} className="flex items-center justify-between gap-3 rounded-lg px-1 py-0.5 text-left text-[11.5px] hover:bg-ink/[0.04]">
+                      <span className="truncate text-ink-400">{titleOf(b)}</span>
+                      <span title={blockStatusLine(state) ?? undefined} className={`max-w-[60%] shrink-0 truncate ${state.status === 'error' ? 'text-red-400' : state.status === 'review' ? 'text-amber-300 light:text-amber-700' : 'text-ink-500'}`}>{blockStatusLine(state)}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+            {!active && plan && plan.planned.length > 0 && (
               <div className="flex flex-col gap-0.5">
                 {plan.planned.map((id) => {
                   const b = doc.blocks.find((x) => x.id === id)
