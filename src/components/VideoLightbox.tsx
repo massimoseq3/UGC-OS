@@ -72,7 +72,7 @@ export default function VideoLightbox({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[80] flex flex-col bg-black/85 backdrop-blur-sm"
+      className="fixed inset-0 z-[80] flex flex-col bg-black/85"
       {...backdrop}
     >
       <div className="absolute right-4 top-4 z-10" onClick={(e) => e.stopPropagation()}>

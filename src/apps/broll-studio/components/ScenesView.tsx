@@ -1366,7 +1366,7 @@ export default function ScenesView({
 
       {batchConfirm && createPortal(
         <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm modal-fade"
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 px-4 modal-fade"
           {...batchBackdrop}
         >
           <div
@@ -1577,7 +1577,7 @@ export default function ScenesView({
           run is priced, counted and settled here before a single task fires. */}
       {videoConfirm && createPortal(
         <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm modal-fade"
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 px-4 modal-fade"
           {...videoBackdrop}
         >
           <div
@@ -2118,7 +2118,7 @@ function SceneLineEditModal({
   const dirty = trimmed !== scriptLine.trim()
 
   return createPortal(
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm modal-fade" {...backdrop}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-4 modal-fade" {...backdrop}>
       <div onClick={(e) => e.stopPropagation()} className="w-full max-w-lg rounded-2xl border border-ink/10 bg-ink-950/95 p-5 shadow-2xl modal-pop">
         <div className="flex items-start justify-between gap-4">
           <div>

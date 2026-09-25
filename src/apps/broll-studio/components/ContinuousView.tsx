@@ -1484,7 +1484,7 @@ export default function ContinuousView({
           confirm so a 12-frame chain never fires on a stray click. */}
       {confirmGen && createPortal(
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm modal-fade"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-4 modal-fade"
           {...confirmBackdrop}
         >
           <div
@@ -1785,7 +1785,7 @@ function SceneEditModal({
   const syncCaret = () => setCaret(textRef.current?.selectionStart ?? line.length)
 
   return createPortal(
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm modal-fade" {...sceneBackdrop}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-4 modal-fade" {...sceneBackdrop}>
       <div onClick={(e) => e.stopPropagation()} className="w-full max-w-lg rounded-2xl border border-ink/10 bg-ink-950/95 p-5 shadow-2xl modal-pop">
         <div className="flex items-start justify-between gap-4">
           <div>
