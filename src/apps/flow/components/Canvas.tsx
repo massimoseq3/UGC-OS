@@ -5,7 +5,7 @@
 // and the sizes React Flow measures.
 //
 // A block opens in its app's own window (double-click, Enter, or Open on its
-// toolbar); the helpers — Text, List, Note, Image, a Bank pick — are edited
+// toolbar); the helpers — Text, Batch, Note, Image, a Bank pick — are edited
 // right on the canvas.
 
 import { useEffect, useRef, useState } from 'react'

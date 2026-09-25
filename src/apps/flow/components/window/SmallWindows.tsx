@@ -227,7 +227,7 @@ export function OutliersWindow({ doc, block, plan, run, onRun, onReview }: Windo
         <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="flex flex-col gap-2 px-5 pb-2 pt-4">
             {queryWired ? (
-              <WiredCard doc={doc} block={block} port="query" hint="The search comes in on its wire. A List wired here runs one search per item." />
+              <WiredCard doc={doc} block={block} port="query" hint="The search comes in on its wire. A Batch wired here runs one search per item." />
             ) : (
               <label className="flex h-12 items-center gap-2.5 rounded-full border border-ink/10 bg-ink/[0.02] px-4 transition-colors focus-within:border-[#D9A404]/40">
                 <Search className="h-4 w-4 shrink-0 text-ink-500" />

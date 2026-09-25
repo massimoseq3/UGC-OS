@@ -146,7 +146,7 @@ export default function PlaygroundWindow({ doc, block, plan, run, onRun, onRevie
             )}
 
             {promptWired ? (
-              <WiredCard doc={doc} block={block} port="prompt" hint="The prompt comes in on its wire. A List wired here makes one per item." />
+              <WiredCard doc={doc} block={block} port="prompt" hint="The prompt comes in on its wire. A Batch wired here makes one per item." />
             ) : (
               <PromptBox
                 value={String(s.prompt ?? '')}
@@ -195,7 +195,7 @@ export default function PlaygroundWindow({ doc, block, plan, run, onRun, onRevie
         <GridCanvas>
           <div className="min-h-0 flex-1 overflow-y-auto">
             {runs.length === 0 ? (
-              <NothingYet icon={mode === 'music' ? Music : mode === 'video' ? Film : ImageIcon} title="Nothing made yet" hint="Each run lands here. A List wired into the prompt makes one per item." />
+              <NothingYet icon={mode === 'music' ? Music : mode === 'video' ? Film : ImageIcon} title="Nothing made yet" hint="Each run lands here. A Batch wired into the prompt makes one per item." />
             ) : (
               <div className={`grid gap-3 px-6 py-6 ${mode === 'music' ? 'grid-cols-1' : 'grid-cols-2 md:grid-cols-3 xl:grid-cols-4'}`}>
                 {runs.map((r) => <OutputTile key={r.key} run={r} mode={mode} modelId={modelId} aspect={String(s.aspectRatio ?? '9:16')} />)}

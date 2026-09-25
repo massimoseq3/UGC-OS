@@ -1,6 +1,8 @@
 // A block's face: the glyph and colour it wears on the canvas and in the
 // palette — its app's own dock icon and accent, so a Voiceovers block is
-// recognisably Voiceovers.
+// recognisably Voiceovers. The dock's exact tile, not a tint of it: Scripts
+// and Playground wore lifted blues and teals here until September 2026, and
+// beside the dock a member read them as different apps.
 
 import type { ElementType } from 'react'
 import { Clapperboard, Image as ImageIcon, List, StickyNote, Type } from 'lucide-react'
@@ -35,15 +37,17 @@ export function blockAccent(block: Pick<FlowBlock, 'kind' | 'settings'>): string
     return (BANK_CONFIG[bank] ?? BANK_CONFIG.products).accent
   }
   const app = KINDS[block.kind].appId ? getAppConfig(KINDS[block.kind].appId!) : undefined
-  // Scripts and Playground are near-black on a dark canvas; the lifted tint
-  // their own admin charts use keeps a small glyph legible.
-  if (block.kind === 'scripts') return '#4C6FBF'
-  if (block.kind === 'playground') return '#12A594'
   return app?.accent ?? KINDS[block.kind].accent
 }
 
-// Kind icon + accent without a block, for the palette.
+// Kind icon + accent without a block, for the palette. A Bank that hasn't
+// picked its bank yet is the Bank app itself, in its dock tile; once it has,
+// it wears that bank's own tab icon, as it does in the Bank.
 export function kindFace(kind: BlockKind, bank?: BankType): { icon: ElementType; accent: string } {
+  if (kind === 'bank' && !bank) {
+    const app = getAppConfig('finder')!
+    return { icon: app.icon, accent: app.accent }
+  }
   const probe = { kind, settings: bank ? { bank } : {} }
   return { icon: blockIcon(probe), accent: blockAccent(probe) }
 }
@@ -63,7 +67,7 @@ export { blockWidth } from '../engine/catalog'
 
 // What each block is for, in a sentence — the palette's hover card and the
 // Add Block picker read it, so a member who has never opened a node editor
-// can tell a List from a Text without trying both.
+// can tell a Batch from a Text without trying both.
 export const BLOCK_BLURB: Record<BlockKind, string> = {
   bank: 'Something you already saved: a product, a character, a script, a voice, a still, a style or a saved ad. Costs nothing.',
   image: 'A picture you drop in. Feeds anything that takes a picture: a reference, a frame, a photo to build a face from.',
