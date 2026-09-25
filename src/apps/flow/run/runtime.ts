@@ -18,7 +18,7 @@
 import { create } from 'zustand'
 import type { BlockRunState, FlowBlock, FlowGraph, InstanceResult, RunRecord } from '../types'
 import type { ExecContext, ExecOutput, RunPhase } from './types'
-import type { PlannedInstance, PlanDeps } from '../engine/plan'
+import type { FlowPlan, PlannedInstance, PlanDeps } from '../engine/plan'
 import { planFlow, traceFor } from '../engine/plan'
 import { heldValues } from '../engine/held'
 import { blockCost, generationsOf } from '../engine/cost'
@@ -186,7 +186,7 @@ export function isRunActive(run: LiveRun | undefined): boolean {
 
 export type StartResult = { ok: true } | { ok: false; reason: string }
 
-export function startRun(flowId: string, opts: { test?: boolean; only?: string } = {}): StartResult {
+export function startRun(flowId: string, opts: { test?: boolean; only?: string; fresh?: boolean } = {}): StartResult {
   const existing = useFlowRunStore.getState().runs[flowId]
   if (isRunActive(existing)) return { ok: false, reason: 'This flow is already running.' }
   const doc = useFlowStore.getState().ensureDoc(flowId)
@@ -196,11 +196,8 @@ export function startRun(flowId: string, opts: { test?: boolean; only?: string }
     return { ok: false, reason: 'Add your kie.ai API key in Settings to run a flow.' }
   }
   const graph = knownGraph(doc)
-  const plan = planFlow(graph, doc.outputs, PLAN_DEPS, { test: opts.test, only: opts.only })
-  if (!plan.planned.length) {
-    const blocked = opts.only ? plan.blocks[opts.only]?.blocked : undefined
-    return { ok: false, reason: blocked ? `${blocked}.` : opts.only ? 'Run the blocks before it first.' : 'Nothing has changed since the last run.' }
-  }
+  const plan = planFlow(graph, doc.outputs, PLAN_DEPS, { test: opts.test, only: opts.only, fresh: opts.fresh })
+  if (!plan.planned.length) return { ok: false, reason: nothingToRun(graph, plan, opts.only) }
   const blocks: Record<string, BlockRunState> = {}
   for (const id of plan.planned) blocks[id] = { status: 'queued', total: plan.blocks[id].runs, finished: 0, failed: 0 }
   const run: LiveRun = {
@@ -208,6 +205,7 @@ export function startRun(flowId: string, opts: { test?: boolean; only?: string }
     flowId,
     test: !!opts.test,
     onlyBlockId: opts.only,
+    fresh: opts.fresh || undefined,
     startedAt: Date.now(),
     status: 'running',
     blocks,
@@ -223,6 +221,29 @@ export function startRun(flowId: string, opts: { test?: boolean; only?: string }
   useActivityStore.getState().begin('flow')
   pump(flowId)
   return { ok: true }
+}
+
+// Why a Run found nothing to do, in words that point at the fix. Run Block
+// names the block upstream that's holding it up — the one a member has to
+// go and fill — rather than the block they pressed.
+function nothingToRun(graph: FlowGraph, plan: FlowPlan, only?: string): string {
+  if (!only) {
+    const stuck = plan.order.map((id) => ({ id, bp: plan.blocks[id] })).find(({ bp }) => bp?.blocked && bp.blocked !== 'Turned off')
+    if (!stuck) return 'Nothing has changed since the last run.'
+    const b = graph.blocks.find((x) => x.id === stuck.id)
+    return `${b ? titleOf(b) : 'A block'} isn't ready: ${lowerFirst(stuck.bp.blocked!)}.`
+  }
+  const reach = [...upstreamOf(graph, only), only]
+  const first = plan.order.find((id) => reach.includes(id) && plan.blocks[id]?.blocked && plan.blocks[id].blocked !== 'Turned off')
+    ?? plan.order.find((id) => reach.includes(id) && plan.blocks[id]?.blocked)
+  if (!first) return 'Nothing to run.'
+  const b = graph.blocks.find((x) => x.id === first)
+  const why = plan.blocks[first].blocked!
+  return first === only ? `${why}.` : `${b ? titleOf(b) : 'A block before it'} isn't ready: ${lowerFirst(why)}.`
+}
+
+function lowerFirst(s: string): string {
+  return /^[A-Z][a-z]/.test(s) ? s[0].toLowerCase() + s.slice(1) : s
 }
 
 // Stops the waiting and the submitting. kie has no cancel: what was already
@@ -249,7 +270,12 @@ function pump(flowId: string) {
   }
   const graph = knownGraph(doc)
   const settled = new Set(Object.entries(run.blocks).filter(([, b]) => SETTLED.includes(b.status)).map(([id]) => id))
-  const plan = planFlow(graph, doc.outputs, PLAN_DEPS, { test: run.test, only: run.onlyBlockId, settled })
+  // What this run already made. A block can be queued twice in one run — B-Roll
+  // after its review, a running block after a reload — and Run Again or Run
+  // Block remaking it must not remake (and pay for) these a second time.
+  const made = new Set(Object.entries(run.instances).flatMap(([id, insts]) =>
+    Object.entries(insts ?? {}).filter(([, i]) => i.status === 'done').map(([key]) => `${id}:${key}`)))
+  const plan = planFlow(graph, doc.outputs, PLAN_DEPS, { test: run.test, only: run.onlyBlockId, settled, fresh: run.fresh, made })
   // A block settled right here (skipped, or nothing left to make) is still
   // 'queued' in `run` for the blocks after it, and nothing else would pump
   // again — so the loop goes round once more, re-planned. Each extra pass
@@ -341,6 +367,7 @@ async function runBlock(flowId: string, block: FlowBlock, instances: PlannedInst
         flowBlockId: block.id,
       },
       prior,
+      fresh: run.fresh || run.onlyBlockId === block.id || undefined,
     }
     phases.add(phase)
     patchInstance(flowId, block.id, inst.key, { status: 'running' })
@@ -419,7 +446,11 @@ function writeResult(flowId: string, block: FlowBlock, inst: PlannedInstance, ou
       credits: (phase === 'clips' ? before?.credits : inst.credits) ?? undefined,
       rows: out.rows ?? before?.rows,
       pack: out.pack,
-      keep: before?.keep,
+      // B-Roll's picks carry from its review into its clips phase, and no
+      // further: a new stills session is picked from afresh. A Scene Clips
+      // run that adds takes is too (its review opens again, or with none,
+      // every take goes on).
+      keep: block.kind === 'broll' && phase === 'clips' ? before?.keep : undefined,
       phase: phase === 'stills' ? 'stills' : undefined,
     }
     for (const [port, vals] of Object.entries(out.outputs ?? {})) {
@@ -486,12 +517,18 @@ function logRun(run: LiveRun) {
 // ── Reviews ────────────────────────────────────────────────────────────────
 
 export type ReviewPicks =
-  // Scripts, Characters: the items to keep. The rest turn off.
-  | { kind: 'items'; keep: string[] }
+  // Scripts, Characters: the items to keep, of the ones the review showed.
+  // The shown ones not kept turn off; anything the run didn't make (a Test
+  // With 1 makes one face of four) is left as it was, for the full run.
+  // A block that made several runs (a face per audience) is picked run by
+  // run instead: `runs` is each run's kept slots, and turns nothing off.
+  | { kind: 'items'; keep: string[]; shown?: string[]; runs?: Record<string, string[]> }
   // Voiceovers, Playground: the runs to keep. The rest are left out.
   | { kind: 'runs'; keep: string[] }
   // B-Roll: per run, the cards whose stills get animated.
   | { kind: 'stills'; keep: Record<string, string[]> }
+  // Scene Clips: per run, the takes that go on to the edit (scene:take).
+  | { kind: 'takes'; keep: Record<string, string[]> }
 
 export function approveReview(flowId: string, blockId: string, picks: ReviewPicks) {
   const run = useFlowRunStore.getState().runs[flowId]
@@ -501,8 +538,23 @@ export function approveReview(flowId: string, blockId: string, picks: ReviewPick
   const block = doc?.blocks.find((b) => b.id === blockId)
   if (!doc || !block) return
 
-  if (picks.kind === 'items') {
-    const off = liveItems(block).map((it) => it.id).filter((id) => !picks.keep.includes(id))
+  if (picks.kind === 'items' && picks.runs) {
+    const runs = picks.runs
+    store.setResults(flowId, blockId, (prev) => {
+      const next = { ...prev }
+      for (const [key, slots] of Object.entries(runs)) {
+        if (!next[key]) continue
+        const made = Object.keys(next[key].items ?? {})
+        next[key] = slots.length === 0 ? { ...next[key], keep: undefined, off: true }
+          : { ...next[key], off: undefined, keep: made.every((s) => slots.includes(s)) ? undefined : slots }
+      }
+      return next
+    })
+  } else if (picks.kind === 'items') {
+    const shown = picks.shown ?? liveItems(block).map((it) => it.id)
+    const off = liveItems(block)
+      .filter((it) => (shown.includes(it.id) ? !picks.keep.includes(it.id) : !!it.off))
+      .map((it) => it.id)
     if (store.openId !== flowId) store.openFlow(flowId)
     useFlowStore.getState().setItemsOff(blockId, off)
   } else if (picks.kind === 'runs') {
@@ -515,7 +567,14 @@ export function approveReview(flowId: string, blockId: string, picks: ReviewPick
   } else {
     store.setResults(flowId, blockId, (prev) => {
       const next = { ...prev }
-      for (const [key, cards] of Object.entries(picks.keep)) if (next[key]) next[key] = { ...next[key], keep: cards }
+      for (const [key, cards] of Object.entries(picks.keep)) {
+        if (!next[key]) continue
+        // No take kept of an ad leaves that ad out, as Leave Out does for a
+        // run, rather than handing its edit an empty set of clips.
+        next[key] = picks.kind === 'takes' && cards.length === 0
+          ? { ...next[key], keep: undefined, off: true }
+          : { ...next[key], keep: cards }
+      }
       return next
     })
   }

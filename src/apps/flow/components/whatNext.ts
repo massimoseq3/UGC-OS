@@ -14,17 +14,22 @@ export interface WhatNextOption {
   detail: string
 }
 
-// Blocks a dragged OUTPUT of `type` could go into.
+// Blocks a dragged OUTPUT of `type` could go into — one row per input that
+// takes it, since which input is the whole question: an ad's Scene Prompts
+// into Scripts' Winning Ad is a remix scene by scene, into its Brief it's
+// background reading. The input made for the type leads.
 export function optionsForOutput(type: PortType): WhatNextOption[] {
   const out: WhatNextOption[] = []
   for (const kind of PRODUCTION_ORDER) {
-    const port = KINDS[kind].ins.find((p) => accepts(p.type, type))
-    if (port) out.push({ kind, port: port.key, label: KINDS[kind].title, detail: port.label })
+    const ports = KINDS[kind].ins.filter((p) => accepts(p.type, type))
+    const ordered = [...ports.filter((p) => p.type === type), ...ports.filter((p) => p.type !== type)]
+    for (const port of ordered) out.push({ kind, port: port.key, label: KINDS[kind].title, detail: port.label })
   }
   return out
 }
 
-// Blocks that could feed a dragged INPUT of `type`.
+// Blocks that could feed a dragged INPUT of `type` — one row per output that
+// fits, so the Ad Analyzer offers its Transcript and its Scene Prompts apart.
 export function optionsForInput(type: PortType): WhatNextOption[] {
   const out: WhatNextOption[] = []
   for (const kind of PRODUCTION_ORDER) {
@@ -34,8 +39,27 @@ export function optionsForInput(type: PortType): WhatNextOption[] {
       }
       continue
     }
-    const port = KINDS[kind].outs.find((p) => accepts(type, p.type))
-    if (port) out.push({ kind, port: port.key, label: KINDS[kind].title, detail: port.label })
+    for (const port of KINDS[kind].outs.filter((p) => accepts(type, p.type))) {
+      out.push({ kind, port: port.key, label: KINDS[kind].title, detail: port.label })
+    }
+  }
+  return out
+}
+
+// A block that can sit in the middle of a wire: it takes what the wire
+// carries and makes something the wire's far end takes. Insert on a wire
+// lists these.
+export interface InsertOption extends WhatNextOption {
+  // The port on the new block the far end is fed from.
+  outPort: string
+}
+
+export function optionsForInsert(carried: PortType, farEnd: PortType): InsertOption[] {
+  const out: InsertOption[] = []
+  for (const kind of PRODUCTION_ORDER) {
+    const port = KINDS[kind].ins.find((p) => accepts(p.type, carried))
+    const outPort = KINDS[kind].outs.find((p) => accepts(farEnd, p.type))
+    if (port && outPort) out.push({ kind, port: port.key, outPort: outPort.key, label: KINDS[kind].title, detail: `${port.label} → ${outPort.label}` })
   }
   return out
 }

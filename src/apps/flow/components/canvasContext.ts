@@ -23,6 +23,15 @@ export interface CanvasContextValue {
   // A dot clicked: what could go into it (an input) or come out of it (an
   // output), as the What Next? menu at the pointer.
   askAtPort: (blockId: string, port: string, side: 'in' | 'out', clientX: number, clientY: number) => void
+  // The block whose name is being typed on the canvas (F2, or Rename).
+  renaming: string | null
+  setRenaming: (blockId: string | null) => void
+  // A wire's + at its middle: the blocks that could sit between its ends.
+  openInsert: (wireId: string, clientX: number, clientY: number) => void
+  // A wire's eye: every value it carries, made or still to be made.
+  openPeek: (wireId: string, clientX: number, clientY: number) => void
+  // The wire under the pointer (null: let go of it, a moment late).
+  pointWire: (wireId: string | null) => void
 }
 
 export const CanvasContext = createContext<CanvasContextValue | null>(null)

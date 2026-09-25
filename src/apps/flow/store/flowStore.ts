@@ -14,7 +14,7 @@ import type { SetupSource } from '../components/TemplateSetup'
 import { sourceOf } from '../engine/catalog'
 import { canConnect, downstreamOf, itemPort, pruneWires, type ConnectCheck } from '../engine/graph'
 import { tidyLayout } from '../engine/layout'
-import { docFromRow, newBlock, rowFromDoc, shortId, withSlots } from './blocks'
+import { docFromRow, newBlock, rowFromDoc, shapeBlocks, shortId } from './blocks'
 
 const SAVE_DEBOUNCE_MS = 700
 // The flow on screen, so a reload lands back in it. Draft prefix: sign-out
@@ -184,7 +184,7 @@ export const useFlowStore = create<FlowStoreState>((set, get) => {
     if (!doc) return
     const next = mutate(doc)
     if (!next) return
-    const blocks = next.blocks.map(withSlots)
+    const blocks = shapeBlocks(next)
     const wires = pruneWires({ blocks, wires: next.wires })
     const nextDoc: FlowDoc = { ...doc, blocks, wires, updatedAt: Date.now() }
     nextDoc.outputs = trimOutputs(nextDoc)
@@ -243,7 +243,7 @@ export const useFlowStore = create<FlowStoreState>((set, get) => {
       const doc: FlowDoc = {
         id: crypto.randomUUID(),
         name: init.name?.trim() || 'Untitled Flow',
-        blocks: init.graph?.blocks.map(withSlots) ?? [],
+        blocks: init.graph ? shapeBlocks(init.graph) : [],
         wires: init.graph?.wires ?? [],
         outputs: {},
         template: init.template,

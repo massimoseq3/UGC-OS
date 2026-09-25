@@ -10,7 +10,7 @@ import { planFlow } from '../engine/plan'
 import { titleOf } from '../engine/catalog'
 import { PLAN_DEPS } from '../run/runtime'
 import { useFlowStore } from '../store/flowStore'
-import { withSlots } from '../store/blocks'
+import { shapeBlocks } from '../store/blocks'
 import { creditsLabel } from '../hooks/useFlowPlan'
 import { flowFromLineage } from '../lineage/saveAsFlow'
 import { MADE_BANKS, PICKED_BANKS, startOf, traceLineage, type LineageBanks, type Trace } from '../lineage/trace'
@@ -175,7 +175,7 @@ function SaveView({ target, onClose }: { target: Lineage; onClose: () => void })
   const saved = found ? flowFromLineage(trace, { keepScript }) : null
   // A batch block's slots are what its downstream runs once per, so the
   // price is only right once they're there — the store adds them on create.
-  const graph = saved ? { ...saved.graph, blocks: saved.graph.blocks.map(withSlots) } : null
+  const graph = saved ? { ...saved.graph, blocks: shapeBlocks(saved.graph) } : null
   const plan: FlowPlan | null = graph ? planFlow(graph, {}, PLAN_DEPS) : null
   const fields = graph?.blocks.filter((b) => b.field) ?? []
 

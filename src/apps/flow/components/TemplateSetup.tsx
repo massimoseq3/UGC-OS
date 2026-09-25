@@ -21,7 +21,7 @@ import { bankRowValue } from '../engine/held'
 import { planFlow } from '../engine/plan'
 import { PLAN_DEPS, startRun } from '../run/runtime'
 import { useFlowStore } from '../store/flowStore'
-import { withSlots } from '../store/blocks'
+import { shapeBlocks } from '../store/blocks'
 import { creditsLabel } from '../hooks/useFlowPlan'
 import { instantiate, type LoadedTemplate, type TemplateField } from '../templates/io'
 import { loadGalleryTemplate, type GalleryEntry } from '../templates/gallery'
@@ -67,16 +67,19 @@ export default function TemplateSetup({ source, onClose }: { source: SetupSource
   // would leave everything after it out of the price.
   const preview: FlowGraph | null = file
     ? {
-        blocks: file.blocks.map((b) => withSlots({
-          ...b,
-          pick: picks[b.id]?.pick ?? b.pick,
-          settings: {
-            ...b.settings,
-            ...(b.kind === 'image' && typeof b.settings.asset === 'string' ? { ref: `embedded:${b.settings.asset}` } : {}),
-            ...(b.kind === 'image' && picks[b.id]?.ref ? { ref: picks[b.id].ref } : {}),
-            ...(b.kind === 'text' && picks[b.id]?.text !== undefined ? { text: picks[b.id].text } : {}),
-          },
-        })),
+        blocks: shapeBlocks({
+          blocks: file.blocks.map((b) => ({
+            ...b,
+            pick: picks[b.id]?.pick ?? b.pick,
+            settings: {
+              ...b.settings,
+              ...(b.kind === 'image' && typeof b.settings.asset === 'string' ? { ref: `embedded:${b.settings.asset}` } : {}),
+              ...(b.kind === 'image' && picks[b.id]?.ref ? { ref: picks[b.id].ref } : {}),
+              ...(b.kind === 'text' && picks[b.id]?.text !== undefined ? { text: picks[b.id].text } : {}),
+            },
+          })),
+          wires: file.wires,
+        }),
         wires: file.wires,
       }
     : null

@@ -5,7 +5,7 @@
 // clip total counting as you go.
 
 import { useState } from 'react'
-import { Check, Play, Pause } from 'lucide-react'
+import { Check, Pause, Pencil, Play } from 'lucide-react'
 import type { FlowBlock, FlowDoc, FlowValue } from '../types'
 import { approveReview, type LiveRun } from '../run/runtime'
 import { itemNoun, titleOf } from '../engine/catalog'
@@ -13,17 +13,23 @@ import { liveItems } from '../engine/graph'
 import { brollClipSeconds, brollVideoModel, brollVideoResolution } from '../engine/cost'
 import { reviewStills } from '../run/executors/broll'
 import Modal from '../../../components/Modal'
-import { useAssetThumb } from '../../../hooks/useAssetUrl'
+import { useAssetThumb, useAssetUrl } from '../../../hooks/useAssetUrl'
+import VideoLightbox from '../../../components/VideoLightbox'
 import { useAudioPlayback } from '../../../hooks/useAudioPlayback'
 import { estimateCredits, getModel } from '../../../utils/models'
 import { creditsLabel } from '../hooks/useFlowPlan'
 import { useBankStore } from '../../../stores/bankStore'
+import AutoGrowTextarea from '../../../components/AutoGrowTextarea'
+import { editItem } from '../run/edits'
+import type { FlowPlan } from '../engine/plan'
+import { blockRuns } from './window/runs'
 
 export default function ReviewModal({
   flowId,
   block,
   run,
   doc,
+  plan,
   onLater,
   onDone,
 }: {
@@ -31,6 +37,7 @@ export default function ReviewModal({
   block: FlowBlock
   run: LiveRun
   doc: FlowDoc
+  plan: FlowPlan | null
   onLater: () => void
   onDone: () => void
 }) {
@@ -38,10 +45,14 @@ export default function ReviewModal({
   const madeKeys = Object.keys(run.instances[block.id] ?? {}).filter((k) => results[k])
 
   if (block.kind === 'scripts' || block.kind === 'characters') {
-    return <ItemsReview flowId={flowId} block={block} results={madeKeys.map((k) => results[k])} onLater={onLater} onDone={onDone} />
+    const labels = Object.fromEntries(blockRuns(block, plan?.blocks[block.id], run).map((r) => [r.key, r.label]))
+    return <ItemsReview flowId={flowId} block={block} results={madeKeys.map((k) => results[k])} labels={labels} onLater={onLater} onDone={onDone} />
   }
   if (block.kind === 'broll') {
     return <StillsReview flowId={flowId} block={block} keys={madeKeys} doc={doc} onLater={onLater} onDone={onDone} />
+  }
+  if (block.kind === 'scenes') {
+    return <TakesReview flowId={flowId} block={block} keys={madeKeys} doc={doc} onLater={onLater} onDone={onDone} />
   }
   return <RunsReview flowId={flowId} block={block} keys={madeKeys} doc={doc} onLater={onLater} onDone={onDone} />
 }
@@ -64,53 +75,115 @@ function Footer({ onLater, onGo, label, disabled }: { onLater: () => void; onGo:
 
 // ── Hooks and faces ────────────────────────────────────────────────────────
 
-function ItemsReview({ flowId, block, results, onLater, onDone }: {
+function ItemsReview({ flowId, block, results, labels, onLater, onDone }: {
   flowId: string
   block: FlowBlock
-  results: Array<{ items?: Record<string, FlowValue> }>
+  results: Array<{ key: string; items?: Record<string, FlowValue> }>
+  labels: Record<string, string>
   onLater: () => void
   onDone: () => void
 }) {
-  const valueOf = (slot: string) => results.map((r) => r.items?.[slot]).find(Boolean)
-  // Only what the run actually made: a model that wrote nine hooks for ten
-  // slots leaves one with nothing to keep.
-  const slots = liveItems(block).filter((it) => !it.off && valueOf(it.id))
-  const [keep, setKeep] = useState<string[]>(slots.map((it) => it.id))
+  // Every item the review is for, run by run — only what a run actually made:
+  // a model that wrote nine hooks for ten slots leaves one with nothing to
+  // keep. One run is picked slot by slot, and a slot left out turns off;
+  // several (a face per audience) are picked run by run, each under its name.
+  const live = liveItems(block).filter((it) => !it.off)
+  const groups = results
+    .map((r, n) => ({
+      key: r.key,
+      label: labels[r.key] ?? `Run ${n + 1}`,
+      items: live.filter((it) => r.items?.[it.id]).map((it) => ({ id: `${r.key}|${it.id}`, run: r.key, slot: it.id, value: r.items![it.id] })),
+    }))
+    .filter((g) => g.items.length)
+  const all = groups.flatMap((g) => g.items)
+  const several = groups.length > 1
+  const [keep, setKeep] = useState<string[]>(all.map((x) => x.id))
+  // Scripts only: the words rewritten by hand before they're voiced or shot.
+  const [edits, setEdits] = useState<Record<string, string>>({})
+  const [editing, setEditing] = useState<string | null>(null)
   const noun = itemNoun(block)
   const toggle = (id: string) => setKeep((k) => (k.includes(id) ? k.filter((x) => x !== id) : [...k, id]))
   const faces = block.kind === 'characters'
+  const textOf = (v: FlowValue | undefined) => (v?.type === 'script' ? v.payload.text : v?.label ?? '')
+  const changed = all.filter((x) => edits[x.id]?.trim() && edits[x.id] !== textOf(x.value))
+  const go = () => {
+    // Each edit lands on the run it was made in.
+    for (const x of changed) editItem(flowId, block.id, x.run, x.slot, edits[x.id].trim())
+    if (several) {
+      const runs = Object.fromEntries(groups.map((g) => [g.key, g.items.filter((x) => keep.includes(x.id)).map((x) => x.slot)]))
+      approveReview(flowId, block.id, { kind: 'items', keep: [], runs })
+    } else {
+      approveReview(flowId, block.id, { kind: 'items', keep: all.filter((x) => keep.includes(x.id)).map((x) => x.slot), shown: all.map((x) => x.slot) })
+    }
+    onDone()
+  }
   return (
     <Modal
       open
       onClose={onLater}
       title={`Review ${titleOf(block)}`}
-      subtitle={`Keep the ${noun.toLowerCase()}s worth making more from. The rest turn off, and nothing downstream runs for them.`}
+      subtitle={faces
+        ? `Keep the ${noun.toLowerCase()}s worth making more from. Nothing after this runs for the rest.`
+        : `Keep the ${noun.toLowerCase()}s worth making and fix any line that doesn't sound real. The rest are left out.`}
       size={faces ? 'wide' : 'medium'}
-      footer={<Footer onLater={onLater} label={`Keep ${keep.length} and Continue`} disabled={!keep.length} onGo={() => { approveReview(flowId, block.id, { kind: 'items', keep }); onDone() }} />}
+      footer={<Footer onLater={onLater} label={`Keep ${keep.length}${changed.length ? `, ${changed.length} Edited,` : ''} and Continue`} disabled={!keep.length} onGo={go} />}
     >
-      <div className={faces ? 'grid grid-cols-2 gap-3 p-4 sm:grid-cols-4' : 'flex flex-col gap-1.5 p-4'}>
-        {slots.map((it, i) => {
-          const v = valueOf(it.id)
-          const on = keep.includes(it.id)
-          return faces ? (
-            <FaceTile key={it.id} value={v} on={on} onClick={() => toggle(it.id)} />
-          ) : (
-            <button
-              key={it.id}
-              type="button"
-              onClick={() => toggle(it.id)}
-              className={`flex items-start gap-3 rounded-2xl border px-4 py-3 text-left transition-colors ${on ? 'border-flow-500/40 bg-flow-500/10' : 'border-ink/5 opacity-60 hover:opacity-100'}`}
-            >
-              <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${on ? 'border-flow-400 bg-flow-500 text-white' : 'border-ink/20'}`}>
-                {on && <Check className="h-3 w-3" />}
-              </span>
-              <span className="min-w-0">
-                <span className="block text-[11px] text-ink-500">{noun} {i + 1}</span>
-                <span className="block whitespace-pre-wrap text-[13px] leading-relaxed text-ink-100">{v?.label ?? '—'}</span>
-              </span>
-            </button>
-          )
-        })}
+      <div className="flex flex-col gap-5 p-4">
+        {groups.map((g) => (
+          <section key={g.key} className="flex flex-col gap-2">
+            {several && <p className="truncate px-1 text-[12px] font-medium text-ink-300" title={g.label}>{g.label}</p>}
+            <div className={faces ? 'grid grid-cols-2 gap-3 sm:grid-cols-4' : 'flex flex-col gap-1.5'}>
+              {g.items.map((x, i) => {
+                const on = keep.includes(x.id)
+                if (faces) return <FaceTile key={x.id} value={x.value} on={on} onClick={() => toggle(x.id)} />
+                const text = edits[x.id] ?? textOf(x.value)
+                return (
+                  <div
+                    key={x.id}
+                    className={`group flex items-start gap-3 rounded-2xl border px-4 py-3 text-left transition-colors ${on ? 'border-flow-500/40 bg-flow-500/10' : 'border-ink/5 opacity-60 hover:opacity-100'}`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => toggle(x.id)}
+                      aria-label={on ? `Leave ${noun} ${i + 1} Out` : `Keep ${noun} ${i + 1}`}
+                      className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${on ? 'border-flow-400 bg-flow-500 text-white' : 'border-ink/20'}`}
+                    >
+                      {on && <Check className="h-3 w-3" />}
+                    </button>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-2 text-[11px] text-ink-500">
+                        {noun} {i + 1}
+                        {edits[x.id] !== undefined && edits[x.id] !== textOf(x.value) && <span className="text-flow-300">Edited</span>}
+                      </span>
+                      {editing === x.id ? (
+                        <AutoGrowTextarea
+                          autoFocus
+                          value={text}
+                          onChange={(e) => setEdits((cur) => ({ ...cur, [x.id]: e.target.value }))}
+                          onBlur={() => setEditing(null)}
+                          className="mt-1 w-full resize-none rounded-xl border border-flow-500/30 bg-ink/[0.04] px-3 py-2 text-[13px] leading-relaxed text-ink-100 outline-none"
+                        />
+                      ) : (
+                        <span className="block cursor-text whitespace-pre-wrap text-[13px] leading-relaxed text-ink-100" onClick={() => setEditing(x.id)}>{text || '—'}</span>
+                      )}
+                    </span>
+                    {editing !== x.id && (
+                      <button
+                        type="button"
+                        onClick={() => setEditing(x.id)}
+                        title="Edit the words before anything is made from them"
+                        className="flex h-7 shrink-0 items-center gap-1 rounded-full border border-ink/10 px-2.5 text-[11px] font-medium text-ink-400 opacity-0 transition-opacity hover:border-ink/20 hover:text-ink-100 group-hover:opacity-100 touch:opacity-100"
+                      >
+                        <Pencil className="h-3 w-3" />
+                        Edit
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </section>
+        ))}
       </div>
     </Modal>
   )
@@ -258,5 +331,89 @@ function StillTile({ refId, line, on, onClick }: { refId: string; line: string; 
       <span className="absolute inset-x-0 bottom-0 line-clamp-2 bg-gradient-to-t from-black/80 to-transparent px-2 pb-1.5 pt-4 text-[10px] leading-snug text-white">{line}</span>
       {on && <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-flow-500 text-white"><Check className="h-3 w-3" /></span>}
     </button>
+  )
+}
+
+// ── Scene Clips takes ──────────────────────────────────────────────────────
+
+// The best take of each scene: every take a run filmed, scene by scene, and
+// only the picked ones go on to the edit. The first take of each scene
+// starts picked, so Continue with nothing touched keeps one clip per scene.
+function TakesReview({ flowId, block, keys, doc, onLater, onDone }: { flowId: string; block: FlowBlock; keys: string[]; doc: FlowDoc; onLater: () => void; onDone: () => void }) {
+  const results = doc.outputs[block.id]?.instances ?? {}
+  const runs = keys.map((key) => {
+    const v = results[key]?.outputs.clips?.[0]
+    const clips = v?.type === 'video' ? v.payload.clips.filter((c) => c.scene !== undefined) : []
+    const scenes = [...new Set(clips.map((c) => c.scene!))].sort((a, b) => a - b)
+    return { key, label: v?.label ?? '', scenes: scenes.map((n) => ({ n, takes: clips.filter((c) => c.scene === n).sort((a, b) => (a.take ?? 0) - (b.take ?? 0)) })) }
+  })
+  const [keep, setKeep] = useState<Record<string, string[]>>(() => Object.fromEntries(runs.map((r) => [r.key, r.scenes.map((s) => `${s.n}:${s.takes[0]?.take ?? 0}`)])))
+  const [playing, setPlaying] = useState<string | null>(null)
+  const playUrl = useAssetUrl(playing ?? undefined)
+  const toggle = (run: string, id: string) =>
+    setKeep((cur) => {
+      const list = cur[run] ?? []
+      return { ...cur, [run]: list.includes(id) ? list.filter((x) => x !== id) : [...list, id] }
+    })
+  const count = Object.values(keep).reduce((n, l) => n + l.length, 0)
+  const bare = runs.flatMap((r) => r.scenes.filter((s) => !s.takes.some((t) => keep[r.key]?.includes(`${s.n}:${t.take ?? 0}`))).map((s) => s.n))
+  const aspect = String(block.settings.aspectRatio ?? '9:16')
+  return (
+    <Modal
+      open
+      onClose={onLater}
+      title="Pick the Best Takes"
+      subtitle={bare.length ? `Scene ${[...new Set(bare)].join(', ')} has no take picked, so it's left out of the edit.` : 'Only the takes you pick go on to the edit. Click a take to pick it, and its ▶ to watch it.'}
+      size="wide"
+      footer={<Footer onLater={onLater} label={`Keep ${count} and Continue`} disabled={!count} onGo={() => { approveReview(flowId, block.id, { kind: 'takes', keep }); onDone() }} />}
+    >
+      <div className="flex flex-col gap-6 p-4">
+        {runs.map((r, i) => (
+          <div key={r.key} className="flex flex-col gap-3">
+            {runs.length > 1 && <p className="truncate text-[12px] font-medium text-ink-300">Ad {i + 1} · {r.label}</p>}
+            {r.scenes.map((s) => (
+              <div key={s.n} className="flex items-center gap-3">
+                <span className="w-16 shrink-0 text-[12px] font-medium text-ink-400">Scene {s.n}</span>
+                <div className="flex flex-wrap gap-2">
+                  {s.takes.map((t) => {
+                    const id = `${s.n}:${t.take ?? 0}`
+                    return (
+                      <TakeTile
+                        key={id}
+                        refId={t.ref}
+                        aspect={aspect}
+                        on={!!keep[r.key]?.includes(id)}
+                        label={`Take ${(t.take ?? 0) + 1}`}
+                        onClick={() => toggle(r.key, id)}
+                        onPlay={() => setPlaying(t.ref)}
+                      />
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+      {playing && playUrl && (
+        <VideoLightbox videoUrl={playUrl} fileStem="scene-take" aspectRatio={aspect} sourceApp="playground" accentClass="border-playground-500/40 bg-playground-500/20 text-playground-100 hover:bg-playground-500/30" onClose={() => setPlaying(null)} />
+      )}
+    </Modal>
+  )
+}
+
+function TakeTile({ refId, aspect, on, label, onClick, onPlay }: { refId: string; aspect: string; on: boolean; label: string; onClick: () => void; onPlay: () => void }) {
+  const thumb = useAssetThumb(refId)
+  return (
+    <div className={`relative w-[96px] overflow-hidden rounded-xl border-2 transition-colors ${on ? 'border-flow-400' : 'border-transparent opacity-55 hover:opacity-100'}`} style={{ aspectRatio: aspect.replace(':', ' / ') }}>
+      <button type="button" onClick={onClick} className="absolute inset-0" aria-label={on ? `Leave ${label} Out` : `Keep ${label}`} aria-pressed={on}>
+        {thumb.url ? <img src={thumb.url} alt="" className="h-full w-full object-cover" /> : <span className="block h-full w-full bg-ink/10" />}
+      </button>
+      <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2 pb-1.5 pt-4 text-[10px] font-medium text-white">{label}</span>
+      {on && <span className="pointer-events-none absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-flow-500 text-white"><Check className="h-3 w-3" /></span>}
+      <button type="button" onClick={onPlay} aria-label={`Watch ${label}`} className="absolute left-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white hover:bg-black/75">
+        <Play className="ml-0.5 h-3 w-3" />
+      </button>
+    </div>
   )
 }

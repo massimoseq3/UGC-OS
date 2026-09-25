@@ -17,6 +17,9 @@ import { resolveImageModelId } from '../../broll-studio/services/generateBroll'
 import { autoClipSeconds, DEFAULT_CLIP_SECONDS } from '../../broll-studio/services/clipDuration'
 import { estimateAnalysisCredits } from '../../ad-anatomy/services/analysisCost'
 import type { ImageResolution } from '../../../utils/models'
+import { isBatch, KINDS, scriptsFormat } from './catalog'
+import { matchTextOf, sceneClipInput, sceneRefs, scriptTextOf } from './sceneClips'
+import { sceneTakes, scenesToFilm, type SceneShot } from './sceneShots'
 
 // A 30-second read: what an unwritten script is priced as.
 const TYPICAL_SCRIPT = 'x'.repeat(450)
@@ -34,9 +37,8 @@ function textOf(values: FlowValue[] | undefined): string | null {
 // Scripts writes on tokens; the run's size is its format's typical answer.
 // Rounded up, like B-Roll's storyboard estimate.
 function scriptsCost(block: FlowBlock, slots: number): number | null {
-  const s = block.settings
   const model = resolveScriptModel('script-architect')
-  const hooks = s.mode === 'write' && s.writeFormat === 'hooks'
+  const hooks = scriptsFormat(block) === 'hooks'
   const tokens = hooks ? 7_000 + slots * 60 : slots * 6_000
   return estimateCredits(model, { tokenCount: tokens })
 }
@@ -66,11 +68,12 @@ export function brollVideoResolution(block: FlowBlock, modelId: string | undefin
   return getModel(modelId ?? '')?.videoConstraints?.default ?? allowed?.[0] ?? '720p'
 }
 
-function brollCost(block: FlowBlock, inputs: Record<string, FlowValue[]>): number | null {
+function brollCost(block: FlowBlock, inputs: Record<string, FlowValue[]>, test = false): number | null {
   const script = textOf(inputs.script)
   const delivery = block.settings.delivery === 'dialogue' ? 'dialogue' : 'silent'
   const scenes = sceneCount(script)
-  const takes = Math.min(3, Math.max(1, Number(block.settings.takes) || 1))
+  // A test run renders one take of each scene (executors/broll.ts takesOf).
+  const takes = test ? 1 : Math.min(3, Math.max(1, Number(block.settings.takes) || 1))
   const storyboard = estimatePromptCredits('line', script ?? TYPICAL_SCRIPT, delivery) ?? 0
   const stillModel = resolveImageModelId(true)
   const still = stillModel ? estimateCredits(stillModel, { resolution: '1K', imageCount: 1 }) : null
@@ -96,10 +99,13 @@ function brollCost(block: FlowBlock, inputs: Record<string, FlowValue[]>): numbe
 // one, or one per slot of a batch. A B-Roll run is its storyboard, a still
 // for every take of every scene and, animated, a clip for each — counted
 // the same way brollCost prices it.
-export function generationsOf(block: FlowBlock, inputs: Record<string, FlowValue[]>, slots: number): number {
+export function generationsOf(block: FlowBlock, inputs: Record<string, FlowValue[]>, slots: number, test = false): number {
+  if (block.kind === 'scenes') return scenesShots(block, inputs, test).length * sceneTakes(block, test)
+  // Ten hooks, or five ads found, are ONE call: they're not ten generations.
+  if (isBatch(block) && !KINDS[block.kind].perSlot) return 1
   if (block.kind !== 'broll') return Math.max(1, slots)
   const scenes = sceneCount(textOf(inputs.script))
-  const takes = Math.min(3, Math.max(1, Number(block.settings.takes) || 1))
+  const takes = test ? 1 : Math.min(3, Math.max(1, Number(block.settings.takes) || 1))
   return 1 + scenes * takes * (block.settings.animate !== false ? 2 : 1)
 }
 
@@ -178,7 +184,33 @@ function productPhoto(productId: string): string {
   return useBankStore.getState().products.find((p) => p.id === productId)?.productImage ?? ''
 }
 
-export function blockCost(block: FlowBlock, inputs: Record<string, FlowValue[]>, slots: number): number | null {
+// The scenes a Scene Clips run films. A script not written yet is priced as
+// a typical ad: four scenes of about eight seconds.
+function scenesShots(block: FlowBlock, inputs: Record<string, FlowValue[]>, test: boolean): SceneShot[] {
+  // A script not written yet carries a stand-in of its likely shape (plan.ts
+  // sizeHint): scenes for a scene script, one line for a hook.
+  const text = scriptTextOf(inputs)
+  if (text) return scenesToFilm(block, text, test).shots
+  const typical: SceneShot[] = Array.from({ length: test ? 1 : TYPICAL_SCENES }, (_, i) => ({
+    number: i + 1, label: `Scene ${i + 1}`, body: '', spoken: '', seconds: 8, showsProduct: true,
+  }))
+  // One Clip is the whole script however it's run: a test films all of it.
+  return block.settings.shape === 'one' ? [{ ...typical[0], seconds: 8 * TYPICAL_SCENES }] : typical
+}
+
+function scenesCost(block: FlowBlock, inputs: Record<string, FlowValue[]>, test: boolean): number | null {
+  const text = scriptTextOf(inputs)
+  const { script } = scenesToFilm(block, text, test, matchTextOf(inputs))
+  let total = 0
+  for (const shot of scenesShots(block, inputs, test)) {
+    const one = playgroundRunner.estimate(sceneClipInput(block, script, shot, sceneRefs(block, inputs, shot)))
+    if (one === null) return null
+    total += one
+  }
+  return total * sceneTakes(block, test)
+}
+
+export function blockCost(block: FlowBlock, inputs: Record<string, FlowValue[]>, slots: number, test = false): number | null {
   switch (block.kind) {
     case 'scripts':
       return scriptsCost(block, slots)
@@ -198,7 +230,9 @@ export function blockCost(block: FlowBlock, inputs: Record<string, FlowValue[]>,
       return one === null ? null : one * slots
     }
     case 'broll':
-      return brollCost(block, inputs)
+      return brollCost(block, inputs, test)
+    case 'scenes':
+      return scenesCost(block, inputs, test)
     case 'playground':
       return playgroundRunner.estimate(playgroundInput(block, inputs))
     case 'analyzer':

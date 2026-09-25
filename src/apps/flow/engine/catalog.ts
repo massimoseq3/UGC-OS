@@ -5,7 +5,7 @@
 
 import type { BlockKind, BlockSource, FlowBlock, PortSpec, PortType } from '../types'
 import type { BankType } from '../../../utils/constants'
-import { DEFAULT_HOOK_COUNT, DEFAULT_VARIATION_COUNT, isHookCount, isVariationCount } from '../../script-architect/types'
+import { DEFAULT_HOOK_COUNT, DEFAULT_VARIATION_COUNT, detectSceneBlueprint, isHookCount, isVariationCount } from '../../script-architect/types'
 
 // ── Port types ─────────────────────────────────────────────────────────────
 
@@ -94,7 +94,10 @@ export const KINDS: Record<BlockKind, KindSpec> = {
     title: 'Characters',
     appId: 'character-studio',
     accent: '#F74F9E',
-    ins: [port('photo', 'Reference Photo', 'image')],
+    // A Change is the Characters edit modal's instruction: wired in with a
+    // Reference Photo, it edits that picture instead of drawing the form, so
+    // a List of changes makes one variant per audience off one character.
+    ins: [port('photo', 'Reference Photo', 'image'), port('change', 'Change', 'text')],
     outs: [port('all', 'All Characters', 'character')],
     sources: ['generate', 'bank', 'history'],
     runnable: true,
@@ -174,6 +177,42 @@ export const KINDS: Record<BlockKind, KindSpec> = {
     reviewable: true,
     defaults: () => ({ mode: 'image', prompt: '', aspectRatio: '9:16', resolution: '1K', durationSeconds: 6, audio: false, instrumental: false }),
   },
+  // A scene script filmed scene by scene: one Playground clip per scene, the
+  // voice profile on every prompt, each clip as long as its scene, the
+  // product only where it's shown (engine/sceneShots.ts). The talking-head
+  // ad from the channel, as one block.
+  scenes: {
+    kind: 'scenes',
+    title: 'Scene Clips',
+    appId: 'playground',
+    accent: '#12A594',
+    ins: [
+      port('script', 'Scene Script', 'script', { required: true }),
+      port('character', 'Character', 'character'),
+      port('product', 'Product', 'product'),
+      // Another scene script whose voice profile and look these clips take
+      // on when their own script has none — the hooks filmed to match the
+      // body they'll be cut in front of. It rides with every run rather than
+      // multiplying them: ten hooks are ten clips, whichever body is kept.
+      port('match', 'Match Voice & Look', 'script', { many: true }),
+      port('refs', 'More References', 'image', { many: true }),
+    ],
+    outs: [port('clips', 'Clips', 'video')],
+    sources: ['generate'],
+    runnable: true,
+    reviewable: true,
+    defaults: () => ({
+      shape: 'scenes',
+      takes: 1,
+      aspectRatio: '9:16',
+      audio: true,
+      voice: true,
+      style: true,
+      productWhenShown: true,
+      continuity: true,
+      rules: 'No captions, subtitles or text on screen.',
+    }),
+  },
   analyzer: {
     kind: 'analyzer',
     title: 'Ad Analyzer',
@@ -209,6 +248,9 @@ export const KINDS: Record<BlockKind, KindSpec> = {
     ins: [
       port('audio', 'Voiceover', 'audio'),
       port('clips', 'Clips', 'video', { required: true }),
+      // Clips every pack ends with: the body shared by many hooks — "the
+      // hook fifty times, the meat of the video once".
+      port('body', 'Body Clips', 'video'),
       port('script', 'Script', 'script'),
       port('music', 'Music', 'music'),
     ],
@@ -284,7 +326,7 @@ export function isKnownKind(kind: unknown): kind is BlockKind {
 
 // Dock order, which is also Tidy's left-to-right order and the palette's.
 export const PRODUCTION_ORDER: BlockKind[] = [
-  'bank', 'image', 'text', 'list', 'outliers', 'analyzer', 'characters', 'scripts', 'voice', 'broll', 'playground', 'edit', 'note',
+  'bank', 'image', 'text', 'list', 'outliers', 'analyzer', 'characters', 'scripts', 'voice', 'broll', 'scenes', 'playground', 'edit', 'note',
 ]
 
 // ── Per-block shape ────────────────────────────────────────────────────────
@@ -335,7 +377,7 @@ export function insOf(block: FlowBlock): PortSpec[] {
 // script Voiceovers reads and B-Roll shoots, pasted the way each app takes
 // one. A wire always wins: this is what the input holds with none.
 export function takesTyped(block: Pick<FlowBlock, 'kind'>, portKey: string): boolean {
-  return (block.kind === 'voice' || block.kind === 'broll') && portKey === 'script'
+  return (block.kind === 'voice' || block.kind === 'broll' || block.kind === 'scenes') && portKey === 'script'
 }
 
 export function inlineText(block: FlowBlock, portKey: string): string | null {
@@ -344,9 +386,23 @@ export function inlineText(block: FlowBlock, portKey: string): string | null {
   return text || null
 }
 
-export function scriptsFormat(block: FlowBlock): 'hooks' | 'takes' {
+// What a Scripts block's run will be: a winning ad wired in makes it a
+// remix whatever its panel says (graph.ts settleScripts), as the run does.
+export function scriptsMode(block: FlowBlock): 'write' | 'remix' {
+  return block.settings.sourceWired || block.settings.mode === 'remix' ? 'remix' : 'write'
+}
+
+// A Scripts block rebuilding an ad scene by scene (Scripts' reverse-engineer
+// mode): its wiring says so, or with nothing wired, the blueprint pasted into
+// it does.
+export function rebuildsScenes(block: FlowBlock): boolean {
   const s = block.settings
-  return s.mode === 'write' && s.writeFormat === 'hooks' ? 'hooks' : 'takes'
+  if (scriptsMode(block) !== 'remix' || s.forceTranscript) return false
+  return s.sourceWired ? s.sourceWired === 'scenes' : detectSceneBlueprint(String(s.source ?? ''))
+}
+
+export function scriptsFormat(block: FlowBlock): 'hooks' | 'takes' {
+  return scriptsMode(block) === 'write' && block.settings.writeFormat === 'hooks' ? 'hooks' : 'takes'
 }
 
 export function outsOf(block: FlowBlock): PortSpec[] {
@@ -394,6 +450,8 @@ export function desiredSlots(block: FlowBlock): number {
     // The counts Scripts itself accepts: anything else (an old flow, a
     // described one) runs at the default, so the slots have to agree.
     case 'scripts':
+      // The scene-by-scene rebuild of a winning ad writes one take.
+      if (rebuildsScenes(block)) return 1
       return scriptsFormat(block) === 'hooks'
         ? (isHookCount(s.hookCount) ? s.hookCount : DEFAULT_HOOK_COUNT)
         : (isVariationCount(s.variationCount) ? s.variationCount : DEFAULT_VARIATION_COUNT)
@@ -414,10 +472,15 @@ export function desiredSlots(block: FlowBlock): number {
 // value (inlineText), so it counts only while nothing is wired in its place.
 const NOT_GENERATION: Partial<Record<BlockKind, string[]>> = {
   characters: ['count', 'tab'],
+  // Derived from the wiring, which the run's inputs already carry.
+  scripts: ['sourceWired'],
   outliers: ['count'],
   list: ['entries'],
   voice: ['scriptText'],
   broll: ['scriptText'],
+  // Adding a take films the new take, not the whole ad again: the plan
+  // counts the clips a run is missing (sceneShots.ts missingClips).
+  scenes: ['scriptText', 'takes'],
 }
 
 export function generationSettings(block: FlowBlock): Record<string, unknown> {
@@ -429,13 +492,21 @@ export function generationSettings(block: FlowBlock): Record<string, unknown> {
   return out
 }
 
-// Production-order suggestion: the kind a finished flow most often lacks
-// next, given what's on the canvas. Edit Pack closes a flow that makes clips.
-export function suggestNext(kinds: BlockKind[]): BlockKind | null {
-  const has = (k: BlockKind) => kinds.includes(k)
-  if ((has('broll') || has('playground')) && !has('edit')) return 'edit'
-  if (has('scripts') && !has('voice')) return 'voice'
+// Production-order suggestion: the step a flow most often lacks next, given
+// what's on the canvas — from the very first block, so a member who drops a
+// product on an empty canvas is shown where it goes. Edit Pack closes a flow
+// that makes clips.
+export function suggestNext(blocks: Array<Pick<FlowBlock, 'kind' | 'settings'>>): BlockKind | null {
+  const has = (k: BlockKind) => blocks.some((b) => b.kind === k)
+  const bank = (which: BankType) => blocks.some((b) => b.kind === 'bank' && (b.settings.bank ?? 'products') === which)
+  if ((has('broll') || has('playground') || has('scenes')) && !has('edit')) return 'edit'
+  // A talking-head flow speaks in its clips: it has no voiceover to add.
+  if (has('scripts') && !has('voice') && !has('scenes')) return 'voice'
   if (has('voice') && !has('broll')) return 'broll'
+  // The first steps: a winning ad gets torn down, and a product or a
+  // teardown gets written for.
+  if ((bank('swipes') || has('outliers')) && !has('analyzer')) return 'analyzer'
+  if ((bank('products') || has('analyzer')) && !has('scripts')) return 'scripts'
   return null
 }
 

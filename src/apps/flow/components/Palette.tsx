@@ -11,12 +11,12 @@ import { BANK_ORDER, KINDS } from '../engine/catalog'
 import { BANK_CONFIG, type BankType } from '../../../utils/constants'
 import { GlassTile } from '../../../components/AppGlassTile'
 import { MenuItem, MenuSurface } from '../../../components/Menu'
-import { kindFace } from './blockMeta'
+import { BLOCK_BLURB, kindFace } from './blockMeta'
 
 const GROUPS: BlockKind[][] = [
   ['bank'],
   ['outliers', 'analyzer'],
-  ['characters', 'scripts', 'voice', 'broll', 'playground'],
+  ['characters', 'scripts', 'voice', 'broll', 'scenes', 'playground'],
   ['edit'],
   ['image', 'text', 'list', 'note'],
 ]
@@ -27,8 +27,13 @@ export const PALETTE_DRAG_TYPE = 'application/x-ugc-flow-block'
 
 export default function Palette({ onAdd }: { onAdd: (kind: BlockKind, bank?: BankType) => void }) {
   const [bankOpen, setBankOpen] = useState(false)
+  // The tile under the pointer, described above the bar: what the block is
+  // for, what it takes and what it makes — a tile's name alone doesn't tell a
+  // List from a Text.
+  const [hover, setHover] = useState<BlockKind | null>(null)
   return (
-    <div className="relative">
+    <div className="relative" onMouseLeave={() => setHover(null)}>
+      {hover && !bankOpen && <HoverCard kind={hover} />}
       {bankOpen && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setBankOpen(false)} />
@@ -66,8 +71,11 @@ export default function Palette({ onAdd }: { onAdd: (kind: BlockKind, bank?: Ban
                     e.dataTransfer.effectAllowed = 'copy'
                   }}
                   onClick={() => (kind === 'bank' ? setBankOpen(!bankOpen) : onAdd(kind))}
-                  className="flex w-[54px] flex-col items-center gap-1 rounded-xl px-0.5 py-1 transition-colors hover:bg-ink/[0.05]"
-                  title={kind === 'bank' ? 'Add something from a bank' : `Add ${label}`}
+                  onMouseEnter={() => setHover(kind)}
+                  onFocus={() => setHover(kind)}
+                  onBlur={() => setHover(null)}
+                  className="flex w-[60px] flex-col items-center gap-1 rounded-xl px-0.5 py-1 transition-colors hover:bg-ink/[0.05]"
+                  aria-label={kind === 'bank' ? 'Add something from a bank' : `Add ${label}`}
                 >
                   <GlassTile icon={face.icon} accent={face.accent} size={30} />
                   <span className="max-w-full truncate text-[9.5px] font-medium text-ink-400">{label}</span>
@@ -77,6 +85,33 @@ export default function Palette({ onAdd }: { onAdd: (kind: BlockKind, bank?: Ban
           </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+function HoverCard({ kind }: { kind: BlockKind }) {
+  const face = kindFace(kind)
+  const spec = KINDS[kind]
+  const takes = spec.ins.map((p) => p.label)
+  const makes = kind === 'bank' ? ['A product, character, script, voice, still, style or saved ad']
+    : kind === 'scripts' ? ['Hooks or Scripts']
+    : kind === 'playground' ? ['Image, Clip or Music']
+    : spec.outs.map((p) => p.label)
+  return (
+    <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 w-[360px] -translate-x-1/2 rounded-2xl border border-ink/10 bg-surface-2 px-4 py-3 shadow-xl shadow-black/30">
+      <div className="flex items-center gap-2">
+        <GlassTile icon={face.icon} accent={face.accent} size={22} />
+        <span className="text-[13px] font-semibold text-ink-100">{LABEL[kind] ?? spec.title}</span>
+      </div>
+      <p className="mt-1.5 text-[12px] leading-relaxed text-ink-300">{BLOCK_BLURB[kind]}</p>
+      {(takes.length > 0 || makes.length > 0) && (
+        <p className="mt-1.5 text-[11px] text-ink-500">
+          {takes.length > 0 && <>Takes {takes.join(', ')}</>}
+          {takes.length > 0 && makes.length > 0 && ' · '}
+          {makes.length > 0 && <>Makes {makes.join(', ')}</>}
+        </p>
+      )}
+      <p className="mt-1.5 text-[10.5px] text-ink-600">{kind === 'bank' ? 'Click to pick which bank' : 'Click to add it, or drag it where it goes'}</p>
     </div>
   )
 }

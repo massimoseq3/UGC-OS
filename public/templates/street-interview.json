@@ -1,0 +1,195 @@
+{
+  "format": "ugcflow",
+  "formatVersion": 1,
+  "template": {
+    "id": "street-interview",
+    "version": 1
+  },
+  "name": "Street Interview, One Shot",
+  "description": "An off-camera interviewer, your character answering, filmed as a single clip. The winning ad's scenes rewritten as a conversation for your product, with the master look carried over.",
+  "author": "UGC OS",
+  "blocks": [
+    {
+      "id": "ad",
+      "kind": "bank",
+      "label": "The Winning Ad",
+      "x": 0,
+      "y": 0,
+      "settings": {
+        "bank": "swipes"
+      },
+      "source": "bank",
+      "field": true
+    },
+    {
+      "id": "product",
+      "kind": "bank",
+      "label": "Your Product",
+      "x": 0,
+      "y": 230,
+      "settings": {
+        "bank": "products"
+      },
+      "source": "bank",
+      "field": true
+    },
+    {
+      "id": "character",
+      "kind": "bank",
+      "label": "Your Character",
+      "x": 0,
+      "y": 460,
+      "settings": {
+        "bank": "models"
+      },
+      "source": "bank",
+      "field": true
+    },
+    {
+      "id": "analyzer",
+      "kind": "analyzer",
+      "x": 340,
+      "y": 0,
+      "settings": {},
+      "source": "generate"
+    },
+    {
+      "id": "remix",
+      "kind": "scripts",
+      "x": 700,
+      "y": 0,
+      "settings": {
+        "mode": "remix",
+        "writeFormat": "script",
+        "writeStyle": "pas",
+        "writeLength": 30,
+        "remixLength": "default",
+        "hookCategory": "auto",
+        "hookCount": 10,
+        "variationCount": 3,
+        "brief": "",
+        "source": "",
+        "additionalContext": "Write it as a street interview: an off-camera interviewer asks short questions and the character answers. Keep it under 25 seconds. No captions or text on screen."
+      },
+      "source": "generate",
+      "review": true
+    },
+    {
+      "id": "scenes",
+      "kind": "scenes",
+      "x": 1080,
+      "y": 150,
+      "settings": {
+        "shape": "one",
+        "takes": 1,
+        "aspectRatio": "9:16",
+        "audio": true,
+        "voice": true,
+        "style": true,
+        "productWhenShown": true,
+        "continuity": true,
+        "rules": "No captions, subtitles or text on screen.",
+        "modelId": "bytedance/seedance-2-5",
+        "resolution": "480p"
+      },
+      "source": "generate"
+    },
+    {
+      "id": "edit",
+      "kind": "edit",
+      "x": 1460,
+      "y": 190,
+      "settings": {},
+      "source": "generate"
+    },
+    {
+      "id": "note",
+      "kind": "note",
+      "x": 0,
+      "y": 700,
+      "settings": {
+        "text": "Pick a character who visibly has the result your product promises: clear skin for skincare, healthy for a supplement. Scripts rebuilds the ad as a street interview and pauses so you can fix its lines. Scene Clips films it as one clip on Seedance 2.5 at 480p, the cheap look. Switch it to 720p for the final."
+      }
+    }
+  ],
+  "wires": [
+    {
+      "id": "w1",
+      "from": "ad",
+      "fromPort": "out",
+      "to": "analyzer",
+      "toPort": "ad"
+    },
+    {
+      "id": "w2",
+      "from": "analyzer",
+      "fromPort": "scenes",
+      "to": "remix",
+      "toPort": "source"
+    },
+    {
+      "id": "w3",
+      "from": "product",
+      "fromPort": "out",
+      "to": "remix",
+      "toPort": "product"
+    },
+    {
+      "id": "w4",
+      "from": "remix",
+      "fromPort": "all",
+      "to": "scenes",
+      "toPort": "script"
+    },
+    {
+      "id": "w5",
+      "from": "character",
+      "fromPort": "out",
+      "to": "scenes",
+      "toPort": "character"
+    },
+    {
+      "id": "w6",
+      "from": "product",
+      "fromPort": "out",
+      "to": "scenes",
+      "toPort": "product"
+    },
+    {
+      "id": "w7",
+      "from": "scenes",
+      "fromPort": "clips",
+      "to": "edit",
+      "toPort": "clips"
+    }
+  ],
+  "fields": [
+    {
+      "blockId": "ad",
+      "title": "The Winning Ad",
+      "kind": {
+        "bank": "swipes"
+      },
+      "required": true
+    },
+    {
+      "blockId": "product",
+      "title": "Your Product",
+      "kind": {
+        "bank": "products"
+      },
+      "required": true
+    },
+    {
+      "blockId": "character",
+      "title": "Your Character",
+      "kind": {
+        "bank": "models"
+      },
+      "required": true
+    }
+  ],
+  "notes": [
+    "Pick a character who visibly has the result your product promises: clear skin for skincare, healthy for a supplement. Scripts rebuilds the ad as a street interview and pauses so you can fix its lines. Scene Clips films it as one clip on Seedance 2.5 at 480p, the cheap look. Switch it to 720p for the final."
+  ]
+}

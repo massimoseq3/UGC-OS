@@ -6,7 +6,9 @@
 import { useEffect, useState } from 'react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { useFlowStore } from '../store/flowStore'
-import { useFlowRunStore, isRunActive, startRun, type StartResult } from '../run/runtime'
+import { useFlowRunStore, isRunActive, startRun, PLAN_DEPS, type StartResult } from '../run/runtime'
+import { planFlow } from '../engine/plan'
+import { knownGraph } from '../store/blocks'
 import { useFlowPlans, creditsLabel } from '../hooks/useFlowPlan'
 import { useAppStore } from '../../../stores/appStore'
 import { useCreditsStore } from '../../../stores/creditsStore'
@@ -22,7 +24,6 @@ import RunHistory from './RunHistory'
 import RunView from './RunView'
 import TemplateUpdateBar from './TemplateUpdateBar'
 import { titleOf } from '../engine/catalog'
-import { generationsOf } from '../engine/cost'
 import { useIsDesktop } from '../../../hooks/useBreakpoint'
 
 // Past either, Run asks first and shows what it'll spend.
@@ -32,6 +33,8 @@ export const CONFIRM_GENERATIONS = 20
 export interface RunRequest {
   test?: boolean
   only?: string
+  // Run Again: everything made afresh, for new takes of a finished flow.
+  fresh?: boolean
 }
 
 export default function Editor({ flowId }: { flowId: string }) {
@@ -44,7 +47,7 @@ export default function Editor({ flowId }: { flowId: string }) {
   const addToast = useAppStore((s) => s.addToast)
   const balance = useCreditsStore((s) => s.balance)
   const refreshBalance = useCreditsStore((s) => s.refresh)
-  const { plan, test } = useFlowPlans(doc)
+  const { plan, test, again } = useFlowPlans(doc)
   const storedView = useFlowStore((s) => s.view)
   const setView = useFlowStore((s) => s.setView)
   // Phones get Run View: editing the canvas stays on a computer.
@@ -61,7 +64,11 @@ export default function Editor({ flowId }: { flowId: string }) {
 
   // A block that stops for review opens its window, once — Review Later
   // leaves it waiting on the block.
-  const pendingReview = run?.reviews.find((id) => !dismissed.includes(id)) ?? null
+  // Only while Flow is the app on screen: the editor stays mounted behind
+  // other apps, and a review that opened over Scripts would be closed as
+  // Review Later the moment the member came back.
+  const flowOnScreen = useAppStore((s) => s.activeApp === 'flow')
+  const pendingReview = flowOnScreen ? run?.reviews.find((id) => !dismissed.includes(id)) ?? null : null
   const reviewId = reviewing ?? pendingReview
 
   if (!doc) return null
@@ -81,26 +88,25 @@ export default function Editor({ flowId }: { flowId: string }) {
       addToast('This flow is already running. It finishes on its own, or press Stop.', 'info')
       return
     }
-    const p = req.test ? test : req.only ? null : plan
     if (isRecordingActive()) {
       go(req)
       return
     }
-    // Run Block is priced off its own plan, and makes every run of it again.
-    const onlyBlock = req.only ? doc.blocks.find((b) => b.id === req.only) : undefined
-    const onlyGenerations = onlyBlock && plan
-      ? (plan.blocks[onlyBlock.id]?.instances ?? []).reduce((n, i) => n + generationsOf(onlyBlock, i.inputs, i.slots?.length ?? 1), 0)
-      : 0
-    const priced = p ?? (plan ? { ...plan, credits: plan.blocks[req.only!]?.creditsAll ?? 0, generations: onlyGenerations } : null)
-    const credits = priced?.credits ?? 0
-    const generations = priced?.generations ?? 0
+    // Run Block is priced off its own plan: every run of the block made
+    // again, plus whatever it reads from that isn't made yet.
+    const p = req.test ? test
+      : req.only || req.fresh ? planFlow(knownGraph(doc), doc.outputs, PLAN_DEPS, { only: req.only, fresh: req.fresh })
+      : plan
+    const credits = p?.credits ?? 0
+    const generations = p?.generations ?? 0
     if (balance !== null && credits > balance) {
       addToast(`This run needs ${creditsLabel(credits)} and your kie.ai balance is ${Math.floor(balance).toLocaleString('en-US')}. Top up at kie.ai first, or run less.`, 'error')
       return
     }
-    if (credits >= CONFIRM_CREDITS || generations >= CONFIRM_GENERATIONS) {
-      const lines = (p?.planned ?? (req.only ? [req.only] : []))
-        .map((id) => ({ label: titleOf(doc.blocks.find((b) => b.id === id)!), credits: req.only ? credits : p?.blocks[id]?.credits ?? 0 }))
+    // Run Again always asks: it pays for things that are already made.
+    if (req.fresh || credits >= CONFIRM_CREDITS || generations >= CONFIRM_GENERATIONS) {
+      const lines = (p?.planned ?? [])
+        .map((id) => ({ label: titleOf(doc.blocks.find((b) => b.id === id)!), credits: p?.blocks[id]?.credits ?? 0 }))
         .filter((l) => l.credits > 0)
       setConfirm({ req, credits, generations, lines })
       return
@@ -115,7 +121,7 @@ export default function Editor({ flowId }: { flowId: string }) {
     <ReactFlowProvider>
       <div className="relative flex h-full flex-col">
         {view === 'run' ? (
-          <RunView flowId={flowId} doc={doc} plan={plan} test={test} run={run} balance={balance} onRun={requestRun} onEdit={() => setView('edit')} onBack={() => openFlow(null)} />
+          <RunView flowId={flowId} doc={doc} plan={plan} test={test} again={again} run={run} balance={balance} onRun={requestRun} onEdit={() => setView('edit')} onBack={() => openFlow(null)} />
         ) : (
           <>
             <EditorHeader
@@ -123,6 +129,7 @@ export default function Editor({ flowId }: { flowId: string }) {
               doc={doc}
               plan={plan}
               test={test}
+              again={again}
               run={run}
               balance={balance}
               onRun={requestRun}
@@ -177,6 +184,7 @@ export default function Editor({ flowId }: { flowId: string }) {
           block={reviewBlock}
           run={run}
           doc={doc}
+          plan={plan}
           onLater={() => {
             setDismissed((d) => [...d, reviewBlock.id])
             setReviewing(null)
@@ -188,7 +196,7 @@ export default function Editor({ flowId }: { flowId: string }) {
       <Modal
         open={!!confirm}
         onClose={() => setConfirm(null)}
-        title={confirm?.req.test ? 'Run the Test?' : 'Run This Flow?'}
+        title={confirm?.req.test ? 'Run the Test?' : confirm?.req.fresh ? 'Make Everything Again?' : confirm?.req.only ? 'Run This Block?' : 'Run This Flow?'}
         footer={confirm && (
           <div className="flex items-center justify-end gap-2">
             <button type="button" onClick={() => setConfirm(null)} className="rounded-full px-4 py-2 text-sm text-ink-300 hover:text-ink-100">Not Now</button>
@@ -208,6 +216,9 @@ export default function Editor({ flowId }: { flowId: string }) {
       >
         {confirm && (
           <div className="flex flex-col gap-3 text-sm text-ink-300">
+            {confirm.req.fresh && (
+              <p className="text-ink-200">Nothing has changed, so every block makes new takes from the same settings. What the last run made stays in each app's history.</p>
+            )}
             <p>
               This run makes {confirm.generations} {confirm.generations === 1 ? 'generation' : 'generations'} for {creditsLabel(confirm.credits)}.
               {balance !== null && ` Your kie.ai balance is ${Math.floor(balance).toLocaleString('en-US')} credits.`}

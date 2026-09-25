@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { FlowBlock, FlowGraph, FlowOutputs, FlowValue, InstanceResult } from '../types'
-import { KINDS, desiredSlots, outsOf } from './catalog'
-import { canConnect } from './graph'
+import { KINDS, desiredSlots, generationSettings, outsOf, rebuildsScenes, scriptsMode } from './catalog'
+import { canConnect, settleScripts } from './graph'
 import { planFlow, type FlowPlan, type Held, type HeldValue, type PlanDeps } from './plan'
 
 // ── Builders ───────────────────────────────────────────────────────────────
@@ -258,6 +258,60 @@ describe('what re-runs', () => {
     expect(plan.planned).toEqual(['voc'])
     expect(plan.blocks.voc.runs).toBe(3)
   })
+
+  it('Run Block on a block whose inputs are not made yet makes them first, and nothing beside it', () => {
+    const g = serumLaunch(3)
+    const plan = planFlow(g, {}, deps, { only: 'voc' })
+    expect(plan.planned).toEqual(['scr', 'voc'])
+    // B-Roll reads the same hooks but isn't what was asked for.
+    expect(plan.blocks.brl.runs).toBe(0)
+    expect(plan.credits).toBe(1 + 3 * 2)
+  })
+
+  it('Run Again remakes everything, even with nothing changed', () => {
+    const g = serumLaunch(3)
+    const { outputs } = runAll(g, {})
+    expect(planFlow(g, outputs, deps).planned).toEqual([])
+    const again = planFlow(g, outputs, deps, { fresh: true })
+    expect(again.planned).toEqual(['scr', 'voc', 'brl', 'edit'])
+    expect(again.credits).toBe(1 + 3 * 2 + 3 * 100)
+  })
+
+  it('Run Again remakes a run once: what this run already made is not made again when its block comes round twice', () => {
+    const g = serumLaunch(3)
+    const { outputs } = runAll(g, {})
+    // Scripts was made this run; Voiceovers made two of its three before a
+    // reload put it back in the queue.
+    const made = new Set(planFlow(g, outputs, deps, { fresh: true }).blocks.scr.instances.map((i) => `scr:${i.key}`))
+    const voc = planFlow(g, outputs, deps, { fresh: true, made }).blocks.voc
+    expect(voc.runs).toBe(3)
+    for (const i of voc.instances.slice(0, 2)) made.add(`voc:${i.key}`)
+    const resumed = planFlow(g, outputs, deps, { fresh: true, made })
+    expect(resumed.blocks.voc.runs).toBe(1)
+    expect(resumed.blocks.voc.credits).toBe(2)
+  })
+
+  it('Run Again prices what a rewritten script feeds on the script it replaces', () => {
+    const g = serumLaunch(1)
+    const { outputs } = runAll(g, {})
+    const inst = Object.values(outputs.scr.instances)[0]
+    for (const v of Object.values(inst.items ?? {})) if (v.type === 'script') v.payload = { text: 'The line it wrote last time.' }
+    const again = planFlow(g, outputs, deps, { fresh: true })
+    const said = again.blocks.voc.instances[0].inputs.script?.[0]
+    expect(said?.pending).toBe(true)
+    expect(said?.type === 'script' && said.payload.text).toBe('The line it wrote last time.')
+  })
+
+  it('Run Block remakes only what is missing upstream, and the block itself whole', () => {
+    const g = serumLaunch(3)
+    const { outputs } = runAll(g, {})
+    // A fourth hook asked for: Scripts writes again, Voiceovers remakes all four.
+    const scr = g.blocks.find((b) => b.id === 'scr')!
+    scr.items = slots('h', 4)
+    const plan = planFlow(g, outputs, deps, { only: 'voc' })
+    expect(plan.planned).toEqual(['scr', 'voc'])
+    expect(plan.blocks.voc.runs).toBe(4)
+  })
 })
 
 describe('Test With 1', () => {
@@ -423,5 +477,120 @@ describe('generations', () => {
   it('counts what a run really starts when the deps say so', () => {
     const counted: PlanDeps = { ...deps, generations: (b, _inputs, n) => (b.kind === 'broll' ? 9 : Math.max(1, n)) }
     expect(planFlow(g(), {}, counted).generations).toBe(3 + 3 * 9)
+  })
+})
+
+describe('what a Scripts block\'s wiring decides', () => {
+  const analyzer = block('an', 'analyzer')
+  const scripts = block('scr', 'scripts', { settings: { mode: 'write', writeFormat: 'hooks' } })
+
+  it('a winning ad wired in makes it a remix of three takes', () => {
+    const [, settled] = settleScripts({ blocks: [analyzer, scripts], wires: [wire('an', 'transcript', 'scr', 'source')] })
+    expect(scriptsMode(settled)).toBe('remix')
+    expect(desiredSlots(settled)).toBe(3)
+  })
+
+  it("the ad's scenes wired in rebuild it scene by scene, as one take", () => {
+    const [, settled] = settleScripts({ blocks: [analyzer, scripts], wires: [wire('an', 'scenes', 'scr', 'source')] })
+    expect(rebuildsScenes(settled)).toBe(true)
+    expect(desiredSlots(settled)).toBe(1)
+  })
+
+  it('unwired, the panel decides again', () => {
+    const [, wired] = settleScripts({ blocks: [analyzer, scripts], wires: [wire('an', 'scenes', 'scr', 'source')] })
+    const [, settled] = settleScripts({ blocks: [analyzer, wired], wires: [] })
+    expect(scriptsMode(settled)).toBe('write')
+    expect(desiredSlots(settled)).toBe(10)
+  })
+
+  it("re-keys nothing already made: the wiring isn't part of the block's identity", () => {
+    const [, settled] = settleScripts({ blocks: [analyzer, scripts], wires: [wire('an', 'transcript', 'scr', 'source')] })
+    expect(generationSettings(settled)).toEqual(generationSettings(scripts))
+  })
+})
+
+describe('Scene Clips', () => {
+  const script = '--- Scene 1: HOOK (00:00-00:04) ---\n[CHARACTER] says: "One."\n\n--- Scene 2: BODY (00:04-00:10) ---\n[CHARACTER] says: "Two, three."'
+  const sceneDeps: PlanDeps = {
+    ...deps,
+    held: (b) => (b.kind === 'text' ? { outputs: { out: [{ type: 'text', key: 'text:1', label: 'script', payload: { text: script } }] } } : deps.held(b)),
+    cost: () => 10,
+  }
+  const graph = (settings: Record<string, unknown> = {}): FlowGraph => ({
+    blocks: [block('txt', 'text'), block('sc', 'scenes', { settings: { takes: 2, ...settings } }), block('edit', 'edit')],
+    wires: [wire('txt', 'out', 'sc', 'script'), wire('sc', 'clips', 'edit', 'clips')],
+  })
+  const clip = (scene: number, take: number) => ({ ref: `r${scene}${take}`, scene, take })
+  const made = (key: string, clips: Array<{ ref: string; scene: number; take: number }>, extra: Partial<InstanceResult> = {}): FlowOutputs => ({
+    sc: { instances: { [key]: { key, trace: {}, at: 1, outputs: { clips: [{ type: 'video', key: 'scenes:v', label: 'ad', trace: {}, payload: { clips } }] }, ...extra } } },
+  })
+
+  it('films what a test left, and only that share is priced', () => {
+    const key = planFlow(graph(), {}, sceneDeps).blocks.sc.instances[0].key
+    const plan = planFlow(graph(), made(key, [clip(1, 0)], { test: true }), sceneDeps)
+    expect(plan.blocks.sc.runs).toBe(1)
+    // One of four clips (2 scenes × 2 takes) made: three quarters of the price.
+    expect(plan.blocks.sc.credits).toBe(7.5)
+  })
+
+  it('is done once every scene has every take', () => {
+    const key = planFlow(graph(), {}, sceneDeps).blocks.sc.instances[0].key
+    const plan = planFlow(graph(), made(key, [clip(1, 0), clip(1, 1), clip(2, 0), clip(2, 1)]), sceneDeps)
+    expect(plan.blocks.sc.runs).toBe(0)
+  })
+
+  it('hands on only the takes kept at review, under a key that says so', () => {
+    const key = planFlow(graph(), {}, sceneDeps).blocks.sc.instances[0].key
+    const all = [clip(1, 0), clip(1, 1), clip(2, 0), clip(2, 1)]
+    const plan = planFlow(graph(), made(key, all, { keep: ['1:1', '2:0'] }), sceneDeps)
+    const v = plan.blocks.sc.values.clips[0]
+    expect(v.type === 'video' && v.payload.clips.map((c) => c.ref)).toEqual(['r11', 'r20'])
+    expect(v.key).not.toBe('scenes:v')
+  })
+})
+
+describe('settling a Scripts chain', () => {
+  it('settles a chain of Scripts blocks in one pass, and forgets a deleted source', () => {
+    const g: FlowGraph = {
+      blocks: [
+        block('an', 'analyzer'),
+        block('s1', 'scripts'),
+        block('s2', 'scripts'),
+        block('s3', 'scripts'),
+      ],
+      wires: [wire('an', 'scenes', 's1', 'source'), wire('s1', 'all', 's2', 'source'), wire('s2', 'all', 's3', 'source')],
+    }
+    const settled = settleScripts(g)
+    expect(settled.map((b) => b.settings.sourceWired)).toEqual([undefined, 'scenes', 'scenes', 'scenes'])
+    const gone = settleScripts({ blocks: settled.filter((b) => b.id !== 'an'), wires: g.wires })
+    expect(gone.find((b) => b.id === 's1')?.settings.sourceWired).toBeUndefined()
+  })
+})
+
+describe('character variants', () => {
+  function variants(withBase: boolean): FlowGraph {
+    return {
+      blocks: [
+        block('base', 'bank', { pick: 'maya', settings: { bank: 'models' } }),
+        block('aud', 'list', { settings: { entries: ['Asian-American', 'African-American', 'Latina'] }, items: slots('a', 3) }),
+        block('chr', 'characters'),
+      ],
+      wires: [
+        ...(withBase ? [wire('base', 'out', 'chr', 'photo')] : []),
+        wire('aud', 'all', 'chr', 'change'),
+      ],
+    }
+  }
+
+  it('makes one run per change off the one character', () => {
+    const plan = planFlow(variants(true), {}, deps)
+    expect(plan.blocks.chr.runs).toBe(3)
+    expect(plan.blocks.chr.instances.map((i) => i.inputs.change?.[0]?.label)).toEqual(['Asian-American', 'African-American', 'Latina'])
+  })
+
+  it('says a change needs a picture to edit', () => {
+    const plan = planFlow(variants(false), {}, deps)
+    expect(plan.blocks.chr.runs).toBe(0)
+    expect(plan.blocks.chr.blocked).toMatch(/Reference Photo/)
   })
 })

@@ -122,6 +122,10 @@ export default function Modal({
             under it both end above the home indicator. Zero in a browser tab,
             ~34px installed to an iPhone home screen. */}
         <div
+          role="dialog"
+          aria-modal={open || undefined}
+          aria-hidden={!open || undefined}
+          aria-label={title}
           className={`pointer-events-auto flex w-full flex-col overflow-hidden border-ink/5 bg-surface-1/95 backdrop-blur-2xl ${
             isDesktop
               ? `${width} ${fill ? 'h-[86vh]' : 'max-h-[86vh]'} rounded-3xl border shadow-2xl shadow-black/40 transition-all duration-200 ease-out ${
