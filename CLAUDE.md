@@ -117,6 +117,7 @@ Defaults (registry order IS the default — `getDefaultModel` falls back to the 
 - End-user generation surfaces show `humanizeError(err, fallback)` verbatim — it returns a complete sentence; never prefix it. Infra, admin and Settings surfaces show kie's raw message.
 - Its rule table matches substrings, so a new "timed out" is a new rule. Debug context goes behind a `DEBUG_TAIL` key (`taskId=`, `url=`, …) so digits in a payload can't match a status code.
 - **Anything we raise ourselves throws `FriendlyError`** — a complete sentence naming what to do next.
+- **`humanizeError` is also the error reporter's ear** (`utils/errorReporter.ts` → Admin → Errors). A new rule for a cause only the member can fix (key, credits, content filter) takes `member: true`, or everyone who hits it files a bug.
 - A Retry on anything we still hold a kie `taskId` for RESUMES the task, never re-submits, and says so.
 - **A capability claim in UI copy names no model.** Point at the picker's greying, which is derived from `modes`.
 
@@ -157,6 +158,7 @@ One line each; detail in the sub-file named beside it.
 
 - `utils/appUsageTracker.ts` — the only signal for which app a member is in. Attention time, sampled, buffered; the buffer is discarded on user change on purpose. → utils
 - `utils/orphanCleanup.ts` — once-per-sign-in asset sweep; its bank list and its paged `assets` read must both stay complete. → utils
+- `utils/errorReporter.ts` — silent crash / error / shown-failure reports into Admin → Errors (migration 0027, run before deploy); it must never throw, never reports in `vite dev` or Recording Mode, and its outbox is per user and purged on sign-out. → utils / lib
 - `utils/assetStore.ts` — neither the memory fallback nor a failed `openDB` may latch; `openDB` has a deadline and `onblocked`; writes handle `onabort`. → utils
 - `lib/r2.ts` — three retried hops under an upload cap and a download cap; a retry never re-PUTs a landed binary. → lib
 - `lib/cloudSync.ts` — per-row serialised saves, token-guarded outbox markers, `walkAssetRefs`. → lib

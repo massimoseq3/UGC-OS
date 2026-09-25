@@ -7,6 +7,8 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { useThemeStore, type ThemePref } from '../stores/themeStore'
 import { useGenerationInfoStore } from '../stores/generationInfoStore'
 import { useRecordingStore } from '../stores/recordingStore'
+import { useErrorReportStore } from '../stores/errorReportStore'
+import { useNewErrorCount } from '../stores/errorInboxStore'
 import { useAppSwitchedOn, useAppVisible, useAppVisibilityStore, useFeatureEnabled, useIsOperator } from '../stores/appVisibilityStore'
 import SegmentedToggle from './SegmentedToggle'
 import useCloseOnEscape from '../hooks/useCloseOnEscape'
@@ -118,6 +120,13 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   // no local-build exception: turning it on puts its control in the corner.
   const recordingOn = useRecordingStore((s) => s.enabled)
   const setRecordingOn = useRecordingStore((s) => s.setEnabled)
+
+  // Error reports (utils/errorReporter.ts): on by default and never asked
+  // about — this switch is the way out. The admin's half is the count of
+  // newly reported errors, which dots the Admin row below.
+  const errorReportsOn = useErrorReportStore((s) => s.enabled)
+  const setErrorReportsOn = useErrorReportStore((s) => s.setEnabled)
+  const newErrors = useNewErrorCount()
 
   // Outliers — the one app a member can switch off, and it ships on; B-Roll's
   // Continuous mode is the same deal one level down, and ships off. See
@@ -316,7 +325,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
     // is the list that grows every time something ships behind a switch.
     { id: 'experimental', label: 'Experimental', icon: FlaskConical },
     ...(cloudOn ? [{ id: 'storage' as const, label: 'Storage', icon: HardDrive }] : []),
-    ...(showAdvanced ? [{ id: 'advanced' as const, label: profile?.is_admin ? 'Admin' : 'Advanced', icon: Shield }] : []),
+    ...(showAdvanced ? [{ id: 'advanced' as const, label: profile?.is_admin ? 'Admin' : 'Advanced', icon: Shield, alert: newErrors > 0 }] : []),
     { id: 'about', label: 'About', icon: FileText },
   ]
   // A pane can disappear under us (sign-out drops Account), so never trust the
@@ -686,6 +695,15 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                   )}
                 </Card>
 
+                <Card>
+                  <ToggleRow
+                    label="Send Error Reports"
+                    hint="When something breaks, the error, the tool you were in and your browser are sent to the UGC OS team, so it gets fixed without you having to report it. Your API keys and media are never sent. Only affects this browser."
+                    checked={errorReportsOn}
+                    onChange={setErrorReportsOn}
+                  />
+                </Card>
+
                 <button
                   type="button"
                   onClick={() => { onClose(); signOut() }}
@@ -916,7 +934,13 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     <Shield className="h-4 w-4 shrink-0 text-ink-500" />
                     <span className="min-w-0 flex-1">
                       <span className="block text-[12px] font-medium text-ink-200">Open Admin Panel</span>
-                      <span className="block text-[11px] text-ink-500">Members, insights, and the allowlist.</span>
+                      {newErrors > 0 ? (
+                        <span className="block text-[11px] text-red-300 light:text-red-700">
+                          {newErrors} new {newErrors === 1 ? 'error' : 'errors'} reported by members.
+                        </span>
+                      ) : (
+                        <span className="block text-[11px] text-ink-500">Members, insights, errors, and the allowlist.</span>
+                      )}
                     </span>
                     <ChevronRight className="h-3.5 w-3.5 shrink-0 text-ink-500" />
                   </button>

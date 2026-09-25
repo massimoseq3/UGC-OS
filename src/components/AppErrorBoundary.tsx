@@ -3,6 +3,7 @@ import type { ErrorInfo, ReactNode } from 'react'
 import AppErrorScreen from './AppErrorScreen'
 import { isStaleChunkError } from '../utils/appVersion'
 import { markUpdateAvailable, isUpdateAvailable } from '../stores/updateStore'
+import { reportCrash } from '../utils/errorReporter'
 
 /**
  * The reason nothing in this app goes white any more.
@@ -54,6 +55,9 @@ export default class AppErrorBoundary extends Component<Props, State> {
     // that tells everyone to reload.
     if (isStaleChunkError(error)) markUpdateAvailable()
     console.error('Caught by AppErrorBoundary:', error, info.componentStack)
+    // Admin → Errors hears about it without the member having to say so. The
+    // reporter skips a stale chunk itself — that's a deploy, not a bug.
+    reportCrash(error, info.componentStack)
   }
 
   render() {

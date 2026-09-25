@@ -14,13 +14,15 @@ import { resetAssetStore } from '../utils/assetStore'
 //   • draft       — Playground/other app editor state (prompt text + uploaded
 //     image data-URIs), keyed `ai-ugc-lab:draft:*`
 //   • custom-chips — Character Studio custom trait chips
+//   • error-outbox — error reports not yet sent (utils/errorReporter.ts). Only
+//     ever sent by its own user, but an error message can quote a prompt
 // All of these otherwise survive sign-out and surface for the next person.
 // Deliberately NOT listed: `ai-ugc-lab-keys`, the per-user API-key vault. It is
 // keyed by user id and adopted only by its own owner (see settingsStore), so it
 // can't surface for the next person — and purging it here would put the member
 // back to re-pasting both keys on every sign-in. Don't widen these prefixes to
 // a bare `ai-ugc-lab`.
-const LOCAL_RESIDUE_PREFIXES = ['ugc-lab:sync-outbox', 'ai-ugc-lab:draft', 'ai-ugc-lab-custom-chips']
+const LOCAL_RESIDUE_PREFIXES = ['ugc-lab:sync-outbox', 'ugc-lab:error-outbox', 'ai-ugc-lab:draft', 'ai-ugc-lab-custom-chips']
 
 function clearLocalResidue(): void {
   try {

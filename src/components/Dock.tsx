@@ -5,6 +5,7 @@ import { useActivityStore } from '../stores/activityStore'
 import { useChromeHidden } from '../stores/chromeStore'
 import { useSkillUpdateUnseen } from '../stores/skillUpdateStore'
 import { useIsAppVisible } from '../stores/appVisibilityStore'
+import { useNewErrorCount } from '../stores/errorInboxStore'
 import { APP_REGISTRY, SECTION_ORDER, type AppConfig } from '../utils/constants'
 import AppGlassTile, { GlassTile } from './AppGlassTile'
 import { useBankStore } from '../stores/bankStore'
@@ -39,6 +40,10 @@ export default function Dock() {
   // turned off never renders a tile — a group left empty by that is dropped
   // below, so its divider goes with it.
   const isVisible = useIsAppVisible()
+  // Admin only (0 for everyone else): members hit errors the operator hasn't
+  // looked at yet. Admin is reached through Settings, so that's the tile that
+  // dots.
+  const newErrors = useNewErrorCount()
   const [settingsOpen, setSettingsOpen] = useState(false)
   // Flows pinned to the dock open as apps of their own, beside Flow. The whole
   // bank list is read and filtered here: a selector returning a fresh array
@@ -110,13 +115,24 @@ export default function Dock() {
           <DockDivider />
           <DockItem
             label="Settings"
-            title="Settings"
+            title={newErrors > 0 ? `Settings · ${newErrors} new ${newErrors === 1 ? 'error' : 'errors'} in Admin` : 'Settings'}
             onClick={() => setSettingsOpen(true)}
             onIntent={() => { loadSettingsModal().catch(() => {}) }}
           >
-            <UtilityTile>
-              <Settings className="h-[22px] w-[22px] text-ink-200" strokeWidth={1.75} />
-            </UtilityTile>
+            {/* The badge sits outside the tile: UtilityTile clips its
+                children, and this has to overhang the corner like an app
+                tile's does. */}
+            <span className="relative">
+              <UtilityTile>
+                <Settings className="h-[22px] w-[22px] text-ink-200" strokeWidth={1.75} />
+              </UtilityTile>
+              {newErrors > 0 && (
+                <span
+                  className="absolute -right-0.5 -top-0.5 z-20 h-3 w-3 rounded-full border-2 border-surface-1 bg-red-500"
+                  aria-hidden
+                />
+              )}
+            </span>
           </DockItem>
         </nav>
       </div>
