@@ -291,6 +291,17 @@ describe('what re-runs', () => {
     expect(resumed.blocks.voc.credits).toBe(2)
   })
 
+  it('Run Again prices what a rewritten script feeds on the script it replaces', () => {
+    const g = serumLaunch(1)
+    const { outputs } = runAll(g, {})
+    const inst = Object.values(outputs.scr.instances)[0]
+    for (const v of Object.values(inst.items ?? {})) if (v.type === 'script') v.payload = { text: 'The line it wrote last time.' }
+    const again = planFlow(g, outputs, deps, { fresh: true })
+    const said = again.blocks.voc.instances[0].inputs.script?.[0]
+    expect(said?.pending).toBe(true)
+    expect(said?.type === 'script' && said.payload.text).toBe('The line it wrote last time.')
+  })
+
   it('Run Block remakes only what is missing upstream, and the block itself whole', () => {
     const g = serumLaunch(3)
     const { outputs } = runAll(g, {})

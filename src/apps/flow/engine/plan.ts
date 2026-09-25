@@ -352,20 +352,27 @@ export function planBlock(
       instances.map((i) => deps.cost(block, i.inputs, batch ? Math.max(1, (opts.test ? wantSlots : slotsOn).length) : 1, opts.test) ?? 0),
     ),
   }
-  plan.values = valuesOut(block, instances, opts.test)
+  plan.values = valuesOut(block, instances, opts.test, onlyThis ? results : undefined)
   return plan
 }
 
 // What a block's runs hand downstream, per output port.
-function valuesOut(block: FlowBlock, instances: PlannedInstance[], test: boolean): Record<string, FlowValue[]> {
+// `remade` is the block's results when Run Again or Run Block is making it
+// again, so what it feeds is priced on what it made last time.
+function valuesOut(block: FlowBlock, instances: PlannedInstance[], test: boolean, remade?: Record<string, InstanceResult>): Record<string, FlowValue[]> {
   const outs = outsOf(block)
   const values: Record<string, FlowValue[]> = {}
   for (const p of outs) values[p.key] = []
   const batch = isBatch(block)
   const slotsOn = enabledItems(block).map((it) => it.id)
 
+  // A run remade from inputs not made yet has no result of its own to price
+  // from; the block's latest is the likeliest shape of the next.
+  const latest = Object.values(remade ?? {}).sort((a, b) => b.at - a.at)[0]
+
   for (const inst of instances) {
     const made = inst.run ? undefined : inst.cached
+    const was = remade ? inst.cached ?? (inst.pending ? latest : undefined) : undefined
     // Not run and not made (outside Run Block's scope, or failed in a run
     // that's moved on): nothing to hand on. Left out at review: the same.
     if (!inst.run && !made) continue
@@ -380,7 +387,7 @@ function valuesOut(block: FlowBlock, instances: PlannedInstance[], test: boolean
           const v = made.items?.[slot]
           return v ? { ...v, trace } : undefined
         }
-        return placeholder(block, type, `${inst.key}:${slot}`, trace, slotName(block, slot))
+        return placeholder(block, type, `${inst.key}:${slot}`, trace, slotName(block, slot), was?.items?.[slot])
       }
       const firstMade = test ? slotsOn.map(itemValue).find(Boolean) : undefined
       const allSlots = test ? slotsOn.slice(0, 1) : slotsOn
@@ -396,7 +403,7 @@ function valuesOut(block: FlowBlock, instances: PlannedInstance[], test: boolean
         if (made) {
           values[p.key].push(...(made.outputs[p.key] ?? []).map((v) => keptTakes({ ...v, trace: { ...v.trace, ...trace } } as FlowValue, made.keep)))
         } else {
-          values[p.key].push(placeholder(block, p.type, `${inst.key}:${p.key}`, trace))
+          values[p.key].push(placeholder(block, p.type, `${inst.key}:${p.key}`, trace, '', was?.outputs[p.key]?.[0]))
         }
       }
     }
@@ -442,14 +449,19 @@ function slotName(block: FlowBlock, slot: string): string {
   return index < 0 ? '' : `${itemNoun(block)} ${index + 1}`
 }
 
-function placeholder(block: FlowBlock, type: PortType, suffix: string, trace: Trace, label = ''): FlowValue {
+// `was` is what the run made last time, when it's being made again: a script
+// rewritten (Run Again, Run Block) is priced on the one it replaces — most
+// likely its length and its scene count — rather than on a typical one, so
+// Run Again costs what the flow just cost.
+function placeholder(block: FlowBlock, type: PortType, suffix: string, trace: Trace, label = '', was?: FlowValue): FlowValue {
+  const hint = type === 'script' && was?.type === 'script' ? { text: was.payload.text } : sizeHint(block)
   return {
     type,
     key: `pending:${block.id}:${suffix}`,
     label,
     trace,
     pending: true,
-    payload: { ...emptyPayload(type), ...sizeHint(block) },
+    payload: { ...emptyPayload(type), ...hint },
   } as FlowValue
 }
 
