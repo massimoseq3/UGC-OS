@@ -213,12 +213,24 @@ export default function Playground() {
         // The Bank still it came from rides on the frame, and is a parent of
         // whatever the run makes from it.
         const parent = interAppPayload.parents?.[0]
-        setState((s) => ({
-          ...s,
-          mode: 'video',
-          prompt: incomingPrompt?.trim() ? incomingPrompt : s.prompt,
-          refs: [...s.refs.filter((r) => r.slot !== 'start'), { url: imageUrl!, label: 'start', source: 'upload', slot: 'start', parent }],
-        }))
+        const startRef: PromptRef = { url: imageUrl, label: 'start', source: 'upload', slot: 'start', parent }
+        const seeded = incomingPrompt?.trim() ? incomingPrompt : undefined
+        // Through the stash, like `videoPrompt` above and `handleAnimateImage`:
+        // flipping `mode` in place lost the Image tab's draft and carried its
+        // reference images into the clip beside the frame.
+        const draft = stateRef.current
+        if (draft.mode === 'video') {
+          setState((s) => ({ ...s, prompt: seeded ?? s.prompt, refs: [...s.refs.filter((r) => r.slot !== 'start'), startRef] }))
+        } else {
+          setPromptStash((prev) => ({ ...prev, [draft.mode]: { prompt: draft.prompt, refs: draft.refs } }))
+          const restored = promptStashRef.current.video ?? { prompt: '', refs: [] }
+          setState((s) => ({
+            ...s,
+            mode: 'video',
+            prompt: seeded ?? restored.prompt,
+            refs: [...restored.refs.filter((r) => r.slot !== 'start'), startRef],
+          }))
+        }
       }
     } else if (targetField === 'videoSourceClip' && data && typeof data === 'object' && 'videoRef' in data) {
       // Generated video (B-Roll take, etc.) → Gemini Omni source clip, for

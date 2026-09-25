@@ -137,7 +137,11 @@ export interface PromptPanelState {
 
 interface PromptPanelProps {
   state: PromptPanelState
-  onChange: (next: PromptPanelState) => void
+  // Takes an updater too: a change that lands after an await (an Enhance, an
+  // upload, an Omni character mint) must apply to the LIVE draft — a
+  // `{ ...state }` captured before the await reverts everything the member
+  // did in the meantime, typed prompt included.
+  onChange: (next: PromptPanelState | ((prev: PromptPanelState) => PromptPanelState)) => void
   // Mode switch is special-cased so the parent can stash/restore each tab's
   // own prompt + refs instead of carrying them across tabs.
   onModeChange: (mode: PlaygroundMode) => void
@@ -209,6 +213,9 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
     setPromptHistory([state.prompt])
     setPromptHistoryIndex(0)
   }
+  // The tab on screen NOW, for Enhance to check once its await returns.
+  const liveModeRef = useRef(state.mode)
+  useEffect(() => { liveModeRef.current = state.mode }, [state.mode])
 
   const canUndo = promptHistoryIndex > 0
   const canRedo = promptHistoryIndex < promptHistory.length - 1
@@ -221,7 +228,8 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
     const nextHistory = [...truncated, next]
     setPromptHistory(nextHistory)
     setPromptHistoryIndex(nextHistory.length - 1)
-    onChange({ ...state, prompt: next })
+    // An updater, because Enhance calls this seconds after it started.
+    onChange((s) => ({ ...s, prompt: next }))
   }
 
   // Commit the current textarea draft into history (fired on blur). No-op when
@@ -260,6 +268,9 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
     setIsEnhancing(true)
     try {
       const rewritten = await enhancePlaygroundPrompt(state.prompt, state.mode)
+      // Switching tabs while it ran stashed this draft; landing the rewrite now
+      // would put one tab's prompt (and undo stack) in another tab's box.
+      if (liveModeRef.current !== state.mode) return
       pushPromptHistory(rewritten, committed, committed.length - 1)
     } catch (err) {
       useAppStore.getState().addToast(humanizeError(err, 'Enhance failed.'), 'error')
@@ -291,20 +302,17 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
     return state.refs.filter((r) => r.slot === 'ref').map((r) => ({ dataUri: r.url }))
   }
 
+  // These three write through an updater and read the OTHER slots off it:
+  // a drop lands after a file read, and the draft may have moved on by then.
   function setSlot(slot: PromptRef['slot'], value: VideoInputValue | null) {
-    const others = state.refs.filter((r) => r.slot !== slot)
-    if (!value) {
-      onChange({ ...state, refs: others })
-      return
-    }
-    onChange({
-      ...state,
-      refs: [...others, { url: value.dataUri, label: slot, source: 'upload', slot }],
+    onChange((s) => {
+      const others = s.refs.filter((r) => r.slot !== slot)
+      if (!value) return { ...s, refs: others }
+      return { ...s, refs: [...others, { url: value.dataUri, label: slot, source: 'upload', slot }] }
     })
   }
 
   function setRefStrip(values: VideoInputValue[]) {
-    const nonRefs = state.refs.filter((r) => r.slot !== 'ref')
     // The strip hands back bare URLs, so a picture that was already attached
     // keeps the row it came from — only lineage survives, the chip still reads
     // as an upload the way it always has.
@@ -313,7 +321,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
       url: v.dataUri, label: 'ref', source: 'upload' as const, slot: 'ref' as const,
       parent: before.find((r) => r.url === v.dataUri)?.parent,
     }))
-    onChange({ ...state, refs: [...nonRefs, ...refs] })
+    onChange((s) => ({ ...s, refs: [...s.refs.filter((r) => r.slot !== 'ref'), ...refs] }))
   }
 
   // Audio / video reference clips (Seedance 2 family) live in refs[] under
@@ -325,11 +333,16 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
   }
 
   function setMediaStrip(slot: 'audio' | 'video', values: MediaRefValue[]) {
-    const others = state.refs.filter((r) => r.slot !== slot)
     const refs = values.map((v) => ({
       url: v.dataUri, label: v.name, source: 'upload' as const, slot, durationSeconds: v.durationSeconds,
     }))
-    onChange({ ...state, refs: [...others, ...refs] })
+    onChange((s) => ({ ...s, refs: [...s.refs.filter((r) => r.slot !== slot), ...refs] }))
+  }
+
+  // The Omni and Motion Control sections' writer. An updater form is accepted
+  // for the ones that land after an await (see OmniInputsSection).
+  function changeRefs(next: PromptRef[] | ((prev: PromptRef[]) => PromptRef[])) {
+    onChange((s) => ({ ...s, refs: typeof next === 'function' ? next(s.refs) : next }))
   }
 
   // A model's own declared cap wins (the Seedance family takes 9 — see
@@ -402,6 +415,13 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
   // strings like '720p' aren't valid image tiers like '1K'), so swapping
   // modes without re-clamping leaves stale values in `state.resolution`.
   useEffect(() => {
+    // A model from the other tab is being swapped out by the effect above in
+    // this same commit — and both write a whole `{ ...state }`, so a patch here
+    // landed second and put the old model back. It also pruned the restored
+    // refs against that model: Image → Video with an Omni character or a
+    // Seedance clip attached left the Video tab on the image model with the
+    // attachments gone. The swap re-runs this effect against the right model.
+    if (!model || model.task !== taskForMode) return
     const patch: Partial<PromptPanelState> = {}
     if (state.mode === 'video' && model?.videoConstraints) {
       const c = model.videoConstraints
@@ -545,8 +565,11 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
       : ref.kind === 'character' ? ref.item.characterImage
       : ref.item.imageUrl
 
-    // Skip refs for music mode (Suno doesn't accept them).
-    const acceptsRefs = state.mode !== 'music' && !!imageSource
+    // Skip refs for music mode (Suno doesn't accept them), and on a video model
+    // with no reference strip (Seedance 1.5 Pro, Kling 3.0): the ref landed in
+    // a slot the panel doesn't draw, then opened the clip as its start frame
+    // under a toast saying reference images wouldn't be sent.
+    const acceptsRefs = state.mode !== 'music' && !(state.mode === 'video' && !refsAllowed) && !!imageSource
     const parent: Lineage = {
       bank: ref.kind === 'product' ? 'products' : ref.kind === 'character' ? 'models' : 'brolls',
       id: ref.item.id,
@@ -846,7 +869,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
                   {state.mode === 'video' && isMotionControl && (
                     <MotionControlSection
                       refs={state.refs}
-                      onChangeRefs={(refs) => onChange({ ...state, refs })}
+                      onChangeRefs={changeRefs}
                       orientation={motionOrientation}
                       onChangeOrientation={(o) => onChange({ ...state, characterOrientation: o })}
                       onError={(m) => addToast(m, 'error')}
@@ -933,7 +956,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
                         </div>
                       )}
                       {isOmni && (
-                        <OmniInputsSection refs={state.refs} onChangeRefs={(refs) => onChange({ ...state, refs })} />
+                        <OmniInputsSection refs={state.refs} onChangeRefs={changeRefs} />
                       )}
                     </div>
                   )}

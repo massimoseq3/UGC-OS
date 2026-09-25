@@ -197,6 +197,14 @@ export function planPlaygroundRun(input: PlaygroundRunInput): PlaygroundPlan {
     ) {
       inferredVideoMode = 'reference-to-video'
     }
+    // An end frame on its own infers text-to-video — there is no frame one for
+    // it to close on — and nothing downstream sends it, so the clip rendered
+    // from the prompt alone and the frame was never mentioned. Refuse before
+    // the credits go. Checked after the reconciliation, so a run that lands on
+    // reference-to-video (where the end frame rides as a reference) is untouched.
+    if (inferredVideoMode === 'text-to-video' && refs.some((r) => r.slot === 'end')) {
+      throw new FriendlyError('An end frame needs a start frame to close on. Add a start frame, or clear the end frame to generate from the prompt alone.')
+    }
   }
   if (isMotionControl) {
     const hasImg = refs.some((r) => r.slot === 'motion-image')

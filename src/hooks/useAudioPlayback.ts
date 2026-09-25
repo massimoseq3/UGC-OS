@@ -67,12 +67,16 @@ export function useAudioPlayback(ref: string | null, fallbackDuration = 0): Audi
   // clip playing behind it.
   useEffect(() => teardown, [teardown])
 
-  // A card whose source changes is a different clip — drop the old element.
+  // A card whose source changes is a different clip — drop the old element,
+  // and its measured length with it: kept, `duration || fallbackDuration`
+  // went on quoting the old clip (Voiceovers' details view showed read A's
+  // 0:12 on read B until B was played).
   useEffect(() => {
     teardown()
     setIsLoaded(false)
     setIsPlaying(false)
     setPosition(0)
+    setDuration(0)
   }, [ref, teardown])
 
   const load = async (source: string) => {

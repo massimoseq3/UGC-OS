@@ -6,11 +6,14 @@ import { paneClass } from '../../components/paneClass'
 import { useReportActivity } from '../../stores/activityStore'
 import { useBankStore } from '../../stores/bankStore'
 import { useCreditsStore } from '../../stores/creditsStore'
+import { useSettingsStore } from '../../stores/settingsStore'
+import { getModel, TTS_MODEL_SLOT } from '../../utils/models'
 import type { Lineage, Script, VoiceHistoryItem } from '../../stores/types'
 import type { VoiceSettings } from './types'
 import { createDefaultSettings, sanitizeVoiceSettings } from './types'
 import { voiceRunner, type VoiceTask } from './runner'
 import { lineageOf } from '../../utils/blockRunner'
+import { isPollTimeout } from '../../utils/kie'
 import EditorArea from './components/EditorArea'
 import { VOICE_BATCH_MAX } from './components/GenerateBar'
 import HistoryRail from './components/HistoryRail'
@@ -150,6 +153,9 @@ export default function VoiceStudio() {
       setScriptText(data)
       // The Scripts run it was sent out of, when it came from one.
       setScriptSource(interAppPayload.parents?.[0] ?? null)
+      // A bank script picked earlier no longer describes the box — every other
+      // path that replaces the text drops the chip too.
+      setSelectedScript(null)
       setHighlightField('script')
       setTimeout(() => setHighlightField(null), 800)
     }
@@ -167,9 +173,9 @@ export default function VoiceStudio() {
   const refreshCredits = useCreditsStore((s) => s.refresh)
 
   // Shared finisher used by handleGenerate (foreground) and the mount-time
-  // resume effect (background) so both code paths land in the same place on
-  // success / failure.
-  const finishVoice = async (entry: InFlightVoice) => {
+  // resume effect (background, `resumed`) so both code paths land in the same
+  // place on success / failure.
+  const finishVoice = async (entry: InFlightVoice, resumed = false) => {
     setError(null)
     try {
       // The runner writes the history row; what's left here is the UI.
@@ -178,13 +184,22 @@ export default function VoiceStudio() {
       refreshCredits()
       useAppStore.getState().addToast('Voiceover generated', 'success')
     } catch (err) {
+      if (isPollTimeout(err)) {
+        // Playground's rule: we stopped polling, but kie is likely still
+        // rendering a read it has already billed. Dropping the entry here threw
+        // away the taskId the next mount would have resumed from; kept, it is
+        // evicted only once it crosses INFLIGHT_TTL_MS. A resume stays quiet.
+        if (!resumed) {
+          useAppStore.getState().addToast("Voiceover is still rendering on kie. Refresh in a bit and it'll appear here once it's ready.", 'info')
+        }
+        return
+      }
       const msg = voiceRunner.describeError(err)
       setError(msg)
       useAppStore.getState().addToast(msg, 'error')
-    } finally {
-      // Drop only this entry — any sibling gen keeps running.
-      setInFlightVoices((prev) => prev.filter((e) => e.id !== entry.id))
     }
+    // Drop only this entry — any sibling gen keeps running.
+    setInFlightVoices((prev) => prev.filter((e) => e.id !== entry.id))
   }
 
   // One read. A batch fires several of these at once — each is its own kie
@@ -273,7 +288,7 @@ export default function VoiceStudio() {
         'info',
       )
     }
-    live.forEach((entry) => { void finishVoice(entry) })
+    live.forEach((entry) => { void finishVoice(entry, true) })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -312,10 +327,15 @@ export default function VoiceStudio() {
     setDetailsItem(null)
   }
 
-  const handleRestoreSettings = (next: Partial<VoiceSettings>) => {
+  const handleRestoreSettings = (next: Partial<VoiceSettings>, modelId: string) => {
     // Restored history settings aren't a preset, so any loaded preset's stamp
     // goes with them — otherwise the panel keeps naming a preset it no longer holds.
     setSettings((prev) => ({ ...prev, ...next, presetId: undefined, presetLabel: undefined }))
+    // The model is listed among the read's settings, so Restore puts it back
+    // too — it used to leave the picker where it was. Only a TTS model the
+    // registry still has: a removed id written into the slot would be a pick
+    // nothing can resolve.
+    if (getModel(modelId)?.task === 'tts') useSettingsStore.getState().setAppModel(TTS_MODEL_SLOT, modelId)
     setDetailsItem(null)
   }
 
