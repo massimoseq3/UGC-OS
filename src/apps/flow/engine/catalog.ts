@@ -4,6 +4,7 @@
 // and the template validator checks imports against it.
 
 import type { BlockKind, BlockSource, FlowBlock, PortSpec, PortType } from '../types'
+import { adUploadOf } from './ownAd'
 import type { BankType } from '../../../utils/constants'
 import { DEFAULT_HOOK_COUNT, DEFAULT_VARIATION_COUNT, detectSceneBlueprint, isHookCount, isVariationCount } from '../../script-architect/types'
 
@@ -385,10 +386,18 @@ export function insOf(block: FlowBlock): PortSpec[] {
 }
 
 // An input a block takes typed into it when nothing is wired there — the
-// script Voiceovers reads and B-Roll shoots, pasted the way each app takes
-// one. A wire always wins: this is what the input holds with none.
+// script Voiceovers reads, B-Roll shoots, Scene Clips films and Edit Pack
+// captions from, pasted the way each app takes one. A wire always wins: this
+// is what the input holds with none.
 export function takesTyped(block: Pick<FlowBlock, 'kind'>, portKey: string): boolean {
-  return (block.kind === 'voice' || block.kind === 'broll' || block.kind === 'scenes') && portKey === 'script'
+  return (block.kind === 'voice' || block.kind === 'broll' || block.kind === 'scenes' || block.kind === 'edit') && portKey === 'script'
+}
+
+// An input the member can drop a file of their own into, from its block:
+// the Ad Analyzer's ad. The file goes to the ad block that feeds it
+// (components/yourAd.ts), so this only changes what the block asks for.
+export function takesDrop(block: Pick<FlowBlock, 'kind'>, portKey: string): boolean {
+  return block.kind === 'analyzer' && portKey === 'ad'
 }
 
 export function inlineText(block: FlowBlock, portKey: string): string | null {
@@ -422,7 +431,7 @@ export function outsOf(block: FlowBlock): PortSpec[] {
     case 'bank': {
       const bank = (block.settings.bank as BankType) ?? 'products'
       const meta = BANK_TYPE[bank] ?? BANK_TYPE.products
-      return [port('out', meta.one, meta.type)]
+      return [port('out', adUploadOf(block) ? 'Your Ad' : meta.one, meta.type)]
     }
     case 'characters':
       return [port('all', source === 'generate' ? 'All Characters' : 'Character', 'character')]
@@ -448,6 +457,7 @@ export function itemNoun(block: FlowBlock): string {
 export function titleOf(block: FlowBlock): string {
   if (block.label?.trim()) return block.label.trim()
   if (block.kind === 'bank') {
+    if (adUploadOf(block)) return 'Your Ad'
     const bank = (block.settings.bank as BankType) ?? 'products'
     return (BANK_TYPE[bank] ?? BANK_TYPE.products).one
   }
@@ -489,6 +499,7 @@ const NOT_GENERATION: Partial<Record<BlockKind, string[]>> = {
   list: ['entries'],
   voice: ['scriptText'],
   broll: ['scriptText'],
+  edit: ['scriptText'],
   // Adding a take films the new take, not the whole ad again: the plan
   // counts the clips a run is missing (sceneShots.ts missingClips).
   scenes: ['scriptText', 'takes'],

@@ -1,6 +1,7 @@
 // The helper blocks, edited right on the canvas: a Bank pick (the Bank's own
 // picker, opened from the block's pill; the pick fills the block as a square,
-// face.tsx), an Image (drop one on it, or upload),
+// face.tsx) — on the Swipe File, the member's own ad dropped on it in place of
+// a saved one — an Image (drop one on it, or upload),
 // Text and a Note (typed into the block), and a List (one row per item, each
 // with its own output dot). None of them has an app to open, so none of them
 // opens a window.
@@ -10,20 +11,23 @@
 
 import { useRef, useState } from 'react'
 import { Handle, Position } from '@xyflow/react'
-import { Eye, EyeOff, Image as ImageIcon, ImagePlus, Plus, X } from 'lucide-react'
+import { Eye, EyeOff, Image as ImageIcon, ImagePlus, Plus, Upload, X } from 'lucide-react'
 import type { FlowBlock } from '../../types'
 import { TYPE_META } from '../../engine/catalog'
 import { itemPort, liveItems, wiresOutOf } from '../../engine/graph'
-import { bankRowValue } from '../../engine/held'
+import { adBlockValue, bankRowValue } from '../../engine/held'
 import { useFlowStore } from '../../store/flowStore'
 import { useBankStore } from '../../../../stores/bankStore'
 import { BANK_CONFIG, type BankType } from '../../../../utils/constants'
 import { saveAsset } from '../../../../utils/assetStore'
+import { AD_ACCEPT_ATTR } from '../../../ad-anatomy/services/adUpload'
+import Spinner from '../../../../components/Spinner'
 import BankPicker from '../../../../components/BankPicker'
 import AutoGrowTextarea from '../../../../components/AutoGrowTextarea'
 import { SwipePicker } from '../panels/Picks'
 import { useCanvas } from '../canvasContext'
 import { edgeOutput } from '../blockMeta'
+import { holdAd, pickSavedAd, useAdReader, useFileDrag } from '../yourAd'
 import { EmptySquare, FaceFrame, FacePill, PictureSquare, ValueSquare } from './face'
 
 const FIELD = 'nodrag nowheel w-full resize-none rounded-xl border border-ink/10 bg-ink/[0.03] px-3 py-2 text-[12px] leading-relaxed text-ink-100 placeholder-ink-600 outline-none transition-colors focus:border-flow-500/40'
@@ -55,10 +59,12 @@ export function BankBody({ block }: { block: FlowBlock }) {
   // Read through the selector and handed to the lookup, so a rename or a
   // delete in the Bank shows here straight away.
   const rows = useBankStore((s) => s[bank])
-  const value = rows && block.pick ? bankRowValue(bank, block.pick) : null
+  const value = bank === 'swipes' ? (rows ? adBlockValue(block) : null) : rows && block.pick ? bankRowValue(bank, block.pick) : null
   const noun = BANK_CONFIG[bank].label
   const pick = (id: string) => {
-    patchBlock(block.id, { pick: id })
+    // A saved ad replaces one dropped in.
+    if (bank === 'swipes') pickSavedAd(block.id, id)
+    else patchBlock(block.id, { pick: id })
     setOpen(false)
   }
   return (
@@ -72,6 +78,8 @@ export function BankBody({ block }: { block: FlowBlock }) {
       <FaceFrame block={block} port={edgeOutput(block)}>
         {value ? (
           <ValueSquare value={value} />
+        ) : bank === 'swipes' ? (
+          <AdDropSquare blockId={block.id} field={!!block.field} />
         ) : (
           <EmptySquare
             icon={BANK_CONFIG[bank].icon}
@@ -89,6 +97,43 @@ export function BankBody({ block }: { block: FlowBlock }) {
           <BankPicker bankType={bank} isOpen={open} onClose={() => setOpen(false)} onSelect={(item) => pick(item.id)} />
         )}
       </Contained>
+    </div>
+  )
+}
+
+// An ad block with nothing in it: the member's own ad dropped on it (the drop
+// itself is the canvas's, which routes it here), or a click to browse for
+// one. The pill above picks a saved one instead.
+function AdDropSquare({ blockId, field }: { blockId: string; field: boolean }) {
+  const fileRef = useRef<HTMLInputElement>(null)
+  const reader = useAdReader((upload) => holdAd(blockId, upload))
+  const drag = useFileDrag(null)
+  return (
+    <div {...drag.handlers}>
+      <button
+        type="button"
+        onClick={() => fileRef.current?.click()}
+        className={`nodrag relative flex aspect-square w-full flex-col items-center justify-center gap-1.5 overflow-hidden rounded-2xl border border-dashed px-5 text-center transition-colors ${
+          drag.active ? 'border-[#FF5257]/60 bg-[#FF5257]/[0.07]' : 'border-ink/15 hover:border-flow-500/40 hover:bg-flow-500/[0.04]'
+        }`}
+      >
+        {reader.busy ? <Spinner className="h-5 w-5 text-ink-400" /> : <Upload className={`h-5 w-5 ${drag.active ? 'text-[#FF5257]' : 'text-ink-500'}`} />}
+        <span className="text-[12px] font-medium text-ink-300">{reader.busy ? 'Reading Your Ad…' : 'Drop Your Ad'}</span>
+        <span className={`text-[10.5px] leading-snug ${reader.problem ? 'text-[#FF5257]/90' : 'text-ink-500'}`}>
+          {reader.problem ?? (field ? 'Whoever runs it drops their own, or picks a saved one' : 'MP4, MOV or WebM, or pick a saved one above')}
+        </span>
+      </button>
+      <input
+        ref={fileRef}
+        type="file"
+        accept={AD_ACCEPT_ATTR}
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0]
+          e.target.value = ''
+          reader.take(file)
+        }}
+      />
     </div>
   )
 }

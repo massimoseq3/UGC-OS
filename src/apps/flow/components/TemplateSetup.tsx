@@ -18,6 +18,7 @@ import { saveAsset } from '../../../utils/assetStore'
 import { BANK_CONFIG } from '../../../utils/constants'
 import { useAssetThumb } from '../../../hooks/useAssetUrl'
 import { bankRowValue } from '../engine/held'
+import { uploadedAdValue } from '../engine/ownAd'
 import { planFlow } from '../engine/plan'
 import { PLAN_DEPS, startRun } from '../run/runtime'
 import { useFlowStore } from '../store/flowStore'
@@ -25,11 +26,16 @@ import { shapeBlocks } from '../store/blocks'
 import { creditsLabel } from '../hooks/useFlowPlan'
 import { instantiate, type LoadedTemplate, type TemplateField } from '../templates/io'
 import { loadGalleryTemplate, type GalleryEntry } from '../templates/gallery'
-import type { FlowGraph } from '../types'
+import type { AdUpload, FlowGraph } from '../types'
+import { useAdReader, useFileDrag } from './yourAd'
+import { AdDropStrip } from './AdUploadParts'
+import { uploadMeta } from './node/chips'
 
 export type SetupSource = { kind: 'gallery'; entry: GalleryEntry } | { kind: 'file'; template: LoadedTemplate }
 
-interface Pick { pick?: string; text?: string; ref?: string }
+// A field's answer: a bank pick, typed text, an image, or — for an ad — the
+// member's own ad dropped in.
+interface Pick { pick?: string; text?: string; ref?: string; upload?: AdUpload }
 
 export default function TemplateSetup({ source, onClose }: { source: SetupSource; onClose: () => void }) {
   const [loaded, setLoaded] = useState<LoadedTemplate | null>(source.kind === 'file' ? source.template : null)
@@ -76,6 +82,7 @@ export default function TemplateSetup({ source, onClose }: { source: SetupSource
               ...(b.kind === 'image' && typeof b.settings.asset === 'string' ? { ref: `embedded:${b.settings.asset}` } : {}),
               ...(b.kind === 'image' && picks[b.id]?.ref ? { ref: picks[b.id].ref } : {}),
               ...(b.kind === 'text' && picks[b.id]?.text !== undefined ? { text: picks[b.id].text } : {}),
+              ...(b.kind === 'bank' && picks[b.id]?.upload ? { upload: picks[b.id].upload } : {}),
             },
           })),
           wires: file.wires,
@@ -195,7 +202,7 @@ export default function TemplateSetup({ source, onClose }: { source: SetupSource
 function filled(f: TemplateField, p: Pick | undefined): boolean {
   if (f.kind === 'text') return !!p?.text?.trim() || (!f.required)
   if (f.kind === 'image') return !!p?.ref
-  return !!p?.pick
+  return !!p?.pick || !!p?.upload
 }
 
 // `text` is a Text field's block as the template has it: the field's example
@@ -207,7 +214,7 @@ function FieldInput({ field, text, value, onChange }: { field: TemplateField; te
   const thumb = useAssetThumb(value?.ref)
   const bank = typeof field.kind === 'object' ? field.kind.bank : null
   const rows = useBankStore((s) => (bank ? s[bank] : null))
-  const picked = bank && value?.pick && rows ? bankRowValue(bank, value.pick) : null
+  const picked = value?.upload ? uploadedAdValue(value.upload) : bank && value?.pick && rows ? bankRowValue(bank, value.pick) : null
 
   if (field.kind === 'text') {
     return (
@@ -248,11 +255,14 @@ function FieldInput({ field, text, value, onChange }: { field: TemplateField; te
         <span className="min-w-0 flex-1">
           <span className="block text-[12.5px] font-medium text-ink-200">{field.title}</span>
           <span className="block truncate text-[11.5px] text-ink-500">
-            {picked ? picked.label : `Choose from ${BANK_CONFIG[bank!].label}${field.example ? ` · ${field.example} was the example` : ''}`}
+            {picked
+              ? value?.upload ? `${picked.label} · ${uploadMeta(value.upload.seconds)}` : picked.label
+              : `Choose from ${BANK_CONFIG[bank!].label}${field.example ? ` · ${field.example} was the example` : ''}`}
           </span>
         </span>
         <ChevronRight className="h-4 w-4 text-ink-500" />
       </button>
+      {bank === 'swipes' && <OwnAd held={!!value?.upload} onUpload={(upload) => onChange({ upload })} />}
       {bank === 'swipes' ? (
         <SwipeChooser open={open} onClose={() => setOpen(false)} onPick={(id) => { onChange({ pick: id }); setOpen(false) }} />
       ) : (
@@ -260,6 +270,14 @@ function FieldInput({ field, text, value, onChange }: { field: TemplateField; te
       )}
     </>
   )
+}
+
+// The member's own ad in place of a saved one: a Swipe File isn't where
+// everyone starts.
+function OwnAd({ held, onUpload }: { held: boolean; onUpload: (upload: AdUpload) => void }) {
+  const reader = useAdReader(onUpload)
+  const drag = useFileDrag((files) => reader.take(files[0]))
+  return <AdDropStrip busy={reader.busy} problem={reader.problem} active={drag.active} held={held} onFile={reader.take} dragHandlers={drag.handlers} />
 }
 
 function SwipeChooser({ open, onClose, onPick }: { open: boolean; onClose: () => void; onPick: (id: string) => void }) {

@@ -10,6 +10,7 @@ import type { CharacterHistoryItem, ImageHistoryItem, Lineage, MusicHistoryItem,
 import { useBankStore } from '../../../../stores/bankStore'
 import { useSettingsStore, resolveTtsModel } from '../../../../stores/settingsStore'
 import { FriendlyError } from '../../../../utils/friendlyError'
+import { getBlob } from '../../../../utils/assetStore'
 import { voiceRunner, type VoiceTask } from '../../../voice-studio/runner'
 import { sanitizeVoiceSettings, settingsFromPreset, type VoiceSettings } from '../../../voice-studio/types'
 import { scriptRunner, type ScriptRunInput } from '../../../script-architect/runner'
@@ -332,11 +333,18 @@ export const playgroundExecutor: Executor = {
 
 // ── Ad Analyzer ────────────────────────────────────────────────────────────
 
-// An ad on a wire → the video file the analyzer reads. A saved swipe's link
-// has usually expired, so it's re-resolved once (a ScrapeCreators credit),
-// the way the Swipe File's own Analyze button does it.
+// An ad on a wire → the video file the analyzer reads. The member's own ad is
+// the file they dropped, read back from storage. A saved swipe's link has
+// usually expired, so it's re-resolved once (a ScrapeCreators credit), the
+// way the Swipe File's own Analyze button does it.
 async function adFile(ad: Extract<FlowValue, { type: 'ad' }>): Promise<{ file: File; durationSeconds?: number }> {
   const p = ad.payload
+  if (p.uploadRef) {
+    const blob = await getBlob(p.uploadRef)
+    if (!blob) throw new FriendlyError("Your ad's file isn't on this device any more. Drop it in again.")
+    const name = p.fileName || 'ad.mp4'
+    return { file: new File([blob], name, { type: blob.type || 'video/mp4' }), durationSeconds: p.durationSeconds }
+  }
   const apiKey = useSettingsStore.getState().scrapeCreatorsKey
   const result: DiscoverResult | undefined = (p.result as DiscoverResult | undefined)
     ?? (p.swipeId ? swipeFromBank(p.swipeId) : undefined)
@@ -387,8 +395,8 @@ export const analyzerExecutor: Executor = {
     }
     if (!rowId) {
       const ad = one(ctx.inst.inputs.ad, 'ad')
-      if (!ad) throw new FriendlyError('Wire an ad into the Ad Analyzer.')
-      ctx.progress('Fetching the ad')
+      if (!ad) throw new FriendlyError('Drop your ad on the Ad Analyzer, or wire one in.')
+      ctx.progress(ad.payload.uploadRef ? 'Reading your ad' : 'Fetching the ad')
       const { file, durationSeconds } = await adFile(ad)
       ctx.progress('Analyzing')
       const task = await adAnalysisRunner.start({ file, durationSeconds }, { provenance: ctx.provenance })

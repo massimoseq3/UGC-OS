@@ -15,8 +15,9 @@
 // into another — or paste a template's flow.json straight onto a canvas.
 
 import type { BankType } from '../../../utils/constants'
-import type { FlowBlock, FlowDoc, FlowGraph, FlowWire } from '../types'
+import type { AdUpload, FlowBlock, FlowDoc, FlowGraph, FlowWire } from '../types'
 import { BANK_TYPE, isBatch, isKnownKind, KINDS, sourceOf, titleOf } from '../engine/catalog'
+import { adUploadOf, uploadedAdValue } from '../engine/ownAd'
 import { canConnect } from '../engine/graph'
 import { getBlob, saveAsset } from '../../../utils/assetStore'
 import { getModel } from '../../../utils/models'
@@ -105,9 +106,14 @@ export async function buildTemplate(doc: FlowDoc): Promise<{ file: FlowTemplateF
     delete b.pick
     const bank = bankOf(source)
     if (bank) {
-      const example = source.pick ? bankRowValue(bank, source.pick)?.label : undefined
+      // An ad the author dropped in is theirs like a pick is: the field asks
+      // the importer for their own, and the video never rides along.
+      const upload = adUploadOf(source)
+      if (upload) b.settings = Object.fromEntries(Object.entries(b.settings).filter(([k]) => k !== 'upload'))
+      const example = upload ? uploadedAdValue(upload).label : source.pick ? bankRowValue(bank, source.pick)?.label : undefined
       b.field = true
-      b.label = source.label ?? `Your ${BANK_TYPE[bank].one}`
+      // An ad field takes a saved ad or the importer's own, so it isn't "Saved".
+      b.label = source.label ?? (bank === 'swipes' ? 'Your Ad' : `Your ${BANK_TYPE[bank].one}`)
       fields.push({ blockId: b.id, title: b.label, kind: { bank }, required: true, example })
     } else if (KINDS[b.kind]?.runnable && sourceOf(b) === 'history') {
       // A past result belongs to the author's account; the importer makes
@@ -254,8 +260,9 @@ export function validateTemplate(raw: unknown, opts: { described?: boolean } = {
       off: rb.off === true || undefined,
       field: rb.field === true || undefined,
     }
-    // A template never carries a pick or a stored image ref.
+    // A template never carries a pick, a stored image ref or a dropped-in ad.
     delete block.settings.ref
+    delete block.settings.upload
     blocks.push(block)
   }
   const graph: FlowGraph = { blocks, wires: [] }
@@ -338,7 +345,7 @@ export async function readTemplateFile(file: File): Promise<LoadedTemplate> {
 // importer's own storage, and each field's pick filled in.
 export async function instantiate(
   loaded: LoadedTemplate,
-  picks: Record<string, { pick?: string; text?: string; ref?: string }>,
+  picks: Record<string, { pick?: string; text?: string; ref?: string; upload?: AdUpload }>,
 ): Promise<FlowGraph> {
   const blocks: FlowBlock[] = []
   for (const source of loaded.file.blocks) {
@@ -350,6 +357,7 @@ export async function instantiate(
     }
     const pick = picks[b.id]
     if (pick?.pick) b.pick = pick.pick
+    if (pick?.upload && b.kind === 'bank') b.settings = { ...b.settings, upload: pick.upload }
     if (pick?.text !== undefined && b.kind === 'text') b.settings = { ...b.settings, text: pick.text }
     if (pick?.ref && b.kind === 'image') b.settings = { ...b.settings, ref: pick.ref }
     blocks.push(b)
@@ -395,7 +403,16 @@ export function parseFlowJson(text: string): ParsedPaste {
     const picks = new Map((raw.blocks as FlowBlock[]).map((b) => [b.id, b]))
     const blocks = asTemplate.file.blocks.map((b) => {
       const original = picks.get(b.id)
-      return { ...b, pick: original?.pick, settings: { ...b.settings, ...(original?.kind === 'image' && original.settings.ref ? { ref: original.settings.ref } : {}) } }
+      const upload = original ? adUploadOf(original) : null
+      return {
+        ...b,
+        pick: original?.pick,
+        settings: {
+          ...b.settings,
+          ...(original?.kind === 'image' && original.settings.ref ? { ref: original.settings.ref } : {}),
+          ...(upload ? { upload } : {}),
+        },
+      }
     })
     return { ok: true, graph: { blocks, wires: asTemplate.file.wires }, notes: [] }
   }

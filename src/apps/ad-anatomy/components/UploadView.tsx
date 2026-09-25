@@ -4,14 +4,11 @@ import { formatCredits } from '../../../utils/models'
 import { readMediaDuration } from '../../../utils/media'
 import DropOverlay from '../../../components/DropOverlay'
 import { estimateAnalysisCredits } from '../services/analysisCost'
-import { VIDEO_UPLOAD_BUDGET_BYTES } from '../services/analyzeAd'
+import { AD_ACCEPT_ATTR, AD_MAX_SIZE_MB, adFileProblem, adNeedsCompressing, COMPRESS_FIRST_HINT } from '../services/adUpload'
 
 // IMPORTANT: The drop overlay lives on the panel root. Do NOT add an onDrop
 // handler to the button — React onDrop on a child + native drop on the panel
 // fire both, which causes every file to enqueue twice (5 files → 10 rows).
-
-const ACCEPTED_TYPES = ['video/mp4', 'video/quicktime', 'video/webm']
-const MAX_SIZE_MB = 50
 
 interface UploadViewProps {
   onAnalyze: (files: File[]) => void
@@ -30,20 +27,8 @@ interface StagedFile {
   durationSec: number | null
 }
 
-// The clip is uploaded to kie's file host, and anything over the upload budget
-// is re-encoded first (see services/analysisQueue.ts). Said here as well
-// as on the analyzing screen: the pass runs in realtime, and a member who was
-// told to expect "a couple of minutes" should know before they commit which of
-// their clips is buying an extra one.
-function needsCompressing(file: File): boolean {
-  return file.type.startsWith('video/') && file.size > VIDEO_UPLOAD_BUDGET_BYTES
-}
-
-function validate(file: File): string | null {
-  if (!ACCEPTED_TYPES.includes(file.type)) return 'Unsupported format'
-  if (file.size > MAX_SIZE_MB * 1024 * 1024) return `Larger than ${MAX_SIZE_MB}MB`
-  return null
-}
+// What's accepted, and which clips get compressed first, is shared with
+// Flow's Ad Analyzer block (services/adUpload.ts).
 
 export default function UploadView({ onAnalyze }: UploadViewProps) {
   // Panel-scoped drag overlay — visible whenever a file drag enters the
@@ -63,7 +48,7 @@ export default function UploadView({ onAnalyze }: UploadViewProps) {
     const accepted: StagedFile[] = []
     const failed: RejectedFile[] = []
     for (const f of files) {
-      const reason = validate(f)
+      const reason = adFileProblem(f)
       if (reason) failed.push({ name: f.name, reason })
       else accepted.push({ id: crypto.randomUUID(), file: f, durationSec: null })
     }
@@ -176,12 +161,12 @@ export default function UploadView({ onAnalyze }: UploadViewProps) {
           {hasStaged ? 'Add another ad, or ' : 'Drag & drop one or more ads, or '}
           <span className="text-ink-200 underline underline-offset-2">browse</span>
         </span>
-        <span className="text-[11px] text-ink-600">MP4, MOV, WebM · max {MAX_SIZE_MB}MB each</span>
+        <span className="text-[11px] text-ink-600">MP4, MOV, WebM · max {AD_MAX_SIZE_MB}MB each</span>
       </button>
       <input
         ref={inputRef}
         type="file"
-        accept="video/mp4,video/quicktime,video/webm"
+        accept={AD_ACCEPT_ATTR}
         multiple
         className="hidden"
         onChange={handleFileInput}
@@ -199,9 +184,9 @@ export default function UploadView({ onAnalyze }: UploadViewProps) {
             >
               <Film className="h-3.5 w-3.5 shrink-0 text-[#FF5257]/70" strokeWidth={1.75} />
               <span className="min-w-0 flex-1 truncate text-xs text-ink-300">{s.file.name}</span>
-              {needsCompressing(s.file) && (
+              {adNeedsCompressing(s.file) && (
                 <span
-                  title={`This ad is over the ${Math.round(VIDEO_UPLOAD_BUDGET_BYTES / (1024 * 1024))}MB the analyzer can upload, so it gets compressed first, which takes about as long as the ad runs.`}
+                  title={COMPRESS_FIRST_HINT}
                   className="flex shrink-0 items-center gap-1 rounded-full bg-ink/[0.06] px-2 py-0.5 text-[10px] font-medium text-ink-400"
                 >
                   <Minimize2 className="h-2.5 w-2.5" strokeWidth={2.25} />
@@ -251,7 +236,7 @@ export default function UploadView({ onAnalyze }: UploadViewProps) {
           <p className="text-center text-[11px] text-ink-600">
             Please wait after starting. This can take a couple of minutes
             {staged.length > 1 ? ' per ad' : ''}.
-            {staged.some((s) => needsCompressing(s.file)) &&
+            {staged.some((s) => adNeedsCompressing(s.file)) &&
               ' Oversized ads are compressed first, which adds roughly their own runtime.'}
           </p>
         </div>

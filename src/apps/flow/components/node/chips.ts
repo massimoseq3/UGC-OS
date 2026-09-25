@@ -12,3 +12,9 @@ export function clock(seconds: number): string {
   const s = Math.max(0, Math.round(seconds))
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }
+
+// "Your ad · 0:32": how an ad the member dropped in reads where a saved one
+// says its platform.
+export function uploadMeta(seconds: number | undefined): string {
+  return seconds ? `Your ad · ${clock(seconds)}` : 'Your ad'
+}

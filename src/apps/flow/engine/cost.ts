@@ -235,8 +235,12 @@ export function blockCost(block: FlowBlock, inputs: Record<string, FlowValue[]>,
       return scenesCost(block, inputs, test)
     case 'playground':
       return playgroundRunner.estimate(playgroundInput(block, inputs))
-    case 'analyzer':
-      return estimateAnalysisCredits(Number.NaN)
+    case 'analyzer': {
+      // Priced on the ad's length when it's known (an ad dropped in); the
+      // Ad Analyzer's own estimate falls back to a typical length otherwise.
+      const ad = inputs.ad?.[0]
+      return estimateAnalysisCredits(ad?.type === 'ad' ? ad.payload.durationSeconds ?? Number.NaN : Number.NaN)
+    }
     default:
       // Outliers bills ScrapeCreators, not kie; Edit Pack and the helpers
       // make nothing.

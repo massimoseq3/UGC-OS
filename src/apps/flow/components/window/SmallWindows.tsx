@@ -2,10 +2,11 @@
 // own output — the Ad Analyzer's breakdown, Outliers' result cards, Edit's
 // one-folder-per-ad — and a left column holding what the block runs on.
 
-import { useState } from 'react'
-import { Bookmark, Download, Eye, FolderOpen, Key, Radar, Scissors, Search, Sparkles } from 'lucide-react'
+import { useRef, useState, type ReactNode } from 'react'
+import { Bookmark, Download, Eye, FolderOpen, Key, Radar, Scissors, ScrollText, Search, Sparkles, Upload } from 'lucide-react'
 import type { FlowValue } from '../../types'
-import { blockWidth, TYPE_META } from '../../engine/catalog'
+import { blockWidth, inlineText, titleOf, TYPE_META } from '../../engine/catalog'
+import { adUploadOf } from '../../engine/ownAd'
 import { itemPort, liveItems, wiresInto } from '../../engine/graph'
 import { useFlowStore } from '../../store/flowStore'
 import { useBankStore } from '../../../../stores/bankStore'
@@ -21,31 +22,60 @@ import type { DiscoverPlatform, DiscoverResult } from '../../../discover/types'
 import { saveResultVideoToDisk, saveThumbnail } from '../../../discover/services/handoff'
 import { downloadEditPacks } from '../../run/editPack'
 import { freeSpot } from '../../engine/layout'
+import { AD_ACCEPT_ATTR } from '../../../ad-anatomy/services/adUpload'
 import SectionCard from '../../../../components/SectionCard'
+import DropOverlay from '../../../../components/DropOverlay'
 import SegmentedToggle from '../../../../components/SegmentedToggle'
 import Dropdown from '../../../../components/Dropdown'
 import GridCanvas from '../../../../components/GridCanvas'
+import AutoGrowTextarea from '../../../../components/AutoGrowTextarea'
 import Spinner from '../../../../components/Spinner'
 import { SwipePicker } from '../panels/Picks'
+import { adFeedOf, adRefusal, giveAdTo, holdAd, pickSavedAd, useAdReader, useFileDrag } from '../yourAd'
+import { AdDropScreen, AdPreview } from '../AdUploadParts'
+import { uploadMeta } from '../node/chips'
 import { InputsBand, NothingYet, RunBand, RunChip, WiredCard } from './parts'
 import { blockRuns, type BlockRun, type WindowProps } from './runs'
 
 // ── The Ad Analyzer ────────────────────────────────────────────────────────
 
+// With no ad yet, the right side is the Ad Analyzer's own upload screen, and
+// the whole window takes a drop the way the app's panel does. The ad dropped
+// in goes to the ad block that feeds this one (yourAd.ts) — a template's "The
+// Winning Ad", or a new block wired in — and plays on the right until it's
+// analyzed.
 export function AnalyzerWindow({ doc, block, plan, run, onRun, onReview }: WindowProps) {
   const addBlock = useFlowStore((s) => s.addBlock)
   const connect = useFlowStore((s) => s.connect)
   const setSelection = useFlowStore((s) => s.setSelection)
   const addToast = useAppStore((s) => s.addToast)
   const [swipeOpen, setSwipeOpen] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
   const bp = plan?.blocks[block.id]
   const runs = blockRuns(block, bp, run)
-  const adWired = wiresInto(doc, block.id, 'ad').length > 0
+  const feed = adFeedOf(doc, block)
+  const holder = feed.kind === 'holder' ? feed.holder : null
+  const upload = holder ? adUploadOf(holder) : null
+  const takesDrop = feed.kind !== 'other'
   const count = runs.length || 1
   const ads: FlowValue[] = []
   for (const r of runs) for (const v of r.inputs.ad ?? []) if (!ads.some((a) => a.key === v.key)) ads.push(v)
 
-  const feed = (make: () => string, fromPort: string, what: string) => {
+  const reader = useAdReader((u) => {
+    const done = giveAdTo(block.id, u)
+    // Adding selects the new block; the window's block stays the one selected.
+    setSelection([block.id])
+    addToast(done.ok ? done.message : done.reason, done.ok ? 'success' : 'error')
+  })
+  // Caught even when it can't be taken, or the browser opens the file in
+  // place of the app.
+  const drag = useFileDrag((files) => {
+    const refused = adRefusal(doc, block)
+    if (refused) addToast(refused, 'error')
+    else reader.take(files[0])
+  })
+
+  const wireIn = (make: () => string, fromPort: string, what: string) => {
     const id = make()
     const check = connect({ from: id, fromPort, to: block.id, toPort: 'ad' })
     setSelection([block.id])
@@ -53,37 +83,66 @@ export function AnalyzerWindow({ doc, block, plan, run, onRun, onReview }: Windo
   }
   const at = freeSpot(doc, { x: block.x - blockWidth('outliers') - 96, y: block.y }, 'outliers')
 
+  const pill = 'flex items-center justify-center gap-1.5 rounded-full border px-3 py-2.5 text-[12px] font-medium transition-colors'
+  const pillButton = `${pill} border-ink/10 text-ink-300 hover:border-ink/20 hover:text-ink-100`
+  const empty = takesDrop && ads.length === 0
+    ? <AdDropScreen busy={reader.busy} problem={reader.problem} active={drag.active && takesDrop} onFile={reader.take} />
+    : upload && holder
+      ? (
+        <AdPreview upload={upload} onRemove={() => holdAd(holder.id, null)}>
+          <p className="max-w-sm text-center text-[11.5px] leading-relaxed text-ink-500">
+            {reader.busy ? 'Reading your ad…' : 'Analyze the Ad breaks it down. Drop another anywhere in this window to swap it.'}
+          </p>
+          {reader.problem && <p className="max-w-sm text-center text-[11.5px] text-[#FF5257]/90">{reader.problem}</p>}
+        </AdPreview>
+      )
+      : null
+
   return (
-    <>
+    <div className="relative flex min-h-0 min-w-0 flex-1" {...drag.handlers}>
       <div className="flex w-[440px] shrink-0 flex-col border-r border-ink/5">
         <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="flex flex-col gap-2 px-5 pb-2 pt-4">
             <SectionCard icon={Eye} title="The Ad" contentClassName="flex flex-col gap-2">
-              {adWired ? (
+              {feed.kind === 'other' ? (
                 <WiredCard doc={doc} block={block} port="ad" hint="Each ad that comes in is broken down once, the way the Ad Analyzer does it, and lands in its history.">
-                  {ads.length > 0 && (
-                    <div className="flex max-h-60 flex-col gap-1.5 overflow-y-auto">
-                      {ads.slice(0, 12).map((a) => <AdRow key={a.key} value={a} />)}
-                    </div>
-                  )}
+                  {ads.length > 0 && <AdRows ads={ads} />}
                 </WiredCard>
               ) : (
                 <>
-                  <p className="px-1 text-[12px] leading-relaxed text-ink-400">Wire in an ad: one from your Swipe File, or the winners an Outliers search finds.</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button type="button" onClick={() => setSwipeOpen(true)} className="flex items-center justify-center gap-1.5 rounded-full border border-ink/10 px-3 py-2.5 text-[12px] font-medium text-ink-300 transition-colors hover:border-ink/20 hover:text-ink-100">
+                  {ads.length > 0 && <AdRows ads={ads} />}
+                  <p className="px-1 text-[12px] leading-relaxed text-ink-400">
+                    {holder
+                      ? `${titleOf(holder)} feeds this one. Drop your own ad anywhere in this window, or pick a saved one.`
+                      : 'Drop your own ad anywhere in this window, or use one you\'ve saved, or the winners an Outliers search finds.'}
+                  </p>
+                  <button type="button" onClick={() => fileRef.current?.click()} className={`${pill} border-[#FF5257]/30 bg-[#FF5257]/[0.06] text-ink-100 hover:border-[#FF5257]/50`}>
+                    <Upload className="h-3.5 w-3.5" />
+                    {upload ? 'Upload Another Ad' : 'Upload Your Ad'}
+                  </button>
+                  <div className={`grid gap-2 ${holder ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                    <button type="button" onClick={() => setSwipeOpen(true)} className={pillButton}>
                       <Bookmark className="h-3.5 w-3.5" />
                       A Saved Ad
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => feed(() => addBlock('outliers', at), 'all', 'An Outliers search')}
-                      className="flex items-center justify-center gap-1.5 rounded-full border border-ink/10 px-3 py-2.5 text-[12px] font-medium text-ink-300 transition-colors hover:border-ink/20 hover:text-ink-100"
-                    >
-                      <Radar className="h-3.5 w-3.5" />
-                      An Outliers Search
-                    </button>
+                    {!holder && (
+                      <button type="button" onClick={() => wireIn(() => addBlock('outliers', at), 'all', 'An Outliers search')} className={pillButton}>
+                        <Radar className="h-3.5 w-3.5" />
+                        An Outliers Search
+                      </button>
+                    )}
                   </div>
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept={AD_ACCEPT_ATTR}
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      e.target.value = ''
+                      reader.take(file)
+                    }}
+                  />
                 </>
               )}
             </SectionCard>
@@ -98,18 +157,29 @@ export function AnalyzerWindow({ doc, block, plan, run, onRun, onReview }: Windo
 
       <div className="flex min-w-0 flex-1 flex-col">
         <InputsBand doc={doc} block={block} plan={plan} run={run} onReview={onReview} />
-        <AnalysisOutput runs={runs} />
+        <AnalysisOutput runs={runs} empty={empty} />
       </div>
+
+      {drag.active && takesDrop && <DropOverlay icon={Upload} label="Drop to Analyze" accent="analyzer" />}
 
       <SwipePicker
         open={swipeOpen}
         onClose={() => setSwipeOpen(false)}
         onPick={(id) => {
           setSwipeOpen(false)
-          feed(() => addBlock('bank', at, { settings: { bank: 'swipes' }, pick: id }), 'out', 'The saved ad')
+          if (holder) pickSavedAd(holder.id, id)
+          else wireIn(() => addBlock('bank', at, { settings: { bank: 'swipes' }, pick: id }), 'out', 'The saved ad')
         }}
       />
-    </>
+    </div>
+  )
+}
+
+function AdRows({ ads }: { ads: FlowValue[] }) {
+  return (
+    <div className="flex max-h-60 flex-col gap-1.5 overflow-y-auto">
+      {ads.slice(0, 12).map((a) => <AdRow key={a.key} value={a} />)}
+    </div>
   )
 }
 
@@ -128,7 +198,9 @@ function OutRow({ color, label, goes }: { color: string; label: string; goes: st
 function AdRow({ value }: { value: FlowValue }) {
   const thumbRef = value.type === 'ad' ? value.payload.thumbUrl : undefined
   const thumb = useAssetThumb(thumbRef)
-  const meta = value.type === 'ad' ? [value.payload.platform, value.payload.author ? `@${value.payload.author}` : ''].filter(Boolean).join(' · ') : ''
+  const meta = value.type !== 'ad' ? ''
+    : value.payload.uploadRef ? uploadMeta(value.payload.durationSeconds)
+    : [value.payload.platform, value.payload.author ? `@${value.payload.author}` : ''].filter(Boolean).join(' · ')
   return (
     <div className="flex items-center gap-2.5 rounded-xl bg-ink/[0.04] px-2 py-1.5">
       {thumb.url ? <img src={thumb.url} alt="" className="h-11 w-8 shrink-0 rounded-md object-cover" /> : <span className="h-11 w-8 shrink-0 rounded-md bg-ink/10" />}
@@ -140,8 +212,9 @@ function AdRow({ value }: { value: FlowValue }) {
   )
 }
 
-// One analysis at a time, on the Ad Analyzer's own breakdown.
-function AnalysisOutput({ runs }: { runs: BlockRun[] }) {
+// One analysis at a time, on the Ad Analyzer's own breakdown. `empty` is
+// what shows before there is one: the upload screen, or the ad dropped in.
+function AnalysisOutput({ runs, empty }: { runs: BlockRun[]; empty: ReactNode }) {
   const [picked, setPicked] = useState<string | null>(null)
   const history = useBankStore((st) => st.adAnatomyHistory)
   const shown = runs.find((r) => r.key === picked) ?? runs.find((r) => r.result) ?? runs[0]
@@ -174,6 +247,8 @@ function AnalysisOutput({ runs }: { runs: BlockRun[] }) {
               <p className="text-sm text-ink-400">{shown.note ?? 'Analyzing'}…</p>
             </div>
           </GridCanvas>
+        ) : shown?.status !== 'failed' && empty ? (
+          empty
         ) : (
           <GridCanvas>
             <NothingYet icon={Eye} title={shown?.status === 'failed' ? 'That analysis failed' : 'No breakdown yet'} hint={shown?.error ?? 'The scorecard, the breakdown, the transcript and the scene prompts land here, the way the Ad Analyzer shows them.'} />
@@ -399,10 +474,12 @@ const INCLUDES: Array<{ port: string; label: string; path: string }> = [
 ]
 
 export function EditWindow({ doc, block, plan, run, onRun, onReview }: WindowProps) {
+  const patchSettings = useFlowStore((s) => s.patchSettings)
   const bp = plan?.blocks[block.id]
   const runs = blockRuns(block, bp, run)
   const packs = runs.map((r) => r.result?.pack).filter((p): p is NonNullable<typeof p> => !!p)
   const count = runs.length || 1
+  const scriptWired = wiresInto(doc, block.id, 'script').length > 0
   return (
     <>
       <div className="flex w-[440px] shrink-0 flex-col border-r border-ink/5">
@@ -410,7 +487,7 @@ export function EditWindow({ doc, block, plan, run, onRun, onReview }: WindowPro
           <div className="flex flex-col gap-2 px-5 pb-2 pt-4">
             <SectionCard icon={FolderOpen} title="Includes" contentClassName="flex flex-col gap-1.5">
               {INCLUDES.map((inc) => {
-                const wired = wiresInto(doc, block.id, inc.port).length > 0
+                const wired = wiresInto(doc, block.id, inc.port).length > 0 || inlineText(block, inc.port) !== null
                 return (
                   <div key={inc.port} className="flex items-center gap-2.5 rounded-2xl border border-ink/5 bg-ink/[0.02] px-3 py-2.5">
                     <span className={`h-2 w-2 shrink-0 rounded-full ${wired ? 'bg-[#F77646]' : 'bg-ink/15'}`} />
@@ -420,6 +497,20 @@ export function EditWindow({ doc, block, plan, run, onRun, onReview }: WindowPro
                 )
               })}
             </SectionCard>
+            {scriptWired ? (
+              <WiredCard doc={doc} block={block} port="script" hint="Each pack's script.txt is the script wired in for its ad." />
+            ) : (
+              <SectionCard icon={ScrollText} title="Script" contentClassName="flex flex-col gap-2">
+                <AutoGrowTextarea
+                  value={String(block.settings.scriptText ?? '')}
+                  onChange={(e) => patchSettings(block.id, { scriptText: e.target.value }, { coalesce: `script:${block.id}` })}
+                  placeholder="Paste your script, or wire one in."
+                  rows={4}
+                  className="w-full resize-none rounded-2xl border border-ink/10 bg-ink/[0.02] px-4 py-3 text-[13px] leading-relaxed text-ink-200 placeholder-ink-600 outline-none focus:border-[#F77646]/30"
+                />
+                <p className="px-1 text-[11.5px] leading-relaxed text-ink-500">What the editor captions from, in every pack's script.txt. Left empty, each pack uses the words its own clips were made from.</p>
+              </SectionCard>
+            )}
             <SectionCard icon={FolderOpen} title="One Folder Per Ad" contentClassName="flex flex-col gap-2">
               <pre className="overflow-hidden rounded-2xl bg-ink/[0.03] px-4 py-3 font-mono text-[11px] leading-relaxed text-ink-300">{`${slugOf(doc.name)}/
   ad-01/input/script.txt

@@ -53,6 +53,8 @@ import AskFlow from './AskFlow'
 import FlowHelp from './FlowHelp'
 import WirePeek from './WirePeek'
 import { estimatedSize, freeSpot } from '../engine/layout'
+import { adRefusal, giveAdTo, holdAd, isAdHolder, readAd } from './yourAd'
+import { humanizeError } from '../../../utils/friendlyError'
 
 const NODE_TYPES = { block: BlockNode }
 const EDGE_TYPES = { wire: WireEdge }
@@ -572,7 +574,35 @@ export default function Canvas({
     }
   }
 
-  // ── Drops: palette blocks, and images ────────────────────────────────────
+  // ── Drops: palette blocks, images and ads ────────────────────────────────
+
+  // A video is the member's own ad. Dropped onto an Ad Analyzer, it goes to
+  // the ad block feeding it, or a new one wired in; onto an ad block, it
+  // replaces what that holds; anywhere else, it's an ad block where it fell,
+  // and the suggestion after it is the Ad Analyzer. One ad per block.
+  const dropAd = async (file: File, host: FlowBlock | undefined, at: XYPosition) => {
+    const refused = host?.kind === 'analyzer' ? adRefusal(doc, host) : null
+    if (refused) {
+      say(refused, 'error')
+      return
+    }
+    let upload
+    try {
+      upload = await readAd(file)
+    } catch (err) {
+      say(humanizeError(err, "That ad couldn't be read. Try another file."), 'error')
+      return
+    }
+    if (host?.kind === 'analyzer') {
+      const done = giveAdTo(host.id, upload)
+      say(done.ok ? done.message : done.reason, done.ok ? 'success' : 'error')
+    } else if (host && isAdHolder(host)) {
+      holdAd(host.id, upload)
+    } else {
+      const place = freeSpot(useFlowStore.getState().docs[flowId] ?? doc, { x: at.x - blockWidth('bank') / 2, y: at.y - 20 }, 'bank')
+      addBlock('bank', place, { settings: { bank: 'swipes', upload } })
+    }
+  }
 
   const onDrop = async (e: React.DragEvent) => {
     e.preventDefault()
@@ -582,13 +612,19 @@ export default function Canvas({
       add(kind, undefined, { x: at.x - blockWidth(kind) / 2, y: at.y - 20 })
       return
     }
-    const files = Array.from(e.dataTransfer.files ?? []).filter((f) => f.type.startsWith('image/'))
+    const dropped = Array.from(e.dataTransfer.files ?? [])
+    const target = nodeIdAt(e.clientX, e.clientY)
+    const host = target ? real.find((b) => b.id === target) : undefined
+    const ad = dropped.find((f) => f.type.startsWith('video/'))
+    if (ad) {
+      await dropAd(ad, host, at)
+      return
+    }
+    const files = dropped.filter((f) => f.type.startsWith('image/'))
     if (!files.length) return
     // Dropped onto a block that takes pictures: each becomes an Image block
     // wired into it. Dropped onto an Image block: it replaces that picture.
     // Anywhere else: Image blocks where they fell.
-    const target = nodeIdAt(e.clientX, e.clientY)
-    const host = target ? real.find((b) => b.id === target) : undefined
     if (host?.kind === 'image') {
       const ref = await saveAsset(files[0], files[0].type)
       patchBlock(host.id, { settings: { ...host.settings, ref, name: files[0].name.replace(/\.[^.]+$/, '') } })
@@ -925,7 +961,7 @@ export default function Canvas({
 function EmptyStart({ onStart, onBrowse }: { onStart: (bank: BankType) => void; onBrowse: () => void }) {
   const starts: Array<{ bank: BankType; label: string; hint: string }> = [
     { bank: 'products', label: 'Your Product', hint: 'Write ads for it' },
-    { bank: 'swipes', label: 'A Winning Ad', hint: 'Remix one that works' },
+    { bank: 'swipes', label: 'A Winning Ad', hint: 'Drop yours, or pick a saved one' },
     { bank: 'models', label: 'A Character', hint: 'Cast who stars in it' },
   ]
   return (
