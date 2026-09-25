@@ -138,7 +138,7 @@ export const scenesExecutor: Executor = {
       const why = failed.get(empty[0].number)
       const names = empty.map((s) => s.number).join(', ')
       throw new FriendlyError(
-        `${empty.length === 1 ? `Scene ${names}` : `Scenes ${names}`} didn't film: ${humanizeError(why, 'the clip failed.').replace(/\.$/, '')}. Run Flow again to retry ${empty.length === 1 ? 'it' : 'them'}. The scenes that finished are kept.`,
+        `${empty.length === 1 ? `Scene ${names}` : `Scenes ${names}`} didn't film. ${humanizeError(why, 'The clip failed.')} The scenes that finished are kept, so Run Flow again films only ${empty.length === 1 ? 'that one' : 'those'}.`,
       )
     }
 

@@ -143,9 +143,9 @@ function patchCard(sessionId: string, key: string, fn: (card: CardState) => Card
 // land: Run Flow again renders only the missing ones (the handle state and
 // the session survive, since this isn't a task kie itself reported dead).
 function partialFailure(errors: unknown[], total: number, noun: 'still' | 'clip'): FriendlyError {
-  const why = humanizeError(errors[0], `a ${noun} failed.`).replace(/\.$/, '')
+  const why = humanizeError(errors[0], `A ${noun} failed.`)
   return new FriendlyError(
-    `${errors.length} of ${total} ${noun}s didn't come back (${why}). Run Flow again to retry ${errors.length === 1 ? 'it' : 'them'}. The ones that finished are kept.`,
+    `${errors.length} of ${total} ${noun}s didn't come back. ${why} The ones that finished are kept, so Run Flow again remakes only ${errors.length === 1 ? 'that one' : 'those'}.`,
   )
 }
 
