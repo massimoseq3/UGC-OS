@@ -258,6 +258,26 @@ describe('what re-runs', () => {
     expect(plan.planned).toEqual(['voc'])
     expect(plan.blocks.voc.runs).toBe(3)
   })
+
+  it('Run Block on a block whose inputs are not made yet makes them first, and nothing beside it', () => {
+    const g = serumLaunch(3)
+    const plan = planFlow(g, {}, deps, { only: 'voc' })
+    expect(plan.planned).toEqual(['scr', 'voc'])
+    // B-Roll reads the same hooks but isn't what was asked for.
+    expect(plan.blocks.brl.runs).toBe(0)
+    expect(plan.credits).toBe(1 + 3 * 2)
+  })
+
+  it('Run Block remakes only what is missing upstream, and the block itself whole', () => {
+    const g = serumLaunch(3)
+    const { outputs } = runAll(g, {})
+    // A fourth hook asked for: Scripts writes again, Voiceovers remakes all four.
+    const scr = g.blocks.find((b) => b.id === 'scr')!
+    scr.items = slots('h', 4)
+    const plan = planFlow(g, outputs, deps, { only: 'voc' })
+    expect(plan.planned).toEqual(['scr', 'voc'])
+    expect(plan.blocks.voc.runs).toBe(4)
+  })
 })
 
 describe('Test With 1', () => {

@@ -3,7 +3,7 @@
 // recognisably Voiceovers.
 
 import type { ElementType } from 'react'
-import { Image as ImageIcon, List, StickyNote, Type } from 'lucide-react'
+import { Clapperboard, Image as ImageIcon, List, StickyNote, Type } from 'lucide-react'
 import type { BlockKind, FlowBlock } from '../types'
 import { BANK_CONFIG, getAppConfig, type BankType } from '../../../utils/constants'
 import { KINDS, sourceOf } from '../engine/catalog'
@@ -13,6 +13,9 @@ const HELPER_ICONS: Partial<Record<BlockKind, ElementType>> = {
   text: Type,
   list: List,
   note: StickyNote,
+  // Scene Clips runs Playground, but a clapperboard says "one clip per
+  // scene" where Playground's own glyph would read as a second Playground.
+  scenes: Clapperboard,
 }
 
 export function blockIcon(block: Pick<FlowBlock, 'kind' | 'settings'>): ElementType {
@@ -57,3 +60,32 @@ export function isFieldable(block: FlowBlock): boolean {
 }
 
 export { blockWidth } from '../engine/catalog'
+
+// What each block is for, in a sentence — the palette's hover card and the
+// Add Block picker read it, so a member who has never opened a node editor
+// can tell a List from a Text without trying both.
+export const BLOCK_BLURB: Record<BlockKind, string> = {
+  bank: 'Something you already saved: a product, a character, a script, a voice, a still, a style or a saved ad. Costs nothing.',
+  image: 'A picture you drop in. Feeds anything that takes a picture: a reference, a frame, a photo to build a face from.',
+  text: 'A line or a paragraph you type once: a brief, a prompt, instructions.',
+  list: 'Several lines, one per item. Wired in, the next block runs once for each.',
+  note: 'A sticky note for whoever opens this flow. It never runs.',
+  outliers: 'Finds ads on TikTok, Instagram or Meta that beat their account\'s usual views. Spends ScrapeCreators credits.',
+  analyzer: 'Tears an ad down: its transcript, its scenes and shot craft, and what made it work.',
+  characters: 'Makes the faces for your ads, one per slot, from a description or a reference photo.',
+  scripts: 'Writes hooks or full scripts for your product, or remixes a winning ad in your product\'s words.',
+  voice: 'Reads each script aloud in the voice you pick.',
+  broll: 'Storyboards each script, makes a still per scene, then animates the stills into clips.',
+  playground: 'Makes one image, clip or music track from a prompt and the pictures you wire in.',
+  scenes: 'Films a scene script one clip per scene: your character, the voice profile in every prompt, each clip as long as its scene, the product only where it\'s shown.',
+  edit: 'Packs each ad\'s voiceover, clips and script into a folder for the /video-editor skill.',
+}
+
+// Where each kind sits in the Add Block picker, in production order.
+export const BLOCK_GROUPS: Array<{ title: string; kinds: BlockKind[] }> = [
+  { title: 'Start With', kinds: ['bank', 'image', 'text', 'list'] },
+  { title: 'Research', kinds: ['outliers', 'analyzer'] },
+  { title: 'Create', kinds: ['characters', 'scripts', 'voice', 'broll', 'scenes', 'playground'] },
+  { title: 'Deliver', kinds: ['edit'] },
+  { title: 'Explain', kinds: ['note'] },
+]

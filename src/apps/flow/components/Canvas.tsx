@@ -26,7 +26,7 @@ import {
   type NodeChange,
   type XYPosition,
 } from '@xyflow/react'
-import { Copy, CopyPlus, FormInput, Maximize2, Minus, Play, Plus, Power, Trash2, Wand2 } from 'lucide-react'
+import { ClipboardPaste, Copy, CopyPlus, FormInput, Hand, Maximize2, Minus, Pencil, Play, Plus, Power, Redo2, Scan, SquareDashedMousePointer, StickyNote, Trash2, Undo2, Unlink, Wand2 } from 'lucide-react'
 import type { BlockKind, FlowBlock, FlowDoc, PortSpec, PortType } from '../types'
 import type { FlowPlan } from '../engine/plan'
 import { accepts, inlineText, insOf, isRunnable, outsOf, suggestNext, TYPE_META, KINDS, titleOf } from '../engine/catalog'
@@ -42,7 +42,11 @@ import BlockNode, { type BlockNodeType } from './BlockNode'
 import WireEdge, { type WireEdgeType } from './WireEdge'
 import Palette, { PALETTE_DRAG_TYPE } from './Palette'
 import WhatNextMenu from './WhatNextMenu'
-import { optionsForInput, optionsForOutput, type WhatNextOption } from './whatNext'
+import { optionsForInput, optionsForInsert, optionsForOutput, type InsertOption, type WhatNextOption } from './whatNext'
+import ContextMenu, { type ContextRow } from './ContextMenu'
+import AddBlockMenu, { type AddOption } from './AddBlockMenu'
+import { DELETE_KEY, MOD, SHIFT_MOD } from './keys'
+import { creditsShort } from '../hooks/useFlowPlan'
 import { CanvasContext, type CanvasContextValue } from './canvasContext'
 import { blockWidth, isFieldable, opensWindow } from './blockMeta'
 import { clipFromSelection, parseFlowJson } from '../templates/io'
@@ -114,13 +118,25 @@ export default function Canvas({
   const activeApp = useAppStore((s) => s.activeApp)
   const addToast = useAppStore((s) => s.addToast)
   const running = useFlowRunStore((s) => s.runs[flowId]?.status === 'running')
+  const canUndo = useFlowStore((s) => (s.history[flowId]?.past.length ?? 0) > 0)
+  const canRedo = useFlowStore((s) => (s.history[flowId]?.future.length ?? 0) > 0)
 
   const [drag, setDrag] = useState<Record<string, XYPosition>>({})
   const [measured, setMeasured] = useState<Record<string, Dimensions>>({})
   const [selectedWire, setSelectedWire] = useState<string | null>(null)
   const [menu, setMenu] = useState<WhatNextState | null>(null)
   const [dragging, setDragging] = useState(false)
+  // Right-click: on a block (or the selection), on the canvas, or on a wire.
+  const [ctx, setCtx] = useState<{ x: number; y: number; at: XYPosition; on: 'block' | 'pane' | 'wire'; id?: string } | null>(null)
+  // Add Block, where it was asked for.
+  const [adder, setAdder] = useState<{ x: number; y: number; at: XYPosition } | null>(null)
+  // Insert a block in the middle of a wire.
+  const [insert, setInsert] = useState<{ x: number; y: number; wireId: string; type: PortType; options: InsertOption[] } | null>(null)
+  // The block whose name is being typed on the canvas (F2, or Rename).
+  const [renaming, setRenaming] = useState<string | null>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
+  // The last place the pointer was over the canvas, for Tab's Add Block.
+  const pointer = useRef<{ x: number; y: number } | null>(null)
 
   const say = (message: string, kind: 'info' | 'error' | 'success' = 'info') => addToast(message, kind)
 
@@ -355,6 +371,122 @@ export default function Canvas({
     addBlock(kind, place, bank ? { settings: { bank } } : undefined)
   }
 
+  // ── Right-click, Add Block, and Insert on a wire ─────────────────────────
+
+  // A point in the canvas's own box, held clear of its right and bottom
+  // edges so a menu opened near one never runs off the screen.
+  const boxAt = (clientX: number, clientY: number, w: number, h: number) => {
+    const rect = wrapRef.current?.getBoundingClientRect()
+    const x = clientX - (rect?.left ?? 0)
+    const y = clientY - (rect?.top ?? 0)
+    return {
+      x: Math.max(8, Math.min(x, (rect?.width ?? 1200) - w - 8)),
+      y: Math.max(8, Math.min(y, (rect?.height ?? 800) - h - 8)),
+    }
+  }
+
+  const openAdder = (clientX: number, clientY: number) => {
+    setCtx(null)
+    setMenu(null)
+    setAdder({ ...boxAt(clientX, clientY, 340, 470), at: rf.screenToFlowPosition({ x: clientX, y: clientY }) })
+  }
+
+  const pickAdd = (o: AddOption) => {
+    if (!adder) return
+    const at = { x: adder.at.x - blockWidth(o.kind) / 2, y: adder.at.y - 20 }
+    add(o.kind, o.bank, freeSpot({ blocks: real, wires: doc.wires }, at, o.kind, (b) => measured[b.id] ?? estimatedSize(b)))
+    setAdder(null)
+  }
+
+  const openContext = (e: React.MouseEvent | MouseEvent, on: 'block' | 'pane' | 'wire', id?: string) => {
+    e.preventDefault()
+    setMenu(null)
+    setAdder(null)
+    setInsert(null)
+    if (on === 'block' && id && !selection.includes(id)) setSelection([id])
+    if (on === 'wire' && id) setSelectedWire(id)
+    setCtx({ ...boxAt(e.clientX, e.clientY, 240, on === 'block' ? 420 : 330), at: rf.screenToFlowPosition({ x: e.clientX, y: e.clientY }), on, id })
+  }
+
+  // Insert on a wire: the blocks that take what it carries and make what its
+  // far end takes. Picking one lays it between the two, wired both ways, and
+  // the old wire goes — one undo step each, so Undo walks it back.
+  const openInsert = (wireId: string, clientX: number, clientY: number) => {
+    const w = doc.wires.find((x) => x.id === wireId)
+    const from = w && real.find((b) => b.id === w.from)
+    const to = w && real.find((b) => b.id === w.to)
+    const carried = w && from ? outputType(from, w.fromPort) : null
+    const farEnd = w && to ? inputSpec(to, w.toPort)?.type : undefined
+    if (!w || !carried || !farEnd) return
+    setCtx(null)
+    setInsert({ ...boxAt(clientX, clientY, 240, 360), wireId, type: carried, options: optionsForInsert(carried, farEnd) })
+  }
+
+  const pickInsert = (o: InsertOption) => {
+    if (!insert) return
+    const w = doc.wires.find((x) => x.id === insert.wireId)
+    const from = w && real.find((b) => b.id === w.from)
+    const to = w && real.find((b) => b.id === w.to)
+    setInsert(null)
+    if (!w || !from || !to) return
+    const mid = { x: (from.x + blockWidth(from.kind) + to.x) / 2 - blockWidth(o.kind) / 2, y: (from.y + to.y) / 2 }
+    const id = addBlock(o.kind, freeSpot({ blocks: real, wires: doc.wires }, mid, o.kind, (b) => measured[b.id] ?? estimatedSize(b)))
+    removeWire(w.id)
+    const a = connect({ from: w.from, fromPort: w.fromPort, to: id, toPort: o.port })
+    const b = connect({ from: id, fromPort: o.outPort, to: w.to, toPort: w.toPort })
+    const failed = !a.ok ? a : !b.ok ? b : null
+    if (failed) say(failed.reason, 'error')
+  }
+
+  const contextRows = (): ContextRow[] => {
+    if (!ctx) return []
+    if (ctx.on === 'wire') {
+      const id = ctx.id!
+      return [
+        { label: 'Insert a Block Here…', icon: Plus, onClick: () => openInsert(id, ctx.x + (wrapRef.current?.getBoundingClientRect().left ?? 0), ctx.y + (wrapRef.current?.getBoundingClientRect().top ?? 0)) },
+        'separator',
+        { label: 'Delete Wire', icon: Unlink, keys: DELETE_KEY, danger: true, onClick: () => { removeWire(id); setSelectedWire(null) } },
+      ]
+    }
+    if (ctx.on === 'pane') {
+      const client = { x: ctx.x + (wrapRef.current?.getBoundingClientRect().left ?? 0), y: ctx.y + (wrapRef.current?.getBoundingClientRect().top ?? 0) }
+      return [
+        { label: 'Add a Block Here…', icon: Plus, keys: 'Tab', onClick: () => openAdder(client.x, client.y) },
+        { label: 'Add a Note Here', icon: StickyNote, onClick: () => add('note', undefined, { x: ctx.at.x, y: ctx.at.y }) },
+        { label: 'Paste', icon: ClipboardPaste, keys: `${MOD}V`, onClick: () => void paste(ctx.at) },
+        'separator',
+        { label: 'Select All', icon: SquareDashedMousePointer, keys: `${MOD}A`, onClick: () => setSelection(real.map((b) => b.id)), disabled: !real.length },
+        { label: 'Tidy Up', icon: Wand2, onClick: doTidy, disabled: !real.length },
+        { label: 'Fit to Screen', icon: Scan, onClick: () => void rf.fitView({ padding: 0.2, duration: 300 }), disabled: !real.length },
+        'separator',
+        { label: 'Undo', icon: Undo2, keys: `${MOD}Z`, onClick: undo, disabled: !canUndo },
+        { label: 'Redo', icon: Redo2, keys: `${SHIFT_MOD}Z`, onClick: redo, disabled: !canRedo },
+      ]
+    }
+    const ids = selection.length ? selection : ctx.id ? [ctx.id] : []
+    const b = ids.length === 1 ? real.find((x) => x.id === ids[0]) : undefined
+    const allOffNow = ids.every((id) => real.find((x) => x.id === id)?.off)
+    const rows: ContextRow[] = []
+    if (b) {
+      if (opensWindow(b)) rows.push({ label: `Open ${KINDS[b.kind].title}`, icon: Maximize2, keys: 'Enter', onClick: () => openWindow(b.id) })
+      if (isRunnable(b)) {
+        const credits = plan?.blocks[b.id]?.creditsAll ?? 0
+        rows.push({ label: 'Run This Block', icon: Play, detail: credits > 0 ? creditsShort(credits) : undefined, onClick: () => onRunBlock(b.id), disabled: running, title: 'Makes this block again, and whatever it reads from that isn\'t made yet' })
+      }
+      rows.push({ label: 'Rename', icon: Pencil, keys: 'F2', onClick: () => setRenaming(b.id) })
+      rows.push('separator')
+      if (KINDS[b.kind]?.reviewable && isRunnable(b)) rows.push({ label: 'Pause for Review', icon: Hand, on: !!b.review, onClick: () => patchBlock(b.id, { review: !b.review || undefined }), title: 'When it finishes, you keep the results worth spending more on before anything after it runs' })
+      if (isFieldable(b)) rows.push({ label: 'Run Field', icon: FormInput, on: !!b.field, onClick: () => patchBlock(b.id, { field: !b.field || undefined }), title: 'Show it as a field in Run, so whoever runs the flow picks their own' })
+    }
+    rows.push({ label: allOffNow ? 'Turn On' : 'Turn Off', icon: Power, onClick: () => toggleOff(ids), title: 'A block turned off is skipped, and nothing after it runs from it' })
+    rows.push('separator')
+    rows.push({ label: 'Duplicate', icon: CopyPlus, keys: `${MOD}D`, onClick: () => duplicateBlocks(ids) })
+    rows.push({ label: 'Copy', icon: Copy, keys: `${MOD}C`, onClick: () => void copySelection(ids) })
+    rows.push('separator')
+    rows.push({ label: ids.length > 1 ? `Delete ${ids.length} Blocks` : 'Delete', icon: Trash2, keys: DELETE_KEY, danger: true, onClick: () => removeBlocks(ids) })
+    return rows
+  }
+
   // The suggested block, wired: each of its inputs takes the latest output
   // on the canvas that fits it.
   const acceptSuggestion = () => {
@@ -408,15 +540,16 @@ export default function Canvas({
 
   // ── Keyboard ─────────────────────────────────────────────────────────────
 
-  const copySelection = async () => {
-    const text = clipFromSelection(doc, selection)
+  const copySelection = async (ids: string[] = selection) => {
+    const text = clipFromSelection(doc, ids)
     if (!text) return
     memoryClip = text
     await copyToClipboard(text)
-    say(selection.length === 1 ? 'Block copied. Paste it into any flow.' : `${selection.length} blocks copied. Paste them into any flow.`)
+    say(ids.length === 1 ? 'Block copied. Paste it into any flow.' : `${ids.length} blocks copied. Paste them into any flow.`)
   }
 
-  const paste = async () => {
+  // Pasted beside where it came from, or where the canvas was right-clicked.
+  const paste = async (at?: XYPosition) => {
     let text = memoryClip
     try {
       const fromSystem = await navigator.clipboard?.readText?.()
@@ -428,7 +561,9 @@ export default function Canvas({
       say(parsed.reason, 'error')
       return
     }
-    insertGraph(parsed.graph, { offset: { x: 60, y: 60 } })
+    const left = Math.min(...parsed.graph.blocks.map((b) => b.x))
+    const top = Math.min(...parsed.graph.blocks.map((b) => b.y))
+    insertGraph(parsed.graph, { offset: at && Number.isFinite(left) ? { x: at.x - left, y: at.y - top } : { x: 60, y: 60 } })
     if (parsed.notes.length) say(parsed.notes[0], 'info')
   }
 
@@ -469,9 +604,20 @@ export default function Canvas({
         duplicateBlocks(selection)
       } else if (mod && e.key.toLowerCase() === 'a') {
         setSelection(real.map((b) => b.id))
+      } else if (e.key === 'Tab' && !mod) {
+        // Add Block, where the pointer is — or mid-canvas, from the keyboard.
+        const rect = wrapRef.current?.getBoundingClientRect()
+        const p = pointer.current ?? { x: (rect?.left ?? 0) + (rect?.width ?? 800) / 2 - 170, y: (rect?.top ?? 0) + 120 }
+        openAdder(p.x, p.y)
+      } else if (e.key === 'F2') {
+        if (!one) return
+        setRenaming(one.id)
       } else if (e.key === 'Escape') {
         setSelection([])
         setMenu(null)
+        setCtx(null)
+        setAdder(null)
+        setInsert(null)
       } else {
         return
       }
@@ -501,6 +647,9 @@ export default function Canvas({
     acceptSuggestion,
     openBlock: openWindow,
     askAtPort,
+    renaming,
+    setRenaming,
+    openInsert,
   }
 
   return (
@@ -513,6 +662,8 @@ export default function Canvas({
           e.dataTransfer.dropEffect = 'copy'
         }}
         onDrop={(e) => void onDrop(e)}
+        onMouseMove={(e) => { pointer.current = { x: e.clientX, y: e.clientY } }}
+        onMouseLeave={() => { pointer.current = null }}
       >
         <ReactFlow<BlockNodeType, WireEdgeType>
           nodes={nodes}
@@ -536,6 +687,13 @@ export default function Canvas({
             setSelection([])
             setSelectedWire(null)
           }}
+          onNodeContextMenu={(e, node) => {
+            if (node.id === SUGGESTION_ID) return e.preventDefault()
+            openContext(e, 'block', node.id)
+          }}
+          onSelectionContextMenu={(e) => openContext(e, 'block')}
+          onPaneContextMenu={(e) => openContext(e, 'pane')}
+          onEdgeContextMenu={(e, edge) => openContext(e, 'wire', edge.id)}
           deleteKeyCode={null}
           selectionKeyCode="Shift"
           multiSelectionKeyCode="Shift"
@@ -633,6 +791,27 @@ export default function Canvas({
             options={menu.into?.options ?? (menu.from.side === 'out' ? optionsForOutput(menu.type) : optionsForInput(menu.type))}
             onPick={pickWhatNext}
             onClose={() => setMenu(null)}
+          />
+        )}
+        {ctx && (
+          <ContextMenu
+            x={ctx.x}
+            y={ctx.y}
+            title={ctx.on === 'block' ? (selection.length > 1 ? `${selection.length} Blocks` : titleOf(real.find((b) => b.id === (ctx.id ?? selection[0])) ?? { kind: 'note', settings: {} } as FlowBlock)) : ctx.on === 'wire' ? 'Wire' : undefined}
+            rows={contextRows()}
+            onClose={() => setCtx(null)}
+          />
+        )}
+        {adder && <AddBlockMenu x={adder.x} y={adder.y} onPick={pickAdd} onClose={() => setAdder(null)} />}
+        {insert && (
+          <WhatNextMenu
+            x={insert.x}
+            y={insert.y}
+            type={insert.type}
+            heading="Insert a Block"
+            options={insert.options}
+            onPick={(o) => pickInsert(o as InsertOption)}
+            onClose={() => setInsert(null)}
           />
         )}
       </div>

@@ -31,7 +31,7 @@ import VideoLightbox from '../../../../components/VideoLightbox'
 import { PendingMedia } from '../../../../components/GeneratingMedia'
 import { useAssetThumb, useAssetUrl } from '../../../../hooks/useAssetUrl'
 import { InputsBand, NothingYet, RunChip, WiredCard } from './parts'
-import { arrivingLabels, blockRuns, blockTitle, type BlockRun, type WindowProps } from './runs'
+import { arrivingLabels, blockRuns, blockTitle, ownRunPrice, type BlockRun, type WindowProps } from './runs'
 
 type Picker = 'products' | 'models' | 'scripts' | null
 
@@ -46,6 +46,7 @@ export default function BrollWindow({ doc, block, plan, run, onRun, onReview }: 
   const bp = plan?.blocks[block.id]
   const runs = blockRuns(block, bp, run)
   const runCount = bp?.instances.length ?? 0
+  const price = ownRunPrice(doc, block, plan)
 
   const wiredCard = (port: 'character' | 'product' | 'script' | 'instructions', hint: string) => {
     const wires = wiresInto(doc, block.id, port)
@@ -104,7 +105,7 @@ export default function BrollWindow({ doc, block, plan, run, onRun, onReview }: 
             // In B-Roll this button writes a storyboard. Here it runs the
             // whole block — storyboard, every still and, animated, every clip.
             actionLabel: `${block.settings.animate !== false ? 'Generate Stills and Clips' : 'Generate Stills'}${runCount > 1 ? ` · ${runCount} runs` : ''}`,
-            credits: bp?.creditsAll ? creditsPill(bp.creditsAll, bp.unpriced) : null,
+            credits: price.credits ? creditsPill(price.credits, price.unpriced) : null,
             hideImport: true,
           }}
         />

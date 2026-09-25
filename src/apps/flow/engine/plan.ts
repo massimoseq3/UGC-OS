@@ -28,8 +28,9 @@ import type {
   Trace,
 } from '../types'
 import { generationSettings, inlineText, insOf, isBatch, isRunnable, KINDS, outsOf, sourceOf, takesTyped } from './catalog'
-import { blockById, enabledItems, itemIdOf, topoOrder, wiresInto } from './graph'
+import { blockById, enabledItems, itemIdOf, topoOrder, upstreamOf, wiresInto } from './graph'
 import { fingerprint } from './hash'
+import { missingClips, wantedClips } from './sceneShots'
 
 // ── Values held without running ────────────────────────────────────────────
 
@@ -47,17 +48,19 @@ export type HeldValue = FlowValue extends infer V ? (V extends FlowValue ? Omit<
 export interface PlanDeps {
   held(block: FlowBlock): Held
   // Credits one run of a block is expected to cost, for `slots` new items
-  // when it's a batch, or null when it can't be priced ahead.
-  cost(block: FlowBlock, inputs: Record<string, FlowValue[]>, slots: number): number | null
+  // when it's a batch, or null when it can't be priced ahead. `test` is Test
+  // With 1, which cuts a block's own takes and scenes to one too.
+  cost(block: FlowBlock, inputs: Record<string, FlowValue[]>, slots: number, test?: boolean): number | null
   // Generations one run starts, for the big-run confirmation; one, or one
   // per slot, when left out.
-  generations?(block: FlowBlock, inputs: Record<string, FlowValue[]>, slots: number): number
+  generations?(block: FlowBlock, inputs: Record<string, FlowValue[]>, slots: number, test?: boolean): number
 }
 
 export interface PlanOptions {
   // Test With 1: every batch cut to one item, every block run at most once.
   test?: boolean
-  // Run Block: just this block, every run of it made again.
+  // Run Block: this block, every run of it made again — and whatever it
+  // needs upstream that isn't made yet, first. Nothing else runs.
   only?: string
   // Blocks a live run has finished with: whatever they didn't make (a run
   // that failed) hands on nothing, rather than a stand-in for later.
@@ -183,16 +186,18 @@ export function planFlow(graph: FlowGraph, outputs: FlowOutputs, deps: PlanDeps,
   let creditsAll = 0
   let generations = 0
   let unpriced = false
+  // Run Block's reach: the block, and everything it reads from.
+  const scope = opts.only !== undefined ? new Set([opts.only, ...upstreamOf(graph, opts.only)]) : undefined
 
   for (const id of order) {
     const block = blockById(graph, id)!
-    const bp = planBlock(graph, block, blocks, outputs, deps, { test, only: opts.only, settled: opts.settled })
+    const bp = planBlock(graph, block, blocks, outputs, deps, { test, only: opts.only, scope, settled: opts.settled })
     blocks[id] = bp
     if (bp.runs > 0) {
       planned.push(id)
       credits += bp.credits
       const count = deps.generations ?? ((_b, _i, slots: number) => Math.max(1, slots))
-      generations += bp.instances.filter((i) => i.run).reduce((n, i) => n + count(block, i.inputs, i.slots?.length ?? 1), 0)
+      generations += bp.instances.filter((i) => i.run).reduce((n, i) => n + count(block, i.inputs, i.slots?.length ?? 1, test), 0)
       unpriced ||= bp.unpriced
     }
     creditsAll += bp.creditsAll
@@ -235,7 +240,7 @@ export function planBlock(
   upstream: Record<string, BlockPlan>,
   outputs: FlowOutputs,
   deps: PlanDeps,
-  opts: { test: boolean; only?: string; settled?: Set<string> },
+  opts: { test: boolean; only?: string; scope?: Set<string>; settled?: Set<string> },
 ): BlockPlan {
   const empty = (blocked?: string): BlockPlan => ({
     blockId: block.id, blocked, instances: [], values: {}, runs: 0, credits: 0, unpriced: false, creditsAll: 0,
@@ -274,8 +279,10 @@ export function planBlock(
   const perSlot = !!KINDS[block.kind].perSlot
   const slotsOn = enabledItems(block).map((it) => it.id)
   const wantSlots = opts.test ? slotsOn.slice(0, 1) : slotsOn
-  const onlyThis = opts.only !== undefined
-  const inScope = !opts.settled?.has(block.id) && (!onlyThis || opts.only === block.id)
+  // Run Block remakes its own block whole; what it reads from runs only what
+  // isn't made yet, the way Run Flow would.
+  const onlyThis = opts.only === block.id
+  const inScope = !opts.settled?.has(block.id) && (!opts.scope || opts.scope.has(block.id))
 
   const instances: PlannedInstance[] = combos.map((c) => {
     const pending = Object.values(c.inputs).some((vals) => vals.some((v) => v.pending))
@@ -297,14 +304,21 @@ export function planBlock(
       // A block that fills every slot in one call remakes them all.
       slots = run ? (perSlot ? (cached ? missing : wantSlots) : wantSlots) : []
     } else {
-      // A B-Roll run stopped between its stills and its clips isn't finished.
-      run = pending || !cached || cached.phase === 'stills'
+      // A B-Roll run stopped between its stills and its clips isn't finished,
+      // and neither is a Scene Clips run missing clips — the scenes a Test
+      // With 1 left for later, or a take added since.
+      run = pending || !cached || cached.phase === 'stills' || scenesLeft(block, c.inputs, cached, opts.test) > 0
     }
-    const credits = run ? deps.cost(block, c.inputs, Math.max(1, slots?.length ?? 1)) : 0
+    let credits = run ? deps.cost(block, c.inputs, Math.max(1, slots?.length ?? 1), opts.test) : 0
+    // What's left of a Scene Clips run is priced as its share of the whole.
+    if (run && credits && cached && !onlyThis && block.kind === 'scenes') {
+      const wanted = wantedClips(block, scriptOf(c.inputs), opts.test).length
+      if (wanted) credits *= scenesLeft(block, c.inputs, cached, opts.test) / wanted
+    }
     return { key, trace: c.trace, inputs: c.inputs, pending, cached, run, slots, credits }
   })
 
-  // Nothing of a block outside Run Block's scope runs, and what it hands on
+  // Nothing of a block outside Run Block's reach runs, and what it hands on
   // is only what it has already made.
   const plan: BlockPlan = {
     blockId: block.id,
@@ -314,7 +328,7 @@ export function planBlock(
     credits: sum(instances.map((i) => (i.run ? i.credits ?? 0 : 0))),
     unpriced: instances.some((i) => i.run && i.credits === null),
     creditsAll: sum(
-      instances.map((i) => deps.cost(block, i.inputs, batch ? Math.max(1, (opts.test ? wantSlots : slotsOn).length) : 1) ?? 0),
+      instances.map((i) => deps.cost(block, i.inputs, batch ? Math.max(1, (opts.test ? wantSlots : slotsOn).length) : 1, opts.test) ?? 0),
     ),
   }
   plan.values = valuesOut(block, instances, opts.test)
@@ -425,6 +439,18 @@ function emptyPayload(type: PortType): FlowValue['payload'] {
     case 'music': return { ref: '' }
     default: return { text: '' }
   }
+}
+
+function scriptOf(inputs: Record<string, FlowValue[]>): string {
+  const p = inputs.script?.[0]?.payload as { text?: string } | undefined
+  return typeof p?.text === 'string' ? p.text : ''
+}
+
+// Clips a finished Scene Clips run doesn't have yet.
+function scenesLeft(block: FlowBlock, inputs: Record<string, FlowValue[]>, cached: InstanceResult | undefined, test: boolean): number {
+  if (block.kind !== 'scenes' || !cached) return 0
+  const clips = cached.outputs.clips?.[0]
+  return missingClips(block, scriptOf(inputs), clips?.type === 'video' ? clips.payload.clips : [], test).length
 }
 
 function sum(ns: number[]): number {

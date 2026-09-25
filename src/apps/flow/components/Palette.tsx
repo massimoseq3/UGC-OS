@@ -16,7 +16,7 @@ import { kindFace } from './blockMeta'
 const GROUPS: BlockKind[][] = [
   ['bank'],
   ['outliers', 'analyzer'],
-  ['characters', 'scripts', 'voice', 'broll', 'playground'],
+  ['characters', 'scripts', 'voice', 'broll', 'scenes', 'playground'],
   ['edit'],
   ['image', 'text', 'list', 'note'],
 ]

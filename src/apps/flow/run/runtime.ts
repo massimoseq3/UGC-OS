@@ -18,7 +18,7 @@
 import { create } from 'zustand'
 import type { BlockRunState, FlowBlock, FlowGraph, InstanceResult, RunRecord } from '../types'
 import type { ExecContext, ExecOutput, RunPhase } from './types'
-import type { PlannedInstance, PlanDeps } from '../engine/plan'
+import type { FlowPlan, PlannedInstance, PlanDeps } from '../engine/plan'
 import { planFlow, traceFor } from '../engine/plan'
 import { heldValues } from '../engine/held'
 import { blockCost, generationsOf } from '../engine/cost'
@@ -197,10 +197,7 @@ export function startRun(flowId: string, opts: { test?: boolean; only?: string }
   }
   const graph = knownGraph(doc)
   const plan = planFlow(graph, doc.outputs, PLAN_DEPS, { test: opts.test, only: opts.only })
-  if (!plan.planned.length) {
-    const blocked = opts.only ? plan.blocks[opts.only]?.blocked : undefined
-    return { ok: false, reason: blocked ? `${blocked}.` : opts.only ? 'Run the blocks before it first.' : 'Nothing has changed since the last run.' }
-  }
+  if (!plan.planned.length) return { ok: false, reason: nothingToRun(graph, plan, opts.only) }
   const blocks: Record<string, BlockRunState> = {}
   for (const id of plan.planned) blocks[id] = { status: 'queued', total: plan.blocks[id].runs, finished: 0, failed: 0 }
   const run: LiveRun = {
@@ -223,6 +220,29 @@ export function startRun(flowId: string, opts: { test?: boolean; only?: string }
   useActivityStore.getState().begin('flow')
   pump(flowId)
   return { ok: true }
+}
+
+// Why a Run found nothing to do, in words that point at the fix. Run Block
+// names the block upstream that's holding it up — the one a member has to
+// go and fill — rather than the block they pressed.
+function nothingToRun(graph: FlowGraph, plan: FlowPlan, only?: string): string {
+  if (!only) {
+    const stuck = plan.order.map((id) => ({ id, bp: plan.blocks[id] })).find(({ bp }) => bp?.blocked && bp.blocked !== 'Turned off')
+    if (!stuck) return 'Nothing has changed since the last run.'
+    const b = graph.blocks.find((x) => x.id === stuck.id)
+    return `${b ? titleOf(b) : 'A block'} isn't ready: ${lowerFirst(stuck.bp.blocked!)}.`
+  }
+  const reach = [...upstreamOf(graph, only), only]
+  const first = plan.order.find((id) => reach.includes(id) && plan.blocks[id]?.blocked && plan.blocks[id].blocked !== 'Turned off')
+    ?? plan.order.find((id) => reach.includes(id) && plan.blocks[id]?.blocked)
+  if (!first) return 'Nothing to run.'
+  const b = graph.blocks.find((x) => x.id === first)
+  const why = plan.blocks[first].blocked!
+  return first === only ? `${why}.` : `${b ? titleOf(b) : 'A block before it'} isn't ready: ${lowerFirst(why)}.`
+}
+
+function lowerFirst(s: string): string {
+  return /^[A-Z][a-z]/.test(s) ? s[0].toLowerCase() + s.slice(1) : s
 }
 
 // Stops the waiting and the submitting. kie has no cancel: what was already
@@ -326,6 +346,7 @@ async function runBlock(flowId: string, block: FlowBlock, instances: PlannedInst
         flowBlockId: block.id,
       },
       prior,
+      fresh: run.onlyBlockId === block.id || undefined,
     }
     phases.add(phase)
     patchInstance(flowId, block.id, inst.key, { status: 'running' })

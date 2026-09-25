@@ -174,6 +174,37 @@ export const KINDS: Record<BlockKind, KindSpec> = {
     reviewable: true,
     defaults: () => ({ mode: 'image', prompt: '', aspectRatio: '9:16', resolution: '1K', durationSeconds: 6, audio: false, instrumental: false }),
   },
+  // A scene script filmed scene by scene: one Playground clip per scene, the
+  // voice profile on every prompt, each clip as long as its scene, the
+  // product only where it's shown (engine/sceneShots.ts). The talking-head
+  // ad from the channel, as one block.
+  scenes: {
+    kind: 'scenes',
+    title: 'Scene Clips',
+    appId: 'playground',
+    accent: '#12A594',
+    ins: [
+      port('script', 'Scene Script', 'script', { required: true }),
+      port('character', 'Character', 'character'),
+      port('product', 'Product', 'product'),
+      port('refs', 'More References', 'image', { many: true }),
+    ],
+    outs: [port('clips', 'Clips', 'video')],
+    sources: ['generate'],
+    runnable: true,
+    reviewable: false,
+    defaults: () => ({
+      shape: 'scenes',
+      takes: 1,
+      aspectRatio: '9:16',
+      audio: true,
+      voice: true,
+      style: true,
+      productWhenShown: true,
+      continuity: true,
+      rules: 'No captions, subtitles or text on screen.',
+    }),
+  },
   analyzer: {
     kind: 'analyzer',
     title: 'Ad Analyzer',
@@ -284,7 +315,7 @@ export function isKnownKind(kind: unknown): kind is BlockKind {
 
 // Dock order, which is also Tidy's left-to-right order and the palette's.
 export const PRODUCTION_ORDER: BlockKind[] = [
-  'bank', 'image', 'text', 'list', 'outliers', 'analyzer', 'characters', 'scripts', 'voice', 'broll', 'playground', 'edit', 'note',
+  'bank', 'image', 'text', 'list', 'outliers', 'analyzer', 'characters', 'scripts', 'voice', 'broll', 'scenes', 'playground', 'edit', 'note',
 ]
 
 // ── Per-block shape ────────────────────────────────────────────────────────
@@ -335,7 +366,7 @@ export function insOf(block: FlowBlock): PortSpec[] {
 // script Voiceovers reads and B-Roll shoots, pasted the way each app takes
 // one. A wire always wins: this is what the input holds with none.
 export function takesTyped(block: Pick<FlowBlock, 'kind'>, portKey: string): boolean {
-  return (block.kind === 'voice' || block.kind === 'broll') && portKey === 'script'
+  return (block.kind === 'voice' || block.kind === 'broll' || block.kind === 'scenes') && portKey === 'script'
 }
 
 export function inlineText(block: FlowBlock, portKey: string): string | null {
@@ -418,6 +449,9 @@ const NOT_GENERATION: Partial<Record<BlockKind, string[]>> = {
   list: ['entries'],
   voice: ['scriptText'],
   broll: ['scriptText'],
+  // Adding a take films the new take, not the whole ad again: the plan
+  // counts the clips a run is missing (sceneShots.ts missingClips).
+  scenes: ['scriptText', 'takes'],
 }
 
 export function generationSettings(block: FlowBlock): Record<string, unknown> {
@@ -433,8 +467,9 @@ export function generationSettings(block: FlowBlock): Record<string, unknown> {
 // next, given what's on the canvas. Edit Pack closes a flow that makes clips.
 export function suggestNext(kinds: BlockKind[]): BlockKind | null {
   const has = (k: BlockKind) => kinds.includes(k)
-  if ((has('broll') || has('playground')) && !has('edit')) return 'edit'
-  if (has('scripts') && !has('voice')) return 'voice'
+  if ((has('broll') || has('playground') || has('scenes')) && !has('edit')) return 'edit'
+  // A talking-head flow speaks in its clips: it has no voiceover to add.
+  if (has('scripts') && !has('voice') && !has('scenes')) return 'voice'
   if (has('voice') && !has('broll')) return 'broll'
   return null
 }

@@ -43,6 +43,7 @@ export type BlockKind =
   | 'voice'
   | 'broll'
   | 'playground'
+  | 'scenes'
   | 'analyzer'
   | 'outliers'
   | 'edit'
@@ -126,6 +127,10 @@ export interface ClipRef {
   durationSeconds?: number
   prompt?: string
   historyId?: string
+  // Scene Clips: which scene of the script this clip films, and which take
+  // of it — so a run that adds takes keeps the ones already made.
+  scene?: number
+  take?: number
 }
 
 // What each port type carries at run time.

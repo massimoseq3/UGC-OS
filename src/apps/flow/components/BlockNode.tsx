@@ -7,6 +7,7 @@
 // An app block opens in its app's own window (the ↗ in its header, a
 // double-click, or Enter). The helpers are edited right here.
 
+import { useState } from 'react'
 import { Handle, Position, useConnection, type NodeProps, type Node } from '@xyflow/react'
 import { AlertCircle, ArrowUpRight, Check, Hand, Plus } from 'lucide-react'
 import type { FlowBlock, FlowValue, PortSpec } from '../types'
@@ -15,11 +16,12 @@ import { acceptsLabel, blockById, outputType, wiresInto, wiresOutOf, wouldCycle 
 import type { BlockPlan } from '../engine/plan'
 import { type LiveRun } from '../run/runtime'
 import { useCanvas } from './canvasContext'
+import { useFlowStore } from '../store/flowStore'
 import { blockAccent, blockIcon, blockWidth, opensWindow } from './blockMeta'
 import { GlassTile } from '../../../components/AppGlassTile'
 import Spinner from '../../../components/Spinner'
 import { creditsShort } from '../hooks/useFlowPlan'
-import { AnalyzerBody, BrollBody, EditBody, ItemRows, PlaygroundBody, ReusedBody, VoiceBody } from './node/bodies'
+import { AnalyzerBody, BrollBody, EditBody, ItemRows, PlaygroundBody, ReusedBody, ScenesBody, VoiceBody } from './node/bodies'
 import { useHeldHere } from './node/heldHere'
 import { BankBody, ImageBody, ListBody, NoteBody, TextBody } from './node/helpers'
 
@@ -59,13 +61,17 @@ export default function BlockNode({ data, selected }: NodeProps<BlockNodeType>) 
 // ── Header ─────────────────────────────────────────────────────────────────
 
 function NodeHeader({ block, bp, live, selected }: { block: FlowBlock; bp: BlockPlan | undefined; live: LiveState | undefined; selected: boolean }) {
-  const { openBlock } = useCanvas()
+  const { openBlock, renaming, setRenaming } = useCanvas()
   const runs = bp?.instances.length ?? 0
   const makes = !!KINDS[block.kind].runnable && sourceOf(block) === 'generate'
   return (
     <header className="flow-drag flex h-[44px] cursor-grab items-center gap-2 pl-3 pr-2 active:cursor-grabbing">
       <GlassTile icon={blockIcon(block)} accent={blockAccent(block)} size={24} />
-      <span className="min-w-0 truncate text-[13px] font-semibold tracking-tight text-ink-100">{titleOf(block)}</span>
+      {renaming === block.id ? (
+        <RenameField block={block} onDone={() => setRenaming(null)} />
+      ) : (
+        <span className="min-w-0 truncate text-[13px] font-semibold tracking-tight text-ink-100">{titleOf(block)}</span>
+      )}
       {makes && runs > 1 && (
         <span className="shrink-0 rounded-full bg-ink/[0.08] px-1.5 py-px text-[10px] font-semibold tabular-nums text-ink-200" title={`Runs ${runs} times, once per combination of what's wired in`}>
           ×{runs}
@@ -91,6 +97,35 @@ function NodeHeader({ block, bp, live, selected }: { block: FlowBlock; bp: Block
         )}
       </span>
     </header>
+  )
+}
+
+// The block's name, typed on the canvas: Enter or a click away keeps it,
+// Escape leaves it as it was, and an empty name goes back to the kind's.
+function RenameField({ block, onDone }: { block: FlowBlock; onDone: () => void }) {
+  const patchBlock = useFlowStore((s) => s.patchBlock)
+  const [text, setText] = useState(titleOf(block))
+  const commit = () => {
+    const next = text.trim()
+    const fallback = titleOf({ ...block, label: undefined })
+    if (next !== titleOf(block)) patchBlock(block.id, { label: next && next !== fallback ? next : undefined })
+    onDone()
+  }
+  return (
+    <input
+      autoFocus
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+      onFocus={(e) => e.currentTarget.select()}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        e.stopPropagation()
+        if (e.key === 'Enter') commit()
+        else if (e.key === 'Escape') onDone()
+      }}
+      aria-label="Block Name"
+      className="nodrag min-w-0 flex-1 rounded-md bg-ink/[0.07] px-1.5 py-0.5 text-[13px] font-semibold tracking-tight text-ink-100 outline-none ring-1 ring-flow-400/50"
+    />
   )
 }
 
@@ -239,6 +274,7 @@ function Body({ block, bp }: { block: FlowBlock; bp: BlockPlan | undefined }) {
     case 'voice': return <VoiceBody block={block} bp={bp} />
     case 'broll': return <BrollBody block={block} bp={bp} />
     case 'playground': return <PlaygroundBody block={block} bp={bp} />
+    case 'scenes': return <ScenesBody block={block} bp={bp} />
     case 'analyzer': return <AnalyzerBody bp={bp} />
     case 'edit': return <EditBody bp={bp} />
     default: return null

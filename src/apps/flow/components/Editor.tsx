@@ -6,7 +6,9 @@
 import { useEffect, useState } from 'react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { useFlowStore } from '../store/flowStore'
-import { useFlowRunStore, isRunActive, startRun, type StartResult } from '../run/runtime'
+import { useFlowRunStore, isRunActive, startRun, PLAN_DEPS, type StartResult } from '../run/runtime'
+import { planFlow } from '../engine/plan'
+import { knownGraph } from '../store/blocks'
 import { useFlowPlans, creditsLabel } from '../hooks/useFlowPlan'
 import { useAppStore } from '../../../stores/appStore'
 import { useCreditsStore } from '../../../stores/creditsStore'
@@ -22,7 +24,6 @@ import RunHistory from './RunHistory'
 import RunView from './RunView'
 import TemplateUpdateBar from './TemplateUpdateBar'
 import { titleOf } from '../engine/catalog'
-import { generationsOf } from '../engine/cost'
 import { useIsDesktop } from '../../../hooks/useBreakpoint'
 
 // Past either, Run asks first and shows what it'll spend.
@@ -81,26 +82,22 @@ export default function Editor({ flowId }: { flowId: string }) {
       addToast('This flow is already running. It finishes on its own, or press Stop.', 'info')
       return
     }
-    const p = req.test ? test : req.only ? null : plan
     if (isRecordingActive()) {
       go(req)
       return
     }
-    // Run Block is priced off its own plan, and makes every run of it again.
-    const onlyBlock = req.only ? doc.blocks.find((b) => b.id === req.only) : undefined
-    const onlyGenerations = onlyBlock && plan
-      ? (plan.blocks[onlyBlock.id]?.instances ?? []).reduce((n, i) => n + generationsOf(onlyBlock, i.inputs, i.slots?.length ?? 1), 0)
-      : 0
-    const priced = p ?? (plan ? { ...plan, credits: plan.blocks[req.only!]?.creditsAll ?? 0, generations: onlyGenerations } : null)
-    const credits = priced?.credits ?? 0
-    const generations = priced?.generations ?? 0
+    // Run Block is priced off its own plan: every run of the block made
+    // again, plus whatever it reads from that isn't made yet.
+    const p = req.test ? test : req.only ? planFlow(knownGraph(doc), doc.outputs, PLAN_DEPS, { only: req.only }) : plan
+    const credits = p?.credits ?? 0
+    const generations = p?.generations ?? 0
     if (balance !== null && credits > balance) {
       addToast(`This run needs ${creditsLabel(credits)} and your kie.ai balance is ${Math.floor(balance).toLocaleString('en-US')}. Top up at kie.ai first, or run less.`, 'error')
       return
     }
     if (credits >= CONFIRM_CREDITS || generations >= CONFIRM_GENERATIONS) {
-      const lines = (p?.planned ?? (req.only ? [req.only] : []))
-        .map((id) => ({ label: titleOf(doc.blocks.find((b) => b.id === id)!), credits: req.only ? credits : p?.blocks[id]?.credits ?? 0 }))
+      const lines = (p?.planned ?? [])
+        .map((id) => ({ label: titleOf(doc.blocks.find((b) => b.id === id)!), credits: p?.blocks[id]?.credits ?? 0 }))
         .filter((l) => l.credits > 0)
       setConfirm({ req, credits, generations, lines })
       return

@@ -29,6 +29,7 @@ import CharactersWindow from './CharactersWindow'
 import ScriptsWindow from './ScriptsWindow'
 import BrollWindow from './BrollWindow'
 import PlaygroundWindow from './PlaygroundWindow'
+import ScenesWindow from './ScenesWindow'
 import { AnalyzerWindow, EditWindow, OutliersWindow } from './SmallWindows'
 import ReuseWindow from './ReuseWindow'
 
@@ -77,6 +78,7 @@ function WindowBody(props: WindowProps) {
     case 'scripts': return <ScriptsWindow {...props} />
     case 'broll': return <BrollWindow {...props} />
     case 'playground': return <PlaygroundWindow {...props} />
+    case 'scenes': return <ScenesWindow {...props} />
     case 'analyzer': return <AnalyzerWindow {...props} />
     case 'outliers': return <OutliersWindow {...props} />
     case 'edit': return <EditWindow {...props} />

@@ -39,3 +39,21 @@ export function optionsForInput(type: PortType): WhatNextOption[] {
   }
   return out
 }
+
+// A block that can sit in the middle of a wire: it takes what the wire
+// carries and makes something the wire's far end takes. Insert on a wire
+// lists these.
+export interface InsertOption extends WhatNextOption {
+  // The port on the new block the far end is fed from.
+  outPort: string
+}
+
+export function optionsForInsert(carried: PortType, farEnd: PortType): InsertOption[] {
+  const out: InsertOption[] = []
+  for (const kind of PRODUCTION_ORDER) {
+    const port = KINDS[kind].ins.find((p) => accepts(p.type, carried))
+    const outPort = KINDS[kind].outs.find((p) => accepts(farEnd, p.type))
+    if (port && outPort) out.push({ kind, port: port.key, outPort: outPort.key, label: KINDS[kind].title, detail: `${port.label} → ${outPort.label}` })
+  }
+  return out
+}

@@ -23,6 +23,8 @@ import { resolveImageModelId } from '../../../broll-studio/services/generateBrol
 import { downloadEditPacks } from '../../run/editPack'
 import { useCanvas } from '../canvasContext'
 import { latestItems, madeValues } from './made'
+import { scenesToFilm, sceneTakes } from '../../engine/sceneShots'
+import { scenesVideoModel, scriptTextOf } from '../../engine/sceneClips'
 
 // ── Batches: hooks, faces, ads ─────────────────────────────────────────────
 
@@ -231,6 +233,53 @@ export function PlaygroundBody({ block, bp }: { block: FlowBlock; bp: BlockPlan 
       <span className="line-clamp-3 min-w-0 flex-1 text-[11.5px] leading-snug text-ink-300">
         {promptWired ? <span className="text-ink-500">The prompt comes in on its wire.</span> : prompt || <span className="text-ink-500">Open it to write the prompt.</span>}
       </span>
+    </div>
+  )
+}
+
+// ── Scene Clips ────────────────────────────────────────────────────────────
+
+// The script's scenes as rows — how long each runs and whether it's filmed —
+// so a talking-head flow reads on the canvas the way it reads in Scripts.
+export function ScenesBody({ block, bp }: { block: FlowBlock; bp: BlockPlan | undefined }) {
+  const { run } = useCanvas()
+  const inst = bp?.instances[0]
+  const text = inst ? scriptTextOf(inst.inputs) : ''
+  const waiting = !!inst?.inputs.script?.[0]?.pending
+  const shots = text && !waiting ? scenesToFilm(block, text).shots : []
+  const made = madeValues(bp).flatMap((v) => (v.type === 'video' ? v.payload.clips : []))
+  const filmed = new Set(made.map((c) => c.scene))
+  const busy = run?.status === 'running' && run.blocks[block.id]?.status === 'running'
+  const takes = sceneTakes(block)
+  const ads = bp?.instances.length ?? 0
+  const model = getModel(scenesVideoModel(block) ?? '')?.displayName
+  return (
+    <div className="px-3 pb-2.5">
+      {shots.length ? (
+        <div className="flex flex-col gap-0.5">
+          {shots.slice(0, 6).map((shot) => (
+            <span key={shot.number} className="flex h-[18px] items-center gap-2 text-[10.5px] text-ink-300">
+              <span className="flex h-3 w-3 shrink-0 items-center justify-center">
+                {filmed.has(shot.number) ? <Check className="h-3 w-3 text-emerald-400" /> : busy ? <Spinner className="h-2.5 w-2.5" /> : <span className="h-1.5 w-1.5 rounded-full bg-ink/20" />}
+              </span>
+              <span className="min-w-0 flex-1 truncate">{shot.label}</span>
+              {shot.showsProduct && block.settings.productWhenShown !== false && block.settings.shape !== 'one' && <span className="shrink-0 text-[9.5px] text-gold-300/80" title="The product is in this shot">Product</span>}
+              <span className="w-7 shrink-0 text-right tabular-nums text-ink-500">{Math.round(shot.seconds)}s</span>
+            </span>
+          ))}
+          {shots.length > 6 && <span className="text-[10px] text-ink-500">+{shots.length - 6} more scenes</span>}
+        </div>
+      ) : (
+        <p className="text-[11px] leading-snug text-ink-500">
+          {waiting ? 'Films each scene once the script is written.' : block.settings.shape === 'one' ? 'Films the whole script as one clip.' : 'Films the script wired in, one clip per scene.'}
+        </p>
+      )}
+      <div className="mt-1.5 flex flex-wrap gap-1">
+        {model && <ModelTag label={model} />}
+        {takes > 1 && <ModelTag label={`${takes} takes each`} />}
+        {block.settings.shape === 'one' ? <ModelTag label="One Clip" /> : block.settings.continuity !== false && <ModelTag label="Continuity" />}
+        {ads > 1 && <ModelTag label={`${ads} ads`} />}
+      </div>
     </div>
   )
 }

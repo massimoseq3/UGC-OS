@@ -5,7 +5,7 @@
 import type { FlowDoc } from '../types'
 import { planFlow, type FlowPlan, type PlanDeps } from '../engine/plan'
 import { heldValues } from '../engine/held'
-import { blockCost } from '../engine/cost'
+import { blockCost, generationsOf } from '../engine/cost'
 import { knownGraph } from '../store/blocks'
 import { useBankStore } from '../../../stores/bankStore'
 import { useSettingsStore } from '../../../stores/settingsStore'
@@ -15,7 +15,10 @@ import { useSettingsStore } from '../../../stores/settingsStore'
 function depsFor(banks: unknown, models: unknown): PlanDeps {
   void banks
   void models
-  return { held: heldValues, cost: blockCost }
+  // Generations counted the way the run counts them (a B-Roll run is a
+  // storyboard plus a still and a clip per scene), so the big-run question
+  // is asked at the same size a run would start at.
+  return { held: heldValues, cost: blockCost, generations: generationsOf }
 }
 
 export function useFlowPlans(doc: FlowDoc | undefined): { plan: FlowPlan | null; test: FlowPlan | null } {
