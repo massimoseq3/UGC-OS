@@ -55,7 +55,7 @@ export default function InfluencerLightbox({
     // it as the Source. Dismissing the view used to re-point the next edit at
     // whichever output had been opened full screen.
     <div
-      className="fixed inset-0 z-[70] flex flex-col bg-black/80"
+      className="fixed inset-0 z-[70] flex flex-col bg-black/80 backdrop-blur-sm"
       onMouseDown={backdrop.onMouseDown}
       onClick={(e) => { e.stopPropagation(); backdrop.onClick(e) }}
     >

@@ -111,7 +111,7 @@ export default function OmniVoiceDesigner({ open, onClose, onCreated }: OmniVoic
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 p-4" {...backdrop}>
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" {...backdrop}>
       <div
         className="w-full max-w-md rounded-xl border border-ink/10 bg-surface-1 p-5 shadow-2xl"
         onClick={(e) => e.stopPropagation()}

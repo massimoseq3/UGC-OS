@@ -27,7 +27,7 @@ export default function AnnouncementAlert() {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 p-4"
+      className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
       {...backdrop}
     >
       <div

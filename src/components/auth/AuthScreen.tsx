@@ -246,7 +246,7 @@ export default function AuthScreen() {
 // session). Points them back to the Skool community to (re)join.
 function MembersOnlyModal({ onClose }: { onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
       <div className="relative w-full max-w-sm rounded-2xl border border-ink/10 bg-surface-2 p-6 text-center shadow-2xl">
         <button
           onClick={onClose}

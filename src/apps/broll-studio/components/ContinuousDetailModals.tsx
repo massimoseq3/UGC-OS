@@ -54,7 +54,7 @@ function ModalShell({ onClose, children }: { onClose: () => void; children: Reac
 
   return createPortal((
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-4 sm:px-6 modal-fade"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm sm:px-6 modal-fade"
       {...backdrop}
     >
       {/* On a phone it insets into the panel's corner and each modal's first

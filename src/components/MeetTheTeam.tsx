@@ -68,7 +68,7 @@ export default function MeetTheTeam() {
 
   return (
     <div
-      className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-3"
+      className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-3 backdrop-blur-sm"
       {...backdrop}
     >
       {/* Column layout, not a single scrolling box: the header and the CTA stay
