@@ -253,7 +253,8 @@ export function ScenesBody({ block, bp }: { block: FlowBlock; bp: BlockPlan | un
   const busy = run?.status === 'running' && run.blocks[block.id]?.status === 'running'
   const takes = sceneTakes(block)
   const ads = bp?.instances.length ?? 0
-  const model = getModel(scenesVideoModel(block) ?? '')?.displayName
+  const appPick = useSettingsStore((s) => s.getAppModel('playground:video'))
+  const model = getModel(scenesVideoModel(block, appPick) ?? '')?.displayName
   const advice = scenesAdvice(doc, block)
   return (
     <div className="px-3 pb-2.5">

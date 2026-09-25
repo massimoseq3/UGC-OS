@@ -210,29 +210,53 @@ export function characterValue(r: CharacterHistoryItem): HeldValue {
   }
 }
 
+// A variant's name, the way downstream runs are told apart: the base's name
+// and the change's first clause without its lead — "Make this person
+// Asian-American, with monolid eyes…" off Maya is "Maya · Asian-American".
+export function variantLabel(base: FlowValue | undefined, change: string): string {
+  const clause = change.split(/[,.;:\n]/)[0]
+    .replace(/^(make|turn|change)\s+(this person|this character|her|him|them|the character)\s+(into\s+|to\s+)?/i, '')
+    .trim()
+  const what = (clause || change).slice(0, 40)
+  const name = base?.type === 'character' ? base.label : ''
+  return name && name !== 'Character' ? `${name} · ${what}` : what
+}
+
 // Each face is its own generation, all fired at once: one press of the
-// Characters app's Generate with a batch count, slot by slot.
+// Characters app's Generate with a batch count, slot by slot. A Change wired
+// in is the edit modal's instruction instead: the Reference Photo edited,
+// the form unread, and the face named by the change so each audience's
+// variant is told apart downstream.
 export const charactersExecutor: Executor = {
   async run(ctx) {
     const s = ctx.block.settings
     const slots = ctx.inst.slots ?? []
     const photo = ctx.inst.inputs.photo?.[0]
+    const change = textOf(ctx.inst.inputs.change)?.trim()
+    const base = photo ? refOfPicture(photo) || undefined : undefined
+    if (change && !base) throw new FriendlyError('A Change edits a picture. Wire the character to change into Reference Photo.')
     const saved = (ctx.resume as { tasks?: Record<string, CharacterTask> } | undefined)?.tasks ?? {}
     const tasks: Record<string, CharacterTask> = { ...saved }
     const batchId = slots.length > 1 ? crypto.randomUUID() : undefined
-    const profile = { ...createEmptyProfile(), ...((s.profile as CharacterProfile | undefined) ?? {}) }
+    const form = { ...createEmptyProfile(), ...((s.profile as CharacterProfile | undefined) ?? {}) }
+    // An edit keeps the base character's profile, the way the edit modal's
+    // variants do: it's the same person with one thing changed.
+    const profile = change && photo?.type === 'character' ? { ...createEmptyProfile(), ...(photo.payload.profile as CharacterProfile) } : form
+    const aspect = String(s.aspect ?? form.aspectRatio ?? '9:16')
     const items: Record<string, HeldValue> = {}
     const errors: unknown[] = []
-    ctx.progress(slots.length > 1 ? `${slots.length} faces` : 'Drawing')
+    ctx.progress(change ? 'Editing' : slots.length > 1 ? `${slots.length} faces` : 'Drawing')
     await Promise.all(slots.map(async (slot, i) => {
       try {
         if (!tasks[slot]) {
           tasks[slot] = await characterRunner.start({
             profile,
             resolution: (s.resolution as ImageResolution) ?? '1K',
-            kind: s.kind === 'sheet' ? 'sheet' : 'portrait',
-            aspect: String(s.aspect ?? profile.aspectRatio ?? '9:16'),
-            referenceUrl: photo ? refOfPicture(photo) || undefined : undefined,
+            kind: change ? 'portrait' : s.kind === 'sheet' ? 'sheet' : 'portrait',
+            aspect,
+            ...(change && base
+              ? { edit: { instruction: change, baseImageRef: base, referenceUrls: [] } }
+              : { referenceUrl: base }),
             modelId: s.modelId as string | undefined,
             batchId,
             batchIndex: batchId ? i : undefined,
@@ -240,7 +264,8 @@ export const charactersExecutor: Executor = {
           ctx.save({ tasks })
         }
         const r = await characterRunner.finish(tasks[slot], { signal: ctx.signal })
-        items[slot] = characterValue(r)
+        const v = characterValue(r)
+        items[slot] = change ? { ...v, label: variantLabel(photo, change) } : v
       } catch (err) {
         if (taskIsDead(err) && tasks[slot]) {
           delete tasks[slot]

@@ -171,10 +171,23 @@ export function topoOrder(graph: FlowGraph): string[] {
 // It's left off when nothing is wired: the panel's own mode decides. It is
 // NOT part of the block's identity (catalog.ts NOT_GENERATION) — the wire is
 // already in the run's inputs — so writing it re-keys nothing already made.
+// A Scripts block fed by another settles after it, so this repeats until
+// nothing changes (a chain of three settles in one edit, not three).
 export function settleScripts(graph: FlowGraph): FlowBlock[] {
+  let blocks = graph.blocks
+  for (let pass = 0; pass < 8; pass++) {
+    const next = settleOnce({ blocks, wires: graph.wires })
+    if (next.every((b, i) => b === blocks[i])) return next
+    blocks = next
+  }
+  return blocks
+}
+
+function settleOnce(graph: FlowGraph): FlowBlock[] {
   return graph.blocks.map((b) => {
     if (b.kind !== 'scripts') return b
-    const wire = graph.wires.find((w) => w.to === b.id && w.toPort === 'source')
+    // A wire from a block this edit deleted is on its way out (pruneWires).
+    const wire = graph.wires.find((w) => w.to === b.id && w.toPort === 'source' && blockById(graph, w.from))
     const from = wire && blockById(graph, wire.from)
     const scenes = !!from && (
       (from.kind === 'analyzer' && wire!.fromPort === 'scenes')

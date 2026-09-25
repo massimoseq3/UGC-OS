@@ -94,7 +94,10 @@ export const KINDS: Record<BlockKind, KindSpec> = {
     title: 'Characters',
     appId: 'character-studio',
     accent: '#F74F9E',
-    ins: [port('photo', 'Reference Photo', 'image')],
+    // A Change is the Characters edit modal's instruction: wired in with a
+    // Reference Photo, it edits that picture instead of drawing the form, so
+    // a List of changes makes one variant per audience off one character.
+    ins: [port('photo', 'Reference Photo', 'image'), port('change', 'Change', 'text')],
     outs: [port('all', 'All Characters', 'character')],
     sources: ['generate', 'bank', 'history'],
     runnable: true,

@@ -183,6 +183,7 @@ export default function Editor({ flowId }: { flowId: string }) {
           block={reviewBlock}
           run={run}
           doc={doc}
+          plan={plan}
           onLater={() => {
             setDismissed((d) => [...d, reviewBlock.id])
             setReviewing(null)

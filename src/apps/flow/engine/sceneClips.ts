@@ -14,9 +14,11 @@ import { shotPrompt, type SceneScript, type SceneShot } from './sceneShots'
 
 // Until the block picks its own, Playground's video pick — the same
 // fallback a Playground block makes.
-export function scenesVideoModel(block: FlowBlock): string | undefined {
+// A component passes Playground's pick read through its selector, so the
+// compiler doesn't cache a getter's answer on `block`.
+export function scenesVideoModel(block: FlowBlock, appPick = useSettingsStore.getState().getAppModel('playground:video')): string | undefined {
   return (block.settings.modelId as string | undefined)
-    ?? useSettingsStore.getState().getAppModel('playground:video')
+    ?? appPick
     ?? getDefaultModel('playground', 'video')?.id
 }
 

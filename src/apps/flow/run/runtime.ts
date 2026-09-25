@@ -268,7 +268,12 @@ function pump(flowId: string) {
   }
   const graph = knownGraph(doc)
   const settled = new Set(Object.entries(run.blocks).filter(([, b]) => SETTLED.includes(b.status)).map(([id]) => id))
-  const plan = planFlow(graph, doc.outputs, PLAN_DEPS, { test: run.test, only: run.onlyBlockId, settled, fresh: run.fresh })
+  // What this run already made. A block can be queued twice in one run — B-Roll
+  // after its review, a running block after a reload — and Run Again or Run
+  // Block remaking it must not remake (and pay for) these a second time.
+  const made = new Set(Object.entries(run.instances).flatMap(([id, insts]) =>
+    Object.entries(insts ?? {}).filter(([, i]) => i.status === 'done').map(([key]) => `${id}:${key}`)))
+  const plan = planFlow(graph, doc.outputs, PLAN_DEPS, { test: run.test, only: run.onlyBlockId, settled, fresh: run.fresh, made })
 
   for (const [blockId, state] of Object.entries(run.blocks)) {
     if (state.status !== 'queued' || activeBlocks.has(`${flowId}:${blockId}`)) continue
@@ -426,10 +431,11 @@ function writeResult(flowId: string, block: FlowBlock, inst: PlannedInstance, ou
       credits: (phase === 'clips' ? before?.credits : inst.credits) ?? undefined,
       rows: out.rows ?? before?.rows,
       pack: out.pack,
-      // B-Roll's picks carry across its two phases; a Scene Clips run that
-      // adds takes is picked from afresh (its review opens again, or with
-      // none, every take goes on).
-      keep: block.kind === 'broll' ? before?.keep : undefined,
+      // B-Roll's picks carry from its review into its clips phase, and no
+      // further: a new stills session is picked from afresh. A Scene Clips
+      // run that adds takes is too (its review opens again, or with none,
+      // every take goes on).
+      keep: block.kind === 'broll' && phase === 'clips' ? before?.keep : undefined,
       phase: phase === 'stills' ? 'stills' : undefined,
     }
     for (const [port, vals] of Object.entries(out.outputs ?? {})) {
@@ -499,7 +505,9 @@ export type ReviewPicks =
   // Scripts, Characters: the items to keep, of the ones the review showed.
   // The shown ones not kept turn off; anything the run didn't make (a Test
   // With 1 makes one face of four) is left as it was, for the full run.
-  | { kind: 'items'; keep: string[]; shown?: string[] }
+  // A block that made several runs (a face per audience) is picked run by
+  // run instead: `runs` is each run's kept slots, and turns nothing off.
+  | { kind: 'items'; keep: string[]; shown?: string[]; runs?: Record<string, string[]> }
   // Voiceovers, Playground: the runs to keep. The rest are left out.
   | { kind: 'runs'; keep: string[] }
   // B-Roll: per run, the cards whose stills get animated.
@@ -515,7 +523,19 @@ export function approveReview(flowId: string, blockId: string, picks: ReviewPick
   const block = doc?.blocks.find((b) => b.id === blockId)
   if (!doc || !block) return
 
-  if (picks.kind === 'items') {
+  if (picks.kind === 'items' && picks.runs) {
+    const runs = picks.runs
+    store.setResults(flowId, blockId, (prev) => {
+      const next = { ...prev }
+      for (const [key, slots] of Object.entries(runs)) {
+        if (!next[key]) continue
+        const made = Object.keys(next[key].items ?? {})
+        next[key] = slots.length === 0 ? { ...next[key], keep: undefined, off: true }
+          : { ...next[key], off: undefined, keep: made.every((s) => slots.includes(s)) ? undefined : slots }
+      }
+      return next
+    })
+  } else if (picks.kind === 'items') {
     const shown = picks.shown ?? liveItems(block).map((it) => it.id)
     const off = liveItems(block)
       .filter((it) => (shown.includes(it.id) ? !picks.keep.includes(it.id) : !!it.off))
@@ -532,7 +552,14 @@ export function approveReview(flowId: string, blockId: string, picks: ReviewPick
   } else {
     store.setResults(flowId, blockId, (prev) => {
       const next = { ...prev }
-      for (const [key, cards] of Object.entries(picks.keep)) if (next[key]) next[key] = { ...next[key], keep: cards }
+      for (const [key, cards] of Object.entries(picks.keep)) {
+        if (!next[key]) continue
+        // No take kept of an ad leaves that ad out, as Leave Out does for a
+        // run, rather than handing its edit an empty set of clips.
+        next[key] = picks.kind === 'takes' && cards.length === 0
+          ? { ...next[key], keep: undefined, off: true }
+          : { ...next[key], keep: cards }
+      }
       return next
     })
   }

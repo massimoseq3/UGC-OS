@@ -210,7 +210,9 @@ export interface InstanceResult {
   credits?: number
   // The rows this run wrote, newest-first — Open in the app, How Was This Made.
   rows?: Lineage[]
-  // A B-Roll run's review picks: which cards' stills get animated.
+  // Review picks for this run: a B-Roll run's cards whose stills get
+  // animated, a Scene Clips run's takes (scene:take), or — when a Scripts or
+  // Characters block made several runs — the slots of this one kept.
   keep?: string[]
   // Left out at review (a voiceover take, an image): kept on record, handed
   // on to nothing.

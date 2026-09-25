@@ -11,6 +11,7 @@ import { AlertTriangle, Clapperboard, Film, Play, ScrollText, SlidersHorizontal 
 import type { ClipRef, FlowBlock } from '../../types'
 import { wiresInto } from '../../engine/graph'
 import { useFlowStore } from '../../store/flowStore'
+import { useSettingsStore } from '../../../../stores/settingsStore'
 import { sceneKey, sceneTakes, scenesToFilm, type SceneShot } from '../../engine/sceneShots'
 import { matchTextOf, sceneClipInput, sceneOverrun, sceneRefs, scenesVideoModel, scriptTextOf } from '../../engine/sceneClips'
 import { getModel } from '../../../../utils/models'
@@ -36,7 +37,8 @@ export default function ScenesWindow({ doc, block, plan, run, onRun, onReview }:
   const bp = plan?.blocks[block.id]
   const runs = blockRuns(block, bp, run)
   const scriptWires = wiresInto(doc, block.id, 'script')
-  const modelId = scenesVideoModel(block)
+  const appPick = useSettingsStore((st) => st.getAppModel('playground:video'))
+  const modelId = scenesVideoModel(block, appPick)
   const video = getModel(modelId ?? '')?.videoConstraints
   const one = s.shape === 'one'
   const takes = sceneTakes(block)

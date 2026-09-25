@@ -21,12 +21,15 @@ import { creditsLabel } from '../hooks/useFlowPlan'
 import { useBankStore } from '../../../stores/bankStore'
 import AutoGrowTextarea from '../../../components/AutoGrowTextarea'
 import { editItem } from '../run/edits'
+import type { FlowPlan } from '../engine/plan'
+import { blockRuns } from './window/runs'
 
 export default function ReviewModal({
   flowId,
   block,
   run,
   doc,
+  plan,
   onLater,
   onDone,
 }: {
@@ -34,6 +37,7 @@ export default function ReviewModal({
   block: FlowBlock
   run: LiveRun
   doc: FlowDoc
+  plan: FlowPlan | null
   onLater: () => void
   onDone: () => void
 }) {
@@ -41,7 +45,8 @@ export default function ReviewModal({
   const madeKeys = Object.keys(run.instances[block.id] ?? {}).filter((k) => results[k])
 
   if (block.kind === 'scripts' || block.kind === 'characters') {
-    return <ItemsReview flowId={flowId} block={block} results={madeKeys.map((k) => results[k])} onLater={onLater} onDone={onDone} />
+    const labels = Object.fromEntries(blockRuns(block, plan?.blocks[block.id], run).map((r) => [r.key, r.label]))
+    return <ItemsReview flowId={flowId} block={block} results={madeKeys.map((k) => results[k])} labels={labels} onLater={onLater} onDone={onDone} />
   }
   if (block.kind === 'broll') {
     return <StillsReview flowId={flowId} block={block} keys={madeKeys} doc={doc} onLater={onLater} onDone={onDone} />
@@ -70,18 +75,29 @@ function Footer({ onLater, onGo, label, disabled }: { onLater: () => void; onGo:
 
 // ── Hooks and faces ────────────────────────────────────────────────────────
 
-function ItemsReview({ flowId, block, results, onLater, onDone }: {
+function ItemsReview({ flowId, block, results, labels, onLater, onDone }: {
   flowId: string
   block: FlowBlock
-  results: Array<{ items?: Record<string, FlowValue> }>
+  results: Array<{ key: string; items?: Record<string, FlowValue> }>
+  labels: Record<string, string>
   onLater: () => void
   onDone: () => void
 }) {
-  const valueOf = (slot: string) => results.map((r) => r.items?.[slot]).find(Boolean)
-  // Only what the run actually made: a model that wrote nine hooks for ten
-  // slots leaves one with nothing to keep.
-  const slots = liveItems(block).filter((it) => !it.off && valueOf(it.id))
-  const [keep, setKeep] = useState<string[]>(slots.map((it) => it.id))
+  // Every item the review is for, run by run — only what a run actually made:
+  // a model that wrote nine hooks for ten slots leaves one with nothing to
+  // keep. One run is picked slot by slot, and a slot left out turns off;
+  // several (a face per audience) are picked run by run, each under its name.
+  const live = liveItems(block).filter((it) => !it.off)
+  const groups = results
+    .map((r, n) => ({
+      key: r.key,
+      label: labels[r.key] ?? `Run ${n + 1}`,
+      items: live.filter((it) => r.items?.[it.id]).map((it) => ({ id: `${r.key}|${it.id}`, run: r.key, slot: it.id, value: r.items![it.id] })),
+    }))
+    .filter((g) => g.items.length)
+  const all = groups.flatMap((g) => g.items)
+  const several = groups.length > 1
+  const [keep, setKeep] = useState<string[]>(all.map((x) => x.id))
   // Scripts only: the words rewritten by hand before they're voiced or shot.
   const [edits, setEdits] = useState<Record<string, string>>({})
   const [editing, setEditing] = useState<string | null>(null)
@@ -89,75 +105,85 @@ function ItemsReview({ flowId, block, results, onLater, onDone }: {
   const toggle = (id: string) => setKeep((k) => (k.includes(id) ? k.filter((x) => x !== id) : [...k, id]))
   const faces = block.kind === 'characters'
   const textOf = (v: FlowValue | undefined) => (v?.type === 'script' ? v.payload.text : v?.label ?? '')
+  const changed = all.filter((x) => edits[x.id]?.trim() && edits[x.id] !== textOf(x.value))
   const go = () => {
-    for (const [slot, text] of Object.entries(edits)) {
-      if (text.trim() && text !== textOf(valueOf(slot))) editItem(flowId, block.id, slot, text.trim())
+    // Each edit lands on the run it was made in.
+    for (const x of changed) editItem(flowId, block.id, x.run, x.slot, edits[x.id].trim())
+    if (several) {
+      const runs = Object.fromEntries(groups.map((g) => [g.key, g.items.filter((x) => keep.includes(x.id)).map((x) => x.slot)]))
+      approveReview(flowId, block.id, { kind: 'items', keep: [], runs })
+    } else {
+      approveReview(flowId, block.id, { kind: 'items', keep: all.filter((x) => keep.includes(x.id)).map((x) => x.slot), shown: all.map((x) => x.slot) })
     }
-    approveReview(flowId, block.id, { kind: 'items', keep, shown: slots.map((it) => it.id) })
     onDone()
   }
-  const edited = Object.entries(edits).filter(([slot, text]) => text.trim() && text !== textOf(valueOf(slot))).length
   return (
     <Modal
       open
       onClose={onLater}
       title={`Review ${titleOf(block)}`}
       subtitle={faces
-        ? `Keep the ${noun.toLowerCase()}s worth making more from. The rest turn off, and nothing downstream runs for them.`
-        : `Keep the ${noun.toLowerCase()}s worth making, and fix any line that doesn't sound like a person. The rest turn off, and nothing downstream runs for them.`}
+        ? `Keep the ${noun.toLowerCase()}s worth making more from. The rest are left out, and nothing downstream runs for them.`
+        : `Keep the ${noun.toLowerCase()}s worth making, and fix any line that doesn't sound like a person. The rest are left out, and nothing downstream runs for them.`}
       size={faces ? 'wide' : 'medium'}
-      footer={<Footer onLater={onLater} label={`Keep ${keep.length}${edited ? `, ${edited} Edited,` : ''} and Continue`} disabled={!keep.length} onGo={go} />}
+      footer={<Footer onLater={onLater} label={`Keep ${keep.length}${changed.length ? `, ${changed.length} Edited,` : ''} and Continue`} disabled={!keep.length} onGo={go} />}
     >
-      <div className={faces ? 'grid grid-cols-2 gap-3 p-4 sm:grid-cols-4' : 'flex flex-col gap-1.5 p-4'}>
-        {slots.map((it, i) => {
-          const v = valueOf(it.id)
-          const on = keep.includes(it.id)
-          if (faces) return <FaceTile key={it.id} value={v} on={on} onClick={() => toggle(it.id)} />
-          const text = edits[it.id] ?? textOf(v)
-          return (
-            <div
-              key={it.id}
-              className={`group flex items-start gap-3 rounded-2xl border px-4 py-3 text-left transition-colors ${on ? 'border-flow-500/40 bg-flow-500/10' : 'border-ink/5 opacity-60 hover:opacity-100'}`}
-            >
-              <button
-                type="button"
-                onClick={() => toggle(it.id)}
-                aria-label={on ? `Leave ${noun} ${i + 1} Out` : `Keep ${noun} ${i + 1}`}
-                className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${on ? 'border-flow-400 bg-flow-500 text-white' : 'border-ink/20'}`}
-              >
-                {on && <Check className="h-3 w-3" />}
-              </button>
-              <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-2 text-[11px] text-ink-500">
-                  {noun} {i + 1}
-                  {edits[it.id] !== undefined && edits[it.id] !== textOf(v) && <span className="text-flow-300">Edited</span>}
-                </span>
-                {editing === it.id ? (
-                  <AutoGrowTextarea
-                    autoFocus
-                    value={text}
-                    onChange={(e) => setEdits((cur) => ({ ...cur, [it.id]: e.target.value }))}
-                    onBlur={() => setEditing(null)}
-                    className="mt-1 w-full resize-none rounded-xl border border-flow-500/30 bg-ink/[0.04] px-3 py-2 text-[13px] leading-relaxed text-ink-100 outline-none"
-                  />
-                ) : (
-                  <span className="block cursor-text whitespace-pre-wrap text-[13px] leading-relaxed text-ink-100" onClick={() => setEditing(it.id)}>{text || '—'}</span>
-                )}
-              </span>
-              {editing !== it.id && (
-                <button
-                  type="button"
-                  onClick={() => setEditing(it.id)}
-                  title="Edit the words before anything is made from them"
-                  className="flex h-7 shrink-0 items-center gap-1 rounded-full border border-ink/10 px-2.5 text-[11px] font-medium text-ink-400 opacity-0 transition-opacity hover:border-ink/20 hover:text-ink-100 group-hover:opacity-100 touch:opacity-100"
-                >
-                  <Pencil className="h-3 w-3" />
-                  Edit
-                </button>
-              )}
+      <div className="flex flex-col gap-5 p-4">
+        {groups.map((g) => (
+          <section key={g.key} className="flex flex-col gap-2">
+            {several && <p className="truncate px-1 text-[12px] font-medium text-ink-300" title={g.label}>{g.label}</p>}
+            <div className={faces ? 'grid grid-cols-2 gap-3 sm:grid-cols-4' : 'flex flex-col gap-1.5'}>
+              {g.items.map((x, i) => {
+                const on = keep.includes(x.id)
+                if (faces) return <FaceTile key={x.id} value={x.value} on={on} onClick={() => toggle(x.id)} />
+                const text = edits[x.id] ?? textOf(x.value)
+                return (
+                  <div
+                    key={x.id}
+                    className={`group flex items-start gap-3 rounded-2xl border px-4 py-3 text-left transition-colors ${on ? 'border-flow-500/40 bg-flow-500/10' : 'border-ink/5 opacity-60 hover:opacity-100'}`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => toggle(x.id)}
+                      aria-label={on ? `Leave ${noun} ${i + 1} Out` : `Keep ${noun} ${i + 1}`}
+                      className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${on ? 'border-flow-400 bg-flow-500 text-white' : 'border-ink/20'}`}
+                    >
+                      {on && <Check className="h-3 w-3" />}
+                    </button>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-2 text-[11px] text-ink-500">
+                        {noun} {i + 1}
+                        {edits[x.id] !== undefined && edits[x.id] !== textOf(x.value) && <span className="text-flow-300">Edited</span>}
+                      </span>
+                      {editing === x.id ? (
+                        <AutoGrowTextarea
+                          autoFocus
+                          value={text}
+                          onChange={(e) => setEdits((cur) => ({ ...cur, [x.id]: e.target.value }))}
+                          onBlur={() => setEditing(null)}
+                          className="mt-1 w-full resize-none rounded-xl border border-flow-500/30 bg-ink/[0.04] px-3 py-2 text-[13px] leading-relaxed text-ink-100 outline-none"
+                        />
+                      ) : (
+                        <span className="block cursor-text whitespace-pre-wrap text-[13px] leading-relaxed text-ink-100" onClick={() => setEditing(x.id)}>{text || '—'}</span>
+                      )}
+                    </span>
+                    {editing !== x.id && (
+                      <button
+                        type="button"
+                        onClick={() => setEditing(x.id)}
+                        title="Edit the words before anything is made from them"
+                        className="flex h-7 shrink-0 items-center gap-1 rounded-full border border-ink/10 px-2.5 text-[11px] font-medium text-ink-400 opacity-0 transition-opacity hover:border-ink/20 hover:text-ink-100 group-hover:opacity-100 touch:opacity-100"
+                      >
+                        <Pencil className="h-3 w-3" />
+                        Edit
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
             </div>
-          )
-        })}
+          </section>
+        ))}
       </div>
     </Modal>
   )

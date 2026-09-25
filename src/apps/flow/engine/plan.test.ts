@@ -277,6 +277,20 @@ describe('what re-runs', () => {
     expect(again.credits).toBe(1 + 3 * 2 + 3 * 100)
   })
 
+  it('Run Again remakes a run once: what this run already made is not made again when its block comes round twice', () => {
+    const g = serumLaunch(3)
+    const { outputs } = runAll(g, {})
+    // Scripts was made this run; Voiceovers made two of its three before a
+    // reload put it back in the queue.
+    const made = new Set(planFlow(g, outputs, deps, { fresh: true }).blocks.scr.instances.map((i) => `scr:${i.key}`))
+    const voc = planFlow(g, outputs, deps, { fresh: true, made }).blocks.voc
+    expect(voc.runs).toBe(3)
+    for (const i of voc.instances.slice(0, 2)) made.add(`voc:${i.key}`)
+    const resumed = planFlow(g, outputs, deps, { fresh: true, made })
+    expect(resumed.blocks.voc.runs).toBe(1)
+    expect(resumed.blocks.voc.credits).toBe(2)
+  })
+
   it('Run Block remakes only what is missing upstream, and the block itself whole', () => {
     const g = serumLaunch(3)
     const { outputs } = runAll(g, {})
@@ -521,5 +535,51 @@ describe('Scene Clips', () => {
     const v = plan.blocks.sc.values.clips[0]
     expect(v.type === 'video' && v.payload.clips.map((c) => c.ref)).toEqual(['r11', 'r20'])
     expect(v.key).not.toBe('scenes:v')
+  })
+})
+
+describe('settling a Scripts chain', () => {
+  it('settles a chain of Scripts blocks in one pass, and forgets a deleted source', () => {
+    const g: FlowGraph = {
+      blocks: [
+        block('an', 'analyzer'),
+        block('s1', 'scripts'),
+        block('s2', 'scripts'),
+        block('s3', 'scripts'),
+      ],
+      wires: [wire('an', 'scenes', 's1', 'source'), wire('s1', 'all', 's2', 'source'), wire('s2', 'all', 's3', 'source')],
+    }
+    const settled = settleScripts(g)
+    expect(settled.map((b) => b.settings.sourceWired)).toEqual([undefined, 'scenes', 'scenes', 'scenes'])
+    const gone = settleScripts({ blocks: settled.filter((b) => b.id !== 'an'), wires: g.wires })
+    expect(gone.find((b) => b.id === 's1')?.settings.sourceWired).toBeUndefined()
+  })
+})
+
+describe('character variants', () => {
+  function variants(withBase: boolean): FlowGraph {
+    return {
+      blocks: [
+        block('base', 'bank', { pick: 'maya', settings: { bank: 'models' } }),
+        block('aud', 'list', { settings: { entries: ['Asian-American', 'African-American', 'Latina'] }, items: slots('a', 3) }),
+        block('chr', 'characters'),
+      ],
+      wires: [
+        ...(withBase ? [wire('base', 'out', 'chr', 'photo')] : []),
+        wire('aud', 'all', 'chr', 'change'),
+      ],
+    }
+  }
+
+  it('makes one run per change off the one character', () => {
+    const plan = planFlow(variants(true), {}, deps)
+    expect(plan.blocks.chr.runs).toBe(3)
+    expect(plan.blocks.chr.instances.map((i) => i.inputs.change?.[0]?.label)).toEqual(['Asian-American', 'African-American', 'Latina'])
+  })
+
+  it('says a change needs a picture to edit', () => {
+    const plan = planFlow(variants(false), {}, deps)
+    expect(plan.blocks.chr.runs).toBe(0)
+    expect(plan.blocks.chr.blocked).toMatch(/Reference Photo/)
   })
 })

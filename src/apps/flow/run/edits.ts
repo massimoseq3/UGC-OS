@@ -15,6 +15,7 @@ import { useBankStore } from '../../../stores/bankStore'
 import { liveItems } from '../engine/graph'
 import { fingerprint } from '../engine/hash'
 import { scriptItems } from './executors/simple'
+import { parseHooks } from '../../script-architect/types'
 
 // The takes a Scripts run shows, with the member's edits laid over them.
 export function editedTakes(result: InstanceResult | undefined, variations: string[]): string[] {
@@ -52,15 +53,15 @@ export function editTake(flowId: string, blockId: string, instKey: string, index
   return true
 }
 
-// One hook or take, edited where it's listed on its own (Pause for Review):
-// a take is its own variation; a hook is one line of the single variation a
-// hooks run writes, so that line is swapped in place.
-export function editItem(flowId: string, blockId: string, slot: string, text: string): boolean {
+// One hook or take, edited where it's listed on its own (Pause for Review),
+// in the run the review shows: a take is its own variation; a hook is one
+// line of the single variation a hooks run writes, so that line is swapped
+// in place.
+export function editItem(flowId: string, blockId: string, instKey: string, slot: string, text: string): boolean {
   const doc = useFlowStore.getState().ensureDoc(flowId)
   const block = doc?.blocks.find((b) => b.id === blockId)
-  const entry = Object.entries(doc?.outputs[blockId]?.instances ?? {}).find(([, r]) => r.items?.[slot])
-  if (!doc || !block || !entry) return false
-  const [instKey, result] = entry
+  const result = doc?.outputs[blockId]?.instances[instKey]
+  if (!doc || !block || !result?.items?.[slot]) return false
   const rowId = result.rows?.find((r) => r.bank === 'scriptHistory')?.id
   const row = rowId ? useBankStore.getState().scriptHistory.find((h) => h.id === rowId) : undefined
   if (!row) return false
@@ -69,11 +70,27 @@ export function editItem(flowId: string, blockId: string, slot: string, text: st
   if (index < 0) return false
   const takes = editedTakes(result, row.variations)
   if (row.mode === 'write' && row.writeFormat === 'hooks') {
-    const was = result.items?.[slot]
-    const old = was?.type === 'script' ? was.payload.text : ''
-    const lines = takes[0] ?? ''
-    if (!old || !lines.includes(old)) return false
-    return editTake(flowId, blockId, instKey, 0, lines.replace(old, text.replace(/\n+/g, ' ').trim()))
+    const lines = replaceHook(takes[0] ?? '', index, text.replace(/\n+/g, ' ').trim())
+    return lines !== null && editTake(flowId, blockId, instKey, 0, lines)
   }
   return editTake(flowId, blockId, instKey, index, text)
+}
+
+// The index-th hook's words swapped for new ones, its number and family tag
+// kept — by position, so a hook that reads inside another is never the one
+// changed.
+function replaceHook(raw: string, index: number, text: string): string | null {
+  const lines = raw.split('\n')
+  let n = -1
+  for (const [i, line] of lines.entries()) {
+    const hook = parseHooks(line)[0]
+    if (!hook) continue
+    n += 1
+    if (n !== index) continue
+    const at = line.lastIndexOf(hook.text)
+    if (at < 0) return null
+    lines[i] = line.slice(0, at) + text + line.slice(at + hook.text.length)
+    return lines.join('\n')
+  }
+  return null
 }

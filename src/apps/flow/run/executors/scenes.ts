@@ -76,6 +76,8 @@ export const scenesExecutor: Executor = {
       for (const c of before?.type === 'video' ? before.payload.clips : []) {
         if (c.scene !== undefined) r.done[sceneKey(c.scene, c.take ?? 0)] ??= c
       }
+      // Scene 1's frame too, rather than taking it again as a new asset.
+      if (before?.type === 'video') r.frame ??= before.payload.cover
     }
     const save = () => ctx.save({ ...r, tasks: { ...r.tasks }, done: { ...r.done } })
 
@@ -130,6 +132,18 @@ export const scenesExecutor: Executor = {
     }
     await Promise.all(wanted.filter((w) => !first.includes(w)).map(film))
     if (ctx.signal.aborted) return {}
+
+    // A take still being made at kie keeps its handle: failing here keeps
+    // the run's saved state (the runtime drops it only for a dead task), so
+    // the next Run Flow fetches it instead of paying for it again. What
+    // finished is kept in that state too.
+    const waiting = wanted.filter((w) => !r.done![w.key] && r.tasks![w.key])
+    if (waiting.length) {
+      const why = failed.get(waiting[0].shot.number)
+      throw new FriendlyError(
+        `${waiting.length === 1 ? 'One clip is' : `${waiting.length} clips are`} still being made. ${humanizeError(why, 'The wait for it ran out.')} Run Flow again to fetch ${waiting.length === 1 ? 'it' : 'them'}; nothing is paid twice.`,
+      )
+    }
 
     // Every scene needs at least one clip for the ad to hold together; a
     // missing take is filled by the next Run Flow (the plan counts it).

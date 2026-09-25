@@ -6,7 +6,7 @@
     "version": 1
   },
   "name": "Same Ad, Three Faces",
-  "description": "One approved script filmed scene by scene with three different characters, so each audience sees someone like them. The scenes, the voice profile and the product shots stay the same; only the face changes.",
+  "description": "One approved script filmed scene by scene with your character and two variants of them for other audiences, so each audience sees someone like them. The scenes, the voice profile and the product shots stay the same; only the face changes.",
   "author": "UGC OS",
   "blocks": [
     {
@@ -34,9 +34,9 @@
       "field": true
     },
     {
-      "id": "face1",
+      "id": "face",
       "kind": "bank",
-      "label": "Character 1",
+      "label": "Your Character",
       "x": 0,
       "y": 460,
       "settings": {
@@ -46,28 +46,34 @@
       "field": true
     },
     {
-      "id": "face2",
-      "kind": "bank",
-      "label": "Character 2",
+      "id": "audiences",
+      "kind": "list",
+      "label": "The Audiences",
       "x": 0,
-      "y": 670,
+      "y": 690,
       "settings": {
-        "bank": "models"
+        "entries": [
+          "Make this person Asian-American, with monolid eyes and brunette hair. Keep the outfit, pose, setting and lighting the same.",
+          "Make this person African-American, with thick box braids pulled back. Keep the outfit, pose, setting and lighting the same."
+        ]
       },
-      "source": "bank",
-      "field": true
+      "source": "generate"
     },
     {
-      "id": "face3",
-      "kind": "bank",
-      "label": "Character 3",
-      "x": 0,
-      "y": 880,
+      "id": "variants",
+      "kind": "characters",
+      "label": "Variants",
+      "x": 380,
+      "y": 600,
       "settings": {
-        "bank": "models"
+        "profile": {},
+        "kind": "portrait",
+        "aspect": "9:16",
+        "resolution": "1K",
+        "count": 1
       },
-      "source": "bank",
-      "field": true
+      "source": "generate",
+      "review": true
     },
     {
       "id": "analyzer",
@@ -127,10 +133,10 @@
     {
       "id": "note",
       "kind": "note",
-      "x": 340,
-      "y": 460,
+      "x": 700,
+      "y": 420,
       "settings": {
-        "text": "Scripts rebuilds the winning ad scene by scene for your product and pauses so you can fix its lines. Scene Clips then films that one script with each of your three characters: the same scenes, the same voice profile, the same product shots, only the face changes."
+        "text": "Scripts rebuilds the winning ad scene by scene for your product and pauses so you can fix its lines. Variants edits your character once per line of The Audiences, then pauses so you keep the faces that look right. Scene Clips films the one script with your character and each variant: the same scenes, voice and product shots, only the face changes. Change the list to reach other audiences."
       }
     }
   ],
@@ -165,34 +171,41 @@
     },
     {
       "id": "w5",
-      "from": "face1",
+      "from": "face",
       "fromPort": "out",
       "to": "scenes",
       "toPort": "character"
     },
     {
       "id": "w6",
-      "from": "face2",
+      "from": "face",
       "fromPort": "out",
-      "to": "scenes",
-      "toPort": "character"
+      "to": "variants",
+      "toPort": "photo"
     },
     {
       "id": "w7",
-      "from": "face3",
-      "fromPort": "out",
+      "from": "audiences",
+      "fromPort": "all",
+      "to": "variants",
+      "toPort": "change"
+    },
+    {
+      "id": "w8",
+      "from": "variants",
+      "fromPort": "all",
       "to": "scenes",
       "toPort": "character"
     },
     {
-      "id": "w8",
+      "id": "w9",
       "from": "product",
       "fromPort": "out",
       "to": "scenes",
       "toPort": "product"
     },
     {
-      "id": "w9",
+      "id": "w10",
       "from": "scenes",
       "fromPort": "clips",
       "to": "edit",
@@ -217,24 +230,8 @@
       "required": true
     },
     {
-      "blockId": "face1",
-      "title": "Character 1",
-      "kind": {
-        "bank": "models"
-      },
-      "required": true
-    },
-    {
-      "blockId": "face2",
-      "title": "Character 2",
-      "kind": {
-        "bank": "models"
-      },
-      "required": true
-    },
-    {
-      "blockId": "face3",
-      "title": "Character 3",
+      "blockId": "face",
+      "title": "Your Character",
       "kind": {
         "bank": "models"
       },
@@ -242,6 +239,6 @@
     }
   ],
   "notes": [
-    "Scripts rebuilds the winning ad scene by scene for your product and pauses so you can fix its lines. Scene Clips then films that one script with each of your three characters: the same scenes, the same voice profile, the same product shots, only the face changes."
+    "Scripts rebuilds the winning ad scene by scene for your product and pauses so you can fix its lines. Variants edits your character once per line of The Audiences, then pauses so you keep the faces that look right. Scene Clips films the one script with your character and each variant: the same scenes, voice and product shots, only the face changes. Change the list to reach other audiences."
   ]
 }

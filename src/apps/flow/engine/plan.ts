@@ -69,6 +69,10 @@ export interface PlanOptions {
   // new takes of a flow that has nothing left to run. What the last run made
   // stays in each app's history.
   fresh?: boolean
+  // `blockId:runKey` of every run the live run has already made. Run Block
+  // and Run Again remake a run once per press, never again when the block
+  // comes round a second time (B-Roll after its review, a resumed run).
+  made?: Set<string>
 }
 
 // ── The plan ───────────────────────────────────────────────────────────────
@@ -86,6 +90,9 @@ export interface PlannedInstance {
   // block whose slots are made one at a time).
   slots?: string[]
   credits: number | null
+  // The part of the run still to make, when that's less than all of it: a
+  // Scene Clips run topped up films only its missing clips.
+  share?: number
 }
 
 export interface BlockPlan {
@@ -195,13 +202,13 @@ export function planFlow(graph: FlowGraph, outputs: FlowOutputs, deps: PlanDeps,
 
   for (const id of order) {
     const block = blockById(graph, id)!
-    const bp = planBlock(graph, block, blocks, outputs, deps, { test, only: opts.only, scope, settled: opts.settled, fresh: opts.fresh })
+    const bp = planBlock(graph, block, blocks, outputs, deps, { test, only: opts.only, scope, settled: opts.settled, fresh: opts.fresh, made: opts.made })
     blocks[id] = bp
     if (bp.runs > 0) {
       planned.push(id)
       credits += bp.credits
       const count = deps.generations ?? ((_b, _i, slots: number) => Math.max(1, slots))
-      generations += bp.instances.filter((i) => i.run).reduce((n, i) => n + count(block, i.inputs, i.slots?.length ?? 1, test), 0)
+      generations += bp.instances.filter((i) => i.run).reduce((n, i) => n + Math.ceil(count(block, i.inputs, i.slots?.length ?? 1, test) * (i.share ?? 1)), 0)
       unpriced ||= bp.unpriced
     }
     creditsAll += bp.creditsAll
@@ -244,7 +251,7 @@ export function planBlock(
   upstream: Record<string, BlockPlan>,
   outputs: FlowOutputs,
   deps: PlanDeps,
-  opts: { test: boolean; only?: string; scope?: Set<string>; settled?: Set<string>; fresh?: boolean },
+  opts: { test: boolean; only?: string; scope?: Set<string>; settled?: Set<string>; fresh?: boolean; made?: Set<string> },
 ): BlockPlan {
   const empty = (blocked?: string): BlockPlan => ({
     blockId: block.id, blocked, instances: [], values: {}, runs: 0, credits: 0, unpriced: false, creditsAll: 0,
@@ -274,6 +281,12 @@ export function planBlock(
     return empty(from?.blocked ? `Nothing came in to ${p.label}` : `Its ${p.label.toLowerCase()} input is turned off`)
   }
 
+  // A Change edits a picture, the way Characters' edit modal does, so it
+  // needs one to edit.
+  if (block.kind === 'characters' && values.change?.length && !values.photo?.length) {
+    return empty('A Change edits a picture. Wire the character to change into Reference Photo')
+  }
+
   let combos = combinations(ins, values)
   if (combos.length === 0) return empty('Its inputs come from different items upstream, so they never pair')
   if (opts.test) combos = combos.slice(0, 1)
@@ -292,11 +305,12 @@ export function planBlock(
     const pending = Object.values(c.inputs).some((vals) => vals.some((v) => v.pending))
     const key = instanceKey(block, c.inputs)
     const cached = pending ? undefined : results[key]
+    const remake = onlyThis && !opts.made?.has(`${block.id}:${key}`)
     let slots: string[] | undefined
     let run: boolean
     if (!inScope) {
       run = false
-    } else if (onlyThis) {
+    } else if (remake) {
       run = true
       slots = batch ? wantSlots : undefined
     } else if (batch) {
@@ -313,13 +327,16 @@ export function planBlock(
       // With 1 left for later, or a take added since.
       run = pending || !cached || cached.phase === 'stills' || scenesLeft(block, c.inputs, cached, opts.test) > 0
     }
-    let credits = run ? deps.cost(block, c.inputs, Math.max(1, slots?.length ?? 1), opts.test) : 0
-    // What's left of a Scene Clips run is priced as its share of the whole.
-    if (run && credits && cached && !onlyThis && block.kind === 'scenes') {
+    // What's left of a Scene Clips run is priced, and counted, as its share
+    // of the whole.
+    let share: number | undefined
+    if (run && cached && !remake && block.kind === 'scenes') {
       const wanted = wantedClips(block, scriptOf(c.inputs), opts.test).length
-      if (wanted) credits *= scenesLeft(block, c.inputs, cached, opts.test) / wanted
+      if (wanted) share = scenesLeft(block, c.inputs, cached, opts.test) / wanted
     }
-    return { key, trace: c.trace, inputs: c.inputs, pending, cached, run, slots, credits }
+    let credits = run ? deps.cost(block, c.inputs, Math.max(1, slots?.length ?? 1), opts.test) : 0
+    if (credits && share !== undefined) credits *= share
+    return { key, trace: c.trace, inputs: c.inputs, pending, cached, run, slots, credits, share }
   })
 
   // Nothing of a block outside Run Block's reach runs, and what it hands on
@@ -358,6 +375,8 @@ function valuesOut(block: FlowBlock, instances: PlannedInstance[], test: boolean
       const itemValue = (slot: string): FlowValue | undefined => {
         const trace = { ...inst.trace, [block.id]: `${inst.key}:${slot}` }
         if (made) {
+          // A run reviewed on its own hands on only the slots it kept.
+          if (made.keep && !made.keep.includes(slot)) return undefined
           const v = made.items?.[slot]
           return v ? { ...v, trace } : undefined
         }

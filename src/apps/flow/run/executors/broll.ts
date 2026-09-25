@@ -349,7 +349,9 @@ export const brollExecutor: Executor = {
     const { sessionId, result } = await storyboard(ctx, wired, resume)
     if (ctx.phase !== 'clips') await stillsPhase(ctx, wired, resume, sessionId, result)
     if (ctx.phase === 'stills') return outputsOf(sessionId)
-    const keep = ctx.prior?.keep
+    // Picks belong to the session they were made in: only the clips phase
+    // after a review carries on in it. A new session animates every card.
+    const keep = ctx.phase === 'clips' ? ctx.prior?.keep : undefined
     await clipsPhase(ctx, resume, sessionId, result, keep)
     return outputsOf(sessionId, keep)
   },

@@ -664,6 +664,9 @@ export default function Canvas({
       } else if (mod && e.key.toLowerCase() === 'a') {
         setSelection(real.map((b) => b.id))
       } else if (e.key === 'Tab' && !mod) {
+        // Tab moves focus through the header, the dock and a focused button
+        // as it does anywhere; only on the canvas itself is it Add Block.
+        if (el && el !== document.body && (!wrapRef.current?.contains(el) || el.closest('button, a, [role="button"]'))) return
         // Add Block, where the pointer is — or mid-canvas, from the keyboard.
         const rect = wrapRef.current?.getBoundingClientRect()
         const p = pointer.current ?? { x: (rect?.left ?? 0) + (rect?.width ?? 800) / 2 - 170, y: (rect?.top ?? 0) + 120 }
