@@ -148,14 +148,19 @@ function ProductSquare({ productId, children }: { productId: string; children?: 
   return <PictureSquare refId={image} glyph={Package}>{children}</PictureSquare>
 }
 
-// A saved ad: its cover, where it ran and how far it went.
+// A saved ad: its cover, where it ran and how far it went. The member's own
+// ad, dropped in: its first frame, and how long it runs.
 function AdSquare({ value, children }: { value: Extract<HeldValue, { type: 'ad' }>; children?: ReactNode }) {
   const views = useBankStore((s) => (value.payload.swipeId ? s.swipes.find((r) => r.id === value.payload.swipeId)?.views : undefined))
   const platform = value.payload.platform ? PLATFORM[value.payload.platform] : undefined
+  const own = !!value.payload.uploadRef
+  const seconds = value.payload.durationSeconds
   return (
-    <PictureSquare refId={value.payload.thumbUrl} glyph={Bookmark} top>
+    <PictureSquare refId={value.payload.thumbUrl} glyph={own ? Film : Bookmark} top>
+      {own && <span className={`${CHIP} left-2 top-2`}>Your Ad</span>}
       {platform && <span className={`${CHIP} left-2 top-2`}>{platform}</span>}
       {!!views && <span className={`${CHIP} bottom-2 left-2`}><Eye className="h-3 w-3" />{formatCount(views)}</span>}
+      {own && !!seconds && <span className={`${CHIP} bottom-2 left-2 tabular-nums`}>{clock(seconds)}</span>}
       {children}
     </PictureSquare>
   )

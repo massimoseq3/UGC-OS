@@ -84,7 +84,7 @@ export const BLOCK_BLURB: Record<BlockKind, string> = {
   list: 'Several lines, one per item. Wired in, the next block runs once for each.',
   note: 'A sticky note for whoever opens this flow. It never runs.',
   outliers: 'Finds ads on TikTok, Instagram or Meta that beat their account\'s usual views. Spends ScrapeCreators credits.',
-  analyzer: 'Tears an ad down: its transcript, its scenes and shot craft, and what made it work.',
+  analyzer: 'Tears an ad down: its transcript, its scenes and shot craft, and what made it work. Drop your own ad on it, or wire in a saved one.',
   characters: 'Makes the faces for your ads, one per slot, from a description or a reference photo.',
   scripts: 'Writes hooks or full scripts for your product, or remixes a winning ad in your product\'s words.',
   voice: 'Reads each script aloud in the voice you pick.',

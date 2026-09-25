@@ -6,6 +6,7 @@
 import type { FlowBlock } from '../types'
 import type { Held, HeldValue } from './plan'
 import { sourceOf } from './catalog'
+import { adUploadOf, uploadedAdValue } from './ownAd'
 import { useBankStore } from '../../../stores/bankStore'
 import type {
   AdAnatomyHistoryItem,
@@ -58,6 +59,13 @@ export function swipeValue(s: SwipeItem): HeldValue {
     },
     lineage: lineage('swipes', s.id),
   }
+}
+
+// What an ad block holds: the ad dropped into it, or the saved one picked.
+export function adBlockValue(block: FlowBlock): HeldValue | null {
+  const upload = adUploadOf(block)
+  if (upload) return uploadedAdValue(upload)
+  return block.pick ? bankRowValue('swipes', block.pick) : null
 }
 
 // A bank row as the value its bank's type carries.
@@ -165,7 +173,9 @@ export function heldValues(block: FlowBlock): Held {
   switch (block.kind) {
     case 'bank': {
       const bank = (block.settings.bank as BankType) ?? 'products'
-      if (!pick) return { missing: `Pick ${BANK_NOUN[bank]} from the bank` }
+      const upload = adUploadOf(block)
+      if (upload) return { outputs: { out: [uploadedAdValue(upload)] } }
+      if (!pick) return { missing: bank === 'swipes' ? 'Drop your ad on it, or pick a saved one' : `Pick ${BANK_NOUN[bank]} from the bank` }
       const v = bankRowValue(bank, pick)
       return v ? { outputs: { out: [v] } } : { missing: `That ${BANK_NOUN[bank].replace(/^an? /, '')} was deleted from the bank` }
     }

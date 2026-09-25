@@ -1,13 +1,14 @@
 // "Version 2 of this template is out": a flow made from a gallery template
 // offers the gallery's newer version, with what changed. Updating lays the new
 // version in as one undo step and carries the member's field picks across —
-// their product, character, text and images — by the field's block id, then
+// their product, character, text, images and own ad — by the field's block id, then
 // by its title. Anything else they changed in the blocks is replaced, which
 // the bar says before they press it. Not Now stops offering that version.
 
 import { useEffect, useState } from 'react'
 import { Sparkles, X } from 'lucide-react'
-import type { FlowDoc } from '../types'
+import type { AdUpload, FlowDoc } from '../types'
+import { adUploadOf } from '../engine/ownAd'
 import { useFlowStore } from '../store/flowStore'
 import { loadGallery, loadGalleryTemplate, type GalleryEntry } from '../templates/gallery'
 import { instantiate, type FlowTemplateFile } from '../templates/io'
@@ -15,7 +16,7 @@ import { useAppStore } from '../../../stores/appStore'
 import { humanizeError } from '../../../utils/friendlyError'
 import Spinner from '../../../components/Spinner'
 
-type Pick = { pick?: string; text?: string; ref?: string }
+type Pick = { pick?: string; text?: string; ref?: string; upload?: AdUpload }
 
 // The member's picks, keyed by the NEW version's field blocks.
 function carriedPicks(doc: FlowDoc, file: FlowTemplateFile): Record<string, Pick> {
@@ -23,7 +24,9 @@ function carriedPicks(doc: FlowDoc, file: FlowTemplateFile): Record<string, Pick
   for (const f of file.fields) {
     const mine = doc.blocks.find((b) => b.id === f.blockId) ?? doc.blocks.find((b) => b.field && b.label === f.title)
     if (!mine) continue
-    if (mine.pick) picks[f.blockId] = { pick: mine.pick }
+    const upload = adUploadOf(mine)
+    if (upload) picks[f.blockId] = { upload }
+    else if (mine.pick) picks[f.blockId] = { pick: mine.pick }
     else if (mine.kind === 'text' && typeof mine.settings.text === 'string') picks[f.blockId] = { text: mine.settings.text }
     else if (mine.kind === 'image' && typeof mine.settings.ref === 'string' && mine.settings.ref) picks[f.blockId] = { ref: mine.settings.ref }
   }

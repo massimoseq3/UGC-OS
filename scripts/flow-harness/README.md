@@ -36,7 +36,7 @@ encode the fake clips (defaults match the Claude Code cloud container).
 | `smoke.mjs` | The end-to-end check. Screenshots in `./shots` |
 | `extras.mjs`, `check-parsers.mjs` | Describe It, Ask Flow and the reply parsers |
 | `estimates.mjs` | Prices every gallery template from a real plan (for `public/templates/index.json`) |
-| `probe-*.mjs` | Single-bug repros: review state, Test With 1 slots, reload mid-run, partial clip failure, Scene Clips reload (asserts no clip is submitted twice) |
+| `probe-*.mjs` | Single-bug repros: review state, Test With 1 slots, reload mid-run, partial clip failure, Scene Clips reload (asserts no clip is submitted twice), an ad of the member's own analyzed and run through Clone a Winner (`probe-own-ad.mjs`) |
 | `tour-*.mjs` | Canvas controls: blank canvas, suggestions, right-click, Add Block, wire peek, help |
 | `build-talking-head.mjs`, `talking-head-review-and-run-again.mjs` | The talking-head ad built from scratch, edited in review, run, then Run Again |
 | `run-channel-templates.mjs`, `many-hooks-one-body.mjs`, `scene-takes-review.mjs`, `same-ad-three-faces.mjs` | The templates from the channel, run end to end |

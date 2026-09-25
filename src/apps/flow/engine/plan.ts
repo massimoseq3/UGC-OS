@@ -27,7 +27,7 @@ import type {
   PortType,
   Trace,
 } from '../types'
-import { generationSettings, inlineText, insOf, isBatch, isRunnable, itemNoun, KINDS, outsOf, rebuildsScenes, scriptsFormat, scriptsMode, sourceOf, takesTyped } from './catalog'
+import { generationSettings, inlineText, insOf, isBatch, isRunnable, itemNoun, KINDS, outsOf, rebuildsScenes, scriptsFormat, scriptsMode, sourceOf, takesDrop, takesTyped } from './catalog'
 import { blockById, enabledItems, itemIdOf, topoOrder, upstreamOf, wiresInto } from './graph'
 import { fingerprint } from './hash'
 import { missingClips, wantedClips } from './sceneShots'
@@ -275,7 +275,9 @@ export function planBlock(
     if (wires.length === 0) {
       return empty(takesTyped(block, p.key)
         ? `Needs ${article(p.label)} ${p.label.toLowerCase()}. Wire one in, or type one into it`
-        : `Needs ${article(p.label)} ${p.label.toLowerCase()} wired in`)
+        : takesDrop(block, p.key)
+          ? `Needs ${article(p.label)} ${p.label.toLowerCase()}. Drop your own on it, or wire one in`
+          : `Needs ${article(p.label)} ${p.label.toLowerCase()} wired in`)
     }
     // "Turned off" only when the items feeding it are: an upstream block that
     // ran and made nothing (it failed) is not something the member switched off.

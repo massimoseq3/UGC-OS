@@ -158,6 +158,11 @@ export interface PayloadByType {
 export interface AdPayload {
   // A saved swipe, when the ad came from the Swipe File.
   swipeId?: string
+  // The member's own ad, dropped in (AdUpload): the file the Ad Analyzer
+  // reads, as it was dropped, and how long it runs.
+  uploadRef?: string
+  fileName?: string
+  durationSeconds?: number
   platform?: 'tiktok' | 'instagram' | 'meta'
   sourceId?: string
   postUrl?: string
@@ -170,6 +175,21 @@ export interface AdPayload {
   // Outliers' own result, kept whole so the Ad Analyzer can fetch it the way
   // Outliers' Analyze button does.
   result?: unknown
+}
+
+// An ad the member dropped in themselves rather than picked from the Swipe
+// File. The ad block that feeds an Ad Analyzer (a Bank block on the Swipe
+// File) holds it as `settings.upload`, in place of a pick.
+export interface AdUpload {
+  // The video, in the asset store.
+  ref: string
+  name: string
+  // How long it runs, for the Analyze price, and how big it is, for the
+  // Ad Analyzer's Compress First warning.
+  seconds?: number
+  size?: number
+  // Its first frame, for the block's face and the field's thumbnail.
+  thumb?: string
 }
 
 interface ValueBase {

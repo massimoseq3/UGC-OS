@@ -1,12 +1,17 @@
 // Picking what a block reuses: a row from a bank, or a past result from its
 // app's own history. Either is done the moment it's picked and costs nothing.
+// An ad block takes the member's own ad as well, dropped under its picker.
 
 import { useState } from 'react'
 import { Check, ChevronRight } from 'lucide-react'
 import type { FlowBlock } from '../../types'
 import { useBankStore } from '../../../../stores/bankStore'
 import { useFlowStore } from '../../store/flowStore'
-import { bankRowValue } from '../../engine/held'
+import { adBlockValue, bankRowValue } from '../../engine/held'
+import { adUploadOf } from '../../engine/ownAd'
+import { holdAd, pickSavedAd, useAdReader, useFileDrag } from '../yourAd'
+import { AdDropStrip } from '../AdUploadParts'
+import { uploadMeta } from '../node/chips'
 import { BANK_CONFIG, type BankType } from '../../../../utils/constants'
 import BankPicker from '../../../../components/BankPicker'
 import Modal from '../../../../components/Modal'
@@ -23,7 +28,8 @@ export function BankPick({ block, bank }: { block: FlowBlock; bank: BankType }) 
   // rename or a delete in the Bank shows here straight away.
   const rows = useBankStore((s) => s[bank])
   const productImage = useBankStore((s) => (bank === 'products' && block.pick ? s.products.find((p) => p.id === block.pick)?.productImage : undefined))
-  const value = rows && block.pick ? bankRowValue(bank, block.pick) : null
+  const upload = bank === 'swipes' ? adUploadOf(block) : null
+  const value = bank === 'swipes' ? (rows ? adBlockValue(block) : null) : rows && block.pick ? bankRowValue(bank, block.pick) : null
   const thumbRef = value?.type === 'character' ? value.payload.imageRef
     : value?.type === 'image' ? value.payload.ref
     : value?.type === 'style' ? value.payload.thumbRefs?.[0]
@@ -44,12 +50,13 @@ export function BankPick({ block, bank }: { block: FlowBlock; bank: BankType }) 
         ) : null}
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[13px] font-medium text-ink-100">{value?.label ?? `Choose From ${noun}`}</span>
-          {value && <span className="block text-[11px] text-ink-500">From {noun}</span>}
+          {value && <span className="block text-[11px] text-ink-500">{upload ? uploadMeta(upload.seconds) : `From ${noun}`}</span>}
         </span>
         <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" />
       </button>
+      {bank === 'swipes' && <OwnAdDrop blockId={block.id} held={!!upload} />}
       {bank === 'swipes' ? (
-        <SwipePicker open={open} onClose={() => setOpen(false)} onPick={(id) => { patchBlock(block.id, { pick: id }); setOpen(false) }} />
+        <SwipePicker open={open} onClose={() => setOpen(false)} onPick={(id) => { pickSavedAd(block.id, id); setOpen(false) }} />
       ) : (
         <BankPicker
           bankType={bank}
@@ -63,6 +70,13 @@ export function BankPick({ block, bank }: { block: FlowBlock; bank: BankType }) 
       )}
     </>
   )
+}
+
+// The member's own ad, dropped or browsed for, in place of a saved one.
+function OwnAdDrop({ blockId, held }: { blockId: string; held: boolean }) {
+  const reader = useAdReader((upload) => holdAd(blockId, upload))
+  const drag = useFileDrag((files) => reader.take(files[0]))
+  return <AdDropStrip busy={reader.busy} problem={reader.problem} active={drag.active} held={held} onFile={reader.take} dragHandlers={drag.handlers} />
 }
 
 export function SwipePicker({ open, onClose, onPick }: { open: boolean; onClose: () => void; onPick: (id: string) => void }) {

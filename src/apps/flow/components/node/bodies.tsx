@@ -7,11 +7,11 @@
 // made yet stands in as the same shape, dashed, so the canvas shows what a
 // run will make and fills in as it goes.
 
-import { useState } from 'react'
-import { Download, Eye, EyeOff, Film, Folder, Image as ImageIcon, Music, Package, Pause, Play, Radar } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { Download, Eye, EyeOff, Film, Folder, Image as ImageIcon, Music, Package, Pause, Play, Radar, Upload } from 'lucide-react'
 import type { FlowBlock, FlowGraph, FlowItem, FlowValue } from '../../types'
 import type { BlockPlan, PlannedInstance } from '../../engine/plan'
-import { outsOf, scriptsFormat, sourceOf, TYPE_META } from '../../engine/catalog'
+import { inlineText, KINDS, outsOf, scriptsFormat, sourceOf, TYPE_META } from '../../engine/catalog'
 import { itemPort, liveItems, wiresInto, wiresOutOf } from '../../engine/graph'
 import { brollVideoModel, playgroundInput } from '../../engine/cost'
 import { useBankStore } from '../../../../stores/bankStore'
@@ -28,6 +28,9 @@ import { wordCount } from '../../../broll-studio/services/clipDuration'
 import { formatCount, formatMultiple } from '../../../discover/services/scoring'
 import type { DiscoverResult } from '../../../discover/types'
 import type { AnalysisResult } from '../../../ad-anatomy/types'
+import { AD_ACCEPT_ATTR } from '../../../ad-anatomy/services/adUpload'
+import { useAppStore } from '../../../../stores/appStore'
+import { adFeedOf, giveAdTo, useAdReader, useFileDrag } from '../yourAd'
 import { downloadEditPacks } from '../../run/editPack'
 import type { LiveRun } from '../../run/runtime'
 import { useCanvas } from '../canvasContext'
@@ -88,8 +91,18 @@ function shownItems(doc: FlowGraph, block: FlowBlock, items: FlowItem[], first: 
 
 // The ad it read, its score and scorecard, the first words said, and its
 // scenes as a timed strip — what the Ad Analyzer's own Breakdown leads with.
+// Before it has an ad, the cover tile is where the member's own goes: dropped
+// on the block, or picked with a click (yourAd.ts hands it to the ad block
+// that feeds this one).
 export function AnalyzerBody({ block, bp }: { block: FlowBlock; bp: BlockPlan | undefined }) {
-  const { run } = useCanvas()
+  const { doc, run } = useCanvas()
+  const addToast = useAppStore((s) => s.addToast)
+  const fileRef = useRef<HTMLInputElement>(null)
+  const reader = useAdReader((upload) => {
+    const done = giveAdTo(block.id, upload)
+    addToast(done.ok ? done.message : done.reason, done.ok ? 'success' : 'error')
+  })
+  const drag = useFileDrag(null)
   const made = madeValues(bp)
   const transcript = made.find((v) => v.type === 'transcript')
   const rowId = transcript?.lineage?.find((l) => l.bank === 'adAnatomyHistory')?.id
@@ -107,15 +120,44 @@ export function AnalyzerBody({ block, bp }: { block: FlowBlock; bp: BlockPlan | 
   const total = result?.reverseEngineeredPrompt?.totalDurationSeconds || scenes.reduce((sum, s) => sum + (s.durationSeconds || 0), 0)
   const quote = result?.transcript?.slice(0, 2).map((l) => l.text).join(' ').trim()
   const ads = new Set(made.filter((v) => v.type === 'transcript').map((v) => v.key)).size
+  // Nothing coming in yet, and nothing but the member deciding what does.
+  const open = !ad && !result && !busy && adFeedOf(doc, block).kind !== 'other'
   return (
     <div className="px-3 pb-3">
       <div className="flex gap-2.5">
-        <div className={`${TILE} w-[72px] shrink-0 ${cover ? 'bg-black' : DASHED}`}>
-          {cover ? <TileImage refId={cover} /> : (
-            <span className="absolute inset-0 flex items-center justify-center text-ink-500">{busy ? <Spinner className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</span>
-          )}
-          {cover && platform && <span className={`${CHIP} left-1 top-1 h-4 px-1.5 text-[9.5px]`}>{platform}</span>}
-        </div>
+        {open ? (
+          <div {...drag.handlers} className="shrink-0">
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              title="Drop your ad on the block, or click to pick the file"
+              className={`nodrag ${TILE} flex w-[72px] flex-col items-center justify-center gap-1 border border-dashed px-1 text-center transition-colors ${
+                drag.active ? 'border-[#FF5257]/60 bg-[#FF5257]/[0.08]' : 'border-ink/20 hover:border-[#FF5257]/40 hover:bg-[#FF5257]/[0.04]'
+              }`}
+            >
+              {reader.busy ? <Spinner className="h-4 w-4 text-ink-400" /> : <Upload className={`h-4 w-4 ${drag.active ? 'text-[#FF5257]' : 'text-ink-500'}`} />}
+              <span className="text-[10px] font-medium leading-tight text-ink-300">Drop Your Ad</span>
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept={AD_ACCEPT_ATTR}
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                e.target.value = ''
+                reader.take(file)
+              }}
+            />
+          </div>
+        ) : (
+          <div className={`${TILE} w-[72px] shrink-0 ${cover ? 'bg-black' : DASHED}`}>
+            {cover ? <TileImage refId={cover} /> : (
+              <span className="absolute inset-0 flex items-center justify-center text-ink-500">{busy ? <Spinner className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</span>
+            )}
+            {cover && platform && <span className={`${CHIP} left-1 top-1 h-4 px-1.5 text-[9.5px]`}>{platform}</span>}
+          </div>
+        )}
         <div className="min-w-0 flex-1">
           {result ? (
             <>
@@ -140,8 +182,11 @@ export function AnalyzerBody({ block, bp }: { block: FlowBlock; bp: BlockPlan | 
             </>
           ) : (
             <>
-              <p className="text-[11px] leading-snug text-ink-500">
-                {busy ? 'Breaking the ad down…' : 'Scores the ad, then breaks it into its transcript and scene prompts.'}
+              <p className={`text-[11px] leading-snug ${reader.problem ? 'text-[#FF5257]/90' : 'text-ink-500'}`}>
+                {busy ? 'Breaking the ad down…'
+                  : reader.problem ? reader.problem
+                  : open ? 'Drop your own ad here, or wire in a saved one or an Outliers search.'
+                  : 'Scores the ad, then breaks it into its transcript and scene prompts.'}
               </p>
               <div className="mt-2.5 flex flex-col gap-2">
                 {[92, 80, 68, 56].map((w) => <span key={w} className="h-1 rounded-full bg-ink/[0.07]" style={{ width: `${w}%` }} />)}
@@ -366,6 +411,26 @@ export function OutliersBody({ block, bp }: { block: FlowBlock; bp: BlockPlan | 
   )
 }
 
+// ── A script of the member's own ───────────────────────────────────────────
+
+// A block that reads a script, with nothing wired into Script: the member's
+// own, typed or pasted in its window the way the app takes one, named here —
+// so it's plain on the canvas that no Scripts block is needed in front of it.
+function OwnScript({ block }: { block: FlowBlock }) {
+  const { doc, openBlock } = useCanvas()
+  if (wiresInto(doc, block.id, 'script').length) return null
+  const typed = inlineText(block, 'script')
+  const first = typed?.replace(/\s+/g, ' ').trim()
+  return (
+    <FacePill
+      label={first ? `“${first.slice(0, 80)}”` : undefined}
+      placeholder="Write or Paste Your Script"
+      title={`Open ${KINDS[block.kind].title} · ${typed ? 'edit the script it reads' : 'type or paste the script it reads, or wire one in'}`}
+      onClick={() => openBlock(block.id)}
+    />
+  )
+}
+
 // ── Voiceovers ─────────────────────────────────────────────────────────────
 
 // The voice, and each take as a row to play right on the canvas — the app's
@@ -378,21 +443,24 @@ export function VoiceBody({ block, bp }: { block: FlowBlock; bp: BlockPlan | und
   const takes = bp?.instances ?? []
   const live = run?.instances[block.id] ?? {}
   return (
-    <div className="px-3 pb-3">
-      <div className={`flex items-center gap-2.5 px-2.5 py-2 ${CARD}`}>
-        <span className="h-9 w-9 shrink-0 rounded-full shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14)]" style={{ background: seedColor(settings.voiceId) }} />
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-[12.5px] font-medium text-ink-100">{presetWired ? 'From the Voice Preset' : settings.voiceName}</span>
-          <span className="block truncate text-[10.5px] text-ink-500">{presetWired ? 'Wired in, for each run' : `${voice?.description ?? settings.style} · ${settings.pace}`}</span>
-        </span>
-      </div>
-      {takes.length > 0 && (
-        <div className="mt-1.5 flex flex-col">
-          {takes.slice(0, 4).map((inst, i) => <TakeRow key={inst.key} inst={inst} index={i} status={live[inst.key]?.status} />)}
-          {takes.length > 4 && <span className="pt-0.5 text-[10.5px] text-ink-500">+{takes.length - 4} more takes</span>}
+    <>
+      <OwnScript block={block} />
+      <div className="px-3 pb-3">
+        <div className={`flex items-center gap-2.5 px-2.5 py-2 ${CARD}`}>
+          <span className="h-9 w-9 shrink-0 rounded-full shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14)]" style={{ background: seedColor(settings.voiceId) }} />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[12.5px] font-medium text-ink-100">{presetWired ? 'From the Voice Preset' : settings.voiceName}</span>
+            <span className="block truncate text-[10.5px] text-ink-500">{presetWired ? 'Wired in, for each run' : `${voice?.description ?? settings.style} · ${settings.pace}`}</span>
+          </span>
         </div>
-      )}
-    </div>
+        {takes.length > 0 && (
+          <div className="mt-1.5 flex flex-col">
+            {takes.slice(0, 4).map((inst, i) => <TakeRow key={inst.key} inst={inst} index={i} status={live[inst.key]?.status} />)}
+            {takes.length > 4 && <span className="pt-0.5 text-[10.5px] text-ink-500">+{takes.length - 4} more takes</span>}
+          </div>
+        )}
+      </div>
+    </>
   )
 }
 
@@ -445,18 +513,21 @@ export function BrollBody({ block, bp }: { block: FlowBlock; bp: BlockPlan | und
   const clipModel = animate ? getModel(brollVideoModel(block) ?? '')?.displayName : undefined
   const plan = `${takes > 1 ? `${takes} takes of ` : ''}a still per line${animate ? ', then a clip' : ''}`
   return (
-    <div className="px-3 pb-3">
-      {insts.length ? (
-        insts.slice(0, 2).map((inst, i) => <Filmstrip key={inst.key} inst={inst} index={i} busy={live[inst.key]?.status === 'running'} plan={plan} />)
-      ) : (
-        <Filmstrip index={0} busy={false} plan={`${plan}, per ad`} />
-      )}
-      {insts.length > 2 && <p className="-mt-1 text-[10.5px] text-ink-500">+{insts.length - 2} more ads</p>}
-      <div className="mt-1.5 flex flex-wrap gap-1">
-        {stillModel && <ModelTag label={stillModel} />}
-        {clipModel && <ModelTag label={clipModel} />}
+    <>
+      <OwnScript block={block} />
+      <div className="px-3 pb-3">
+        {insts.length ? (
+          insts.slice(0, 2).map((inst, i) => <Filmstrip key={inst.key} inst={inst} index={i} busy={live[inst.key]?.status === 'running'} plan={plan} />)
+        ) : (
+          <Filmstrip index={0} busy={false} plan={`${plan}, per ad`} />
+        )}
+        {insts.length > 2 && <p className="-mt-1 text-[10.5px] text-ink-500">+{insts.length - 2} more ads</p>}
+        <div className="mt-1.5 flex flex-wrap gap-1">
+          {stillModel && <ModelTag label={stillModel} />}
+          {clipModel && <ModelTag label={clipModel} />}
+        </div>
       </div>
-    </div>
+    </>
   )
 }
 
@@ -581,62 +652,65 @@ export function ScenesBody({ block, bp }: { block: FlowBlock; bp: BlockPlan | un
   const filmed = shots.filter((s) => clipOf.has(s.number)).length
   const productShown = block.settings.productWhenShown !== false && block.settings.shape !== 'one'
   return (
-    <div className="px-3 pb-3">
-      {advice && (
-        <div className="mb-2 rounded-xl border border-amber-500/25 bg-amber-500/[0.07] px-2.5 py-2 text-[10.5px] leading-snug text-amber-200 light:text-amber-800">
-          {advice.text}
-          <button type="button" onClick={advice.apply} className="nodrag mt-1.5 flex h-6 items-center rounded-full bg-amber-400 px-2.5 text-[10.5px] font-bold text-[#1c1204] transition-all hover:brightness-110">
-            {advice.fix}
-          </button>
-        </div>
-      )}
-      {shots.length ? (
-        <>
-          {/* Five across fits a whole ad; a short one gets bigger tiles. */}
-          <div className={`grid gap-1.5 ${shots.length <= 3 ? 'grid-cols-3' : shots.length === 4 ? 'grid-cols-4' : 'grid-cols-5'}`}>
-            {shots.slice(0, 10).map((shot) => {
-              const clip = clipOf.get(shot.number)
-              return (
-                <div key={shot.number} className="min-w-0">
-                  <div className={`${TILE} ${clip ? 'bg-black' : `${DASHED} flex items-center justify-center text-ink-500`}`}>
-                    {clip ? <ClipPoster refId={clip} /> : busy && shot.number === next ? <Spinner className="h-3 w-3" /> : null}
-                    <span className={`${CHIP} bottom-1 left-1 h-4 px-1.5 text-[9.5px] tabular-nums`}>{Math.round(shot.seconds)}s</span>
-                    {shot.showsProduct && productShown && (
-                      <span className={`${CHIP} right-1 top-1 h-4 px-1`} title="The product is in this shot"><Package className="h-2.5 w-2.5" /></span>
-                    )}
+    <>
+      <OwnScript block={block} />
+      <div className="px-3 pb-3">
+        {advice && (
+          <div className="mb-2 rounded-xl border border-amber-500/25 bg-amber-500/[0.07] px-2.5 py-2 text-[10.5px] leading-snug text-amber-200 light:text-amber-800">
+            {advice.text}
+            <button type="button" onClick={advice.apply} className="nodrag mt-1.5 flex h-6 items-center rounded-full bg-amber-400 px-2.5 text-[10.5px] font-bold text-[#1c1204] transition-all hover:brightness-110">
+              {advice.fix}
+            </button>
+          </div>
+        )}
+        {shots.length ? (
+          <>
+            {/* Five across fits a whole ad; a short one gets bigger tiles. */}
+            <div className={`grid gap-1.5 ${shots.length <= 3 ? 'grid-cols-3' : shots.length === 4 ? 'grid-cols-4' : 'grid-cols-5'}`}>
+              {shots.slice(0, 10).map((shot) => {
+                const clip = clipOf.get(shot.number)
+                return (
+                  <div key={shot.number} className="min-w-0">
+                    <div className={`${TILE} ${clip ? 'bg-black' : `${DASHED} flex items-center justify-center text-ink-500`}`}>
+                      {clip ? <ClipPoster refId={clip} /> : busy && shot.number === next ? <Spinner className="h-3 w-3" /> : null}
+                      <span className={`${CHIP} bottom-1 left-1 h-4 px-1.5 text-[9.5px] tabular-nums`}>{Math.round(shot.seconds)}s</span>
+                      {shot.showsProduct && productShown && (
+                        <span className={`${CHIP} right-1 top-1 h-4 px-1`} title="The product is in this shot"><Package className="h-2.5 w-2.5" /></span>
+                      )}
+                    </div>
+                    <p className="mt-1 truncate text-[10px] text-ink-400" title={shot.label}>{shot.label.split(' · ').slice(1).join(' · ') || `Scene ${shot.number}`}</p>
                   </div>
-                  <p className="mt-1 truncate text-[10px] text-ink-400" title={shot.label}>{shot.label.split(' · ').slice(1).join(' · ') || `Scene ${shot.number}`}</p>
-                </div>
-              )
-            })}
-          </div>
-          {shots.length > 10 && <p className="mt-1 text-[10px] text-ink-500">+{shots.length - 10} more scenes</p>}
-          <div className="mt-2 flex h-1.5 gap-[2px]">
-            {shots.map((shot) => (
-              <span
-                key={shot.number}
-                className={`rounded-full ${clipOf.has(shot.number) ? 'bg-[#12A594]' : busy && shot.number === next ? 'bg-[#12A594]/35' : 'bg-ink/10'}`}
-                style={{ flex: Math.max(1, shot.seconds) }}
-              />
-            ))}
-          </div>
-          <p className="mt-1.5 flex justify-between text-[10.5px] tabular-nums text-ink-500">
-            <span>{filmed} of {shots.length} filmed</span>
-            <span>{clock(total)}</span>
+                )
+              })}
+            </div>
+            {shots.length > 10 && <p className="mt-1 text-[10px] text-ink-500">+{shots.length - 10} more scenes</p>}
+            <div className="mt-2 flex h-1.5 gap-[2px]">
+              {shots.map((shot) => (
+                <span
+                  key={shot.number}
+                  className={`rounded-full ${clipOf.has(shot.number) ? 'bg-[#12A594]' : busy && shot.number === next ? 'bg-[#12A594]/35' : 'bg-ink/10'}`}
+                  style={{ flex: Math.max(1, shot.seconds) }}
+                />
+              ))}
+            </div>
+            <p className="mt-1.5 flex justify-between text-[10.5px] tabular-nums text-ink-500">
+              <span>{filmed} of {shots.length} filmed</span>
+              <span>{clock(total)}</span>
+            </p>
+          </>
+        ) : (
+          <p className="text-[11px] leading-snug text-ink-500">
+            {waiting ? 'Films each scene once the script is written.' : block.settings.shape === 'one' ? 'Films the whole script as one clip.' : 'Films the script, one clip per scene.'}
           </p>
-        </>
-      ) : (
-        <p className="text-[11px] leading-snug text-ink-500">
-          {waiting ? 'Films each scene once the script is written.' : block.settings.shape === 'one' ? 'Films the whole script as one clip.' : 'Films the script wired in, one clip per scene.'}
-        </p>
-      )}
-      <div className="mt-1.5 flex flex-wrap gap-1">
-        {model && <ModelTag label={model} />}
-        {takes > 1 && <ModelTag label={`${takes} takes each`} />}
-        {block.settings.shape === 'one' ? <ModelTag label="One Clip" /> : block.settings.continuity !== false && shots.length !== 1 && <ModelTag label="Continuity" />}
-        {ads > 1 && <ModelTag label={`${ads} ads`} />}
+        )}
+        <div className="mt-1.5 flex flex-wrap gap-1">
+          {model && <ModelTag label={model} />}
+          {takes > 1 && <ModelTag label={`${takes} takes each`} />}
+          {block.settings.shape === 'one' ? <ModelTag label="One Clip" /> : block.settings.continuity !== false && shots.length !== 1 && <ModelTag label="Continuity" />}
+          {ads > 1 && <ModelTag label={`${ads} ads`} />}
+        </div>
       </div>
-    </div>
+    </>
   )
 }
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { FlowBlock, FlowGraph, FlowOutputs, FlowValue, InstanceResult } from '../types'
-import { KINDS, desiredSlots, generationSettings, outsOf, rebuildsScenes, scriptsMode } from './catalog'
+import { KINDS, desiredSlots, generationSettings, outsOf, rebuildsScenes, scriptsMode, titleOf } from './catalog'
+import { adUploadOf, uploadedAdValue } from './ownAd'
 import { canConnect, settleScripts } from './graph'
 import { planFlow, type FlowPlan, type Held, type HeldValue, type PlanDeps } from './plan'
 
@@ -24,6 +25,9 @@ const PRICE: Partial<Record<FlowBlock['kind'], number>> = { scripts: 1, voice: 2
 
 const deps: PlanDeps = {
   held(b): Held {
+    // An ad block holding the member's own ad hands it on, as held.ts does.
+    const upload = adUploadOf(b)
+    if (upload) return { outputs: { out: [uploadedAdValue(upload)] } }
     if (b.kind === 'bank') {
       if (!b.pick) return { missing: 'Pick one from the bank' }
       const type = outsOf(b)[0].type
@@ -347,7 +351,7 @@ describe('Test With 1', () => {
 describe('blocked blocks', () => {
   it('names the missing required input', () => {
     const g: FlowGraph = { blocks: [block('an', 'analyzer')], wires: [] }
-    expect(planFlow(g, {}, deps).blocks.an.blocked).toBe('Needs an ad wired in')
+    expect(planFlow(g, {}, deps).blocks.an.blocked).toBe('Needs an ad. Drop your own on it, or wire one in')
   })
 
   it('names a Bank block with nothing picked', () => {
@@ -415,12 +419,58 @@ describe('typed-in inputs', () => {
     expect(plan.blocks.voc.instances.every((i) => i.inputs.script.length === 1 && i.inputs.script[0].pending)).toBe(true)
   })
 
+  it("puts a script typed into Edit Pack into every pack, until one is wired", () => {
+    const g: FlowGraph = {
+      blocks: [block('chr', 'characters', { items: slots('f', 2), settings: { count: 2 } }), block('brl', 'broll', { settings: { scriptText: 'Shoot this.' } }), block('edt', 'edit', { settings: { scriptText: 'Caption this.' } })],
+      wires: [wire('chr', 'all', 'brl', 'character'), wire('brl', 'clips', 'edt', 'clips')],
+    }
+    const plan = planFlow(g, {}, deps)
+    expect(plan.blocks.edt.runs).toBe(2)
+    expect(plan.blocks.edt.instances.every((i) => (i.inputs.script[0].payload as { text: string }).text === 'Caption this.')).toBe(true)
+    // A typed script isn't a setting: the packs keep their identity when it's cleared.
+    expect(generationSettings(g.blocks[2])).toEqual({})
+  })
+
   it('re-runs when the typed script changes, and only then', () => {
     const g: FlowGraph = { blocks: [block('voc', 'voice', { settings: { scriptText: 'First take.' } })], wires: [] }
     const { outputs } = runAll(g, {})
     expect(planFlow(g, outputs, deps).planned).toEqual([])
     g.blocks[0].settings = { ...g.blocks[0].settings, scriptText: 'Second take.' }
     expect(planFlow(g, outputs, deps).planned).toEqual(['voc'])
+  })
+})
+
+describe("the member's own ad", () => {
+  const ad = (ref: string) => block('ad', 'bank', { settings: { bank: 'swipes', upload: { ref, name: 'my-winner.mp4', seconds: 21 } } })
+  const analyze = (ref: string): FlowGraph => ({ blocks: [ad(ref), block('an', 'analyzer')], wires: [wire('ad', 'out', 'an', 'ad')] })
+
+  it('reads an ad dropped into an ad block, and only there', () => {
+    expect(adUploadOf(ad('asset-1'))).toEqual({ ref: 'asset-1', name: 'my-winner.mp4', seconds: 21, size: undefined, thumb: undefined })
+    expect(adUploadOf(block('p', 'bank', { settings: { bank: 'products', upload: { ref: 'asset-1' } } }))).toBeNull()
+    expect(adUploadOf(block('s', 'bank', { settings: { bank: 'swipes', upload: { name: 'no file' } } }))).toBeNull()
+    expect(titleOf(ad('asset-1'))).toBe('Your Ad')
+    expect(titleOf({ ...ad('asset-1'), label: 'The Winning Ad' })).toBe('The Winning Ad')
+    expect(outsOf(ad('asset-1'))[0]).toMatchObject({ label: 'Your Ad', type: 'ad' })
+  })
+
+  it('analyzes it, priced on its length, with nothing from Outliers or the Swipe File', () => {
+    const plan = planFlow(analyze('asset-1'), {}, deps)
+    expect(plan.blocks.an.blocked).toBeUndefined()
+    expect(plan.blocks.an.runs).toBe(1)
+    expect(plan.blocks.an.instances[0].inputs.ad[0].payload).toMatchObject({ uploadRef: 'asset-1', fileName: 'my-winner.mp4', durationSeconds: 21 })
+  })
+
+  it('analyzes it once, and again only when another ad is dropped in', () => {
+    const g = analyze('asset-1')
+    const { outputs } = runAll(g, {})
+    expect(planFlow(g, outputs, deps).planned).toEqual([])
+    expect(planFlow(analyze('asset-2'), outputs, deps).planned).toEqual(['an'])
+  })
+
+  it('stands in for a saved pick: the dropped ad is what the block hands on', () => {
+    const g = analyze('asset-1')
+    g.blocks[0].pick = 'swipe-9'
+    expect(planFlow(g, {}, deps).blocks.an.instances[0].inputs.ad[0].key).toBe(uploadedAdValue({ ref: 'asset-1', name: 'x' }).key)
   })
 })
 
