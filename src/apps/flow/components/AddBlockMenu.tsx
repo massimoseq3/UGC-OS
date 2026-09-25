@@ -11,6 +11,7 @@ import { BANK_ORDER, BANK_TYPE, KINDS, TYPE_META } from '../engine/catalog'
 import { BANK_CONFIG, type BankType } from '../../../utils/constants'
 import { GlassTile } from '../../../components/AppGlassTile'
 import { BLOCK_BLURB, BLOCK_GROUPS, kindFace } from './blockMeta'
+import { useKeepInside } from './keepInside'
 
 export interface AddOption {
   kind: BlockKind
@@ -76,6 +77,7 @@ export default function AddBlockMenu({
   const [cursor, setCursor] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
+  const ref = useKeepInside<HTMLDivElement>(x, y)
   // Browsing: the groups in production order. Searching: one list, best
   // match first, so Enter adds what was typed.
   const ranked = q.trim()
@@ -112,7 +114,7 @@ export default function AddBlockMenu({
   return (
     <>
       <div className="absolute inset-0 z-30" onClick={onClose} onContextMenu={(e) => { e.preventDefault(); onClose() }} />
-      <div className="absolute z-40 w-[340px]" style={{ left: x, top: y }} onKeyDown={onKey}>
+      <div ref={ref} className="absolute z-40 w-[340px]" style={{ left: x, top: y }} onKeyDown={onKey}>
         <div className="overflow-hidden rounded-2xl border border-ink/10 bg-surface-2 shadow-xl shadow-black/30">
           <div className="flex items-center gap-2 border-b border-ink/5 px-3.5 py-2.5">
             <Search className="h-4 w-4 shrink-0 text-ink-500" />

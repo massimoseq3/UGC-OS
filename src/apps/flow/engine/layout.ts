@@ -3,7 +3,7 @@
 // dock's production order, then their current top-to-bottom order.
 
 import type { FlowBlock, FlowGraph } from '../types'
-import { blockWidth, isKnownKind, KINDS, PRODUCTION_ORDER } from './catalog'
+import { blockWidth, isKnownKind, KINDS, PRODUCTION_ORDER, scriptsFormat, sourceOf, wearsSquare } from './catalog'
 
 export const COLUMN_GAP = 96
 export const ROW_GAP = 32
@@ -53,29 +53,67 @@ export function tidyLayout(
 }
 
 // A block's size before the canvas has measured it: its width is fixed by
-// kind, its height grows with its ports (and a batch's item rows).
-// What each kind shows under its ports, in px, measured off the canvas: a
-// Voiceovers block's voice and its takes, B-Roll's still strip and model
-// tags, a Scene Clips block's scene rows. Guessing one height for every kind
-// laid a Describe It flow's Voiceovers over the B-Roll under it.
+// kind, its height grows with its ports and what it shows under them.
+// What each kind shows under its ports, in px, measured off the canvas after
+// a run (components/node/bodies.tsx): the Ad Analyzer's cover, scores, quote
+// and scenes; the voice and four takes; two filmstrips; the scene tiles and
+// their strip; the result square; the edit folders. A block shows the shape
+// of what it will make before it runs, so the height barely moves when it
+// does. Guessing one height for every kind laid a Describe It flow's
+// Voiceovers over the B-Roll under it.
 const BODY: Partial<Record<FlowBlock['kind'], number>> = {
-  voice: 150,
-  broll: 120,
-  scenes: 150,
-  playground: 70,
-  analyzer: 50,
-  edit: 90,
-  bank: 80,
-  image: 120,
+  analyzer: 240,
+  voice: 206,
+  broll: 291,
+  scenes: 190,
+  playground: 302,
+  edit: 193,
   text: 90,
   list: 40,
   note: 120,
 }
 
+// A square face (components/node/face.tsx), measured off the canvas: the
+// header, the pill over the square with its gap, the square as wide as the
+// block less its 12px inset either side and its border, and the space under.
+const HEADER = 44
+const PILL = 40
+const INSET = 26
+const FACE_GAP = 10
+const TAGS = 28
+
 export function estimatedSize(block: FlowBlock): { width: number; height: number } {
-  const rows = isKnownKind(block.kind) ? Math.max(KINDS[block.kind].ins.length, KINDS[block.kind].outs.length) : 1
-  const body = isKnownKind(block.kind) ? BODY[block.kind] ?? 40 : 40
-  return { width: blockWidth(block.kind), height: 56 + rows * 22 + (block.items?.length ?? 0) * 26 + body }
+  const width = blockWidth(block.kind)
+  if (!isKnownKind(block.kind)) return { width, height: 56 + 22 + 40 }
+  const tags = block.field || (KINDS[block.kind].runnable && sourceOf(block) !== 'generate') ? TAGS : 0
+  if (wearsSquare(block)) {
+    // A character's face is a 9:16 card, everything else a square.
+    const portrait = (block.kind === 'bank' && block.settings.bank === 'models') || block.kind === 'characters'
+    return { width, height: Math.round(HEADER + PILL + (width - INSET) * (portrait ? 16 / 9 : 1) + 12 + tags) }
+  }
+  const rows = Math.max(KINDS[block.kind].ins.length, KINDS[block.kind].outs.length)
+  const top = 56 + rows * 22
+  const items = Math.max(1, block.items?.length ?? 1)
+  // The Characters block's faces: 9:16 portraits, two across once there's
+  // more than one.
+  if (block.kind === 'characters') {
+    const across = items > 1 ? 2 : 1
+    const tile = ((width - INSET - (across - 1) * FACE_GAP) / across) * (16 / 9)
+    const lines = Math.ceil(items / across)
+    return { width, height: Math.round(top + FACE_GAP + PILL + lines * tile + (lines - 1) * FACE_GAP + 12) }
+  }
+  // Scripts: up to five hook cards, or a stack of script pages.
+  if (block.kind === 'scripts') {
+    const hooks = scriptsFormat(block) === 'hooks'
+    return { width, height: hooks ? top + 22 + Math.min(5, items) * 54 + (items > 5 ? 18 : 0) : top + 263 }
+  }
+  // Outliers: the search, and up to six covers three across.
+  if (block.kind === 'outliers') {
+    const tile = ((width - INSET - 2 * FACE_GAP) / 3) * (16 / 9)
+    const lines = Math.ceil(Math.min(6, items) / 3)
+    return { width, height: Math.round(top + FACE_GAP + PILL + lines * tile + (lines - 1) * FACE_GAP + 12 + (items > 6 ? 18 : 0)) }
+  }
+  return { width, height: top + (block.items?.length ?? 0) * 26 + (BODY[block.kind] ?? 40) }
 }
 
 // A graph nobody placed — one Describe It drafted, one Save as Flow traced —
@@ -99,7 +137,9 @@ export function freeSpot(
   sizeOf: (block: FlowBlock) => { width: number; height: number } = estimatedSize,
 ): { x: number; y: number } {
   const width = blockWidth(kind)
-  const height = 180
+  // The new block's own height, so a tall one — a Bank pick's square, the
+  // Characters grid — doesn't land over the block under it.
+  const height = Math.max(180, estimatedSize({ id: '', kind, x: 0, y: 0, settings: {} }).height)
   const margin = 24
   let y = at.y
   for (let i = 0; i < 60; i++) {

@@ -26,7 +26,7 @@
       "kind": "bank",
       "label": "Your Product",
       "x": 0,
-      "y": 230,
+      "y": 390,
       "settings": {
         "bank": "products"
       },
@@ -38,7 +38,7 @@
       "kind": "bank",
       "label": "Your Character",
       "x": 0,
-      "y": 460,
+      "y": 780,
       "settings": {
         "bank": "models"
       },
@@ -104,7 +104,7 @@
       "id": "note",
       "kind": "note",
       "x": 0,
-      "y": 700,
+      "y": 1340,
       "settings": {
         "text": "Pick a winning ad, your product and your character. Scripts rewrites the ad's scenes for your product and pauses so you can fix any line that doesn't sound like a person. Scene Clips then films every scene with your character and the same voice, each clip as long as its scene. Test With 1 films scene 1 only, so you can check the face and the voice for a few cents."
       }

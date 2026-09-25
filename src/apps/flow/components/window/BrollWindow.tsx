@@ -99,7 +99,7 @@ export default function BrollWindow({ doc, block, plan, run, onRun, onReview }: 
               character: wiredCard('character', 'Each character that comes in shoots its own run.'),
               product: wiredCard('product', 'The product in every shot comes in on its wire.'),
               script: wiredCard('script', 'Each script that comes in becomes its own storyboard, with its stills and clips.'),
-              instructions: wiredCard('instructions', 'The instructions come in on their wire. A List wired here shoots once per item.'),
+              instructions: wiredCard('instructions', 'The instructions come in on their wire. A Batch wired here shoots once per item.'),
             },
             settings: <StillsAndClips doc={doc} block={block} />,
             // In B-Roll this button writes a storyboard. Here it runs the

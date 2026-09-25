@@ -11,7 +11,7 @@ import { BANK_ORDER, KINDS } from '../engine/catalog'
 import { BANK_CONFIG, type BankType } from '../../../utils/constants'
 import { GlassTile } from '../../../components/AppGlassTile'
 import { MenuItem, MenuSurface } from '../../../components/Menu'
-import { BLOCK_BLURB, kindFace } from './blockMeta'
+import { BLOCK_BLURB, dockFace } from './blockMeta'
 
 const GROUPS: BlockKind[][] = [
   ['bank'],
@@ -29,7 +29,7 @@ export default function Palette({ onAdd }: { onAdd: (kind: BlockKind, bank?: Ban
   const [bankOpen, setBankOpen] = useState(false)
   // The tile under the pointer, described above the bar: what the block is
   // for, what it takes and what it makes — a tile's name alone doesn't tell a
-  // List from a Text.
+  // Batch from a Text.
   const [hover, setHover] = useState<BlockKind | null>(null)
   return (
     <div className="relative" onMouseLeave={() => setHover(null)}>
@@ -54,12 +54,11 @@ export default function Palette({ onAdd }: { onAdd: (kind: BlockKind, bank?: Ban
         </>
       )}
       <div className="flex items-end gap-0.5 rounded-[22px] border border-ink/10 bg-surface-1 px-2 pb-1 pt-1.5 shadow-[0_18px_40px_-16px_rgba(0,0,0,0.55)]">
-        <span className="mb-[22px] self-center px-1.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-ink-500">Add</span>
         {GROUPS.map((group, i) => (
           <div key={group.join()} className="flex items-end gap-0.5">
             {i > 0 && <span className="mx-1 mb-6 h-7 w-px self-center bg-ink/10" />}
             {group.map((kind) => {
-              const face = kindFace(kind)
+              const face = dockFace(kind)
               const label = LABEL[kind] ?? KINDS[kind].title
               return (
                 <button
@@ -74,11 +73,12 @@ export default function Palette({ onAdd }: { onAdd: (kind: BlockKind, bank?: Ban
                   onMouseEnter={() => setHover(kind)}
                   onFocus={() => setHover(kind)}
                   onBlur={() => setHover(null)}
-                  className="flex w-[60px] flex-col items-center gap-1 rounded-xl px-0.5 py-1 transition-colors hover:bg-ink/[0.05]"
+                  className="group flex w-[60px] flex-col items-center gap-1 rounded-xl px-0.5 py-1 transition-colors hover:bg-ink/[0.05]"
                   aria-label={kind === 'bank' ? 'Add something from a bank' : `Add ${label}`}
                 >
                   <GlassTile icon={face.icon} accent={face.accent} size={30} />
-                  <span className="max-w-full truncate text-[9.5px] font-medium text-ink-400">{label}</span>
+                  {/* The dock's own label: 10px, regular weight. */}
+                  <span className="max-w-full truncate text-[10px] leading-tight text-ink-400 transition-colors duration-200 group-hover:text-ink-200">{label}</span>
                 </button>
               )
             })}
@@ -90,7 +90,7 @@ export default function Palette({ onAdd }: { onAdd: (kind: BlockKind, bank?: Ban
 }
 
 function HoverCard({ kind }: { kind: BlockKind }) {
-  const face = kindFace(kind)
+  const face = dockFace(kind)
   const spec = KINDS[kind]
   const takes = spec.ins.map((p) => p.label)
   const makes = kind === 'bank' ? ['A product, character, script, voice, still, style or saved ad']

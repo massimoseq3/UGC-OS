@@ -110,7 +110,7 @@ export default function ScriptsWindow({ flowId, doc, block, plan, run, onRun, on
           flow={{
             wired: {
               product: wiredCard('product', 'Each product that comes in gets its own run of this block.'),
-              brief: wiredCard('brief', 'The brief comes in on its wire. A List wired here writes once per item.'),
+              brief: wiredCard('brief', 'The brief comes in on its wire. A Batch wired here writes once per item.'),
               source: wiredCard('source', "The winning ad's transcript comes in on its wire, from the Ad Analyzer or any text."),
             },
             actionLabel: runCount > 1 ? `${baseLabel} × ${runCount}` : undefined,

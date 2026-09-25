@@ -251,6 +251,9 @@ export const KINDS: Record<BlockKind, KindSpec> = {
       // Clips every pack ends with: the body shared by many hooks — "the
       // hook fifty times, the meat of the video once".
       port('body', 'Body Clips', 'video'),
+      // Pictures that go in the folder as they are, beside the clips — a
+      // B-Roll block's stills, for an edit that cuts to them.
+      port('stills', 'Stills', 'image', { many: true }),
       port('script', 'Script', 'script'),
       port('music', 'Music', 'music'),
     ],
@@ -296,7 +299,7 @@ export const KINDS: Record<BlockKind, KindSpec> = {
   },
   list: {
     kind: 'list',
-    title: 'List',
+    title: 'Batch',
     accent: '#A1A1AA',
     ins: [],
     outs: [port('all', 'All Items', 'text')],
@@ -345,6 +348,14 @@ export function isBatch(block: FlowBlock): boolean {
   if (block.kind === 'scripts') return sourceOf(block) !== 'bank'
   if (block.kind === 'characters') return sourceOf(block) === 'generate'
   return block.kind === 'outliers' || block.kind === 'list'
+}
+
+// A block that holds one thing you'd know on sight wears it as a square face
+// (components/node/face.tsx): a Bank pick, an Image, and an app block reusing
+// one result From Bank or From History. Layout reads it for the block's height.
+export function wearsSquare(block: FlowBlock): boolean {
+  if (block.kind === 'bank' || block.kind === 'image') return true
+  return !!KINDS[block.kind]?.runnable && sourceOf(block) !== 'generate' && !isBatch(block)
 }
 
 // Whether pressing Run makes something. From Bank and From History blocks

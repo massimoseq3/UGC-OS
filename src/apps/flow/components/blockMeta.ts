@@ -4,9 +4,9 @@
 
 import type { ElementType } from 'react'
 import { Clapperboard, Image as ImageIcon, List, StickyNote, Type } from 'lucide-react'
-import type { BlockKind, FlowBlock } from '../types'
+import type { BlockKind, FlowBlock, PortSpec } from '../types'
 import { BANK_CONFIG, getAppConfig, type BankType } from '../../../utils/constants'
-import { KINDS, sourceOf } from '../engine/catalog'
+import { insOf, KINDS, outsOf, sourceOf, wearsSquare } from '../engine/catalog'
 
 const HELPER_ICONS: Partial<Record<BlockKind, ElementType>> = {
   image: ImageIcon,
@@ -48,10 +48,30 @@ export function kindFace(kind: BlockKind, bank?: BankType): { icon: ElementType;
   return { icon: blockIcon(probe), accent: blockAccent(probe) }
 }
 
+// A kind as the dock wears it — its app's own icon and accent, not the lifted
+// tint a block's header uses on the dark canvas — for the palette, which sits
+// right above the real dock and read as a different set of apps. The Bank
+// tile is the Bank app's, since it opens every bank. Scene Clips has no app
+// of its own and the helpers have none at all, so they keep their faces.
+export function dockFace(kind: BlockKind): { icon: ElementType; accent: string } {
+  const appId = kind === 'bank' ? 'finder' : kind === 'scenes' ? undefined : KINDS[kind].appId
+  const app = appId ? getAppConfig(appId) : undefined
+  return app ? { icon: app.icon, accent: app.accent } : kindFace(kind)
+}
+
 // An app block opens in its app's own window; the helpers are edited on the
 // canvas itself.
 export function opensWindow(block: Pick<FlowBlock, 'kind' | 'suggested'>): boolean {
   return !!KINDS[block.kind]?.runnable && !block.suggested
+}
+
+// The output a square face carries on its own edge, beside the picture, in
+// place of a ports row that would only repeat the block's name: only when
+// there is exactly one, and nothing to wire in.
+export function edgeOutput(block: FlowBlock): PortSpec | null {
+  if (!wearsSquare(block) || insOf(block).length) return null
+  const outs = outsOf(block)
+  return outs.length === 1 ? outs[0] : null
 }
 
 // A block whoever runs the flow can fill in themselves, in Run.
@@ -63,7 +83,7 @@ export { blockWidth } from '../engine/catalog'
 
 // What each block is for, in a sentence — the palette's hover card and the
 // Add Block picker read it, so a member who has never opened a node editor
-// can tell a List from a Text without trying both.
+// can tell a Batch from a Text without trying both.
 export const BLOCK_BLURB: Record<BlockKind, string> = {
   bank: 'Something you already saved: a product, a character, a script, a voice, a still, a style or a saved ad. Costs nothing.',
   image: 'A picture you drop in. Feeds anything that takes a picture: a reference, a frame, a photo to build a face from.',
@@ -78,7 +98,7 @@ export const BLOCK_BLURB: Record<BlockKind, string> = {
   broll: 'Storyboards each script, makes a still per scene, then animates the stills into clips.',
   playground: 'Makes one image, clip or music track from a prompt and the pictures you wire in.',
   scenes: 'Films a scene script one clip per scene: your character, the voice profile in every prompt, each clip as long as its scene, the product only where it\'s shown.',
-  edit: 'Packs each ad\'s voiceover, clips and script into a folder for the /video-editor skill.',
+  edit: 'Packs each ad\'s voiceover, clips, stills and script into a folder for the /video-editor skill.',
 }
 
 // Where each kind sits in the Add Block picker, in production order.

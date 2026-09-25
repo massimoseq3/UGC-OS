@@ -2,7 +2,10 @@
 // times it runs and where it stands — what it will cost, what it's doing, or
 // Review; then its inputs down the left edge and outputs down the right, each
 // by name with a dot in its type's colour; then what it makes, as its app
-// would show it; then a line only when something needs saying.
+// would show it; then a line only when something needs saying. A block that
+// holds one thing you'd know on sight — a Bank pick, an Image, a result
+// reused From Bank or From History — wears a square face instead of a ports
+// row (node/face.tsx), and the Characters block shows its faces as a grid.
 //
 // An app block opens in its app's own window (the ↗ in its header, a
 // double-click, or Enter). The helpers are edited right here.
@@ -10,20 +13,22 @@
 import { useState } from 'react'
 import { Handle, Position, useConnection, type NodeProps, type Node } from '@xyflow/react'
 import { AlertCircle, ArrowUpRight, Check, Hand, Plus } from 'lucide-react'
-import type { FlowBlock, FlowValue, PortSpec } from '../types'
+import type { FlowBlock, PortSpec } from '../types'
 import { accepts, isBatch, insOf, outsOf, sourceOf, titleOf, TYPE_META, KINDS } from '../engine/catalog'
-import { acceptsLabel, blockById, outputType, wiresInto, wiresOutOf, wouldCycle } from '../engine/graph'
+import { acceptsLabel, blockById, outputType, wiresInto, wouldCycle } from '../engine/graph'
 import type { BlockPlan } from '../engine/plan'
 import { type LiveRun } from '../run/runtime'
 import { useCanvas } from './canvasContext'
 import { useFlowStore } from '../store/flowStore'
-import { blockAccent, blockIcon, blockWidth, opensWindow } from './blockMeta'
+import { blockAccent, blockIcon, blockWidth, edgeOutput, opensWindow } from './blockMeta'
 import { GlassTile } from '../../../components/AppGlassTile'
 import Spinner from '../../../components/Spinner'
 import { creditsShort } from '../hooks/useFlowPlan'
-import { AnalyzerBody, BrollBody, EditBody, ItemRows, PlaygroundBody, ReusedBody, ScenesBody, VoiceBody } from './node/bodies'
+import { AnalyzerBody, BrollBody, EditBody, OutliersBody, PlaygroundBody, ReusedBody, ScenesBody, ScriptsBody, VoiceBody } from './node/bodies'
 import { useHeldHere } from './node/heldHere'
 import { BankBody, ImageBody, ListBody, NoteBody, TextBody } from './node/helpers'
+import { CharacterGrid } from './node/face'
+import { OutHandle } from './node/OutHandle'
 
 export type BlockNodeType = Node<{ blockId: string }, 'block'>
 
@@ -65,7 +70,7 @@ function NodeHeader({ block, bp, live, selected }: { block: FlowBlock; bp: Block
   const runs = bp?.instances.length ?? 0
   const makes = !!KINDS[block.kind].runnable && sourceOf(block) === 'generate'
   return (
-    <header className="flow-drag flex h-[44px] cursor-grab items-center gap-2 pl-3 pr-2 active:cursor-grabbing">
+    <header className="flex h-[44px] items-center gap-2 pl-3 pr-2">
       <GlassTile icon={blockIcon(block)} accent={blockAccent(block)} size={24} />
       {renaming === block.id ? (
         <RenameField block={block} onDone={() => setRenaming(null)} />
@@ -176,6 +181,8 @@ function Status({ block, bp, live }: { block: FlowBlock; bp: BlockPlan | undefin
 // ── Ports ──────────────────────────────────────────────────────────────────
 
 function Ports({ block, bp }: { block: FlowBlock; bp: BlockPlan | undefined }) {
+  // A square face carries its one output on its own edge (node/face.tsx).
+  if (edgeOutput(block)) return null
   const ins = insOf(block)
   const outs = isBatch(block) ? outsOf(block).slice(0, 1) : outsOf(block)
   const rows = Math.max(ins.length, outs.length)
@@ -228,70 +235,40 @@ function InputPort({ block, port }: { block: FlowBlock; port: PortSpec }) {
 }
 
 function OutputPort({ block, port, bp }: { block: FlowBlock; port: PortSpec; bp: BlockPlan | undefined }) {
-  const { doc, askAtPort } = useCanvas()
-  const used = wiresOutOf(doc, block.id).some((w) => w.fromPort === port.key)
   const count = bp?.values[port.key]?.length ?? 0
-  const color = TYPE_META[port.type].color
   return (
     <div className="relative flex min-w-0 items-center justify-end pr-3.5">
       <span className="truncate text-[11px] text-ink-300">
         {count > 1 && <span className="mr-1 rounded-full bg-ink/[0.08] px-1 text-[9.5px] font-semibold tabular-nums text-ink-200">{count}</span>}
         {port.label}
       </span>
-      <Handle
-        type="source"
-        position={Position.Right}
-        id={port.key}
-        className="flow-port"
-        style={{ background: used ? color : 'var(--color-surface-1)', borderColor: color }}
-        onClick={(e) => askAtPort(block.id, port.key, 'out', e.clientX, e.clientY)}
-        title={`${port.label} · goes to ${goesTo(port.type)}. Click it to add what comes next.`}
-      />
-      {/* An output nothing reads yet ends in a + : the next step is one click
-          away, without finding the dot. */}
-      {!used && (
-        <button
-          type="button"
-          onClick={(e) => askAtPort(block.id, port.key, 'out', e.clientX, e.clientY)}
-          title={`Add what comes after ${port.label}`}
-          aria-label={`Add what comes after ${port.label}`}
-          className="flow-next nodrag nopan absolute -right-[34px] top-1/2 flex h-[18px] w-[18px] -translate-y-1/2 items-center justify-center rounded-md border border-ink/15 bg-surface-1 text-ink-400 transition-colors hover:border-flow-400/60 hover:text-flow-300"
-        >
-          <Plus className="h-3 w-3" />
-        </button>
-      )}
+      <OutHandle block={block} port={port} />
     </div>
   )
-}
-
-function goesTo(type: FlowValue['type']): string {
-  const names = Object.values(KINDS)
-    .filter((k) => k.ins.some((p) => accepts(p.type, type)))
-    .map((k) => k.title)
-  return names.length ? names.join(', ') : 'nothing yet'
 }
 
 // ── Body ───────────────────────────────────────────────────────────────────
 
 function Body({ block, bp }: { block: FlowBlock; bp: BlockPlan | undefined }) {
-  const source = sourceOf(block)
   switch (block.kind) {
     case 'bank': return <BankBody block={block} />
     case 'image': return <ImageBody block={block} />
     case 'text': return <TextBody block={block} />
     case 'list': return <ListBody block={block} />
   }
-  if (KINDS[block.kind].runnable && source !== 'generate') {
+  if (KINDS[block.kind].runnable && sourceOf(block) !== 'generate') {
     // A Scripts run picked from history hands on its hooks one by one.
-    return isBatch(block) ? <ItemRows block={block} bp={bp} /> : <ReusedBody block={block} bp={bp} />
+    return isBatch(block) ? <ScriptsBody block={block} bp={bp} /> : <ReusedBody block={block} bp={bp} />
   }
-  if (isBatch(block)) return <ItemRows block={block} bp={bp} />
   switch (block.kind) {
+    case 'characters': return <CharacterGrid block={block} bp={bp} />
+    case 'scripts': return <ScriptsBody block={block} bp={bp} />
+    case 'outliers': return <OutliersBody block={block} bp={bp} />
     case 'voice': return <VoiceBody block={block} bp={bp} />
     case 'broll': return <BrollBody block={block} bp={bp} />
     case 'playground': return <PlaygroundBody block={block} bp={bp} />
     case 'scenes': return <ScenesBody block={block} bp={bp} />
-    case 'analyzer': return <AnalyzerBody bp={bp} />
+    case 'analyzer': return <AnalyzerBody block={block} bp={bp} />
     case 'edit': return <EditBody bp={bp} />
     default: return null
   }
@@ -347,7 +324,7 @@ function NoteNode({ block, selected }: { block: FlowBlock; selected: boolean }) 
       } ${block.off ? 'flow-node-off' : ''}`}
       style={{ width: blockWidth('note') }}
     >
-      <header className="flow-drag flex h-[36px] cursor-grab items-center gap-2 px-3.5 text-[11px] font-semibold uppercase tracking-wide text-[#E8C872]/80 active:cursor-grabbing light:text-[#8a6a10]">
+      <header className="flex h-[36px] items-center gap-2 px-3.5 text-[11px] font-semibold uppercase tracking-wide text-[#E8C872]/80 light:text-[#8a6a10]">
         {titleOf(block)}
       </header>
       <NoteBody block={block} />
