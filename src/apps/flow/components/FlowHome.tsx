@@ -111,7 +111,7 @@ export default function FlowHome() {
           ) : gallery.length === 0 ? (
             <p className="mb-8 text-sm text-ink-500">No templates yet. They arrive with the videos they're made in.</p>
           ) : (
-            <div className="mb-9 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mb-9 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {gallery.map((entry) => (
                 <TemplateCard key={entry.slug} entry={entry} cover={covers[entry.slug]} onUse={() => openSetup({ kind: 'gallery', entry })} />
               ))}
@@ -218,9 +218,9 @@ function TemplateCard({ entry, cover, onUse }: { entry: GalleryEntry; cover?: Fl
         <p className="line-clamp-3 text-[12px] leading-relaxed text-ink-400">{entry.description}</p>
         <div className="mt-auto flex items-center gap-2 pt-2.5">
           {entry.videoUrl && (
-            <a href={entry.videoUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[11px] font-medium text-red-300 transition-colors hover:text-red-200 light:text-red-600">
+            <a href={entry.videoUrl} target="_blank" rel="noreferrer" className="flex shrink-0 items-center gap-1 whitespace-nowrap text-[11px] font-medium text-red-300 transition-colors hover:text-red-200 light:text-red-600" title="The video this template is built in">
               <Youtube className="h-3.5 w-3.5" />
-              From the Video
+              Watch
             </a>
           )}
           <span className="truncate text-[11.5px] text-ink-500">

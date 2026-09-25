@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { FlowBlock, FlowGraph, FlowOutputs, FlowValue, InstanceResult } from '../types'
 import { KINDS, desiredSlots, outsOf } from './catalog'
-import { canConnect } from './graph'
+import { canConnect, settleScripts } from './graph'
 import { planFlow, type FlowPlan, type Held, type HeldValue, type PlanDeps } from './plan'
 
 // ── Builders ───────────────────────────────────────────────────────────────
@@ -452,5 +452,30 @@ describe('generations', () => {
   it('counts what a run really starts when the deps say so', () => {
     const counted: PlanDeps = { ...deps, generations: (b, _inputs, n) => (b.kind === 'broll' ? 9 : Math.max(1, n)) }
     expect(planFlow(g(), {}, counted).generations).toBe(3 + 3 * 9)
+  })
+})
+
+describe('what a Scripts block\'s wiring decides', () => {
+  const analyzer = block('an', 'analyzer')
+  const scripts = block('scr', 'scripts', { settings: { mode: 'write', writeFormat: 'hooks' } })
+
+  it('a winning ad wired in makes it a remix of three takes', () => {
+    const [, settled] = settleScripts({ blocks: [analyzer, scripts], wires: [wire('an', 'transcript', 'scr', 'source')] })
+    expect(settled.settings.mode).toBe('remix')
+    expect(settled.settings.sceneRemix).toBe(false)
+    expect(desiredSlots(settled)).toBe(3)
+  })
+
+  it("the ad's scenes wired in rebuild it scene by scene, as one take", () => {
+    const [, settled] = settleScripts({ blocks: [analyzer, scripts], wires: [wire('an', 'scenes', 'scr', 'source')] })
+    expect(settled.settings.sceneRemix).toBe(true)
+    expect(desiredSlots(settled)).toBe(1)
+  })
+
+  it('unwired, the typed source decides again', () => {
+    const rebuilt = { ...scripts, settings: { ...scripts.settings, mode: 'remix', sceneRemix: true } }
+    const [, settled] = settleScripts({ blocks: [analyzer, rebuilt], wires: [] })
+    expect('sceneRemix' in settled.settings).toBe(false)
+    expect(desiredSlots(settled)).toBe(3)
   })
 })

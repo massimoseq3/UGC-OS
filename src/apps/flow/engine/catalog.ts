@@ -5,7 +5,7 @@
 
 import type { BlockKind, BlockSource, FlowBlock, PortSpec, PortType } from '../types'
 import type { BankType } from '../../../utils/constants'
-import { DEFAULT_HOOK_COUNT, DEFAULT_VARIATION_COUNT, isHookCount, isVariationCount } from '../../script-architect/types'
+import { DEFAULT_HOOK_COUNT, DEFAULT_VARIATION_COUNT, detectSceneBlueprint, isHookCount, isVariationCount } from '../../script-architect/types'
 
 // ── Port types ─────────────────────────────────────────────────────────────
 
@@ -375,6 +375,15 @@ export function inlineText(block: FlowBlock, portKey: string): string | null {
   return text || null
 }
 
+// A Scripts block rebuilding an ad scene by scene (Scripts' reverse-engineer
+// mode): its wiring says so (graph.ts settleScripts), or with nothing wired,
+// the blueprint pasted into it does.
+export function rebuildsScenes(block: FlowBlock): boolean {
+  const s = block.settings
+  if (s.mode !== 'remix' || s.forceTranscript) return false
+  return typeof s.sceneRemix === 'boolean' ? s.sceneRemix : detectSceneBlueprint(String(s.source ?? ''))
+}
+
 export function scriptsFormat(block: FlowBlock): 'hooks' | 'takes' {
   const s = block.settings
   return s.mode === 'write' && s.writeFormat === 'hooks' ? 'hooks' : 'takes'
@@ -425,6 +434,8 @@ export function desiredSlots(block: FlowBlock): number {
     // The counts Scripts itself accepts: anything else (an old flow, a
     // described one) runs at the default, so the slots have to agree.
     case 'scripts':
+      // The scene-by-scene rebuild of a winning ad writes one take.
+      if (rebuildsScenes(block)) return 1
       return scriptsFormat(block) === 'hooks'
         ? (isHookCount(s.hookCount) ? s.hookCount : DEFAULT_HOOK_COUNT)
         : (isVariationCount(s.variationCount) ? s.variationCount : DEFAULT_VARIATION_COUNT)

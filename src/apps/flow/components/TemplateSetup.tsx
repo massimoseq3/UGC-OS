@@ -21,7 +21,7 @@ import { bankRowValue } from '../engine/held'
 import { planFlow } from '../engine/plan'
 import { PLAN_DEPS, startRun } from '../run/runtime'
 import { useFlowStore } from '../store/flowStore'
-import { withSlots } from '../store/blocks'
+import { shapeBlocks } from '../store/blocks'
 import { creditsLabel } from '../hooks/useFlowPlan'
 import { instantiate, type LoadedTemplate, type TemplateField } from '../templates/io'
 import { loadGalleryTemplate, type GalleryEntry } from '../templates/gallery'
@@ -65,11 +65,14 @@ export default function TemplateSetup({ source, onClose }: { source: SetupSource
   // The price, planned on the template as it would run with these picks.
   const preview: FlowGraph | null = file
     ? {
-        blocks: file.blocks.map((b) => withSlots({
-          ...b,
-          pick: picks[b.id]?.pick ?? b.pick,
-          settings: b.kind === 'image' && typeof b.settings.asset === 'string' ? { ...b.settings, ref: `embedded:${b.settings.asset}` } : b.settings,
-        })),
+        blocks: shapeBlocks({
+          blocks: file.blocks.map((b) => ({
+            ...b,
+            pick: picks[b.id]?.pick ?? b.pick,
+            settings: b.kind === 'image' && typeof b.settings.asset === 'string' ? { ...b.settings, ref: `embedded:${b.settings.asset}` } : b.settings,
+          })),
+          wires: file.wires,
+        }),
         wires: file.wires,
       }
     : null

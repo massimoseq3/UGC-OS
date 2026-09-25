@@ -14,7 +14,7 @@ import type { SetupSource } from '../components/TemplateSetup'
 import { sourceOf } from '../engine/catalog'
 import { canConnect, downstreamOf, itemPort, pruneWires, type ConnectCheck } from '../engine/graph'
 import { tidyLayout } from '../engine/layout'
-import { docFromRow, newBlock, rowFromDoc, shortId, withSlots } from './blocks'
+import { docFromRow, newBlock, rowFromDoc, shapeBlocks, shortId } from './blocks'
 
 const SAVE_DEBOUNCE_MS = 700
 // The flow on screen, so a reload lands back in it. Draft prefix: sign-out
@@ -158,16 +158,6 @@ function restore(doc: FlowDoc, step: Snapshot): FlowDoc {
   return { ...doc, blocks: step.blocks, wires: step.wires, ...('template' in step ? { template } : {}), updatedAt: Date.now() }
 }
 
-// A winning ad wired into Scripts makes it a remix — the run does that
-// whatever the panel says (executors/simple.ts scriptInput) — so the block
-// says so too, and its slots are the takes a remix writes rather than the
-// ten hooks a fresh Write block starts on.
-function remixWhenWired(block: FlowBlock, wires: FlowWire[]): FlowBlock {
-  if (block.kind !== 'scripts' || block.settings.mode === 'remix') return block
-  if (!wires.some((w) => w.to === block.id && w.toPort === 'source')) return block
-  return { ...block, settings: { ...block.settings, mode: 'remix' } }
-}
-
 // Results of blocks no longer on the canvas go with them.
 function trimOutputs(doc: FlowDoc): FlowDoc['outputs'] {
   const ids = new Set(doc.blocks.map((b) => b.id))
@@ -186,8 +176,7 @@ export const useFlowStore = create<FlowStoreState>((set, get) => {
     if (!doc) return
     const next = mutate(doc)
     if (!next) return
-    const wired = next.blocks.map((b) => remixWhenWired(b, next.wires))
-    const blocks = wired.map(withSlots)
+    const blocks = shapeBlocks(next)
     const wires = pruneWires({ blocks, wires: next.wires })
     const nextDoc: FlowDoc = { ...doc, blocks, wires, updatedAt: Date.now() }
     nextDoc.outputs = trimOutputs(nextDoc)
@@ -246,7 +235,7 @@ export const useFlowStore = create<FlowStoreState>((set, get) => {
       const doc: FlowDoc = {
         id: crypto.randomUUID(),
         name: init.name?.trim() || 'Untitled Flow',
-        blocks: init.graph?.blocks.map(withSlots) ?? [],
+        blocks: init.graph ? shapeBlocks(init.graph) : [],
         wires: init.graph?.wires ?? [],
         outputs: {},
         template: init.template,

@@ -160,6 +160,33 @@ export function topoOrder(graph: FlowGraph): string[] {
   return order
 }
 
+// What a Scripts block's wiring decides about it, written onto its settings
+// so its slots and its price agree with what the run will do:
+// - a winning ad wired into Source makes it a remix, whatever the panel was
+//   left on (executors/simple.ts scriptInput does the same at run time);
+// - an ad's SCENES wired in (the Ad Analyzer's Scene Prompts, or a Scripts
+//   block writing scenes) makes it the scene-by-scene rebuild, which writes
+//   ONE take — so it has one slot, not the three a remix starts with.
+// `sceneRemix` is left off when nothing is wired: the typed source decides.
+export function settleScripts(graph: FlowGraph): FlowBlock[] {
+  return graph.blocks.map((b) => {
+    if (b.kind !== 'scripts') return b
+    const wire = graph.wires.find((w) => w.to === b.id && w.toPort === 'source')
+    const from = wire && blockById(graph, wire.from)
+    const scenes = !!from && (
+      (from.kind === 'analyzer' && wire!.fromPort === 'scenes')
+      || (from.kind === 'scripts' && (from.settings.writeFormat === 'scenes' || from.settings.sceneRemix === true))
+    )
+    const mode = wire ? 'remix' : b.settings.mode
+    const sceneRemix = wire ? scenes : undefined
+    if (mode === b.settings.mode && sceneRemix === b.settings.sceneRemix) return b
+    const settings: Record<string, unknown> = { ...b.settings, mode }
+    if (sceneRemix === undefined) delete settings.sceneRemix
+    else settings.sceneRemix = sceneRemix
+    return { ...b, settings }
+  })
+}
+
 // Wires that no longer make sense after an edit — a batch slot deleted, a
 // source switched so an input vanished, an output whose type changed — go.
 export function pruneWires(graph: FlowGraph): FlowWire[] {

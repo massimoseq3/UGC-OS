@@ -14,7 +14,7 @@ import { ACCEPTS, BANK_ORDER, BANK_TYPE, KINDS, PRODUCTION_ORDER, TYPE_META, blo
 import { canConnect } from '../engine/graph'
 import { COLUMN_GAP, ROW_GAP, estimatedSize, laidOut } from '../engine/layout'
 import { validateTemplate, FORMAT, type FlowTemplateFile } from './io'
-import { withSlots, shortId } from '../store/blocks'
+import { shapeBlocks, withSlots, shortId } from '../store/blocks'
 import { useBankStore } from '../../../stores/bankStore'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import { kieChatCompletions, type ChatMessage } from '../../../utils/kie'
@@ -168,7 +168,7 @@ export async function describeFlow(request: string): Promise<{ file: FlowTemplat
   // flow is the member's own, so its picks go back on, then get checked.
   const rawBlocks = Array.isArray((raw as { blocks?: unknown }).blocks) ? (raw as { blocks: Array<{ id?: unknown; pick?: unknown }> }).blocks : []
   const picked = new Map(rawBlocks.map((b) => [String(b.id), typeof b.pick === 'string' ? b.pick : undefined]))
-  const blocks = checkPicks(parsed.file.blocks.map((b) => ({ ...b, pick: picked.get(b.id) })), changes).map(withSlots)
+  const blocks = shapeBlocks({ blocks: checkPicks(parsed.file.blocks.map((b) => ({ ...b, pick: picked.get(b.id) })), changes), wires: parsed.file.wires })
   if (!blocks.some((b) => isKnownKind(b.kind))) throw new FriendlyError("Flow couldn't build that. Try naming what you want made: scripts, voiceovers, B-Roll.")
   const graph = laidOut({ blocks, wires: parsed.file.wires })
   return { file: { ...parsed.file, blocks: graph.blocks, wires: graph.wires }, changes }

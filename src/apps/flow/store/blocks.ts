@@ -4,6 +4,7 @@
 import type { BlockKind, FlowBlock, FlowDoc, FlowGraph, FlowItem } from '../types'
 import type { FlowRow } from '../../../stores/types'
 import { desiredSlots, isBatch, isKnownKind, KINDS, sourceOf } from '../engine/catalog'
+import { settleScripts } from '../engine/graph'
 import { scriptHistoryItems } from '../engine/held'
 import { createDefaultSettings } from '../../voice-studio/types'
 import { createEmptyProfile } from '../../character-studio/types'
@@ -44,6 +45,14 @@ export function withSlots(block: FlowBlock): FlowBlock {
   while (items.length < want) items.push({ id: shortId('i') })
   items.length = want
   return { ...block, items }
+}
+
+// A graph's blocks as the canvas keeps them: settings its wiring decides
+// written on (graph.ts settleScripts), then each batch's slots. What every
+// graph goes through before it's planned or stored, so a template's price
+// and the flow it becomes count the same slots.
+export function shapeBlocks(graph: FlowGraph): FlowBlock[] {
+  return settleScripts(graph).map(withSlots)
 }
 
 // ── Rows ───────────────────────────────────────────────────────────────────
