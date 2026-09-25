@@ -549,8 +549,13 @@ function productAssetInUse(products: Product[], ref: string, exceptId: string): 
 // created it (which stamps `linkedBRollId`), so B-Roll delete/replace must not
 // purge a blob a history tile still renders. Compare normalised ids — B-Roll
 // video refs use the "asset://" form while Playground stores bare ids.
+//
+// B-Roll Studio's Save to Bank does the same with the CARD's own still, which
+// its session snapshot in `brollHistory` keeps rendering — so deleting the
+// Bank copy used to take the picture off that session's card for good. The
+// session is nested card state rather than a flat field, so it's walked.
 function brollAssetStillInHistory(
-  state: { imageHistory: ImageHistoryItem[]; videoHistory: VideoHistoryItem[] },
+  state: { imageHistory: ImageHistoryItem[]; videoHistory: VideoHistoryItem[]; brollHistory: BrollHistoryItem[] },
   ref: string | undefined,
 ): boolean {
   if (!ref || !isAssetRef(ref)) return false
@@ -561,8 +566,16 @@ function brollAssetStillInHistory(
       (h) =>
         (h.videoUrl && assetIdFromRef(h.videoUrl) === id) ||
         (h.thumbnailUrl && assetIdFromRef(h.thumbnailUrl) === id),
-    )
+    ) ||
+    state.brollHistory.some((h) => holdsAssetId(h, id))
   )
+}
+
+function holdsAssetId(value: unknown, id: string): boolean {
+  if (typeof value === 'string') return isAssetRef(value) && assetIdFromRef(value) === id
+  if (Array.isArray(value)) return value.some((v) => holdsAssetId(v, id))
+  if (value && typeof value === 'object') return Object.values(value).some((v) => holdsAssetId(v, id))
+  return false
 }
 
 export const useBankStore = create<BankState>((set, get) => ({

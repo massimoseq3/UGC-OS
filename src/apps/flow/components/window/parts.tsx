@@ -22,7 +22,7 @@ import { kindFace } from '../blockMeta'
 import { useHeldHere } from '../node/heldHere'
 import { freeSpot } from '../../engine/layout'
 import type { RunRequest } from '../Editor'
-import { ACCENT_BG, type RunStatus } from './runs'
+import { ACCENT_BG, ownRunPrice, type RunStatus } from './runs'
 
 
 const STATUS_FACE: Record<RunStatus, { label: string; className: string; icon?: LucideIcon }> = {
@@ -73,12 +73,14 @@ export function RunBand({
   children?: ReactNode
   disabled?: boolean
 }) {
-  const bp = plan?.blocks[block.id]
+  const doc = useFlowStore((s) => (s.openId ? s.docs[s.openId] : undefined))
   const active = run?.status === 'running'
-  const credits = bp?.creditsAll ?? 0
+  const price = doc ? ownRunPrice(doc, block, plan) : { credits: plan?.blocks[block.id]?.creditsAll ?? 0, unpriced: false, first: [] }
+  const credits = price.credits
   return (
     <div className="shrink-0 px-5 pb-3 pt-2">
       {children && <div className="mb-2 flex flex-col gap-2">{children}</div>}
+      {price.first.length > 0 && !active && <MakesFirst names={price.first} />}
       <div className="flex items-center gap-2">
         <button
           type="button"
@@ -91,13 +93,25 @@ export function RunBand({
           {credits > 0 && (
             <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight">
               <Coins className="h-3 w-3" strokeWidth={2} />
-              {creditsPill(credits, bp?.unpriced)}
+              {creditsPill(credits, price.unpriced)}
             </span>
           )}
         </button>
         {active && run && <StopButton flowId={run.flowId} />}
       </div>
     </div>
+  )
+}
+
+// The line over a block's own Generate when something it reads isn't made
+// yet: pressing it makes those first, so the price and the wait include them.
+export function MakesFirst({ names }: { names: string[] }) {
+  const list = names.length > 2 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names.join(' and ')
+  return (
+    <p className="mb-2 flex items-start gap-1.5 px-1 text-[11.5px] leading-snug text-ink-400">
+      <CircleDashed className="mt-px h-3.5 w-3.5 shrink-0 text-ink-500" />
+      <span>Makes {list} first, since this block reads from {names.length === 1 ? 'it' : 'them'}. The price includes {names.length === 1 ? 'it' : 'them'}.</span>
+    </p>
   )
 }
 

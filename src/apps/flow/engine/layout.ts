@@ -54,9 +54,28 @@ export function tidyLayout(
 
 // A block's size before the canvas has measured it: its width is fixed by
 // kind, its height grows with its ports (and a batch's item rows).
+// What each kind shows under its ports, in px, measured off the canvas: a
+// Voiceovers block's voice and its takes, B-Roll's still strip and model
+// tags, a Scene Clips block's scene rows. Guessing one height for every kind
+// laid a Describe It flow's Voiceovers over the B-Roll under it.
+const BODY: Partial<Record<FlowBlock['kind'], number>> = {
+  voice: 150,
+  broll: 120,
+  scenes: 150,
+  playground: 70,
+  analyzer: 50,
+  edit: 90,
+  bank: 80,
+  image: 120,
+  text: 90,
+  list: 40,
+  note: 120,
+}
+
 export function estimatedSize(block: FlowBlock): { width: number; height: number } {
   const rows = isKnownKind(block.kind) ? Math.max(KINDS[block.kind].ins.length, KINDS[block.kind].outs.length) : 1
-  return { width: blockWidth(block.kind), height: 110 + rows * 22 + (block.items?.length ?? 0) * 22 }
+  const body = isKnownKind(block.kind) ? BODY[block.kind] ?? 40 : 40
+  return { width: blockWidth(block.kind), height: 56 + rows * 22 + (block.items?.length ?? 0) * 26 + body }
 }
 
 // A graph nobody placed — one Describe It drafted, one Save as Flow traced —

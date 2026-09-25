@@ -14,7 +14,7 @@ import type { SetupSource } from '../components/TemplateSetup'
 import { sourceOf } from '../engine/catalog'
 import { canConnect, downstreamOf, itemPort, pruneWires, type ConnectCheck } from '../engine/graph'
 import { tidyLayout } from '../engine/layout'
-import { docFromRow, newBlock, rowFromDoc, shortId, withSlots } from './blocks'
+import { docFromRow, newBlock, rowFromDoc, shapeBlocks, shortId } from './blocks'
 
 const SAVE_DEBOUNCE_MS = 700
 // The flow on screen, so a reload lands back in it. Draft prefix: sign-out
@@ -37,8 +37,10 @@ const UNDO_LIMIT = 80
 const COALESCE_MS = 1_200
 
 // An undo step: the graph, and which template version it was — so undoing a
-// template update puts the old version's number back with its blocks.
-type Snapshot = FlowGraph & { template?: FlowDoc['template'] }
+// template update puts the old version's number back with its blocks — and
+// the results then, so a block an edit deleted comes back with what it made
+// rather than to be made, and paid for, again.
+type Snapshot = FlowGraph & { template?: FlowDoc['template']; outputs?: FlowDoc['outputs'] }
 
 interface History {
   past: Snapshot[]
@@ -146,16 +148,22 @@ if (typeof window !== 'undefined') {
 }
 
 function snapshot(doc: FlowDoc): Snapshot {
-  return { blocks: doc.blocks, wires: doc.wires, template: doc.template }
+  return { blocks: doc.blocks, wires: doc.wires, template: doc.template, outputs: doc.outputs }
 }
 
 // A step taken back or forward over the doc. A version the member has said
-// Not Now to stays dismissed, whichever step that was on.
+// Not Now to stays dismissed, whichever step that was on. Each block keeps
+// its newest results — a run may have written some since the step was taken.
 function restore(doc: FlowDoc, step: Snapshot): FlowDoc {
   const template = step.template && doc.template && step.template.id === doc.template.id
     ? { ...step.template, skipped: doc.template.skipped }
     : step.template
-  return { ...doc, blocks: step.blocks, wires: step.wires, ...('template' in step ? { template } : {}), updatedAt: Date.now() }
+  const outputs: FlowDoc['outputs'] = {}
+  for (const b of step.blocks) {
+    const r = doc.outputs[b.id] ?? step.outputs?.[b.id]
+    if (r) outputs[b.id] = r
+  }
+  return { ...doc, blocks: step.blocks, wires: step.wires, outputs, ...('template' in step ? { template } : {}), updatedAt: Date.now() }
 }
 
 // Results of blocks no longer on the canvas go with them.
@@ -176,7 +184,7 @@ export const useFlowStore = create<FlowStoreState>((set, get) => {
     if (!doc) return
     const next = mutate(doc)
     if (!next) return
-    const blocks = next.blocks.map(withSlots)
+    const blocks = shapeBlocks(next)
     const wires = pruneWires({ blocks, wires: next.wires })
     const nextDoc: FlowDoc = { ...doc, blocks, wires, updatedAt: Date.now() }
     nextDoc.outputs = trimOutputs(nextDoc)
@@ -235,7 +243,7 @@ export const useFlowStore = create<FlowStoreState>((set, get) => {
       const doc: FlowDoc = {
         id: crypto.randomUUID(),
         name: init.name?.trim() || 'Untitled Flow',
-        blocks: init.graph?.blocks.map(withSlots) ?? [],
+        blocks: init.graph ? shapeBlocks(init.graph) : [],
         wires: init.graph?.wires ?? [],
         outputs: {},
         template: init.template,

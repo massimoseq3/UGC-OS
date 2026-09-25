@@ -151,6 +151,15 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
       setSaved(false)
       setShowKie(false)
       setTestResult(null)
+      // The ScrapeCreators field needs the same reset: this modal stays mounted
+      // between opens, and the key can change outside it (Outliers' connect
+      // card), so a stale draft read as empty with Save lit, and Save wrote the
+      // empty draft over the saved key.
+      setScDraft(storedScKey)
+      setShowSc(false)
+      setScSaving(false)
+      setScSaved(false)
+      setScTestResult(null)
       setStorage({ phase: 'idle' })
       setShowOrphanList(false)
       setDemoLoaded(hasMockData())

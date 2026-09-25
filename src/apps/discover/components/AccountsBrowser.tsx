@@ -205,7 +205,10 @@ export default function AccountsBrowser({
     } catch (e) {
       addToast(humanizeError(e, `Couldn't load @${account.handle}'s reels.`), 'error')
     } finally {
-      setLoadingId(null)
+      // Only clear the spinner this load set. Two accounts can load at once
+      // (click A, then B), and A landing first used to drop B's spinner — B's
+      // pane then offered "Refresh · 1 credit" over a fetch still in flight.
+      setLoadingId((id) => (id === account.id ? null : id))
       setLoadingMore(false)
     }
     // `setCache` is useState's own setter via usePersistedState, so it's
@@ -303,7 +306,10 @@ export default function AccountsBrowser({
           <AccountRow
             key={account.id}
             account={account}
-            selected={account.id === selectedId}
+            // Against the RESOLVED selection, not the stored id: with no stored
+            // pick (a new device) or an untracked one, the pane falls back to the
+            // first account and the rail has to say so.
+            selected={account.id === selected?.id}
             busy={loadingId === account.id}
             onSelect={() => handleSelect(account)}
             onUntrack={() => handleUntrack(account)}

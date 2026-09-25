@@ -1,0 +1,236 @@
+{
+  "format": "ugcflow",
+  "formatVersion": 1,
+  "template": {
+    "id": "many-hooks-one-body",
+    "version": 1
+  },
+  "name": "Many Hooks, One Body",
+  "description": "Ten hooks, each filmed as its own talking-head clip, cut in front of one shared body filmed once. Every hook speaks in the body's voice, so each pack plays as one ad.",
+  "author": "UGC OS",
+  "blocks": [
+    {
+      "id": "product",
+      "kind": "bank",
+      "label": "Your Product",
+      "x": 0,
+      "y": 0,
+      "settings": {
+        "bank": "products"
+      },
+      "source": "bank",
+      "field": true
+    },
+    {
+      "id": "character",
+      "kind": "bank",
+      "label": "Your Character",
+      "x": 0,
+      "y": 230,
+      "settings": {
+        "bank": "models"
+      },
+      "source": "bank",
+      "field": true
+    },
+    {
+      "id": "body",
+      "kind": "scripts",
+      "label": "The Body",
+      "x": 360,
+      "y": 0,
+      "settings": {
+        "mode": "write",
+        "writeFormat": "scenes",
+        "writeStyle": "pas",
+        "writeLength": 20,
+        "remixLength": "default",
+        "hookCategory": "auto",
+        "hookCount": 10,
+        "variationCount": 3,
+        "brief": "The body of the ad, after the hook: the problem, the product, the proof and the offer. Don't open with a hook of your own.",
+        "source": "",
+        "additionalContext": ""
+      },
+      "source": "generate",
+      "review": true
+    },
+    {
+      "id": "hooks",
+      "kind": "scripts",
+      "label": "The Hooks",
+      "x": 360,
+      "y": 300,
+      "settings": {
+        "mode": "write",
+        "writeFormat": "hooks",
+        "writeStyle": "pas",
+        "writeLength": 30,
+        "remixLength": "default",
+        "hookCategory": "auto",
+        "hookCount": 10,
+        "variationCount": 3,
+        "brief": "",
+        "source": "",
+        "additionalContext": ""
+      },
+      "source": "generate",
+      "review": true
+    },
+    {
+      "id": "bodyClips",
+      "kind": "scenes",
+      "label": "Body Clips",
+      "x": 760,
+      "y": 0,
+      "settings": {
+        "shape": "scenes",
+        "takes": 1,
+        "aspectRatio": "9:16",
+        "audio": true,
+        "voice": true,
+        "style": true,
+        "productWhenShown": true,
+        "continuity": true,
+        "rules": "No captions, subtitles or text on screen."
+      },
+      "source": "generate"
+    },
+    {
+      "id": "hookClips",
+      "kind": "scenes",
+      "label": "Hook Clips",
+      "x": 760,
+      "y": 380,
+      "settings": {
+        "shape": "scenes",
+        "takes": 1,
+        "aspectRatio": "9:16",
+        "audio": true,
+        "voice": true,
+        "style": true,
+        "productWhenShown": true,
+        "continuity": true,
+        "rules": "No captions, subtitles or text on screen."
+      },
+      "source": "generate"
+    },
+    {
+      "id": "edit",
+      "kind": "edit",
+      "x": 1150,
+      "y": 220,
+      "settings": {},
+      "source": "generate"
+    },
+    {
+      "id": "note",
+      "kind": "note",
+      "x": 0,
+      "y": 480,
+      "settings": {
+        "text": "Fifty ads for the price of fifty hooks: the body is written and filmed once, and every hook is filmed on its own, in the body's voice and look, then packed in front of it. Scripts pauses twice: keep ONE body, and the hooks worth testing. Test With 1 films one hook and the body's first scene."
+      }
+    }
+  ],
+  "wires": [
+    {
+      "id": "w1",
+      "from": "product",
+      "fromPort": "out",
+      "to": "body",
+      "toPort": "product"
+    },
+    {
+      "id": "w2",
+      "from": "product",
+      "fromPort": "out",
+      "to": "hooks",
+      "toPort": "product"
+    },
+    {
+      "id": "w3",
+      "from": "body",
+      "fromPort": "all",
+      "to": "bodyClips",
+      "toPort": "script"
+    },
+    {
+      "id": "w4",
+      "from": "character",
+      "fromPort": "out",
+      "to": "bodyClips",
+      "toPort": "character"
+    },
+    {
+      "id": "w5",
+      "from": "product",
+      "fromPort": "out",
+      "to": "bodyClips",
+      "toPort": "product"
+    },
+    {
+      "id": "w6",
+      "from": "hooks",
+      "fromPort": "all",
+      "to": "hookClips",
+      "toPort": "script"
+    },
+    {
+      "id": "w7",
+      "from": "character",
+      "fromPort": "out",
+      "to": "hookClips",
+      "toPort": "character"
+    },
+    {
+      "id": "w8",
+      "from": "product",
+      "fromPort": "out",
+      "to": "hookClips",
+      "toPort": "product"
+    },
+    {
+      "id": "w9",
+      "from": "body",
+      "fromPort": "all",
+      "to": "hookClips",
+      "toPort": "match"
+    },
+    {
+      "id": "w10",
+      "from": "hookClips",
+      "fromPort": "clips",
+      "to": "edit",
+      "toPort": "clips"
+    },
+    {
+      "id": "w11",
+      "from": "bodyClips",
+      "fromPort": "clips",
+      "to": "edit",
+      "toPort": "body"
+    }
+  ],
+  "fields": [
+    {
+      "blockId": "product",
+      "title": "Your Product",
+      "kind": {
+        "bank": "products"
+      },
+      "required": true
+    },
+    {
+      "blockId": "character",
+      "title": "Your Character",
+      "kind": {
+        "bank": "models"
+      },
+      "required": true
+    }
+  ],
+  "notes": [
+    "Fifty ads for the price of fifty hooks: the body is written and filmed once, and every hook is filmed on its own, in the body's voice and look, then packed in front of it. Scripts pauses twice: keep ONE body, and the hooks worth testing. Test With 1 films one hook and the body's first scene."
+  ]
+}

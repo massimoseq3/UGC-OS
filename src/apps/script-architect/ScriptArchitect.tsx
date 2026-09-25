@@ -113,6 +113,13 @@ export default function ScriptArchitect() {
   const [outputHookCategory, setOutputHookCategory] = usePersistedState<HookCategoryChoice>(`${baseKey}:outputHookCategory`, 'auto', {
     sanitize: (v) => (isHookCategoryChoice(v) ? v : 'auto'),
   })
+  // The product the shown takes were written for — what Save to Bank links them
+  // to and names them after. Pinned like the labels above: it used to follow the
+  // live picker, so Clear (which promises the takes stay) or picking the next
+  // run's product filed these takes unlinked or against the wrong product. An
+  // empty slot (a draft from before this existed) starts from the persisted
+  // pick, which is what those takes were being linked to all along.
+  const [outputProductId, setOutputProductId] = usePersistedState<string | null>(`${baseKey}:outputProductId`, selectedProductId)
   // What the Output pane is showing: a finished history row, or one of the runs
   // still writing (both are addressed by the same id — see PendingScriptRun).
   const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null)
@@ -198,6 +205,7 @@ export default function ScriptArchitect() {
         hookCount,
         variationCount,
         productName: selectedProduct?.productName,
+        productId: selectedProduct?.id,
         inputSummary: (mode === 'write' ? brief : source).slice(0, 200),
         startedAt: loopSince,
       }
@@ -254,6 +262,7 @@ export default function ScriptArchitect() {
     setOutputStyle(run.writeStyle)
     setOutputFormat(run.writeFormat)
     setOutputHookCategory(run.hookCategory)
+    setOutputProductId(run.productId ?? null)
   }
 
   // The same slot with nothing in it yet: the run as fired, or as clicked back
@@ -294,6 +303,7 @@ export default function ScriptArchitect() {
       hookCount,
       variationCount,
       productName: selectedProduct?.productName,
+      productId: selectedProduct?.id,
       inputSummary: inputSource.slice(0, 200),
       startedAt: Date.now(),
     }
@@ -391,6 +401,7 @@ export default function ScriptArchitect() {
     // A row from the retired Cinematic format restores as a plain script take.
     setOutputFormat(isWriteFormat(item.writeFormat) ? item.writeFormat : 'script')
     setOutputHookCategory(isHookCategoryChoice(item.hookCategory) ? item.hookCategory : 'auto')
+    setOutputProductId(item.linkedProductId ?? null)
     // Rows saved before the count was pickable carry no angle list; OutputPanel
     // falls back to matching them by variation count.
     setOutputAngles((item.remixAngles as RemixAngle[] | undefined) ?? null)
@@ -576,7 +587,7 @@ export default function ScriptArchitect() {
           writeStyleLabel={WRITE_STYLE_META[outputStyle].label}
           hookCategoryLabel={HOOK_CATEGORY_META[outputHookCategory].label}
           hookCount={hookCount}
-          linkedProductId={selectedProduct?.id ?? null}
+          linkedProductId={outputProductId}
           watchedRun={watchedRun}
           activeHistoryId={activeHistoryId}
           error={error}

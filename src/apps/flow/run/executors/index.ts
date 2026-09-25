@@ -1,6 +1,7 @@
 import type { BlockKind } from '../../types'
 import type { Executor } from '../types'
 import { brollExecutor } from './broll'
+import { scenesExecutor } from './scenes'
 import {
   analyzerExecutor,
   charactersExecutor,
@@ -20,4 +21,5 @@ export const EXECUTORS: Partial<Record<BlockKind, Executor>> = {
   outliers: outliersExecutor,
   edit: editExecutor,
   broll: brollExecutor,
+  scenes: scenesExecutor,
 }

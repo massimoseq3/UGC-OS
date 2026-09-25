@@ -119,18 +119,25 @@ async function fetchAccessDenial(supabaseUrl: string, supabaseAnon: string, toke
   }
 }
 
-// Sums the caller's existing `assets.byte_size`. Returns null when the query
+// The caller's existing `assets.byte_size` total. Returns null when the query
 // itself fails — the caller lets the upload through rather than perma-blocking
 // on a flaky REST call.
+//
+// Read from the `member_storage` view (one pre-summed row, security_invoker so
+// RLS scopes it to the caller), never by summing `assets` rows here: PostgREST
+// silently caps a response at 1000 rows, so a member past 1000 assets had only
+// an arbitrary 1000 of them counted and the cap stopped binding at all.
 async function fetchUsedBytes(supabaseUrl: string, supabaseAnon: string, token: string, userId: string): Promise<number | null> {
   try {
     const res = await fetch(
-      `${supabaseUrl}/rest/v1/assets?select=byte_size&user_id=eq.${userId}`,
+      `${supabaseUrl}/rest/v1/member_storage?select=total_bytes&user_id=eq.${userId}`,
       { headers: { apikey: supabaseAnon, Authorization: `Bearer ${token}` } },
     )
     if (!res.ok) return null
-    const rows = await res.json() as Array<{ byte_size: number }>
-    return rows.reduce((s, r) => s + Number(r.byte_size ?? 0), 0)
+    // No row at all is a member with no assets yet — the view groups by user.
+    const rows = await res.json() as Array<{ total_bytes: number | string }>
+    const total = Number(rows[0]?.total_bytes ?? 0)
+    return Number.isFinite(total) ? total : null
   } catch {
     return null
   }

@@ -23,6 +23,8 @@ import type {
   ContinuousClipCardState,
   GeneratedImage,
   GeneratedVideo,
+  InFlightImage,
+  InFlightVideo,
   ReferenceImage,
 } from '../types'
 import type { Product, Model, VideoHistoryItem, BRoll } from '../../../stores/types'
@@ -90,6 +92,85 @@ function frameKey(frameIndex: number, conceptId: string): string {
 }
 function clipKey(sceneIndex: number): string {
   return `c${sceneIndex}`
+}
+
+// ── Resume: the FINISH half of a generation we still hold a taskId for ──
+// Poll (a finished task answers on the first read) and download. No new
+// submission, so no second charge. The refresh/reconnect pass AND a modal's
+// Retry both come through here: Retry on a paid entry used to re-fire the whole
+// generation while the tile above it promised "Retry is free". Module scope so
+// the try/finally stays out of the component body (React Compiler). Each one
+// claims the task first — a live promise that already owns it is doing this
+// same work.
+
+type CardMap<S> = React.Dispatch<React.SetStateAction<Record<string, S>>>
+
+async function resumeFrameImage(key: string, entry: InFlightImage, setFrameStates: CardMap<ContinuousFrameCardState>): Promise<void> {
+  const { id: inFlightId, taskId, modelId, prompt, resolution } = entry
+  if (!taskId || !modelId || !claimTask('image', taskId)) return
+  try {
+    const imageUrl = await finishImageTask(taskId, modelId, resolution || undefined)
+    const newImage: GeneratedImage = { imageUrl, prompt, modelId, createdAt: Date.now() }
+    setFrameStates((prev) => {
+      const existing = prev[key]
+      if (!existing) return prev
+      const newImages = [...existing.images, newImage]
+      return { ...prev, [key]: { ...existing, images: newImages, currentImageIndex: newImages.length - 1, inFlightImages: existing.inFlightImages.filter((e) => e.id !== inFlightId) } }
+    })
+  } catch (err) {
+    const msg = humanizeError(err, 'Image resume failed.')
+    setFrameStates((prev) => {
+      const existing = prev[key]
+      if (!existing) return prev
+      return { ...prev, [key]: { ...existing, inFlightImages: existing.inFlightImages.map((e) => (e.id === inFlightId ? { ...e, error: msg } : e)) } }
+    })
+  } finally {
+    releaseTask('image', taskId)
+  }
+}
+
+// Clips (clip cards) and standalone animations (frame cards) land the same way.
+async function resumeContinuousVideo<S extends { videos: GeneratedVideo[]; currentVideoIndex: number; inFlightVideos: InFlightVideo[] }>(
+  key: string,
+  entry: InFlightVideo,
+  setStates: CardMap<S>,
+  opts: { readyToast: string; toastFailure: boolean },
+): Promise<void> {
+  const { id: inFlightId, taskId, modelId, endpoint, durationSeconds, aspectRatio, resolution, audio, prompt, mode } = entry
+  if (!taskId || !claimTask('video', taskId)) return
+  try {
+    const res = await finishVideoTask(taskId, modelId, endpoint, durationSeconds, aspectRatio)
+    const assetRef = `asset://${res.assetId}`
+    const newVideo: GeneratedVideo = {
+      url: assetRef, modelId, prompt, aspectRatio: res.aspectRatio,
+      durationSeconds: res.durationSeconds, resolution, audio, mode, createdAt: Date.now(),
+    }
+    setStates((prev) => {
+      const existing = prev[key]
+      if (!existing) return prev
+      const newVideos = [...existing.videos, newVideo]
+      return { ...prev, [key]: { ...existing, videos: newVideos, currentVideoIndex: newVideos.length - 1, inFlightVideos: existing.inFlightVideos.filter((e) => e.id !== inFlightId) } }
+    })
+    // The live paths write this row too; a clip that only landed on a resume
+    // is the same paid clip and belongs in it.
+    const historyEntry: VideoHistoryItem = {
+      id: crypto.randomUUID(), modelId, prompt, mode, aspectRatio: res.aspectRatio,
+      durationSeconds: res.durationSeconds, resolution, audio, videoUrl: assetRef, sourceApp: 'broll-studio', createdAt: Date.now(),
+    }
+    await useBankStore.getState().addVideoHistory(historyEntry)
+    useAppStore.getState().addToast(opts.readyToast, 'success')
+  } catch (err) {
+    if (isPollTimeout(err)) return
+    const msg = humanizeError(err, 'Video resume failed.')
+    setStates((prev) => {
+      const existing = prev[key]
+      if (!existing) return prev
+      return { ...prev, [key]: { ...existing, inFlightVideos: existing.inFlightVideos.map((e) => (e.id === inFlightId ? { ...e, error: msg } : e)) } }
+    })
+    if (opts.toastFailure) useAppStore.getState().addToast(msg, 'error')
+  } finally {
+    releaseTask('video', taskId)
+  }
 }
 
 interface ContinuousViewProps {
@@ -865,6 +946,46 @@ export default function ContinuousView({
     }
   }
 
+  // ── Retry a failed in-flight entry ───────────────────────────
+  // An entry that got as far as a kie taskId is already paid for, so Retry
+  // RESUMES it (the helpers above the component) — which is what the amber
+  // "Retry is free" tile says it does. Only an entry that never reached kie is
+  // re-fired. The error clears first so the tile reads as in flight again.
+  const retryFrameImage = (key: string, id: string) => {
+    const entry = frameStates[key]?.inFlightImages.find((e) => e.id === id)
+    if (!entry) return
+    if (entry.taskId && entry.modelId) {
+      updateFrame(key, (prev) => ({ inFlightImages: prev.inFlightImages.map((e) => (e.id === id ? { ...e, error: null } : e)) }))
+      void resumeFrameImage(key, entry, setFrameStates)
+      return
+    }
+    updateFrame(key, (prev) => ({ inFlightImages: prev.inFlightImages.filter((e) => e.id !== id) }))
+    void runFrameImage(key)
+  }
+  const retryFrameVideo = (key: string, id: string) => {
+    const entry = frameStates[key]?.inFlightVideos.find((e) => e.id === id)
+    if (!entry) return
+    if (entry.taskId) {
+      updateFrame(key, (prev) => ({ inFlightVideos: prev.inFlightVideos.map((e) => (e.id === id ? { ...e, error: null } : e)) }))
+      void resumeContinuousVideo(key, entry, setFrameStates, { readyToast: 'Animation ready', toastFailure: true })
+      return
+    }
+    updateFrame(key, (prev) => ({ inFlightVideos: prev.inFlightVideos.filter((e) => e.id !== id) }))
+    void runFrameAnimate(key)
+  }
+  const retryClipVideo = (sceneIndex: number, id: string) => {
+    const key = clipKey(sceneIndex)
+    const entry = clipStates[key]?.inFlightVideos.find((e) => e.id === id)
+    if (!entry) return
+    if (entry.taskId) {
+      updateClip(key, (prev) => ({ inFlightVideos: prev.inFlightVideos.map((e) => (e.id === id ? { ...e, error: null } : e)) }))
+      void resumeContinuousVideo(key, entry, setClipStates, { readyToast: 'Continuous clip ready', toastFailure: true })
+      return
+    }
+    updateClip(key, (prev) => ({ inFlightVideos: prev.inFlightVideos.filter((e) => e.id !== id) }))
+    void runClipVideo(sceneIndex)
+  }
+
   // ── Refresh-resume (images + videos) ─────────────────────────
   // Also re-run when the connection comes back: a clip kie already rendered
   // and billed for is recoverable for 3 days, and a dropped Wi-Fi kills the
@@ -907,108 +1028,21 @@ export default function ContinuousView({
       return changed ? next : prev
     })
 
+    // Each helper skips an entry with no taskId and one a live generation
+    // promise still owns (a view unmounted by a History/mode switch keeps
+    // polling, so resuming it here would duplicate).
     for (const [key, cs] of Object.entries(frameStates)) {
-      for (const entry of cs.inFlightImages) {
-        if (!entry.taskId || !entry.modelId) continue
-        // Skip tasks a live generation promise still owns — a view unmounted by
-        // a History/mode switch keeps polling, so resuming here would duplicate.
-        if (!claimTask('image', entry.taskId)) continue
-        const { id: inFlightId, taskId, modelId, prompt, resolution } = entry
-        ;(async () => {
-          try {
-            const imageUrl = await finishImageTask(taskId, modelId, resolution || undefined)
-            const newImage: GeneratedImage = { imageUrl, prompt, modelId, createdAt: Date.now() }
-            setFrameStates((prev) => {
-              const existing = prev[key]
-              if (!existing) return prev
-              const newImages = [...existing.images, newImage]
-              return { ...prev, [key]: { ...existing, images: newImages, currentImageIndex: newImages.length - 1, inFlightImages: existing.inFlightImages.filter((e) => e.id !== inFlightId) } }
-            })
-          } catch (err) {
-            const msg = humanizeError(err, 'Image resume failed.')
-            setFrameStates((prev) => {
-              const existing = prev[key]
-              if (!existing) return prev
-              return { ...prev, [key]: { ...existing, inFlightImages: existing.inFlightImages.map((e) => (e.id === inFlightId ? { ...e, error: msg } : e)) } }
-            })
-          } finally {
-            releaseTask('image', taskId)
-          }
-        })()
-      }
+      for (const entry of cs.inFlightImages) void resumeFrameImage(key, entry, setFrameStates)
     }
     for (const [key, cs] of Object.entries(clipStates)) {
       for (const entry of cs.inFlightVideos) {
-        if (!entry.taskId) continue
-        if (!claimTask('video', entry.taskId)) continue
-        const { id: inFlightId, taskId, modelId, endpoint, durationSeconds, aspectRatio, resolution, audio, prompt, mode } = entry
-        ;(async () => {
-          try {
-            const res = await finishVideoTask(taskId, modelId, endpoint, durationSeconds, aspectRatio)
-            const assetRef = `asset://${res.assetId}`
-            const newVideo: GeneratedVideo = {
-              url: assetRef, modelId, prompt, aspectRatio: res.aspectRatio,
-              durationSeconds: res.durationSeconds, resolution, audio, mode, createdAt: Date.now(),
-            }
-            setClipStates((prev) => {
-              const existing = prev[key]
-              if (!existing) return prev
-              const newVideos = [...existing.videos, newVideo]
-              return { ...prev, [key]: { ...existing, videos: newVideos, currentVideoIndex: newVideos.length - 1, inFlightVideos: existing.inFlightVideos.filter((e) => e.id !== inFlightId) } }
-            })
-            const historyEntry: VideoHistoryItem = {
-              id: crypto.randomUUID(), modelId, prompt, mode, aspectRatio: res.aspectRatio,
-              durationSeconds: res.durationSeconds, resolution, audio, videoUrl: assetRef, sourceApp: 'broll-studio', createdAt: Date.now(),
-            }
-            await useBankStore.getState().addVideoHistory(historyEntry)
-            useAppStore.getState().addToast('Continuous clip ready', 'success')
-          } catch (err) {
-            if (isPollTimeout(err)) return
-            const msg = humanizeError(err, 'Video resume failed.')
-            setClipStates((prev) => {
-              const existing = prev[key]
-              if (!existing) return prev
-              return { ...prev, [key]: { ...existing, inFlightVideos: existing.inFlightVideos.map((e) => (e.id === inFlightId ? { ...e, error: msg } : e)) } }
-            })
-            useAppStore.getState().addToast(msg, 'error')
-          } finally {
-            releaseTask('video', taskId)
-          }
-        })()
+        void resumeContinuousVideo(key, entry, setClipStates, { readyToast: 'Continuous clip ready', toastFailure: true })
       }
     }
     // Standalone-animate videos live on the frame cards — resume them too.
     for (const [key, cs] of Object.entries(frameStates)) {
       for (const entry of cs.inFlightVideos) {
-        if (!entry.taskId) continue
-        if (!claimTask('video', entry.taskId)) continue
-        const { id: inFlightId, taskId, modelId, endpoint, durationSeconds, aspectRatio, resolution, audio, prompt, mode } = entry
-        ;(async () => {
-          try {
-            const res = await finishVideoTask(taskId, modelId, endpoint, durationSeconds, aspectRatio)
-            const assetRef = `asset://${res.assetId}`
-            const newVideo: GeneratedVideo = {
-              url: assetRef, modelId, prompt, aspectRatio: res.aspectRatio,
-              durationSeconds: res.durationSeconds, resolution, audio, mode, createdAt: Date.now(),
-            }
-            setFrameStates((prev) => {
-              const existing = prev[key]
-              if (!existing) return prev
-              const newVideos = [...existing.videos, newVideo]
-              return { ...prev, [key]: { ...existing, videos: newVideos, currentVideoIndex: newVideos.length - 1, inFlightVideos: existing.inFlightVideos.filter((e) => e.id !== inFlightId) } }
-            })
-          } catch (err) {
-            if (isPollTimeout(err)) return
-            const msg = humanizeError(err, 'Video resume failed.')
-            setFrameStates((prev) => {
-              const existing = prev[key]
-              if (!existing) return prev
-              return { ...prev, [key]: { ...existing, inFlightVideos: existing.inFlightVideos.map((e) => (e.id === inFlightId ? { ...e, error: msg } : e)) } }
-            })
-          } finally {
-            releaseTask('video', taskId)
-          }
-        })()
+        void resumeContinuousVideo(key, entry, setFrameStates, { readyToast: 'Animation ready', toastFailure: false })
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1663,18 +1697,12 @@ export default function ContinuousView({
             openFrameContext(openFrame.index, openConcept.label, openConcept.shot),
             openFrame.index,
           )}
-          onRetryInFlight={(id) => {
-            updateFrame(openFrameKey, (prev) => ({ inFlightImages: prev.inFlightImages.filter((e) => e.id !== id) }))
-            void runFrameImage(openFrameKey)
-          }}
+          onRetryInFlight={(id) => retryFrameImage(openFrameKey, id)}
           onDismissInFlight={(id) => updateFrame(openFrameKey, (prev) => ({ inFlightImages: prev.inFlightImages.filter((e) => e.id !== id) }))}
           animateModelId={continuousAnimateModelId}
           onAnimate={() => void runFrameAnimate(openFrameKey)}
           onDeleteVideo={(i) => updateFrame(openFrameKey, (prev) => ({ videos: prev.videos.filter((_, idx) => idx !== i), currentVideoIndex: Math.max(0, Math.min(prev.currentVideoIndex, prev.videos.length - 2)) }))}
-          onRetryVideoInFlight={(id) => {
-            updateFrame(openFrameKey, (prev) => ({ inFlightVideos: prev.inFlightVideos.filter((e) => e.id !== id) }))
-            void runFrameAnimate(openFrameKey)
-          }}
+          onRetryVideoInFlight={(id) => retryFrameVideo(openFrameKey, id)}
           onDismissVideoInFlight={(id) => updateFrame(openFrameKey, (prev) => ({ inFlightVideos: prev.inFlightVideos.filter((e) => e.id !== id) }))}
         />
       )}
@@ -1703,10 +1731,7 @@ export default function ContinuousView({
             const videos = prev.videos.filter((_, idx) => idx !== i)
             return { videos, currentVideoIndex: Math.max(0, Math.min(prev.currentVideoIndex, videos.length - 1)) }
           })}
-          onRetryInFlight={(id) => {
-            updateClip(openClipKey, (prev) => ({ inFlightVideos: prev.inFlightVideos.filter((e) => e.id !== id) }))
-            void runClipVideo(openScene.index)
-          }}
+          onRetryInFlight={(id) => retryClipVideo(openScene.index, id)}
           onDismissInFlight={(id) => updateClip(openClipKey, (prev) => ({ inFlightVideos: prev.inFlightVideos.filter((e) => e.id !== id) }))}
         />
       )}

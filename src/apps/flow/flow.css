@@ -82,3 +82,31 @@
   width: 9px;
   height: 9px;
 }
+
+/* An output nothing reads yet ends in a short stub and a +: where the next
+   step goes, one click away. Faint until the block is pointed at, so a
+   finished flow's last blocks don't shout. */
+.flow-canvas .flow-next {
+  opacity: 0.45;
+}
+.flow-canvas .flow-next::before {
+  content: '';
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  width: 14px;
+  border-top: 1.5px dashed color-mix(in oklab, var(--color-ink) 22%, transparent);
+}
+.flow-canvas .flow-node:hover .flow-next,
+.flow-canvas .react-flow__node.selected .flow-next,
+.flow-canvas .flow-next:hover {
+  opacity: 1;
+}
+
+/* While a wire is pointed at or selected, the wires' middles — where its
+   Insert, Cut and See What's on It are — sit above the blocks: a wire that
+   passes under a block would otherwise hide its only tools. The rest of the
+   time a ×N passing under a block stays under it. */
+.flow-canvas.flow-wire-tools .react-flow__edgelabel-renderer {
+  z-index: 1001;
+}

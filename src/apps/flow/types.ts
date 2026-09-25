@@ -43,6 +43,7 @@ export type BlockKind =
   | 'voice'
   | 'broll'
   | 'playground'
+  | 'scenes'
   | 'analyzer'
   | 'outliers'
   | 'edit'
@@ -126,6 +127,10 @@ export interface ClipRef {
   durationSeconds?: number
   prompt?: string
   historyId?: string
+  // Scene Clips: which scene of the script this clip films, and which take
+  // of it — so a run that adds takes keeps the ones already made.
+  scene?: number
+  take?: number
 }
 
 // What each port type carries at run time.
@@ -205,7 +210,9 @@ export interface InstanceResult {
   credits?: number
   // The rows this run wrote, newest-first — Open in the app, How Was This Made.
   rows?: Lineage[]
-  // A B-Roll run's review picks: which cards' stills get animated.
+  // Review picks for this run: a B-Roll run's cards whose stills get
+  // animated, a Scene Clips run's takes (scene:take), or — when a Scripts or
+  // Characters block made several runs — the slots of this one kept.
   keep?: string[]
   // Left out at review (a voiceover take, an image): kept on record, handed
   // on to nothing.
@@ -214,6 +221,10 @@ export interface InstanceResult {
   pack?: EditPack
   // Where a run stopped between its phases (B-Roll, waiting on a review).
   phase?: 'stills'
+  // Scripts: takes the member rewrote by hand in the flow, by the take's
+  // index in its history row. The row keeps what the model wrote; the flow
+  // runs on these (run/edits.ts).
+  edits?: Record<string, string>
 }
 
 // One ad's folder in an Edit Pack, in the /video-editor skill's input layout.
@@ -269,6 +280,8 @@ export interface RunRecord {
   test: boolean
   // Run Block: the one block the member asked for.
   onlyBlockId?: string
+  // Run Again: everything made afresh.
+  fresh?: boolean
   startedAt: number
   endedAt?: number
   status: 'running' | 'done' | 'stopped' | 'error'

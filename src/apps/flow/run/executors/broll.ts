@@ -17,7 +17,7 @@ import type { BrollHistoryItem } from '../../../../stores/types'
 import type { BrollInput, BrollResult, CardState, GeneratedImage, ReferenceImage } from '../../../broll-studio/types'
 import { useBankStore } from '../../../../stores/bankStore'
 import { replayRun, replayWait } from '../../../../stores/recordingStore'
-import { FriendlyError } from '../../../../utils/friendlyError'
+import { FriendlyError, humanizeError } from '../../../../utils/friendlyError'
 import { lineageOf, withProvenance } from '../../../../utils/blockRunner'
 import { getModel } from '../../../../utils/models'
 import { writeStoryboardText, resumeStoryboardText, parseStoryboardText } from '../../../broll-studio/services/storyboardRun'
@@ -137,6 +137,18 @@ function patchCard(sessionId: string, key: string, fn: (card: CardState) => Card
   void useBankStore.getState().upsertBrollHistory({ ...row, cardStates: { ...row.cardStates, [key]: fn(card) } })
 }
 
+// Some cards of a phase didn't come back. The run can't call the ad made —
+// its pack would ship short with nothing on screen saying so — so it fails
+// with the count, and the session it was building keeps every card that did
+// land: Run Flow again renders only the missing ones (the handle state and
+// the session survive, since this isn't a task kie itself reported dead).
+function partialFailure(errors: unknown[], total: number, noun: 'still' | 'clip'): FriendlyError {
+  const why = humanizeError(errors[0], `A ${noun} failed.`)
+  return new FriendlyError(
+    `${errors.length} of ${total} ${noun}s didn't come back. ${why} The ones that finished are kept, so Run Flow again remakes only ${errors.length === 1 ? 'that one' : 'those'}.`,
+  )
+}
+
 async function storyboard(ctx: ExecContext, wired: Wired, resume: BrollResume): Promise<{ sessionId: string; result: BrollResult }> {
   const held = resume.sessionId ? session(resume.sessionId) : undefined
   if (held?.result && (held.result as BrollResult).scenes?.length) {
@@ -190,6 +202,15 @@ async function storyboard(ctx: ExecContext, wired: Wired, resume: BrollResume): 
 
 async function stillsPhase(ctx: ExecContext, wired: Wired, resume: BrollResume, sessionId: string, result: BrollResult): Promise<void> {
   const cards = cardsToRender(result, takesOf(ctx))
+  // A session a Test With 1 started has cards for one take a line. A run that
+  // asks for more adds theirs first: a still lands only on a card that exists
+  // (patchCard), so without them it would be paid for and dropped.
+  const row = session(sessionId)
+  const missing = cards.filter((c) => !row?.cardStates[c.key])
+  if (row && missing.length) {
+    const added = Object.fromEntries(missing.map((c) => [c.key, createDefaultCardState(c.scene.variations[c.index], c.scene.scriptLine)]))
+    await useBankStore.getState().upsertBrollHistory({ ...row, cardStates: { ...row.cardStates, ...added } })
+  }
   const todo = cards.filter((c) => !((session(sessionId)?.cardStates[c.key] as CardState | undefined)?.images?.length))
   let done = cards.length - todo.length
   const errors: unknown[] = []
@@ -230,6 +251,7 @@ async function stillsPhase(ctx: ExecContext, wired: Wired, resume: BrollResume, 
     }
   }))
   if (done === 0 && errors.length) throw errors[0]
+  if (errors.length) throw partialFailure(errors, cards.length, 'still')
 }
 
 async function clipsPhase(ctx: ExecContext, resume: BrollResume, sessionId: string, result: BrollResult, keep: string[] | undefined): Promise<void> {
@@ -295,6 +317,7 @@ async function clipsPhase(ctx: ExecContext, resume: BrollResume, sessionId: stri
     }
   }))
   if (done === 0 && errors.length) throw errors[0]
+  if (errors.length) throw partialFailure(errors, withStill.length, 'clip')
 }
 
 // What the run hands on: one set of clips (this ad's), and every still.
@@ -326,13 +349,18 @@ export const brollExecutor: Executor = {
     const resume: BrollResume = { ...((ctx.resume as BrollResume | undefined) ?? {}) }
     // A run picking up after its review carries on in the session its stills
     // phase wrote — the task state is cleared once a phase lands, so the
-    // session is found through the rows that phase recorded.
-    resume.sessionId ??= ctx.prior?.rows?.find((r) => r.bank === 'brollHistory')?.id
+    // session is found through the rows that phase recorded. Only then: a
+    // FINISHED session (Run Block, Run Again, a Test With 1 run again in full)
+    // is made afresh: carrying on in one hands the old stills straight back.
+    const carryOn = ctx.prior?.phase === 'stills' && (ctx.phase === 'clips' || !ctx.fresh)
+    if (carryOn) resume.sessionId ??= ctx.prior?.rows?.find((r) => r.bank === 'brollHistory')?.id
     const wired = wiredInput(ctx)
     const { sessionId, result } = await storyboard(ctx, wired, resume)
     if (ctx.phase !== 'clips') await stillsPhase(ctx, wired, resume, sessionId, result)
     if (ctx.phase === 'stills') return outputsOf(sessionId)
-    const keep = ctx.prior?.keep
+    // Picks belong to the session they were made in: only the clips phase
+    // after a review carries on in it. A new session animates every card.
+    const keep = ctx.phase === 'clips' ? ctx.prior?.keep : undefined
     await clipsPhase(ctx, resume, sessionId, result, keep)
     return outputsOf(sessionId, keep)
   },

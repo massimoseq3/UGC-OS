@@ -18,6 +18,7 @@ export default function WhatNextMenu({
   type,
   side = 'out',
   into = false,
+  heading,
   options,
   onPick,
   onClose,
@@ -27,6 +28,8 @@ export default function WhatNextMenu({
   type: PortType
   side?: 'out' | 'in'
   into?: boolean
+  // Replaces the question the menu opens with (Insert on a wire asks its own).
+  heading?: string
   options: WhatNextOption[]
   onPick: (option: WhatNextOption) => void
   onClose: () => void
@@ -37,7 +40,7 @@ export default function WhatNextMenu({
       <div className="absolute z-40" style={{ left: x, top: y }}>
         <MenuSurface className="w-60">
           <div className="border-b border-ink/5 px-3.5 py-2 text-[11px] font-medium text-ink-500">
-            {into ? 'Which Input?' : side === 'out' ? 'What Next?' : 'What Feeds This?'} · <span style={{ color: TYPE_META[type].color }}>{TYPE_META[type].label}</span>
+            {heading ?? (into ? 'Which Input?' : side === 'out' ? 'What Next?' : 'What Feeds This?')} · <span style={{ color: TYPE_META[type].color }}>{TYPE_META[type].label}</span>
           </div>
           <div className="menu-scroll max-h-[320px] overflow-y-auto">
             {options.length === 0 && <p className="px-3.5 py-3 text-xs text-ink-500">Nothing takes that yet.</p>}

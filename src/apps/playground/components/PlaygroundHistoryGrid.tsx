@@ -254,6 +254,14 @@ export default memo(function PlaygroundHistoryGrid({ inFlight, activeProjectId, 
   // and having no control left on screen to get back out of it.
   const isEmpty = entries.length === 0 && visibleInFlight.length === 0
   const activeProject = activeProjectId ? projects.find((p) => p.id === activeProjectId) ?? null : null
+  // The previewed row as the bank holds it NOW. `previewItem` is the entry as
+  // its tile was clicked, and saving from the modal stamps `linkedBRollId` on
+  // the bank row, never on that snapshot — so the button re-armed after a save
+  // and a second press filed a duplicate B-Roll. The snapshot is only the
+  // fallback for a row that has left the list.
+  const preview = previewItem
+    ? allEntries.find((e) => e.kind === previewItem.kind && e.data.id === previewItem.data.id) ?? previewItem
+    : null
 
   return (
     // `relative` is what `RailOverlay` positions against — without it the rail
@@ -575,20 +583,20 @@ export default memo(function PlaygroundHistoryGrid({ inFlight, activeProjectId, 
         </div>
       </CanvasFrame>
 
-      {previewItem && (
+      {preview && (
         <PreviewModal
-          entry={previewItem}
+          entry={preview}
           onClose={() => setPreviewItem(null)}
-          isSaving={savingIds.has(previewItem.data.id)}
+          isSaving={savingIds.has(preview.data.id)}
           onSave={() => {
-            if (previewItem.kind === 'image') handleSaveImage(previewItem.data)
+            if (preview.kind === 'image') handleSaveImage(preview.data)
           }}
           onAnimate={
-            previewItem.kind === 'image' && onAnimateImage
-              ? () => onAnimateImage(previewItem.data)
+            preview.kind === 'image' && onAnimateImage
+              ? () => onAnimateImage(preview.data)
               : undefined
           }
-          onReuse={onReusePrompt && previewItem.data.prompt ? () => onReusePrompt(previewItem.data.prompt, previewItem.kind) : undefined}
+          onReuse={onReusePrompt && preview.data.prompt ? () => onReusePrompt(preview.data.prompt, preview.kind) : undefined}
         />
       )}
       </div>

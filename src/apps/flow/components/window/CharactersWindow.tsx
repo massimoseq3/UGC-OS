@@ -4,10 +4,10 @@
 // Generate running this block, on a model that belongs to the block. The
 // right is the faces, slot by slot, as they're made.
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Eye, EyeOff, UserRound, X } from 'lucide-react'
 import type { FlowValue } from '../../types'
-import { liveItems } from '../../engine/graph'
+import { liveItems, wiresInto } from '../../engine/graph'
 import { useFlowStore } from '../../store/flowStore'
 import ControlsPanel from '../../../character-studio/components/ControlsPanel'
 import { createEmptyProfile, type CharacterProfile, type TabId } from '../../../character-studio/types'
@@ -31,6 +31,11 @@ export default function CharactersWindow({ doc, block, plan, run, onRun, onRevie
   const [analyzing, setAnalyzing] = useState(0)
   const [extractError, setExtractError] = useState<string | null>(null)
   const [thumb, setThumb] = useState<string | null>(null)
+  // The preview is an object URL over the dropped photo: let it go when it's
+  // replaced, reset or the window closes, or every photo stays in memory.
+  useEffect(() => () => {
+    if (thumb) URL.revokeObjectURL(thumb)
+  }, [thumb])
   const s = block.settings
   const profile: CharacterProfile = { ...createEmptyProfile(), ...((s.profile as CharacterProfile | undefined) ?? {}) }
   const count = Math.min(4, Math.max(1, Number(s.count) || 1))
@@ -39,6 +44,9 @@ export default function CharactersWindow({ doc, block, plan, run, onRun, onRevie
   const runs = blockRuns(block, bp, run)
   const slots = liveItems(block)
   const sheet = s.kind === 'sheet'
+  // With a Change wired in, each run edits the Reference Photo instead of
+  // drawing this form (executors/simple.ts), so the form says it's resting.
+  const editing = wiresInto(doc, block.id, 'change').length > 0
 
   const setProfile = (next: CharacterProfile) => patchSettings(block.id, { profile: next }, { coalesce: `profile:${block.id}` })
 
@@ -66,6 +74,11 @@ export default function CharactersWindow({ doc, block, plan, run, onRun, onRevie
   return (
     <>
       <div className="flex w-[440px] shrink-0 flex-col border-r border-ink/5">
+        {editing && (
+          <p className="border-b border-ink/5 px-5 py-3 text-[12px] leading-relaxed text-ink-400">
+            A Change is wired in, so each run edits the Reference Photo with its change, like Characters' edit. This form isn't used.
+          </p>
+        )}
         <ControlsPanel
           profile={profile}
           onProfileChange={setProfile}
@@ -124,7 +137,8 @@ export default function CharactersWindow({ doc, block, plan, run, onRun, onRevie
                             label={`Face ${i + 1}`}
                             value={value}
                             making={making}
-                            off={!!slot.off}
+                            // Off for every run, or left out of this one at its review.
+                            off={!!slot.off || !!r.result?.off || (!!r.result?.keep && !r.result.keep.includes(slot.id))}
                             sheet={sheet}
                             modelId={s.modelId as string | undefined}
                             onToggle={() => toggleItem(block.id, slot.id)}

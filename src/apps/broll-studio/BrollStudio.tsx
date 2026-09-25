@@ -382,6 +382,7 @@ export default function BrollStudio() {
   const models = useBankStore((s) => s.models)
   const scripts = useBankStore((s) => s.scripts)
   const upsertBrollHistory = useBankStore((s) => s.upsertBrollHistory)
+  const deleteBrollHistory = useBankStore((s) => s.deleteBrollHistory)
 
   // Active session id for the brollHistory upsert. Persisted so a refresh
   // mid-session keeps editing the same history row instead of forking a new
@@ -452,7 +453,8 @@ export default function BrollStudio() {
   const canvasSceneCount = mode === 'continuous'
     ? (continuousResult?.scenes.length ?? 0)
     : (result?.scenes.length ?? 0)
-  const canvasSig = `${mode}|${sessionId}|${canvasSceneCount}`
+  const canvasSigFor = (id: string) => `${mode}|${id}|${canvasSceneCount}`
+  const canvasSig = canvasSigFor(sessionId)
   // Recording Mode's Hide All covers the open storyboard too: while its
   // session row is hidden the canvas reads "Awaiting Storyboard", and a
   // replayed Generate is what brings it back.
@@ -534,6 +536,10 @@ export default function BrollStudio() {
     const sessionContinuous = sessionMode === 'continuous' ? continuousResult : null
     if ((!sessionResult && !sessionContinuous) || !sessionIdRef.current) return
     const handle = setTimeout(() => {
+      // Re-checked here, not only above: deleting the open session detaches it
+      // (handleDeleteHistory) inside this 1s window, and a snapshot already
+      // queued must not write the row back — or write one with an empty id.
+      if (!sessionIdRef.current) return
       // A row's identity fields describe the session that PRODUCED the content,
       // so an empty input never overwrites one that's already stamped: clearing
       // the input column ("New") would otherwise re-save this row with no
@@ -712,13 +718,29 @@ export default function BrollStudio() {
         const swappedMotion = isThisScene
           ? swapQuotedLine(card.animateMotion, previousLine, line)
           : card.animateMotion
-        if (swapped !== card.editablePrompt || swappedMotion !== card.animateMotion) {
+        // Every history entry speaks the line too, so each is swapped IN PLACE.
+        // Load-bearing, not tidiness: ScenesView's rebuild keeps a card only
+        // while its prompt or history still contains the variation's prompt,
+        // and that prompt was just swapped above. A card whose prompt had been
+        // Enhanced, Regenerated or retyped matched on its old history entry —
+        // unswapped, it stopped matching and the card was reset to blank, stills
+        // and clips with it.
+        const swappedHistory = isThisScene
+          ? card.promptHistory.map((p) => swapQuotedLine(p, previousLine, line))
+          : card.promptHistory
+        const historyChanged = swappedHistory.some((p, i) => p !== card.promptHistory[i])
+        if (swapped !== card.editablePrompt || swappedMotion !== card.animateMotion || historyChanged) {
           changed = true
           // Deliberately NOT pushed onto promptHistory. Undo is for rewrites of
           // the shot; the line has its own editor, and burying a line change in
           // the prompt undo stack would let Undo desync the prompt from the
           // scene header it's supposed to be speaking.
-          next[key] = { ...card, editablePrompt: swapped, animateMotion: swappedMotion }
+          next[key] = {
+            ...card,
+            editablePrompt: swapped,
+            animateMotion: swappedMotion,
+            promptHistory: historyChanged ? swappedHistory : card.promptHistory,
+          }
         } else {
           next[key] = card
         }
@@ -1341,6 +1363,21 @@ export default function BrollStudio() {
     setAdBlueprint(null)
   }
 
+  // Deleting a row from the rail. The OPEN session's row is the one case with a
+  // catch: the snapshot effect above re-saves `sessionId` on the next change, so
+  // the row came straight back — on the next keystroke in the script box or the
+  // next take landing, re-dated "just now" and named after whatever the inputs
+  // held by then. So that session is detached (nothing re-saves an empty id) and
+  // leaves the canvas the way New Storyboard clears it: its cards and media are
+  // not deleted from the workspace, but nothing new is made on a session that no
+  // longer has a row to keep it in.
+  const handleDeleteHistory = (id: string) => {
+    void deleteBrollHistory(id)
+    if (!id || id !== sessionId) return
+    setClearedCanvasSig(canvasSigFor(''))
+    setSessionId('')
+  }
+
   return (
     <div className="flex h-full flex-col md:flex-row">
       <MobilePaneTabs
@@ -1420,6 +1457,7 @@ export default function BrollStudio() {
           setCardStates={setCardStates}
           activeHistoryId={activeHistoryId}
           onSelectHistory={handleSelectHistory}
+          onDeleteHistory={handleDeleteHistory}
           canvasCleared={canvasCleared}
           onClearCanvas={handleNewStoryboard}
           cardFilter={cardFilter}

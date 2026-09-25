@@ -457,6 +457,9 @@ export interface PendingScriptRun {
   hookCount: number
   variationCount: number
   productName?: string
+  // The bank product the run was written for — what its takes are saved and
+  // linked against, never the product picked for the NEXT run.
+  productId?: string
   // What was asked for, shown in place of the take a finished card previews.
   inputSummary: string
   startedAt: number

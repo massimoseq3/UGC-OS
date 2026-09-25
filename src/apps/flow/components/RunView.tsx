@@ -55,6 +55,7 @@ export default function RunView({
   doc,
   plan,
   test,
+  again,
   run,
   balance,
   onRun,
@@ -65,6 +66,7 @@ export default function RunView({
   doc: FlowDoc
   plan: FlowPlan | null
   test: FlowPlan | null
+  again: FlowPlan | null
   run: LiveRun | undefined
   balance: number | null
   onRun: (req: RunRequest) => void
@@ -88,7 +90,7 @@ export default function RunView({
       />
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         <div className={paneClass(pane === 'inputs', 'md:w-[400px] md:shrink-0 md:border-r md:border-ink/5')}>
-          <FlowPanel flowId={flowId} doc={doc} plan={plan} test={test} run={run} balance={balance} onRun={(req) => { onRun(req); setPane('results') }} />
+          <FlowPanel flowId={flowId} doc={doc} plan={plan} test={test} again={again} run={run} balance={balance} onRun={(req) => { onRun(req); setPane('results') }} />
         </div>
         <div className={paneClass(pane === 'results', 'md:flex-1 md:overflow-hidden')}>
           <div className="flex h-[57px] shrink-0 items-center gap-3 border-b border-ink/5 px-5">
@@ -117,7 +119,7 @@ export default function RunView({
               <GridCanvas>
                 <div className="flex h-full flex-col items-center justify-center gap-2 px-6 py-24 text-center">
                   <p className="text-sm font-medium text-ink-200">{run?.status === 'running' ? 'Making your ads…' : 'Nothing made yet'}</p>
-                  <p className="max-w-xs text-xs text-ink-500">Fill the fields, then Run. Each finished ad lands here as its own card.</p>
+                  <p className="max-w-xs text-xs text-ink-500">{run?.status === 'running' ? 'Each finished ad lands here as its own card, as soon as it’s made.' : 'Fill the fields, then Run. Each finished ad lands here as its own card.'}</p>
                 </div>
               </GridCanvas>
             ) : (

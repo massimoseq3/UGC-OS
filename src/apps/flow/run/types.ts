@@ -34,6 +34,10 @@ export interface ExecContext {
   // The instance as it stood before this phase — B-Roll's clips phase reads
   // the stills its first phase made.
   prior?: InstanceResult
+  // Run Block on this block: make it again from scratch, rather than
+  // topping up what a run before made (Scene Clips keeps its made scenes
+  // otherwise).
+  fresh?: boolean
 }
 
 export interface ExecOutput {

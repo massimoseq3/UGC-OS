@@ -3,9 +3,11 @@
 // estimate and the Run button all read this one object.
 
 import type { FlowDoc } from '../types'
+import type { LiveRun } from '../run/runtime'
+import { KINDS } from '../engine/catalog'
 import { planFlow, type FlowPlan, type PlanDeps } from '../engine/plan'
 import { heldValues } from '../engine/held'
-import { blockCost } from '../engine/cost'
+import { blockCost, generationsOf } from '../engine/cost'
 import { knownGraph } from '../store/blocks'
 import { useBankStore } from '../../../stores/bankStore'
 import { useSettingsStore } from '../../../stores/settingsStore'
@@ -15,18 +17,53 @@ import { useSettingsStore } from '../../../stores/settingsStore'
 function depsFor(banks: unknown, models: unknown): PlanDeps {
   void banks
   void models
-  return { held: heldValues, cost: blockCost }
+  // Generations counted the way the run counts them (a B-Roll run is a
+  // storyboard plus a still and a clip per scene), so the big-run question
+  // is asked at the same size a run would start at.
+  return { held: heldValues, cost: blockCost, generations: generationsOf }
 }
 
-export function useFlowPlans(doc: FlowDoc | undefined): { plan: FlowPlan | null; test: FlowPlan | null } {
+export function useFlowPlans(doc: FlowDoc | undefined): { plan: FlowPlan | null; test: FlowPlan | null; again: FlowPlan | null } {
   const banks = useBankStore((s) => s)
   const models = useSettingsStore((s) => s.perAppModel)
-  if (!doc) return { plan: null, test: null }
+  if (!doc) return { plan: null, test: null, again: null }
   const deps = depsFor(banks, models)
   const graph = knownGraph(doc)
+  const plan = planFlow(graph, doc.outputs, deps)
   return {
-    plan: planFlow(graph, doc.outputs, deps),
+    plan,
     test: planFlow(graph, doc.outputs, deps, { test: true }),
+    // Run Again's bill, only once there's nothing left to run.
+    again: plan.planned.length ? null : planFlow(graph, doc.outputs, deps, { fresh: true }),
+  }
+}
+
+// What the Run button says and does, in the header and in Run View alike:
+// Run Flow; Run (or Re-run) N Blocks when only some are left; Run Again (everything
+// afresh, new takes) when the flow is made and nothing changed — never a
+// dead "Nothing to Run" on a flow a member wants more ads from.
+export function runButton(doc: FlowDoc, plan: FlowPlan | null, again: FlowPlan | null, run: LiveRun | undefined): { label: string; again: boolean; credits: number; unpriced: boolean } {
+  const states = run ? Object.values(run.blocks) : []
+  if (run?.status === 'running') {
+    const done = states.filter((b) => b.status === 'done' || b.status === 'skipped' || b.status === 'error').length
+    const waiting = states.some((b) => b.status === 'review')
+    return { label: waiting ? 'Waiting for Your Review' : `Running · ${done} of ${states.length}`, again: false, credits: 0, unpriced: false }
+  }
+  const runnable = doc.blocks.filter((b) => KINDS[b.kind]?.runnable && !b.suggested).length
+  if (!plan?.planned.length) {
+    if (again?.planned.length) return { label: 'Run Again', again: true, credits: again.credits, unpriced: again.unpriced }
+    return { label: runnable ? 'Nothing to Run' : 'Add a Block to Run', again: false, credits: 0, unpriced: false }
+  }
+  const partial = plan.planned.length < runnable && Object.keys(doc.outputs).length > 0
+  // "Re-run" only when every block it names has made something before: the
+  // blocks after a Run Block have never run, and "Re-run" reads as paying twice.
+  const remade = plan.planned.every((id) => Object.keys(doc.outputs[id]?.instances ?? {}).length > 0)
+  const n = plan.planned.length
+  return {
+    label: partial ? `${remade ? 'Re-run' : 'Run'} ${n} ${n === 1 ? 'Block' : 'Blocks'}` : 'Run Flow',
+    again: false,
+    credits: plan.credits,
+    unpriced: plan.unpriced,
   }
 }
 

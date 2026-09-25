@@ -30,12 +30,13 @@ import { characterRunner, type CharacterTask } from '../../../character-studio/r
 import { createEmptyProfile, type CharacterProfile } from '../../../character-studio/types'
 import { playgroundRunner, planPlaygroundRun, type PlaygroundTask } from '../../../playground/runner'
 import { adAnalysisRunner } from '../../../ad-anatomy/runner'
-import { resumeAnalysis } from '../../../ad-anatomy/services/analysisQueue'
+import { resumeAnalysis, retryAnalysis } from '../../../ad-anatomy/services/analysisQueue'
 import { downloadAdVideo, searchOutliers } from '../../../discover/runner'
 import { refreshResultMedia } from '../../../discover/services/search'
 import { swipeToResult } from '../../../discover/services/swipe'
 import { DEFAULT_FILTERS, type DiscoverPlatform, type DiscoverResult } from '../../../discover/types'
 import { analysisValues } from '../../engine/held'
+import { readSceneScript } from '../../engine/sceneShots'
 import { playgroundInput, refOfPicture } from '../../engine/cost'
 import { liveItems } from '../../engine/graph'
 import { taskIsDead } from '../errors'
@@ -153,12 +154,23 @@ export function scriptItems(
     items[slot] = {
       type: 'script',
       key: `scriptHistory:${r.id}#${i}`,
-      label: text,
+      label: scriptLabel(text),
       payload: { text, voiceProfile: r.voiceProfile, staging },
       lineage: row('scriptHistory', r.id),
     }
   })
   return items
+}
+
+// How a script reads in a list — a block's rows, a review, an Edit Pack's
+// folder name. A scene take opens on its master blocks ("=== MASTER VISUAL
+// STYLE ==="), which says nothing about which ad it is; its first spoken line
+// does.
+function scriptLabel(text: string): string {
+  const script = readSceneScript(text)
+  if (!script.scenes) return text
+  const said = script.shots.find((s) => s.spoken)?.spoken
+  return said ? `“${said}”` : script.shots[0]?.label ?? text
 }
 
 // A remix of an analyzed ad keeps that ad's staging with every take, so B-Roll
@@ -198,29 +210,53 @@ export function characterValue(r: CharacterHistoryItem): HeldValue {
   }
 }
 
+// A variant's name, the way downstream runs are told apart: the base's name
+// and the change's first clause without its lead — "Make this person
+// Asian-American, with monolid eyes…" off Maya is "Maya · Asian-American".
+export function variantLabel(base: FlowValue | undefined, change: string): string {
+  const clause = change.split(/[,.;:\n]/)[0]
+    .replace(/^(make|turn|change)\s+(this person|this character|her|him|them|the character)\s+(into\s+|to\s+)?/i, '')
+    .trim()
+  const what = (clause || change).slice(0, 40)
+  const name = base?.type === 'character' ? base.label : ''
+  return name && name !== 'Character' ? `${name} · ${what}` : what
+}
+
 // Each face is its own generation, all fired at once: one press of the
-// Characters app's Generate with a batch count, slot by slot.
+// Characters app's Generate with a batch count, slot by slot. A Change wired
+// in is the edit modal's instruction instead: the Reference Photo edited,
+// the form unread, and the face named by the change so each audience's
+// variant is told apart downstream.
 export const charactersExecutor: Executor = {
   async run(ctx) {
     const s = ctx.block.settings
     const slots = ctx.inst.slots ?? []
     const photo = ctx.inst.inputs.photo?.[0]
+    const change = textOf(ctx.inst.inputs.change)?.trim()
+    const base = photo ? refOfPicture(photo) || undefined : undefined
+    if (change && !base) throw new FriendlyError('A Change edits a picture. Wire the character to change into Reference Photo.')
     const saved = (ctx.resume as { tasks?: Record<string, CharacterTask> } | undefined)?.tasks ?? {}
     const tasks: Record<string, CharacterTask> = { ...saved }
     const batchId = slots.length > 1 ? crypto.randomUUID() : undefined
-    const profile = { ...createEmptyProfile(), ...((s.profile as CharacterProfile | undefined) ?? {}) }
+    const form = { ...createEmptyProfile(), ...((s.profile as CharacterProfile | undefined) ?? {}) }
+    // An edit keeps the base character's profile, the way the edit modal's
+    // variants do: it's the same person with one thing changed.
+    const profile = change && photo?.type === 'character' ? { ...createEmptyProfile(), ...(photo.payload.profile as CharacterProfile) } : form
+    const aspect = String(s.aspect ?? form.aspectRatio ?? '9:16')
     const items: Record<string, HeldValue> = {}
     const errors: unknown[] = []
-    ctx.progress(slots.length > 1 ? `${slots.length} faces` : 'Drawing')
+    ctx.progress(change ? 'Editing' : slots.length > 1 ? `${slots.length} faces` : 'Drawing')
     await Promise.all(slots.map(async (slot, i) => {
       try {
         if (!tasks[slot]) {
           tasks[slot] = await characterRunner.start({
             profile,
             resolution: (s.resolution as ImageResolution) ?? '1K',
-            kind: s.kind === 'sheet' ? 'sheet' : 'portrait',
-            aspect: String(s.aspect ?? profile.aspectRatio ?? '9:16'),
-            referenceUrl: photo ? refOfPicture(photo) || undefined : undefined,
+            kind: change ? 'portrait' : s.kind === 'sheet' ? 'sheet' : 'portrait',
+            aspect,
+            ...(change && base
+              ? { edit: { instruction: change, baseImageRef: base, referenceUrls: [] } }
+              : { referenceUrl: base }),
             modelId: s.modelId as string | undefined,
             batchId,
             batchIndex: batchId ? i : undefined,
@@ -228,7 +264,8 @@ export const charactersExecutor: Executor = {
           ctx.save({ tasks })
         }
         const r = await characterRunner.finish(tasks[slot], { signal: ctx.signal })
-        items[slot] = characterValue(r)
+        const v = characterValue(r)
+        items[slot] = change ? { ...v, label: variantLabel(photo, change) } : v
       } catch (err) {
         if (taskIsDead(err) && tasks[slot]) {
           delete tasks[slot]
@@ -319,15 +356,36 @@ function swipeFromBank(id: string): DiscoverResult | undefined {
   return item ? swipeToResult(item) : undefined
 }
 
+// Rows this page load queued an analysis for. One still 'analyzing' with no
+// taskId that isn't here (and that the Ad Analyzer, closed, isn't running)
+// was cut off by a reload before kie took the job: nothing will settle it.
+const queuedHere = new Set<string>()
+
 export const analyzerExecutor: Executor = {
   async run(ctx) {
     let rowId = (ctx.resume as { rowId?: string } | undefined)?.rowId
-    if (rowId) {
-      // The Ad Analyzer resumes its own rows when it's open; when it isn't,
-      // nothing would, so the block re-attaches the poll itself.
-      const held = useBankStore.getState().getAdAnatomyHistoryById(rowId)
-      if (held?.status === 'analyzing' && !useAppStore.getState().runningApps.includes('ad-anatomy')) resumeAnalysis(held)
-    } else {
+    const held = rowId ? useBankStore.getState().getAdAnatomyHistoryById(rowId) : undefined
+    if (rowId && !held) {
+      // Deleted in the Ad Analyzer: there's nothing to wait on, so the ad is
+      // analyzed afresh rather than failing the same way every run.
+      rowId = undefined
+    } else if (held) {
+      const owned = useAppStore.getState().runningApps.includes('ad-anatomy')
+      const stranded = held.status === 'analyzing' && !held.taskId && !owned && !queuedHere.has(held.id)
+      if (held.status === 'error' || stranded) {
+        // Waiting on a failed or stranded row only reads the same failure
+        // back, so it runs again from the ad it kept — or, with that gone,
+        // from the ad on the wire.
+        if (await retryAnalysis(held)) queuedHere.add(held.id)
+        else rowId = undefined
+      } else if (held.status === 'analyzing' && !owned && !queuedHere.has(held.id)) {
+        // The Ad Analyzer resumes its own rows when it's open; when it isn't,
+        // nothing would, so the block re-attaches the poll itself.
+        resumeAnalysis(held)
+        queuedHere.add(held.id)
+      }
+    }
+    if (!rowId) {
       const ad = one(ctx.inst.inputs.ad, 'ad')
       if (!ad) throw new FriendlyError('Wire an ad into the Ad Analyzer.')
       ctx.progress('Fetching the ad')
@@ -335,6 +393,7 @@ export const analyzerExecutor: Executor = {
       ctx.progress('Analyzing')
       const task = await adAnalysisRunner.start({ file, durationSeconds }, { provenance: ctx.provenance })
       rowId = task.rowId
+      queuedHere.add(rowId)
       ctx.save({ rowId })
     }
     const r = await adAnalysisRunner.finish({ rowId }, { signal: ctx.signal })
@@ -396,6 +455,15 @@ export const outliersExecutor: Executor = {
 
 // ── Edit Pack ──────────────────────────────────────────────────────────────
 
+// What the editor captions from: the words said. A scene take's are its
+// scenes' spoken lines, in order — not its look, its direction or its voice
+// profile.
+function saidIn(script: string): string {
+  const scenes = readSceneScript(script)
+  if (scenes.scenes) return scenes.shots.map((s) => s.spoken).filter(Boolean).join('\n')
+  return spokenLinesOnly(script)
+}
+
 // Gathers one ad's folder — nothing to generate, so it's done at once. The
 // block's Download button zips every pack the run made.
 export const editExecutor: Executor = {
@@ -403,18 +471,21 @@ export const editExecutor: Executor = {
   async run(ctx) {
     const clips = one(ctx.inst.inputs.clips, 'video')
     if (!clips?.payload.clips.length) throw new FriendlyError('Edit Pack got no clips. Check the block that makes them.')
+    // The shared body, after this ad's own clips.
+    const body = one(ctx.inst.inputs.body, 'video')
     const audio = one(ctx.inst.inputs.audio, 'audio')
     const music = one(ctx.inst.inputs.music, 'music')
-    const script = textOf(ctx.inst.inputs.script) ?? clips.payload.scriptText
+    const script = textOf(ctx.inst.inputs.script)
+      ?? ([clips.payload.scriptText, body?.payload.scriptText].filter(Boolean).join('\n') || undefined)
     return {
       pack: {
         title: clips.label || 'Ad',
         cover: clips.payload.cover,
-        script: script ? spokenLinesOnly(script) : undefined,
+        script: script ? saidIn(script) : undefined,
         voiceover: audio?.payload.ref,
         music: music?.payload.ref,
-        clips: clips.payload.clips.map((c) => c.ref),
-        stills: clips.payload.stills ?? [],
+        clips: [...clips.payload.clips, ...(body?.payload.clips ?? [])].map((c) => c.ref),
+        stills: [...(clips.payload.stills ?? []), ...(body?.payload.stills ?? [])],
       },
     }
   },

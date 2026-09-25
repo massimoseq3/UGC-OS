@@ -160,6 +160,48 @@ export function topoOrder(graph: FlowGraph): string[] {
   return order
 }
 
+// What a Scripts block's wiring decides about it, written onto its settings
+// as `sourceWired` so its slots and its price agree with what the run will
+// do (catalog.ts scriptsMode / rebuildsScenes):
+// - a winning ad wired into Source makes it a remix, whatever the panel was
+//   left on (executors/simple.ts scriptInput does the same at run time);
+// - an ad's SCENES wired in (the Ad Analyzer's Scene Prompts, or a Scripts
+//   block writing scenes) makes it the scene-by-scene rebuild, which writes
+//   ONE take — so it has one slot, not the three a remix starts with.
+// It's left off when nothing is wired: the panel's own mode decides. It is
+// NOT part of the block's identity (catalog.ts NOT_GENERATION) — the wire is
+// already in the run's inputs — so writing it re-keys nothing already made.
+// A Scripts block fed by another settles after it, so this repeats until
+// nothing changes (a chain of three settles in one edit, not three).
+export function settleScripts(graph: FlowGraph): FlowBlock[] {
+  let blocks = graph.blocks
+  for (let pass = 0; pass < 8; pass++) {
+    const next = settleOnce({ blocks, wires: graph.wires })
+    if (next.every((b, i) => b === blocks[i])) return next
+    blocks = next
+  }
+  return blocks
+}
+
+function settleOnce(graph: FlowGraph): FlowBlock[] {
+  return graph.blocks.map((b) => {
+    if (b.kind !== 'scripts') return b
+    // A wire from a block this edit deleted is on its way out (pruneWires).
+    const wire = graph.wires.find((w) => w.to === b.id && w.toPort === 'source' && blockById(graph, w.from))
+    const from = wire && blockById(graph, wire.from)
+    const scenes = !!from && (
+      (from.kind === 'analyzer' && wire!.fromPort === 'scenes')
+      || (from.kind === 'scripts' && (from.settings.writeFormat === 'scenes' || from.settings.sourceWired === 'scenes'))
+    )
+    const wired = wire ? (scenes ? 'scenes' : 'plain') : undefined
+    if (wired === b.settings.sourceWired) return b
+    const settings: Record<string, unknown> = { ...b.settings }
+    if (wired === undefined) delete settings.sourceWired
+    else settings.sourceWired = wired
+    return { ...b, settings }
+  })
+}
+
 // Wires that no longer make sense after an edit — a batch slot deleted, a
 // source switched so an input vanished, an output whose type changed — go.
 export function pruneWires(graph: FlowGraph): FlowWire[] {

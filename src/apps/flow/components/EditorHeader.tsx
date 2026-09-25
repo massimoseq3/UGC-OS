@@ -5,12 +5,12 @@
 
 import { useState } from 'react'
 import { useReactFlow } from '@xyflow/react'
-import { AlertCircle, ArrowLeft, ChevronDown, Coins, FlaskConical, Play, Share2 } from 'lucide-react'
+import { AlertCircle, ArrowLeft, ChevronDown, Coins, FlaskConical, Play, RotateCw, Share2 } from 'lucide-react'
 import type { FlowDoc } from '../types'
 import type { FlowPlan } from '../engine/plan'
 import { KINDS, titleOf } from '../engine/catalog'
 import type { LiveRun } from '../run/runtime'
-import { creditsLabel, creditsPill } from '../hooks/useFlowPlan'
+import { creditsLabel, creditsPill, runButton } from '../hooks/useFlowPlan'
 import { useFlowStore } from '../store/flowStore'
 import { exportTemplate } from '../templates/io'
 import { useRecordingActive } from '../../../stores/recordingStore'
@@ -27,6 +27,7 @@ export default function EditorHeader({
   doc,
   plan,
   test,
+  again,
   run,
   balance,
   onRun,
@@ -40,6 +41,7 @@ export default function EditorHeader({
   doc: FlowDoc
   plan: FlowPlan | null
   test: FlowPlan | null
+  again: FlowPlan | null
   run: LiveRun | undefined
   balance: number | null
   onRun: (req: RunRequest) => void
@@ -52,21 +54,14 @@ export default function EditorHeader({
   const openFlow = useFlowStore((s) => s.openFlow)
   const renameFlow = useFlowStore((s) => s.renameFlow)
   const [summaryOpen, setSummaryOpen] = useState(false)
+  const [nameDraft, setNameDraft] = useState<string | null>(null)
   const active = run?.status === 'running'
-  const states = run ? Object.values(run.blocks) : []
-  const done = states.filter((b) => b.status === 'done' || b.status === 'skipped' || b.status === 'error').length
-  const waiting = states.some((b) => b.status === 'review')
-  const next = plan?.credits ?? 0
+  const button = runButton(doc, plan, again, run)
+  const next = button.credits
   // Everything that can't hand anything on yet: an app block missing an
   // input, and a field nobody has filled.
   const blocked = doc.blocks.filter((b) => !b.suggested && KINDS[b.kind] && b.kind !== 'note' && plan?.blocks[b.id]?.blocked && plan.blocks[b.id].blocked !== 'Turned off')
 
-  const runLabel = active
-    ? waiting ? 'Waiting for Review' : `Running · ${done} of ${states.length}`
-    : !plan?.planned.length ? 'Nothing to Run'
-    : plan.planned.length < doc.blocks.filter((b) => KINDS[b.kind]?.runnable).length && Object.keys(doc.outputs).length
-      ? `Re-run ${plan.planned.length} ${plan.planned.length === 1 ? 'Block' : 'Blocks'}`
-      : 'Run Flow'
 
   return (
     <div className="relative z-20 flex h-[57px] shrink-0 items-center gap-2 border-b border-ink/5 px-4">
@@ -86,9 +81,15 @@ export default function EditorHeader({
         dense
         accent="flow"
       />
+      {/* A draft while typing, saved on blur: the store trims a name, so
+          saving every keystroke swallowed each space as it was typed. */}
       <input
-        value={doc.name}
-        onChange={(e) => renameFlow(flowId, e.target.value)}
+        value={nameDraft ?? doc.name}
+        onChange={(e) => setNameDraft(e.target.value)}
+        onBlur={() => {
+          if (nameDraft !== null) renameFlow(flowId, nameDraft)
+          setNameDraft(null)
+        }}
         className="min-w-0 max-w-[280px] flex-1 rounded-full bg-transparent px-2 py-1 text-sm font-semibold tracking-tight text-ink-100 outline-none hover:bg-ink/[0.04] focus:bg-ink/[0.06]"
         aria-label="Flow Name"
       />
@@ -120,7 +121,9 @@ export default function EditorHeader({
 
         <span className="mx-1 h-6 w-px bg-ink/10" />
 
-        {!active && (
+        {/* Nothing left to test once a test's been made and nothing changed:
+            the button would only say so in a toast. */}
+        {!active && !!test?.planned.length && (
           <button
             type="button"
             onClick={() => onRun({ test: true })}
@@ -136,13 +139,18 @@ export default function EditorHeader({
         {/* Run Flow, with what it costs riding on it like every Generate, and
             the ▾ that opens where that number comes from. */}
         <div className="glass-fill glass-fill-soft flex h-10 items-stretch overflow-hidden rounded-full border border-white/15 bg-flow-500 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),inset_0_-1px_0_rgba(255,255,255,0.08)] btn-soft-shadow transition-all hover:brightness-110">
-          <button type="button" onClick={() => onRun({})} className="flex items-center gap-2 pl-4 pr-3 text-[13px] font-bold tracking-tight">
-            {active ? <Spinner className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" strokeWidth={2.5} />}
-            <span className="whitespace-nowrap">{runLabel}</span>
+          <button
+            type="button"
+            onClick={() => onRun(button.again ? { fresh: true } : {})}
+            title={button.again ? 'Nothing has changed. Run Again makes every block afresh, for new takes.' : undefined}
+            className="flex items-center gap-2 pl-4 pr-3 text-[13px] font-bold tracking-tight"
+          >
+            {active ? <Spinner className="h-3.5 w-3.5" /> : button.again ? <RotateCw className="h-3.5 w-3.5" strokeWidth={2.5} /> : <Play className="h-3.5 w-3.5" strokeWidth={2.5} />}
+            <span className="whitespace-nowrap">{button.label}</span>
             {!active && next > 0 && (
               <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-semibold">
                 <Coins className="h-3 w-3" />
-                {creditsPill(next, plan?.unpriced)}
+                {creditsPill(next, button.unpriced)}
               </span>
             )}
           </button>

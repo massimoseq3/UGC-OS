@@ -50,9 +50,14 @@ export default function InfluencerLightbox({
   }
 
   return createPortal(
+    // The click stops here: a portal still bubbles through the REACT tree, and
+    // this is mounted inside the editor's output tile, whose own click selects
+    // it as the Source. Dismissing the view used to re-point the next edit at
+    // whichever output had been opened full screen.
     <div
       className="fixed inset-0 z-[70] flex flex-col bg-black/80 backdrop-blur-sm"
-      {...backdrop}
+      onMouseDown={backdrop.onMouseDown}
+      onClick={(e) => { e.stopPropagation(); backdrop.onClick(e) }}
     >
       <div className="absolute right-4 top-4 z-10" onClick={(e) => e.stopPropagation()}>
         <button

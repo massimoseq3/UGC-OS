@@ -136,8 +136,19 @@ export function useReferenceLibrary(
     }))
 
     setItems((prev) => [...queued.map((q) => q.row), ...prev].slice(0, LIBRARY_CAP))
+    // The whole batch reads as analyzing from the moment it lands, not just the
+    // three the pool is running. A row waiting its turn has no profile and no
+    // live analysis, which the library draws as an interrupted run with a Retry
+    // — and pressing it paid for a vision call the pool then made again.
+    const queuedIds = queued.map((q) => q.row.id)
+    setAnalyzingIds((prev) => [...prev, ...queuedIds.filter((id) => !prev.includes(id))])
 
     await runPool(queued, ANALYZE_CONCURRENCY, async ({ row, file }) => {
+      // Removed while it waited — don't pay to analyze a row that's gone.
+      if (!filesRef.current.has(row.id)) {
+        setAnalyzingIds((prev) => prev.filter((x) => x !== row.id))
+        return
+      }
       const profile = await analyze(row.id, file)
       if (profile && autoApply) onApplyRef.current({ ...row, profile })
     })
@@ -156,6 +167,8 @@ export function useReferenceLibrary(
   const remove = useCallback((id: string) => {
     filesRef.current.delete(id)
     setItems((prev) => prev.filter((it) => it.id !== id))
+    // A queued row counts as analyzing until the pool reaches it (see addFiles).
+    setAnalyzingIds((prev) => prev.filter((x) => x !== id))
   }, [setItems])
 
   return {

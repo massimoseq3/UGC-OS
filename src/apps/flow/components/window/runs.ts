@@ -5,7 +5,7 @@
 import type { BlockKind, FlowBlock, FlowDoc, FlowValue, InstanceResult, PortSpec } from '../../types'
 import type { BlockPlan, FlowPlan } from '../../engine/plan'
 import { insOf, titleOf } from '../../engine/catalog'
-import { blockById } from '../../engine/graph'
+import { blockById, upstreamOf } from '../../engine/graph'
 import type { LiveRun } from '../../run/runtime'
 import type { RunRequest } from '../Editor'
 
@@ -26,6 +26,7 @@ export const ACCENT_BG: Partial<Record<BlockKind, string>> = {
   voice: 'bg-voice-500',
   broll: 'bg-broll-500',
   playground: 'bg-playground-500',
+  scenes: 'bg-playground-500',
   analyzer: 'bg-analyzer-500',
   outliers: 'bg-[#D9A404]',
   edit: 'bg-[#F77646]',
@@ -95,6 +96,27 @@ export function blockTitle(doc: FlowDoc, id: string): string {
 function runLabel(inputs: Record<string, FlowValue[]>, lead: PortSpec | undefined, index: number): string {
   if (!lead) return `Run ${index + 1}`
   const v = inputs[lead.key]?.[0]
-  if (v && !v.pending && v.label) return v.label
+  // A value not made yet still has a name when it's a batch's slot ("Hook 3").
+  if (v?.label) return v.label
   return `${lead.label} ${index + 1}`
+}
+
+// What a block's own Generate spends: every run of the block, made again,
+// plus whatever it reads from that isn't made yet — Run Block makes those
+// first (engine/plan.ts) — and the names of those blocks, for the line
+// under the button.
+export function ownRunPrice(doc: FlowDoc, block: FlowBlock, plan: FlowPlan | null): { credits: number; unpriced: boolean; first: string[] } {
+  const bp = plan?.blocks[block.id]
+  let credits = bp?.creditsAll ?? 0
+  let unpriced = !!bp?.unpriced
+  const first: string[] = []
+  for (const id of plan?.planned ?? []) {
+    if (id === block.id || !upstreamOf(doc, block.id).has(id)) continue
+    const up = plan!.blocks[id]
+    credits += up.credits
+    unpriced ||= up.unpriced
+    const b = blockById(doc, id)
+    if (b) first.push(titleOf(b))
+  }
+  return { credits, unpriced, first }
 }

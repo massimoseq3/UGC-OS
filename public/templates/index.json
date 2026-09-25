@@ -1,6 +1,15 @@
 {
   "templates": [
     {
+      "slug": "talking-head-clone",
+      "name": "Talking Head Ad, Scene by Scene",
+      "description": "A winning ad torn down and rewritten for your product, then filmed one clip per scene with your character: the voice profile in every clip, the product only where it's shown, scene 1's frame carried through. No voiceover, no B-roll: the character says it.",
+      "blocks": 8,
+      "estimate": 150,
+      "videoUrl": "https://www.youtube.com/watch?v=e81bKzMNXB4",
+      "version": 1
+    },
+    {
       "slug": "product-to-5-ugc-ads",
       "name": "Product → 5 UGC Ads",
       "description": "Five 30-second scripts for your product, each read by a voice and shot as B-Roll, packed as five folders ready for the /video-editor skill.",
@@ -9,19 +18,46 @@
       "version": 1
     },
     {
-      "slug": "10-hook-machine",
-      "name": "10-Hook Machine",
-      "description": "Ten scroll-stopping hooks for your product. You keep the best, and each one gets a voiceover and its own shot, so you can test openers side by side.",
-      "blocks": 7,
-      "estimate": 300,
-      "version": 1
-    },
-    {
       "slug": "clone-a-winner",
       "name": "Clone a Winner",
       "description": "Pick an ad from your Swipe File. Flow tears it down, rewrites it for your product, and shoots your version on the same beats with your own character.",
       "blocks": 8,
       "estimate": 700,
+      "version": 1
+    },
+    {
+      "slug": "street-interview",
+      "name": "Street Interview, One Shot",
+      "description": "An off-camera interviewer, your character answering, filmed as a single clip. The winning ad's scenes rewritten as a conversation for your product, with the master look carried over.",
+      "blocks": 8,
+      "estimate": 850,
+      "videoUrl": "https://www.youtube.com/watch?v=JgoPiiBhdn8",
+      "version": 1
+    },
+    {
+      "slug": "many-hooks-one-body",
+      "name": "Many Hooks, One Body",
+      "description": "Ten hooks, each filmed as its own talking-head clip, cut in front of one shared body filmed once. Every hook speaks in the body's voice, so each pack plays as one ad.",
+      "blocks": 8,
+      "estimate": 550,
+      "videoUrl": "https://www.youtube.com/watch?v=ek-vqW_TPd8",
+      "version": 1
+    },
+    {
+      "slug": "same-ad-new-faces",
+      "name": "Same Ad, Three Faces",
+      "description": "One approved script filmed scene by scene with your character and two variants of them for other audiences, so each audience sees someone like them. The scenes, the voice profile and the product shots stay the same; only the face changes.",
+      "blocks": 10,
+      "estimate": 450,
+      "videoUrl": "https://www.youtube.com/watch?v=ek-vqW_TPd8",
+      "version": 1
+    },
+    {
+      "slug": "10-hook-machine",
+      "name": "10-Hook Machine",
+      "description": "Ten scroll-stopping hooks for your product. You keep the best, and each one gets a voiceover and its own shot, so you can test openers side by side.",
+      "blocks": 7,
+      "estimate": 300,
       "version": 1
     }
   ]

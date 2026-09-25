@@ -6,10 +6,12 @@ import { AlertCircle, Coins, FlaskConical, Play } from 'lucide-react'
 import type { FlowDoc } from '../../types'
 import type { FlowPlan } from '../../engine/plan'
 import { KINDS, titleOf } from '../../engine/catalog'
-import type { LiveRun } from '../../run/runtime'
-import { creditsLabel, creditsPill } from '../../hooks/useFlowPlan'
+import { blockStatusLine, type LiveRun } from '../../run/runtime'
+import { creditsLabel, creditsPill, runButton } from '../../hooks/useFlowPlan'
 import { useFlowStore } from '../../store/flowStore'
 import { BankPick } from './Picks'
+import { ImageBody, TextBody } from '../node/helpers'
+import { isFieldable } from '../blockMeta'
 import { StopButton } from './common'
 import type { BankType } from '../../../../utils/constants'
 import type { RunRequest } from '../Editor'
@@ -19,6 +21,7 @@ export default function FlowPanel({
   doc,
   plan,
   test,
+  again,
   run,
   balance,
   onRun,
@@ -27,6 +30,7 @@ export default function FlowPanel({
   doc: FlowDoc
   plan: FlowPlan | null
   test: FlowPlan | null
+  again: FlowPlan | null
   run: LiveRun | undefined
   balance: number | null
   onRun: (req: RunRequest) => void
@@ -34,21 +38,12 @@ export default function FlowPanel({
   const setSelection = useFlowStore((s) => s.setSelection)
   const recording = useRecordingActive()
   const active = run?.status === 'running'
-  const fields = doc.blocks.filter((b) => b.field && !b.suggested)
+  const button = runButton(doc, plan, again, run)
+  const fields = doc.blocks.filter((b) => b.field && !b.suggested && isFieldable(b))
   const blocked = doc.blocks.filter((b) => plan?.blocks[b.id]?.blocked && plan.blocks[b.id].blocked !== 'Turned off' && KINDS[b.kind]?.runnable)
-  const next = plan?.credits ?? 0
+  const next = button.credits
   const all = plan?.creditsAll ?? 0
   const short = balance !== null && next > balance
-  const states = run ? Object.values(run.blocks) : []
-  const done = states.filter((b) => b.status === 'done' || b.status === 'skipped' || b.status === 'error').length
-  const waiting = states.some((b) => b.status === 'review')
-
-  const runLabel = active
-    ? waiting ? 'Waiting for Your Review' : `Running · ${done} of ${states.length}`
-    : !plan?.planned.length ? 'Nothing to Run'
-    : plan.planned.length < doc.blocks.filter((b) => KINDS[b.kind]?.runnable).length && Object.keys(doc.outputs).length
-      ? `Re-run ${plan.planned.length} ${plan.planned.length === 1 ? 'Block' : 'Blocks'}`
-      : 'Run Flow'
 
   return (
     <div className="flex h-full flex-col">
@@ -65,12 +60,15 @@ export default function FlowPanel({
               {fields.map((b) => (
                 <div key={b.id} className="flex flex-col gap-1">
                   <span className="px-1 text-[12px] text-ink-300">{titleOf(b)}</span>
-                  {b.kind === 'bank' ? (
-                    <BankPick block={b} bank={(b.settings.bank as BankType) ?? 'products'} />
+                  {/* Filled in right here: Run View has no canvas to send a
+                      member to (a phone has nothing else), so a field that
+                      only pointed at its block could never be changed. */}
+                  {b.kind === 'text' ? (
+                    <TextBody block={b} />
+                  ) : b.kind === 'image' ? (
+                    <ImageBody block={b} />
                   ) : (
-                    <button type="button" onClick={() => setSelection([b.id])} className="rounded-2xl border border-ink/10 px-4 py-3 text-left text-[12px] text-ink-300 hover:border-ink/20">
-                      Edit in its block
-                    </button>
+                    <BankPick block={b} bank={b.kind === 'bank' ? (b.settings.bank as BankType) ?? 'products' : b.kind === 'characters' ? 'models' : 'scripts'} />
                   )}
                 </div>
               ))}
@@ -79,10 +77,26 @@ export default function FlowPanel({
 
           <section className="flex flex-col gap-2 rounded-2xl border border-ink/5 bg-ink/[0.02] p-4">
             <div className="flex items-baseline justify-between">
-              <span className="text-[12px] text-ink-400">Next Run</span>
-              <span className="text-[15px] font-semibold tabular-nums text-ink-100">{creditsLabel(next, plan?.unpriced)}</span>
+              <span className="text-[12px] text-ink-400">{active ? 'This Run' : button.again ? 'Run Again' : 'Next Run'}</span>
+              <span className="text-[15px] font-semibold tabular-nums text-ink-100">{creditsLabel(active && run ? run.estimate : next, active ? false : button.unpriced)}</span>
             </div>
-            {plan && plan.planned.length > 0 && (
+            {/* While it runs: where each block of THIS run stands, not what
+                a next run would still make. */}
+            {active && run && (
+              <div className="flex flex-col gap-0.5">
+                {Object.entries(run.blocks).map(([id, state]) => {
+                  const b = doc.blocks.find((x) => x.id === id)
+                  if (!b) return null
+                  return (
+                    <button key={id} type="button" onClick={() => setSelection([id])} className="flex items-center justify-between gap-3 rounded-lg px-1 py-0.5 text-left text-[11.5px] hover:bg-ink/[0.04]">
+                      <span className="truncate text-ink-400">{titleOf(b)}</span>
+                      <span title={blockStatusLine(state) ?? undefined} className={`max-w-[60%] shrink-0 truncate ${state.status === 'error' ? 'text-red-400' : state.status === 'review' ? 'text-amber-300 light:text-amber-700' : 'text-ink-500'}`}>{blockStatusLine(state)}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+            {!active && plan && plan.planned.length > 0 && (
               <div className="flex flex-col gap-0.5">
                 {plan.planned.map((id) => {
                   const b = doc.blocks.find((x) => x.id === id)
@@ -137,7 +151,7 @@ export default function FlowPanel({
       <div className="shrink-0 border-t border-ink/5 px-5 pb-3 pt-3">
         {recording && <p className="mb-2 text-[11px] text-rose-300">Recording Mode is on: runs replay what you hid, and spend nothing.</p>}
         <div className="flex items-center gap-2">
-          {!active && (
+          {!active && !!test?.planned.length && (
             <button
               type="button"
               onClick={() => onRun({ test: true })}
@@ -152,16 +166,16 @@ export default function FlowPanel({
               costs — two lines, so neither is ever truncated to fit the other. */}
           <button
             type="button"
-            onClick={() => onRun({})}
+            onClick={() => onRun(button.again ? { fresh: true } : {})}
             className="glass-fill glass-fill-soft flex h-[52px] min-w-0 flex-1 items-center justify-center gap-2.5 rounded-full border border-white/15 bg-flow-500 px-5 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),inset_0_-1px_0_rgba(255,255,255,0.08)] btn-soft-shadow transition-all hover:brightness-110"
           >
             <Play className="h-4 w-4 shrink-0" strokeWidth={2.5} />
             <span className="flex min-w-0 flex-col items-start leading-tight">
-              <span className="truncate text-sm font-bold tracking-tight">{runLabel}</span>
+              <span className="truncate text-sm font-bold tracking-tight">{button.label}</span>
               {!active && next > 0 && (
                 <span className="flex items-center gap-1 text-[10.5px] font-medium text-white/80">
                   <Coins className="h-2.5 w-2.5" />
-                  {creditsPill(next, plan?.unpriced)}
+                  {creditsPill(next, button.unpriced)}{button.again ? ' · new takes' : ''}
                 </span>
               )}
             </span>

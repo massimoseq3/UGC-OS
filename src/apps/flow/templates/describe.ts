@@ -14,7 +14,7 @@ import { ACCEPTS, BANK_ORDER, BANK_TYPE, KINDS, PRODUCTION_ORDER, TYPE_META, blo
 import { canConnect } from '../engine/graph'
 import { COLUMN_GAP, ROW_GAP, estimatedSize, laidOut } from '../engine/layout'
 import { validateTemplate, FORMAT, type FlowTemplateFile } from './io'
-import { withSlots, shortId } from '../store/blocks'
+import { shapeBlocks, withSlots, shortId } from '../store/blocks'
 import { useBankStore } from '../../../stores/bankStore'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import { kieChatCompletions, type ChatMessage } from '../../../utils/kie'
@@ -47,16 +47,17 @@ ${kinds}
 BANK BLOCKS: settings.bank is one of ${banks}; "pick" is the id of a row in that bank.
 
 SETTINGS BY KIND (anything omitted takes the app's default):
-- scripts: mode "write" | "remix"; writeFormat "hooks" | "script" | "scenes"; writeStyle one of ${Object.keys(WRITE_STYLE_META).join(', ')}; writeLength one of ${WRITE_LENGTHS.join(', ')} (seconds); hookCategory one of ${Object.keys(HOOK_CATEGORY_META).join(', ')}; hookCount one of ${HOOK_COUNTS.join(', ')}; variationCount one of ${VARIATION_COUNTS.join(', ')}; brief (text); additionalContext (text). Remix needs a transcript wired into "source".
+- scripts: mode "write" | "remix"; writeFormat "hooks" | "script" | "scenes"; writeStyle one of ${Object.keys(WRITE_STYLE_META).join(', ')}; writeLength one of ${WRITE_LENGTHS.join(', ')} (seconds); hookCategory one of ${Object.keys(HOOK_CATEGORY_META).join(', ')}; hookCount one of ${HOOK_COUNTS.join(', ')}; variationCount one of ${VARIATION_COUNTS.join(', ')}; brief (text); additionalContext (text). Remix needs a winning ad wired into "source": the Ad Analyzer's "transcript" for a plain script, or its "scenes" output for a scene-by-scene remix.
 - voice: voiceId one of ${VOICES.map((v) => `${v.id} (${v.gender ?? '?'}, ${v.description})`).join('; ')}; style one of ${VOICE_STYLES.join(', ')}; pace one of ${VOICE_PACES.join(', ')}; accent one of ${VOICE_ACCENTS.join(', ')}.
-- characters: count 1-4; kind "portrait" | "sheet"; profile: an object of free-text fields among gender, age, ethnicity, bodyType, skinTone, hairColor, hairStyle, clothingStyle, expression, pose, location, lighting.
+- characters: count 1-4; kind "portrait" | "sheet"; profile: an object of free-text fields among gender, age, ethnicity, bodyType, skinTone, hairColor, hairStyle, clothingStyle, expression, pose, location, lighting. Variants of one character for different audiences: wire the character (a models bank block) into "photo" and a list of changes (e.g. "Make her Asian-American, monolid eyes, brunette hair") into "change"; each change edits the picture into one variant.
 - broll: delivery "silent" (b-roll under a voiceover) | "dialogue" (the character speaks each line); takes 1-3 stills per script line; animate true | false; styleId one of ${CONTINUOUS_STYLES.map((s) => s.id).join(', ')}; aspectRatio "9:16" | "16:9" | "1:1"; context (text).
 - playground: mode "image" | "video" | "music"; prompt (text).
+- scenes ("Scene Clips"): films a scene script one video clip per scene, the character speaking the lines on camera — the talking-head / "yap" ad and the street interview. Feed it a Scripts block that writes scenes (writeFormat "scenes", or a remix whose "source" is the Ad Analyzer's "scenes" output), plus a character and the product. shape "scenes" | "one" (the whole script as one clip); takes 1-3; continuity true | false; rules (text added to every clip, e.g. "No captions or text on screen."). A talking-head ad needs no voice or broll block: the character says it. Use broll + voice instead for a voiceover over b-roll.
 - outliers: platform "tiktok" | "instagram" | "meta"; query (text); count 1-20.
 - text: text. list: entries (array of strings, one run downstream per entry). note: text.
 - analyzer, edit: no settings.
 
-BLOCK FLAGS: "review": true pauses the flow after that block so the member keeps only the results worth spending more on (scripts, characters, voice, broll, playground). "field": true on a bank block makes it something whoever runs the flow picks ("Your Product").`
+BLOCK FLAGS: "review": true pauses the flow after that block so the member keeps only the results worth spending more on (scripts, characters, voice, broll, playground, scenes — where it picks the best take of each scene). "field": true on a bank block makes it something whoever runs the flow picks ("Your Product").`
 }
 
 function banksText(): string {
@@ -102,18 +103,24 @@ async function ask(system: string, user: string): Promise<unknown> {
 type SizeOf = (id: string) => { width: number; height: number } | undefined
 
 
-// A block Ask Flow added goes one column right of whatever feeds it, below
-// anything already in that column, so it lands beside the work it belongs to
-// rather than off past the end of the flow.
+// A block Ask Flow added goes one column right of whatever feeds it — or
+// left of what it feeds, when nothing feeds it — below anything already in
+// that column, so it lands beside the work it belongs to rather than off past
+// the end of the flow.
 function placeBeside(graph: FlowGraph, id: string, sizeOf: SizeOf): FlowBlock[] {
   const size = (b: FlowBlock) => sizeOf(b.id) ?? estimatedSize(b)
   const block = graph.blocks.find((b) => b.id === id)
   const feed = graph.wires.find((w) => w.to === id)
   const upstream = feed && graph.blocks.find((b) => b.id === feed.from)
-  if (!block || !upstream) return graph.blocks
-  const x = upstream.x + size(upstream).width + COLUMN_GAP
+  // A block that only FEEDS something (a new voice preset, a list of
+  // searches) goes one column LEFT of what it feeds, so its wire runs
+  // forwards like every other one.
+  const out = !upstream ? graph.wires.find((w) => w.from === id) : undefined
+  const downstream = out && graph.blocks.find((b) => b.id === out.to)
+  if (!block || (!upstream && !downstream)) return graph.blocks
   const own = size(block)
-  let y = upstream.y
+  const x = upstream ? upstream.x + size(upstream).width + COLUMN_GAP : downstream!.x - own.width - COLUMN_GAP
+  let y = (upstream ?? downstream)!.y
   const column = graph.blocks
     .filter((b) => b.id !== id && b.x < x + own.width && b.x + size(b).width > x)
     .sort((a, b) => a.y - b.y)
@@ -161,7 +168,7 @@ export async function describeFlow(request: string): Promise<{ file: FlowTemplat
   // flow is the member's own, so its picks go back on, then get checked.
   const rawBlocks = Array.isArray((raw as { blocks?: unknown }).blocks) ? (raw as { blocks: Array<{ id?: unknown; pick?: unknown }> }).blocks : []
   const picked = new Map(rawBlocks.map((b) => [String(b.id), typeof b.pick === 'string' ? b.pick : undefined]))
-  const blocks = checkPicks(parsed.file.blocks.map((b) => ({ ...b, pick: picked.get(b.id) })), changes).map(withSlots)
+  const blocks = shapeBlocks({ blocks: checkPicks(parsed.file.blocks.map((b) => ({ ...b, pick: picked.get(b.id) })), changes), wires: parsed.file.wires })
   if (!blocks.some((b) => isKnownKind(b.kind))) throw new FriendlyError("Flow couldn't build that. Try naming what you want made: scripts, voiceovers, B-Roll.")
   const graph = laidOut({ blocks, wires: parsed.file.wires })
   return { file: { ...parsed.file, blocks: graph.blocks, wires: graph.wires }, changes }

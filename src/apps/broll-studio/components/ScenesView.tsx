@@ -417,7 +417,15 @@ export default function ScenesView({
   const batchImageModelId =
     useSettingsStore((s) => s.perAppModel['broll-studio:image:text-to-image']) ??
     getDefaultModel('broll-studio', 'image', 'text-to-image')?.id
+  // Both token maps are keyed by VARIATION id, never by the card's position.
+  // A card component lives as long as its variation (the row is keyed on
+  // `variation.id`), and deleting an option slides every later card into the
+  // slot before it — a positional token then handed the slid card a count it
+  // had never seen, and its batch effect fired a paid generation nobody asked
+  // for.
   const [batchTokens, setBatchTokens] = useState<Record<string, number>>({})
+  const variationIdOf = (key: string) =>
+    result?.scenes.find((s) => s.number === sceneOf(key))?.variations[columnOf(key)]?.id
   const [batchConfirm, setBatchConfirm] = useState<BatchRequest | null>(null)
   // Which OPTION columns this run covers — a set, not one pick, and every
   // option in it on open. See the note on ColumnChips.
@@ -472,7 +480,29 @@ export default function ScenesView({
   // Only cards with a prompt can generate — everything else is skipped
   // silently, here and in the target maths below.
   const promptReady = (key: string) => (cardStates[key]?.editablePrompt ?? '').trim().length > 0
-  const hasImage = (key: string) => (shownCardStates[key]?.images.length ?? 0) > 0
+  // What a batch reads a card as: through Recording Mode's hide (a hidden take
+  // must look fresh, so the replay has something to bring back) but NEVER
+  // through the Show filter. Read through the filter, the Images view — the
+  // one the docs say you animate from — showed no card holding a clip, so a
+  // video batch re-billed every clip without the "Also regenerate" tick, and
+  // the Videos / Prompts views rendered cards from their prompts instead of
+  // animating the stills they had. Uncached on purpose: `cachedView` holds one
+  // view per card, and a second filter would thrash it every render.
+  const batchCard = (key: string): CardState | undefined => {
+    const card = cardStates[key]
+    if (!card || !lens || lens.filter === 'all') return shownCardStates[key] ?? card
+    return hideSince != null ? viewCard(key, card, { ...lens, filter: 'all' }) : card
+  }
+  const hasImage = (key: string) => (batchCard(key)?.images.length ?? 0) > 0
+  // The still a video batch animates, per card — the unfiltered cover still,
+  // so the run animates what the dialog counted as animating.
+  const batchStartFrames: Record<string, string | undefined> = {}
+  for (const scene of result?.scenes ?? []) {
+    scene.variations.forEach((_, i) => {
+      const key = `${scene.number}-${i}`
+      batchStartFrames[key] = coverImageRef(batchCard(key))
+    })
+  }
 
   // The cards this press covers, narrowed to the picked option column.
   // Every option and every line the press reached — the two axes the dialog
@@ -558,9 +588,10 @@ export default function ScenesView({
   const confirmBatch = () => {
     if (!batchConfirm || batchTargets.length === 0) return
     setBatchImageOverride({ aspectRatio: effectiveBatchAspect ?? '9:16', resolution: effectiveBatchRes })
+    const ids = batchTargets.map(variationIdOf).filter((id): id is string => !!id)
     setBatchTokens((prev) => {
       const next = { ...prev }
-      for (const k of batchTargets) next[k] = (next[k] ?? 0) + 1
+      for (const id of ids) next[id] = (next[id] ?? 0) + 1
       return next
     })
     setBatchConfirm(null)
@@ -642,7 +673,7 @@ export default function ScenesView({
         batchVideoModelId,
         { spoken: spokenByKey[key] ?? false },
       )
-  const hasVideo = (key: string) => (shownCardStates[key]?.videos.length ?? 0) > 0
+  const hasVideo = (key: string) => (batchCard(key)?.videos.length ?? 0) > 0
   // What makes a card eligible for this run: a still to animate, or (for a
   // plain video batch) just a prompt to render from.
   const videoEligible = videoConfirm?.stillsOnly ? hasImage : promptReady
@@ -660,7 +691,7 @@ export default function ScenesView({
   // from the prompt alone. It used to be printed as a qualifier under the title
   // ("from the card stills"); that line is gone, and this survives because it
   // decides which models the picker greys out and whether the run is held.
-  const videoAnimateCount = videoTargets.filter((k) => (shownCardStates[k]?.images.length ?? 0) > 0).length
+  const videoAnimateCount = videoTargets.filter((k) => !!batchStartFrames[k]).length
   const videoBatchCredits = batchVideoModelId
     ? videoTargets.reduce<number | null>((sum, key) => {
         if (sum === null) return null
@@ -727,9 +758,11 @@ export default function ScenesView({
       // Absent on an Auto run — each card then uses its own per-line length.
       ...(pinnedVideoDuration ? { durationSeconds: pinnedVideoDuration } : {}),
     })
+    // By variation id, like the image tokens — see the note on `batchTokens`.
+    const ids = videoTargets.map(variationIdOf).filter((id): id is string => !!id)
     setVideoTokens((prev) => {
       const next = { ...prev }
-      for (const k of videoTargets) next[k] = (next[k] ?? 0) + 1
+      for (const id of ids) next[id] = (next[id] ?? 0) + 1
       return next
     })
     setVideoConfirm(null)
@@ -820,7 +853,10 @@ export default function ScenesView({
             const newImage = await brollStillRunner.finish({ taskId, modelId, prompt, resolution })
             setCardStates((prev) => {
               const existing = prev[key]
-              if (!existing) return prev
+              // Only the card that holds the entry: keys are positional, and
+              // another session's card can sit at this one now (see VariationCard's
+              // runImageGen).
+              if (!existing?.inFlightImages.some((e) => e.id === inFlightId)) return prev
               const newImages = [...existing.images, newImage]
               return {
                 ...prev,
@@ -867,7 +903,7 @@ export default function ScenesView({
             const { video: newVideo } = await brollClipRunner.finish(task)
             setCardStates((prev) => {
               const existing = prev[key]
-              if (!existing) return prev
+              if (!existing?.inFlightVideos.some((e) => e.id === inFlightId)) return prev
               const newVideos = [...existing.videos, newVideo]
               return {
                 ...prev,
@@ -1246,7 +1282,7 @@ export default function ScenesView({
                       iconClassName="text-broll-300"
                       onClick={() => {
                         setGenerateAllOpen(false)
-                        requestVideoBatch(allKeys)
+                        requestVideoBatch(allKeys, true)
                       }}
                     >
                       Animate All Stills
@@ -1310,6 +1346,7 @@ export default function ScenesView({
             batchImageOverride={batchImageOverride}
             videoTokens={videoTokens}
             batchVideoOverride={batchVideoOverride}
+            batchStartFrames={batchStartFrames}
             dialogueChainRefs={dialogueChainRefs}
             onGenerateScene={() =>
               requestBatch(scene.variations.map((_, i) => `${scene.number}-${i}`))
@@ -1946,6 +1983,7 @@ const VariationCardRow = memo(function VariationCardRow({
   batchImageOverride,
   generateVideoToken,
   batchVideoOverride,
+  batchStartFrame,
   chainImageRef,
   onReplayCard,
   resultStyle,
@@ -1980,6 +2018,7 @@ const VariationCardRow = memo(function VariationCardRow({
   batchImageOverride?: { aspectRatio: string; resolution?: ImageResolution } | null
   generateVideoToken?: number
   batchVideoOverride?: BatchVideoSettings | null
+  batchStartFrame?: string
   chainImageRef?: string
   onReplayCard?: (key: string, kind: CardReplayKind) => void
   resultStyle?: string
@@ -2033,6 +2072,7 @@ const VariationCardRow = memo(function VariationCardRow({
       batchImageOverride={batchImageOverride}
       generateVideoToken={generateVideoToken}
       batchVideoOverride={batchVideoOverride}
+      batchStartFrame={batchStartFrame}
       chainImageRef={chainImageRef}
       resultStyle={resultStyle}
       resultRealism={resultRealism}
@@ -2158,6 +2198,7 @@ function SceneSection({
   batchImageOverride,
   videoTokens,
   batchVideoOverride,
+  batchStartFrames,
   dialogueChainRefs,
   onGenerateScene,
   onGenerateSceneVideos,
@@ -2189,10 +2230,13 @@ function SceneSection({
   modelContext?: string
   onOpenCharacterPicker?: () => void
   onOpenProductPicker?: () => void
+  // Both keyed by variation id — see the note where ScenesView declares them.
   batchTokens: Record<string, number>
   batchImageOverride?: { aspectRatio: string; resolution?: ImageResolution } | null
   videoTokens: Record<string, number>
   batchVideoOverride?: BatchVideoSettings | null
+  // Card key → the still a video batch animates (the unfiltered cover still).
+  batchStartFrames: Record<string, string | undefined>
   // Card key → the still that card's talking-head shot chains from. Only
   // DIALOGUE cards have an entry, and only from the second one onward.
   dialogueChainRefs: Record<string, string>
@@ -2364,10 +2408,11 @@ function SceneSection({
                 modelContext={modelContext}
                 onOpenCharacterPicker={onOpenCharacterPicker}
                 onOpenProductPicker={onOpenProductPicker}
-                generateImageToken={batchTokens[key]}
+                generateImageToken={batchTokens[variation.id]}
                 batchImageOverride={batchImageOverride}
-                generateVideoToken={videoTokens[key]}
+                generateVideoToken={videoTokens[variation.id]}
                 batchVideoOverride={batchVideoOverride}
+                batchStartFrame={batchStartFrames[key]}
                 chainImageRef={dialogueChainRefs[key]}
                 onReplayCard={onReplayCard}
                 resultStyle={resultStyle}

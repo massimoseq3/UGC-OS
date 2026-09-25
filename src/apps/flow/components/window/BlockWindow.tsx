@@ -29,6 +29,7 @@ import CharactersWindow from './CharactersWindow'
 import ScriptsWindow from './ScriptsWindow'
 import BrollWindow from './BrollWindow'
 import PlaygroundWindow from './PlaygroundWindow'
+import ScenesWindow from './ScenesWindow'
 import { AnalyzerWindow, EditWindow, OutliersWindow } from './SmallWindows'
 import ReuseWindow from './ReuseWindow'
 
@@ -40,6 +41,7 @@ const REVIEW_HINT: Partial<Record<FlowBlock['kind'], string>> = {
   voice: 'When it finishes, keep the takes you like.',
   broll: 'After the stills, pick which get animated, before any clip is paid for.',
   playground: 'When it finishes, keep the ones you like.',
+  scenes: 'When it finishes, pick the best take of each scene. Only those go on to the edit.',
 }
 
 export default function BlockWindow(props: WindowProps & { onClose: () => void }) {
@@ -77,6 +79,7 @@ function WindowBody(props: WindowProps) {
     case 'scripts': return <ScriptsWindow {...props} />
     case 'broll': return <BrollWindow {...props} />
     case 'playground': return <PlaygroundWindow {...props} />
+    case 'scenes': return <ScenesWindow {...props} />
     case 'analyzer': return <AnalyzerWindow {...props} />
     case 'outliers': return <OutliersWindow {...props} />
     case 'edit': return <EditWindow {...props} />

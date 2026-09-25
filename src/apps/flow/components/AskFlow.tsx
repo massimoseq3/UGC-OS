@@ -66,11 +66,20 @@ export default function AskFlow({
     setOutcome(null)
     try {
       const result = await askFlow(doc, request, sizeOf)
-      replaceGraph(result.graph)
-      const at = useFlowStore.getState().docs[doc.id]?.updatedAt ?? 0
-      setOutcome({ summary: result.summary, changes: result.changes, at })
-      setText('')
-      onApplied(result.touched)
+      // The answer is a whole graph built from the flow as it was asked
+      // about. Applied over an edit made while it was thinking — or over
+      // another flow opened since — it would silently undo that work.
+      const { openId, docs } = useFlowStore.getState()
+      const now = docs[doc.id]
+      if (openId !== doc.id || now?.blocks !== doc.blocks || now.wires !== doc.wires) {
+        addToast('The flow changed while Flow was working on that, so nothing was applied. Ask again.', 'info')
+      } else {
+        replaceGraph(result.graph)
+        const at = useFlowStore.getState().docs[doc.id]?.updatedAt ?? 0
+        setOutcome({ summary: result.summary, changes: result.changes, at })
+        setText('')
+        onApplied(result.touched)
+      }
     } catch (err) {
       addToast(humanizeError(err, "Flow couldn't make that change. Try saying it another way."), 'error')
     }
