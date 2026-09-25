@@ -1,6 +1,8 @@
 // A block's face: the glyph and colour it wears on the canvas and in the
 // palette — its app's own dock icon and accent, so a Voiceovers block is
-// recognisably Voiceovers.
+// recognisably Voiceovers. The dock's exact tile, not a tint of it: Scripts
+// and Playground wore lifted blues and teals here until September 2026, and
+// beside the dock a member read them as different apps.
 
 import type { ElementType } from 'react'
 import { Clapperboard, Image as ImageIcon, List, StickyNote, Type } from 'lucide-react'
@@ -35,28 +37,19 @@ export function blockAccent(block: Pick<FlowBlock, 'kind' | 'settings'>): string
     return (BANK_CONFIG[bank] ?? BANK_CONFIG.products).accent
   }
   const app = KINDS[block.kind].appId ? getAppConfig(KINDS[block.kind].appId!) : undefined
-  // Scripts and Playground are near-black on a dark canvas; the lifted tint
-  // their own admin charts use keeps a small glyph legible.
-  if (block.kind === 'scripts') return '#4C6FBF'
-  if (block.kind === 'playground') return '#12A594'
   return app?.accent ?? KINDS[block.kind].accent
 }
 
-// Kind icon + accent without a block, for the palette.
+// Kind icon + accent without a block, for the palette. A Bank that hasn't
+// picked its bank yet is the Bank app itself, in its dock tile; once it has,
+// it wears that bank's own tab icon, as it does in the Bank.
 export function kindFace(kind: BlockKind, bank?: BankType): { icon: ElementType; accent: string } {
+  if (kind === 'bank' && !bank) {
+    const app = getAppConfig('finder')!
+    return { icon: app.icon, accent: app.accent }
+  }
   const probe = { kind, settings: bank ? { bank } : {} }
   return { icon: blockIcon(probe), accent: blockAccent(probe) }
-}
-
-// A kind as the dock wears it — its app's own icon and accent, not the lifted
-// tint a block's header uses on the dark canvas — for the palette, which sits
-// right above the real dock and read as a different set of apps. The Bank
-// tile is the Bank app's, since it opens every bank. Scene Clips has no app
-// of its own and the helpers have none at all, so they keep their faces.
-export function dockFace(kind: BlockKind): { icon: ElementType; accent: string } {
-  const appId = kind === 'bank' ? 'finder' : kind === 'scenes' ? undefined : KINDS[kind].appId
-  const app = appId ? getAppConfig(appId) : undefined
-  return app ? { icon: app.icon, accent: app.accent } : kindFace(kind)
 }
 
 // An app block opens in its app's own window; the helpers are edited on the

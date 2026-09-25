@@ -5,7 +5,7 @@
 // and the sizes React Flow measures.
 //
 // A block opens in its app's own window (double-click, Enter, or Open on its
-// toolbar); the helpers — Text, List, Note, Image, a Bank pick — are edited
+// toolbar); the helpers — Text, Batch, Note, Image, a Bank pick — are edited
 // right on the canvas.
 
 import { useEffect, useRef, useState } from 'react'
@@ -191,10 +191,11 @@ export default function Canvas({
     data: { blockId: b.id },
     selected: selection.includes(b.id),
     measured: measured[b.id],
-    // The whole block drags, not just its header: React Flow shows a grab
-    // cursor over all of it, and a block that only moved by its top strip
-    // ignored a press anywhere else. Fields, buttons and dots opt out with
-    // `nodrag` (React Flow's own Handle carries it).
+    // No drag handle: a block drags from anywhere on it, the way a node does
+    // in every editor a member might know. It dragged from its 44px header
+    // only until September 2026, and a press on the body — the bigger part of
+    // the block, and where a pointer lands — did nothing. What must not drag
+    // (fields, buttons, the image drop) carries `nodrag`.
     selectable: !b.suggested,
     draggable: !b.suggested,
     connectable: !b.suggested,

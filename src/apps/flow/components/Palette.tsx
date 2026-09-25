@@ -11,7 +11,7 @@ import { BANK_ORDER, KINDS } from '../engine/catalog'
 import { BANK_CONFIG, type BankType } from '../../../utils/constants'
 import { GlassTile } from '../../../components/AppGlassTile'
 import { MenuItem, MenuSurface } from '../../../components/Menu'
-import { BLOCK_BLURB, dockFace } from './blockMeta'
+import { BLOCK_BLURB, kindFace } from './blockMeta'
 
 const GROUPS: BlockKind[][] = [
   ['bank'],
@@ -58,7 +58,7 @@ export default function Palette({ onAdd }: { onAdd: (kind: BlockKind, bank?: Ban
           <div key={group.join()} className="flex items-end gap-0.5">
             {i > 0 && <span className="mx-1 mb-6 h-7 w-px self-center bg-ink/10" />}
             {group.map((kind) => {
-              const face = dockFace(kind)
+              const face = kindFace(kind)
               const label = LABEL[kind] ?? KINDS[kind].title
               return (
                 <button
@@ -90,7 +90,7 @@ export default function Palette({ onAdd }: { onAdd: (kind: BlockKind, bank?: Ban
 }
 
 function HoverCard({ kind }: { kind: BlockKind }) {
-  const face = dockFace(kind)
+  const face = kindFace(kind)
   const spec = KINDS[kind]
   const takes = spec.ins.map((p) => p.label)
   const makes = kind === 'bank' ? ['A product, character, script, voice, still, style or saved ad']

@@ -47,7 +47,7 @@ export default function BlockNode({ data, selected }: NodeProps<BlockNodeType>) 
 
   return (
     <div
-      className={`flow-node group relative rounded-[18px] border bg-surface-1 shadow-[0_10px_28px_-14px_rgba(0,0,0,0.55)] transition-colors ${
+      className={`flow-node group relative cursor-grab rounded-[18px] active:cursor-grabbing border bg-surface-1 shadow-[0_10px_28px_-14px_rgba(0,0,0,0.55)] transition-colors ${
         reviewing ? 'border-amber-500/55'
           : selected ? 'border-flow-400/70 ring-1 ring-flow-400/40'
           : 'border-ink/10 hover:border-ink/20'
@@ -319,7 +319,7 @@ function Footer({ block, bp, live }: { block: FlowBlock; bp: BlockPlan | undefin
 function NoteNode({ block, selected }: { block: FlowBlock; selected: boolean }) {
   return (
     <div
-      className={`flow-node group relative rounded-[18px] border bg-[#1f1a0e] shadow-[0_10px_28px_-14px_rgba(0,0,0,0.55)] light:bg-[#fbf3dc] ${
+      className={`flow-node group relative cursor-grab rounded-[18px] active:cursor-grabbing border bg-[#1f1a0e] shadow-[0_10px_28px_-14px_rgba(0,0,0,0.55)] light:bg-[#fbf3dc] ${
         selected ? 'border-[#E8C872]/70 ring-1 ring-[#E8C872]/40' : 'border-[#E8C872]/30'
       } ${block.off ? 'flow-node-off' : ''}`}
       style={{ width: blockWidth('note') }}
