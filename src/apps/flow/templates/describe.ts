@@ -57,7 +57,7 @@ SETTINGS BY KIND (anything omitted takes the app's default):
 - text: text. list: entries (array of strings, one run downstream per entry). note: text.
 - analyzer, edit: no settings.
 
-BLOCK FLAGS: "review": true pauses the flow after that block so the member keeps only the results worth spending more on (scripts, characters, voice, broll, playground). "field": true on a bank block makes it something whoever runs the flow picks ("Your Product").`
+BLOCK FLAGS: "review": true pauses the flow after that block so the member keeps only the results worth spending more on (scripts, characters, voice, broll, playground, scenes — where it picks the best take of each scene). "field": true on a bank block makes it something whoever runs the flow picks ("Your Product").`
 }
 
 function banksText(): string {

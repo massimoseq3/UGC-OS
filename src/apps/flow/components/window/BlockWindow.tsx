@@ -41,6 +41,7 @@ const REVIEW_HINT: Partial<Record<FlowBlock['kind'], string>> = {
   voice: 'When it finishes, keep the takes you like.',
   broll: 'After the stills, pick which get animated, before any clip is paid for.',
   playground: 'When it finishes, keep the ones you like.',
+  scenes: 'When it finishes, pick the best take of each scene. Only those go on to the edit.',
 }
 
 export default function BlockWindow(props: WindowProps & { onClose: () => void }) {

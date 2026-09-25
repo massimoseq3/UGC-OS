@@ -479,3 +479,43 @@ describe('what a Scripts block\'s wiring decides', () => {
     expect(desiredSlots(settled)).toBe(3)
   })
 })
+
+describe('Scene Clips', () => {
+  const script = '--- Scene 1: HOOK (00:00-00:04) ---\n[CHARACTER] says: "One."\n\n--- Scene 2: BODY (00:04-00:10) ---\n[CHARACTER] says: "Two, three."'
+  const sceneDeps: PlanDeps = {
+    ...deps,
+    held: (b) => (b.kind === 'text' ? { outputs: { out: [{ type: 'text', key: 'text:1', label: 'script', payload: { text: script } }] } } : deps.held(b)),
+    cost: () => 10,
+  }
+  const graph = (settings: Record<string, unknown> = {}): FlowGraph => ({
+    blocks: [block('txt', 'text'), block('sc', 'scenes', { settings: { takes: 2, ...settings } }), block('edit', 'edit')],
+    wires: [wire('txt', 'out', 'sc', 'script'), wire('sc', 'clips', 'edit', 'clips')],
+  })
+  const clip = (scene: number, take: number) => ({ ref: `r${scene}${take}`, scene, take })
+  const made = (key: string, clips: Array<{ ref: string; scene: number; take: number }>, extra: Partial<InstanceResult> = {}): FlowOutputs => ({
+    sc: { instances: { [key]: { key, trace: {}, at: 1, outputs: { clips: [{ type: 'video', key: 'scenes:v', label: 'ad', trace: {}, payload: { clips } }] }, ...extra } } },
+  })
+
+  it('films what a test left, and only that share is priced', () => {
+    const key = planFlow(graph(), {}, sceneDeps).blocks.sc.instances[0].key
+    const plan = planFlow(graph(), made(key, [clip(1, 0)], { test: true }), sceneDeps)
+    expect(plan.blocks.sc.runs).toBe(1)
+    // One of four clips (2 scenes × 2 takes) made: three quarters of the price.
+    expect(plan.blocks.sc.credits).toBe(7.5)
+  })
+
+  it('is done once every scene has every take', () => {
+    const key = planFlow(graph(), {}, sceneDeps).blocks.sc.instances[0].key
+    const plan = planFlow(graph(), made(key, [clip(1, 0), clip(1, 1), clip(2, 0), clip(2, 1)]), sceneDeps)
+    expect(plan.blocks.sc.runs).toBe(0)
+  })
+
+  it('hands on only the takes kept at review, under a key that says so', () => {
+    const key = planFlow(graph(), {}, sceneDeps).blocks.sc.instances[0].key
+    const all = [clip(1, 0), clip(1, 1), clip(2, 0), clip(2, 1)]
+    const plan = planFlow(graph(), made(key, all, { keep: ['1:1', '2:0'] }), sceneDeps)
+    const v = plan.blocks.sc.values.clips[0]
+    expect(v.type === 'video' && v.payload.clips.map((c) => c.ref)).toEqual(['r11', 'r20'])
+    expect(v.key).not.toBe('scenes:v')
+  })
+})

@@ -426,7 +426,10 @@ function writeResult(flowId: string, block: FlowBlock, inst: PlannedInstance, ou
       credits: (phase === 'clips' ? before?.credits : inst.credits) ?? undefined,
       rows: out.rows ?? before?.rows,
       pack: out.pack,
-      keep: before?.keep,
+      // B-Roll's picks carry across its two phases; a Scene Clips run that
+      // adds takes is picked from afresh (its review opens again, or with
+      // none, every take goes on).
+      keep: block.kind === 'broll' ? before?.keep : undefined,
       phase: phase === 'stills' ? 'stills' : undefined,
     }
     for (const [port, vals] of Object.entries(out.outputs ?? {})) {
@@ -501,6 +504,8 @@ export type ReviewPicks =
   | { kind: 'runs'; keep: string[] }
   // B-Roll: per run, the cards whose stills get animated.
   | { kind: 'stills'; keep: Record<string, string[]> }
+  // Scene Clips: per run, the takes that go on to the edit (scene:take).
+  | { kind: 'takes'; keep: Record<string, string[]> }
 
 export function approveReview(flowId: string, blockId: string, picks: ReviewPicks) {
   const run = useFlowRunStore.getState().runs[flowId]

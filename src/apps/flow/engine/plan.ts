@@ -375,7 +375,7 @@ function valuesOut(block: FlowBlock, instances: PlannedInstance[], test: boolean
       for (const p of outs) {
         const trace = { ...inst.trace, [block.id]: inst.key }
         if (made) {
-          values[p.key].push(...(made.outputs[p.key] ?? []).map((v) => ({ ...v, trace: { ...v.trace, ...trace } })))
+          values[p.key].push(...(made.outputs[p.key] ?? []).map((v) => keptTakes({ ...v, trace: { ...v.trace, ...trace } } as FlowValue, made.keep)))
         } else {
           values[p.key].push(placeholder(block, p.type, `${inst.key}:${p.key}`, trace))
         }
@@ -383,6 +383,14 @@ function valuesOut(block: FlowBlock, instances: PlannedInstance[], test: boolean
     }
   }
   return values
+}
+
+// Scene Clips, reviewed: only the takes kept at the review go on — and the
+// value says which, so a pack made from other takes is made again.
+function keptTakes(v: FlowValue, keep: string[] | undefined): FlowValue {
+  if (!keep || v.type !== 'video' || !v.payload.clips.some((c) => c.scene !== undefined)) return v
+  const clips = v.payload.clips.filter((c) => c.scene === undefined || keep.includes(`${c.scene}:${c.take ?? 0}`))
+  return { ...v, key: `${v.key}~${keep.join(',')}`, payload: { ...v.payload, clips } }
 }
 
 function heldPlan(block: FlowBlock, held: Exclude<Held, { missing: string }>, test: boolean): BlockPlan {

@@ -13,7 +13,8 @@ import { liveItems } from '../engine/graph'
 import { brollClipSeconds, brollVideoModel, brollVideoResolution } from '../engine/cost'
 import { reviewStills } from '../run/executors/broll'
 import Modal from '../../../components/Modal'
-import { useAssetThumb } from '../../../hooks/useAssetUrl'
+import { useAssetThumb, useAssetUrl } from '../../../hooks/useAssetUrl'
+import VideoLightbox from '../../../components/VideoLightbox'
 import { useAudioPlayback } from '../../../hooks/useAudioPlayback'
 import { estimateCredits, getModel } from '../../../utils/models'
 import { creditsLabel } from '../hooks/useFlowPlan'
@@ -44,6 +45,9 @@ export default function ReviewModal({
   }
   if (block.kind === 'broll') {
     return <StillsReview flowId={flowId} block={block} keys={madeKeys} doc={doc} onLater={onLater} onDone={onDone} />
+  }
+  if (block.kind === 'scenes') {
+    return <TakesReview flowId={flowId} block={block} keys={madeKeys} doc={doc} onLater={onLater} onDone={onDone} />
   }
   return <RunsReview flowId={flowId} block={block} keys={madeKeys} doc={doc} onLater={onLater} onDone={onDone} />
 }
@@ -301,5 +305,89 @@ function StillTile({ refId, line, on, onClick }: { refId: string; line: string; 
       <span className="absolute inset-x-0 bottom-0 line-clamp-2 bg-gradient-to-t from-black/80 to-transparent px-2 pb-1.5 pt-4 text-[10px] leading-snug text-white">{line}</span>
       {on && <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-flow-500 text-white"><Check className="h-3 w-3" /></span>}
     </button>
+  )
+}
+
+// ── Scene Clips takes ──────────────────────────────────────────────────────
+
+// The best take of each scene: every take a run filmed, scene by scene, and
+// only the picked ones go on to the edit. The first take of each scene
+// starts picked, so Continue with nothing touched keeps one clip per scene.
+function TakesReview({ flowId, block, keys, doc, onLater, onDone }: { flowId: string; block: FlowBlock; keys: string[]; doc: FlowDoc; onLater: () => void; onDone: () => void }) {
+  const results = doc.outputs[block.id]?.instances ?? {}
+  const runs = keys.map((key) => {
+    const v = results[key]?.outputs.clips?.[0]
+    const clips = v?.type === 'video' ? v.payload.clips.filter((c) => c.scene !== undefined) : []
+    const scenes = [...new Set(clips.map((c) => c.scene!))].sort((a, b) => a - b)
+    return { key, label: v?.label ?? '', scenes: scenes.map((n) => ({ n, takes: clips.filter((c) => c.scene === n).sort((a, b) => (a.take ?? 0) - (b.take ?? 0)) })) }
+  })
+  const [keep, setKeep] = useState<Record<string, string[]>>(() => Object.fromEntries(runs.map((r) => [r.key, r.scenes.map((s) => `${s.n}:${s.takes[0]?.take ?? 0}`)])))
+  const [playing, setPlaying] = useState<string | null>(null)
+  const playUrl = useAssetUrl(playing ?? undefined)
+  const toggle = (run: string, id: string) =>
+    setKeep((cur) => {
+      const list = cur[run] ?? []
+      return { ...cur, [run]: list.includes(id) ? list.filter((x) => x !== id) : [...list, id] }
+    })
+  const count = Object.values(keep).reduce((n, l) => n + l.length, 0)
+  const bare = runs.flatMap((r) => r.scenes.filter((s) => !s.takes.some((t) => keep[r.key]?.includes(`${s.n}:${t.take ?? 0}`))).map((s) => s.n))
+  const aspect = String(block.settings.aspectRatio ?? '9:16')
+  return (
+    <Modal
+      open
+      onClose={onLater}
+      title="Pick the Best Takes"
+      subtitle={bare.length ? `Scene ${[...new Set(bare)].join(', ')} has no take picked, so it's left out of the edit.` : 'Only the takes you pick go on to the edit. Click a take to pick it, and its ▶ to watch it.'}
+      size="wide"
+      footer={<Footer onLater={onLater} label={`Keep ${count} and Continue`} disabled={!count} onGo={() => { approveReview(flowId, block.id, { kind: 'takes', keep }); onDone() }} />}
+    >
+      <div className="flex flex-col gap-6 p-4">
+        {runs.map((r, i) => (
+          <div key={r.key} className="flex flex-col gap-3">
+            {runs.length > 1 && <p className="truncate text-[12px] font-medium text-ink-300">Ad {i + 1} · {r.label}</p>}
+            {r.scenes.map((s) => (
+              <div key={s.n} className="flex items-center gap-3">
+                <span className="w-16 shrink-0 text-[12px] font-medium text-ink-400">Scene {s.n}</span>
+                <div className="flex flex-wrap gap-2">
+                  {s.takes.map((t) => {
+                    const id = `${s.n}:${t.take ?? 0}`
+                    return (
+                      <TakeTile
+                        key={id}
+                        refId={t.ref}
+                        aspect={aspect}
+                        on={!!keep[r.key]?.includes(id)}
+                        label={`Take ${(t.take ?? 0) + 1}`}
+                        onClick={() => toggle(r.key, id)}
+                        onPlay={() => setPlaying(t.ref)}
+                      />
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+      {playing && playUrl && (
+        <VideoLightbox videoUrl={playUrl} fileStem="scene-take" aspectRatio={aspect} sourceApp="playground" accentClass="border-playground-500/40 bg-playground-500/20 text-playground-100 hover:bg-playground-500/30" onClose={() => setPlaying(null)} />
+      )}
+    </Modal>
+  )
+}
+
+function TakeTile({ refId, aspect, on, label, onClick, onPlay }: { refId: string; aspect: string; on: boolean; label: string; onClick: () => void; onPlay: () => void }) {
+  const thumb = useAssetThumb(refId)
+  return (
+    <div className={`relative w-[96px] overflow-hidden rounded-xl border-2 transition-colors ${on ? 'border-flow-400' : 'border-transparent opacity-55 hover:opacity-100'}`} style={{ aspectRatio: aspect.replace(':', ' / ') }}>
+      <button type="button" onClick={onClick} className="absolute inset-0" aria-label={on ? `Leave ${label} Out` : `Keep ${label}`} aria-pressed={on}>
+        {thumb.url ? <img src={thumb.url} alt="" className="h-full w-full object-cover" /> : <span className="block h-full w-full bg-ink/10" />}
+      </button>
+      <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2 pb-1.5 pt-4 text-[10px] font-medium text-white">{label}</span>
+      {on && <span className="pointer-events-none absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-flow-500 text-white"><Check className="h-3 w-3" /></span>}
+      <button type="button" onClick={onPlay} aria-label={`Watch ${label}`} className="absolute left-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white hover:bg-black/75">
+        <Play className="ml-0.5 h-3 w-3" />
+      </button>
+    </div>
   )
 }

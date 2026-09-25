@@ -197,7 +197,7 @@ export const KINDS: Record<BlockKind, KindSpec> = {
     outs: [port('clips', 'Clips', 'video')],
     sources: ['generate'],
     runnable: true,
-    reviewable: false,
+    reviewable: true,
     defaults: () => ({
       shape: 'scenes',
       takes: 1,

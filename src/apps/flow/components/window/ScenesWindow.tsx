@@ -211,6 +211,7 @@ function Output({ block, runs }: { block: FlowBlock; runs: BlockRun[] }) {
                   seconds={sceneClipInput(block, script, shot, []).durationSeconds}
                   refs={shown ? sceneRefs(block, shown.inputs, shot).map((r) => r.label) : []}
                   clips={clips.filter((c) => c.scene === shot.number)}
+                  kept={shown?.result?.keep}
                   running={shown?.status === 'running'}
                 />
               ))}
@@ -222,13 +223,15 @@ function Output({ block, runs }: { block: FlowBlock; runs: BlockRun[] }) {
   )
 }
 
-function SceneCard({ block, shot, prompt, seconds, refs, clips, running }: {
+function SceneCard({ block, shot, prompt, seconds, refs, clips, kept, running }: {
   block: FlowBlock
   shot: SceneShot
   prompt: string
   seconds: number
   refs: string[]
   clips: ClipRef[]
+  // The takes picked at review, when there was one: the rest are left out.
+  kept?: string[]
   running: boolean
 }) {
   const [open, setOpen] = useState(false)
@@ -258,7 +261,7 @@ function SceneCard({ block, shot, prompt, seconds, refs, clips, running }: {
       <div className="flex shrink-0 gap-2">
         {Array.from({ length: takes }, (_, t) => {
           const clip = clips.find((c) => (c.take ?? 0) === t)
-          return clip ? <ClipTile key={sceneKey(shot.number, t)} clip={clip} aspect={aspect} /> : (
+          return clip ? <ClipTile key={sceneKey(shot.number, t)} clip={clip} aspect={aspect} out={!!kept && !kept.includes(sceneKey(shot.number, t))} /> : (
             <span key={t} className="flex w-[72px] items-center justify-center rounded-xl border border-dashed border-ink/15 text-[10px] text-ink-500" style={{ aspectRatio: aspect.replace(':', ' / ') }}>
               {running ? 'Filming' : `Take ${t + 1}`}
             </span>
@@ -269,15 +272,16 @@ function SceneCard({ block, shot, prompt, seconds, refs, clips, running }: {
   )
 }
 
-function ClipTile({ clip, aspect }: { clip: ClipRef; aspect: string }) {
+function ClipTile({ clip, aspect, out }: { clip: ClipRef; aspect: string; out: boolean }) {
   const [open, setOpen] = useState(false)
   const thumb = useAssetThumb(clip.ref)
   const url = useAssetUrl(open ? clip.ref : undefined)
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className="relative w-[72px] overflow-hidden rounded-xl border border-ink/10" style={{ aspectRatio: aspect.replace(':', ' / ') }} title="Play this take">
+      <button type="button" onClick={() => setOpen(true)} className={`relative w-[72px] overflow-hidden rounded-xl border border-ink/10 ${out ? 'opacity-40' : ''}`} style={{ aspectRatio: aspect.replace(':', ' / ') }} title={out ? 'Left out at review · play this take' : 'Play this take'}>
         {thumb.url ? <img src={thumb.url} alt="" className="absolute inset-0 h-full w-full object-cover" /> : <span className="absolute inset-0 bg-ink/10" />}
         <span className="absolute inset-0 flex items-center justify-center"><span className="flex h-7 w-7 items-center justify-center rounded-full bg-black/50 text-white"><Play className="ml-0.5 h-3.5 w-3.5" /></span></span>
+        {out && <span className="absolute inset-x-0 bottom-0 bg-black/60 py-0.5 text-center text-[9.5px] font-medium text-white">Left Out</span>}
       </button>
       {open && url && <VideoLightbox videoUrl={url} prompt={clip.prompt} fileStem="scene-clip" aspectRatio={aspect} sourceApp="playground" accentClass="border-playground-500/40 bg-playground-500/20 text-playground-100 hover:bg-playground-500/30" onClose={() => setOpen(false)} />}
     </>
