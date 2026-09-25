@@ -445,8 +445,16 @@ const TOKEN_ATTRIBUTION = /(?<=^|[\s,;.!?—-])(\[[A-Z_]+\])\s*:\s*$/
 // rather than dropped, and the words after the verb here are the rest of the
 // sentence (`"…," she says, HOLDING IT UP TO THE LENS`) — direction that
 // belongs on the page.
+//
+// Nor every verb: `laughs` and `repeats` introduce a line fine, but AFTER a
+// quote they are usually the reaction to on-screen copy — `…a one-star review:
+// "Didn't do anything for me." [CHARACTER] laughs and points at it` — and read
+// backwards they promoted the review (or the Comment Reply card) to the
+// character's own spoken line and dropped "laughs" from the direction.
+const NOT_A_TRAILING_CUE = new Set(['laughs?', 'laughed', 'repeats?', 'repeated'])
+const TRAILING_VERB_SRC = SPEECH_VERB_SRC.split('|').filter((verb) => !NOT_A_TRAILING_CUE.has(verb)).join('|')
 const TRAILING_ATTRIBUTION = new RegExp(
-  `^[\\s,.;:—-]*(${SPEAKER_SRC}\\s+(?:${SPEECH_VERB_SRC})|voice\\s*ove?r|narrator)\\b`,
+  `^[\\s,.;:—-]*(${SPEAKER_SRC}\\s+(?:${TRAILING_VERB_SRC})|voice\\s*ove?r|narrator)\\b`,
   'i',
 )
 // …and what disqualifies one: a cue that runs straight into ANOTHER quote is
@@ -584,6 +592,22 @@ export function groupSceneBeats(segments: SceneSegment[]): SceneBeat[] {
   }
   close()
   return beats
+}
+
+// One shot's own words, SLICED out of the scene body verbatim rather than
+// rebuilt from the parse (which trims, strips connectives and peels the cue off
+// the direction). A line's `start`/`end` are the words INSIDE its quote marks,
+// so at either end of the shot a line contributes its wider cut span instead:
+// a shot that opens on dialogue keeps its attribution cue and opening mark
+// (`[0:03–0:06] [CHARACTER] says: "…"` used to copy as `…" She smiles`), and
+// one that ends on dialogue keeps its closing mark and any trailing cue.
+export function shotSource(beat: SceneBeat, body: string): string {
+  const first = beat.segments[0]
+  const last = beat.segments[beat.segments.length - 1]
+  if (!first || !last) return ''
+  const from = first.kind === 'line' ? first.cutStart : first.start
+  const to = last.kind === 'line' ? last.cutEnd : last.end
+  return body.slice(from, to).trim()
 }
 
 // The audio direction every scene carries — "NO background music, NO

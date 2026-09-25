@@ -58,6 +58,9 @@ interface RightPanelProps {
   setCardStates: React.Dispatch<React.SetStateAction<Record<string, CardState>>>
   activeHistoryId: string | null
   onSelectHistory: (item: BrollHistoryItem) => void
+  // Owned by BrollStudio: deleting the OPEN session has to detach it too, or
+  // its next snapshot writes the row straight back.
+  onDeleteHistory: (id: string) => void
   // Canvas-clear state, owned by BrollStudio so the left panel's "New" can
   // trigger it too. Never touches generated data — the session stays a History
   // row — but the app's handler DOES reset the setup column alongside the
@@ -112,6 +115,7 @@ export default function RightPanel(props: RightPanelProps) {
     setCardStates,
     activeHistoryId,
     onSelectHistory,
+    onDeleteHistory,
     canvasCleared,
     onClearCanvas,
     cardFilter,
@@ -127,7 +131,6 @@ export default function RightPanel(props: RightPanelProps) {
   // Recording Mode hides the sessions that existed when it was armed; a
   // replayed Generate brings the open one back.
   const allHistory = useVisibleRows(useBankStore((s) => s.brollHistory), 'broll')
-  const deleteBrollHistory = useBankStore((s) => s.deleteBrollHistory)
   // Sessions there's no mode left to open stay on disk but aren't listed: the
   // retired One-Shot rows always, and the Continuous ones while that mode is
   // switched off. Filtered here so the tab's count and the list below agree.
@@ -286,7 +289,7 @@ export default function RightPanel(props: RightPanelProps) {
             // to see it.
             setHistoryOpen(false)
           }}
-          onDelete={(id) => { deleteBrollHistory(id) }}
+          onDelete={onDeleteHistory}
           onNew={() => {
             onClearCanvas()
             // The rail covers the storyboard it just cleared, so New hands the

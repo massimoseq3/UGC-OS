@@ -366,8 +366,15 @@ export default function Canvas({
   const pickWhatNext = (o: WhatNextOption) => {
     if (!menu) return
     if (menu.into) {
-      const check = connect({ from: menu.from.blockId, fromPort: menu.from.port, to: menu.into.blockId, toPort: o.port })
-      if (!check.ok) say(check.reason, 'error')
+      const wire = { from: menu.from.blockId, fromPort: menu.from.port, to: menu.into.blockId, toPort: o.port }
+      // "Replaces Its Wire" means it: an input that takes one thing gets the
+      // new wire in place of what fed it, never beside it, where the block
+      // would run once for each.
+      const target = real.find((b) => b.id === wire.to)
+      const existing = target && !inputSpec(target, o.port)?.many ? wiresInto(doc, wire.to, o.port) : []
+      const check = existing.length ? reconnect(existing[0].id, wire) : connect(wire)
+      if (check.ok) for (const w of existing.slice(1)) removeWire(w.id)
+      else say(check.reason, 'error')
       setMenu(null)
       return
     }

@@ -277,8 +277,12 @@ export function planBlock(
         ? `Needs ${article(p.label)} ${p.label.toLowerCase()}. Wire one in, or type one into it`
         : `Needs ${article(p.label)} ${p.label.toLowerCase()} wired in`)
     }
-    const from = upstream[wires[0].from]
-    return empty(from?.blocked ? `Nothing came in to ${p.label}` : `Its ${p.label.toLowerCase()} input is turned off`)
+    // "Turned off" only when the items feeding it are: an upstream block that
+    // ran and made nothing (it failed) is not something the member switched off.
+    const source = blockById(graph, wires[0].from)
+    const item = itemIdOf(wires[0].fromPort)
+    const off = !!source && (item !== null ? !!source.items?.find((it) => it.id === item)?.off : isBatch(source) && enabledItems(source).length === 0)
+    return empty(!upstream[wires[0].from]?.blocked && off ? `Its ${p.label.toLowerCase()} input is turned off` : `Nothing came in to ${p.label}`)
   }
 
   // A Change edits a picture, the way Characters' edit modal does, so it
@@ -324,8 +328,10 @@ export function planBlock(
     } else {
       // A B-Roll run stopped between its stills and its clips isn't finished,
       // and neither is a Scene Clips run missing clips — the scenes a Test
-      // With 1 left for later, or a take added since.
-      run = pending || !cached || cached.phase === 'stills' || scenesLeft(block, c.inputs, cached, opts.test) > 0
+      // With 1 left for later, or a take added since. Nor is a B-Roll Test
+      // With 1 cut to a single take a line, once the full run asks for more.
+      const cutTakes = !opts.test && !!cached?.test && block.kind === 'broll' && Number(block.settings.takes) >= 2
+      run = pending || !cached || cached.phase === 'stills' || cutTakes || scenesLeft(block, c.inputs, cached, opts.test) > 0
     }
     // What's left of a Scene Clips run is priced, and counted, as its share
     // of the whole.

@@ -10,6 +10,8 @@ import { blockStatusLine, type LiveRun } from '../../run/runtime'
 import { creditsLabel, creditsPill, runButton } from '../../hooks/useFlowPlan'
 import { useFlowStore } from '../../store/flowStore'
 import { BankPick } from './Picks'
+import { ImageBody, TextBody } from '../node/helpers'
+import { isFieldable } from '../blockMeta'
 import { StopButton } from './common'
 import type { BankType } from '../../../../utils/constants'
 import type { RunRequest } from '../Editor'
@@ -37,7 +39,7 @@ export default function FlowPanel({
   const recording = useRecordingActive()
   const active = run?.status === 'running'
   const button = runButton(doc, plan, again, run)
-  const fields = doc.blocks.filter((b) => b.field && !b.suggested)
+  const fields = doc.blocks.filter((b) => b.field && !b.suggested && isFieldable(b))
   const blocked = doc.blocks.filter((b) => plan?.blocks[b.id]?.blocked && plan.blocks[b.id].blocked !== 'Turned off' && KINDS[b.kind]?.runnable)
   const next = button.credits
   const all = plan?.creditsAll ?? 0
@@ -58,12 +60,15 @@ export default function FlowPanel({
               {fields.map((b) => (
                 <div key={b.id} className="flex flex-col gap-1">
                   <span className="px-1 text-[12px] text-ink-300">{titleOf(b)}</span>
-                  {b.kind === 'bank' ? (
-                    <BankPick block={b} bank={(b.settings.bank as BankType) ?? 'products'} />
+                  {/* Filled in right here: Run View has no canvas to send a
+                      member to (a phone has nothing else), so a field that
+                      only pointed at its block could never be changed. */}
+                  {b.kind === 'text' ? (
+                    <TextBody block={b} />
+                  ) : b.kind === 'image' ? (
+                    <ImageBody block={b} />
                   ) : (
-                    <button type="button" onClick={() => setSelection([b.id])} className="rounded-2xl border border-ink/10 px-4 py-3 text-left text-[12px] text-ink-300 hover:border-ink/20">
-                      Edit in its block
-                    </button>
+                    <BankPick block={b} bank={b.kind === 'bank' ? (b.settings.bank as BankType) ?? 'products' : b.kind === 'characters' ? 'models' : 'scripts'} />
                   )}
                 </div>
               ))}

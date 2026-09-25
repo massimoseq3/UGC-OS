@@ -164,6 +164,23 @@ export default function HistoryRail({ items, pending, activeId, onSelect, onDele
     void loadAndPlay(item)
   }
 
+  // Deleting the read this rail is playing takes its card away, and with it
+  // the only control that could stop it — the clip kept playing to its end
+  // with nothing on screen. So the player lets go of it first. The token bump
+  // also cancels a load still resolving for it.
+  const handleDelete = (id: string) => {
+    if (loadedId === id) {
+      loadTokenRef.current++
+      cancelAnimationFrame(rafRef.current)
+      releaseAudioSlot(pauseSelf)
+      audioRef.current?.pause()
+      audioRef.current = null
+      setLoadedId(null)
+      setIsPlaying(false)
+    }
+    onDelete(id)
+  }
+
   const handleDownload = async (item: VoiceHistoryItem) => {
     try {
       const url = await resolveAudioUrl(item.audioUrl)
@@ -378,7 +395,11 @@ export default function HistoryRail({ items, pending, activeId, onSelect, onDele
                         }`}
                       >
                         <div className="overflow-hidden">
-                          <div className="flex items-center gap-2 px-0.5 py-1">
+                          {/* A seek is not a pick. `AudioScrubber` stops the
+                              pointerdown, but the click that follows still
+                              bubbled to the card's `onSelect`, which shuts the
+                              rail — unmounting it, and the clip with it. */}
+                          <div className="flex items-center gap-2 px-0.5 py-1" onClick={(e) => e.stopPropagation()}>
                             <span className="shrink-0 text-[10px] tabular-nums text-ink-500">
                               {formatClock(position)}
                             </span>
@@ -442,7 +463,7 @@ export default function HistoryRail({ items, pending, activeId, onSelect, onDele
                               the one delete idiom every other history rail
                               uses. This was a bare trash icon that deleted on
                               the first click. */}
-                          <TileDeleteButton variant="chrome" size="sm" alwaysVisible onDelete={() => onDelete(item.id)} />
+                          <TileDeleteButton variant="chrome" size="sm" alwaysVisible onDelete={() => handleDelete(item.id)} />
                           <FlowLineageMenu row={{ bank: 'voiceHistory', id: item.id }} />
                         </div>
                       )}

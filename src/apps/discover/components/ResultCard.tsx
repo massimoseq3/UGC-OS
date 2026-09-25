@@ -264,16 +264,25 @@ function ResultCardImpl({ result, onAnalyze, onRemix, onSave, onDownload, onOpen
               AND opens Scripts, so it does spend a credit. That's fine here —
               it's a deliberate press on a labelled button, unlike opening a
               card — but the title has to say so, since the modal's route now
-              charges on its own separate "Get transcript" step. */}
-          <TileActionButton
-            title="Remix Transcript · 1 credit, opens in Scripts"
-            onClick={() => onRemix(result)}
-            disabled={busy === 'remix'}
-          >
-            {busy === 'remix'
-              ? <Spinner className="h-3.5 w-3.5" />
-              : <PenLine className="h-3.5 w-3.5" />}
-          </TileActionButton>
+              charges on its own separate "Get transcript" step.
+              Not on a Meta card: its transcript endpoint comes back empty for
+              Ad Library video, which is why the modal drops Remix there too
+              and routes the words through Analyze Ad. Instagram's is AI
+              speech-to-text with no published price, so it quotes time, not
+              credits — the same rule as the rest of that tab. */}
+          {!isMeta && (
+            <TileActionButton
+              title={result.platform === 'instagram'
+                ? 'Remix Transcript · transcribes with AI in 10-30s, opens in Scripts'
+                : 'Remix Transcript · 1 credit, opens in Scripts'}
+              onClick={() => onRemix(result)}
+              disabled={busy === 'remix'}
+            >
+              {busy === 'remix'
+                ? <Spinner className="h-3.5 w-3.5" />
+                : <PenLine className="h-3.5 w-3.5" />}
+            </TileActionButton>
+          )}
           <TileActionButton
             title="Open the original"
             onClick={() => window.open(result.postUrl, '_blank', 'noopener,noreferrer')}

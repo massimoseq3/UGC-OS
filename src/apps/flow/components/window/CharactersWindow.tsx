@@ -4,7 +4,7 @@
 // Generate running this block, on a model that belongs to the block. The
 // right is the faces, slot by slot, as they're made.
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Eye, EyeOff, UserRound, X } from 'lucide-react'
 import type { FlowValue } from '../../types'
 import { liveItems, wiresInto } from '../../engine/graph'
@@ -31,6 +31,11 @@ export default function CharactersWindow({ doc, block, plan, run, onRun, onRevie
   const [analyzing, setAnalyzing] = useState(0)
   const [extractError, setExtractError] = useState<string | null>(null)
   const [thumb, setThumb] = useState<string | null>(null)
+  // The preview is an object URL over the dropped photo: let it go when it's
+  // replaced, reset or the window closes, or every photo stays in memory.
+  useEffect(() => () => {
+    if (thumb) URL.revokeObjectURL(thumb)
+  }, [thumb])
   const s = block.settings
   const profile: CharacterProfile = { ...createEmptyProfile(), ...((s.profile as CharacterProfile | undefined) ?? {}) }
   const count = Math.min(4, Math.max(1, Number(s.count) || 1))

@@ -40,7 +40,7 @@ function json(status: number, body: unknown): Response {
   })
 }
 
-async function verifyAdmin(authHeader: string | null): Promise<{ userId: string } | { error: string; status?: number }> {
+async function verifyAdmin(authHeader: string | null): Promise<{ userId: string; token: string } | { error: string; status?: number }> {
   if (!authHeader?.startsWith('Bearer ')) return { error: 'Missing bearer token' }
   const token = authHeader.slice('Bearer '.length)
   const supabaseUrl = process.env.SUPABASE_URL
@@ -69,7 +69,29 @@ async function verifyAdmin(authHeader: string | null): Promise<{ userId: string 
   const rows = await profRes.json() as Array<{ is_admin: boolean; disabled_at: string | null }>
   if (!rows[0]?.is_admin || rows[0].disabled_at) return { error: 'Admin only', status: 403 }
 
-  return { userId: user.id }
+  return { userId: user.id, token }
+}
+
+// Whether the member being purged is an admin, read under the caller's own
+// (admin) token. Fails CLOSED like verifyAdmin: an answer we can't read is
+// treated as "admin", because a wrongly refused purge is a retry and a wrongly
+// allowed one is an admin's whole library gone. A target with no profile row
+// at all (already deleted) is not an admin — orphaned objects still purge.
+async function targetIsAdmin(token: string, targetId: string): Promise<boolean> {
+  const supabaseUrl = process.env.SUPABASE_URL
+  const supabaseAnon = process.env.SUPABASE_ANON_KEY
+  if (!supabaseUrl || !supabaseAnon) return true
+  try {
+    const res = await fetch(
+      `${supabaseUrl}/rest/v1/profiles?select=is_admin&id=eq.${targetId}`,
+      { headers: { apikey: supabaseAnon, Authorization: `Bearer ${token}` } },
+    )
+    if (!res.ok) return true
+    const rows = await res.json() as Array<{ is_admin: boolean }>
+    return rows[0]?.is_admin === true
+  } catch {
+    return true
+  }
 }
 
 // Keys out of a ListObjectsV2 body. Asset keys are `auth/<uuid>/<assetId>` with
@@ -99,6 +121,17 @@ export default async function handler(req: Request): Promise<Response> {
   }
   const targetId = typeof body.userId === 'string' ? body.userId : ''
   if (!UUID_RE.test(targetId)) return json(400, { error: 'userId (uuid) required' })
+
+  // The same two refusals as admin_delete_member (migration 0018). This purge
+  // runs BEFORE that RPC, so without them a delete the RPC then refuses — an
+  // admin promoted since the Members list loaded, or the caller — had already
+  // wiped the storage of an account that survives it.
+  if (targetId.toLowerCase() === auth.userId.toLowerCase()) {
+    return json(403, { error: 'You cannot delete your own account.' })
+  }
+  if (await targetIsAdmin(auth.token, targetId)) {
+    return json(403, { error: 'Refusing to delete an admin. Remove their admin flag first.' })
+  }
 
   const accountId = process.env.R2_ACCOUNT_ID
   const accessKey = process.env.R2_ACCESS_KEY_ID

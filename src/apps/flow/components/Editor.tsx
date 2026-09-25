@@ -175,9 +175,10 @@ export default function Editor({ flowId }: { flowId: string }) {
         />
       )}
 
+      {/* Keyed by block: when one review follows another, the picks start
+          from that block's own results, never the last one's. */}
       {reviewBlock && run && (
         <ReviewModal
-          // One review's picks never carry into the next block's.
           key={reviewBlock.id}
           flowId={flowId}
           block={reviewBlock}

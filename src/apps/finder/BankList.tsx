@@ -272,8 +272,12 @@ function ModelCard({ item, onEdit, onDelete }: { item: Model; onEdit: () => void
 function ScriptCard({ item, onEdit, onDelete, showDate = true }: { item: Script; onEdit: () => void; onDelete: () => void; showDate?: boolean }) {
   const [confirm, setConfirm] = useState(false)
   const toggleStar = useBankStore((s) => s.toggleStar)
-  const getProductById = useBankStore((s) => s.getProductById)
-  const linked = item.linkedProductId ? getProductById(item.linkedProductId) : null
+  // Through the selector, not a `getProductById` pulled out of the store: the
+  // compiler caches a call on a stable function, so a product renamed (or
+  // loaded) while this card was mounted kept its old name here.
+  const linked = useBankStore((s) =>
+    item.linkedProductId ? s.products.find((p) => p.id === item.linkedProductId) : undefined,
+  )
   // Legacy items predate `kind` — treat them as scripts.
   // Same pill Scripts' history rail draws — see `utils/scriptBadge.ts`.
   const badge = item.kind === 'reverse-engineer'

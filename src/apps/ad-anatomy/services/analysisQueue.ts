@@ -14,11 +14,30 @@ import { useBankStore } from '../../../stores/bankStore'
 import type { AnalysisResult } from '../types'
 import type { AdAnatomyHistoryItem } from '../../../stores/types'
 import { humanizeError, FriendlyError } from '../../../utils/friendlyError'
+import { PollTimeoutError } from '../../../utils/kie'
 
 const MAX_CONCURRENT = 5
 
 let running = 0
 const queue: Array<() => Promise<void>> = []
+
+// Rows this page's queue holds right now, waiting for a slot or running. The
+// Ad Analyzer's mount pass reads it: that pass runs on the app's first OPEN in
+// a session, not on page load, so an 'analyzing' row with no taskId is not
+// necessarily one a refresh killed — Flow's Ad Analyzer block may have started
+// it minutes earlier, and flipping it to "interrupted" failed that run and
+// offered a Retry that paid for the same ad twice while the first still ran.
+const inFlight = new Set<string>()
+
+export function isAnalysisInFlight(historyId: string): boolean {
+  return inFlight.has(historyId)
+}
+
+function queueJob(historyId: string, job: () => Promise<void>): void {
+  inFlight.add(historyId)
+  queue.push(() => job().finally(() => inFlight.delete(historyId)))
+  pump()
+}
 
 function pump(): void {
   while (running < MAX_CONCURRENT && queue.length > 0) {
@@ -113,6 +132,10 @@ async function applyFailure(historyId: string, err: unknown) {
   // message — the one that says WHICH rejection this was — is gone for good.
   console.error('[ad-anatomy] analysis failed', err)
   const errorMessage = humanizeError(err, 'Analysis failed.')
+  // A poll that ran out of attempts left the task RUNNING on kie, and it bills
+  // whether or not we watch. Keep its taskId so Retry resumes that task instead
+  // of paying for a second read of the same ad (see `retryAnalysis`).
+  const stillRunning = err instanceof PollTimeoutError
   // `uploadedRef` SURVIVES a failure. It used to be dropped and the asset
   // deleted, which turned every transient rejection into "find that 50MB file
   // and drag it in again" — so Retry now re-runs from the stored source with
@@ -121,7 +144,7 @@ async function applyFailure(historyId: string, err: unknown) {
   await updateAdAnatomyHistory(historyId, {
     status: 'error',
     errorMessage,
-    taskId: undefined,
+    taskId: stillRunning ? current.taskId : undefined,
     compressing: undefined,
     compressPass: undefined,
     perception: undefined,
@@ -135,7 +158,7 @@ function rowExists(historyId: string): boolean {
 // Enqueue a new analysis. History row should already be in the bank with
 // status: 'analyzing' and uploadedRef pointing at the source asset.
 export function enqueueAnalysis(historyId: string, file: File): void {
-  queue.push(async () => {
+  queueJob(historyId, async () => {
     const { updateAdAnatomyHistory } = useBankStore.getState()
 
     // Bail if the user deleted the row before we got a slot.
@@ -175,7 +198,6 @@ export function enqueueAnalysis(historyId: string, file: File): void {
       await applyFailure(historyId, err)
     }
   })
-  pump()
 }
 
 // Re-run an errored row from its retained source. This is the answer to the
@@ -184,10 +206,19 @@ export function enqueueAnalysis(historyId: string, file: File): void {
 // to — the request went down with the page), and an outright failure. Both keep
 // `uploadedRef`, so retrying costs a click rather than another upload.
 //
+// A row that still holds a taskId (its poll timed out, the task kept running)
+// RESUMES that task rather than re-submitting: kie bills the first read either
+// way, and a fresh one would be a second charge for the same ad.
+//
 // Returns false when the source is gone (TTL-swept, or a pre-fix row that had
 // its ref dropped) — the caller falls back to asking for the file again.
 export async function retryAnalysis(item: AdAnatomyHistoryItem): Promise<boolean> {
   const { updateAdAnatomyHistory } = useBankStore.getState()
+  if (item.taskId) {
+    await updateAdAnatomyHistory(item.id, { status: 'analyzing', errorMessage: undefined })
+    resumeAnalysis(item)
+    return true
+  }
   if (!item.uploadedRef) return false
 
   const blob = await getBlob(item.uploadedRef).catch(() => null)
@@ -209,9 +240,10 @@ export async function retryAnalysis(item: AdAnatomyHistoryItem): Promise<boolean
 // (the createTask transport) can be resumed.
 export function resumeAnalysis(item: AdAnatomyHistoryItem): void {
   const { id: historyId, fileName, taskId } = item
-  if (!taskId) return
+  // Already being polled here — a second poller would only take a slot.
+  if (!taskId || inFlight.has(historyId)) return
 
-  queue.push(async () => {
+  queueJob(historyId, async () => {
     if (!rowExists(historyId)) return
     try {
       const analysis = await pollAnalysisTask(taskId)
@@ -220,5 +252,4 @@ export function resumeAnalysis(item: AdAnatomyHistoryItem): void {
       await applyFailure(historyId, err)
     }
   })
-  pump()
 }

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Trash2, Plus, RefreshCw, Upload, X, AlertTriangle } from 'lucide-react'
 import Spinner from '../../components/Spinner'
-import { getSupabase } from '../../lib/supabase'
+import { getSupabase, selectAllRows } from '../../lib/supabase'
 import { QUERY_TIMEOUT_MS, readyAdminSession, withTimeout } from './adminQuery'
 
 interface AllowlistRow {
@@ -252,16 +252,22 @@ export default function AllowlistEditor() {
     try {
       await readyAdminSession()
       const sb = getSupabase()
+      // Paged: a synced community's allowlist can pass PostgREST's 1000-row
+      // cap, and a truncated list here also blinds the CSV import below —
+      // members past the cap previewed as "new" and sync mode could never
+      // remove them. `email` breaks added_at ties so pages can't overlap.
       const { data, error } = await withTimeout(
-        (signal) => sb.from('allowlist')
-          .select('email, source, added_at, notes, first_name, last_name')
+        (signal) => selectAllRows<AllowlistRow>((from, to) => sb.from('allowlist')
+          .select('email, source, added_at, notes, first_name, last_name', { count: 'exact' })
           .order('added_at', { ascending: false })
-          .abortSignal(signal),
+          .order('email')
+          .range(from, to)
+          .abortSignal(signal)),
         QUERY_TIMEOUT_MS,
         'allowlist query',
-      ) as { data: AllowlistRow[] | null; error: { message: string } | null }
+      )
       if (error) throw error
-      setRows(data ?? [])
+      setRows(data)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -330,9 +336,17 @@ export default function AllowlistEditor() {
         return
       }
 
-      const header = parseCsvLine(lines[0])
-      const body = lines.slice(1).map(parseCsvLine)
+      let header = parseCsvLine(lines[0])
+      let body = lines.slice(1).map(parseCsvLine)
       const emailCol = detectEmailColumn(header, body)
+      // A plain list of emails has no header row: its first line is a member.
+      // Treating it as a header dropped that email — and in sync mode, removed
+      // them from the allowlist. Read it as data; with no header there are no
+      // name columns to find either.
+      if (emailCol !== -1 && EMAIL_RE.test((header[emailCol] ?? '').trim().toLowerCase())) {
+        body = [header, ...body]
+        header = header.map(() => '')
+      }
       const firstCol = emailCol === -1 ? -1 : detectNameColumn(header, 'first')
       const lastCol = emailCol === -1 ? -1 : detectNameColumn(header, 'last')
 

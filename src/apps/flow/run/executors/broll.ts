@@ -202,6 +202,15 @@ async function storyboard(ctx: ExecContext, wired: Wired, resume: BrollResume): 
 
 async function stillsPhase(ctx: ExecContext, wired: Wired, resume: BrollResume, sessionId: string, result: BrollResult): Promise<void> {
   const cards = cardsToRender(result, takesOf(ctx))
+  // A session a Test With 1 started has cards for one take a line. A run that
+  // asks for more adds theirs first: a still lands only on a card that exists
+  // (patchCard), so without them it would be paid for and dropped.
+  const row = session(sessionId)
+  const missing = cards.filter((c) => !row?.cardStates[c.key])
+  if (row && missing.length) {
+    const added = Object.fromEntries(missing.map((c) => [c.key, createDefaultCardState(c.scene.variations[c.index], c.scene.scriptLine)]))
+    await useBankStore.getState().upsertBrollHistory({ ...row, cardStates: { ...row.cardStates, ...added } })
+  }
   const todo = cards.filter((c) => !((session(sessionId)?.cardStates[c.key] as CardState | undefined)?.images?.length))
   let done = cards.length - todo.length
   const errors: unknown[] = []
@@ -341,9 +350,9 @@ export const brollExecutor: Executor = {
     // A run picking up after its review carries on in the session its stills
     // phase wrote — the task state is cleared once a phase lands, so the
     // session is found through the rows that phase recorded. Only then: a
-    // FINISHED session is what Run Block and Run Again are asked to replace,
-    // and carrying on in it would hand the old stills and clips straight back.
-    const carryOn = ctx.phase === 'clips' || (!ctx.fresh && ctx.prior?.phase === 'stills')
+    // FINISHED session (Run Block, Run Again, a Test With 1 run again in full)
+    // is made afresh: carrying on in one hands the old stills straight back.
+    const carryOn = ctx.prior?.phase === 'stills' && (ctx.phase === 'clips' || !ctx.fresh)
     if (carryOn) resume.sessionId ??= ctx.prior?.rows?.find((r) => r.bank === 'brollHistory')?.id
     const wired = wiredInput(ctx)
     const { sessionId, result } = await storyboard(ctx, wired, resume)

@@ -161,7 +161,6 @@ function drawKit() {
 
 async function canvasBytes(page, expr, type = 'image/png', quality) {
   const b64 = await page.evaluate(async ([expr, type, quality]) => {
-    // eslint-disable-next-line no-new-func
     const c = new Function(`return ${expr}`)()
     return c.toDataURL(type, quality).split(',')[1]
   }, [expr, type, quality])

@@ -105,9 +105,17 @@ export function formatMultiple(multiple: number): string {
 /** 1_282_645 → "1.3M". Used on the stats strip, where space is tight. */
 export function formatCount(n: number | undefined): string {
   if (!n || !Number.isFinite(n)) return '0'
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1)}M`
-  if (n >= 1_000) return `${(n / 1_000).toFixed(n >= 10_000 ? 0 : 1)}K`
+  // The unit is chosen on the ROUNDED figure, not the raw one: 999_600 used to
+  // print "1000K", and 9_960 "10.0K" beside every other 10K on the grid.
+  if (n >= 1_000_000 || Math.round(n / 1_000) >= 1_000) return `${scaledCount(n / 1_000_000)}M`
+  if (n >= 1_000 || Math.round(n) >= 1_000) return `${scaledCount(n / 1_000)}K`
   return String(Math.round(n))
+}
+
+/** One decimal under 10, whole numbers from there — decided after rounding. */
+function scaledCount(value: number): string {
+  const oneDecimal = Math.round(value * 10) / 10
+  return oneDecimal < 10 ? oneDecimal.toFixed(1) : String(Math.round(value))
 }
 
 // ── The account baseline ────────────────────────────────────────

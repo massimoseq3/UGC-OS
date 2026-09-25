@@ -52,7 +52,7 @@ export default function ConnectScrapeCreators({ onClose }: { onClose: () => void
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" {...backdrop}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" {...backdrop}>
       <div
         className="relative w-full max-w-md overflow-hidden rounded-3xl border border-ink/10 bg-surface-1 shadow-2xl shadow-black/50"
         onClick={(e) => e.stopPropagation()}
