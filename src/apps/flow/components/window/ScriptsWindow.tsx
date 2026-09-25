@@ -10,6 +10,7 @@ import { PenLine } from 'lucide-react'
 import type { Product, ScriptHistoryItem } from '../../../../stores/types'
 import type { FlowBlock } from '../../types'
 import { wiresInto } from '../../engine/graph'
+import { scriptsFormat, scriptsMode } from '../../engine/catalog'
 import { useFlowStore } from '../../store/flowStore'
 import { useBankStore } from '../../../../stores/bankStore'
 import InputPanel from '../../../script-architect/components/InputPanel'
@@ -43,7 +44,7 @@ export default function ScriptsWindow({ flowId, doc, block, plan, run, onRun, on
   const product = useBankStore((st) => (productId ? st.products.find((p) => p.id === productId) ?? null : null))
   const bp = plan?.blocks[block.id]
   const runs = blockRuns(block, bp, run)
-  const mode = s.mode === 'remix' ? 'remix' : 'write'
+  const mode = scriptsMode(block)
   const source = String(s.source ?? '')
   const writeFormat = isWriteFormat(s.writeFormat) ? s.writeFormat : 'hooks'
   const hookCount = isHookCount(s.hookCount) ? s.hookCount : DEFAULT_HOOK_COUNT
@@ -190,7 +191,7 @@ function Output({ flowId, block, runs, startedAt }: { flowId: string; block: Flo
           <NothingYet
             icon={PenLine}
             title={shown?.status === 'failed' ? 'That run failed' : 'Nothing written yet'}
-            hint={shown?.error ?? (block.settings.mode === 'write' && block.settings.writeFormat === 'hooks'
+            hint={shown?.error ?? (scriptsFormat(block) === 'hooks'
               ? 'Generate writes every hook in one go. Each one has its own dot on the block, so one hook can go down its own path.'
               : 'Generate writes every script in one go. Each one has its own dot on the block, so one script can go down its own path.')}
           />
@@ -203,6 +204,6 @@ function Output({ flowId, block, runs, startedAt }: { flowId: string; block: Flo
 // The pipeline a run of this block takes — a winning ad that's a scene
 // blueprint is rebuilt scene by scene, the way Scripts reads one.
 function writingMode(block: FlowBlock): ScriptMode {
-  if (block.settings.mode !== 'remix') return 'write'
+  if (scriptsMode(block) !== 'remix') return 'write'
   return detectSceneBlueprint(String(block.settings.source ?? '')) && !block.settings.forceTranscript ? 'reverse-engineer' : 'remix'
 }

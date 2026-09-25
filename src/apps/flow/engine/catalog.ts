@@ -383,18 +383,23 @@ export function inlineText(block: FlowBlock, portKey: string): string | null {
   return text || null
 }
 
+// What a Scripts block's run will be: a winning ad wired in makes it a
+// remix whatever its panel says (graph.ts settleScripts), as the run does.
+export function scriptsMode(block: FlowBlock): 'write' | 'remix' {
+  return block.settings.sourceWired || block.settings.mode === 'remix' ? 'remix' : 'write'
+}
+
 // A Scripts block rebuilding an ad scene by scene (Scripts' reverse-engineer
-// mode): its wiring says so (graph.ts settleScripts), or with nothing wired,
-// the blueprint pasted into it does.
+// mode): its wiring says so, or with nothing wired, the blueprint pasted into
+// it does.
 export function rebuildsScenes(block: FlowBlock): boolean {
   const s = block.settings
-  if (s.mode !== 'remix' || s.forceTranscript) return false
-  return typeof s.sceneRemix === 'boolean' ? s.sceneRemix : detectSceneBlueprint(String(s.source ?? ''))
+  if (scriptsMode(block) !== 'remix' || s.forceTranscript) return false
+  return s.sourceWired ? s.sourceWired === 'scenes' : detectSceneBlueprint(String(s.source ?? ''))
 }
 
 export function scriptsFormat(block: FlowBlock): 'hooks' | 'takes' {
-  const s = block.settings
-  return s.mode === 'write' && s.writeFormat === 'hooks' ? 'hooks' : 'takes'
+  return scriptsMode(block) === 'write' && block.settings.writeFormat === 'hooks' ? 'hooks' : 'takes'
 }
 
 export function outsOf(block: FlowBlock): PortSpec[] {
@@ -464,6 +469,8 @@ export function desiredSlots(block: FlowBlock): number {
 // value (inlineText), so it counts only while nothing is wired in its place.
 const NOT_GENERATION: Partial<Record<BlockKind, string[]>> = {
   characters: ['count', 'tab'],
+  // Derived from the wiring, which the run's inputs already carry.
+  scripts: ['sourceWired'],
   outliers: ['count'],
   list: ['entries'],
   voice: ['scriptText'],

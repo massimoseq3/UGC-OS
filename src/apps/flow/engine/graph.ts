@@ -161,13 +161,16 @@ export function topoOrder(graph: FlowGraph): string[] {
 }
 
 // What a Scripts block's wiring decides about it, written onto its settings
-// so its slots and its price agree with what the run will do:
+// as `sourceWired` so its slots and its price agree with what the run will
+// do (catalog.ts scriptsMode / rebuildsScenes):
 // - a winning ad wired into Source makes it a remix, whatever the panel was
 //   left on (executors/simple.ts scriptInput does the same at run time);
 // - an ad's SCENES wired in (the Ad Analyzer's Scene Prompts, or a Scripts
 //   block writing scenes) makes it the scene-by-scene rebuild, which writes
 //   ONE take — so it has one slot, not the three a remix starts with.
-// `sceneRemix` is left off when nothing is wired: the typed source decides.
+// It's left off when nothing is wired: the panel's own mode decides. It is
+// NOT part of the block's identity (catalog.ts NOT_GENERATION) — the wire is
+// already in the run's inputs — so writing it re-keys nothing already made.
 export function settleScripts(graph: FlowGraph): FlowBlock[] {
   return graph.blocks.map((b) => {
     if (b.kind !== 'scripts') return b
@@ -175,14 +178,13 @@ export function settleScripts(graph: FlowGraph): FlowBlock[] {
     const from = wire && blockById(graph, wire.from)
     const scenes = !!from && (
       (from.kind === 'analyzer' && wire!.fromPort === 'scenes')
-      || (from.kind === 'scripts' && (from.settings.writeFormat === 'scenes' || from.settings.sceneRemix === true))
+      || (from.kind === 'scripts' && (from.settings.writeFormat === 'scenes' || from.settings.sourceWired === 'scenes'))
     )
-    const mode = wire ? 'remix' : b.settings.mode
-    const sceneRemix = wire ? scenes : undefined
-    if (mode === b.settings.mode && sceneRemix === b.settings.sceneRemix) return b
-    const settings: Record<string, unknown> = { ...b.settings, mode }
-    if (sceneRemix === undefined) delete settings.sceneRemix
-    else settings.sceneRemix = sceneRemix
+    const wired = wire ? (scenes ? 'scenes' : 'plain') : undefined
+    if (wired === b.settings.sourceWired) return b
+    const settings: Record<string, unknown> = { ...b.settings }
+    if (wired === undefined) delete settings.sourceWired
+    else settings.sourceWired = wired
     return { ...b, settings }
   })
 }

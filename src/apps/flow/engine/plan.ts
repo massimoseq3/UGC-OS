@@ -27,7 +27,7 @@ import type {
   PortType,
   Trace,
 } from '../types'
-import { generationSettings, inlineText, insOf, isBatch, isRunnable, itemNoun, KINDS, outsOf, rebuildsScenes, sourceOf, takesTyped } from './catalog'
+import { generationSettings, inlineText, insOf, isBatch, isRunnable, itemNoun, KINDS, outsOf, rebuildsScenes, scriptsFormat, scriptsMode, sourceOf, takesTyped } from './catalog'
 import { blockById, enabledItems, itemIdOf, topoOrder, upstreamOf, wiresInto } from './graph'
 import { fingerprint } from './hash'
 import { missingClips, wantedClips } from './sceneShots'
@@ -440,11 +440,11 @@ function placeholder(block: FlowBlock, type: PortType, suffix: string, trace: Tr
 function sizeHint(block: FlowBlock): { text?: string } {
   if (block.kind !== 'scripts') return {}
   const s = block.settings
-  if (s.mode === 'write' && s.writeFormat === 'hooks') return { text: 'This is one opening line of about this length.' }
+  if (scriptsFormat(block) === 'hooks') return { text: 'This is one opening line of about this length.' }
   const seconds = Number(s.writeLength) || 30
   // A script written in scenes is priced as scenes — Scene Clips films one
   // clip per scene, so a stand-in with no scenes would price one long clip.
-  if ((s.mode === 'write' && s.writeFormat === 'scenes') || rebuildsScenes(block)) {
+  if ((scriptsMode(block) === 'write' && s.writeFormat === 'scenes') || rebuildsScenes(block)) {
     const count = Math.max(2, Math.round(seconds / 8))
     const each = seconds / count
     const clock = (t: number) => `00:${String(Math.round(t)).padStart(2, '0')}`

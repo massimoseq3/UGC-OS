@@ -17,7 +17,7 @@ import { resolveImageModelId } from '../../broll-studio/services/generateBroll'
 import { autoClipSeconds, DEFAULT_CLIP_SECONDS } from '../../broll-studio/services/clipDuration'
 import { estimateAnalysisCredits } from '../../ad-anatomy/services/analysisCost'
 import type { ImageResolution } from '../../../utils/models'
-import { isBatch, KINDS } from './catalog'
+import { isBatch, KINDS, scriptsFormat } from './catalog'
 import { matchTextOf, sceneClipInput, sceneRefs, scriptTextOf } from './sceneClips'
 import { sceneTakes, scenesToFilm, type SceneShot } from './sceneShots'
 
@@ -37,9 +37,8 @@ function textOf(values: FlowValue[] | undefined): string | null {
 // Scripts writes on tokens; the run's size is its format's typical answer.
 // Rounded up, like B-Roll's storyboard estimate.
 function scriptsCost(block: FlowBlock, slots: number): number | null {
-  const s = block.settings
   const model = resolveScriptModel('script-architect')
-  const hooks = s.mode === 'write' && s.writeFormat === 'hooks'
+  const hooks = scriptsFormat(block) === 'hooks'
   const tokens = hooks ? 7_000 + slots * 60 : slots * 6_000
   return estimateCredits(model, { tokenCount: tokens })
 }

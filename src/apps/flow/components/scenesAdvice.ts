@@ -6,6 +6,7 @@
 
 import type { FlowBlock, FlowDoc } from '../types'
 import { useFlowStore } from '../store/flowStore'
+import { scriptsMode } from '../engine/catalog'
 
 export interface ScenesAdvice {
   text: string
@@ -22,7 +23,7 @@ export function scenesAdvice(doc: FlowDoc, block: FlowBlock): ScenesAdvice | nul
   const store = useFlowStore.getState()
   const source = doc.wires.find((w) => w.to === scripts.id && w.toPort === 'source')
   const from = source ? doc.blocks.find((b) => b.id === source.from) : undefined
-  if (s.mode === 'remix' && from?.kind === 'analyzer' && source?.fromPort === 'transcript') {
+  if (from?.kind === 'analyzer' && source?.fromPort === 'transcript') {
     return {
       text: "Scripts is remixing the ad's transcript, which comes back as one script with no scenes, so it would be filmed as one clip.",
       fix: 'Use the Ad’s Scene Prompts',
@@ -33,7 +34,7 @@ export function scenesAdvice(doc: FlowDoc, block: FlowBlock): ScenesAdvice | nul
     }
   }
   // Hooks are one line each, filmed as one clip apiece on purpose.
-  if (s.mode !== 'remix' && s.writeFormat === 'script') {
+  if (scriptsMode(scripts) === 'write' && s.writeFormat === 'script') {
     return {
       text: 'Scripts writes plain scripts here, with no scenes, so each would be filmed as one clip.',
       fix: 'Write It as Scenes',

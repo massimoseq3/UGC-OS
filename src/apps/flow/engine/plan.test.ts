@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { FlowBlock, FlowGraph, FlowOutputs, FlowValue, InstanceResult } from '../types'
-import { KINDS, desiredSlots, outsOf } from './catalog'
+import { KINDS, desiredSlots, generationSettings, outsOf, rebuildsScenes, scriptsMode } from './catalog'
 import { canConnect, settleScripts } from './graph'
 import { planFlow, type FlowPlan, type Held, type HeldValue, type PlanDeps } from './plan'
 
@@ -461,22 +461,26 @@ describe('what a Scripts block\'s wiring decides', () => {
 
   it('a winning ad wired in makes it a remix of three takes', () => {
     const [, settled] = settleScripts({ blocks: [analyzer, scripts], wires: [wire('an', 'transcript', 'scr', 'source')] })
-    expect(settled.settings.mode).toBe('remix')
-    expect(settled.settings.sceneRemix).toBe(false)
+    expect(scriptsMode(settled)).toBe('remix')
     expect(desiredSlots(settled)).toBe(3)
   })
 
   it("the ad's scenes wired in rebuild it scene by scene, as one take", () => {
     const [, settled] = settleScripts({ blocks: [analyzer, scripts], wires: [wire('an', 'scenes', 'scr', 'source')] })
-    expect(settled.settings.sceneRemix).toBe(true)
+    expect(rebuildsScenes(settled)).toBe(true)
     expect(desiredSlots(settled)).toBe(1)
   })
 
-  it('unwired, the typed source decides again', () => {
-    const rebuilt = { ...scripts, settings: { ...scripts.settings, mode: 'remix', sceneRemix: true } }
-    const [, settled] = settleScripts({ blocks: [analyzer, rebuilt], wires: [] })
-    expect('sceneRemix' in settled.settings).toBe(false)
-    expect(desiredSlots(settled)).toBe(3)
+  it('unwired, the panel decides again', () => {
+    const [, wired] = settleScripts({ blocks: [analyzer, scripts], wires: [wire('an', 'scenes', 'scr', 'source')] })
+    const [, settled] = settleScripts({ blocks: [analyzer, wired], wires: [] })
+    expect(scriptsMode(settled)).toBe('write')
+    expect(desiredSlots(settled)).toBe(10)
+  })
+
+  it("re-keys nothing already made: the wiring isn't part of the block's identity", () => {
+    const [, settled] = settleScripts({ blocks: [analyzer, scripts], wires: [wire('an', 'transcript', 'scr', 'source')] })
+    expect(generationSettings(settled)).toEqual(generationSettings(scripts))
   })
 })
 
