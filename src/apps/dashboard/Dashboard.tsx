@@ -1,6 +1,7 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Clock, PiggyBank, CalendarCheck, GraduationCap, ArrowUpRight } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
+import { useAppStore } from '../../stores/appStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useBankStore, backfillUsageLedger } from '../../stores/bankStore'
 import { isCloudEnabled } from '../../lib/supabase'
@@ -81,12 +82,31 @@ export default function Dashboard() {
     if (!isCloudEnabled()) backfillUsageLedger()
   }, [])
 
+  // The greeting's clock. A bare `new Date()` in the body is computed ONCE by
+  // the compiler (it has no inputs), and this app stays mounted all session, so
+  // "Good Morning" and the morning's date stood until a reload. It is re-read
+  // when the member comes back to the page — the Dashboard becoming the active
+  // app, or the tab returning to the front — rather than on a timer, since
+  // nothing on an idle page may tick forever (docs/performance.md).
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const refresh = () => setNow(new Date())
+    const onVisible = () => { if (document.visibilityState === 'visible') refresh() }
+    document.addEventListener('visibilitychange', onVisible)
+    const unsubscribe = useAppStore.subscribe((state, prev) => {
+      if (state.activeApp === 'dashboard' && prev.activeApp !== 'dashboard') refresh()
+    })
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      unsubscribe()
+    }
+  }, [])
+
   const metrics = useMemo(() => computeUsageMetrics(usageDays, creditsToUsd), [usageDays])
 
   // Prefer the name the user set in Settings ("What should we call you?"),
   // falling back to their sign-up first name.
   const displayName = profile?.display_name?.trim() || profile?.first_name?.trim()
-  const now = new Date()
   const salutation = greetingForHour(now.getHours())
   const today = now.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })
 
@@ -185,7 +205,9 @@ export default function Dashboard() {
             </p>
           </header>
 
-          {needsKey && <ConnectKeyCard />}
+          {/* Unconditional: the card hides its own banner once a key is saved,
+              and keeps the guide it opened mounted through the save. */}
+          <ConnectKeyCard />
 
           {/* The widget wall — two rows on a desktop, and deliberately no
               more: the whole desktop has to sit inside one screen with the

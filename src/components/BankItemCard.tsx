@@ -120,12 +120,14 @@ export default function BankItemCard({ bankType, item, onClick, selected, accent
 // 9:16 script card — mirrors the Bank browser's ScriptCard so the picker shows
 // the same view: Script/Scenes pill, title, and a full preview that fades out.
 function ScriptCard({ item, onClick, selected, accentColor }: { item: Script; onClick: () => void; selected?: boolean; accentColor?: string }) {
-  const isPrompt = item.kind === 'reverse-engineer'
   // Same pill the Bank browser and Scripts' history rail draw — see
-  // `utils/scriptBadge.ts`.
-  const badge = isPrompt
+  // `utils/scriptBadge.ts`. All three kinds, as the Bank's own card has them:
+  // a legacy `style` row read "Script" here and "Style" there.
+  const badge = item.kind === 'reverse-engineer'
     ? { label: 'Scenes', className: SCRIPT_BADGE.scenes }
-    : { label: 'Script', className: SCRIPT_BADGE.script }
+    : item.kind === 'style'
+      ? { label: 'Style', className: SCRIPT_BADGE.style }
+      : { label: 'Script', className: SCRIPT_BADGE.script }
   return (
     <button
       onClick={onClick}

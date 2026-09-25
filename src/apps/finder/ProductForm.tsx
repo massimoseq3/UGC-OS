@@ -417,9 +417,14 @@ export default function ProductForm({ item, onSave, onAutosave, onCancel, onDeta
     detachedRef.current = false
     const job = extractProductInfo(source, listing, extras)
     extractionRef.current = job
+    // A newer read (the photo was changed mid-read) owns the form from here on.
+    // Without this the first one to finish cleared the spinner and unlocked the
+    // fields while the other was still running, and whichever landed LAST —
+    // possibly the replaced photo's — overwrote everything typed in between.
+    const superseded = () => detachedRef.current || extractionRef.current !== job
     job.then(
       (result) => {
-        if (detachedRef.current) return
+        if (superseded()) return
         setForm((f) => ({ ...f, ...result }))
         setShowError(false)
       },
@@ -429,7 +434,7 @@ export default function ProductForm({ item, onSave, onAutosave, onCancel, onDeta
         // any normal window — so a two-word "Extraction failed" toast was the
         // whole of what a member ever saw, whether the photo was refused, the
         // key was out of credits, or the answer came back unreadable.
-        if (detachedRef.current) return
+        if (superseded()) return
         const message = humanizeError(
           err,
           "Couldn't read that product photo. Try Auto-fill again, or paste the listing copy to help it along.",
@@ -438,7 +443,8 @@ export default function ProductForm({ item, onSave, onAutosave, onCancel, onDeta
         addToast(message, 'error')
       },
     ).finally(() => {
-      if (extractionRef.current === job) extractionRef.current = null
+      if (extractionRef.current !== job) return
+      extractionRef.current = null
       setIsExtracting(false)
     })
   }
@@ -458,7 +464,8 @@ export default function ProductForm({ item, onSave, onAutosave, onCancel, onDeta
       },
       () => {
         addToast(`Couldn't read ${file.name}.`, 'error')
-        setIsExtracting(false)
+        // A read already running keeps its spinner — it still owns the form.
+        if (!extractionRef.current) setIsExtracting(false)
       },
     )
   }

@@ -116,33 +116,6 @@ export default function Finder() {
   const addStyle = useBankStore((s) => s.addStyle)
   const updateStyle = useBankStore((s) => s.updateStyle)
 
-  // Consume inter-app payload.
-  // `activeBank`  → just switch to the bank.
-  // `openCreate`  → switch to the bank AND open the create form (no editingId).
-  // This is a one-shot reaction to an external store event (and must call the
-  // side-effecting consumePayload), so setting state inside the effect is the
-  // correct tool here — not a cascading-render smell.
-  /* eslint-disable react-hooks/set-state-in-effect */
-  useEffect(() => {
-    if (interAppPayload?.targetApp !== 'finder') return
-    if (interAppPayload.targetField === 'activeBank') {
-      const bank = interAppPayload.data as BankType
-      if (BANK_TYPES.includes(bank)) {
-        setActiveBank(bank)
-      }
-      consumePayload()
-    } else if (interAppPayload.targetField === 'openCreate') {
-      const bank = interAppPayload.data as BankType
-      if (BANK_TYPES.includes(bank)) {
-        setActiveBank(bank)
-        setEditingId(null)
-        setShowForm(true)
-      }
-      consumePayload()
-    }
-  }, [interAppPayload, consumePayload])
-  /* eslint-enable react-hooks/set-state-in-effect */
-
   const counts: Record<BankType, number> = {
     products: products.length,
     models: models.length,
@@ -156,8 +129,9 @@ export default function Finder() {
   const [sort, setSort, sortOptions] = useBankSort(activeBank)
 
   // Bumped to force the open Product form to re-seed from its row — see
-  // `handleDetachExtraction`. Read through a ref there so the callback stays
-  // stable while a background read is running.
+  // `handleDetachExtraction` — and by every "new product" path, so a fresh form
+  // is a fresh mount. Read through a ref there so the callback stays stable
+  // while a background read is running.
   const [formSeed, setFormSeed] = useState(0)
   const editingIdRef = useRef<string | null>(editingId)
   useEffect(() => { editingIdRef.current = editingId }, [editingId])
@@ -179,9 +153,14 @@ export default function Finder() {
 
   // Both of these start a fresh row: pressing Add (or opening another product)
   // with a form already open must not keep writing into the last one.
+  //
+  // Add also bumps the form's key: with a NEW product already open, `editingId`
+  // is null before and after, so the form stayed mounted holding the last
+  // product's fields and its next save wrote a second copy of it.
   const handleAdd = () => {
     setEditingId(null)
     forgetFormScratch()
+    setFormSeed((n) => n + 1)
     setShowForm(true)
   }
 
@@ -223,6 +202,44 @@ export default function Finder() {
     forgetFormScratch()
     setShowForm(false)
   }, [])
+
+  // Consume inter-app payload.
+  // `activeBank`  → switch to the bank, exactly as the rail does (`selectBank`).
+  // `openCreate`  → switch to the bank AND open a fresh create form (`handleAdd`).
+  // This is a one-shot reaction to an external store event (and must call the
+  // side-effecting consumePayload), so setting state inside the effect is the
+  // correct tool here — not a cascading-render smell.
+  //
+  // Both close whatever form is open and clear the search, like the in-app
+  // paths. A form left open on another bank's row used to survive the switch as
+  // a blank Product form still carrying that row's id, so every save "updated"
+  // a product that doesn't exist and the new one was silently thrown away.
+  // Sits below `closeForm` because it resets the scratch through it — see the
+  // note above `forgetFormScratch` on where scratch writes have to live.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (interAppPayload?.targetApp !== 'finder') return
+    if (interAppPayload.targetField === 'activeBank') {
+      const bank = interAppPayload.data as BankType
+      if (BANK_TYPES.includes(bank)) {
+        setActiveBank(bank)
+        setQuery('')
+        closeForm()
+      }
+      consumePayload()
+    } else if (interAppPayload.targetField === 'openCreate') {
+      const bank = interAppPayload.data as BankType
+      if (BANK_TYPES.includes(bank)) {
+        setActiveBank(bank)
+        setQuery('')
+        closeForm()
+        setFormSeed((n) => n + 1)
+        setShowForm(true)
+      }
+      consumePayload()
+    }
+  }, [interAppPayload, consumePayload, closeForm])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleSaveProduct = useCallback(async (data: Omit<Product, 'id' | 'createdAt'>) => {
     const scratch = scratchRef.current
