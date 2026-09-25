@@ -1246,7 +1246,7 @@ export default function ScenesView({
                       iconClassName="text-broll-300"
                       onClick={() => {
                         setGenerateAllOpen(false)
-                        requestVideoBatch(allKeys)
+                        requestVideoBatch(allKeys, true)
                       }}
                     >
                       Animate All Stills

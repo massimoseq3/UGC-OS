@@ -400,7 +400,7 @@ export function backfillContinuousFrameState(raw: Partial<ContinuousFrameCardSta
       ? Math.max(0, Math.min(raw.currentVideoIndex, Math.max(0, (Array.isArray(raw.videos) ? raw.videos.length : 0) - 1)))
       : Math.max(0, (Array.isArray(raw.videos) ? raw.videos.length : 0) - 1),
     inFlightVideos: (Array.isArray(raw.inFlightVideos) ? (raw.inFlightVideos as ContinuousFrameCardState['inFlightVideos']) : [])
-      .filter((e) => Date.now() - (e.startedAt ?? 0) < 60 * 60_000),
+      .filter((e) => keepInFlight(e, 60 * 60_000)),
     videoDurationSeconds: typeof raw.videoDurationSeconds === 'number' ? raw.videoDurationSeconds : 5,
     videoResolution: (raw.videoResolution as string) ?? '720p',
     videoAudio: raw.videoAudio !== false,

@@ -997,6 +997,14 @@ export default function ContinuousView({
               const newVideos = [...existing.videos, newVideo]
               return { ...prev, [key]: { ...existing, videos: newVideos, currentVideoIndex: newVideos.length - 1, inFlightVideos: existing.inFlightVideos.filter((e) => e.id !== inFlightId) } }
             })
+            // The live animate path writes this row too; a clip that only
+            // landed after a reload is the same paid clip and belongs in it.
+            const historyEntry: VideoHistoryItem = {
+              id: crypto.randomUUID(), modelId, prompt, mode, aspectRatio: res.aspectRatio,
+              durationSeconds: res.durationSeconds, resolution, audio, videoUrl: assetRef, sourceApp: 'broll-studio', createdAt: Date.now(),
+            }
+            await useBankStore.getState().addVideoHistory(historyEntry)
+            useAppStore.getState().addToast('Animation ready', 'success')
           } catch (err) {
             if (isPollTimeout(err)) return
             const msg = humanizeError(err, 'Video resume failed.')

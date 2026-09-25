@@ -259,7 +259,10 @@ async function produceStoryboardText(
       break
     }
     const next = stitchStoryboard(head, more.text, mode)
-    if (sceneCount(next, mode) <= sceneCount(text, mode)) break
+    // Measured against `head`, not `text`: `text` still counts the half-written
+    // scene the cut left open, so a continuation that finished exactly that
+    // scene tied it and was thrown away with the fragment kept in its place.
+    if (sceneCount(next, mode) <= sceneCount(head, mode)) break
     text = next
     truncated = more.truncated
   }
