@@ -475,6 +475,8 @@ export const editExecutor: Executor = {
     const body = one(ctx.inst.inputs.body, 'video')
     const audio = one(ctx.inst.inputs.audio, 'audio')
     const music = one(ctx.inst.inputs.music, 'music')
+    // Stills wired in go in as they are, after the ones no clip was made from.
+    const wired = (ctx.inst.inputs.stills ?? []).map(refOfPicture).filter((ref) => ref && ref !== 'pending')
     const script = textOf(ctx.inst.inputs.script)
       ?? ([clips.payload.scriptText, body?.payload.scriptText].filter(Boolean).join('\n') || undefined)
     return {
@@ -485,7 +487,7 @@ export const editExecutor: Executor = {
         voiceover: audio?.payload.ref,
         music: music?.payload.ref,
         clips: [...clips.payload.clips, ...(body?.payload.clips ?? [])].map((c) => c.ref),
-        stills: [...(clips.payload.stills ?? []), ...(body?.payload.stills ?? [])],
+        stills: [...new Set([...(clips.payload.stills ?? []), ...(body?.payload.stills ?? []), ...wired])],
       },
     }
   },

@@ -6,6 +6,7 @@
 import type { LucideIcon } from 'lucide-react'
 import { Check } from 'lucide-react'
 import { MenuItem, MenuSeparator, MenuSurface } from '../../../components/Menu'
+import { useKeepInside } from './keepInside'
 
 export type ContextRow =
   | {
@@ -38,12 +39,13 @@ export default function ContextMenu({
   rows: ContextRow[]
   onClose: () => void
 }) {
+  const ref = useKeepInside<HTMLDivElement>(x, y)
   // Rows that would lead or trail with a rule, or stack two, collapse.
   const tidy = rows.filter((r, i) => r !== 'separator' || (i > 0 && i < rows.length - 1 && rows[i - 1] !== 'separator'))
   return (
     <>
       <div className="absolute inset-0 z-30" onClick={onClose} onContextMenu={(e) => { e.preventDefault(); onClose() }} />
-      <div className="absolute z-40" style={{ left: x, top: y }}>
+      <div ref={ref} className="absolute z-40" style={{ left: x, top: y }}>
         <MenuSurface className="w-60">
           {title && <div className="truncate border-b border-ink/5 px-3.5 py-2 text-[11px] font-medium text-ink-500">{title}</div>}
           {tidy.map((r, i) => {

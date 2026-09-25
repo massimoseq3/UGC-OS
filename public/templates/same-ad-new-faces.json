@@ -26,7 +26,7 @@
       "kind": "bank",
       "label": "Your Product",
       "x": 0,
-      "y": 230,
+      "y": 390,
       "settings": {
         "bank": "products"
       },
@@ -38,7 +38,7 @@
       "kind": "bank",
       "label": "Your Character",
       "x": 0,
-      "y": 460,
+      "y": 780,
       "settings": {
         "bank": "models"
       },
@@ -50,7 +50,7 @@
       "kind": "list",
       "label": "The Audiences",
       "x": 0,
-      "y": 690,
+      "y": 1170,
       "settings": {
         "entries": [
           "Make this person Asian-American, with monolid eyes and brunette hair. Keep the outfit, pose, setting and lighting the same.",
@@ -136,7 +136,7 @@
       "x": 700,
       "y": 420,
       "settings": {
-        "text": "Scripts rebuilds the winning ad scene by scene for your product and pauses so you can fix its lines. Variants edits your character once per line of The Audiences, then pauses so you keep the faces that look right. Scene Clips films the one script with your character and each variant: the same scenes, voice and product shots, only the face changes. Change the list to reach other audiences."
+        "text": "Scripts rebuilds the winning ad scene by scene for your product and pauses so you can fix its lines. Variants edits your character once per line of The Audiences, then pauses so you keep the faces that look right. Scene Clips films the one script with your character and each variant: the same scenes, voice and product shots, only the face changes. Change the batch to reach other audiences."
       }
     }
   ],
@@ -239,6 +239,6 @@
     }
   ],
   "notes": [
-    "Scripts rebuilds the winning ad scene by scene for your product and pauses so you can fix its lines. Variants edits your character once per line of The Audiences, then pauses so you keep the faces that look right. Scene Clips films the one script with your character and each variant: the same scenes, voice and product shots, only the face changes. Change the list to reach other audiences."
+    "Scripts rebuilds the winning ad scene by scene for your product and pauses so you can fix its lines. Variants edits your character once per line of The Audiences, then pauses so you keep the faces that look right. Scene Clips films the one script with your character and each variant: the same scenes, voice and product shots, only the face changes. Change the batch to reach other audiences."
   ]
 }

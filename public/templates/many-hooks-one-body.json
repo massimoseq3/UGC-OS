@@ -26,7 +26,7 @@
       "kind": "bank",
       "label": "Your Character",
       "x": 0,
-      "y": 230,
+      "y": 390,
       "settings": {
         "bank": "models"
       },
@@ -60,7 +60,7 @@
       "kind": "scripts",
       "label": "The Hooks",
       "x": 360,
-      "y": 300,
+      "y": 400,
       "settings": {
         "mode": "write",
         "writeFormat": "hooks",
@@ -101,7 +101,7 @@
       "kind": "scenes",
       "label": "Hook Clips",
       "x": 760,
-      "y": 380,
+      "y": 440,
       "settings": {
         "shape": "scenes",
         "takes": 1,
@@ -127,7 +127,7 @@
       "id": "note",
       "kind": "note",
       "x": 0,
-      "y": 480,
+      "y": 780,
       "settings": {
         "text": "Fifty ads for the price of fifty hooks: the body is written and filmed once, and every hook is filmed on its own, in the body's voice and look, then packed in front of it. Scripts pauses twice: keep ONE body, and the hooks worth testing. Test With 1 films one hook and the body's first scene."
       }

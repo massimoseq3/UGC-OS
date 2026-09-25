@@ -73,11 +73,12 @@ export default function Palette({ onAdd }: { onAdd: (kind: BlockKind, bank?: Ban
                   onMouseEnter={() => setHover(kind)}
                   onFocus={() => setHover(kind)}
                   onBlur={() => setHover(null)}
-                  className="flex w-[60px] flex-col items-center gap-1 rounded-xl px-0.5 py-1 transition-colors hover:bg-ink/[0.05]"
+                  className="group flex w-[60px] flex-col items-center gap-1 rounded-xl px-0.5 py-1 transition-colors hover:bg-ink/[0.05]"
                   aria-label={kind === 'bank' ? 'Add something from a bank' : `Add ${label}`}
                 >
                   <GlassTile icon={face.icon} accent={face.accent} size={30} />
-                  <span className="max-w-full truncate text-[9.5px] font-medium text-ink-400">{label}</span>
+                  {/* The dock's own label: 10px, regular weight. */}
+                  <span className="max-w-full truncate text-[10px] leading-tight text-ink-400 transition-colors duration-200 group-hover:text-ink-200">{label}</span>
                 </button>
               )
             })}

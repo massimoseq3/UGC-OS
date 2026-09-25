@@ -83,6 +83,19 @@
   height: 9px;
 }
 
+/* A grid item's own dot (a face, a found ad; a take beside its page), for
+   wiring that one alone: shown while the block is pointed at or selected, or
+   once it's wired, so a grid isn't studded with dots. The block's All output
+   is the dot most flows use. */
+.flow-canvas .flow-port-quiet {
+  opacity: 0;
+}
+.flow-canvas .flow-node:hover .flow-port-quiet,
+.flow-canvas .react-flow__node.selected .flow-port-quiet,
+.flow-canvas .flow-port-quiet.flow-port-used {
+  opacity: 1;
+}
+
 /* An output nothing reads yet ends in a short stub and a +: where the next
    step goes, one click away. Faint until the block is pointed at, so a
    finished flow's last blocks don't shout. */

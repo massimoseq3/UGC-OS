@@ -6,9 +6,9 @@
 
 import type { ElementType } from 'react'
 import { Clapperboard, Image as ImageIcon, List, StickyNote, Type } from 'lucide-react'
-import type { BlockKind, FlowBlock } from '../types'
+import type { BlockKind, FlowBlock, PortSpec } from '../types'
 import { BANK_CONFIG, getAppConfig, type BankType } from '../../../utils/constants'
-import { KINDS, sourceOf } from '../engine/catalog'
+import { insOf, KINDS, outsOf, sourceOf, wearsSquare } from '../engine/catalog'
 
 const HELPER_ICONS: Partial<Record<BlockKind, ElementType>> = {
   image: ImageIcon,
@@ -58,6 +58,15 @@ export function opensWindow(block: Pick<FlowBlock, 'kind' | 'suggested'>): boole
   return !!KINDS[block.kind]?.runnable && !block.suggested
 }
 
+// The output a square face carries on its own edge, beside the picture, in
+// place of a ports row that would only repeat the block's name: only when
+// there is exactly one, and nothing to wire in.
+export function edgeOutput(block: FlowBlock): PortSpec | null {
+  if (!wearsSquare(block) || insOf(block).length) return null
+  const outs = outsOf(block)
+  return outs.length === 1 ? outs[0] : null
+}
+
 // A block whoever runs the flow can fill in themselves, in Run.
 export function isFieldable(block: FlowBlock): boolean {
   return block.kind === 'bank' || block.kind === 'image' || block.kind === 'text' || (!!KINDS[block.kind]?.runnable && sourceOf(block) === 'bank')
@@ -82,7 +91,7 @@ export const BLOCK_BLURB: Record<BlockKind, string> = {
   broll: 'Storyboards each script, makes a still per scene, then animates the stills into clips.',
   playground: 'Makes one image, clip or music track from a prompt and the pictures you wire in.',
   scenes: 'Films a scene script one clip per scene: your character, the voice profile in every prompt, each clip as long as its scene, the product only where it\'s shown.',
-  edit: 'Packs each ad\'s voiceover, clips and script into a folder for the /video-editor skill.',
+  edit: 'Packs each ad\'s voiceover, clips, stills and script into a folder for the /video-editor skill.',
 }
 
 // Where each kind sits in the Add Block picker, in production order.

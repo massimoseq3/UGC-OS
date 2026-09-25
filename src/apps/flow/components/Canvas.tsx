@@ -12,9 +12,7 @@ import { useEffect, useRef, useState } from 'react'
 import {
   Background,
   BackgroundVariant,
-  NodeToolbar,
   Panel,
-  Position,
   ReactFlow,
   useReactFlow,
   useViewport,
@@ -44,6 +42,7 @@ import Palette, { PALETTE_DRAG_TYPE } from './Palette'
 import WhatNextMenu from './WhatNextMenu'
 import { optionsForInput, optionsForInsert, optionsForOutput, type InsertOption, type WhatNextOption } from './whatNext'
 import ContextMenu, { type ContextRow } from './ContextMenu'
+import SelectionToolbar from './SelectionToolbar'
 import AddBlockMenu, { type AddOption } from './AddBlockMenu'
 import { DELETE_KEY, MOD, SHIFT_MOD } from './keys'
 import { creditsShort } from '../hooks/useFlowPlan'
@@ -789,7 +788,7 @@ export default function Canvas({
           {/* The dot grid pans with the canvas and never moves on its own. */}
           <Background variant={BackgroundVariant.Dots} gap={22} size={1.2} />
 
-          <NodeToolbar nodeId={selection} isVisible={selection.length > 0 && !dragging && !ctx && !renaming} position={Position.Top} offset={10}>
+          <SelectionToolbar ids={selection} visible={selection.length > 0 && !dragging && !ctx && !renaming}>
             <div className="flex items-center gap-0.5 rounded-xl border border-ink/10 bg-surface-2 p-1 shadow-xl shadow-black/30">
               {one && opensWindow(one) && (
                 <ToolButton icon={Maximize2} label={`Open ${KINDS[one.kind].title}`} onClick={() => openWindow(one.id)} />
@@ -813,7 +812,7 @@ export default function Canvas({
               <span className="mx-0.5 h-4 w-px bg-ink/10" />
               <ToolButton icon={Trash2} label="Delete" danger onClick={() => removeBlocks(selection)} />
             </div>
-          </NodeToolbar>
+          </SelectionToolbar>
 
           {real.length > 0 && (
             <Panel position="top-left" className="!ml-4 !mt-3.5">

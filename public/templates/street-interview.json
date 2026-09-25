@@ -26,7 +26,7 @@
       "kind": "bank",
       "label": "Your Product",
       "x": 0,
-      "y": 230,
+      "y": 390,
       "settings": {
         "bank": "products"
       },
@@ -38,7 +38,7 @@
       "kind": "bank",
       "label": "Your Character",
       "x": 0,
-      "y": 460,
+      "y": 780,
       "settings": {
         "bank": "models"
       },
@@ -106,7 +106,7 @@
       "id": "note",
       "kind": "note",
       "x": 0,
-      "y": 700,
+      "y": 1170,
       "settings": {
         "text": "Pick a character who visibly has the result your product promises: clear skin for skincare, healthy for a supplement. Scripts rebuilds the ad as a street interview and pauses so you can fix its lines. Scene Clips films it as one clip on Seedance 2.5 at 480p, the cheap look. Switch it to 720p for the final."
       }
