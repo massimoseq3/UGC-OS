@@ -192,7 +192,11 @@ export default function Canvas({
     data: { blockId: b.id },
     selected: selection.includes(b.id),
     measured: measured[b.id],
-    dragHandle: '.flow-drag',
+    // No drag handle: a block drags from anywhere on it, the way a node does
+    // in every editor a member might know. It dragged from its 44px header
+    // only until September 2026, and a press on the body — the bigger part of
+    // the block, and where a pointer lands — did nothing. What must not drag
+    // (fields, buttons, the image drop) carries `nodrag`.
     selectable: !b.suggested,
     draggable: !b.suggested,
     connectable: !b.suggested,
