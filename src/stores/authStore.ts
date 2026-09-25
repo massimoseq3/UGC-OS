@@ -47,6 +47,35 @@ async function wipeLocalUserData(): Promise<void> {
   await resetAssetStore()
 }
 
+// WHOSE local data this browser holds. The wipes above run when a sign-out or
+// an account swap happens with a tab open to see it — but a session can also
+// end with every tab closed (signing out elsewhere revokes this device's
+// session too), and the next load then arrives signed out with the previous
+// member's banks, blobs and live kie key still on disk. Whoever signed in next
+// inherited all of it: their vault was seeded from that key, and their first
+// sync pushed that member's history into their own account. So the owner is
+// written down, and a DIFFERENT member claiming the browser wipes first.
+// Survives the wipe on purpose (not a LOCAL_RESIDUE_PREFIXES key): the same
+// member signing back in finds their own name and keeps their local cache.
+const LOCAL_OWNER_KEY = 'ai-ugc-lab-local-owner'
+
+// Shared between concurrent claims — signIn and the auth listener both land on
+// the same sign-in — so the second waits on the first one's wipe instead of
+// racing a hydrate against it.
+let ownerClaim: Promise<void> = Promise.resolve()
+
+function claimLocalData(userId: string, knownPrev?: string): Promise<void> {
+  let prev: string | null | undefined = knownPrev
+  try {
+    prev = localStorage.getItem(LOCAL_OWNER_KEY) ?? knownPrev
+    localStorage.setItem(LOCAL_OWNER_KEY, userId)
+  } catch { /* localStorage unavailable — fall back to what the caller knows */ }
+  if (prev && prev !== userId) {
+    ownerClaim = wipeLocalUserData().catch((err) => console.error('[auth] local wipe failed', err))
+  }
+  return ownerClaim
+}
+
 // Where a Supabase password-recovery link lands. Registered in the project's
 // Auth → URL Configuration → Redirect URLs, and passed as `redirectTo`.
 export const RECOVERY_PATH = '/reset-password'
@@ -286,6 +315,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return
       }
     }
+    if (user) await claimLocalData(user.id)
     set({ session, user, profile, access, bootstrapping: false })
     // Restore this member's own API keys (see the vault note in settingsStore):
     // they survive the sign-out wipe, so a returning member doesn't re-paste.
@@ -310,12 +340,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           return
         }
       }
+      // A refocus (supabase-js re-announces SIGNED_IN) and the hourly token
+      // refresh land here for the SAME member, and fetchProfile answers null
+      // on any failed request — which AuthGate reads as signed out, unmounting
+      // the workspace and every unsaved draft in it over one dropped request.
+      // Same member, no answer: keep what we had.
+      if (nextUser && nextUser.id === prevUserId && !nextProfile) {
+        nextProfile = get().profile
+        nextAccess = get().access
+      }
       // If the user changed (sign-out or account swap in another tab), wipe
       // every trace of the previous user before letting cloudSync hydrate
-      // the next account.
-      if (prevUserId && prevUserId !== nextUser?.id) {
-        await wipeLocalUserData()
-      }
+      // the next account. An incoming member goes through the owner check,
+      // which also catches a previous member whose session ended unseen.
+      if (nextUser) await claimLocalData(nextUser.id, prevUserId)
+      else if (prevUserId) await wipeLocalUserData()
       set({ session: nextSession, user: nextUser, profile: nextProfile, access: nextAccess })
       // After any wipe, never before — the incoming member adopts their own
       // vaulted keys, which is also what stops them adopting the outgoing one's.
@@ -335,6 +374,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ accessRevoked: true })
         return { ok: false, error: 'Your access has been revoked.', revoked: true }
       }
+      await claimLocalData(data.user.id)
       set({ session: data.session, user: data.user, profile, access, accessRevoked: false })
       adoptUserKeys(data.user.id)
     }
@@ -433,6 +473,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const needsConfirm = !data.session
     if (data.session && data.user) {
       const { profile, access } = await fetchAccount(data.user.id)
+      await claimLocalData(data.user.id)
       set({ session: data.session, user: data.user, profile, access })
     }
     return { ok: true, needsConfirm }
@@ -455,6 +496,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const user = get().user
     if (!user) return
     const { profile, access } = await fetchAccount(user.id)
+    // A failed read answers null, and a null profile is signed out to
+    // AuthGate — keep what we had, as the auth listener does.
+    if (!profile) return
     set({ profile, access })
   },
 
