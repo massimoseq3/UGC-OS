@@ -39,7 +39,7 @@ export function useFlowPlans(doc: FlowDoc | undefined): { plan: FlowPlan | null;
 }
 
 // What the Run button says and does, in the header and in Run View alike:
-// Run Flow; Re-run N Blocks when only some changed; Run Again (everything
+// Run Flow; Run (or Re-run) N Blocks when only some are left; Run Again (everything
 // afresh, new takes) when the flow is made and nothing changed — never a
 // dead "Nothing to Run" on a flow a member wants more ads from.
 export function runButton(doc: FlowDoc, plan: FlowPlan | null, again: FlowPlan | null, run: LiveRun | undefined): { label: string; again: boolean; credits: number; unpriced: boolean } {
@@ -55,8 +55,12 @@ export function runButton(doc: FlowDoc, plan: FlowPlan | null, again: FlowPlan |
     return { label: runnable ? 'Nothing to Run' : 'Add a Block to Run', again: false, credits: 0, unpriced: false }
   }
   const partial = plan.planned.length < runnable && Object.keys(doc.outputs).length > 0
+  // "Re-run" only when every block it names has made something before: the
+  // blocks after a Run Block have never run, and "Re-run" reads as paying twice.
+  const remade = plan.planned.every((id) => Object.keys(doc.outputs[id]?.instances ?? {}).length > 0)
+  const n = plan.planned.length
   return {
-    label: partial ? `Re-run ${plan.planned.length} ${plan.planned.length === 1 ? 'Block' : 'Blocks'}` : 'Run Flow',
+    label: partial ? `${remade ? 'Re-run' : 'Run'} ${n} ${n === 1 ? 'Block' : 'Blocks'}` : 'Run Flow',
     again: false,
     credits: plan.credits,
     unpriced: plan.unpriced,
