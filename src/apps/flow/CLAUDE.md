@@ -117,4 +117,4 @@ Flows are a bank: `flows` in `bankStore` (`saveFlow` / `deleteFlow`), Postgres t
 
 ## Testing
 
-`npm test` runs `engine/plan.test.ts`, `engine/sceneShots.test.ts` and `lineage/saveAsFlow.test.ts` (vitest, CI runs it). In the browser, a kie stub that answers `createTask`, `recordInfo`, credit, file upload and streaming chat from `window.fetch` exercises a whole run for free — install it before anything polls, or real kie answers 401 and (before `taskIsDead`) dropped the handles.
+`npm test` runs `engine/plan.test.ts`, `engine/sceneShots.test.ts` and `lineage/saveAsFlow.test.ts` (vitest, CI runs it). In the browser, a kie stub that answers `createTask`, `recordInfo`, credit, file upload and streaming chat from `window.fetch` exercises a whole run for free — install it before anything polls, or real kie answers 401 and (before `taskIsDead`) dropped the handles. That stub, with a driver and the scenario runs, is `scripts/flow-harness/` (its README says how): `node smoke.mjs --fast --quiet` must say PASS, and the `probe-*` files assert things like no clip submitted twice across a reload. Reach app state there through `window.__appImport`, never a bare `import()`.
