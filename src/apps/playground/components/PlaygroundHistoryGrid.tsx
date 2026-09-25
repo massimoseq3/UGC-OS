@@ -1381,7 +1381,7 @@ function PreviewModal({
   // its `pointer-events-auto` inner div.
   return (
     <div
-      className="fixed inset-0 z-[60] flex flex-col bg-black/80"
+      className="fixed inset-0 z-[60] flex flex-col bg-black/80 backdrop-blur-sm"
       {...backdrop}
     >
       {/* Top-right holds only Close now — Save + Download moved down to
