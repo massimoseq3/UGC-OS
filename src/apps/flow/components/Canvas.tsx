@@ -26,11 +26,11 @@ import {
   type NodeChange,
   type XYPosition,
 } from '@xyflow/react'
-import { ClipboardPaste, Copy, CopyPlus, FormInput, Hand, Maximize2, Minus, Pencil, Play, Plus, Power, Redo2, Scan, SquareDashedMousePointer, StickyNote, Trash2, Undo2, Unlink, Wand2 } from 'lucide-react'
+import { ClipboardPaste, Copy, CopyPlus, Eye, FormInput, Hand, Maximize2, Minus, Pencil, Play, Plus, Power, Redo2, Scan, SquareDashedMousePointer, StickyNote, Trash2, Undo2, Unlink, Wand2 } from 'lucide-react'
 import type { BlockKind, FlowBlock, FlowDoc, PortSpec, PortType } from '../types'
 import type { FlowPlan } from '../engine/plan'
 import { accepts, inlineText, insOf, isRunnable, outsOf, suggestNext, TYPE_META, KINDS, titleOf } from '../engine/catalog'
-import { canConnect, inputSpec, outputType, topoOrder, wiresInto } from '../engine/graph'
+import { canConnect, inputSpec, outputLabel, outputType, topoOrder, wiresInto } from '../engine/graph'
 import { useFlowStore } from '../store/flowStore'
 import { newBlock } from '../store/blocks'
 import { useFlowRunStore, type LiveRun } from '../run/runtime'
@@ -51,6 +51,8 @@ import { CanvasContext, type CanvasContextValue } from './canvasContext'
 import { blockWidth, isFieldable, kindFace, opensWindow } from './blockMeta'
 import { clipFromSelection, parseFlowJson } from '../templates/io'
 import AskFlow from './AskFlow'
+import FlowHelp from './FlowHelp'
+import WirePeek from './WirePeek'
 import { estimatedSize, freeSpot } from '../engine/layout'
 
 const NODE_TYPES = { block: BlockNode }
@@ -144,6 +146,8 @@ export default function Canvas({
   const [insert, setInsert] = useState<{ x: number; y: number; wireId: string; type: PortType; options: InsertOption[] } | null>(null)
   // The block whose name is being typed on the canvas (F2, or Rename).
   const [renaming, setRenaming] = useState<string | null>(null)
+  // What's on a wire, opened from its middle.
+  const [peek, setPeek] = useState<{ x: number; y: number; wireId: string } | null>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
   // The last place the pointer was over the canvas, for Tab's Add Block.
   const pointer = useRef<{ x: number; y: number } | null>(null)
@@ -477,11 +481,19 @@ export default function Canvas({
     if (failed) say(failed.reason, 'error')
   }
 
+  const openPeek = (wireId: string, clientX: number, clientY: number) => {
+    setCtx(null)
+    setInsert(null)
+    setPeek({ ...boxAt(clientX, clientY, 320, 400), wireId })
+  }
+
   const contextRows = (): ContextRow[] => {
     if (!ctx) return []
     if (ctx.on === 'wire') {
       const id = ctx.id!
+      const client = { x: ctx.x + (wrapRef.current?.getBoundingClientRect().left ?? 0), y: ctx.y + (wrapRef.current?.getBoundingClientRect().top ?? 0) }
       return [
+        { label: "See What's on It", icon: Eye, onClick: () => openPeek(id, client.x, client.y) },
         { label: 'Insert a Block Here…', icon: Plus, onClick: () => openInsert(id, ctx.x + (wrapRef.current?.getBoundingClientRect().left ?? 0), ctx.y + (wrapRef.current?.getBoundingClientRect().top ?? 0)) },
         'separator',
         { label: 'Delete Wire', icon: Unlink, keys: DELETE_KEY, danger: true, onClick: () => { removeWire(id); setSelectedWire(null) } },
@@ -665,6 +677,7 @@ export default function Canvas({
         setCtx(null)
         setAdder(null)
         setInsert(null)
+        setPeek(null)
       } else {
         return
       }
@@ -697,6 +710,7 @@ export default function Canvas({
     renaming,
     setRenaming,
     openInsert,
+    openPeek,
     pointWire,
   }
 
@@ -704,7 +718,7 @@ export default function Canvas({
     <CanvasContext.Provider value={context}>
       <div
         ref={wrapRef}
-        className="flow-canvas relative min-h-0 flex-1"
+        className={`flow-canvas relative min-h-0 flex-1 ${hoverWire || selectedWire ? 'flow-wire-tools' : ''}`}
         onDragOver={(e) => {
           e.preventDefault()
           e.dataTransfer.dropEffect = 'copy'
@@ -801,7 +815,7 @@ export default function Canvas({
             </Panel>
           )}
 
-          <Panel position="top-right" className="!mr-4 !mt-3.5">
+          <Panel position="top-right" className="!z-10 !mr-4 !mt-3.5">
             <div className="flex h-[34px] items-center gap-0.5 rounded-full border border-ink/10 bg-surface-1 px-1 text-[11.5px] text-ink-300 shadow-lg shadow-black/20">
               <ZoomButton title="Zoom Out" onClick={() => void rf.zoomOut({ duration: 150 })}><Minus className="h-3.5 w-3.5" /></ZoomButton>
               <span className="min-w-[40px] text-center tabular-nums">{Math.round(zoom * 100)}%</span>
@@ -812,6 +826,10 @@ export default function Canvas({
                 <Wand2 className="h-3.5 w-3.5" />
                 <span>Tidy</span>
               </ZoomButton>
+              <span className="mx-0.5 h-4 w-px bg-ink/10" />
+              <ZoomButton title={`Undo · ${MOD}Z`} onClick={undo} disabled={!canUndo}><Undo2 className="h-3.5 w-3.5" /></ZoomButton>
+              <ZoomButton title={`Redo · ${SHIFT_MOD}Z`} onClick={redo} disabled={!canRedo}><Redo2 className="h-3.5 w-3.5" /></ZoomButton>
+              <FlowHelp />
             </div>
           </Panel>
 
@@ -856,6 +874,21 @@ export default function Canvas({
             onClose={() => setCtx(null)}
           />
         )}
+        {peek && (() => {
+          const w = doc.wires.find((x) => x.id === peek.wireId)
+          const from = w && real.find((b) => b.id === w.from)
+          const to = w && real.find((b) => b.id === w.to)
+          if (!w || !from || !to) return null
+          return (
+            <WirePeek
+              x={peek.x}
+              y={peek.y}
+              title={`${outputLabel(from, w.fromPort)} → ${titleOf(to)} · ${inputSpec(to, w.toPort)?.label ?? ''}`}
+              values={plan?.blocks[w.from]?.values[w.fromPort] ?? []}
+              onClose={() => setPeek(null)}
+            />
+          )
+        })()}
         {adder && <AddBlockMenu x={adder.x} y={adder.y} onPick={pickAdd} onClose={() => setAdder(null)} />}
         {insert && (
           <WhatNextMenu
@@ -957,13 +990,14 @@ function ToolButton({
   )
 }
 
-function ZoomButton({ title, onClick, children }: { title: string; onClick: () => void; children: React.ReactNode }) {
+function ZoomButton({ title, onClick, disabled, children }: { title: string; onClick: () => void; disabled?: boolean; children: React.ReactNode }) {
   return (
     <button
       type="button"
       onClick={onClick}
       title={title}
-      className="flex h-[26px] min-w-[26px] items-center justify-center gap-1 rounded-full px-2 text-ink-300 transition-colors hover:bg-ink/[0.07] hover:text-ink-100"
+      disabled={disabled}
+      className="flex h-[26px] min-w-[26px] items-center justify-center gap-1 rounded-full px-2 text-ink-300 transition-colors hover:bg-ink/[0.07] hover:text-ink-100 disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-ink-300"
     >
       {children}
     </button>

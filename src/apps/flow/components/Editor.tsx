@@ -194,7 +194,7 @@ export default function Editor({ flowId }: { flowId: string }) {
       <Modal
         open={!!confirm}
         onClose={() => setConfirm(null)}
-        title={confirm?.req.test ? 'Run the Test?' : confirm?.req.fresh ? 'Make Everything Again?' : 'Run This Flow?'}
+        title={confirm?.req.test ? 'Run the Test?' : confirm?.req.fresh ? 'Make Everything Again?' : confirm?.req.only ? 'Run This Block?' : 'Run This Flow?'}
         footer={confirm && (
           <div className="flex items-center justify-end gap-2">
             <button type="button" onClick={() => setConfirm(null)} className="rounded-full px-4 py-2 text-sm text-ink-300 hover:text-ink-100">Not Now</button>

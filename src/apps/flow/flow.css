@@ -102,3 +102,11 @@
 .flow-canvas .flow-next:hover {
   opacity: 1;
 }
+
+/* While a wire is pointed at or selected, the wires' middles — where its
+   Insert, Cut and See What's on It are — sit above the blocks: a wire that
+   passes under a block would otherwise hide its only tools. The rest of the
+   time a ×N passing under a block stays under it. */
+.flow-canvas.flow-wire-tools .react-flow__edgelabel-renderer {
+  z-index: 1001;
+}

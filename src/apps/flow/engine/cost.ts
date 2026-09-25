@@ -17,6 +17,7 @@ import { resolveImageModelId } from '../../broll-studio/services/generateBroll'
 import { autoClipSeconds, DEFAULT_CLIP_SECONDS } from '../../broll-studio/services/clipDuration'
 import { estimateAnalysisCredits } from '../../ad-anatomy/services/analysisCost'
 import type { ImageResolution } from '../../../utils/models'
+import { isBatch, KINDS } from './catalog'
 import { sceneClipInput, sceneRefs, scriptTextOf } from './sceneClips'
 import { sceneTakes, scenesToFilm, type SceneShot } from './sceneShots'
 
@@ -101,6 +102,8 @@ function brollCost(block: FlowBlock, inputs: Record<string, FlowValue[]>, test =
 // the same way brollCost prices it.
 export function generationsOf(block: FlowBlock, inputs: Record<string, FlowValue[]>, slots: number, test = false): number {
   if (block.kind === 'scenes') return scenesShots(block, inputs, test).length * sceneTakes(block, test)
+  // Ten hooks, or five ads found, are ONE call: they're not ten generations.
+  if (isBatch(block) && !KINDS[block.kind].perSlot) return 1
   if (block.kind !== 'broll') return Math.max(1, slots)
   const scenes = sceneCount(textOf(inputs.script))
   const takes = test ? 1 : Math.min(3, Math.max(1, Number(block.settings.takes) || 1))

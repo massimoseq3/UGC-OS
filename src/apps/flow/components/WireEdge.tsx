@@ -6,7 +6,7 @@
 // done to it: a block inserted into it, or cut.
 
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, type Edge, type EdgeProps } from '@xyflow/react'
-import { Plus, Scissors } from 'lucide-react'
+import { Eye, Plus, Scissors } from 'lucide-react'
 import { useCanvas } from './canvasContext'
 import { useFlowStore } from '../store/flowStore'
 
@@ -14,7 +14,7 @@ export type WireEdgeType = Edge<{ color: string; count: number; live: boolean; h
 
 export default function WireEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, selected }: EdgeProps<WireEdgeType>) {
   const [path, labelX, labelY] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition })
-  const { openInsert, pointWire } = useCanvas()
+  const { openInsert, openPeek, pointWire } = useCanvas()
   const removeWire = useFlowStore((s) => s.removeWire)
   const color = data?.color ?? '#71717a'
   const tools = selected || data?.hover
@@ -35,9 +35,19 @@ export default function WireEdge({ id, sourceX, sourceY, targetX, targetY, sourc
             onMouseEnter={() => pointWire(id)}
             onMouseLeave={() => pointWire(null)}
           >
-            {data && data.count > 1 && <span className="px-1">×{data.count}</span>}
+            {data && data.count > 1 && !tools && <span className="px-1">×{data.count}</span>}
             {tools && (
               <>
+                <button
+                  type="button"
+                  onClick={(e) => openPeek(id, e.clientX, e.clientY)}
+                  title="See what's on this wire"
+                  aria-label="See What's on It"
+                  className="flex h-5 items-center gap-1 rounded-full px-1.5 text-ink-300 transition-colors hover:bg-ink/10 hover:text-ink-100"
+                >
+                  <Eye className="h-3 w-3" />
+                  {data && data.count > 1 && <span>×{data.count}</span>}
+                </button>
                 <button
                   type="button"
                   onClick={(e) => openInsert(id, e.clientX, e.clientY)}
