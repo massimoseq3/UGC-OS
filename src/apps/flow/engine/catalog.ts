@@ -463,14 +463,21 @@ export function generationSettings(block: FlowBlock): Record<string, unknown> {
   return out
 }
 
-// Production-order suggestion: the kind a finished flow most often lacks
-// next, given what's on the canvas. Edit Pack closes a flow that makes clips.
-export function suggestNext(kinds: BlockKind[]): BlockKind | null {
-  const has = (k: BlockKind) => kinds.includes(k)
+// Production-order suggestion: the step a flow most often lacks next, given
+// what's on the canvas — from the very first block, so a member who drops a
+// product on an empty canvas is shown where it goes. Edit Pack closes a flow
+// that makes clips.
+export function suggestNext(blocks: Array<Pick<FlowBlock, 'kind' | 'settings'>>): BlockKind | null {
+  const has = (k: BlockKind) => blocks.some((b) => b.kind === k)
+  const bank = (which: BankType) => blocks.some((b) => b.kind === 'bank' && (b.settings.bank ?? 'products') === which)
   if ((has('broll') || has('playground') || has('scenes')) && !has('edit')) return 'edit'
   // A talking-head flow speaks in its clips: it has no voiceover to add.
   if (has('scripts') && !has('voice') && !has('scenes')) return 'voice'
   if (has('voice') && !has('broll')) return 'broll'
+  // The first steps: a winning ad gets torn down, and a product or a
+  // teardown gets written for.
+  if ((bank('swipes') || has('outliers')) && !has('analyzer')) return 'analyzer'
+  if ((bank('products') || has('analyzer')) && !has('scripts')) return 'scripts'
   return null
 }
 

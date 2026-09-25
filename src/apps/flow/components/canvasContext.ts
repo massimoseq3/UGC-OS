@@ -28,6 +28,8 @@ export interface CanvasContextValue {
   setRenaming: (blockId: string | null) => void
   // A wire's + at its middle: the blocks that could sit between its ends.
   openInsert: (wireId: string, clientX: number, clientY: number) => void
+  // The wire under the pointer (null: let go of it, a moment late).
+  pointWire: (wireId: string | null) => void
 }
 
 export const CanvasContext = createContext<CanvasContextValue | null>(null)

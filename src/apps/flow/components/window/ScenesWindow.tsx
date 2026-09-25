@@ -25,6 +25,7 @@ import VideoLightbox from '../../../../components/VideoLightbox'
 import { useAssetThumb, useAssetUrl } from '../../../../hooks/useAssetUrl'
 import { InputsBand, NothingYet, RunBand, RunChip, WiredCard } from './parts'
 import { arrivingLabels, blockRuns, blockTitle, type BlockRun, type WindowProps } from './runs'
+import { scenesAdvice } from '../scenesAdvice'
 
 const TAKES = ['1', '2', '3']
 
@@ -40,6 +41,7 @@ export default function ScenesWindow({ doc, block, plan, run, onRun, onReview }:
   const one = s.shape === 'one'
   const takes = sceneTakes(block)
   const count = runs.length || 1
+  const advice = scenesAdvice(doc, block)
   // The chips show what a clip sends — the saved value fitted to the model.
   const probe = sceneClipInput(block, { shots: [], voice: '', style: '', scenes: false }, { number: 1, label: '', body: '', spoken: '', seconds: 8, showsProduct: true }, [])
   const keep = (picked: string, shown: string, patch: Record<string, unknown>) => {
@@ -51,6 +53,14 @@ export default function ScenesWindow({ doc, block, plan, run, onRun, onReview }:
       <div className="flex w-[440px] shrink-0 flex-col border-r border-ink/5">
         <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="flex flex-col gap-2 px-5 pb-2 pt-4">
+            {advice && (
+              <div className="flex flex-col items-start gap-2 rounded-2xl border border-amber-500/25 bg-amber-500/[0.07] px-4 py-3 text-[12px] leading-relaxed text-amber-200 light:text-amber-800">
+                {advice.text}
+                <button type="button" onClick={advice.apply} className="flex h-7 items-center rounded-full bg-amber-400 px-3 text-[12px] font-bold text-[#1c1204] transition-all hover:brightness-110">
+                  {advice.fix}
+                </button>
+              </div>
+            )}
             {scriptWires.length ? (
               <WiredCard doc={doc} block={block} port="script" hint="Each script that comes in is filmed as its own ad. Write it in Scripts as scenes, or remix a winning ad's scenes.">
                 <Arriving runs={runs} from={blockTitle(doc, scriptWires[0].from)} />

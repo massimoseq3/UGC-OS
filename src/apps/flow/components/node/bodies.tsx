@@ -25,6 +25,7 @@ import { useCanvas } from '../canvasContext'
 import { latestItems, madeValues } from './made'
 import { scenesToFilm, sceneTakes } from '../../engine/sceneShots'
 import { scenesVideoModel, scriptTextOf } from '../../engine/sceneClips'
+import { scenesAdvice } from '../scenesAdvice'
 
 // ── Batches: hooks, faces, ads ─────────────────────────────────────────────
 
@@ -242,19 +243,28 @@ export function PlaygroundBody({ block, bp }: { block: FlowBlock; bp: BlockPlan 
 // The script's scenes as rows — how long each runs and whether it's filmed —
 // so a talking-head flow reads on the canvas the way it reads in Scripts.
 export function ScenesBody({ block, bp }: { block: FlowBlock; bp: BlockPlan | undefined }) {
-  const { run } = useCanvas()
   const inst = bp?.instances[0]
   const text = inst ? scriptTextOf(inst.inputs) : ''
   const waiting = !!inst?.inputs.script?.[0]?.pending
   const shots = text && !waiting ? scenesToFilm(block, text).shots : []
   const made = madeValues(bp).flatMap((v) => (v.type === 'video' ? v.payload.clips : []))
   const filmed = new Set(made.map((c) => c.scene))
+  const { doc, run } = useCanvas()
   const busy = run?.status === 'running' && run.blocks[block.id]?.status === 'running'
   const takes = sceneTakes(block)
   const ads = bp?.instances.length ?? 0
   const model = getModel(scenesVideoModel(block) ?? '')?.displayName
+  const advice = scenesAdvice(doc, block)
   return (
     <div className="px-3 pb-2.5">
+      {advice && (
+        <div className="mb-2 rounded-xl border border-amber-500/25 bg-amber-500/[0.07] px-2.5 py-2 text-[10.5px] leading-snug text-amber-200 light:text-amber-800">
+          {advice.text}
+          <button type="button" onClick={advice.apply} className="nodrag mt-1.5 flex h-6 items-center rounded-full bg-amber-400 px-2.5 text-[10.5px] font-bold text-[#1c1204] transition-all hover:brightness-110">
+            {advice.fix}
+          </button>
+        </div>
+      )}
       {shots.length ? (
         <div className="flex flex-col gap-0.5">
           {shots.slice(0, 6).map((shot) => (

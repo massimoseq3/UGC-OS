@@ -48,7 +48,7 @@ import AddBlockMenu, { type AddOption } from './AddBlockMenu'
 import { DELETE_KEY, MOD, SHIFT_MOD } from './keys'
 import { creditsShort } from '../hooks/useFlowPlan'
 import { CanvasContext, type CanvasContextValue } from './canvasContext'
-import { blockWidth, isFieldable, opensWindow } from './blockMeta'
+import { blockWidth, isFieldable, kindFace, opensWindow } from './blockMeta'
 import { clipFromSelection, parseFlowJson } from '../templates/io'
 import AskFlow from './AskFlow'
 import { estimatedSize, freeSpot } from '../engine/layout'
@@ -124,6 +124,16 @@ export default function Canvas({
   const [drag, setDrag] = useState<Record<string, XYPosition>>({})
   const [measured, setMeasured] = useState<Record<string, Dimensions>>({})
   const [selectedWire, setSelectedWire] = useState<string | null>(null)
+  const [hoverWire, setHoverWire] = useState<string | null>(null)
+  // Leaving a wire for the tools at its middle crosses a gap: the hover is
+  // let go a moment late, and the tools hold it while they're pointed at.
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pointWire = (id: string | null) => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current)
+    hoverTimer.current = null
+    if (id) setHoverWire(id)
+    else hoverTimer.current = setTimeout(() => setHoverWire(null), 350)
+  }
   const [menu, setMenu] = useState<WhatNextState | null>(null)
   const [dragging, setDragging] = useState(false)
   // Right-click: on a block (or the selection), on the canvas, or on a wire.
@@ -140,9 +150,31 @@ export default function Canvas({
 
   const say = (message: string, kind: 'info' | 'error' | 'success' = 'info') => addToast(message, kind)
 
+  // A block just added off the edge of the view is brought into it, with
+  // whatever it's wired to, at the zoom the member is on — a member who
+  // presses "Add Scripts" should see Scripts, not a canvas that looks
+  // unchanged.
+  const reveal = (id: string) => {
+    setTimeout(() => {
+      const node = rf.getNode(id)
+      const rect = wrapRef.current?.getBoundingClientRect()
+      const current = useFlowStore.getState().docs[flowId]
+      const kind = current?.blocks.find((b) => b.id === id)?.kind
+      if (!node || !rect || !kind) return
+      const w = node.measured?.width ?? blockWidth(kind)
+      const h = node.measured?.height ?? 180
+      const tl = rf.flowToScreenPosition(node.position)
+      const br = rf.flowToScreenPosition({ x: node.position.x + w, y: node.position.y + h })
+      const inView = tl.x >= rect.left + 16 && tl.y >= rect.top + 16 && br.x <= rect.right - 16 && br.y <= rect.bottom - 110
+      if (inView) return
+      const near = current.wires.filter((x) => x.from === id || x.to === id).map((x) => (x.from === id ? x.to : x.from))
+      void rf.fitView({ nodes: [id, ...near].map((x) => ({ id: x })), padding: 0.3, maxZoom: Math.max(0.5, rf.getZoom()), duration: 350 })
+    }, 80)
+  }
+
   // ── The suggested next block ─────────────────────────────────────────────
   const real = doc.blocks.filter((b) => !b.suggested)
-  const nextKind = real.length ? suggestNext(real.map((b) => b.kind)) : null
+  const nextKind = real.length ? suggestNext(real) : null
   const rightmost = real.reduce<FlowBlock | null>((a, b) => (!a || b.x > a.x ? b : a), null)
   const suggestion: FlowBlock | null = nextKind && rightmost
     ? { ...newBlock(nextKind, { x: rightmost.x + blockWidth(rightmost.kind) + 96, y: rightmost.y }), id: SUGGESTION_ID, suggested: true }
@@ -160,6 +192,10 @@ export default function Canvas({
     selectable: !b.suggested,
     draggable: !b.suggested,
     connectable: !b.suggested,
+    // React Flow turns pointer events off on a node that can't be selected,
+    // dragged or wired — which left the suggested block unclickable. It's a
+    // button; it has to take the click.
+    style: b.suggested ? { pointerEvents: 'all' as const } : undefined,
   }))
 
   const liveBlocks = new Set(run?.status === 'running' ? Object.entries(run.blocks).filter(([, s]) => s.status === 'running' || s.status === 'queued').map(([id]) => id) : [])
@@ -179,6 +215,7 @@ export default function Canvas({
         color: type ? TYPE_META[type].color : '#71717a',
         count: plan?.blocks[w.from]?.values[w.fromPort]?.length ?? 0,
         live: liveBlocks.has(w.to),
+        hover: hoverWire === w.id,
       },
     }
   })
@@ -336,6 +373,7 @@ export default function Canvas({
       ? { x: menu.at.x + 72, y: menu.at.y - 22 }
       : { x: menu.at.x - blockWidth(o.kind) - 72, y: menu.at.y - 22 }
     const id = addBlock(o.kind, freeSpot({ blocks: real, wires: doc.wires }, at, o.kind, (b) => measured[b.id] ?? estimatedSize(b)), o.bank ? { settings: { bank: o.bank } } : undefined)
+    reveal(id)
     const check = menu.from.side === 'out'
       ? connect({ from: menu.from.blockId, fromPort: menu.from.port, to: id, toPort: o.port })
       : connect({ from: id, fromPort: o.port, to: menu.from.blockId, toPort: menu.from.port })
@@ -368,7 +406,7 @@ export default function Canvas({
     // Dropped: where it was dropped. Clicked: beside the selection, on a spot
     // that covers nothing.
     const place = at ?? freeSpot({ blocks: real, wires: doc.wires }, placeFor(kind), kind, (b) => measured[b.id] ?? estimatedSize(b))
-    addBlock(kind, place, bank ? { settings: { bank } } : undefined)
+    reveal(addBlock(kind, place, bank ? { settings: { bank } } : undefined))
   }
 
   // ── Right-click, Add Block, and Insert on a wire ─────────────────────────
@@ -431,6 +469,7 @@ export default function Canvas({
     if (!w || !from || !to) return
     const mid = { x: (from.x + blockWidth(from.kind) + to.x) / 2 - blockWidth(o.kind) / 2, y: (from.y + to.y) / 2 }
     const id = addBlock(o.kind, freeSpot({ blocks: real, wires: doc.wires }, mid, o.kind, (b) => measured[b.id] ?? estimatedSize(b)))
+    reveal(id)
     removeWire(w.id)
     const a = connect({ from: w.from, fromPort: w.fromPort, to: id, toPort: o.port })
     const b = connect({ from: id, fromPort: o.outPort, to: w.to, toPort: w.toPort })
@@ -488,18 +527,26 @@ export default function Canvas({
   }
 
   // The suggested block, wired: each of its inputs takes the latest output
-  // on the canvas that fits it.
+  // on the canvas made for it — a product into Product, a teardown's
+  // transcript into Winning Ad — or, for a required one, the latest that fits
+  // at all. An input that takes many pictures, or text a member types (a
+  // brief, instructions), is left for the member.
   const acceptSuggestion = () => {
     if (!suggestion) return
     const id = addBlock(suggestion.kind, { x: suggestion.x, y: suggestion.y })
+    reveal(id)
     const order = topoOrder({ blocks: real, wires: doc.wires }).reverse()
     for (const port of KINDS[suggestion.kind].ins) {
-      if (!port.required && port.key !== 'audio') continue
-      for (const bid of order) {
-        const b = real.find((x) => x.id === bid)!
-        const out = outsOf(b).find((o) => accepts(port.type, o.type))
-        if (out && connect({ from: b.id, fromPort: out.key, to: id, toPort: port.key }).ok) break
+      if (port.many || (port.type === 'text' && !port.required)) continue
+      const pick = (fits: (t: PortType) => boolean) => {
+        for (const bid of order) {
+          const b = real.find((x) => x.id === bid)!
+          const out = outsOf(b).find((o) => fits(o.type))
+          if (out && connect({ from: b.id, fromPort: out.key, to: id, toPort: port.key }).ok) return true
+        }
+        return false
       }
+      if (!pick((t) => t === port.type) && (port.required || port.key === 'audio')) pick((t) => accepts(port.type, t))
     }
   }
 
@@ -650,6 +697,7 @@ export default function Canvas({
     renaming,
     setRenaming,
     openInsert,
+    pointWire,
   }
 
   return (
@@ -694,6 +742,8 @@ export default function Canvas({
           onSelectionContextMenu={(e) => openContext(e, 'block')}
           onPaneContextMenu={(e) => openContext(e, 'pane')}
           onEdgeContextMenu={(e, edge) => openContext(e, 'wire', edge.id)}
+          onEdgeMouseEnter={(_e, edge) => pointWire(edge.id)}
+          onEdgeMouseLeave={() => pointWire(null)}
           deleteKeyCode={null}
           selectionKeyCode="Shift"
           multiSelectionKeyCode="Shift"
@@ -711,7 +761,7 @@ export default function Canvas({
           {/* The dot grid pans with the canvas and never moves on its own. */}
           <Background variant={BackgroundVariant.Dots} gap={22} size={1.2} />
 
-          <NodeToolbar nodeId={selection} isVisible={selection.length > 0 && !dragging} position={Position.Top} offset={10}>
+          <NodeToolbar nodeId={selection} isVisible={selection.length > 0 && !dragging && !ctx && !renaming} position={Position.Top} offset={10}>
             <div className="flex items-center gap-0.5 rounded-xl border border-ink/10 bg-surface-2 p-1 shadow-xl shadow-black/30">
               {one && opensWindow(one) && (
                 <ToolButton icon={Maximize2} label={`Open ${KINDS[one.kind].title}`} onClick={() => openWindow(one.id)} />
@@ -770,13 +820,17 @@ export default function Canvas({
           </Panel>
 
           {real.length === 0 && (
-            <Panel position="top-center" className="!mt-24">
-              <div className="max-w-sm text-center">
-                <p className="text-sm font-medium text-ink-200">An empty flow</p>
-                <p className="mt-1 text-xs leading-relaxed text-ink-500">
-                  Add blocks from the bar below, or drag them onto the canvas. Double-click a block to open it in its app. Wire an output dot into an input dot, or drop the wire on the block. Drop images anywhere.
-                </p>
-              </div>
+            <Panel position="top-center" className="!mt-20">
+              <EmptyStart
+                onStart={(bank) => {
+                  const id = addBlock('bank', placeFor('bank'), { settings: { bank }, field: true })
+                  setSelection([id])
+                }}
+                onBrowse={() => {
+                  const rect = wrapRef.current?.getBoundingClientRect()
+                  openAdder((rect?.left ?? 0) + (rect?.width ?? 800) / 2 - 170, (rect?.top ?? 0) + 150)
+                }}
+              />
             </Panel>
           )}
         </ReactFlow>
@@ -816,6 +870,52 @@ export default function Canvas({
         )}
       </div>
     </CanvasContext.Provider>
+  )
+}
+
+// The empty canvas: what a flow is in one line, and the three places a flow
+// on the channel starts — your product, a winning ad, a character — each a
+// block on the canvas in one click, with the next step suggested beside it.
+function EmptyStart({ onStart, onBrowse }: { onStart: (bank: BankType) => void; onBrowse: () => void }) {
+  const starts: Array<{ bank: BankType; label: string; hint: string }> = [
+    { bank: 'products', label: 'Your Product', hint: 'Write ads for it' },
+    { bank: 'swipes', label: 'A Winning Ad', hint: 'Remix one that works' },
+    { bank: 'models', label: 'A Character', hint: 'Cast who stars in it' },
+  ]
+  return (
+    <div className="flex max-w-[520px] flex-col items-center text-center">
+      <p className="text-[15px] font-semibold tracking-tight text-ink-100">What does this flow start from?</p>
+      <p className="mt-1.5 text-[12.5px] leading-relaxed text-ink-400">
+        Every block is one of your apps. Wires carry what one block makes into the next, and Run Flow makes the whole batch.
+      </p>
+      <div className="mt-5 grid w-full grid-cols-3 gap-2">
+        {starts.map((st) => {
+          const face = kindFace('bank', st.bank)
+          const Icon = face.icon
+          return (
+            <button
+              key={st.bank}
+              type="button"
+              onClick={() => onStart(st.bank)}
+              className="flex flex-col items-center gap-2 rounded-2xl border border-ink/10 bg-surface-1 px-3 py-4 transition-colors hover:border-flow-500/40 hover:bg-flow-500/[0.05]"
+            >
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ background: `color-mix(in oklab, ${face.accent} 18%, transparent)`, color: face.accent }}>
+                <Icon className="h-4.5 w-4.5" />
+              </span>
+              <span className="text-[13px] font-semibold text-ink-100">{st.label}</span>
+              <span className="text-[11px] text-ink-500">{st.hint}</span>
+            </button>
+          )
+        })}
+      </div>
+      <button type="button" onClick={onBrowse} className="mt-3 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium text-ink-400 transition-colors hover:bg-ink/[0.05] hover:text-ink-100">
+        <Plus className="h-3.5 w-3.5" />
+        Or Pick Any Block
+      </button>
+      <p className="mt-4 text-[11px] leading-relaxed text-ink-500">
+        Tab adds a block anywhere · Right-click for more · Double-click a block to open its app · Drag from a dot to wire it
+      </p>
+    </div>
   )
 }
 

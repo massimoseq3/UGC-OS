@@ -158,6 +158,16 @@ function restore(doc: FlowDoc, step: Snapshot): FlowDoc {
   return { ...doc, blocks: step.blocks, wires: step.wires, ...('template' in step ? { template } : {}), updatedAt: Date.now() }
 }
 
+// A winning ad wired into Scripts makes it a remix — the run does that
+// whatever the panel says (executors/simple.ts scriptInput) — so the block
+// says so too, and its slots are the takes a remix writes rather than the
+// ten hooks a fresh Write block starts on.
+function remixWhenWired(block: FlowBlock, wires: FlowWire[]): FlowBlock {
+  if (block.kind !== 'scripts' || block.settings.mode === 'remix') return block
+  if (!wires.some((w) => w.to === block.id && w.toPort === 'source')) return block
+  return { ...block, settings: { ...block.settings, mode: 'remix' } }
+}
+
 // Results of blocks no longer on the canvas go with them.
 function trimOutputs(doc: FlowDoc): FlowDoc['outputs'] {
   const ids = new Set(doc.blocks.map((b) => b.id))
@@ -176,7 +186,8 @@ export const useFlowStore = create<FlowStoreState>((set, get) => {
     if (!doc) return
     const next = mutate(doc)
     if (!next) return
-    const blocks = next.blocks.map(withSlots)
+    const wired = next.blocks.map((b) => remixWhenWired(b, next.wires))
+    const blocks = wired.map(withSlots)
     const wires = pruneWires({ blocks, wires: next.wires })
     const nextDoc: FlowDoc = { ...doc, blocks, wires, updatedAt: Date.now() }
     nextDoc.outputs = trimOutputs(nextDoc)

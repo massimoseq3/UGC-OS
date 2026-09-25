@@ -42,10 +42,22 @@ function optionsFor(kind: BlockKind): AddOption[] {
 
 const ADD_GROUPS = BLOCK_GROUPS.map((g) => ({ title: g.title, options: g.kinds.flatMap(optionsFor) }))
 
-function matches(o: AddOption, q: string): boolean {
-  if (!q) return true
-  const hay = `${o.title} ${o.blurb} ${o.takes.join(' ')} ${o.makes.join(' ')} ${KINDS[o.kind].title}`.toLowerCase()
-  return q.toLowerCase().split(/\s+/).filter(Boolean).every((w) => hay.includes(w))
+// How well an option answers a search: its name first, then what it makes
+// and takes, then its sentence — so "scene" finds Scene Clips before the Ad
+// Analyzer, whose sentence also mentions scenes. 0 is no match.
+function score(o: AddOption, q: string): number {
+  const words = q.toLowerCase().split(/\s+/).filter(Boolean)
+  if (!words.length) return 1
+  const title = `${o.title} ${KINDS[o.kind].title}`.toLowerCase()
+  const ports = `${o.takes.join(' ')} ${o.makes.join(' ')}`.toLowerCase()
+  const blurb = o.blurb.toLowerCase()
+  let total = 0
+  for (const w of words) {
+    const s = title.startsWith(w) || title.includes(` ${w}`) ? 8 : title.includes(w) ? 6 : ports.includes(w) ? 3 : blurb.includes(w) ? 1 : 0
+    if (!s) return 0
+    total += s
+  }
+  return total
 }
 
 export default function AddBlockMenu({
@@ -64,7 +76,12 @@ export default function AddBlockMenu({
   const [cursor, setCursor] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
-  const groups = ADD_GROUPS.map((g) => ({ ...g, options: g.options.filter((o) => matches(o, q)) })).filter((g) => g.options.length)
+  // Browsing: the groups in production order. Searching: one list, best
+  // match first, so Enter adds what was typed.
+  const ranked = q.trim()
+    ? ADD_GROUPS.flatMap((g) => g.options).map((o) => ({ o, s: score(o, q) })).filter((x) => x.s > 0).sort((a, b) => b.s - a.s).map((x) => x.o)
+    : null
+  const groups = ranked ? (ranked.length ? [{ title: 'Best Match', options: ranked }] : []) : ADD_GROUPS
   const flat = groups.flatMap((g) => g.options)
   const at = Math.min(cursor, Math.max(0, flat.length - 1))
 

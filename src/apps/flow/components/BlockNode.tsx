@@ -244,6 +244,19 @@ function OutputPort({ block, port, bp }: { block: FlowBlock; port: PortSpec; bp:
         onClick={(e) => askAtPort(block.id, port.key, 'out', e.clientX, e.clientY)}
         title={`${port.label} · goes to ${goesTo(port.type)}. Click it to add what comes next.`}
       />
+      {/* An output nothing reads yet ends in a + : the next step is one click
+          away, without finding the dot. */}
+      {!used && (
+        <button
+          type="button"
+          onClick={(e) => askAtPort(block.id, port.key, 'out', e.clientX, e.clientY)}
+          title={`Add what comes after ${port.label}`}
+          aria-label={`Add what comes after ${port.label}`}
+          className="flow-next nodrag nopan absolute -right-[34px] top-1/2 flex h-[18px] w-[18px] -translate-y-1/2 items-center justify-center rounded-md border border-ink/15 bg-surface-1 text-ink-400 transition-colors hover:border-flow-400/60 hover:text-flow-300"
+        >
+          <Plus className="h-3 w-3" />
+        </button>
+      )}
     </div>
   )
 }

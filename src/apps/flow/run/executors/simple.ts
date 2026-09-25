@@ -36,6 +36,7 @@ import { refreshResultMedia } from '../../../discover/services/search'
 import { swipeToResult } from '../../../discover/services/swipe'
 import { DEFAULT_FILTERS, type DiscoverPlatform, type DiscoverResult } from '../../../discover/types'
 import { analysisValues } from '../../engine/held'
+import { readSceneScript } from '../../engine/sceneShots'
 import { playgroundInput, refOfPicture } from '../../engine/cost'
 import { liveItems } from '../../engine/graph'
 import { taskIsDead } from '../errors'
@@ -153,12 +154,23 @@ export function scriptItems(
     items[slot] = {
       type: 'script',
       key: `scriptHistory:${r.id}#${i}`,
-      label: text,
+      label: scriptLabel(text),
       payload: { text, voiceProfile: r.voiceProfile, staging },
       lineage: row('scriptHistory', r.id),
     }
   })
   return items
+}
+
+// How a script reads in a list — a block's rows, a review, an Edit Pack's
+// folder name. A scene take opens on its master blocks ("=== MASTER VISUAL
+// STYLE ==="), which says nothing about which ad it is; its first spoken line
+// does.
+function scriptLabel(text: string): string {
+  const script = readSceneScript(text)
+  if (!script.scenes) return text
+  const said = script.shots.find((s) => s.spoken)?.spoken
+  return said ? `“${said}”` : script.shots[0]?.label ?? text
 }
 
 // A remix of an analyzed ad keeps that ad's staging with every take, so B-Roll
@@ -396,6 +408,15 @@ export const outliersExecutor: Executor = {
 
 // ── Edit Pack ──────────────────────────────────────────────────────────────
 
+// What the editor captions from: the words said. A scene take's are its
+// scenes' spoken lines, in order — not its look, its direction or its voice
+// profile.
+function saidIn(script: string): string {
+  const scenes = readSceneScript(script)
+  if (scenes.scenes) return scenes.shots.map((s) => s.spoken).filter(Boolean).join('\n')
+  return spokenLinesOnly(script)
+}
+
 // Gathers one ad's folder — nothing to generate, so it's done at once. The
 // block's Download button zips every pack the run made.
 export const editExecutor: Executor = {
@@ -410,7 +431,7 @@ export const editExecutor: Executor = {
       pack: {
         title: clips.label || 'Ad',
         cover: clips.payload.cover,
-        script: script ? spokenLinesOnly(script) : undefined,
+        script: script ? saidIn(script) : undefined,
         voiceover: audio?.payload.ref,
         music: music?.payload.ref,
         clips: clips.payload.clips.map((c) => c.ref),
