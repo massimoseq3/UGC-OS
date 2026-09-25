@@ -82,7 +82,9 @@ function graphText(graph: FlowGraph): string {
 }
 
 async function ask(system: string, user: string): Promise<unknown> {
-  const apiKey = useSettingsStore.getState().getKieApiKey()
+  // The field, not getKieApiKey(), which throws its own message before this
+  // check could run.
+  const apiKey = useSettingsStore.getState().kieApiKey
   if (!apiKey) throw new FriendlyError('Add your kie.ai API key in Settings to use this.')
   const messages: ChatMessage[] = [
     { role: 'system', content: [{ type: 'text', text: system }] },
