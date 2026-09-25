@@ -233,10 +233,14 @@ async function fetchDirectory(set: Setter, hadRows: boolean): Promise<void> {
       // Paged, unlike the two views above: this one returns a row per member
       // PER APP, so a community of 100 crosses PostgREST's default 1000-row
       // response cap — and a silently truncated read here would report a real
-      // member as having never opened anything.
+      // member as having never opened anything. Ordered on the view's GROUP BY
+      // key, because a grouped view with no ORDER BY promises no row order
+      // between two OFFSET queries, so pages could skip or repeat rows.
       withTimeout(
         (signal) => selectAllRows<AppUsageViewRow>((from, to) => sb.from('member_app_usage')
           .select('user_id, app_id, seconds_total, opens_total, seconds_30d, opens_30d', { count: 'exact' })
+          .order('user_id')
+          .order('app_id')
           .range(from, to)
           .abortSignal(signal)),
         QUERY_TIMEOUT_MS,

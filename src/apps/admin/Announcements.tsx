@@ -100,8 +100,11 @@ export default function Announcements() {
     if (!a.hasImage) return
     try {
       const image = await fetchAnnouncementImage(a.id)
-      setDraft((d) => (d && d.id === a.id ? { ...d, image } : d))
+      // Only while still pending: an Upload or Remove that landed first is the
+      // admin's decision and must not be overwritten by the old picture.
+      setDraft((d) => (d && d.id === a.id && d.imagePending ? { ...d, image, imagePending: false } : d))
     } catch (e) {
+      // The draft stays `imagePending`, so saving keeps the stored image.
       console.warn('[admin] announcement image fetch failed', e)
     }
   }
@@ -172,7 +175,7 @@ export default function Announcements() {
         <Editor
           key={draft.id}
           draft={draft}
-          onChange={setDraft}
+          onChange={(update) => setDraft((d) => (d ? update(d) : d))}
           onCancel={() => setDraft(null)}
           onSave={save}
           saving={saving}
@@ -348,7 +351,9 @@ function Editor({
   saving,
 }: {
   draft: AnnouncementDraft
-  onChange: (d: AnnouncementDraft) => void
+  /** An updater, not a value: `pickImage` patches after an await, and spreading
+      the render's `draft` there overwrote whatever was typed meanwhile. */
+  onChange: (update: (d: AnnouncementDraft) => AnnouncementDraft) => void
   onCancel: () => void
   onSave: (d: AnnouncementDraft) => void
   saving: boolean
@@ -365,7 +370,12 @@ function Editor({
   const [previewAs, setPreviewAs] = useState<'log' | 'alert'>('log')
   const [armedPublish, setArmedPublish] = useState(false)
 
-  const set = (patch: Partial<AnnouncementDraft>) => onChange({ ...draft, ...patch })
+  // Applied to the LATEST draft, and only if it is still this one — an image
+  // finishing after Cancel or a switch to another announcement is dropped.
+  const set = (patch: Partial<AnnouncementDraft>) => {
+    const id = draft.id
+    onChange((d) => (d.id === id ? { ...d, ...patch } : d))
+  }
 
   function setMode(next: PublishMode): void {
     setArmedPublish(false)
@@ -381,7 +391,7 @@ function Editor({
     if (!file) return
     setImageError(null)
     try {
-      set({ image: await prepareAnnouncementImage(file) })
+      set({ image: await prepareAnnouncementImage(file), imagePending: false })
     } catch (e) {
       setImageError(e instanceof Error ? e.message : String(e))
     }
@@ -448,7 +458,7 @@ function Editor({
           <div className="flex items-center gap-2">
             <label className="flex h-9 cursor-pointer items-center gap-1.5 rounded-full border border-ink/10 px-3.5 text-[12px] text-ink-300 transition-colors hover:bg-ink/5 hover:text-ink-100">
               <ImagePlus className="h-3.5 w-3.5" />
-              {draft.image ? 'Replace' : 'Upload'}
+              {draft.image || draft.imagePending ? 'Replace' : 'Upload'}
               <input
                 type="file"
                 accept="image/*"
@@ -456,9 +466,9 @@ function Editor({
                 onChange={(e) => { void pickImage(e.target.files?.[0]); e.target.value = '' }}
               />
             </label>
-            {draft.image && (
+            {(draft.image || draft.imagePending) && (
               <button
-                onClick={() => set({ image: null })}
+                onClick={() => set({ image: null, imagePending: false })}
                 className="h-9 rounded-full px-3 text-[12px] text-ink-500 transition-colors hover:bg-ink/5 hover:text-ink-200"
               >
                 Remove

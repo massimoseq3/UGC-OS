@@ -11,12 +11,15 @@
 //
 // SECURITY: this is a server-side fetcher, i.e. a textbook SSRF primitive. Two
 // controls keep it from becoming one:
-//   1. Auth — a valid Supabase session, same as every other route here.
+//   1. Auth — a valid Supabase session from an unlocked account, same as
+//      r2-sign and r2-delete.
 //   2. A strict host ALLOWLIST, matched on the parsed hostname with a leading
 //      dot for the suffix case. Never substring-match a URL: "evil.com/
 //      ?x=tiktokcdn.com" contains an allowed host and is not one.
-// Redirects are followed by fetch(), so the allowlist is re-checked on the
-// final URL — an allowed host that 302s to an internal address must not pass.
+// Redirects are followed BY HAND (`redirect: 'manual'`), re-checking the
+// allowlist on every hop before it is requested. Letting fetch() follow them
+// and checking only the final URL still sent a request to every host in the
+// chain — a blind SSRF through any open redirect on an allowed host.
 
 export const config = {
   runtime: 'edge',
@@ -38,6 +41,11 @@ const ALLOWED_HOSTS = [
 const MAX_BYTES = 200 * 1024 * 1024
 
 const FETCH_TIMEOUT_MS = 60_000
+
+// A CDN hands back one or two hops at most; anything longer is a loop.
+const MAX_REDIRECTS = 5
+
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308])
 
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -86,7 +94,48 @@ async function verifyUser(authHeader: string | null): Promise<{ userId: string }
   }
   const user = await res.json() as { id?: string }
   if (!user.id) return { error: 'No user id in session' }
+
+  // Reject anyone the app itself would lock out — removed from the allowlist
+  // (disabled_at), cancelled (lapsed_at) or past their renewal checkpoint
+  // (migration 0025) — so a locked-but-still-valid token can't keep pulling
+  // media through a proxy the operator pays for. Same check as r2-delete:
+  // my_access_state() is the helper is_active() answers from, with the pre-0025
+  // disabled_at read as the fallback, failing open on a lookup error.
+  const headers = { apikey: supabaseAnon, Authorization: `Bearer ${token}` }
+  try {
+    const stateRes = await fetch(`${supabaseUrl}/rest/v1/rpc/my_access_state`, {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: '{}',
+    })
+    if (stateRes.ok) {
+      const state = await stateRes.json() as { locked?: boolean; reason?: string | null }
+      if (state?.locked) {
+        return {
+          error: state.reason === 'disabled'
+            ? 'Account access has been revoked.'
+            : 'Your access needs renewing — open the app and enter the current access code.',
+          status: 403,
+        }
+      }
+    } else {
+      const profRes = await fetch(
+        `${supabaseUrl}/rest/v1/profiles?select=disabled_at&id=eq.${user.id}`,
+        { headers },
+      )
+      if (profRes.ok) {
+        const rows = await profRes.json() as Array<{ disabled_at: string | null }>
+        if (rows[0]?.disabled_at) return { error: 'Account access has been revoked.', status: 403 }
+      }
+    }
+  } catch { /* fail open */ }
+
   return { userId: user.id }
+}
+
+/** Drops a body we won't forward, so its connection is released. */
+function discard(res: Response): void {
+  void res.body?.cancel().catch(() => {})
 }
 
 export default async function handler(req: Request): Promise<Response> {
@@ -104,19 +153,51 @@ export default async function handler(req: Request): Promise<Response> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
 
+  // TikTok's CDN serves 403 to requests with no Referer. This is the whole
+  // reason the fetch has to happen server-side. The same headers ride every
+  // hop, as they did when fetch() followed the redirects itself.
+  const headers = {
+    'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+    referer: `${target.protocol}//${target.hostname}/`,
+    accept: '*/*',
+  }
+
   let upstream: Response
+  let current = target
   try {
-    upstream = await fetch(target.toString(), {
-      // TikTok's CDN serves 403 to requests with no Referer. This is the whole
-      // reason the fetch has to happen server-side.
-      headers: {
-        'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
-        referer: `${target.protocol}//${target.hostname}/`,
-        accept: '*/*',
-      },
-      redirect: 'follow',
-      signal: controller.signal,
-    })
+    for (let hop = 0; ; hop++) {
+      const res = await fetch(current.toString(), { headers, redirect: 'manual', signal: controller.signal })
+      if (res.type === 'opaqueredirect' || res.status === 0) {
+        // A runtime with browser-style fetch hides the redirect (status 0, no
+        // Location), so there's no hop to check. Rather than fail every TikTok
+        // link that redirects, fall back to the old guard: let fetch follow,
+        // and refuse the body if it ended on a host that isn't allowed.
+        discard(res)
+        const followed = await fetch(current.toString(), { headers, redirect: 'follow', signal: controller.signal })
+        if (followed.url && !safeUrl(followed.url)) {
+          discard(followed)
+          clearTimeout(timer)
+          return json(403, { error: 'Upstream redirected to a host that is not allowed.' })
+        }
+        upstream = followed
+        break
+      }
+      const location = REDIRECT_STATUSES.has(res.status) ? res.headers.get('location') : null
+      if (!location) { upstream = res; break }
+      discard(res)
+
+      // Checked BEFORE the next hop is requested — the point of following by
+      // hand. An allowed host that 302s to an internal address never gets its
+      // request made.
+      const next = hop < MAX_REDIRECTS ? safeUrl(new URL(location, current).toString()) : null
+      if (!next) {
+        clearTimeout(timer)
+        return hop < MAX_REDIRECTS
+          ? json(403, { error: 'Upstream redirected to a host that is not allowed.' })
+          : json(502, { error: 'The media host redirected too many times.' })
+      }
+      current = next
+    }
   } catch (e) {
     clearTimeout(timer)
     const aborted = e instanceof Error && e.name === 'AbortError'
@@ -124,13 +205,8 @@ export default async function handler(req: Request): Promise<Response> {
   }
   clearTimeout(timer)
 
-  // Re-check after redirects: `redirect: 'follow'` means the body we're about
-  // to stream may come from a host the caller never named.
-  if (upstream.url && !safeUrl(upstream.url)) {
-    return json(403, { error: 'Upstream redirected to a host that is not allowed.' })
-  }
-
   if (!upstream.ok) {
+    discard(upstream)
     return json(upstream.status === 404 ? 404 : 502, {
       error: `Media host returned ${upstream.status}. The link may have expired — search again to refresh it.`,
     })
@@ -138,12 +214,25 @@ export default async function handler(req: Request): Promise<Response> {
 
   const declared = Number(upstream.headers.get('content-length') ?? '0')
   if (declared > MAX_BYTES) {
+    discard(upstream)
     return json(413, { error: 'That file is too large to import.' })
   }
 
   const contentType = upstream.headers.get('content-type') ?? 'application/octet-stream'
 
-  return new Response(upstream.body, {
+  // The declared length is only a claim, and a chunked response makes none, so
+  // the cap is also counted on the bytes actually streamed. Past it the stream
+  // errors (the client sees a failed download) and the upstream is cancelled.
+  let streamed = 0
+  const body = upstream.body?.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
+    transform(chunk, ctl) {
+      streamed += chunk.byteLength
+      if (streamed > MAX_BYTES) ctl.error(new Error('That file is too large to import.'))
+      else ctl.enqueue(chunk)
+    },
+  })) ?? null
+
+  return new Response(body, {
     status: 200,
     headers: {
       'content-type': contentType,

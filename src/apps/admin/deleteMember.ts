@@ -12,10 +12,18 @@
 // alongside a completed delete rather than aborting it.
 
 import { getSupabase, ensureFreshSession } from '../../lib/supabase'
+import { readyAdminSession, withTimeout } from './adminQuery'
 
 // Each /api/r2-delete-user call works to its own time budget and reports
 // done:false if objects remain. Bounded so a pathological library can't spin.
 const MAX_R2_PASSES = 10
+
+// A pass is capped at ~18s server-side and the RPC cascades a whole account,
+// so both get more room than a plain read. The modal locks Cancel and Escape
+// while it runs — without a deadline one stalled request held it there until
+// the page was reloaded.
+const PASS_TIMEOUT_MS = 30_000
+const DELETE_TIMEOUT_MS = 30_000
 
 export interface DeleteMemberResult {
   email: string
@@ -31,21 +39,41 @@ async function purgeR2(userId: string): Promise<string | null> {
   let lastError: string | null = null
 
   for (let pass = 0; pass < MAX_R2_PASSES; pass++) {
-    const res = await fetch('/api/r2-delete-user', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
-      body: JSON.stringify({ userId }),
-    })
-    if (!res.ok) {
-      const text = await res.text().catch(() => '')
-      let msg = text || res.statusText
+    // Best-effort all the way down: a network error or a stalled pass is a
+    // warning beside a completed delete, never a reason to abort it. The body
+    // is read inside the deadline too — fetch() settles at the headers.
+    let reply: { ok: boolean; status: number; statusText: string; text: string }
+    try {
+      reply = await withTimeout(
+        async (signal) => {
+          const res = await fetch('/api/r2-delete-user', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+            body: JSON.stringify({ userId }),
+            signal,
+          })
+          return { ok: res.ok, status: res.status, statusText: res.statusText, text: await res.text() }
+        },
+        PASS_TIMEOUT_MS,
+        'Storage purge',
+      )
+    } catch (e) {
+      return `Storage purge failed: ${e instanceof Error ? e.message : String(e)}. R2 objects may remain.`
+    }
+    if (!reply.ok) {
+      let msg = reply.text || reply.statusText
       try {
-        const parsed = JSON.parse(text) as { error?: string }
+        const parsed = JSON.parse(reply.text) as { error?: string }
         if (parsed.error) msg = parsed.error
       } catch { /* not JSON — keep the raw text */ }
-      return `Storage purge failed (${res.status}): ${msg}`
+      return `Storage purge failed (${reply.status}): ${msg}`
     }
-    const body = await res.json() as { deleted: number; failed: number; done: boolean; error?: string }
+    let body: { deleted: number; failed: number; done: boolean; error?: string }
+    try {
+      body = JSON.parse(reply.text) as typeof body
+    } catch {
+      return 'Storage purge returned an unreadable reply. R2 objects may remain.'
+    }
     totalFailed += body.failed
     if (body.error) lastError = body.error
     if (body.done) {
@@ -64,11 +92,16 @@ export async function deleteMember(
 ): Promise<DeleteMemberResult> {
   const storageWarning = await purgeR2(userId)
 
+  await readyAdminSession()
   const sb = getSupabase()
-  const { data, error } = await sb.rpc('admin_delete_member', {
-    target_id: userId,
-    remove_from_allowlist: opts.removeFromAllowlist,
-  })
+  const { data, error } = await withTimeout(
+    (signal) => sb.rpc('admin_delete_member', {
+      target_id: userId,
+      remove_from_allowlist: opts.removeFromAllowlist,
+    }).abortSignal(signal),
+    DELETE_TIMEOUT_MS,
+    'Delete member',
+  )
   if (error) {
     // A missing function is the one failure worth translating — it means the
     // migration hasn't been run against this project yet.

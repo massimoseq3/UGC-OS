@@ -1,4 +1,4 @@
-import { getSupabase } from '../../lib/supabase'
+import { getSupabase, selectAllRows } from '../../lib/supabase'
 import {
   ANNOUNCEMENT_COLUMNS,
   rowToAnnouncement,
@@ -19,8 +19,15 @@ export interface AnnouncementDraft {
   title: string
   body: string
   level: AnnouncementLevel
-  /** Data URI, or null for none. */
+  /** Data URI, or null for none — unless `imagePending`, when null means "not fetched yet". */
   image: string | null
+  /**
+   * True while an existing announcement's stored image hasn't been loaded into
+   * `image` — still in flight, or the fetch failed. The editor opens before the
+   * image arrives, so without this a save in that window (or after a failed
+   * fetch) upserted `image: null` and silently deleted the picture.
+   */
+  imagePending: boolean
   videoUrl: string
   ctaLabel: string
   ctaUrl: string
@@ -47,6 +54,7 @@ export function emptyDraft(): AnnouncementDraft {
     body: '',
     level: 'update',
     image: null,
+    imagePending: false,
     videoUrl: '',
     ctaLabel: '',
     ctaUrl: '',
@@ -64,6 +72,7 @@ export function draftFrom(a: Announcement, image: string | null): AnnouncementDr
     body: a.body,
     level: a.level,
     image,
+    imagePending: a.hasImage && image === null,
     videoUrl: a.videoUrl ?? '',
     ctaLabel: a.ctaLabel ?? '',
     ctaUrl: a.ctaUrl ?? '',
@@ -132,7 +141,9 @@ export async function saveAnnouncement(d: AnnouncementDraft, userId: string | nu
         title: d.title.trim(),
         body: d.body,
         level: d.level,
-        image: d.image,
+        // Left out while pending, so the upsert keeps the stored image rather
+        // than overwriting it with a null that only means "not loaded".
+        ...(d.imagePending ? {} : { image: d.image }),
         video_url: d.videoUrl.trim() || null,
         cta_label: d.ctaLabel.trim() || null,
         cta_url: d.ctaUrl.trim() || null,
@@ -167,14 +178,23 @@ export async function deleteAnnouncement(id: string): Promise<void> {
  */
 export async function fetchReadCounts(): Promise<Record<string, number>> {
   await readyAdminSession()
+  // Paged, and ordered on the primary key so pages can't overlap or skip: the
+  // table is a row per member PER announcement, so it crosses PostgREST's
+  // 1000-row response cap early and an unpaged read silently undercounts.
   const { data, error } = await withTimeout(
-    (signal) => getSupabase().from('announcement_reads').select('announcement_id').abortSignal(signal),
+    (signal) => selectAllRows<{ announcement_id: string }>((from, to) => getSupabase()
+      .from('announcement_reads')
+      .select('announcement_id', { count: 'exact' })
+      .order('user_id')
+      .order('announcement_id')
+      .range(from, to)
+      .abortSignal(signal)),
     QUERY_TIMEOUT_MS,
     'Read receipts',
   )
   if (error) throw new Error(error.message)
   const counts: Record<string, number> = {}
-  for (const row of (data as Array<{ announcement_id: string }> ?? [])) {
+  for (const row of data) {
     counts[row.announcement_id] = (counts[row.announcement_id] ?? 0) + 1
   }
   return counts
