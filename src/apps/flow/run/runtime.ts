@@ -192,7 +192,9 @@ export function startRun(flowId: string, opts: { test?: boolean; only?: string; 
   const doc = useFlowStore.getState().ensureDoc(flowId)
   if (!doc) return { ok: false, reason: 'That flow is gone.' }
   const replay = isRecordingActive()
-  if (!replay && !useSettingsStore.getState().getKieApiKey()) {
+  // The field, not getKieApiKey(): the getter throws on an empty key, which
+  // would escape the Run click as an uncaught error instead of this refusal.
+  if (!replay && !useSettingsStore.getState().kieApiKey) {
     return { ok: false, reason: 'Add your kie.ai API key in Settings to run a flow.' }
   }
   const graph = knownGraph(doc)

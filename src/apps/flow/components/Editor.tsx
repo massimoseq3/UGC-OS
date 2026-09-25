@@ -12,6 +12,7 @@ import { knownGraph } from '../store/blocks'
 import { useFlowPlans, creditsLabel } from '../hooks/useFlowPlan'
 import { useAppStore } from '../../../stores/appStore'
 import { useCreditsStore } from '../../../stores/creditsStore'
+import { useSettingsStore } from '../../../stores/settingsStore'
 import { isRecordingActive } from '../../../stores/recordingStore'
 import RailOverlay from '../../../components/RailOverlay'
 import { useHistoryRailOpen } from '../../../hooks/useHistoryRailOpen'
@@ -88,7 +89,10 @@ export default function Editor({ flowId }: { flowId: string }) {
       addToast('This flow is already running. It finishes on its own, or press Stop.', 'info')
       return
     }
-    if (isRecordingActive()) {
+    // Neither a replay nor a keyless press spends anything (startRun refuses
+    // the second), so neither is priced or confirmed — a confirm before the
+    // no-key refusal asks the member to approve a spend that can't happen.
+    if (isRecordingActive() || !useSettingsStore.getState().kieApiKey) {
       go(req)
       return
     }
