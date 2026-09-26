@@ -472,7 +472,7 @@ export default function PresetPickerModal({
     return {
       genders: segments('gender', ['Female', 'Male'], (e) => e.gender),
       styles: [
-        { value: '', label: 'All Styles', count: styleRows.length },
+        { value: '', label: 'All Scenes', count: styleRows.length },
         ...styleOrder.map((k) => ({
           value: k,
           label: k,
@@ -732,7 +732,7 @@ export default function PresetPickerModal({
               />
             </div>
             <div className="flex flex-col gap-0.5">
-              <SectionLabel label="Style" className="px-3 pb-1.5" />
+              <SectionLabel label="Scenes" className="px-3 pb-1.5" />
               {facets.styles.map((o) => (
                 <RailRow
                   key={o.value || 'all'}
@@ -766,7 +766,7 @@ export default function PresetPickerModal({
                 />
               </div>
               {/* One bar. The style menu takes a FIXED width rather than
-                  fitting its content — its label swings from "All Styles" to
+                  fitting its content — its label swings from "All Scenes" to
                   "Holding Product", and a trigger that resized itself would
                   push the gender toggle along the row on every pick. Every
                   count rides in a `CountSlot` for the same reason. */}
@@ -776,7 +776,7 @@ export default function PresetPickerModal({
                   <input
                     value={search}
                     onChange={(e) => refilter(setSearch)(e.target.value)}
-                    placeholder="Search name, look, style..."
+                    placeholder="Search name, look, scene..."
                     className="w-full bg-transparent text-sm text-ink-200 placeholder-ink-600 outline-none"
                   />
                 </div>
