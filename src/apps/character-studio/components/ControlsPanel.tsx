@@ -19,6 +19,7 @@ import { SectionPresetPill } from '../../../components/SectionCard'
 import LoadPresetDropdown from './LoadPresetDropdown'
 import PresetPickerModal from './PresetPickerModal'
 import PhotoExtractZone from './PhotoExtractZone'
+import DescribeLine from './DescribeLine'
 import { buildImagePrompt, buildPhysicalPrompt, buildScenePrompt } from '../services/generateCharacter'
 import { copyToClipboard } from '../../../utils/clipboard'
 import { suspendChromeAutoHide } from '../../../hooks/useChromeAutoHide'
@@ -104,6 +105,10 @@ interface ControlsPanelProps {
   // The band's whole-character preset load. Absent, it writes straight through
   // `onProfileChange`; Characters passes its own so the load can be undone.
   onLoadPreset?: (profile: CharacterProfile) => void
+  // The Describe line under the tab toggle. Absent (Flow's window), the line
+  // doesn't render.
+  onDescribe?: (description: string) => Promise<boolean>
+  describing?: boolean
   // "New" — resets the form + extracted reference photo to a blank slate.
   onClear: () => void
   // Generate bar (lives at the foot of this column).
@@ -136,6 +141,8 @@ export default function ControlsPanel({
   onResetExtract,
   onOpenLibrary,
   onLoadPreset,
+  onDescribe,
+  describing = false,
   onClear,
   error,
   onGenerate,
@@ -240,7 +247,7 @@ export default function ControlsPanel({
     // On a phone everything below the tab toggle is one scroller and the
     // Generate bar is the last thing in it, not a band pinned over the fields —
     // see the note above the GenerateBar below.
-    <div className="flex h-full min-h-0 min-w-0 flex-col md:grid md:grid-cols-[76px_minmax(0,1fr)] md:grid-rows-[auto_minmax(0,1fr)_auto]">
+    <div className="flex h-full min-h-0 min-w-0 flex-col md:grid md:grid-cols-[76px_minmax(0,1fr)] md:grid-rows-[auto_auto_minmax(0,1fr)_auto]">
       {/* Rounded segmented toggle — filled so all tabs share the column with no
           horizontal scroll. The h-[57px] band + bottom hairline is the app-wide
           panel-header spec (Scripts, B-Roll, Bank, Playground, Ad Analyzer and
@@ -269,10 +276,10 @@ export default function ControlsPanel({
           with the two tiles centred on that stretch. A phone keeps the band
           (below): a 76px rail is a fifth of a 375px screen, taken from a
           two-column field grid already tight. From `md` up the panel is a grid
-          (rail | toggle + fields, then the Generate bar across both) and the
+          (rail | toggle + Describe line + fields, then the Generate bar across both) and the
           phone scroll port below is `md:contents`, so the fields and the bar
           land in it as cells without a second copy of either. */}
-      <div className="hidden flex-col justify-center gap-2 border-r border-ink/5 px-2 md:col-start-1 md:row-span-2 md:row-start-1 md:flex">
+      <div className="hidden flex-col justify-center gap-2 border-r border-ink/5 px-2 md:col-start-1 md:row-span-3 md:row-start-1 md:flex">
         <LoadPresetDropdown variant="rail" onLoadProfile={onLoadPreset ?? onProfileChange} />
         <PhotoExtractZone
           variant="rail"
@@ -314,6 +321,20 @@ export default function ControlsPanel({
           />
         </div>
       </div>
+      {/* The third way in, and the one that needs no preset and no photo: a
+          line of text read into every field. Full width rather than in the
+          rail with the other two — it is a field you type in, and a narrow one
+          would cut the example short enough to stop explaining itself. Fixed,
+          like them, because all three do the same job: fill the whole form at
+          once. From `md` up it is the grid row between the tab toggle and the
+          fields; on a phone it sits under the preset pair. When a host passes
+          no `onDescribe` (Flow's window) the row is empty and collapses. */}
+      {onDescribe && (
+        <div className="shrink-0 px-5 pb-2 md:col-start-2 md:row-start-2 md:pt-2">
+          <DescribeLine onDescribe={onDescribe} busy={describing} />
+        </div>
+      )}
+
       {/* The phone's scroll port. It starts BELOW the toggle above, which is
           why that toggle is a sibling of this box and not its first child: the
           panel root used to be the scroller, so the tab bar scrolled away with
@@ -342,7 +363,7 @@ export default function ControlsPanel({
             this box doesn't scroll at all. */}
         <div
           ref={scrollRef}
-          className="min-h-0 min-w-0 flex-1 overflow-y-auto pb-4 pl-5 pr-[9px] [scrollbar-gutter:stable] touch:pr-5 max-md:pr-5 md:col-start-2 md:row-start-2 [mask-image:linear-gradient(to_bottom,transparent_0,black_0.5rem,black_calc(100%-1.5rem),transparent_100%)] max-md:flex-none max-md:overflow-visible max-md:[mask-image:none]"
+          className="min-h-0 min-w-0 flex-1 overflow-y-auto pb-4 pl-5 pr-[9px] [scrollbar-gutter:stable] touch:pr-5 max-md:pr-5 md:col-start-2 md:row-start-3 [mask-image:linear-gradient(to_bottom,transparent_0,black_0.5rem,black_calc(100%-1.5rem),transparent_100%)] max-md:flex-none max-md:overflow-visible max-md:[mask-image:none]"
         >
           <div className="flex flex-col gap-4 pt-2">
             {TABS.map((tab, tabIndex) => (
@@ -459,7 +480,7 @@ export default function ControlsPanel({
             fixed band stood over the 28 fields it belongs to and cost most of a
             short column; you fill the form top to bottom, and Generate is where
             you arrive. */}
-        <div className="min-w-0 shrink-0 md:col-span-2 md:row-start-3">
+        <div className="min-w-0 shrink-0 md:col-span-2 md:row-start-4">
         <GenerateBar
           error={error}
           onGenerate={onGenerate}
