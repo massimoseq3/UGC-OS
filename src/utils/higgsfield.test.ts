@@ -70,6 +70,8 @@ describe('Higgsfield models in the registry', () => {
       prompt: 'p',
       aspect_ratio: '9:16',
       resolution: '1080p',
+      // Higgsfield defaults this to true; the prompt must run as written.
+      enhance_prompt: false,
     })
     expect(buildImageInput(SOUL_2, { prompt: 'p', resolution: '1K' }).resolution).toBe('720p')
   })
