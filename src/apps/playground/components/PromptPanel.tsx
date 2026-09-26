@@ -1369,9 +1369,9 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
                 value={state.resolution}
                 onChange={(v) => onChange({ ...state, resolution: v })}
                 renderOption={(v) => {
-                  // Priced for the armed run, so this menu and the Generate
-                  // button can't quote two different numbers.
-                  const credits = formatCredits(estimateCredits(state.modelId, { imageCount: batchCount, resolution: v }), state.modelId)
+                  // Per IMAGE, not per run — same rule as Characters' bar. The
+                  // Generate button carries the batch total.
+                  const credits = formatCredits(estimateCredits(state.modelId, { imageCount: 1, resolution: v }), state.modelId)
                   return (
                     <span className="flex w-full items-center justify-between gap-6">
                       <span>{v}</span>

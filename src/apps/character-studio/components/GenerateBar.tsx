@@ -155,9 +155,12 @@ export default function GenerateBar({
             value={resolution}
             onChange={(v) => onResolutionChange(v as ImageResolution)}
             renderOption={(v) => {
-              // Priced for the run that's actually armed, so this menu and the
-              // Generate button can never quote two different numbers.
-              const credits = formatCredits(estimateCredits(selectedModelId ?? '', { imageCount: count, resolution: v as ImageResolution }), selectedModelId)
+              // Per IMAGE, not per run (Massimo's call, September 2026): a
+              // tier's price is what one picture at that tier costs, and a
+              // batch of 4 made Soul 2's 2K read as $0.0228 against
+              // Higgsfield's own $0.0057. The Generate button carries the
+              // batch total.
+              const credits = formatCredits(estimateCredits(selectedModelId ?? '', { imageCount: 1, resolution: v as ImageResolution }), selectedModelId)
               return (
                 <span className="flex w-full items-center justify-between gap-6">
                   <span>{v}</span>
