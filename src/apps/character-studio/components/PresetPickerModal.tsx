@@ -384,9 +384,8 @@ export default function PresetPickerModal({
     gender: (e: Entry) => !gender || e.gender === gender,
   }), [q, gender])
 
-  // The style options, in the LIBRARY's own order — the order the source folder
-  // numbers its shot categories in, which the build script bakes into the row
-  // order. Sorting them by count instead (the obvious thing) reorders the whole
+  // The style options, in the order the loader hands the rows over —
+  // alphabetical (`loadStarterPresets`). Sorting them by count instead (the obvious thing) reorders the whole
   // list every time another filter changes the tallies, so the option you were
   // about to click moves out from under the pointer. A style only the member's
   // own characters use is appended rather than dropped.
@@ -408,8 +407,8 @@ export default function PresetPickerModal({
     return seen
   }, [starterEntries])
 
-  // Bank rows first, then the templates in the library's own order — which the
-  // build script already sorts by style, so each style's rows are contiguous
+  // Bank rows first, then the templates in the loader's order — sorted by
+  // style, so each style's rows are contiguous
   // and `sections` below can split on a change rather than re-bucket.
   const filtered = useMemo(
     () => all.filter((e) => Object.values(passes).every((fn) => fn(e))),
@@ -458,8 +457,8 @@ export default function PresetPickerModal({
       ]
     }
 
-    // The styles keep the same two rules as the toggle: the library's own
-    // order, and every option always present. Sorting by count instead (the
+    // The styles keep the same two rules as the toggle: a fixed order
+    // (alphabetical, from the loader), and every option always present. Sorting by count instead (the
     // obvious thing) would reshuffle the whole list every time a search
     // changed the tallies, so the row you were about to click moves out from
     // under the pointer.

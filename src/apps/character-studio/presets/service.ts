@@ -32,7 +32,14 @@ async function fetchPresets(): Promise<StarterRow[]> {
   if (!res.ok) throw new Error(`Could not load the starter presets (${res.status}).`)
   const rows = await res.json() as StarterPreset[]
   if (!Array.isArray(rows)) throw new Error('The starter preset library is malformed.')
-  return rows.map((r) => ({ ...r, search: buildSearch([r.name, r.title, r.setting, r.note], r.profile) }))
+  // Styles A→Z (Massimo's call, September 2026). The file comes in the source
+  // folder's shot numbering; sorting here, once, rather than in each picker
+  // keeps both pickers' rails AND their grid sections in the same order —
+  // both split on a change of style, so they need each style's rows
+  // contiguous, which a stable sort on the style alone preserves.
+  return rows
+    .map((r) => ({ ...r, search: buildSearch([r.name, r.title, r.setting, r.note], r.profile) }))
+    .sort((a, b) => a.setting.localeCompare(b.setting))
 }
 
 /** Where a starter's cover lives. Ships with the app — no signed url, no expiry. */

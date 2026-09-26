@@ -6,11 +6,14 @@ import PresetPickerModal from './PresetPickerModal'
 
 interface LoadPresetDropdownProps {
   onLoadProfile: (profile: CharacterProfile) => void
+  // 'rail' is the stacked icon-over-label tile for the controls column's left
+  // rail (desktop); 'row' the full-width pill it keeps on a phone.
+  variant?: 'row' | 'rail'
 }
 
 // Trigger row for the preset browser. (File name kept from the dropdown era so
 // call sites stay stable; the picker itself is `PresetPickerModal`.)
-export default function LoadPresetDropdown({ onLoadProfile }: LoadPresetDropdownProps) {
+export default function LoadPresetDropdown({ onLoadProfile, variant = 'row' }: LoadPresetDropdownProps) {
   const [open, setOpen] = useState(false)
 
   // Full apply — replace the whole form with the picked recipe.
@@ -28,6 +31,19 @@ export default function LoadPresetDropdown({ onLoadProfile }: LoadPresetDropdown
           pickers further down the column ("Physical Presets" / "Scene & Pose
           Presets") load one tab's fields from the same saved recipes, so this
           one has to read as the whole-character load. */}
+      {variant === 'rail' ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          title="Load every field from a saved preset: physical, scene and pose"
+          className="flex w-full flex-col items-center gap-1.5 rounded-2xl border border-dashed border-ink/10 bg-ink/[0.02] px-1 py-2.5 text-center text-[11px] font-medium leading-tight text-ink-300 transition-colors hover:bg-ink/[0.05]"
+        >
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-influencers-500/10 text-influencers-400">
+            <UserRound className="h-4 w-4" strokeWidth={1.5} />
+          </span>
+          Load Preset
+        </button>
+      ) : (
       <button
         type="button"
         onClick={() => setOpen(true)}
@@ -56,6 +72,7 @@ export default function LoadPresetDropdown({ onLoadProfile }: LoadPresetDropdown
         </div>
         <ChevronRight className="h-4 w-4 shrink-0 text-ink-500" strokeWidth={2} />
       </button>
+      )}
 
       {/* Mounted only while open, so each visit starts at the top of the
           library — see `PresetPickerModal`'s own doc. */}

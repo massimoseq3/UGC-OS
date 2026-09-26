@@ -11,7 +11,7 @@ import {
   finishCharacterTask,
   resolveImageToImageModel,
 } from './services/generateCharacter'
-import { analyzeImage, describeCharacter } from './services/analyzeImage'
+import { analyzeImage } from './services/analyzeImage'
 import type { CharacterHistoryItem } from '../../stores/types'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useBankStore } from '../../stores/bankStore'
@@ -50,13 +50,6 @@ export function characterModelFor(input: Pick<CharacterRunInput, 'modelId' | 'ed
 // sits beside the runner rather than inside it.
 export async function extractCharacterProfile(file: File): Promise<CharacterProfile> {
   return profileFromFlat(flattenDna(await analyzeImage(file)))
-}
-
-// A line of text → the whole form: the Describe line. Same answer shape and
-// the same sanitiser as the photo read above, so the two can't disagree about
-// where a value goes (and Camera Device stays the fixed realism string).
-export async function describeCharacterProfile(description: string): Promise<CharacterProfile> {
-  return profileFromFlat(flattenDna(await describeCharacter(description)))
 }
 
 export const characterRunner = {

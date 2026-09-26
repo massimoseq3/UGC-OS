@@ -321,9 +321,8 @@ export default function BankPicker({
     // Style filters nothing any more, so its per-look tallies are taken over
     // everything the other controls leave — which is what the rail is counting.
     const styleRows = all.filter((r) => Object.values(characterPasses).every((fn) => fn(r)))
-    // Styles come from the TEMPLATES only, in the library's own order — the
-    // shot numbering the build script bakes into the row order — never by
-    // count, which would reshuffle the rail between two openings. A style only
+    // Styles come from the TEMPLATES only, in the alphabetical order the
+    // loader sorts the rows into — never by count, which would reshuffle the rail between two openings. A style only
     // the member's own rows use would be a row that scrolls nowhere: their
     // characters are ONE section whatever style is guessed off their free text.
     const tplRows = characterPool.tpl.filter((r) => Object.values(characterPasses).every((fn) => fn(r)))
@@ -394,8 +393,8 @@ export default function BankPicker({
     return starredFirst(sortByOrder(filtered, sort, nameOf))
   }, [filtered, sort, sortOptions, currentBankType])
 
-  // One group per style ("Handheld Mic", "Car"), in the library's own order —
-  // which the build script already sorts the rows into, so this splits on a
+  // One group per style ("Car", "Gym"), A→Z — the order the loader already
+  // sorts the rows into, so this splits on a
   // change of style rather than re-bucketing. 81 unfamiliar faces under one
   // heading is a wall; under eleven it's a shot list.
   const templateGroups = useMemo(() => {

@@ -19,7 +19,6 @@ import { SectionPresetPill } from '../../../components/SectionCard'
 import LoadPresetDropdown from './LoadPresetDropdown'
 import PresetPickerModal from './PresetPickerModal'
 import PhotoExtractZone from './PhotoExtractZone'
-import DescribeLine from './DescribeLine'
 import { buildImagePrompt, buildPhysicalPrompt, buildScenePrompt } from '../services/generateCharacter'
 import { copyToClipboard } from '../../../utils/clipboard'
 import { suspendChromeAutoHide } from '../../../hooks/useChromeAutoHide'
@@ -105,10 +104,6 @@ interface ControlsPanelProps {
   // The band's whole-character preset load. Absent, it writes straight through
   // `onProfileChange`; Characters passes its own so the load can be undone.
   onLoadPreset?: (profile: CharacterProfile) => void
-  // The Describe line under the band's two pickers. Absent (Flow's window),
-  // the line doesn't render.
-  onDescribe?: (description: string) => Promise<boolean>
-  describing?: boolean
   // "New" — resets the form + extracted reference photo to a blank slate.
   onClear: () => void
   // Generate bar (lives at the foot of this column).
@@ -141,8 +136,6 @@ export default function ControlsPanel({
   onResetExtract,
   onOpenLibrary,
   onLoadPreset,
-  onDescribe,
-  describing = false,
   onClear,
   error,
   onGenerate,
@@ -247,15 +240,15 @@ export default function ControlsPanel({
     // On a phone everything below the tab toggle is one scroller and the
     // Generate bar is the last thing in it, not a band pinned over the fields —
     // see the note above the GenerateBar below.
-    <div className="flex h-full min-h-0 min-w-0 flex-col">
+    <div className="flex h-full min-h-0 min-w-0 flex-col md:grid md:grid-cols-[76px_minmax(0,1fr)] md:grid-rows-[auto_minmax(0,1fr)_auto]">
       {/* Rounded segmented toggle — filled so all tabs share the column with no
           horizontal scroll. The h-[57px] band + bottom hairline is the app-wide
           panel-header spec (Scripts, B-Roll, Bank, Playground, Ad Analyzer and
           Voiceovers all use it), so the left and right columns' divider lines
           land on the same pixel — and `px-5` is the other half of that spec, so
           on a phone this pill shares its left edge with the pane tabs above it.
-          It was `px-2`, from back when this toggle carried five tabs. */}
-      <div className="flex h-[57px] shrink-0 items-center border-b border-ink/5 px-5">
+          From `md` up it sits right of the rail below. */}
+      <div className="flex h-[57px] shrink-0 items-center border-b border-ink/5 px-5 md:col-start-2 md:row-start-1">
         <SegmentedToggle<TabId>
           className="h-10 !p-1"
           value={activeTab}
@@ -268,61 +261,66 @@ export default function ControlsPanel({
         />
       </div>
 
+      {/* Desktop: the two whole-form fillers — Load Preset and Extract DNA —
+          are a vertical rail down the column's left edge (Massimo's
+          experiment, September 2026) instead of a band of two pills under the
+          tab toggle, which gives the fields that band's height back. It runs
+          from the top of the panel to the Generate bar, which spans under it,
+          with the two tiles centred on that stretch. A phone keeps the band
+          (below): a 76px rail is a fifth of a 375px screen, taken from a
+          two-column field grid already tight. From `md` up the panel is a grid
+          (rail | toggle + fields, then the Generate bar across both) and the
+          phone scroll port below is `md:contents`, so the fields and the bar
+          land in it as cells without a second copy of either. */}
+      <div className="hidden flex-col justify-center gap-2 border-r border-ink/5 px-2 md:col-start-1 md:row-span-2 md:row-start-1 md:flex">
+        <LoadPresetDropdown variant="rail" onLoadProfile={onLoadPreset ?? onProfileChange} />
+        <PhotoExtractZone
+          variant="rail"
+          analyzingCount={analyzingCount}
+          extractError={extractError}
+          applied={referenceApplied}
+          thumbnail={extractedThumb}
+          onPhotoDrop={onPhotoDrop}
+          onReset={onResetExtract}
+          onOpenLibrary={onOpenLibrary}
+        />
+      </div>
+
+      {/* Phone only — the rail above holds these from `md` up. Preset loader +
+          reference-photo autofill, a FIXED band under the tab toggle and a
+          sibling of the phone-width scroll port rather than inside it: inside,
+          it scrolled away with the fields, and the two things every run starts
+          from were gone by the second card. It was a `sticky top-0` child of
+          the scroller before that, which pins only once the scroll has
+          started, so every overscroll bounce floated it. */}
+      {/* Side by side at every width. They were stacked under `sm` because two
+          picker rows sharing a phone-width column truncated to "Load Cha…" /
+          "Extract C…", which names neither — but the fix for a label that
+          doesn't fit is a shorter label, not a second row of chrome on the
+          screen with the least of it. Each row carries a short name. */}
+      <div className="flex shrink-0 items-center gap-2 px-5 py-2 md:hidden">
+        <div className="min-w-0 flex-1">
+          <LoadPresetDropdown onLoadProfile={onLoadPreset ?? onProfileChange} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <PhotoExtractZone
+            analyzingCount={analyzingCount}
+            extractError={extractError}
+            applied={referenceApplied}
+            thumbnail={extractedThumb}
+            onPhotoDrop={onPhotoDrop}
+            onReset={onResetExtract}
+            onOpenLibrary={onOpenLibrary}
+          />
+        </div>
+      </div>
       {/* The phone's scroll port. It starts BELOW the toggle above, which is
           why that toggle is a sibling of this box and not its first child: the
           panel root used to be the scroller, so the tab bar scrolled away with
           the fields and the member lost the way back to the other tab halfway
           down a form. Above `md` this is a plain wrapper and the column below
           scrolls on its own. */}
-      {/* Preset loader + reference-photo autofill — a FIXED band under the tab
-          toggle, a sibling of BOTH scrollers: the desktop fields column below
-          and the phone-width wrapper around it. It used to be a `sticky top-0`
-          child of the scroller, which pins it only once the scroll has started:
-          at scroll-top it sat in normal flow and every rubber-band / trackpad
-          overscroll floated it, so the two rows read as loose rather than as
-          part of the panel's chrome. It then sat INSIDE the phone wrapper,
-          which is the scroller under `md` — so on a phone it scrolled away with
-          the fields and the two things every run starts from (load a preset,
-          drop a reference photo) were gone by the second card. A row that must
-          never move doesn't belong in the thing that moves, at either width. */}
-      <div className="shrink-0 px-5 pb-2 pt-2">
-        {/* Side by side at every width. They were stacked under `sm` because
-            two picker rows sharing a phone-width column truncated to
-            "Load Cha…" / "Extract C…", which names neither — but the fix for a
-            label that doesn't fit is a shorter label, not a second row of
-            chrome on the screen with the least of it. Each row carries a short
-            name and swaps to the full one at `lg`, which is the first width
-            where this column is wide enough to read it. */}
-        <div className="flex items-center gap-2">
-          <div className="min-w-0 flex-1">
-            <LoadPresetDropdown onLoadProfile={onLoadPreset ?? onProfileChange} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <PhotoExtractZone
-              analyzingCount={analyzingCount}
-              extractError={extractError}
-              applied={referenceApplied}
-              thumbnail={extractedThumb}
-              onPhotoDrop={onPhotoDrop}
-              onReset={onResetExtract}
-              onOpenLibrary={onOpenLibrary}
-            />
-          </div>
-        </div>
-        {/* The third way in, and the one that needs no preset and no photo: a
-            line of text read into every field. Under the two pickers rather
-            than beside them — it is a field you type in, and a half-width one
-            would cut the example short enough to stop explaining itself. In
-            the fixed band with them, because all three do the same job: fill
-            the whole form at once. */}
-        {onDescribe && (
-          <div className="mt-2">
-            <DescribeLine onDescribe={onDescribe} busy={describing} />
-          </div>
-        )}
-      </div>
-
-      <div ref={phoneScrollRef} className="flex min-h-0 flex-1 flex-col max-md:overflow-y-auto">
+      <div ref={phoneScrollRef} className="flex min-h-0 flex-1 flex-col max-md:overflow-y-auto md:contents">
         {/* Scrollable parameter fields. Every
             tab's groups render on one page — each group sits in its own card, and
             the top toggle scroll-jumps between tab blocks (Ad Analyzer pattern).
@@ -333,9 +331,18 @@ export default function ControlsPanel({
             the column above scrolls. The feathered edges go with it: they mark
             where content passes under pinned chrome, and on a phone there is
             none to pass under. */}
+        {/* The app's invisible scrollbar still takes an 11px track (index.css),
+            and it sits OUTSIDE the padding — so at `px-5` the cards carried 31px
+            on the right against 20 on the left and stopped lining up with the
+            tab pill above and the Generate bar below. The right padding gives
+            it back (`pr-[9px]` = 20 − 11), with the gutter held `stable` so it
+            doesn't move when the column stops overflowing — Voiceovers'
+            SettingsView idiom. `touch:` and `max-md:` restore the full 20
+            where there is no track: a touch screen has none, and on a phone
+            this box doesn't scroll at all. */}
         <div
           ref={scrollRef}
-          className="min-h-0 min-w-0 flex-1 overflow-y-auto px-5 pb-4 [mask-image:linear-gradient(to_bottom,transparent_0,black_0.5rem,black_calc(100%-1.5rem),transparent_100%)] max-md:flex-none max-md:overflow-visible max-md:[mask-image:none]"
+          className="min-h-0 min-w-0 flex-1 overflow-y-auto pb-4 pl-5 pr-[9px] [scrollbar-gutter:stable] touch:pr-5 max-md:pr-5 md:col-start-2 md:row-start-2 [mask-image:linear-gradient(to_bottom,transparent_0,black_0.5rem,black_calc(100%-1.5rem),transparent_100%)] max-md:flex-none max-md:overflow-visible max-md:[mask-image:none]"
         >
           <div className="flex flex-col gap-4 pt-2">
             {TABS.map((tab, tabIndex) => (
@@ -452,6 +459,7 @@ export default function ControlsPanel({
             fixed band stood over the 28 fields it belongs to and cost most of a
             short column; you fill the form top to bottom, and Generate is where
             you arrive. */}
+        <div className="min-w-0 shrink-0 md:col-span-2 md:row-start-3">
         <GenerateBar
           error={error}
           onGenerate={onGenerate}
@@ -469,6 +477,7 @@ export default function ControlsPanel({
           onModelChange={onModelChange}
           actionLabel={actionLabel}
         />
+        </div>
 
         {/* Scoped preset pickers — same modal as the footer's full picker,
             but each merges only its tab's fields onto the current form. */}
