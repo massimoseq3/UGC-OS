@@ -5,12 +5,12 @@ import Spinner from '../../../components/Spinner'
 import { MenuSurface, MenuItem } from '../../../components/Menu'
 import DayPill from '../../../components/DayPill'
 import { sectionLabel, groupByDay } from '../../../utils/history'
-import SectionCard, { SectionLabel } from '../../../components/SectionCard'
+import SectionCard, { SectionLabel, SectionPresetPill } from '../../../components/SectionCard'
 import { ImageTile, AddTile } from '../../../components/video/refInputParts'
 import { useBankStore } from '../../../stores/bankStore'
 import { useAppStore } from '../../../stores/appStore'
 import { useSettingsStore } from '../../../stores/settingsStore'
-import { useAssetUrl } from '../../../hooks/useAssetUrl'
+import { useAssetUrl, useAssetThumb } from '../../../hooks/useAssetUrl'
 import { getUrl } from '../../../utils/assetStore'
 import { downloadImage } from '../../../utils/downloadImage'
 import { copyToClipboard } from '../../../utils/clipboard'
@@ -40,7 +40,7 @@ import {
   enhanceEditInstruction,
   resolveImageToImageModel,
 } from '../services/generateCharacter'
-import type { InFlightCharacterGen, LaunchGenOptions } from '../types'
+import { TABS, type FieldGroup, type InFlightCharacterGen, type LaunchGenOptions } from '../types'
 import { pickInfluencerName, sheetNameFrom, uniqueBankName, variantNameFrom } from './nameGenerator'
 import { useCloseOnAppSwitch } from '../../../hooks/useCloseOnAppSwitch'
 import StyleModal, { type StyleSelection } from '../../../components/StyleModal'
@@ -49,6 +49,7 @@ import { analyzeStyleReferences, getContinuousStyle, styleBriefForStill } from '
 import { fileToDataUri } from '../../../utils/kie'
 import { usePersistedState } from '../../../hooks/usePersistedState'
 import GeneratingTile from './GeneratingTile'
+import PresetPickerModal from './PresetPickerModal'
 import InfluencerLightbox from './InfluencerLightbox'
 import { useBackdropClose } from '../../../hooks/useBackdropClose'
 
@@ -73,6 +74,27 @@ type Mode = 'edit' | 'sheet'
 
 // Reference-image cap — mirrors the Playground's 4-slot limit.
 const MAX_REFS = 4
+
+// The preset pills over the prompt box: the form's own field groups, under the
+// word a member uses for each. Picking one WRITES the preset's fields into the
+// instruction as plain lines rather than setting anything hidden, so what gets
+// sent is exactly what's in the box and every word of it can be edited.
+const PROMPT_PRESETS: { groupId: string; label: string; lead: string }[] = [
+  { groupId: 'identity', label: 'Identity', lead: 'Change the character to:' },
+  { groupId: 'pose', label: 'Pose', lead: 'Change the pose to:' },
+  { groupId: 'setting', label: 'Scene', lead: 'Move them into this scene:' },
+]
+const ALL_GROUPS = TABS.flatMap((t) => t.groups)
+// Values the form stores to mean "nothing here" — a line saying so would only
+// be an instruction to change nothing.
+const EMPTY_VALUES = new Set(['None', 'No makeup', 'Indoor (N/A)'])
+
+function presetInstruction(group: FieldGroup, lead: string, profile: Record<string, string>): string {
+  const lines = group.fields
+    .filter((f) => profile[f.key]?.trim() && !EMPTY_VALUES.has(profile[f.key]))
+    .map((f) => `- ${f.label}: ${profile[f.key].trim()}`)
+  return lines.length ? [lead, ...lines].join('\n') : ''
+}
 
 interface SessionOutput {
   // The characterHistory id this tile renders — the base image's id, or the new
@@ -203,6 +225,9 @@ export default function InfluencerEditModal({
   const canUndoPrompt = promptIndex > 0
   const canRedoPrompt = promptIndex < promptHistory.length - 1
   const [refs, setRefs] = useState<UploadedRef[]>([])
+  // Which prompt preset's picker is open; mounted only while it is, like every
+  // other caller of the picker.
+  const [promptPreset, setPromptPreset] = useState<(typeof PROMPT_PRESETS)[number] | null>(null)
 
   // ── Visual style ───────────────────────────────────────────────
   // An optional restyle applied on top of the typed instruction: pick a look and
@@ -401,6 +426,22 @@ export default function InfluencerEditModal({
   // already matches the latest entry.
   function commitPromptDraft() {
     if (prompt !== promptHistory[promptIndex]) pushPromptHistory(prompt)
+  }
+  // Adds the picked preset's fields to the instruction — under whatever is
+  // already typed, so a Scene then a Pose build one instruction — as one
+  // history step, so Undo takes the whole preset back out.
+  function handlePickPromptPreset(preset: (typeof PROMPT_PRESETS)[number], profile: Record<string, string>) {
+    const group = ALL_GROUPS.find((g) => g.id === preset.groupId)
+    const text = group ? presetInstruction(group, preset.lead, profile) : ''
+    if (!text) {
+      addToast(`That preset has no ${preset.label.toLowerCase()} details to add`, 'info')
+      return
+    }
+    const committed = prompt !== promptHistory[promptIndex]
+      ? [...promptHistory.slice(0, promptIndex + 1), prompt]
+      : promptHistory.slice(0, promptIndex + 1)
+    const current = prompt.trim()
+    pushPromptHistory(current ? `${current}\n\n${text}` : text, committed, committed.length - 1)
   }
   function handlePromptUndo() {
     if (promptIndex <= 0) return
@@ -607,6 +648,12 @@ export default function InfluencerEditModal({
         className="modal-pop flex h-[92dvh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-ink/10 bg-surface-0 shadow-2xl max-md:h-[calc(100dvh-1rem)]"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Header — the app-wide `h-[57px]` band, hairline and all, across both
+            columns and outside the scroller so it never moves. `max-md:pr-16`:
+            on a phone the floating close lands in this band's right end. */}
+        <div className="flex h-[57px] shrink-0 items-center border-b border-ink/5 px-5 max-md:pr-16">
+          <h2 className="truncate text-sm font-semibold text-ink-100">Edit Character</h2>
+        </div>
         {/* Body — 50/50 grid; each column scrolls. */}
         {/* One scroller on a phone, two columns on a desktop. Stacked, the two
           halves used to be a pair of ~45dvh scroll windows — the workspace in
@@ -622,12 +669,9 @@ export default function InfluencerEditModal({
                 gets generated — an edited portrait or a character sheet — it
                 does not swap the panel, so the references, visual style, and
                 instruction you set up carry across either way. */}
-            {/* `max-md:pt-15`: on a phone the panel fills the screen, so the
-                floating close above lands INSIDE it — at `pt-5` it sat on the
-                References card's top-right corner, over the card's own Clear
-                pill. The extra band is the room a sheet's title bar would take,
-                and leaves the card 12px under the close. */}
-            <div className="flex grow flex-col gap-3 px-5 pb-1 pt-5 max-md:pt-15">
+            {/* No phone-only top padding: the header band above now holds the
+                floating close, which used to land on the References card. */}
+            <div className="flex grow flex-col gap-3 px-5 pb-1 pt-5">
                 <>
                   {/* Everything this render is built FROM, in the References
                       card the controls column three metres to the left has worn
@@ -665,13 +709,19 @@ export default function InfluencerEditModal({
                     <div className="flex flex-col gap-1.5">
                       <SectionLabel
                         label="Reference Images"
-                        right={(
-                          <span className="text-[10px] tabular-nums tracking-tight text-ink-600">
+                        after={(
+                          <span className="text-[11px] tabular-nums tracking-tight text-ink-600">
                             {refs.length}/{MAX_REFS}
                           </span>
                         )}
                       />
                       <div className="flex flex-wrap gap-1.5">
+                        {/* The source leads the row, so the image every edit is
+                            built from reads as the first thing the render
+                            takes in. It isn't one of the four — it rides in
+                            its own slot of the request — so it has no remove;
+                            picking another tile on the right swaps it. */}
+                        {selected && <SourceTile imageRef={selected.imageRef} />}
                         {refs.map((r, i) => (
                           <ImageTile
                             key={i}
@@ -771,7 +821,20 @@ export default function InfluencerEditModal({
                   {/* Edit instruction — grows to absorb leftover height.
                       Textarea + a footer toolbar (Expand) inside one rounded
                       box, matching the Playground prompt field. */}
-                  <div className="flex grow flex-col">
+                  <div className="flex grow flex-col gap-2">
+                    {/* Three equal columns spanning the prompt box's width. */}
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {PROMPT_PRESETS.map((preset) => (
+                        <SectionPresetPill
+                          key={preset.groupId}
+                          label={preset.label}
+                          title={`Add a ${preset.label.toLowerCase()} preset to the instruction`}
+                          icon={ALL_GROUPS.find((g) => g.id === preset.groupId)?.icon}
+                          onClick={() => setPromptPreset(preset)}
+                          className="w-full justify-center"
+                        />
+                      ))}
+                    </div>
                     <div className="relative flex grow flex-col overflow-hidden rounded-2xl border border-ink/10 bg-ink/[0.03] transition-colors focus-within:border-ink/20 focus-within:bg-ink/[0.05]">
                       {/* Only a prompt box now — the Visual Style row that used
                           to head it lives in the References card above. */}
@@ -1016,6 +1079,15 @@ export default function InfluencerEditModal({
         placeholder="Describe the change, e.g. 'change the top to a red hoodie', 'add round glasses', 'softer warm lighting'…"
         accent="ink"
       />
+      {promptPreset && (
+        <PresetPickerModal
+          open
+          onClose={() => setPromptPreset(null)}
+          onPick={(profile) => handlePickPromptPreset(promptPreset, profile)}
+          title={`${promptPreset.label} Presets`}
+          subtitle={`Adds its ${promptPreset.label.toLowerCase()} to your instruction, ready to edit`}
+        />
+      )}
       <StyleModal
         open={styleModalOpen}
         onClose={() => setStyleModalOpen(false)}
@@ -1038,6 +1110,24 @@ export default function InfluencerEditModal({
       />
     </>,
     document.body,
+  )
+}
+
+// The source image at the head of Reference Images: the 64px footprint of the
+// reference tiles beside it, ringed in the accent and captioned, with no
+// remove. A thumbnail, never the original.
+function SourceTile({ imageRef }: { imageRef: string }) {
+  const { url } = useAssetThumb(imageRef)
+  return (
+    <div
+      title="The source · every edit is built from this image. Pick another on the right to change it."
+      className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-influencers-500/50 bg-ink/5"
+    >
+      {url && <img src={url} alt="" className="h-full w-full object-cover object-top" draggable={false} />}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent px-1 pb-0.5 pt-3 text-center text-[9px] font-semibold uppercase tracking-wider text-white">
+        Source
+      </div>
+    </div>
   )
 }
 

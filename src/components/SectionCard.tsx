@@ -111,6 +111,7 @@ export function SectionPresetPill({
   tone = 'accent',
   size,
   buttonRef,
+  className = '',
 }: {
   label: string
   title: string
@@ -125,6 +126,8 @@ export function SectionPresetPill({
   size?: keyof typeof PILL_SIZES
   // For a caller that anchors a popover to the pill rather than opening a modal.
   buttonRef?: RefObject<HTMLButtonElement | null>
+  // For a row of pills that shares out a width (`w-full justify-center`).
+  className?: string
 }) {
   return (
     <button
@@ -134,7 +137,7 @@ export function SectionPresetPill({
       title={title}
       className={`flex items-center gap-1.5 rounded-full border border-dashed px-3 py-1 transition-colors ${PILL_TONES[tone]} ${
         PILL_SIZES[size ?? (tone === 'accent' ? 'accent' : 'md')]
-      }`}
+      } ${className}`}
     >
       {Icon && <Icon className="h-3.5 w-3.5 shrink-0" />}
       {label}
@@ -169,6 +172,7 @@ export function SectionLabel({
   label,
   filled,
   required = false,
+  after,
   right,
   className = '',
 }: {
@@ -178,6 +182,10 @@ export function SectionLabel({
   // a dashed box), or one in a group where a dot could only ever be green.
   filled?: boolean
   required?: boolean
+  // Sits right beside the label rather than out at the row's far end — for a
+  // qualifier of the label itself (a "0/4" count) that reads as belonging to
+  // it only when it's next to it.
+  after?: ReactNode
   right?: ReactNode
   className?: string
 }) {
@@ -185,6 +193,7 @@ export function SectionLabel({
     <div className={`flex items-center gap-1.5 ${className}`}>
       {filled != null && <StatusDot filled={filled} required={required} />}
       <span className="text-[11px] font-medium uppercase tracking-wider text-ink-300">{label}</span>
+      {after}
       {right && <div className="ml-auto">{right}</div>}
     </div>
   )
