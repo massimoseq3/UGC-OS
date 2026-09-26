@@ -89,9 +89,44 @@ function clearChatModelSlots(m: Record<string, string>): void {
   }
 }
 
+// Playground's Video tab persists under the bare `playground:video` (its picker
+// takes no mode, see PromptPanel's modelKey).
+function clearPlaygroundVideoSlot(m: Record<string, string>): void {
+  delete m['playground:video']
+}
+
 // One-shot migrations applied to perAppModel. Each runs once per browser, then
 // its name is recorded under MIGRATIONS_KEY so it never runs again.
 const MODEL_MIGRATIONS: Array<{ name: string; apply: (m: Record<string, string>) => void }> = [
+  {
+    // Playground's video slot lands on Gemini Omni Flash 1.1, which took
+    // `defaultFor: ['playground']` from Grok Imagine Video 1.5 in #708
+    // (Massimo's call). That flip shipped without a migration and so only
+    // reached members whose slot was empty — the same gap the chat flips below
+    // hit. Unconditional, for the reason on the Gemini 3.8 entry below.
+    //
+    // Playground also snapshots its model in the draft `state` blob, which
+    // perAppModel doesn't reach and which holds the Video tab's pick whenever
+    // the draft was left on that tab, so repair that too. The blob is
+    // browser-local, so this half needs no PROFILE twin.
+    name: '2026-09-playground-video-default-gemini-omni-flash-1-1',
+    apply: (m) => {
+      clearPlaygroundVideoSlot(m)
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i)
+          if (!key || !key.endsWith(':playground:state')) continue
+          const raw = localStorage.getItem(key)
+          if (!raw) continue
+          const parsed = JSON.parse(raw)
+          if (parsed && parsed.mode === 'video' && parsed.modelId !== 'google/gemini-omni-flash-1-1') {
+            parsed.modelId = 'google/gemini-omni-flash-1-1'
+            localStorage.setItem(key, JSON.stringify(parsed))
+          }
+        }
+      } catch { /* ignore */ }
+    },
+  },
   {
     // Scripts' and B-Roll's writer slots clear onto DeepSeek V4.1 Flash, which
     // took `defaultFor` on both apps from Gemini 3.8 Flash (Massimo's call).
@@ -474,6 +509,12 @@ const MODEL_MIGRATIONS: Array<{ name: string; apply: (m: Record<string, string>)
 // applied migrations in the profile row itself, which is a schema change; it
 // is not worth one for a one-off default flip.
 const PROFILE_MIGRATIONS: Array<{ name: string; apply: (m: Record<string, string>) => void }> = [
+  {
+    // Playground's Video tab lands on Gemini Omni Flash 1.1 at the member's
+    // next sign-in. See the twin entry in MODEL_MIGRATIONS.
+    name: '2026-09-playground-video-default-gemini-omni-flash-1-1',
+    apply: clearPlaygroundVideoSlot,
+  },
   {
     // Scripts and B-Roll land on DeepSeek V4.1 Flash at the member's next
     // sign-in. See the twin entry in MODEL_MIGRATIONS.
