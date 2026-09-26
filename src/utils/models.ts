@@ -993,7 +993,9 @@ export const MODEL_REGISTRY: ModelEntry[] = [
   // Docs: dash.higgsfield.ai/models/higgsfield-ai/soul/{v2/standard,standard}/llms.txt
   {
     id: 'higgsfield-ai/soul/v2/standard',
-    displayName: 'Soul 2',
+    // Named with the maker (Massimo's call): it's the one row on another
+    // company's key, and "Soul 2" alone says nothing about whose.
+    displayName: 'Higgsfield Soul 2',
     provider: 'Higgsfield',
     api: 'higgsfield',
     // Playground and Characters only. B-Roll's and Flow's totals add every
@@ -2187,6 +2189,12 @@ export function modelApi(modelId: string | undefined): ModelApi {
 // fallback model).
 export function kieModelIds(filter: { task?: Task; mode?: Mode; appId?: string }): string[] {
   return listModels(filter).filter((m) => modelApi(m.id) === 'kie').map((m) => m.id)
+}
+
+// The grey pill a picker row wears when its model needs a key beyond kie's,
+// so a member sees it before picking rather than after pressing Generate.
+export function requiredKeyLabel(modelId: string): string | null {
+  return modelApi(modelId) === 'higgsfield' ? 'Requires Higgsfield API Key' : null
 }
 
 export function kieOnly(modelId: string | undefined): string | undefined {

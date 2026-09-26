@@ -9,6 +9,7 @@ import {
   kieOnly,
   listModels,
   modelApi,
+  requiredKeyLabel,
 } from './models'
 import { humanizeError } from './friendlyError'
 import { HiggsfieldHttpError } from './higgsfield'
@@ -44,7 +45,10 @@ describe('Higgsfield models in the registry', () => {
     expect(ids('character-studio')).toContain(SOUL_STANDARD)
     expect(ids('broll-studio')).not.toContain(SOUL_2)
     expect(ids()).not.toContain(SOUL_2)
-    // Starred, and still nobody's default.
+    // Named with its maker, wears the key pill, starred — and still nobody's default.
+    expect(listModels({ appId: 'playground' }).find((m) => m.id === SOUL_2)?.displayName).toBe('Higgsfield Soul 2')
+    expect(requiredKeyLabel(SOUL_2)).toBe('Requires Higgsfield API Key')
+    expect(requiredKeyLabel('nano-banana-2')).toBeNull()
     expect(listModels({ appId: 'playground' }).find((m) => m.id === SOUL_2)?.tags).toContain('recommended')
     for (const app of ['playground', 'character-studio']) {
       expect(modelApi(getDefaultModel(app, 'image', 'text-to-image')?.id)).toBe('kie')

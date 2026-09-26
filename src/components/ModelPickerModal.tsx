@@ -8,6 +8,7 @@ import {
   estimateCredits,
   formatCredits,
   officialSavingsPercent,
+  requiredKeyLabel,
   TAG_STYLES,
   type Task,
   type Mode,
@@ -439,6 +440,7 @@ function ModelRow({ model, active, muted, credits, accent, onClick }: ModelRowPr
           {/* Sibling-variant pill (see ModelEntry.variantLabel). Neutral by
               design — the July 2026 note above is exactly why it isn't a tag. */}
           {model.variantLabel && <VariantPill label={model.variantLabel} />}
+          {requiredKeyLabel(model.id) && <VariantPill label={requiredKeyLabel(model.id)!} />}
           {textTags.map((t) => (
             <span key={t} className={`shrink-0 text-[11px] font-medium ${TAG_TEXT[t]}`}>
               {TAG_STYLES[t].label}

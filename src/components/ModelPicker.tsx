@@ -6,6 +6,7 @@ import {
   estimateCredits,
   formatCredits,
   officialSavingsPercent,
+  requiredKeyLabel,
   type Task,
   type Mode,
   type ModelEntry,
@@ -330,6 +331,8 @@ function ModelRow({ model, active, muted, accent, costParams, noCredits, onClick
               a squeezed row truncates the NAME rather than the one word that
               separates this row from the identically-named one under it. */}
           {model.variantLabel && <VariantPill label={model.variantLabel} />}
+          {/* Same neutral pill, for a model that runs on a second key. */}
+          {requiredKeyLabel(model.id) && <VariantPill label={requiredKeyLabel(model.id)!} />}
         </div>
         {/* The "% off" chip rides the META line, beside the credits it is a
             discount ON (Massimo's call, September 2026). On the name line it
