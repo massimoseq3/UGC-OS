@@ -135,12 +135,16 @@ function isTerminalPollError(err: unknown): boolean {
 export class PollTimeoutError extends Error {
   readonly minutes: number
   readonly unreachable: boolean
-  constructor(minutes: number, label = 'Generation', unreachable = false) {
+  // `host` names who we were polling — Higgsfield's poller throws this too, and
+  // friendlyError tells the member which site to check before re-running.
+  constructor(minutes: number, label = 'Generation', unreachable = false, host = 'kie.ai') {
     const elapsed = `${minutes} minute${minutes === 1 ? '' : 's'}`
+    // kie's wording is left exactly as it was; another host is named in both.
+    const where = host === 'kie.ai' ? '' : ` on ${host}`
     super(
       unreachable
-        ? `${label} timed out after ${elapsed}. The connection to kie.ai kept failing.`
-        : `${label} timed out after ${elapsed}.`,
+        ? `${label} timed out after ${elapsed}${where}. The connection to ${host} kept failing.`
+        : `${label} timed out after ${elapsed}${where}.`,
     )
     this.name = 'PollTimeoutError'
     this.minutes = minutes

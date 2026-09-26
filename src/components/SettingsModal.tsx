@@ -17,6 +17,8 @@ import { useCloseOnAppSwitch } from '../hooks/useCloseOnAppSwitch'
 import { useAuthStore } from '../stores/authStore'
 import { isCloudEnabled } from '../lib/supabase'
 import { scTestConnection } from '../utils/scrapecreators'
+import { higgsfieldTestConnection } from '../utils/higgsfield'
+import { formatUsd } from '../utils/models'
 import { seedMockData, removeMockData, hasMockData } from '../utils/mockData'
 import {
   findOrphanAssets,
@@ -58,6 +60,8 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   const setKieApiKey = useSettingsStore((s) => s.setKieApiKey)
   const storedScKey = useSettingsStore((s) => s.scrapeCreatorsKey)
   const setScrapeCreatorsKey = useSettingsStore((s) => s.setScrapeCreatorsKey)
+  const storedHfKey = useSettingsStore((s) => s.higgsfieldKey)
+  const setHiggsfieldKey = useSettingsStore((s) => s.setHiggsfieldKey)
   const openApp = useAppStore((s) => s.openApp)
   const openTeamIntro = useAppStore((s) => s.openTeamIntro)
   const profile = useAuthStore((s) => s.profile)
@@ -85,6 +89,16 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [scSaved, setScSaved] = useState(false)
   const [scTesting, setScTesting] = useState(false)
   const [scTestResult, setScTestResult] = useState<{ ok: boolean; message: string } | null>(null)
+
+  // Higgsfield — the Soul models' key. Optional like ScrapeCreators: only the
+  // Soul rows in Playground and Characters need it, so it never gates the
+  // rail's alert dot either.
+  const [hfDraft, setHfDraft] = useState(storedHfKey)
+  const [showHf, setShowHf] = useState(false)
+  const [hfSaving, setHfSaving] = useState(false)
+  const [hfSaved, setHfSaved] = useState(false)
+  const [hfTesting, setHfTesting] = useState(false)
+  const [hfTestResult, setHfTestResult] = useState<{ ok: boolean; message: string } | null>(null)
 
   // "What should we call you?" — edits profiles.display_name.
   const storedName = profile?.display_name ?? ''
@@ -227,6 +241,33 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
     setScTesting(false)
   }
 
+  async function handleSaveHf() {
+    setHfSaving(true)
+    // Same cosmetic delay as the other two saves — the write is synchronous.
+    await new Promise((resolve) => setTimeout(resolve, 350))
+    setHiggsfieldKey(hfDraft.trim())
+    setHfSaving(false)
+    setHfSaved(true)
+    setTimeout(() => setHfSaved(false), 2000)
+  }
+
+  async function handleTestHf() {
+    if (!hfDraft.trim()) return
+    setHfTesting(true)
+    setHfTestResult(null)
+    // Infra surface — show Higgsfield's own message, not humanizeError copy.
+    // The test is a free price estimate, so what comes back is what a Soul 2
+    // image costs on THIS account, in dollars like Higgsfield's billing page.
+    const result = await higgsfieldTestConnection(hfDraft.trim())
+    if (result.ok) {
+      const price = result.usd === null ? null : formatUsd(result.usd)
+      setHfTestResult({ ok: true, message: price ? `Connected · a Soul 2 image costs ${price}.` : 'Connected.' })
+    } else {
+      setHfTestResult({ ok: false, message: result.error })
+    }
+    setHfTesting(false)
+  }
+
   async function handleSaveName() {
     setNameSaving(true)
     setNameError(null)
@@ -300,9 +341,9 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   // The rail is built from what this member actually has — a local-only build
   // has no Account or Storage pane, and Advanced only exists for me.
   const sections: Array<{ id: SectionId; label: string; icon: ElementType; alert?: boolean }> = [
-    // Two keys live here now (kie.ai + the optional ScrapeCreators one), so the
-    // label is plural. The alert dot still tracks kie.ai alone — it's the only
-    // one the app can't function without.
+    // Three keys live here now (kie.ai + the optional ScrapeCreators and
+    // Higgsfield ones), so the label is plural. The alert dot still tracks
+    // kie.ai alone — it's the only one the app can't function without.
     { id: 'api', label: 'API Keys', icon: Key, alert: !hasKey },
     ...(cloudOn && profile ? [{ id: 'account' as const, label: 'Account', icon: User }] : []),
     { id: 'appearance', label: 'Appearance', icon: Palette },
@@ -597,6 +638,103 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     )}
                   </Card>
                 )}
+
+                {/* The Higgsfield key powers the Soul models in Playground and
+                    Characters, and nothing else. Always shown: unlike Outliers,
+                    neither app can be switched off. */}
+                <Card>
+                  <div className="flex items-center justify-between">
+                    <label className="text-[12px] font-medium text-ink-300">
+                      Higgsfield Key
+                      <span className="ml-1.5 text-[11px] font-normal text-ink-600">(for Soul models)</span>
+                    </label>
+                    <a
+                      href="https://console.higgsfield.ai"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-[11px] text-ink-500 transition-colors hover:text-ink-300"
+                    >
+                      Get Key
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+                  <div className="relative mt-2">
+                    <input
+                      type={showHf ? 'text' : 'password'}
+                      value={hfDraft}
+                      onChange={(e) => {
+                        setHfDraft(e.target.value)
+                        setHfTestResult(null)
+                      }}
+                      placeholder="KEY_ID:KEY_SECRET"
+                      className="w-full rounded-full border border-ink/10 bg-ink/5 px-4 py-2.5 pr-10 text-sm text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-ink/20 focus:bg-ink/[0.07]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowHf(!showHf)}
+                      aria-label={showHf ? 'Hide Higgsfield key' : 'Show Higgsfield key'}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-500 transition-colors hover:text-ink-300"
+                    >
+                      {showHf ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+
+                  <div className="mt-2.5 flex items-center gap-2 text-[11px] text-ink-500">
+                    <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${storedHfKey ? 'bg-emerald-500' : 'bg-ink/20'}`} />
+                    {storedHfKey ? 'Key saved.' : 'No key saved yet. Paste the key ID and secret joined by a colon.'}
+                  </div>
+
+                  {(() => {
+                    const trimmedDraft = hfDraft.trim()
+                    const hasPendingChange = trimmedDraft !== storedHfKey
+                    const disabled = hfSaving || hfSaved || !hasPendingChange
+                    const primary = hasPendingChange && !hfSaving && !hfSaved
+                    return (
+                      <div className="mt-3 flex gap-2">
+                        <button
+                          type="button"
+                          onClick={handleTestHf}
+                          disabled={!trimmedDraft || hfTesting}
+                          className="flex shrink-0 items-center justify-center gap-2 rounded-full border border-ink/10 bg-ink/[0.03] px-4 py-2.5 text-[12px] font-medium text-ink-200 transition-colors hover:border-ink/20 hover:bg-ink/[0.06] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-ink/[0.03]"
+                        >
+                          {hfTesting ? <Spinner className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5 text-ink-400" />}
+                          {hfTesting ? 'Testing…' : 'Test Connection'}
+                        </button>
+                        <button
+                          onClick={handleSaveHf}
+                          disabled={disabled}
+                          className={`flex flex-1 items-center justify-center gap-2 rounded-full py-2.5 text-[13px] font-medium transition-colors ${
+                            hfSaved
+                              ? 'bg-emerald-500/15 text-emerald-300 light:text-emerald-700'
+                              : primary
+                                ? 'bg-ink text-ink-900 hover:bg-ink-200'
+                                : 'bg-ink/10 text-ink-400 disabled:cursor-not-allowed disabled:opacity-60'
+                          }`}
+                        >
+                          {hfSaving ? (
+                            <>
+                              <Spinner className="h-4 w-4" />
+                              <span>Saving…</span>
+                            </>
+                          ) : hfSaved ? (
+                            <>
+                              <Check className="h-4 w-4" />
+                              <span>Saved</span>
+                            </>
+                          ) : (
+                            'Save'
+                          )}
+                        </button>
+                      </div>
+                    )
+                  })()}
+
+                  {hfTestResult && (
+                    <Banner tone={hfTestResult.ok ? 'ok' : 'error'} className="mt-3">
+                      {hfTestResult.message}
+                    </Banner>
+                  )}
+                </Card>
 
                 <p className="text-[11px] leading-relaxed text-ink-500">
                   Stored only in this browser. Do not share with anyone.

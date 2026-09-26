@@ -12,7 +12,7 @@ import { playgroundRunner, planPlaygroundRun, isMotionControlRun, type Playgroun
 import PromptPanel, { type PromptPanelState, type PromptRef } from './components/PromptPanel'
 import { composePlaygroundPrompt } from './composePrompt'
 import PlaygroundHistoryGrid from './components/PlaygroundHistoryGrid'
-import { getDefaultModel, getModel, type AspectRatio } from '../../utils/models'
+import { getDefaultModel, getModel, modelApi, type AspectRatio } from '../../utils/models'
 import type { PlaygroundMode, InFlightGen } from './types'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
 import { humanizeError } from '../../utils/friendlyError'
@@ -428,7 +428,8 @@ export default function Playground() {
         // Deleting it here was the "video succeeds on kie but never shows up"
         // bug — it's now evicted only once it crosses STALE_TASK_MS.
         const noun = mode === 'image' ? 'Image' : mode === 'music' ? 'Track' : 'Video'
-        addToast(`${noun} is still rendering on kie. Refresh in a bit and it'll appear here once it's ready.`, 'info')
+        const host = modelApi(plan.modelId) === 'higgsfield' ? 'Higgsfield' : 'kie'
+        addToast(`${noun} is still rendering on ${host}. Refresh in a bit and it'll appear here once it's ready.`, 'info')
       } else {
         addToast(playgroundRunner.describeError(err), 'error')
         setInFlight((prev) => prev.filter((g) => g.id !== id))

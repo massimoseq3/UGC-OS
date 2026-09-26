@@ -6,7 +6,7 @@ import BatchCountStepper from '../../../components/BatchCountStepper'
 import { clampBatchCount } from '../../../utils/batchCount'
 import AspectIcon from '../../../components/AspectIcon'
 import SegmentedToggle from '../../../components/SegmentedToggle'
-import { estimateCredits, formatCredits, getDefaultModel, getModel, type ImageResolution } from '../../../utils/models'
+import { estimateCredits, formatCredits, getDefaultModel, getModel, kieModelIds, kieOnly, type ImageResolution } from '../../../utils/models'
 
 interface GenerateBarProps {
   error: string | null
@@ -73,12 +73,18 @@ export default function GenerateBar({
   actionLabel,
 }: GenerateBarProps) {
   const persistedModel = useSettingsStore((s) => s.getAppModel('character-studio:image:text-to-image'))
-  const selectedModelId = modelId ?? persistedModel ?? getDefaultModel('character-studio', 'image', 'text-to-image')?.id
+  // Flow's block (the one caller with `onModelChange`) runs kie models only, so
+  // a Higgsfield pick in the app is not its fallback and not in its list — the
+  // same rule its run makes (flow/engine/cost.ts charactersModelId).
+  const inFlow = !!onModelChange
+  const selectedModelId = modelId
+    ?? (inFlow ? kieOnly(persistedModel) : persistedModel)
+    ?? getDefaultModel('character-studio', 'image', 'text-to-image')?.id
   const count = clampBatchCount(batchCount)
   // Every image model's priceFor already multiplies by imageCount, so the
   // button's figure is the real cost of the whole run rather than one tile's.
   const creditsFor = (n: number) => estimateCredits(selectedModelId ?? '', { imageCount: n, resolution })
-  const creditsLabel = formatCredits(creditsFor(count))
+  const creditsLabel = formatCredits(creditsFor(count), selectedModelId)
 
   return (
     // Static at every width. It was `sticky bottom-0` on a phone until August
@@ -134,9 +140,10 @@ export default function GenerateBar({
             mode="text-to-image"
             large
             costParams={{ imageCount: 1, resolution }}
-            value={modelId}
+            value={inFlow ? selectedModelId : modelId}
             onChange={onModelChange}
-            persist={!onModelChange}
+            persist={!inFlow}
+            allowedModelIds={inFlow ? kieModelIds({ task: 'image', mode: 'text-to-image', appId: 'character-studio' }) : undefined}
           />
         </div>
         <div className="flex min-w-0 flex-1 items-center gap-2 @max-[520px]:basis-full">
@@ -150,7 +157,7 @@ export default function GenerateBar({
             renderOption={(v) => {
               // Priced for the run that's actually armed, so this menu and the
               // Generate button can never quote two different numbers.
-              const credits = formatCredits(estimateCredits(selectedModelId ?? '', { imageCount: count, resolution: v as ImageResolution }))
+              const credits = formatCredits(estimateCredits(selectedModelId ?? '', { imageCount: count, resolution: v as ImageResolution }), selectedModelId)
               return (
                 <span className="flex w-full items-center justify-between gap-6">
                   <span>{v}</span>
@@ -214,6 +221,7 @@ export default function GenerateBar({
             value={count}
             onChange={onBatchCountChange}
             creditsFor={creditsFor}
+            modelId={selectedModelId}
           />
         </div>
       </div>

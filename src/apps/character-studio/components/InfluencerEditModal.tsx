@@ -38,6 +38,7 @@ import {
   buildImagePrompt,
   buildSheetPrompt,
   enhanceEditInstruction,
+  resolveImageToImageModel,
 } from '../services/generateCharacter'
 import type { InFlightCharacterGen, LaunchGenOptions } from '../types'
 import { pickInfluencerName, sheetNameFrom, uniqueBankName, variantNameFrom } from './nameGenerator'
@@ -301,7 +302,12 @@ export default function InfluencerEditModal({
   // so its constraint chips and credit estimate stay in sync with the picker.
   const persistedImageModel = useSettingsStore((s) => s.getAppModel('character-studio:image:text-to-image'))
   const imageModelId = persistedImageModel ?? getDefaultModel('character-studio', 'image', 'text-to-image')?.id
-  const imageConstraints = imageModelId ? getModel(imageModelId)?.imageConstraints : undefined
+  // Every run from this modal is image-to-image off the character, so it draws
+  // with the picked model's image-to-image counterpart — which for a
+  // text-only pick (Soul, on another provider entirely) is a different model
+  // with a different price. The chips and credits describe THAT model.
+  const runModelId = imageModelId ? resolveImageToImageModel(imageModelId) : undefined
+  const imageConstraints = runModelId ? getModel(runModelId)?.imageConstraints : undefined
   const resolutionOptions = (imageConstraints?.resolutions ?? []) as string[]
   const aspectOptions = imageConstraints?.aspectRatios ?? []
   // A sheet only makes sense in a turnaround (16:9) or stacked (9:16) layout.
@@ -572,8 +578,8 @@ export default function InfluencerEditModal({
     if (url) await downloadImage(url, `${output.kind === 'sheet' ? 'character-sheet' : 'character'}-${output.id}`)
   }
 
-  const creditsLabel = imageModelId
-    ? formatCredits(estimateCredits(imageModelId, { imageCount: 1, resolution }))
+  const creditsLabel = runModelId
+    ? formatCredits(estimateCredits(runModelId, { imageCount: 1, resolution }), runModelId)
     : null
 
   const modal = (
@@ -841,7 +847,7 @@ export default function InfluencerEditModal({
                     value={resolution}
                     onChange={(v) => setResolution(v as ImageResolution)}
                     renderOption={(v) => {
-                      const credits = formatCredits(estimateCredits(imageModelId ?? '', { imageCount: 1, resolution: v as ImageResolution }))
+                      const credits = formatCredits(estimateCredits(runModelId ?? '', { imageCount: 1, resolution: v as ImageResolution }), runModelId)
                       return (
                         <span className="flex w-full items-center justify-between gap-6">
                           <span>{v}</span>

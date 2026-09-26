@@ -90,7 +90,7 @@ export default function ModelPicker({ appId, task, mode, value, onChange, requir
   // orange for Scripts, …) so the picker feels native to whatever app it sits in.
   const accent = APP_REGISTRY.find((a) => a.id === appId)?.accent ?? '#38bdf8'
 
-  const allModels = listModels({ task, mode })
+  const allModels = listModels({ task, mode, appId })
   const scopedModels = allowedModelIds ? allModels.filter((m) => allowedModelIds.includes(m.id)) : allModels
   // Video has the longest lineup, so list it A–Z (by display name) rather than
   // registry order — otherwise newer entries just pile up at the bottom.
@@ -268,12 +268,12 @@ interface ModelRowProps {
 // model has one tier (or price doesn't vary), otherwise "from {cheapest}
 // credits" so the row leads with the lowest cost the user can pay.
 function creditRange(modelId: string, tiers: string[] | undefined, costParams: CostEstimateParams): string | null {
-  if (!tiers?.length) return formatCredits(estimateCredits(modelId, costParams))
+  if (!tiers?.length) return formatCredits(estimateCredits(modelId, costParams), modelId)
   const lo = estimateCredits(modelId, { ...costParams, resolution: tiers[0] })
   const hi = estimateCredits(modelId, { ...costParams, resolution: tiers[tiers.length - 1] })
   if (lo == null) return null
-  if (hi == null || hi === lo) return formatCredits(lo)
-  return `from ${formatCredits(lo)}`
+  if (hi == null || hi === lo) return formatCredits(lo, modelId)
+  return `from ${formatCredits(lo, modelId)}`
 }
 
 // Row aesthetic mirrors ModelPickerModal: provider logo, name + star + colored

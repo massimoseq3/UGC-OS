@@ -30,6 +30,7 @@ import {
   getDefaultModel,
   getModel,
   mixedImageInputPolicy,
+  modelApi,
   type AspectRatio,
   type ImageResolution,
   type VideoMode,
@@ -223,6 +224,16 @@ export function planPlaygroundRun(input: PlaygroundRunInput): PlaygroundPlan {
   // would be silently dropped by the body builder otherwise).
   let modelId = input.modelId
   if (mode === 'image') {
+    // A Higgsfield model takes no image at all, and the kie swap below would
+    // quietly move the run to another provider and bill another balance than
+    // the one its Generate button quoted. Refuse instead — the same sentence
+    // the video branch below gives a model that takes no images.
+    if (hasRefs && modelApi(input.modelId) === 'higgsfield') {
+      const pickedLabel = getModel(input.modelId)?.displayName ?? input.modelId
+      throw new FriendlyError(
+        `${pickedLabel} generates from the prompt only. It takes no images. Remove the attached images, or pick a model that accepts them.`,
+      )
+    }
     modelId = resolveImageModelForRefs(input.modelId, hasRefs)
   } else if (mode === 'video' && !isMotionControl) {
     const resolved = resolveVideoModelForMode(input.modelId, inferredVideoMode)

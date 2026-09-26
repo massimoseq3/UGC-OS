@@ -149,7 +149,7 @@ export default function ModelPickerModal({
   const isDesktop = useIsDesktop()
   const accent = ACCENTS[appId] ?? ACCENTS['broll-studio']
 
-  const scopedModels = listModels({ task, mode }).filter((m) => !allowedModelIds || allowedModelIds.includes(m.id))
+  const scopedModels = listModels({ task, mode, appId }).filter((m) => !allowedModelIds || allowedModelIds.includes(m.id))
   // Video has the longest lineup, so list it A–Z (by display name) rather than
   // registry order — otherwise newer entries just pile up at the bottom.
   const models = task === 'video'
@@ -350,7 +350,7 @@ export default function ModelPickerModal({
                       model={m}
                       active={m.id === resolved}
                       muted={isMuted(m)}
-                      credits={formatCredits(estimateCredits(m.id, costParams))}
+                      credits={formatCredits(estimateCredits(m.id, costParams), m.id)}
                       accent={accent}
                       onClick={() => pick(m.id)}
                     />

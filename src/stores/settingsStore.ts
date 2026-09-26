@@ -29,13 +29,19 @@ interface SettingsState {
   // ScrapeCreators key, powering Outliers. Same doctrine as the kie key: the
   // member's own, browser-local, never written to Supabase.
   scrapeCreatorsKey: string
+  // Higgsfield key, as the `KEY_ID:KEY_SECRET` pair its console hands out —
+  // powering the Soul models, which kie doesn't carry. Same doctrine again:
+  // the member's own, browser-local, never written to Supabase.
+  higgsfieldKey: string
   perAppModel: Record<string, string>
 
   setKieApiKey: (key: string) => void
   setScrapeCreatorsKey: (key: string) => void
+  setHiggsfieldKey: (key: string) => void
 
   getKieApiKey: () => string
   getScrapeCreatorsKey: () => string
+  getHiggsfieldKey: () => string
 
   setAppModel: (appId: string, modelId: string) => void
   getAppModel: (appId: string) => string | undefined
@@ -44,6 +50,7 @@ interface SettingsState {
 interface PersistedShape {
   kieApiKey?: string
   scrapeCreatorsKey?: string
+  higgsfieldKey?: string
   perAppModel?: Record<string, string>
   // Legacy field — read once during migration, never written again.
   googleApiKey?: string
@@ -52,7 +59,7 @@ interface PersistedShape {
 // Everything persisted under STORAGE_KEY. Named so the write paths below can't
 // silently drop a field the way a hand-built object literal did when the
 // ScrapeCreators key was added to a shape that only listed two.
-type PersistedSettings = Pick<SettingsState, 'kieApiKey' | 'scrapeCreatorsKey' | 'perAppModel'>
+type PersistedSettings = Pick<SettingsState, 'kieApiKey' | 'scrapeCreatorsKey' | 'higgsfieldKey' | 'perAppModel'>
 
 const MIGRATIONS_KEY = 'ai-ugc-lab-settings-migrations'
 
@@ -636,6 +643,7 @@ function loadFromStorage(): PersistedSettings {
   const next: PersistedSettings = {
     kieApiKey: parsed.kieApiKey ?? '',
     scrapeCreatorsKey: parsed.scrapeCreatorsKey ?? '',
+    higgsfieldKey: parsed.higgsfieldKey ?? '',
     perAppModel,
   }
   if (migrated) {
@@ -645,7 +653,7 @@ function loadFromStorage(): PersistedSettings {
       // only the two fields it knew about, which would wipe any key added to
       // the shape later the first time a migration ran. Only when there was
       // something to write back — a browser with no blob stays with no blob.
-      if (parsed.perAppModel || parsed.kieApiKey || parsed.scrapeCreatorsKey) {
+      if (parsed.perAppModel || parsed.kieApiKey || parsed.scrapeCreatorsKey || parsed.higgsfieldKey) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
       }
     } catch { /* quota / unavailable — the in-memory result below still stands */ }
@@ -664,6 +672,7 @@ function snapshot(s: SettingsState): PersistedSettings {
   return {
     kieApiKey: s.kieApiKey,
     scrapeCreatorsKey: s.scrapeCreatorsKey,
+    higgsfieldKey: s.higgsfieldKey,
     perAppModel: s.perAppModel,
   }
 }
@@ -685,13 +694,13 @@ export function persistSettingsSnapshot(): void {
 // up the previous user's kie.ai API key or per-app model picks.
 export function resetSettingsStore(): void {
   try { localStorage.removeItem(STORAGE_KEY) } catch { /* ignore */ }
-  useSettingsStore.setState({ kieApiKey: '', scrapeCreatorsKey: '', perAppModel: {} })
+  useSettingsStore.setState({ kieApiKey: '', scrapeCreatorsKey: '', higgsfieldKey: '', perAppModel: {} })
 }
 
 // ---------------------------------------------------------------------------
 // Per-user key vault
 //
-// The kie.ai and ScrapeCreators keys are the only settings a member types by
+// The kie.ai, ScrapeCreators and Higgsfield keys are the only settings a member types by
 // hand, and by design they are never cloud-synced — so the sign-out wipe above
 // (which exists so the next person on a shared browser can't inherit them) also
 // meant re-pasting both on every sign-in. They are therefore mirrored into a
@@ -705,7 +714,9 @@ export function resetSettingsStore(): void {
 
 const KEY_VAULT_KEY = 'ai-ugc-lab-keys'
 
-type VaultEntry = { kieApiKey: string; scrapeCreatorsKey: string }
+// `higgsfieldKey` is optional because entries written before it existed don't
+// carry it — reading one back as '' is right.
+type VaultEntry = { kieApiKey: string; scrapeCreatorsKey: string; higgsfieldKey?: string }
 
 function readVault(): Record<string, VaultEntry> {
   try {
@@ -721,10 +732,10 @@ function readVault(): Record<string, VaultEntry> {
 function rememberKeysFor(userId: string, s: PersistedSettings): void {
   try {
     const vault = readVault()
-    // Both cleared means "forget me on this browser" — drop the entry outright
-    // rather than storing a pair of empty strings that would outlive the intent.
-    if (!s.kieApiKey && !s.scrapeCreatorsKey) delete vault[userId]
-    else vault[userId] = { kieApiKey: s.kieApiKey, scrapeCreatorsKey: s.scrapeCreatorsKey }
+    // All cleared means "forget me on this browser" — drop the entry outright
+    // rather than storing empty strings that would outlive the intent.
+    if (!s.kieApiKey && !s.scrapeCreatorsKey && !s.higgsfieldKey) delete vault[userId]
+    else vault[userId] = { kieApiKey: s.kieApiKey, scrapeCreatorsKey: s.scrapeCreatorsKey, higgsfieldKey: s.higgsfieldKey }
     localStorage.setItem(KEY_VAULT_KEY, JSON.stringify(vault))
   } catch { /* localStorage unavailable — the live session still has the key */ }
 }
@@ -748,10 +759,15 @@ export function adoptUserKeys(userId: string): void {
     ...current,
     kieApiKey: stored?.kieApiKey || current.kieApiKey,
     scrapeCreatorsKey: stored?.scrapeCreatorsKey || current.scrapeCreatorsKey,
+    higgsfieldKey: stored?.higgsfieldKey || current.higgsfieldKey,
   }
   try { saveToStorage(next) } catch { /* quota — in-memory state below still stands */ }
   rememberKeysFor(userId, next)
-  useSettingsStore.setState({ kieApiKey: next.kieApiKey, scrapeCreatorsKey: next.scrapeCreatorsKey })
+  useSettingsStore.setState({
+    kieApiKey: next.kieApiKey,
+    scrapeCreatorsKey: next.scrapeCreatorsKey,
+    higgsfieldKey: next.higgsfieldKey,
+  })
 }
 
 export const useSettingsStore = create<SettingsState>((set, get) => ({
@@ -776,6 +792,14 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     set({ scrapeCreatorsKey: key })
   },
 
+  setHiggsfieldKey: (key) => {
+    // Same rule as the two above: browser-local, never synced, vaulted.
+    const next = { ...snapshot(get()), higgsfieldKey: key }
+    saveToStorage(next)
+    rememberKeys(next)
+    set({ higgsfieldKey: key })
+  },
+
   getKieApiKey: () => {
     const key = get().kieApiKey
     if (!key) throw new Error('No kie.ai API key configured. Open Settings to add it.')
@@ -785,6 +809,12 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   getScrapeCreatorsKey: () => {
     const key = get().scrapeCreatorsKey
     if (!key) throw new Error('No ScrapeCreators API key configured. Open Settings to add it.')
+    return key
+  },
+
+  getHiggsfieldKey: () => {
+    const key = get().higgsfieldKey
+    if (!key) throw new Error('No Higgsfield key configured. Open Settings to add it.')
     return key
   },
 

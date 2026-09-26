@@ -2,7 +2,7 @@
 
 ## What this is
 
-**UGC OS** is a browser-based, macOS-style workspace that unifies eight tools for UGC ad production behind shared data banks. Every in-app AI call goes through **kie.ai** on one member-supplied Bearer key (chat, vision, image, video, TTS, music). The one exception is **Edit**, which generates nothing in the browser — it hands out a Claude skill the member runs locally.
+**UGC OS** is a browser-based, macOS-style workspace that unifies eight tools for UGC ad production behind shared data banks. Every in-app AI call goes through **kie.ai** on one member-supplied Bearer key (chat, vision, image, video, TTS, music), except Higgsfield's own **Soul** image models, which kie doesn't carry and which run on an optional second key (`utils/higgsfield.ts`). **Edit** generates nothing in the browser — it hands out a Claude skill the member runs locally.
 
 Built for a private Skool community of solo creators and small teams. Access is an email allowlist synced from Skool; inference cost is on the member (BYO kie key), so the operator pays only hosting + storage.
 
@@ -76,7 +76,8 @@ Defaults (registry order IS the default — `getDefaultModel` falls back to the 
 | TTS | Gemini 2.5 Pro TTS (`TTS_MODEL_SLOT`, picker of two) |
 | Music | Suno V5.5, Playground only |
 
-- `estimateCredits` + `formatCredits` are the only credit APIs. Credits only, no USD, in pickers and buttons.
+- `estimateCredits` + `formatCredits` are the only credit APIs. Credits only, no USD, in pickers and buttons — except a Higgsfield model, below.
+- **A model with `api: 'higgsfield'` is priced in US dollars**, printed as "$0.0032" to match Higgsfield's own pages: pass its id to `formatCredits(n, modelId)`, never add it to a kie total, and keep it scoped by `apps` to Playground + Characters (Flow filters it with `kieModelIds` / `kieOnly`).
 - `official` / `market` prices are added **only when verified**, with a source URL; `null` for a tier with no comparable rate.
 - `maxReferenceImages` / `maxReferenceVideos` declared only from a verified provider cap; undeclared fall to `UNDECLARED_REFERENCE_IMAGE_CAP`.
 - `mixedImageInputs` (`'merged'` / `'reference'` / `'exclusive'`) says what a model does with frames + references in one request; undeclared falls to `'exclusive'` on purpose.
@@ -90,7 +91,7 @@ Defaults (registry order IS the default — `getDefaultModel` falls back to the 
 - **The UI never `await`s a cloud round-trip.** Local write first, push in the background; durability is the synchronous localStorage outbox replayed by `drainOutbox()`.
 - **Hydrate is non-destructive** — a per-table error keeps local rows. **Every whole-table read is paged** through `selectAllRows`.
 - Every cloud write awaits `ensureFreshSession()`; the client uses a custom non-blocking `auth.lock`.
-- **The kie.ai and ScrapeCreators keys are browser-local only**, never in Supabase, written through `snapshot(state)`, kept across sign-out in the per-user vault `ai-ugc-lab-keys` and adopted only after any wipe.
+- **The kie.ai, ScrapeCreators and Higgsfield keys are browser-local only**, never in Supabase, written through `snapshot(state)`, kept across sign-out in the per-user vault `ai-ugc-lab-keys` and adopted only after any wipe.
 - Signup is blocked by the `enforce_allowlist` trigger with no client bypass; the access code is compared in the trigger and never shipped to the browser. Member status is Active / Lapsed / Disabled; no status deletes anything.
 - **Every member re-enters the access code on a timer** (`access_renewal_days`, default 30). Being due is derived, never stamped, so `is_active()` is the only lock and `my_access_state()` is the only thing the client may render it from — and a blank `signup_code` must never make anyone due, because `redeem_access_code` refuses a blank code and nobody could get back in.
 - `perAppModel` is cloud-synced and hydrate replaces it.
