@@ -6,7 +6,7 @@ import BatchCountStepper from '../../../components/BatchCountStepper'
 import { clampBatchCount } from '../../../utils/batchCount'
 import AspectIcon from '../../../components/AspectIcon'
 import SegmentedToggle from '../../../components/SegmentedToggle'
-import { estimateCredits, formatCredits, getDefaultModel, getModel, imageResolutionLabel, kieModelIds, kieOnly, type ImageResolution } from '../../../utils/models'
+import { estimateCredits, formatCredits, getDefaultModel, getModel, kieModelIds, kieOnly, type ImageResolution } from '../../../utils/models'
 
 interface GenerateBarProps {
   error: string | null
@@ -154,14 +154,13 @@ export default function GenerateBar({
             options={getModel(selectedModelId ?? '')?.imageConstraints?.resolutions ?? ['1K', '2K', '4K']}
             value={resolution}
             onChange={(v) => onResolutionChange(v as ImageResolution)}
-            render={imageResolutionLabel}
             renderOption={(v) => {
               // Priced for the run that's actually armed, so this menu and the
               // Generate button can never quote two different numbers.
               const credits = formatCredits(estimateCredits(selectedModelId ?? '', { imageCount: count, resolution: v as ImageResolution }), selectedModelId)
               return (
                 <span className="flex w-full items-center justify-between gap-6">
-                  <span>{imageResolutionLabel(v)}</span>
+                  <span>{v}</span>
                   {credits && <span className="text-ink-500">{credits}</span>}
                 </span>
               )

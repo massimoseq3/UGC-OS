@@ -15,7 +15,7 @@ import { isPollTimeout } from '../../../utils/kie'
 import { useAppStore } from '../../../stores/appStore'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import { useCreditsStore } from '../../../stores/creditsStore'
-import { getDefaultModel, getModel, estimateCredits, formatCredits, officialSavingsPercent, snapVideoDuration, videoResolutionLabel, imageResolutionLabel, type ImageResolution, type Mode } from '../../../utils/models'
+import { getDefaultModel, getModel, estimateCredits, formatCredits, officialSavingsPercent, snapVideoDuration, videoResolutionLabel, type ImageResolution, type Mode } from '../../../utils/models'
 import ModelPickerModal from '../../../components/ModelPickerModal'
 import ModelTriggerLabel from '../../../components/ModelTriggerLabel'
 import ProviderLogo from '../../../components/ProviderLogo'
@@ -1583,12 +1583,11 @@ export default function ScenesView({
                     options={batchResOptions as string[]}
                     value={(effectiveBatchRes ?? batchResOptions[0]) as string}
                     onChange={(v) => setBatchResolution(v as ImageResolution)}
-                    render={imageResolutionLabel}
                     renderOption={(v) => {
                       const credits = formatCredits(estimateCredits(batchImageModelId, { imageCount: 1, resolution: v as ImageResolution }))
                       return (
                         <span className="flex w-full items-center justify-between gap-6">
-                          <span>{imageResolutionLabel(v)}</span>
+                          <span>{v}</span>
                           {credits && <span className="text-ink-500">{credits}</span>}
                         </span>
                       )

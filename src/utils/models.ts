@@ -1954,35 +1954,18 @@ export function mixedImageInputPolicy(modelId?: string): MixedImageInputPolicy {
   return takesRefs ? 'exclusive' : 'frames-only'
 }
 
-// Display labels for resolution tiers — one vocabulary (720p / 1080p / 4K)
-// across every image and video control, whatever each provider calls its
-// tiers. Display-only: the tier string stored on a card and sent to kie.ai is
-// unchanged, so no persisted pick or price lookup moves.
-//
-// Video: Kling 3.0 names its tiers by quality ('std' / 'pro'), and Veo-style
-// entries spell 4K lowercase. MiniMax H3's '2K' is left alone — it is a real
-// 2K video tier, not an alias.
+// Display label for a video resolution tier. Some providers name their tiers
+// by quality ('std' / 'pro' / '4K' for Kling 3.0) rather than the pixel
+// resolution they actually output. This maps those aliases to the real
+// resolution so the picker reads consistently with the rest of the catalog —
+// display-only; the underlying tier value sent to kie.ai is unchanged.
 const VIDEO_RESOLUTION_LABELS: Record<string, string> = {
   std: '720p',
   pro: '1080p',
-  '4k': '4K',
 }
 
 export function videoResolutionLabel(tier: string): string {
   return VIDEO_RESOLUTION_LABELS[tier] ?? tier
-}
-
-// Image: kie's '1K' / '2K' / '4K' read as the video ladder does (Massimo's
-// call), so a still and the clip made from it show the same word. Soul's own
-// 720p / 1080p tiers are the same mapping (see buildImageInput).
-const IMAGE_RESOLUTION_LABELS: Record<string, string> = {
-  '1K': '720p',
-  '2K': '1080p',
-  '4K': '4K',
-}
-
-export function imageResolutionLabel(tier: string): string {
-  return IMAGE_RESOLUTION_LABELS[tier] ?? tier
 }
 
 // `appId` scopes the list to one app's pickers: a model that declares `apps`

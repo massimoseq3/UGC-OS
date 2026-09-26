@@ -59,7 +59,7 @@ import ModelPill from '../../../components/ModelPill'
 import { ExpandVideoButton } from '../../../components/VideoLightbox'
 import useCloseOnEscape from '../../../hooks/useCloseOnEscape'
 import { getAsBase64, getUrl, isAssetRef } from '../../../utils/assetStore'
-import { getModel, getDefaultModel, snapVideoDurationUp, estimateCredits, formatCredits, officialSavingsPercent, imageResolutionLabel, type VideoMode, type ImageResolution } from '../../../utils/models'
+import { getModel, getDefaultModel, snapVideoDurationUp, estimateCredits, formatCredits, officialSavingsPercent, type VideoMode, type ImageResolution } from '../../../utils/models'
 import { humanizeError } from '../../../utils/friendlyError'
 import { downloadImage } from '../../../utils/downloadImage'
 import ClipDownloadModal, { type ClipDownloadEntry } from '../../../components/ClipDownloadModal'
@@ -1581,12 +1581,11 @@ export default function ContinuousView({
                           options={frameResOptions as string[]}
                           value={(effectiveFramesRes ?? frameResOptions[0]) as string}
                           onChange={(v) => setFramesResolution(v as ImageResolution)}
-                          render={imageResolutionLabel}
                           renderOption={(v) => {
                             const credits = formatCredits(estimateCredits(frameImageModelId, { imageCount: 1, resolution: v as ImageResolution }))
                             return (
                               <span className="flex w-full items-center justify-between gap-6">
-                                <span>{imageResolutionLabel(v)}</span>
+                                <span>{v}</span>
                                 {credits && <span className="text-ink-500">{credits}</span>}
                               </span>
                             )
