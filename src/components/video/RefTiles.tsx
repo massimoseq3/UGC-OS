@@ -16,6 +16,12 @@ interface RefTilesProps {
   max: number
   bankType?: BankType
   tabs?: Array<BankType | { type: BankType; filter?: (item: BankItem) => boolean }>
+  // The model takes no reference images: the add tile greys out and nothing
+  // new can be attached, with `disabledNote` beside the label (FrameSlot's
+  // End Frame idiom). Anything already attached stays visible and removable,
+  // since it is what stands between the member and Generate.
+  disabled?: boolean
+  disabledNote?: string
 }
 
 // Reference-image slot rendered as a labelled grid of thumbnail tiles plus a
@@ -25,13 +31,13 @@ interface RefTilesProps {
 // shrinking it to a chip beside a filename made the one thing you check ("did I
 // attach the right photo?") the smallest thing on the row. Omni's characters
 // keep the card shape, because there the name is what identifies the row.
-export default function RefTiles({ label, filled, values, onChange, max, bankType, tabs }: RefTilesProps) {
+export default function RefTiles({ label, filled, values, onChange, max, bankType, tabs, disabled = false, disabledNote }: RefTilesProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [actionMenu, setActionMenu] = useState(false)
 
-  const remaining = max - values.length
+  const remaining = disabled ? 0 : max - values.length
 
   async function handleFiles(files: FileList | null) {
     if (!files) return
@@ -53,12 +59,20 @@ export default function RefTiles({ label, filled, values, onChange, max, bankTyp
   }
 
   return (
-    <RefGroup label={label} filled={filled} count={values.length} max={max}>
+    <RefGroup
+      label={label}
+      filled={disabled ? undefined : filled}
+      count={disabled ? undefined : values.length}
+      max={max}
+      note={disabled ? disabledNote : undefined}
+    >
       <div className="flex flex-wrap gap-1.5">
         {values.map((v, i) => (
           <ImageTile key={i} src={v.dataUri} onRemove={() => onChange(values.filter((_, idx) => idx !== i))} />
         ))}
-        {remaining > 0 && (
+        {disabled ? (
+          <AddTile disabled onClick={() => {}} />
+        ) : remaining > 0 && (
           <AddTile triggerRef={triggerRef} onClick={() => setActionMenu((v) => !v)} />
         )}
       </div>

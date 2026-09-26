@@ -2197,6 +2197,17 @@ export function requiredKeyLabel(modelId: string): string | null {
   return modelApi(modelId) === 'higgsfield' ? 'Requires Higgsfield API Key' : null
 }
 
+// Whether an IMAGE model can be run with reference pictures attached. Every
+// kie model can — one that is text-only itself is swapped for an
+// image-to-image sibling or the default at run time (resolveImageModelForRefs).
+// A Higgsfield model can't: its API has no image field, and the swap would move
+// the run to another provider and bill a balance its price never quoted. So
+// Playground greys its reference tile out rather than accepting pictures the
+// run would refuse.
+export function imageModelTakesReferences(modelId: string | undefined): boolean {
+  return modelApi(modelId) !== 'higgsfield'
+}
+
 export function kieOnly(modelId: string | undefined): string | undefined {
   return modelId && modelApi(modelId) === 'kie' ? modelId : undefined
 }
