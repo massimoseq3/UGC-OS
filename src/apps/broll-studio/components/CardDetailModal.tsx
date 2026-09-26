@@ -38,6 +38,7 @@ import {
 } from './cardDetailParts'
 import { appliedStyleNote } from '../services/generateContinuous'
 import { autoClipSeconds, cardClipSeconds } from '../services/clipDuration'
+import DurationLabel from '../../../components/DurationLabel'
 
 // Sentinel value for the duration chip's "Auto" row. Not a length, so it can't
 // collide with a model's own ladder.
@@ -929,7 +930,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                                 : { cardVideoDurationAuto: false, cardVideoDurationSeconds: Number(v) },
                             )}
                             render={(v) => (
-                              <span>{v === AUTO_DURATION ? `Auto · ${effectiveVideoDuration}s` : `${v}s`}</span>
+                              <DurationLabel>{v === AUTO_DURATION ? `Auto · ${effectiveVideoDuration}s` : `${v}s`}</DurationLabel>
                             )}
                             renderOption={(v) => (
                               v === AUTO_DURATION ? (

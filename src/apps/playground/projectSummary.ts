@@ -63,7 +63,7 @@ function addCover(summary: ProjectSummary, clips: CoverMedia[], covers: CoverMed
   if (entry.createdAt > summary.latest) summary.latest = entry.createdAt
 }
 
-// Keyed by project id, plus `all` for the All Generations card. `entries` is
+// Keyed by project id, plus `all` for the All Projects card. `entries` is
 // already newest-first, so every bucket's covers are its newest media.
 export function summariseProjects(entries: HistoryEntry[]): {
   all: ProjectSummary

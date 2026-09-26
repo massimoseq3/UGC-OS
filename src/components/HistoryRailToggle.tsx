@@ -54,13 +54,12 @@ export default function HistoryRailToggle({
   labelClassName?: string
 }) {
   const title = open ? `Hide ${label}` : `Show ${label}`
-  // The STACK, the same mark Playground's project rail heads All Generations
-  // with (Massimo's call, September 2026). It was a panel-open/panel-close pair
+  // The STACK (Massimo's call, September 2026). It was a panel-open/panel-close pair
   // first, which described the chrome — a drawer coming out of the right edge —
   // and a clock-rewind after that, which described the time. What every one of
   // these rails actually holds is a pile of work you made, and a stack is what
-  // says that; using the same glyph in both places means the button and the row
-  // it opens onto are recognisably one thing.
+  // says that. (Playground's project rail headed All Generations with the same
+  // mark until that card became All Projects and took a folder.)
   const Icon = Layers
   // The tooltip's noun is lowercase mid-sentence; the label is a heading.
   const word = label.charAt(0).toUpperCase() + label.slice(1)

@@ -161,7 +161,8 @@ export function planPlaygroundRun(input: PlaygroundRunInput): PlaygroundPlan {
   //
   //   ref → image: an image-to-video-only model (Kling 3.0 Turbo) can't take
   //     a reference image but CAN animate it as a start frame.
-  //   frame → ref: a frame-less model (Seedance 2.5, Gemini Omni) has no
+  //   frame → ref: a frame-less model (Seedance 2.5 and Gemini Omni 1.0 as
+  //     first registered — both have frame fields now) has no
   //     first_frame_url/last_frame_url at all and folds every attached image
   //     into its reference array — see the per-model branches in
   //     buildVideoInput, which do exactly that with a stray frame.

@@ -1,5 +1,5 @@
 import { useState, type ComponentType, type ReactNode } from 'react'
-import { Package, PenLine, ChevronRight, FileText, Clapperboard, RefreshCw, X, Sparkle, Shuffle, FishingHook, Video, Clock, Layers } from 'lucide-react'
+import { Package, PenLine, ChevronRight, FileText, Clapperboard, RefreshCw, X, Sparkle, Shuffle, FishingHook, Video, Layers } from 'lucide-react'
 import type { Product, Script } from '../../../stores/types'
 import { WRITE_LENGTHS, REMIX_LENGTHS, WRITE_STYLE_META, writeStylesInGroup, HOOK_CATEGORY_META, HOOK_COUNTS, VARIATION_MAX, createEditableContext, type EditableProductContext, type ScriptUiMode, type WriteStyle, type WriteFormat, type WriteLength, type RemixLength, type HookCategoryChoice, type HookCount, type VariationCount } from '../types'
 import { useBankStore } from '../../../stores/bankStore'
@@ -25,6 +25,7 @@ import ProductEditModal from '../../finder/ProductEditModal'
 import SectionRail from '../../../components/SectionRail'
 import { useSectionSpy } from '../../../components/sectionSpy'
 import { humanizeError } from '../../../utils/friendlyError'
+import DurationLabel from '../../../components/DurationLabel'
 
 // The style an unpicked Script Style row runs — the app's `:writeStyle` slot
 // default and the service's own fallback.
@@ -1032,12 +1033,7 @@ export default function InputPanel({
                         if (mode === 'write') onWriteLengthChange(Number(v.replace('s', '')) as WriteLength)
                         else onRemixLengthChange((v === 'Default' ? 'default' : Number(v.replace('s', ''))) as RemixLength)
                       }}
-                      render={(v) => (
-                        <span className="flex items-center gap-1.5">
-                          <Clock className="h-3.5 w-3.5 shrink-0" />
-                          <span className="truncate">{v}</span>
-                        </span>
-                      )}
+                      render={(v) => <DurationLabel>{v}</DurationLabel>}
                     />
                   </div>
                 )}

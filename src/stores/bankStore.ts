@@ -1107,7 +1107,7 @@ export const useBankStore = create<BankState>((set, get) => ({
 
   // Deletes the FOLDER, never what is in it. The generations keep a
   // `projectId` that no longer resolves, which reads as unfiled, so they come
-  // back under All Generations rather than disappearing with the name. The
+  // back under All Projects rather than disappearing with the name. The
   // alternative — clearing the field off every row — is a rewrite and a cloud
   // push per generation to reach the same place the dangling id already is.
   deleteProject: async (id) => {
@@ -1119,7 +1119,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       return next
     })
     dropRow('projects', id)
-    reportSuccess(`Project "${project.name}" deleted. Its generations stay in All Generations`)
+    reportSuccess(`Project "${project.name}" deleted. Its generations stay in All Projects`)
   },
 
   // ── Flows ────────────────────────────────────────────────────────

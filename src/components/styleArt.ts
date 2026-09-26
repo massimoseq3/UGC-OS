@@ -4,9 +4,7 @@
 // These lived in StyleModal.tsx alongside the modal itself, which meant every
 // host importing an accent also imported the whole modal, and the file exported
 // four constants beside its components (which is what react-refresh warns
-// about — a module mixing the two can't hot-reload cleanly). Playground lists
-// the same styles inside its own presets panel without opening StyleModal at
-// all, so the split had to happen anyway.
+// about — a module mixing the two can't hot-reload cleanly).
 
 // Preview art for the built-in styles — the same scene rendered in each look, so
 // any grid of them reads as one comparison set. Pre-scaled to ~640px JPEG (the
@@ -74,18 +72,4 @@ export const INFLUENCERS_STYLE_ACCENT: StyleModalAccent = {
   banner: 'border-influencers-500/25 bg-influencers-500/10',
   bannerLabel: 'text-influencers-300',
   dropActive: 'border-influencers-500/50 bg-influencers-500/10',
-}
-
-// Playground doesn't open the full StyleModal — it lists the same styles inside
-// its own presets panel — but its tiles take the same accent shape so one
-// component draws every style card in the app.
-export const PLAYGROUND_STYLE_ACCENT: StyleModalAccent = {
-  card: 'border-playground-500/40 bg-playground-500/10',
-  solid: 'bg-playground-500',
-  button: 'bg-playground-500 hover:bg-playground-400',
-  iconOn: 'bg-playground-500/20 text-playground-300',
-  titleOn: 'text-playground-200',
-  banner: 'border-playground-500/25 bg-playground-500/10',
-  bannerLabel: 'text-playground-300',
-  dropActive: 'border-playground-500/50 bg-playground-500/10',
 }

@@ -126,7 +126,7 @@ Flows are a bank: `flows` in `bankStore` (`saveFlow` / `deleteFlow`), Postgres t
 ## Known limits
 
 - B-Roll's history is FIFO-capped at 50, and every Flow B-Roll run is a session, so a big run pushes older sessions out.
-- Flow's Playground images, clips and music appear in Playground's All Generations like any other Playground run.
+- Flow's Playground images, clips and music appear in Playground's All Projects like any other Playground run.
 - Outliers blocks spend ScrapeCreators credits on the member's key, not kie credits.
 - A Characters run where some faces fail loses those slots' handles; Retry pays for those faces again.
 - Deleting a row in its own app purges its media, and the flow's result for it then shows empty — it is still cached, so Run Flow won't remake it; Run Block does. Treating a missing row as unmade was weighed and left out: until the cloud hydrate lands, a row made on another device looks exactly like a deleted one, and a plan that read it that way would offer to pay for it again. There is no "hydrate finished" signal to gate on (`markCloudHydrated` fires at the START of hydrate).

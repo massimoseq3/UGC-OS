@@ -1046,38 +1046,30 @@ export const MODEL_REGISTRY: ModelEntry[] = [
   //
   //   1. Length. It generates up to 30s in one call, where the rest of the
   //      catalog tops out at 15. Hence the extended duration ladder below.
-  //   2. Input shape. It is registered with NO first_frame_url /
-  //      last_frame_url — every image arrives via `reference_image_urls` as a
-  //      generic reference, not as frame one. Same situation as Gemini Omni: no
-  //      'image-to-video' and no 'frames-to-video' mode, so B-Roll's Animate tab
-  //      and Continuous grey it out rather than silently animating from a still
-  //      it can't honour. A frame that reaches the body builder anyway rides
-  //      along as a reference image (see buildVideoInput) rather than dropped —
-  //      which is why `mixedImageInputs` is 'reference' and not the 'exclusive'
-  //      the rest of the family carries.
+  //   2. Frames vs references. It was registered frame-less (every image as a
+  //      generic `reference_image_urls` entry) and since September 2026 takes
+  //      real first_frame_url / last_frame_url (Massimo's call, off kie's
+  //      updated docs), so it declares all four modes — selectable in B-Roll's
+  //      Animate tab and in Continuous, where it used to land greyed out.
+  //      `mixedImageInputs` stays 'reference': kie documents no rule for a
+  //      frame beside reference inputs on this slug (the 2.0 family forbids
+  //      the pair outright), so the moment ANY reference is attached the
+  //      frames fold into reference_image_urls in shot order — the shape this
+  //      model has always accepted — rather than betting a paid run on an
+  //      untested combination. Frames go in their own fields only when nothing
+  //      else is attached. See buildVideoInput.
   //
-  //      NEEDS A LIVE CHECK (2026-08-15): docs.kie.ai/market/bytedance/
-  //      seedance-2-5 now documents first_frame_url AND last_frame_url on this
-  //      model ("last_frame_url cannot be passed alone; first_frame_url must be
-  //      provided together with it"), which contradicts the above — either the
-  //      slug gained them since it was registered in beta, or the original read
-  //      was wrong. Declaring the two frame modes would un-grey it in Continuous
-  //      and change how B-Roll animates a still on it, so it is deliberately NOT
-  //      being changed off a docs read alone: fire one frames-to-video call at
-  //      it first. Everything below is correct for the model as registered.
-  //
-  // Pricing (kie, beta — user-supplied 2026-08-07). kie publishes two tiers per
+  // Pricing (kie, user-supplied 2026-09-26). kie publishes two tiers per
   // resolution and the cheaper one is NOT cheaper in practice:
-  //   no video input:   480p 28/s · 720p 63/s, billed on OUTPUT seconds
-  //   with video input: 480p 17/s · 720p 38/s, billed on (INPUT + OUTPUT)
+  //   no video input:   480p 28/s · 720p 63/s · 1080p 158/s, billed on OUTPUT seconds
+  //   with video input: 480p 17/s · 720p 38/s · 1080p  95/s, billed on (INPUT + OUTPUT)
   // A 5s reference clip on a 5s render is 17×10 = 170 credits at 480p, versus
   // 28×5 = 140 with no clip — so the "discount" tier costs more the moment the
   // reference is longer than ~⅔ of the output. We quote the no-video rate
   // across the board: it's exact for the common case, and we can't know a
   // reference clip's length at estimate time. Same floor caveat as MiniMax H3.
-  // kie also notes prices are beta and the +10% top-up bonus makes the
-  // effective rate ~10% lower — neither is modelled, since both move the real
-  // figure DOWN and an estimate that over-quotes is the safe direction.
+  // The +10% top-up bonus is not modelled — it moves the real figure DOWN, and
+  // an estimate that over-quotes is the safe direction.
   //
   // No `official` / `market` entry, for the same reason as the whole Seedance
   // family: kie undercuts Fal but not BytePlus direct, so we claim no savings
@@ -1088,7 +1080,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     displayName: 'Seedance 2.5',
     provider: 'ByteDance',
     task: 'video',
-    modes: ['text-to-video', 'reference-to-video'],
+    modes: ['text-to-video', 'image-to-video', 'frames-to-video', 'reference-to-video'],
     tags: ['recommended', 'new'],
     supportsReferenceImages: true,
     mixedImageInputs: 'reference',
@@ -1103,7 +1095,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
       unit: 'per-second',
       credits: 63,
       priceFor: ({ durationSeconds = 5, resolution = '720p' }) => {
-        const perSec = resolution === '480p' ? 28 : 63
+        const perSec = resolution === '480p' ? 28 : resolution === '1080p' ? 158 : 63
         return perSec * durationSeconds
       },
     },
@@ -1112,7 +1104,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
       // The API takes any integer up to 30. This ladder is the app's usual
       // rungs plus the long tail that's the whole point of the model.
       durations: [4, 5, 6, 8, 10, 12, 15, 20, 25, 30],
-      resolutions: ['480p', '720p'],
+      resolutions: ['480p', '720p', '1080p'],
       default: '720p',
       aspectRatios: ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9'],
       supportsAudio: true,
@@ -1537,6 +1529,12 @@ export const MODEL_REGISTRY: ModelEntry[] = [
       default: '720p',
       aspectRatios: ['16:9', '9:16'],
     },
+    // Playground's default video model (September 2026, Massimo's call): the
+    // one model that takes every attachment the panel offers — frames,
+    // reference images, characters, designed voices and a source clip — so an
+    // unpicked Video tab lands on the picker's full set of inputs rather than a
+    // subset of it. B-Roll keeps Grok.
+    defaultFor: ['playground'],
   },
   // Wan 3.0 / Wan 3.0 Prime — Alibaba Tongyi's all-in-one video model, in two
   // speed tiers. ONE schema serves both slugs (`wan/3-0-video`,
@@ -1721,10 +1719,10 @@ export const MODEL_REGISTRY: ModelEntry[] = [
       aspectRatios: ['16:9', '9:16', '1:1', '3:2', '2:3'],
       supportsAudio: false,
     },
-    // Default video model for Playground and B-Roll (Line-by-Line): cheap, fast,
-    // does text/image/reference-to-video. Continuous keeps its own Seedance 1.5
-    // Pro default.
-    defaultFor: ['broll-studio', 'playground'],
+    // Default video model for B-Roll (Line-by-Line): cheap, fast, does
+    // text/image/reference-to-video. Continuous keeps its own Seedance 1.5 Pro
+    // default; Playground's is Gemini Omni Flash 1.1.
+    defaultFor: ['broll-studio'],
   },
 
   // MiniMax H3 (a.k.a. Hailuo 03) — MiniMax's 2K flagship. It ships on kie as
@@ -2731,27 +2729,36 @@ export function buildVideoInput(modelId: string, opts: VideoGenOptions): Record<
   }
 
   // ── Seedance 2.5 ──
-  // No first_frame_url / last_frame_url on this model at all — every image is a
-  // generic reference. Sending one anyway is a 422, so a frame that arrives
-  // here (a card persisted under a frame-native model, a Playground draft
-  // carried across a model flip) is folded into reference_image_urls in shot
-  // order rather than dropped: an ignored input is cheaper to explain than a
-  // failed generation. Duration is a plain integer 1–30, clamped for the same
-  // cross-model reason.
+  // Real first_frame_url / last_frame_url since September 2026 — but only when
+  // nothing else is attached. With ANY reference input (image, audio or video)
+  // the frames fold into reference_image_urls in shot order instead, the shape
+  // this model has always accepted: kie documents no rule for a frame beside
+  // references on this slug, and its 2.0 siblings reject the pair outright
+  // (see the registry entry). An end frame with no start frame is folded the
+  // same way — the frame fields were documented as start-first. Duration is a
+  // plain integer 1–30, clamped for the cross-model reason every branch here
+  // clamps.
   if (modelId === 'bytedance/seedance-2-5') {
+    const firstFrame = opts.firstFrameUrl ?? (opts.imageUrl && opts.mode === 'image-to-video' ? opts.imageUrl : undefined)
+    const hasReferences =
+      !!opts.referenceImageUrls?.length || !!opts.referenceAudioUrls?.length || !!opts.referenceVideoUrls?.length
+    const framesAsFields = !!firstFrame && !hasReferences && opts.mode !== 'reference-to-video'
     const referenceImages: string[] = []
-    if (opts.firstFrameUrl) referenceImages.push(opts.firstFrameUrl)
-    else if (opts.imageUrl && opts.mode === 'image-to-video') referenceImages.push(opts.imageUrl)
-    if (opts.lastFrameUrl) referenceImages.push(opts.lastFrameUrl)
+    if (!framesAsFields) {
+      if (firstFrame) referenceImages.push(firstFrame)
+      if (opts.lastFrameUrl) referenceImages.push(opts.lastFrameUrl)
+    }
     if (opts.referenceImageUrls?.length) referenceImages.push(...opts.referenceImageUrls)
     return {
       prompt: opts.prompt,
+      ...(framesAsFields ? { first_frame_url: firstFrame } : {}),
+      ...(framesAsFields && opts.lastFrameUrl ? { last_frame_url: opts.lastFrameUrl } : {}),
       ...(referenceImages.length ? { reference_image_urls: referenceImages } : {}),
       ...(opts.referenceAudioUrls?.length ? { reference_audio_urls: opts.referenceAudioUrls } : {}),
       ...(opts.referenceVideoUrls?.length ? { reference_video_urls: opts.referenceVideoUrls } : {}),
       aspect_ratio: ar,
       duration: Math.min(30, Math.max(1, Math.round(duration))),
-      resolution: resolution === '480p' ? '480p' : '720p',
+      resolution: resolution === '480p' || resolution === '1080p' ? resolution : '720p',
       generate_audio: opts.audio ?? true,
     }
   }

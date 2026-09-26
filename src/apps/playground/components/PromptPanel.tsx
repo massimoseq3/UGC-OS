@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Image as ImageIcon, Film, Music as MusicIcon, ChevronRight, Volume2, VolumeX, Coins, Layers, Eraser, PenLine, UserRound, type LucideIcon } from 'lucide-react'
+import { Image as ImageIcon, Film, Music as MusicIcon, ChevronRight, Volume2, VolumeX, Coins, Layers, Eraser, PenLine, UserRound, AudioLines, Camera, type LucideIcon } from 'lucide-react'
 import ModelPicker from '../../../components/ModelPicker'
 import ModelPickerModal from '../../../components/ModelPickerModal'
 import ProviderLogo from '../../../components/ProviderLogo'
@@ -33,28 +33,21 @@ import RefTiles from '../../../components/video/RefTiles'
 import MediaRefStrip, { type MediaRefValue } from '../../../components/video/MediaRefStrip'
 import { readMediaDuration } from '../../../utils/media'
 import OmniInputsSection from './OmniInputsSection'
+import FilledDot from './FilledDot'
 import { OMNI_SLOT_QUOTA, omniImageCapacity, omniQuotaUsed } from '../omniQuota'
 import MotionControlSection from './MotionControlSection'
 import { useAppStore } from '../../../stores/appStore'
 import type { BankType } from '../../../utils/constants'
 import type { BRoll, Lineage } from '../../../stores/types'
-import PresetCard from './PresetCard'
-import { StyleTile } from '../../../components/StyleModal'
-import { STYLE_PREVIEWS, PLAYGROUND_STYLE_ACCENT } from '../../../components/styleArt'
-import { CONTINUOUS_STYLES, styleBriefFor, styleBriefForStill } from '../../../utils/visualStyle'
-import { useBankStore } from '../../../stores/bankStore'
-import Modal from '../../../components/Modal'
-import SectionRail, { GallerySectionHeading } from '../../../components/SectionRail'
-import { GALLERY_GRID, useSectionSpy } from '../../../components/sectionSpy'
-import ExpandTextModal, { BracketHighlightArea } from '../../../components/ExpandableText'
+import ExpandTextModal, { BracketHighlightArea, ExpandButton } from '../../../components/ExpandableText'
 import SectionCard from '../../../components/SectionCard'
 import PromptToolbar from '../../../components/PromptToolbar'
-import VoiceCard from '../../../components/VoiceCard'
+import { VoicePresetPicker } from '../../../components/VoiceCard'
 import MentionPopover from './MentionPopover'
 import type { PlaygroundMode, BankReference } from '../types'
-import { VIDEO_PRESETS, IMAGE_PRESETS, type Preset } from '../presets'
 import { enhancePlaygroundPrompt } from '../service'
 import { humanizeError } from '../../../utils/friendlyError'
+import DurationLabel from '../../../components/DurationLabel'
 
 // Tabs passed to BankPicker when used from Playground refs. Characters comes
 // first so opening the picker lands the user there by default; B-Rolls are
@@ -128,13 +121,6 @@ export interface PromptPanelState {
   // new idea, none of which the prompt box does. Absent on drafts saved before
   // it shipped; every read goes through `?? ''`.
   voiceProfile?: string
-  // Whether the Voice box is folded open. Persisted with the draft because the
-  // whole point of the field is setting it once and leaving it — a fold that
-  // reset on reload would put a 90px box back under the prompt every session.
-  // Absent (a fresh draft, or one saved before this shipped) means OPEN: the
-  // field is the reason the card is there, and a member who has never opened it
-  // has never seen what it takes. Folding it away is the one-click part.
-  voiceOpen?: boolean
 }
 
 interface PromptPanelProps {
@@ -192,10 +178,6 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
   const mentionAnchorRef = useRef<HTMLDivElement>(null)
   // Drag-over visual hint.
   const [dragOver, setDragOver] = useState(false)
-  // Preset picker overlay.
-  const [presetOpen, setPresetOpen] = useState(false)
-  // The preset modal's rail: two sections, one scroll.
-  const presetSpy = useSectionSpy(['styles', 'presets'])
   // Video mode swaps the inline model dropdown for the full picker modal.
   const [modelPanelOpen, setModelPanelOpen] = useState(false)
   // Full-screen prompt editor.
@@ -285,9 +267,6 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
   const modelSavings = model ? officialSavingsPercent(model.id) : null
   const taskForMode: Task = state.mode === 'image' ? 'image' : state.mode === 'video' ? 'video' : 'music'
   const addToast = useAppStore((s) => s.addToast)
-  // The member's saved looks, listed beside the built-in styles in the presets
-  // panel.
-  const savedStyles = useBankStore((s) => s.styles)
 
   // Video ref slots derived from the refs[] array — start/end frames live as
   // single-value slots, ref strip as a list. Mutating these calls back through
@@ -385,6 +364,27 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
   const hasAnyRefSlot = supportsFrames || refsAllowed || supportsRefAudio || supportsRefVideos || isOmni
   const isMotionControl = state.mode === 'video' && !!model?.motionControl
   const motionOrientation = state.characterOrientation ?? 'video'
+
+  // Which field the prompt box is showing: the prompt, or the Voice Profile
+  // that rides on the end of it. Video only, and never Motion Control — the
+  // same gate `composePlaygroundPrompt` applies, so the toggle is on screen
+  // exactly when the profile is actually sent. Session-local on purpose: a
+  // reload lands on the prompt, which is the field every visit starts with.
+  const voiceApplicable = state.mode === 'video' && !isMotionControl
+  const [fieldView, setFieldView] = useState<'prompt' | 'voice'>('prompt')
+  const showingVoice = voiceApplicable && fieldView === 'voice'
+  const hasVoiceProfile = (state.voiceProfile ?? '').trim().length > 0
+  const [voicePresetsOpen, setVoicePresetsOpen] = useState(false)
+  const [voiceExpanded, setVoiceExpanded] = useState(false)
+  // A prompt that changes while the box is showing the voice came from outside
+  // it — Reuse on a history card, or Scripts' Send to Playground — so flip back
+  // and show it. Otherwise the member presses Generate on a prompt they never
+  // saw land. Adjusted during render against the last value, not in an effect.
+  const [prevPrompt, setPrevPrompt] = useState(state.prompt)
+  if (state.prompt !== prevPrompt) {
+    setPrevPrompt(state.prompt)
+    if (fieldView === 'voice') setFieldView('prompt')
+  }
 
   // For Image we register text-to-image by default; pickers filter on task
   // alone so models can advertise multiple modes and the picker shows them.
@@ -597,55 +597,6 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
     })
   }
 
-  function applyPreset(preset: Preset) {
-    const aspectFromPreset = preset.defaultAspect ?? state.aspectRatio
-    const durationFromPreset = preset.defaultDuration ?? state.durationSeconds
-    // Clamp aspect / duration to the active model's constraints so the chips
-    // don't show an unsupported value (the constraint useEffect only re-snaps
-    // on model/mode change, not on a preset apply).
-    const vc = model?.videoConstraints
-    const allowedAspects = state.mode === 'image'
-      ? model?.imageConstraints?.aspectRatios
-      : vc?.aspectRatios
-    const finalAspect = allowedAspects && allowedAspects.length > 0 && !allowedAspects.includes(aspectFromPreset)
-      ? allowedAspects[0]
-      : aspectFromPreset
-    const finalDuration = vc ? snapVideoDuration(durationFromPreset, vc.durations) : durationFromPreset
-
-    // Append (with a blank-line separator) when there's already text in the
-    // textarea — users were losing typed context every time they picked a
-    // preset. Empty box → replace cleanly.
-    const existing = state.prompt.trim()
-    const nextPrompt = existing ? `${existing}\n\n${preset.prompt}` : preset.prompt
-
-    onChange({
-      ...state,
-      prompt: nextPrompt,
-      aspectRatio: finalAspect,
-      durationSeconds: finalDuration,
-    })
-    textareaRef.current?.focus()
-  }
-
-  // A visual style applies exactly like a preset: its brief is appended to
-  // whatever is already typed. Playground stores no "picked style" of its own —
-  // the prompt IS the state here, so a look you've applied stays visible and
-  // editable rather than hiding in a row above the box.
-  //
-  // Image mode gets the still-scoped brief (every style paragraph ends on camera
-  // movement and cutting cadence, which a single frame can't express);
-  // `styleBriefForStill` returns null for UGC Realism — the photoreal default —
-  // so that one falls back to the plain brief rather than applying nothing.
-  function applyStyle(input: { styleId: string; styleBrief?: string }) {
-    const brief = state.mode === 'video'
-      ? styleBriefFor(input)
-      : styleBriefForStill(input) ?? styleBriefFor(input)
-    if (!brief) return
-    const existing = state.prompt.trim()
-    onChange({ ...state, prompt: existing ? `${existing}\n\n${brief}` : brief })
-    textareaRef.current?.focus()
-  }
-
   // Adds a dropped audio/video file to the matching media strip, enforcing
   // the same total-length cap as the strip's own upload button.
   async function addDroppedMedia(slot: 'audio' | 'video', file: File) {
@@ -727,8 +678,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
   const clearRefs = () => onChange({ ...state, refs: [] })
 
   const hasRefsSection = state.mode === 'video' || state.mode === 'image'
-  // Presets are prompt formats; Motion Control's prompt is secondary, so skip them.
-  const presetsApplicable = state.mode === 'image' || (state.mode === 'video' && !isMotionControl)
+
 
   const generateLabel =
     state.mode === 'music' ? 'Generate Music'
@@ -917,16 +867,12 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
                       )}
                       {/* Reference images and the clip strips SHARE a row when a
                           model takes both (the Seedance 2 family), images left
-                          and the two clip cards stacked on the right. The images
-                          row is one 64px tile high whether it holds nothing or
-                          three, so on that model it was 210px of dead space
-                          beside an Add tile while the clip cards took a full row
-                          of their own underneath. Either kind alone spans the
-                          width — the split only pays when there's something to
-                          put in the gap, and the tiles want the width when the
-                          clips aren't there to claim it.
-                          `items-start` so a filled image grid doesn't stretch the
-                          clip column to match it. */}
+                          and the two clip cards stacked on the right: the
+                          images row is one 64px tile high whether it holds
+                          nothing or three, so alone it's dead space beside an
+                          Add tile. Either kind alone spans the width.
+                          `items-start` so a filled image grid doesn't stretch
+                          the clip column to match it. */}
                       {(refsAllowed || supportsRefAudio || supportsRefVideos) && (
                         <div className={refsAllowed && (supportsRefAudio || supportsRefVideos)
                           ? 'grid grid-cols-2 items-start gap-2'
@@ -1037,8 +983,11 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
                   it normally renders at: `grow` still hands it every spare pixel
                   the moment the column has one. The 56px that bought is what puts
                   the prompt box (and its toolbar) on screen without scrolling on
-                  the most input-heavy model in the picker. */}
-              <div className="relative flex min-h-[150px] grow flex-col max-md:grow-0">
+                  the most input-heavy model in the picker.
+                  184px where the box carries the Prompt / Voice Profile toggle:
+                  the same field, plus the toggle's 34px row. It still comes out
+                  ahead — that toggle replaced a whole Voice card under the box. */}
+              <div className={`relative flex ${voiceApplicable ? 'min-h-[184px]' : 'min-h-[150px]'} grow flex-col max-md:grow-0`}>
                 {/* Prompt field — a normal, visible textarea on top of a
                     transparent backdrop that only paints the [bracket] highlights.
                     The textarea owns every glyph, so the caret, selection and
@@ -1052,59 +1001,114 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
                     so it isn't clipped. */}
                 <div ref={mentionAnchorRef} className="relative flex min-h-0 grow flex-col">
                   <div className="relative flex min-h-0 grow flex-col overflow-hidden rounded-3xl border border-ink/10 bg-ink/[0.03] transition-colors focus-within:border-ink/20 focus-within:bg-ink/[0.05]">
-                    {/* `grow` with no basis-0: the field's base size is its own
-                        content and grow only tops it up to the free space. It's
-                        the scroll port once the text outruns the column, which is
-                        what keeps revealCaret honest. No min-height of its own —
-                        the section above carries the floor for the whole box, so
-                        this shrinks WITH its siblings rather than holding a size
-                        that pushes the toolbar out through the overflow-hidden. */}
-                    <BracketHighlightArea
-                      value={state.prompt}
-                      onChange={handlePromptChange}
-                      textareaRef={textareaRef}
-                      onBlur={() => { commitPromptDraft(); setTimeout(() => setMentionOpen(false), 150) }}
-                      className="min-h-0 grow"
-                      padClass="px-3.5 pb-3 pt-3"
-                      textClass="text-[13px] leading-[1.5]"
-                      textareaClass="text-ink-200 placeholder-ink-600"
-                      placeholder={
-                        state.mode === 'image'
-                          ? 'Describe the image you want… (type @ to reference banks)'
-                          : isMotionControl
-                          ? 'Optional. Refine the motion or leave blank…'
-                          : state.mode === 'video'
-                          ? 'Describe the video… (type @ to reference banks)'
-                          : 'Describe the music: genre, mood, instruments…'
-                      }
-                    />
-                    <PromptToolbar
-                      accent="playground"
-                      /* Presets moved OFF the top of the box and into this row
-                         (September 2026). It was a 48px labelled header inside
-                         the prompt box — the field's own chrome ate 48px above
-                         and 38px below before a single line of the prompt, in the
-                         one panel whose whole job is that field. As a pill it
-                         leads the toolbar it belongs to: everything in this row
-                         acts on the prompt, and appending a preset is exactly
-                         that. The modal it opens still carries the full
-                         "UGC Prompt Presets & Visual Styles" title, so the long
-                         name is one click away rather than permanently on
-                         screen. */
-                      onPresets={presetsApplicable ? () => setPresetOpen(true) : undefined}
-                      presetsTitle="UGC Prompt Presets & Visual Styles"
-                      onEnhance={handleEnhancePrompt}
-                      enhanceTitle="Enhance prompt"
-                      enhanceDisabled={!state.prompt.trim()}
-                      busy={isEnhancing}
-                      onClear={handlePromptClear}
-                      clearDisabled={!state.prompt.trim()}
-                      onUndo={handlePromptUndo}
-                      canUndo={canUndo}
-                      onRedo={handlePromptRedo}
-                      canRedo={canRedo}
-                      onExpand={() => setPromptExpanded(true)}
-                    />
+                    {/* Prompt / Voice Profile — one box, two fields (September
+                        2026, Massimo's call). The profile was a card of its own
+                        under this box, which cost the column a second card's
+                        chrome for a field that is set once and then left alone.
+                        Here it shares the box and its height: the toggle is the
+                        only chrome it adds, and the field it switches to gets
+                        every pixel the prompt had. The dot on the Voice Profile
+                        segment is what says, from the prompt side, that a voice
+                        is riding on the end of every run. */}
+                    {voiceApplicable && (
+                      <div className="flex shrink-0 px-2 pt-2">
+                        <SegmentedToggle<'prompt' | 'voice'>
+                          value={fieldView}
+                          onChange={(v) => { setMentionOpen(false); setFieldView(v) }}
+                          accent="playground"
+                          dense
+                          options={[
+                            { value: 'prompt', label: 'Prompt', icon: PenLine },
+                            {
+                              value: 'voice',
+                              icon: AudioLines,
+                              label: (
+                                <span className="inline-flex items-center">
+                                  Voice Profile
+                                  {hasVoiceProfile && <FilledDot />}
+                                </span>
+                              ),
+                            },
+                          ]}
+                        />
+                      </div>
+                    )}
+                    {showingVoice ? (
+                      <>
+                        {/* The profile's own field, in the prompt's exact type
+                            and inset so flipping the toggle swaps the words and
+                            nothing else. A plain textarea: no brackets to
+                            paint and no @-mentions — it describes a voice, not
+                            a shot. */}
+                        <textarea
+                          value={state.voiceProfile ?? ''}
+                          onChange={(e) => onChange({ ...state, voiceProfile: e.target.value })}
+                          spellCheck={false}
+                          aria-label="Voice Profile"
+                          placeholder="Describe how the creator sounds: accent, tone, pace… Added to the end of every video prompt"
+                          className="min-h-0 w-full grow resize-none border-0 bg-transparent px-3.5 pb-3 pt-3 text-[13px] leading-[1.5] text-ink-200 placeholder-ink-600 outline-none"
+                        />
+                        {/* The prompt's toolbar has nothing to do here — Enhance
+                            and Undo act on the prompt — so the voice gets the
+                            two that do: its presets, and the big editor. Same
+                            row height and pill shape as `PromptToolbar`. */}
+                        <div className="flex shrink-0 items-center justify-between gap-2 px-2 py-1.5">
+                          <button
+                            type="button"
+                            title="Browse Voice Profile presets"
+                            onClick={() => setVoicePresetsOpen(true)}
+                            className="flex h-6 items-center gap-1.5 rounded-full px-2 text-[11px] font-medium text-ink-400 transition-colors hover:bg-playground-500/10 hover:text-playground-300"
+                          >
+                            <Camera className="h-3 w-3 shrink-0" />
+                            Voice Presets
+                          </button>
+                          <ExpandButton onClick={() => setVoiceExpanded(true)} />
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        {/* `grow` with no basis-0: the field's base size is its own
+                            content and grow only tops it up to the free space. It's
+                            the scroll port once the text outruns the column, which is
+                            what keeps revealCaret honest. No min-height of its own —
+                            the section above carries the floor for the whole box, so
+                            this shrinks WITH its siblings rather than holding a size
+                            that pushes the toolbar out through the overflow-hidden. */}
+                        <BracketHighlightArea
+                          value={state.prompt}
+                          onChange={handlePromptChange}
+                          textareaRef={textareaRef}
+                          onBlur={() => { commitPromptDraft(); setTimeout(() => setMentionOpen(false), 150) }}
+                          className="min-h-0 grow"
+                          padClass="px-3.5 pb-3 pt-3"
+                          textClass="text-[13px] leading-[1.5]"
+                          textareaClass="text-ink-200 placeholder-ink-600"
+                          placeholder={
+                            state.mode === 'image'
+                              ? 'Describe the image you want… (type @ to reference banks)'
+                              : isMotionControl
+                              ? 'Optional. Refine the motion or leave blank…'
+                              : state.mode === 'video'
+                              ? 'Describe the video… (type @ to reference banks)'
+                              : 'Describe the music: genre, mood, instruments…'
+                          }
+                        />
+                        <PromptToolbar
+                          accent="playground"
+                          onEnhance={handleEnhancePrompt}
+                          enhanceTitle="Enhance prompt"
+                          enhanceDisabled={!state.prompt.trim()}
+                          busy={isEnhancing}
+                          onClear={handlePromptClear}
+                          clearDisabled={!state.prompt.trim()}
+                          onUndo={handlePromptUndo}
+                          canUndo={canUndo}
+                          onRedo={handlePromptRedo}
+                          canRedo={canRedo}
+                          onExpand={() => setPromptExpanded(true)}
+                        />
+                      </>
+                    )}
                   </div>
                   {mentionOpen && state.mode !== 'music' && !isMotionControl && (
                     <div className="absolute bottom-full left-0 z-50 mb-2 w-[300px] max-w-full">
@@ -1118,112 +1122,25 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
                 </div>
               </div>
 
-              {/* Voice — directly under the prompt box, appended to the end of
-                  it at generate time. It's a field of its own because the
-                  profile is the one part of a UGC video prompt that must stay
-                  identical across every clip of an ad: in the prompt box it had
-                  to be re-pasted two lines under every rewrite, and it went with
-                  Clear. Video only (and not Motion Control, which has no audio)
-                  — a voice says nothing about a still or a music track. */}
-              {state.mode === 'video' && !isMotionControl && (
-                <VoiceCard
-                  value={state.voiceProfile ?? ''}
-                  open={state.voiceOpen ?? true}
-                  onChange={(voiceProfile) => onChange({ ...state, voiceProfile })}
-                  onToggleOpen={() => onChange({ ...state, voiceOpen: !(state.voiceOpen ?? true) })}
-                  // This column's own shape, not B-Roll's card-modal one: no
-                  // hairline and its own tighter padding. The shared `section`
-                  // shell was tried here and put back on sight (Massimo's call)
-                  // — this card is the last thing in a cramped column directly
-                  // under the prompt box, where a rule is one more horizontal
-                  // line in a stack that already has too many.
-                  variant="plain"
-                />
-              )}
 
             </div>
           </div>
 
-          {/* Preset picker — the same modal chrome as the bank pickers, so the
-              app reads as one pattern. */}
-          <Modal
-            open={presetOpen}
-            onClose={() => setPresetOpen(false)}
-            title="UGC Prompt Presets & Visual Styles"
-            // The Characters preset picker's own width, because this is the
-            // longest picture library in the app: fourteen prompt presets under
-            // seven looks and your own saved styles. Three tiles across a 672px
-            // panel made that six screens of scroll. It is the one gallery here
-            // that still scrolls at all, which is exactly what earns it the
-            // rail — one click to the presets instead of three rows.
-            size="gallery"
-            rail={
-              <SectionRail
-                sections={[
-                  { key: 'styles', label: 'Visual Styles', count: CONTINUOUS_STYLES.length + savedStyles.length },
-                  { key: 'presets', label: 'Prompt Presets', count: (state.mode === 'image' ? IMAGE_PRESETS : VIDEO_PRESETS).length },
-                ]}
-                activeKey={presetSpy.activeKey}
-                accent="playground"
-                onJump={presetSpy.jumpTo}
-              />
-            }
-            bodyRef={presetSpy.portRef}
-            onBodyScroll={presetSpy.onScroll}
-            // A body that scrolls holds its height, or the rail's rows move
-            // under the pointer as the panel resizes itself.
-            fill
-          >
-            {/* Visual styles FIRST: a look is the broader decision — it applies to
-                anything you were going to make — where a preset is one specific
-                shot. Same 9:16 tiles and the same preview art as the B-Roll and
-                Characters style pickers, so a style is recognised by its picture
-                wherever it's offered. Nothing is marked "active": Playground keeps
-                no style of its own, it appends the brief to the prompt, which is
-                then the member's to edit like anything else they typed. */}
-            <div className="px-4 py-3">
-              <GallerySectionHeading label="Visual Styles" innerRef={presetSpy.register('styles')} className="mb-3" />
-              <div className={GALLERY_GRID}>
-                {CONTINUOUS_STYLES.map((s) => (
-                  <StyleTile
-                    key={s.id}
-                    name={s.label}
-                    imageUrl={STYLE_PREVIEWS[s.id]}
-                    active={false}
-                    accent={PLAYGROUND_STYLE_ACCENT}
-                    onClick={() => { applyStyle({ styleId: s.id }); setPresetOpen(false) }}
-                  />
-                ))}
-                {/* The member's own saved looks, from the Styles bank — read-only
-                    here; creating one still lives in B-Roll's style picker, which
-                    owns the reference-frame analysis. */}
-                {savedStyles.map((s) => (
-                  <StyleTile
-                    key={s.id}
-                    imageRef={(s.thumbRefs ?? [])[0]}
-                    name={s.name}
-                    active={false}
-                    accent={PLAYGROUND_STYLE_ACCENT}
-                    onClick={() => { applyStyle({ styleId: 'ugc', styleBrief: s.brief }); setPresetOpen(false) }}
-                  />
-                ))}
-              </div>
-
-              <GallerySectionHeading label="Prompt Presets" innerRef={presetSpy.register('presets')} className="mb-3 mt-6" />
-              <div className={GALLERY_GRID}>
-                {(state.mode === 'image' ? IMAGE_PRESETS : VIDEO_PRESETS).map((preset) => (
-                  <PresetCard
-                    key={preset.id}
-                    preset={preset}
-                    onClick={() => {
-                      applyPreset(preset)
-                      setPresetOpen(false)
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
-          </Modal>
+          <VoicePresetPicker
+            open={voicePresetsOpen}
+            onClose={() => setVoicePresetsOpen(false)}
+            value={state.voiceProfile ?? ''}
+            onPick={(text) => { onChange((s) => ({ ...s, voiceProfile: text })); setVoicePresetsOpen(false) }}
+          />
+          <ExpandTextModal
+            open={voiceExpanded}
+            onClose={() => setVoiceExpanded(false)}
+            value={state.voiceProfile ?? ''}
+            onChange={(v) => onChange((s) => ({ ...s, voiceProfile: v }))}
+            title="Voice Profile"
+            accent="playground"
+            placeholder="Describe how the creator sounds: accent, tone, pace…"
+          />
 
           <ExpandTextModal
             open={promptExpanded}
@@ -1418,7 +1335,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
                   options={model.videoConstraints.durations.map(String)}
                   value={String(state.durationSeconds)}
                   onChange={(v) => onChange({ ...state, durationSeconds: Number(v) })}
-                  render={(v) => <span>{v}s</span>}
+                  render={(v) => <DurationLabel>{v}s</DurationLabel>}
                 />
               )}
               {!isMotionControl && model.videoConstraints.supportsAudio && (

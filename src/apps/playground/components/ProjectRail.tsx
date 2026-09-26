@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronRight, FolderOpen, Layers, Pencil } from 'lucide-react'
+import { ChevronRight, Folder, FolderOpen, Pencil } from 'lucide-react'
 import Modal from '../../../components/Modal'
 import RailNewButton from '../../../components/RailNewButton'
 import DayPill from '../../../components/DayPill'
@@ -11,11 +11,11 @@ import type { CoverMedia, ProjectSummary } from '../projectSummary'
 
 interface ProjectRailProps {
   projects: PlaygroundProject[]
-  // null = All Generations.
+  // null = All Projects.
   activeProjectId: string | null
   onChange: (id: string | null) => void
   // What each card previews and counts — built by the grid in one pass over the
-  // list it already has. `all` is the All Generations card.
+  // list it already has. `all` is the All Projects card.
   summaries: { all: ProjectSummary; byProject: Record<string, ProjectSummary> }
   onCreate: (name: string) => void
   onRename: (id: string, name: string) => void
@@ -124,15 +124,15 @@ export default function ProjectRail({
           `sm:grid-cols-2` viewport rule would put two 130px cards side by side
           inside the rail. Same reasoning as B-Roll's list. */}
       <div className="@container min-h-0 flex-1 overflow-y-auto px-3 py-3">
-        {/* All Generations leads the list and sits OUTSIDE the day pills: it is
+        {/* All Projects leads the list and sits OUTSIDE the day pills: it is
             everything in every project plus everything never filed under one,
             so it belongs to every day and to none. (It is also where a deleted
             project's generations come back to, and it has no rename or delete
             for the same reason it has no date — it is not a project.) */}
         <div className="grid grid-cols-1 gap-3 @min-[520px]:grid-cols-2 @min-[820px]:grid-cols-3 @min-[1100px]:grid-cols-4">
           <ProjectCard
-            icon={Layers}
-            name="All Generations"
+            icon={Folder}
+            name="All Projects"
             summary={summaries.all}
             active={!activeProjectId}
             onSelect={() => onChange(null)}
@@ -211,7 +211,7 @@ export default function ProjectRail({
  * are the same surface answering the same question, and a project you can see
  * into is worth more than a project you can read the name of.
  *
- * `onRename` / `onDelete` omitted is what makes All Generations a plain card:
+ * `onRename` / `onDelete` omitted is what makes All Projects a plain card:
  * it is not a project and there is nothing on it to rename or throw away.
  */
 function ProjectCard({
@@ -224,11 +224,11 @@ function ProjectCard({
   onRename,
   onDelete,
 }: {
-  icon: typeof Layers
+  icon: typeof Folder
   name: string
   // Absent when nothing has ever been generated into this project.
   summary?: ProjectSummary
-  // What to date an empty project by — when it was made. The All Generations
+  // What to date an empty project by — when it was made. The All Projects
   // card has no such date and simply shows nothing.
   fallbackTs?: number
   active: boolean
@@ -279,7 +279,7 @@ function ProjectCard({
             {onDelete && (
               <TileDeleteButton
                 variant="media"
-                title="Delete project. Its generations stay in All Generations"
+                title="Delete project. Its generations stay in All Projects"
                 onDelete={onDelete}
               />
             )}
@@ -313,7 +313,7 @@ function ProjectCard({
 
 // The mosaic. One cover fills the frame, two split it, three give the newest
 // the big half — B-Roll's layout, so a card reads the same in both rails.
-function CardCover({ covers, icon: Icon }: { covers: CoverMedia[]; icon: typeof Layers }) {
+function CardCover({ covers, icon: Icon }: { covers: CoverMedia[]; icon: typeof Folder }) {
   if (covers.length === 0) {
     return (
       <span className="flex h-full w-full items-center justify-center bg-ink/[0.04] text-playground-300/50">
@@ -379,7 +379,7 @@ function CoverTile({ media, className = '' }: { media: CoverMedia; className?: s
  * has to say that B-Roll's doesn't: which project you are looking at. Over
  * there the storyboard on screen IS the open session, so a button reading
  * "History" loses nothing; here the grid under a project and the grid under
- * All Generations are both just a wall of tiles, and nothing else on the pane
+ * All Projects are both just a wall of tiles, and nothing else on the pane
  * tells them apart. So the opener carries the name — one control that answers
  * "where am I" and opens the list in the same press — built on the same ring
  * and wash at the same `h-[38px]`, and wearing a right-pointing chevron
@@ -408,8 +408,8 @@ export function ProjectRailToggle({
     >
       {activeProject
         ? <FolderOpen className="h-4 w-4 shrink-0 text-playground-300 light:text-playground-600" />
-        : <Layers className="h-4 w-4 shrink-0 text-ink-500" />}
-      <span className="truncate">{activeProject ? activeProject.name : 'All Generations'}</span>
+        : <Folder className="h-4 w-4 shrink-0 text-ink-500" />}
+      <span className="truncate">{activeProject ? activeProject.name : 'All Projects'}</span>
       <ChevronRight className="h-4 w-4 shrink-0 text-ink-400" strokeWidth={2} />
     </button>
   )

@@ -263,7 +263,7 @@ export interface BRoll {
  * history row), never the other way round. That keeps a project a few bytes to
  * sync, makes a rename one row's write rather than hundreds, and means deleting
  * one can never take a generation with it — the rows keep an id that no longer
- * resolves, and the panel shows them under All Generations again.
+ * resolves, and the panel shows them under All Projects again.
  */
 export interface PlaygroundProject {
   id: string
@@ -332,8 +332,8 @@ export interface VideoHistoryItem extends Provenance {
   sourceApp?: 'broll-studio' | 'playground'
   // Which Playground project this generation belongs to (`PlaygroundProject`).
   // Absent on every row made before projects existed, and on anything generated
-  // while All Generations is the active view — both read as unfiled, which is
-  // what All Generations shows. An id whose project has since been deleted is
+  // while All Projects is the active view — both read as unfiled, which is
+  // what All Projects shows. An id whose project has since been deleted is
   // left dangling on purpose rather than swept: clearing it would mean
   // rewriting and re-pushing every row of that project to unfile them, and
   // unresolved reads as unfiled anyway.
