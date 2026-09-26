@@ -257,38 +257,24 @@ export const TTS_MODEL_SLOT = 'voice-studio:tts'
 // chat model is a one-line edit here — same rule as every other model in the
 // registry.
 //
-//   DEFAULT — the app-wide workhorse. Prompt-shaping, storyboards, shot logs:
-//             structured output against heavily-tuned prompts, read by another
-//             model rather than by a person.
-//   STRONG  — the tier for output a person reads and acts on, where a misread
-//             style family or a hedged scene prompt costs a re-shoot rather
-//             than a retry. Two consumers: the Ad Analyzer and the Bank's
-//             product auto-fill. Scripts and B-Roll reach this tier's model
-//             through its registry default again as of September 2026, after a
-//             stint on GPT 5.6 Terra — but they reach it as a per-app
-//             `defaultFor`, not through either constant, so the picker slots
-//             stay free to move without touching the roles.
+//   DEFAULT — every chat call that reads text or images: prompt Enhance
+//             (Playground, the Characters edit window), Characters' Describe
+//             line and photo DNA, reading a Visual Style off reference
+//             frames, the Bank's product Auto-Fill, Flow's Describe It and
+//             Ask Flow. DeepSeek V4.1 Flash since September 2026 (Massimo's
+//             call: Gemini 3.8 Flash was too slow on the calls a member sits
+//             and waits on). Its route takes images as `input_image` but no
+//             video, and it carries no `chatFallback` — a failed call is not
+//             retried on a second model.
+//   STRONG  — the Ad Analyzer's video read, and nothing else. It stays on
+//             Gemini 3.8 Flash because it sends a whole video inline, which
+//             only the openai-chat transport takes; it keeps the 3.5 Flash
+//             `chatFallback`.
 //
-// BOTH CONSTANTS POINT AT THE SAME MODEL TODAY, and that is a lineup fact, not
-// a mistake to tidy away by collapsing them. Gemini 3 Flash held DEFAULT until
-// September 2026 and was removed at the operator's call; Gemini 3.8 Flash — the
-// nearest row in its own family, on the same transport, and already STRONG —
-// took the slot. So the tiers currently name one model and the ratio between
-// them is 1x.
-//
-// Keep them as two names anyway: every service in the app resolves a ROLE, so
-// re-splitting the tiers later (a cheaper workhorse under 3.8, or a stronger
-// row above it) stays the one-line edit it has always been. Collapsing them
-// into one constant would mean touching every call site to get back. The one
-// thing to watch while they agree: nothing in the app is exercising the
-// cheap/expensive distinction, so a price move on this single row moves the
-// cost of literally every chat call at once.
-//
-// Neither constant is what Scripts or B-Roll call any more: those two read the
-// member's own pick (see resolveScriptModel in stores/settingsStore.ts), which
-// falls back to that pair's own registry default when nothing is chosen. Every
-// OTHER chat surface still resolves through these two.
-export const CHAT_MODEL_DEFAULT = 'gemini-3-8-flash'
+// Neither constant is what Scripts or B-Roll's storyboard call: those read
+// the member's own pick (see resolveScriptModel in stores/settingsStore.ts),
+// which falls back to that pair's own registry default when nothing is chosen.
+export const CHAT_MODEL_DEFAULT = 'deepseek-v4-1-flash'
 export const CHAT_MODEL_STRONG = 'gemini-3-8-flash'
 
 // Both Gemini TTS models bill by tokens, not characters, on one rate card:
@@ -412,33 +398,30 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     official: chatOfficial(1.5, 7.5, KIE_PRICING),
     // CHAT_MODEL_STRONG as of September 2026, taking the tier from Gemini 3.6
     // Flash, which stays one row away in either picker exactly as every
-    // superseded default here does. Two surfaces resolve through that
-    // constant: the Ad Analyzer (a whole video inline, one JSON object read by
-    // a person and shot against) and the Bank's product auto-fill (a
-    // fourteen-field research brief held to a long contract). Both send
-    // `reasoning_effort` and one call in each pair sends 'medium', while kie's
-    // doc for THIS route lists low/high only — the gateway accepts it anyway
-    // (verified live 2026-09-06, alongside 'high', inline-image vision and a
-    // tagged output contract). If it ever starts rejecting the value rather
-    // than ignoring it, those two surfaces are where it shows up, as a 400.
-    // CHAT_MODEL_DEFAULT as well, since September 2026: Gemini 3 Flash held
-    // that slot and was removed, and this is the nearest row in its family on
-    // the same transport. So this entry is now BOTH chat roles and, being
-    // first, getDefaultModel's candidates[0] — which is three ways of saying
-    // that a change to this row is a change to every chat call in the app.
-    // `character-studio` is here because Gemini 3 Flash carried it.
+    // superseded default here does. ONE surface resolves through that
+    // constant since September 2026: the Ad Analyzer (a whole video inline,
+    // one JSON object read by a person and shot against) — the only chat call
+    // that sends a video, which DeepSeek's route can't take. It sends
+    // `reasoning_effort: 'medium'`, while kie's doc for THIS route lists
+    // low/high only — the gateway accepts it anyway (verified live 2026-09-06,
+    // alongside 'high', inline-image vision and a tagged output contract). If
+    // it ever starts rejecting the value rather than ignoring it, that is
+    // where it shows up, as a 400. It was CHAT_MODEL_DEFAULT too, and the
+    // Bank's product auto-fill rode STRONG, until both moved to DeepSeek V4.1
+    // Flash in September 2026 (Massimo's call, for speed). Being first, it is
+    // still getDefaultModel's chat candidates[0].
     //
     // It held the unpicked default in BOTH picker apps for a stint in
     // September 2026 (taking the slots from GPT 5.6 Terra) and handed them to
     // DeepSeek V4.1 Flash — see that entry. Still one row away in either
     // picker, exactly as every superseded default here is.
-    defaultFor: ['ad-anatomy', 'character-studio'],
+    defaultFor: ['ad-anatomy'],
     // OpenAI-compatible variant slug on kie.ai. The native 3.8 route speaks
     // Google's own streamGenerateContent shape, which our transport doesn't.
     chatEndpoint: '/gemini-3-8-flash-openai/v1/chat/completions',
     // 3.8 is the better writer but the flakier route (September 2026: enough
-    // 5xx, empty streams and hangs that members were seeing errors daily), and
-    // it is every chat role at once. So a failed call retries once on 3.5
+    // 5xx, empty streams and hangs that members were seeing errors daily). So
+    // a failed call retries once on 3.5
     // Flash — older, steadier, about 2.3x the credits while 3.8's promo runs.
     // The member only pays that on a call 3.8 already dropped.
     chatFallback: 'gemini-3-5-flash',
@@ -654,9 +637,9 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     chatSlug: 'deepseek-v4-1-flash',
     // The unpicked default in BOTH picker apps since September 2026 (Massimo's
     // call), taking the slots from Gemini 3.8 Flash at under half its rate.
-    // Only the two writer slots: every other chat surface stays on
-    // CHAT_MODEL_DEFAULT / STRONG, which have a `chatFallback` this row lacks
-    // and — for the Ad Analyzer — take a video this route can't. Migration
+    // Also CHAT_MODEL_DEFAULT since September 2026 (see the roles above); only
+    // the Ad Analyzer's video read, CHAT_MODEL_STRONG, stays off this row,
+    // because this route takes no video. Migration
     // `2026-09-chat-default-deepseek-v4-1-flash` clears the `:chat` slots so
     // members land here, and it is listed in PROFILE_MIGRATIONS too.
     defaultFor: ['broll-studio', 'script-architect'],
