@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Check, Info, AlertTriangle, X } from 'lucide-react'
 import { useAppStore } from '../stores/appStore'
 import type { Toast as ToastType } from '../stores/appStore'
@@ -144,7 +145,13 @@ export default function ToastContainer() {
 
   if (toasts.length === 0) return null
 
-  return (
+  // Portaled to <body>: App mounts this inside its `relative z-10` workspace
+  // wrapper, a stacking context that capped z-[100] at 10 — so every toast
+  // raised while a body-portaled Modal or Flow block window was open landed
+  // underneath it, and the member saw nothing (a keyless Generate in a block
+  // window, an error from inside a picker). Over a window's header it can sit
+  // on the close button while it lingers; it dismisses, and that beats unseen.
+  return createPortal(
     // Under the menu bar (h-9), never on it: at top-4 the first toast sat
     // across Community and the theme toggle for as long as it lingered — ten
     // seconds for an error — and a stack of them buried the whole right end.
@@ -152,6 +159,7 @@ export default function ToastContainer() {
       {toasts.map((toast) => (
         <ToastItem key={toast.id} toast={toast} />
       ))}
-    </div>
+    </div>,
+    document.body,
   )
 }
