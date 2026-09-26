@@ -106,6 +106,8 @@ interface SessionOutput {
   // When the row was made — day-groups this gallery under the same `DayPill`
   // the main gallery uses, so a lineage that spans a week reads as one.
   createdAt: number
+  // The model that drew it — named on the tile, as in the main gallery.
+  modelId: string
   // The visual style this output was rendered in, when one was picked — used to
   // name it on save ("Mia - Claymation").
   styleName?: string
@@ -198,6 +200,7 @@ export default function InfluencerEditModal({
         styleName: h.styleName,
         linkedModelId: h.linkedModelId,
         createdAt: h.createdAt,
+        modelId: h.modelId,
       }))
     if (rows.length > 0) return rows
     // The editor can be opened on a generation that is still running (clicking
@@ -208,7 +211,7 @@ export default function InfluencerEditModal({
     // appears under this same id, because finishGen writes the row with the
     // generation's own id.
     return item.imageRef
-      ? [{ id: item.id, imageRef: item.imageRef, aspectRatio: item.aspectRatio, kind: item.kind ?? 'portrait', styleName: item.styleName, createdAt: item.createdAt }]
+      ? [{ id: item.id, imageRef: item.imageRef, aspectRatio: item.aspectRatio, kind: item.kind ?? 'portrait', styleName: item.styleName, createdAt: item.createdAt, modelId: item.modelId }]
       : []
   }, [characterHistory, lineageKey, item])
   // Same day grouping the main gallery uses — one lineage can span weeks of
@@ -1216,13 +1219,25 @@ function OutputTile({
         </span>
       )}
 
-      {/* Source badge sits at the BOTTOM-left: the hover stack owns the top-right
-          corner now, and the top-left is the sheet badge's. Hidden while naming,
-          which takes over the bottom edge. */}
-      {selected && nameDraft === null && (
-        <span className="pointer-events-none absolute bottom-1.5 left-1.5 rounded-full bg-influencers-500/90 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-white backdrop-blur">
-          Source
-        </span>
+      {/* The bottom edge: which model drew this, then the Source badge under
+          it. The model name is the main gallery grid tile's own hover label —
+          the in-flight tile named the model and the finished one didn't, so
+          it read as lost the moment the render landed. Both sit at the
+          BOTTOM-left: the hover stack owns the top-right corner and the
+          top-left is the sheet badge's. Hidden while naming, which takes over
+          the bottom edge. */}
+      {nameDraft === null && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col items-start gap-1 p-1.5">
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100 touch:opacity-100" />
+          <span className="relative max-w-full truncate px-0.5 pt-6 text-[10px] font-medium text-white/80 opacity-0 transition-opacity duration-200 group-hover:opacity-100 touch:opacity-100">
+            {getModel(output.modelId)?.displayName ?? output.modelId}
+          </span>
+          {selected && (
+            <span className="relative rounded-full bg-influencers-500/90 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-white backdrop-blur">
+              Source
+            </span>
+          )}
+        </div>
       )}
 
       {/* Hover actions — the shared tile stack (components/tileActions): a
