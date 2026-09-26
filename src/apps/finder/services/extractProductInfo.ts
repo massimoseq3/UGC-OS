@@ -7,7 +7,7 @@ import {
   type ChatCallTarget,
   type ChatCompletionsOptions,
 } from '../../../utils/kie'
-import { getChatTarget, CHAT_MODEL_STRONG } from '../../../utils/models'
+import { getChatTarget, CHAT_MODEL_DEFAULT } from '../../../utils/models'
 import { isAssetRef, getAsBase64 } from '../../../utils/assetStore'
 import { extractBlock } from '../../../utils/xmlBlocks'
 import { downscaleForVision } from '../../../utils/visionImage'
@@ -358,26 +358,23 @@ export async function extractProductInfo(
   extraImages: string[] = [],
 ): Promise<ProductExtraction> {
   const apiKey = useSettingsStore.getState().getKieApiKey()
-  // CHAT_MODEL_STRONG — Gemini 3.6 Flash, the tier this call sat on before
-  // August 2026. The slot has now been round the houses: app default, strong,
-  // GPT 5.6 Luna on cost, and back here (September 2026, Massimo's call)
-  // alongside the rewrite that turned this from ten summary boxes into a
-  // fourteen-field research brief.
+  // CHAT_MODEL_DEFAULT — DeepSeek V4.1 Flash since September 2026 (Massimo's
+  // call, moving every non-video chat call off Gemini for speed). The slot has
+  // been round the houses: app default, strong, GPT 5.6 Luna on cost, strong
+  // again with the rewrite that turned this from ten summary boxes into a
+  // fourteen-field research brief, and now the default.
   //
-  // The cost argument for the cheap row was real and is knowingly given up.
-  // What it was measured against was a much smaller ask: this prompt now holds
-  // a long contract — fourteen blocks, in order, five of them under a
-  // customer-voice rule with a ban list — over a verbatim OCR pass, and
-  // holding a stated contract to the last line is exactly what the strong tier
-  // is kept for. Two things to watch if it moves again: <READ> is an OCR pass,
-  // so a thin model shows up as small print missing from PROOF
-  // rather than as worse prose, and the customer-voice fields are the first to
-  // slide back into market-segment language. Judge it on a dense back-of-pack
-  // label, not on a clean hero shot.
+  // It was on the strong tier because this prompt holds a long contract —
+  // fourteen blocks, in order, five of them under a customer-voice rule with a
+  // ban list — over a verbatim OCR pass. Two things to watch on this model:
+  // <READ> is an OCR pass, so a thin read shows up as small print missing from
+  // PROOF rather than as worse prose, and the customer-voice fields are the
+  // first to slide back into market-segment language. Judge it on a dense
+  // back-of-pack label, not on a clean hero shot.
   //
-  // Vision rides this model's openai-chat transport with the image inline as an
-  // `image_url` block — no upload step, data URIs work directly.
-  const endpoint = getChatTarget(CHAT_MODEL_STRONG)
+  // The image goes inline as an `image_url` part, which the Responses
+  // transport turns into `input_image` — no upload step, data URIs work.
+  const endpoint = getChatTarget(CHAT_MODEL_DEFAULT)
 
   const dataUri = await toVisionDataUri(image)
   // A broken extra shouldn't sink the read — the hero photo is what matters.
