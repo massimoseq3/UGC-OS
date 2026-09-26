@@ -198,16 +198,20 @@ export function isHookCount(v: unknown): v is HookCount {
 // User-picked, defaulting to 3: five parallel takes off one brief crowded each
 // other, and three long scripts is what most people actually read before
 // picking. 10 is there for when you want a wide net and don't mind the credits.
-// Hooks are exempt (HOOK_COUNTS) — those are one-liners, not scripts.
+// Any whole number from 1 to 10, nudged with a −/+ stepper (September 2026,
+// Massimo's call — it was a 3 / 5 / 10 menu, which had no way to ask for one
+// script, or four). Hooks are exempt (HOOK_COUNTS) — those are one-liners, not
+// scripts, and stay on their 10 / 20 / 50 menu.
 //
 // Every angle list below is ordered BEST-FIRST and sliced to the chosen count,
 // so picking 3 gives the three strongest angles rather than an arbitrary three.
-export const VARIATION_COUNTS = [3, 5, 10] as const
-export type VariationCount = (typeof VARIATION_COUNTS)[number]
+export const VARIATION_MIN = 1
+export const VARIATION_MAX = 10
+export type VariationCount = number
 export const DEFAULT_VARIATION_COUNT: VariationCount = 3
 
 export function isVariationCount(v: unknown): v is VariationCount {
-  return VARIATION_COUNTS.includes(v as VariationCount)
+  return typeof v === 'number' && Number.isInteger(v) && v >= VARIATION_MIN && v <= VARIATION_MAX
 }
 
 export const HOOK_CATEGORY_META: Record<HookCategoryChoice, { label: string; hint: string }> = {

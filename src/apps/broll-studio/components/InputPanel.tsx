@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { Package, UserRound, FileText, RefreshCw, Film, X, ChevronRight, Rows3, Box, Coins, Pencil, FileInput, MessageSquareQuote, Layers } from 'lucide-react'
+import { Package, UserRound, FileText, RefreshCw, Film, X, ChevronRight, Rows3, Box, Coins, Pencil, FileInput, MessageSquareQuote, Layers, type LucideIcon } from 'lucide-react'
 import Spinner from '../../../components/Spinner'
 import type { Product, Model, Script } from '../../../stores/types'
 import { isLineMode, type BrollDelivery, type BrollMode } from '../types'
@@ -104,10 +104,10 @@ function BankCard({
   // when the slot's job needs saying — the Script slot takes a paste as well as
   // a bank pick, and a card that only says "click to select" hides that.
   emptyHint?: string
-  // An empty one gets the red dot instead of the neutral one. Every row in
-  // B-Roll's References card sets it: the script and the style genuinely gate
-  // Generate, and the product and the character are what a UGC storyboard is
-  // OF — a run without them technically fires and isn't worth the credits.
+  // An empty one gets the red dot instead of the neutral one — and red means
+  // exactly "this is why Generate is grey", so it is set on a row only where
+  // that row really is in the gate (see `blocker` below). In the app all three
+  // References rows are; in Flow's window only the script is.
   // (This replaced an `optional` flag that painted an OPTIONAL tag on the
   // Script slot, which has been REQUIRED since B-Roll stopped writing scripts.)
   required?: boolean
@@ -279,12 +279,30 @@ export default function InputPanel({
 }: InputPanelProps) {
   const wired = flow?.wired ?? {}
   const hasScript = scriptText.trim().length > 0 || !!wired.script
-  // The script is the whole gate now that B-Roll no longer writes one. The look
-  // used to be the other half and isn't any more — it folds to UGC Realism and
-  // is changed on the storyboard itself. The ad format was never in the gate
-  // either: sessions that predate the format row have a script and no format,
-  // and a storyboard without staging is a plain UGC storyboard, not a broken one.
-  const canGenerate = hasScript
+  // What's still missing, in the order the References card asks for it — and
+  // the button SAYS it, Scripts' pattern, rather than going grey with nothing
+  // on screen explaining which of three red dots is the reason.
+  //
+  // The character and the product are in the gate since September 2026. They
+  // wore red `required` dots for a month while only the script actually held
+  // Generate shut, which broke the house rule that red means exactly "this is
+  // why Generate is grey" — and a UGC storyboard without the person or the
+  // thing they're holding isn't worth the credits it costs to write. The gate
+  // is the UI's alone: the runners, Import, the hand-off consumers and a
+  // resumed run still work without either, exactly as before.
+  //
+  // Not in Flow's window. A block's character and product can arrive on a
+  // wire at run time, and Flow decides what a run needs on its own terms, so
+  // there the script stays the whole gate and the two rows' dots go neutral to
+  // match. The look was never in the gate (it folds to UGC Realism and is
+  // changed on the storyboard), and neither was the ad format.
+  const requiresCast = !flow
+  const blocker: { label: string; icon: LucideIcon } | null =
+    requiresCast && !selectedModel ? { label: 'Pick a Character', icon: UserRound }
+    : requiresCast && !selectedProduct ? { label: 'Pick a Product', icon: Package }
+    : !hasScript ? { label: 'Add a Script', icon: FileText }
+    : null
+  const canGenerate = blocker === null
   const [scriptExpanded, setScriptExpanded] = useState(false)
   const [instructionsExpanded, setInstructionsExpanded] = useState(false)
   const isContinuous = mode === 'continuous'
@@ -296,7 +314,7 @@ export default function InputPanel({
   // with no verified per-token rate (see the registry's "NO CREDIT FIGURES").
   const promptCredits = flow && flow.credits !== undefined
     ? flow.credits
-    : hasScript ? formatCredits(estimatePromptCredits(mode, scriptText, lineDelivery)) : null
+    : canGenerate ? formatCredits(estimatePromptCredits(mode, scriptText, lineDelivery)) : null
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -388,12 +406,10 @@ export default function InputPanel({
                 states, which made a filled reference the quietest thing in the
                 card: the accent IS the "this is set" signal, and it's the colour
                 that says WHICH bank set it.
-                DOT: they carried the neutral dot (nothing here holds Generate
-                shut but the script and the style). Massimo asked for red, and
-                the honest reading is that a UGC storyboard without its product or
-                its character isn't a storyboard you'd ship — so they're `required`
-                alongside the other two, and all four dots answer one question:
-                "have I filled this in?". */}
+                DOT: red when empty, and since September 2026 that is true —
+                both are in `blocker`, so an empty one is a reason Generate is
+                grey and the button names it. In Flow's window they aren't in
+                the gate, so they wear the neutral dot there. */}
             {wired.character ?? (
             <BankCard
               icon={UserRound}
@@ -401,7 +417,7 @@ export default function InputPanel({
               accentClass="bg-influencers-500/15 text-influencers-400"
               selectedClass="border-influencers-500/30 bg-influencers-500/[0.07] hover:border-influencers-500/40 hover:bg-influencers-500/10"
               isEmpty={!selectedModel}
-              required
+              required={requiresCast}
               onSelect={onSelectModel}
               onClear={selectedModel ? onClearModel : undefined}
             >
@@ -417,7 +433,7 @@ export default function InputPanel({
               accentClass="bg-gold-500/15 text-gold-400 light:text-gold-600"
               selectedClass="border-gold-500/30 bg-gold-500/[0.07] hover:border-gold-500/40 hover:bg-gold-500/10"
               isEmpty={!selectedProduct}
-              required
+              required={requiresCast}
               onSelect={onSelectProduct}
               onClear={selectedProduct ? onClearProduct : undefined}
             >
@@ -425,7 +441,7 @@ export default function InputPanel({
             </BankCard>
             )}
 
-            {/* Script — REQUIRED (half of `canGenerate`), and the only reference
+            {/* Script — REQUIRED (in `blocker`), and the only reference
                 here that GROWS as you paste, which is why it sits under the two
                 bank pills rather than above them: there, every keystroke would
                 shove them down the column — a growing box pushes what's below
@@ -448,7 +464,7 @@ export default function InputPanel({
                 isEmpty={!selectedScript}
                 // NOT "Or let the format write it": B-Roll stopped writing
                 // scripts in July 2026, so that offered a deleted feature — and
-                // the slot wore an OPTIONAL tag while being half of `canGenerate`,
+                // the slot wore an OPTIONAL tag while being half of the gate,
                 // which is why an empty script left Generate grey with nothing on
                 // screen saying so. It's required, and the dot says it.
                 emptyHint="Pick one from your bank, or paste it below"
@@ -486,7 +502,7 @@ export default function InputPanel({
                 no second half to mark off. */}
           </SectionCard>
 
-          {/* Line-by-Line delivery — "B-Roll Clips" keeps every card silent,
+          {/* Line-by-Line delivery — "Voiceover Clips" keeps every card silent,
               for a voiceover laid over in the edit; "Dialogue Clips" makes all
               three the character speaking that line, staged three different
               ways. It sits BETWEEN the References card and the Instructions box
@@ -502,7 +518,7 @@ export default function InputPanel({
               Generate, sat at the very top of the column above the References
               heading, and sat inside the References card.)
               Continuous has no deliveries — it's narration over footage — so
-              it isn't rendered there at all. **B-Roll Clips leads the toggle
+              it isn't rendered there at all. **Voiceover Clips leads the toggle
               AND is the default** (September 2026, Massimo's call). Position
               and default were deliberately split for a month — the plainer
               thing first, the default on the one most members were here to
@@ -522,8 +538,12 @@ export default function InputPanel({
               // The labels are the two deliveries, not "… Clips": both segments
               // said Clips, so the word carried no difference between them and
               // only ate the width the names needed on a narrow column.
+              // "Voiceover", not "B-Roll" (September 2026): the silent option
+              // was named after the app it sits in, so "B-Roll" meant both the
+              // whole tool and one of its two answers. What these cards ARE is
+              // cutaway footage for a voiceover laid over in the edit.
               options={[
-                { value: 'silent', label: 'B-Roll', icon: Film },
+                { value: 'silent', label: 'Voiceover', icon: Film },
                 { value: 'dialogue', label: 'Dialogue', icon: MessageSquareQuote },
               ]}
             />
@@ -607,6 +627,11 @@ export default function InputPanel({
                 <Spinner className="h-4 w-4" />
                 <span>Storyboarding...</span>
               </>
+            ) : blocker ? (
+              <>
+                <blocker.icon className="h-4 w-4 shrink-0" strokeWidth={2.5} />
+                <span className="truncate">{blocker.label}</span>
+              </>
             ) : (
               <>
                 {isContinuous ? (
@@ -648,9 +673,9 @@ export default function InputPanel({
               </>
             )}
           </button>
-          {/* Nothing under the button: a greyed-out Generate says "you're missing
-              something" on its own, and the line that used to sit here only
-              existed to warn that an empty script box spent an extra call
+          {/* Nothing under the button: a greyed-out Generate names what it's
+              missing on its own (`blocker`), and the line that used to sit here
+              only existed to warn that an empty script box spent an extra call
               writing one. It doesn't any more. */}
         </div>
       </div>

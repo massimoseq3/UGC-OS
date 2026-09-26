@@ -6,11 +6,13 @@ import { useBackdropClose } from '../hooks/useBackdropClose'
 import useCloseOnEscape from '../hooks/useCloseOnEscape'
 import { useCloseOnAppSwitch } from '../hooks/useCloseOnAppSwitch'
 import { useKeyConnect } from './useKeyConnect'
+import { KIE_API_KEY_URL, KIE_BILLING_URL } from '../utils/constants'
 
-// Getting started, shown from the menu bar's no-key alert and the Dashboard's
-// connect banner. It used to explain the three steps and send the member to
-// Settings to do the actual work — which meant reading instructions, closing
-// them, finding the gear, and re-reading them from memory.
+// Getting started, shown from the menu bar's no-key alert, a toast's Connect
+// Key and the first step of the Dashboard's Next Steps card. It used to explain
+// the three steps and send the member to Settings to do the actual work — which
+// meant reading instructions, closing them, finding the gear, and re-reading
+// them from memory.
 //
 // So the key is pasted HERE. The guide is the setup: open kie.ai, paste, and
 // the key is verified against the live balance before it's saved, so "connected"
@@ -22,7 +24,7 @@ import { useKeyConnect } from './useKeyConnect'
 
 export default function ApiKeyGuide({ onClose, onOpenSettings }: { onClose: () => void; onOpenSettings: () => void }) {
   const backdrop = useBackdropClose(onClose)
-  const { draft, key, status, connected, connect, setDraft } = useKeyConnect()
+  const { draft, key, status, connected, noCredits, connect, setDraft } = useKeyConnect()
   const [reveal, setReveal] = useState(false)
   // Step 1 ticks off when the member actually opens kie.ai — the only signal
   // this side of the browser that they went to fetch a key.
@@ -62,9 +64,11 @@ export default function ApiKeyGuide({ onClose, onOpenSettings }: { onClose: () =
             {connected ? 'You’re Connected' : 'Connect Your kie.ai API Key'}
           </h2>
           <p className="mt-1 text-[12px] leading-relaxed text-ink-500">
-            {connected
-              ? 'Every app in the workspace can generate now. Top up anytime via Get Credits in the menu bar.'
-              : 'Every generation runs on your own kie.ai key. It takes a minute to set up.'}
+            {noCredits
+              ? 'Your key works. Add credits on kie.ai and every app in the workspace can generate.'
+              : connected
+                ? 'Every app in the workspace can generate now. Top up anytime via Get Credits in the menu bar.'
+                : 'Every generation runs on your own kie.ai key. It takes a minute to set up.'}
           </p>
 
           {/* Two real steps on a rail: fetch the key, then paste it. The rail
@@ -74,7 +78,7 @@ export default function ApiKeyGuide({ onClose, onOpenSettings }: { onClose: () =
 
             <Step index={1} done={visitedKie || connected} label="Grab Your API Key from kie.ai">
               <a
-                href="https://kie.ai/api-key"
+                href={KIE_API_KEY_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => setVisitedKie(true)}
@@ -86,7 +90,26 @@ export default function ApiKeyGuide({ onClose, onOpenSettings }: { onClose: () =
             </Step>
 
             <Step index={2} done={connected} label={connected ? 'Key Saved to This Browser' : 'Paste It Here'}>
-              {connected ? (
+              {noCredits ? (
+                // A new kie.ai account starts at zero, so this is the common
+                // first-run case, not an edge: "0 credits on your account" read
+                // as a report, and the member went off to generate and met the
+                // out-of-credits error instead. The next step is a link.
+                <>
+                  <p className="mt-1 text-[12px] leading-relaxed text-ink-500">
+                    Your account has no credits yet, so nothing can generate until you add some.
+                  </p>
+                  <a
+                    href={KIE_BILLING_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.03] px-3.5 text-[12px] font-medium text-ink-200 transition-colors hover:border-ink/20 hover:bg-ink/[0.06]"
+                  >
+                    Add Credits
+                    <ArrowUpRight className="h-3.5 w-3.5 text-ink-500" strokeWidth={2} />
+                  </a>
+                </>
+              ) : connected ? (
                 <p className="mt-1 text-[12px] text-ink-500">
                   <span className="tabular-nums text-dashboard-400">{status.phase === 'connected' ? status.credits.toLocaleString() : ''}</span> credits on
                   your account.

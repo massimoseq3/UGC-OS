@@ -485,6 +485,7 @@ function useHistoryTileActions(
   const original = useAssetUrlState(near && full ? item.imageRef : undefined)
   const { url, status } = full ? original : thumb
   const addModel = useBankStore((s) => s.addModel)
+  const updateModel = useBankStore((s) => s.updateModel)
   const deleteModel = useBankStore((s) => s.deleteModel)
   const updateCharacterHistory = useBankStore((s) => s.updateCharacterHistory)
   const models = useBankStore((s) => s.models)
@@ -530,31 +531,38 @@ function useHistoryTileActions(
     return uniqueBankName(base, taken)
   }
 
-  function openNameInput() {
-    if (savingToBank) return
-    setNameDraft(suggestSaveName())
-  }
-
-  // Toggle: clicking Save when already saved removes the linked Bank entry
-  // (keeping this gallery image) so it can be re-saved afterwards.
+  // Save is ONE click: the character files under the name the naming step used
+  // to pre-fill (September 2026) — that step stood between every save and the
+  // Bank, for a name the member can change at any time. The toast names what it
+  // was saved as and carries Rename, which opens the same inline input over the
+  // tile, now renaming the entry the click just made.
+  //
+  // Clicking a SAVED tile still removes the Bank entry (the image stays here),
+  // so it can be re-saved; the tooltip names the entry that click would remove.
   async function toggleSave() {
     if (savingToBank) return
-    if (!savedAsModel) { openNameInput(); return }
+    if (!savedAsModel) {
+      const name = suggestSaveName()
+      if (await saveToBank(name)) {
+        addToast(`Saved as “${name}”`, 'success', { label: 'Rename', run: () => setNameDraft(name) })
+      }
+      return
+    }
+    const removedName = linkedModel?.name
     setSavingToBank(true)
     try {
       if (linkedModel) await deleteModel(linkedModel.id)
       await updateCharacterHistory(item.id, { linkedModelId: undefined })
+      addToast(removedName ? `Removed “${removedName}” from the Bank` : 'Removed from the Bank', 'success')
     } catch (err) {
       addToast(humanizeError(err, 'Failed to remove from Bank'), 'error')
-    } finally {
-      setSavingToBank(false)
     }
+    setSavingToBank(false)
   }
 
-  async function commitSave() {
-    const name = (nameDraft ?? '').trim()
-    if (!name || savingToBank) return
+  async function saveToBank(name: string): Promise<boolean> {
     setSavingToBank(true)
+    let saved = false
     try {
       await addModel({
         name,
@@ -570,13 +578,39 @@ function useHistoryTileActions(
         (m) => m.characterImage === item.imageRef && m.name === name,
       )
       if (justAdded) await updateCharacterHistory(item.id, { linkedModelId: justAdded.id })
-      setNameDraft(null)
+      saved = true
     } catch (err) {
       addToast(humanizeError(err, 'Save failed'), 'error')
-    } finally {
-      setSavingToBank(false)
     }
+    setSavingToBank(false)
+    return saved
   }
+
+  // The inline input's commit — a RENAME of the entry Save already made. If
+  // the entry has gone in the meantime (removed from here or from the Bank),
+  // the name the member typed is the one it's saved under.
+  async function commitSave() {
+    const name = (nameDraft ?? '').trim()
+    if (!name || savingToBank) return
+    if (!linkedModel) {
+      if (await saveToBank(name)) setNameDraft(null)
+      return
+    }
+    if (name === linkedModel.name) { setNameDraft(null); return }
+    setSavingToBank(true)
+    try {
+      await updateModel(linkedModel.id, { name })
+      setNameDraft(null)
+      addToast(`Renamed to “${name}”`, 'success')
+    } catch (err) {
+      addToast(humanizeError(err, 'Rename failed'), 'error')
+    }
+    setSavingToBank(false)
+  }
+
+  const saveTitle = linkedModel
+    ? `Saved as “${linkedModel.name}” · click to remove it from the Bank`
+    : savingToBank ? 'Saving…' : 'Save to Bank'
 
   // Arming/confirming lives in TileDeleteButton — this just performs the
   // delete and tracks the in-flight state so the button can show a spinner.
@@ -599,14 +633,15 @@ function useHistoryTileActions(
   return {
     url, status,
     isSheet, savedAsModel,
-    savingToBank, nameDraft, setNameDraft, commitSave, openNameInput, toggleSave,
+    savingToBank, saveTitle, nameDraft, setNameDraft, commitSave, toggleSave,
     deleting, confirmingDelete, setConfirmingDelete, confirmDelete,
     handleDownload,
   }
 }
 
-// Inline name input shown while a save is being named — same controls in both
-// views, wrapped by each with its own container positioning.
+// Inline name input shown while a saved character is being renamed (the
+// toast's Rename opens it) — same controls in both views, wrapped by each with
+// its own container positioning.
 function NameEditor({
   nameDraft,
   setNameDraft,
@@ -1097,7 +1132,7 @@ function SingleCard({
           <ActionPill
             icon={a.savingToBank ? Spinner : a.savedAsModel ? Check : Bookmark}
             label={a.savedAsModel ? 'Saved' : 'Save to Bank'}
-            title={a.savedAsModel ? 'Saved · click to remove from Bank' : 'Save to Bank'}
+            title={a.saveTitle}
             tone={a.savedAsModel ? 'saved' : 'default'}
             spin={a.savingToBank}
             onClick={a.toggleSave}
@@ -1324,7 +1359,7 @@ function HistoryTile({
 
       {/* Hover actions — the shared tile stack (components/tileActions), read
           top to bottom: Download · Save · Edit · Delete · ⋮. The inline name
-          input takes over the bottom edge while a save is being named, so the
+          input takes over the bottom edge while a save is being renamed, so the
           stack steps aside for it. */}
       {a.nameDraft === null && (
         <TileActionStack forceVisible={a.deleting || a.confirmingDelete || menuOpen}>
@@ -1332,7 +1367,7 @@ function HistoryTile({
             <Download className="h-4 w-4" />
           </TileActionButton>
           <TileActionButton
-            title={a.savedAsModel ? 'Saved · click to remove from Bank' : a.savingToBank ? 'Saving…' : 'Save to Bank'}
+            title={a.saveTitle}
             tone={a.savedAsModel ? 'saved' : 'default'}
             onClick={() => a.toggleSave()}
           >
@@ -1367,7 +1402,7 @@ function HistoryTile({
       )}
 
       {/* Inline name input — takes over the bottom edge while a save is being
-          named (portraits and sheets alike). */}
+          renamed (portraits and sheets alike). */}
       {a.nameDraft !== null && (
         <div className="absolute inset-x-2 bottom-2">
           <NameEditor
@@ -1556,7 +1591,7 @@ function HistoryListRow({
               <Download className="h-3.5 w-3.5" />
             </ListRowButton>
             <ListRowButton
-              title={a.savedAsModel ? 'Saved · click to remove from Bank' : a.savingToBank ? 'Saving…' : 'Save to Bank'}
+              title={a.saveTitle}
               tone={a.savedAsModel ? 'saved' : 'default'}
               onClick={a.toggleSave}
             >

@@ -3,7 +3,8 @@ import { ArrowUpRight, Check, Eye, EyeOff, X, Zap } from 'lucide-react'
 import Spinner from './Spinner'
 import { useAppStore } from '../stores/appStore'
 import { useSettingsStore } from '../stores/settingsStore'
-import { dockOrderedApps, getAppConfig } from '../utils/constants'
+import { useCreditsStore } from '../stores/creditsStore'
+import { dockOrderedApps, getAppConfig, KIE_API_KEY_URL, KIE_BILLING_URL } from '../utils/constants'
 import { getTeamMember } from '../utils/team'
 import { useIsAppVisible } from '../stores/appVisibilityStore'
 import type { TeamMember } from '../utils/team'
@@ -244,9 +245,16 @@ function CrewCard({
 // the intro reopens from the wordmark long after setup.
 function KeyBlock() {
   const savedKey = useSettingsStore((s) => s.kieApiKey)
+  const balance = useCreditsStore((s) => s.balance)
   const { draft, key, status, connected, connect, setDraft } = useKeyConnect()
   const [reveal, setReveal] = useState(false)
   const done = connected || savedKey.trim().length > 0
+  // A key that works on an empty account still can't generate anything, and a
+  // brand new kie.ai account starts at zero. The balance comes from the check
+  // that just ran, or, when the intro is reopened later, from the menu bar's
+  // own fetch (null until it lands, which shows nothing rather than guessing).
+  const credits = status.phase === 'connected' ? status.credits : balance
+  const noCredits = done && credits !== null && credits <= 0
 
   return (
     <div className="rounded-2xl border border-ink/10 bg-ink/[0.02] p-3.5">
@@ -264,14 +272,27 @@ function KeyBlock() {
             {done ? 'You’re Connected' : 'Connect Your kie.ai Key'}
           </p>
           <p className="mt-0.5 text-[11.5px] leading-snug text-ink-500">
-            {done
-              ? 'Top up anytime via Get Credits in the menu bar.'
-              : 'Every generation runs on your own key. Stored only in this browser, and never shared with anyone.'}
+            {noCredits
+              ? 'Your key works, but your account has no credits yet. Add some and the crew can start.'
+              : done
+                ? 'Top up anytime via Get Credits in the menu bar.'
+                : 'Every generation runs on your own key. Stored only in this browser, and never shared with anyone.'}
           </p>
         </div>
+        {noCredits && (
+          <a
+            href={KIE_BILLING_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.03] px-3.5 text-[12px] font-medium text-ink-200 transition-colors hover:border-ink/20 hover:bg-ink/[0.06]"
+          >
+            Add Credits
+            <ArrowUpRight className="h-3.5 w-3.5 text-ink-500" strokeWidth={2} />
+          </a>
+        )}
         {!done && (
           <a
-            href="https://kie.ai/api-key"
+            href={KIE_API_KEY_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="hidden h-8 shrink-0 items-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.03] px-3.5 text-[12px] font-medium text-ink-200 transition-colors hover:border-ink/20 hover:bg-ink/[0.06] sm:flex"

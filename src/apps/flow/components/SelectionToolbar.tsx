@@ -3,10 +3,12 @@
 // and lets it run past the canvas's edge, where the canvas clips it — a block
 // near the left edge lost its Open and its Run Field. It slides sideways just
 // enough to stay in, and sits under the selection when there's no room above.
+// On the left, "in" means clear of the palette's rail, which paints over it.
 
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { NodeToolbar, Position, useStore, type ReactFlowState } from '@xyflow/react'
 import { shallow } from 'zustand/shallow'
+import { PALETTE_INSET } from './Palette'
 
 const MARGIN = 8
 const OFFSET = 10
@@ -46,7 +48,7 @@ export default function SelectionToolbar({ ids, visible, children }: { ids: stri
     return () => observer.disconnect()
   }, [visible])
   const start = (left + right) / 2 - size.w / 2
-  const shift = start < MARGIN ? MARGIN - start : start + size.w > width - MARGIN ? width - MARGIN - start - size.w : 0
+  const shift = start < PALETTE_INSET ? PALETTE_INSET - start : start + size.w > width - MARGIN ? width - MARGIN - start - size.w : 0
   const below = top - OFFSET - size.h < MARGIN
   return (
     <NodeToolbar nodeId={ids} isVisible={visible} position={below ? Position.Bottom : Position.Top} offset={OFFSET}>

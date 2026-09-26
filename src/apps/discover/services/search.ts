@@ -508,6 +508,24 @@ export async function runSearch(
 }
 
 /**
+ * The filters a search on this platform SENDS to the vendor, as one comparable
+ * string — what `runSearch` above reads, and nothing else.
+ *
+ * Outliers stamps it on a grid when its first page lands, so the filter row
+ * can tell the member when what they've picked since only applies to the NEXT
+ * search: Posted, Country, Media, Status and Match change what the vendor
+ * returns, and moving one after a search changes nothing on screen until a
+ * credit is spent. Sort and Min Views are left out on purpose — both re-rank
+ * the grid already paid for, which is the whole reason they're a render step.
+ * Kept beside `runSearch` so a filter added there can't be forgotten here.
+ */
+export function serverFilterKey(platform: DiscoverPlatform, filters: DiscoverFilters): string {
+  if (platform === 'tiktok') return `posted:${filters.datePosted}`
+  if (platform === 'instagram') return `posted:${filters.instagramDatePosted}`
+  return `country:${filters.country}|media:${filters.mediaType}|active:${filters.activeOnly}|exact:${filters.exactPhrase}`
+}
+
+/**
  * Merges a new page into the existing list, dropping duplicates by id.
  * TikTok's own docs warn that keyword search can return the same video twice
  * across pages, and a duplicate card would look like a bug in the grid.

@@ -13,6 +13,7 @@ import { wiresOutOf } from '../engine/graph'
 import { downloadEditPacks } from '../run/editPack'
 import FlowPanel from './panels/FlowPanel'
 import PinButton from './PinButton'
+import { isFieldable } from './blockMeta'
 import TemplateUpdateBar from './TemplateUpdateBar'
 import MobilePaneTabs from '../../../components/MobilePaneTabs'
 import { paneClass } from '../../../components/paneClass'
@@ -27,6 +28,22 @@ interface AdCard {
   block: FlowBlock
   value?: FlowValue
   pack?: EditPack
+}
+
+// What the empty results pane asks for, which depends on the flow: "fill the
+// fields" to a flow with none sent the member looking for a form that isn't
+// there.
+function emptyHint(doc: FlowDoc, isDesktop: boolean): string {
+  const runnable = doc.blocks.some((b) => KINDS[b.kind]?.runnable && !b.suggested)
+  if (!runnable) {
+    return isDesktop
+      ? 'This flow has nothing that makes an ad yet. Open Canvas to add a block.'
+      : 'This flow has nothing that makes an ad yet. Add blocks to it on a computer.'
+  }
+  const fields = doc.blocks.some((b) => b.field && !b.suggested && isFieldable(b))
+  return fields
+    ? 'Fill the fields, then Run. Each finished ad lands here as its own card.'
+    : 'Press Run, and each finished ad lands here as its own card.'
 }
 
 // The ads are what the flow's last blocks made: the blocks nothing is wired
@@ -119,7 +136,7 @@ export default function RunView({
               <GridCanvas>
                 <div className="flex h-full flex-col items-center justify-center gap-2 px-6 py-24 text-center">
                   <p className="text-sm font-medium text-ink-200">{run?.status === 'running' ? 'Making your ads…' : 'Nothing made yet'}</p>
-                  <p className="max-w-xs text-xs text-ink-500">{run?.status === 'running' ? 'Each finished ad lands here as its own card, as soon as it’s made.' : 'Fill the fields, then Run. Each finished ad lands here as its own card.'}</p>
+                  <p className="max-w-xs text-xs text-ink-500">{run?.status === 'running' ? 'Each finished ad lands here as its own card, as soon as it’s made.' : emptyHint(doc, isDesktop)}</p>
                 </div>
               </GridCanvas>
             ) : (

@@ -33,6 +33,11 @@ interface AnchoredPopoverProps {
   // so a menu can technically fit while still covering the button you're about
   // to press.
   placement?: 'auto' | 'above'
+  // 'start' (default) lines the menu's left edge up with the anchor's; 'end'
+  // lines up the right edges — for a trigger at the END of a row (a ⋯ button),
+  // where a menu growing rightward from its left edge hangs over the controls
+  // beside it instead of under the button that opened it.
+  align?: 'start' | 'end'
   // Which overlay tier to paint on. See `TIERS` below — raise it only for a
   // caller that is itself mounted above the default one.
   tier?: keyof typeof TIERS
@@ -51,6 +56,7 @@ export default function AnchoredPopover({
   width,
   estimatedHeight = 80,
   placement = 'auto',
+  align = 'start',
   tier = 'default',
   className = '',
   children,
@@ -81,8 +87,8 @@ export default function AnchoredPopover({
       const below = placement !== 'above' && spaceBelow >= estimatedHeight + 8
       setPos({
         top: below ? rect.bottom + 4 : rect.top - estimatedHeight - 4,
-        // Keep the menu on screen when the anchor sits near the right edge.
-        left: Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)),
+        // Keep the menu on screen when the anchor sits near either edge.
+        left: Math.max(8, Math.min(align === 'end' ? rect.right - width : rect.left, window.innerWidth - width - 8)),
       })
     }
     measure()
@@ -92,7 +98,7 @@ export default function AnchoredPopover({
       window.removeEventListener('resize', measure)
       window.removeEventListener('scroll', measure, true)
     }
-  }, [open, anchorRef, estimatedHeight, width, placement, onClose])
+  }, [open, anchorRef, estimatedHeight, width, placement, align, onClose])
 
   if (!open || !pos) return null
 

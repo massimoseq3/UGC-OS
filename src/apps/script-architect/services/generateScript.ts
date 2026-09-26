@@ -3,24 +3,27 @@ import { REMIX_ANGLES, DEFAULT_VARIATION_COUNT, isVariationCount, DEFAULT_HOOK_C
 import { useSettingsStore, resolveScriptModel } from '../../../stores/settingsStore'
 import { kieChatCompletions, LONG_CHAT_TIMEOUT_MS, type ChatMessage } from '../../../utils/kie'
 import { getChatTarget, type ChatTarget } from '../../../utils/models'
+import { liveCalls, takeSlot, type ChatFn, type ScriptCalls } from './scriptCalls'
 import { exemplarBlock, familiesForWriteStyle } from './exemplarBlock'
 import { VOICE_PROFILE_SPEC } from '../../../utils/voiceProfile'
 import { STYLE_BRIEF_SPEC } from '../../../utils/visualStyle'
 
 // Scripts is one of the two apps where the MEMBER picks the writer (the other
 // is B-Roll) — this is prose a person reads, so the intelligence/cost trade is
-// theirs to make, on their own key. Resolved per call rather than at module
-// scope so a pick made mid-session applies to the next Generate.
-// Unpicked, it resolves to the app-wide default and costs what it always did.
+// theirs to make, on their own key. Resolved per run (`generateScript`'s
+// default `calls`) and per call here, never at module scope, so a pick made
+// mid-session applies to the next press. Unpicked, it resolves to the app-wide
+// default and costs what it always did.
 function scriptModel(): ChatTarget {
   return getChatTarget(resolveScriptModel('script-architect'))
 }
 
-// A batch fires N of these calls at once, so they contend with each other and a
-// take routinely runs past kieChatCompletions' 120s default — which aborts the
-// request client-side while kie.ai finishes the generation anyway and bills for
-// it. Shared with B-Roll's storyboard calls, which hit the same wall for the
-// same reason; the why lives on LONG_CHAT_TIMEOUT_MS.
+// The brief enhancer's ceiling. The takes themselves run through
+// `scriptCalls.ts`, whose streamed fallback uses the same one: a batch fires N
+// calls at once, so they contend with each other and a take routinely runs past
+// kieChatCompletions' 120s default — which aborts the request client-side while
+// kie.ai finishes the generation anyway and bills for it. The why lives on
+// LONG_CHAT_TIMEOUT_MS.
 const SCRIPT_TIMEOUT_MS = LONG_CHAT_TIMEOUT_MS
 
 // ── Shared writing DNA ──
@@ -517,7 +520,7 @@ OUTPUT FORMAT — CRITICAL:
 // or a brand invented out of thin air and put in a member's ad.
 const NO_PRODUCT_DETAILS = `NO PRODUCT DETAILS ARE ATTACHED: the brief above is all you have, so take the product, the audience and the specifics from it. Where the brief leaves something unsaid, keep it general instead of inventing it — never make up a brand name, a price, or a statistic. If the brief never names the product, call it what it is ("this thing", or its plain category) and never write a bracketed placeholder like [Product Name]; those get read out loud word for word by the voice model.`
 
-async function runHooks(input: GenerateScriptInput, apiKey: string, endpoint: ChatTarget): Promise<string> {
+async function runHooks(input: GenerateScriptInput, chat: ChatFn): Promise<string> {
   // Sanitised like the take count — it round-trips through a persisted draft
   // and a history row.
   const count = isHookCount(input.hookCount) ? input.hookCount : DEFAULT_HOOK_COUNT
@@ -569,7 +572,7 @@ async function runHooks(input: GenerateScriptInput, apiKey: string, endpoint: Ch
   ]
 
   // Hooks are spoken opening lines end to end.
-  const text = await kieChatCompletions(apiKey, endpoint, messages, { timeoutMs: SCRIPT_TIMEOUT_MS })
+  const text = await chat(messages)
   return nameSpokenTokens(text, spokenProductName(input))
 }
 
@@ -914,7 +917,7 @@ function formatEndTimestamp(seconds: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
-async function runWrite(input: GenerateScriptInput, take: number, takeCount: number, apiKey: string, endpoint: ChatTarget): Promise<string> {
+async function runWrite(input: GenerateScriptInput, take: number, takeCount: number, chat: ChatFn): Promise<string> {
   const style = input.writeStyle ?? 'pas'
   const format = input.writeFormat ?? 'script'
   const length = input.writeLength ?? 15
@@ -970,7 +973,7 @@ async function runWrite(input: GenerateScriptInput, take: number, takeCount: num
 
   // Scenes mix visual direction with speech (tokens are legitimate in the
   // former); a plain script is spoken end to end.
-  const text = await kieChatCompletions(apiKey, endpoint, messages, { timeoutMs: SCRIPT_TIMEOUT_MS })
+  const text = await chat(messages)
   return format === 'scenes'
     ? nameSpokenTokensInDialogue(text, spokenProductName(input))
     : nameSpokenTokens(text, spokenProductName(input))
@@ -1062,7 +1065,7 @@ function spokenProductName(input: GenerateScriptInput): string | undefined {
   return input.productContext?.productName?.trim() || input.productName?.trim()
 }
 
-async function runRemix(input: GenerateScriptInput, angle: RemixAngle, apiKey: string, endpoint: ChatTarget): Promise<string> {
+async function runRemix(input: GenerateScriptInput, angle: RemixAngle, chat: ChatFn): Promise<string> {
   // The panel requires a source in Remix, so this is filled in practice; the
   // unsourced branches below are the honest fallback for a payload or a history
   // row that arrives without one, and only there is this a from-scratch write.
@@ -1141,7 +1144,7 @@ async function runRemix(input: GenerateScriptInput, angle: RemixAngle, apiKey: s
   ]
 
   // Plain remix output is pure spoken words, so any token anywhere is spoken.
-  const text = await kieChatCompletions(apiKey, endpoint, messages, { timeoutMs: SCRIPT_TIMEOUT_MS })
+  const text = await chat(messages)
   return nameSpokenTokens(text, spokenProductName(input))
 }
 
@@ -1170,7 +1173,7 @@ OUTPUT: the paragraph and nothing else. No heading, no label, no quotation marks
 // Never blocks and never fails the run: the takes are what the member pressed
 // Generate for, and a missing voice card is a card that isn't there rather
 // than an error over three scripts they already paid for.
-async function runRemixVoiceProfile(input: GenerateScriptInput, apiKey: string, endpoint: ChatTarget): Promise<string | undefined> {
+async function runRemixVoiceProfile(input: GenerateScriptInput, chat: ChatFn): Promise<string | undefined> {
   const source = input.winningTranscript?.trim()
   if (!source) return undefined
 
@@ -1191,7 +1194,7 @@ async function runRemixVoiceProfile(input: GenerateScriptInput, apiKey: string, 
   ]
 
   try {
-    const text = await kieChatCompletions(apiKey, endpoint, messages, { timeoutMs: SCRIPT_TIMEOUT_MS })
+    const text = await chat(messages)
     // A model that ignores "no heading" leads with its own "VOICE PROFILE"
     // line, and the card renders the body only. Matched on the labelled pair
     // and nothing looser — a brief that legitimately opens "Voice of a woman in
@@ -1205,7 +1208,7 @@ async function runRemixVoiceProfile(input: GenerateScriptInput, apiKey: string, 
   }
 }
 
-async function runReverseEngineer(input: GenerateScriptInput, apiKey: string, endpoint: ChatTarget): Promise<string> {
+async function runReverseEngineer(input: GenerateScriptInput, chat: ChatFn): Promise<string> {
   // No target length means the 'default' pick: the rewrite inherits the source
   // blueprint's own scene count and timings, which is what a rewrite usually
   // wants. A picked length RE-CUTS it, so the two clauses below that promise to
@@ -1244,7 +1247,7 @@ async function runReverseEngineer(input: GenerateScriptInput, apiKey: string, en
     { role: 'user', content: [{ type: 'text', text: prompt }] },
   ]
 
-  const text = await kieChatCompletions(apiKey, endpoint, messages, { timeoutMs: SCRIPT_TIMEOUT_MS })
+  const text = await chat(messages)
   return nameSpokenTokensInDialogue(text, spokenProductName(input))
 }
 
@@ -1254,26 +1257,31 @@ function requestedCount(input: GenerateScriptInput): number {
   return isVariationCount(input.variationCount) ? input.variationCount : DEFAULT_VARIATION_COUNT
 }
 
-export async function generateScript(input: GenerateScriptInput): Promise<GeneratedScript> {
-  const apiKey = useSettingsStore.getState().getKieApiKey()
-  const endpoint = scriptModel()
-
+// `calls` is what stands behind every chat call of the run (services/
+// scriptCalls.ts): live calls on the member's picked writer by default, or the
+// polls of a run an earlier page load started. The plan below — which takes,
+// which angles, what each answer is cleaned up with — is the same either way,
+// which is what lets a resumed run land exactly as the live one would have.
+export async function generateScript(
+  input: GenerateScriptInput,
+  calls: ScriptCalls = liveCalls(resolveScriptModel('script-architect')),
+): Promise<GeneratedScript> {
   if (input.mode === 'reverse-engineer') {
-    const text = await runReverseEngineer(input, apiKey, endpoint)
+    const text = await runReverseEngineer(input, calls.chatFor(takeSlot(0)))
     return { variations: [text] }
   }
 
   if (input.mode === 'write') {
     // Hooks: one pack of tagged one-liners, not a batch of parallel takes.
     if (input.writeFormat === 'hooks') {
-      const text = await runHooks(input, apiKey, endpoint)
+      const text = await runHooks(input, calls.chatFor(takeSlot(0)))
       return { variations: [text] }
     }
     // Clamped to the take-angle list, so a count can never index past it and
     // repeat an angle.
     const takeCount = Math.min(requestedCount(input), WRITE_TAKES.length)
     const settled = await Promise.allSettled(
-      Array.from({ length: takeCount }, (_, take) => runWrite(input, take, takeCount, apiKey, endpoint)),
+      Array.from({ length: takeCount }, (_, take) => runWrite(input, take, takeCount, calls.chatFor(takeSlot(take)))),
     )
     return { variations: keepFulfilled(settled) }
   }
@@ -1282,8 +1290,8 @@ export async function generateScript(input: GenerateScriptInput): Promise<Genera
   // The voice brief rides alongside the takes rather than after them — it reads
   // the same source they do, so there's nothing to wait for, and a member
   // shouldn't sit through a second round trip for a paragraph they may not use.
-  const voicePromise = runRemixVoiceProfile(input, apiKey, endpoint)
-  const settled = await Promise.allSettled(requested.map((angle) => runRemix(input, angle, apiKey, endpoint)))
+  const voicePromise = runRemixVoiceProfile(input, calls.chatFor('voice'))
+  const settled = await Promise.allSettled(requested.map((angle, take) => runRemix(input, angle, calls.chatFor(takeSlot(take)))))
   // Awaited before keepFulfilled, which throws when every take failed — this
   // one resolves either way (it swallows its own failure), so settling it here
   // means it can't be left running behind a thrown run.

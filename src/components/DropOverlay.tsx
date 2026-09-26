@@ -22,7 +22,7 @@ import type { LucideIcon } from 'lucide-react'
 // the drag itself is handled by the surface underneath.
 //
 // The label NAMES AN ACTION, so it is Title Case from the verb onward — the
-// register every other action in the app uses ("Analyze Ad Creative", "Extract
+// register every other action in the app uses ("Analyze Ad", "Extract
 // Character DNA", "Save to Script Bank"). These four pills were the outliers
 // (Massimo's call, September 2026).
 //

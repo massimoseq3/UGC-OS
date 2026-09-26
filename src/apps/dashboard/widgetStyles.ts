@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react'
 
 // The macOS widget material, in one place. Everything on the Dashboard desktop
-// — stat widgets, the Academy link, the connect-key banner, the desktop icons —
+// — stat widgets, the Academy link, the Next Steps card, the desktop icons —
 // is cut from it, which is what makes the surface read as one system rather
 // than a page of cards.
 //

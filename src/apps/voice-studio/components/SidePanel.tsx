@@ -7,6 +7,9 @@ import VoicePickerView from './VoicePickerView'
 import PresetPickerView from './PresetPickerView'
 import PickerModal from './PickerModal'
 import GenerateBar from './GenerateBar'
+import ModelPicker from '../../../components/ModelPicker'
+import { useSettingsStore } from '../../../stores/settingsStore'
+import { getDefaultModel, getModel, TTS_MODEL_PRO, TTS_MODEL_SLOT } from '../../../utils/models'
 
 interface SidePanelProps {
   settings: VoiceSettings
@@ -45,6 +48,12 @@ export default function SidePanel({
 }: SidePanelProps) {
   const [voicePickerOpen, setVoicePickerOpen] = useState(false)
   const [presetPickerOpen, setPresetPickerOpen] = useState(false)
+  // The picked TTS model's name, for the More section's folded summary. Read
+  // through the selector and resolved the way resolveTtsModel() does, so the
+  // line names the model the next read will actually use.
+  const pickedModel = useSettingsStore((s) => s.getAppModel(TTS_MODEL_SLOT))
+  const modelId = pickedModel ?? getDefaultModel('voice-studio', 'tts')?.id ?? TTS_MODEL_PRO
+  const modelName = getModel(modelId)?.displayName
 
   const handleSelectVoice = (voice: { id: string; name: string; gender?: 'Female' | 'Male' }) => {
     onSettingsChange({
@@ -80,6 +89,12 @@ export default function SidePanel({
           onSettingsChange={onSettingsChange}
           onOpenVoicePicker={() => setVoicePickerOpen(true)}
           onOpenPresetPicker={() => setPresetPickerOpen(true)}
+          // The pick persists per browser under `voice-studio:tts`, the key
+          // `resolveTtsModel()` reads at generate time and GenerateBar prices
+          // against — so the row and the button can never name different
+          // models.
+          modelRow={<ModelPicker row appId="voice-studio" task="tts" />}
+          modelName={modelName}
         />
       </div>
 

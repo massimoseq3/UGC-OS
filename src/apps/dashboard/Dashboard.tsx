@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { Clock, PiggyBank, CalendarCheck, GraduationCap, ArrowUpRight } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
 import { useAppStore } from '../../stores/appStore'
-import { useSettingsStore } from '../../stores/settingsStore'
 import { useBankStore, backfillUsageLedger } from '../../stores/bankStore'
 import { isCloudEnabled } from '../../lib/supabase'
 import { creditsToUsd } from '../../utils/models'
@@ -12,7 +11,8 @@ import type { UsageKind } from '../../stores/types'
 import AppLogo from '../../components/AppLogo'
 import ActivityHeatmap from './ActivityHeatmap'
 import WhatsNewTile from './WhatsNewTile'
-import ConnectKeyCard from './ConnectKeyCard'
+import NextStepCard from './NextStepCard'
+import { useNextSteps } from './nextSteps'
 import Widget, { WidgetLabel, WidgetFigure, WidgetDelta } from './Widget'
 import { WIDGET_SHELL, WIDGET_INTERACTIVE, DISPLAY_FONT, riseStyle } from './widgetStyles'
 
@@ -73,8 +73,9 @@ function formatUsdAt(usd: number, digits: UsdDigits): string {
 export default function Dashboard() {
   const profile = useAuthStore((s) => s.profile)
   const usageDays = useBankStore((s) => s.usageDays)
-  const kieApiKey = useSettingsStore((s) => s.kieApiKey)
-  const needsKey = kieApiKey.trim().length === 0
+  // The first-run checklist above the wall, or null once all four are done.
+  const nextSteps = useNextSteps()
+  const showSteps = nextSteps !== null
 
   // Cloud mode backfills after hydrate (cloudSync); local-only has no hydrate,
   // so seed the ledger from local history the first time the Dashboard opens.
@@ -135,8 +136,8 @@ export default function Dashboard() {
   const savedUsd = roundUsd(metrics.usdSaved, usdDigits)
   const elsewhereUsd = metrics.usdSaved > 0 ? paidUsd + savedUsd : roundUsd(metrics.officialUsd, usdDigits)
 
-  // Widgets rise in reading order; the banner (when shown) takes slot 0.
-  const slot = (n: number) => (needsKey ? n + 1 : n)
+  // Widgets rise in reading order; the Next Steps card (when shown) takes slot 0.
+  const slot = (n: number) => (showSteps ? n + 1 : n)
 
   return (
     <div className="relative flex min-h-full flex-col">
@@ -164,12 +165,12 @@ export default function Dashboard() {
                 2026): it costs 62px, the menu bar already carries it, and at a
                 laptop's ~780px the wall's second row sat under the dock with
                 it in place. The cut-off is the height at which the rows would
-                hit their floor with the logo shown, which the connect banner's
-                78px moves up. `lg` only — below it the wall is a bento that
-                scrolls on to What's New by design. */}
+                hit their floor with the logo shown, which the Next Steps
+                card's 78px moves up. `lg` only — below it the wall is a bento
+                that scrolls on to What's New by design. */}
             <AppLogo
               className={`mb-1.5 h-12 w-12 md:h-14 md:w-14 ${
-                needsKey ? 'lg:[@media(max-height:880px)]:hidden' : 'lg:[@media(max-height:800px)]:hidden'
+                showSteps ? 'lg:[@media(max-height:880px)]:hidden' : 'lg:[@media(max-height:800px)]:hidden'
               }`}
             />
             {/* ONE face for the whole line — `DISPLAY_FONT`, italic,
@@ -205,9 +206,10 @@ export default function Dashboard() {
             </p>
           </header>
 
-          {/* Unconditional: the card hides its own banner once a key is saved,
-              and keeps the guide it opened mounted through the save. */}
-          <ConnectKeyCard />
+          {/* The key guide it opens is hosted by the menu bar, not the card,
+              so the card can vanish the moment its last step is done without
+              taking an open guide (and its "You're Connected" state) with it. */}
+          {nextSteps && <NextStepCard done={nextSteps} />}
 
           {/* The widget wall — two rows on a desktop, and deliberately no
               more: the whole desktop has to sit inside one screen with the

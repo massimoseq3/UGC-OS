@@ -352,12 +352,33 @@ export default function HistoryRail({ items, pending, activeId, onSelect, onDele
                           </p>
                         </div>
 
-                        {/* Hover-only action cluster: Show details / Download */}
+                        {/* Hover-only action cluster: Save Preset / Show
+                            details / Download. Save Preset is here on EVERY
+                            card (September 2026): it used to live only in the
+                            active card's footer, and clicking a card to make it
+                            active also hands the pane back and shuts the rail —
+                            so saving a read you liked took a click, a reopen and
+                            a second click. Keeping the delivery that landed is
+                            the reason to look back through this list. */}
                         <div
                           className={`flex items-center gap-0.5 transition-opacity ${
-                            isActive || isLoaded ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 touch:opacity-100'
+                            isActive || isLoaded || inSaveForm || isSaved ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 touch:opacity-100'
                           }`}
                         >
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setSaveFormId(item.id)
+                              setSaveLabel('')
+                            }}
+                            className={`flex h-7 w-7 items-center justify-center rounded-full transition-colors ${
+                              isSaved ? 'text-green-400 light:text-green-600' : 'text-ink-300 hover:bg-ink/5 hover:text-ink-100'
+                            }`}
+                            title={isSaved ? 'Saved as a voice preset' : 'Save as a voice preset'}
+                            aria-label="Save Preset"
+                          >
+                            {isSaved ? <Check className="h-3.5 w-3.5" /> : <Bookmark className="h-3.5 w-3.5" />}
+                          </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); onShowDetails(item) }}
                             className="flex h-7 w-7 items-center justify-center rounded-full text-ink-300 transition-colors hover:bg-ink/5 hover:text-ink-100"
@@ -415,8 +436,14 @@ export default function HistoryRail({ items, pending, activeId, onSelect, onDele
                         </div>
                       </div>
 
-                      {/* Save preset / Delete row — only when active */}
-                      {isActive && (
+                      {/* The card's footer — on the active card, or on any
+                          card whose Save Preset was just pressed, since the
+                          name field lands here. The labelled Save Preset that
+                          sat on its left went: the cluster's bookmark is on
+                          every card now, this one included, and two ways to
+                          one action on one card is one too many. Delete and the
+                          lineage menu stay the active card's. */}
+                      {(isActive || inSaveForm) && (
                         <div onClick={(e) => e.stopPropagation()} className="mt-3 flex items-center gap-1.5 border-t border-ink/5 pt-2.5">
                           {inSaveForm ? (
                             <div className="flex items-center gap-1.5">
@@ -442,20 +469,7 @@ export default function HistoryRail({ items, pending, activeId, onSelect, onDele
                                 Cancel
                               </button>
                             </div>
-                          ) : (
-                            <button
-                              onClick={() => setSaveFormId(item.id)}
-                              className={`flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium transition-colors ${
-                                isSaved ? 'text-green-400 light:text-green-600' : 'text-ink-300 hover:bg-ink/5 hover:text-ink-100'
-                              }`}
-                            >
-                              {isSaved ? (
-                                <><Check className="h-3 w-3" /> Saved</>
-                              ) : (
-                                <><Bookmark className="h-3 w-3" /> Save Preset</>
-                              )}
-                            </button>
-                          )}
+                          ) : null}
 
                           <div className="flex-1" />
 
@@ -463,8 +477,12 @@ export default function HistoryRail({ items, pending, activeId, onSelect, onDele
                               the one delete idiom every other history rail
                               uses. This was a bare trash icon that deleted on
                               the first click. */}
-                          <TileDeleteButton variant="chrome" size="sm" alwaysVisible onDelete={() => handleDelete(item.id)} />
-                          <FlowLineageMenu row={{ bank: 'voiceHistory', id: item.id }} />
+                          {isActive && (
+                            <>
+                              <TileDeleteButton variant="chrome" size="sm" alwaysVisible onDelete={() => handleDelete(item.id)} />
+                              <FlowLineageMenu row={{ bank: 'voiceHistory', id: item.id }} />
+                            </>
+                          )}
                         </div>
                       )}
                     </div>

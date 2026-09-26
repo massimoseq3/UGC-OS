@@ -1,7 +1,7 @@
 import { TABS, getTabFields, type VisualDNA } from '../types'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import { kieChatCompletions, fileToDataUri, type ChatMessage } from '../../../utils/kie'
-import { getChatTarget } from '../../../utils/models'
+import { CHAT_MODEL_DEFAULT, estimateCredits, getChatTarget } from '../../../utils/models'
 import { makeVisionImage } from '../utils/thumbnail'
 
 // kie's gateway buffers the SSE stream rather than forwarding it, so this bounds
@@ -23,9 +23,12 @@ const FIELD_CHIPS: Record<string, string[]> = Object.fromEntries(
 )
 const oneOf = (key: string): string => FIELD_CHIPS[key]?.join(' / ') ?? ''
 
-const SYSTEM_INSTRUCTION = `You are a forensic visual analyst for UGC ad production. You study a reference photo of a person and produce a description so precise that an artist who has never seen the photo could recreate a near-identical look from your words alone. Broad category labels are useless to you — every answer names specifics you can actually see: exact shades, lengths, shapes, materials, and placements.
-
-You must respond with ONLY valid JSON matching this exact structure (no markdown, no code fences):
+// The answer's shape and the per-field rules are SHARED with the Describe line
+// (`describeCharacter` below), which fills the same form from a sentence
+// instead of a photo. One copy is what makes a described character land in
+// exactly the fields, the vocabulary and the level of detail an extracted one
+// does — two hand-kept schemas drift the moment either gains a field.
+const DNA_JSON_SHAPE = `You must respond with ONLY valid JSON matching this exact structure (no markdown, no code fences):
 
 {
   "model": {
@@ -66,11 +69,9 @@ You must respond with ONLY valid JSON matching this exact structure (no markdown
     "cameraAngle": "<camera angle>",
     "cameraDevice": "<likely camera device>"
   }
-}
+}`
 
-Field rules — follow these exactly:
-
-MODEL
+const DNA_FIELD_RULES = `MODEL
 - gender: one of ${oneOf('gender')}.
 - age: a tight range of about 4-5 years ("24-28"), not a decade.
 - ethnicity: name the likely nationality or specific mix ("Colombian", "half Japanese, half British") — never just a broad bucket like "Asian" or "Caucasian" unless nothing more specific is plausible.
@@ -106,9 +107,19 @@ LOCATION
 CAMERA
 - shotType: closest of ${oneOf('shotType')}.
 - cameraAngle: closest of ${oneOf('cameraAngle')}.
-- cameraDevice: the likely device ("iPhone front camera", "mirrorless with a 50mm lens").
+- cameraDevice: the likely device ("iPhone front camera", "mirrorless with a 50mm lens").`
+
+const SYSTEM_INSTRUCTION = `You are a forensic visual analyst for UGC ad production. You study a reference photo of a person and produce a description so precise that an artist who has never seen the photo could recreate a near-identical look from your words alone. Broad category labels are useless to you — every answer names specifics you can actually see: exact shades, lengths, shapes, materials, and placements.
+
+${DNA_JSON_SHAPE}
+
+Field rules — follow these exactly:
+
+${DNA_FIELD_RULES}
 
 Describe only what is visible. When something is hidden (eyes behind sunglasses, hair under a cap), give your single best assessment without hedging words. Every field must have a value.`
+
+const EXTRACT_PROMPT = `Extract the complete visual DNA from this photo with forensic precision — exact shades, lengths, shapes, materials, and placements for the person's appearance, garments, pose, setting, and camera. Return as JSON.`
 
 export async function analyzeImage(imageFile: File): Promise<VisualDNA> {
   const apiKey = useSettingsStore.getState().getKieApiKey()
@@ -117,14 +128,12 @@ export async function analyzeImage(imageFile: File): Promise<VisualDNA> {
   // Re-encoded small enough to upload quickly; the original only if that fails.
   const dataUri = (await makeVisionImage(imageFile)) ?? (await fileToDataUri(imageFile))
 
-  const prompt = `Extract the complete visual DNA from this photo with forensic precision — exact shades, lengths, shapes, materials, and placements for the person's appearance, garments, pose, setting, and camera. Return as JSON.`
-
   const messages: ChatMessage[] = [
     { role: 'system', content: [{ type: 'text', text: SYSTEM_INSTRUCTION }] },
     {
       role: 'user',
       content: [
-        { type: 'text', text: prompt },
+        { type: 'text', text: EXTRACT_PROMPT },
         { type: 'image_url', image_url: { url: dataUri } },
       ],
     },
@@ -133,12 +142,15 @@ export async function analyzeImage(imageFile: File): Promise<VisualDNA> {
   const responseText = await kieChatCompletions(apiKey, endpoint, messages, {
     timeoutMs: ANALYZE_TIMEOUT_MS,
   })
+  return parseDnaJson(responseText, 'DNA extraction')
+}
 
+// The model is asked for pure JSON, but occasionally wraps it in a sentence
+// ("Here is the analysis: {...}"). Parse directly first, then fall back to the
+// outermost { … } slice so a bit of surrounding prose doesn't drop the whole
+// answer and leave the member's photo — or description — doing nothing.
+function parseDnaJson(responseText: string, what: string): VisualDNA {
   const cleaned = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-  // The model is asked for pure JSON, but occasionally wraps it in a sentence
-  // ("Here is the analysis: {...}"). Parse directly first, then fall back to the
-  // outermost { … } slice so a bit of surrounding prose doesn't drop the whole
-  // extraction and leave the user's reference photo doing nothing.
   try {
     return JSON.parse(cleaned) as VisualDNA
   } catch {
@@ -149,6 +161,75 @@ export async function analyzeImage(imageFile: File): Promise<VisualDNA> {
         return JSON.parse(cleaned.slice(first, last + 1)) as VisualDNA
       } catch { /* fall through to the descriptive throw below */ }
     }
-    throw new Error(`Bad JSON from DNA extraction model — body: ${cleaned.slice(0, 400)}`)
+    throw new Error(`Bad JSON from ${what} model — body: ${cleaned.slice(0, 400)}`)
   }
+}
+
+// ── Describe Them ──────────────────────────────────────────────────────────
+//
+// The same form, filled from one line of text ("28-year-old Latina skincare
+// girl, messy bun, bathroom mirror") rather than a photo. It answers in the DNA
+// shape above, under the DNA field rules, and goes through the same
+// `flattenDna` → `profileFromFlat` sanitiser, so a described character lands in
+// exactly the fields an extracted one does. What differs is the job: nothing
+// is visible, so everything the line leaves open is DECIDED — one concrete,
+// photographable answer per field — rather than read.
+const DESCRIBE_INSTRUCTION = `You are a casting director and stylist for UGC ad production. A creator gives you one short line about the person they want on camera. You turn it into a complete character — so specific that an artist could render a photo of this exact person from your words alone.
+
+Everything the line says is binding: never contradict it, never soften it. Everything it leaves open, you decide — one concrete answer per field that fits the rest of the character and the kind of ad the line implies. Never hedge, never offer alternatives, never leave a field generic because the line didn't mention it.
+
+${DNA_JSON_SHAPE}
+
+Field rules — follow these exactly. They were written for reading a photo; here there is no photo, so wherever a rule says to read, see or describe what is visible, decide it instead, at the level of detail a real photo of this person would show:
+
+${DNA_FIELD_RULES}
+
+Every field must have a value.`
+
+// Text in, text out — well inside kie's default window, unlike the vision read.
+const DESCRIBE_TIMEOUT_MS = 90_000
+
+export async function describeCharacter(description: string): Promise<VisualDNA> {
+  const apiKey = useSettingsStore.getState().getKieApiKey()
+  // The default chat role, exactly as the photo read uses — the two fill the
+  // same form, so they are written by the same model.
+  const endpoint = getChatTarget()
+
+  const messages: ChatMessage[] = [
+    { role: 'system', content: [{ type: 'text', text: DESCRIBE_INSTRUCTION }] },
+    {
+      role: 'user',
+      content: [{ type: 'text', text: `The creator's line:\n\n"""\n${description.trim()}\n"""\n\nBuild the complete character now. Return as JSON.` }],
+    },
+  ]
+
+  const responseText = await kieChatCompletions(apiKey, endpoint, messages, {
+    timeoutMs: DESCRIBE_TIMEOUT_MS,
+  })
+  return parseDnaJson(responseText, 'Describe')
+}
+
+// ── Cost ───────────────────────────────────────────────────────────────────
+//
+// What one photo read costs, shown where the member starts one. The call is
+// billed per 1k tokens, so there is no exact figure before the model answers:
+// this is deliberately rough and rounded UP, the same posture as B-Roll's
+// prompt-cost pill — it exists so a paid call is never started unpriced. The
+// three constants are measured, not derived; re-measure if the prompt or the
+// downscale changes materially.
+const CHARS_PER_TOKEN = 4
+// One downscaled photo (`makeVisionImage`) in the vision model's tiles.
+const IMAGE_TOKENS = 1100
+// ~30 fields of forensic JSON.
+const OUTPUT_TOKENS = 1000
+
+export function estimateDnaCredits(): number | null {
+  const inputTokens = Math.ceil((SYSTEM_INSTRUCTION.length + EXTRACT_PROMPT.length) / CHARS_PER_TOKEN) + IMAGE_TOKENS
+  return estimateCredits(CHAT_MODEL_DEFAULT, { tokenCount: inputTokens + OUTPUT_TOKENS })
+}
+
+// The Describe line's twin: the same answer, no photo in, a line of text.
+export function estimateDescribeCredits(): number | null {
+  const inputTokens = Math.ceil(DESCRIBE_INSTRUCTION.length / CHARS_PER_TOKEN) + 100
+  return estimateCredits(CHAT_MODEL_DEFAULT, { tokenCount: inputTokens + OUTPUT_TOKENS })
 }

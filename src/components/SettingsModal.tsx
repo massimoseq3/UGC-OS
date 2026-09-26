@@ -4,6 +4,7 @@ import { X, Eye, EyeOff, Key, Check, ExternalLink, AlertCircle, HardDrive, Trash
 import Spinner from './Spinner'
 import { useAppStore } from '../stores/appStore'
 import { useSettingsStore } from '../stores/settingsStore'
+import { useCreditsStore } from '../stores/creditsStore'
 import { useThemeStore, type ThemePref } from '../stores/themeStore'
 import { useGenerationInfoStore } from '../stores/generationInfoStore'
 import { useRecordingStore } from '../stores/recordingStore'
@@ -15,7 +16,6 @@ import useCloseOnEscape from '../hooks/useCloseOnEscape'
 import { useCloseOnAppSwitch } from '../hooks/useCloseOnAppSwitch'
 import { useAuthStore } from '../stores/authStore'
 import { isCloudEnabled } from '../lib/supabase'
-import { kieTestConnection } from '../utils/kie'
 import { scTestConnection } from '../utils/scrapecreators'
 import { seedMockData, removeMockData, hasMockData } from '../utils/mockData'
 import {
@@ -27,6 +27,8 @@ import {
   type OrphanAsset,
 } from '../utils/orphanCleanup'
 import { useBackdropClose } from '../hooks/useBackdropClose'
+import { useKeyConnect } from './useKeyConnect'
+import { KIE_API_KEY_URL, KIE_BILLING_URL } from '../utils/constants'
 
 interface SettingsModalProps {
   open: boolean
@@ -43,8 +45,8 @@ type StorageState =
   | { phase: 'error'; message: string }
 
 // One pane per concern, listed in the left rail. 'api' is the landing pane —
-// it's the setting the app can't run without, and the Dashboard's connect-key
-// card opens Settings expecting it.
+// it's the setting the app can't run without, and the key guide's Open
+// Settings link opens Settings expecting it.
 type SectionId = 'api' | 'account' | 'appearance' | 'experimental' | 'storage' | 'advanced' | 'about'
 
 const DEFAULT_SECTION: SectionId = 'api'
@@ -68,7 +70,11 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
 
   const [section, setSection] = useState<SectionId>(DEFAULT_SECTION)
 
-  const [kieDraft, setKieDraft] = useState(storedKieKey)
+  // The kie.ai key goes through the same verify-before-save transaction as the
+  // key guide: nothing is stored that can't generate. `kie.draft` is re-seeded
+  // with the saved key each time the modal opens (see the reset below).
+  const kie = useKeyConnect()
+  const refreshCredits = useCreditsStore((s) => s.refresh)
   const [showKie, setShowKie] = useState(false)
 
   // ScrapeCreators — the Outliers search key. Optional: everything else in the
@@ -86,10 +92,6 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [nameSaving, setNameSaving] = useState(false)
   const [nameSaved, setNameSaved] = useState(false)
   const [nameError, setNameError] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const [testing, setTesting] = useState(false)
-  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null)
 
   // Storage panel state
   const [usage, setUsage] = useState<{ totalBytes: number; assetCount: number } | null>(null)
@@ -142,15 +144,14 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
   useEffect(() => {
     if (open) {
       setSection(DEFAULT_SECTION)
-      setKieDraft(storedKieKey)
+      // Also clears the last check's result — a reopen starts on the key as
+      // saved, not on what happened to the draft last time.
+      kie.setDraft(storedKieKey)
       setNameDraft(storedName)
       setNameSaving(false)
       setNameSaved(false)
       setNameError(null)
-      setSaving(false)
-      setSaved(false)
       setShowKie(false)
-      setTestResult(null)
       // The ScrapeCreators field needs the same reset: this modal stays mounted
       // between opens, and the key can change outside it (Outliers' connect
       // card), so a stale draft read as empty with Save lit, and Save wrote the
@@ -188,20 +189,18 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
 
   if (!open) return null
 
-  async function handleSave() {
-    setSaving(true)
-    // Brief delay so the user sees the spinner — the underlying write to
-    // localStorage is synchronous and would otherwise look unresponsive.
-    await new Promise((resolve) => setTimeout(resolve, 350))
-    setKieApiKey(kieDraft.trim())
-    setSaving(false)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+  // Clearing needs no check — an empty key can't be a wrong one. The balance
+  // goes with it, or the menu bar would keep showing the old account's figure.
+  function handleRemoveKie() {
+    setKieApiKey('')
+    refreshCredits()
+    kie.setDraft('')
   }
 
   async function handleSaveSc() {
     setScSaving(true)
-    // Same cosmetic delay as the kie save — the write itself is synchronous.
+    // Brief delay so the user sees the spinner — the underlying write to
+    // localStorage is synchronous and would otherwise look unresponsive.
     await new Promise((resolve) => setTimeout(resolve, 350))
     setScrapeCreatorsKey(scDraft.trim())
     setScSaving(false)
@@ -239,19 +238,6 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
     } else {
       setNameError(result.error)
     }
-  }
-
-  async function handleTest() {
-    if (!kieDraft.trim()) return
-    setTesting(true)
-    setTestResult(null)
-    const result = await kieTestConnection(kieDraft.trim())
-    if (result.ok) {
-      setTestResult({ ok: true, message: `Connected · ${result.credits} credits remaining.` })
-    } else {
-      setTestResult({ ok: false, message: result.error })
-    }
-    setTesting(false)
   }
 
   async function handleScanOrphans() {
@@ -400,7 +386,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                   <div className="flex items-center justify-between">
                     <label className="text-[12px] font-medium text-ink-300">kie.ai API Key</label>
                     <a
-                      href="https://kie.ai/api-key"
+                      href={KIE_API_KEY_URL}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-1 text-[11px] text-ink-500 transition-colors hover:text-ink-300"
@@ -412,10 +398,12 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                   <div className="relative mt-2">
                     <input
                       type={showKie ? 'text' : 'password'}
-                      value={kieDraft}
-                      onChange={(e) => {
-                        setKieDraft(e.target.value)
-                        setTestResult(null)
+                      value={kie.draft}
+                      autoComplete="off"
+                      spellCheck={false}
+                      onChange={(e) => kie.setDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && kie.key && kie.key !== storedKieKey) void kie.connect()
                       }}
                       placeholder="sk-..."
                       className="w-full rounded-full border border-ink/10 bg-ink/5 px-4 py-2.5 pr-10 text-sm text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-ink/20 focus:bg-ink/[0.07]"
@@ -435,57 +423,78 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                     {hasKey ? 'Key saved.' : 'No key saved yet.'}
                   </div>
 
+                  {/* ONE button, because there is one transaction: a changed
+                      key is checked against the live balance and saved only if
+                      it works, an unchanged one is simply re-checked, and an
+                      emptied field removes the key. It was Test Connection
+                      beside a Save that wrote whatever was in the field, so a
+                      pasted typo was stored without ever being tried, and
+                      every app then failed on it far from here. */}
                   {(() => {
-                    const trimmedDraft = kieDraft.trim()
-                    // Allow clearing a saved key (empty draft) — the only no-op is
-                    // when the trimmed draft already matches what's stored.
-                    const hasPendingChange = trimmedDraft !== storedKieKey
-                    const disabled = saving || saved || !hasPendingChange
-                    const primary = hasPendingChange && !saving && !saved
+                    const checking = kie.status.phase === 'checking'
+                    const removing = !kie.key && hasKey
+                    const changed = kie.key !== storedKieKey
                     return (
-                      <div className="mt-3 flex gap-2">
-                        <button
-                          type="button"
-                          onClick={handleTest}
-                          disabled={!kieDraft.trim() || testing}
-                          className="flex shrink-0 items-center justify-center gap-2 rounded-full border border-ink/10 bg-ink/[0.03] px-4 py-2.5 text-[12px] font-medium text-ink-200 transition-colors hover:border-ink/20 hover:bg-ink/[0.06] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-ink/[0.03]"
-                        >
-                          {testing ? <Spinner className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5 text-ink-400" />}
-                          {testing ? 'Testing…' : 'Test Connection'}
-                        </button>
-                        <button
-                          onClick={handleSave}
-                          disabled={disabled}
-                          className={`flex flex-1 items-center justify-center gap-2 rounded-full py-2.5 text-[13px] font-medium transition-colors ${
-                            saved
-                              ? 'bg-emerald-500/15 text-emerald-300 light:text-emerald-700'
-                              : primary
-                                ? 'bg-ink text-ink-900 hover:bg-ink-200'
-                                : 'bg-ink/10 text-ink-400 disabled:cursor-not-allowed disabled:opacity-60'
-                          }`}
-                        >
-                          {saving ? (
-                            <>
-                              <Spinner className="h-4 w-4" />
-                              <span>Saving…</span>
-                            </>
-                          ) : saved ? (
-                            <>
-                              <Check className="h-4 w-4" />
-                              <span>Saved</span>
-                            </>
-                          ) : (
-                            'Save'
-                          )}
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => (removing ? handleRemoveKie() : void kie.connect())}
+                        disabled={checking || (!kie.key && !hasKey)}
+                        className={`mt-3 flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-[13px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                          removing
+                            ? 'border border-red-500/25 bg-red-500/10 text-red-300 hover:bg-red-500/15 light:text-red-700'
+                            : changed
+                              ? 'bg-ink text-ink-900 hover:bg-ink-200'
+                              : 'border border-ink/10 bg-ink/[0.03] text-ink-200 hover:border-ink/20 hover:bg-ink/[0.06]'
+                        }`}
+                      >
+                        {checking ? (
+                          <>
+                            <Spinner className="h-4 w-4" />
+                            <span>Checking…</span>
+                          </>
+                        ) : removing ? (
+                          'Remove Key'
+                        ) : changed ? (
+                          'Check & Save'
+                        ) : (
+                          <>
+                            <Check className="h-3.5 w-3.5 text-ink-400" />
+                            <span>Test Connection</span>
+                          </>
+                        )}
+                      </button>
                     )
                   })()}
 
-                  {testResult && (
-                    <Banner tone={testResult.ok ? 'ok' : 'error'} className="mt-3">
-                      {testResult.message}
+                  {/* Infra surface: kie.ai's own message on a failure — and,
+                      when it was a NEW key that failed, a plain statement of
+                      what that did to the one already saved (nothing). A
+                      re-check of the saved key gets the message alone: it's
+                      the saved key that's failing. */}
+                  {kie.status.phase === 'error' && (
+                    <Banner tone="error" className="mt-3">
+                      {kie.status.message}
+                      {kie.key !== storedKieKey && (hasKey ? ' Your saved key is unchanged.' : ' Nothing was saved.')}
                     </Banner>
+                  )}
+                  {kie.status.phase === 'connected' && (
+                    kie.noCredits ? (
+                      <Banner tone="error" className="mt-3">
+                        Key saved, but the account has 0 credits, so nothing can generate yet.{' '}
+                        <a
+                          href={KIE_BILLING_URL}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium underline underline-offset-2"
+                        >
+                          Add Credits
+                        </a>
+                      </Banner>
+                    ) : (
+                      <Banner tone="ok" className="mt-3">
+                        {`Connected · ${kie.status.credits.toLocaleString()} credits remaining.`}
+                      </Banner>
+                    )
                   )}
                 </Card>
 

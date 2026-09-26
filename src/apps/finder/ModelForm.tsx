@@ -1,7 +1,6 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useRef } from 'react'
 import type { ElementType } from 'react'
 import { X, ImagePlus, Download, Copy, Check } from 'lucide-react'
-import Spinner from '../../components/Spinner'
 import type { Model } from '../../stores/types'
 import { useAssetUrl } from '../../hooks/useAssetUrl'
 import { downloadImage } from '../../utils/downloadImage'
@@ -14,11 +13,22 @@ import SectionCard, { SectionLabel } from '../../components/SectionCard'
 // Influencers studio. We read it here so the bank detail view groups, labels and
 // ordering stay in lockstep with the create form instead of drifting apart.
 import { TABS, ASPECT_RATIO_KEY } from '../character-studio/types'
+import { useBankAutosave, type BankAutosaveOptions } from './useBankAutosave'
+import { AutosaveStatus, DoneButton, FormCloseButton, RequiredNote } from './BankFormChrome'
+
+// What this form writes. Notes and source ride along unchanged so a new row is
+// created whole; the Omni character id, the star and the preset link are left
+// alone by the merge, so a generation that stamps one while the form is open
+// isn't overwritten by the next autosave.
+export type ModelDraft = Pick<Model, 'name' | 'notes' | 'source' | 'characterImage' | 'sheetImage' | 'jsonProfile'>
 
 interface ModelFormProps {
   item?: Model | null
-  onSave: (data: Omit<Model, 'id' | 'createdAt'>) => Promise<void> | void
-  onCancel: () => void
+  // A draft handed back by the "wasn't saved" toast's Reopen (see Finder).
+  seed?: ModelDraft
+  onAutosave: BankAutosaveOptions<ModelDraft>['persist']
+  onAbandoned: (draft: ModelDraft, rowId: string | null, message: string) => void
+  onClose: () => void
 }
 
 const FIELD_LABELS: Record<string, string> = {
@@ -158,28 +168,68 @@ function setAtPath(profile: Record<string, unknown> | null, path: string[], valu
   return next
 }
 
-export default function ModelForm({ item, onSave, onCancel }: ModelFormProps) {
-  const [name, setName] = useState(item?.name ?? '')
-  const [characterImage, setCharacterImage] = useState(item?.characterImage ?? '')
-  const [sheetImage, setSheetImage] = useState(item?.sheetImage ?? '')
-  const [source] = useState<Model['source']>(item?.source ?? 'manual-import')
-  const [profile, setProfile] = useState<Record<string, unknown> | null>(item?.jsonProfile ?? null)
+export default function ModelForm({ item, seed, onAutosave, onAbandoned, onClose }: ModelFormProps) {
+  // Seeded once — see ScriptForm: the row changes under the form on every save.
+  const start = seed ?? item
+  const [name, setName] = useState(start?.name ?? '')
+  const [characterImage, setCharacterImage] = useState(start?.characterImage ?? '')
+  const [sheetImage, setSheetImage] = useState(start?.sheetImage ?? '')
+  const [profile, setProfile] = useState<Record<string, unknown> | null>(start?.jsonProfile ?? null)
   const [localPreview, setLocalPreview] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [attempted, setAttempted] = useState(false)
   const resolvedAssetUrl = useAssetUrl(characterImage)
   const resolvedSheetUrl = useAssetUrl(sheetImage)
   const displayImage = localPreview ?? resolvedAssetUrl
   const fileRef = useRef<HTMLInputElement>(null)
+  const nameRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    if (item) {
-      setName(item.name)
-      setCharacterImage(item.characterImage)
-      setSheetImage(item.sheetImage ?? '')
-      setProfile(item.jsonProfile ?? null)
-    }
-  }, [item])
+  // The spec's ROWS come from the profile as it was when the form opened, so
+  // the set of fields stays put while editing — built from the live profile,
+  // clearing a field would drop its row out from under the cursor (buildSpec
+  // skips empty values), and the row it writes to now changes on every save.
+  const [{ tabs, other }] = useState(() => buildSpec(item?.jsonProfile ?? null))
+
+  const missingName = !name.trim()
+  const autosave = useBankAutosave<ModelDraft>(
+    {
+      name,
+      notes: item?.notes ?? '',
+      source: item?.source ?? 'manual-import',
+      characterImage,
+      sheetImage,
+      jsonProfile: profile,
+    },
+    {
+      rowId: item?.id ?? null,
+      canSave: (d) => !!d.name.trim(),
+      persist: onAutosave,
+      // The portrait goes up once: take its asset ref back, where the form is
+      // still showing the picture that was sent.
+      onStored: (sent, stored) =>
+        setCharacterImage((current) => (current === sent.characterImage ? stored.characterImage : current)),
+      restored: !!seed,
+      onAbandon: (d, rowId) => onAbandoned(d, rowId, 'That character wasn’t saved: it still needs a name.'),
+    },
+  )
+
+  const unsaved = missingName && autosave.touched
+  const showMissing = autosave.touched || attempted
+
+  const revealMissing = () => {
+    setAttempted(true)
+    nameRef.current?.focus()
+  }
+
+  const close = () => {
+    void autosave.flush()
+    onClose()
+  }
+
+  const discard = () => {
+    autosave.discard()
+    onClose()
+  }
 
   const setProfileField = (path: string[], value: string) => {
     setProfile((prev) => setAtPath(prev, path, value))
@@ -213,30 +263,6 @@ export default function ModelForm({ item, onSave, onCancel }: ModelFormProps) {
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (saving) return
-    if (!name.trim()) return
-
-    setSaving(true)
-    try {
-      await onSave({
-        name,
-        notes: item?.notes ?? '',
-        characterImage,
-        sheetImage,
-        jsonProfile: profile,
-        source,
-      })
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const { tabs, other } = useMemo(
-    () => buildSpec((item?.jsonProfile as Record<string, unknown> | null) ?? null),
-    [item],
-  )
   const savedDate = item?.createdAt ? new Date(item.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : null
   const metaParts = [
     'Character',
@@ -244,16 +270,27 @@ export default function ModelForm({ item, onSave, onCancel }: ModelFormProps) {
   ].filter(Boolean)
 
   return (
-    <form onSubmit={handleSubmit} className="relative flex flex-col lg:min-h-0 lg:flex-1">
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        if (missingName) revealMissing()
+        else close()
+      }}
+      className="relative flex flex-col lg:min-h-0 lg:flex-1"
+    >
       {/* Close — floats top-right so it doesn't reserve an empty header band. */}
-      <button type="button" onClick={onCancel} className="absolute right-0 top-0 z-10 text-ink-500 hover:text-ink-300 transition-colors">
-        <X className="h-4 w-4" />
-      </button>
+      <FormCloseButton
+        onClose={close}
+        onDiscard={discard}
+        wouldDiscard={unsaved}
+        onBlocked={revealMissing}
+        className="absolute right-0 top-0 z-10"
+      />
 
-      {/* Two-column: portrait + name + save pinned on the left, spec scrolls on
+      {/* Two-column: portrait + name + Done pinned on the left, spec scrolls on
           the right. No whole-page scroll on desktop. */}
       <div className="flex flex-col gap-8 lg:min-h-0 lg:flex-1 lg:flex-row">
-        {/* Left — portrait, name, meta, save. Stays put while the right scrolls. */}
+        {/* Left — portrait, name, meta, Done. Stays put while the right scrolls. */}
         <div className="flex w-full shrink-0 flex-col gap-3 lg:w-[300px]">
           <div className="relative group/img">
             <button
@@ -285,25 +322,32 @@ export default function ModelForm({ item, onSave, onCancel }: ModelFormProps) {
 
           <div className="flex flex-col gap-1">
             <input
+              ref={nameRef}
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Unnamed character"
-              className="w-full bg-transparent text-3xl font-semibold tracking-tight text-ink-100 placeholder-ink-700 outline-none border-b border-transparent transition-colors focus:border-ink/15 py-1"
+              className={`w-full border-b bg-transparent py-1 text-3xl font-semibold tracking-tight text-ink-100 placeholder-ink-700 outline-none transition-colors ${
+                showMissing && missingName ? 'border-red-500/60 focus:border-red-400' : 'border-transparent focus:border-ink/15'
+              }`}
             />
-            <p className="text-xs text-ink-500">{metaParts.join(' · ')}</p>
+            <RequiredNote show={showMissing && missingName}>A character needs a name to be saved.</RequiredNote>
+            {/* The save state sits on the meta line rather than beside the
+                floating ✕, where it would land on the spec column's hairline. */}
+            <div className="flex items-center justify-between gap-3">
+              <p className="min-w-0 truncate text-xs text-ink-500">{metaParts.join(' · ')}</p>
+              <AutosaveStatus state={autosave.state} blocked={unsaved} />
+            </div>
           </div>
 
           {/* The transparent border is load-bearing: Copy Prompt below draws a
               real 1px one, and without a matching box here the two stacked
               buttons came out 40px and 42px. */}
-          <button
-            type="submit"
-            disabled={saving}
-            className="flex items-center justify-center gap-2 rounded-full border border-transparent bg-ink px-5 py-2.5 text-sm font-semibold text-ink-900 transition-colors hover:bg-ink-100 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {saving && <Spinner className="h-4 w-4" />}
-            {saving ? 'Saving…' : (item ? 'Save Changes' : 'Add Character')}
-          </button>
+          <DoneButton
+            blocker={missingName ? 'Name This Character' : null}
+            onDone={close}
+            onBlocked={revealMissing}
+            className="border border-transparent"
+          />
 
           {profile && (
             <button

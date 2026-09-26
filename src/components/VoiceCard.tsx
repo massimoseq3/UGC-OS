@@ -155,8 +155,8 @@ export default function VoiceCard({
       tone="neutral"
       size="sm"
       icon={AudioLines}
-      label="Voice"
-      title="Browse voice presets"
+      label="Voice Profile"
+      title="Browse Voice Profile presets"
       onClick={(e) => { e.stopPropagation(); setPresetsOpen(true) }}
     />
   )
@@ -169,7 +169,7 @@ export default function VoiceCard({
       maxHeight={MAX_FIELD_HEIGHT}
       rows={2}
       spellCheck={false}
-      aria-label="Voice"
+      aria-label="Voice Profile"
       placeholder={placeholder}
       // The card IS the box, in BOTH shells: a bordered, tinted field inside a
       // bordered, tinted card is two outlines around the same three lines.
@@ -216,7 +216,7 @@ export default function VoiceCard({
       // `focus-within`, not `focus` on the field: the card IS the box you type
       // in, so the whole rectangle is what brightens when the caret is in it.
       <SectionCard
-        title="Voice"
+        title="Voice Profile"
         icon={AudioLines}
         onHeaderClick={onToggleOpen}
         // Folded and empty there is no body, so no rule: a hairline over nothing
@@ -307,7 +307,7 @@ function VoicePresetPicker({
     <Modal
       open={open}
       onClose={onClose}
-      title="Choose a Voice"
+      title="Choose a Voice Profile"
       // The Characters preset picker's shape: the accent groups down the left,
       // the one list beside them, and gender as a filter across all three. It
       // was a single column of fifteen rows down a 672px panel, most of which
@@ -438,7 +438,7 @@ function PresetRow({
             onClick={onPick}
             className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-full bg-playground-500/15 px-4 py-2 text-[12px] font-medium tracking-tight text-playground-300 transition-colors hover:bg-playground-500/25"
           >
-            {inUse ? <><Check className="h-3.5 w-3.5" /> In Use</> : 'Use This Voice'}
+            {inUse ? <><Check className="h-3.5 w-3.5" /> In Use</> : 'Use This Voice Profile'}
           </button>
         </div>
       )}

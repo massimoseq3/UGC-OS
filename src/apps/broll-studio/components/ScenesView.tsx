@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Film, AlertCircle, Plus, Images, X, Palette, Download, Video as VideoIcon, Clapperboard, Coins, Pencil, Check, ChevronRight, ChevronDown, Sparkle } from 'lucide-react'
+import { Film, AlertCircle, Plus, Images, X, Palette, Download, Video as VideoIcon, Coins, Pencil, Check, ChevronRight, ChevronDown, Sparkle, AudioLines } from 'lucide-react'
 import GenerationProgress from '../../../components/GenerationProgress'
 import type { BrollResult, Scene, PromptVariation, CardState, ReferenceImage, BatchVideoSettings } from '../types'
 import type { Product, Model } from '../../../stores/types'
@@ -31,6 +31,7 @@ import useMeasuredHeight from '../../../hooks/useMeasuredHeight'
 import { MenuSurface, MenuItem, MENU_ROW_HEIGHT } from '../../../components/Menu'
 import { useBackdropClose } from '../../../hooks/useBackdropClose'
 import CharacterPill from './CharacterPill'
+import VoiceProfileModal from './VoiceProfileModal'
 import Dropdown from '../../../components/Dropdown'
 import { replayWait, useRecordingActive, useRecordingLoop, useRecordingLoopSince, useRecordingStore } from '../../../stores/recordingStore'
 import {
@@ -129,12 +130,6 @@ interface BatchRequest {
   // press hands over its whole row rather than one column.
   // (`scope` used to name the run under the title; that line is gone.)
   keys: string[]
-  // Video runs only: animate the stills that exist, and nothing else. A plain
-  // video batch also fires cards that have no image yet, rendering those from
-  // the prompt alone — which is a different, blinder spend. After a
-  // Generate-all-images pass, "animate what I can see" is the step the member
-  // actually wants.
-  stillsOnly?: boolean
 }
 
 // Card keys are `${scene.number}-${variationIndex}` — the index IS the column.
@@ -449,6 +444,8 @@ export default function ScenesView({
   // three pills competing on the bar. See the note where it renders.
   const generateAllRef = useRef<HTMLButtonElement>(null)
   const [generateAllOpen, setGenerateAllOpen] = useState(false)
+  // The storyboard-level Voice Profile panel (Dialogue sessions only).
+  const [voiceProfileOpen, setVoiceProfileOpen] = useState(false)
   // The confirm dialog portals to document.body, so it would outlive an app
   // switch — dismiss it when the user docks away.
   useCloseOnAppSwitch(!!batchConfirm, () => setBatchConfirm(null))
@@ -611,6 +608,9 @@ export default function ScenesView({
   // The same line scoping the image dialog has — the two are a pair.
   const [videoLines, setVideoLines] = useState<Set<number>>(() => new Set())
   const [includeExistingVideos, setIncludeExistingVideos] = useState(false)
+  // Whether a clip run that reached some stills ALSO renders the cards with no
+  // still from their prompt alone. See `clipsFromPrompts` below.
+  const [includePromptOnly, setIncludePromptOnly] = useState(false)
   const [videoModelOpen, setVideoModelOpen] = useState(false)
   const [batchVideoOverride, setBatchVideoOverride] = useState<BatchVideoSettings | null>(null)
   const [batchVideoResolution, setBatchVideoResolution] = useState<string | undefined>(undefined)
@@ -674,9 +674,24 @@ export default function ScenesView({
         { spoken: spokenByKey[key] ?? false },
       )
   const hasVideo = (key: string) => (batchCard(key)?.videos.length ?? 0) > 0
-  // What makes a card eligible for this run: a still to animate, or (for a
-  // plain video batch) just a prompt to render from.
-  const videoEligible = videoConfirm?.stillsOnly ? hasImage : promptReady
+  // ONE clip pass, "Generate Clips" (September 2026). It was two — Animate All
+  // Stills (only the cards holding a still) and Generate All Videos (every
+  // card: animate the still where there is one, render from the prompt where
+  // there isn't) — and on any card holding a still the two did exactly the
+  // same thing, so the menu offered one job under two verbs and the scene row
+  // offered only one of them. The difference between them survives as the one
+  // decision it really was: whether cards with NO still render blind from their
+  // prompt. Where the press reached any still, that is a tick, off by default —
+  // nothing renders from a prompt the member hasn't seen a frame of unless they
+  // ask, the same rule that holds back re-billing a clip. Where it reached none,
+  // rendering from the prompts IS the run, so there is nothing to ask. Decided
+  // on the press's whole reach rather than the ticked scope, so the dialog
+  // doesn't change shape as chips are toggled.
+  const clipReachHasStill = !!videoConfirm && videoConfirm.keys.some(hasImage)
+  const clipsFromPrompts = !clipReachHasStill || includePromptOnly
+  // What makes a card eligible for this run: a still to animate, or — when the
+  // run renders from prompts — just a prompt to render from.
+  const videoEligible = (key: string) => hasImage(key) || (clipsFromPrompts && promptReady(key))
   const videoColumnNumbers = videoConfirm ? columnsIn(videoConfirm.keys) : []
   const videoSceneNumbers = videoConfirm ? scenesIn(videoConfirm.keys) : []
   const videoScoped = videoConfirm
@@ -687,6 +702,14 @@ export default function ScenesView({
   const videoFresh = videoScoped.filter((k) => !hasVideo(k))
   const videoDone = videoScoped.filter(hasVideo)
   const videoTargets = includeExistingVideos ? [...videoFresh, ...videoDone] : videoFresh
+  // The cards the prompt tick would add, counted the way the run would count
+  // them (in scope, and not already holding a clip unless that tick is on too).
+  const promptOnlyAddable = clipReachHasStill && videoConfirm
+    ? videoConfirm.keys.filter(
+        (k) => !hasImage(k) && promptReady(k) && videoColumns.has(columnOf(k)) && videoLines.has(sceneOf(k))
+          && (includeExistingVideos || !hasVideo(k)),
+      ).length
+    : 0
   // How many of this run animate a still they already have. The rest render
   // from the prompt alone. It used to be printed as a qualifier under the title
   // ("from the card stills"); that line is gone, and this survives because it
@@ -729,25 +752,22 @@ export default function ScenesView({
     !videoModelModes.includes('image-to-video') &&
     !videoModelModes.includes('reference-to-video')
 
-  const requestVideoBatch = (keys: string[], stillsOnly = false) => {
-    const eligible = stillsOnly ? hasImage : promptReady
-    const targets = keys.filter(eligible)
+  const requestVideoBatch = (keys: string[]) => {
+    const targets = keys.filter((k) => hasImage(k) || promptReady(k))
     if (targets.length === 0) {
-      useAppStore.getState().addToast(
-        stillsOnly ? 'No stills to animate yet.' : 'No prompts ready to generate.',
-        'error',
-      )
+      useAppStore.getState().addToast('No prompts ready to generate.', 'error')
       return
     }
     // Cards that already have a clip are held back by default — a video is the
     // expensive half of this app, so re-billing one takes an explicit tick.
     setIncludeExistingVideos(false)
+    setIncludePromptOnly(false)
     // Cards that already hold a clip are still held back, so an all-options run
     // is "every option that has no video yet", not a re-bill of the
     // storyboard.
     setVideoColumns(new Set(columnsIn(keys)))
     setVideoLines(new Set(scenesIn(keys)))
-    setVideoConfirm({ keys, stillsOnly })
+    setVideoConfirm({ keys })
   }
 
   const confirmVideoBatch = () => {
@@ -954,7 +974,7 @@ export default function ScenesView({
         <GenerationProgress
           isActive
           color="bg-broll-500"
-          messages={['Analyzing script scenes...', 'Sending request...', 'Generating B-Roll prompts...', 'Finalizing scene breakdowns...']}
+          messages={['Reading the script...', 'Sending request...', 'Writing the storyboard...', 'Finalizing the scenes...']}
           className="mb-6"
           showHelper={false}
         />
@@ -999,9 +1019,20 @@ export default function ScenesView({
   }
 
   const allKeys = result.scenes.flatMap((s) => s.variations.map((_, i) => `${s.number}-${i}`))
-  // Cards holding a still — what the Animate action works on, and the reason
-  // its button only appears once there's something to animate.
-  const animatableKeys = allKeys.filter(hasImage)
+  // A storyboard that has just landed: not one still or clip on any card, and
+  // nothing rendering. That is the moment Generate All is the next thing to
+  // press, so the bar says so (see where it renders). Read through `batchCard`
+  // — Recording Mode's hide applies, the Show filter doesn't — so the Prompts
+  // view of a storyboard full of stills doesn't claim to be untouched, and a
+  // take hidden for a recording does.
+  const storyboardUntouched = allKeys.every((k) => {
+    const c = batchCard(k)
+    return !c || (c.images.length === 0 && c.videos.length === 0 && c.inFlightImages.length === 0 && c.inFlightVideos.length === 0)
+  })
+  // Whether this storyboard's cards SPEAK — a Dialogue session — which is
+  // what puts the Voice Profile pill on the bar.
+  const isDialogueStoryboard = dialogueKeys.length > 0
+  const voiceProfileFilled = !!result.voiceProfile?.trim()
 
   // Every rendered clip across every scene, for the download picker — parity
   // with Continuous. This is the mode that produces the most clips and where
@@ -1169,6 +1200,31 @@ export default function ScenesView({
               nameClassName="hidden max-w-[160px] truncate @[740px]/bar:block"
               className="min-w-0"
             />
+            {/* The Voice Profile — how the character sounds in EVERY dialogue
+                clip — beside the look and the character, the other two things
+                this whole storyboard is set to (September 2026). It lived only
+                inside one card's Video / Animate tab. Dialogue sessions only: a
+                silent storyboard has nobody speaking. Dashed while empty, the
+                house "asking to be filled" surface; its word gives way at the
+                same step the two names do, leaving the glyph. Neutral, not
+                tinted — it has no bank of its own to borrow a colour from. */}
+            {isDialogueStoryboard && onUpdateVoiceProfile && (
+              <button
+                type="button"
+                onClick={() => setVoiceProfileOpen(true)}
+                title={voiceProfileFilled ? 'Edit how the character sounds in every dialogue clip' : 'Set how the character sounds in every dialogue clip'}
+                aria-label="Voice Profile"
+                className={`inline-flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-[13px] font-semibold tracking-tight transition-colors ${
+                  voiceProfileFilled
+                    ? 'border-ink/15 bg-ink/[0.04] text-ink-200 hover:border-ink/25 hover:bg-ink/[0.08]'
+                    : 'border-dashed border-ink/15 text-ink-400 hover:border-ink/25 hover:bg-ink/[0.04] hover:text-ink-200'
+                }`}
+              >
+                <AudioLines className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+                <span className="hidden whitespace-nowrap @[740px]/bar:block">Voice Profile</span>
+                <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-60" strokeWidth={2.5} />
+              </button>
+            )}
             {/* The split — what the storyboard IS on the left, what you can do to
                 it pushed to the far edge — holds only while the row is ONE line.
                 Below 600 it packs in behind the pills instead: the row is about
@@ -1238,14 +1294,29 @@ export default function ScenesView({
                 ref={generateAllRef}
                 type="button"
                 onClick={() => setGenerateAllOpen((v) => !v)}
-                title="Run a generation pass across every scene"
+                title={storyboardUntouched
+                  ? 'Next step: generate the images or clips for every scene'
+                  : 'Run a generation pass across every scene'}
                 // Playground's own header-pill colours (Massimo's call, September
                 // 2026): a neutral outline that lights up on hover, the same as the
                 // Download Clips beside it. Both were tinted — this one broll, that
                 // one emerald — which put two saturated pills on a bar whose actual
-                // subject is the storyboard underneath, and made the row read as
-                // three competing accents once the style pill is counted.
-                className="flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-ink/10 px-3.5 text-[13px] font-medium text-ink-400 transition-colors hover:bg-ink/5 hover:text-ink-200"
+                // subject is the storyboard underneath.
+                //
+                // EXCEPT on a storyboard that has just landed (September 2026):
+                // there it is the one thing to press next, and as a neutral
+                // outline at the far end of the bar it read as a utility while
+                // the left panel's solid Generate Storyboard — which writes a NEW
+                // storyboard — stayed the loudest button on screen. So until the
+                // first still or clip exists it wears the solid accent, the shape
+                // of a primary CTA, and it drops back to the neutral pill the
+                // moment anything is generating. A state, not an animation:
+                // nothing pulses on an idle page.
+                className={`flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-[13px] transition-colors ${
+                  storyboardUntouched
+                    ? 'border-white/15 bg-broll-500 font-semibold text-white hover:brightness-110'
+                    : 'border-ink/10 font-medium text-ink-400 hover:bg-ink/5 hover:text-ink-200'
+                }`}
               >
                 <Sparkle className="h-3.5 w-3.5 shrink-0" />
                 <BandLabel full="Generate All" short="Generate" />
@@ -1259,11 +1330,11 @@ export default function ScenesView({
                 open={generateAllOpen}
                 onClose={() => setGenerateAllOpen(false)}
                 width={222}
-                estimatedHeight={(animatableKeys.length > 0 ? 3 : 2) * MENU_ROW_HEIGHT + 2}
+                estimatedHeight={2 * MENU_ROW_HEIGHT + 2}
               >
                 <MenuSurface className="whitespace-nowrap">
-                  {/* In the order the work happens: stills, then the animate pass
-                      over whatever has one, then clips from the prompts. */}
+                  {/* In the order the work happens: stills, then clips. One
+                      clip pass, not two — see `clipsFromPrompts`. */}
                   <MenuItem
                     icon={Images}
                     iconClassName="text-broll-300"
@@ -1274,20 +1345,6 @@ export default function ScenesView({
                   >
                     Generate All Images
                   </MenuItem>
-                  {/* Only once there's a still to animate — nothing should render
-                      from a prompt the member hasn't seen a frame of. */}
-                  {animatableKeys.length > 0 && (
-                    <MenuItem
-                      icon={Clapperboard}
-                      iconClassName="text-broll-300"
-                      onClick={() => {
-                        setGenerateAllOpen(false)
-                        requestVideoBatch(allKeys, true)
-                      }}
-                    >
-                      Animate All Stills
-                    </MenuItem>
-                  )}
                   <MenuItem
                     icon={VideoIcon}
                     iconClassName="text-broll-300"
@@ -1296,7 +1353,7 @@ export default function ScenesView({
                       requestVideoBatch(allKeys)
                     }}
                   >
-                    Generate All Videos
+                    Generate All Clips
                   </MenuItem>
                 </MenuSurface>
               </AnchoredPopover>
@@ -1604,9 +1661,7 @@ export default function ScenesView({
                 </>
               )}
                 <h3 className="min-w-0 truncate text-sm font-medium text-ink-100">
-                  {videoTargets.length === 0
-                    ? (videoConfirm.stillsOnly ? 'Nothing to Animate' : 'Nothing to Generate')
-                    : (videoConfirm.stillsOnly ? 'Animate Stills' : 'Generate Videos')}
+                  {videoTargets.length === 0 ? 'Nothing to Generate' : 'Generate Clips'}
                 </h3>
               </div>
               {/* The way out is the CORNER X, not a Cancel beside Generate
@@ -1641,6 +1696,22 @@ export default function ScenesView({
               onChange={setVideoLines}
             />
 
+            {/* The blinder half of the old "Generate All Videos": cards with no
+                still, rendered from the prompt alone. Offered only when the
+                press reached some stills — with none, it is the whole run. */}
+            {promptOnlyAddable > 0 && (
+              <label className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-ink/10 bg-ink/[0.03] px-3 py-2.5">
+                <input
+                  type="checkbox"
+                  checked={includePromptOnly}
+                  onChange={(e) => setIncludePromptOnly(e.target.checked)}
+                  className="h-3.5 w-3.5 shrink-0 accent-broll-500"
+                />
+                <span className="text-xs text-ink-300">
+                  Also render the {promptOnlyAddable} card{promptOnlyAddable === 1 ? '' : 's'} with no still from {promptOnlyAddable === 1 ? 'its' : 'their'} prompt
+                </span>
+              </label>
+            )}
             {videoDone.length > 0 && (
               <label className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-ink/10 bg-ink/[0.03] px-3 py-2.5">
                 <input
@@ -1752,14 +1823,10 @@ export default function ScenesView({
                 disabled={videoTargets.length === 0 || videoModelCantAnimate}
                 className="flex h-[46px] w-full items-center justify-center gap-2 rounded-full border border-white/15 bg-broll-500 px-4 text-[13px] font-bold tracking-tight text-white transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:brightness-100"
               >
-                {videoConfirm.stillsOnly
-                  ? <Clapperboard className="h-3.5 w-3.5" />
-                  : <VideoIcon className="h-3.5 w-3.5" />}
+                <VideoIcon className="h-3.5 w-3.5" />
                 {videoTargets.length === 0
-                  ? (videoConfirm.stillsOnly ? 'Animate' : 'Generate')
-                  : videoConfirm.stillsOnly
-                    ? `Animate ${videoTargets.length} Still${videoTargets.length === 1 ? '' : 's'}`
-                    : `Generate ${videoTargets.length} Video${videoTargets.length === 1 ? '' : 's'}`}
+                  ? 'Generate'
+                  : `Generate ${videoTargets.length} Clip${videoTargets.length === 1 ? '' : 's'}`}
                 {/* The price sits on the button that spends it. */}
                 <span className="flex items-center gap-1 rounded-full bg-black/25 px-2 py-0.5 text-[11px] font-semibold tabular-nums">
                   <Coins className="h-3 w-3" strokeWidth={2} />
@@ -1770,6 +1837,15 @@ export default function ScenesView({
           </div>
         </div>,
         document.body,
+      )}
+
+      {onUpdateVoiceProfile && (
+        <VoiceProfileModal
+          open={voiceProfileOpen}
+          value={result.voiceProfile ?? ''}
+          onClose={() => setVoiceProfileOpen(false)}
+          onCommit={onUpdateVoiceProfile}
+        />
       )}
 
       {downloadOpen && (
@@ -2347,14 +2423,16 @@ function SceneSection({
             <Images className="h-3.5 w-3.5" />
             Generate Images
           </button>
+          {/* "Clips", the storyboard bar's word: one clip pass that animates a
+              card's still where it has one — see `clipsFromPrompts`. */}
           <button
             type="button"
             onClick={onGenerateSceneVideos}
-            title="Generate a clip for every variation in this scene"
+            title="Generate a clip for every variation in this scene, animating its still where it has one"
             className="flex shrink-0 items-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.03] px-3 py-1.5 text-[11px] font-medium text-ink-300 transition-colors hover:border-ink/20 hover:bg-ink/[0.06] hover:text-ink-100"
           >
             <VideoIcon className="h-3.5 w-3.5" />
-            Generate Videos
+            Generate Clips
           </button>
         </div>
       </div>

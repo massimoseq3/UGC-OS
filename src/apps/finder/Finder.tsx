@@ -5,21 +5,20 @@ import { useBankStore } from '../../stores/bankStore'
 import { useIsAppVisible } from '../../stores/appVisibilityStore'
 import type { BankType } from '../../utils/constants'
 import { BANK_CONFIG } from '../../utils/constants'
-import type { Product, Model, Script, VoicePreset, BRoll, StylePreset } from '../../stores/types'
-import { saveFromDataUrl } from '../../utils/assetStore'
+import type { Product } from '../../stores/types'
 import BankList, { SortControl } from './BankList'
 import BankSidebar from './BankSidebar'
 import SegmentedToggle from '../../components/SegmentedToggle'
 import { useBankSort } from './bankSort'
 import ProductForm from './ProductForm'
-import ModelForm from './ModelForm'
-import ScriptForm from './ScriptForm'
-import VoiceForm from './VoiceForm'
-import BRollForm from './BRollForm'
-import StyleForm from './StyleForm'
+import ModelForm, { type ModelDraft } from './ModelForm'
+import ScriptForm, { type ScriptDraft } from './ScriptForm'
+import VoiceForm, { type VoiceDraft } from './VoiceForm'
+import BRollForm, { type BRollDraft } from './BRollForm'
+import StyleForm, { type StyleDraft } from './StyleForm'
 import { partitionImageFiles } from './services/imageValidation'
 import { saveProductDraft, adoptDetachedExtraction } from './services/saveProductDraft'
-import { persistProductImages, newImageMemo, type ImageMemo } from './services/productImages'
+import { persistProductImages, persistImage, newImageMemo, type ImageMemo } from './services/productImages'
 import type { ProductExtraction } from './services/extractProductInfo'
 
 const BANK_TYPES: BankType[] = ['products', 'models', 'scripts', 'voices', 'brolls', 'styles', 'swipes']
@@ -31,8 +30,10 @@ const BANK_TYPES: BankType[] = ['products', 'models', 'scripts', 'voices', 'brol
 // untouched — nothing here deletes a swipe.
 const BANK_OWNER_APP: Partial<Record<BankType, string>> = { swipes: 'discover' }
 
-// Everything ONE open form accumulates: the row its autosaves write into, and
-// the photos it has already persisted.
+// Everything ONE open product form accumulates: the row its autosaves write
+// into, and the photos it has already persisted. (The other five forms keep
+// both in their own saver — see useBankAutosave — which is the shape this
+// would take if the product form were written today.)
 //
 // It's a single object swapped out wholesale rather than two refs cleared in
 // place, because an autosave that is already in flight has to keep writing into
@@ -141,6 +142,13 @@ export default function Finder() {
   // the open form and reset the fields out from under whoever is typing.
   const scratchRef = useRef<FormScratch>(newFormScratch())
 
+  // A draft handed back by a "wasn't saved" toast's Reopen: the form it came
+  // from closed by a bank switch, Add or an inter-app jump while a required
+  // field was still blocking its save (`useBankAutosave`'s `onAbandon`). It
+  // seeds the ONE form opened by that Reopen and is dropped by anything else
+  // that opens or closes a form.
+  const [restored, setRestored] = useState<{ bank: BankType; id: string | null; draft: unknown } | null>(null)
+
   // Everything that WRITES this ref stays above the memoized callbacks that
   // read it — the compiler won't allow a value captured by a hook to be
   // modified afterwards, and none of these need memoizing anyway.
@@ -160,6 +168,7 @@ export default function Finder() {
   const handleAdd = () => {
     setEditingId(null)
     forgetFormScratch()
+    setRestored(null)
     setFormSeed((n) => n + 1)
     setShowForm(true)
   }
@@ -167,6 +176,7 @@ export default function Finder() {
   const handleEdit = (id: string) => {
     setEditingId(id)
     forgetFormScratch()
+    setRestored(null)
     setShowForm(true)
   }
 
@@ -200,6 +210,7 @@ export default function Finder() {
   const closeForm = useCallback(() => {
     setEditingId(null)
     forgetFormScratch()
+    setRestored(null)
     setShowForm(false)
   }, [])
 
@@ -311,43 +322,60 @@ export default function Finder() {
     )
   }, [addToast, trackInFlight])
 
-  const handleSaveModel = useCallback(async (data: Omit<Model, 'id' | 'createdAt'>) => {
-    const saved = { ...data }
-    if (saved.characterImage && saved.characterImage.startsWith('data:')) {
-      saved.characterImage = await saveFromDataUrl(saved.characterImage)
-    }
-    if (editingId) await updateModel(editingId, saved)
-    else await addModel(saved)
-    closeForm()
-  }, [editingId, updateModel, addModel, closeForm])
-
-  const handleSaveScript = async (data: Omit<Script, 'id' | 'createdAt'>) => {
-    if (editingId) await updateScript(editingId, data)
-    else await addScript(data)
-    closeForm()
+  // The other five forms autosave through `useBankAutosave`, which keeps the
+  // row id and the photo memo in the FORM, so these only write: into the row
+  // the form names, or a new one when it names none (its required fields have
+  // just been filled). Silent, like the product autosave — a toast per pause in
+  // typing is noise, and the form's own "Saved" is where the member looks.
+  const autosaveModel = async (draft: ModelDraft, id: string | null, images: ImageMemo) => {
+    const stored = { ...draft, characterImage: await persistImage(draft.characterImage, images) }
+    if (id) await updateModel(id, stored, { silent: true })
+    return { id: id ?? await addModel(stored, { silent: true }), stored }
   }
 
-  const handleSaveVoice = async (data: Omit<VoicePreset, 'id' | 'createdAt'>) => {
-    if (editingId) await updateVoice(editingId, data)
-    else await addVoice(data)
-    closeForm()
+  const autosaveScript = async (draft: ScriptDraft, id: string | null) => {
+    if (id) await updateScript(id, draft, { silent: true })
+    return { id: id ?? await addScript(draft, { silent: true }), stored: draft }
   }
 
-  const handleSaveBRoll = useCallback(async (data: Omit<BRoll, 'id' | 'createdAt'>) => {
-    const saved = { ...data }
-    if (saved.imageUrl && saved.imageUrl.startsWith('data:')) {
-      saved.imageUrl = await saveFromDataUrl(saved.imageUrl)
-    }
-    if (editingId) await updateBRoll(editingId, saved)
-    else await addBRoll(saved)
-    closeForm()
-  }, [editingId, updateBRoll, addBRoll, closeForm])
+  const autosaveVoice = async (draft: VoiceDraft, id: string | null) => {
+    if (id) await updateVoice(id, draft, { silent: true })
+    return { id: id ?? await addVoice(draft, { silent: true }), stored: draft }
+  }
 
-  const handleSaveStyle = useCallback(async (data: Omit<StylePreset, 'id' | 'createdAt'>) => {
-    if (editingId) await updateStyle(editingId, data)
-    else await addStyle(data)
-    closeForm()
-  }, [editingId, updateStyle, addStyle, closeForm])
+  const autosaveBRoll = async (draft: BRollDraft, id: string | null, images: ImageMemo) => {
+    const stored = { ...draft, imageUrl: await persistImage(draft.imageUrl, images) }
+    if (id) await updateBRoll(id, stored, { silent: true })
+    return { id: id ?? await addBRoll(stored, { silent: true }), stored }
+  }
+
+  const autosaveStyle = async (draft: StyleDraft, id: string | null) => {
+    if (id) await updateStyle(id, draft, { silent: true })
+    return { id: id ?? await addStyle(draft, { silent: true }), stored: draft }
+  }
+
+  // A form went away with changes it couldn't save. Say so, and offer them
+  // back: Reopen lands on the same bank with the same row (or a new one) and
+  // the form exactly as it was left. Finder stays mounted for the session, so
+  // the toast's button can still reach it from anywhere in the app.
+  const handleAbandoned = (bank: BankType) => (draft: unknown, id: string | null, message: string) => {
+    addToast(message, 'info', {
+      label: 'Reopen',
+      run: () => {
+        useAppStore.getState().openApp('finder')
+        setActiveBank(bank)
+        setQuery('')
+        setEditingId(id)
+        forgetFormScratch()
+        setRestored({ bank, id, draft })
+        setFormSeed((n) => n + 1)
+        setShowForm(true)
+      },
+    })
+  }
+  // The seed for the form on screen, if it is the one a Reopen opened.
+  const seedFor = (bank: BankType) =>
+    restored && restored.bank === bank && restored.id === editingId ? restored.draft : undefined
 
   const editingProduct = editingId ? products.find((p) => p.id === editingId) : null
   const editingModel = editingId ? models.find((m) => m.id === editingId) : null
@@ -355,6 +383,7 @@ export default function Finder() {
   const editingVoice = editingId ? voices.find((v) => v.id === editingId) : null
   const editingBRoll = editingId ? brolls.find((b) => b.id === editingId) : null
   const editingStyle = editingId ? styles.find((s) => s.id === editingId) : null
+  const formKey = `${editingId ?? 'new'}:${formSeed}`
 
   // Products & Influencers pin the left column and scroll only the right side
   // on desktop, instead of scrolling the whole page.
@@ -501,7 +530,9 @@ export default function Finder() {
                   />
                   <button
                     onClick={() => bulkInputRef.current?.click()}
-                    title="Bulk add"
+                    // The grid itself takes the same drop — say so where the
+                    // pointer already is, since nothing on a full grid does.
+                    title="Bulk add · or drop product photos straight onto the grid"
                     className="flex h-10 items-center gap-2 rounded-full border border-ink/10 bg-ink/[0.04] px-3.5 text-[13px] font-medium tracking-tight text-ink-300 transition-colors hover:bg-ink/[0.08] md:px-5"
                   >
                     <Upload className="h-4 w-4" />
@@ -538,7 +569,7 @@ export default function Finder() {
                   // product's values — which autosave would then write to a row
                   // of its own. `editingId` doesn't change while autosaving, so
                   // typing never remounts the form.
-                  key={`${editingId ?? 'new'}:${formSeed}`}
+                  key={formKey}
                   item={editingProduct}
                   onSave={handleSaveProduct}
                   onAutosave={handleAutosaveProduct}
@@ -546,20 +577,59 @@ export default function Finder() {
                   onDetachExtraction={handleDetachExtraction}
                 />
               )}
+              {/* Keyed like the product form, for the same reason: each holds
+                  its fields — and now its row — in local state, so pointing it
+                  at another row (or pressing Add with one open) has to be a
+                  fresh mount, never a re-seed under the typist. */}
               {activeBank === 'models' && (
-                <ModelForm item={editingModel} onSave={handleSaveModel} onCancel={closeForm} />
+                <ModelForm
+                  key={formKey}
+                  item={editingModel}
+                  seed={seedFor('models') as ModelDraft | undefined}
+                  onAutosave={autosaveModel}
+                  onAbandoned={handleAbandoned('models')}
+                  onClose={closeForm}
+                />
               )}
               {activeBank === 'scripts' && (
-                <ScriptForm item={editingScript} onSave={handleSaveScript} onCancel={closeForm} />
+                <ScriptForm
+                  key={formKey}
+                  item={editingScript}
+                  seed={seedFor('scripts') as ScriptDraft | undefined}
+                  onAutosave={autosaveScript}
+                  onAbandoned={handleAbandoned('scripts')}
+                  onClose={closeForm}
+                />
               )}
               {activeBank === 'voices' && (
-                <VoiceForm item={editingVoice} onSave={handleSaveVoice} onCancel={closeForm} />
+                <VoiceForm
+                  key={formKey}
+                  item={editingVoice}
+                  seed={seedFor('voices') as VoiceDraft | undefined}
+                  onAutosave={autosaveVoice}
+                  onAbandoned={handleAbandoned('voices')}
+                  onClose={closeForm}
+                />
               )}
               {activeBank === 'brolls' && (
-                <BRollForm item={editingBRoll} onSave={handleSaveBRoll} onCancel={closeForm} />
+                <BRollForm
+                  key={formKey}
+                  item={editingBRoll}
+                  seed={seedFor('brolls') as BRollDraft | undefined}
+                  onAutosave={autosaveBRoll}
+                  onAbandoned={handleAbandoned('brolls')}
+                  onClose={closeForm}
+                />
               )}
               {activeBank === 'styles' && (
-                <StyleForm item={editingStyle} onSave={handleSaveStyle} onCancel={closeForm} />
+                <StyleForm
+                  key={formKey}
+                  item={editingStyle}
+                  seed={seedFor('styles') as StyleDraft | undefined}
+                  onAutosave={autosaveStyle}
+                  onAbandoned={handleAbandoned('styles')}
+                  onClose={closeForm}
+                />
               )}
             </div>
           ) : (

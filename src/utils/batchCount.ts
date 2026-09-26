@@ -2,7 +2,8 @@
 //
 // Capped at 4 everywhere: a batch is a set you PICK from, and past four you're
 // auditioning rather than choosing — while the bill multiplies by the same
-// number. Voiceovers passes a lower `max` for the same reason.
+// number. Voiceovers passes a HIGHER `max` (5): a read is seconds long and
+// the cheapest thing in the app, so five is still a set you can pick from.
 //
 // Lives here rather than beside the chip so services and app shells can clamp
 // a persisted value without importing a component.

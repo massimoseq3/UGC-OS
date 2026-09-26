@@ -1,5 +1,5 @@
-import { useCallback, useRef, useState } from 'react'
-import { Key, Plus, Radar, Search, UserPlus } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Key, Plus, Radar, RotateCw, Search, UserPlus } from 'lucide-react'
 import Spinner from '../../components/Spinner'
 import GridCanvas, { AwaitingBody } from '../../components/GridCanvas'
 import SegmentedToggle from '../../components/SegmentedToggle'
@@ -10,13 +10,14 @@ import ConnectScrapeCreators from './components/ConnectScrapeCreators'
 import AccountsBrowser from './components/AccountsBrowser'
 import VaultBrowser from './vault/VaultBrowser'
 import { vaultFiltersActive } from './vault/service'
+import { migrateVaultStars } from './vault/saving'
 import { DEFAULT_VAULT_FILTERS, type VaultFilters } from './vault/types'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useAppStore } from '../../stores/appStore'
 import { useBankStore } from '../../stores/bankStore'
 import { humanizeError } from '../../utils/friendlyError'
-import { applyMinViews, isPreviewable, mergeResults, sortResults } from './services/search'
+import { applyMinViews, isPreviewable, mergeResults, serverFilterKey, sortResults } from './services/search'
 import { downloadResultVideo, saveRemoteImage, saveResultVideoToDisk, saveThumbnail, type DownloadProgress } from './services/handoff'
 import { searchOutliers, transcriptForAd } from './runner'
 import { resolveAccount } from './services/accounts'
@@ -30,8 +31,48 @@ import { DEFAULT_ACCOUNT_FILTERS, DEFAULT_FILTERS, type AccountFilters, type Dis
 // TikTok and Meta; Instagram's rate isn't published, which is why that tab
 // quotes no number) and the transcript path never touches a model at all.
 
-/** Every tab that actually searches. The vault is a library, not a platform. */
+/** Every platform Search can run on. The vault is a library, not a platform. */
 const PLATFORMS: DiscoverPlatform[] = ['tiktok', 'instagram', 'meta']
+
+/** What each platform is called wherever it is named in a sentence. */
+const PLATFORM_NAME: Record<DiscoverPlatform, string> = {
+  tiktok: 'TikTok',
+  instagram: 'Instagram',
+  meta: 'Meta Ad Library',
+}
+
+function isPlatform(value: unknown): value is DiscoverPlatform {
+  return PLATFORMS.includes(value as DiscoverPlatform)
+}
+
+/**
+ * The persisted tab, from any build.
+ *
+ * `:view` used to hold the platform itself ('tiktok' / 'instagram' / 'meta')
+ * back when each search was its own header tab. A member returning with one of
+ * those stored lands on Search — with that platform picked, see
+ * `legacySearchPlatform` — rather than being bounced back to the vault.
+ */
+function restoreView(stored: unknown): DiscoverView {
+  if (stored === 'vault' || stored === 'accounts' || stored === 'search') return stored
+  return isPlatform(stored) ? 'search' : 'vault'
+}
+
+/**
+ * The platform a returning member was last searching, read once off the OLD
+ * `:view` slot before `restoreView` rewrites it as 'search'. Only seeds the new
+ * `:search-platform` slot, so from the second visit on it reads 'search' and
+ * falls through to TikTok — by then the new slot holds the real answer.
+ */
+function legacySearchPlatform(viewKey: string): DiscoverPlatform {
+  try {
+    const raw = localStorage.getItem(viewKey)
+    const stored: unknown = raw ? JSON.parse(raw) : null
+    return isPlatform(stored) ? stored : 'tiktok'
+  } catch {
+    return 'tiktok'
+  }
+}
 
 const DATE_OPTIONS: Array<{ value: DiscoverFilters['datePosted']; label: string }> = [
   { value: 'this-week', label: 'This Week' },
@@ -91,6 +132,17 @@ function minViewsLabel(v: number): string {
 /** The per-card actions that can be mid-flight, so the right button spins. */
 export type DiscoverAction = 'analyze' | 'remix' | 'save' | 'download'
 
+/**
+ * The vault's persisted filters, from any build. Spread over the defaults like
+ * every filter slot here; the one rename is `starredOnly` → `savedOnly`, from
+ * when the vault kept its own ★ rather than filing into the Swipe File — a
+ * member who left the Starred filter on comes back to the Saved one.
+ */
+function restoreVaultFilters(stored: VaultFilters & { starredOnly?: boolean }): VaultFilters {
+  const { starredOnly, ...rest } = { ...DEFAULT_VAULT_FILTERS, ...stored }
+  return { ...rest, savedOnly: stored?.savedOnly ?? starredOnly ?? false }
+}
+
 /** One tab's search: what was asked, what came back, and where the next page starts. */
 interface PlatformSearch {
   query: string
@@ -104,9 +156,17 @@ interface PlatformSearch {
    * expires first — see RESULTS_TTL_MS.
    */
   fetchedAt: number | null
+  /**
+   * The vendor-side filters this grid was fetched with (`serverFilterKey`),
+   * stamped with `fetchedAt`. When the filter row no longer matches it, what
+   * the member picked since applies only to the NEXT search, and the row says
+   * so. Null on a grid persisted before it existed — no line, rather than a
+   * guess.
+   */
+  ranWith: string | null
 }
 
-const BLANK_SEARCH: PlatformSearch = { query: '', results: [], cursor: null, searched: false, fetchedAt: null }
+const BLANK_SEARCH: PlatformSearch = { query: '', results: [], cursor: null, searched: false, fetchedAt: null, ranWith: null }
 
 /** One entry per platform, built from the list — adding a tab needs no edit here. */
 function bySearchTab(
@@ -170,6 +230,7 @@ function restoreSearches(stored: Record<DiscoverPlatform, PlatformSearch> | null
       cursor: s.cursor ?? null,
       searched: true,
       fetchedAt: s.fetchedAt,
+      ranWith: typeof s.ranWith === 'string' ? s.ranWith : null,
     }
   }
   return bySearchTab((p) => restore(stored?.[p]))
@@ -230,22 +291,28 @@ export type TranscriptState =
 
 export default function Discover() {
   const baseKey = useProjectScopedKey('discover')
-  // Three tabs behind one toggle: the Outlier Vault, which ships with the app
-  // and costs nothing to browse, and the two paid searches. It takes its OWN
-  // storage key rather than the old `:platform` slot, so every member — new or
-  // returning — lands on the vault once. That is the point of making it the
+  const viewKey = `${baseKey}:view`
+  // Three tabs behind one toggle, split by what each DOES: the Outlier Vault
+  // (ships with the app, free to browse), the Instagram accounts a member
+  // tracks, and Search — the one that spends credits. The vault is the
   // default: the friction this app was losing members to was having to go and
   // find something worth tearing down before it could help.
-  const [view, setView] = usePersistedState<DiscoverView>(`${baseKey}:view`, 'vault')
+  //
+  // Read before `view` below rewrites a legacy platform value as 'search'.
+  const [legacyPlatform] = useState(() => legacySearchPlatform(viewKey))
+  const [view, setView] = usePersistedState<DiscoverView>(viewKey, 'vault', { sanitize: restoreView })
   const isVault = view === 'vault'
   const isAccounts = view === 'accounts'
   /** The two tabs with no keyword search of their own. */
-  const isLibrary = isVault || isAccounts
-  // Only the three search tabs have search state. The vault and the accounts
-  // tab borrow TikTok's slot while either is on screen, so the per-platform
-  // records below stay three-keyed and nothing has to grow a branch for a tab
-  // that never searches.
-  const platform: DiscoverPlatform = isLibrary ? 'tiktok' : view
+  const isLibrary = view !== 'search'
+  // Which platform Search runs on — its own slot, picked inside the Search tab.
+  // Each platform still keeps its own search record below; this only picks
+  // which one is on screen, so flipping it throws nothing away.
+  const [platform, setPlatform] = usePersistedState<DiscoverPlatform>(
+    `${baseKey}:search-platform`,
+    legacyPlatform,
+    { sanitize: (p) => (isPlatform(p) ? p : 'tiktok') },
+  )
   // Merged over the defaults on every hydrate, not just when the slot is
   // empty. `usePersistedState` hands back a stored blob verbatim, so a filter
   // saved before a field existed carries that field as `undefined` for good —
@@ -264,8 +331,12 @@ export default function Discover() {
   const [vaultFilters, setVaultFilters] = usePersistedState<VaultFilters>(
     `${baseKey}:vault-filters`,
     DEFAULT_VAULT_FILTERS,
-    { sanitize: (f) => ({ ...DEFAULT_VAULT_FILTERS, ...f }) },
+    { sanitize: restoreVaultFilters },
   )
+
+  // The vault's old browser-local ★ moves into the Swipe File, once. Free, and
+  // a no-op for anyone who never starred anything — see `migrateVaultStars`.
+  useEffect(() => { void migrateVaultStars() }, [])
 
   // The accounts tab's own state. Its "query" is not a search — it is the
   // handle being tracked — so it deliberately does NOT share the per-platform
@@ -415,6 +486,8 @@ export default function Discover() {
     const target = platform
     const more = nextCursor !== undefined
     const previous = searchesRef.current[target]
+    // What this page is asked for with, pinned alongside the tab it's for.
+    const ranWith = serverFilterKey(target, filters)
     if (more) setLoadingMore(true)
     // Clearing `fetchedAt` alongside the rows is what keeps a refresh taken
     // mid-search from restoring an empty grid as "No results" — with no stamp
@@ -431,6 +504,9 @@ export default function Discover() {
         // grid, which is the first one to expire; refreshing it on every "Load
         // more" would keep page one alive on the strength of page three's links.
         fetchedAt: more ? s.fetchedAt : Date.now(),
+        // Same rule, for the same reason: the grid is page one's search, and a
+        // Load more doesn't make filters picked since then true of it.
+        ranWith: more ? s.ranWith : ranWith,
       }))
       if (page.creditsRemaining !== null) setCredits(page.creditsRemaining)
     } catch (e) {
@@ -444,6 +520,7 @@ export default function Discover() {
           cursor: previous.cursor,
           searched: previous.searched,
           fetchedAt: previous.fetchedAt,
+          ranWith: previous.ranWith,
         })
       }
       addToast(humanizeError(e, 'That search failed. Try again in a moment.'), 'error')
@@ -688,6 +765,13 @@ export default function Discover() {
   // render four. That used to happen in total silence, which reads as a broken
   // search rather than as a filter doing its job. Say so.
   const hiddenByMinViews = results.length - visible.length
+  // The grid on screen was bought with different vendor-side filters from the
+  // ones the row shows now. Only once a search has landed (a legacy grid with
+  // no stamp says nothing), never mid-search, and only with a query to re-run.
+  const filtersPending = !searching
+    && active.ranWith !== null
+    && active.ranWith !== serverFilterKey(platform, filters)
+    && query.trim() !== ''
 
   return (
     <div className="flex h-full flex-col">
@@ -702,15 +786,21 @@ export default function Discover() {
           the line: full-width it wrapped them onto a row of their own, 40px of
           a phone's header spent on a 36px circle. */}
       <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-ink/5 px-4 py-2 md:h-[57px] md:flex-nowrap md:gap-3 md:py-0">
-        <SegmentedToggle
+        <SegmentedToggle<DiscoverView>
           options={[
-            // The segments share the width equally, so the longest label sets
-            // what all four can show — and on a phone this row also carries
-            // the credits chip and the +, which left "Outlier Vault" reading
-            // "Outlie…" and "Meta Ads" as "Meta …". Three shorten there: the
-            // app is already called Outliers, and Instagram and Meta Ads are
-            // recognisable at "IG" and "Meta" on a row this tight. Spans, no
-            // JS media query.
+            // Three tabs, split by what each one DOES: the first two are lists
+            // you already have (a library, your own tracked creators), the
+            // third is the search you pay for. The three paid platforms used
+            // to sit on this row as tabs of their own, five segments mixing one
+            // free library with three searches that each bill a credit — they
+            // are a choice INSIDE Search now.
+            //
+            // The segments share the width equally on a phone, where this row
+            // also carries the credits chip and the +, so the two long labels
+            // shorten there. "Instagram Accounts" says on a desktop what the
+            // tab's field placeholder says on a phone: these are Instagram
+            // creators, the only platform whose own reels publish a play count
+            // to score against. Spans, no JS media query.
             {
               value: 'vault',
               label: (
@@ -720,43 +810,20 @@ export default function Discover() {
                 </>
               ),
             },
-            // Sits beside the vault rather than beside Instagram, because
-            // the split that matters on this row is what a tab DOES: the
-            // first two are lists you already have (a library, your own
-            // tracked creators), the last three are searches you pay for.
             {
               value: 'accounts',
               label: (
                 <>
-                  <span className="md:hidden">Accts</span>
-                  <span className="max-md:hidden">Accounts</span>
+                  <span className="md:hidden">Accounts</span>
+                  <span className="max-md:hidden">Instagram Accounts</span>
                 </>
               ),
             },
-            { value: 'tiktok', label: 'TikTok' },
-            {
-              value: 'instagram',
-              label: (
-                <>
-                  <span className="md:hidden">IG</span>
-                  <span className="max-md:hidden">Instagram</span>
-                </>
-              ),
-            },
-            {
-              value: 'meta',
-              label: (
-                <>
-                  <span className="md:hidden">Meta</span>
-                  <span className="max-md:hidden">Meta Ads</span>
-                </>
-              ),
-            },
+            { value: 'search', label: 'Search' },
           ]}
           value={view}
-          // Nothing is thrown away on a flip — each tab keeps its own search
-          // and its own grid, so glancing at the other platform costs nothing
-          // and coming back costs no credits.
+          // Nothing is thrown away on a flip — Search keeps a grid per
+          // platform, so glancing at the vault and coming back costs nothing.
           onChange={(next) => {
             setView(next)
             // Arriving on a paid tab without a key is the moment the popup is
@@ -779,8 +846,8 @@ export default function Discover() {
         <div className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-600" />
           {/* The same field on all three tabs, and the verb changes with the
-              tab: on TikTok and Meta it BUYS a page of results, in the vault
-              it filters 872 rows already sitting on the member's machine. */}
+              tab: on Search it BUYS a page of results, in the vault it filters
+              872 rows already sitting on the member's machine. */}
           <input
             value={isVault ? vaultQuery : isAccounts ? accountInput : query}
             onChange={(e) => {
@@ -845,11 +912,11 @@ export default function Discover() {
         )}
 
         {/* The same + every panel header carries: back to a blank slate. It
-            clears THIS tab only — the other platform's search is the thing the
-            per-tab state exists to protect, and a member reaching for a fresh
-            search on TikTok isn't asking to bin the Meta grid too. Nothing here
-            is recoverable by re-running for free, so it only appears once there
-            is something to clear. */}
+            clears THIS platform's search only — the other platforms' grids are
+            the thing the per-platform state exists to protect, and a member
+            reaching for a fresh search on TikTok isn't asking to bin the Meta
+            grid too. Nothing here is recoverable by re-running for free, so it
+            only appears once there is something to clear. */}
         {/* Never on the accounts tab. Everything else this button clears is
             re-runnable for a credit; a tracked list is curation, and a reset
             that quietly binned it would be the one destructive + in the app.
@@ -859,7 +926,7 @@ export default function Discover() {
           : query !== '' || results.length > 0) && (
           <button
             type="button"
-            title={isVault ? 'Back to the folders. Clears the vault filters' : 'New search. Clears this tab'}
+            title={isVault ? 'Back to the folders. Clears the vault filters' : `New search. Clears the ${PLATFORM_NAME[platform]} results`}
             onClick={() => {
               if (isVault) {
                 setVaultQuery('')
@@ -881,6 +948,23 @@ export default function Discover() {
           2px taller, and the grid under it shifted on every tab flip. */}
       {!isLibrary && apiKey && (
         <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-ink/5 px-4 py-2.5">
+          {/* Which platform Search runs on. It LEADS the row because it decides
+              what the rest of the row is — each platform takes different
+              filters — and it lives here rather than in the header because it
+              is a setting of the paid search, not a place to go. Full width on
+              a phone, so the filters take the line under it. Each platform
+              keeps its own query and grid, so flipping costs nothing. */}
+          <SegmentedToggle<DiscoverPlatform>
+            options={[
+              { value: 'tiktok', label: 'TikTok' },
+              { value: 'instagram', label: 'Instagram' },
+              { value: 'meta', label: 'Meta Ads' },
+            ]}
+            value={platform}
+            onChange={setPlatform}
+            fitContent="md"
+            dense
+          />
           <FilterSelect
             dense
             label="Sort"
@@ -969,6 +1053,29 @@ export default function Discover() {
                 onChange={(v) => setFilters((f) => ({ ...f, exactPhrase: v === 'exact' }))}
               />
             </>
+          )}
+
+          {/* Sort and Min Views re-rank the grid in place, but every other
+              control on this row is sent WITH the search — so after one has
+              run, changing Posted / Country / Media / Status / Match changes
+              nothing on screen, and nothing used to say so. One quiet line and
+              the button that applies them, naming the credit where it's known
+              (Instagram's rate isn't published — see the Load More button). */}
+          {filtersPending && (
+            <div className="flex min-w-0 items-center gap-2 max-md:w-full md:ml-auto">
+              <span className="min-w-0 truncate text-[11px] text-ink-500">
+                Changed filters apply on your next search.
+              </span>
+              <button
+                type="button"
+                onClick={() => void search()}
+                title="Runs this search again with the filters as they are now"
+                className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-ink/10 px-3 text-[13px] font-medium text-ink-200 transition-colors hover:border-ink/20 hover:bg-ink/5 max-md:ml-auto"
+              >
+                <RotateCw className="h-3.5 w-3.5" />
+                {isInstagram ? 'Search Again' : 'Search Again · 1 credit'}
+              </button>
+            </div>
           )}
         </div>
       )}

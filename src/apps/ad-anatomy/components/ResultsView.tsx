@@ -116,8 +116,9 @@ function CardHeader({ icon: Icon, title, action }: { icon: React.ElementType; ti
     // gutters are equal, so the title is genuinely centred, and a pane too
     // narrow for both squeezes the title instead of letting the button land on
     // top of it. The absolute version takes no layout space at all, so at 375px
-    // "Reverse-Engineered Scenes" ran straight under "Copy All" — the same
-    // failure `SectionCard`'s header was rebuilt to avoid.
+    // the Scenes card's old title, "Reverse-Engineered Scenes", ran straight
+    // under "Copy All" — the same failure `SectionCard`'s header was rebuilt to
+    // avoid.
     //
     // `min-h-[53px]` is the band WITH its 28px copy button, so the Breakdown
     // header (which has none) stands as tall as the Transcript and Scenes ones
@@ -269,6 +270,7 @@ function TranscriptSection({ result, fileName, analysisId }: { result: AnalysisR
   const addScript = useBankStore((s) => s.addScript)
 
   const withoutTimestamps = transcriptText(result)
+  const saved = useIsInScriptBank(withoutTimestamps)
   // A still has no timeline: an image ad's lines all come back stamped 00:00,
   // and a column of identical zeroes down the card reads as a broken clock.
   // Only show the stamps when they tell the lines apart.
@@ -276,30 +278,33 @@ function TranscriptSection({ result, fileName, analysisId }: { result: AnalysisR
   const adTitle = result.adTitle?.trim() || deriveFallbackTitle(fileName)
   const scriptTitle = `${adTitle} · Transcript`
 
-  const handleSaveToBank = () => {
+  const saveToBank = () => {
     addScript({
       title: scriptTitle,
       scriptText: withoutTimestamps,
       linkedProductId: '',
       source: 'manual',
     })
+  }
+
+  const handleSaveToBank = () => {
+    if (saved) return
+    saveToBank()
     addToast(`Saved "${scriptTitle}" to Script Bank`)
   }
 
+  // Files the transcript only if Save hasn't already: Send used to add a row on
+  // every press, so Save then Send (or Send twice) left identical rows in the
+  // Script Bank. Scripts' own sends work the same way (`savedOnce`).
   const handleSendToScripts = () => {
-    addScript({
-      title: scriptTitle,
-      scriptText: withoutTimestamps,
-      linkedProductId: '',
-      source: 'manual',
-    })
+    if (!saved) saveToBank()
     sendToApp({
       targetApp: 'script-architect',
       targetField: 'winningTranscript',
       data: withoutTimestamps,
       parents: analysisId ? [{ bank: 'adAnatomyHistory', id: analysisId }] : undefined,
     })
-    addToast('Sent to Scripts + saved to bank')
+    addToast(saved ? 'Sent to Scripts' : 'Saved to Script Bank · sent to Scripts')
   }
 
   return (
@@ -321,12 +326,12 @@ function TranscriptSection({ result, fileName, analysisId }: { result: AnalysisR
         ))}
       </div>
 
-      <ScriptActionRow onSave={handleSaveToBank} onSend={handleSendToScripts} sendLabel="Remix For Your Product" />
+      <ScriptActionRow saved={saved} onSave={handleSaveToBank} onSend={handleSendToScripts} sendLabel="Remix For Your Product" />
     </Section>
   )
 }
 
-/* ─── 3. Reverse-Engineered Prompt ─── */
+/* ─── 3. Scenes ─── */
 
 /* Master blocks — the ad-wide look and voice, above the per-scene cards. */
 
@@ -587,9 +592,10 @@ function ReverseEngineeredSection({ result, fileName, analysisId }: { result: An
   const addScript = useBankStore((s) => s.addScript)
 
   const adTitle = result.adTitle?.trim() || deriveFallbackTitle(fileName)
-  const scriptTitle = `${adTitle} · Prompt`
+  const scriptTitle = `${adTitle} · Scenes`
+  const saved = useIsInScriptBank(fullPrompt)
 
-  const handleSaveToBank = () => {
+  const saveToBank = () => {
     addScript({
       title: scriptTitle,
       scriptText: fullPrompt,
@@ -597,17 +603,18 @@ function ReverseEngineeredSection({ result, fileName, analysisId }: { result: An
       source: 'script-architect',
       kind: 'reverse-engineer',
     })
+  }
+
+  const handleSaveToBank = () => {
+    if (saved) return
+    saveToBank()
     addToast(`Saved "${scriptTitle}" to Script Bank`)
   }
 
+  // Same rule as the Transcript card: one row per set of scenes, however many
+  // times it's sent.
   const handleSendToScripts = () => {
-    addScript({
-      title: scriptTitle,
-      scriptText: fullPrompt,
-      linkedProductId: '',
-      source: 'script-architect',
-      kind: 'reverse-engineer',
-    })
+    if (!saved) saveToBank()
     sendToApp({
       targetApp: 'script-architect',
       targetField: 'reverseEngineerPrompt',
@@ -618,7 +625,7 @@ function ReverseEngineeredSection({ result, fileName, analysisId }: { result: An
       },
       parents: analysisId ? [{ bank: 'adAnatomyHistory', id: analysisId }] : undefined,
     })
-    addToast('Sent to Scripts + saved to bank')
+    addToast(saved ? 'Sent to Scripts' : 'Saved to Script Bank · sent to Scripts')
   }
 
   // A "Clone this with my product" button used to sit in the action row below,
@@ -628,25 +635,20 @@ function ReverseEngineeredSection({ result, fileName, analysisId }: { result: An
   // B-Roll's consumer are all still wired — restore the button here if the
   // handoff comes back under a label that says where it goes.
 
-  // This button hands over the whole blueprint — the master blocks and every
-  // scene under its own header — never a bare prompt, which is what the scene's
-  // own Copy gives. So the only thing left for the label to say is how many
-  // scenes are in it.
-  const copyLabel = scenes.length > 1 ? 'Copy All Prompts' : 'Copy Blueprint'
+  // This button hands over the whole set — the master blocks and every scene
+  // under its own header — never a bare prompt, which is what the scene's own
+  // Copy gives.
+  const copyLabel = 'Copy Scenes'
 
   return (
     <Section>
       <CardHeader
         icon={Clapperboard}
-        title="Reverse-Engineered Scenes"
+        title="Scenes"
         action={
-          // Glyph only (Massimo's call, August 2026). This is the longest title
-          // in the read and it sits beside the longest label — "Reverse-
-          // Engineered Scenes" and "Copy All" don't share a 375px line, and the
-          // copy icon says what the button does without being read. The wording
-          // survives as the tooltip and the accessible name: "Copy Prompt" only
-          // when the copy IS one prompt — with a master block in front of it,
-          // or several scenes, it's the whole set.
+          // Glyph only (Massimo's call, August 2026): the copy icon says what
+          // the button does without being read, and it matches the Transcript
+          // card's. The wording survives as the tooltip and the accessible name.
           <HeaderCopyButton copied={copied} label={copyLabel} onCopy={() => copy(fullPrompt)} />
         }
       />
@@ -683,19 +685,31 @@ function ReverseEngineeredSection({ result, fileName, analysisId }: { result: An
       </div>
 
       <ScriptActionRow
+        saved={saved}
         onSave={handleSaveToBank}
         onSend={handleSendToScripts}
-        sendLabel="Clone For Your Product"
+        sendLabel="Rewrite Scenes For Your Product"
       />
     </Section>
   )
 }
 
+// Whether this exact text is already a row in the Script Bank. Read from the
+// bank rather than held as a flag: this component stays mounted when the member
+// picks another analysis in the History rail, and a flag would carry "Saved"
+// across to an ad that never was — the same reason the Visual Style block
+// tracks its saved brief. It also survives a reload, and a row deleted from the
+// Bank turns the button back into Save.
+function useIsInScriptBank(text: string): boolean {
+  return useBankStore((s) => s.scripts.some((row) => row.scriptText === text))
+}
+
 // Shared bottom action row for the Transcript + Scenes sections — the larger,
 // Scripts-styled "Save to Script Bank" (neutral) + remix (scripts accent, with
 // a trailing arrow) buttons, matching the Scripts app. `sendLabel` is the
-// card's handoff ("Remix For Your Product" / "Clone For Your Product"):
-// both land in Scripts' Remix box. It is the only handoff on either card — the
+// card's handoff ("Remix For Your Product" / "Rewrite Scenes For Your
+// Product"): both land in Scripts' Remix box. Save is one-shot: once the text
+// is in the Script Bank it reads Saved, and the send reuses that row. It is the only handoff on either card — the
 // same action as a pill beside each heading came out (September 2026,
 // Massimo's call); twice per card was once too many.
 // The label uses `text-scripts-text`, not `text-scripts-400`: the scripts
@@ -705,15 +719,26 @@ function ReverseEngineeredSection({ result, fileName, analysisId }: { result: An
 // the pair still splits a wide card evenly, but on a narrow one (a phone, or
 // the read column squeezed between the rail and the ad) the row WRAPS into two
 // full-width buttons instead of squeezing both into two-line labels.
-function ScriptActionRow({ onSave, onSend, sendLabel }: { onSave: () => void; onSend: () => void; sendLabel: string }) {
+function ScriptActionRow({ saved, onSave, onSend, sendLabel }: { saved: boolean; onSave: () => void; onSend: () => void; sendLabel: string }) {
   return (
     <div className="flex flex-wrap gap-2 border-t border-ink/5 p-3">
+      {/* Saved wears the app's "saved" emerald (the Swipe File's Saved
+          button, a filed card's bookmark) and stops being a button — a second
+          press would only file the same script twice. */}
       <button
         onClick={onSave}
-        className="flex flex-[1_1_13rem] items-center justify-center gap-2 whitespace-nowrap rounded-full border border-ink/15 px-4 py-2.5 text-[12px] font-medium tracking-tight text-ink-300 transition-colors hover:bg-ink/[0.06] hover:text-ink-100"
+        disabled={saved}
+        title={saved ? 'Already in your Script Bank' : undefined}
+        className={`flex flex-[1_1_13rem] items-center justify-center gap-2 whitespace-nowrap rounded-full border px-4 py-2.5 text-[12px] font-medium tracking-tight transition-colors disabled:cursor-default ${
+          saved
+            ? 'border-emerald-400/40 bg-emerald-500/10 text-emerald-300 light:text-emerald-700'
+            : 'border-ink/15 text-ink-300 hover:bg-ink/[0.06] hover:text-ink-100'
+        }`}
       >
-        <Bookmark className="h-4 w-4" strokeWidth={1.75} />
-        Save to Script Bank
+        {saved
+          ? <Check className="h-4 w-4" strokeWidth={1.75} />
+          : <Bookmark className="h-4 w-4" strokeWidth={1.75} />}
+        {saved ? 'Saved to Script Bank' : 'Save to Script Bank'}
       </button>
       <button
         onClick={onSend}

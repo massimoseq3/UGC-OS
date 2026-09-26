@@ -29,7 +29,7 @@ interface SegmentedToggleProps<T extends string> {
   // what keeps it from eating a desktop line it has to share, but on a phone
   // it should take the width its row has left and split it evenly between its
   // segments, rather than shrinking to its labels and leaving dead space
-  // beside them (Outliers' Vault / TikTok / Meta, which pairs it with
+  // beside them (Outliers' TikTok / Instagram / Meta Ads, which pairs it with
   // `max-md:flex-1` so the row's other chrome is served first).
   fitContent?: boolean | 'md'
   // Slimmer padding + smaller icons, sized to sit inline with compact rows

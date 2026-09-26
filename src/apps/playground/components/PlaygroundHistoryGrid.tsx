@@ -425,10 +425,13 @@ export default memo(function PlaygroundHistoryGrid({ inFlight, activeProjectId, 
               <p className="text-sm text-ink-500">
                 {activeProject ? `Nothing In ${activeProject.name} Yet` : 'No Generations Yet'}
               </p>
+              {/* No direction in it. It said "type a prompt below", and the
+                  prompt is to the LEFT on a desktop and on another tab on a
+                  phone — never below. */}
               <p className="max-w-[300px] text-xs leading-relaxed text-ink-600">
                 {activeProject
-                  ? 'Pick a preset or type a prompt below and hit Generate. Images, clips and tracks made while this project is open all land here.'
-                  : 'Pick a preset or type a prompt below and hit Generate. Everything you make lands here, sorted by day.'}
+                  ? 'Pick a preset or write a prompt, then hit Generate. Images, clips and tracks made while this project is open all land here.'
+                  : 'Pick a preset or write a prompt, then hit Generate. Everything you make lands here, sorted by day.'}
               </p>
             </div>
           )}

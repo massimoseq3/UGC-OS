@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Image as ImageIcon, Film, Music as MusicIcon, ChevronRight, Volume2, VolumeX, Coins, Layers, Eraser } from 'lucide-react'
+import { Image as ImageIcon, Film, Music as MusicIcon, ChevronRight, Volume2, VolumeX, Coins, Layers, Eraser, PenLine, UserRound, type LucideIcon } from 'lucide-react'
 import ModelPicker from '../../../components/ModelPicker'
 import ModelPickerModal from '../../../components/ModelPickerModal'
 import ProviderLogo from '../../../components/ProviderLogo'
@@ -695,11 +695,20 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
   // submit. The user's kie.ai credits are the natural ceiling. Motion Control
   // has an optional prompt but two required inputs (character image + driving
   // video), so it gates on those instead of the prompt.
-  const hasMotionInputs =
-    state.refs.some((r) => r.slot === 'motion-image') && state.refs.some((r) => r.slot === 'motion-video')
-  const canSubmit = !!state.modelId && (
-    isMotionControl ? hasMotionInputs : state.prompt.trim().length > 0
-  )
+  //
+  // What's missing is said ON the button (September 2026, Scripts' `blocker`
+  // pattern), in the order the column asks for it: a grey Generate with no
+  // reason on it leaves the member guessing, and on Motion Control — where the
+  // prompt is optional — typing one did nothing to light it up.
+  const blocker: { label: string; icon: LucideIcon } | null =
+    !state.modelId ? { label: 'Pick a Model', icon: Layers }
+    : isMotionControl
+      ? !state.refs.some((r) => r.slot === 'motion-image') ? { label: 'Add a Character Image', icon: UserRound }
+        : !state.refs.some((r) => r.slot === 'motion-video') ? { label: 'Add a Driving Video', icon: Film }
+        : null
+      : !state.prompt.trim() ? { label: 'Write a Prompt', icon: PenLine }
+      : null
+  const canSubmit = blocker === null
   void isGenerating
 
   // Every attached slot, whatever kind — frames, ref images, Seedance clips,
@@ -984,7 +993,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
                   Generate. The model went the other way in the same pass: which
                   model is a property of the RUN, so it stays in the footer band
                   with every other mode's, directly over the button that fires it.
-                  `h-12` matches B-Roll's Dialogue Clips / B-Roll Clips pair — the
+                  `h-12` matches B-Roll's Voiceover / Dialogue pair — the
                   same question asked of a generation. */}
               {state.mode === 'music' && (
                 <SegmentedToggle<'instrumental' | 'lyrics'>
@@ -1492,9 +1501,18 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
             disabled={!canSubmit}
             className="flex w-full items-center justify-center gap-2.5 glass-fill glass-fill-soft rounded-full border border-white/15 bg-playground-500 px-7 py-4 text-sm font-bold tracking-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),inset_0_-1px_0_rgba(255,255,255,0.08)] btn-soft-shadow transition-all hover:brightness-110 disabled:hover:brightness-100 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            <GenerateIcon className="h-4 w-4" strokeWidth={2.5} />
-            <span>{generateLabel}</span>
-            {generateCredits && (
+            {blocker ? (
+              <>
+                <blocker.icon className="h-4 w-4 shrink-0" strokeWidth={2.5} />
+                <span className="truncate">{blocker.label}</span>
+              </>
+            ) : (
+              <>
+                <GenerateIcon className="h-4 w-4" strokeWidth={2.5} />
+                <span>{generateLabel}</span>
+              </>
+            )}
+            {!blocker && generateCredits && (
               <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tracking-tight">
                 <Coins className="h-3 w-3" strokeWidth={2} />
                 {generateCredits}

@@ -1,7 +1,7 @@
 import { useState, type ComponentType, type ReactNode } from 'react'
 import { Package, PenLine, ChevronRight, FileText, Clapperboard, RefreshCw, X, Sparkle, Shuffle, FishingHook, Video, Clock, Layers } from 'lucide-react'
 import type { Product, Script } from '../../../stores/types'
-import { WRITE_LENGTHS, REMIX_LENGTHS, WRITE_STYLE_META, writeStylesInGroup, HOOK_CATEGORY_META, HOOK_COUNTS, VARIATION_COUNTS, createEditableContext, type EditableProductContext, type ScriptUiMode, type WriteStyle, type WriteFormat, type WriteLength, type RemixLength, type HookCategoryChoice, type HookCount, type VariationCount } from '../types'
+import { WRITE_LENGTHS, REMIX_LENGTHS, WRITE_STYLE_META, writeStylesInGroup, HOOK_CATEGORY_META, HOOK_COUNTS, VARIATION_MAX, createEditableContext, type EditableProductContext, type ScriptUiMode, type WriteStyle, type WriteFormat, type WriteLength, type RemixLength, type HookCategoryChoice, type HookCount, type VariationCount } from '../types'
 import { useBankStore } from '../../../stores/bankStore'
 import BankPicker from '../../../components/BankPicker'
 import SegmentedToggle from '../../../components/SegmentedToggle'
@@ -10,6 +10,7 @@ import ScriptModelRow from '../../../components/ScriptModelRow'
 import SectionCard, { StatusDot } from '../../../components/SectionCard'
 import ClearAllButton from '../../../components/ClearAllButton'
 import ConstraintChip from '../../../components/ConstraintChip'
+import BatchCountStepper from '../../../components/BatchCountStepper'
 import ExpandTextModal, { ExpandButton } from '../../../components/ExpandableText'
 import PromptToolbar from '../../../components/PromptToolbar'
 import { useAppStore } from '../../../stores/appStore'
@@ -71,6 +72,10 @@ interface InputPanelProps {
   // from, while it's still unedited — what the run is made from.
   onGenerate: (context: EditableProductContext | null, sourceScriptId: string | null) => void
   highlightField?: string | null
+  // Each change opens the Remix source's Reference Script picker — how the
+  // empty Output canvas's "Pick a Saved Script" reaches a picker that lives
+  // here. Absent (Flow's window), nothing opens it from outside.
+  openScriptPickerSignal?: number
   // Flow's Scripts block renders this same panel over the block's settings
   // instead of this app's draft (flow/components/window/ScriptsWindow). Absent
   // in the app itself, where nothing below changes.
@@ -117,10 +122,17 @@ export default function InputPanel({
   onAdditionalContextChange,
   onGenerate,
   highlightField,
+  openScriptPickerSignal = 0,
   flow,
 }: InputPanelProps) {
   const [productPickerOpen, setProductPickerOpen] = useState(false)
   const [scriptPickerOpen, setScriptPickerOpen] = useState(false)
+  // Prop-change sync, during render: a new signal is a request to open.
+  const [seenPickerSignal, setSeenPickerSignal] = useState(openScriptPickerSignal)
+  if (openScriptPickerSignal !== seenPickerSignal) {
+    setSeenPickerSignal(openScriptPickerSignal)
+    setScriptPickerOpen(true)
+  }
   // Which big text box is open in the full-screen editor (null = none).
   const [expandedField, setExpandedField] = useState<null | 'brief' | 'source' | 'additionalContext'>(null)
   // What the writer is told about the product, read straight off the bank row.
@@ -350,7 +362,9 @@ export default function InputPanel({
   const blocker = !sourceFilled
     ? { label: 'Paste a Script to Remix', icon: FileText }
     : mode === 'write' && !selectedProduct && !wired.product && !brief.trim() && !wired.brief
-      ? { label: 'Pick a Product or Write a Brief', icon: Package }
+      // "Instructions", because that is the box's name: it said "Write a
+      // Brief", naming a field this panel doesn't have.
+      ? { label: 'Pick a Product or Add Instructions', icon: Package }
       : null
   const canGenerate = blocker === null
 
@@ -369,32 +383,37 @@ export default function InputPanel({
 
   // The count keeps its noun ("3 Variations" / "10 Hooks") instead of an icon:
   // a bare "3" beside a duration reads as another measurement, and the word is
-  // what makes the chip self-evident. `lg` — the house pill height — and its
-  // menu anchors right, since it's the rightmost thing in the row and the menu
-  // is wider than the chip.
-  const countChip = (
+  // what makes the control self-evident. `lg` — the house pill height. Hooks
+  // come in packs (10 / 20 / 50) so they stay a menu, anchored right since it's
+  // the rightmost thing in the row and the menu is wider than the chip;
+  // variations are any count from 1 to 10, which is a scalar you nudge, so they
+  // take the house −/+ stepper.
+  const countChip = isHooksFormat ? (
     <ConstraintChip
       grow
       size="lg"
       align="right"
       openDirection="up"
-      value={isHooksFormat ? `${hookCount} Hooks` : `${variationCount} Variations`}
-      options={
-        isHooksFormat
-          ? HOOK_COUNTS.map((n) => `${n} Hooks`)
-          : VARIATION_COUNTS.map((n) => `${n} Variations`)
-      }
-      onChange={(v) => {
-        const n = parseInt(v, 10)
-        if (isHooksFormat) onHookCountChange(n as HookCount)
-        else onVariationCountChange(n as VariationCount)
-      }}
+      value={`${hookCount} Hooks`}
+      options={HOOK_COUNTS.map((n) => `${n} Hooks`)}
+      onChange={(v) => onHookCountChange(parseInt(v, 10) as HookCount)}
+    />
+  ) : (
+    <BatchCountStepper
+      grow
+      size="lg"
+      accent="scripts"
+      max={VARIATION_MAX}
+      noun="variation"
+      label={variationCount === 1 ? 'Variation' : 'Variations'}
+      value={variationCount}
+      onChange={(n: VariationCount) => onVariationCountChange(n)}
     />
   )
 
   const generateLabel = flow?.actionLabel ?? (mode === 'write'
     ? (writeFormat === 'scenes' ? `Generate ${variationCount} Scene Drafts` : writeFormat === 'hooks' ? `Generate ${hookCount} Hooks` : `Generate ${variationCount} Scripts`)
-    : blueprintActive ? 'Rewrite Scene Prompts' : `Generate ${variationCount} Script Variations`)
+    : blueprintActive ? 'Rewrite Scenes' : `Generate ${variationCount} Script Variations`)
 
   // Product picker — the same row in both modes, and in both it CLOSES the
   // References card: under Script Style / Hook Style in Write New, under the
@@ -694,7 +713,7 @@ export default function InputPanel({
                     ) : (
                       <>
                         <div className="text-[13px] font-medium text-ink-300">Script Style</div>
-                        <div className="text-[11px] text-ink-600">A structure to argue with, or a format to hide in</div>
+                        <div className="text-[11px] text-ink-600">Optional · the shape the script follows</div>
                       </>
                     )}
                   </div>
@@ -822,7 +841,7 @@ export default function InputPanel({
                   // Filled is about the TEXT, not the bank pick — a pasted
                   // transcript is a filled source with no bank row behind it.
                   filled={sourceFilled}
-                  label={blueprintActive ? 'Scene' : 'Reference Script'}
+                  label={blueprintActive ? 'Scenes' : 'Reference Script'}
                   icon={blueprintActive ? Clapperboard : FileText}
                   accentClass={blueprintActive ? 'bg-fuchsia-500/10 text-fuchsia-300/80 light:text-fuchsia-700/80' : 'bg-scripts-500/10 text-scripts-300/80'}
                   onSelect={() => setScriptPickerOpen(true)}
@@ -852,7 +871,7 @@ export default function InputPanel({
                     // sharing layout was for; `overflow-y-auto` means a long
                     // paste scrolls inside this field, where scrolling belongs.
                     rows={1}
-                    placeholder={'…or paste a proven ad transcript, or a scene blueprint from Ad Analyzer. The format is detected automatically.'}
+                    placeholder={"…or paste a proven ad transcript, or an ad's Scenes from the Ad Analyzer. The format is detected automatically."}
                     className={`w-full min-h-0 grow resize-none overflow-y-auto border-0 bg-transparent px-4 py-3 leading-relaxed text-ink-200 outline-none ${
                       isBlueprint ? 'font-mono text-xs placeholder-ink-700' : 'text-sm placeholder-ink-600'
                     }`}
@@ -870,12 +889,12 @@ export default function InputPanel({
                         run in a flex container is an anonymous item the ellipsis
                         can't reach), so a half-width column read "Scenes will
                         be" and stopped. What the rewrite does is already on the
-                        Generate button ("Rewrite Scene Prompts"), so the chip
-                        only has to say what it recognised. */}
+                        Generate button ("Rewrite Scenes"), so the chip only has
+                        to say what it recognised. */}
                     <span className={`flex min-w-0 items-center gap-1.5 text-[11px] font-medium ${blueprintActive ? 'text-fuchsia-300 light:text-fuchsia-700' : 'text-ink-500'}`}>
                       {blueprintActive ? <Clapperboard className="h-3 w-3 shrink-0" /> : <FileText className="h-3 w-3 shrink-0" />}
                       <span className="truncate">
-                        {blueprintActive ? 'Scene blueprint detected' : `Remixing as a plain script · ${variationCount} variations`}
+                        {blueprintActive ? 'Scenes detected' : `Remixing as a plain script · ${variationCount} variations`}
                       </span>
                     </span>
                     <button
@@ -1175,10 +1194,10 @@ export default function InputPanel({
           onClose={() => setExpandedField(null)}
           value={source}
           onChange={(v) => { onSourceChange(v); setSourceScript(null) }}
-          title={blueprintActive ? 'Scene Blueprint' : 'Proven Script Transcript'}
+          title={blueprintActive ? 'Scenes' : 'Proven Script Transcript'}
           accent="scripts"
           mono={isBlueprint}
-          placeholder="Paste a proven ad transcript or an Ad Analyzer scene blueprint…"
+          placeholder="Paste a proven ad transcript, or an ad's Scenes from the Ad Analyzer…"
         />
         <ExpandTextModal
           open={expandedField === 'additionalContext'}

@@ -1,18 +1,19 @@
 import { memo, useState, type ElementType, type RefObject } from 'react'
 import {
-  Bookmark, BookmarkCheck, Download, Eye, ExternalLink, Heart, ImageOff, MessageCircle, Pause, PenLine, Play, Share2, Volume2, VolumeX,
+  Bookmark, BookmarkCheck, Download, Eye, ExternalLink, Heart, ImageOff, MessageCircle, Pause, Play, Share2, Volume2, VolumeX,
 } from 'lucide-react'
 import Spinner from '../../../components/Spinner'
 import { TileActionStack, TileActionButton } from '../../../components/tileActions'
 import { useInlineVideo } from '../../../hooks/useInlineVideo'
 import useNearViewport from '../../../hooks/useNearViewport'
 import { engagementRate, formatCount, formatMultiple, formatRate } from '../services/scoring'
+import HandoffPills from './HandoffPills'
 import type { DiscoverAction } from '../Discover'
 import type { DiscoverResult } from '../types'
 
-// The action icons are the DESTINATION app's dock glyph — Eye is Ad Analyzer,
-// PenLine is Scripts — so the hover row reads as "where this goes" rather than
-// as four anonymous circles.
+// The two actions that LEAVE the app — Analyze (Ad Analyzer) and Remix
+// (Scripts) — are labelled pills in the destination's colour (HandoffPills);
+// the hover stack keeps the utility circles: Download, Save, Open.
 
 interface ResultCardProps {
   result: DiscoverResult
@@ -212,19 +213,47 @@ function ResultCardImpl({ result, onAnalyze, onRemix, onSave, onDownload, onOpen
           )}
         </div>
 
-        {/* The runtime, opposite the controls. `duration` prefers what the
-            platform published and falls back to what the file itself reports. */}
-        {duration != null && (
-          <span className="pointer-events-none absolute bottom-2 right-2 rounded-full bg-black/70 px-2 py-0.5 text-[10px] font-medium text-white">
-            {formatDuration(duration)}
-          </span>
-        )}
+        {/* Analyze and Remix, labelled, over the runtime. The runtime stays
+            always-on in its corner, opposite the controls — `duration` prefers
+            what the platform published and falls back to what the file
+            itself reports. Remix is the one-click shortcut past the modal: it
+            pulls the transcript AND opens Scripts, so it does spend a credit.
+            That's fine here — a deliberate press on a labelled button, unlike
+            opening a card — but the title has to say so, since the modal's
+            route charges on its own "Get transcript" step. Not on a Meta card:
+            its transcript endpoint comes back empty for Ad Library video, which
+            is why the modal drops Remix there too and routes the words through
+            Analyze. Instagram's is AI speech-to-text with no published price,
+            so it quotes time, not credits — the same rule as the rest of that
+            tab. */}
+        <HandoffPills
+          analyze={{
+            onClick: () => onAnalyze(result),
+            title: 'Analyze Ad · opens in Ad Analyzer',
+            busy: busy === 'analyze',
+            disabled: !hasVideo,
+          }}
+          remix={isMeta ? undefined : {
+            onClick: () => onRemix(result),
+            title: result.platform === 'instagram'
+              ? 'Remix Transcript · transcribes with AI in 10-30s, opens in Scripts'
+              : 'Remix Transcript · 1 credit, opens in Scripts',
+            busy: busy === 'remix',
+          }}
+        >
+          {duration != null && (
+            <span className="pointer-events-none rounded-full bg-black/70 px-2 py-0.5 text-[10px] font-medium text-white">
+              {formatDuration(duration)}
+            </span>
+          )}
+        </HandoffPills>
 
         {/* Deliberately NOT hidden while the clip is playing. On a generated
             media tile the picture is the point, so the stack steps aside — but
             these are research cards, and Save / Analyze / Remix are decisions
             you make WHILE watching the ad. Stepping aside meant pausing the
-            video to reach the button that saves it. */}
+            video to reach the button that saves it. Three circles: the two
+            actions that leave the app are the pills above. */}
         <TileActionStack forceVisible={saved}>
           {/* Download leads, per the canonical stack order. */}
           <TileActionButton
@@ -251,38 +280,6 @@ function ResultCardImpl({ result, onAnalyze, onRemix, onSave, onDownload, onOpen
                 ? <BookmarkCheck className="h-3.5 w-3.5" />
                 : <Bookmark className="h-3.5 w-3.5" />}
           </TileActionButton>
-          <TileActionButton
-            title="Analyze Ad · opens in Ad Analyzer"
-            onClick={() => onAnalyze(result)}
-            disabled={busy === 'analyze' || !hasVideo}
-          >
-            {busy === 'analyze'
-              ? <Spinner className="h-3.5 w-3.5" />
-              : <Eye className="h-3.5 w-3.5" />}
-          </TileActionButton>
-          {/* The one-click shortcut past the modal: this pulls the transcript
-              AND opens Scripts, so it does spend a credit. That's fine here —
-              it's a deliberate press on a labelled button, unlike opening a
-              card — but the title has to say so, since the modal's route now
-              charges on its own separate "Get transcript" step.
-              Not on a Meta card: its transcript endpoint comes back empty for
-              Ad Library video, which is why the modal drops Remix there too
-              and routes the words through Analyze Ad. Instagram's is AI
-              speech-to-text with no published price, so it quotes time, not
-              credits — the same rule as the rest of that tab. */}
-          {!isMeta && (
-            <TileActionButton
-              title={result.platform === 'instagram'
-                ? 'Remix Transcript · transcribes with AI in 10-30s, opens in Scripts'
-                : 'Remix Transcript · 1 credit, opens in Scripts'}
-              onClick={() => onRemix(result)}
-              disabled={busy === 'remix'}
-            >
-              {busy === 'remix'
-                ? <Spinner className="h-3.5 w-3.5" />
-                : <PenLine className="h-3.5 w-3.5" />}
-            </TileActionButton>
-          )}
           <TileActionButton
             title="Open the original"
             onClick={() => window.open(result.postUrl, '_blank', 'noopener,noreferrer')}

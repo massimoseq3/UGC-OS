@@ -1,23 +1,26 @@
 import { memo } from 'react'
-import { Download, ExternalLink, Eye, Heart, ImageOff, MessageCircle, Pause, PenLine, Play, Volume2, VolumeX } from 'lucide-react'
+import { Bookmark, BookmarkCheck, Download, ExternalLink, Heart, ImageOff, MessageCircle, Pause, Play, Volume2, VolumeX } from 'lucide-react'
 import Spinner from '../../../components/Spinner'
-import { TileActionStack, TileActionButton, TileStarButton } from '../../../components/tileActions'
+import { TileActionStack, TileActionButton } from '../../../components/tileActions'
 import { useInlineVideo } from '../../../hooks/useInlineVideo'
+import HandoffPills from '../components/HandoffPills'
 import { bandFor } from '../services/scoring'
 import { formatCount, formatMultiple } from '../services/scoring'
 import { MULTIPLE_TITLE, categoryLabel, thumbUrl } from './service'
 import type { ResolvedVideo, VaultItem } from './types'
 
-// Same action glyphs as the search grid — Eye is Ad Analyzer, PenLine is
-// Scripts — so a member who has learned the hover row on one tab already knows
-// it on the other.
+// The same card shape as the search grid: Analyze and Remix as labelled pills
+// in their destination's colour, the utility circles (Download · Save · Open)
+// in the hover stack — so a member who has learned one tab already knows the
+// other.
 
-export type VaultAction = 'analyze' | 'download'
+export type VaultAction = 'analyze' | 'download' | 'save'
 
 interface VaultCardProps {
   item: VaultItem
-  starred: boolean
-  onStar: (item: VaultItem) => void
+  /** In the Swipe File — the button becomes a filled un-save. */
+  saved: boolean
+  onSave: (item: VaultItem) => void
   onOpen: (item: VaultItem) => void
   onAnalyze: (item: VaultItem) => void
   onRemix: (item: VaultItem) => void
@@ -28,7 +31,7 @@ interface VaultCardProps {
 }
 
 function VaultCardImpl({
-  item, starred, onStar, onOpen, onAnalyze, onRemix, onDownload, video, busy = null,
+  item, saved, onSave, onOpen, onAnalyze, onRemix, onDownload, video, busy = null,
 }: VaultCardProps) {
   const player = useInlineVideo()
   const band = item.multiple != null ? bandFor(item.multiple) : undefined
@@ -123,15 +126,30 @@ function VaultCardImpl({
           </div>
         )}
 
-        {/* Canonical order: Star → Download → extras. No Save — a vault row is
-            a library entry, not something to file into a bank it already
-            outlives. Held visible while starred, same rule as everywhere. */}
-        <TileActionStack forceVisible={starred}>
-          <TileStarButton
-            starred={starred}
-            onToggle={() => onStar(item)}
-            title="Star · starred hooks filter to the top of the vault"
-          />
+        {/* Remix is free here, unlike its opposite number on the search grid:
+            the words are already in the library, transcribed once when it was
+            built. Analyze needs a real file, so it names the credit until one
+            has been bought this session. Neither is disabled for a missing key
+            — the handler opens the popup that fixes it; only an in-flight
+            action holds them. */}
+        <HandoffPills
+          analyze={{
+            onClick: () => onAnalyze(item),
+            title: video ? 'Analyze Ad · opens in Ad Analyzer' : 'Analyze Ad · 1 credit to fetch the video, then opens in Ad Analyzer',
+            busy: busy === 'analyze',
+            disabled: busy != null,
+          }}
+          remix={{
+            onClick: () => onRemix(item),
+            title: hasTranscript ? 'Remix Transcript · free, opens in Scripts' : 'This reel has no spoken words',
+            disabled: !hasTranscript,
+          }}
+        />
+
+        {/* Canonical order: Download → Save → extras. Save files the reel in
+            the Swipe File — the one place an ad is kept, whichever tab found
+            it — and stays visible once filed, same rule as everywhere. */}
+        <TileActionStack forceVisible={saved}>
           <TileActionButton
             title={video ? 'Download the video' : 'Download the video · 1 credit to fetch it from Instagram'}
             onClick={() => onDownload(item)}
@@ -142,20 +160,16 @@ function VaultCardImpl({
             {busy === 'download' ? <Spinner className="h-3.5 w-3.5" /> : <Download className="h-3.5 w-3.5" />}
           </TileActionButton>
           <TileActionButton
-            title={video ? 'Analyze Ad · opens in Ad Analyzer' : 'Analyze Ad · 1 credit to fetch the video, then opens in Ad Analyzer'}
-            onClick={() => onAnalyze(item)}
-            disabled={busy != null}
+            title={saved ? 'Remove from swipe file' : 'Save to swipe file · free'}
+            onClick={() => onSave(item)}
+            tone={saved ? 'saved' : 'default'}
+            disabled={busy === 'save'}
           >
-            {busy === 'analyze' ? <Spinner className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-          </TileActionButton>
-          {/* Free, unlike its opposite number on the search grid: the words are
-              already in the library, transcribed once when it was built. */}
-          <TileActionButton
-            title={hasTranscript ? 'Remix Transcript · free, opens in Scripts' : 'This reel has no spoken words'}
-            onClick={() => onRemix(item)}
-            disabled={!hasTranscript}
-          >
-            <PenLine className="h-3.5 w-3.5" />
+            {busy === 'save'
+              ? <Spinner className="h-3.5 w-3.5" />
+              : saved
+                ? <BookmarkCheck className="h-3.5 w-3.5" />
+                : <Bookmark className="h-3.5 w-3.5" />}
           </TileActionButton>
           <TileActionButton
             title="Open on Instagram"

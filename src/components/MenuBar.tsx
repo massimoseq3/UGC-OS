@@ -7,7 +7,7 @@ import { useCreditsStore } from '../stores/creditsStore'
 import { useBankStore } from '../stores/bankStore'
 import { useThemeStore, type ThemePref } from '../stores/themeStore'
 import { useCloseOnAppSwitch } from '../hooks/useCloseOnAppSwitch'
-import { getAppConfig, SKOOL_COMMUNITY_URL } from '../utils/constants'
+import { getAppConfig, KIE_BILLING_URL, SKOOL_COMMUNITY_URL } from '../utils/constants'
 import { computeUsageMetrics } from '../utils/usage'
 import { creditsToUsd } from '../utils/models'
 import AppLogo from './AppLogo'
@@ -58,7 +58,7 @@ export default function MenuBar() {
       <StreakItem />
       <CreditsItem />
       {/* External links are desktop chrome — on phones they overflowed the bar. */}
-      <MenuLink href="https://kie.ai/billing" label="Get Credits" />
+      <MenuLink href={KIE_BILLING_URL} label="Get Credits" />
       <MenuLink href={SKOOL_COMMUNITY_URL} label="Community" />
       {/* No Meet your team entry here any more (August 2026): the bar is
           chrome, and the intro is a thing you reopen once in a while, not a
@@ -129,11 +129,16 @@ function CreditsItem() {
   const balance = useCreditsStore((s) => s.balance)
   const refresh = useCreditsStore((s) => s.refresh)
   const [refreshing, setRefreshing] = useState(false)
-  const [guideOpen, setGuideOpen] = useState(false)
+  // The guide's open flag lives in the app store, not here: this item is the
+  // one always-mounted host for it, and a toast's Connect Key or the
+  // Dashboard's first step opens this same guide rather than a copy of its own.
+  const guideOpen = useAppStore((s) => s.keyGuideOpen)
+  const openGuide = useAppStore((s) => s.openKeyGuide)
+  const closeGuide = useAppStore((s) => s.closeKeyGuide)
   const [settingsOpen, setSettingsOpen] = useState(false)
   // Both overlays portal to document.body (the blurred menu bar is a
   // containing block for fixed descendants), so they must close on app switch.
-  useCloseOnAppSwitch(guideOpen, () => setGuideOpen(false))
+  useCloseOnAppSwitch(guideOpen, closeGuide)
   useCloseOnAppSwitch(settingsOpen, () => setSettingsOpen(false))
 
   useEffect(() => {
@@ -169,9 +174,9 @@ function CreditsItem() {
         createPortal(
           <Suspense fallback={null}>
             <ApiKeyGuide
-              onClose={() => setGuideOpen(false)}
+              onClose={closeGuide}
               onOpenSettings={() => {
-                setGuideOpen(false)
+                closeGuide()
                 setSettingsOpen(true)
               }}
             />
@@ -191,7 +196,7 @@ function CreditsItem() {
     return (
       <>
         <button
-          onClick={() => setGuideOpen(true)}
+          onClick={openGuide}
           title="No kie.ai API key yet · click for setup instructions"
           className="flex h-6 shrink-0 items-center gap-2 rounded-md px-2 text-[12px] text-red-300 transition-colors hover:bg-ink/[0.06] light:text-red-700"
         >

@@ -1,11 +1,12 @@
 // The canvas's header band. The canvas has the window to itself — a block's
 // settings open in its app's own window, never in a column beside it — so
 // the run controls the flow's column used to carry live here: what the next
-// run costs and why (the ▾ beside Run), Test With 1, and Run Flow.
+// run costs and why (the ▾ beside Run), Test With 1, and Run Flow. What a run
+// doesn't need — past runs, Pin to Dock, Export — waits behind the ⋯.
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useReactFlow } from '@xyflow/react'
-import { AlertCircle, ArrowLeft, ChevronDown, Coins, FlaskConical, Play, RotateCw, Share2 } from 'lucide-react'
+import { AlertCircle, ArrowLeft, ChevronDown, Coins, Download, FlaskConical, Layers, MoreHorizontal, Pin, PinOff, Play, RotateCw } from 'lucide-react'
 import type { FlowDoc } from '../types'
 import type { FlowPlan } from '../engine/plan'
 import { KINDS, titleOf } from '../engine/catalog'
@@ -15,9 +16,11 @@ import { useFlowStore } from '../store/flowStore'
 import { exportTemplate } from '../templates/io'
 import { useRecordingActive } from '../../../stores/recordingStore'
 import SegmentedToggle from '../../../components/SegmentedToggle'
-import HistoryRailToggle from '../../../components/HistoryRailToggle'
 import Spinner from '../../../components/Spinner'
-import PinButton from './PinButton'
+import AnchoredPopover from '../../../components/video/AnchoredPopover'
+import { MenuItem, MenuSurface, MENU_ROW_HEIGHT } from '../../../components/Menu'
+import useCloseOnEscape from '../../../hooks/useCloseOnEscape'
+import { KIE_BILLING_URL } from '../../../utils/constants'
 import { opensWindow } from './blockMeta'
 import { StopButton } from './panels/common'
 import type { RunRequest } from './Editor'
@@ -33,8 +36,7 @@ export default function EditorHeader({
   onRun,
   view,
   onView,
-  historyOpen,
-  onToggleHistory,
+  onShowRuns,
   runCount,
 }: {
   flowId: string
@@ -47,8 +49,7 @@ export default function EditorHeader({
   onRun: (req: RunRequest) => void
   view: 'edit' | 'run'
   onView: (view: 'edit' | 'run') => void
-  historyOpen: boolean
-  onToggleHistory: () => void
+  onShowRuns: () => void
   runCount?: number
 }) {
   const openFlow = useFlowStore((s) => s.openFlow)
@@ -73,8 +74,11 @@ export default function EditorHeader({
       >
         <ArrowLeft className="h-4 w-4" />
       </button>
+      {/* "Canvas", never "Edit": Edit is the Edit app, a dock tile away, and
+          every way into this view elsewhere already reads Open Canvas. The
+          view's id stays 'edit'. */}
       <SegmentedToggle
-        options={[{ value: 'edit', label: 'Edit' }, { value: 'run', label: 'Run' }]}
+        options={[{ value: 'edit', label: 'Canvas' }, { value: 'run', label: 'Run' }]}
         value={view}
         onChange={onView}
         fitContent
@@ -107,17 +111,7 @@ export default function EditorHeader({
             <span className="xl:hidden">{blocked.length}</span>
           </button>
         )}
-        <PinButton flowId={flowId} pinned={!!doc.pinned} />
-        <button
-          type="button"
-          onClick={() => void exportTemplate(doc)}
-          title="Share · downloads this flow as a template file. Your product and character become fields for whoever imports it."
-          className="flex items-center gap-1.5 rounded-full border border-ink/10 px-3 py-1.5 text-xs font-medium text-ink-300 transition-colors hover:border-ink/20 hover:text-ink-100"
-        >
-          <Share2 className="h-3.5 w-3.5" />
-          <span className="hidden xl:inline">Share</span>
-        </button>
-        <HistoryRailToggle open={historyOpen} onToggle={onToggleHistory} label="runs" count={runCount} />
+        <MoreMenu flowId={flowId} doc={doc} runCount={runCount} onShowRuns={onShowRuns} />
 
         <span className="mx-1 h-6 w-px bg-ink/10" />
 
@@ -172,6 +166,70 @@ export default function EditorHeader({
         )}
       </div>
     </div>
+  )
+}
+
+// Past Runs, Pin to Dock and Export, behind one ⋯ (September 2026, Massimo's
+// call). The header carried ten controls, and these three are reached for
+// now and then rather than on every run; out in the band they crowded what a
+// run does need — Back, Canvas | Run, the name, Needs Attention, Test With 1,
+// Run Flow and Stop. Export was "Share" until then, but what it does is
+// download a file; sharing a template is the gallery's Copy Link.
+function MoreMenu({ flowId, doc, runCount, onShowRuns }: { flowId: string; doc: FlowDoc; runCount?: number; onShowRuns: () => void }) {
+  const setPinned = useFlowStore((s) => s.setPinned)
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLButtonElement>(null)
+  const close = () => setOpen(false)
+  useCloseOnEscape(open, close)
+  const pinned = !!doc.pinned
+  // Picking a row shuts the menu first, then acts.
+  const pick = (act: () => void) => () => {
+    close()
+    act()
+  }
+  return (
+    <>
+      <button
+        ref={ref}
+        type="button"
+        onClick={() => setOpen(!open)}
+        title="Past runs, Pin to Dock and Export"
+        aria-label="More"
+        aria-expanded={open}
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-colors ${open ? 'border-ink/20 text-ink-100' : 'border-ink/10 text-ink-400 hover:border-ink/20 hover:text-ink-100'}`}
+      >
+        <MoreHorizontal className="h-4 w-4" />
+      </button>
+      <AnchoredPopover anchorRef={ref} open={open} onClose={close} width={208} align="end" estimatedHeight={3 * MENU_ROW_HEIGHT + 2}>
+        <MenuSurface>
+          {/* The stack, as on every history rail's own toggle: the list it
+              opens is the same kind of thing. */}
+          <MenuItem
+            icon={Layers}
+            onClick={pick(onShowRuns)}
+            trailing={runCount ? (
+              <span className="rounded-full bg-ink/10 px-1.5 py-0.5 text-[10px] font-semibold leading-none tabular-nums text-ink-200">{runCount}</span>
+            ) : undefined}
+          >
+            Past Runs
+          </MenuItem>
+          <MenuItem
+            icon={pinned ? PinOff : Pin}
+            onClick={pick(() => setPinned(flowId, !pinned))}
+            title={pinned ? undefined : 'A tile of its own in the dock, opening straight into Run, like an app'}
+          >
+            {pinned ? 'Unpin From Dock' : 'Pin to Dock'}
+          </MenuItem>
+          <MenuItem
+            icon={Download}
+            onClick={pick(() => void exportTemplate(doc))}
+            title="Downloads this flow as a .ugcflow file. Your product and character become fields for whoever imports it."
+          >
+            Export
+          </MenuItem>
+        </MenuSurface>
+      </AnchoredPopover>
+    </>
   )
 }
 
@@ -243,7 +301,7 @@ function RunSummary({
           {short && (
             <p className="mt-1 flex items-start gap-1.5 text-[11.5px] leading-relaxed text-red-300 light:text-red-700">
               <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
-              More than your balance. Top up at kie.ai, or Test With 1 first.
+              <span>More than your balance. <a href={KIE_BILLING_URL} target="_blank" rel="noopener noreferrer" className="font-semibold underline decoration-ink/30 underline-offset-2 hover:decoration-ink/60">Top up at kie.ai</a>, or Test With 1 first.</span>
             </p>
           )}
         </div>

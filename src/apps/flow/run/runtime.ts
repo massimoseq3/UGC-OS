@@ -33,7 +33,7 @@ import { useAppStore } from '../../../stores/appStore'
 import { useActivityStore } from '../../../stores/activityStore'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import { localBanksReady } from '../../../stores/bankStore'
-import { FriendlyError, humanizeError } from '../../../utils/friendlyError'
+import { FriendlyError, humanizeError, NO_KIE_KEY_MESSAGE } from '../../../utils/friendlyError'
 import { lineageOf } from '../../../utils/blockRunner'
 
 export const PLAN_DEPS: PlanDeps = { held: heldValues, cost: blockCost, generations: generationsOf }
@@ -194,8 +194,10 @@ export function startRun(flowId: string, opts: { test?: boolean; only?: string; 
   const replay = isRecordingActive()
   // The field, not getKieApiKey(): the getter throws on an empty key, which
   // would escape the Run click as an uncaught error instead of this refusal.
+  // The app's own sentence, word for word: every caller toasts the reason,
+  // and the toast puts Connect Key beside exactly this one.
   if (!replay && !useSettingsStore.getState().kieApiKey) {
-    return { ok: false, reason: 'Add your kie.ai API key in Settings to run a flow.' }
+    return { ok: false, reason: NO_KIE_KEY_MESSAGE }
   }
   const graph = knownGraph(doc)
   const plan = planFlow(graph, doc.outputs, PLAN_DEPS, { test: opts.test, only: opts.only, fresh: opts.fresh })

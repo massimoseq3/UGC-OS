@@ -22,9 +22,9 @@ import { downloadSkill } from './downloadSkill'
 // numbered-steps style as the kie.ai key guide. Copy is kept plain and
 // friendly (roughly 6th-grade reading level) for non-technical members.
 //
-// One Skill, two places to run it: Claude Code and Codex. The toggle in the
-// setup card is the whole switch — it re-writes the steps, the folder's tile
-// and command, and the name the file downloads under. See `agent.ts`.
+// One Skill, two places to run it: Claude Code and Codex. The toggle above the
+// folder is the whole switch — it re-writes the steps, the folder's tile and
+// sticker, and the name the file downloads under. See `agent.ts`.
 
 const DISPLAY_FONT = { fontFamily: "'Instrument Serif', Georgia, 'Times New Roman', serif" }
 
@@ -126,10 +126,11 @@ export default function EditStudio() {
     // container, so the pane's own vertical scroll is untouched.
     <div className="relative flex min-h-full flex-col overflow-x-clip">
       {/* Phone: one column, and the READING order is not the desktop one — the
-          title says what the page is, the folder is the thing to take, the
-          benefits and the setup steps follow. Desktop keeps the two columns
-          (folder left, everything else right) via explicit grid placement, so
-          the header can lead on a phone without being duplicated.
+          title says what the page is, then which assistant you use, the folder
+          is the thing to take, the benefits and the setup steps follow.
+          Desktop keeps the two columns (folder left, everything else right)
+          via explicit grid placement, so the header can lead on a phone
+          without being duplicated.
           No vertical centering under `md`: a flex column that centres content
           taller than its scroller puts the top of the page out of reach. */}
       <div className="relative mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-7 sm:px-5 md:grid md:grid-cols-2 md:content-center md:items-center md:justify-center md:gap-x-8 md:gap-y-2 md:px-8 md:py-10">
@@ -145,8 +146,26 @@ export default function EditStudio() {
           </p>
         </header>
 
-        {/* The folder is the download */}
+        {/* The folder is the download, so the choice it depends on comes
+            first. The toggle decides the FILE (`.skill` for Claude Code, `.zip`
+            for Codex), and it used to head the setup card instead — after the
+            Download button on a phone and in the other column on a desktop,
+            where a member could take the wrong file before ever reaching it.
+            Above the folder it precedes both ways to download (the folder is
+            a button too) at every width, and the tile and sticker it swaps are
+            right under it, which is what says the two are connected.
+            `relative z-10`: the folder's halo hangs past its top edge and is
+            positioned, so without it the glow would paint over the toggle. */}
         <div className="flex flex-col items-center gap-6 md:col-start-1 md:row-span-2 md:row-start-1 md:gap-7 md:self-center">
+          <div className="relative z-10">
+            <SegmentedToggle
+              options={AGENT_OPTIONS}
+              value={agent}
+              onChange={setAgent}
+              fitContent
+              dense
+            />
+          </div>
           <SkillFolder agent={agent} fresh={fresh} />
           <div className="flex flex-col items-center gap-2">
             <button
@@ -195,26 +214,16 @@ export default function EditStudio() {
           {/* Blurred, not just translucent: a flat 60% fill reads as a smudge
               — the blur is what makes it a pane. */}
           <div className="rounded-3xl border border-ink/10 bg-ink/[0.045] p-4 backdrop-blur-2xl backdrop-saturate-150 shadow-lg shadow-black/30 light:border-black/[0.05] light:bg-white/70 light:shadow-black/[0.08] md:p-5">
-            {/* The toggle heads the card it rewrites, so the steps underneath
-                are visibly the answer to it. Fit-to-content: two short labels
-                shouldn't stretch across the card and read as a pair of tabs. */}
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-[15px] font-semibold tracking-tight text-ink-100">Set It Up</h2>
-              <SegmentedToggle
-                options={AGENT_OPTIONS}
-                value={agent}
-                onChange={setAgent}
-                fitContent
-                dense
-              />
-            </div>
+            {/* The steps follow the toggle above the folder; each one names
+                the tool, so the card needs no switch of its own to read right. */}
+            <h2 className="text-[15px] font-semibold tracking-tight text-ink-100">Set It Up</h2>
             {/* BOTH agents' steps, stacked in one grid cell with the other one
                 `invisible`, so the card is always the height of the taller
                 list. With only the picked list rendered, Claude Code's step 3
                 wraps where Codex's doesn't, so every switch changed the card's
-                height — and the desktop centres the column vertically, so the
-                whole page re-centred and the toggle jumped 10px under the
-                pointer that had just pressed it. `invisible` also takes the
+                height — and the desktop centres the grid vertically, so the
+                whole page re-centred and the toggle jumped under the pointer
+                that had just pressed it. `invisible` also takes the
                 hidden list's link out of the tab order and the a11y tree.
                 `grid-cols-1`, never a bare `grid` (docs/mobile.md). */}
             <div className="mt-3.5 grid grid-cols-1">

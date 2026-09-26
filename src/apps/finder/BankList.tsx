@@ -7,6 +7,8 @@ import type { BankType } from '../../utils/constants'
 import type { ModelFilter } from './Finder'
 import { useBankStore } from '../../stores/bankStore'
 import { useAppStore } from '../../stores/appStore'
+import { useAppVisible } from '../../stores/appVisibilityStore'
+import { getAppConfig } from '../../utils/constants'
 import { useAssetUrl, useAssetThumb, useAssetPoster, posterVideoProps } from '../../hooks/useAssetUrl'
 import { getAsBase64, getUrl, isAssetRef } from '../../utils/assetStore'
 import { downloadImage } from '../../utils/downloadImage'
@@ -752,6 +754,10 @@ export default function BankList({ bankType, onEdit, onAdd, sort, query, modelFi
   const deleteBRoll = useBankStore((s) => s.deleteBRoll)
   const deleteStyle = useBankStore((s) => s.deleteStyle)
   const deleteSwipe = useBankStore((s) => s.deleteSwipe)
+  const openApp = useAppStore((s) => s.openApp)
+  // The Swipe File tab only exists while Outliers does, but the button asks
+  // for itself rather than trusting that — it must never point at a hidden app.
+  const outliersVisible = useAppVisible('discover')
 
   // Sub-filter first (it's a different QUESTION from search: which kind of
   // character, not which one), then the search box.
@@ -777,7 +783,16 @@ export default function BankList({ bankType, onEdit, onAdd, sort, query, modelFi
     return (
       <ProductsBankZone onBulkFiles={onBulkProductFiles}>
         {products.length === 0 ? (
-          <EmptyState icon={Package} label="products" singular="product" onAdd={onAdd} />
+          // The drop target is the whole page, and nothing on it said so: the
+          // only way to find out was to try. Bulk Add's tooltip says it too,
+          // for once the grid has cards in it.
+          <EmptyState
+            icon={Package}
+            label="products"
+            singular="product"
+            onAdd={onAdd}
+            hint="Add your first product, or drop product photos anywhere on this page: each one becomes a product, filled in by Auto-fill."
+          />
         ) : (
           <ProductsList items={shown as Product[]} onEdit={onEdit} onDelete={deleteProduct} sort={sort} inFlightIds={inFlightProductIds} />
         )}
@@ -822,11 +837,13 @@ export default function BankList({ bankType, onEdit, onAdd, sort, query, modelFi
   if (bankType === 'swipes') {
     // No `onAdd`: a swipe file is filled from Outliers, never typed in here.
     if (swipes.length === 0) {
+      const outliers = getAppConfig('discover')
       return (
         <EmptyState
           icon={Bookmark}
           label="saved ads"
           hint="Save an ad from Outliers and it lands here: thumbnail, numbers and transcript kept, so it's still readable long after the links expire."
+          action={outliersVisible && outliers ? { label: 'Open Outliers', icon: outliers.icon, onClick: () => openApp('discover') } : undefined}
         />
       )
     }
@@ -1005,12 +1022,15 @@ const titleCase = (s: string) => s.replace(/\b\w/g, (c) => c.toUpperCase())
 // File — which used to be three shapes (a boxed glyph, the same without a line
 // under it, a bare glyph) with two casings. The heading is Title Case like
 // every other app's "No … Yet"; the hint under it is prose.
-function EmptyState({ icon: Icon, label, singular, hint, onAdd }: {
+function EmptyState({ icon: Icon, label, singular, hint, onAdd, action }: {
   icon: React.ElementType
   label: string
   singular?: string
   hint?: string
   onAdd?: () => void
+  // The way to fill a bank that isn't filled from here (the Swipe File, from
+  // Outliers). Same button as Add Your First, pointed somewhere else.
+  action?: { label: string; icon: React.ElementType; onClick: () => void }
 }) {
   const line = hint ?? (singular && onAdd ? `Add your first ${singular} to get started.` : null)
   return (
@@ -1029,6 +1049,15 @@ function EmptyState({ icon: Icon, label, singular, hint, onAdd }: {
         >
           <Plus className="h-4 w-4" />
           Add Your First {titleCase(singular)}
+        </button>
+      )}
+      {action && (
+        <button
+          onClick={action.onClick}
+          className="flex items-center gap-1.5 rounded-full bg-ink/[0.07] px-4 py-2 text-sm font-medium text-ink-300 transition-colors hover:bg-ink/10"
+        >
+          <action.icon className="h-4 w-4" />
+          {action.label}
         </button>
       )}
     </div>

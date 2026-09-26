@@ -12,7 +12,7 @@ export type SceneType =
 
 // Shot role for a variation.
 //
-// Under the B-Roll Clips delivery a scene gets 3 SILENT variations, each role
+// Under the Voiceover Clips delivery a scene gets 3 SILENT variations, each role
 // picked by the LLM per line from the selectable menu (ALL_TAGS), so the mix
 // adapts to what each script line earns. No shot speaks — a voiceover is laid
 // over in the edit.
@@ -229,7 +229,7 @@ export interface InFlightVideo {
   error?: string | null
 }
 
-// Settings a "Generate all videos" run picks once for the whole batch. Applied
+// Settings a "Generate All Clips" run picks once for the whole batch. Applied
 // at fire time instead of each card's own video settings, so a 12-clip run bills
 // one predictable tier rather than whatever each card happened to be left on.
 // The batch dialog clamps these to the chosen model before handing them over.
@@ -368,7 +368,7 @@ export interface CardState {
 // 'oneshot' for anything else.
 export type BrollMode = 'line' | 'continuous'
 
-// Line-by-Line delivery — the "B-Roll Clips / Dialogue Clips" toggle.
+// Line-by-Line delivery — the "Voiceover Clips / Dialogue Clips" toggle.
 //
 // 'dialogue' — every variation is the character speaking the scene's exact
 //              line, staged three different ways.
@@ -401,7 +401,7 @@ export function isLineMode(mode: BrollMode): boolean {
 // Coerces anything read from localStorage or a history row into a live mode.
 // 'broll' / 'dialogue' are the short-lived three-mode split (both fold onto
 // Line-by-Line; the delivery is not recovered from them, because the toggle
-// opens on B-Roll Clips every load), 'animated' is Continuous' first name, and
+// opens on Voiceover Clips every load), 'animated' is Continuous' first name, and
 // 'oneshot' is the retired mode. Everything unrecognised lands on Line-by-Line.
 export function sanitizeBrollMode(raw: unknown): BrollMode {
   if (raw === 'continuous' || raw === 'animated') return 'continuous'

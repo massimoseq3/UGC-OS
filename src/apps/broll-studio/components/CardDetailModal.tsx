@@ -708,7 +708,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                       onChange={(e) => { setDraft(e.target.value); onUpdateState({ editablePrompt: e.target.value }) }}
                       onBlur={handleDraftBlur}
                       rows={8}
-                      placeholder="Write your custom B-roll prompt here..."
+                      placeholder="Write the prompt for this shot..."
                       className="relative min-h-[180px] w-full grow resize-none border-0 bg-transparent px-3.5 pb-3 pt-3 text-[13px] leading-relaxed text-ink-200 placeholder-ink-600 outline-none"
                     />
                     <PromptToolbar
@@ -740,7 +740,9 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                 {/* Voice profile — one shared voice for every dialogue clip so
                     the character sounds the same across scenes. Sits below the
                     prompt. Only on the Video / Animate tabs of a DIALOGUE card;
-                    edits update the value shared by all dialogue clips. */}
+                    edits update the value shared by all dialogue clips — the
+                    same `result.voiceProfile` the storyboard bar's Voice
+                    Profile pill edits, so it is set once and seen here. */}
                 {isDialogue && onUpdateVoiceProfile && tab !== 'image' && (
                   /* The app-wide Voice card, shared with Playground's video tab
                      (September 2026, Massimo's call). This modal already had the
@@ -1104,7 +1106,7 @@ export default function CardDetailModal(props: CardDetailModalProps) {
         value={draft}
         onChange={setDraft}
         title={`Scene ${sceneNumber} · Prompt`}
-        placeholder="Write your custom B-roll prompt here..."
+        placeholder="Write the prompt for this shot..."
         accent="broll"
       />
     </div>

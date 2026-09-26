@@ -1,6 +1,8 @@
 import { useState, useCallback } from 'react'
 import { Dna, Check, X, ChevronRight } from 'lucide-react'
 import GenerationProgress from '../../../components/GenerationProgress'
+import { formatCredits } from '../../../utils/models'
+import { estimateDnaCredits } from '../services/analyzeImage'
 
 interface PhotoExtractZoneProps {
   // How many reference photos are being analyzed right now (any source).
@@ -150,6 +152,9 @@ export default function PhotoExtractZone({
   // Empty state. A click opens the library rather than the file dialog — that's
   // where browsing, bulk-adding and reusing an old analysis all live, and the
   // panel has its own drop zone. Dropping straight on the row still works.
+  // A drop here is a paid read, so the row's tooltip says what one costs (the
+  // library's drop zone says it in words); there's no room on a half-width row.
+  const cost = formatCredits(estimateDnaCredits())
   return (
     <div>
       <div
@@ -157,6 +162,7 @@ export default function PhotoExtractZone({
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
         onClick={onOpenLibrary}
+        title={cost ? `Fill the form from a reference photo · ${cost} a photo` : 'Fill the form from a reference photo'}
         // h-12 like the analyzing and applied faces above and the preset row
         // beside it, so the row never changes height between states.
         className={`flex h-12 cursor-pointer items-center gap-2.5 rounded-full border border-dashed pl-3 pr-2 transition-all ${dragOver

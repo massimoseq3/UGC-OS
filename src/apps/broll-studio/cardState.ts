@@ -34,7 +34,7 @@ function defaultVideoResolution(): string {
 // Clip length. When the card SPEAKS a line we know how long the words take, so
 // the length is that line's own estimate (see services/clipDuration) — a
 // dialogue card is Auto until the member picks a number in its modal. Every
-// other card (a silent B-Roll Clips variation, a hand-added option, a
+// other card (a silent Voiceover Clips variation, a hand-added option, a
 // placeholder) falls back to the app-wide 5s, snapped to the nearest option at
 // or below on a model that doesn't offer it (Omni [4,6,8,10] → 4s). Seeding
 // here rather than leaning on the modal's snap matters because Omni's

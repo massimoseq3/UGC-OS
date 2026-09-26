@@ -26,6 +26,7 @@ import RunView from './RunView'
 import TemplateUpdateBar from './TemplateUpdateBar'
 import { titleOf } from '../engine/catalog'
 import { useIsDesktop } from '../../../hooks/useBreakpoint'
+import { KIE_BILLING_URL } from '../../../utils/constants'
 
 // Past either, Run asks first and shows what it'll spend.
 export const CONFIRM_CREDITS = 500
@@ -104,7 +105,14 @@ export default function Editor({ flowId }: { flowId: string }) {
     const credits = p?.credits ?? 0
     const generations = p?.generations ?? 0
     if (balance !== null && credits > balance) {
-      addToast(`This run needs ${creditsLabel(credits)} and your kie.ai balance is ${Math.floor(balance).toLocaleString('en-US')}. Top up at kie.ai first, or run less.`, 'error')
+      // Not NO_KIE_CREDITS_MESSAGE: the balance may be far from empty, and
+      // the member needs the two numbers to decide between topping up and
+      // running less. The button is the same Add Credits it would get.
+      addToast(
+        `This run needs ${creditsLabel(credits)} and your kie.ai balance is ${Math.floor(balance).toLocaleString('en-US')}. Top up first, or run less.`,
+        'error',
+        { label: 'Add Credits', run: () => window.open(KIE_BILLING_URL, '_blank', 'noopener,noreferrer') },
+      )
       return
     }
     // Run Again always asks: it pays for things that are already made.
@@ -139,8 +147,7 @@ export default function Editor({ flowId }: { flowId: string }) {
               onRun={requestRun}
               view={view}
               onView={setView}
-              historyOpen={historyOpen}
-              onToggleHistory={() => setHistoryOpen(!historyOpen)}
+              onShowRuns={() => setHistoryOpen(true)}
               runCount={log?.length}
             />
             <TemplateUpdateBar doc={doc} />

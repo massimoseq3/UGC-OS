@@ -1,6 +1,6 @@
 import type { ScriptHistoryItem } from '../../../stores/types'
 import type { PendingScriptRun, RemixAngle, ScriptMode, WriteFormat } from '../types'
-import OutputPanel from './OutputPanel'
+import OutputPanel, { type FindSourceActions } from './OutputPanel'
 import HistoryRail from './HistoryRail'
 import RailOverlay from '../../../components/RailOverlay'
 import HistoryRailToggle from '../../../components/HistoryRailToggle'
@@ -27,6 +27,11 @@ interface RightPanelProps {
   // stamps that row's. The panel scrolls to the top on this and nothing else.
   activeHistoryId: string | null
   error: string | null
+  // Retries the failed run the error belongs to — resumes it while kie still
+  // holds a take, else re-runs its inputs.
+  onRetry?: () => void
+  // Remix with an empty source: the ways to get one, offered on the empty canvas.
+  findSource?: FindSourceActions | null
   // Commits an inline edit of take `index` back to the persisted output state.
   onEditVariation: (index: number, text: string) => void
   // Remix only: the run's one voice brief, shown above the takes. Empty → no card.
@@ -65,6 +70,8 @@ export default function RightPanel({
   watchedRun,
   activeHistoryId,
   error,
+  onRetry,
+  findSource,
   onEditVariation,
   voiceProfile,
   onEditVoiceProfile,
@@ -118,6 +125,8 @@ export default function RightPanel({
           linkedProductId={linkedProductId}
           pendingRun={watchedRun}
           error={error}
+          onRetry={onRetry}
+          findSource={findSource}
           // What a "new set of takes" is, is the parent's knowledge: a run, or
           // the history row being shown. The panel scrolls back to the top on
           // this and on nothing else.

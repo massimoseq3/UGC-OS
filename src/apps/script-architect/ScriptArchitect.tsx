@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, useEffect } from 'react'
+import { useMemo, useRef, useState, useEffect, useEffectEvent } from 'react'
 import { FileText, PenLine } from 'lucide-react'
 import { useAppStore } from '../../stores/appStore'
 import MobilePaneTabs from '../../components/MobilePaneTabs'
@@ -8,20 +8,74 @@ import { useBankStore } from '../../stores/bankStore'
 import type { Lineage, Product, ScriptHistoryItem } from '../../stores/types'
 import InputPanel from './components/InputPanel'
 import RightPanel from './components/RightPanel'
-import { scriptRunner, type ScriptRunInput } from './runner'
+import { scriptRunner, resumeScriptRun, type ScriptRunInput, type ScriptTask } from './runner'
 import { lineageOf } from '../../utils/blockRunner'
 import { WRITE_STYLE_META, HOOK_CATEGORY_META, detectSceneBlueprint, isWriteStyle, isWriteFormat, isWriteLength, isRemixLength, isHookCategoryChoice, isHookCount, isVariationCount, parseHooks, DEFAULT_VARIATION_COUNT, DEFAULT_HOOK_COUNT, DEFAULT_REMIX_LENGTH, type ScriptMode, type ScriptUiMode, type EditableProductContext, type WriteStyle, type WriteFormat, type WriteLength, type RemixLength, type HookCategoryChoice, type HookCount, type VariationCount, type RemixAngle, type PendingScriptRun } from './types'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
 import { useHistoryRailOpen } from '../../hooks/useHistoryRailOpen'
 import { isRecordingActive, useRecordingLoop, useRecordingLoopSince, useVisibleRows } from '../../stores/recordingStore'
+import { useAppVisible } from '../../stores/appVisibilityStore'
+import { INVALID_KIE_KEY_MESSAGE, NO_KIE_CREDITS_MESSAGE, NO_KIE_KEY_MESSAGE } from '../../utils/friendlyError'
+import { LOST_IN_RELOAD_MESSAGE, type TaskHooks } from './services/scriptCalls'
+import {
+  claimRun,
+  hasLiveTakes,
+  isClaimed,
+  isJournaled,
+  journalRun,
+  journalTaskId,
+  journaledRuns,
+  releaseRun,
+  unjournalRun,
+  unjournalTask,
+  RESUMABLE_TTL_MS,
+  type JournaledRun,
+} from './runJournal'
 
 interface ReverseEngineerPayload {
   fullPrompt?: string
   scenes?: Array<{ prompt: string; index: number; label: string; startTime: string; endTime: string }>
 }
 
-// Substituted for an empty Write New brief so the model takes creative license
-// instead of the user hitting a hard "brief required" wall.
+// The sentences a member fixes themselves. Their toast already carries the
+// button that fixes it (Connect Key / Add Credits, from the toast store), and a
+// Retry beside a missing key would just fail again.
+const MEMBER_FIX_MESSAGES = new Set([NO_KIE_KEY_MESSAGE, INVALID_KIE_KEY_MESSAGE, NO_KIE_CREDITS_MESSAGE])
+
+// What a landed run says it made, off the RUN's own mode and format — never
+// the live selectors, which the member may have moved while it wrote (or, for
+// a run resumed after a reload, never set to match it at all).
+function landedMessage(mode: ScriptMode, writeFormat: string | undefined, variations: string[]): string {
+  const n = variations.length
+  if (mode === 'write') {
+    if (writeFormat === 'hooks') return `${parseHooks(variations[0] ?? '').length || 'Your'} hooks generated`
+    return writeFormat === 'scenes' ? `${n} scene drafts generated` : `${n} scripts generated`
+  }
+  return mode === 'remix' ? `${n} script variations generated` : 'Scenes rewritten'
+}
+
+// A run's in-progress card, given the id its finished row will take and the
+// moment it started. Minted before the call: the id names the card in History,
+// it is what the Output pane is parked on while the run writes, and it becomes
+// the row's id — so the card never changes identity under the member watching.
+function mintRun(fields: Omit<PendingScriptRun, 'id' | 'startedAt'>): PendingScriptRun {
+  return { ...fields, id: crypto.randomUUID(), startedAt: Date.now() }
+}
+
+// The runs a previous page load left in the journal, sorted once on mount:
+// `live` still has a take kie is writing and is picked back up; `lost` was
+// streamed (its writer model has no job route) and is offered as a Retry;
+// `stale` is past the 3 days kie keeps a result, and is dropped.
+function readJournal(now: number): { live: JournaledRun[]; lost: JournaledRun[]; stale: JournaledRun[] } {
+  const out = { live: [] as JournaledRun[], lost: [] as JournaledRun[], stale: [] as JournaledRun[] }
+  for (const entry of journaledRuns()) {
+    if (isClaimed(entry.run.id)) continue
+    if (now - entry.run.startedAt > RESUMABLE_TTL_MS) out.stale.push(entry)
+    else if (hasLiveTakes(entry)) out.live.push(entry)
+    else out.lost.push(entry)
+  }
+  return out
+}
 
 // One-time draft migration: the merged Remix source box replaced the two
 // per-mode fields (transcript / reversePrompt). Seed the new slot from
@@ -40,12 +94,21 @@ function readLegacySource(baseKey: string): string {
 
 export default function ScriptArchitect() {
   const baseKey = useProjectScopedKey('script-architect')
-  // Drafts persisted before the merge may hold 'reverse-engineer' — fold it
-  // into the merged 'remix' mode on hydration.
-  const [mode, setMode] = usePersistedState<ScriptUiMode>(`${baseKey}:mode`, 'remix', {
-    sanitize: (v) => ((v as string) === 'reverse-engineer' ? 'remix' : v),
-  })
   const [source, setSource] = usePersistedState(`${baseKey}:source`, readLegacySource(baseKey))
+  // Scripts OPENS on Write New unless there is something in the Remix box
+  // (September 2026, Massimo's call). It opened on Remix, which is nothing
+  // without a winning ad to rewrite — a newcomer has none, so their first sight
+  // of the app was a dead end. Read at hydration only: picking Remix with an
+  // empty box mid-session stays picked, and the empty Output canvas offers the
+  // ways to get a source; an inter-app send still switches to Remix on arrival.
+  // Drafts persisted before the merge may hold 'reverse-engineer' — fold it
+  // into the merged 'remix' mode on the way.
+  const [mode, setMode] = usePersistedState<ScriptUiMode>(`${baseKey}:mode`, 'write', {
+    sanitize: (v) => {
+      const next = (v as string) === 'reverse-engineer' ? 'remix' : v
+      return next === 'remix' && !source.trim() ? 'write' : next
+    },
+  })
   // The rows the source box was handed from — the analysis or swipe an
   // inter-app send came out of — stamped as parents of the run it feeds. Any
   // other write to the box drops them, hand edits included: an edited source
@@ -120,23 +183,34 @@ export default function ScriptArchitect() {
   // empty slot (a draft from before this existed) starts from the persisted
   // pick, which is what those takes were being linked to all along.
   const [outputProductId, setOutputProductId] = usePersistedState<string | null>(`${baseKey}:outputProductId`, selectedProductId)
+  // Runs a previous page load left writing (see runJournal.ts), read once. The
+  // live ones rejoin the queue below as if they had never left it.
+  const [journal] = useState(() => readJournal(Date.now()))
+  // The pane was parked on a run still writing when the page went (that is the
+  // only way it reloads onto an empty canvas with a run in the journal), so it
+  // goes back to watching the newest one.
+  const [resumeOnto] = useState(() => (variations.length === 0 ? journal.live[0]?.run.id ?? null : null))
   // What the Output pane is showing: a finished history row, or one of the runs
   // still writing (both are addressed by the same id — see PendingScriptRun).
-  const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null)
+  const [activeHistoryId, setActiveHistoryId] = useState<string | null>(resumeOnto)
   // Every run in flight, newest first — so the in-progress block and the
   // day-grouped rows under it read as one most-recent-first list rather than as
   // two orderings. They are HISTORY rows from the moment they are fired, so
   // Generate never stands down: press it again and a second card joins the
   // queue, exactly as pressing a media app's Generate twice queues two tiles.
-  const [pendingRuns, setPendingRuns] = useState<PendingScriptRun[]>([])
-  const [error, setError] = useState<string | null>(null)
+  const [pendingRuns, setPendingRuns] = useState<PendingScriptRun[]>(() => journal.live.map((e) => e.run))
+  // The failure the pane is showing, and the run its Retry acts on.
+  const [failure, setFailure] = useState<{ message: string; record: JournaledRun } | null>(null)
   // The one thing a run's async tail has to read back AFTER its await, and the
   // one it can't: the closure captured the render's `activeHistoryId`, and by
   // the time a script lands the member has usually moved the pane. Holds the id
   // of the still-writing run the pane is parked on, or null when it is parked
   // on finished work — which is exactly the question "may this run take the
-  // pane when it lands?" asks. See the landing guard in handleGenerate.
-  const watchedRunIdRef = useRef<string | null>(null)
+  // pane when it lands?" asks. See the landing guard in driveRun.
+  const watchedRunIdRef = useRef<string | null>(resumeOnto)
+  // Bumped to open the Remix source's Reference Script picker from the empty
+  // Output canvas; the picker itself lives in InputPanel.
+  const [scriptPickerSignal, setScriptPickerSignal] = useState(0)
   // Phone-only: which of the two panes is on screen (ignored from md up).
   const [pane, setPane] = useState<'input' | 'output'>('input')
   // Whether the history rail is showing. Persisted, because it is a working
@@ -217,39 +291,43 @@ export default function ScriptArchitect() {
 
   // Consume inter-app payloads. Both Ad Analyzer send actions land in the
   // same merged source box — the format detection picks the pipeline.
-  useEffect(() => {
-    if (activeApp !== 'script-architect') return
-    if (!interAppPayload || interAppPayload.targetApp !== 'script-architect') return
-
-    const { targetField, data } = interAppPayload
-
+  // Applied from an effect EVENT rather than the effect body: it reads the
+  // latest setters and bank lookup without their being dependencies, and the
+  // React Compiler — which compiles this component since the run's tail lost
+  // its try/finally — rejects state set synchronously in an effect body.
+  const applyPayload = useEffectEvent((payload: NonNullable<typeof interAppPayload>) => {
+    const { targetField, data } = payload
     if (targetField === 'reverseEngineerPrompt') {
-      const payload = data as ReverseEngineerPayload | string
-      const full = typeof payload === 'string'
-        ? payload
-        : (payload.fullPrompt ?? (payload.scenes ?? [])
+      const sent = data as ReverseEngineerPayload | string
+      const full = typeof sent === 'string'
+        ? sent
+        : (sent.fullPrompt ?? (sent.scenes ?? [])
             .map((s) => `--- Scene ${s.index}: ${s.label} (${s.startTime}-${s.endTime}) ---\n${s.prompt}`)
             .join('\n\n'))
       setMode('remix')
       setForceTranscript(false)
       setSource(full)
-      setSourceParents(interAppPayload.parents ?? null)
+      setSourceParents(payload.parents ?? null)
       setHighlightField('source')
       setTimeout(() => setHighlightField(null), 800)
     } else if (targetField === 'winningTranscript' || targetField === 'reconstructionPrompt') {
       setMode('remix')
       setForceTranscript(false)
       setSource(data as string)
-      setSourceParents(interAppPayload.parents ?? null)
+      setSourceParents(payload.parents ?? null)
       setHighlightField('source')
       setTimeout(() => setHighlightField(null), 800)
     } else if (targetField === 'productId') {
       const product = getProductById(data as string)
       if (product) setSelectedProductId(product.id)
     }
-
+  })
+  useEffect(() => {
+    if (activeApp !== 'script-architect') return
+    if (!interAppPayload || interAppPayload.targetApp !== 'script-architect') return
+    applyPayload(interAppPayload)
     consumePayload()
-  }, [interAppPayload, activeApp, consumePayload, getProductById, setMode, setSource, setSourceParents, setSelectedProductId])
+  }, [interAppPayload, activeApp, consumePayload])
 
   // Park the Output pane on `run` and pin the labels the cards read off. Both
   // the moment a run is fired and the moment it lands go through this, so the
@@ -277,9 +355,126 @@ export default function ScriptArchitect() {
     setOutputVoiceProfile('')
   }
 
+  // Drive one run from its calls to its row: a fresh press, or a run picked
+  // back up (after a reload, or by a Retry that still holds kie tasks). Its
+  // taskIds are written to the journal as they arrive — that is what a reload
+  // resumes from — and dropped as a task dies, so a Retry never waits on one.
+  const driveRun = async (record: JournaledRun, how: 'fresh' | 'resume') => {
+    const { run } = record
+    const taskIds = { ...record.taskIds }
+    const hooks: TaskHooks = {
+      onTaskId: (slot, taskId) => {
+        taskIds[slot] = taskId
+        journalTaskId(run.id, slot, taskId)
+      },
+      onTaskDead: (slot) => {
+        delete taskIds[slot]
+        unjournalTask(run.id, slot)
+      },
+    }
+    // Picked back up by two tabs after one reload, a run is landed by whichever
+    // finishes first — it unjournals the run, and the other leaves the row to
+    // it. Only a run that WAS journalled can have been taken that way; one the
+    // journal couldn't store (a full quota) always lands here.
+    const journaled = isJournaled(run.id)
+    let task: ScriptTask | null = null
+    let error: unknown = null
+    try {
+      task = how === 'resume'
+        ? await resumeScriptRun(record.input, taskIds, { provenance: record.provenance }, hooks)
+        : await scriptRunner.start(record.input, { provenance: record.provenance }, hooks)
+      // The runner writes the history row, under the run's own id.
+      if (how === 'resume' && journaled && !isJournaled(run.id)) task = null
+      else await scriptRunner.finish(task)
+    } catch (err) {
+      error = err
+    }
+    unjournalRun(run.id)
+    releaseRun(run.id)
+    setPendingRuns((prev) => prev.filter((r) => r.id !== run.id))
+
+    if (error) {
+      const message = scriptRunner.describeError(error)
+      const retryable: JournaledRun = { ...record, taskIds }
+      // Only the pane parked on THIS run should turn into its error; anyone
+      // reading something else gets the toast and keeps their page. The pane
+      // the run was fired into is already empty, which is the state OutputPanel
+      // renders an error in.
+      if (watchedRunIdRef.current === run.id) {
+        watchedRunIdRef.current = null
+        setFailure({ message, record: retryable })
+      }
+      useAppStore.getState().addToast(
+        message,
+        'error',
+        MEMBER_FIX_MESSAGES.has(message) ? undefined : { label: 'Retry', run: () => retryRun(retryable) },
+      )
+      return
+    }
+    if (!task) {
+      if (watchedRunIdRef.current === run.id) watchedRunIdRef.current = null
+      return
+    }
+
+    const { result } = task
+    // The finished run takes the pane, even if the member wandered off into a
+    // finished row while it wrote — that is what they pressed Generate for.
+    // The one thing it will not do is steal the pane from ANOTHER run still
+    // being written: watching a script arrive is the one state where being
+    // yanked away loses something you can't get back with a click.
+    const watchingAnotherRun =
+      watchedRunIdRef.current !== null && watchedRunIdRef.current !== run.id
+    if (!watchingAnotherRun) {
+      watchedRunIdRef.current = null
+      pinRun(run)
+      setVariations(result.variations)
+      setOutputAngles(result.angles ?? null)
+      setOutputVoiceProfile(result.voiceProfile ?? '')
+    }
+    // Count what actually came back rather than the configured batch size, so
+    // the toast stays honest if a take fails or the count changes again.
+    useAppStore.getState().addToast(landedMessage(run.mode, run.writeFormat, result.variations), 'success')
+  }
+
+  // Put a run in the queue and the pane on it, then start it. Every way a run
+  // begins goes through here — Generate, a Retry of either kind — so each gets
+  // the same in-progress card, the same writing face and the same journal entry.
+  const startRun = (record: JournaledRun, how: 'fresh' | 'resume') => {
+    const { run } = record
+    setPendingRuns((prev) => [run, ...prev.filter((r) => r.id !== run.id)])
+    setFailure(null)
+    // On a phone only one pane is on screen — follow the run to the takes.
+    setPane('output')
+    showRunEmpty(run)
+    // Recording Mode: a fresh press spends nothing. A resume submits nothing
+    // either way — it only waits on tasks kie already has.
+    if (how === 'fresh' && isRecordingActive()) {
+      void replayScriptRun(run, record.input)
+      return
+    }
+    // Already being driven (a second Retry on the same run) — its own tail lands it.
+    if (!claimRun(run.id)) return
+    journalRun(record)
+    void driveRun(record, how)
+  }
+
+  // Retry — from the pane's error or the failure toast. While kie still holds
+  // one of the run's takes, it RESUMES that run and says so: the takes are
+  // written and billed, and re-submitting would pay for them twice. Otherwise
+  // it is a new run of the same inputs (a new id, so its card is a new card).
+  const retryRun = (record: JournaledRun) => {
+    if (hasLiveTakes(record)) {
+      useAppStore.getState().addToast('Picking the script back up from kie.ai. It\'s the same run, so nothing is charged again.', 'info')
+      startRun(record, 'resume')
+      return
+    }
+    const run = mintRun(record.run)
+    startRun({ run, input: { ...record.input, id: run.id }, provenance: record.provenance, taskIds: {} }, 'fresh')
+  }
+
   // `sourceScriptId` is the Scripts bank row the source box was filled from,
   // while it's still unedited — a parent of whatever this run writes.
-  const handleGenerate = async (productContext: EditableProductContext | null, sourceScriptId: string | null = null) => {
+  const handleGenerate = (productContext: EditableProductContext | null, sourceScriptId: string | null = null) => {
     const sourceFilled = mode === 'write' ? true : source.trim()
     // A product is OPTIONAL in both modes — a member describing the product in
     // the brief or the instructions shouldn't have to bank it first. What each
@@ -290,12 +485,7 @@ export default function ScriptArchitect() {
     if (mode === 'write' && !selectedProduct && !brief.trim()) return
 
     const inputSource = mode === 'write' ? brief : source
-    // Mint the run's id before the call: it names the in-progress card in
-    // History, it is what the Output pane is parked on while the run writes,
-    // and it becomes the finished row's id — so the card never changes
-    // identity under the member watching it.
-    const run: PendingScriptRun = {
-      id: crypto.randomUUID(),
+    const run = mintRun({
       mode: resolvedMode,
       writeStyle,
       writeFormat,
@@ -305,13 +495,7 @@ export default function ScriptArchitect() {
       productName: selectedProduct?.productName,
       productId: selectedProduct?.id,
       inputSummary: inputSource.slice(0, 200),
-      startedAt: Date.now(),
-    }
-    setPendingRuns((prev) => [run, ...prev])
-    setError(null)
-    // On a phone only one pane is on screen — follow the run to the takes.
-    setPane('output')
-    showRunEmpty(run)
+    })
     // Everything the run reads, snapshotted now: the member can keep typing.
     const input: ScriptRunInput = {
       id: run.id,
@@ -330,63 +514,41 @@ export default function ScriptArchitect() {
       productContext,
       additionalContext,
     }
-    if (isRecordingActive()) {
-      await replayScriptRun(run, input)
-      return
-    }
-    try {
-      // The runner writes the history row, under the run's own id.
-      const task = await scriptRunner.start(input, {
-        provenance: {
-          parents: lineageOf(
-            selectedProduct ? { bank: 'products', id: selectedProduct.id } : null,
-            mode === 'remix' && sourceScriptId ? { bank: 'scripts', id: sourceScriptId } : null,
-            mode === 'remix' ? sourceParents : null,
-          ),
-        },
-      })
-      await scriptRunner.finish(task)
-      const { result } = task
-      // The finished run takes the pane, even if the member wandered off into a
-      // finished row while it wrote — that is what they pressed Generate for.
-      // The one thing it will not do is steal the pane from ANOTHER run still
-      // being written: watching a script arrive is the one state where being
-      // yanked away loses something you can't get back with a click.
-      const watchingAnotherRun =
-        watchedRunIdRef.current !== null && watchedRunIdRef.current !== run.id
-      if (!watchingAnotherRun) {
-        watchedRunIdRef.current = null
-        pinRun(run)
-        setVariations(result.variations)
-        setOutputAngles(result.angles ?? null)
-        setOutputVoiceProfile(result.voiceProfile ?? '')
-      }
-
-      const hooksReturned = writeFormat === 'hooks' ? parseHooks(result.variations[0] ?? '').length : 0
-      // Count what actually came back rather than the configured batch size, so
-      // the toast stays honest if a take fails or the count changes again.
-      const n = result.variations.length
-      useAppStore.getState().addToast(
-        resolvedMode === 'write'
-          ? (writeFormat === 'hooks' ? `${hooksReturned || 'Your'} hooks generated` : writeFormat === 'scenes' ? `${n} scene drafts generated` : `${n} scripts generated`)
-          : resolvedMode === 'remix' ? `${n} script variations generated` : 'Script rewritten',
-        'success',
-      )
-    } catch (err) {
-      const msg = scriptRunner.describeError(err)
-      // Only the pane parked on THIS run should turn into its error; anyone
-      // reading something else gets the toast and keeps their page. The pane
-      // the run was fired into is already empty, which is the state OutputPanel
-      // renders an error in.
-      if (watchedRunIdRef.current === run.id) {
-        watchedRunIdRef.current = null
-        setError(msg)
-      }
-      useAppStore.getState().addToast(msg, 'error')
-    } finally {
-      setPendingRuns((prev) => prev.filter((r) => r.id !== run.id))
-    }
+    startRun({
+      run,
+      input,
+      provenance: {
+        parents: lineageOf(
+          selectedProduct ? { bank: 'products', id: selectedProduct.id } : null,
+          mode === 'remix' && sourceScriptId ? { bank: 'scripts', id: sourceScriptId } : null,
+          mode === 'remix' ? sourceParents : null,
+        ),
+      },
+      taskIds: {},
+    }, 'fresh')
   }
+
+  // Runs a previous page load left in the journal. The live ones are already
+  // cards in the queue (see `journal`); this attaches their polls. The lost
+  // ones — streamed, so nothing survived the reload — are said out loud with a
+  // Retry rather than vanishing, which is what every run used to do on a
+  // reload. The claim and the unjournal make both halves safe to run twice.
+  const resumeJournal = useEffectEvent(() => {
+    for (const entry of journal.stale) unjournalRun(entry.run.id)
+    for (const entry of journal.live) {
+      if (claimRun(entry.run.id)) void driveRun(entry, 'resume')
+    }
+    const lost = journal.lost.filter((entry) => unjournalRun(entry.run.id))
+    if (lost.length === 0) return
+    useAppStore.getState().addToast(
+      lost.length === 1
+        ? LOST_IN_RELOAD_MESSAGE
+        : `${lost.length} scripts were being written when the page reloaded, and the model writing them can't be picked back up. Generate them again.`,
+      'error',
+      { label: 'Retry', run: () => { for (const entry of lost) retryRun(entry) } },
+    )
+  })
+  useEffect(() => { resumeJournal() }, [])
 
   // Put a finished row's takes in the Output pane, labelled as that row. The
   // output half of opening a History row, shared with Recording Mode's replay,
@@ -394,7 +556,7 @@ export default function ScriptArchitect() {
   const showRowOutput = (item: ScriptHistoryItem) => {
     setVariations(item.variations)
     setActiveHistoryId(item.id)
-    setError(null)
+    setFailure(null)
     // Pin the output labels to the run we're restoring.
     setOutputMode(item.mode)
     setOutputStyle(item.writeStyle && item.writeStyle in WRITE_STYLE_META ? (item.writeStyle as WriteStyle) : 'pas')
@@ -420,13 +582,7 @@ export default function ScriptArchitect() {
     if (watchedRunIdRef.current === run.id) watchedRunIdRef.current = null
     if (!row) return
     if (!watchingAnotherRun) showRowOutput(row)
-    const n = row.variations.length
-    useAppStore.getState().addToast(
-      row.mode === 'write'
-        ? (row.writeFormat === 'hooks' ? 'Your hooks generated' : row.writeFormat === 'scenes' ? `${n} scene drafts generated` : `${n} scripts generated`)
-        : row.mode === 'remix' ? `${n} script variations generated` : 'Script rewritten',
-      'success',
-    )
+    useAppStore.getState().addToast(landedMessage(row.mode, row.writeFormat, row.variations), 'success')
   }
 
   const handleSelectHistory = (item: ScriptHistoryItem) => {
@@ -479,7 +635,7 @@ export default function ScriptArchitect() {
   // the member has since loaded another row, and silently undoing that edit is
   // not what clicking a status card asks for.
   const handleWatchPending = (run: PendingScriptRun) => {
-    setError(null)
+    setFailure(null)
     setHistoryOpen(false)
     showRunEmpty(run)
   }
@@ -495,6 +651,24 @@ export default function ScriptArchitect() {
     setSelectedProductId(null)
     setForceTranscript(false)
   }
+
+  // Remix with nothing in the box: the empty Output canvas offers the three
+  // ways to get a source, rather than waiting on one a newcomer doesn't have.
+  // Outliers only while it's switched on — hiding it takes every door to it.
+  const outliersOn = useAppVisible('discover')
+  const openApp = useAppStore((s) => s.openApp)
+  const findSource = mode === 'remix' && !source.trim()
+    ? {
+        onFindOutlier: outliersOn ? () => openApp('discover') : undefined,
+        onAnalyzeAd: () => openApp('ad-anatomy'),
+        onPickScript: () => {
+          // On a phone the picker opens over Setup, which is where the pick
+          // lands and where Generate is.
+          setPane('input')
+          setScriptPickerSignal((n) => n + 1)
+        },
+      }
+    : null
 
   const handleDeleteHistory = (id: string) => {
     deleteScriptHistory(id)
@@ -513,6 +687,9 @@ export default function ScriptArchitect() {
   const handleNewScript = () => {
     setClearedSig(outputSig)
     handleClearInputs()
+    // A failed run's error goes with the sheet it was on; its toast still
+    // offers the Retry if it's wanted.
+    setFailure(null)
     // New lives INSIDE the rail, and the rail covers the takes it just
     // cleared — so leaving it open reads as the press having done nothing.
     // Same rule as picking a row: acting in the rail hands the pane back.
@@ -563,6 +740,7 @@ export default function ScriptArchitect() {
           onAdditionalContextChange={setAdditionalContext}
           onGenerate={handleGenerate}
           highlightField={highlightField}
+          openScriptPickerSignal={scriptPickerSignal}
         />
       </div>
 
@@ -590,7 +768,9 @@ export default function ScriptArchitect() {
           linkedProductId={outputProductId}
           watchedRun={watchedRun}
           activeHistoryId={activeHistoryId}
-          error={error}
+          error={failure?.message ?? null}
+          onRetry={failure ? () => retryRun(failure.record) : undefined}
+          findSource={findSource}
           onEditVariation={(index, text) =>
             setVariations((prev) => prev.map((v, i) => (i === index ? text : v)))
           }

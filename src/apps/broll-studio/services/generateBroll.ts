@@ -300,7 +300,7 @@ Wrap every scene in this exact XML envelope. Do not include any text outside the
 // silent b-roll ideas, locked to a single continuous take — same room, same
 // wardrobe, same lens height for the whole ad, with each card chained to the
 // previous one's still. Both halves were wrong for what this delivery is: if you
-// wanted silent footage you'd be on B-Roll Clips, and three angles on one sitting
+// wanted silent footage you'd be on Voiceover Clips, and three angles on one sitting
 // is one idea filmed three times, which is exactly what the b-roll side of the
 // app spent its whole prompt learning not to do. So a dialogue scene is now
 // three genuinely different ways to DELIVER the line — different room, different

@@ -5,6 +5,8 @@ import DayPill from '../../../components/DayPill'
 import { TileDeleteButton } from '../../../components/tileActions'
 import { groupByDay, sectionLabel } from '../../../utils/history'
 import { describeRefProfile, INTERRUPTED_REF_ERROR, type CharacterRefItem } from '../types'
+import { formatCredits } from '../../../utils/models'
+import { estimateDnaCredits } from '../services/analyzeImage'
 
 interface ReferenceLibraryModalProps {
   open: boolean
@@ -39,6 +41,9 @@ export default function ReferenceLibraryModal({
 }: ReferenceLibraryModalProps) {
   const [query, setQuery] = useState('')
   const [dragOver, setDragOver] = useState(false)
+  // What one read costs, said where the member starts one: every photo dropped
+  // here is a paid vision call, and a row already in the list is not.
+  const cost = formatCredits(estimateDnaCredits())
   const inputRef = useRef<HTMLInputElement>(null)
 
   const groups = useMemo(() => {
@@ -97,6 +102,9 @@ export default function ReferenceLibraryModal({
               <Upload className="h-4 w-4" strokeWidth={1.5} />
             </span>
             <span className="text-[13px] font-medium text-ink-300">Drop photos, or click to browse</span>
+            {cost && (
+              <span className="text-[11px] text-ink-600">{cost} a photo · reusing a row below is free</span>
+            )}
           </div>
 
           {error && (

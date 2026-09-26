@@ -8,7 +8,7 @@
 //
 // **Auto is a WITH DIALOGUE thing, and only that.** It shipped applying to
 // every card in both deliveries and was pulled back to the dialogue cards in
-// August 2026. A silent B-Roll Clips card has no words in it — it's cutaway
+// August 2026. A silent Voiceover Clips card has no words in it — it's cutaway
 // footage that a voiceover is laid over in the edit — so nothing about its
 // length follows from the line it was written for, and deriving one from a
 // word count is a number invented for a clip that isn't saying them. Those
@@ -52,12 +52,12 @@ export const MAX_CLIP_SECONDS = 15
 
 // What a clip that holds no spoken words runs at unless the member picks
 // otherwise — the app-wide default every B-Roll card used before Auto existed,
-// and the one B-Roll Clips cards went back to.
+// and the one Voiceover Clips cards went back to.
 export const DEFAULT_CLIP_SECONDS = 5
 
 // Does this card's character speak the scene's line on camera? The one test for
 // whether Auto is on the table at all: under Dialogue Clips every variation is a
-// DIALOGUE card, under B-Roll Clips none is, and a hand-added option is a silent
+// DIALOGUE card, under Voiceover Clips none is, and a hand-added option is a silent
 // b-roll card everywhere else in the app (no voice profile, no anchor chain), so
 // it is one here too.
 export function speaksItsLine(variation: { tag: VariationTag }): boolean {

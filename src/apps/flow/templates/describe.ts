@@ -19,8 +19,8 @@ import { useBankStore } from '../../../stores/bankStore'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import { kieChatCompletions, type ChatMessage } from '../../../utils/kie'
 import { CHAT_MODEL_DEFAULT, getChatTarget } from '../../../utils/models'
-import { FriendlyError } from '../../../utils/friendlyError'
-import { HOOK_CATEGORY_META, HOOK_COUNTS, VARIATION_COUNTS, WRITE_LENGTHS, WRITE_STYLE_META } from '../../script-architect/types'
+import { FriendlyError, NO_KIE_KEY_MESSAGE } from '../../../utils/friendlyError'
+import { HOOK_CATEGORY_META, HOOK_COUNTS, VARIATION_MAX, VARIATION_MIN, WRITE_LENGTHS, WRITE_STYLE_META } from '../../script-architect/types'
 import { VOICES, VOICE_ACCENTS, VOICE_PACES, VOICE_STYLES } from '../../voice-studio/types'
 import { CONTINUOUS_STYLES } from '../../../utils/visualStyle'
 
@@ -47,7 +47,7 @@ ${kinds}
 BANK BLOCKS: settings.bank is one of ${banks}; "pick" is the id of a row in that bank.
 
 SETTINGS BY KIND (anything omitted takes the app's default):
-- scripts: mode "write" | "remix"; writeFormat "hooks" | "script" | "scenes"; writeStyle one of ${Object.keys(WRITE_STYLE_META).join(', ')}; writeLength one of ${WRITE_LENGTHS.join(', ')} (seconds); hookCategory one of ${Object.keys(HOOK_CATEGORY_META).join(', ')}; hookCount one of ${HOOK_COUNTS.join(', ')}; variationCount one of ${VARIATION_COUNTS.join(', ')}; brief (text); additionalContext (text). Remix needs a winning ad wired into "source": the Ad Analyzer's "transcript" for a plain script, or its "scenes" output for a scene-by-scene remix.
+- scripts: mode "write" | "remix"; writeFormat "hooks" | "script" | "scenes"; writeStyle one of ${Object.keys(WRITE_STYLE_META).join(', ')}; writeLength one of ${WRITE_LENGTHS.join(', ')} (seconds); hookCategory one of ${Object.keys(HOOK_CATEGORY_META).join(', ')}; hookCount one of ${HOOK_COUNTS.join(', ')}; variationCount a whole number from ${VARIATION_MIN} to ${VARIATION_MAX}; brief (text); additionalContext (text). Remix needs a winning ad wired into "source": the Ad Analyzer's "transcript" for a plain script, or its "scenes" output for a scene-by-scene remix.
 - voice: voiceId one of ${VOICES.map((v) => `${v.id} (${v.gender ?? '?'}, ${v.description})`).join('; ')}; style one of ${VOICE_STYLES.join(', ')}; pace one of ${VOICE_PACES.join(', ')}; accent one of ${VOICE_ACCENTS.join(', ')}.
 - characters: count 1-4; kind "portrait" | "sheet"; profile: an object of free-text fields among gender, age, ethnicity, bodyType, skinTone, hairColor, hairStyle, clothingStyle, expression, pose, location, lighting. Variants of one character for different audiences: wire the character (a models bank block) into "photo" and a list of changes (e.g. "Make her Asian-American, monolid eyes, brunette hair") into "change"; each change edits the picture into one variant.
 - broll: delivery "silent" (b-roll under a voiceover) | "dialogue" (the character speaks each line); takes 1-3 stills per script line; animate true | false; styleId one of ${CONTINUOUS_STYLES.map((s) => s.id).join(', ')}; aspectRatio "9:16" | "16:9" | "1:1"; context (text).
@@ -83,9 +83,10 @@ function graphText(graph: FlowGraph): string {
 
 async function ask(system: string, user: string): Promise<unknown> {
   // The field, not getKieApiKey(), which throws its own message before this
-  // check could run.
+  // check could run. The app's own no-key sentence, word for word, so the
+  // toast Describe It and Ask Flow show it in gets its Connect Key.
   const apiKey = useSettingsStore.getState().kieApiKey
-  if (!apiKey) throw new FriendlyError('Add your kie.ai API key in Settings to use this.')
+  if (!apiKey) throw new FriendlyError(NO_KIE_KEY_MESSAGE)
   const messages: ChatMessage[] = [
     { role: 'system', content: [{ type: 'text', text: system }] },
     { role: 'user', content: [{ type: 'text', text: user }] },

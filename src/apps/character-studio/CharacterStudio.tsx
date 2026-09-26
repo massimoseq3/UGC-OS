@@ -15,14 +15,23 @@ import ControlsPanel from './components/ControlsPanel'
 import GalleryPanel, { type GalleryViewMode } from './components/GalleryPanel'
 import ReferenceLibraryModal from './components/ReferenceLibraryModal'
 import type { GenerationKind } from './services/generateCharacter'
-import { characterRunner, characterModelFor, type CharacterTask } from './runner'
+import { characterRunner, characterModelFor, describeCharacterProfile, type CharacterTask } from './runner'
 import { useReferenceLibrary } from './useReferenceLibrary'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
 import { isRecordingActive, useRecordingLoop, useRecordingLoopSince } from '../../stores/recordingStore'
+import { humanizeError, NO_KIE_KEY_MESSAGE } from '../../utils/friendlyError'
 
 // In-flight character generations older than 30 min are evicted on resume —
 // matches the cap used by Playground so the user's mental model is uniform.
 const INFLIGHT_TTL_MS = 30 * 60 * 1000
+
+// The toast after a wholesale overwrite of the form, carrying its Undo. A
+// second overwrite while the first toast is still up REPLACES it (the toast
+// store swaps a twin that brings its own button), so Undo is always one step
+// back rather than restoring the form from before the first overwrite.
+function offerUndo(message: string, undo: () => void) {
+  useAppStore.getState().addToast(message, 'success', { label: 'Undo', run: undo })
+}
 
 export default function CharacterStudio() {
   const baseKey = useProjectScopedKey('character-studio')
@@ -97,12 +106,73 @@ export default function CharacterStudio() {
   // Phone-only: which of the two panes is on screen (ignored from md up).
   const [pane, setPane] = useState<'controls' | 'gallery'>('controls')
 
+  // The form and the reference pointer as they stand right now, for the three
+  // wholesale overwrites below. Two of them land after an await (a vision or a
+  // text call), long after the render that started them, so a closure would
+  // hand Undo a form that is already out of date.
+  const latestRef = useRef({ profile, activeRefId })
+  useEffect(() => { latestRef.current = { profile, activeRefId } })
+
+  // Replace the WHOLE form — a dropped photo's DNA, a whole-character preset,
+  // a described character — and offer the way back. Every one of these wipes
+  // ~28 fields in one go, and a dropped photo does it on a paid call the member
+  // may have fired by missing a drop target, so the form they had is kept for
+  // one press of Undo. The reference pointer rides along: it says which photo
+  // filled the form, and the form it restores was filled by whatever it held.
+  const overwriteForm = useCallback((next: CharacterProfile, nextRefId: string | null, message: string) => {
+    const before = latestRef.current
+    latestRef.current = { profile: next, activeRefId: nextRefId }
+    setProfile(next)
+    setActiveRefId(nextRefId)
+    offerUndo(message, () => {
+      setProfile(before.profile)
+      setActiveRefId(before.activeRefId)
+    })
+  }, [setProfile, setActiveRefId])
+
   // Fill the form from an analyzed reference and mark it as the active one.
   const applyReference = useCallback((item: CharacterRefItem) => {
     if (!item.profile) return
-    setProfile(item.profile)
-    setActiveRefId(item.id)
-  }, [setProfile, setActiveRefId])
+    overwriteForm(item.profile, item.id, 'Form filled from your reference photo')
+  }, [overwriteForm])
+
+  // The band's whole-character preset. It detaches the reference photo, for the
+  // reason Reuse and Clear All do: the pill would otherwise go on claiming the
+  // form came off that photo.
+  const handleLoadPreset = useCallback((next: CharacterProfile) => {
+    overwriteForm(next, null, 'Preset loaded into the form')
+  }, [overwriteForm])
+
+  // The Describe line: a text call on the default chat role, the photo read's
+  // twin. Like the photo read it has no Recording Mode branch — both are chat
+  // calls that fill the form, not generations, and neither has a replay to
+  // stand in for it. `describingRef` is the double-fire guard; the button
+  // itself never greys out mid-call.
+  const describingRef = useRef(false)
+  const [describing, setDescribing] = useState(false)
+  const handleDescribe = useCallback(async (description: string): Promise<boolean> => {
+    if (!description.trim() || describingRef.current) return false
+    if (!useSettingsStore.getState().kieApiKey) {
+      useAppStore.getState().addToast(NO_KIE_KEY_MESSAGE, 'info')
+      return false
+    }
+    describingRef.current = true
+    setDescribing(true)
+    let filled: CharacterProfile | null = null
+    try {
+      filled = await describeCharacterProfile(description)
+    } catch (err) {
+      useAppStore.getState().addToast(humanizeError(err, 'The form could not be filled from that description. Try again.'), 'error')
+    }
+    describingRef.current = false
+    setDescribing(false)
+    if (!filled) return false
+    // The aspect ratio is the generate bar's pick, not something a description
+    // is about — keep it rather than snapping a 16:9 back to the default.
+    const aspectRatio = latestRef.current.profile.aspectRatio
+    overwriteForm(aspectRatio ? { ...filled, aspectRatio } : filled, null, 'Form filled from your description')
+    return true
+  }, [overwriteForm])
 
   const library = useReferenceLibrary(baseKey, applyReference)
   // Pulled out because the hook returns a fresh object each render — the
@@ -469,6 +539,9 @@ export default function CharacterStudio() {
           onPhotoDrop={addFiles}
           onResetExtract={handleResetExtract}
           onOpenLibrary={() => setLibraryOpen(true)}
+          onLoadPreset={handleLoadPreset}
+          onDescribe={handleDescribe}
+          describing={describing}
           onClear={handleClear}
           error={error}
           onGenerate={handleGenerate}
