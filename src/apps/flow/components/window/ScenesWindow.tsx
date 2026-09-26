@@ -14,7 +14,7 @@ import { useFlowStore } from '../../store/flowStore'
 import { useSettingsStore } from '../../../../stores/settingsStore'
 import { sceneKey, sceneTakes, scenesToFilm, type SceneShot } from '../../engine/sceneShots'
 import { matchTextOf, sceneClipInput, sceneOverrun, sceneRefs, scenesVideoModel, scriptTextOf } from '../../engine/sceneClips'
-import { getModel } from '../../../../utils/models'
+import { getModel, videoResolutionLabel } from '../../../../utils/models'
 import SegmentedToggle from '../../../../components/SegmentedToggle'
 import SectionCard from '../../../../components/SectionCard'
 import ModelPicker from '../../../../components/ModelPicker'
@@ -124,7 +124,7 @@ export default function ScenesWindow({ doc, block, plan, run, onRun, onReview }:
           <ModelPicker appId="playground" task="video" row value={modelId} onChange={(id) => set({ modelId: id })} persist={false} />
           {video && (
             <div className="flex flex-wrap items-center gap-1.5">
-              {video.resolutions.length > 0 && <ConstraintChip grow size="lg" openDirection="up" options={video.resolutions} value={probe.resolution} onChange={(v) => keep(v, probe.resolution, { resolution: v })} />}
+              {video.resolutions.length > 0 && <ConstraintChip grow size="lg" openDirection="up" options={video.resolutions} value={probe.resolution} onChange={(v) => keep(v, probe.resolution, { resolution: v })} render={videoResolutionLabel} />}
               {video.aspectRatios.length > 0 && <ConstraintChip grow size="lg" openDirection="up" options={video.aspectRatios} value={probe.aspectRatio} onChange={(v) => keep(v, probe.aspectRatio, { aspectRatio: v })} />}
               {video.supportsAudio && (
                 <ConstraintChip grow size="lg" openDirection="up" options={['Audio', 'Mute']} value={probe.audio ? 'Audio' : 'Mute'} onChange={(v) => keep(v, probe.audio ? 'Audio' : 'Mute', { audio: v === 'Audio' })} />

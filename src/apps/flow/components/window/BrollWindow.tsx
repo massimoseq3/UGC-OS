@@ -18,7 +18,7 @@ import { useBankStore } from '../../../../stores/bankStore'
 import InputPanel from '../../../broll-studio/components/InputPanel'
 import type { BrollResult, CardState } from '../../../broll-studio/types'
 import { CONTINUOUS_STYLES } from '../../../../utils/visualStyle'
-import { getModel } from '../../../../utils/models'
+import { getModel, videoResolutionLabel } from '../../../../utils/models'
 import { useSettingsStore } from '../../../../stores/settingsStore'
 import { creditsPill } from '../../hooks/useFlowPlan'
 import BankPicker from '../../../../components/BankPicker'
@@ -198,7 +198,7 @@ function StillsAndClips({ doc, block }: { doc: WindowProps['doc']; block: Window
             requireModeNote="Greyed models can't start from a still."
           />
           {resolutions.length > 1 && (
-            <Dropdown label="Clip Quality" accent="broll" value={brollVideoResolution(block, videoModel)} options={resolutions} onChange={(v) => set({ videoResolution: v })} />
+            <Dropdown label="Clip Quality" accent="broll" value={brollVideoResolution(block, videoModel)} options={resolutions.map((r) => ({ value: r, label: videoResolutionLabel(r) }))} onChange={(v) => set({ videoResolution: v })} />
           )}
         </>
       )}

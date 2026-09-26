@@ -16,6 +16,7 @@ import {
   imageModelTakesReferences,
   formatCredits,
   videoResolutionLabel,
+  imageResolutionLabel,
   snapVideoDuration,
   officialSavingsPercent,
   referenceAudioCapacity,
@@ -1451,13 +1452,14 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
                 options={model.imageConstraints.resolutions}
                 value={state.resolution}
                 onChange={(v) => onChange({ ...state, resolution: v })}
+                render={imageResolutionLabel}
                 renderOption={(v) => {
                   // Priced for the armed run, so this menu and the Generate
                   // button can't quote two different numbers.
                   const credits = formatCredits(estimateCredits(state.modelId, { imageCount: batchCount, resolution: v }), state.modelId)
                   return (
                     <span className="flex w-full items-center justify-between gap-6">
-                      <span>{v}</span>
+                      <span>{imageResolutionLabel(v)}</span>
                       {credits && <span className="text-ink-500">{credits}</span>}
                     </span>
                   )
