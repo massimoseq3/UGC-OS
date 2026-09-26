@@ -13,6 +13,7 @@ import {
   getDefaultModel,
   getModel,
   estimateCredits,
+  imageModelTakesReferences,
   formatCredits,
   videoResolutionLabel,
   snapVideoDuration,
@@ -356,6 +357,10 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
     ? omniImageCapacity(state.refs)
     : model?.maxReferenceImages ?? 9
   const refsAllowed = model?.supportsReferenceImages ?? false
+  // Image mode only: a model that can't be run with pictures at all (the
+  // Higgsfield Soul pair). Its reference tile greys out, drops and @-mentions
+  // attach nothing, and Generate asks for any leftovers to be removed.
+  const imageRefsBlocked = state.mode === 'image' && !imageModelTakesReferences(state.modelId)
   const supportsFrames = !!model?.modes?.includes('image-to-video') || !!model?.modes?.includes('frames-to-video')
   const supportsEndFrame = !!model?.modes?.includes('frames-to-video')
   const supportsRefAudio = state.mode === 'video' && !!model?.supportsReferenceAudio
@@ -569,7 +574,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
     // with no reference strip (Seedance 1.5 Pro, Kling 3.0): the ref landed in
     // a slot the panel doesn't draw, then opened the clip as its start frame
     // under a toast saying reference images wouldn't be sent.
-    const acceptsRefs = state.mode !== 'music' && !(state.mode === 'video' && !refsAllowed) && !!imageSource
+    const acceptsRefs = state.mode !== 'music' && !(state.mode === 'video' && !refsAllowed) && !imageRefsBlocked && !!imageSource
     const parent: Lineage = {
       bank: ref.kind === 'product' ? 'products' : ref.kind === 'character' ? 'models' : 'brolls',
       id: ref.item.id,
@@ -686,7 +691,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
       setSlot('start', { dataUri })
       return
     }
-    if (refsAllowed || state.mode === 'image') {
+    if (refsAllowed || (state.mode === 'image' && !imageRefsBlocked)) {
       setRefStrip([...refStripValues(), { dataUri }])
     }
   }
@@ -707,6 +712,9 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
         : !state.refs.some((r) => r.slot === 'motion-video') ? { label: 'Add a Driving Video', icon: Film }
         : null
       : !state.prompt.trim() ? { label: 'Write a Prompt', icon: PenLine }
+      // Pictures attached under another model, then a switch to one that
+      // takes none: said here rather than as a refusal after the press.
+      : imageRefsBlocked && refStripValues().length > 0 ? { label: 'Remove References', icon: Layers }
       : null
   const canSubmit = blocker === null
   void isGenerating
@@ -769,7 +777,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
 
   return (
     <div
-      onDragOver={(e) => { e.preventDefault(); if (state.mode !== 'music') setDragOver(true) }}
+      onDragOver={(e) => { e.preventDefault(); if (state.mode !== 'music' && !imageRefsBlocked) setDragOver(true) }}
       onDragLeave={() => setDragOver(false)}
       onDrop={handleDrop}
       /* On a phone everything BELOW the mode toggle is one scroller and the
@@ -978,6 +986,8 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
                       max={4}
                       bankType="models"
                       tabs={PLAYGROUND_REF_TABS}
+                      disabled={imageRefsBlocked}
+                      disabledNote="Not supported"
                     />
                   )}
                 </SectionCard>

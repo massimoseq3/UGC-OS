@@ -993,7 +993,9 @@ export const MODEL_REGISTRY: ModelEntry[] = [
   // Docs: dash.higgsfield.ai/models/higgsfield-ai/soul/{v2/standard,standard}/llms.txt
   {
     id: 'higgsfield-ai/soul/v2/standard',
-    displayName: 'Soul 2',
+    // Named with the maker (Massimo's call): it's the one row on another
+    // company's key, and "Soul 2" alone says nothing about whose.
+    displayName: 'Higgsfield Soul 2',
     provider: 'Higgsfield',
     api: 'higgsfield',
     // Playground and Characters only. B-Roll's and Flow's totals add every
@@ -2187,6 +2189,23 @@ export function modelApi(modelId: string | undefined): ModelApi {
 // fallback model).
 export function kieModelIds(filter: { task?: Task; mode?: Mode; appId?: string }): string[] {
   return listModels(filter).filter((m) => modelApi(m.id) === 'kie').map((m) => m.id)
+}
+
+// The grey pill a picker row wears when its model needs a key beyond kie's,
+// so a member sees it before picking rather than after pressing Generate.
+export function requiredKeyLabel(modelId: string): string | null {
+  return modelApi(modelId) === 'higgsfield' ? 'Requires Higgsfield API Key' : null
+}
+
+// Whether an IMAGE model can be run with reference pictures attached. Every
+// kie model can — one that is text-only itself is swapped for an
+// image-to-image sibling or the default at run time (resolveImageModelForRefs).
+// A Higgsfield model can't: its API has no image field, and the swap would move
+// the run to another provider and bill a balance its price never quoted. So
+// Playground greys its reference tile out rather than accepting pictures the
+// run would refuse.
+export function imageModelTakesReferences(modelId: string | undefined): boolean {
+  return modelApi(modelId) !== 'higgsfield'
 }
 
 export function kieOnly(modelId: string | undefined): string | undefined {
