@@ -23,6 +23,11 @@ const FIELD_CHIPS: Record<string, string[]> = Object.fromEntries(
 )
 const oneOf = (key: string): string => FIELD_CHIPS[key]?.join(' / ') ?? ''
 
+// The answer's shape and the per-field rules are SHARED with the Describe line
+// (`describeCharacter` below), which fills the same form from a sentence
+// instead of a photo. One copy is what makes a described character land in
+// exactly the fields, the vocabulary and the level of detail an extracted one
+// does — two hand-kept schemas drift the moment either gains a field.
 const DNA_JSON_SHAPE = `You must respond with ONLY valid JSON matching this exact structure (no markdown, no code fences):
 
 {
@@ -160,6 +165,50 @@ function parseDnaJson(responseText: string, what: string): VisualDNA {
   }
 }
 
+// ── Describe Them ──────────────────────────────────────────────────────────
+//
+// The same form, filled from one line of text ("28-year-old Latina skincare
+// girl, messy bun, bathroom mirror") rather than a photo. It answers in the DNA
+// shape above, under the DNA field rules, and goes through the same
+// `flattenDna` → `profileFromFlat` sanitiser, so a described character lands in
+// exactly the fields an extracted one does. What differs is the job: nothing
+// is visible, so everything the line leaves open is DECIDED — one concrete,
+// photographable answer per field — rather than read.
+const DESCRIBE_INSTRUCTION = `You are a casting director and stylist for UGC ad production. A creator gives you one short line about the person they want on camera. You turn it into a complete character — so specific that an artist could render a photo of this exact person from your words alone.
+
+Everything the line says is binding: never contradict it, never soften it. Everything it leaves open, you decide — one concrete answer per field that fits the rest of the character and the kind of ad the line implies. Never hedge, never offer alternatives, never leave a field generic because the line didn't mention it.
+
+${DNA_JSON_SHAPE}
+
+Field rules — follow these exactly. They were written for reading a photo; here there is no photo, so wherever a rule says to read, see or describe what is visible, decide it instead, at the level of detail a real photo of this person would show:
+
+${DNA_FIELD_RULES}
+
+Every field must have a value.`
+
+// Text in, text out — well inside kie's default window, unlike the vision read.
+const DESCRIBE_TIMEOUT_MS = 90_000
+
+export async function describeCharacter(description: string): Promise<VisualDNA> {
+  const apiKey = useSettingsStore.getState().getKieApiKey()
+  // The default chat role, exactly as the photo read uses — the two fill the
+  // same form, so they are written by the same model.
+  const endpoint = getChatTarget()
+
+  const messages: ChatMessage[] = [
+    { role: 'system', content: [{ type: 'text', text: DESCRIBE_INSTRUCTION }] },
+    {
+      role: 'user',
+      content: [{ type: 'text', text: `The creator's line:\n\n"""\n${description.trim()}\n"""\n\nBuild the complete character now. Return as JSON.` }],
+    },
+  ]
+
+  const responseText = await kieChatCompletions(apiKey, endpoint, messages, {
+    timeoutMs: DESCRIBE_TIMEOUT_MS,
+  })
+  return parseDnaJson(responseText, 'Describe')
+}
+
 // ── Cost ───────────────────────────────────────────────────────────────────
 //
 // What one photo read costs, shown where the member starts one. The call is
@@ -176,5 +225,11 @@ const OUTPUT_TOKENS = 1000
 
 export function estimateDnaCredits(): number | null {
   const inputTokens = Math.ceil((SYSTEM_INSTRUCTION.length + EXTRACT_PROMPT.length) / CHARS_PER_TOKEN) + IMAGE_TOKENS
+  return estimateCredits(CHAT_MODEL_DEFAULT, { tokenCount: inputTokens + OUTPUT_TOKENS })
+}
+
+// The Describe line's twin: the same answer, no photo in, a line of text.
+export function estimateDescribeCredits(): number | null {
+  const inputTokens = Math.ceil(DESCRIBE_INSTRUCTION.length / CHARS_PER_TOKEN) + 100
   return estimateCredits(CHAT_MODEL_DEFAULT, { tokenCount: inputTokens + OUTPUT_TOKENS })
 }
