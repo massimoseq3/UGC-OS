@@ -315,8 +315,8 @@ export default function InfluencerEditModal({
   // across its whole strip (and in the main gallery), instead of a fresh random
   // one per save — the variants have to read as the same person.
   const fallbackName = useMemo(
-    () => pickInfluencerName(item.profile.gender, lineageKey),
-    [item.profile.gender, lineageKey],
+    () => pickInfluencerName(item.profile.gender, lineageKey, models.map((m) => m.name)),
+    [item.profile.gender, lineageKey, models],
   )
   // Prefer the lineage's source-portrait name so a sheet saved off it inherits
   // that influencer's name (not this row's, which may itself be a sheet).

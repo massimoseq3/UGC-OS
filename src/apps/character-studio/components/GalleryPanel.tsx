@@ -525,7 +525,7 @@ function useHistoryTileActions(
     : undefined
   function suggestSaveName(): string {
     const taken = models.map((m) => m.name)
-    const base = sourceModelName ?? pickInfluencerName(item.profile.gender, lineageKey)
+    const base = sourceModelName ?? pickInfluencerName(item.profile.gender, lineageKey, taken)
     if (isSheet) return uniqueBankName(sheetNameFrom(base), taken)
     if (isDerived) return variantNameFrom(base, item.styleName, taken)
     return uniqueBankName(base, taken)
