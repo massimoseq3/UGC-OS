@@ -18,7 +18,7 @@ import { wiresInto } from '../../engine/graph'
 import { playgroundInput, refOfPicture } from '../../engine/cost'
 import { freeSpot } from '../../engine/layout'
 import { useFlowStore } from '../../store/flowStore'
-import { getDefaultModel, getModel, imageResolutionsFor, kieModelIds, kieOnly } from '../../../../utils/models'
+import { getDefaultModel, getModel, imageResolutionLabel, imageResolutionsFor, kieModelIds, kieOnly, videoResolutionLabel } from '../../../../utils/models'
 import { useSettingsStore } from '../../../../stores/settingsStore'
 import { useAppStore } from '../../../../stores/appStore'
 import { saveAsset } from '../../../../utils/assetStore'
@@ -172,13 +172,13 @@ export default function PlaygroundWindow({ doc, block, plan, run, onRun, onRevie
           <ModelPicker appId="playground" task={mode} mode={modelMode} row value={modelId} onChange={(id) => set({ modelId: id })} persist={false} allowedModelIds={kieModelIds({ task: mode, mode: modelMode, appId: 'playground' })} />
           {mode === 'image' && (
             <div className="flex flex-wrap items-center gap-1.5">
-              <ConstraintChip grow size="lg" openDirection="up" options={modelId ? imageResolutionsFor(modelId) : ['1K']} value={fitted.resolution} onChange={(v) => keep(v, fitted.resolution, { resolution: v })} />
+              <ConstraintChip grow size="lg" openDirection="up" options={modelId ? imageResolutionsFor(modelId) : ['1K']} value={fitted.resolution} onChange={(v) => keep(v, fitted.resolution, { resolution: v })} render={imageResolutionLabel} />
               <ConstraintChip grow size="lg" openDirection="up" options={model?.imageConstraints?.aspectRatios ?? ['9:16', '16:9', '1:1']} value={fitted.aspectRatio} onChange={(v) => keep(v, fitted.aspectRatio, { aspectRatio: v })} />
             </div>
           )}
           {mode === 'video' && video && (
             <div className="flex flex-wrap items-center gap-1.5">
-              {video.resolutions.length > 0 && <ConstraintChip grow size="lg" openDirection="up" options={video.resolutions} value={fitted.resolution} onChange={(v) => keep(v, fitted.resolution, { resolution: v })} />}
+              {video.resolutions.length > 0 && <ConstraintChip grow size="lg" openDirection="up" options={video.resolutions} value={fitted.resolution} onChange={(v) => keep(v, fitted.resolution, { resolution: v })} render={videoResolutionLabel} />}
               {video.aspectRatios.length > 0 && <ConstraintChip grow size="lg" openDirection="up" options={video.aspectRatios} value={fitted.aspectRatio} onChange={(v) => keep(v, fitted.aspectRatio, { aspectRatio: v })} />}
               {video.durations.length > 0 && (
                 <ConstraintChip grow size="lg" openDirection="up" options={video.durations.map(String)} value={String(fitted.durationSeconds)} onChange={(v) => keep(v, String(fitted.durationSeconds), { durationSeconds: Number(v) })} render={(v) => <span>{v}s</span>} />

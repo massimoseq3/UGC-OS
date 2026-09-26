@@ -11,7 +11,7 @@ import { humanizeError } from '../../../utils/friendlyError'
 import { sectionLabel, groupByDay, formatRelative } from '../../../utils/history'
 import type { CharacterHistoryItem } from '../../../stores/types'
 import { createEmptyProfile, type CharacterProfile, type InFlightCharacterGen, type LaunchGenOptions } from '../types'
-import { getModel } from '../../../utils/models'
+import { getModel, imageResolutionLabel } from '../../../utils/models'
 import SegmentedToggle from '../../../components/SegmentedToggle'
 import { TileActionStack, TileActionButton, TileDeleteButton, TileMenuButton, TileMenuItem } from '../../../components/tileActions'
 import FlowLineageItems from '../../../components/FlowLineageItems'
@@ -1494,7 +1494,7 @@ function HistoryListRow({
   const modelLabel = getModel(item.modelId)?.displayName ?? item.modelId
 
   const meta: string[] = []
-  if (item.resolution) meta.push(item.resolution)
+  if (item.resolution) meta.push(imageResolutionLabel(item.resolution))
   if (item.aspectRatio) meta.push(item.aspectRatio)
 
   return (

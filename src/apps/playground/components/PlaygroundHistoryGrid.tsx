@@ -9,7 +9,7 @@ import { useInlineVideo, useExclusiveVideo } from '../../../hooks/useInlineVideo
 import { useAppStore } from '../../../stores/appStore'
 import { getUrl } from '../../../utils/assetStore'
 import { CurrentFrameButton, VideoFrameActions } from '../../../components/VideoLightbox'
-import { getModel } from '../../../utils/models'
+import { getModel, imageResolutionLabel, videoResolutionLabel } from '../../../utils/models'
 import { usePersistedState } from '../../../hooks/usePersistedState'
 import { sectionLabel, groupByDay } from '../../../utils/history'
 import { downloadImage } from '../../../utils/downloadImage'
@@ -729,10 +729,10 @@ function HistoryListRow({
 
   const meta: string[] = []
   if (entry.kind === 'image') {
-    if (entry.data.resolution) meta.push(entry.data.resolution)
+    if (entry.data.resolution) meta.push(imageResolutionLabel(entry.data.resolution))
     if (entry.data.aspectRatio) meta.push(entry.data.aspectRatio)
   } else {
-    if (entry.data.resolution) meta.push(entry.data.resolution)
+    if (entry.data.resolution) meta.push(videoResolutionLabel(entry.data.resolution))
     if (entry.data.durationSeconds) meta.push(`${entry.data.durationSeconds}s`)
     if (entry.data.aspectRatio) meta.push(entry.data.aspectRatio)
   }

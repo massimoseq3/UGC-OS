@@ -33,6 +33,7 @@ import {
   estimateCredits,
   formatCredits,
   videoResolutionLabel,
+  imageResolutionLabel,
   imageResolutionsFor,
   officialSavingsPercent,
   snapVideoDuration,
@@ -476,7 +477,7 @@ export function ContinuousFrameModal({
                       onChange={(v) => onUpdate(() => ({ resolution: v as ImageResolution }))}
                       render={(v) => {
                         const c = imageModelId ? formatCredits(estimateCredits(imageModelId, { imageCount: takeCount, resolution: v as ImageResolution })) : null
-                        return <span>{v}{c ? ` · ${c}` : ''}</span>
+                        return <span>{imageResolutionLabel(v)}{c ? ` · ${c}` : ''}</span>
                       }}
                     />
                   )}
