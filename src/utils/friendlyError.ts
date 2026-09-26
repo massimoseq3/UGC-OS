@@ -94,6 +94,86 @@ const RULES: Array<{ test: (m: string) => boolean; message: string; member?: tru
       'That search failed. Try a different phrase, or check your ScrapeCreators key in Settings.',
   },
 
+  // ── Higgsfield (the Soul models) ──
+  //
+  // Above the kie rules for the ScrapeCreators reason: Higgsfield answers a
+  // bad key with 401 and an empty balance with 403, and the kie rules would
+  // send the member to the wrong site. utils/higgsfield.ts starts every
+  // message "Higgsfield <status>:" and parks the endpoint (which holds a
+  // request UUID full of digits) behind `endpoint=`, so these match the status
+  // itself and nothing else.
+  {
+    test: (m) => m.includes('no higgsfield key'),
+    message:
+      'No Higgsfield key yet. Open Settings, paste your key from the Higgsfield console, and try again.',
+  },
+  {
+    test: (m) => m.startsWith('higgsfield 401:'),
+    message:
+      "Your Higgsfield key isn't valid. Open Settings, paste a fresh KEY_ID:KEY_SECRET from the Higgsfield console, and try again.",
+  },
+  {
+    test: (m) => m.startsWith('higgsfield 403:'),
+    message:
+      "Your Higgsfield balance has run out. Top it up in the Higgsfield console, then try again.",
+  },
+  {
+    // Only reached when a submit waited ten minutes for a slot — the client
+    // retries a concurrency refusal on its own until then.
+    test: (m) => m.startsWith('higgsfield 400:') && m.includes('concurrent'),
+    message:
+      'Your Higgsfield account is still busy with earlier generations. Wait for them to finish and try again.',
+  },
+  {
+    test: (m) => /^higgsfield (423|503):/.test(m),
+    message:
+      'Higgsfield has this model switched off for now. This is on their end, not yours. Try again later.',
+  },
+  {
+    test: (m) => m.startsWith('higgsfield 404:'),
+    message:
+      "Higgsfield says this model isn't available on your account. Check the model in the Higgsfield console.",
+  },
+  {
+    test: (m) => /^higgsfield 5\d\d:/.test(m),
+    message:
+      'Higgsfield had a server error. This is on their end, not yours. Try again in a moment.',
+  },
+  {
+    test: (m) => m.includes('connection to higgsfield kept failing'),
+    message:
+      'Lost the connection to Higgsfield while waiting. Check your internet. The generation may have finished anyway, so check the Higgsfield console before running it again.',
+  },
+  {
+    // PollTimeoutError from the Higgsfield poller on a healthy connection.
+    test: (m) => m.includes('timed out') && m.includes('on higgsfield'),
+    message:
+      "This is taking longer than we wait for, so we stopped watching. It's likely still running on Higgsfield. Check the Higgsfield console before generating it again.",
+  },
+  {
+    // A submit we hung up on may still have been created — Higgsfield takes no
+    // idempotency key, which is why the client never resends one.
+    test: (m) => m.startsWith('higgsfield request timed out'),
+    message:
+      'The request was dropped before Higgsfield answered. It may have gone through anyway, so check the Higgsfield console before retrying.',
+  },
+  {
+    test: (m) => m.startsWith('higgsfield connection failed'),
+    message:
+      'The connection to Higgsfield dropped mid-request. Check your internet connection and try again.',
+  },
+  {
+    // Failed requests are refunded by Higgsfield.
+    test: (m) => m.startsWith('higgsfield generation failed'),
+    message:
+      "Higgsfield couldn't generate this one, and nothing was charged. Try again, or reword the prompt.",
+  },
+  {
+    test: (m) => m.startsWith('higgsfield'),
+    message:
+      'Higgsfield turned that request down. Try again, or check your Higgsfield key in Settings.',
+  },
+
   // ── Veo: Google's per-prompt audio-generation failure (HTTP 400) ──
   {
     test: (m) => m.includes('unable to generate audio') || (m.includes('google model') && m.includes('audio')),

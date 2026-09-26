@@ -38,7 +38,7 @@ import { swipeToResult } from '../../../discover/services/swipe'
 import { DEFAULT_FILTERS, type DiscoverPlatform, type DiscoverResult } from '../../../discover/types'
 import { analysisValues } from '../../engine/held'
 import { readSceneScript } from '../../engine/sceneShots'
-import { playgroundInput, refOfPicture } from '../../engine/cost'
+import { charactersModelId, playgroundInput, refOfPicture } from '../../engine/cost'
 import { liveItems } from '../../engine/graph'
 import { taskIsDead } from '../errors'
 import { useAppStore } from '../../../../stores/appStore'
@@ -258,7 +258,7 @@ export const charactersExecutor: Executor = {
             ...(change && base
               ? { edit: { instruction: change, baseImageRef: base, referenceUrls: [] } }
               : { referenceUrl: base }),
-            modelId: s.modelId as string | undefined,
+            modelId: charactersModelId(ctx.block),
             batchId,
             batchIndex: batchId ? i : undefined,
           }, { signal: ctx.signal, provenance: ctx.provenance })

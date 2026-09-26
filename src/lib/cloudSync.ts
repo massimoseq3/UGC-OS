@@ -514,7 +514,7 @@ async function hydrateFromCloud(userId: string): Promise<boolean> {
       console.warn('Dropped cloud per-app model picks whose model has been removed:', prunedIds.join(', '))
     }
     useSettingsStore.setState({ perAppModel: nextPerAppModel })
-    // kieApiKey and scrapeCreatorsKey are browser-local; preserve whatever
+    // kieApiKey, scrapeCreatorsKey and higgsfieldKey are browser-local; preserve whatever
     // loadFromStorage already hydrated. Written through the store's own
     // snapshot rather than a hand-built literal — the literal that used to be
     // here listed two fields and silently dropped scrapeCreatorsKey on every

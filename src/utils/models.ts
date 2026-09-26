@@ -56,6 +56,9 @@ export interface Voice {
 export interface Pricing {
   unit: 'per-call' | 'per-image' | 'per-second' | 'per-1k-tokens' | 'per-1k-chars'
   // kie.ai credits per unit. Refine per-model from https://kie.ai/pricing.
+  // A Higgsfield model (`api: 'higgsfield'`) is the one exception: its figure
+  // is US DOLLARS, because dollars are what Higgsfield's billing page charges
+  // in. formatCredits prints it as dollars ("$0.0032") for that reason.
   credits: number
   // Optional richer pricing curve for models whose cost depends on multiple
   // dimensions (e.g. Kling: resolution + audio; Veo: 4K is ~2× others).
@@ -215,6 +218,16 @@ export interface ModelEntry {
   // Chat-only: the registry id a failed call on this model is retried on,
   // once. See `kieChatCompletions` for which failures qualify.
   chatFallback?: string
+  // The apps whose pickers offer this model; omitted means every picker for
+  // its task and mode. A scoped model is also never an unpicked default
+  // elsewhere, since getDefaultModel lists through the same filter. Named by
+  // app id, so Flow — which reuses Playground's and Characters' pickers under
+  // their ids — keeps these out with `kieModelIds` instead.
+  apps?: string[]
+  // Which API serves the model — and so whose key it needs and whose credits
+  // `pricing` is in. Omitted means kie.ai, which is every model but the
+  // Higgsfield block. See `modelApi` / `formatCredits`.
+  api?: 'higgsfield'
   // Video-only: which kie endpoint family to hit.
   // 'createTask' (default) -> POST /api/v1/jobs/createTask
   // 'veo'                  -> POST /api/v1/veo/generate
@@ -948,6 +961,79 @@ export const MODEL_REGISTRY: ModelEntry[] = [
       source: 'https://docs.byteplus.com/en/docs/ModelArk/1544106',
     },
     imageConstraints: { resolutions: ['1K', '2K'], aspectRatios: ['9:16', '16:9', '1:1', '3:4'] },
+  },
+
+  // ── Higgsfield (second provider) ──────────────────────────────
+  //
+  // Higgsfield's own Soul models. kie doesn't carry them, so they are served
+  // from api.higgsfield.ai on the member's Higgsfield key (utils/higgsfield.ts)
+  // rather than through createTask — `api: 'higgsfield'` is what routes them,
+  // and the registry id IS the Higgsfield endpoint path, the way a kie entry's
+  // id is its slug.
+  //
+  // Both are TEXT-TO-IMAGE ONLY: the API takes no image input at all, so any
+  // run with a reference attached greys them out rather than dropping the
+  // picture. Last in the image block on purpose — registry order is the
+  // default, and a model on a second key must never be anyone's unpicked one.
+  //
+  // Priced in US DOLLARS, not credits — Higgsfield's billing page charges in
+  // dollars, so the pickers and Generate buttons print these as "$0.0032"
+  // (formatCredits → formatUsd), exactly as Higgsfield's model pages do. The figures are
+  // Higgsfield's own published per-image rates (open.higgsfield.ai model
+  // pages, verified 2026-09-24). No `official` / `market`: Higgsfield IS the
+  // provider here, so there is no cheaper-than-elsewhere claim to make.
+  //
+  // Resolution: Soul takes '720p' / '1080p'. It is declared on the app's own
+  // '1K' / '2K' ladder (1K→720p, 2K→1080p in buildImageInput) so every
+  // resolution toggle, clamp and persisted card keeps one vocabulary.
+  //
+  // Not sent: `style_id` (a Soul Style is a UUID and the API has no way to list
+  // them, so there is nothing to build a picker from) and `enhance_prompt`,
+  // which is left at Higgsfield's own default so a run matches their console.
+  // Docs: dash.higgsfield.ai/models/higgsfield-ai/soul/{v2/standard,standard}/llms.txt
+  {
+    id: 'higgsfield-ai/soul/v2/standard',
+    displayName: 'Soul 2',
+    provider: 'Higgsfield',
+    api: 'higgsfield',
+    // Playground and Characters only. B-Roll's and Flow's totals add every
+    // generation up in kie credits, and a Higgsfield dollar can't be summed
+    // into one; both would also need the reference-image swap they rely on.
+    apps: ['playground', 'character-studio'],
+    task: 'image',
+    modes: ['text-to-image'],
+    // Starred (Massimo's call): the star draws and sorts only — it can't make
+    // Soul 2 a default, which registry order and `apps` decide.
+    tags: ['recommended', 'new', 'cheap'],
+    pricing: {
+      unit: 'per-image',
+      // USD per image — see the block comment above.
+      credits: 0.0032,
+      priceFor: ({ imageCount = 1, resolution = '1K' }) =>
+        (resolution === '2K' ? 0.0057 : 0.0032) * imageCount,
+    },
+    imageConstraints: { resolutions: ['1K', '2K'], aspectRatios: ['9:16', '16:9', '1:1', '4:3', '3:4', '2:3', '3:2'] },
+  },
+  {
+    id: 'higgsfield-ai/soul/standard',
+    displayName: 'Soul Standard',
+    provider: 'Higgsfield',
+    api: 'higgsfield',
+    // Playground and Characters only. B-Roll's and Flow's totals add every
+    // generation up in kie credits, and a Higgsfield dollar can't be summed
+    // into one; both would also need the reference-image swap they rely on.
+    apps: ['playground', 'character-studio'],
+    task: 'image',
+    modes: ['text-to-image'],
+    tags: [],
+    pricing: {
+      unit: 'per-image',
+      // USD per image — see the block comment above.
+      credits: 0.0938,
+      priceFor: ({ imageCount = 1, resolution = '1K' }) =>
+        (resolution === '2K' ? 0.1875 : 0.0938) * imageCount,
+    },
+    imageConstraints: { resolutions: ['1K', '2K'], aspectRatios: ['9:16', '16:9', '1:1', '4:3', '3:4', '2:3', '3:2'] },
   },
 
   // ── Video generation ──────────────────────────────────────────
@@ -1881,16 +1967,20 @@ export function videoResolutionLabel(tier: string): string {
   return VIDEO_RESOLUTION_LABELS[tier] ?? tier
 }
 
-export function listModels(filter: { task?: Task; mode?: Mode } = {}): ModelEntry[] {
+// `appId` scopes the list to one app's pickers: a model that declares `apps`
+// is listed only when the caller names one of them, and never to a caller that
+// names no app at all.
+export function listModels(filter: { task?: Task; mode?: Mode; appId?: string } = {}): ModelEntry[] {
   return MODEL_REGISTRY.filter((m) => {
     if (filter.task && m.task !== filter.task) return false
     if (filter.mode && (!m.modes || !m.modes.includes(filter.mode))) return false
+    if (m.apps && !(filter.appId && m.apps.includes(filter.appId))) return false
     return true
   })
 }
 
 export function getDefaultModel(appId: string, task: Task, mode?: Mode): ModelEntry | undefined {
-  const candidates = listModels({ task, mode })
+  const candidates = listModels({ task, mode, appId })
   return candidates.find((m) => m.defaultFor?.includes(appId)) ?? candidates[0]
 }
 
@@ -2082,11 +2172,49 @@ export function officialSavingsPercent(modelId: string): number | null {
   return pct > 0 ? pct : null
 }
 
-export function formatCredits(credits: number | null): string | null {
+// Which API a model is served from. Everything is kie unless the entry says
+// otherwise — see ModelEntry.api.
+export type ModelApi = 'kie' | 'higgsfield'
+
+export function modelApi(modelId: string | undefined): ModelApi {
+  return (modelId ? getModel(modelId)?.api : undefined) ?? 'kie'
+}
+
+// For Flow, which reuses Playground's and Characters' pickers under their own
+// app ids but prices a whole run in kie credits: the ids a picker would list
+// with the non-kie ones taken out, and an app pick passed through only when
+// kie serves it (a Soul pick in Playground must not become a Flow block's
+// fallback model).
+export function kieModelIds(filter: { task?: Task; mode?: Mode; appId?: string }): string[] {
+  return listModels(filter).filter((m) => modelApi(m.id) === 'kie').map((m) => m.id)
+}
+
+export function kieOnly(modelId: string | undefined): string | undefined {
+  return modelId && modelApi(modelId) === 'kie' ? modelId : undefined
+}
+
+// Pass the model id wherever the figure belongs to one model: a Higgsfield
+// model's estimate is in US dollars (see Pricing.credits) and prints as
+// "$0.0032", the way Higgsfield's own pages show it — never as
+// "credits", which would read as kie credits beside every other row. A total
+// across several models is kie-only by construction (Higgsfield models are
+// Playground and Characters picks, never a B-Roll or Flow run), so it omits
+// the id.
+export function formatCredits(credits: number | null, modelId?: string): string | null {
   if (credits === null) return null
+  if (modelApi(modelId) === 'higgsfield') return formatUsd(credits)
   if (credits < 1) return `< 1 credit`
   const rounded = Math.round(credits * 10) / 10
   return `${rounded} credit${rounded === 1 ? '' : 's'}`
+}
+
+// Written exactly the way Higgsfield's model pages write it: "$0.0032",
+// "$0.0938" — up to four decimals, trailing zeros dropped — and "$1.13" from a
+// dollar up. A first version printed cents ("0.32¢"), which read as a third of
+// a DOLLAR at a glance; matching the page is what makes the two comparable.
+export function formatUsd(usd: number): string {
+  if (usd >= 1) return `$${usd.toFixed(2)}`
+  return `$${Number(usd.toFixed(4))}`
 }
 
 // ── Per-model input builders ──────────────────────────────────
@@ -2133,6 +2261,17 @@ export interface ImageGenOptions {
 export function buildImageInput(modelId: string, opts: ImageGenOptions): Record<string, unknown> {
   const ar = opts.aspectRatio ?? '9:16'
   const resolution = opts.resolution ?? '1K'
+
+  // Higgsfield's Soul pair: text only (no image field exists), and the app's
+  // 1K / 2K ladder mapped onto Soul's own tier names. `batch_size` stays at
+  // its default of 1: one request per image, like every other surface.
+  if (modelApi(modelId) === 'higgsfield') {
+    return {
+      prompt: opts.prompt,
+      aspect_ratio: ar,
+      resolution: resolution === '2K' ? '1080p' : '720p',
+    }
+  }
 
   // Covers the GPT Image 2 pair AND the four GPT Image 2.5 slugs (Flare /
   // Sunburst x text-to-image / image-to-image) — OpenAI's 2.5 docs specify the

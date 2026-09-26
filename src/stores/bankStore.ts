@@ -5,7 +5,7 @@ import { useAuthStore } from './authStore'
 import { isCloudEnabled } from '../lib/supabase'
 import { saveRow, deleteRow, recordPendingUpsert, recordPendingDelete, clearPending, scheduleOutboxDrain, type BankKey } from '../lib/cloudSync'
 import { useAppStore } from './appStore'
-import { estimateCredits, estimateOfficialUsd, estimateMarketUsd, creditsToUsd, TTS_MODEL_FLASH, type CostEstimateParams } from '../utils/models'
+import { estimateCredits, estimateOfficialUsd, estimateMarketUsd, creditsToUsd, modelApi, TTS_MODEL_FLASH, type CostEstimateParams } from '../utils/models'
 import { usageDayId } from '../utils/usage'
 import { readBanks, writeBanks, clearBanks, readLegacySync, dropLegacy } from '../utils/bankPersist'
 
@@ -189,15 +189,21 @@ export function setUsageRecordingSuppressed(suppressed: boolean): void {
 export function foldUsageEvent(days: UsageDay[], event: UsageEvent): { days: UsageDay[]; row: UsageDay } {
   const at = event.at ?? Date.now()
   const id = usageDayId(at)
-  const credits = event.modelId ? (estimateCredits(event.modelId, event.params) ?? 0) : 0
+  // A Higgsfield model is counted as a generation and priced at nothing on
+  // both sides: its estimate is in Higgsfield dollars, which can't be added to
+  // this ledger's kie credits, and a model billed on another key has no kie
+  // saving to claim. Zero and zero is the honest pair — the savings line
+  // neither gains nor loses by it.
+  const kieBilled = !!event.modelId && modelApi(event.modelId) === 'kie'
+  const credits = kieBilled ? (estimateCredits(event.modelId!, event.params) ?? 0) : 0
   // "Cost elsewhere" = the higher of the provider's official API rate and the
   // verified creator-platform (market) rate. No verified rate at all → count
   // the kie price on both sides (zero saved), never a made-up discount.
   // Floored at the kie price so a model that's cheaper elsewhere can't eat
   // into savings other models earned.
   const kieUsd = creditsToUsd(credits)
-  const officialRaw = event.modelId ? estimateOfficialUsd(event.modelId, event.params) : null
-  const marketRaw = event.modelId ? estimateMarketUsd(event.modelId, event.params) : null
+  const officialRaw = kieBilled ? estimateOfficialUsd(event.modelId!, event.params) : null
+  const marketRaw = kieBilled ? estimateMarketUsd(event.modelId!, event.params) : null
   const officialUsd = Math.max(officialRaw ?? kieUsd, marketRaw ?? kieUsd, kieUsd)
   const existing = days.find((d) => d.id === id)
   const row: UsageDay = existing

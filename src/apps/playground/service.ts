@@ -19,7 +19,7 @@ import {
   kieOmniCharacterCreate,
   ensureHostedUrl,
 } from '../../utils/kie'
-import { finishImageAssetTask } from '../../utils/imageTask'
+import { finishImageAssetTask, submitImageTask } from '../../utils/imageTask'
 import { finishVideoAssetTask } from '../../utils/videoTask'
 import { finishAudioAssetTask } from '../../utils/audioTask'
 import {
@@ -100,12 +100,12 @@ export interface PlaygroundImageStartInput {
 export async function startPlaygroundImageTask(
   input: PlaygroundImageStartInput,
 ): Promise<{ taskId: string }> {
-  const apiKey = useSettingsStore.getState().getKieApiKey()
-
   const inputUrls: string[] = []
   for (const ref of input.referenceUrls ?? []) {
-    // A reference whose asset has gone is skipped, not fatal.
-    const url = await hostedUrlFor(apiKey, ref)
+    // A reference whose asset has gone is skipped, not fatal. Refs are hosted
+    // on kie's file service, so the kie key is only asked for when there are
+    // some — a Higgsfield model never has any (planPlaygroundRun refuses them).
+    const url = await hostedUrlFor(useSettingsStore.getState().getKieApiKey(), ref)
     if (url) inputUrls.push(url)
   }
 
@@ -115,7 +115,8 @@ export async function startPlaygroundImageTask(
     resolution: input.resolution,
     inputUrls: inputUrls.length > 0 ? inputUrls : undefined,
   })
-  const taskId = await createTask(apiKey, input.modelId, body)
+  // kie or Higgsfield, by the model — see submitImageTask.
+  const taskId = await submitImageTask(input.modelId, body)
   return { taskId }
 }
 

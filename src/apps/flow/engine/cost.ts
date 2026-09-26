@@ -5,7 +5,7 @@
 // to be written) is priced at a typical size and the figure says "about".
 
 import type { FlowBlock, FlowValue } from '../types'
-import { estimateCredits, getDefaultModel, getModel, imageResolutionsFor, snapVideoDuration } from '../../../utils/models'
+import { estimateCredits, getDefaultModel, getModel, imageResolutionsFor, kieOnly, snapVideoDuration } from '../../../utils/models'
 import { resolveScriptModel, resolveTtsModel, useSettingsStore } from '../../../stores/settingsStore'
 import { useBankStore } from '../../../stores/bankStore'
 import { estimateVoiceCredits } from '../../voice-studio/runner'
@@ -109,11 +109,22 @@ export function generationsOf(block: FlowBlock, inputs: Record<string, FlowValue
   return 1 + scenes * takes * (block.settings.animate !== false ? 2 : 1)
 }
 
+// The model a Characters block draws with: its own pick, else the Characters
+// app's when kie serves it, else the registry default. Named explicitly rather
+// than left to the runner, whose own fallback is the app's pick whatever it is.
+export function charactersModelId(block: FlowBlock): string | undefined {
+  return (block.settings.modelId as string | undefined)
+    ?? kieOnly(useSettingsStore.getState().getAppModel('character-studio:image:text-to-image'))
+    ?? getDefaultModel('character-studio', 'image', 'text-to-image')?.id
+}
+
 export function playgroundInput(block: FlowBlock, inputs: Record<string, FlowValue[]>): PlaygroundRunInput {
   const s = block.settings
   const mode = s.mode === 'video' || s.mode === 'music' ? s.mode : 'image'
+  // The app's pick only when kie serves it — a Higgsfield model is never a
+  // Flow run's (see ModelEntry.apps).
   const modelId = (s.modelId as string | undefined)
-    ?? useSettingsStore.getState().getAppModel(mode === 'image' ? 'playground:image:text-to-image' : mode === 'video' ? 'playground:video' : 'playground:music:text-to-music')
+    ?? kieOnly(useSettingsStore.getState().getAppModel(mode === 'image' ? 'playground:image:text-to-image' : mode === 'video' ? 'playground:video' : 'playground:music:text-to-music'))
     ?? getDefaultModel('playground', mode)?.id
     ?? ''
   const prompt = textOf(inputs.prompt) ?? String(s.prompt ?? '')
@@ -224,7 +235,7 @@ export function blockCost(block: FlowBlock, inputs: Record<string, FlowValue[]>,
         resolution: (block.settings.resolution as ImageResolution) ?? '1K',
         kind: block.settings.kind === 'sheet' ? 'sheet' : 'portrait',
         aspect: String(block.settings.aspect ?? '9:16'),
-        modelId: block.settings.modelId as string | undefined,
+        modelId: charactersModelId(block),
         referenceUrl: (inputs.photo?.length ?? 0) > 0 ? 'ref' : undefined,
       })
       return one === null ? null : one * slots

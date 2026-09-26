@@ -47,6 +47,7 @@ export default function BatchCountStepper({
   size = 'lg',
   grow = false,
   creditsFor,
+  modelId,
 }: {
   value: number
   onChange: (next: number) => void
@@ -73,11 +74,14 @@ export default function BatchCountStepper({
   // Total credits for a run of n. Callers without a price omit it — an unknown
   // cost is never invented.
   creditsFor?: (n: number) => number | null
+  // The model `creditsFor` prices, so a Higgsfield model's total reads as
+  // cents / dollars (see formatCredits).
+  modelId?: string
 }) {
   const ceiling = Math.max(1, max)
   const count = clampBatchCount(value, ceiling)
   const s = SIZE[size] ?? SIZE.lg
-  const credits = creditsFor ? formatCredits(creditsFor(count)) : null
+  const credits = creditsFor ? formatCredits(creditsFor(count), modelId) : null
   const nounPlural = `${noun}${count === 1 ? '' : 's'}`
 
   const step = (delta: number) => onChange(clampBatchCount(count + delta, ceiling))

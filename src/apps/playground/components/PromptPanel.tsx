@@ -754,7 +754,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
     return state.mode === 'image' ? one : one * n
   }
 
-  const generateCredits = formatCredits(creditsForRun(state.mode === 'music' ? 1 : batchCount))
+  const generateCredits = formatCredits(creditsForRun(state.mode === 'music' ? 1 : batchCount), state.modelId)
 
   // Does the output-settings row have anything to draw? Music never does, and
   // neither does a mode whose resolved model declares no constraints. The row
@@ -1354,6 +1354,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
                 value={batchCount}
                 onChange={(n) => onChange({ ...state, batchCount: n })}
                 creditsFor={creditsForRun}
+                modelId={state.modelId}
               />
             )}
           </div>
@@ -1443,7 +1444,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
                 renderOption={(v) => {
                   // Priced for the armed run, so this menu and the Generate
                   // button can't quote two different numbers.
-                  const credits = formatCredits(estimateCredits(state.modelId, { imageCount: batchCount, resolution: v }))
+                  const credits = formatCredits(estimateCredits(state.modelId, { imageCount: batchCount, resolution: v }), state.modelId)
                   return (
                     <span className="flex w-full items-center justify-between gap-6">
                       <span>{v}</span>
@@ -1490,6 +1491,7 @@ export default function PromptPanel({ state, onChange, onModeChange, onSubmit, i
               value={batchCount}
               onChange={(n) => onChange({ ...state, batchCount: n })}
               creditsFor={creditsForRun}
+              modelId={state.modelId}
             />
           )}
 

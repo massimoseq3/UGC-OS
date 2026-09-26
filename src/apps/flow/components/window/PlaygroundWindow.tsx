@@ -18,7 +18,7 @@ import { wiresInto } from '../../engine/graph'
 import { playgroundInput, refOfPicture } from '../../engine/cost'
 import { freeSpot } from '../../engine/layout'
 import { useFlowStore } from '../../store/flowStore'
-import { getDefaultModel, getModel, imageResolutionsFor } from '../../../../utils/models'
+import { getDefaultModel, getModel, imageResolutionsFor, kieModelIds, kieOnly } from '../../../../utils/models'
 import { useSettingsStore } from '../../../../stores/settingsStore'
 import { useAppStore } from '../../../../stores/appStore'
 import { saveAsset } from '../../../../utils/assetStore'
@@ -68,7 +68,8 @@ export default function PlaygroundWindow({ doc, block, plan, run, onRun, onRevie
   // Until the block picks its own, it runs on Playground's pick — the same
   // fallback its run makes (engine/cost.ts playgroundInput).
   const appPick = useSettingsStore((st) => st.getAppModel(mode === 'image' ? 'playground:image:text-to-image' : mode === 'video' ? 'playground:video' : 'playground:music:text-to-music'))
-  const modelId = (s.modelId as string | undefined) ?? appPick ?? getDefaultModel('playground', mode, modelMode)?.id
+  // A Higgsfield pick in Playground is skipped: Flow runs kie models only.
+  const modelId = (s.modelId as string | undefined) ?? kieOnly(appPick) ?? getDefaultModel('playground', mode, modelMode)?.id
   const model = modelId ? getModel(modelId) : undefined
   const video = model?.videoConstraints
   const bp = plan?.blocks[block.id]
@@ -168,7 +169,7 @@ export default function PlaygroundWindow({ doc, block, plan, run, onRun, onRevie
         </div>
 
         <RunBand block={block} plan={plan} run={run} onRun={onRun} icon={mode === 'image' ? ImageIcon : mode === 'video' ? Film : Music} label={`Generate ${count > 1 ? `${count} ${noun === 'Music' ? 'Tracks' : `${noun}s`}` : noun}`}>
-          <ModelPicker appId="playground" task={mode} mode={modelMode} row value={modelId} onChange={(id) => set({ modelId: id })} persist={false} />
+          <ModelPicker appId="playground" task={mode} mode={modelMode} row value={modelId} onChange={(id) => set({ modelId: id })} persist={false} allowedModelIds={kieModelIds({ task: mode, mode: modelMode, appId: 'playground' })} />
           {mode === 'image' && (
             <div className="flex flex-wrap items-center gap-1.5">
               <ConstraintChip grow size="lg" openDirection="up" options={modelId ? imageResolutionsFor(modelId) : ['1K']} value={fitted.resolution} onChange={(v) => keep(v, fitted.resolution, { resolution: v })} />

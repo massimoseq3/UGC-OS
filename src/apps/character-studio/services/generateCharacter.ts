@@ -2,7 +2,7 @@ import type { CharacterProfile } from '../types'
 import { ALL_FIELD_KEYS } from '../types'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import { createTask, kieChatCompletions, type ChatMessage } from '../../../utils/kie'
-import { finishImageAssetTask } from '../../../utils/imageTask'
+import { finishImageAssetTask, submitImageTask } from '../../../utils/imageTask'
 import { getDefaultModel, getModel, buildImageInput, getChatTarget, type AspectRatio, type ImageResolution } from '../../../utils/models'
 import { hostedUrlFor } from '../../../utils/hostedUrl'
 
@@ -277,8 +277,6 @@ export async function startCharacterTask(
   // rather than trailing more positional args onto an already-long signature.
   extras?: { direction?: string; extraReferenceUrls?: string[] },
 ): Promise<{ taskId: string; modelId: string }> {
-  const apiKey = useSettingsStore.getState().getKieApiKey()
-
   let modelId = modelIdOverride
     ?? useSettingsStore.getState().getAppModel('character-studio:image:text-to-image')
     ?? getDefaultModel('character-studio', 'image', 'text-to-image')?.id
@@ -303,12 +301,16 @@ export async function startCharacterTask(
   if (referenceUrl) {
     modelId = resolveImageToImageModel(modelId)
     const extraRefs = extras?.extraReferenceUrls ?? []
+    // References are hosted on kie's file service, and the swap above always
+    // lands on a kie model, so only this branch needs the kie key.
+    const apiKey = useSettingsStore.getState().getKieApiKey()
     inputUrls = await Promise.all([referenceUrl, ...extraRefs].map((r) => hostReference(apiKey, r)))
     prompt = `Use the person in the provided reference image as the exact subject — preserve their facial identity, bone structure, hair, and skin precisely across every panel.\n\n${prompt}`
   }
 
   const body = buildImageInput(modelId, { prompt, aspectRatio, resolution, inputUrls })
-  const taskId = await createTask(apiKey, modelId, body, signal)
+  // kie or Higgsfield, by the model — see submitImageTask.
+  const taskId = await submitImageTask(modelId, body, signal)
   return { taskId, modelId }
 }
 
