@@ -499,12 +499,11 @@ export default function InfluencerEditModal({
       },
       parents: launchParents(selected),
     })
-    // Clear the box for the next instruction, but park the fired one in history
-    // so Undo brings it straight back.
-    const committed = prompt !== promptHistory[promptIndex]
-      ? [...promptHistory.slice(0, promptIndex + 1), prompt]
-      : promptHistory.slice(0, promptIndex + 1)
-    pushPromptHistory('', committed, committed.length - 1)
+    // The instruction STAYS in the box — the next edit is usually a tweak of
+    // this one, or the same one again for another take. It used to clear here
+    // (Undo brought it back), which read as the prompt being lost. The fired
+    // text is still committed to history so Undo steps through it cleanly.
+    commitPromptDraft()
   }
 
   function handleSheet() {
