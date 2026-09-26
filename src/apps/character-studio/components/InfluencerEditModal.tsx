@@ -22,7 +22,6 @@ import {
   getDefaultModel,
   estimateCredits,
   formatCredits,
-  imageResolutionLabel,
   type AspectRatio,
   type ImageResolution,
 } from '../../../utils/models'
@@ -847,12 +846,11 @@ export default function InfluencerEditModal({
                     options={resolutionOptions}
                     value={resolution}
                     onChange={(v) => setResolution(v as ImageResolution)}
-                    render={imageResolutionLabel}
                     renderOption={(v) => {
                       const credits = formatCredits(estimateCredits(runModelId ?? '', { imageCount: 1, resolution: v as ImageResolution }), runModelId)
                       return (
                         <span className="flex w-full items-center justify-between gap-6">
-                          <span>{imageResolutionLabel(v)}</span>
+                          <span>{v}</span>
                           {credits && <span className="text-ink-500">{credits}</span>}
                         </span>
                       )

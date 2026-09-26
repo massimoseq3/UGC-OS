@@ -19,7 +19,7 @@ import { useBankStore } from '../../../stores/bankStore'
 import { useAppStore } from '../../../stores/appStore'
 import { useAssetUrl } from '../../../hooks/useAssetUrl'
 import { useCloseOnAppSwitch } from '../../../hooks/useCloseOnAppSwitch'
-import { getDefaultModel, getModel, estimateCredits, formatCredits, videoResolutionLabel, imageResolutionLabel, snapVideoDuration, officialSavingsPercent, type ImageResolution } from '../../../utils/models'
+import { getDefaultModel, getModel, estimateCredits, formatCredits, videoResolutionLabel, snapVideoDuration, officialSavingsPercent, type ImageResolution } from '../../../utils/models'
 import { tagChipStyle, tagLabel } from './variationTags'
 import { humanizeError } from '../../../utils/friendlyError'
 import { resolveImageModelId } from '../services/generateBroll'
@@ -841,12 +841,11 @@ export default function CardDetailModal(props: CardDetailModalProps) {
                             options={imageConstraints.resolutions as string[]}
                             value={cardState.cardImageResolution}
                             onChange={(v) => onUpdateState({ cardImageResolution: v as ImageResolution })}
-                            render={imageResolutionLabel}
                             renderOption={(v) => {
                               const credits = formatCredits(estimateCredits(imageModelId ?? '', { imageCount: takeCount, resolution: v as ImageResolution }))
                               return (
                                 <span className="flex w-full items-center justify-between gap-6">
-                                  <span>{imageResolutionLabel(v)}</span>
+                                  <span>{v}</span>
                                   {credits && <span className="text-ink-500">{credits}</span>}
                                 </span>
                               )
