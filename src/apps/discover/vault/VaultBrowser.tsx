@@ -1,19 +1,20 @@
 import { useEffect, useState } from 'react'
-import { ChevronLeft, FolderOpen, Library, RotateCw, Star } from 'lucide-react'
+import { BookmarkCheck, ChevronLeft, FolderOpen, Library, RotateCw } from 'lucide-react'
 import Spinner from '../../../components/Spinner'
 import GridCanvas, { AwaitingBody } from '../../../components/GridCanvas'
 import FilterSelect from '../components/FilterSelect'
 import VaultCard, { type VaultAction } from './VaultCard'
 import VaultDetailModal from './VaultDetailModal'
 import VaultFolders from './VaultFolders'
-import { usePersistedState, useProjectScopedKey } from '../../../hooks/usePersistedState'
 import { useAppStore } from '../../../stores/appStore'
+import { useBankStore } from '../../../stores/bankStore'
 import { humanizeError } from '../../../utils/friendlyError'
 import { downloadVideoFile, saveFileToDisk, type DownloadProgress } from '../services/handoff'
 import {
   categoryLabel, facetCounts, filterVault, loadVault, patternLabel,
   resolveVaultVideo, thumbUrl, vaultFileName, VaultMessage, type VaultRow,
 } from './service'
+import { saveVaultRow, VAULT_PLATFORM, vaultSwipeRow } from './saving'
 import { ALL_HOOKS } from './types'
 import type { ResolvedVideo, VaultFilters, VaultItem, VaultSort } from './types'
 
@@ -75,13 +76,14 @@ export default function VaultBrowser({
     return () => { live = false }
   }, [attempt])
 
-  // Stars are browser-local on purpose. They mark rows in a read-only library
-  // that is identical for every member, so there is nothing here worth a
-  // Postgres table and a migration — and unlike a bank row, losing one costs a
-  // member nothing they made.
-  const starKey = useProjectScopedKey('discover:vault-stars')
-  const [starIds, setStarIds] = usePersistedState<string[]>(starKey, [])
-  const starred = new Set(starIds)
+  // What "Saved" means here: the vault reels that are in the Swipe File. It
+  // used to be a browser-local ★ of its own — a second way to keep an ad, next
+  // to the search tab's Save, that never left the browser and that the Bank
+  // never saw. Derived from the bank, so a reel saved (or removed) from the
+  // Bank's Swipe File tab reads that way here too. Instagram swipes only: a
+  // vault id is an Instagram shortcode and means nothing on another platform.
+  const swipes = useBankStore((s) => s.swipes)
+  const savedIds = new Set(swipes.filter((s) => s.platform === VAULT_PLATFORM).map((s) => s.sourceId))
 
   // Resolved videos, session-only: an Instagram media url is signed and dies
   // within hours, so persisting one would restore a library of dead players.
@@ -103,7 +105,7 @@ export default function VaultBrowser({
   // Adjusted DURING render against a signature rather than in an effect:
   // an effect would paint the old page count first and then correct it, and
   // React re-runs this render before committing anything, so nothing flashes.
-  const listSignature = `${query}|${filters.category}|${filters.pattern}|${filters.sort}|${filters.starredOnly}`
+  const listSignature = `${query}|${filters.category}|${filters.pattern}|${filters.sort}|${filters.savedOnly}`
   const [shown, setShown] = useState(PAGE)
   const [shownFor, setShownFor] = useState(listSignature)
   if (shownFor !== listSignature) {
@@ -122,18 +124,14 @@ export default function VaultBrowser({
   // makes it skip the WHOLE component, which would take the memo on 60 cards
   // down with it. Hand-rolling the memoization here was the thing preventing
   // the memoization.
-  const handleStar = (item: VaultItem) => {
-    setStarIds((ids) => ids.includes(item.id) ? ids.filter((i) => i !== item.id) : [...ids, item.id])
-  }
-
-  const enterFolder = (category: string, starredOnly = false) => {
-    onFiltersChange((f) => ({ ...f, category, starredOnly }))
+  const enterFolder = (category: string, savedOnly = false) => {
+    onFiltersChange((f) => ({ ...f, category, savedOnly }))
   }
 
   /**
    * Back out to the folder screen, and leave nothing narrowing it.
    *
-   * The folder screen counts the whole library, so a hook filter or a Starred
+   * The folder screen counts the whole library, so a hook filter or a Saved
    * toggle still armed behind it would be state with nothing on screen
    * describing it — and re-entering All would then quietly show a fraction of
    * the 872 the tile just promised. Sort survives, since it changes what's at
@@ -141,7 +139,7 @@ export default function VaultBrowser({
    */
   const backToFolders = () => {
     onClearQuery()
-    onFiltersChange((f) => ({ ...f, category: '', pattern: '', starredOnly: false }))
+    onFiltersChange((f) => ({ ...f, category: '', pattern: '', savedOnly: false }))
   }
 
   /**
@@ -244,6 +242,21 @@ export default function VaultBrowser({
     setOpenItem(null)
   }
 
+  /**
+   * Files the reel in the Swipe File, or takes it back out. Free either way.
+   *
+   * The same toggle the search grid's Save is: one way to keep an ad, whichever
+   * tab found it. Nothing is fetched from Instagram — see `saveVaultRow`.
+   */
+  const handleSave = (item: VaultItem) => {
+    const existing = vaultSwipeRow(item.id)
+    if (existing) {
+      void useBankStore.getState().deleteSwipe(existing.id)
+      return
+    }
+    void runFor(item, 'save', "Couldn't save that to your swipe file.", () => saveVaultRow(item))
+  }
+
   const openCard = (item: VaultItem) => setOpenItem(item)
 
   if (loadError) {
@@ -308,7 +321,7 @@ export default function VaultBrowser({
   // else in the app has to know what '*' means.
   const inCategory = openFolder !== '' && openFolder !== ALL_HOOKS
   const active = { ...filters, category: inCategory ? openFolder : '' }
-  const matches = filterVault(rows, query, active, starred)
+  const matches = filterVault(rows, query, active, savedIds)
   const page = matches.slice(0, shown)
 
   // ── Faceted counts ────────────────────────────────────────────
@@ -327,7 +340,7 @@ export default function VaultBrowser({
   // The folder counts that used to be scoped the same way are gone with the
   // toggle: the folder screen counts the whole library, which is honest there
   // because backing out to it clears everything that could narrow one.
-  const hookScope = filterVault(rows, query, { ...active, pattern: '' }, starred)
+  const hookScope = filterVault(rows, query, { ...active, pattern: '' }, savedIds)
   const patterns = facetCounts(hookScope, (r) => r.patterns)
   const hookOptions = [
     { value: '', label: 'Any' },
@@ -350,6 +363,10 @@ export default function VaultBrowser({
     ? allCategories.find((c) => c.value === openFolder)?.count ?? 0
     : rows.length
 
+  // Vault reels only — the Swipe File also holds search results, which belong
+  // to no folder here and would make the pill promise rows it can't show.
+  const savedCount = rows.reduce((n, r) => n + (savedIds.has(r.id) ? 1 : 0), 0)
+
   const folderName = inCategory ? categoryLabel(openFolder) : 'All Outlier Videos'
   // One string, two places: it rides the filter group on a desktop and the
   // folder line on a phone (see the panel below).
@@ -357,7 +374,7 @@ export default function VaultBrowser({
     matches.length === folderTotal ? `${folderTotal} hooks` : `${matches.length} of ${folderTotal}`
 
   if (!browsing) {
-    return <VaultFolders rows={rows} starredIds={starIds} onOpen={enterFolder} />
+    return <VaultFolders rows={rows} savedIds={savedIds} onOpen={enterFolder} />
   }
 
   return (
@@ -377,7 +394,7 @@ export default function VaultBrowser({
           own line underneath when they don't.
 
           On a phone that used to land as THREE lines — folder, then Sort and
-          Hook, then Starred and the counter on a third — which is 145px of
+          Hook, then Saved and the counter on a third — which is 145px of
           chrome over a grid of pictures on a screen that has ~700px to give.
           It's two now, and the split is by kind: where you are on the first
           line, what you're filtering by on the second. The counter moves up
@@ -393,7 +410,7 @@ export default function VaultBrowser({
             type="button"
             onClick={backToFolders}
             title="Back to the folders"
-            // 36px, the height of the two dropdowns and the Starred pill
+            // 36px, the height of the two dropdowns and the Saved pill
             // opposite it, so the row sits on one line.
             className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-ink/10 px-3 text-[13px] font-medium text-ink-300 transition-colors hover:border-ink/20 hover:bg-ink/5"
           >
@@ -414,12 +431,12 @@ export default function VaultBrowser({
           </span>
         </div>
 
-        {/* Sort / Hook / Starred. On a phone `w-full` puts the group on its own
+        {/* Sort / Hook / Saved. On a phone `w-full` puts the group on its own
             line and its members take the width they can get; from `md` it's
             `shrink-0` again so it wraps as a unit rather than the dropdowns
             squeezing, with `flex-wrap` + `max-w-full` as the tablet fallback
             (`shrink-0` alone pins the group at its max-content width, which put
-            the Starred pill off the right edge of a row that doesn't scroll). */}
+            the Saved pill off the right edge of a row that doesn't scroll). */}
         <div className="flex w-full min-w-0 items-center gap-2 md:w-auto md:max-w-full md:shrink-0 md:flex-wrap">
           <FilterSelect
             dense
@@ -443,23 +460,23 @@ export default function VaultBrowser({
           />
           <button
             type="button"
-            onClick={() => onFiltersChange((f) => ({ ...f, starredOnly: !f.starredOnly }))}
-            title="Show only the hooks you starred"
+            onClick={() => onFiltersChange((f) => ({ ...f, savedOnly: !f.savedOnly }))}
+            title="Show only the hooks in your swipe file"
             // 36px — the height of the folder toggle beside it and of the two
             // dropdowns, so everything on this row sits on one line.
             className={`flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-colors ${
-              filters.starredOnly
-                ? 'border-amber-400/40 bg-amber-400/10 text-amber-300 light:text-amber-700'
+              filters.savedOnly
+                ? 'border-emerald-400/40 bg-emerald-500/10 text-emerald-300 light:text-emerald-700'
                 : 'border-ink/10 text-ink-300 hover:border-ink/20 hover:bg-ink/5'
             }`}
           >
-            <Star className={`h-3.5 w-3.5 ${filters.starredOnly ? 'fill-current' : ''}`} />
-            {/* The word goes on a phone and the star carries it: it's the one
+            <BookmarkCheck className="h-3.5 w-3.5" />
+            {/* The word goes on a phone and the bookmark carries it: it's the one
                 control on that line whose glyph says the whole thing, so it's
                 the one that can afford to, and the ~55px it gives back is what
                 keeps the two selects from truncating. */}
-            <span className="max-md:hidden">Starred</span>
-            {starIds.length > 0 && <span className="tabular-nums opacity-60">{starIds.length}</span>}
+            <span className="max-md:hidden">Saved</span>
+            {savedCount > 0 && <span className="tabular-nums opacity-60">{savedCount}</span>}
           </button>
 
           <span className="hidden shrink-0 pl-1 text-[11px] tabular-nums text-ink-600 md:inline">
@@ -474,8 +491,8 @@ export default function VaultBrowser({
             icon={Library}
             title="Nothing Matches"
             hint={
-              filters.starredOnly && starIds.length === 0
-                ? 'You haven’t starred anything yet. Star a hook from its card and it lands here.'
+              filters.savedOnly && savedCount === 0
+                ? 'You haven’t saved a vault hook yet. Save one from its card and it lands here and in your Swipe File.'
                 : inCategory
                   // Naming the folder is the difference between "nothing
                   // matches" and "nothing matches IN HERE" — the second tells
@@ -492,8 +509,8 @@ export default function VaultBrowser({
               <VaultCard
                 key={item.id}
                 item={item}
-                starred={starred.has(item.id)}
-                onStar={handleStar}
+                saved={savedIds.has(item.id)}
+                onSave={handleSave}
                 onOpen={openCard}
                 onAnalyze={handleAnalyze}
                 onRemix={handleRemix}
@@ -525,13 +542,13 @@ export default function VaultBrowser({
         <VaultDetailModal
           item={openItem}
           video={videos[openItem.id]}
-          starred={starred.has(openItem.id)}
+          saved={savedIds.has(openItem.id)}
           hasKey={!!apiKey}
           onNeedKey={onNeedKey}
           busy={busyId === openItem.id ? busyKind : null}
           downloadProgress={downloadProgress}
           onClose={() => setOpenItem(null)}
-          onStar={handleStar}
+          onSave={handleSave}
           onAnalyze={handleAnalyze}
           onRemix={handleRemix}
           onDownload={handleDownload}

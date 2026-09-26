@@ -10,6 +10,7 @@ const ACCENT_ON: Record<string, string> = {
   playground: 'border-playground-500/30 bg-playground-500/10 text-playground-200',
   broll: 'border-broll-500/30 bg-broll-500/10 text-broll-200',
   voice: 'border-voice-500/30 bg-voice-500/10 text-voice-200',
+  scripts: 'border-scripts-500/30 bg-scripts-500/10 text-scripts-200',
 }
 
 // Outer pill heights match ConstraintChip exactly, so the stepper sits in a

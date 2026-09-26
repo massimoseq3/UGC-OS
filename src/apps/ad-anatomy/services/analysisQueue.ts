@@ -11,9 +11,12 @@ import { compressVideoForAnalysis } from '../utils/compressVideo'
 import { saveAsset, deleteAsset, getBlob } from '../../../utils/assetStore'
 // `deleteAsset` is still used for the thumbnail cleanup below.
 import { useBankStore } from '../../../stores/bankStore'
+import { useAppStore } from '../../../stores/appStore'
 import type { AnalysisResult } from '../types'
 import type { AdAnatomyHistoryItem } from '../../../stores/types'
-import { humanizeError, FriendlyError } from '../../../utils/friendlyError'
+import {
+  humanizeError, FriendlyError, INVALID_KIE_KEY_MESSAGE, NO_KIE_CREDITS_MESSAGE, NO_KIE_KEY_MESSAGE,
+} from '../../../utils/friendlyError'
 import { PollTimeoutError } from '../../../utils/kie'
 
 const MAX_CONCURRENT = 5
@@ -48,6 +51,58 @@ function pump(): void {
       pump()
     })
   }
+}
+
+// ── Saying so when one finishes ─────────────────────────────────
+//
+// A whole-video read takes minutes and the analyzing screen tells the member
+// they can switch tools meanwhile — and then nothing told them when it was
+// done, or that it had failed. These are the rows the Ad Analyzer itself
+// started (its drop zone, the Outliers handoff, a Retry, a resume on open);
+// Flow runs the same queue for its Ad Analyzer blocks and reports those in its
+// own Run View, so they don't toast.
+const announced = new Set<string>()
+
+// The analysis the member is reading right now, if the Ad Analyzer is on
+// screen. Set by the app; a result they're already watching land needs no toast.
+let viewedAnalysisId: string | null = null
+
+export function announceWhenSettled(historyId: string): void {
+  announced.add(historyId)
+}
+
+export function setViewedAnalysis(historyId: string | null): void {
+  viewedAnalysisId = historyId
+}
+
+function lookingAt(historyId: string): boolean {
+  return viewedAnalysisId === historyId && useAppStore.getState().activeApp === 'ad-anatomy'
+}
+
+// Open = the Ad Analyzer, showing that analysis. Through the app's own payload
+// seam (targetField 'openAnalysis'), so it works whether or not the app is
+// mounted yet.
+function openAction(historyId: string) {
+  return {
+    label: 'Open',
+    run: () => useAppStore.getState().sendToApp({ targetApp: 'ad-anatomy', targetField: 'openAnalysis', data: historyId }),
+  }
+}
+
+function announceSuccess(historyId: string, adTitle: string): void {
+  if (!announced.delete(historyId) || lookingAt(historyId)) return
+  useAppStore.getState().addToast(`“${adTitle}” is analyzed and ready to read.`, 'success', openAction(historyId))
+}
+
+function announceFailure(historyId: string, errorMessage: string): void {
+  if (!announced.delete(historyId) || lookingAt(historyId)) return
+  // The humanized sentence verbatim — it is already complete. A key or credit
+  // problem keeps the toast's own Connect Key / Add Credits button (the fix),
+  // so Open only rides the failures the analysis screen itself can help with.
+  const memberFix = errorMessage === NO_KIE_KEY_MESSAGE
+    || errorMessage === INVALID_KIE_KEY_MESSAGE
+    || errorMessage === NO_KIE_CREDITS_MESSAGE
+  useAppStore.getState().addToast(errorMessage, 'error', memberFix ? undefined : openAction(historyId))
 }
 
 function mb(bytes: number): string {
@@ -110,7 +165,7 @@ function deriveFallbackTitle(fileName: string): string {
 async function applySuccess(historyId: string, analysis: AnalysisResult, fileName: string) {
   const { updateAdAnatomyHistory, getAdAnatomyHistoryById } = useBankStore.getState()
   const current = getAdAnatomyHistoryById(historyId)
-  if (!current) return // row was deleted while we were polling
+  if (!current) { announced.delete(historyId); return } // row was deleted while we were polling
   const adTitle = analysis.adTitle?.trim() || deriveFallbackTitle(fileName)
   // Keep `uploadedRef` so the results view can play back the source. It's
   // local-only (saveAsset is called with skipCloud), and a mount-time TTL
@@ -122,12 +177,13 @@ async function applySuccess(historyId: string, analysis: AnalysisResult, fileNam
     taskId: undefined,
     perception: undefined,
   })
+  announceSuccess(historyId, adTitle)
 }
 
 async function applyFailure(historyId: string, err: unknown) {
   const { updateAdAnatomyHistory, getAdAnatomyHistoryById } = useBankStore.getState()
   const current = getAdAnatomyHistoryById(historyId)
-  if (!current) return
+  if (!current) { announced.delete(historyId); return }
   // The row only ever keeps the friendly copy, so without this the raw kie
   // message — the one that says WHICH rejection this was — is gone for good.
   console.error('[ad-anatomy] analysis failed', err)
@@ -149,6 +205,7 @@ async function applyFailure(historyId: string, err: unknown) {
     compressPass: undefined,
     perception: undefined,
   })
+  announceFailure(historyId, errorMessage)
 }
 
 function rowExists(historyId: string): boolean {

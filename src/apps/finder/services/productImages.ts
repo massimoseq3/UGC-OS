@@ -16,11 +16,15 @@ import type { Product } from '../../../stores/types'
 // over the same photo waits on the one save instead of starting a second.
 // Keying by the data URI costs nothing — JS strings are shared, so this is
 // another reference to bytes the form is already holding.
+//
+// Every Bank form that takes a picture autosaves now (Characters' portrait,
+// B-Roll's still — see `useBankAutosave`), and each has exactly this hazard, so
+// `persistImage` is exported for them rather than re-derived per form.
 export type ImageMemo = Map<string, Promise<string>>
 
 export const newImageMemo = (): ImageMemo => new Map()
 
-function persistImage(src: string, memo: ImageMemo): Promise<string> {
+export function persistImage(src: string, memo: ImageMemo): Promise<string> {
   if (!src.startsWith('data:')) return Promise.resolve(src)
   const inFlight = memo.get(src)
   if (inFlight) return inFlight

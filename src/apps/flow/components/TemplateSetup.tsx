@@ -15,7 +15,7 @@ import { useCreditsStore } from '../../../stores/creditsStore'
 import { useAppStore } from '../../../stores/appStore'
 import { humanizeError } from '../../../utils/friendlyError'
 import { saveAsset } from '../../../utils/assetStore'
-import { BANK_CONFIG } from '../../../utils/constants'
+import { BANK_CONFIG, KIE_BILLING_URL } from '../../../utils/constants'
 import { useAssetThumb } from '../../../hooks/useAssetUrl'
 import { bankRowValue } from '../engine/held'
 import { uploadedAdValue } from '../engine/ownAd'
@@ -48,7 +48,9 @@ export default function TemplateSetup({ source, onClose }: { source: SetupSource
   const banks = useBankStore((s) => s)
   const createFlow = useFlowStore((s) => s.createFlow)
   const openFlow = useFlowStore((s) => s.openFlow)
+  const setView = useFlowStore((s) => s.setView)
   const addToast = useAppStore((s) => s.addToast)
+  const openKeyGuide = useAppStore((s) => s.openKeyGuide)
 
   useEffect(() => {
     void refreshBalance()
@@ -94,9 +96,15 @@ export default function TemplateSetup({ source, onClose }: { source: SetupSource
   const credits = plan?.creditsAll ?? file?.estimate ?? 0
   const short = balance !== null && credits > balance
 
-  const reason = !hasKey ? 'Add your kie.ai API key in Settings first'
+  const reason = !hasKey ? 'Connect your kie.ai API key first'
     : missing.length ? `Pick ${missing[0].title}`
     : short ? `Needs ${creditsLabel(credits)}, your balance is ${Math.floor(balance!).toLocaleString('en-US')}`
+    : null
+  // The two reasons only the member can fix outside this window come with
+  // the way to fix them, as their toasts do: the key guide over this modal,
+  // or kie.ai's billing page.
+  const fix = !hasKey ? <FixButton onClick={openKeyGuide}>Connect Key</FixButton>
+    : !missing.length && short ? <FixButton href={KIE_BILLING_URL}>Add Credits</FixButton>
     : null
 
   const create = async (): Promise<string | null> => {
@@ -113,10 +121,15 @@ export default function TemplateSetup({ source, onClose }: { source: SetupSource
     return id
   }
 
+  // Each button names the view it lands on, whatever view a flow was last
+  // left in: Run used to open onto the canvas when that was the last one
+  // used, and the whole point of a template is running one without ever
+  // seeing a node editor.
   const openCanvas = async () => {
     const id = await create()
     if (!id) return
     openFlow(id)
+    setView('edit')
     onClose()
   }
 
@@ -125,6 +138,7 @@ export default function TemplateSetup({ source, onClose }: { source: SetupSource
     const id = await create()
     if (!id) return
     openFlow(id)
+    setView('run')
     onClose()
     const started = startRun(id)
     if (!started.ok) addToast(started.reason, 'error')
@@ -142,7 +156,7 @@ export default function TemplateSetup({ source, onClose }: { source: SetupSource
       footer={
         <div className="flex flex-col gap-2">
           {reason && file && (
-            <p className="flex items-center gap-1.5 text-[12px] text-amber-400/90"><AlertCircle className="h-3.5 w-3.5" />{reason}.</p>
+            <p className="flex items-center gap-1.5 text-[12px] text-amber-400/90"><AlertCircle className="h-3.5 w-3.5" />{reason}.{fix}</p>
           )}
           <div className="flex items-center justify-end gap-2">
             <button type="button" onClick={() => void openCanvas()} disabled={!file || busy} className="rounded-full border border-ink/10 px-4 py-2.5 text-sm text-ink-300 transition-colors hover:border-ink/20 hover:text-ink-100 disabled:opacity-40">
@@ -197,6 +211,14 @@ export default function TemplateSetup({ source, onClose }: { source: SetupSource
       )}
     </Modal>
   )
+}
+
+// The toast's own action pill (components/Toast.tsx), so Connect Key here and
+// Connect Key on a toast read as the same button.
+function FixButton({ onClick, href, children }: { onClick?: () => void; href?: string; children: string }) {
+  const className = 'ml-1 flex h-6 shrink-0 items-center rounded-full bg-ink/[0.08] px-2.5 text-[12px] font-semibold text-ink-100 transition-colors hover:bg-ink/[0.14]'
+  if (href) return <a href={href} target="_blank" rel="noopener noreferrer" className={className}>{children}</a>
+  return <button type="button" onClick={onClick} className={className}>{children}</button>
 }
 
 function filled(f: TemplateField, p: Pick | undefined): boolean {

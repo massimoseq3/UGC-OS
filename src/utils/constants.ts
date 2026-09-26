@@ -21,6 +21,12 @@ import type { ElementType } from 'react'
 // accounts as a link back to join.
 export const SKOOL_COMMUNITY_URL = 'https://www.skool.com/ugcos'
 
+// kie.ai's two pages a member is ever sent to: where a key is made, and where
+// credits are bought. One name each, so a toast's action button and the menu
+// bar's link can't drift apart.
+export const KIE_API_KEY_URL = 'https://kie.ai/api-key'
+export const KIE_BILLING_URL = 'https://kie.ai/billing'
+
 // The one classroom page inside the community that carries the current access
 // code. Linked from the two places the app asks for that code — signup and the
 // lapsed-member screen — so nobody has to go hunting for it mid-form. It is a

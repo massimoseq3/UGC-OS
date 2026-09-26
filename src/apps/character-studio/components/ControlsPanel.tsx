@@ -19,6 +19,7 @@ import { SectionPresetPill } from '../../../components/SectionCard'
 import LoadPresetDropdown from './LoadPresetDropdown'
 import PresetPickerModal from './PresetPickerModal'
 import PhotoExtractZone from './PhotoExtractZone'
+import DescribeLine from './DescribeLine'
 import { buildImagePrompt, buildPhysicalPrompt, buildScenePrompt } from '../services/generateCharacter'
 import { copyToClipboard } from '../../../utils/clipboard'
 import { suspendChromeAutoHide } from '../../../hooks/useChromeAutoHide'
@@ -101,6 +102,13 @@ interface ControlsPanelProps {
   onPhotoDrop: (files: File[]) => void
   onResetExtract: () => void
   onOpenLibrary: () => void
+  // The band's whole-character preset load. Absent, it writes straight through
+  // `onProfileChange`; Characters passes its own so the load can be undone.
+  onLoadPreset?: (profile: CharacterProfile) => void
+  // The Describe line under the band's two pickers. Absent (Flow's window),
+  // the line doesn't render.
+  onDescribe?: (description: string) => Promise<boolean>
+  describing?: boolean
   // "New" — resets the form + extracted reference photo to a blank slate.
   onClear: () => void
   // Generate bar (lives at the foot of this column).
@@ -132,6 +140,9 @@ export default function ControlsPanel({
   onPhotoDrop,
   onResetExtract,
   onOpenLibrary,
+  onLoadPreset,
+  onDescribe,
+  describing = false,
   onClear,
   error,
   onGenerate,
@@ -284,7 +295,7 @@ export default function ControlsPanel({
             where this column is wide enough to read it. */}
         <div className="flex items-center gap-2">
           <div className="min-w-0 flex-1">
-            <LoadPresetDropdown onLoadProfile={onProfileChange} />
+            <LoadPresetDropdown onLoadProfile={onLoadPreset ?? onProfileChange} />
           </div>
           <div className="min-w-0 flex-1">
             <PhotoExtractZone
@@ -298,6 +309,17 @@ export default function ControlsPanel({
             />
           </div>
         </div>
+        {/* The third way in, and the one that needs no preset and no photo: a
+            line of text read into every field. Under the two pickers rather
+            than beside them — it is a field you type in, and a half-width one
+            would cut the example short enough to stop explaining itself. In
+            the fixed band with them, because all three do the same job: fill
+            the whole form at once. */}
+        {onDescribe && (
+          <div className="mt-2">
+            <DescribeLine onDescribe={onDescribe} busy={describing} />
+          </div>
+        )}
       </div>
 
       <div ref={phoneScrollRef} className="flex min-h-0 flex-1 flex-col max-md:overflow-y-auto">

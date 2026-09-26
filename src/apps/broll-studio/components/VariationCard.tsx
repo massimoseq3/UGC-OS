@@ -749,7 +749,7 @@ export default function VariationCard(props: VariationCardProps) {
 
   // Batch trigger. Same shape as the image one above: the parent bumps
   // `generateVideoToken` and the card fires exactly one clip. A card that has a
-  // still animates it — that's what "Generate all videos" means after a
+  // still animates it — that's what "Generate All Clips" means after a
   // Generate-all-images pass — and a card with no image yet renders from its
   // prompt instead, so a text-to-video-only session isn't left out.
   const lastVideoTokenRef = useRef(generateVideoToken ?? 0)
@@ -1022,19 +1022,22 @@ export default function VariationCard(props: VariationCardProps) {
                   {cardState.editablePrompt}
                 </p>
               </div>
-              {/* Nudge for the not-yet-generated card: the prompt is scripted
-                  but no image/video exists — spell out that the card opens for
-                  setup, sitting in the faded bottom-left so it clears the text.
-                  Fades on hover: the full-width shortcut row lands on this exact
-                  strip and IS the answer to "set up", so the two never share it. */}
+              {/* Nudge for the not-yet-generated card: the prompt is written
+                  but no image/video exists — say what the click is for, sitting
+                  in the faded bottom-left so it clears the text. It said "Click
+                  to set up" until September 2026, which read as the card still
+                  needing work when its prompt was already done. Fades on hover:
+                  the full-width shortcut row lands on this exact strip and IS
+                  the answer to it, so the two never share it. */}
               <p className="pointer-events-none absolute bottom-2 left-3 z-10 text-[10px] font-medium tracking-tight text-ink-500 transition-opacity group-hover:opacity-0">
-                Click to set up
+                Click to generate
               </p>
             </>
           ) : (
             <div className="flex h-full w-full flex-col items-center justify-center gap-2 px-4 text-center">
               <ImageIcon className="h-7 w-7 text-ink-700" strokeWidth={1.5} />
-              <p className="text-[11px] text-ink-500">Click to set up</p>
+              {/* No prompt yet (an added option), so writing one IS the setup. */}
+              <p className="text-[11px] text-ink-500">Click to write a prompt</p>
             </div>
           )}
 

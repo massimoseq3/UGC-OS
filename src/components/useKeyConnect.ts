@@ -10,10 +10,16 @@ type Status =
   | { phase: 'error'; message: string }
 
 /**
- * The connect-a-key transaction, shared by the ApiKeyGuide modal and the
- * Meet-your-team intro. The rule that has to hold in both places: the key is
- * checked against the live balance BEFORE it is saved, so nothing is ever
- * stored that can't generate. Each surface draws its own markup around it.
+ * The connect-a-key transaction, shared by the ApiKeyGuide modal, the
+ * Meet-your-team intro and Settings → API Keys. The rule that has to hold in
+ * all three: the key is checked against the live balance BEFORE it is saved,
+ * so nothing is ever stored that can't generate. Each surface draws its own
+ * markup around it.
+ *
+ * Settings used to be the exception — a cosmetic 350ms wait, then the write —
+ * so a typo pasted there was stored and every app failed on it later with a
+ * 401 far from the field it came from. It seeds the draft with the saved key
+ * through `setDraft` each time it opens.
  *
  * Lives in its own file rather than inside ApiKeyGuide: a file that exports
  * both a component and a hook loses React Fast Refresh.
@@ -44,6 +50,10 @@ export function useKeyConnect() {
     key,
     status,
     connected: status.phase === 'connected',
+    // A key that works on an account with nothing on it: connected, and still
+    // unable to generate a thing. Every surface that shows the balance turns
+    // this into an Add Credits link rather than a bare "0 credits".
+    noCredits: status.phase === 'connected' && status.credits <= 0,
     connect,
     setDraft: (value: string) => {
       setDraft(value)

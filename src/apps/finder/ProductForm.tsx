@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { X, ImagePlus, Download, AlertCircle, Sparkle, Check, Package, Users, Star, Tag } from 'lucide-react'
+import { X, ImagePlus, Download, AlertCircle, Sparkle, Package, Users, Star, Tag } from 'lucide-react'
 import Spinner from '../../components/Spinner'
 import type { Product } from '../../stores/types'
 import { useAssetUrl } from '../../hooks/useAssetUrl'
@@ -15,6 +15,7 @@ import ExpandTextModal, { ExpandButton, BracketGrowArea, BracketInput } from '..
 import AutoGrowTextarea from '../../components/AutoGrowTextarea'
 import SectionCard, { SectionLabel } from '../../components/SectionCard'
 import { suspendChromeAutoHide } from '../../hooks/useChromeAutoHide'
+import { AutosaveStatus, RequiredNote } from './BankFormChrome'
 
 interface ProductFormProps {
   item?: Product | null
@@ -117,29 +118,33 @@ export function ProductFormFooter({
   isNew,
   saving,
   disabled,
+  blocker,
   formId,
 }: {
   autosaveState: 'idle' | 'saving' | 'saved'
   isNew: boolean
   saving?: boolean
   disabled?: boolean
+  // What's missing, named the way a Generate button names it. The button
+  // still submits — the submit is what shows the note under the field and
+  // takes the member there — it just stops claiming it will add the product.
+  blocker?: string | null
   // Set when the button is outside the <form> it submits.
   formId?: string
 }) {
   return (
     <div className="flex items-center justify-end gap-3">
-      <span className="flex items-center gap-1.5 text-[11px] text-ink-500">
-        {autosaveState === 'saving' && <><Spinner className="h-3 w-3" />Saving…</>}
-        {autosaveState === 'saved' && <><Check className="h-3 w-3" />Saved</>}
-      </span>
+      <AutosaveStatus state={autosaveState} />
       <button
         type="submit"
         form={formId}
         disabled={disabled}
-        className="flex h-9 items-center gap-2 rounded-full bg-ink px-5 text-[13px] font-medium tracking-tight text-ink-900 transition-colors hover:bg-ink-100 disabled:cursor-not-allowed disabled:opacity-60"
+        className={`flex h-9 items-center gap-2 rounded-full px-5 text-[13px] font-medium tracking-tight transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+          blocker ? 'bg-ink/[0.08] text-ink-300 hover:bg-ink/[0.12]' : 'bg-ink text-ink-900 hover:bg-ink-100'
+        }`}
       >
         {saving && <Spinner className="h-3.5 w-3.5" />}
-        {isNew ? 'Add Product' : 'Done'}
+        {blocker ?? (isNew ? 'Add Product' : 'Done')}
       </button>
     </div>
   )
@@ -220,6 +225,15 @@ export default function ProductForm({ item, onSave, onAutosave, onCancel, onDeta
   // scrolls should look like a column that scrolls.
   const fieldsRef = useRef<HTMLDivElement>(null)
   const sideRef = useRef<HTMLDivElement>(null)
+  // Product Name's row, so a blocked Add can put the cursor in it.
+  const nameFieldRef = useRef<HTMLLabelElement>(null)
+  // Listing Copy goes ABOVE the photo while the product has none yet. The
+  // read takes whatever is in that box the moment the photo lands, and with
+  // the box below the photo the natural order was drop, then paste — which
+  // left the paste out of the read and cost a second paid Auto-Fill to get it
+  // in. Decided once, when the form opens, so the column never rearranges
+  // under the member the moment their photo lands.
+  const [copyFirst] = useState(() => !item?.productImage)
   const sectionRefs = useRef<Partial<Record<SectionKey, HTMLDivElement | null>>>({})
 
   // Reload only when the form is pointed at a DIFFERENT product. Deliberately
@@ -590,7 +604,7 @@ export default function ProductForm({ item, onSave, onAutosave, onCancel, onDeta
     const textClass = 'text-[13px] leading-relaxed'
     const inkClass = 'text-ink-200 placeholder-ink-600'
     return (
-      <label key={key} className="flex flex-col gap-1.5">
+      <label key={key} ref={key === 'productName' ? nameFieldRef : undefined} className="flex flex-col gap-1.5">
         {/* The in-card small-caps register. It was quiet 12px sentence case
             under a quiet 9px uppercase section eyebrow, where only the
             letter-spacing told a heading from a label; the section is a titled
@@ -635,9 +649,40 @@ export default function ProductForm({ item, onSave, onAutosave, onCancel, onDeta
             inputClass={inkClass}
           />
         )}
+        {/* Under the field it's about. It used to render at the foot of the
+            field column, below four section cards — off screen on any normal
+            window, so a blocked Add looked like a button that did nothing. */}
+        {required && <RequiredNote show={!!isMissing}>Give this product a name to add it.</RequiredNote>}
       </label>
     )
   }
+
+  // Listing copy — optional paste box that feeds auto-fill. Text from the
+  // product page carries the claims/specs/offer a photo can't. Rendered above
+  // or below the photo — see `copyFirst`.
+  const listingCopy = (
+    <label className="flex shrink-0 flex-col gap-1.5">
+      <span className="text-[12px] font-medium text-ink-300">
+        Listing Copy <span className="text-ink-600">(optional)</span>
+      </span>
+      {/* Grows with the paste, but capped — a whole Amazon listing would
+          otherwise push the photo and the Auto-fill button off the top of
+          the column. Past the cap it scrolls, which is the one place in
+          this form that's the right answer. */}
+      <AutoGrowTextarea
+        value={listingText}
+        onChange={(e) => setListingText(e.target.value)}
+        rows={copyFirst ? 4 : 5}
+        maxHeight={280}
+        placeholder={
+          displayImage
+            ? 'Paste the product page or Amazon listing text, then press Auto-Fill to read it with the photo.'
+            : 'Paste the product page or Amazon listing text before you drop the photo. Auto-fill reads both in one pass.'
+        }
+        className="w-full resize-none rounded-2xl border border-ink/10 bg-ink/[0.02] px-4 py-3 text-[13px] leading-relaxed text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-ink/20"
+      />
+    </label>
+  )
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -645,6 +690,8 @@ export default function ProductForm({ item, onSave, onAutosave, onCancel, onDeta
     if (missingRequired.length > 0) {
       setShowError(true)
       jumpTo('identity')
+      // No scroll of its own, so the smooth jump above isn't cut short.
+      nameFieldRef.current?.querySelector('input')?.focus({ preventScroll: true })
       return
     }
     setShowError(false)
@@ -688,11 +735,13 @@ export default function ProductForm({ item, onSave, onAutosave, onCancel, onDeta
       <div className="flex flex-col gap-6 md:flex-row lg:min-h-0 lg:flex-1">
         {/* Left — the product photos + listing copy. Scrolls on its own so the
             paste box and the Auto-fill button stay reachable on a short window;
-            the photo above them is what the right column is describing. */}
+            the photo is what the right column is describing. On a product with
+            no photo yet the copy box leads (`copyFirst`). */}
         <div
           ref={sideRef}
           className="flex w-full shrink-0 flex-col gap-4 md:w-[300px] lg:min-h-0 lg:overflow-y-auto lg:pr-1"
         >
+          {copyFirst && listingCopy}
           {displayImage ? (
             <div className="group/img relative aspect-[3/2] w-full shrink-0 overflow-hidden rounded-3xl border border-ink/10 bg-ink/[0.02] md:aspect-square">
               <img src={displayImage} alt="" className="h-full w-full object-cover" />
@@ -774,25 +823,7 @@ export default function ProductForm({ item, onSave, onAutosave, onCancel, onDeta
             </div>
           </div>
 
-          {/* Listing copy — optional paste box that feeds auto-fill. Text from
-              the product page carries the claims/specs/offer a photo can't. */}
-          <label className="flex shrink-0 flex-col gap-1.5">
-            <span className="text-[12px] font-medium text-ink-300">
-              Listing Copy <span className="text-ink-600">(optional)</span>
-            </span>
-            {/* Grows with the paste, but capped — a whole Amazon listing would
-                otherwise push the photo and the Auto-fill button off the top of
-                the column. Past the cap it scrolls, which is the one place in
-                this form that's the right answer. */}
-            <AutoGrowTextarea
-              value={listingText}
-              onChange={(e) => setListingText(e.target.value)}
-              rows={5}
-              maxHeight={280}
-              placeholder="Paste the product page or Amazon listing text. Auto-fill gets far more accurate with it."
-              className="w-full resize-none rounded-2xl border border-ink/10 bg-ink/[0.02] px-4 py-3 text-[13px] leading-relaxed text-ink-200 placeholder-ink-600 outline-none transition-colors focus:border-ink/20"
-            />
-          </label>
+          {!copyFirst && listingCopy}
         </div>
         <input ref={fileRef} type="file" accept={IMAGE_ACCEPT_ATTR} className="hidden" onChange={handleImage} />
         <input
@@ -872,13 +903,6 @@ export default function ProductForm({ item, onSave, onAutosave, onCancel, onDeta
                 </div>
               ))}
 
-              {showError && (
-                <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-[12px] text-red-300 light:text-red-700">
-                  <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                  <span>Give this product a name to add it.</span>
-                </div>
-              )}
-
               {extractError && (
                 <div className="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-[12px] text-red-300 light:text-red-700">
                   <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -901,6 +925,7 @@ export default function ProductForm({ item, onSave, onAutosave, onCancel, onDeta
             isNew={!item}
             saving={saving}
             disabled={saving || isExtracting}
+            blocker={missingRequired.length > 0 ? 'Name This Product' : null}
           />
         </div>
       )}

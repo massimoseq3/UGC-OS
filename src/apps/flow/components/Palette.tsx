@@ -1,10 +1,17 @@
-// The palette: a dock-shaped bar inside the canvas, in the dock's own order
+// The palette: a rail down the canvas's left edge, in the dock's own order
 // and groups — Bank | Outliers, Ad Analyzer | the Create line | Edit | the
 // helpers. The real dock keeps meaning "go to this app"; this one means "put
 // it on the canvas". Click to drop a block beside the selection, or drag one
 // to where it should go.
+//
+// A rail, not a bar (September 2026, Massimo's call): it was a dock-shaped
+// bar along the canvas's bottom edge, which sat directly on top of the app
+// dock, and the two read as one tall dock. Down the side it can't be taken
+// for the dock. It's narrow, so the tiles carry no labels: a tile's name, what
+// the block is for and what it takes and makes show beside it on hover or
+// focus.
 
-import { useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import type { BlockKind } from '../types'
 import { BANK_ORDER, KINDS } from '../engine/catalog'
@@ -25,38 +32,92 @@ const LABEL: Partial<Record<BlockKind, string>> = { edit: 'Edit Pack' }
 
 export const PALETTE_DRAG_TYPE = 'application/x-ugc-flow-block'
 
+// How much of the canvas's left edge the rail takes: its 12px inset, its 46px
+// width and a 12px gap. What else floats on the canvas — Ask Flow, the
+// selection's toolbar, a block brought into view — keeps this far in, so
+// nothing sits under the rail.
+export const PALETTE_INSET = 70
+
+// A card or menu level with the tile it belongs to, held inside the rail's
+// column — which runs the canvas's height less a margin, so the first and
+// last tiles' cards can't hang past an edge the canvas clips. Written straight
+// onto the element before paint, like `keepInside.ts`, and on every render,
+// since each block's card is its own height.
+function useLevelWith<T extends HTMLElement>(y: number, align: 'middle' | 'top') {
+  const ref = useRef<T>(null)
+  useLayoutEffect(() => {
+    const el = ref.current
+    const column = el?.offsetParent
+    if (!el || !(column instanceof HTMLElement)) return
+    const want = align === 'middle' ? y - el.offsetHeight / 2 : y
+    el.style.top = `${Math.max(0, Math.min(want, column.clientHeight - el.offsetHeight))}px`
+  })
+  return ref
+}
+
 export default function Palette({ onAdd }: { onAdd: (kind: BlockKind, bank?: BankType) => void }) {
-  const [bankOpen, setBankOpen] = useState(false)
-  // The tile under the pointer, described above the bar: what the block is
-  // for, what it takes and what it makes — a tile's name alone doesn't tell a
-  // Batch from a Text.
-  const [hover, setHover] = useState<BlockKind | null>(null)
+  const columnRef = useRef<HTMLDivElement>(null)
+  // The Bank tile's top, where its menu opens.
+  const [bankOpen, setBankOpen] = useState<number | null>(null)
+  // The tile under the pointer, and its middle down the column: the card
+  // beside it is the tile's label as well as what the block is for, what it
+  // takes and what it makes — a tile's glyph alone doesn't tell a Batch from
+  // a Text.
+  const [hover, setHover] = useState<{ kind: BlockKind; y: number } | null>(null)
+
+  // The Bank menu closes on a press anywhere else, or Escape, like every
+  // chip menu on the canvas (Ask Flow, How a Flow Works). A click-catcher
+  // can't do it from here: the rail's panel is its own stacking context, so a
+  // catcher inside it sits under the header and the zoom pill.
+  useEffect(() => {
+    if (bankOpen === null) return
+    const onDown = (e: PointerEvent) => {
+      if (columnRef.current && !columnRef.current.contains(e.target as Node)) setBankOpen(null)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setBankOpen(null)
+    }
+    document.addEventListener('pointerdown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [bankOpen])
+
+  // Where a tile sits down the column, for what opens beside it.
+  const placeOf = (el: HTMLElement) => {
+    const column = columnRef.current?.getBoundingClientRect()
+    const tile = el.getBoundingClientRect()
+    const top = tile.top - (column?.top ?? 0)
+    return { top, middle: top + tile.height / 2 }
+  }
+
   return (
-    <div className="relative" onMouseLeave={() => setHover(null)}>
-      {hover && !bankOpen && <HoverCard kind={hover} />}
-      {bankOpen && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setBankOpen(false)} />
-          <div className="absolute bottom-full left-0 z-20 mb-2">
-            <MenuSurface>
-              {BANK_ORDER.map((bank) => (
-                <MenuItem
-                  key={bank}
-                  icon={BANK_CONFIG[bank].icon as LucideIcon}
-                  iconClassName="text-ink-400"
-                  onClick={() => { setBankOpen(false); onAdd('bank', bank) }}
-                >
-                  {BANK_CONFIG[bank].label}
-                </MenuItem>
-              ))}
-            </MenuSurface>
-          </div>
-        </>
+    // The column the rail is centred in, as tall as the canvas allows. It
+    // takes no pointer events itself — only the rail and what opens beside it
+    // do — so the canvas above and below the rail still pans and selects. (The
+    // panel it sits in has to opt out too, or its own box takes the press.)
+    <div ref={columnRef} className="pointer-events-none relative flex h-full flex-col justify-center">
+      {hover && bankOpen === null && <HoverCard kind={hover.kind} y={hover.y} />}
+      {bankOpen !== null && (
+        <BankMenu
+          top={bankOpen}
+          onPick={(bank) => {
+            setBankOpen(null)
+            onAdd('bank', bank)
+          }}
+        />
       )}
-      <div className="flex items-end gap-0.5 rounded-[22px] border border-ink/10 bg-surface-1 px-2 pb-1 pt-1.5 shadow-[0_18px_40px_-16px_rgba(0,0,0,0.55)]">
+      {/* Scrolls rather than overflowing on a short window: fifteen tiles
+          stand about 530px, and on a laptop the canvas can be less. */}
+      <div
+        className="scrollbar-hide pointer-events-auto flex max-h-full flex-col items-center overflow-y-auto rounded-[22px] border border-ink/10 bg-surface-1 p-1.5 shadow-lg shadow-black/20"
+        onMouseLeave={() => setHover(null)}
+      >
         {GROUPS.map((group, i) => (
-          <div key={group.join()} className="flex items-end gap-0.5">
-            {i > 0 && <span className="mx-1 mb-6 h-7 w-px self-center bg-ink/10" />}
+          <div key={group.join()} className="flex flex-col items-center">
+            {i > 0 && <span className="my-1 h-px w-6 shrink-0 bg-ink/10" />}
             {group.map((kind) => {
               const face = kindFace(kind)
               const label = LABEL[kind] ?? KINDS[kind].title
@@ -69,16 +130,18 @@ export default function Palette({ onAdd }: { onAdd: (kind: BlockKind, bank?: Ban
                     e.dataTransfer.setData(PALETTE_DRAG_TYPE, kind)
                     e.dataTransfer.effectAllowed = 'copy'
                   }}
-                  onClick={() => (kind === 'bank' ? setBankOpen(!bankOpen) : onAdd(kind))}
-                  onMouseEnter={() => setHover(kind)}
-                  onFocus={() => setHover(kind)}
+                  onClick={(e) => {
+                    if (kind !== 'bank') onAdd(kind)
+                    else setBankOpen(bankOpen === null ? placeOf(e.currentTarget).top : null)
+                  }}
+                  onMouseEnter={(e) => setHover({ kind, y: placeOf(e.currentTarget).middle })}
+                  onFocus={(e) => setHover({ kind, y: placeOf(e.currentTarget).middle })}
                   onBlur={() => setHover(null)}
-                  className="group flex w-[60px] flex-col items-center gap-1 rounded-xl px-0.5 py-1 transition-colors hover:bg-ink/[0.05]"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-colors hover:bg-ink/[0.06]"
                   aria-label={kind === 'bank' ? 'Add something from a bank' : `Add ${label}`}
+                  aria-expanded={kind === 'bank' ? bankOpen !== null : undefined}
                 >
-                  <GlassTile icon={face.icon} accent={face.accent} size={30} />
-                  {/* The dock's own label: 10px, regular weight. */}
-                  <span className="max-w-full truncate text-[10px] leading-tight text-ink-400 transition-colors duration-200 group-hover:text-ink-200">{label}</span>
+                  <GlassTile icon={face.icon} accent={face.accent} size={26} />
                 </button>
               )
             })}
@@ -89,7 +152,28 @@ export default function Palette({ onAdd }: { onAdd: (kind: BlockKind, bank?: Ban
   )
 }
 
-function HoverCard({ kind }: { kind: BlockKind }) {
+function BankMenu({ top, onPick }: { top: number; onPick: (bank: BankType) => void }) {
+  const ref = useLevelWith<HTMLDivElement>(top, 'top')
+  return (
+    <div ref={ref} className="pointer-events-auto absolute left-full z-20 ml-2.5">
+      <MenuSurface>
+        {BANK_ORDER.map((bank) => (
+          <MenuItem
+            key={bank}
+            icon={BANK_CONFIG[bank].icon as LucideIcon}
+            iconClassName="text-ink-400"
+            onClick={() => onPick(bank)}
+          >
+            {BANK_CONFIG[bank].label}
+          </MenuItem>
+        ))}
+      </MenuSurface>
+    </div>
+  )
+}
+
+function HoverCard({ kind, y }: { kind: BlockKind; y: number }) {
+  const ref = useLevelWith<HTMLDivElement>(y, 'middle')
   const face = kindFace(kind)
   const spec = KINDS[kind]
   const takes = spec.ins.map((p) => p.label)
@@ -98,7 +182,7 @@ function HoverCard({ kind }: { kind: BlockKind }) {
     : kind === 'playground' ? ['Image, Clip or Music']
     : spec.outs.map((p) => p.label)
   return (
-    <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 w-[360px] -translate-x-1/2 rounded-2xl border border-ink/10 bg-surface-2 px-4 py-3 shadow-xl shadow-black/30">
+    <div ref={ref} className="pointer-events-none absolute left-full z-20 ml-2.5 w-[340px] rounded-2xl border border-ink/10 bg-surface-2 px-4 py-3 shadow-xl shadow-black/30">
       <div className="flex items-center gap-2">
         <GlassTile icon={face.icon} accent={face.accent} size={22} />
         <span className="text-[13px] font-semibold text-ink-100">{LABEL[kind] ?? spec.title}</span>

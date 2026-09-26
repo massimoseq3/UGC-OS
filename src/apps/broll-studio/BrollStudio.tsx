@@ -41,7 +41,7 @@ import { useFeatureEnabled } from '../../stores/appVisibilityStore'
 import { getModel } from '../../utils/models'
 import BankPicker from '../../components/BankPicker'
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
-import { humanizeError } from '../../utils/friendlyError'
+import { humanizeError, NO_KIE_KEY_MESSAGE } from '../../utils/friendlyError'
 import { fileToDataUri } from '../../utils/kie'
 import { getAsBase64, isAssetRef } from '../../utils/assetStore'
 import { swapQuotedLine, swapScriptLine } from './services/scriptLineEdit'
@@ -206,7 +206,7 @@ export default function BrollStudio() {
   // 'line' | 'continuous'. Dialogue rode here as a third mode for a while;
   // sanitizeBrollMode folds that value (and the retired 'oneshot') back onto
   // Line-by-Line. The delivery is not read back out of it — the toggle below
-  // opens on B-Roll Clips on every load.
+  // opens on Voiceover Clips on every load.
   const [storedMode, setMode] = usePersistedState<BrollMode>(`${baseKey}:mode`, 'line', {
     sanitize: sanitizeBrollMode,
   })
@@ -228,7 +228,7 @@ export default function BrollStudio() {
   // opening a Dialogue session from History, which sets it to match the row —
   // made Dialogue the way the app opened from then on, forever. A default is
   // only worth having if the app actually lands on it: every fresh load of the
-  // workspace opens on B-Roll Clips, and a Dialogue pick lasts as long as the
+  // workspace opens on Voiceover Clips, and a Dialogue pick lasts as long as the
   // session it was made for. The app stays mounted behind a dock switch, so
   // this survives leaving B-Roll and coming back — it resets on a reload, not
   // on a tab change.
@@ -843,10 +843,12 @@ export default function BrollStudio() {
   const launchStoryboard = async (rowMode: BrollMode, req: StoryboardRequest) => {
     // Checked before the row is written: a missing key is a failure we can see
     // coming, and it has no business leaving a dead session in History.
+    // The app-wide no-key sentence, so the toast carries its Connect Key
+    // button (`addToast` matches the whole string) rather than pointing at a
+    // Settings path.
     if (!useSettingsStore.getState().kieApiKey) {
-      const msg = 'Add your kie.ai key in Settings to generate a storyboard.'
-      setError(msg)
-      useAppStore.getState().addToast(msg, 'info')
+      setError(NO_KIE_KEY_MESSAGE)
+      useAppStore.getState().addToast(NO_KIE_KEY_MESSAGE, 'info')
       return
     }
     const rowId = newSessionId()
@@ -887,7 +889,9 @@ export default function BrollStudio() {
     setCardStates({})
     setResult((row.result as BrollResult | null) ?? null)
     useAppStore.getState().addToast(
-      warning ?? (delivery === 'dialogue' ? 'Dialogue scenes ready' : 'B-roll scenes ready'),
+      // "Storyboard ready" in both deliveries — the silent one's toast said
+      // "B-roll scenes", naming the delivery after the app it's in.
+      warning ?? (delivery === 'dialogue' ? 'Dialogue storyboard ready' : 'Storyboard ready'),
       warning ? 'error' : 'success',
     )
   }
@@ -950,7 +954,14 @@ export default function BrollStudio() {
       setContinuousClipStates({})
       setContinuousSelections({})
       setContinuousResult(buildDemoContinuousResult(continuousModelId, resolvedStyleId))
-      useAppStore.getState().addToast('Showing a sample storyboard. Add your kie.ai key to storyboard your own script', 'info')
+      // Not NO_KIE_KEY_MESSAGE: this isn't a refusal, the sample IS shown. It
+      // carries the same Connect Key button by hand instead, and the sentence
+      // stops where the button takes over — an info toast is one truncated line.
+      useAppStore.getState().addToast(
+        'Showing a sample storyboard',
+        'info',
+        { label: 'Connect Key', run: () => useAppStore.getState().openKeyGuide() },
+      )
       return
     }
     setError(null)
@@ -1003,7 +1014,7 @@ export default function BrollStudio() {
   const handleAnalyzeStyleRefs = async (): Promise<string | null> => {
     if (styleRefs.length === 0 || isAnalyzingStyle) return null
     if (!useSettingsStore.getState().kieApiKey) {
-      useAppStore.getState().addToast('Add your kie.ai key in Settings to analyze a reference style', 'info')
+      useAppStore.getState().addToast(NO_KIE_KEY_MESSAGE, 'info')
       return null
     }
     setIsAnalyzingStyle(true)
@@ -1214,7 +1225,7 @@ export default function BrollStudio() {
     useAppStore.getState().addToast(
       mode === 'continuous'
         ? 'Storyboard ready. Pick a keyframe per frame, then animate'
-        : sessionDelivery === 'dialogue' ? 'Dialogue scenes ready' : 'B-roll scenes ready',
+        : sessionDelivery === 'dialogue' ? 'Dialogue storyboard ready' : 'Storyboard ready',
       'success',
     )
   }
@@ -1235,22 +1246,25 @@ export default function BrollStudio() {
     startingStoryboardRef.current = false
   }
 
-  // Adopt a restored row's video model. These keys are the user's persistent
-  // per-app picks, so a change outlives the session being opened — announce it
-  // instead of letting a history click quietly redefine their default.
-  const restoreAppModel = (key: string, modelId: string) => {
-    // A history row outlives the registry: a session recorded on a model that
-    // has since been retired would otherwise write that dead id straight back
-    // into the member's persistent pick, undoing the removal migration for
-    // anyone who opens an old session. Leave the slot as it is — the workspace
-    // still restores, it just animates on whatever is picked now.
-    if (!getModel(modelId)) return
-    const settings = useSettingsStore.getState()
-    if (settings.perAppModel[key] === modelId) return
-    settings.setAppModel(key, modelId)
+  // A restored row was made on a video model the member may since have moved
+  // off. The slot it would go back into is their PERSISTENT per-app pick, so
+  // opening an old session no longer writes it (September 2026): it used to,
+  // with a toast, and a history click quietly redefined the default for every
+  // session after it. The workspace restores and animates on the current pick
+  // — clip lengths snap to that model's grid at fire time — and the toast
+  // offers the session's model as a one-click, deliberate switch instead.
+  const offerSessionModel = (key: string, modelId: string) => {
+    // A history row outlives the registry: a retired model is nothing to offer,
+    // and writing its id back would undo the removal migration.
+    const model = getModel(modelId)
+    if (!model) return
+    if (useSettingsStore.getState().perAppModel[key] === modelId) return
+    // Short on purpose: an info toast is one truncated line, and the button
+    // beside it is what finishes the sentence.
     useAppStore.getState().addToast(
-      `Video model set to ${getModel(modelId)?.displayName ?? modelId} to match this session`,
+      `This session used ${model.displayName}`,
       'info',
+      { label: 'Switch Model', run: () => useSettingsStore.getState().setAppModel(key, modelId) },
     )
   }
 
@@ -1336,7 +1350,7 @@ export default function BrollStudio() {
       setStyleChosen(false)
     }
     if (rowMode === 'continuous' && item.continuousModelId) {
-      restoreAppModel('broll-studio:continuous:video', item.continuousModelId)
+      offerSessionModel('broll-studio:continuous:video', item.continuousModelId)
     }
     setActiveHistoryId(item.id)
   }

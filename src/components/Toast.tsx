@@ -26,6 +26,10 @@ const LINGER_MS = {
   error: 10000,
 }
 
+// A toast with a button is an offer, and 3s is gone before the eye has read
+// the sentence and found the button beside it. Errors already hold longer.
+const ACTION_LINGER_MS = 6000
+
 // Matches the transition duration below, so the fade finishes exactly as the
 // toast unmounts.
 const EXIT_MS = 200
@@ -48,18 +52,23 @@ function ToastItem({ toast }: { toast: ToastType }) {
     // Re-runs on unpause, which restarts the full linger — a toast the user
     // just finished reading shouldn't vanish the instant they look away.
     if (paused) return
-    const linger = LINGER_MS[type]
+    const linger = Math.max(LINGER_MS[type], toast.action ? ACTION_LINGER_MS : 0)
     const fadeTimer = setTimeout(() => setVisible(false), linger - EXIT_MS)
     const removeTimer = setTimeout(() => removeToast(toast.id), linger)
     return () => {
       clearTimeout(fadeTimer)
       clearTimeout(removeTimer)
     }
-  }, [paused, type, removeToast, toast.id])
+  }, [paused, type, removeToast, toast.id, toast.action])
 
   const handleDismiss = () => {
     setVisible(false)
     setTimeout(() => removeToast(toast.id), EXIT_MS)
+  }
+
+  const handleAction = () => {
+    toast.action?.run()
+    handleDismiss()
   }
 
   const handlePause = () => {
@@ -89,18 +98,25 @@ function ToastItem({ toast }: { toast: ToastType }) {
         className={`h-3.5 w-3.5 shrink-0 ${isError ? 'mt-[3px]' : ''} ${ICON_STYLE_MAP[type]}`}
         strokeWidth={2}
       />
-      <span
-        className={`text-[12px] font-medium text-ink-300 ${
-          isError
-            // min-w-0 lets break-words act on the flex child — R2/kie errors
-            // embed long unbroken hostnames that would otherwise overflow.
-            ? 'min-w-0 flex-1 select-text whitespace-pre-wrap break-words'
-            : 'max-w-[260px] truncate'
-        }`}
-        title={isError ? undefined : toast.message}
-      >
-        {toast.message}
-      </span>
+      {isError ? (
+        // min-w-0 lets break-words act on the flex child — R2/kie errors
+        // embed long unbroken hostnames that would otherwise overflow. The
+        // action sits UNDER the sentence here: beside a wrapping line it
+        // would squeeze the text it's the answer to.
+        <div className="flex min-w-0 flex-1 flex-col items-start gap-1.5">
+          <span className="select-text whitespace-pre-wrap break-words text-[12px] font-medium text-ink-300">
+            {toast.message}
+          </span>
+          {toast.action && <ToastActionButton label={toast.action.label} onClick={handleAction} />}
+        </div>
+      ) : (
+        <>
+          <span className="max-w-[260px] truncate text-[12px] font-medium text-ink-300" title={toast.message}>
+            {toast.message}
+          </span>
+          {toast.action && <ToastActionButton label={toast.action.label} onClick={handleAction} />}
+        </>
+      )}
       <button
         onClick={handleDismiss}
         className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-ink-600 transition-colors hover:bg-ink/[0.06] hover:text-ink-300"
@@ -109,6 +125,17 @@ function ToastItem({ toast }: { toast: ToastType }) {
         <X className="h-3 w-3" />
       </button>
     </div>
+  )
+}
+
+function ToastActionButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="h-6 shrink-0 rounded-full bg-ink/[0.08] px-2.5 text-[12px] font-semibold text-ink-100 transition-colors hover:bg-ink/[0.14]"
+    >
+      {label}
+    </button>
   )
 }
 

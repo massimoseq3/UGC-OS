@@ -19,7 +19,8 @@ export default function RunHistory({ flowId, onDone }: { flowId: string; onDone:
     <div className="flex h-full flex-col">
       <div className="flex h-[57px] shrink-0 items-center gap-2 border-b border-ink/5 px-5">
         <History className="h-4 w-4 text-ink-400" />
-        <span className="text-sm font-semibold text-ink-100">Runs</span>
+        {/* The name of the ⋯ row that opens it. */}
+        <span className="text-sm font-semibold text-ink-100">Past Runs</span>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
         {log.length === 0 && <p className="px-2 py-8 text-center text-xs text-ink-500">Runs of this flow land here. Loading one puts its results back without running anything.</p>}

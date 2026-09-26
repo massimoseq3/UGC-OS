@@ -32,6 +32,7 @@ export default function DescribeIt() {
   const banks = useBankStore((s) => s)
   const createFlow = useFlowStore((s) => s.createFlow)
   const openFlow = useFlowStore((s) => s.openFlow)
+  const setView = useFlowStore((s) => s.setView)
 
   const build = async () => {
     if (!text.trim() || busy) return
@@ -111,10 +112,15 @@ export default function DescribeIt() {
             <button type="button" onClick={() => setDraft(null)} className="h-8 rounded-full border border-ink/10 px-3.5 text-[12px] text-ink-300 transition-colors hover:border-ink/20 hover:text-ink-100">Adjust</button>
             <button
               type="button"
-              onClick={() => openFlow(createFlow({ name: draft.file.name, graph: { blocks: draft.file.blocks, wires: draft.file.wires } }))}
+              onClick={() => {
+                openFlow(createFlow({ name: draft.file.name, graph: { blocks: draft.file.blocks, wires: draft.file.wires } }))
+                // The canvas, as the button says — not whichever view the
+                // last flow was left in.
+                setView('edit')
+              }}
               className="flex h-8 items-center gap-1.5 rounded-full border border-white/15 bg-flow-500 px-3.5 text-[12.5px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] transition-all hover:brightness-110"
             >
-              Open in Editor
+              Open Canvas
               <ArrowRight className="h-3.5 w-3.5" />
             </button>
           </div>

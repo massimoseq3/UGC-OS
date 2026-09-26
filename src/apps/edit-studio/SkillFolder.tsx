@@ -12,7 +12,8 @@ import { downloadSkill } from './downloadSkill'
 // The folder keeps its literal ivory/orange colors in both themes (it's
 // artwork, like user media); only the page chrome around it is tokenized. The
 // name on the pocket is the Skill's, not a command line, so it does NOT follow
-// the agent toggle — the setup step is where the exact thing to type lives.
+// the agent toggle above it — the setup step is where the exact thing to type
+// lives.
 // The tile and the sticker DO follow it.
 
 const ACCENT = '#F77646'
@@ -163,9 +164,11 @@ export default function SkillFolder({
       className="group relative mx-auto block w-full max-w-[300px] cursor-pointer select-none outline-none sm:max-w-[340px]"
       aria-label={`Download the video editor Skill for ${AGENT_LABEL[agent]}, version ${SKILL_VERSION}`}
     >
-      {/* Orange halo, brightens and widens on hover */}
+      {/* Orange halo, brightens and widens on hover. `pointer-events-none`:
+          it hangs well past the folder, and as part of this button it made a
+          click beside the agent toggle above a download. */}
       <div
-        className="absolute left-1/2 top-1/2 h-[135%] w-[135%] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-80 blur-2xl transition-all duration-500 group-hover:opacity-100 group-hover:blur-3xl"
+        className="pointer-events-none absolute left-1/2 top-1/2 h-[135%] w-[135%] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-80 blur-2xl transition-all duration-500 group-hover:opacity-100 group-hover:blur-3xl"
         style={{ background: `radial-gradient(closest-side, ${ACCENT}70, ${ACCENT}2A 55%, transparent 78%)` }}
       />
 

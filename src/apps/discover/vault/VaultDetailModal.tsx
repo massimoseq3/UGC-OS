@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { ArrowUpRight, Download, Eye, PenLine, Star, X } from 'lucide-react'
+import { ArrowUpRight, Bookmark, BookmarkCheck, Download, Eye, PenLine, X } from 'lucide-react'
 import Spinner from '../../../components/Spinner'
 import { downloadLabel, type DownloadProgress } from '../services/handoff'
 import useCloseOnEscape from '../../../hooks/useCloseOnEscape'
@@ -17,7 +17,8 @@ interface VaultDetailModalProps {
   video?: ResolvedVideo
   /** The shipped cover — the fallback for a row whose url won't make an embed. */
   coverUrl: string
-  starred: boolean
+  /** In the Swipe File. */
+  saved: boolean
   /** No ScrapeCreators key means no FILE — watching and reading still work. */
   hasKey: boolean
   /** Opens the ScrapeCreators popup. Pressed from the note below the footer. */
@@ -26,15 +27,15 @@ interface VaultDetailModalProps {
   /** How far the in-flight download has got, when one is running. */
   downloadProgress?: DownloadProgress | null
   onClose: () => void
-  onStar: (item: VaultItem) => void
+  onSave: (item: VaultItem) => void
   onAnalyze: (item: VaultItem) => void
   onRemix: (item: VaultItem) => void
   onDownload: (item: VaultItem) => void
 }
 
 export default function VaultDetailModal({
-  item, video, coverUrl, starred, hasKey, busy, downloadProgress,
-  onClose, onStar, onAnalyze, onRemix, onDownload, onNeedKey,
+  item, video, coverUrl, saved, hasKey, busy, downloadProgress,
+  onClose, onSave, onAnalyze, onRemix, onDownload, onNeedKey,
 }: VaultDetailModalProps) {
   // Above any early return — hook order has to be stable.
   const backdrop = useBackdropClose(onClose)
@@ -100,27 +101,14 @@ export default function VaultDetailModal({
                 <span className="truncate text-[11px] text-ink-600">{item.authorName}</span>
               )}
             </div>
-            <div className="flex shrink-0 items-center gap-1">
-              <button
-                type="button"
-                onClick={() => onStar(item)}
-                aria-pressed={starred}
-                title={starred ? 'Unstar' : 'Star · starred hooks filter to the top of the vault'}
-                className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
-                  starred ? 'text-amber-400' : 'text-ink-500 hover:text-ink-200'
-                }`}
-              >
-                <Star className={`h-4 w-4 ${starred ? 'fill-current' : ''}`} />
-              </button>
-              <button
-                type="button"
-                onClick={onClose}
-                aria-label="Close"
-                className="flex h-8 w-8 items-center justify-center text-ink-500 transition-colors hover:text-ink-200"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="flex h-8 w-8 shrink-0 items-center justify-center text-ink-500 transition-colors hover:text-ink-200"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </header>
 
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
@@ -246,7 +234,25 @@ export default function VaultDetailModal({
               </button>
             </div>
 
+            {/* Save sits where the search modal's does, beside the way out to
+                the original: the vault keeps an ad the same way every other
+                tab does, in the Swipe File, and it costs nothing here. */}
             <div className="mt-2 flex gap-2">
+              <button
+                type="button"
+                onClick={() => onSave(item)}
+                disabled={busy === 'save'}
+                className={`flex flex-1 items-center justify-center gap-2 rounded-full border py-2.5 text-[13px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                  saved
+                    ? 'border-emerald-400/40 bg-emerald-500/10 text-emerald-300 light:text-emerald-700'
+                    : 'border-ink/10 text-ink-200 hover:border-ink/20 hover:bg-ink/5'
+                }`}
+              >
+                {busy === 'save'
+                  ? <Spinner className="h-4 w-4" />
+                  : saved ? <BookmarkCheck className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
+                {saved ? 'Saved to Swipe File' : 'Save to Swipe File'}
+              </button>
               <button
                 type="button"
                 onClick={() => window.open(item.url, '_blank', 'noopener,noreferrer')}

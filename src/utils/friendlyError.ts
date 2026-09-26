@@ -33,6 +33,18 @@ export class FriendlyError extends Error {
   }
 }
 
+// The three sentences a member can fix from the toast that shows them: the
+// toast store matches on these exact strings and puts a Connect Key / Add
+// Credits button beside them (stores/appStore.ts). They name no Settings path,
+// because the button — and the menu bar's red "Connect Your kie.ai API Key"
+// wherever the sentence shows without one — is the way in.
+export const NO_KIE_KEY_MESSAGE = 'Connect your kie.ai API key to start generating.'
+export const INVALID_KIE_KEY_MESSAGE =
+  'Your kie.ai API key looks invalid or expired. Connect a fresh key from kie.ai, then try again.'
+export const NO_KIE_CREDITS_MESSAGE =
+  "You're out of kie.ai credits. Top up your balance at kie.ai, then try again."
+const MEMBER_FIX_MESSAGES = [NO_KIE_KEY_MESSAGE, INVALID_KIE_KEY_MESSAGE, NO_KIE_CREDITS_MESSAGE]
+
 // Each rule matches case-insensitively against the raw error message. Order
 // matters: most specific first, generic codes last. The first match wins.
 //
@@ -134,20 +146,17 @@ const RULES: Array<{ test: (m: string) => boolean; message: string; member?: tru
   // yet. Above the 401 rule, which is the same problem one step later.
   {
     test: (m) => m.includes('no kie.ai api key'),
-    message:
-      'No kie.ai API key yet. Open Settings, paste a key from kie.ai, and try again.',
+    message: NO_KIE_KEY_MESSAGE,
     member: true,
   },
   {
     test: (m) => m.includes('401') || (m.includes('invalid') && m.includes('key')) || (m.includes('expired') && m.includes('key')),
-    message:
-      'Your kie.ai API key looks invalid or expired. Open Settings, paste a fresh key from kie.ai, and try again.',
+    message: INVALID_KIE_KEY_MESSAGE,
     member: true,
   },
   {
     test: (m) => m.includes('402') || m.includes('insufficient credit') || m.includes('not enough credit'),
-    message:
-      "You're out of kie.ai credits. Top up your balance at kie.ai, then try again.",
+    message: NO_KIE_CREDITS_MESSAGE,
     member: true,
   },
   {
@@ -378,8 +387,13 @@ export function humanizeError(err: unknown, fallback: string = GENERIC_FALLBACK)
 }
 
 function translate(err: unknown, fallback: string): { message: string; member: boolean } {
-  // Already written for the member — see FriendlyError above.
-  if (err instanceof FriendlyError && err.message.trim()) return { message: err.message, member: false }
+  // Already written for the member — see FriendlyError above. A pre-check that
+  // throws one of the member-fix sentences (no key, bad key, no credits) is the
+  // member's own situation exactly as if the rule below had matched it, so the
+  // error reporter must skip it too.
+  if (err instanceof FriendlyError && err.message.trim()) {
+    return { message: err.message, member: MEMBER_FIX_MESSAGES.includes(err.message) }
+  }
   const raw = err instanceof Error ? err.message : typeof err === 'string' ? err : ''
   if (!raw) return { message: fallback, member: false }
   const cut = raw.search(DEBUG_TAIL)

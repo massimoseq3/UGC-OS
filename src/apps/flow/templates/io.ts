@@ -92,7 +92,7 @@ async function jpegFor(blob: Blob): Promise<Blob> {
     const out = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality))
     if (out && out.size <= MAX_IMAGE_BYTES) return out
   }
-  throw new FriendlyError('An image in this flow is too large to share. Swap it for a smaller one.')
+  throw new FriendlyError('An image in this flow is too large to export. Swap it for a smaller one.')
 }
 
 export async function buildTemplate(doc: FlowDoc): Promise<{ file: FlowTemplateFile; assets: Record<string, Blob> }> {
@@ -168,8 +168,8 @@ export async function buildTemplate(doc: FlowDoc): Promise<{ file: FlowTemplateF
   return { file, assets }
 }
 
-// The Share button: the flow as a .ugcflow file — a zip of flow.json and its
-// images.
+// Export, in the canvas header's ⋯: the flow as a .ugcflow file — a zip of
+// flow.json and its images.
 export async function exportTemplate(doc: FlowDoc): Promise<void> {
   const addToast = useAppStore.getState().addToast
   try {

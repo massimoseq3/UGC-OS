@@ -14,7 +14,7 @@ import { useAssetUrl } from '../../../hooks/useAssetUrl'
 import { getUrl } from '../../../utils/assetStore'
 import { downloadImage } from '../../../utils/downloadImage'
 import { copyToClipboard } from '../../../utils/clipboard'
-import { humanizeError } from '../../../utils/friendlyError'
+import { humanizeError, NO_KIE_KEY_MESSAGE } from '../../../utils/friendlyError'
 import type { CharacterHistoryItem, BRoll, AnyBankItem, Lineage } from '../../../stores/types'
 import { lineageOf } from '../../../utils/blockRunner'
 import {
@@ -136,6 +136,7 @@ export default function InfluencerEditModal({
   onCancelGen,
 }: InfluencerEditModalProps) {
   const addModel = useBankStore((s) => s.addModel)
+  const updateModel = useBankStore((s) => s.updateModel)
   const deleteModel = useBankStore((s) => s.deleteModel)
   const updateCharacterHistory = useBankStore((s) => s.updateCharacterHistory)
   const models = useBankStore((s) => s.models)
@@ -242,7 +243,8 @@ export default function InfluencerEditModal({
   const handleAnalyzeStyleRefs = async (): Promise<string | null> => {
     if (styleRefs.length === 0 || isAnalyzingStyle) return null
     if (!useSettingsStore.getState().kieApiKey) {
-      useAppStore.getState().addToast('Add your kie.ai key in Settings to analyze a reference style', 'info')
+      // The house sentence, which the toast store gives a Connect Key button.
+      useAppStore.getState().addToast(NO_KIE_KEY_MESSAGE, 'info')
       return null
     }
     setIsAnalyzingStyle(true)
@@ -480,8 +482,9 @@ export default function InfluencerEditModal({
     })
   }
 
-  // Suggested name when opening the inline save input. Everything in this strip
-  // is the SAME character, so everything files under that character's name:
+  // The name a Save files under, straight away — the tile's toast offers Rename.
+  // Everything in this strip is the SAME character, so everything files under
+  // that character's name:
   // sheets take the " - Character Sheet" suffix, an edit takes the style it was
   // rendered in ("Mia - Claymation") or the next free number ("Mia 2"). Only the
   // source portrait itself keeps the bare name. Mirrors the main gallery.
@@ -492,10 +495,13 @@ export default function InfluencerEditModal({
     return variantNameFrom(influencerName, output.styleName, taken)
   }
 
-  async function handleSave(output: SessionOutput, rawName: string) {
+  // Resolves true once the entry exists; the tile then says what it was saved
+  // as and offers Rename (it owns the input that opens).
+  async function handleSave(output: SessionOutput, rawName: string): Promise<boolean> {
     const name = rawName.trim()
-    if (!name || savingId || savedIds.has(output.id) || output.linkedModelId) return
+    if (!name || savingId || savedIds.has(output.id) || output.linkedModelId) return false
     setSavingId(output.id)
+    let saved = false
     try {
       await addModel({
         name,
@@ -514,12 +520,34 @@ export default function InfluencerEditModal({
       )
       if (justAdded) await updateCharacterHistory(output.id, { linkedModelId: justAdded.id })
       setSavedIds((prev) => new Set(prev).add(output.id))
-      addToast(`Saved to bank as ${name}`, 'success')
+      saved = true
     } catch (err) {
       addToast(humanizeError(err, 'Save failed'), 'error')
-    } finally {
-      setSavingId(null)
     }
+    setSavingId(null)
+    return saved
+  }
+
+  // The toast's Rename, committed from the tile's input: renames the Bank entry
+  // the one-click Save made. An entry removed in the meantime is saved again
+  // under the typed name instead.
+  async function handleRename(output: SessionOutput, rawName: string): Promise<boolean> {
+    const name = rawName.trim()
+    if (!name || savingId) return false
+    const model = output.linkedModelId ? models.find((m) => m.id === output.linkedModelId) : undefined
+    if (!model) return handleSave(output, name)
+    if (model.name === name) return true
+    setSavingId(output.id)
+    let renamed = false
+    try {
+      await updateModel(model.id, { name })
+      addToast(`Renamed to “${name}”`, 'success')
+      renamed = true
+    } catch (err) {
+      addToast(humanizeError(err, 'Rename failed'), 'error')
+    }
+    setSavingId(null)
+    return renamed
   }
 
   // Toggle off: remove the linked Bank entry (keeping this output) so it can be
@@ -937,11 +965,13 @@ export default function InfluencerEditModal({
                           output={o}
                           selected={o.id === selectedId}
                           saved={savedIds.has(o.id) || !!o.linkedModelId}
+                          savedName={o.linkedModelId ? models.find((m) => m.id === o.linkedModelId)?.name : undefined}
                           saving={savingId === o.id}
                           promptText={o.kind === 'sheet' ? buildSheetPrompt(item.profile, o.aspectRatio) : buildImagePrompt(item.profile)}
                           suggestName={() => suggestSaveName(o)}
                           onSelect={() => setSelectedId(o.id)}
                           onSave={(name) => handleSave(o, name)}
+                          onRename={(name) => handleRename(o, name)}
                           onUnsave={() => handleUnsave(o)}
                           onDownload={() => handleDownload(o)}
                         />
@@ -1009,31 +1039,35 @@ function OutputTile({
   output,
   selected,
   saved,
+  savedName,
   saving,
   promptText,
   suggestName,
   onSelect,
   onSave,
+  onRename,
   onUnsave,
   onDownload,
 }: {
   output: SessionOutput
   selected: boolean
   saved: boolean
+  // The Bank entry's name, for the tooltip that says what a click removes.
+  savedName?: string
   saving: boolean
   promptText: string
   suggestName: () => string
   onSelect: () => void
-  onSave: (name: string) => void
+  onSave: (name: string) => Promise<boolean>
+  onRename: (name: string) => Promise<boolean>
   onUnsave: () => void
   onDownload: () => void
 }) {
   const url = useAssetUrl(output.imageRef)
   const [copied, setCopied] = useState(false)
   const [lightboxOpen, setLightboxOpen] = useState(false)
-  // Inline naming: clicking Save on an unsaved tile opens a name input over the
-  // bottom edge (mirrors the main gallery tile) so the user names it before it
-  // lands in the bank. null = closed.
+  // Inline naming — a RENAME of the entry Save already made, opened by the
+  // save toast's Rename (mirrors the main gallery tile). null = closed.
   const [nameDraft, setNameDraft] = useState<string | null>(null)
   const nameInputRef = useRef<HTMLInputElement | null>(null)
   useEffect(() => {
@@ -1043,19 +1077,21 @@ function OutputTile({
     }
   }, [nameDraft])
 
-  // Save button is a toggle: saved → remove from bank; unsaved → open the name
-  // input. Matches the gallery tile's behaviour.
-  function handleSaveClick(e: React.MouseEvent) {
+  // Save button is a toggle: saved → remove from bank; unsaved → save NOW under
+  // the suggested name, with Rename on the toast. Matches the gallery tile.
+  async function handleSaveClick(e: React.MouseEvent) {
     e.stopPropagation()
     if (saving) return
     if (saved) { onUnsave(); return }
-    setNameDraft(suggestName())
+    const name = suggestName()
+    if (await onSave(name)) {
+      useAppStore.getState().addToast(`Saved as “${name}”`, 'success', { label: 'Rename', run: () => setNameDraft(name) })
+    }
   }
-  function commitSave() {
+  async function commitSave() {
     const name = (nameDraft ?? '').trim()
     if (!name || saving) return
-    onSave(name)
-    setNameDraft(null)
+    if (await onRename(name)) setNameDraft(null)
   }
 
   const handleCopyPrompt = async () => {
@@ -1105,9 +1141,9 @@ function OutputTile({
             <Download className="h-4 w-4" />
           </TileActionButton>
           <TileActionButton
-            title={saved ? 'Saved · click to remove from Bank' : saving ? 'Saving…' : 'Save to Bank'}
+            title={saved ? `${savedName ? `Saved as “${savedName}”` : 'Saved'} · click to remove it from the Bank` : saving ? 'Saving…' : 'Save to Bank'}
             tone={saved ? 'saved' : 'default'}
-            onClick={handleSaveClick}
+            onClick={(e) => { void handleSaveClick(e) }}
           >
             {saving ? <Spinner className="h-4 w-4" /> : saved ? <Check className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
           </TileActionButton>
@@ -1124,7 +1160,7 @@ function OutputTile({
         </TileActionStack>
       )}
 
-      {/* Inline name input — takes over the bottom edge while naming a save
+      {/* Inline name input — takes over the bottom edge while renaming a save
           (mirrors the main gallery tile). */}
       {nameDraft !== null && (
         <div
@@ -1137,7 +1173,7 @@ function OutputTile({
             value={nameDraft}
             onChange={(e) => setNameDraft(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') { e.preventDefault(); commitSave() }
+              if (e.key === 'Enter') { e.preventDefault(); void commitSave() }
               if (e.key === 'Escape') { e.preventDefault(); setNameDraft(null) }
             }}
             placeholder="Name this character"
@@ -1156,7 +1192,7 @@ function OutputTile({
           <button
             type="button"
             title="Save"
-            onClick={commitSave}
+            onClick={() => { void commitSave() }}
             disabled={saving || !nameDraft.trim()}
             className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/80 text-white hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
           >

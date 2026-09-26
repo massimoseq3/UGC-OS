@@ -38,7 +38,7 @@ import { copyToClipboard } from '../../../utils/clipboard'
 import type { BankType } from '../../../utils/constants'
 import BlockNode, { type BlockNodeType } from './BlockNode'
 import WireEdge, { type WireEdgeType } from './WireEdge'
-import Palette, { PALETTE_DRAG_TYPE } from './Palette'
+import Palette, { PALETTE_DRAG_TYPE, PALETTE_INSET } from './Palette'
 import WhatNextMenu from './WhatNextMenu'
 import { optionsForInput, optionsForInsert, optionsForOutput, type InsertOption, type WhatNextOption } from './whatNext'
 import ContextMenu, { type ContextRow } from './ContextMenu'
@@ -170,7 +170,8 @@ export default function Canvas({
       const h = node.measured?.height ?? 180
       const tl = rf.flowToScreenPosition(node.position)
       const br = rf.flowToScreenPosition({ x: node.position.x + w, y: node.position.y + h })
-      const inView = tl.x >= rect.left + 16 && tl.y >= rect.top + 16 && br.x <= rect.right - 16 && br.y <= rect.bottom - 110
+      // Clear of the palette down the left edge, which covers what's under it.
+      const inView = tl.x >= rect.left + PALETTE_INSET && tl.y >= rect.top + 16 && br.x <= rect.right - 16 && br.y <= rect.bottom - 16
       if (inView) return
       const near = current.wires.filter((x) => x.from === id || x.to === id).map((x) => (x.from === id ? x.to : x.from))
       void rf.fitView({ nodes: [id, ...near].map((x) => ({ id: x })), padding: 0.3, maxZoom: Math.max(0.5, rf.getZoom()), duration: 350 })
@@ -850,8 +851,10 @@ export default function Canvas({
             </div>
           </SelectionToolbar>
 
+          {/* Right of the palette's rail: at the canvas's own edge, its
+              examples and its answer would drop down over the rail's tiles. */}
           {real.length > 0 && (
-            <Panel position="top-left" className="!ml-4 !mt-3.5">
+            <Panel position="top-left" className="!mt-3.5" style={{ marginLeft: PALETTE_INSET }}>
               <AskFlow
                 doc={doc}
                 sizeOf={(id) => measured[id]}
@@ -882,10 +885,6 @@ export default function Canvas({
             </div>
           </Panel>
 
-          <Panel position="bottom-center" className="!mb-3.5">
-            <Palette onAdd={(kind, bank) => add(kind, bank)} />
-          </Panel>
-
           {real.length === 0 && (
             <Panel position="top-center" className="!mt-20">
               <EmptyStart
@@ -900,6 +899,15 @@ export default function Canvas({
               />
             </Panel>
           )}
+
+          {/* The palette, a rail down the left edge from just under the top
+              to just over the bottom, the rail centred in it. It was a bar
+              along the bottom, where it sat on the app dock and the two read
+              as one. Last of the panels, so a tile's card paints over the
+              empty canvas's cards and Ask Flow rather than under them. */}
+          <Panel position="top-left" className="pointer-events-none !bottom-3 !left-3 !top-3 !m-0">
+            <Palette onAdd={(kind, bank) => add(kind, bank)} />
+          </Panel>
         </ReactFlow>
 
         {menu && (

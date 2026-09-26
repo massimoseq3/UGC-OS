@@ -11,7 +11,7 @@ import type { AdAnatomyHistoryItem, DiscoverVideoPayload, Lineage } from '../../
 import { usePersistedState, useProjectScopedKey } from '../../hooks/usePersistedState'
 import { useAssetUrl } from '../../hooks/useAssetUrl'
 import { deleteAsset } from '../../utils/assetStore'
-import { isAnalysisInFlight, resumeAnalysis, retryAnalysis } from './services/analysisQueue'
+import { announceWhenSettled, isAnalysisInFlight, resumeAnalysis, retryAnalysis, setViewedAnalysis } from './services/analysisQueue'
 import { adAnalysisRunner } from './runner'
 import { useBankStore } from '../../stores/bankStore'
 import { useAppStore } from '../../stores/appStore'
@@ -81,6 +81,7 @@ export default function AdAnatomy() {
       // this app open) is live, not interrupted.
       if (isAnalysisInFlight(item.id)) continue
       if (item.taskId) {
+        announceWhenSettled(item.id)
         resumeAnalysis(item)
       } else {
         // No taskId means the refresh landed before kie accepted the job, so
@@ -197,6 +198,9 @@ export default function AdAnatomy() {
         // The runner writes the 'analyzing' row and queues the job; the row is
         // what this pane watches from here on.
         const { rowId } = await adAnalysisRunner.start({ file }, { provenance: { parents } })
+        // The member was told they can switch tools while this runs, so it
+        // says when it's done — unless they're still watching it land.
+        announceWhenSettled(rowId)
         if (firstId === null) firstId = rowId
       } catch (e) {
         console.warn('[ad-anatomy] failed to enqueue analysis for', file.name, e)
@@ -214,9 +218,18 @@ export default function AdAnatomy() {
   // Outliers hands over a found ad as a live File (targetField 'adVideo') and
   // switches here. It goes through the same handleAnalyze the drop zone uses,
   // so a searched ad and an uploaded one are the same thing from here on.
+  // 'openAnalysis' is the Open on a finished-analysis toast: show that row.
   useEffect(() => {
     if (activeApp !== 'ad-anatomy') return
     if (!interAppPayload || interAppPayload.targetApp !== 'ad-anatomy') return
+
+    if (interAppPayload.targetField === 'openAnalysis') {
+      const id = interAppPayload.data as string
+      consumePayload()
+      setSelectedId(id)
+      setPane('result')
+      return
+    }
     if (interAppPayload.targetField !== 'adVideo') return
 
     const payload = interAppPayload.data as DiscoverVideoPayload
@@ -226,6 +239,14 @@ export default function AdAnatomy() {
     // makes this fire once per handoff.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [interAppPayload, activeApp])
+
+  // Which analysis is on screen, for the queue's finish toast: a result the
+  // member is watching land needs no announcement. Only while this app is the
+  // one in front — the pane stays mounted behind other tools.
+  useEffect(() => {
+    setViewedAnalysis(activeApp === 'ad-anatomy' ? selectedId : null)
+    return () => setViewedAnalysis(null)
+  }, [activeApp, selectedId])
 
   const handleDelete = (id: string) => {
     void deleteAdAnatomyHistory(id)
@@ -469,6 +490,8 @@ function ErrorPane({ item, onRetry }: { item: AdAnatomyHistoryItem; onRetry: () 
       return
     }
     setRetrying(true)
+    // A retry is a fresh wait, so it says when it's done like any other run.
+    announceWhenSettled(item.id)
     retryAnalysis(item)
       .then((ok) => {
         if (!ok) {

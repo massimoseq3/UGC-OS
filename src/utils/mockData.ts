@@ -740,7 +740,7 @@ export async function seedMockData(): Promise<void> {
     // Scripts bank
     await store.addScript({ title: 'Glow Serum · Almost Returned It', scriptText: SCRIPT_TEXT_1, linkedProductId: '', source: 'script-architect', kind: 'remix' })
     await store.addScript({ title: 'Sleep Tracker · Bad At Sleeping', scriptText: SCRIPT_TEXT_2, linkedProductId: '', source: 'script-architect', kind: 'remix' })
-    await store.addScript({ title: 'Serum Ad · Scene Blueprint', scriptText: SCENE_PROMPT, linkedProductId: '', source: 'script-architect', kind: 'reverse-engineer' })
+    await store.addScript({ title: 'Serum Ad · Scenes', scriptText: SCENE_PROMPT, linkedProductId: '', source: 'script-architect', kind: 'reverse-engineer' })
     // A saved Script Style Prompt — what Ad Analyzer writes into the Script Bank
     // (kind 'style'): product-agnostic, so it can be pointed at anything.
     await store.addScript({ title: 'Skeptic-to-Believer UGC', scriptText: STYLE_PROMPT, linkedProductId: '', source: 'script-architect', kind: 'style' })
@@ -847,7 +847,7 @@ export async function seedMockData(): Promise<void> {
         id: 'demo-script-hist-2',
         mode: 'reverse-engineer',
         variations: [SCENE_PROMPT],
-        inputSummary: 'Serum ad · scene blueprint',
+        inputSummary: 'Serum ad · scenes',
         reversePrompt: SCENE_PROMPT,
         createdAt: ago(6),
       },

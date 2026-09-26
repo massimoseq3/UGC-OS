@@ -156,12 +156,13 @@ export function filterVault(
   rows: VaultRow[],
   query: string,
   filters: VaultFilters,
-  starred: ReadonlySet<string>,
+  /** The vault ids already in the Swipe File — what `savedOnly` keeps. */
+  saved: ReadonlySet<string>,
 ): VaultRow[] {
   const q = query.trim().toLowerCase()
 
   const out = rows.filter((r) => {
-    if (filters.starredOnly && !starred.has(r.id)) return false
+    if (filters.savedOnly && !saved.has(r.id)) return false
     if (filters.category && r.category !== filters.category) return false
     if (filters.pattern && !r.patterns.includes(filters.pattern)) return false
     if (q && !r.search.includes(q)) return false
@@ -217,7 +218,7 @@ export function embedUrl(item: VaultItem): string | null {
 
 /** Whether anything is narrowing the library — drives the header's reset. */
 export function vaultFiltersActive(f: VaultFilters): boolean {
-  return f.category !== '' || f.pattern !== '' || f.starredOnly || f.sort !== 'outlier'
+  return f.category !== '' || f.pattern !== '' || f.savedOnly || f.sort !== 'outlier'
 }
 
 /** "outlier-blakemenardcooks-C8FTNDKualt.mp4" — readable in a Downloads folder. */

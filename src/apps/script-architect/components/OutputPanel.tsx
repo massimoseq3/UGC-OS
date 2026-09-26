@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Copy, Check, Bookmark, ArrowUpRight, Mic, Film, PenLine, AlertCircle, ImagePlay, Palette, Pencil, X, Undo2, Redo2, Quote, ChevronDown, ChevronRight } from 'lucide-react'
+import { Copy, Check, Bookmark, ArrowUpRight, Mic, Film, PenLine, AlertCircle, ImagePlay, Palette, Pencil, X, Undo2, Redo2, Quote, ChevronDown, ChevronRight, RotateCw, Radar, Eye, FileText, type LucideIcon } from 'lucide-react'
 import { titleCaseLabel } from '../../../utils/titleCaseLabel'
 import GenerationProgress from '../../../components/GenerationProgress'
 import GridCanvas, { AwaitingBody } from '../../../components/GridCanvas'
@@ -47,6 +47,11 @@ interface OutputPanelProps {
   // describing the thing being written.
   pendingRun?: PendingScriptRun | null
   error?: string | null
+  // Retries the run the error belongs to. Absent, the error has no button.
+  onRetry?: () => void
+  // Remix with nothing in the box: the empty canvas offers the ways to get a
+  // source instead of waiting on one. Absent (Flow's window), the plain canvas.
+  findSource?: FindSourceActions | null
   // Identifies the RUN these takes came from (a generation, or the history row
   // being shown). The panel scrolls back to the first take when this changes —
   // never when the takes' text changes, which is what an in-place edit does.
@@ -60,6 +65,14 @@ interface OutputPanelProps {
   // copies by hand when a video wants the source ad's voice.
   voiceProfile?: string
   onEditVoiceProfile?: (text: string) => void
+}
+
+// The ways into a Remix source, offered on the empty canvas. `onFindOutlier`
+// is absent while Outliers is switched off.
+export interface FindSourceActions {
+  onFindOutlier?: () => void
+  onAnalyzeAd: () => void
+  onPickScript: () => void
 }
 
 // The two icon buttons every scene and shot header carries.
@@ -889,13 +902,14 @@ function BlueprintBlockCard({
 
 // The voice half, and the one shape with a second caller: a remix run reuses
 // the card for its own brief, which arrives from its own call rather than out
-// of a take (see `runRemixVoiceProfile`) — hence `label`, since nothing there
-// has scenes and the profile is attached to no variation.
-function VoiceProfileCard({ body, label = 'Voice Profile', onChange, onDelete }: { body: string; label?: string; onChange?: (next: string) => void; onDelete?: () => void }) {
+// of a take (see `runRemixVoiceProfile`) and is attached to no variation. Both
+// are headed "Voice Profile" — the remix one used to add "· optional", a
+// status qualifier no card header carries.
+function VoiceProfileCard({ body, onChange, onDelete }: { body: string; onChange?: (next: string) => void; onDelete?: () => void }) {
   return (
     <BlueprintBlockCard
       icon={Mic}
-      label={label}
+      label="Voice Profile"
       body={body}
       ariaLabel="Voice profile"
       copyToast="Voice profile copied to clipboard"
@@ -1386,7 +1400,7 @@ const SWITCHER_H = 53
 // Below this the takes are just a column you scroll (see `showSwitcher`).
 const SWITCHER_MIN_TAKES = 5
 
-export default function OutputPanel({ variations, outputAngles, mode, liveMode, writeFormat, writeStyleLabel, hookCategoryLabel, hookCount = DEFAULT_HOOK_COUNT, linkedProductId, pendingRun, error, runId, onEditVariation, voiceProfile, onEditVoiceProfile }: OutputPanelProps) {
+export default function OutputPanel({ variations, outputAngles, mode, liveMode, writeFormat, writeStyleLabel, hookCategoryLabel, hookCount = DEFAULT_HOOK_COUNT, linkedProductId, pendingRun, error, onRetry, findSource, runId, onEditVariation, voiceProfile, onEditVoiceProfile }: OutputPanelProps) {
   // Resolve the linked product so saved scripts get a meaningful default title
   // ("<Product> — Hook-Led Script").
   const products = useBankStore((s) => s.products)
@@ -1472,7 +1486,7 @@ export default function OutputPanel({ variations, outputAngles, mode, liveMode, 
           : ['Reading your brief...', 'Writing the scripts...', 'Making it sound human...', 'Tightening the hooks...'])
       : pendingRun.mode === 'remix'
         ? ['Building the angles...', 'Sending parallel requests...', 'Writing variations...', 'Polishing final drafts...']
-        : ['Reading scene blueprint...', 'Mapping product into structure...', 'Rewriting scenes...', 'Preserving structure...']
+        : ['Reading the scenes...', 'Mapping product into structure...', 'Rewriting scenes...', 'Preserving structure...']
     // The cards this run is about to land, and what each will be called. Read
     // off the RUN, never the live selectors — a member browsing History
     // mid-write moves those, and the pane would relabel a run in flight.
@@ -1538,20 +1552,51 @@ export default function OutputPanel({ variations, outputAngles, mode, liveMode, 
     // of prose, at the shared type ramp — the shape B-Roll's storyboard and the
     // Characters / Playground galleries wear before their first run. It was a
     // one-off here, a lone sentence at ink-700, dim enough to read as disabled.
-    const [title, hint] = copyMode === 'write'
-      ? writeFormat === 'hooks'
-        ? ['Awaiting Hooks', `Your ${hookCount} hooks land here, each ready to copy or save.`]
-        : ['Awaiting Scripts', 'Each script lands here as its own card, ready to edit, save or send on.']
-      : copyMode === 'remix'
-        ? ['Awaiting Variations', 'Each variation lands here as its own card, ready to edit or save.']
-        : ['Awaiting Scene Prompts', 'The rewritten scenes land here, one prompt per scene.']
+    // Remix with an empty box has nothing to wait FOR, so it says what Remix
+    // needs and offers the three ways to get it, instead of "Awaiting
+    // Variations" over a Generate that can't run. An error still wins: it is
+    // about the run just fired, and its Retry is the way forward from there.
+    const needsSource = !error && findSource
+    const [title, hint] = needsSource
+      ? ['Bring an Ad to Remix', "Remix rewrites a winning ad's words for your product. Start from one of these."]
+      : copyMode === 'write'
+        ? writeFormat === 'hooks'
+          ? ['Awaiting Hooks', `Your ${hookCount} hooks land here, each ready to copy or save.`]
+          : ['Awaiting Scripts', 'Each script lands here as its own card, ready to edit, save or send on.']
+        : copyMode === 'remix'
+          ? ['Awaiting Variations', 'Each variation lands here as its own card, ready to edit or save.']
+          : ['Awaiting Scene Prompts', 'The rewritten scenes land here, one prompt per scene.']
     return (
       <GridCanvas className="h-full">
         <AwaitingBody icon={PenLine} title={title} hint={hint}>
           {error && (
-            <div className="mt-2 flex max-w-sm items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-left">
-              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-400 light:text-red-600" />
-              <p className="text-xs leading-relaxed text-red-300 light:text-red-700">{error}</p>
+            <div className="mt-2 flex max-w-sm flex-col items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-left">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-400 light:text-red-600" />
+                <p className="text-xs leading-relaxed text-red-300 light:text-red-700">{error}</p>
+              </div>
+              {/* The way forward from here. It resumes the run while kie still
+                  holds a take (and says so), else writes it again — the choice
+                  is the app's, so the button is just "Retry". */}
+              {onRetry && (
+                <button
+                  type="button"
+                  onClick={onRetry}
+                  className="ml-[22px] flex h-7 items-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.04] px-3 text-[12px] font-semibold text-ink-100 transition-colors hover:bg-ink/[0.08]"
+                >
+                  <RotateCw className="h-3.5 w-3.5" />
+                  Retry
+                </button>
+              )}
+            </div>
+          )}
+          {needsSource && (
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+              {findSource.onFindOutlier && (
+                <SourceButton icon={Radar} label="Find One in Outliers" onClick={findSource.onFindOutlier} />
+              )}
+              <SourceButton icon={Eye} label="Analyze an Ad" onClick={findSource.onAnalyzeAd} />
+              <SourceButton icon={FileText} label="Pick a Saved Script" onClick={findSource.onPickScript} />
             </div>
           )}
         </AwaitingBody>
@@ -1613,11 +1658,7 @@ export default function OutputPanel({ variations, outputAngles, mode, liveMode, 
             take switcher jumps by card offset, so nothing above it needs to
             know this is here. */}
         {mode === 'remix' && voiceProfile && (
-          <VoiceProfileCard
-            body={voiceProfile}
-            label="Voice Profile · optional"
-            onChange={onEditVoiceProfile}
-          />
+          <VoiceProfileCard body={voiceProfile} onChange={onEditVoiceProfile} />
         )}
         {variations.map((text, i) => {
           const isRemix = mode === 'remix'
@@ -1640,7 +1681,7 @@ export default function OutputPanel({ variations, outputAngles, mode, liveMode, 
                 ? `${productName} · ${angleLabel ?? `Variation ${i + 1}`} Script`
                 : deriveTitleFromContent(
                       text,
-                      mode === 'reverse-engineer' ? 'Reverse-Engineered Prompts' : 'Untitled Script',
+                      mode === 'reverse-engineer' ? 'Rewritten Scenes' : 'Untitled Script',
                     )
           return (
             <VariationCard
@@ -1659,6 +1700,22 @@ export default function OutputPanel({ variations, outputAngles, mode, liveMode, 
       </div>
     </div>
     </ShownRunContext.Provider>
+  )
+}
+
+// One way into a Remix source on the empty canvas: the house neutral pill,
+// with the glyph of the app it opens (Outliers' radar, the Ad Analyzer's eye),
+// so the three read as destinations rather than as three versions of Generate.
+function SourceButton({ icon: Icon, label, onClick }: { icon: LucideIcon; label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex h-9 items-center gap-1.5 rounded-full border border-ink/10 bg-ink/[0.03] px-3.5 text-[12px] font-semibold text-ink-200 transition-colors hover:border-scripts-500/30 hover:bg-scripts-500/10 hover:text-ink-100"
+    >
+      <Icon className="h-3.5 w-3.5 shrink-0 text-scripts-text" strokeWidth={2} />
+      {label}
+    </button>
   )
 }
 

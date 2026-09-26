@@ -29,6 +29,7 @@ import { DISPLAY_FONT } from '../../dashboard/widgetStyles'
 export default function FlowHome() {
   const flows = useBankStore((s) => s.flows)
   const openFlow = useFlowStore((s) => s.openFlow)
+  const setView = useFlowStore((s) => s.setView)
   const createFlow = useFlowStore((s) => s.createFlow)
   const addToast = useAppStore((s) => s.addToast)
   const [gallery, setGallery] = useState<GalleryEntry[] | null>(null)
@@ -153,7 +154,12 @@ export default function FlowHome() {
                 ))}
                 <button
                   type="button"
-                  onClick={() => openFlow(createFlow())}
+                  onClick={() => {
+                    openFlow(createFlow())
+                    // "An empty canvas": Run View of a flow with no blocks
+                    // has nothing to show.
+                    setView('edit')
+                  }}
                   className="flex min-h-[190px] flex-col items-center justify-center gap-2 rounded-[18px] border border-dashed border-ink/15 bg-ink/[0.015] px-4 text-center transition-colors hover:border-flow-500/45 hover:bg-flow-500/[0.04]"
                 >
                   <span className="flex h-9 w-9 items-center justify-center rounded-full border border-ink/15 text-ink-300">

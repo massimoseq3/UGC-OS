@@ -1,10 +1,18 @@
-import { Bookmark, ChevronRight, Mic, RotateCcw, X, SlidersHorizontal } from 'lucide-react'
+import { useRef, useState, type ReactNode, type Ref } from 'react'
+import { Bookmark, ChevronDown, ChevronRight, Ellipsis, Mic, RotateCcw, X, SlidersHorizontal } from 'lucide-react'
 import type { VoiceSettings } from '../types'
 import { DEFAULT_VOICE_SETTINGS, getVoiceById, VOICE_STYLES, VOICE_PACES, VOICE_ACCENTS } from '../types'
 import { seedColor } from './seedColor'
 import Slider from './Slider'
 import Dropdown from '../../../components/Dropdown'
 import SectionCard, { SectionPresetPill, StatusDot } from '../../../components/SectionCard'
+import { usePersistedState } from '../../../hooks/usePersistedState'
+import { suspendChromeAutoHide } from '../../../hooks/useChromeAutoHide'
+
+// Whether the More section is open. Per browser and shared by every host of
+// this column (the app and Flow's Voiceovers window): it is how much of the
+// panel a member wants to look at, not a setting of any one read.
+const MORE_OPEN_KEY = 'ai-ugc-lab:voice-studio:more-open'
 
 // One size for every setting subheading (Style / Pace / Accent /
 // Expressiveness / Tone / Scene). Influencers' small-caps field register: the
@@ -18,10 +26,44 @@ interface SettingsViewProps {
   onSettingsChange: (next: VoiceSettings) => void
   onOpenVoicePicker: () => void
   onOpenPresetPicker: () => void
+  // The TTS model row, rendered inside More. A slot rather than a picker built
+  // in here because the two hosts persist the pick differently: the app writes
+  // the member's `voice-studio:tts` default, Flow's window writes the block's
+  // own settings and keeps its picker in its run band — so Flow passes nothing.
+  modelRow?: ReactNode
+  // The picked model's name, for More's folded summary line.
+  modelName?: string
 }
 
-export default function SettingsView({ settings, onSettingsChange, onOpenVoicePicker, onOpenPresetPicker }: SettingsViewProps) {
+export default function SettingsView({ settings, onSettingsChange, onOpenVoicePicker, onOpenPresetPicker, modelRow, modelName }: SettingsViewProps) {
   const voice = getVoiceById(settings.voiceId)
+  // Folded by default: More holds the controls a first read never needs.
+  const [moreOpen, setMoreOpen] = usePersistedState<boolean>(MORE_OPEN_KEY, false)
+  // Tone / Context is the one box that flexes, so unfolding More used to take
+  // its height straight out of it (Massimo's report, September 2026: "it
+  // shouldn't eat into the tone/context box"). Opening More pins it at the
+  // height it had the moment before, and the column scrolls instead. A column
+  // that loads with More already open has no "before" to read, so it takes the
+  // box's full four lines.
+  const toneRef = useRef<HTMLDivElement>(null)
+  const moreRef = useRef<HTMLDivElement>(null)
+  const [toneFloor, setToneFloor] = useState<number | null>(null)
+  const toggleMore = () => {
+    if (moreOpen) {
+      setToneFloor(null)
+      setMoreOpen(false)
+      return
+    }
+    setToneFloor(toneRef.current?.offsetHeight ?? null)
+    setMoreOpen(true)
+    // What just opened now sits below the fold, so bring it up — otherwise
+    // the click looks like it did nothing. Programmatic, so the phone dock
+    // must not read it as the member scrolling.
+    requestAnimationFrame(() => {
+      suspendChromeAutoHide()
+      moreRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    })
+  }
 
   // Every hand edit drops the preset stamp — once a control moves, the settings
   // are no longer that preset, and the row must not keep claiming they are.
@@ -36,12 +78,17 @@ export default function SettingsView({ settings, onSettingsChange, onOpenVoicePi
   }
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto">
-      {/* The model row is NOT here any more (September 2026, Massimo's call).
-          It led this column for a month, on the reasoning that the voice, the
-          delivery and the direction are all settings OF the model — true, but
-          it reads better directly above the button that spends it, which is
-          where `GenerateBar` renders it now. */}
+    // `scrollbar-gutter: stable`, as in `Modal`'s body: the app's invisible
+    // scrollbar still takes its 11px track, but only while the column
+    // overflows — and unfolding More is exactly what tips it over, so every
+    // centred card title jumped sideways on the click (Massimo's report,
+    // September 2026). Reserved in both states it never moves; on a phone the
+    // track is 0px anyway. The reserved 11px sits OUTSIDE the padding, so the
+    // content's right padding gives it back (`pr-[9px]` = 20 − 11) — otherwise
+    // the cards carry 31px on the right against 20 on the left and stop lining
+    // up with the stepper and Generate below, which live outside this scroller.
+    // `touch:` restores the full 20 where there is no track (index.css).
+    <div className="flex h-full flex-col overflow-y-auto [scrollbar-gutter:stable]">
       {/* `min-h-full`: the column is at least as tall as its scroller, so the
           two direction boxes below have leftover height to open into — and on a
           short window they give it back rather than pushing Scene under the
@@ -50,7 +97,7 @@ export default function SettingsView({ settings, onSettingsChange, onOpenVoicePi
           column that was overflowing on the gap above the thing it overflowed
           into. `gap-2`, not `gap-3`: 8px between rows is the house rhythm every
           other input column runs on, and this was the one at 12. */}
-      <div className="flex min-h-full flex-col gap-2 px-5 pb-2 pt-4">
+      <div className="flex min-h-full flex-col gap-2 pb-2 pl-5 pr-[9px] pt-4 touch:pr-5">
         {/* Who is speaking. The card holds one control on purpose — the header
             is what carries the preset pill, and a preset writes every setting
             in this panel, so it needs a home above the first of them rather
@@ -151,42 +198,98 @@ export default function SettingsView({ settings, onSettingsChange, onOpenVoicePi
               <Dropdown compact value={settings.accent} options={VOICE_ACCENTS} onChange={(accent) => update({ accent })} />
             </Field>
           </div>
-
-          {/* Expressiveness (temperature) — extra top space so it doesn't crowd
-              the dropdowns above. */}
-          <div className="pt-1">
-            <Slider
-              label="Expressiveness"
-              tooltip="Controls how much the delivery varies. Lower values are more predictable and consistent between re-generations; higher values are more creative and expressive but less repeatable."
-              value={settings.temperature}
-              min={0}
-              max={2}
-              step={0.05}
-              leftHint="Focused"
-              rightHint="Creative"
-              onChange={(temperature) => update({ temperature })}
-              format={(v) => v.toFixed(2)}
-            />
-          </div>
+          {/* Expressiveness moved into More (September 2026): it is a tuning
+              knob with a sensible default, and up here it was the fourth
+              control between a member and the Generate button. Reset above
+              still restores it — it is a delivery setting wherever it sits. */}
         </SectionCard>
 
-        {/* Optional direction — overall tone + scene. Deliberately NOT carded:
-            they're the two extras at the end, and leaving them bare under the
-            cards is what says so. They're also the only settings in this panel
-            that are ever actually empty, so they're the only ones carrying a
-            status dot. */}
+        {/* Optional direction. Deliberately NOT carded: it's the extra at the
+            end of the column, and leaving it bare under the cards is what says
+            so. It's also one of the only settings here that is ever actually
+            empty, so it carries a status dot. */}
         <DirectionBox
           label="Tone / Context"
           value={settings.sampleContext}
           placeholder="e.g. An excited creator sharing a product they love with a friend."
           onChange={(sampleContext) => update({ sampleContext })}
+          boxRef={toneRef}
+          floor={moreOpen ? toneFloor ?? TONE_MAX_HEIGHT : undefined}
         />
-        <DirectionBox
-          label="Scene"
-          value={settings.scene}
-          placeholder="e.g. A bright, upbeat product demo in a sunny kitchen."
-          onChange={(scene) => update({ scene })}
-        />
+
+        {/* More — Scene, Expressiveness and the TTS model, folded away
+            (September 2026, Massimo's call: fewer knobs up front). None of the
+            three is something a first read has to decide: Scene is a second
+            steer box after Tone, Expressiveness has a default that is right
+            for most reads, and the two TTS models take the same request at the
+            same price. The fold is the shared `SectionCard` one — the whole
+            header row toggles, the chevron stays a real button — and folded it
+            keeps one dim line saying what is in there and what it's set to, so
+            a filled Scene can't hide behind it unannounced. */}
+        <div ref={moreRef} className="shrink-0">
+          {/* The hairline under the title is drawn folded too, like the Voice
+              and Delivery cards above: it is a card header, and the summary line
+              is its body, not a subtitle hanging off the title. */}
+          <SectionCard
+            icon={Ellipsis}
+            title="More"
+            onHeaderClick={toggleMore}
+            divider
+            contentClassName="flex flex-col gap-3"
+            left={
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); toggleMore() }}
+                title={moreOpen ? 'Hide these settings' : modelRow ? 'Show Scene, Expressiveness and the model' : 'Show Scene and Expressiveness'}
+                aria-label={moreOpen ? 'Hide more settings' : 'Show more settings'}
+                aria-expanded={moreOpen}
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-ink-600 transition-colors group-hover:text-ink-300 hover:bg-ink/5 hover:text-ink-300"
+              >
+                {moreOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+              </button>
+            }
+          >
+            {moreOpen ? (
+              <>
+                <DirectionBox
+                  label="Scene"
+                  value={settings.scene}
+                  placeholder="e.g. A bright, upbeat product demo in a sunny kitchen."
+                  onChange={(scene) => update({ scene })}
+                  fixed
+                />
+                <Slider
+                  label="Expressiveness"
+                  tooltip="Controls how much the delivery varies. Lower values are more predictable and consistent between re-generations; higher values are more creative and expressive but less repeatable."
+                  value={settings.temperature}
+                  min={0}
+                  max={2}
+                  step={0.05}
+                  leftHint="Focused"
+                  rightHint="Creative"
+                  onChange={(temperature) => update({ temperature })}
+                  format={(v) => v.toFixed(2)}
+                />
+                {/* Unlabelled and dotless, as it was at the column's foot: a
+                    picker row already names the model over its hint, and there
+                    is always a resolved model. */}
+                {modelRow}
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={toggleMore}
+                className="block w-full truncate text-center text-[11.5px] tracking-tight text-ink-600 transition-colors hover:text-ink-400"
+              >
+                {[
+                  settings.scene.trim() ? 'Scene set' : 'No scene',
+                  `Expressiveness ${settings.temperature.toFixed(2)}`,
+                  modelName,
+                ].filter(Boolean).join(' · ')}
+              </button>
+            )}
+          </SectionCard>
+        </div>
       </div>
     </div>
   )
@@ -240,31 +343,63 @@ function PresetStamp({
 // input column that isn't marked otherwise is optional (the shared VoiceCard
 // dropped its pill for the same reason), and here the neutral dot and the box
 // sitting bare under the cards already say it twice.
+// The flexing box's cap, as a number for the More-open floor above; keep it
+// in step with the `max-h-[129px]` below.
+const TONE_MAX_HEIGHT = 129
+
 function DirectionBox({
   label,
   value,
   placeholder,
   onChange,
+  fixed = false,
+  boxRef,
+  floor,
 }: {
   label: string
   value: string
   placeholder: string
   onChange: (value: string) => void
+  // Inside More the box sits in a card that doesn't share the column's
+  // leftover height, so it takes a plain two-line field instead of flexing.
+  fixed?: boolean
+  boxRef?: Ref<HTMLDivElement>
+  // A height the box won't flex below (see `toneFloor` in SettingsView).
+  floor?: number
 }) {
-  // These two are the only things in this column that can give ground, so they
-  // are the only ones that flex. Everything above is a pill, a dropdown or a
-  // slider at a fixed height — there is nothing to take from them.
+  if (fixed) {
+    return (
+      <div className="flex flex-col gap-2">
+        <span className="flex items-center gap-1.5">
+          <StatusDot filled={value.trim() !== ''} />
+          <span className={SETTING_LABEL}>{label}</span>
+        </span>
+        <textarea
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          rows={2}
+          maxLength={1000}
+          placeholder={placeholder}
+          className="resize-none rounded-2xl border border-ink/10 bg-ink/[0.03] px-3.5 py-2.5 text-sm text-ink-100 placeholder-ink-600 outline-none transition-colors focus:border-voice-500/40"
+        />
+      </div>
+    )
+  }
+  // Tone / Context is the only thing in this column that can give ground, so
+  // it is the only thing that flexes. Everything else is a pill, a dropdown, a
+  // slider or the folded More card at a fixed height — there is nothing to take
+  // from them. (Scene flexed beside it until it moved into More.)
   //
   // 69px floor = the label row + one line; 129px cap = the label row + four.
   // The cap matters as much as the floor: uncapped, a tall window would hand
-  // two optional steer boxes a third of the column each. `rows={1}` is the
-  // whole trick — `rows` is a textarea's MIN-CONTENT height, and min-content is
-  // the one size a flex column can never shrink past, so `rows={2}` made the
-  // second row a hard floor that propagated all the way up and pushed Scene
-  // under the Generate bar. The height comes from `flex-1` now, between those
-  // two numbers.
+  // an optional steer box half the column. `rows={1}` is the whole trick —
+  // `rows` is a textarea's MIN-CONTENT height, and min-content is the one size
+  // a flex column can never shrink past, so `rows={2}` made the second row a
+  // hard floor that propagated all the way up and pushed the last row under
+  // the Generate bar. The height comes from `flex-1` now, between those two
+  // numbers.
   return (
-    <div className="flex min-h-[69px] max-h-[129px] flex-1 flex-col gap-2">
+    <div ref={boxRef} style={floor ? { minHeight: floor } : undefined} className="flex min-h-[69px] max-h-[129px] flex-1 flex-col gap-2">
       <span className="flex shrink-0 items-center gap-1.5">
         {/* Never `required` — nothing is waiting on either of these, so an
             empty one is neutral. Red is reserved for an input that's actually

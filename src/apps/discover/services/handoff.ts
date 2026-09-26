@@ -7,7 +7,10 @@
 import { fetchInstagramTranscript, fetchMetaAdTranscript, fetchTikTokTranscript, vttToPlainText } from '../../../utils/scrapecreators'
 import { ensureFreshSession } from '../../../lib/supabase'
 import { saveAsset } from '../../../utils/assetStore'
+import { FriendlyError } from '../../../utils/friendlyError'
 import type { DiscoverResult } from '../types'
+import { parseAdLink } from './adLink'
+import { refreshResultMedia } from './search'
 
 /**
  * Downloads a card's video as a File.
@@ -333,4 +336,49 @@ export async function fetchResultTranscript(
     { useAiFallback },
   )
   return { text: vttToPlainText(transcript), creditsRemaining }
+}
+
+/**
+ * Resolves a pasted link to the ad's video file. **1 ScrapeCreators credit.**
+ *
+ * The Ad Analyzer's paste-a-link field. The resolve is `refreshResultMedia` —
+ * the swipe file's "Restore Video" re-resolver, one credit on every platform —
+ * and the download is `downloadVideoFile` below, the CDN-then-/api/fetch-media
+ * route every Analyze in Outliers already takes, so a link and a search card
+ * reach the Ad Analyzer the same way.
+ *
+ * Every failure we can name is a `FriendlyError` saying what to paste instead;
+ * a vendor failure (key, credits, a 404 on a taken-down post) passes through
+ * for `humanizeError`, whose ScrapeCreators rules already word those.
+ */
+export async function fetchAdFromLink(
+  apiKey: string,
+  input: string,
+  onProgress?: (p: DownloadProgress) => void,
+): Promise<{ file: File; creditsRemaining: number | null }> {
+  const link = parseAdLink(input)
+  if (!link) {
+    throw new FriendlyError(
+      'That isn’t a link to a TikTok video, an Instagram reel or a Meta Ad Library ad. Paste the link to the ad itself.',
+    )
+  }
+
+  const { videoUrl, creditsRemaining } = await refreshResultMedia(apiKey, link.platform, {
+    sourceId: link.sourceId,
+    postUrl: link.url,
+  })
+  if (!videoUrl) {
+    // A real outcome, not a fault: a photo post, a carousel of stills, an image
+    // ad, or a post that's been taken down all come back with no video.
+    throw new FriendlyError(
+      'There’s no video behind that link. The Ad Analyzer reads video ads only, so paste a link to a video.',
+    )
+  }
+
+  const file = await downloadVideoFile(videoUrl, `${link.platform}-${link.sourceId || 'ad'}.mp4`, onProgress)
+  // CDNs label video loosely (`application/octet-stream`, or nothing), and the
+  // upload screen admits an ad by its MIME type. It is a video — the platform
+  // said so when it handed us a video url.
+  const typed = file.type.startsWith('video/') ? file : new File([file], file.name, { type: 'video/mp4' })
+  return { file: typed, creditsRemaining }
 }

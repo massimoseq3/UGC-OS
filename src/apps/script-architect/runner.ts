@@ -2,13 +2,17 @@
 // Scripts' Generate calls it, and Flow's Scripts block will call the same
 // functions — see utils/blockRunner.ts.
 //
-// Unlike the media runners there is no task to resume: a script is a set of
-// streamed chat calls with no kie taskId behind them, so `start` does the
-// whole job and `finish` only writes the row. A reload mid-write loses the
-// run, as it always has.
+// A run is several chat calls at once, and `start` does the whole job — it
+// resolves with the takes — while `finish` only writes the row. Where the
+// writer model has a job route each call is a kie TASK (services/
+// scriptCalls.ts), and `start`'s `hooks.onTaskId` hands every taskId out the
+// moment it exists, so the caller can persist it and `resumeScriptRun` can
+// pick the run back up after a reload. A model with no job route is streamed
+// and a reload still loses that run; the caller hears about no taskId for it.
 
 import type {
   EditableProductContext,
+  GenerateScriptInput,
   GeneratedScript,
   HookCategoryChoice,
   HookCount,
@@ -20,11 +24,13 @@ import type {
   WriteStyle,
 } from './types'
 import { generateScript } from './services/generateScript'
+import { liveCalls, resumedCalls, type ScriptSlot, type TaskHooks } from './services/scriptCalls'
 import type { Provenance, ScriptHistoryItem } from '../../stores/types'
 import { useBankStore } from '../../stores/bankStore'
+import { resolveScriptModel } from '../../stores/settingsStore'
 import { replayRun } from '../../stores/recordingStore'
 import { humanizeError } from '../../utils/friendlyError'
-import { refuseWhileRecording, withProvenance, type BlockRunner } from '../../utils/blockRunner'
+import { refuseWhileRecording, withProvenance, type BlockRunner, type RunContext } from '../../utils/blockRunner'
 
 // Write New's brief is optional: an empty one hands the model creative
 // license rather than blocking generation (avoids decision paralysis for
@@ -66,6 +72,47 @@ export interface ScriptTask {
   provenance?: Provenance
 }
 
+// What the service is handed for a run's inputs. Shared by a live start and a
+// resume, so a resumed run rebuilds exactly the plan the live one fired.
+function serviceInput(input: ScriptRunInput): GenerateScriptInput {
+  return {
+    mode: input.mode,
+    // Route the source into the field the resolved pipeline reads.
+    winningTranscript: input.mode === 'remix' ? input.source : '',
+    reversePrompt: input.mode === 'reverse-engineer' ? input.source : '',
+    brief: input.mode === 'write' && !input.brief.trim() ? OPEN_BRIEF : input.brief,
+    writeStyle: input.writeStyle,
+    writeFormat: input.writeFormat,
+    writeLength: input.writeLength,
+    // Omitted is what tells the remix to keep the source ad's own length.
+    remixLength: input.remixLength === 'default' ? undefined : input.remixLength,
+    hookCategory: input.hookCategory,
+    hookCount: input.hookCount,
+    variationCount: input.variationCount,
+    productId: input.productId,
+    productName: input.productName,
+    productContext: input.productContext,
+    additionalContext: input.additionalContext,
+  }
+}
+
+/**
+ * Pick up a run whose calls are already kie tasks — started by an earlier page
+ * load, or left behind by a poll that ran out of time — and wait for it to
+ * finish. Nothing is submitted: a slot with no task (it was streamed, or its
+ * task died) is simply missing from the takes, and the run only fails when
+ * every take is. The caller writes the row with `scriptRunner.finish` as usual.
+ */
+export async function resumeScriptRun(
+  input: ScriptRunInput,
+  taskIds: Partial<Record<ScriptSlot, string>>,
+  ctx?: Pick<RunContext, 'provenance'>,
+  hooks?: TaskHooks,
+): Promise<ScriptTask> {
+  const result = await generateScript(serviceInput(input), resumedCalls(taskIds, hooks))
+  return { id: input.id ?? crypto.randomUUID(), input, result, provenance: ctx?.provenance }
+}
+
 export const scriptRunner = {
   // A script is billed on tokens it hasn't written yet, and the Generate
   // button prints no price for it; neither does this.
@@ -73,27 +120,12 @@ export const scriptRunner = {
     return null
   },
 
-  async start(input, ctx?) {
+  // `hooks` is Scripts' own third argument, not part of the shared runner
+  // contract: it is how a caller that can persist a taskId hears about one.
+  // Flow's block passes none, so its runs poll a task but can't resume it.
+  async start(input: ScriptRunInput, ctx?: RunContext, hooks?: TaskHooks) {
     refuseWhileRecording()
-    const result = await generateScript({
-      mode: input.mode,
-      // Route the source into the field the resolved pipeline reads.
-      winningTranscript: input.mode === 'remix' ? input.source : '',
-      reversePrompt: input.mode === 'reverse-engineer' ? input.source : '',
-      brief: input.mode === 'write' && !input.brief.trim() ? OPEN_BRIEF : input.brief,
-      writeStyle: input.writeStyle,
-      writeFormat: input.writeFormat,
-      writeLength: input.writeLength,
-      // Omitted is what tells the remix to keep the source ad's own length.
-      remixLength: input.remixLength === 'default' ? undefined : input.remixLength,
-      hookCategory: input.hookCategory,
-      hookCount: input.hookCount,
-      variationCount: input.variationCount,
-      productId: input.productId,
-      productName: input.productName,
-      productContext: input.productContext,
-      additionalContext: input.additionalContext,
-    })
+    const result = await generateScript(serviceInput(input), liveCalls(resolveScriptModel('script-architect'), hooks))
     return { id: input.id ?? crypto.randomUUID(), input, result, provenance: ctx?.provenance }
   },
 

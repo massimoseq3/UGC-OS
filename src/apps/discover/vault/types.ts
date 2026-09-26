@@ -67,15 +67,15 @@ export interface VaultFilters {
   /** '' means every pattern. */
   pattern: string
   sort: VaultSort
-  /** Show only the rows the member starred. */
-  starredOnly: boolean
+  /** Show only the rows that are in the member's Swipe File. */
+  savedOnly: boolean
 }
 
 export const DEFAULT_VAULT_FILTERS: VaultFilters = {
   category: '',
   pattern: '',
   sort: 'outlier',
-  starredOnly: false,
+  savedOnly: false,
 }
 
 /**

@@ -6,15 +6,17 @@
 export type DiscoverPlatform = 'tiktok' | 'instagram' | 'meta'
 
 /**
- * Which of Outliers' five tabs is on screen.
+ * Which of Outliers' three tabs is on screen: the free library, the tracked
+ * Instagram accounts, or the paid search.
  *
- * Two of them are not platforms and never become one. The vault is a fixed
- * library that ships with the app; accounts is a tracked list the member
- * curates. Neither has a keyword search, a page cursor or a per-tab query, so
- * keeping both out of `DiscoverPlatform` is what stops every
- * `Record<DiscoverPlatform, …>` in the app growing keys that mean nothing.
+ * The platform is NOT part of this. Search picks TikTok / Instagram / Meta Ads
+ * with a control of its own (`DiscoverPlatform`, persisted separately), so the
+ * header says what a tab DOES — a list you already have, or a search you pay
+ * for — rather than mixing one free library with three paid searches in one
+ * row. Keeping the vault and accounts out of `DiscoverPlatform` is still what
+ * stops every `Record<DiscoverPlatform, …>` growing keys that mean nothing.
  */
-export type DiscoverView = 'vault' | 'accounts' | DiscoverPlatform
+export type DiscoverView = 'vault' | 'accounts' | 'search'
 
 /** Which band a video's view-to-follower multiple falls into. */
 export type OutlierBand = '2x' | '5x' | '10x'

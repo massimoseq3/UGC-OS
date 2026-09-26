@@ -1,4 +1,4 @@
-import { ChevronRight, Folder, Star } from 'lucide-react'
+import { BookmarkCheck, ChevronRight, Folder } from 'lucide-react'
 import { categoryLabel, folderCovers, type VaultRow } from './service'
 import { ALL_HOOKS } from './types'
 
@@ -23,10 +23,10 @@ import { ALL_HOOKS } from './types'
 
 interface VaultFoldersProps {
   rows: VaultRow[]
-  /** Drives the Starred folder, which only exists once something is in it. */
-  starredIds: string[]
-  /** Opens a folder. `starredOnly` is how the Starred tile differs from All. */
-  onOpen: (category: string, starredOnly?: boolean) => void
+  /** Vault ids in the Swipe File. Drives the Saved folder, which only exists once something is in it. */
+  savedIds: ReadonlySet<string>
+  /** Opens a folder. `savedOnly` is how the Saved tile differs from All. */
+  onOpen: (category: string, savedOnly?: boolean) => void
 }
 
 interface Tile {
@@ -34,11 +34,11 @@ interface Tile {
   label: string
   count: number
   covers: string[]
-  starred?: boolean
+  saved?: boolean
   open: () => void
 }
 
-export default function VaultFolders({ rows, starredIds, onOpen }: VaultFoldersProps) {
+export default function VaultFolders({ rows, savedIds, onOpen }: VaultFoldersProps) {
   const byCategory = new Map<string, VaultRow[]>()
   for (const r of rows) {
     if (!r.category) continue
@@ -72,17 +72,18 @@ export default function VaultFolders({ rows, starredIds, onOpen }: VaultFoldersP
     })),
   ]
 
-  if (starredIds.length > 0) {
-    const ids = new Set(starredIds)
-    const mine = rows.filter((r) => ids.has(r.id))
+  // Counted over the vault's own rows, not the Swipe File: a saved search
+  // result is in the same bank and belongs to no folder here.
+  const mine = rows.filter((r) => savedIds.has(r.id))
+  if (mine.length > 0) {
     tiles.push({
-      key: 'starred',
-      label: 'Starred',
+      key: 'saved',
+      label: 'Saved',
       count: mine.length,
       covers: folderCovers(mine),
-      starred: true,
+      saved: true,
       // The one tile that isn't a category: it opens the whole library with
-      // the Starred filter on, so it stays the same control the grid already
+      // the Saved filter on, so it stays the same control the grid already
       // has rather than a fourth kind of state.
       open: () => onOpen(ALL_HOOKS, true),
     })
@@ -100,7 +101,7 @@ export default function VaultFolders({ rows, starredIds, onOpen }: VaultFoldersP
 }
 
 function FolderTile({ tile }: { tile: Tile }) {
-  const Glyph = tile.starred ? Star : Folder
+  const Glyph = tile.saved ? BookmarkCheck : Folder
   return (
     <button
       type="button"
@@ -143,14 +144,17 @@ function FolderTile({ tile }: { tile: Tile }) {
       <div className="flex min-h-[44px] items-center gap-2.5 px-3 py-2.5">
         {/* Outliers' gold as a literal — the app's `gold-*` Tailwind family is
             #0EA5E9, which is sky blue and belongs to the Products bank. */}
+        {/* Saved wears the app's "saved" emerald — the same tone a filed
+            card's bookmark takes — so it reads as your own shelf rather than
+            as another category of the library. */}
         <span
           className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
-            tile.starred
-              ? 'bg-amber-400/10 text-amber-300 light:text-amber-700'
+            tile.saved
+              ? 'bg-emerald-500/10 text-emerald-300 light:text-emerald-700'
               : 'bg-[#D9A404]/10 text-[#D9A404] light:text-[#8A6A00]'
           }`}
         >
-          <Glyph className={`h-3.5 w-3.5 ${tile.starred ? 'fill-current' : ''}`} strokeWidth={1.75} />
+          <Glyph className="h-3.5 w-3.5" strokeWidth={1.75} />
         </span>
         <span className="min-w-0 flex-1 line-clamp-2 text-[13px] font-medium leading-tight text-ink-200">
           {tile.label}

@@ -51,7 +51,7 @@ export function AdDropScreen({ busy, problem, active, onFile, children }: {
     <div className="flex min-h-full flex-col items-center justify-center gap-6 p-8">
       <div className="flex flex-col items-center gap-2 text-center">
         <Eye className="h-8 w-8 text-[#FF5257]/60" strokeWidth={1.5} />
-        <h2 className="text-lg font-semibold tracking-tight text-ink-200">Reverse Engineer Any Ad</h2>
+        <h2 className="text-lg font-semibold tracking-tight text-ink-200">Analyze Any Ad</h2>
       </div>
       <button
         type="button"

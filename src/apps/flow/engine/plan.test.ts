@@ -392,7 +392,10 @@ describe('slots', () => {
   it('follow the counts Scripts accepts, so the plan matches what a run makes', () => {
     expect(desiredSlots(block('s', 'scripts', { settings: { mode: 'write', writeFormat: 'hooks', hookCount: 5 } }))).toBe(10)
     expect(desiredSlots(block('s', 'scripts', { settings: { mode: 'write', writeFormat: 'hooks', hookCount: 20 } }))).toBe(20)
-    expect(desiredSlots(block('s', 'scripts', { settings: { mode: 'write', writeFormat: 'script', variationCount: 4 } }))).toBe(3)
+    // Variations are any whole number 1–10; anything else falls back to 3.
+    expect(desiredSlots(block('s', 'scripts', { settings: { mode: 'write', writeFormat: 'script', variationCount: 4 } }))).toBe(4)
+    expect(desiredSlots(block('s', 'scripts', { settings: { mode: 'write', writeFormat: 'script', variationCount: 11 } }))).toBe(3)
+    expect(desiredSlots(block('s', 'scripts', { settings: { mode: 'write', writeFormat: 'script', variationCount: 2.5 } }))).toBe(3)
   })
 })
 

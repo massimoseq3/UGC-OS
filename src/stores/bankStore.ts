@@ -58,32 +58,32 @@ interface BankState {
   getProductById: (id: string) => Product | undefined
 
   // Model CRUD
-  addModel: (model: Omit<Model, 'id' | 'createdAt'>) => Promise<BankActionResult>
-  updateModel: (id: string, updates: Partial<Model>) => Promise<BankActionResult>
+  addModel: (model: Omit<Model, 'id' | 'createdAt'>, opts?: { silent?: boolean }) => Promise<string>
+  updateModel: (id: string, updates: Partial<Model>, opts?: { silent?: boolean }) => Promise<BankActionResult>
   deleteModel: (id: string) => Promise<BankActionResult>
   getModelById: (id: string) => Model | undefined
 
   // Script CRUD
-  addScript: (script: Omit<Script, 'id' | 'createdAt'>) => Promise<BankActionResult>
-  updateScript: (id: string, updates: Partial<Script>) => Promise<BankActionResult>
+  addScript: (script: Omit<Script, 'id' | 'createdAt'>, opts?: { silent?: boolean }) => Promise<string>
+  updateScript: (id: string, updates: Partial<Script>, opts?: { silent?: boolean }) => Promise<BankActionResult>
   deleteScript: (id: string) => Promise<BankActionResult>
   getScriptById: (id: string) => Script | undefined
 
   // Voice CRUD
-  addVoice: (voice: Omit<VoicePreset, 'id' | 'createdAt'>) => Promise<BankActionResult>
-  updateVoice: (id: string, updates: Partial<VoicePreset>) => Promise<BankActionResult>
+  addVoice: (voice: Omit<VoicePreset, 'id' | 'createdAt'>, opts?: { silent?: boolean }) => Promise<string>
+  updateVoice: (id: string, updates: Partial<VoicePreset>, opts?: { silent?: boolean }) => Promise<BankActionResult>
   deleteVoice: (id: string) => Promise<BankActionResult>
   getVoiceById: (id: string) => VoicePreset | undefined
 
   // B-Roll CRUD
-  addBRoll: (broll: Omit<BRoll, 'id' | 'createdAt'>) => Promise<string>
-  updateBRoll: (id: string, updates: Partial<BRoll>) => Promise<BankActionResult>
+  addBRoll: (broll: Omit<BRoll, 'id' | 'createdAt'>, opts?: { silent?: boolean }) => Promise<string>
+  updateBRoll: (id: string, updates: Partial<BRoll>, opts?: { silent?: boolean }) => Promise<BankActionResult>
   deleteBRoll: (id: string) => Promise<BankActionResult>
   getBRollById: (id: string) => BRoll | undefined
 
   // Visual style CRUD (B-Roll's saved looks)
-  addStyle: (style: Omit<StylePreset, 'id' | 'createdAt'>) => Promise<string>
-  updateStyle: (id: string, updates: Partial<StylePreset>) => Promise<BankActionResult>
+  addStyle: (style: Omit<StylePreset, 'id' | 'createdAt'>, opts?: { silent?: boolean }) => Promise<string>
+  updateStyle: (id: string, updates: Partial<StylePreset>, opts?: { silent?: boolean }) => Promise<BankActionResult>
   deleteStyle: (id: string) => Promise<BankActionResult>
   getStyleById: (id: string) => StylePreset | undefined
 
@@ -706,7 +706,10 @@ export const useBankStore = create<BankState>((set, get) => ({
   getProductById: (id) => get().products.find((p) => p.id === id),
 
   // ── Models ───────────────────────────────────────────────────────
-  addModel: async (model) => {
+  // `silent` and the returned id are for the Bank's autosaving forms, which
+  // create a row once and then write into it on every pause in typing — the
+  // same contract addProduct/updateProduct already had.
+  addModel: async (model, opts) => {
     const newModel: Model = { ...model, id: generateId(), createdAt: Date.now() }
     set((state) => {
       const next = { models: [...state.models, newModel] }
@@ -714,10 +717,11 @@ export const useBankStore = create<BankState>((set, get) => ({
       return next
     })
     pushRow('models', newModel)
-    reportSuccess('Character saved')
+    if (!opts?.silent) reportSuccess('Character saved')
+    return newModel.id
   },
 
-  updateModel: async (id, updates) => {
+  updateModel: async (id, updates, opts) => {
     const old = get().models.find((m) => m.id === id)
     if (!old) return
     const updated: Model = { ...old, ...updates }
@@ -741,7 +745,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       return next
     })
     pushRow('models', updated)
-    reportSuccess('Character updated')
+    if (!opts?.silent) reportSuccess('Character updated')
   },
 
   deleteModel: async (id) => {
@@ -767,7 +771,7 @@ export const useBankStore = create<BankState>((set, get) => ({
   getModelById: (id) => get().models.find((m) => m.id === id),
 
   // ── Scripts ──────────────────────────────────────────────────────
-  addScript: async (script) => {
+  addScript: async (script, opts) => {
     const newScript: Script = { ...script, id: generateId(), createdAt: Date.now() }
     set((state) => {
       const next = { scripts: [...state.scripts, newScript] }
@@ -775,10 +779,11 @@ export const useBankStore = create<BankState>((set, get) => ({
       return next
     })
     pushRow('scripts', newScript)
-    reportSuccess('Script saved')
+    if (!opts?.silent) reportSuccess('Script saved')
+    return newScript.id
   },
 
-  updateScript: async (id, updates) => {
+  updateScript: async (id, updates, opts) => {
     const old = get().scripts.find((s) => s.id === id)
     if (!old) return
     const updated: Script = { ...old, ...updates }
@@ -788,7 +793,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       return next
     })
     pushRow('scripts', updated)
-    reportSuccess('Script updated')
+    if (!opts?.silent) reportSuccess('Script updated')
   },
 
   deleteScript: async (id) => {
@@ -806,7 +811,7 @@ export const useBankStore = create<BankState>((set, get) => ({
   getScriptById: (id) => get().scripts.find((s) => s.id === id),
 
   // ── Voices ───────────────────────────────────────────────────────
-  addVoice: async (voice) => {
+  addVoice: async (voice, opts) => {
     const newVoice: VoicePreset = { ...voice, id: generateId(), createdAt: Date.now() }
     set((state) => {
       const next = { voices: [...state.voices, newVoice] }
@@ -814,10 +819,11 @@ export const useBankStore = create<BankState>((set, get) => ({
       return next
     })
     pushRow('voices', newVoice)
-    reportSuccess('Voice saved')
+    if (!opts?.silent) reportSuccess('Voice saved')
+    return newVoice.id
   },
 
-  updateVoice: async (id, updates) => {
+  updateVoice: async (id, updates, opts) => {
     const old = get().voices.find((v) => v.id === id)
     if (!old) return
     const updated: VoicePreset = { ...old, ...updates }
@@ -827,7 +833,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       return next
     })
     pushRow('voices', updated)
-    reportSuccess('Voice updated')
+    if (!opts?.silent) reportSuccess('Voice updated')
   },
 
   deleteVoice: async (id) => {
@@ -845,7 +851,7 @@ export const useBankStore = create<BankState>((set, get) => ({
   getVoiceById: (id) => get().voices.find((v) => v.id === id),
 
   // ── B-Rolls ──────────────────────────────────────────────────────
-  addBRoll: async (broll) => {
+  addBRoll: async (broll, opts) => {
     const newBRoll: BRoll = { ...broll, id: generateId(), createdAt: Date.now() }
     set((state) => {
       const next = { brolls: [...state.brolls, newBRoll] }
@@ -853,11 +859,11 @@ export const useBankStore = create<BankState>((set, get) => ({
       return next
     })
     pushRow('brolls', newBRoll)
-    reportSuccess('Saved to B-Rolls bank')
+    if (!opts?.silent) reportSuccess('Saved to B-Rolls bank')
     return newBRoll.id
   },
 
-  updateBRoll: async (id, updates) => {
+  updateBRoll: async (id, updates, opts) => {
     const old = get().brolls.find((b) => b.id === id)
     if (!old) return
     const updated: BRoll = { ...old, ...updates }
@@ -871,7 +877,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       return next
     })
     pushRow('brolls', updated)
-    reportSuccess('B-roll updated')
+    if (!opts?.silent) reportSuccess('B-roll updated')
   },
 
   deleteBRoll: async (id) => {
@@ -906,7 +912,7 @@ export const useBankStore = create<BankState>((set, get) => ({
   // A style row is text (the brief) plus its reference thumbnails. The thumbs
   // are this bank's own assets — nothing else links them — so delete/replace
   // purges them outright, no shared-blob check like B-Rolls needs.
-  addStyle: async (style) => {
+  addStyle: async (style, opts) => {
     const newStyle: StylePreset = { ...style, id: generateId(), createdAt: Date.now() }
     set((state) => {
       const next = { styles: [...state.styles, newStyle] }
@@ -914,11 +920,11 @@ export const useBankStore = create<BankState>((set, get) => ({
       return next
     })
     pushRow('styles', newStyle)
-    reportSuccess('Saved to Styles bank')
+    if (!opts?.silent) reportSuccess('Saved to Styles bank')
     return newStyle.id
   },
 
-  updateStyle: async (id, updates) => {
+  updateStyle: async (id, updates, opts) => {
     const old = get().styles.find((s) => s.id === id)
     if (!old) return
     const updated: StylePreset = { ...old, ...updates }
@@ -932,7 +938,7 @@ export const useBankStore = create<BankState>((set, get) => ({
       return next
     })
     pushRow('styles', updated)
-    reportSuccess('Style updated')
+    if (!opts?.silent) reportSuccess('Style updated')
   },
 
   deleteStyle: async (id) => {

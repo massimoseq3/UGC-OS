@@ -13,7 +13,7 @@ import { BankPick } from './Picks'
 import { ImageBody, TextBody } from '../node/helpers'
 import { isFieldable } from '../blockMeta'
 import { StopButton } from './common'
-import type { BankType } from '../../../../utils/constants'
+import { KIE_BILLING_URL, type BankType } from '../../../../utils/constants'
 import type { RunRequest } from '../Editor'
 import { useRecordingActive } from '../../../../stores/recordingStore'
 
@@ -126,7 +126,7 @@ export default function FlowPanel({
           {short && (
             <p className="flex items-start gap-2 rounded-2xl border border-red-500/20 bg-red-500/10 px-3 py-2.5 text-[12px] text-red-300 light:text-red-700">
               <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              This run needs {creditsLabel(next)} and your balance is {Math.floor(balance!).toLocaleString('en-US')}. Top up at kie.ai, or Test With 1 first.
+              <span>This run needs {creditsLabel(next)} and your balance is {Math.floor(balance!).toLocaleString('en-US')}. <a href={KIE_BILLING_URL} target="_blank" rel="noopener noreferrer" className="font-semibold underline decoration-ink/30 underline-offset-2 hover:decoration-ink/60">Top up at kie.ai</a>, or Test With 1 first.</span>
             </p>
           )}
 

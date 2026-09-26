@@ -59,7 +59,8 @@ async function downloadAudio(item: VoiceHistoryItem) {
 // The actions come with it, and none of them is a full-width pill any more:
 // Play IS the metal disc (the shape it already wears on every history card),
 // Download sits beside the name, and the two restores are header actions on the
-// cards they act on — a script goes back to the editor from the Script card,
+// cards they act on — a script goes back to the script box from the Script card
+// (*Use This Script*: "Editor" is the Edit app's word, never this box's),
 // the delivery params from the Settings card. Four identical grey slabs stacked
 // down a column say nothing about which one you want.
 export default function HistoryDetailsModal({
@@ -147,8 +148,8 @@ export default function HistoryDetailsModal({
             right={
               <HeaderAction
                 icon={RotateCcw}
-                label="Add to Editor"
-                title="Put this script back in the editor"
+                label="Use This Script"
+                title="Put this script back in the script box"
                 onClick={() => onRestoreText(shown.scriptText)}
               />
             }

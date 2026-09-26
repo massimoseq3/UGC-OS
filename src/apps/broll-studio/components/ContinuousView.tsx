@@ -406,7 +406,7 @@ export default function ContinuousView({
 
   // Render-time version. The refs above are synced in effects, so during the
   // render that a pick triggers they still hold the PREVIOUS values — reading
-  // them here left "Generate all videos" one pick behind (picking the final
+  // them here left "Generate All Clips" one pick behind (picking the final
   // frame last would leave the last clip out of the batch, or the button
   // disabled while the clip card beside it already read "Keyframes ready").
   const keyframeRefLive = (frameIndex: number): string | undefined =>
@@ -1363,7 +1363,8 @@ export default function ContinuousView({
             className="flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border border-ink/10 px-3.5 text-[13px] font-medium text-ink-400 transition-colors hover:bg-ink/5 hover:text-ink-200 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <VideoIcon className="h-3.5 w-3.5" />
-            Generate All Videos
+            {/* "Clips", the Line-by-Line strip's word for the same output. */}
+            Generate All Clips
           </button>
           {allClipEntries.length > 0 && (
             <button
@@ -1495,7 +1496,7 @@ export default function ContinuousView({
               <>
                 {/* The count and the price ride on the Generate button, same
                     as Line-by-Line's batch dialogs. */}
-                <h3 className="text-sm font-medium text-ink-100">Generate Videos</h3>
+                <h3 className="text-sm font-medium text-ink-100">Generate Clips</h3>
                 <p className="mt-1 text-xs text-ink-500">{confirmGen.scope}</p>
 
                 {/* Model — the frames-to-video model every video in this batch
@@ -1619,7 +1620,7 @@ export default function ContinuousView({
               >
                 {confirmGen.kind === 'clips' ? <VideoIcon className="h-3.5 w-3.5" /> : <ImageIcon className="h-3.5 w-3.5" />}
                 {confirmGen.kind === 'clips'
-                  ? `Generate ${confirmGen.sceneIndices.length} Video${confirmGen.sceneIndices.length === 1 ? '' : 's'}`
+                  ? `Generate ${confirmGen.sceneIndices.length} Clip${confirmGen.sceneIndices.length === 1 ? '' : 's'}`
                   : frameTargets.length === 0
                     ? 'Generate'
                     : `Generate ${frameImageCount} Image${frameImageCount === 1 ? '' : 's'}`}
@@ -2232,14 +2233,16 @@ function FrameConceptCard({
                 {cardState.editablePrompt}
               </p>
             </div>
+            {/* The prompt is already written, so there is nothing to "set up" —
+                what the click opens is where the frame is generated. */}
             <p className="pointer-events-none absolute bottom-2 left-3 z-10 text-[10px] font-medium tracking-tight text-ink-500 transition-opacity group-hover:opacity-0">
-              Click to set up
+              Click to generate
             </p>
           </>
         ) : (
           <div className="flex h-full w-full flex-col items-center justify-center gap-2 px-4 text-center">
             <ImageIcon className="h-7 w-7 text-ink-700" strokeWidth={1.5} />
-            <p className="text-[11px] text-ink-500">Click to set up</p>
+            <p className="text-[11px] text-ink-500">Click to write a prompt</p>
           </div>
         )}
 
