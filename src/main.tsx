@@ -4,9 +4,11 @@ import './index.css'
 import App from './App.tsx'
 import AppErrorBoundary from './components/AppErrorBoundary'
 import { initAutoHideScrollbars } from './utils/autoHideScrollbars'
+import { initPinchZoomBlur } from './utils/pinchZoomBlur'
 import { startErrorReporting } from './utils/errorReporter'
 
 initAutoHideScrollbars()
+initPinchZoomBlur()
 // Before the first render, so an error thrown while the app boots is heard.
 startErrorReporting()
 

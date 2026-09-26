@@ -954,6 +954,19 @@ textarea,
   }
 }
 
+/* No frosted glass while pinch-zoomed — `data-pinch-zoomed` is set by
+   utils/pinchZoomBlur, which has the measurement. Re-blurring every
+   backdrop-filter at the magnified scale is what blacks the window out on a
+   trackpad pinch. `none`, never `blur(0)`: a zero blur keeps the filter layer
+   and measured worse than the blur itself. Unlayered and `!important` so it
+   beats every `backdrop-blur-*` utility and the frost pseudo-elements above. */
+html[data-pinch-zoomed] *,
+html[data-pinch-zoomed] *::before,
+html[data-pinch-zoomed] *::after {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
 /* A floor, not a size: nothing on a phone renders SMALLER than the app's own
    field type (13px, what a ChipField or a prompt box wears on a desktop), and
    nothing renders bigger than it either. The rule only lifts the 11–12px
