@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import { Dna, Check, X, ChevronRight } from 'lucide-react'
 import GenerationProgress from '../../../components/GenerationProgress'
+import Spinner from '../../../components/Spinner'
 import { formatCredits } from '../../../utils/models'
 import { estimateDnaCredits } from '../services/analyzeImage'
 
@@ -15,7 +16,14 @@ interface PhotoExtractZoneProps {
   onPhotoDrop: (files: File[]) => void
   onReset: () => void
   onOpenLibrary: () => void
+  // 'rail' is the stacked icon-over-label tile for the controls column's left
+  // rail (desktop); 'row' the full-width pill it keeps on a phone.
+  variant?: 'row' | 'rail'
 }
+
+// The rail tile's box, shared by all three of its faces so it never changes
+// size between idle, analyzing and applied.
+const RAIL_TILE = 'relative flex w-full cursor-pointer flex-col items-center gap-1.5 rounded-2xl border px-1 py-2.5 text-center text-[11px] font-medium leading-tight transition-colors'
 
 // The chevron that opens the reference library, pinned to the right of the row
 // in every state — the same affordance the preset row beside it carries. It
@@ -55,6 +63,7 @@ export default function PhotoExtractZone({
   onPhotoDrop,
   onReset,
   onOpenLibrary,
+  variant = 'row',
 }: PhotoExtractZoneProps) {
   const [dragOver, setDragOver] = useState(false)
 
@@ -72,6 +81,78 @@ export default function PhotoExtractZone({
     const files = Array.from(e.dataTransfer.files)
     if (files.length > 0) onPhotoDrop(files)
   }, [onPhotoDrop])
+
+  // The rail tile: the same three states as the row below, stacked into a
+  // 76px column. The whole tile opens the library in every state and takes a
+  // drop when idle; the applied face's clear sits in its corner.
+  if (variant === 'rail') {
+    const railCost = formatCredits(estimateDnaCredits())
+    if (analyzingCount > 0) {
+      return (
+        <div
+          onClick={onOpenLibrary}
+          title="Reading the photo…"
+          className={`${RAIL_TILE} border-green-500/20 bg-green-500/[0.04] text-ink-300 hover:border-green-500/30 hover:bg-green-500/[0.08]`}
+        >
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-green-500/10 text-green-400 light:text-green-600">
+            <Spinner className="h-3.5 w-3.5" />
+          </span>
+          {analyzingCount > 1 ? `Analyzing ${analyzingCount}` : 'Analyzing…'}
+        </div>
+      )
+    }
+    if (applied) {
+      return (
+        <div
+          onClick={onOpenLibrary}
+          title="Auto-filled from reference image"
+          className={`${RAIL_TILE} border-green-500/20 bg-green-500/[0.06] text-green-300 light:text-green-700 hover:border-green-500/30 hover:bg-green-500/[0.10]`}
+        >
+          {thumbnail ? (
+            <img src={thumbnail} alt="Source" className="h-7 w-7 shrink-0 rounded-full object-cover" />
+          ) : (
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-green-500/10">
+              <Check className="h-3.5 w-3.5 text-green-400 light:text-green-600" />
+            </span>
+          )}
+          Auto-Filled
+          <button
+            onClick={(e) => { e.stopPropagation(); onReset() }}
+            title="Clear image"
+            aria-label="Clear image"
+            className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full text-ink-400 transition-colors hover:bg-ink/5 hover:text-ink-200"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+      )
+    }
+    return (
+      <div className="w-full">
+        <div
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={handleDrop}
+          onClick={onOpenLibrary}
+          title={railCost ? `Fill the form from a reference photo · ${railCost} a photo` : 'Fill the form from a reference photo'}
+          className={`${RAIL_TILE} border-dashed text-ink-300 ${dragOver
+              ? 'border-green-400/40 bg-green-400/5'
+              : 'border-ink/10 bg-ink/[0.02] hover:border-ink/20 hover:bg-ink/[0.05]'
+            }`}
+        >
+          <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${dragOver ? 'bg-influencers-500/20' : 'bg-influencers-500/10'}`}>
+            <Dna className="h-4 w-4 text-influencers-400" strokeWidth={1.5} />
+          </span>
+          {dragOver ? 'Drop Photo' : 'Extract DNA'}
+        </div>
+        {extractError && (
+          <p title={extractError} className="mt-1.5 line-clamp-4 break-words text-center text-[10px] leading-snug text-red-400 light:text-red-600">
+            {extractError}
+          </p>
+        )}
+      </div>
+    )
+  }
 
   // Analyzing state — fixed h-12 so it stays the exact size of the preset pill
   // beside it and of this row's own idle face (the bar + message centre within
@@ -172,9 +253,10 @@ export default function PhotoExtractZone({
       >
         {/* The DNA glyph is the row's identity, not just its drag state — it
             mirrors the preset row's tinted person circle beside it, in the
-            green this app's extraction surfaces already use. */}
-        <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${dragOver ? 'bg-green-400/20' : 'bg-green-500/10'}`}>
-          <Dna className="h-4 w-4 text-green-400 light:text-green-600" strokeWidth={1.5} />
+            same pink (Massimo's call, September 2026 — it was green); the
+            analyzing and applied faces keep the green. */}
+        <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${dragOver ? 'bg-influencers-500/20' : 'bg-influencers-500/10'}`}>
+          <Dna className="h-4 w-4 text-influencers-400" strokeWidth={1.5} />
         </div>
         {/* 13px — the B-Roll reference-row title size, matching the preset
             button beside it. No hint line: the title says it. */}
@@ -185,7 +267,7 @@ export default function PhotoExtractZone({
             <>
               {/* See the note on the preset row beside this one: three tiers,
                   because the band's third control leaves 375px too little for
-                  "Extract DNA". The green DNA glyph carries the short label. */}
+                  "Extract DNA". The DNA glyph carries the short label. */}
               <span className="sm:hidden">Extract</span>
               <span className="hidden sm:inline lg:hidden">Extract DNA</span>
               <span className="hidden lg:inline">Extract Character DNA</span>
