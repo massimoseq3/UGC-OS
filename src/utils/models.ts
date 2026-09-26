@@ -988,8 +988,9 @@ export const MODEL_REGISTRY: ModelEntry[] = [
   // resolution toggle, clamp and persisted card keeps one vocabulary.
   //
   // Not sent: `style_id` (a Soul Style is a UUID and the API has no way to list
-  // them, so there is nothing to build a picker from) and `enhance_prompt`,
-  // which is left at Higgsfield's own default so a run matches their console.
+  // them, so there is nothing to build a picker from). `enhance_prompt` IS sent,
+  // as false — Higgsfield defaults it to true and rewrites the prompt, and the
+  // prompt a member (or Characters' form) wrote is the one that should run.
   // Docs: dash.higgsfield.ai/models/higgsfield-ai/soul/{v2/standard,standard}/llms.txt
   {
     id: 'higgsfield-ai/soul/v2/standard',
@@ -2284,11 +2285,16 @@ export function buildImageInput(modelId: string, opts: ImageGenOptions): Record<
   // Higgsfield's Soul pair: text only (no image field exists), and the app's
   // 1K / 2K ladder mapped onto Soul's own tier names. `batch_size` stays at
   // its default of 1: one request per image, like every other surface.
+  // `enhance_prompt` is explicitly OFF (Massimo's call): Higgsfield defaults it
+  // ON and rewrites the prompt before generating, so leaving it out sent every
+  // Soul run through their rewrite. Playground has its own Enhance button for
+  // a member who wants one.
   if (modelApi(modelId) === 'higgsfield') {
     return {
       prompt: opts.prompt,
       aspect_ratio: ar,
       resolution: resolution === '2K' ? '1080p' : '720p',
+      enhance_prompt: false,
     }
   }
 
