@@ -44,6 +44,7 @@ import { useAssetThumb, useAssetUrl } from '../../../../hooks/useAssetUrl'
 import { useAudioPlayback } from '../../../../hooks/useAudioPlayback'
 import { InputsBand, NothingYet, RunBand, RunChip, WiredCard } from './parts'
 import { blockRuns, type BlockRun, type WindowProps } from './runs'
+import DurationLabel from '../../../../components/DurationLabel'
 
 const MODE_TABS: Array<{ value: PlaygroundMode; label: string; icon: LucideIcon }> = [
   { value: 'image', label: 'Image', icon: ImageIcon },
@@ -181,7 +182,7 @@ export default function PlaygroundWindow({ doc, block, plan, run, onRun, onRevie
               {video.resolutions.length > 0 && <ConstraintChip grow size="lg" openDirection="up" options={video.resolutions} value={fitted.resolution} onChange={(v) => keep(v, fitted.resolution, { resolution: v })} render={videoResolutionLabel} />}
               {video.aspectRatios.length > 0 && <ConstraintChip grow size="lg" openDirection="up" options={video.aspectRatios} value={fitted.aspectRatio} onChange={(v) => keep(v, fitted.aspectRatio, { aspectRatio: v })} />}
               {video.durations.length > 0 && (
-                <ConstraintChip grow size="lg" openDirection="up" options={video.durations.map(String)} value={String(fitted.durationSeconds)} onChange={(v) => keep(v, String(fitted.durationSeconds), { durationSeconds: Number(v) })} render={(v) => <span>{v}s</span>} />
+                <ConstraintChip grow size="lg" openDirection="up" options={video.durations.map(String)} value={String(fitted.durationSeconds)} onChange={(v) => keep(v, String(fitted.durationSeconds), { durationSeconds: Number(v) })} render={(v) => <DurationLabel>{v}s</DurationLabel>} />
               )}
               {video.supportsAudio && (
                 <ConstraintChip grow size="lg" openDirection="up" options={['Audio', 'Mute']} value={fitted.audio ? 'Audio' : 'Mute'} onChange={(v) => keep(v, fitted.audio ? 'Audio' : 'Mute', { audio: v === 'Audio' })} />

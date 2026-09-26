@@ -39,6 +39,7 @@ import {
   type CardFilter, type CardLens, type ReplayEntry,
 } from '../cardLens'
 import type { GeneratedImage, GeneratedVideo } from '../types'
+import DurationLabel from '../../../components/DurationLabel'
 
 interface ScenesViewProps {
   result: BrollResult | null
@@ -1789,7 +1790,7 @@ export default function ScenesView({
                     value={pinnedVideoDuration ? String(pinnedVideoDuration) : AUTO_DURATION}
                     onChange={(v) => setBatchVideoDuration(v === AUTO_DURATION ? undefined : Number(v))}
                     render={(v) => (
-                      <span>{v === AUTO_DURATION ? autoDurationLabel : `${v}s`}</span>
+                      <DurationLabel>{v === AUTO_DURATION ? autoDurationLabel : `${v}s`}</DurationLabel>
                     )}
                     renderOption={(v) => (
                       v === AUTO_DURATION ? (

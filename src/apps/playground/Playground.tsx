@@ -110,7 +110,7 @@ export default function Playground() {
     null,
   )
   // Which project the history panel is showing and new generations are filed
-  // under. `null` is All Generations — the view a member who has never made a
+  // under. `null` is All Projects — the view a member who has never made a
   // project stays in forever, and the one anything generated there stays
   // unfiled in.
   //
@@ -121,7 +121,7 @@ export default function Playground() {
   const projects = useBankStore((s) => s.projects)
   // A pointer at a project that no longer exists — deleted here, deleted on
   // another device, or written before a hydrate that hasn't landed yet — falls
-  // back to All Generations rather than showing an empty panel under a name
+  // back to All Projects rather than showing an empty panel under a name
   // nothing can select. Derived, not an effect: a deleted project's row is gone
   // from the bank on the same render that removed it.
   const activeProject = activeProjectId ? projects.find((p) => p.id === activeProjectId) ?? null : null

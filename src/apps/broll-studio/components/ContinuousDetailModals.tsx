@@ -44,6 +44,7 @@ import { copyToClipboard } from '../../../utils/clipboard'
 import { humanizeError } from '../../../utils/friendlyError'
 import useCloseOnEscape from '../../../hooks/useCloseOnEscape'
 import { useBackdropClose } from '../../../hooks/useBackdropClose'
+import DurationLabel from '../../../components/DurationLabel'
 
 // ── Shared modal shell ─────────────────────────────────────────
 
@@ -579,7 +580,7 @@ export function ContinuousFrameModal({
                           options={animateConstraints.durations.map(String)}
                           value={String(cardState.videoDurationSeconds)}
                           onChange={(v) => onUpdate(() => ({ videoDurationSeconds: Number(v) }))}
-                          render={(v) => <span>{v}s</span>}
+                          render={(v) => <DurationLabel>{v}s</DurationLabel>}
                         />
                       )}
                       {animateConstraints.supportsAudio && (
@@ -1126,7 +1127,7 @@ export function ContinuousClipModal({
                       options={constraints.durations.map(String)}
                       value={String(cardState.durationSeconds)}
                       onChange={(v) => onUpdate(() => ({ durationSeconds: Number(v) }))}
-                      render={(v) => <span>{v}s</span>}
+                      render={(v) => <DurationLabel>{v}s</DurationLabel>}
                     />
                   )}
                   {(constraints.supportsAudio ?? false) && (

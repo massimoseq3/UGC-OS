@@ -47,7 +47,7 @@ const LIST_CARD_MAX = 560
 
 interface PlaygroundHistoryGridProps {
   inFlight: InFlightGen[]
-  // Which project the panel is showing — `null` is All Generations, which is
+  // Which project the panel is showing — `null` is All Projects, which is
   // everything in every project plus everything never filed under one.
   //
   // This REPLACED a mode filter (Massimo's call, September 2026). The list used
